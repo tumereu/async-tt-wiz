@@ -649,6 +649,11 @@ internal object Events {
         DIES.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
         }
+        // otj chunk 08: "this Equipment becomes attached to a creature" (CR 701.3a)
+        BECOMES_ATTACHED.matchEntire(text)?.let { m ->
+            val to = Filters.noun(m.groupValues[2]) ?: return null
+            return EventPattern.Attach(subject(m.groupValues[1], self) ?: return null, to = to)
+        }
         BECOMES_UNATTACHED.matchEntire(text)?.let { m ->
             val from = Filters.noun(m.groupValues[2]) ?: return null
             return EventPattern.Unattach(subject(m.groupValues[1], self) ?: return null, from = from)
@@ -956,6 +961,7 @@ internal object Events {
     private val PLAYER_TAPS_FOR_MANA = Regex("""a player taps (.+) for mana""")
     // chunk 20
     private val BECOMES_UNATTACHED = Regex("""(.+) becomes unattached from an? (.+)""")
+    private val BECOMES_ATTACHED = Regex("""(.+) becomes attached to an? (.+)""")
     // chunk 21
     private val ENTERS_OR_LEAVES = Regex("""(.+) enters or (leaves the battlefield|is put into a graveyard from the battlefield)""")
     private val ATTACKS_OR_BLOCKS = Regex("""(.+) attacks or blocks""")

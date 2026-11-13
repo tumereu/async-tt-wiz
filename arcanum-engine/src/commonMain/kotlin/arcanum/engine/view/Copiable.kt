@@ -182,7 +182,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     /** The copy effects on [id] in timestamp order (CR 613.7): effect objects locked on it, and static abilities of permanents
      * whose `affects` include it ([staticCopies]), as effect objects of the ability's timestamp. */
     private fun copyEffectsOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> =
-        (state.effects.values.filter { it.locked?.contains(id) == true }
+        // otj chunk 08: a copy effect "for as long as …" applies only while that lasts (CR 611.2b), read on the printed board
+        (state.effects.values.filter { e -> e.locked?.contains(id) == true && e.mechanics.any { it is Mechanic.CopyOf } &&
+            Layers.active(state, PrintedBoard(state, this), e) }
             .flatMap { e -> e.mechanics.filterIsInstance<Mechanic.CopyOf>().map { e to it } } + staticCopiesOn(id))
             .sortedBy { it.first.timestamp }
 

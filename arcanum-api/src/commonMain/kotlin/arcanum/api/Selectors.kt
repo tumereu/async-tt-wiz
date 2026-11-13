@@ -85,6 +85,10 @@ sealed interface EventRole {
     @Serializable @SerialName("defender") data object Defender : EventRole
     /** In an unattach event: the object or player it was attached to. */
     @Serializable @SerialName("from") data object From : EventRole
+    // otj
+    /** In an attach event: the object it became attached to ("that creature" of "whenever this Equipment becomes attached to a
+     * creature", CR 701.3a). */
+    @Serializable @SerialName("to") data object To : EventRole
     /** In a manifest-dread event: the cards put into the graveyard (CR 701.62a). */
     @Serializable @SerialName("rest") data object Rest : EventRole
 }

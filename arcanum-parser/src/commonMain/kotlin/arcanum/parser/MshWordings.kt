@@ -160,7 +160,7 @@ internal object Msh {
     val FIRST_TIME_TAPPED_THIS_TURN = Regex("""it's the first time that creature has become tapped this turn""")
     val REMOVE_A_COUNTER_IF_YOU_DO = Regex("""Remove a counter from (.+?)\. If you do, (.+)""")
     val ONE_MORE_OF_EACH_KIND = Regex("""For each kind of counter on target (.+?), give that (.+?) another counter of that kind\.""")
-    val MAY_PUT_FROM_AMONG_MILLED = Regex("""You may put an? (.+?) from among (?:the milled cards|those cards|them) into your hand\.""")
+    val MAY_PUT_FROM_AMONG_MILLED = Regex("""(You may put|Put) (an?|up to \w+) (.+?) from among (?:the milled cards|those cards|them) into your hand\.""")
     val TARGET_PLAYER_GAINS_SEARCHES = Regex("""Target player gains (\d+) life, then searches their library for an? (.+?), puts it onto the battlefield tapped, then shuffles\.""")
     val PUT_COUNTER_ON_UP_TO_ONE = Regex("""Put an? (\S+) counter on up to one target (.+)\.""")
     val NEXT_SPELL_WITHOUT_PAYING = Regex("""The next (.+?) spell you cast this turn can be cast without paying its mana cost\.""")

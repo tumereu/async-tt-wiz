@@ -227,7 +227,8 @@ internal object EventMatcher {
         is EventPattern.Attach -> (change as? Change.Attached)?.takeIf { it.after != null && it.after != it.before }?.let { c ->
             val to = (c.after as? TargetRef.Object)?.id
             if (e.matches(pattern.objects, c.id) && (to == null || e.matches(pattern.to, to)))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))))) else null
+                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) +
+                    listOfNotNull(to?.let { RoleObjects(EventRole.To, listOf(it)) }))) else null
         }.orEmpty()
         is EventPattern.Unattach -> unattached(e, change, pattern)
         is EventPattern.RollDie -> ((change as? Change.Happened)?.event as? GameEvent.DieRolled)

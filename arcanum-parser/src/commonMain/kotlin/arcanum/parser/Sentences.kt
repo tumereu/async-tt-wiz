@@ -896,7 +896,10 @@ internal class Sentences(
         // dft chunk 08: "Any number of target players each mill two cards." / "… each mill cards equal to the number of cards in their graveyard."
         Dft.ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL.matchEntire(sentence)?.let { m ->
             context.targets += TargetSlot("players", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(0), max = null)
-            return listOf(Step.Do(Effect.Mill(Players.Target("players"), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+            val mill = Step.Do(Effect.Mill(Players.Target("players"), Value.Fixed(if (m.groupValues[1] == "a") 1 else Numbers.count(m.groupValues[1]) ?: return null)))
+            // otj chunk 08: "… each mill a card and lose 1 life."
+            if (m.groupValues[2].isEmpty()) return listOf(mill)
+            return listOf(mill, Step.Do(Effect.LoseLife(Players.Target("players"), Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
         }
         if (Dft.ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL_GRAVEYARD.matches(sentence)) {
             context.targets += TargetSlot("players", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(0), max = null)
@@ -2535,6 +2538,7 @@ internal class Sentences(
         is EventPattern.ZoneChange -> Objects.EventObject(if (event.to == Zone.Battlefield) arcanum.api.EventRole.After else arcanum.api.EventRole.Before)
         is EventPattern.Discard -> Objects.EventObject(arcanum.api.EventRole.After)
         is EventPattern.Unattach -> Objects.EventObject(arcanum.api.EventRole.From)
+        is EventPattern.Attach -> Objects.EventObject(arcanum.api.EventRole.To) // otj
         else -> Objects.EventObject(role = EventRole.Object)
     }
 
@@ -3978,9 +3982,17 @@ internal class Sentences(
             return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), Counters.kind(m.groupValues[2]) ?: return null, Value.DividedShare)))
         }
         // dsk chunk 07: "Double the number of +1/+1 counters on those creatures." (CR 701.10e)
+        // otj chunk 08: also "… on target creature" and "… on each creature you control"
         DOUBLE_COUNTERS_ON_THOSE.matchEntire(sentence)?.let { m ->
-            val slot = context.targets.lastOrNull()?.name ?: return null
-            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(Objects.Target(slot), Counters.kind(m.groupValues[1]) ?: return null)))))
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val on = m.groupValues[2]
+            val objects = when {
+                on == "those creatures" || on == "each of those creatures" -> Objects.Target(context.targets.lastOrNull()?.name ?: return null)
+                on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), Filters.noun(it) ?: return null) }
+                on.startsWith("each ") -> Objects.Each(Filters.noun(on.removePrefix("each ")) ?: return null)
+                else -> return null
+            }
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(objects, kind)))))
         }
         // dsk chunk 07: "Each opponent may sacrifice a nonland permanent of their choice or discard a card." Each decides in turn
         // order (CR 101.4); "this way" afterwards reads whether they did
@@ -4760,7 +4772,7 @@ internal class Sentences(
         EXILE_TARGET_UNTIL_LEAVES.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val noun = m.groupValues[1]
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
-            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Exile), untilLeaves = Objects.Self)))
+            return exileUntilLeaves(target)
         }
         // chunk 21: "Exile target card from a graveyard."
         EXILE_TARGET_FROM_A_GRAVEYARD.matchEntire(sentence)?.let { m ->
@@ -7246,6 +7258,12 @@ internal class Sentences(
     // chunk 21
     private fun remembered(objects: Objects): List<Step> =
         if (linkedExile) listOf(Step.Do(Effect.Remember(EXILED_WITH, objects))) else emptyList()
+
+    /** "Exile [target] until this … leaves the battlefield." (CR 610.3); otj chunk 08: remembered when the card speaks of the cards "exiled with"
+     * it (CR 607.2a). */
+    private fun exileUntilLeaves(target: Objects): List<Step> =
+        if (!linkedExile) listOf(Step.Do(Effect.Move(target, Destination(Zone.Exile), untilLeaves = Objects.Self)))
+        else listOf(Step.Do(Effect.Move(target, Destination(Zone.Exile), untilLeaves = Objects.Self, postBind = "exiled"))) + remembered(Objects.Bound("exiled"))
 
     /** chunks 30–33: effect wordings of creatures' enters (and leaves) abilities; null when none reads [sentence]. */
     private fun enters(sentence: String, context: Context): List<Step>? {
@@ -11289,7 +11307,7 @@ internal class Sentences(
         val DEALS_THAT_AMOUNT_TO_TARGET = Regex("""(.+?) deals that (?:amount of|much) damage to target (.+)\.""")
         val IF_ITS_A_YOU_MAY_PUT_ONTO_BATTLEFIELD = Regex("""If it's an? (.+?), you may put it onto the battlefield\.""")
         val DISTRIBUTE_COUNTERS_AMONG = Regex("""Distribute (\w+) (\S+) counters among (\w+) or (\w+) target (.+)\.""")
-        val DOUBLE_COUNTERS_ON_THOSE = Regex("""Double the number of (\S+) counters on (?:each of )?those creatures\.""")
+        val DOUBLE_COUNTERS_ON_THOSE = Regex("""[Dd]ouble the number of (\S+) counters on (.+)\.""")
         val EACH_OPPONENT_MAY = Regex("""Each opponent may (.+)\.""")
         val DAMAGE_TO_EACH_WHO_DIDNT = Regex("""(.+?) deals damage equal to its power to each opponent who didn't sacrifice a permanent or discard a card this way\.""")
         val CHOOSE_TWO_TARGETS = Regex("""Choose target (.+?) and target (.+)\.""")
@@ -11484,7 +11502,7 @@ internal class Sentences(
         val GAINS_FLASHBACK = Regex("""[Tt]arget (.+) gains flashback until end of turn\. The flashback cost is equal to (?:its|that card's) mana cost\.(?: That card gains flashback ((?:\{[^}]+\})+) until end of turn instead if (.+)\.)?""")
         val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
         // otj chunk 03: also "put up to X land cards from your hand onto the battlefield tapped"
-        val MAY_PUT_FROM_HAND = Regex("""(?:You may put an?|Put up to (\w+)) (.+) from your hand onto the battlefield( tapped)?\.""")
+        val MAY_PUT_FROM_HAND = Regex("""(?:You may put an?|(?:You may put|Put) up to (\w+)) (.+) from your hand onto the battlefield( tapped)?\.""") // otj chunk 08: "You may put up to two"
         val GRAVEYARD_ON_BOTTOM = Regex("""(Up to one target|Target) player puts all the cards from their graveyard on the bottom of their library in a random order\.""")
         // chunk 32
         val HAVE_KEYWORDS = Regex("""(.+) have ([a-z ,]+)\.""")
@@ -13055,7 +13073,7 @@ internal class Sentences(
         // "exile up to one other target nonland permanent until this enchantment leaves the battlefield." (CR 610.3)
         Tla.EXILE_UNTIL_LEAVES.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val target = tlaTarget(m.groupValues[1], context) ?: return@let
-            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Exile), untilLeaves = Objects.Self)))
+            return exileUntilLeaves(target)
         }
         // "Each player chooses any number of creatures they control with total power 4 or less, then sacrifices all other creatures they control."
         // (CR 101.4: chosen in turn order, then sacrificed at once)
@@ -13941,6 +13959,14 @@ internal class Sentences(
         // tmt chunk 01: "Equip—Sacrifice another nonland permanent. Activate only once each turn." (CR 702.6a, 602.5b)
         Tmt.EQUIP_COST.matchEntire(line)?.let { m ->
             return arcanum.api.Keyword.Equip(cost(m.groupValues[1]) ?: return null, perTurn = 1.takeIf { m.groupValues[2].isNotEmpty() })
+        }
+        // otj chunk 08: "Crew 1. Activate only once each turn." (CR 702.122a, 602.5b)
+        line.removeSuffix(" Activate only once each turn.").takeIf { it != line }?.let { keywordText ->
+            when (val keyword = OracleParser.keyword(keywordText.removeSuffix("."))) {
+                is arcanum.api.Keyword.Crew -> return keyword.copy(perTurn = 1)
+                is arcanum.api.Keyword.Equip -> return keyword.copy(perTurn = 1)
+                else -> {}
+            }
         }
         // tmt chunk 01: "Kicker—Sacrifice an artifact or creature." (CR 702.33a)
         Tmt.KICKER_COST.matchEntire(line)?.let { m -> return arcanum.api.Keyword.Kicker(listOf(cost(m.groupValues[1]) ?: return null)) }
@@ -15485,12 +15511,16 @@ internal class Sentences(
         }
         // msh chunk 08: "You may put a permanent card from among the milled cards into your hand." after milling (the cards in the graveyard,
         // CR 400.7)
-        Msh.MAY_PUT_FROM_AMONG_MILLED.matchEntire(sentence)?.let { m ->
-            val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Mill) != null }.takeIf { it >= 0 } ?: return null
+        // otj chunk 08: also "Put a land card from among the milled cards …" (one if able, CR 609.3) and "You may put up to two creature and/or
+        // land cards …"
+        Msh.MAY_PUT_FROM_AMONG_MILLED.matchEntire(sentence)?.takeIf { _ -> steps.any { ((it as? Step.Do)?.effect as? Effect.Mill) != null } }?.let { m ->
+            val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Mill) != null }
             val mill = (steps[index] as Step.Do).effect as Effect.Mill
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val max = if (m.groupValues[2].startsWith("up to ")) Numbers.count(m.groupValues[2].removePrefix("up to ")) ?: return null else 1
+            val min = if (m.groupValues[1] == "Put" && max == 1 && !m.groupValues[2].startsWith("up to ")) 1 else 0
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
             return steps.toMutableList().also { it[index] = Step.Do(mill.copy(postBind = "milled")) } + listOf(
-                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("milled")), bind = "chosen", chooser = Players.You),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(min), Value.Fixed(max), from = Objects.Bound("milled")), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
         }
         // msh chunk 09: "That creature can't become untapped for as long as you control Spider-Woman." after tapping a target
@@ -15637,6 +15667,38 @@ internal class Sentences(
 
     /** otj: single-sentence effects. */
     private fun otjEffect(sentence: String, context: Context): List<Step>? {
+        // otj chunk 08: "for as long as this Equipment remains attached to it, that creature becomes a copy of a creature card exiled with this
+        // Equipment" (a card chosen as it resolves from the cards linked to it still in exile, CR 607.2a, 707.2, 611.2b)
+        Otj.AS_LONG_AS_ATTACHED_BECOMES_COPY_OF_EXILED_WITH.matchEntire(sentence)?.takeIf { m ->
+            isSelf(m.groupValues[1]) && isSelf(m.groupValues[3]) && context.event is EventPattern.Attach }?.let { m ->
+            val creature = Objects.EventObject(EventRole.To)
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Exile))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1), from = Objects.Remembered(EXILED_WITH)),
+                bind = "chosen", chooser = Players.You),
+                Step.If(arcanum.api.Condition.NonEmpty("chosen"), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(Objects.Bound("chosen"))),
+                    arcanum.api.Affected.Objects(creature), arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self,
+                        ObjectFilter.Attached(to = creature))))))))
+        }
+        // otj chunk 08: "look at that many cards from the top of your library" (the event's amount: the damage dealt, CR 120.3)
+        Otj.LOOK_AT_THAT_MANY_FROM_TOP.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
+            context.seen = "seen"
+            val cards = Objects.LibraryCards(Players.You, Value.EventAmount, fromTop = true)
+            return listOf(Step.Do(if (m.groupValues[1] == "Look at") Effect.LookAt(cards, bind = "seen", players = Players.You) else Effect.Reveal(cards, bind = "seen")))
+        }
+        // otj chunk 08: "You may exile a nonland card from among them." (zero or one of the cards looked at; "the exiled card" is then the card in
+        // exile, CR 400.7)
+        Otj.MAY_EXILE_FROM_AMONG_THEM.matchEntire(sentence)?.takeIf { context.seen != null }?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            context.picked = "chosen"
+            context.it = Objects.Bound("exiled")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound(context.seen!!)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile), postBind = "exiled")))
+        }
+        // otj chunk 08: "You may cast the exiled card without paying its mana cost." (cast while the ability resolves, CR 608.2g, 118.9)
+        Otj.MAY_CAST_EXILED_FREE.matchEntire(sentence)?.takeIf { (context.it as? Objects.Bound)?.name == "exiled" }?.let {
+            return listOf(Step.If(arcanum.api.Condition.NonEmpty("exiled"), then = listOf(Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("exiled"),
+                PlayKind.Cast, withoutPaying = true, caster = Players.You))), payer = Players.You, bind = "cast"))))
+        }
         // otj chunk 05: "Until end of turn, if you would put … instead." (a replacement effect the resolving ability makes, lasting until end of
         // turn: a rule of the game, not of an object, CR 614.1a, 611.2a)
         if (sentence.startsWith("Until end of turn, if ")) {
@@ -15829,6 +15891,13 @@ internal class Sentences(
             return steps + Step.ForEach(arcanum.api.Each.Objects(Objects.Bound(copy.bind)), bind = "copy", steps = listOf(
                 Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("copy"), PlayKind.Cast, caster = Players.You))), payer = Players.You, bind = "cast"),
                 Step.If(arcanum.api.Condition.Did("cast"), then = then)))
+        }
+        // otj chunk 08: "If you can't, create a Treasure token." after a mandatory choice: nothing was chosen (CR 609.3)
+        Otj.IF_YOU_CANT.matchEntire(sentence)?.let { m ->
+            val choose = steps.lastOrNull { it is Step.Choose } as? Step.Choose ?: return null
+            if (((choose.choice as? arcanum.api.Choice.Objects)?.min as? Value.Fixed)?.value?.let { it >= 1 } != true) return null
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return steps + Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty(choose.bind)), then = then)
         }
         // otj chunk 03: "Repeat this process once.": the steps before it, done twice
         if (sentence == "Repeat this process once." && steps.isNotEmpty()) return listOf(Step.Repeat(Value.Fixed(2), steps.toList()))
@@ -19004,7 +19073,7 @@ internal class Sentences(
             val noun = m.groupValues[1]
             val name = eclNewSlotName(context, Filters.slotName(noun))
             context.targets += eclSlot(name, Filters.noun(noun) ?: return null, min = 0)
-            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), untilLeaves = Objects.Self)))
+            return exileUntilLeaves(Objects.Target(name))
         }
         // ecl chunk 10: "Exile enchanted creature."
         if (sentence == "Exile enchanted creature.") return listOf(Step.Do(Effect.Move(Objects.AttachedTo(Objects.Self), Destination(Zone.Exile))))

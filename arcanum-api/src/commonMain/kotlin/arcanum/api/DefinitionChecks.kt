@@ -64,6 +64,8 @@ object DefinitionChecks {
         // inr chunk 06: the permanent sacrificed and the card it became in the graveyard (CR 701.21a, 400.7)
         "sacrifice" to setOf("object", "before", "after"),
         "unattach" to setOf("object", "from"),
+        // otj: the attachment and what it became attached to (CR 701.3a)
+        "attach" to setOf("object", "to"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),
         // dft: tapped to crew or saddle: the Vehicle or Mount (CR 702.122b, 702.171c)

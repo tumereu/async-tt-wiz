@@ -46,6 +46,16 @@ internal object Otj {
     val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""[Yy]ou may cast target (.+?) from (that player's|your|a) graveyard, and mana of any type can be spent to cast that spell\.""")
     // otj chunk 05: Kellan, the Kid: "If you don't, you may put a land card from your hand onto the battlefield." after a free cast
     val IF_YOU_DONT = Regex("""If you don't, (.+)""")
+    // otj chunk 08: Patient Naturalist: "Put a land card from among the milled cards into your hand. If you can't, create a Treasure token."
+    val IF_YOU_CANT = Regex("""If you can't, (.+)""")
+    // otj chunk 08: The Key to the Vault: "look at that many cards from the top of your library. You may exile a nonland card from among them.
+    // Put the rest on the bottom of your library in a random order. You may cast the exiled card without paying its mana cost."
+    // otj chunk 08: Assimilation Aegis
+    val AS_LONG_AS_ATTACHED_BECOMES_COPY_OF_EXILED_WITH = Regex(
+        """[Ff]or as long as (.+?) remains attached to it, that creature becomes a copy of an? (.+?) exiled with (.+)\.""")
+    val LOOK_AT_THAT_MANY_FROM_TOP = Regex("""(Look at|Reveal) that many cards from the top of your library\.""")
+    val MAY_EXILE_FROM_AMONG_THEM = Regex("""You may exile an? (.+?) from among them\.""")
+    val MAY_CAST_EXILED_FREE = Regex("""You may cast (?:the exiled card|it|that card) without paying its mana cost\.""")
     // otj chunk 05: Prairie Dog: "if you would put one or more +1/+1 counters on a creature you control, put that many plus one +1/+1 counters
     // on it instead" (after "Until end of turn, ")
     val YOU_WOULD_PUT_COUNTERS_PLUS = Regex("""If you would put one or more (\S+) counters on (.+?), put that many plus (\w+) (\S+) counters on it instead\.""")

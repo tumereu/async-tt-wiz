@@ -63,7 +63,7 @@ internal object Dft {
     val THOSE_CREATURES_GET_UNTIL_EOT = Regex("""Those creatures get ([+-]\d+)/([+-]\d+) until end of turn\.""")
     val DEALS_DAMAGE_TO_THEM = Regex("""(.+?) deals (\d+) damage to them\.""")
     val NEXT_EXHAUST_COPY_IT = Regex("""When you next activate an exhaust ability that isn't a mana ability this turn, copy it\. You may choose new targets for the copy\.""")
-    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL = Regex("""Any number of target players each mill (\w+) cards\.""")
+    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL = Regex("""[Aa]ny number of target players each mill (a|\w+) cards?(?: and lose (\w+) life)?\.""")
     val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL_GRAVEYARD = Regex("""Any number of target players each mill cards equal to the number of cards in their graveyard\.""")
     val AS_THOUGH_NOT_ACTIVATED = Regex("""During your turn, as long as you haven't activated an? (\w+) ability this turn, you may activate (\w+) abilities as though they haven't been activated\.""")
     val LABEL_ABILITIES_OF_COST_LESS = Regex("""(\w+) abilities of (.+) cost (\{\d+\}) less to activate\.""")

@@ -727,6 +727,12 @@ internal object Events {
         PLAYER_TAPS_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, forMana = true) }
         // dsk chunk 02: "a creature you control attacks alone" (CR 506.5)
         ATTACKS_ALONE.matchEntire(text)?.let { m -> return EventPattern.Attack(subject(m.groupValues[1], self) ?: return null, alone = true) }
+        // mom chunk 08: "this creature attacks a battle": only an attack on a battle (CR 506.2, 508.1b)
+        ATTACKS_A_PERMANENT.matchEntire(text)?.let { m ->
+            val type = if (m.groupValues[2] == "battle") arcanum.api.CardType.Battle else arcanum.api.CardType.Planeswalker
+            return EventPattern.Attack(subject(m.groupValues[1], self) ?: return null,
+                target = arcanum.api.RecipientFilter(objects = ObjectFilter.Type(type)))
+        }
         // chunk 36: "this creature attacks"
         ATTACKS.matchEntire(text)?.let { m -> return EventPattern.Attack(subject(m.groupValues[1], self) ?: return null) }
         // chunk 35: "you sacrifice a permanent": only a permanent's controller can sacrifice it (CR 701.21a), and what is
@@ -990,6 +996,7 @@ internal object Events {
     // chunk 36
     private val ENTERS_OR_ATTACKS = Regex("""(.+) enters or attacks""")
     private val ATTACKS = Regex("""(.+) attacks""")
+    private val ATTACKS_A_PERMANENT = Regex("""(.+) attacks an? (battle|planeswalker)""")
     // chunk 46
     // chunk 47
     private val PLAYER_SACRIFICES = Regex("""a player sacrifices an? (.+)""")

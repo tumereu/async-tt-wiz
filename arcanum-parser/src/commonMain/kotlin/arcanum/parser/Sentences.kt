@@ -2072,7 +2072,16 @@ internal class Sentences(
 
     /** chunks 45-47: "gets +2/+2", "has flying and haste", "attacks each combat if able", "can't block", "can't be
      * blocked", joined by commas and "and". */
-    private fun predicates(text: String): List<Mechanic>? = text.split(PREDICATE_SPLIT).flatMap { predicate ->
+    private fun predicates(text: String): List<Mechanic>? = predicateList(text)?.let { mechanics ->
+        // mom chunk 08: "has defender, and loses all other abilities": the abilities this effect grants are kept, so they are added after
+        // the loss (one effect in layer 6, CR 613.1f, 613.7)
+        if (!text.endsWith("loses all other abilities")) return@let mechanics
+        val lose = mechanics.last()
+        val firstGain = mechanics.indexOfFirst { it is Mechanic.GainAbilities }.takeIf { it >= 0 } ?: return@let mechanics
+        mechanics.dropLast(1).toMutableList().apply { add(firstGain, lose) }
+    }
+
+    private fun predicateList(text: String): List<Mechanic>? = text.split(PREDICATE_SPLIT).flatMap { predicate ->
         // inr chunk 04: "can't attack, block, or transform" (a comma list, so [PREDICATE_SPLIT] leaves it whole)
         if (predicate == "can't attack, block, or transform")
             return@flatMap listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any), Mechanic.CantTransform)
@@ -2084,6 +2093,9 @@ internal class Sentences(
                 else -> Value.Times(per, n)
             }
             Mechanic.ModifyPowerToughness(amount(m.groupValues[1].toInt()), amount(m.groupValues[2].toInt()))
+        } ?: BlbGaps.BASE_PT.matchEntire(predicate)?.takeIf { !predicate.startsWith("also ") }?.let { m ->
+            // mom chunk 08: "has base power and toughness 0/2" (layer 7b, CR 613.4b)
+            Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))
         } ?: HAS_KEYWORDS.matchEntire(predicate)?.let { m ->
             Mechanic.GainAbilities(m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null })
         } ?: when (predicate) {
@@ -2092,6 +2104,7 @@ internal class Sentences(
             "can't be blocked" -> Mechanic.CantBeBlocked
             "can't transform" -> Mechanic.CantTransform // inr chunk 04
             "loses all abilities" -> Mechanic.LoseAbilities() // dsk chunk 09
+            "loses all other abilities" -> Mechanic.LoseAbilities() // mom chunk 08
             else -> return null
         })
     }
@@ -8887,7 +8900,9 @@ internal class Sentences(
         // rtr chunk 01: "Enchanted creature can't attack or block, and its activated abilities can't be activated." (an Arrest)
         Rtr.CANT_ATTACK_OR_BLOCK_OR_ACTIVATE.matchEntire(line)?.let { m ->
             val affects = rtrSubject(m.groupValues[1]) ?: return@let
-            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any), Mechanic.CantBeActivated(manaAbilities = true)), affects = affects)
+            // mom chunk 08: "… can't be activated unless they're mana abilities" keeps its mana abilities (CR 605.1a)
+            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any),
+                Mechanic.CantBeActivated(manaAbilities = m.groupValues[2].isEmpty())), affects = affects)
         }
         // rtr chunk 02: 'Enchanted land has "{T}: …"', 'Enchanted creature gets +2/+1 and has "{R}: …"' (layers 6, 7c; the granted
         // ability's "this creature"/"this land" is the object that has it, CR 113.10)
@@ -10860,7 +10875,7 @@ internal class Sentences(
         val UNTAP_IT = "Untap it."
         val SACRIFICE_A_AND_A = Regex("""Sacrifice (an? \w+) and (an? \w+)""")
         // rtr chunk 01
-        val CANT_ATTACK_OR_BLOCK_OR_ACTIVATE = Regex("""(.+) can't attack or block, and its activated abilities can't be activated\.""")
+        val CANT_ATTACK_OR_BLOCK_OR_ACTIVATE = Regex("""(.+) can't attack or block, and its activated abilities can't be activated( unless they're mana abilities)?\.""")
         val ATTACHED_SUBJECT = Regex("""(?:Enchanted|Equipped) (?:creature|land|permanent|artifact)""")
         val DETAIN = Regex("""Detain (?:(up to \w+) )?target (.+)\.""")
         val THEN_POPULATE = Regex("""(.+), then populate\.""")
@@ -21373,7 +21388,9 @@ internal class Sentences(
         // "double the power of target creature you control until end of turn." (CR 701.10b: +X/+0, X its power as it resolves)
         Eoe.DOUBLE_POWER_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[1].ifEmpty { m.groupValues[2] }
-            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            // mom chunk 08: "double its power until end of turn" (the object "it" names; this creature in its own trigger)
+            val target = if (m.groupValues[3] == "this creature's") Objects.Self else if (m.groupValues[3] == "its") context.it ?: Objects.Self
+                else context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
             return listOf(eoeUntilEndOfTurn(target, Mechanic.ModifyPowerToughness(Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single),
                 Value.Fixed(0))))
         }

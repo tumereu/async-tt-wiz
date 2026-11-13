@@ -47,7 +47,8 @@ class WebSmokeTest {
                     db.close();
                     return count > 0;
                 }""", null, Page.WaitForFunctionOptions().setTimeout(60_000.0))
-                // WEB-007: a started game, opened by its address, shows its table: the opening's Keep on the main button
+                // WEB-007, TRN-062: a started game, opened by its address, shows its table: the opening's Keep among the quick
+                // actions (the main button greyed beside them, TRN-063)
                 val before = ServerSetup.head(alice, started.id).engine?.localHeads?.get(alice.id)
                 page.navigate("$origin/games/${started.id}")
                 web.waitFor("#main-button", 120_000.0)
@@ -55,11 +56,11 @@ class WebSmokeTest {
                 // WEB-011: the browser's own gestures are off on the table
                 assertTrue(page.evaluate("document.documentElement.classList.contains('atw-table')") as Boolean, "table page marked")
                 val deadline = System.nanoTime() + 60_000_000_000L
-                while (web.mainWords()?.contains("Keep") != true) {
-                    check(System.nanoTime() < deadline) { "no Keep on the main button: ${web.mainWords()}" }
+                while (!web.showsControl("Keep")) {
+                    check(System.nanoTime() < deadline) { "no Keep among the quick actions; the main button: ${web.mainWords()}" }
                     Thread.sleep(200)
                 }
-                web.tap("#main-button")
+                web.tap(web.control("Keep"))
                 // The move reaches the server: Alice's own keep moves her head there
                 while (ServerSetup.head(alice, started.id).engine?.localHeads?.get(alice.id) == before) {
                     check(System.nanoTime() < deadline) { "Alice's keep never reached the server" }

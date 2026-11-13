@@ -63,6 +63,13 @@ internal class E2eBrowser : AutoCloseable {
         page.mouse().click(box.x + box.width / 2, box.y + box.height / 2)
     }
 
+    /** The control (a button) whose label is [label] (alone, or merged with its own words: "Keep, Keep"), as the Android
+     * tests' `showsControl` finds it by its description: a quick-action cell such as the opening's Keep (TRN-062). */
+    fun control(label: String): String = "div[role=button][aria-label='$label'], div[role=button][aria-label^='$label, ']"
+
+    /** Whether the control [label] ([control]) shows now. */
+    fun showsControl(label: String): Boolean = shows(control(label))
+
     /** The main button's words (its semantics label), null while it isn't shown. */
     fun mainWords(): String? = page.locator("#main-button").takeIf { it.count() > 0 }?.first()?.let { button ->
         button.getAttribute("aria-label") ?: button.textContent()

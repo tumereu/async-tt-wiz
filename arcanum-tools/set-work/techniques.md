@@ -26,6 +26,15 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   control of target X" it is that target; "sacrifice/exile it (that token) at the next end step" after creating a token is
   the token; in an attach trigger it is the creature attached to (`EventRole.To`), not whatever is attached at resolution.
   An intervening "if it has ..." after "another creature enters/attacks" is the event object, not this object.
+- "it"/"its power" in a trigger about another object entering, leaving or attacking is that object
+  (`otherEventObject`, intervening ifs too), never a hard-coded this object; in a self-enters/leaves trigger "that
+  creature"/"its controller" after a target is the target (`Context.targetInSelfZoneChange`).
+- A self-dies/leaves trigger's "X is its power / the counters on it" reads `EventObject(Before)` (CR 603.10a); its "you may
+  exile/shuffle this card" acts on the graveyard card (`SelfAfter`, CR 400.7), so a later "When you do" can happen.
+- A reflexive "When you do" after an "any number" or "up to N" choice is `If(NonEmpty(bind))`: choosing nothing is no
+  event (CR 603.12). "You may X. If you do, Y. If you don't, Z." is one `If(Did, then = Y, otherwise = Z)`.
+- An exile on a card that refers to cards "exiled with" it remembers them (`Sentences.remembersExile`, CR 607.2a); "target
+  card exiled with <self>" needs `InZone(Exile)` or the engine looks only on the battlefield.
 - "that creature"/"it" in a damage trigger goes through `Sentences.damageThatRole` (the damaged one when this object dealt
   it); in a block trigger it is `EventRole.OtherCombatant`. "Blocks a Y" triggers are `perAttacker`, "becomes blocked by a
   Y" `perBlocker` (CR 509.3b-c). "That player" of a permanent entering is its controller, of a card put into a graveyard
@@ -80,6 +89,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - "secretly choose A, B, or C" = `Step.Choose(..., secret = true)` (the engine keeps who knows it); "Reveal the <choice>
   you chose" is a cost, `CostPart.RevealChoice`, unpayable without a choice.
 - A battle (Siege) test card is built with `OracleCard(name, cost, type, text, defense = "5")`: `card()` has no defense.
+  `OracleCard` takes power and toughness separately: a "4/4" passed as power leaves toughness 0 (`inventFaces` refuses it).
 
 ## Engine scenarios
 - All setup (`battlefield`, `hand`, `library`, `life`, `turn`, `attach`) comes before the first move; afterwards only
@@ -131,6 +141,11 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   triggered abilities, copies and changed targets; a trigger with no legal group is removed (CR 603.3d). Test them on a
   trigger too. A mark is read with `state.obj(card(x))?.marks?.contains(ObjectMark.Suspected)`.
 - A step that runs without priority (untap-step choices, end-step triggers): loop `resolve()` while `pending == null`.
+- Battles: with 3 players a Siege asks `ChoosePlayer` (its protector) on cast or at the first `passPriority()`; `settle()`
+  leaves no priority holder, so in combat scenarios skip it. "One or more ... deal combat damage to a player or battle"
+  batches, and counts "first time each turn", per player or per battle (`Triggers.batchKey`, CR 603.2c, 310.6).
+- Removing counters of no named kind asks the remover which, one `ChooseOption` per counter (`Actions.removeChosenCounters`,
+  CR 608.2d), for effects and costs alike.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
 - A scry or optional payment inside a resolving spell can leave a decision open before triggers (scry: `Answer.Objects(

@@ -250,3 +250,14 @@ val creatureDiedThisTurn: Condition = Condition.HappenedThisTurn(EventPattern.Zo
     measure = Measure.Events)
 /** "Whenever you sacrifice a Clue" */
 val youSacrificeAClue: Trigger = on(EventPattern.Sacrifice(and(sub("Clue"), you)))
+
+// ---- chunk 03: collect evidence (CR 701.59)
+
+fun collectEvidence(amount: Int): CostPart = CostPart.Action(KeywordAction.CollectEvidence(n(amount)))
+/** "As an additional cost to cast this spell, you may collect evidence N." */
+fun mayCollectEvidenceAsAdditionalCost(amount: Int): Ability =
+    Ability.Static(listOf(Mechanic.AdditionalCost(cost = Cost(listOf(collectEvidence(amount))), optional = true)), affects = Affected.Objects(Objects.Self))
+/** "if evidence was collected" (CR 701.59c) */
+val evidenceCollected: Condition = Condition.Paid(null, times = 1, of = Objects.Self)
+fun collectEvidenceStep(amount: Int): Step = Step.Do(Effect.Action(KeywordAction.CollectEvidence(n(amount))))
+val youCollectEvidence: Trigger = on(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.CollectEvidence, arcanum.api.PlayerFilter.You))

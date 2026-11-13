@@ -65,6 +65,7 @@ internal class Sentences(
         tmtMulti(line)?.let { return it } // tmt
         mshMulti(line)?.let { return it } // msh
         hobMulti(line)?.let { return it } // hob
+        mkmMulti(line)?.let { return it } // mkm
         // inr chunk 09: "Grimgrin enters tapped and doesn't untap during your untap step." (two static abilities, CR 614.1c, 502.3)
         Inr.ENTERS_TAPPED_AND_DOESNT_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val tapped = line("${m.groupValues[1]} enters tapped.")?.takeIf { it !is Ability.Unparsed } ?: return@let
@@ -1354,12 +1355,14 @@ internal class Sentences(
         // alternative cost (CR 118.9) for the spells its controller casts (from exile, or from anywhere; dsk gaps: the spell
         // cast from a zone, CR 601.2a, not the card in that zone)
         ALTERNATIVE_COST_FOR_SPELLS.matchEntire(line)?.let { m ->
-            val cost = ManaCost.parse(m.groupValues[2]) ?: return null
-            val cast = if (m.groupValues[4].isEmpty()) ObjectFilter.WasCast() else ObjectFilter.WasCast(Zone.Exile)
+            // mkm chunk 03: "You may collect evidence 10 rather than pay the mana cost for spells you cast." (CR 701.59a)
+            val cost = if (m.groupValues[3].isNotEmpty()) Cost(costPart(m.groupValues[3].replaceFirstChar { it.uppercase() }) ?: return null)
+                else Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null)
+            val cast = if (m.groupValues[5].isEmpty()) ObjectFilter.WasCast() else ObjectFilter.WasCast(Zone.Exile)
             // inr chunk 09: "for Zombie creature spells you cast": only spells of that kind (the card as the spell it would be, CR 601.2a)
-            val kind = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null }
+            val kind = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null }
             val cards = if (kind == null) cast else Filters.all(kind, cast)
-            return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
+            return Ability.Static(listOf(Mechanic.AlternativeCost(cost = cost, perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
         // dsk chunk 13: "This permanent is a 3/4 Ninja creature and has hexproof." (layers 4, 7b and 6)
@@ -2679,7 +2682,8 @@ internal class Sentences(
         }
         // chunk 45: "Collect evidence 6" (CR 701.59a)
         COLLECT_EVIDENCE.matchEntire(text)?.let { m ->
-            return listOf(CostPart.Action(arcanum.api.KeywordAction.CollectEvidence(Value.Fixed(m.groupValues[1].toInt()))))
+            // mkm chunk 03: kept with this object when another ability refers to the cards exiled with it (CR 607.2a)
+            return listOf(CostPart.Action(arcanum.api.KeywordAction.CollectEvidence(Value.Fixed(m.groupValues[1].toInt())), remember = EXILED_WITH.takeIf { linkedExile }))
         }
         // blb chunk 07: "pay {W}{B} and 2 life"
         Blb.PAY_MANA_AND_LIFE.matchEntire(text)?.let { m ->
@@ -2775,6 +2779,7 @@ internal class Sentences(
                 ?: ltrWhole(body.replaceFirstChar { it.uppercase() }, context) // ltr
                 ?: mh2Whole(body.replaceFirstChar { it.uppercase() }, context) // mh2
                 ?: if (body.contains(". ")) dftWhole(body.replaceFirstChar { it.uppercase() }, context) // dft
+                ?: mkmWhole(body.replaceFirstChar { it.uppercase() }, context) // mkm
                 ?: eoeWhole(body.replaceFirstChar { it.uppercase() }, context) // eoe
                 ?: tdmWhole(body.replaceFirstChar { it.uppercase() }, context) // tdm
                 ?: spmWhole(body.replaceFirstChar { it.uppercase() }, context) // spm
@@ -2945,7 +2950,12 @@ internal class Sentences(
         // fdn chunk 05: "If this spell was kicked, instead [effect]." (CR 702.33d)
         Blb.GIFT_INSTEAD.matchEntire(sentence)?.let { m ->
             val (targetsFrom, stepsFrom) = context.previous ?: return null
-            val promised = if (m.groupValues[1] == "the gift was promised") Blb.promised else arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
+            // mkm chunk 03: "If evidence was collected, instead [effect]." (CR 701.59c)
+            val promised = when (m.groupValues[1]) {
+                "the gift was promised" -> Blb.promised
+                "this spell was kicked" -> arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
+                else -> Conditions.condition(m.groupValues[1], self) ?: return null
+            }
             val before = context.targets.size
             context.promisedNames = true
             val then = try { effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) } finally { context.promisedNames = false } ?: return null
@@ -3770,6 +3780,9 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
                 Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")), Destination(Zone.Graveyard))))
         }
+        // mkm chunk 03: "Look at the top four cards of your library. Put two of them into your hand and the rest into your graveyard." as one
+        // sentence of a longer ability (the "Put" joins the look, [sentences])
+        if (Tdm.LOOK_PUT_N_HAND_REST_GRAVEYARD.matches(sentence)) return tdmWhole(sentence, context)
         // dsk chunk 10: "Return that card under your control with a finality counter on it." (the card that died)
         RETURN_THAT_CARD_UNDER_CONTROL.matchEntire(sentence)?.let { m ->
             val card = context.it ?: return null
@@ -4366,14 +4379,18 @@ internal class Sentences(
             return listOf(Step.Do(Effect.GainLife(Players.ControllerOf(target), Value.Fixed(m.groupValues[1].toInt()))))
         }
         // "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and
-        // planeswalkers they control." Each opponent chooses, then all sacrifice at once (CR 101.4, 608.2e).
+        // planeswalkers they control." Each opponent chooses, then all sacrifice at once (CR 101.4, 608.2e). mkm chunk 03: also
+        // "… with the greatest power among creatures they control."
         EACH_OPPONENT_SACRIFICES_GREATEST.matchEntire(sentence)?.let { m ->
             val kind = Filters.noun(m.groupValues[1]) ?: return null
-            val among = Filters.noun(m.groupValues[2].replace(" and ", " or ")) ?: return null
+            val among = Filters.noun(m.groupValues[3].replace(" and ", " or ")) ?: return null
             val theirs = ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("opponent")))
-            val greatest = Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Each(Filters.all(among, theirs)), arcanum.api.Combine.Greatest)
+            val power = m.groupValues[2] == "power"
+            val greatest = Value.Of(if (power) arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.ManaValue,
+                Objects.Each(Filters.all(among, theirs)), arcanum.api.Combine.Greatest)
+            val test = if (power) ObjectFilter.Power(arcanum.api.Comparison.Equal, greatest) else ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, greatest)
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true, steps = listOf(
-                Step.Choose(arcanum.api.Choice.Objects(Filters.all(kind, theirs, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, greatest)),
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(kind, theirs, test),
                     Value.Fixed(1), Value.Fixed(1)), bind = "sacrificed", chooser = Players.Bound("opponent")),
                 Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))))
         }
@@ -10875,7 +10892,7 @@ internal class Sentences(
         // blb chunk 02
         /** "the gift was promised": its optional cost was paid (CR 702.174k). */
         val promised: arcanum.api.Condition = arcanum.api.Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self)
-        val GIFT_INSTEAD = Regex("""If (the gift was promised|this spell was kicked), instead (.+)\.""")
+        val GIFT_INSTEAD = Regex("""If (the gift was promised|this spell was kicked|evidence was collected), instead (.+)\.""")
         val GIFT_IF = Regex("""If the gift (was|wasn't) promised(?: and (.+?))?, (.+)\.""")
         val IF_GIFT_AFTER = Regex("""(.+) if the gift (was|wasn't) promised\.""")
         val ALSO = Regex("""(.+?) also (.+)""")
@@ -11278,7 +11295,7 @@ internal class Sentences(
         val PUT_ALL_FROM_AMONG_THEM_REST_BOTTOM = Regex("""Put all (.+?) from among them into your hand and the rest on the bottom of your library in a random order\.""")
         // dsk chunk 02
         val NO_MAXIMUM_HAND_SIZE = Regex("""You have no maximum hand size( and don't lose the game for having 0 or less life)?\.""")
-        val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may pay (\{[^ ]+\}) rather than pay the mana cost for (?:a spell|spells|([A-Za-z ]+?) spells) you cast( from exile)?\.""") // inr chunk 09: "Zombie creature spells"
+        val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may (?:pay (\{[^ ]+\})|(collect evidence \d+)) rather than pay the mana cost for (?:a spell|spells|([A-Za-z ]+?) spells) you cast( from exile)?\.""") // inr chunk 09: "Zombie creature spells"
         val GETS_AND_GAINS_UNTIL_EOT = Regex("""(.+?) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) and (gains|loses) (.+) until (end of turn|your next turn)\.""")
         val DEALS_DAMAGE_EQUAL_TO = Regex("""(.+?) deals damage equal to (the number of .+?|the power of .+?) to (any target|target .+|each opponent)\.""")
         // dungeons: no duration ("You may play them."): for as long as they remain exiled
@@ -11346,7 +11363,7 @@ internal class Sentences(
         val PUT_INTO_LIBRARY_FROM_TOP = Regex("""Put target (.+) into its owner's library (second|third|fourth) from the top\.""")
         val FROM_TOP = mapOf("second" to 1, "third" to 2, "fourth" to 3)
         val ITS_CONTROLLER_GAINS_N = Regex("""Its controller gains (\d+) life\.""")
-        val EACH_OPPONENT_SACRIFICES_GREATEST = Regex("""Each opponent sacrifices an? (.+?) with the greatest mana value among (.+) they control\.""")
+        val EACH_OPPONENT_SACRIFICES_GREATEST = Regex("""Each opponent sacrifices an? (.+?) with the greatest (mana value|power) among (.+) they control\.""")
         val DESTROY_UP_TO = Regex("""Destroy up to (\w+) target (.+)\.""")
         val CREATE_TOKENS_WITH_QUOTED = Regex("""Create (twice X|a|an|one|two|three|four|five) (\d+/\d+ .+? creature) tokens? with "(.+)"\.""")
         // chunk 14
@@ -15581,6 +15598,16 @@ internal class Sentences(
 
     /** mkm: sentences that change or read the steps before them. */
     private fun mkmModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // mkm chunk 03: "Until end of turn, target artifact or creature becomes an artifact creature with base power and toughness 4/3. If evidence
+        // was collected, it has base power and toughness 1/1 until end of turn instead." (one or the other, CR 613.4b, 701.59c)
+        Mkm.IF_HAS_BASE_PT_INSTEAD.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics ?: return null
+            if (apply.mechanics.none { it is Mechanic.SetPowerToughness }) return null
+            val pt = Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))
+            val instead = apply.copy(mechanics = apply.mechanics.map { if (it is Mechanic.SetPowerToughness) pt else it })
+            return steps.dropLast(1) + Step.If(condition, then = listOf(Step.Do(instead)), otherwise = listOf(Step.Do(apply)))
+        }
         // mkm chunk 02: "Creatures your opponents control get -2/-0 until end of turn. If any of them are suspected, they're no longer suspected."
         // (those of the group that have the mark lose it, CR 701.60a)
         Mkm.IF_ANY_OF_THEM_NO_LONGER.matchEntire(sentence)?.let { m ->
@@ -15621,8 +15648,98 @@ internal class Sentences(
         return null
     }
 
+    /** mkm: wordings of several sentences read as one. */
+    private fun mkmWhole(text: String, context: Context): List<Step>? {
+        // mkm chunk 03: "… If evidence was collected, exile a card from an opponent's graveyard. Then search its owner's graveyard, hand, and library
+        // for any number of cards with that name and exile them. That player shuffles, then draws a card for each card exiled from their hand this
+        // way." (the card is chosen as it resolves, not targeted; CR 701.23a, 701.59c)
+        Mkm.IF_EXILE_FROM_OPPONENTS_GRAVEYARD_SEARCH_NAME.matchEntire(text)?.let { m ->
+            val first = effect(m.groupValues[1], context) ?: return null
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            val owner = Players.OwnerOf(Objects.Bound("exiled"))
+            val zones = listOf(Zone.Graveyard, Zone.Hand, Zone.Library)
+            val all = Value.Count(Objects.Each(Filters.all(ObjectFilter.OwnedBy(PlayerFilter.Is(owner)), ObjectFilter.Or(zones.map { ObjectFilter.InZone(it) }))))
+            return first + Step.If(condition, then = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Opponent)),
+                    Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Search(owner, ObjectFilter.SameNameAs(Objects.Bound("exiled")), max = all, zones = zones, bind = "found", searcher = Players.You)),
+                Step.Bind(Objects.Where(Objects.Bound("found"), ObjectFilter.InZone(Zone.Hand)), "fromHand"),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Exile))),
+                Step.Do(Effect.Shuffle(owner)),
+                Step.Do(Effect.Draw(owner, Value.Count(Objects.Bound("fromHand"))))))
+        }
+        // mkm chunk 03: "Search your library for a basic land card. If evidence was collected, instead search your library for a creature or land
+        // card. Reveal that card, put it into your hand, then shuffle." (one search or the other, CR 701.23, 701.59c)
+        Mkm.SEARCH_IF_INSTEAD_SEARCH.matchEntire(text)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            val otherwise = effect("Search your library for ${m.groupValues[1]}, reveal it, ${m.groupValues[4]}.", context) ?: return null
+            val then = effect("Search your library for ${m.groupValues[3]}, reveal it, ${m.groupValues[4]}.", context) ?: return null
+            return listOf(Step.If(condition, then = then, otherwise = otherwise))
+        }
+        return null
+    }
+
+    /** mkm: lines of several abilities. */
+    private fun mkmMulti(line: String): List<Ability>? {
+        // mkm chunk 03: "As an additional cost to cast this spell, you may collect evidence 6. This spell costs {2} less to cast if evidence was
+        // collected." (the cost, then a rule of the spell linked to it, CR 601.2f, 701.59c)
+        Mkm.ADDITIONAL_COST_THEN_THIS_SPELL.matchEntire(line)?.let { m ->
+            val cost = line(m.groupValues[1])?.takeIf { it !is Ability.Unparsed } ?: return null
+            val rule = line(m.groupValues[2])?.takeIf { it !is Ability.Unparsed } ?: return null
+            return listOf(cost, rule)
+        }
+        return null
+    }
+
     /** mkm: single-sentence effects, tried first. */
     private fun mkmEffect(sentence: String, context: Context): List<Step>? {
+        // mkm chunk 03: "If this creature is a Detective, it becomes a legendary creature named Mileva, the Stalwart, it has base power and
+        // toughness 5/5, and it gains "…"" (for good, CR 611.2a; layers 3, 4, 6 and 7b; "becomes a legendary creature" sets its card type,
+        // CR 205.1a, and keeps its subtypes)
+        Mkm.IF_IS_BECOMES_LEGENDARY_NAMED.matchEntire(sentence)?.let { m ->
+            val subject = m.groupValues[3]
+            if (!isSelf(subject) && !(subject == "it" && m.groupValues[1].isNotEmpty())) return@let
+            if (m.groupValues[1].isNotEmpty() && !isSelf(m.groupValues[1])) return@let
+            val granted = Sentences(setOf("this creature", m.groupValues[4])).line(m.groupValues[7])?.takeIf { it !is Ability.Unparsed } ?: return null
+            val becomes = Step.Do(Effect.ApplyMechanics(listOf(
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSupertypes = listOf(arcanum.api.Supertype.Legendary), replaceTypes = true),
+                Mechanic.SetName(m.groupValues[4]),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[5].toInt()), Value.Fixed(m.groupValues[6].toInt())),
+                Mechanic.GainAbilities(listOf(granted))), Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely))
+            if (m.groupValues[1].isEmpty()) return listOf(becomes)
+            val type = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return@let
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Sub(Subtype(type))), then = listOf(becomes)))
+        }
+        // mkm chunk 03: "you may cast an instant or sorcery spell from among cards exiled with it" (one of the cards its abilities exiled, cast
+        // as this resolves, CR 607.2a, 608.2g); "that spell" afterwards is it
+        Mkm.MAY_CAST_FROM_AMONG_EXILED_WITH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) || it.groupValues[2] == "it" }?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val card = Filters.all(kind, ObjectFilter.InZone(Zone.Exile), ObjectFilter.Is(Objects.Remembered(EXILED_WITH)))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(card, Value.Fixed(0), Value.Fixed(1)), bind = "toCast", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("toCast"), PlayKind.Cast, bind = "cast", caster = Players.You)))
+        }
+        // mkm chunk 03: "If that spell would be put into a graveyard, put it on the bottom of its owner's library instead." (the spell cast this
+        // way, CR 614.1a)
+        if (Mkm.IF_THAT_SPELL_WOULD_GRAVEYARD_BOTTOM.matches(sentence)) {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound("cast")), to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Library, libraryPosition = -1))))), affects = null, duration = arcanum.api.Duration.Indefinitely)))
+        }
+        // mkm chunk 03: "When this creature dies, you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped."
+        // (one cost of two parts, CR 118.12; "this card" is then the exiled card, CR 400.7)
+        Mkm.MAY_EXILE_IT_AND_IF_YOU_DO.matchEntire(sentence)?.let { m ->
+            val dies = context.event as? EventPattern.ZoneChange ?: return null
+            if (dies.to != Zone.Graveyard) return null
+            val more = costPart(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            val exile = CostPart.Exile(CostObjects.These(Objects.EventObject(arcanum.api.EventRole.After)), from = Zone.Graveyard, postBind = "exiled")
+            context.it = Objects.Bound("exiled")
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }.replace("this card", "it"), context) ?: return null
+            return listOf(Step.Pay(Cost(listOf(exile) + more), bind = "paid", payer = Players.You), Step.If(arcanum.api.Condition.Did("paid"), then = then))
+        }
+        // mkm chunk 03: "Collect evidence 4." as an effect ("you may collect evidence 4", CR 701.59a)
+        Mkm.COLLECT_EVIDENCE.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.CollectEvidence(Value.Fixed(m.groupValues[1].toInt())))))
+        }
         // mkm chunk 02: "you may have Lazav become a copy of a creature card exiled with it until end of turn." (one chosen as it resolves, of
         // the cards its abilities exiled, CR 607.2a, 707.2)
         Mkm.MAY_HAVE_BECOME_COPY_OF_EXILED_WITH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && (isSelf(it.groupValues[3]) || it.groupValues[3] == "it") }?.let { m ->
@@ -15708,6 +15825,10 @@ internal class Sentences(
 
     /** mkm: whole lines, tried in [line]. */
     private fun mkmLine(line: String): Ability? {
+        // mkm chunk 03: "You may choose not to untap this creature during your untap step." (CR 502.3)
+        Mkm.MAY_CHOOSE_NOT_TO_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.MayChooseNotToUntap), affects = Affected.Objects(Objects.Self))
+        }
         // mkm chunk 02: "To solve — You control three or more artifacts." (CR 719.3a: "At the beginning of your end step, if [condition] and this
         // Case is not solved, this Case becomes solved.")
         Mkm.TO_SOLVE.matchEntire(line)?.let { m ->
@@ -18644,7 +18765,11 @@ internal class Sentences(
             val subtypes = m.groupValues[4].split(' ').map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return@let)) }
             val mechanics = mutableListOf<Mechanic>(Mechanic.SetTypes(addSubtypes = subtypes, replaceSubtypes = true),
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[5].toInt()), Value.Fixed(m.groupValues[6].toInt())))
-            if (m.groupValues[7].isNotEmpty()) mechanics += Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Protection(ObjectFilter.ControlledBy(PlayerFilter.Opponent))))
+            if (m.groupValues[7] == " and protection from each of your opponents")
+                mechanics += Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Protection(ObjectFilter.ControlledBy(PlayerFilter.Opponent))))
+            // mkm chunk 03: "… and gains vigilance." (layer 6)
+            else if (m.groupValues[7].isNotEmpty())
+                mechanics += Mechanic.GainAbilities(m.groupValues[7].removePrefix(" and gains ").split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return@let })
             val becomes = Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely))
             if (m.groupValues[1].isEmpty()) return listOf(becomes)
             val type = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return@let
@@ -19842,7 +19967,9 @@ internal class Sentences(
         Fin.RETURN_IT_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
             val dies = context.event as? EventPattern.ZoneChange ?: return null
             if (dies.objects != ObjectFilter.Is(Objects.Self) || dies.to != Zone.Graveyard) return null
-            return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty()))))
+            // mkm chunk 03: after an earlier step moved it ("you may exile it … If you do, return this card …"), the card where it went (CR 400.7)
+            val card = context.it as? Objects.Bound ?: Objects.EventObject(EventRole.After)
+            return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty()))))
         }
         // fin chunk 05: "Transform this enchantment, then attach it to a creature you control." (a creature chosen as it happens, CR 701.3)
         Fin.TRANSFORM_THEN_ATTACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -24446,9 +24573,12 @@ internal class Sentences(
         }
         // ltr chunk 02: "Target creature you control gains indestructible for as long as you control this Saga." (CR 611.2b): the effect read as
         // lasting until end of turn, its duration then replaced
-        Ltr.FOR_AS_LONG_AS_YOU_CONTROL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
-            val asLong = arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ControlledBy(PlayerFilter.You)))
-            val steps = effect("${m.groupValues[1]} until end of turn.", context) ?: return@let
+        // mkm chunk 03: also "… for as long as this creature remains tapped."
+        (Ltr.FOR_AS_LONG_AS_YOU_CONTROL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { it.groupValues[1] to ObjectFilter.ControlledBy(PlayerFilter.You) }
+            ?: Mkm.FOR_AS_LONG_AS_REMAINS_TAPPED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { it.groupValues[1] to ObjectFilter.HasStatus(arcanum.api.Status.Tapped) }
+        )?.let { (body, holds) ->
+            val asLong = arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, holds))
+            val steps = effect("$body until end of turn.", context) ?: return@let
             var replaced = 0
             val result = steps.map { step ->
                 val apply = (step as? Step.Do)?.effect as? Effect.ApplyMechanics

@@ -246,10 +246,25 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
      * (plans made one after another for the same choices, [arcanum.engine.view.ViewCache.provisional]). */
-    val snap: Snapshot = base.deepCopy().also { s ->
-        s._stackItems[itemId] = item
-        if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
-    }.let { s -> Snapshot(s) { base.viewCache?.provisional(item) { Layers.view(s) } ?: Layers.view(s) } }
+    val snap: Snapshot = run {
+        val paid = provisionalPaid()
+        base.deepCopy().also { s ->
+            s._stackItems[itemId] = item
+            if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
+            // mkm: the card's optional costs chosen so far count as paid while its total cost is determined ("This spell costs {2} less to
+            // cast if evidence was collected", CR 601.2f, 701.59c)
+            if (paid.isNotEmpty()) s._objects[itemId]?.let { o -> s._objects[itemId] = o.copy(cast = (o.cast ?: arcanum.engine.state.CastFacts()).copy(paid = paid)) }
+        }.let { s -> Snapshot(s) { (if (paid.isEmpty()) base.viewCache?.provisional(item) { Layers.view(s) } else null) ?: Layers.view(s) } }
+    }
+
+    /** mkm: the card's own optional additional costs chosen so far, as they will be recorded once paid. */
+    private fun provisionalPaid(): List<arcanum.engine.state.PaidCost> = if (!isSpell) emptyList() else snap0Abilities().flatMap { inst ->
+        (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.AdditionalCost>().filter { it.optional }.mapNotNull { m ->
+            optionalTimes(inst)?.takeIf { it > 0 }?.let { times ->
+                arcanum.engine.state.PaidCost(m.keyword, times, costIndex = if (m.keyword == Keyword.Kicker.Kind) (inst.origin as? AbilityOrigin.Expansion)?.index else null)
+            }
+        }
+    }
 
     /** Names filters and values see: choices so far, announced values and targets by slot. */
     val names: Bindings = run {

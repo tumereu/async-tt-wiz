@@ -110,7 +110,7 @@ internal object Costs {
     fun asCostPart(part: CostPart.Action): CostPart = when (val action = part.action) {
         is arcanum.api.KeywordAction.CollectEvidence -> CostPart.Exile(
             CostObjects.Choose(arcanum.api.ObjectFilter.Any, count = null, total = arcanum.api.Total(arcanum.api.NumericProperty.ManaValue, action.amount)),
-            Zone.Graveyard, postBind = part.bind)
+            Zone.Graveyard, postBind = part.bind, remember = part.remember)
         // blb: CR 701.61a: "Exile three cards from your graveyard or sacrifice a Food."
         arcanum.api.KeywordAction.Forage -> forage
         else -> part

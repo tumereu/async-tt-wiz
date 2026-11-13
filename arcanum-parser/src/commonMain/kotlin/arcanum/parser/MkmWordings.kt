@@ -37,4 +37,30 @@ internal object Mkm {
     val MAY_CAST_FROM_EACH_OPPONENTS_GRAVEYARD_FREE = Regex("""You may cast an? (spell|.+? spell) from each opponent's graveyard without paying its mana cost\.""")
     // mkm chunk 02: "opponent who lost life this turn", "player who controls the most creatures"
     val PLAYER_WHO = Regex("""(player|opponent) who (.+)""")
+    // mkm chunk 03: "Search your library for a basic land card. If evidence was collected, instead search your library for a creature or land card.
+    // Reveal that card, put it into your hand, then shuffle."
+    val SEARCH_IF_INSTEAD_SEARCH = Regex("""Search your library for (.+?)\. If (.+?), instead search your library for (.+?)\. Reveal (?:that card|it), (.+)\.""")
+    // mkm chunk 03: "If evidence was collected, it has base power and toughness 1/1 until end of turn instead." after a "becomes"
+    val IF_HAS_BASE_PT_INSTEAD = Regex("""If (.+?), (?:it|that creature) has base power and toughness (\d+)/(\d+) until end of turn instead\.""")
+    // mkm chunk 03: "As an additional cost to cast this spell, you may collect evidence 6. This spell costs {2} less to cast if evidence was collected."
+    val ADDITIONAL_COST_THEN_THIS_SPELL = Regex("""(As an additional cost to cast this spell, [^.]+\.) (This spell .+\.)""")
+    // mkm chunk 03: "Collect evidence 4." as an effect ("you may collect evidence 4", CR 701.59a)
+    val COLLECT_EVIDENCE = Regex("""[Cc]ollect evidence (\d+)\.""")
+    // mkm chunk 03: "… for as long as this creature remains tapped." (CR 611.2b)
+    val FOR_AS_LONG_AS_REMAINS_TAPPED = Regex("""(.+) for as long as (.+?) remains tapped\.""")
+    // mkm chunk 03: "You may choose not to untap this creature during your untap step." (CR 502.3)
+    val MAY_CHOOSE_NOT_TO_UNTAP = Regex("""You may choose not to untap (.+?) during your untap step\.""")
+    // mkm chunk 03: "If this creature is a Detective, it becomes a legendary creature named Mileva, the Stalwart, it has base power and toughness
+    // 5/5, and it gains "Other creatures you control have indestructible.""
+    val IF_IS_BECOMES_LEGENDARY_NAMED = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes a legendary creature named (.+?), it has base power and toughness (\d+)/(\d+), and it gains "(.+)"\.""")
+    // mkm chunk 03: "you may cast an instant or sorcery spell from among cards exiled with it" (CR 607.2a)
+    val MAY_CAST_FROM_AMONG_EXILED_WITH = Regex("""[Yy]ou may cast an? (.+?) spell from among cards exiled with (.+?)\.""")
+    // mkm chunk 03: "If that spell would be put into a graveyard, put it on the bottom of its owner's library instead." after casting it
+    val IF_THAT_SPELL_WOULD_GRAVEYARD_BOTTOM = Regex("""If that spell would be put into a graveyard, put it on the bottom of its owner's library instead\.""")
+    // mkm chunk 03: "you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped." (a dies trigger)
+    val MAY_EXILE_IT_AND_IF_YOU_DO = Regex("""You may exile it and (.+?)\. If you do, (.+)""")
+    // mkm chunk 03: "Destroy all creatures. If evidence was collected, exile a card from an opponent's graveyard. Then search its owner's graveyard,
+    // hand, and library for any number of cards with that name and exile them. That player shuffles, then draws a card for each card exiled from
+    // their hand this way."
+    val IF_EXILE_FROM_OPPONENTS_GRAVEYARD_SEARCH_NAME = Regex("""(.+?\.) If (.+?), exile a card from an opponent's graveyard\. Then search its owner's graveyard, hand, and library for any number of cards with that name and exile them\. That player shuffles, then draws a card for each card exiled from their hand this way\.""")
 }

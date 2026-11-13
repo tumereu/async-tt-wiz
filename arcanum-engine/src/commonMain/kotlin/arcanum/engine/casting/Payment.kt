@@ -410,6 +410,13 @@ internal object Payment {
                     bound[it] = NamedValue.Objects(after)
                     // ecl: kept by the permanent the spell becomes (CR 607.2a, 400.7d)
                     bound[REMEMBERED + it] = NamedValue.Objects(after)
+                    // mkm: an activated ability's cost exiles cards "exiled with" its source: kept as the source's memory as the cost is paid
+                    // (CR 607.2a; "Collect evidence 6: …" then "cast a spell from among cards exiled with it")
+                    if (!plan.isSpell) recorder.state.obj(plan.sourceId)?.let { source ->
+                        val before = source.linked[it]
+                        val kept = NamedValue.Objects(((before as? NamedValue.Objects)?.ids.orEmpty() + after).distinct())
+                        if (kept != before) recorder.record(Change.Memory(plan.sourceId, it, before, kept))
+                    }
                 }
             }
             is CostPart.ReturnToHand -> {

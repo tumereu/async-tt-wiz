@@ -1256,6 +1256,8 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.Sacrifice(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
         }
+        // mkm chunk 03: "evidence was collected": the spell's linked optional additional cost was paid (CR 701.59c, 607.2)
+        if (text == "evidence was collected") return Condition.Paid(null, times = 1, of = Objects.Self)
         // blb chunk 02: "the gift was promised" (CR 702.174k)
         if (text == "the gift was promised") return Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self)
         if (text == "the gift wasn't promised") return Condition.Not(Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self))

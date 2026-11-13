@@ -891,7 +891,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.WonFlip -> (ctx.names[condition.name] as? NamedValue.Flip)?.won == true || ((ctx.names[condition.name] as? NamedValue.Flips)?.won ?: 0) > 0
         is Condition.Paid -> objects(condition.of).any { id ->
             val facts = facts(id) ?: return@any false
-            val paid = (facts.paid + listOfNotNull(facts.alternative))
+            // mkm chunk 03: no keyword is the spell's own additional cost ("if evidence was collected", CR 701.59c, 607.2), never an
+            // alternative cost without a keyword ("you may collect evidence 10 rather than pay the mana cost")
+            val paid = (facts.paid + listOfNotNull(facts.alternative?.takeIf { condition.keyword != null }))
                 .filter { it.keyword == condition.keyword && (condition.costIndex == null || it.costIndex == condition.costIndex) }
             paid.sumOf { it.times } >= condition.times
         }

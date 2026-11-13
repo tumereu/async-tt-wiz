@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 79
+    const val VERSION: Int = 80
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -147,7 +147,7 @@ object OracleParser {
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         // chunks 21, 26: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
         // dsk chunk 09: "each card exiled with it"
-        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it "))
+        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it ") || text.contains("exiled with it."))
         // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
         // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost

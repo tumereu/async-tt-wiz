@@ -2766,8 +2766,10 @@ internal class Sentences(
             val (count, noun) = counted(m.groupValues[1]) ?: return null
             return listOf(CostPart.ReturnToHand(CostObjects.Choose(Filters.noun(noun) ?: return null, count = Value.Fixed(count))))
         }
+        // mkm sweep: like the costs below, kept with this object when another ability refers to the cards exiled with it (CR 607.2a)
         EXILE_FROM_HAND_COST.matchEntire(text)?.let { m ->
-            return listOf(CostPart.Exile(CostObjects.Choose(Filters.noun(m.groupValues[1]) ?: return null, count = Value.Fixed(1)), from = Zone.Hand))
+            return listOf(CostPart.Exile(CostObjects.Choose(Filters.noun(m.groupValues[1]) ?: return null, count = Value.Fixed(1)), from = Zone.Hand,
+                remember = EXILED_WITH.takeIf { linkedExile }))
         }
         // chunks 30, 41: "Exile eight other cards from your graveyard", "Exile two cards from your graveyard",
         // "Exile another creature card from your graveyard"
@@ -2782,7 +2784,8 @@ internal class Sentences(
                 }
                 else -> costChoice(phrase) ?: return null
             }
-            return listOf(CostPart.Exile(what, from = Zone.Graveyard))
+            // mkm sweep: kept with this object when another ability refers to the cards exiled with it (CR 607.2a)
+            return listOf(CostPart.Exile(what, from = Zone.Graveyard, remember = EXILED_WITH.takeIf { linkedExile && what != CostObjects.Self }))
         }
         // chunk 31: "exile it" in a trigger on this object moving
         if (text == "Exile it") triggerIt?.let { (it, zone) -> return listOf(CostPart.Exile(CostObjects.These(it), from = zone ?: return null)) }
@@ -5092,12 +5095,7 @@ internal class Sentences(
                 val x = Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Target(slot), arcanum.api.Combine.Single)
                 return listOf(Step.Pay(Cost(listOf(CostPart.Mana(cost, x = x))), bind = "paid", payer = Players.You), Step.If(arcanum.api.Condition.Did("paid"), then = then))
             }
-            // mkm chunk 16: the "If you do" part may be several sentences ("create a token. It gains haste until end of turn.")
-            val then = mutableListOf<Step>()
-            for (part in sentences(m.groupValues[2].replaceFirstChar { it.uppercase() })) {
-                val modified = modify(part, then, context)
-                if (modified != null) { then.clear(); then += modified } else then += effect(part, context) ?: return null
-            }
+            val then = ifYouDo(m.groupValues[2], context) ?: return null
             return listOf(Step.Pay(Cost.mana(cost), bind = "paid", payer = Players.You), Step.If(arcanum.api.Condition.Did("paid"), then = then))
         }
         UNTAP.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
@@ -5241,7 +5239,7 @@ internal class Sentences(
             }
             val pay = if (costParts != null) Step.Pay(Cost(costParts), bind = "paid", payer = Players.You)
                 else Step.Pay(steps = steps!!, bind = "paid", payer = Players.You)
-            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            val then = ifYouDo(m.groupValues[2], context) ?: return null
             return listOf(pay, Step.If(arcanum.api.Condition.Did("paid"), then = then))
         }
         // chunk 26: "That creature's controller may draw a card." (the creature as it last existed, CR 603.10a)
@@ -7844,6 +7842,24 @@ internal class Sentences(
         return steps.toMutableList().also { it[index] = Step.Do(create.copy(bind = TOKENS)) }
     }
 
+    /** The "If you do" part of "You may [cost]. If you do, [effect]", sentence by sentence (mkm chunk 16, sweep: "create a … token. Put a
+     * +1/+1 counter on it." / "It gains haste until end of turn.": "it" is the token made, CR 608.2c). */
+    private fun ifYouDo(text: String, context: Context): List<Step>? {
+        val then = mutableListOf<Step>()
+        for (part in sentences(text.replaceFirstChar { it.uppercase() })) {
+            // "it" after creating a token is that token ("Exile it at the beginning of the next end step.")
+            val create = (then.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken
+            if (create != null && IT_WORD.containsMatchIn(part)) {
+                val bind = create.bind ?: "token"
+                then[then.lastIndex] = Step.Do(create.copy(bind = bind))
+                context.it = Objects.Bound(bind)
+            }
+            val modified = modify(part, then, context)
+            if (modified != null) { then.clear(); then += modified } else then += effect(part, context) ?: return null
+        }
+        return then
+    }
+
     /** Sentences in order; a "Spend this mana only …" sentence stays with the mana it restricts. */
     private fun sentences(text: String): List<String> {
         val raw = SENTENCE_END.split(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }
@@ -7852,8 +7868,9 @@ internal class Sentences(
             // chunk 14: "The flashback cost is equal to its mana cost." completes the sentence before it.
             if ((sentence.startsWith("Spend this mana only") || sentence.startsWith("If you do,") || sentence.startsWith("The flashback cost is") ||
                     sentence.startsWith("When you do,") || // chunk 31
-                    // mkm chunk 16: "If you do, create a … token. It gains haste until end of turn.": "it" is what the "If you do" made
-                    (sentence.startsWith("It gains ") && acc.lastOrNull()?.contains(" If you do, create ") == true) ||
+                    // mkm chunk 16, sweep: "If you do, create a … token. It gains haste until end of turn." / "Put a +1/+1 counter on it.": "it"
+                    // is what the "If you do" made, so the sentence is part of it (CR 608.2c)
+                    (IT_WORD.containsMatchIn(sentence) && acc.lastOrNull()?.contains(" If you do, create ") == true) ||
                     (sentence.startsWith("Put ") && acc.lastOrNull()?.startsWith("Look at the top") == true) ||
                     // chunk 47: a reflexive trigger ("When you do, …") runs to the end of the ability (CR 603.12)
                     acc.lastOrNull()?.contains(" When you do, ") == true) && acc.isNotEmpty())
@@ -17886,7 +17903,7 @@ internal class Sentences(
             val tap = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Tap ?: return@let
             return steps + Step.Do(Effect.PutCounters(tap.objects, Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1)))
         }
-        // sos chunk 09: "Put X +1/+1 counters on it." after creating a token
+        // sos chunk 09: "Put X +1/+1 counters on it." after creating a token (mkm sweep: "Put a +1/+1 counter on it.", CR 608.2c)
         Sos.PUT_X_COUNTERS_ON_IT.matchEntire(sentence)?.let { m ->
             val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.CreateToken) != null }.takeIf { it >= 0 && it == steps.lastIndex } ?: return@let
             val create = (steps[index] as Step.Do).effect as Effect.CreateToken

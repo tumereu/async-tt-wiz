@@ -138,7 +138,8 @@ internal object Sos {
     val IT_GAINS_UNTIL_EOT = Regex("""It gains (.+) until end of turn\.""")
     val GRANDEUR = Regex("""Grandeur — Discard another card named (.+?): (.+)""")
     val LANDS_HAVE_QUOTED = Regex("""(Lands you control) have "(.+)"""")
-    val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters on it\.""")
+    // mkm sweep: one counter too ("Put a +1/+1 counter on it.")
+    val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters? on it\.""")
     val WHEN_ENTERS_CHOOSE_CARD_NAME = Regex("""When (.+?) enters, choose an? (.+?) card name\.""")
 }
 

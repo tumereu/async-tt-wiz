@@ -1075,8 +1075,8 @@ internal object History {
         val state = evaluator.board.state
         val number = turn ?: state.turn.number
         return when (measure) {
-            arcanum.api.Measure.Events -> state.eventsOf(number).count { change ->
-                arcanum.engine.trigger.EventMatcher.instances(evaluator, event, change, history = true).isNotEmpty()
+            arcanum.api.Measure.Events -> lastKnown(evaluator).let { back ->
+                state.eventsOf(number).count { change -> arcanum.engine.trigger.EventMatcher.instances(back, event, change, history = true).isNotEmpty() }
             }
             // mkm chunk 06: each object once ("three or more creatures attacked": a creature attacking in two combats is one creature)
             arcanum.api.Measure.Objects -> instances(evaluator, event, number).flatMap { e ->
@@ -1146,8 +1146,14 @@ internal object History {
     private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern, turn: Int? = null): List<TriggerEvent> {
         evaluator.board.readingLog()
         val state = evaluator.board.state
-        return state.eventsOf(turn ?: state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it, history = true) }
+        val back = lastKnown(evaluator)
+        return state.eventsOf(turn ?: state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(back, event, it, history = true) }
     }
+
+    /** mkm sweep: the history's objects are read as they last existed when they have left since, their controller too (CR 608.2h,
+     * 603.10a), whichever board asks: "if you attacked this turn" in a static ability counts an attacker that died since, as
+     * chunk 14's sacrificed artifact does. */
+    private fun lastKnown(evaluator: Evaluator): Evaluator = Evaluator(arcanum.engine.trigger.LastKnownBoard(evaluator.board), evaluator.ctx)
 }
 
 /** Counter kinds that modify power and toughness (CR 122.1a, 613.4c). */

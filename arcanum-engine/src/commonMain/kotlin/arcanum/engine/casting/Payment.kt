@@ -128,8 +128,8 @@ internal object Payment {
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
-        if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
-            refuse("Life pays only Phyrexian mana (CR 107.4f)")
+        if (!Mana.lifeSymbols(plan.snap, player, cost).containsAll(lifeFor)) {
+            refuse("Life pays only Phyrexian mana (CR 107.4f) or what an effect lets life pay")
         }
         // CR 601.2g: mana abilities are activated before costs are paid
         val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))
@@ -147,7 +147,7 @@ internal object Payment {
             }
         }
         val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor) + specialPayers
-        if (Mana.leastMana(cost) > payers.size) refuse("That doesn't pay $cost")
+        if (Mana.leastMana(cost, lifeFor) > payers.size) refuse("That doesn't pay $cost")
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         // CR 107.4f, 119.4: 2 life for each Phyrexian symbol paid with life, only with that much life
         if (lifeFor.isNotEmpty()) {
@@ -157,7 +157,8 @@ internal object Payment {
             Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
             // CR 702.150a: compleated reads how many Phyrexian symbols of a spell were paid with life
             if (plan.isSpell) recorder.state.obj(plan.itemId)?.let { o ->
-                arcanum.engine.change.Changes.cast(recorder.state, plan.itemId, o.castOrNone.copy(phyrexianPaidWithLife = lifeFor.size))?.let(recorder::record)
+                arcanum.engine.change.Changes.cast(recorder.state, plan.itemId, o.castOrNone.copy(phyrexianPaidWithLife = lifeFor.count { i ->
+                    cost.symbols.getOrNull(i).let { it is arcanum.api.ManaSymbol.Phyrexian || it is arcanum.api.ManaSymbol.PhyrexianHybrid } }))?.let(recorder::record)
             }
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
@@ -191,8 +192,8 @@ internal object Payment {
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
-        if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
-            refuse("Life pays only Phyrexian mana (CR 107.4f)")
+        if (!Mana.lifeSymbols(recorder.snapshot(), player, cost).containsAll(lifeFor)) {
+            refuse("Life pays only Phyrexian mana (CR 107.4f) or what an effect lets life pay")
         }
         // CR 605.3a: every payment may use mana abilities, also one a spell or ability asks as it resolves
         val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))

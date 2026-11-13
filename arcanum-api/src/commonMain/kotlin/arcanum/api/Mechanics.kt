@@ -498,6 +498,16 @@ sealed interface Mechanic {
     @Serializable @SerialName("abilities-ignore-summoning-sickness") data object AbilitiesIgnoreSummoningSickness : Mechanic
     /** The affected permanents untap during each other player's untap step too (CR 502.3). */
     @Serializable @SerialName("untaps-during-other-untap-steps") data object UntapsDuringOtherUntapSteps : Mechanic
+    // mh3 fixes
+    /** The affected players may pay 2 life rather than pay each {[color]} mana symbol in a cost ("For each {B} in a cost, you may pay 2
+     * life rather than pay that mana"): only the plain coloured symbol, not a hybrid one (CR 107.4e, 601.2h); unlike Phyrexian mana it
+     * changes no cost (CR 107.4f). */
+    @Serializable @SerialName("pay-life-for-mana") data class PayLifeForMana(val color: Color) : Mechanic
+    /** The affected players can't untap more than [max] permanents matching [filter] during their untap steps ("Players can't untap more
+     * than one nonbasic land during their untap steps"): the active player chooses which of those untap (CR 502.3). */
+    @Serializable @SerialName("untap-limit") data class UntapLimit(val max: Int, val filter: ObjectFilter) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** The affected players don't lose the game for having 0 or less life (CR 704.5a doesn't apply to them). */
     @Serializable @SerialName("no-loss-for-zero-life") data object NoLossForZeroLife : Mechanic
     /** The affected players' maximum hand size is [value] (CR 402.2), instead of seven. */
@@ -507,6 +517,11 @@ sealed interface Mechanic {
     /** "If this card is in your opening hand, you may begin the game with it on the battlefield" (CR 103.6a): an
      * opening-hand action, taken after mulligans; works in the hand. */
     @Serializable @SerialName("may-begin-on-battlefield") data object MayBeginOnBattlefield : Mechanic
+    // mh3 fixes
+    /** "You may reveal this card from your opening hand. If you do, [instructions]" (CR 103.6b): an opening-hand action, taken after
+     * mulligans; its owner reveals the card and [instructions] happen (usually a delayed trigger "at the beginning of your first upkeep",
+     * CR 603.7); works in the hand. */
+    @Serializable @SerialName("opening-hand-reveal") data class OpeningHandReveal(val instructions: Instructions) : Mechanic
     /** "Any time you could mulligan and this card is in your hand, you may [instructions]" (CR 103.5b): an action its owner may
      * take where they would declare whether they take a mulligan, then they declare; works in the hand. */
     @Serializable @SerialName("when-you-could-mulligan") data class WhenYouCouldMulligan(val instructions: Instructions) : Mechanic

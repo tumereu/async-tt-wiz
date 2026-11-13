@@ -207,6 +207,8 @@ internal object Costs {
         val options: List<ObjectId>, val min: Int, val max: Int?, val text: String, val total: arcanum.api.Total?,
         // rtr chunk 07: the chosen objects must all share this quality ("two nonland cards with the same name")
         val shared: arcanum.api.SharedQuality? = null,
+        // mh3 fixes: the chosen objects have at least this many different values of a quality ("four or more card types among them")
+        val distinct: arcanum.api.Distinct? = null,
     )
 
     fun objectChoice(snap: Snapshot, player: PlayerId, self: ObjectId?, part: CostPart, eval: Evaluator): ObjectChoice? {
@@ -258,8 +260,8 @@ internal object Costs {
         val text = describe(part)
         // rtr chunk 07: only objects with enough others sharing the quality can be among the chosen
         val sharing = choose.shared?.let { q -> options.filter { a -> options.count { b -> b != a && eval.shares(q, a, b) } >= (count ?: 1) - 1 } } ?: options
-        return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared)
-            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: 0, count, text, null, choose.shared)
+        return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared, choose.distinct)
+            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: 0, count, text, null, choose.shared, choose.distinct)
     }
 
     /** A plain description of a cost part, for decisions ("Sacrifice a creature"). */

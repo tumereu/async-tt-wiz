@@ -262,7 +262,7 @@ class MshChunk18MulticoloredMoreTest {
     ) parsesTo abilities(
         spell(
             Step.Do(Effect.Search(Players.You, and(artifact, creature, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Announced("X"))), max = n(1),
-                zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You)),
+                zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You, zonesChosen = true)),
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, counters = listOf(arcanum.api.CountersToPut(p1p1, Value.Announced("X")))), postBind = "put")),
             Step.If(Condition.Compare(Value.Announced("X"), arcanum.api.Comparison.AtLeast, n(4)), then = listOf(gains(Objects.Bound("put"), Keyword.Haste))),
             Step.If(Condition.Searched("found", Zone.Library), then = listOf(shuffle)),

@@ -668,7 +668,7 @@ internal class Sentences(
         Dft.MAY_SEARCH_LIBRARY_AND_OR_GRAVEYARD_REVEAL_HAND.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return listOf(Step.May(listOf(
-                Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You, zonesChosen = true)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
                 Step.If(arcanum.api.Condition.Searched("found", Zone.Library), then = listOf(Step.Do(Effect.Shuffle(Players.You))))), player = Players.You))
         }
@@ -2845,6 +2845,13 @@ internal class Sentences(
         EXILE_FROM_HAND_COST.matchEntire(text)?.let { m ->
             return listOf(CostPart.Exile(CostObjects.Choose(Filters.noun(m.groupValues[1]) ?: return null, count = Value.Fixed(1)), from = Zone.Hand))
         }
+        // mh3 fixes: "Exile any number of other cards from your graveyard with four or more card types among them" (CR 205.2a)
+        Mh3.EXILE_ANY_NUMBER_WITH_TYPES_AMONG_COST.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(CostPart.Exile(CostObjects.Choose(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun), count = null,
+                distinct = arcanum.api.Distinct(arcanum.api.SharedQuality.CardType, n)), from = Zone.Graveyard))
+        }
         // chunks 30, 41: "Exile eight other cards from your graveyard", "Exile two cards from your graveyard",
         // "Exile another creature card from your graveyard"
         EXILE_FROM_GRAVEYARD_COST.matchEntire(text)?.let { m ->
@@ -4526,7 +4533,7 @@ internal class Sentences(
             // dsk chunk 12: "your graveyard, hand, and/or library"
             val zones = if (m.groupValues[1].startsWith("library")) listOf(Zone.Library, Zone.Graveyard) else listOf(Zone.Graveyard, Zone.Hand, Zone.Library)
             return listOf(
-                Step.Do(Effect.Search(Players.You, filter, zones = zones, bind = "found", max = Value.Fixed(1), searcher = Players.You)),
+                Step.Do(Effect.Search(Players.You, filter, zones = zones, bind = "found", max = Value.Fixed(1), searcher = Players.You, zonesChosen = true)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))))
         }
         IF_X_AT_LEAST.matchEntire(sentence)?.let { m ->
@@ -13273,7 +13280,7 @@ internal class Sentences(
                 Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = hobN(m.groupValues[3]) ?: return null)), then = listOf(
                     Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Self))), payer = Players.You, mandatory = true, bind = "sacrificed"),
                     Step.If(arcanum.api.Condition.Did("sacrificed"), then = listOf(
-                        Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), zones = listOf(Zone.Hand, Zone.Library), bind = "found", searcher = Players.You)),
+                        Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), zones = listOf(Zone.Hand, Zone.Library), bind = "found", searcher = Players.You, zonesChosen = true)),
                         Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))),
                         Step.If(arcanum.api.Condition.Searched("found", Zone.Library), then = listOf(Step.Do(Effect.Shuffle(Players.You)))))))))
         }
@@ -14774,7 +14781,7 @@ internal class Sentences(
             val chosen = Numbers.count(m.groupValues[3]) ?: return null
             val filter = Filters.all(Filters.noun(m.groupValues[2].removeSuffix("s").replace("cards", "card")) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You))
             return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(n), reveal = true, zones = listOf(Zone.Library, Zone.Outside),
-                    differentNames = true, bind = "found", searcher = Players.You)),
+                    differentNames = true, bind = "found", searcher = Players.You, zonesChosen = true)),
                 Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(chosen), Value.Fixed(chosen), from = Objects.Bound("found")),
                     bind = "chosen", chooser = Players.Each(PlayerFilter.Opponent)),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
@@ -17475,6 +17482,26 @@ internal class Sentences(
 
     /** mh3: static abilities, tried after the other sets' (general fallbacks). */
     private fun mh3Static(line: String): Ability? {
+        // mh3 fixes: "You may reveal this card from your opening hand. If you do, at the beginning of your first upkeep, …" (an opening-hand action,
+        // CR 103.6b; the game hasn't begun, so "your first upkeep" is your next one: a delayed trigger, CR 603.7)
+        Mh3.REVEAL_FROM_OPENING_HAND_FIRST_UPKEEP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val body = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return@let
+            if (body.targets.isNotEmpty()) return@let
+            return Ability.Static(listOf(Mechanic.OpeningHandReveal(Instructions(steps = listOf(Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.You)), body)))))), affects = Affected.Objects(Objects.Self), functionsIn = listOf(Zone.Hand))
+        }
+        // mh3 fixes: "For each {B} in a cost, you may pay 2 life rather than pay that mana." (the plain symbol only, CR 107.4e; no cost changes)
+        Mh3.PAY_LIFE_RATHER_THAN_MANA.matchEntire(line)?.let { m ->
+            val color = arcanum.api.Color.of(m.groupValues[1].single()) ?: return@let
+            return Ability.Static(listOf(Mechanic.PayLifeForMana(color)), affects = Affected.Players(Players.You))
+        }
+        // mh3 fixes: "Players can't untap more than one nonbasic land during their untap steps." (the active player chooses which, CR 502.3)
+        Mh3.CANT_UNTAP_MORE_THAN.matchEntire(line)?.let { m ->
+            val max = Numbers.count(m.groupValues[2]) ?: return@let
+            val filter = Filters.noun(m.groupValues[3].let { if (max == 1) it else it.removeSuffix("s") }) ?: return@let
+            val players = if (m.groupValues[1] == "Players") Players.Each(PlayerFilter.Any) else Players.You
+            return Ability.Static(listOf(Mechanic.UntapLimit(max, filter)), affects = Affected.Players(players))
+        }
         // mh3 chunk 11: "Nonbasic lands are Islands." (layer 4, CR 305.7)
         Mh3.ARE_BASIC_LAND_TYPE.matchEntire(line)?.let { m ->
             val group = Filters.noun(m.groupValues[1].removeSuffix("s").replaceFirstChar { it.lowercase() })?.takeIf { m.groupValues[1].endsWith("lands") } ?: return@let
@@ -17903,13 +17930,15 @@ internal class Sentences(
         context.thatMuch?.takeIf { Mh3.ENERGY_PAID_THIS_WAY.matches(text) && it == Value.Bound("energy") }
 
     private fun mh3Whole(text: String, context: Context): List<Step>? {
-        // mh3 chunk 17: "You may draw cards equal to its power. If you do, discard that many cards." (the number actually drawn, CR 608.2c)
+        // mh3 chunk 17: "You may draw cards equal to its power. If you do, discard that many cards." ("that many" is the number the draw instruction
+        // named, as in CR 121.2's "instructed to draw multiple cards, that player performs that many individual card draws", not how many were drawn
+        // after replacements or an empty library, CR 121.6, 609.3)
         Mh3.MAY_DRAW_EQUAL_TO_IF_YOU_DO_DISCARD_THAT_MANY.matchEntire(text)?.let { m ->
             val amount = gtcValue(m.groupValues[1], context) ?: return@let
             return listOf(
-                Step.Pay(cost = null, steps = listOf(Step.Do(Effect.Draw(Players.You, amount, postBind = "drawn"))), payer = Players.You, mandatory = false, bind = "paid"),
+                Step.Pay(cost = null, steps = listOf(Step.Do(Effect.Draw(Players.You, amount))), payer = Players.You, mandatory = false, bind = "paid"),
                 Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
-                    Step.Do(Effect.Discard(Players.You, Value.Count(Objects.Bound("drawn")), filter = ObjectFilter.Any)))))
+                    Step.Do(Effect.Discard(Players.You, amount, filter = ObjectFilter.Any)))))
         }
         // mh3 chunk 12: "Exile the top three cards of your library. You may play those cards this turn. At the beginning of the next end step, if any of
         // those cards remain exiled, put them into your graveyard, then create a 0/1 … token for each card put into your graveyard this way. Those tokens
@@ -17960,8 +17989,8 @@ internal class Sentences(
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty("put")), then = listOf(Step.Do(Effect.Move(card, Destination(Zone.Hand))))))
         }
         // mh3 chunk 12: "Sacrifice any number of creatures. Search your library and/or graveyard for a creature card with mana value less than or equal
-        // to the number of creatures sacrificed this way and put it onto the battlefield. If you search your library this way, shuffle." (both zones
-        // searched, so the library is shuffled, CR 701.23a, 701.21a)
+        // to the number of creatures sacrificed this way and put it onto the battlefield. If you search your library this way, shuffle." (library,
+        // graveyard or both, chosen; shuffled only when the library was searched, CR 701.23a, 701.21a)
         Mh3.SACRIFICE_ANY_NUMBER_SEARCH_MV_AT_MOST_SACRIFICED.matchEntire(text)?.let { m ->
             val sacrificed = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return@let
             val card = Filters.noun(m.groupValues[2]) ?: return@let
@@ -17971,9 +18000,9 @@ internal class Sentences(
                     chooser = Players.You),
                 Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = SACRIFICED)),
                 Step.Do(Effect.Search(Players.You, Filters.all(card, mv), max = Value.Fixed(1), zones = listOf(Zone.Library, Zone.Graveyard), bind = "found",
-                    searcher = Players.You)),
+                    searcher = Players.You, zonesChosen = true)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))),
-                Step.Do(Effect.Shuffle(Players.You)))
+                Step.If(arcanum.api.Condition.Searched("found", Zone.Library), then = listOf(Step.Do(Effect.Shuffle(Players.You)))))
         }
         // mh3 chunk 12: "Tap all creatures target player controls. You may pay any amount of {E}. If you do, choose up to that many creatures tapped this
         // way. Put a stun counter on each of them." (tapped this way: those that were untapped, CR 701.26a; any amount, CR 107.1b, 107.14)
@@ -18418,7 +18447,7 @@ internal class Sentences(
             val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, x))
             val keywords = mshKeywords(m.groupValues[4]) ?: return null
             return listOf(
-                Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You, zonesChosen = true)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, counters = listOf(arcanum.api.CountersToPut(Counters.kind(m.groupValues[2]) ?: return null, x))),
                     postBind = "put")),
                 Step.If(arcanum.api.Condition.Compare(x, arcanum.api.Comparison.AtLeast, Value.Fixed(m.groupValues[3].toInt())),
@@ -22399,7 +22428,7 @@ internal class Sentences(
         Fin.SEARCH_LIBRARY_AND_OR_GRAVEYARD.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard), bind = "found",
-                searcher = Players.You)), Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
+                searcher = Players.You, zonesChosen = true)), Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
                 Step.If(arcanum.api.Condition.Searched("found", Zone.Library), then = listOf(Step.Do(Effect.Shuffle(Players.You)))))
         }
         // fin chunk 07: "Target opponent gains control of another target permanent you control. If they do, you draw a card." (CR 613.1b)
@@ -24223,12 +24252,13 @@ internal class Sentences(
                             Value.Fixed(m.groupValues[4].toInt()), Objects.Self)))))))))
         }
         // tdm chunk 09: "look at the top three cards of your library. You may put one of those cards back on top of your library. Put the rest into your
-        // graveyard."
+        // graveyard." (mh3 fixes: or "Exile the rest.")
         Tdm.LOOK_MAY_ONE_BACK_REST_GRAVEYARD.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
+            val rest = if (m.groupValues[2] == "Exile the rest") Zone.Exile else Zone.Graveyard
             return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Players.You, bind = "looked")),
                 Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("looked")), bind = "kept", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("kept")), Destination(Zone.Graveyard))))
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("kept")), Destination(rest))))
         }
         // tdm chunk 09: "Look at the top four cards of your library. Put two of them into your hand and the rest into your graveyard."
         Tdm.LOOK_PUT_N_HAND_REST_GRAVEYARD.matchEntire(text)?.let { m ->

@@ -65,6 +65,8 @@ class Chunk12HarderCardFlowTest {
                     bind = "found",
                     max = Value.Fixed(1),
                     searcher = Players.You,
+                    // "and/or": the searcher chooses which zones (CR 701.23a)
+                    zonesChosen = true,
                 )),
                 Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
                 Step.If(

@@ -120,7 +120,7 @@ internal object Tdm {
     val DRAW_MAY_DISCARD_WHEN_NONLAND_DAMAGE = Regex("""Draw a card(?:, then|\. Then) you may discard an? (?:(\w+) )?card\. When you discard an? (?:(\w+) )?card this way, (.+?) deals (\d+) damage to target (.+)\.""")
     // tdm chunk 09: "look at the top three cards of your library. You may put one of those cards back on top of your library. Put the rest into your
     // graveyard."
-    val LOOK_MAY_ONE_BACK_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put one of those cards back on top of your library\. Put the rest into your graveyard\.""")
+    val LOOK_MAY_ONE_BACK_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put one of those cards back on top of your library\. (Put the rest into your graveyard|Exile the rest)\.""")
     // tdm chunk 09: "Look at the top four cards of your library. Put two of them into your hand and the rest into your graveyard."
     val LOOK_PUT_N_HAND_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. Put (\w+) of them into your hand and the rest into your graveyard\.""")
     // tdm chunk 10: "This creature has hexproof as long as it hasn't dealt damage yet."

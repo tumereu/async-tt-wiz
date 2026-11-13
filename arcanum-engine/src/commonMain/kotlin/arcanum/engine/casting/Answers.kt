@@ -117,6 +117,10 @@ internal object Answers {
                 ch.shared?.let { quality ->
                     if (chosen.any { a -> chosen.any { b -> a != b && !plan.eval.shares(quality, a, b) } }) refuse("The chosen objects must share $quality")
                 }
+                // mh3 fixes: "with four or more card types among them" (CR 205.2a)
+                ch.distinct?.let { d ->
+                    if (plan.eval.distinct(d.quality, chosen) < d.atLeast) refuse("They must have ${d.atLeast} or more different ${d.quality} among them")
+                }
                 ch.total?.let { total ->
                     val sum = chosen.sumOf { plan.eval.property(total.property, it) }
                     if (sum < plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be at least ${plan.eval.value(total.atLeast)}")
@@ -177,7 +181,7 @@ internal object Answers {
         }
         is Question.Objects -> {
             val ch = q.choice
-            if (ch.total == null && ch.shared == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
+            if (ch.total == null && ch.shared == null && ch.distinct == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
         }
         is Question.Target -> if (q.options.isEmpty() && q.min == 0) Answer.Targets(emptyList()) else null
         // blb: the only opponent there is (CR 702.174a, two players)

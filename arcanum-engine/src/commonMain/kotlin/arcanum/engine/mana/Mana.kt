@@ -341,7 +341,7 @@ internal object Mana {
                             val choice = arcanum.engine.casting.Costs.objectChoice(snap, player, null, part, eval)
                             if (choice == null || (part is CostPart.Discard && part.random)) unknown = true
                             else {
-                                val single = choice.min <= 1 && choice.total == null && choice.shared == null
+                                val single = choice.min <= 1 && choice.total == null && choice.shared == null && choice.distinct == null
                                 // CR 601.2g before 601.2h: what the cost taps must still be there and untapped; what the cost moves away may tap
                                 // for mana first but can't also go for mana
                                 val free = choice.options.filter { o -> o !in reserved.tapped && (part is CostPart.TapObjects || o !in reserved.leaving) }
@@ -460,9 +460,9 @@ internal object Mana {
     /** One requirement of a cost: one of [alternatives], each a list of single-mana needs, or 2 life when [life]. */
     data class Need(val symbolIndex: Int, val alternatives: List<List<(Payer) -> Boolean>>, val life: Boolean, val generic: Boolean)
 
-    /** The least mana that pays [cost], Phyrexian symbols paid with life (X symbols as replaced, [withX]). */
-    fun leastMana(cost: ManaCost): Long = cost.symbols.sumOf { s ->
-        when (s) {
+    /** The least mana that pays [cost], Phyrexian symbols and those of [lifeOk] paid with life (X symbols as replaced, [withX]). */
+    fun leastMana(cost: ManaCost, lifeOk: Collection<Int> = emptyList()): Long = cost.symbols.withIndex().sumOf { (i, s) ->
+        if (i in lifeOk) 0L else when (s) {
             is ManaSymbol.Generic -> s.amount.toLong()
             is ManaSymbol.Variable, is ManaSymbol.Phyrexian, is ManaSymbol.PhyrexianHybrid -> 0L
             else -> 1L
@@ -476,7 +476,8 @@ internal object Mana {
         val any: (Payer) -> Boolean = { true }
         when (s) {
             is ManaSymbol.Generic -> List(s.amount) { Need(i, listOf(listOf(any)), life = false, generic = true) }
-            is ManaSymbol.Colored -> listOf(Need(i, listOf(listOf(color(s.color))), false, false))
+            // mh3 fixes: "you may pay 2 life rather than pay that mana" ([lifeSymbols])
+            is ManaSymbol.Colored -> listOf(if (i in lifeFor) Need(i, emptyList(), life = true, generic = false) else Need(i, listOf(listOf(color(s.color))), false, false))
             ManaSymbol.Colorless -> listOf(Need(i, listOf(listOf(colorless)), false, false))
             ManaSymbol.Snow -> listOf(Need(i, listOf(listOf { p: Payer -> p.snow }), false, false))
             is ManaSymbol.Variable -> emptyList()
@@ -487,6 +488,16 @@ internal object Mana {
             is ManaSymbol.PhyrexianHybrid -> listOf(Need(i, if (i in lifeFor) emptyList()
                 else listOf(listOf(color(s.first)), listOf(color(s.second))), life = i in lifeFor, generic = false))
         }
+    }
+
+    // mh3 fixes
+    /** The symbols of [cost] [player] may pay with 2 life: Phyrexian ones (CR 107.4f) and each plain {B} (or other colour) symbol while an
+     * effect lets them pay life rather than that mana ([Mechanic.PayLifeForMana]). */
+    fun lifeSymbols(snap: Snapshot, player: PlayerId, cost: ManaCost): List<Int> {
+        val colors = snap.view.players[player]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.PayLifeForMana)?.color }.toSet()
+        return cost.symbols.withIndex().filter { (_, s) ->
+            s is ManaSymbol.Phyrexian || s is ManaSymbol.PhyrexianHybrid || (s is ManaSymbol.Colored && s.color in colors)
+        }.map { it.index }
     }
 
     /** Replaces {X} (and {Y}, {Z}) with their announced values (CR 107.3). */
@@ -628,7 +639,7 @@ internal object Mana {
                     (1..MAX_ANNOUNCED).forEach { n -> picks(s).forEach { p -> add(use(p).let { u -> u.copy(answers = listOf<Answer>(Answer.Number(n)) + u.answers) }) } }
                 } else picks(s).forEach { add(use(it)) }
             }
-            cost.symbols.forEachIndexed { i, s -> if (s is ManaSymbol.Phyrexian || s is ManaSymbol.PhyrexianHybrid) add(ManaUse.Life(i)) }
+            lifeSymbols(snap, player, cost).forEach { add(ManaUse.Life(it)) }
             specialPayers(snap, player, ways, reserved.tapped).forEach { add(it.use) }
         }
 
@@ -743,7 +754,7 @@ internal object Mana {
         private val removedSources = removed.filterIsInstance<ManaUse.Ability>()
         private val all: List<Source> = if (!canSpendMana) emptyList() else sources(snap, player, reserved).filter { s -> removedSources.none { sameSource(it, s) } }
         private val searched = all.filter { !it.unknown }
-        private val phyrexian = cost.symbols.withIndex().filter { it.value is ManaSymbol.Phyrexian || it.value is ManaSymbol.PhyrexianHybrid }.map { it.index }
+        private val phyrexian = lifeSymbols(snap, player, cost)
         private val mustLife = pinned.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         private val noLife = removed.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         private val specials: List<Payer> = capped(specialPayers(snap, player, ways, reserved.tapped).filter { p -> removed.none { it == p.use } }, ways)
@@ -787,7 +798,7 @@ internal object Mana {
         fun impossible(): Boolean {
             if (lifeWays.isEmpty()) return true
             // More mana than everything nets isn't worked out symbol by symbol (a huge X)
-            val least = leastMana(cost)
+            val least = leastMana(cost, phyrexian)
             val net = pool.size + specials.size + searched.sumOf { s ->
                 val own = s.ownCost?.let { leastMana(it) } ?: 0L
                 maxOf(0L, s.amount.toLong() - own) * minOf(s.limit.toLong(), least + 1)

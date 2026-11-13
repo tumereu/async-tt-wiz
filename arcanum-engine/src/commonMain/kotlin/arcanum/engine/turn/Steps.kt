@@ -241,7 +241,10 @@ internal object Steps {
     private fun turnBasedActions(recorder: Recorder): Next {
         val s = recorder.state
         return when (s.turn.step) {
-            TurnStep.Untap -> { untap(recorder); Next.GoOn }
+            TurnStep.Untap -> when (val p = untap(recorder, emptyList())) {
+                is Progress.Waiting -> Next.Wait(p)
+                Progress.Done -> Next.GoOn
+            }
             TurnStep.Draw -> {
                 // CR 103.8a: the starting player skips the draw of their first turn in a two-player game
                 if (s.turn.number == 1 && s.skipFirstDraw) Next.Priority
@@ -276,8 +279,10 @@ internal object Steps {
     }
 
     /** CR 502.1, 502.3: phasing, then the active player's permanents untap, except those that don't (a stun counter is
-     * removed instead, CR 122.1d). */
-    private fun untap(recorder: Recorder) {
+     * removed instead, CR 122.1d); with an untap limit ([Mechanic.UntapLimit]) the active player chooses which untap. A decision
+     * stops it, and it is redone from its start with the [answers] so far (D29). */
+    private fun untap(recorder: Recorder, answers: List<Answer>): Progress {
+        val mark = recorder.changes.size
         val s = recorder.state
         val active = s.turn.active
         val snap = Snapshot(s)
@@ -292,12 +297,21 @@ internal object Steps {
             }
         }
         val after = Snapshot(recorder.state)
-        recorder.state.battlefield.toList().forEach { id ->
-            val o = recorder.state.obj(id) ?: return@forEach
+        val untapping = recorder.state.battlefield.filter { id ->
+            val o = recorder.state.obj(id) ?: return@filter false
             // CR 502.3: "untaps during each other player's untap step"
-            if (!o.tapped || o.phasedOut) return@forEach
-            if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@forEach
-            if (after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } == true) return@forEach
+            if (!o.tapped || o.phasedOut) return@filter false
+            if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@filter false
+            after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } != true
+        }
+        val allowed = try {
+            untapLimits(recorder, after, active, untapping, answers)
+        } catch (n: arcanum.engine.action.NeedDecision) {
+            recorder.rollback(mark)
+            return Progress.Waiting(Pending(n.decision, Continuation.TurnBased(TurnAction.Untap(answers))))
+        }
+        allowed.forEach { id ->
+            val o = recorder.state.obj(id) ?: return@forEach
             // ltr chunk 03: "remove a +1/+1 counter from it instead. If you do, untap it." (CR 614.1a; without one it stays tapped)
             val instead = after.view[id]?.mechanics.orEmpty().firstNotNullOfOrNull { it.mechanic as? Mechanic.UntapReplacedByRemovingCounter }
             if (instead != null) {
@@ -310,6 +324,34 @@ internal object Steps {
                 recorder.record(Changes.tap(recorder.state, id, tapped = false))
             }
         }
+        return Progress.Done
+    }
+
+    // mh3 fixes
+    /** CR 502.3: of [untapping], those the active player may untap under each untap limit affecting them ("Players can't untap more than one
+     * nonbasic land during their untap steps"): where more match a limit than it allows, they choose which, one limit after another. */
+    private fun untapLimits(recorder: Recorder, snap: Snapshot, active: PlayerId, untapping: List<arcanum.engine.state.ObjectId>,
+                            answers: List<Answer>): List<arcanum.engine.state.ObjectId> {
+        val limits = snap.view.players[active]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.UntapLimit }
+        if (limits.isEmpty()) return untapping
+        val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker(answers, decisionId(recorder.state, active, "untap").value))
+        var left = untapping
+        limits.forEach { applied ->
+            val limit = applied.mechanic as Mechanic.UntapLimit
+            val e = snap.evaluator(applied.controller, self = applied.source, names = applied.names)
+            val matching = left.filter { e.matches(limit.filter, it) }
+            if (matching.size <= limit.max) return@forEach
+            val chosen = act.chooseObjects(active, applied.source, matching, limit.max, limit.max, "Choose which untap (CR 502.3)")
+            require(chosen.size == limit.max && chosen.all { it in matching }) { "Choose ${limit.max} of them to untap" }
+            left = left.filter { it !in matching || it in chosen }
+        }
+        return left
+    }
+
+    /** An answer to the untap step's choice of what untaps: the untap step is redone with it, then the turn goes on. */
+    fun resumeUntap(recorder: Recorder, action: TurnAction.Untap, answer: Answer): Progress {
+        (untap(recorder, action.answers + answer) as? Progress.Waiting)?.let { return it }
+        return endStep(recorder, afterPriority = false)
     }
 
     /** CR 702.26a: phasing, the keyword or its meaning. */

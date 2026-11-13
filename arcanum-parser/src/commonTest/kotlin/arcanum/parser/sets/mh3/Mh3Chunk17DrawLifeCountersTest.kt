@@ -25,7 +25,7 @@ class Mh3Chunk17DrawLifeCountersTest {
         ))),
     )), affects = Affected.Objects(Objects.Self))
 
-    // CR 121.1: draw; CR 608.2c: "that many" is the number drawn; CR 701.9 discard
+    // CR 121.1, 121.2: draw; "that many" is the number the draw named (its power), as in CR 121.2's own "that many"; CR 701.9 discard
     @Test
     fun gloomyWebspinner() = card(
         name = "Gloomy Webspinner",
@@ -39,8 +39,8 @@ class Mh3Chunk17DrawLifeCountersTest {
     ) parsesTo abilities(
         Keyword.Lifelink,
         triggered(attacksSelf,
-            Step.Pay(cost = null, steps = listOf(Step.Do(Effect.Draw(Players.You, power(Objects.Self), postBind = "drawn"))), payer = Players.You, mandatory = false, bind = "paid"),
-            ifThen(Condition.Did("paid"), Step.Do(Effect.Discard(Players.You, Value.Count(Objects.Bound("drawn")), ObjectFilter.Any)))),
+            Step.Pay(cost = null, steps = listOf(Step.Do(Effect.Draw(Players.You, power(Objects.Self)))), payer = Players.You, mandatory = false, bind = "paid"),
+            ifThen(Condition.Did("paid"), Step.Do(Effect.Discard(Players.You, power(Objects.Self), ObjectFilter.Any)))),
     )
 
     // CR 510.1, 121.1 (combat damage to a player or planeswalker), 118.12 (discard as a cost), 602.1 (exile from graveyard as a cost)

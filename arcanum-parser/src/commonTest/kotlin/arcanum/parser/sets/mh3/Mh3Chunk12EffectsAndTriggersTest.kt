@@ -246,7 +246,8 @@ class Mh3Chunk12EffectsAndTriggersTest {
         ) to abilities(entersTapped, addEither("W", "U")),
     )
 
-    // CR 701.21a: the creatures sacrificed this way set the greatest mana value; both zones are searched (CR 701.23a)
+    // CR 701.21a: the creatures sacrificed this way set the greatest mana value; "library and/or graveyard": the searcher chooses which, and
+    // the library is shuffled only if it was searched (CR 701.23a, 701.24a)
     @Test
     fun theSwarmTideSwells() = card(
         name = "The Swarm Tide Swells",
@@ -262,9 +263,10 @@ class Mh3Chunk12EffectsAndTriggersTest {
         chapter(4,
             Step.Choose(Choice.Objects(creatureYouControl, n(0), null), bind = "chosen", chooser = Players.You),
             Step.Do(Effect.Sacrifice(Objects.Bound("chosen"), postBind = "sacrificed")),
-            search(and(creature, ObjectFilter.ManaValue(Comparison.AtMost, Value.Count(Objects.Bound("sacrificed")))), zones = listOf(Zone.Library, Zone.Graveyard)),
+            search(and(creature, ObjectFilter.ManaValue(Comparison.AtMost, Value.Count(Objects.Bound("sacrificed")))), zones = listOf(Zone.Library, Zone.Graveyard),
+                zonesChosen = true),
             move(found, Zone.Battlefield),
-            shuffle,
+            Step.If(Condition.Searched("found", Zone.Library), then = listOf(shuffle)),
         ),
     )
 

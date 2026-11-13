@@ -158,7 +158,8 @@ internal object Options {
      */
     private fun tries(snap: Snapshot, pending: Pending): Sequence<Answer> = when (val d = pending.decision) {
         is Decision.Targets -> selections(d.options, d.min, d.max).map { Answer.Targets(it) }
-        is Decision.ChooseObjects -> (sharing(snap, pending).orEmpty().asSequence() + listOfNotNull(reachingTotal(snap, pending)) + selections(d.options, d.min, d.max))
+        is Decision.ChooseObjects -> (sharing(snap, pending).orEmpty().asSequence() + listOfNotNull(reachingTotal(snap, pending), reachingDistinct(snap, pending)) +
+            selections(d.options, d.min, d.max))
             .distinct().map { Answer.Objects(it) }
         is Decision.Modes -> {
             val available = d.options.filter { it.available }.map { it.index }
@@ -415,7 +416,8 @@ internal object Options {
     private fun candidates(snap: Snapshot, pending: Pending): List<Answer> = when (val d = pending.decision) {
         is Decision.May -> listOfNotNull(Answer.YesNo(true).takeIf { d.payable }, Answer.YesNo(false))
         is Decision.Targets -> some(d.options, d.min, d.max).map { Answer.Targets(it) }
-        is Decision.ChooseObjects -> (sharing(snap, pending) ?: (some(d.options, d.min, d.max) + listOfNotNull(reachingTotal(snap, pending)))).map { Answer.Objects(it) }
+        is Decision.ChooseObjects -> (sharing(snap, pending) ?: (some(d.options, d.min, d.max) + listOfNotNull(reachingTotal(snap, pending),
+            reachingDistinct(snap, pending)))).map { Answer.Objects(it) }
         is Decision.Modes -> {
             val available = d.options.filter { it.available }.map { it.index }
             val repeated = if (d.repeatable && available.isNotEmpty() && available.size < d.min) listOf(List(d.min) { available.first() }) else emptyList()
@@ -467,6 +469,21 @@ internal object Options {
         val q = plan.next() as? Question.Objects ?: return null
         val total = q.choice.total ?: return null
         return largestFirst(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
+    }
+
+    /** mh3 fixes: for a cost that asks objects with enough different values of a quality among them ("with four or more card types among
+     * them"): each option that adds a new value, until there are enough. Null when the question asks no such thing. */
+    private fun reachingDistinct(snap: Snapshot, pending: Pending): List<ObjectId>? {
+        val c = pending.continuation as? Continuation.Announcing ?: return null
+        val plan = Plan(snap.state, c)
+        val q = plan.next() as? Question.Objects ?: return null
+        val d = q.choice.distinct ?: return null
+        val chosen = mutableListOf<ObjectId>()
+        for (id in q.choice.options) {
+            if (plan.eval.distinct(d.quality, chosen) >= d.atLeast) break
+            if (plan.eval.distinct(d.quality, chosen + id) > plan.eval.distinct(d.quality, chosen)) chosen += id
+        }
+        return chosen.takeIf { plan.eval.distinct(d.quality, it) >= d.atLeast }
     }
 
     /** [options], the largest [value] first, up to the first that reach [atLeast] and are at least [min]. */

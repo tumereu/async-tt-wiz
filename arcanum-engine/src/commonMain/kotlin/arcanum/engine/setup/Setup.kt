@@ -392,7 +392,8 @@ internal object Setup {
 
     // ---- CR 103.6
 
-    /** CR 103.6a: the next player puts any of their opening-hand cards that may begin the game on the battlefield there. */
+    /** CR 103.6a: the next player puts any of their opening-hand cards that may begin the game on the battlefield there; CR 103.6b: then
+     * reveals any they may reveal from their opening hand. */
     private fun openingHand(act: Act, stage: SetupStage.OpeningHand): SetupStage {
         val s = act.state
         val player = order(s).firstOrNull { it !in stage.done } ?: return SetupStage.FirstTurn
@@ -403,6 +404,19 @@ internal object Setup {
         if (cards.isNotEmpty()) {
             val chosen = act.chooseObjects(player, null, cards, 0, cards.size, "Begin the game with any of these on the battlefield (CR 103.6a)")
             if (chosen.isNotEmpty()) Actions.move(act, null, chosen.map { arcanum.engine.action.PlannedMove(it, Zone.Battlefield, controller = player) })
+        }
+        // mh3 fixes: CR 103.6b: "You may reveal this card from your opening hand. If you do, …": revealed, then its instructions happen
+        val reveals = act.state.player(player).hand.mapNotNull { id ->
+            act.state.obj(id)?.definition?.faces?.firstOrNull()?.abilities.orEmpty().filterIsInstance<arcanum.api.Ability.Static>()
+                .flatMap { it.mechanics.filterIsInstance<arcanum.api.Mechanic.OpeningHandReveal>() }.firstOrNull()?.let { id to it.instructions }
+        }
+        if (reveals.isNotEmpty()) {
+            val chosen = act.chooseObjects(player, null, reveals.map { it.first }, 0, reveals.size, "Reveal any of these from your opening hand (CR 103.6b)")
+            if (chosen.isNotEmpty()) act.record(Change.Happened(GameEvent.Revealed(player, chosen)))
+            reveals.filter { it.first in chosen }.forEach { (card, instructions) ->
+                val cause = arcanum.engine.action.Cause(player, card, key = "opening-hand:$card")
+                arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, cause, arcanum.engine.state.Bindings.EMPTY, null), instructions.steps)
+            }
         }
         return stage.copy(done = stage.done + player)
     }

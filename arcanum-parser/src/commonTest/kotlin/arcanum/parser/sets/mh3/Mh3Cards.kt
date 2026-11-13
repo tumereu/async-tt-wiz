@@ -187,8 +187,9 @@ fun untapIt(objects: Objects): Step = Step.Do(Effect.Untap(objects))
 fun power(of: Objects): Value = Value.Of(NumericProperty.Power, of, Combine.Single)
 fun toughness(of: Objects): Value = Value.Of(NumericProperty.Toughness, of, Combine.Single)
 fun count(filter: ObjectFilter): Value = Value.Count(Objects.Each(filter))
-fun search(filter: ObjectFilter, max: Int = 1, reveal: Boolean = false, bind: String = "found", zones: List<Zone> = listOf(Zone.Library)): Step =
-    Step.Do(Effect.Search(Players.You, filter, max = n(max), reveal = reveal, zones = zones, bind = bind, searcher = Players.You))
+fun search(filter: ObjectFilter, max: Int = 1, reveal: Boolean = false, bind: String = "found", zones: List<Zone> = listOf(Zone.Library),
+           zonesChosen: Boolean = false): Step =
+    Step.Do(Effect.Search(Players.You, filter, max = n(max), reveal = reveal, zones = zones, bind = bind, searcher = Players.You, zonesChosen = zonesChosen))
 val shuffle: Step = Step.Do(Effect.Shuffle(Players.You))
 fun basicLand(): ObjectFilter = and(ObjectFilter.Super(Supertype.Basic), land)
 

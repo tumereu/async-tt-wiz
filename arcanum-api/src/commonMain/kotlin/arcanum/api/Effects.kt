@@ -71,6 +71,11 @@ sealed interface Effect {
         /** The found cards' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("any number of creature cards with
          * total mana value 6 or less", CR 701.23a). */
         val totalAtMost: Choice.TotalLimit? = null,
+        // mh3 fixes
+        /** "and/or" ("Search your library and/or graveyard"): the searcher chooses which of [zones] to search, one or more; a zone not chosen
+         * isn't searched, so a library left alone isn't shuffled ("If you search your library this way, shuffle", [Condition.Searched]) and
+         * "whenever a player searches their library" doesn't trigger (CR 701.23a, 701.23f). False: every one of [zones] is searched. */
+        val zonesChosen: Boolean = false,
     ) : Effect
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */

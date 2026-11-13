@@ -131,8 +131,16 @@ sealed interface CostObjects {
         val shared: SharedQuality? = null,
         /** [count] is the most chosen, none being enough ("tapping up to one untapped creature you control", harmonize). */
         val upTo: Boolean = false,
+        // mh3 fixes
+        /** The chosen objects have at least [Distinct.atLeast] different values of [Distinct.quality] among them ("Exile any number of
+         * other cards from your graveyard with four or more card types among them", CR 205.2a, 601.2h). */
+        val distinct: Distinct? = null,
     ) : CostObjects
 }
+
+/** At least [atLeast] different values of [quality] among the chosen objects ("with four or more card types among them"). */
+@Serializable
+data class Distinct(val quality: SharedQuality, val atLeast: Int)
 
 /** Mana an ability or effect adds (CR 106). [restriction] limits what it may be spent on ("spend this mana only to
  * cast creature spells", CR 106.6). [spellGets] applies to a spell this mana is spent on ("that spell can't be

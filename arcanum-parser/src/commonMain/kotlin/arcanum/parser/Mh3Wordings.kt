@@ -241,4 +241,11 @@ internal object Mh3 {
     val COUNTER_THEN_EACH_DEALS_POWER = Regex("""(Put an? \S+ counter on target [^,]+), then (each .+ deals damage equal to its power to target .+\.)""")
     /** "Consuming Corruption deals X damage to target creature or planeswalker and you gain X life, where X is …" */
     val DEALS_X_AND_YOU_GAIN_X = Regex("""(.+?) deals X damage to (target [^,]+?) and you gain X life(, where X is .+)?\.""")
+    // mh3 fixes
+    /** "Players can't untap more than one nonbasic land during their untap steps." / "You can't untap more than two permanents during your untap
+     * step." */
+    val CANT_UNTAP_MORE_THAN = Regex("""(Players|You) can't untap more than (\w+) (.+?) during (?:their|your) untap steps?\.""")
+    val PAY_LIFE_RATHER_THAN_MANA = Regex("""For each \{([WUBRG])\} in a cost, you may pay 2 life rather than pay that mana\.""")
+    val REVEAL_FROM_OPENING_HAND_FIRST_UPKEEP = Regex("""You may reveal (.+?) from your opening hand\. If you do, at the beginning of your first upkeep, (.+)""")
+    val EXILE_ANY_NUMBER_WITH_TYPES_AMONG_COST = Regex("""Exile any number of other (cards?) from your graveyard with (\w+) or more card types among them""")
 }

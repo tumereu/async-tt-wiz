@@ -299,6 +299,8 @@ class Mh3Chunk12EffectsAndTriggersScenariosTest {
         resolveAll()
         alice.chooses(bear, shade, ogre)
         resolveAll()
+        // "library and/or graveyard": both searched (CR 701.23a)
+        answer(Answer.Option("library and graveyard"))
         alice.chooses(ogre)
         resolveAll()
         expect {

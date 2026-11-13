@@ -761,7 +761,8 @@ internal object Effects {
         val controller = dest.controller?.let { e.players(it).firstOrNull() } ?: scope.actor
         val attachTo = dest.attachedTo?.let { recipients(scope, it).firstOrNull() }
         val counters = dest.counters.map { it.kind to e.value(it.amount) }
-        val attacking = dest.attacking?.let { attackTarget(scope, it) }
+        // CR 508.4: "attacking" chosen by each creature's controller as it enters (asked per creature, in the moves below)
+        val attacking = dest.attacking?.takeIf { it != arcanum.api.AttackTarget.Chosen }?.let { attackTarget(scope, it) }
         val blocking = dest.blocking?.let { e.objects(it).firstOrNull() }
         var ordered = ids
         if (dest.randomOrder && ids.size > 1) {
@@ -777,12 +778,15 @@ internal object Effects {
         val position = dest.libraryPosition?.let { Actions.libraryPosition(it) }
         val moves = ordered.map { id ->
             val from = act.state.obj(id)!!.zone
+            // ecl: "under their owners' control": each card under its own owner's (CR 110.2)
+            val mover = if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
+                ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller
+            val attacks = if (dest.attacking == arcanum.api.AttackTarget.Chosen && dest.zone == Zone.Battlefield && act.state.combat != null)
+                chosenAttackTarget(act, mover ?: controller, scope.self) else attacking
             PlannedMove(
-                // ecl: "under their owners' control": each card under its own owner's (CR 110.2)
-                id, dest.zone, position, if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
-                    ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller,
+                id, dest.zone, position, mover,
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
-                attachTo = attachTo, transformed = dest.transformed, attacking = attacking, blocking = blocking,
+                attachTo = attachTo, transformed = dest.transformed, attacking = attacks, blocking = blocking,
                 randomOrder = dest.randomOrder && dest.zone == Zone.Library && ids.size > 1,
                 entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
             )
@@ -816,8 +820,18 @@ internal object Effects {
     private const val UNTIL_SOURCE = "\$until-source"
     private const val UNTIL_RETURNED = "\$until-returned"
 
+    /** CR 508.4: [player] chooses what a creature they control put onto the battlefield attacking attacks: a defending player, a
+     * planeswalker a defending player controls or a battle one protects (asked only when there is more than one, any number of players). */
+    private fun chosenAttackTarget(act: arcanum.engine.action.Act, player: PlayerId, source: ObjectId?): TargetRef? {
+        val options = arcanum.engine.combat.CombatRules.attackTargets(arcanum.engine.casting.Snapshot(act.state), player)
+        return if (options.size <= 1) options.firstOrNull() else act.chooseTargets(player, source, ATTACKING_SLOT, options, 1, 1).single()
+    }
+
+    /** The [arcanum.engine.decision.Decision.Targets] slot of [chosenAttackTarget]. */
+    const val ATTACKING_SLOT = "attacking"
+
     private fun attackTarget(scope: Scope, target: arcanum.api.AttackTarget): TargetRef? = when (target) {
-        arcanum.api.AttackTarget.Chosen -> scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
+        arcanum.api.AttackTarget.Chosen -> chosenAttackTarget(scope.act, scope.actor, scope.self)
         is arcanum.api.AttackTarget.SameAs -> {
             arcanum.engine.combat.Combat.lastTarget(scope.act.state, scope.objects(target.objects))
                 ?: scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
@@ -896,16 +910,34 @@ internal object Effects {
         scope.bind(bind, NamedValue.Objects(moved.values.toList()))
     }
 
+    /** mh3 fixes: "Search your library and/or graveyard": [searcher] chooses which of [zones] to search, one or more (CR 701.23a). */
+    private fun searchedZones(scope: Scope, searcher: PlayerId, zones: List<Zone>): List<Zone> {
+        if (zones.size < 2) return zones
+        val subsets = (1 until (1 shl zones.size)).map { bits -> zones.filterIndexed { i, _ -> bits and (1 shl i) != 0 } }.sortedBy { it.size }
+        val names = subsets.associateBy { subset -> subset.joinToString(" and ") { zoneWord(it) } }
+        val chosen = scope.act.chooseOption(searcher, scope.self, names.keys.toList(), text = "Search which?")
+        return names.getValue(chosen)
+    }
+
+    private fun zoneWord(zone: Zone): String = when (zone) {
+        Zone.Library -> "library"
+        Zone.Graveyard -> "graveyard"
+        Zone.Hand -> "hand"
+        Zone.Outside -> "outside the game"
+        else -> zone.toString().lowercase()
+    }
+
     /** CR 701.23: the searcher looks at the zones and finds up to N matching cards (finding none is allowed, 701.23b). */
     private fun search(scope: Scope, effect: Effect.Search) {
         val act = scope.act
         val searcher = scope.players(effect.searcher).firstOrNull() ?: scope.actor
         val found = mutableListOf<ObjectId>()
         scope.players(effect.library).forEach { owner ->
-            val cards = effect.zones.flatMap { act.state.zone(it, owner) }
+            val zones = if (effect.zonesChosen) searchedZones(scope, searcher, effect.zones) else effect.zones
+            val cards = zones.flatMap { act.state.zone(it, owner) }
             act.show(searcher, cards)
-            if (Zone.Library in effect.zones) act.record(Change.Happened(GameEvent.Searched(searcher, owner)))
-            effect.zones.forEach { z -> scope.bind(Evaluator.SEARCHED_PREFIX + (effect.bind ?: "") + ":" + z, NamedValue.Number(1)) }
+            if (Zone.Library in zones) act.record(Change.Happened(GameEvent.Searched(searcher, owner)))
+            zones.forEach { z -> scope.bind(Evaluator.SEARCHED_PREFIX + (effect.bind ?: "") + ":" + z, NamedValue.Number(1)) }
             val e = scope.eval()
             var options = cards.filter { e.matches(effect.filter, it) }
             val max = scope.value(effect.max)
@@ -1010,11 +1042,16 @@ internal object Effects {
             Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
         }
         effect.attacking?.let { target ->
-            val to = attackTarget(scope, target)
-            val combat = act.state.combat
-            if (to != null && combat != null) {
-                act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + created.map { arcanum.engine.state.Attacker(it, to) })))
+            if (act.state.combat == null) return@let
+            // CR 508.4: with "attacking" alone each token's controller chooses what it attacks
+            val shared = if (target == arcanum.api.AttackTarget.Chosen) null else attackTarget(scope, target)
+            val attackers = created.mapNotNull { id ->
+                val to = shared ?: if (target != arcanum.api.AttackTarget.Chosen) null
+                    else chosenAttackTarget(act, act.controllerOf(id) ?: scope.actor, scope.self)
+                to?.let { arcanum.engine.state.Attacker(id, it) }
             }
+            val combat = act.state.combat ?: return@let
+            if (attackers.isNotEmpty()) act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + attackers)))
         }
         scope.bind(effect.bind, NamedValue.Objects(created))
     }
@@ -1109,8 +1146,8 @@ internal object Effects {
 
     // mh3 chunk 07
     /** The target slot of an Aura spell [id]'s enchant keyword (CR 303.4a, bestowed 702.103b) when [slot] is it: a copy of the Aura spell
-     * may get a new object or player to enchant (CR 707.10c). */
-    private fun enchantSlotOf(act: arcanum.engine.action.Act, id: ObjectId, slot: String): arcanum.api.TargetSlot? {
+     * may get a new object or player to enchant (CR 707.10c), and whose target is checked again as it resolves (CR 608.3b). */
+    internal fun enchantSlotOf(act: arcanum.engine.action.Act, id: ObjectId, slot: String): arcanum.api.TargetSlot? {
         if (slot != arcanum.api.Keyword.Enchant.SLOT) return null
         if (act.state.obj(id)?.bestowed == true)
             return arcanum.api.TargetSlot(slot, arcanum.api.TargetKind.Objects(arcanum.api.ObjectFilter.Type(CardType.Creature)), Value.Fixed(1), Value.Fixed(1))

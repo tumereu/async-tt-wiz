@@ -789,6 +789,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                     if (choice.options.size < choice.min) {
                         return "Not enough to ${choice.text.lowercase()}: ${choice.options.size} of ${choice.min}"
                     }
+                    // mh3 fixes: "with four or more card types among them": all the options together must have them
+                    choice.distinct?.let { d ->
+                        if (eval.distinct(d.quality, choice.options) < d.atLeast) return "Not ${d.atLeast} different ${d.quality} among them"
+                    }
                     choice.total?.let { t ->
                         val most = choice.options.sumOf { eval.property(t.property, it).coerceAtLeast(0) }
                         if (most < eval.value(t.atLeast)) return "Their total ${t.property} can't reach ${eval.value(t.atLeast)}"

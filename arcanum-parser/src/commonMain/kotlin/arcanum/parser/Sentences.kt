@@ -1785,7 +1785,8 @@ internal class Sentences(
         }
         // chunk 42: "This creature gets +1/+1 for each creature card in your graveyard."
         SELF_GETS_FOR_EACH.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val per = perEach(m.groupValues[4]) ?: return null
+            // one chunk 05: "for each oil counter on it": "it" is the subject, this permanent
+            val per = perEach(m.groupValues[4], itIsSelf = true) ?: return null
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(times(per, m.groupValues[2].toInt()), times(per, m.groupValues[3].toInt()))), affects = Affected.Objects(Objects.Self))
         }
         // chunk 30: "This creature has deathtouch as long as you control at least three other snow permanents."
@@ -2024,8 +2025,8 @@ internal class Sentences(
         text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
 
     /** chunk 41: what "for each [phrase]" counts: "+1/+1 counter on this Equipment" (its counters), or matching objects. */
-    private fun perEach(phrase: String): Value? {
-        COUNTER_ON.matchEntire(phrase)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+    private fun perEach(phrase: String, itIsSelf: Boolean = false): Value? {
+        COUNTER_ON.matchEntire(phrase)?.takeIf { isSelf(it.groupValues[2]) || (itIsSelf && it.groupValues[2] == "it") }?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[1]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
         }
         // chunk 52: "instant and sorcery card in your graveyard": each card that is either
@@ -7561,6 +7562,11 @@ internal class Sentences(
         "they", "that player" -> context.lastPlayer ?: Players.EventPlayer.takeIf { context.event != null }
         // blb chunk 07: "defending player" in an attack trigger (CR 506.2)
         "defending player" -> (context.event as? EventPattern.Attack)?.let { Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object)) }
+        // one chunk 05: "its controller": of what "it" names (the event's object in a trigger; a creature that died as it last existed,
+        // CR 603.10a, 608.2h), else of the last object target ("Destroy target creature. Its controller …", whether or not it was destroyed)
+        "its controller" -> (context.it?.let { if (it == Objects.EventObject(EventRole.After) && (context.event as? EventPattern.ZoneChange)?.from == Zone.Battlefield)
+            Objects.EventObject(EventRole.Before) else it } ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) })
+            ?.let { Players.ControllerOf(it) }
         else -> Filters.players(phrase)
     }
 
@@ -14269,13 +14275,18 @@ internal class Sentences(
         }
         // tmt chunk 06: "Up to one target attacking creature gets +X/+X until end of turn" (X defined by "where X is", CR 107.3c)
         Tmt.UP_TO_ONE_TARGET_GETS.matchEntire(sentence)?.let { m ->
-            fun amount(text: String): Value? = when {
-                text.endsWith("X") -> if (text.startsWith("-")) null else Value.Announced("X")
+            // one chunk 05: also "-X/-X"; the amounts read before the slot is added, so a sentence that doesn't read leaves no target behind
+            fun amount(text: String): Value? = when (text) {
+                "+X" -> Value.Announced("X")
+                "-X" -> Value.Times(Value.Announced("X"), -1)
                 else -> text.removePrefix("+").toIntOrNull()?.let { Value.Fixed(it) }
             }
+            val power = amount(m.groupValues[2]) ?: return null
+            val toughness = amount(m.groupValues[3]) ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
             val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[1]))
-            context.targets += tmtSlot(name, Filters.noun(m.groupValues[1]) ?: return null, min = 0)
-            return listOf(tmtUntilEndOfTurn(Objects.Target(name), Mechanic.ModifyPowerToughness(amount(m.groupValues[2]) ?: return null, amount(m.groupValues[3]) ?: return null)))
+            context.targets += tmtSlot(name, filter, min = 0)
+            return listOf(tmtUntilEndOfTurn(Objects.Target(name), Mechanic.ModifyPowerToughness(power, toughness)))
         }
         // tmt chunk 07: "Put three +1/+1 counters on up to one other target artifact or creature."
         Tmt.PUT_COUNTERS_ON_UP_TO_ONE.matchEntire(sentence)?.let { m ->
@@ -15281,7 +15292,7 @@ internal class Sentences(
 
     /** msh: conditions about a trigger's object. */
     private fun mshCondition(text: String): arcanum.api.Condition? {
-        // msh chunk 08: "it has greater power or toughness than Hulkling" (the creature that entered)
+        // msh chunk 08: "it has greater power or toughness than Hulkling" (the creature that entered); one chunk 05: "that creature has …"
         Msh.HAS_GREATER_POWER_OR_TOUGHNESS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             val it = Objects.EventObject(EventRole.After)
             return arcanum.api.Condition.Or(listOf(
@@ -15603,6 +15614,13 @@ internal class Sentences(
 
     /** one: single sentences, tried first in [effectRules]. */
     private fun oneEffect(sentence: String, context: Context): List<Step>? {
+        // one chunk 05: "return a creature card with mana value X or less from your graveyard to the battlefield tapped." (not a target: chosen
+        // as it resolves, CR 115.10a, 608.2d)
+        One.RETURN_A_FROM_YOUR_GRAVEYARD.matchEntire(sentence)?.takeIf { !it.groupValues[1].startsWith("card named ") }?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty()))))
+        }
         // one chunk 03: Goliath Hatchery, "choose a creature you control, then draw cards equal to its total toxic value." (you choose one as it
         // resolves, not a target; the chosen object is "it" after)
         One.CHOOSE_THEN.matchEntire(sentence)?.let { m ->
@@ -21251,7 +21269,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Draw(player, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))),
                 Step.Do(Effect.GainLife(player, Value.Fixed(m.groupValues[2].toInt()))))
         }
-        // "that player gets two poison counters." (the player dealt damage, CR 122.1f); one chunk 02: "… an additional poison counter" (one more),
+        // "that player gets two poison counters." (the player dealt damage, CR 122.1f); one chunk 05: "its controller gets …"; one chunk 02: "… an additional poison counter" (one more),
         // "target opponent gets a poison counter", "each opponent gets …"
         Eoe.THAT_PLAYER_GETS_POISON.matchEntire(sentence)?.let { m ->
             val players = playersIn(m.groupValues[1], context) ?: return null

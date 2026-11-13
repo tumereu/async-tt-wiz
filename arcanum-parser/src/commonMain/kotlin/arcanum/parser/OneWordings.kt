@@ -32,6 +32,8 @@ internal object One {
     // one chunk 03: Anoint with Affliction, Bring the Ending
     val EXILE_OR_COUNTER_THAT = Regex("""(Exile) that (?:creature|permanent|card)\.|(Counter) that spell\.""")
     val DRAW_EQUAL_TO_ITS_TOTAL = Regex("""Draw cards equal to its total (\w+) value\.""")
+    // one chunk 05: Black Sun's Twilight, "return a creature card with mana value X or less from your graveyard to the battlefield tapped."
+    val RETURN_A_FROM_YOUR_GRAVEYARD = Regex("""[Rr]eturn an? (.+?) from your graveyard to the battlefield( tapped)?\.""")
 }
 
 /** Phrases first met in ONE. */

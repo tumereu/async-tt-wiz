@@ -551,6 +551,7 @@ internal object Payment {
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
+            permission.total?.let { total -> usePermission(recorder, plan, total) }
             // blb: what the permission gives a spell cast with it ("that creature enters with a finality counter", CR 400.7d)
             if (permission.spellGets.isNotEmpty()) recorder.record(Changes.effect(recorder.state) { t ->
                 val next = (id as? ObjectId.Card)?.next()
@@ -650,6 +651,13 @@ internal object Payment {
 
     private fun recorderKeyword(plan: Plan, root: AbilityOrigin) =
         plan.snap.view[plan.itemId]?.characteristics?.abilities?.firstOrNull { it.origin == root }?.let { (it.ability as? Keyword)?.kind }
+
+    /** mom: a spell cast with a permission limited to [total] spells in all uses one up; the effect that grants it keeps the count (and its
+     * other mechanics). */
+    private fun usePermission(recorder: Recorder, plan: Plan, total: Int) {
+        val effect = plan.way.permission?.effect?.let { recorder.state.effects[it] } ?: return
+        recorder.record(Change.EffectUpdated(effect, effect.copy(usesLeft = (effect.usesLeft ?: total) - 1)))
+    }
 
     private fun countPermission(recorder: Recorder, plan: Plan) {
         val p = plan.way.permission ?: return

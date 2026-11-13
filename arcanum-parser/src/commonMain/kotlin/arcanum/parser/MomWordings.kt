@@ -77,6 +77,10 @@ internal object Mom {
     // mom chunk 10: Furnace Reins 'Until end of turn, it gains haste and "Whenever this creature deals combat damage …"'
     val UNTIL_EOT_IT_GAINS_AND_QUOTED = Regex("""Until end of turn, (it|that creature) gains ([a-z ,]+?) and "(.+)"\.?""")
     // mom chunk 10: Rankle and Torbran "If a source would deal damage to a player or battle this turn, it deals that much damage plus 2 instead."
+    val EXILE_TOP_MAY_CAST_ONE_UNTIL_NEXT_TURN = Regex("""Exile the top (\w+) cards of your library\. Until the end of your next turn, you may cast an? (.+?) spell from among (?:those exiled cards|them|the exiled cards)\.""")
+    val CHOOSE_EXILED_WITH_MAY_CAST_FREE_THIS_TURN = Regex("""Choose target (.+?) exiled with (.+?)\. You may cast that card this turn without paying its mana cost\.(?: If that spell would be put into a graveyard, (exile it|put it on the bottom of its owner's library) instead\.)?""")
+    val DEALS_TO_EACH_OF_UP_TO_TARGETS = Regex("""(.+?) deals (X|\w+) damage to each of up to (\w+) targets\.""")
+    val PUT_ANY_NUMBER_ON_BOTTOM_DRAW_THAT_MANY = Regex("""Put any number of cards from your hand on the bottom of your library, then draw that many cards( plus one)?\.""")
     val SOURCE_DAMAGE_PLUS_THIS_TURN = Regex("""If a source would deal damage to (a player or battle|a player|an opponent) this turn, it deals that much damage plus (\d+) instead\.""")
 }
 
@@ -122,6 +126,10 @@ internal object MomPhrases {
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD_THIS_TURN = Regex("""an? (.+?) was put into a graveyard from the battlefield this turn""")
 
     private val OPPONENT_HAS_CARDS_IN_GRAVEYARD = Regex("""an opponent has (\w+) or more cards in their graveyard""")
+    // mom chunk 11: Sandstalker Moloch "an opponent cast a blue and/or black spell this turn"
+    private val PLAYER_CAST_SPELL_THIS_TURN = Regex("""(an opponent|a player|you) cast an? (.+? )?spell this turn""")
+    // mom chunk 11: Fairgrounds Trumpeter "a +1/+1 counter was put on a permanent under your control this turn"
+    private val COUNTER_WAS_PUT_THIS_TURN = Regex("""an? (\S+) counter was put on an? (.+?) this turn""")
     // mom chunk 10: War Historian "it attacked a battle this turn"
     private val SELF_ATTACKED_A_THIS_TURN = Regex("""(.+?) attacked an? (battle|planeswalker) this turn""")
 
@@ -150,6 +158,17 @@ internal object MomPhrases {
             val graveyard = ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(arcanum.api.Players.Tested))))
             return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent,
                 PlayerFilter.Where(Condition.Exists(graveyard, atLeast = Numbers.count(m.groupValues[1]) ?: return null)))), atLeast = 1)
+        }
+        // mom chunk 11: a spell of that kind cast by such a player this turn (CR 601.2i)
+        PLAYER_CAST_SPELL_THIS_TURN.matchEntire(text)?.let { m ->
+            val spell = Filters.noun(m.groupValues[2] + "spell") ?: return null
+            val by = when (m.groupValues[1]) { "an opponent" -> PlayerFilter.Opponent; "you" -> PlayerFilter.You; else -> PlayerFilter.Any }
+            return Condition.HappenedThisTurn(EventPattern.Cast(spell, by), atLeast = 1, measure = Measure.Events)
+        }
+        // mom chunk 11: one counter of that kind put on such a permanent this turn (CR 122.6)
+        COUNTER_WAS_PUT_THIS_TURN.matchEntire(text)?.let { m ->
+            val objects = Filters.noun(m.groupValues[2].replace(" under your control", " you control")) ?: return null
+            return Condition.HappenedThisTurn(EventPattern.CountersPut(objects, Counters.kind(m.groupValues[1]) ?: return null), atLeast = 1, measure = Measure.Events)
         }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD_THIS_TURN.matchEntire(text)?.let { m ->
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.noun(m.groupValues[1]) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard),

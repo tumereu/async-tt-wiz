@@ -305,6 +305,10 @@ sealed interface Mechanic {
         val costChange: arcanum.api.CostChange? = null,
         /** A land played with this permission enters tapped ("Each land played this way enters tapped", CR 614.1c). */
         val landsEnterTapped: Boolean = false,
+        // mom chunk 11
+        /** At most this many spells cast with this permission in all, over the whole duration of the effect that grants it
+         * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a). */
+        val total: Int? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.

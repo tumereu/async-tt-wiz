@@ -92,6 +92,8 @@ internal object Legality {
             if (m.condition != null && !eval.holds(m.condition!!)) return@mapNotNull null
             if (m.topOnly && snap.state.player(o.owner).library.firstOrNull() != card) return@mapNotNull null
             if (m.perTurn != null && usedThisTurn(snap, applied) >= m.perTurn!!) return@mapNotNull null
+            // mom: "you may cast an instant or sorcery spell from among those exiled cards": the granting effect counts the spells left
+            if (m.total != null && (applied.effect?.let { snap.state.effects[it] }?.usesLeft ?: m.total!!) <= 0) return@mapNotNull null
             Permission(source = applied.source, ability = applied.origin, effect = applied.effect) to applied
         }
     }

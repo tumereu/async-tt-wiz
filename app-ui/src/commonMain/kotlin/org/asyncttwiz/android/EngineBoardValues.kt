@@ -42,7 +42,9 @@ import org.asyncttwiz.appui.simpleClassName
  * arrive later on the page's thread, and a reader that can't wait for them works them out on the page.
  *
  * [state] is the game's own state the board shows (full information, never changed); [board] the board itself; [table]
- * the game's table state beside it (what the worker gets with the board: null, nothing goes to it).
+ * the game's table state beside it (what the worker gets with the board: null, nothing goes to it); [lines] the game's
+ * record of the line each of its boards stands on, so the worker gets the board as the events from the one it holds
+ * ([BoardTransfer.since]) rather than a snapshot (null: always a snapshot).
  */
 class EngineBoardValues constructor(
     val viewer: String,
@@ -54,6 +56,7 @@ class EngineBoardValues constructor(
     private val visible: Set<ObjectId>,
     private val engine: EngineWorker,
     private val table: TableState? = null,
+    private val lines: org.asyncttwiz.automatum.boundary.BoardLines? = null,
 ) {
     /** TRN-062 (owner problem report 5DDSKK): the cards the viewer puts on the bottom of their library now, right after a
      * mulligan ([AutomatumOpening.bottomOwed]); worked out with the board, on the engine thread. */
@@ -63,7 +66,7 @@ class EngineBoardValues constructor(
     }
 
     /** This board's number on the engine boundary ([EngineRequest.board]). */
-    private val number: Long = numbers.incrementAndGet()
+    val number: Long = numbers.incrementAndGet()
 
     /** Engine thread: the planning request [request] on this board, through the engine boundary in-process ([EngineBoundary]). */
     private fun plan(request: (seq: Long) -> EngineRequest): EngineAnswer =
@@ -79,7 +82,7 @@ class EngineBoardValues constructor(
 
     /** The hand plays, worked out on the engine thread now when not yet (waits for it; inline on it), or, when promised
      * ([promisePlays]), as soon as the engine thread has them. */
-    fun handPlays(): HandPlays = handPlays ?: promised()?.handPlays ?: engine.call { workedHandPlays() }
+    fun handPlays(): HandPlays = handPlays ?: promised()?.handPlays ?: engine.await { workedHandPlays() }
 
     /** Engine thread: the hand plays, worked out now when not yet. Never throws (as the table's did: none on failure). */
     fun workedHandPlays(): HandPlays = handPlays ?: when (val answer = plan { EngineRequest.HandPlaysOf(it, gameId, number, viewer) }) {
@@ -175,8 +178,15 @@ class EngineBoardValues constructor(
         return waiting
     }
 
-    /** How the worker gets this board when it doesn't hold it: a snapshot (the definitions written once per game). */
+    /** How the worker gets this board when it doesn't hold it: the events from the board it holds, when both boards' lines
+     * are known ([lines]: written with the codec of the game's last snapshot, which the worker decodes with), else a
+     * snapshot (the definitions written once per game). */
     private fun transfer(table: TableState): BoardTransfer = object : BoardTransfer {
+        override fun since(from: Long): BoardTransfer.Delta? {
+            val codec = codecs[gameId]?.codec ?: return null
+            return lines?.since(from, number, codec::encodeEvent)
+        }
+
         override fun snapshot(): BoardTransfer.Snapshot {
             val definitions = state.objects.values.mapNotNull { it.definition }.distinct()
             val known = codecs[gameId]?.takeIf { it.definitions == definitions }
@@ -192,7 +202,7 @@ class EngineBoardValues constructor(
 
     /** The card menus' plays, worked out on the engine thread when not yet (waits for it; inline on it), or, when
      * promised ([promisePlays]), as soon as the engine thread has them. */
-    fun cardPlays(): CardPlays = cardPlays ?: promised()?.cardPlays ?: engine.call { workedCardPlays() }
+    fun cardPlays(): CardPlays = cardPlays ?: promised()?.cardPlays ?: engine.await { workedCardPlays() }
 
     /** Engine thread: the card menus' plays, worked out now when not yet. Never throws (none on failure). */
     private fun workedCardPlays(): CardPlays = cardPlays ?: when (val answer = plan { EngineRequest.CardPlaysOf(it, gameId, number, viewer) }) {
@@ -235,7 +245,7 @@ class EngineBoardValues constructor(
 
     /** The board's shared flow (priority, the open decision; I2), worked out on the engine thread when not yet (waits for
      * it; inline on it), with what its panel reads ([SharedFlow.prepared], SYS-025). Null when it can't be read. */
-    fun sharedFlow(): SharedFlow? = if (flowWorked) sharedFlow else engine.call {
+    fun sharedFlow(): SharedFlow? = if (flowWorked) sharedFlow else engine.await {
         if (!flowWorked) {
             sharedFlow = try { SharedFlow.of(state, board.board, gameId, DeviceRandom::seed).prepared() } catch (problem: Exception) {
                 AppLog.warn("automatum", "Couldn't read the shared flow: ${simpleClassName(problem)}")
@@ -252,7 +262,7 @@ class EngineBoardValues constructor(
 
     /** What the table shows of combat on the board (I3: declarations, the damage preview, early divisions), worked out on
      * the engine thread when not yet (waits for it; inline on it); [CombatShown.NONE] outside combat. */
-    fun combat(): CombatShown = combat ?: engine.call {
+    fun combat(): CombatShown = combat ?: engine.await {
         combat ?: try { CombatFlow.shown(state, board.board, gameId) } catch (problem: Exception) {
             AppLog.warn("automatum", "Couldn't work combat out: ${simpleClassName(problem)}")
             CombatShown.NONE
@@ -262,7 +272,7 @@ class EngineBoardValues constructor(
     /** CMB-040 (owner, 2026-11-05): these values for [next], the board with more drawn on its lanes (the blocks the
      * attacker places to assume): its combat worked out anew on it, the rest shared. */
     fun onLanes(next: org.asyncttwiz.protocol.BoardState): EngineBoardValues =
-        EngineBoardValues(viewer, computed, board.copy(board = next), gameId, state, view, visible, engine, table).also {
+        EngineBoardValues(viewer, computed, board.copy(board = next), gameId, state, view, visible, engine, table, lines).also {
             it.handPlays = handPlays; it.cardPlays = cardPlays
         }
 
@@ -282,7 +292,8 @@ class EngineBoardValues constructor(
          * [visible]: the model's own, R2).
          */
         fun make(board: EngineProjection.Board, gameId: String, state: GameState, viewer: String, view: View?,
-            visible: Set<ObjectId>, engine: EngineWorker, table: TableState? = null): EngineBoardValues {
+            visible: Set<ObjectId>, engine: EngineWorker, table: TableState? = null,
+            lines: org.asyncttwiz.automatum.boundary.BoardLines? = null): EngineBoardValues {
             val shown = try { view ?: arcanum.engine.Engine.view(state) } catch (problem: Exception) { null }
             val computed = try {
                 ComputedBoard.of(board.board, board.definitions, AutomatumBoards.definitions(board.definitions), viewer, state,
@@ -292,7 +303,7 @@ class EngineBoardValues constructor(
                 ComputedBoard.failed("Automatum couldn't work this board out (${problem.message?.take(120) ?: simpleClassName(problem)})")
             }
             made++
-            return EngineBoardValues(viewer, computed, board, gameId, state, shown, visible, engine, table)
+            return EngineBoardValues(viewer, computed, board, gameId, state, shown, visible, engine, table, lines)
         }
 
         /** For tests: forget the count. */

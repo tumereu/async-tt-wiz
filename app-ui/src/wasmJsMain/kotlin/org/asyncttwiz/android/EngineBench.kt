@@ -34,8 +34,10 @@ import org.asyncttwiz.protocol.game.TableState
  * Dev only (a test build opened at `#engine-bench`, in place of the app): measures the engine boundary's round trips to
  * the Web Worker ([startEngineWorker]) on a game made here (two 60-card decks of lands and vanilla creatures, both hands
  * kept, Alice's first main phase): the first request with the board's snapshot, then hand plays and card plays on the
- * same board, then the next board sent as its event (Alice plays a land), while the page's frames are timed. The results
- * go on the page, to the console and, when done, into the title ("engine-bench: done").
+ * same board, then the next board sent as its event (Alice plays a land), while the page's frames are timed. Then the
+ * device's own work as the page still does it (web client step 4c: until the device moves into the worker): a pass and
+ * End turn worked out on the page's thread, with the worst frame meanwhile. The results go on the page, to the console
+ * and, when done, into the title ("engine-bench: done").
  */
 fun runEngineBench(base: String) {
     val out = StringBuilder()
@@ -78,10 +80,29 @@ fun runEngineBench(base: String) {
                         "${bench.second.snapshots} snapshots of it made)")
                     line("Page frames meanwhile: ${frames.count} frames, worst ${frames.worst.f()} ms, mean ${frames.mean().f()} ms")
                     line(channel.requests.let { "Answers awaited at the end: ${it.awaited}" })
-                    frames.stop()
-                    jsBenchTitle("engine-bench: done")
+                    onPage(frames, ::line, "A pass", bench::pass) {
+                        onPage(frames, ::line, "End turn", bench::endTurn) {
+                            frames.stop()
+                            jsBenchTitle("engine-bench: done")
+                        }
+                    }
                 }
             }
+        }
+    }
+}
+
+/** [work] (the events it made) on the page's thread, as the page does the device's own work today, timed with the worst
+ * frame around it; then [then]. */
+private fun onPage(frames: Frames, line: (String) -> Unit, kind: String, work: () -> Int, then: () -> Unit) {
+    frames.reset()
+    jsLater(100) {
+        val at = jsNow()
+        val events = work()
+        val ms = jsNow() - at
+        jsLater(100) {
+            line("$kind worked out on the page: ${ms.f()} ms ($events events); worst frame meanwhile ${frames.worst.f()} ms")
+            then()
         }
     }
 }
@@ -120,6 +141,26 @@ private class BenchGame {
     val encodeMs: Double
     val first: Transfer
     val second: Transfer
+    private val model: GameModel
+    private var made = 0
+
+    /** The player holding priority passes it (an event as the device makes it). */
+    private fun passOnce(): Boolean {
+        val holder = model.engine.priority.holder ?: return false
+        EventBuilder(model, "bench-${made++}", "bench", holder.value).run { perform(Input.PassPriority(holder)); answerRandoms(); build() }
+        return true
+    }
+
+    /** One pass: the events made. */
+    fun pass(): Int = if (passOnce()) 1 else 0
+
+    /** Passes until the turn ends (End turn, both players' passes as the devices make them): the events made. */
+    fun endTurn(): Int {
+        val turn = model.engine.turn.number
+        var events = 0
+        while (model.engine.turn.number == turn && events < 60 && passOnce()) events++
+        return events
+    }
 
     class Transfer(private val snapshot: BoardTransfer.Snapshot, private val deltas: Map<Long, BoardTransfer.Delta> = emptyMap()) : BoardTransfer {
         var snapshots = 0
@@ -137,6 +178,7 @@ private class BenchGame {
             List(18) { creature("Bench Bear", "{1}{G}", "Bear", 2) } + List(18) { creature("Bench Brute", "{2}{R}", "Ogre", 3) }
         val seats = listOf(alice, bob).map { p -> Seat(PlayerId(p), deck.mapIndexed { i, card -> DeckCard(CardId("$p-$i"), card) }) }
         val model = GameModel(Engine.newGame(seats), TableState(secret = LineRandom.secret(ByteArray(32) { 5 })))
+        this.model = model
         fun event(id: String, parent: String, author: String, input: (GameState) -> Input) =
             EventBuilder(model, id, parent, author).run { perform(input(model.engine)); answerRandoms(); build() }
         // As GameDevice.openingInput: the open decision when it is the player's, else a declaration ahead of it
@@ -175,6 +217,7 @@ private class BenchGame {
 }
 
 private fun jsNow(): Double = js("performance.now()")
+private fun jsLater(ms: Int, action: () -> Unit): Unit = js("setTimeout(() => action(), ms)")
 private fun jsFrame(action: () -> Unit): Unit = js("requestAnimationFrame(() => action())")
 private fun jsBenchTitle(text: String): Unit = js("document.title = text")
 private fun jsShowBench(text: String): Unit = js("""{

@@ -14,8 +14,8 @@ internal class HeldWorker : EngineWorker {
     private val held = ConcurrentLinkedQueue<() -> Unit>()
 
     override fun run(work: () -> Unit) = EngineWorker.Background.run(work)
-    override fun <T> call(work: () -> T): T = EngineWorker.Background.call(work)
-    override fun early(work: (release: (() -> Unit)?) -> Unit) = EngineWorker.Background.early(work)
+    override fun <T> call(work: () -> T, done: (T) -> Unit) = EngineWorker.Background.call(work, done)
+    override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) = EngineWorker.Background.early(work, released)
     override fun main(work: () -> Unit) = EngineWorker.Background.main {
         if (holding) held.add(work) else { work(); observe() }
     }

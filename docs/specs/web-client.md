@@ -409,6 +409,14 @@ Two batches come first, in this order:
   wait works them out on the page); browser gestures off the table and the draft (WEB-011), haptics (WEB-012), Esc and
   Back leaving the table and draft (WEB-004). Tests: `WebEnginePlaysTest`, the browser smoke's move, `WebMixedTest`.
   Not yet: boards sent as events instead of snapshots, the device's own work in the worker.
+- Built in 4c part 1 (2026-11-13): the engine's results come back as callbacks on both platforms (`EngineWorker.call`'s
+  `done`, `early`'s `released`; Android's engine thread is waited for as before, so the callback runs before the call
+  returns, in the same frame; `await` is the result-returning form for readers that need it now); `EngineGame`'s own
+  actions and the table's routes use the callback forms; boards go to the worker as the events from the one it holds
+  (`BoardLines`, `BoardTransfer.since`; a snapshot first, after a reload, or when the worker lacks the base). Not yet:
+  the device in the worker (its state, `Shown` sent across, the page's own copy of each board's engine state), the
+  device's reads still waited for (the timeline's and Undo dialog's boards, `read`, `repro`, the board values' shared
+  flow and combat), and the cast, combat and shared-flow steps.
 
 ### Step 5: desktop table
 

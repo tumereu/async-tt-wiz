@@ -21,10 +21,13 @@ actual object BackgroundEngineWorker : EngineWorker {
         }
     }
 
-    actual override fun <T> call(work: () -> T): T {
-        if (Thread.currentThread() === thread) return work()
-        try { return executor.submit<T> { work() }.get() }
+    /** The main thread waits for the engine thread here, as it always has (SYS-025): [done] runs before this returns, in
+     * the same frame, so the press's result, its note and its board need no frame of their own. */
+    actual override fun <T> call(work: () -> T, done: (T) -> Unit) {
+        if (Thread.currentThread() === thread) { done(work()); return }
+        val result = try { executor.submit<T> { work() }.get() }
         catch (failure: ExecutionException) { throw failure.cause ?: failure }
+        done(result)
     }
 
     actual override fun main(work: () -> Unit) {
@@ -37,13 +40,15 @@ actual object BackgroundEngineWorker : EngineWorker {
         postFrameCallback { postToMain(work) }
     }
 
-    actual override fun early(work: (release: (() -> Unit)?) -> Unit) {
-        if (Thread.currentThread() === thread) { work(null); return }
+    /** The main thread waits only until the action's release (or its end), then runs [released] before returning. */
+    actual override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) {
+        if (Thread.currentThread() === thread) { work(null); released(); return }
         val gate = java.util.concurrent.CountDownLatch(1)
         executor.execute {
             try { work { gate.countDown() } } catch (failure: Throwable) { AppLog.error("engine", "Engine work failed", failure) }
             finally { gate.countDown() }
         }
         gate.await()
+        released()
     }
 }

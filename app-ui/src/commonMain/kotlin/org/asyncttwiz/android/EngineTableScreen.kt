@@ -265,8 +265,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
                         resultControls = TableResultControls(interactive,
-                            reject = { engine.answerSuggestion(false); controller.engineSent() },
-                            accept = { engine.answerSuggestion(true); controller.engineSent() }),
+                            reject = { engine.answerSuggestion(false) { controller.engineSent() } },
+                            accept = { engine.answerSuggestion(true) { controller.engineSent() } }),
                         controlsConnected = interactive && !locked && reviewPlay == null,
                         reviewing = reviewing, liveView = !reviewing, changes = changes,
                         onSceneSettled = if (reviewPlay != null) null else ({ _ ->

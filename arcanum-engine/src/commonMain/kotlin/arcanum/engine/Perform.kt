@@ -149,6 +149,7 @@ internal object Perform {
             is Continuation.TurnBased -> when (continuation.action) {
                 is TurnAction.CombatDamage -> Combat.resume(recorder, continuation, answer)
                 is TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, continuation.action, answer)
+                is TurnAction.Untap -> Steps.resumeUntap(recorder, continuation.action, answer)
             }
             is Continuation.Setup -> Setup.resume(recorder, continuation, answer)
             is Continuation.Loop -> Loops.resume(recorder, answer)

@@ -123,11 +123,16 @@ sealed interface Value {
     @Serializable @SerialName("flips-won") data class FlipsWon(val name: String) : Value
     /** How many of the coin flips named [name] its player lost ("For each flip you lose, …", CR 705.2). */
     @Serializable @SerialName("flips-lost") data class FlipsLost(val name: String) : Value
+    // woe
+    /** [then] while [condition] holds, else [otherwise] ("This ability costs {1} less to activate during your turn": {1} less once
+     * during your turn, CR 601.2f). */
+    @Serializable @SerialName("if") data class If(val condition: Condition, val then: Value, val otherwise: Value = Fixed(0)) : Value
 }
 
 /**
  * What a "this turn" count counts ([Value.EventsThisTurn], [Condition.HappenedThisTurn]): events (a board wipe is
- * one), objects (it is five creatures that died), or the amounts the events carried (life gained, damage dealt).
+ * one), objects (it is five creatures that died; each object once, a creature that attacked twice is one), or the amounts the events carried
+ * (life gained, damage dealt).
  * Each tagged event (D33) is one event: one draw, one zone change of several objects at once, one damage event.
  */
 @Serializable
@@ -139,6 +144,10 @@ sealed interface Measure {
     /** The number of different [quality] values among the events' objects, each as it was in its event ("for each card type
      * among spells you've cast this turn": the types of the spells as they were cast). */
     @Serializable @SerialName("distinct") data class Distinct(val quality: SharedQuality) : Measure
+    // mkm
+    /** The number of different sources of the events ("three or more sources you controlled dealt damage this turn": a source that dealt
+     * damage several times counts once, CR 120.1, 609.7). */
+    @Serializable @SerialName("sources") data object Sources : Measure
 }
 
 /** A number an object has (part of its properties). */
@@ -226,14 +235,14 @@ sealed interface Condition {
         val costIndex: Int? = null,
         val of: Objects,
     ) : Condition
+    // woe
+    /** [condition] held as this spell was cast, checked as its casting finished (CR 601.2i): "if you controlled a Faerie as
+     * you cast this spell"; addendum, "if you cast this spell during your main phase" (CR 207.2c, 505.1). The answer stays
+     * fixed whatever happens later; a copy wasn't cast, so it doesn't hold for one (CR 707.10). */
+    @Serializable @SerialName("as-cast") data class AsCast(val condition: Condition) : Condition
     /** [of] was cast from [zone], or cast at all (null): "if you cast it from your hand", "if you cast it from a
      * graveyard" about another creature. */
     @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects) : Condition
-    // otj
-    /** [condition] held as this spell became cast (CR 601.2i): "if you controlled a Mount as you cast this spell"; addendum, "if you cast
-     * this spell during your main phase" (CR 207.2c, 505.1). Checked then and kept with the spell; false for a spell that wasn't cast (a
-     * copy, CR 707.10). */
-    @Serializable @SerialName("as-cast") data class AsCast(val condition: Condition) : Condition
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(

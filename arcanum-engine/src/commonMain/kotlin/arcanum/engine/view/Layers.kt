@@ -117,7 +117,9 @@ internal object Layers {
     /** Whether an effect object still applies: its "for as long as" condition holds and what it lasts until is still
      * there (CR 611.2b, 610.3). Ending it is a change made by the flow that notices; the view doesn't wait for that. */
     fun active(state: GameState, board: Board, effect: EffectObject): Boolean = when (val d = effect.duration) {
-        is Duration.AsLongAs -> Evaluator(board, Context(effect.controller, effect.source, followed(state, effect))).holds(d.condition)
+        // mkm fix: tracked continuously, never through last known information: "for as long as this artifact remains tapped" ends
+        // once it leaves the battlefield (CR 611.2b, 400.7: it is a new object), though it left tapped
+        is Duration.AsLongAs -> Evaluator(arcanum.engine.trigger.CurrentBoard(board), Context(effect.controller, effect.source, followed(state, effect))).holds(d.condition)
         is Duration.UntilLeaves -> Evaluator(board, Context(effect.controller, effect.source, effect.names)).objects(d.objects)
             .any { state.obj(it)?.zone == Zone.Battlefield }
         // fra: while the card is where it was, or on the Stack being cast but not cast yet (CR 601.2a, 601.2i)

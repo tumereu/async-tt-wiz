@@ -374,9 +374,9 @@ sealed interface Mechanic {
      * as though they haven't been activated", CR 702.177b): their "activate only once" doesn't stop them while this applies. */
     @Serializable @SerialName("as-though-not-activated") data class AsThoughNotActivated(val label: AbilityLabel) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
-     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
-     * below (0: no minimum). The change's count may name the spell or ability being paid for as [Objects.Tested] ("{1} less
-     * for each of the chosen colors it is"). */
+     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the mana, every symbol counted, a reduction can't take the
+     * cost below (0: no minimum; 1: "This effect can't reduce the mana in that cost to less than one mana", CR 118.7). The change's
+     * count may name the spell or ability being paid for as [Objects.Tested] ("{1} less for each of the chosen colors it is"). */
     @Serializable @SerialName("cost-change") data class CostChange(
         val what: ObjectFilter, val change: arcanum.api.CostChange, val minimum: Int = 0,
     ) : Mechanic {
@@ -482,6 +482,10 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    // mkm
+    /** In its controller's untap step, that player may choose not to untap the affected permanent ("You may choose not to untap
+     * this creature during your untap step", CR 502.3: the active player determines which permanents untap). */
+    @Serializable @SerialName("may-choose-not-to-untap") data object MayChooseNotToUntap : Mechanic
     // ltr chunk 03
     /** In its controller's untap step the affected permanent doesn't untap as usual: a counter of [kind] is removed from it instead, and
      * if one was, it untaps ("If this creature would untap during your untap step, remove a +1/+1 counter from it instead. If you do,
@@ -493,6 +497,10 @@ sealed interface Mechanic {
     // msh
     /** The affected permanents can't become untapped: not in an untap step and not by any effect ("can't become untapped"). */
     @Serializable @SerialName("cant-become-untapped") data object CantBecomeUntapped : Mechanic
+    // mkm
+    /** The affected permanents can't get [mark] ("can't become suspected", CR 701.60a): an effect that would give it to them does nothing for
+     * them; taking it off still works. */
+    @Serializable @SerialName("cant-become-marked") data class CantBecomeMarked(val mark: ObjectMark) : Mechanic
     /** The affected objects' abilities may be activated as though they had haste ({T} and {Q} in their costs, CR 302.6);
      * attacking still needs haste ("You may activate abilities of creatures you control as though those creatures had
      * haste"). */
@@ -589,6 +597,10 @@ sealed interface Mechanic {
         /** A triggered ability linked to this replacement, triggering each time it is applied ("When this card is
          * exiled this way", madness, CR 702.35a, 603.11); [Objects.EventObject] in it is the replaced event's object. */
         val whenApplied: Instructions? = null,
+        // woe
+        /** It applies only to an event for which [condition] holds, checked as the event would happen with the event as the trigger event
+         * ([Value.EventAmount] its amount): "If you would pay life while your library has at least that many cards in it" (CR 614.1a). */
+        val condition: Condition? = null,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -698,7 +710,9 @@ sealed interface Modification {
          * creature"): not copiable values, but part of the same replacement (CR 614.1c, 707.9b). */
         val withCounters: List<EntersWithCounters> = emptyList(),
     ) : Modification
-    /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times it is done. */
+    /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times
+     * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three
+     * times as much of that mana instead", CR 106.12b). */
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If
@@ -710,6 +724,10 @@ sealed interface Modification {
      * Stack, with the permanent already its new face; used on a [Mechanic.Replacement] of [EventPattern.Transform]. Unlike [AsEnters], the
      * steps may do anything ("you get an emblem", "choose an opponent"). */
     @Serializable @SerialName("as-transforms") data class AsTransforms(val steps: List<Step>) : Modification
+    // mkm
+    /** "As this creature is turned face up, …" (CR 614.1e): [steps] happen while the permanent is turned face up, not afterward and not on
+     * the Stack, with the permanent already face up; used on a [Mechanic.Replacement] of [EventPattern.TurnedFaceUp]. */
+    @Serializable @SerialName("as-turned-face-up") data class AsTurnedFaceUp(val steps: List<Step>) : Modification
     /** On a [Mechanic.Replacement] of [EventPattern.FlipCoin]: the coins come up heads and the flipping player wins those flips ("those
      * coins come up heads and you win those flips", CR 705.2). */
     @Serializable @SerialName("win-flips") data object WinFlips : Modification

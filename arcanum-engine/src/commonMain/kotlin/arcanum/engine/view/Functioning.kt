@@ -22,6 +22,7 @@ object Functioning {
     val EVERYWHERE: Set<Zone> = setOf(
         Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command, Zone.Outside,
     )
+    private val SELF_TURNED_FACE_UP = EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self))
 
     fun zones(ability: Ability, instantOrSorcery: Boolean): Set<Zone> {
         val usual = if (instantOrSorcery) setOf(Zone.Stack) else setOf(Zone.Battlefield)
@@ -44,6 +45,9 @@ object Functioning {
         ability.mechanics.all { it is Mechanic.MayPlay || it is Mechanic.CastRestriction || it == Mechanic.InstantSpeed } && ability.selfOnly() -> EVERYWHERE
         // CR 113.6h: how it enters
         ability.mechanics.all { it is Mechanic.Replacement && it.event.isSelfEntering() } -> EVERYWHERE
+        // mkm: "As this creature enters or is turned face up, …": how it enters (CR 113.6h), and as it turns on the battlefield (CR 614.1e)
+        ability.mechanics.all { it is Mechanic.Replacement && (it.event.isSelfEntering() || it.event == SELF_TURNED_FACE_UP) } &&
+            ability.mechanics.any { (it as Mechanic.Replacement).event.isSelfEntering() } -> EVERYWHERE
         // CR 113.6d, g: what this spell costs, that it can't be countered
         ability.mechanics.all { it.isOwnCastingRule() } && ability.selfOnly() -> setOf(Zone.Stack)
         // "as it resolves" replacements of the spell itself (rebound, buyback): on the Stack

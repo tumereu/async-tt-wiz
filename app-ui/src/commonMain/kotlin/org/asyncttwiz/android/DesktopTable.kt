@@ -234,8 +234,8 @@ fun DesktopPhaseTrack(play: TableBoard, viewer: String, changes: TableChanges?) 
     }, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
         for ((phase, steps) in pickerSteps(play.board).groupBy { it.phase }) {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(phaseName(phase).uppercase(), fontSize = 8.sp, lineHeight = 9.sp, color = MenuInk.copy(alpha = .7f), maxLines = 1,
-                    letterSpacing = .3.sp)
+                Text(desktopPhaseLabel(phase), fontSize = 8.sp, lineHeight = 9.sp, color = MenuInk.copy(alpha = .7f), maxLines = 1,
+                    softWrap = false)
                 Row(Modifier.background(phaseColor(phase), RoundedCornerShape(3.dp)).padding(2.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     for (step in steps) {
@@ -251,6 +251,12 @@ fun DesktopPhaseTrack(play: TableBoard, viewer: String, changes: TableChanges?) 
             }
         }
     }
+}
+
+/** WEB-020 (wireframe D1): a phase's label over its step squares: the main phases are "MAIN" (their one square says which). */
+fun desktopPhaseLabel(phase: String): String = when (phase) {
+    "PRECOMBAT_MAIN", "POSTCOMBAT_MAIN" -> "MAIN"
+    else -> phaseName(phase).uppercase()
 }
 
 /**
@@ -272,7 +278,8 @@ fun DesktopDock(play: TableBoard, viewer: String, names: Map<String, String>, mo
                 if (order.isEmpty()) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp)
                     .border(1.dp, MenuBorder, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
                     Text("Empty", fontSize = 12.sp, color = MenuInk.copy(alpha = .6f))
-                } else StackEntries(play, viewer, Modifier.padding(horizontal = 12.dp).fillMaxWidth().heightIn(max = stackMax), names = names)
+                } else StackEntries(play, viewer, Modifier.padding(horizontal = 12.dp).fillMaxWidth().heightIn(max = stackMax), names = names,
+                    nameInCard = true)
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider(color = Color(0xffd5d8dc))
                 chat(Modifier.fillMaxWidth().weight(1f))

@@ -177,7 +177,7 @@ internal object Effects {
             is Effect.GivePlayerCounters -> scope.players(effect.players).forEach { p ->
                 Actions.putCounters(act, cause, TargetRef.Player(p), effect.kind, scope.value(effect.amount))
             }
-            is Effect.Tap -> Actions.tap(act, onBattlefield(scope, effect.objects), true)
+            is Effect.Tap -> Actions.tap(act, onBattlefield(scope, effect.objects), true, cause = scope.cause)
             is Effect.Untap -> Actions.tap(act, onBattlefield(scope, effect.objects), false)
             is Effect.Attach -> {
                 val to = recipients(scope, effect.to).firstOrNull() ?: return
@@ -232,6 +232,8 @@ internal object Effects {
                 // CR 613.7f: it gets a new timestamp
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
                 effect.counters.forEach { c -> Actions.putCounters(act, cause, TargetRef.Object(id), c.kind, scope.value(c.amount)) }
+                // mkm: CR 614.1e: "As this creature is turned face up, …" happens as it turns, before anything sees it face up
+                asTurnedFaceUp(scope, id)
                 // CR 702.106c: a conspiracy's hidden agenda reveals the chosen name
                 arcanum.engine.conspiracy.Conspiracies.revealed(act, id)
             }
@@ -266,6 +268,8 @@ internal object Effects {
             is Effect.Mark -> {
                 val zones = arcanum.api.MarkRules.of(effect.mark).zones
                 scope.objects(effect.objects).filter { act.state.obj(it)?.zone in zones }.distinct()
+                    // mkm: "can't become suspected" (CR 701.60a): giving it the mark does nothing; taking it off still works
+                    .filter { effect.remove || act.view()[it]?.has { m -> m == Mechanic.CantBecomeMarked(effect.mark) } != true }
                     .forEach { Actions.setMark(act, it, effect.mark, !effect.remove, listOfNotNull(effect.cost)) }
             }
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
@@ -964,6 +968,9 @@ internal object Effects {
         val values = Actions.tokenValues(act, e, effect.token)
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
+        // woe chunk 01: an Aura token to be created attached to an object or player that is undefined (no target chosen, or the target
+        // became illegal) isn't created (CR 303.4i)
+        if (effect.attachedTo != null && attachTo == null) { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
         // CR 608.2f: "each player creates …" creates every player's tokens at once, one event
         val requests = scope.players(effect.controller).map { p -> Actions.TokenRequest(values, count, p, effect.tapped, attachTo) }
         val attacking = effect.attacking?.let { attackTarget(scope, it) }
@@ -996,6 +1003,18 @@ internal object Effects {
             .flatMap { (it.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.Replacement>()
             .flatMap { r -> r.modify.filterIsInstance<arcanum.api.Modification.AsTransforms>().flatMap { it.steps } }
         if (steps.isNotEmpty()) Steps.run(Scope(act, arcanum.engine.action.Cause(controller, id, key = "transforms:$id"), arcanum.engine.state.Bindings.EMPTY, null), steps)
+    }
+
+    /** mkm: "As this creature is turned face up, …" (CR 614.1e): its now face-up characteristics' replacements of the turning do their steps
+     * as part of it, not on the Stack. */
+    private fun asTurnedFaceUp(scope: Scope, id: ObjectId) {
+        val act = scope.act
+        val controller = act.controllerOf(id) ?: return
+        val steps = act.view()[id]?.characteristics?.abilities.orEmpty()
+            .flatMap { (it.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.Replacement>()
+            .filter { it.event == arcanum.api.EventPattern.TurnedFaceUp(arcanum.api.ObjectFilter.Is(Objects.Self)) }
+            .flatMap { r -> r.modify.filterIsInstance<arcanum.api.Modification.AsTurnedFaceUp>().flatMap { it.steps } }
+        if (steps.isNotEmpty()) Steps.run(Scope(act, arcanum.engine.action.Cause(controller, id, key = "turned-face-up:$id"), arcanum.engine.state.Bindings.EMPTY, null), steps)
     }
 
     /**
@@ -1065,7 +1084,9 @@ internal object Effects {
                     val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
                     now[slot] = if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
-                        else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
+                        // mkm fixes: within the slot's limits on each other, as when first chosen (CR 707.10c, 601.2c)
+                        else Targeting.choose(act, controller, copyId, s, options, chosen.size, chosen.size,
+                            act.evaluator(arcanum.engine.query.Context(controller, original.source, names, stackItem = original)))
                 }
                 targets = now
             }
@@ -1257,6 +1278,13 @@ internal object Effects {
             else if (m is arcanum.api.Modification.AddAmount && !mentionsEvent(m.amount)) m.copy(amount = fixValue(e, m.amount))
             else m
         })
+        // woe chunk 08: "Spells you cast this turn … cost {X} less to cast, where X is the amount of life you lost this turn": X found as the
+        // ability resolves (CR 608.2h), unless it is about the spell being cast
+        is Mechanic.CostChange -> if (mentionsAffected(mechanic.change.times) || mechanic.change.times.toString().contains("Tested")) mechanic
+            else mechanic.copy(change = when (val c = mechanic.change) {
+                is arcanum.api.CostChange.Less -> c.copy(times = fixValue(e, c.times))
+                is arcanum.api.CostChange.More -> c.copy(times = fixValue(e, c.times))
+            })
         // "Protection from the color of your choice": the colour chosen now (CR 608.2h), not looked up later
         is Mechanic.GainAbilities -> Mechanic.GainAbilities(mechanic.abilities.map { a ->
             if (a is arcanum.api.Keyword.Protection) arcanum.api.Keyword.Protection(fixColors(e, a.from)) else a
@@ -1397,7 +1425,9 @@ internal object Effects {
                     // mh2: "reselect the targets at random" (CR 115.7d): the host picks, a die with a side for each legal target
                     else if (effect.atRandom) List(minOf(chosen.size, options.size)) { options[(act.random(chooser, id,
                         arcanum.engine.decision.RandomKind.Die(options.size, 1)) as Answer.DieRolls).results.single() - 1] }.distinct()
-                    else act.chooseTargets(chooser, id, slot, options, chosen.size, chosen.size)
+                    // mkm fixes: the new targets keep the slot's limits on each other (CR 115.7, 601.2c)
+                    else Targeting.choose(act, chooser, id, s, options, chosen.size, chosen.size,
+                        act.evaluator(arcanum.engine.query.Context(item.controller, item.source, item.names, stackItem = item)))
                 }
             }
             if (targets != item.targets) act.record(Change.StackItemUpdated(item, item.copy(targets = targets)))
@@ -1603,7 +1633,15 @@ internal object Effects {
             if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Earthbend, scope.actor, land)))
             return
         }
-        KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
+        // mkm chunk 02: what a keyword action is made of is done by the player doing it, its "you" (CR 701.16a: "Each player who controls the most
+        // creatures investigates": each of them creates their own Clue, CR 111.2)
+        KeywordExpansions.expand(action)?.let { steps ->
+            if (scope.actor == scope.you) return Steps.run(scope, steps)
+            val performed = Scope(scope.act, scope.cause.copy(controller = scope.actor), scope.names, scope.event, scope.actor, scope.batch, scope.entering)
+            Steps.run(performed, steps)
+            scope.names = performed.names
+            return
+        }
         val cause = scope.cause
         when (action) {
             // CR 701.34a: choose any number of permanents and/or players with counters; give each another of each kind
@@ -1723,7 +1761,8 @@ internal object Effects {
             // CR 701.40a, c: the top card of the library onto the battlefield face down as a 2/2 creature, one card at a time;
             // CR 701.58a: cloaked, it also has ward {2}
             is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
-            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
+            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(action.cards?.let { cloak(scope, scope.objects(it)) }
+                ?: manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
             // CR 701.56a: for each suspended card you own and each permanent you control with a time counter on it, you may add or
             // remove a time counter
             KeywordAction.TimeTravel -> {
@@ -1818,6 +1857,19 @@ internal object Effects {
             val moved = Actions.move(act, scope.cause, listOf(PlannedMove(top, Zone.Battlefield, controller = scope.actor, faceDown = true)))[top]
                 ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
             Actions.tapStatus(act, moved, StatusFlag.Marked(mark), true)
+            moved
+        }
+    }
+
+    /** CR 701.58a, e: [cards] onto the battlefield face down under the cloaking player's control, one at a time, from whatever zone
+     * they are in (a hand, any player's library, exile); a card that doesn't arrive isn't cloaked (701.58f). */
+    private fun cloak(scope: Scope, cards: List<ObjectId>): List<ObjectId> {
+        val act = scope.act
+        return cards.distinct().mapNotNull { card ->
+            if (act.state.obj(card)?.zone.let { it == null || it == Zone.Battlefield || it == Zone.Stack }) return@mapNotNull null
+            val moved = Actions.move(act, scope.cause, listOf(PlannedMove(card, Zone.Battlefield, controller = scope.actor, faceDown = true)))[card]
+                ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
+            Actions.tapStatus(act, moved, StatusFlag.Marked(ObjectMark.Cloaked), true)
             moved
         }
     }

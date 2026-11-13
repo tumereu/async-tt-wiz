@@ -161,7 +161,8 @@ class OneChunk07MillScryConditionsTest {
     ) parsesTo abilities(
         triggered(entersSelf, scry(2)),
         triggered(enters(and(another, artifact, you)), untilEndOfTurn(Objects.Self,
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Phyrexian")), SubtypeRef.Literal(Subtype("Eye")))),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Phyrexian")), SubtypeRef.Literal(Subtype("Eye"))),
+                replaceSubtypes = true), // CR 205.1b: a "[creature types] artifact creature" replaces creature types
             Mechanic.SetPowerToughness(n(4), n(4)))),
     )
 

@@ -102,7 +102,7 @@ internal object Tdm {
     // next attack this turn, untap each creature you control."
     val ADDITIONAL_COMBAT_THEN_WHEN_NEXT_ATTACK_UNTAP = Regex("""[Tt]here is an additional combat phase after this phase followed by an additional main phase\. When you next attack this turn, untap each creature you control\.""")
     // tdm chunk 09: "distribute three +1/+1 counters among one, two, or three target creatures you control"
-    val DISTRIBUTE_COUNTERS_AMONG = Regex("""[Dd]istribute (\w+) (\S+) counters among (one, two, or three) target (.+?)\.""")
+    val DISTRIBUTE_COUNTERS_AMONG = Regex("""[Dd]istribute (\w+) (\S+) counters among (one, two, or three|any number of) target (.+?)\.""")
     // tdm chunk 09: "Destroy all creatures and enchantments. Draw a card for each permanent destroyed this way."
     val DESTROY_ALL_DRAW_FOR_EACH = Regex("""Destroy all (.+?)\. Draw a card for each permanent destroyed this way\.""")
     // tdm chunk 09: "it deals 3 damage to each creature and each planeswalker"

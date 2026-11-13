@@ -145,7 +145,7 @@ internal object Ecl {
     val GETS_X_AND_UP_TO_ONE_GETS = Regex("""[Tt]arget (.+?) gets \+X/\+0 until end of turn and up to one target (.+?) gets -0/-X until end of turn\.""")
     val ATTACKS_OR_BLOCKS_DIFFERENCE = Regex("""Whenever (.+?) attacks or blocks, it gets \+X/\+X until end of turn, where X is the difference between its power and toughness\.""")
     val EXILE_UNTIL_NONLAND_CAST_IF_LIFE = Regex("""Exile cards from the top of your library until you exile a nonland card\. You may cast that card without paying its mana cost if the spell's mana value is less than or equal to the amount of life you gained this turn\. Otherwise, put it into your hand\.""")
-    val BECOMES_SUBTYPES_BASE_PT = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)( and protection from each of your opponents)?\.""")
+    val BECOMES_SUBTYPES_BASE_PT = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)( and protection from each of your opponents| and gains [a-z, ]+)?\.""") // mkm chunk 03: "… and gains vigilance."
     val ADD_ANY_COLOR_BECOMES_THAT_COLOR = Regex("""Add one mana of any color\. (.+?) becomes that color until end of turn\.""")
     // otj chunk 01: also "exile that spell instead of … as it resolves. If you do, it becomes plotted." (Lilah)
     val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex(

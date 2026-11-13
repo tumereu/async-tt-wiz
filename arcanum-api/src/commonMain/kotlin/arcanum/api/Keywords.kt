@@ -879,8 +879,9 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "squad"; override val text: String get() = "Squad"; override val rule: String get() = "702.157" }
     }
-    /** Disguise (CR 702.168) */
-    @Serializable @SerialName("disguise") data class Disguise(override val cost: Cost) : Keyword, HasCost {
+    /** Disguise (CR 702.168). [costChange] (mkm): "Disguise {5}{R}. This cost is reduced by {1} for each …" changes the cost of turning it
+     * face up (CR 118.7). */
+    @Serializable @SerialName("disguise") data class Disguise(override val cost: Cost, val costChange: CostChange? = null) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "disguise"; override val text: String get() = "Disguise"; override val rule: String get() = "702.168" }
     }

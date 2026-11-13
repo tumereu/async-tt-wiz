@@ -52,6 +52,9 @@ internal object ActionWordings {
         "suspected" to ObjectMark.Suspected, // CR 701.60a
     )
 
+    /** mkm chunk 02: the mark [word] names ("suspected"), for effects that give or take it. */
+    fun mark(word: String): ObjectMark? = MARKS[word]
+
     private val PLAYERS = listOf<Pair<String, PlayerFilter>>("you " to PlayerFilter.You, "an opponent " to PlayerFilter.Opponent, "a player " to PlayerFilter.Any)
 
     /** The action a player does with no object, by its base form ("proliferate"); null when it isn't one. */
@@ -71,6 +74,10 @@ internal object ActionWordings {
         val (word, players) = PLAYERS.firstOrNull { text.startsWith(it.first) } ?: return null
         val rest = text.removePrefix(word)
         fun form(verb: Verb) = if (players == PlayerFilter.You) verb.base else verb.third
+        // mkm chunk 10: "you solve a Case": a Case of theirs becomes solved (CR 719.3a, 719.3b)
+        (if (players == PlayerFilter.You) "solve " else "solves ").takeIf { rest.startsWith(it) }?.let { verb ->
+            return EventPattern.GotMark(ObjectMark.Solved, ObjectFilter.And(listOf(subject(rest.removePrefix(verb)) ?: return null, ObjectFilter.ControlledBy(players))))
+        }
         BY_PLAYERS.firstOrNull { rest == form(it) }?.let { return EventPattern.KeywordActionDone(it.kind, players) }
         TO_OBJECTS.firstOrNull { rest.startsWith(form(it) + " ") }?.let { verb ->
             val noun = rest.removePrefix(form(verb) + " ")

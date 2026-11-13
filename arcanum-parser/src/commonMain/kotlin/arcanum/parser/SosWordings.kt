@@ -46,7 +46,7 @@ internal object Sos {
     // sos chunk 04: stun counters (CR 122.1d) and tapping
     val TAP_IF_YOUR_TURN_STUN = Regex("""Tap target (.+?)\. If it's your turn, put a stun counter on it\.""")
     val TAP_PUT_TWICE_X_STUN = Regex("""Tap target (.+?)\. Put twice X stun counters on it\.""")
-    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)\. Put a stun counter on each of them\.""")
+    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)(?:\. Put| and put) a stun counter on each of them\.""") // mkm chunk 02: " and put"
     val ENTERS_WITH_STUN_THREE_MINUS_X = Regex("""(.+) enters with a number of stun counters on it equal to (\w+) minus X\. If X is (\d+) or less, it enters tapped\.""")
 
     // sos chunk 05: infusion (an ability word)
@@ -65,7 +65,8 @@ internal object Sos {
     val LOOK_REVEAL_UP_TO_LANDS_BATTLEFIELD_CREATURES_HAND = Regex("""Look at the top (\w+) cards of your library\. You may reveal up to (\w+) (.+?) from among them, then put the rest on the bottom of your library in a random order\. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand\.""")
     val LOOK_REVEAL_LAND_OR_X = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may reveal a land card or a card with \{X\} in its mana cost from among them and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
     val REVEAL_UNTIL_PUT_HAND_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal an? (.+?)\. Put that card into your hand and the rest on the bottom of your library in a random order\.""")
-    val MILL_PUT_FROM_AMONG_ONTO_BATTLEFIELD = Regex("""Mill (\w+) cards\. Then put an? (.+?) from among them onto the battlefield\.""")
+    // woe chunk 07: also "all …", "from among the milled cards", "into your hand"
+    val MILL_PUT_FROM_AMONG_ONTO_BATTLEFIELD = Regex("""Mill (\w+) cards\. Then put (an?|all) (.+?) from among (?:them|the milled cards) (onto the battlefield|into your hand)\.""")
     val MILL_MAY_PLAY_THIS_TURN = Regex("""[Mm]ill a card\. You may play that card this turn\.""")
     val SEARCH_PUT_HAND_OR_GRAVEYARD = Regex("""Search your library for an? (.+?), reveal it, put it into your hand or graveyard, then shuffle\.""")
 
@@ -138,7 +139,8 @@ internal object Sos {
     val IT_GAINS_UNTIL_EOT = Regex("""It gains (.+) until end of turn\.""")
     val GRANDEUR = Regex("""Grandeur — Discard another card named (.+?): (.+)""")
     val LANDS_HAVE_QUOTED = Regex("""(Lands you control) have "(.+)"""")
-    val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters on it\.""")
+    // mkm sweep: one counter too ("Put a +1/+1 counter on it.")
+    val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters? on it\.""")
     val WHEN_ENTERS_CHOOSE_CARD_NAME = Regex("""When (.+?) enters, choose an? (.+?) card name\.""")
 }
 
@@ -221,6 +223,8 @@ internal object SosPhrases {
         if (text == "the number of cards you've drawn this turn") return Value.EventsThisTurn(EventPattern.Draw(PlayerFilter.You), Measure.Events)
         // sos chunk 05: "the amount of life you gained this turn"
         if (text == "the amount of life you gained this turn") return Value.EventsThisTurn(EventPattern.GainLife(PlayerFilter.You), Measure.Amount)
+        // woe chunk 08: "the amount of life you lost this turn"
+        if (text == "the amount of life you lost this turn") return Value.EventsThisTurn(EventPattern.LoseLife(PlayerFilter.You), Measure.Amount)
         // sos chunk 09: "the number of differently named lands you control"
         DIFFERENTLY_NAMED.matchEntire(text)?.let { m ->
             return Value.CountDistinct(Filters.objects(m.groupValues[1]) ?: return null, SharedQuality.Name)

@@ -399,6 +399,16 @@ private fun PodPickCard(
                 }
                 onClick { currentOnMenu(true); true }
             }
+            // WEB-028 (owner, §5): on the desktop layout a right-click burns the card (again: unmarks it), as a swipe left does
+            .then(if (LocalAppLayout.current != AppLayout.Desktop) Modifier else Modifier.desktopControl(listOf(copy.id, burnEnabled), onRight = {
+                if (currentMark == PodPickMark.BURN && !automaticBurn) { AppLog.info("pod", "Right-click unmarked ${copy.id}"); onUnmark() }
+                else if (burnEnabled && currentMark != PodPickMark.BURN) {
+                    AppLog.info("pod", "Right-click burned ${copy.id}")
+                    flashMark = PodPickMark.BURN
+                    flashSequence++
+                    currentOnMark(PodPickMark.BURN)
+                }
+            }))
             .pointerInput(burnEnabled) {
                 podPickGestures(onTap = { currentOnMenu(true) }, onInspect = { currentOnInspect(it) }, onInspectScroll = onInspectScroll,
                     onDrag = {

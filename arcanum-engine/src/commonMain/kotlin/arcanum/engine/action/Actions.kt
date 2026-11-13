@@ -560,7 +560,9 @@ internal object Actions {
             when (val r = d.recipient) {
                 is TargetRef.Player -> {
                     if (Keyword.Infect in keywords) act.record(Changes.counters(act.state, r, CounterKind.Poison, d.amount))
-                    else act.record(Changes.life(act.state, r.id, -d.amount, listOf(Meaning.LifeLost)))
+                    // CR 120.3a: damage dealt to a player causes that player to lose that much life, so life-loss replacements apply
+                    // (lci chunk 09: "If an opponent would lose life …, they lose twice that much life instead")
+                    else loseLife(act, cause, r.id, d.amount)
                     val toxic = source?.keywords.orEmpty().filterIsInstance<Keyword.Toxic>().sumOf { it.amount }
                     if (d.combat && toxic > 0) act.record(Changes.counters(act.state, r, CounterKind.Poison, toxic))
                 }

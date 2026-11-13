@@ -84,7 +84,8 @@ internal object AnswerCheck {
     fun reachesTotal(state: GameState, decision: Decision.ChooseObjects, chosen: List<ObjectId>): Boolean {
         val total = decision.total ?: return true
         val e = arcanum.engine.casting.Snapshot(state).evaluator(decision.player)
-        return chosen.sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
+        val sum = chosen.sumOf { e.property(total.property, it) }
+        return if (total.exactly) sum == e.value(total.atLeast) else sum >= e.value(total.atLeast)
     }
 
     private fun random(decision: Decision.Random, answer: Answer) {

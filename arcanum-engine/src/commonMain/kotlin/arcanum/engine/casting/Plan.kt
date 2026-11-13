@@ -753,6 +753,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                     choice.total?.let { t ->
                         val most = choice.options.sumOf { eval.property(t.property, it).coerceAtLeast(0) }
                         if (most < eval.value(t.atLeast)) return "Their total ${t.property} can't reach ${eval.value(t.atLeast)}"
+                        // lci chunk 09: "with total mana value X": some of them must add up to exactly X
+                        if (t.exactly && Costs.exactSubset(choice.options, choice.min, eval.value(t.atLeast)) { eval.property(t.property, it) } == null)
+                            return "No choice adds up to a total ${t.property} of exactly ${eval.value(t.atLeast)}"
                     }
                 }
             }
@@ -863,7 +866,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Divide -> Decision.Divide(id, player, sourceId, q.amount, q.among, minEach = 1)
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text,
-            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast))) },
+            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast)), it.exactly) },
             cost = total.parts.firstOrNull { it.key == q.key }?.at)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)

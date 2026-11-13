@@ -258,6 +258,21 @@ internal object Costs {
             else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: choose.atLeast ?: 0, count, text, null, choose.shared)
     }
 
+    /** lci chunk 09: some of [options], at least [min] of them, whose [value]s add up to exactly [target] ("with total mana value X");
+     * null when none do. Values below 0 count as 0 (CR 107.1b). */
+    fun exactSubset(options: List<ObjectId>, min: Int, target: Int, value: (ObjectId) -> Int): List<ObjectId>? {
+        // for each sum reachable so far, the most objects reaching it (more objects only help reach [min]); each option used once
+        val most = HashMap<Int, List<ObjectId>>().apply { put(0, emptyList()) }
+        for (id in options) {
+            val v = value(id).coerceAtLeast(0)
+            for ((sum, chosen) in most.entries.toList()) {
+                val s = sum + v
+                if (s <= target && (most[s]?.size ?: -1) < chosen.size + 1) most[s] = chosen + id
+            }
+        }
+        return most[target]?.takeIf { it.size >= min && it.isNotEmpty() }
+    }
+
     /** A plain description of a cost part, for decisions ("Sacrifice a creature"). */
     fun describe(part: CostPart): String = when (part) {
         is CostPart.Sacrifice -> "Sacrifice"

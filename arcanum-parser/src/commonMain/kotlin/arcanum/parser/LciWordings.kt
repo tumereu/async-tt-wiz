@@ -54,11 +54,22 @@ internal object Lci {
     // lci chunk 08
     val YOURE_DEALT_DAMAGE = Regex("""you're dealt (combat )?damage""")
     val ATTACKING_PLAYER_GAINS_CONTROL_AND_UNTAPS = Regex("""[Tt]he attacking player gains control of (.+?) and untaps it\.""")
-    val YOU_EXILED_CARD_THIS_WAY = Regex("""you exiled an? (.+?) card this way""")
+    // lci chunk 09: also "you put a Cave onto the battlefield this way"
+    val YOU_EXILED_CARD_THIS_WAY = Regex("""you (?:exiled an? (.+?) card|put an? (.+?) onto the battlefield) this way""")
     val THE_TARGET_ENTERED_THIS_TURN = Regex("""the (.+) entered this turn""")
     val FOR_EACH_PLAYER_CHOOSE_UP_TO_ONE_TARGET = Regex("""[Ff]or each player, choose up to one (other )?target (.+?) that player controls\.""")
     val CHOSEN_BECOME_ARTIFACTS_LOSE_OTHER_ABILITIES = Regex("""For as long as (.+?) remains on the battlefield, the chosen permanents become ([A-Z]\w+) artifacts with "(.+)" and lose all other abilities\.""")
     val FOR_EACH_POWER_GREATER_THAN_BASE_COUNTERS = Regex("""[Ff]or each (.+?) with power greater than that creature's base power, put a number of (\S+) counters on that creature equal to the difference\.""")
+    // lci chunk 09
+    val WOULD_GAIN_OR_LOSE_LIFE_TWICE = Regex("""If (you|an opponent|a player) would (gain|lose) life( during your turn)?, (you|they) \2 twice that much life instead\.""")
+    val IF_A_WOULD_DIE_THIS_TURN_EXILE = Regex("""If an? (.+?) would die this turn, exile it instead\.""")
+    val N_MANA_OF_CHOSEN_COLOR = Regex("""(\w+) mana of the chosen color""")
+    val IT_BECOMES_PT_SUBTYPE_CREATURE = Regex("""It becomes an? (\d+)/(\d+) ((?:[A-Z]\w+ )+)creature(?: with ([a-z ,]+))?\.""")
+    val MAY_CAST_FROM_AMONG_EXILED_WITH_FINALITY = Regex("""You may cast (.+?) spells from among cards you own exiled with (.+?)\. If you cast a spell this way, that creature enters with a finality counter on it\.""")
+    val MAY_CAST_DISCARDED_WITHOUT_PAYING = Regex("""(?:If (.+?), )?you may cast the discarded card without paying its mana cost\.""")
+    val EACH_RETURNS_ALL_NOT_PUT_THERE_THIS_WAY = Regex("""Then each player returns all (.+?) cards from their graveyard that weren't put there this way to the battlefield\.""")
+    val EACH_PLAYER_SACRIFICES_ALL_OTHER = Regex("""Each player sacrifices all other (.+?) they control\.""")
+    val EXILE_ONE_OR_MORE_TOTAL_MANA_VALUE_X = Regex("""Exile one or more (other )?(.+?)s you control with total mana value X""")
     val CRAFT = Regex("""Craft with (.+?) ((?:\{[^}]+\})+)""")
     val CRAFT_EACH_OF = Regex("""(?:an? [A-Z]\w+, )+and an? [A-Z]\w+""")
     val CRAFT_COUNT = Regex("""(\w+)( or more)?(?: (.+))?""")

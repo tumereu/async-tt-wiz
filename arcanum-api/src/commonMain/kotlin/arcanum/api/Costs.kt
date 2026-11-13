@@ -154,9 +154,10 @@ data class ManaProduction(
     val spellGetsUntil: Duration? = null,
 )
 
-/** [property] of the chosen objects added up, at least [atLeast]. */
+/** [property] of the chosen objects added up, at least [atLeast]; with [exactly], exactly [atLeast] ("Exile one or more other artifacts
+ * you control with total mana value X", a cost paid as stated, CR 601.2h). */
 @Serializable
-data class Total(val property: NumericProperty, val atLeast: Value)
+data class Total(val property: NumericProperty, val atLeast: Value, val exactly: Boolean = false)
 
 @Serializable
 sealed interface ManaKind {

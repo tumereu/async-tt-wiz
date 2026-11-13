@@ -151,6 +151,9 @@ internal object Filters {
         if (phrase == "permanent card" || phrase == "permanent cards") return ObjectFilter.Or(PERMANENT_TYPES.map { ObjectFilter.Type(it) })
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
+        // dmu chunk 05: "permanent spell", "white permanent spell": a spell of a permanent type (CR 110.4b), not a permanent (one on the battlefield)
+        if (phrase == "permanent spell" || phrase == "permanent spells") return all(noun("permanent card")!!, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
+        QUALIFIED_PERMANENT_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent spell")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
 
         // blb chunk 08: "creature you control without flying", "… that entered the battlefield this turn"
@@ -535,6 +538,13 @@ internal object Filters {
     private val OTHER = Regex("""(?:an)?other (.+)""")
     // chunk 42
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
+    private val QUALIFIED_PERMANENT_SPELL = Regex("""(.+) permanent spells?""")
+    // dmu chunk 05: the kind of a spell cast ("you cast a white permanent spell": "permanent" is of a permanent type, CR 110.4b)
+    private val PERMANENT_KIND = Regex("""(?:(.+) )?permanent""")
+    fun spellKind(text: String): ObjectFilter? = PERMANENT_KIND.matchEntire(text)?.let { m ->
+        val types = Filters.noun("permanent card") ?: return null
+        if (m.groupValues[1].isEmpty()) types else Filters.all(Filters.noun(m.groupValues[1]) ?: return null, types)
+    } ?: Filters.noun(text)
     // chunk 36
     private val OR_AN_ALTERNATIVE = Regex(" or an? ")
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
@@ -730,10 +740,10 @@ internal object Events {
         }
         // inr chunk 09: "you cast another Vampire spell" (not this card itself, CR 109.1)
         YOU_CAST_ANOTHER.matchEntire(text)?.let { m ->
-            return EventPattern.Cast(spell = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[1]) ?: return null), by = PlayerFilter.You)
+            return EventPattern.Cast(spell = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.spellKind(m.groupValues[1]) ?: return null), by = PlayerFilter.You)
         }
         YOU_CAST.matchEntire(text)?.let { m ->
-            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.spellKind(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(spell = kind, by = PlayerFilter.You)
         }
         // chunk 25: "a creature is put into your graveyard from the battlefield": a card goes to its owner's graveyard
@@ -1089,6 +1099,7 @@ internal object Conditions {
         RvrPhrases.condition(text, self)?.let { return it } // rvr
         OnePhrases.condition(text, self)?.let { return it } // one
         IsdPhrases.condition(text, self)?.let { return it } // isd
+        Dmu.condition(text)?.let { return it } // dmu
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

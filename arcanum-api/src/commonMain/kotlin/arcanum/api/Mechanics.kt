@@ -333,6 +333,11 @@ sealed interface Mechanic {
         /** Paying it lets the spell be cast as though it had flash (CR 702.8a): cast when only an instant could be, the cost must be paid
          * ("You may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it"). */
         val flash: Boolean = false,
+        // dmu
+        /** Paid, the spell costs this much less, and only of these colours: a symbol the cost lacks reduces nothing, not generic mana
+         * (the Defilers: "Those spells cost {W} less to cast if you paid life this way. This effect reduces only the amount of white mana
+         * you pay", overriding CR 118.7b, c; reduced as the total cost is determined, CR 601.2f). */
+        val reducesBy: ManaCost? = null,
     ) : Mechanic
     /** Some of the spell's mana may be paid another [way] (delve, convoke, improvise; CR 702.66a, 702.51a). */
     @Serializable @SerialName("pay-mana-by") data class PayManaBy(val way: ManaPaymentWay) : Mechanic

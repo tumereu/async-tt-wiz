@@ -539,8 +539,9 @@ internal object Payment {
             },
         )
         arcanum.engine.change.Changes.cast(s, id, facts)?.let(recorder::record)
+        // dmu chunk 05: the provisional item's cast facts were only for paying (the card holds them now)
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
-            divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
+            divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp(), cast = null)
         // CR 702.47a: the spliced cards are revealed
         if (plan.spliced.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(plan.player, plan.spliced.map { it.card })))
         // CR 601.2i: the spell becomes cast

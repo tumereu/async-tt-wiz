@@ -307,7 +307,27 @@ internal object Legality {
             val c = proposed.view[plan.itemId]?.characteristics
             return !plan.byEffect && !sorceryTime && c != null && !instantSpeed(proposed, plan.player, plan.itemId, c.types, c.hasKeyword(Keyword.Flash))
         }
+        if (flashLostAsProposed(plan)) return true
         return plan.item.announced.isNotEmpty() && cantCastBy(plan.snap, plan.player, plan.itemId)
+    }
+
+    /** dmu chunk 05, CR 601.2e, 601.3a: "You may cast this spell as though it had flash if X is 3 or less": begun when only an instant could
+     * be cast because its own conditional flash held, that condition must still hold with what has been announced (its X, CR 601.2b);
+     * other ways to cast it any time it could cast an instant still count. */
+    private fun flashLostAsProposed(plan: Plan): Boolean {
+        if (plan.byEffect || plan.alternative?.second?.duringYour != null) return false
+        val o = plan.snap.state.obj(plan.itemId) ?: return false
+        val own = o.definition.faces.flatMap { it.abilities }.filterIsInstance<Ability.Static>()
+            .filter { it.condition != null && Mechanic.InstantSpeed in it.mechanics }
+        if (own.isEmpty()) return false
+        val st = plan.snap.state
+        val sorceryTime = st.turn.active == plan.player && st.stack.all { it == plan.itemId } &&
+            (st.turn.step == TurnStep.PrecombatMain || st.turn.step == TurnStep.PostcombatMain)
+        if (sorceryTime) return false
+        val c = plan.snap.view[plan.itemId]?.characteristics ?: return false
+        if (CardType.Instant in c.types || c.hasKeyword(Keyword.Flash) || castsAsThoughFlash(plan.snap, plan.player, plan.itemId) ||
+            nextSpellFlash(plan.snap, plan.player, plan.itemId)) return false
+        return own.none { plan.eval.holds(it.condition!!) }
     }
 
     /** Whether [card] (of [types], [flash] when it has flash) may be cast any time [player] could cast an instant: an instant or with

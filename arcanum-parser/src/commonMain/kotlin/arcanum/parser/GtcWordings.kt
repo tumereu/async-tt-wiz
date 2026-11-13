@@ -4,7 +4,8 @@ package arcanum.parser
 internal object Gtc {
     // gtc chunk 01: "[subject] gain(s) …/get(s) …/can't … until end of turn and … this turn."
     val TIMED_PREDICATES = Regex("""(.+?) ((?:gains?|gets?|can't|can|loses?) .+ (?:until end of turn|this turn)(?: as though it didn't have defender)?)\.""")
-    val PREDICATE_AND = Regex(""",? and (?=(?:gains?|gets?|can't|can|loses?) )""")
+    // dmu chunk 05: also a list ("gains haste, can attack as though it didn't have defender, and assigns combat damage …")
+    val PREDICATE_AND = Regex(""",? and (?=(?:gains?|gets?|can't|can|loses?|assigns) )|, (?=(?:gains?|gets?|can't|can|loses?|assigns) )""")
     val TIMING = Regex("""(.+?) (?:until end of turn|this turn)( as though it didn't have defender)?""")
     val GAIN_KEYWORDS = Regex("""gains? (.+)""")
     val GET_PT = Regex("""gets? ([+-](?:\d+|X))/([+-](?:\d+|X))""")
@@ -145,7 +146,8 @@ internal object Gtc {
     val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""They put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
     val WOULD_DRAW_WHILE_NO_CARDS = Regex("""If you would draw a card while you have no cards in hand, instead (.+)\.""")
     val AS_LONG_AS_LIFE = Regex("""As long as you have (\d+) or more life and an opponent has (\d+) or less life, (.+?) ((?:gets|has) .+)\.""")
-    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name you cast cost (\{\d+\}) less to cast\.""")
+    // dmu chunk 05: also "Spells your opponents cast with the chosen name cost {2} more to cast."
+    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells (with the chosen name you cast|your opponents cast with the chosen name) cost (\{\d+\}) (less|more) to cast\.""")
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
     val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of any (.+?), except it has "(.+)"\.?""")

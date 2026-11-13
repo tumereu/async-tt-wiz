@@ -416,7 +416,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)
-            is ObjectFilter.WasPaid -> facts(id).let { f -> (f?.paid.orEmpty() + listOfNotNull(f?.alternative)) }
+            // dmu chunk 05: a spell being paid for, its optional costs chosen so far (on its provisional item)
+            is ObjectFilter.WasPaid -> facts(id).let { f -> (f?.paid.orEmpty().ifEmpty { state.stackItems[id]?.cast?.paid.orEmpty() } + listOfNotNull(f?.alternative)) }
                 .filter { it.keyword == filter.keyword }.sumOf { it.times } >= filter.times
             is ObjectFilter.HasStatus -> hasStatus(id, o, filter.status)
             // gtc chunk 07: the blocking relation of this combat (CR 509.1a, 509.1h)

@@ -242,6 +242,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         names = publicNames(choices.names),
         snapshots = choices.snapshots,
         timestamp = base.nextTimestamp(),
+        // dmu chunk 05: the optional costs chosen so far (CR 601.2b) are the spell's as it is paid for: mana restricted to "a kicked spell"
+        // reads them (CR 601.2h, 106.6); only on this provisional item (a spell's card holds its cast facts once cast)
+        cast = if (!isSpell) null else plain.view[itemId]?.characteristics?.abilities.orEmpty().flatMap { inst ->
+            (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.AdditionalCost>().filter { it.optional }.mapNotNull { m ->
+                optionalTimes(inst)?.takeIf { it > 0 }?.let { arcanum.engine.state.PaidCost(m.keyword, it) }
+            }
+        }.takeIf { it.isNotEmpty() }?.let { arcanum.engine.state.CastFacts(paid = it) },
     )
 
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
@@ -583,7 +590,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val any = assistable > 0 || (ability as? Ability.Activated)?.rules?.costChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
             snap.view.game.rules.any { change(it.mechanic) } ||
-            instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||
+            instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null || it.second.reducesBy != null } ||
             contributions.any { c -> c.cost.parts.any { it is CostPart.OneOf } } ||
             // Mana that rises with what is chosen ("{B}{B} for each creature type among them" read by a value)
             contributions.any { c -> c.cost.parts.any { it is CostPart.Mana && (it.times != null || it.x != null) } }
@@ -631,6 +638,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         Costs.total(contributions, eval, x, its, { key -> (choices.names[ONE_OF + key] as? NamedValue.Number)?.value },
             increases, reductions, manaCostOf = { objects ->
                 chosen.objects(objects).takeIf { it.isNotEmpty() }?.map { id -> plain.view[id]?.characteristics?.manaCost }
+            }, coloredOnly = additionalCosts.flatMap { (inst, m) ->
+                // dmu: an optional additional cost that, paid, reduces the spell's coloured mana (the Defilers, CR 601.2f)
+                val r = m.reducesBy ?: return@flatMap emptyList()
+                List((if (m.optional) optionalTimes(inst) else 1) ?: 0) { r }
             })
     }
 

@@ -27,6 +27,12 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
+- Number readers in `Sentences` take the ability's context (`context.value(text)`, not `Values.value`): "its power" in a
+  trigger on another object's event is that object, as it last existed if it left (CR 603.10a); "its <number>" right after
+  a move or destroy of a target is the target as it last existed (CR 608.2h), not the card in its new zone.
+- "permanent spell" and "permanent card" (in a graveyard, hand, library) mean permanent types (CR 110.4a-b), never
+  `Category(Permanent)`, which matches only the battlefield: go through `Filters.noun`/`Filters.spellKind`.
+- Ability-word patterns accept digits ("Descend 4 — ..."); "<player> <keyword action>s" = `ForEach` over that player.
 - A cost that exiles the card from the graveyard, or a graveyard-return activated ability, needs no `functionsIn`;
   "When you cast this spell" reads with `functionsIn = null`.
 - Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
@@ -110,6 +116,13 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Objects that left are judged by last known information: a token "copy of it" copies the last known copiable values
   (a clone copies what it copied, CR 707.2); events record the controller at the time (CR 608.2h). Test both with 3
   players and a control change.
+- Damage results (life loss, infect/toxic poison, wither and infect -1/-1 counters) go through `Actions.loseLife` and
+  `Actions.putCounters` with the source's controller as giver, so replacements apply (CR 120.3, 614.1a); a replacement
+  that multiplies or raises an amount touches only the part of the event it names.
+- Costs: each object pays one sacrifice/exile/discard/return part and one tap part only, and an activation with no
+  distinct assignment isn't offered (CR 601.2h, 602.2b): test multi-material costs with a creature of two types.
+- `paying = listOf("<source>:G")` picks a source and colour, granted mana abilities included; an ability on the Stack as a
+  target: `state.stack.first { state.stackItems[it]?.source == card(name) }`.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
 - A `ForEach` whose only step is `DealDamage` is one damage event (CR 608.2f); a `ForEach` that casts copies asks the

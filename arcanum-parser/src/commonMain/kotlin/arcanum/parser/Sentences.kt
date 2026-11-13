@@ -16332,7 +16332,9 @@ internal class Sentences(
             val noun = Filters.noun(m.groupValues[2]) ?: return@let
             val aura = context.target("aura", Filters.all(ObjectFilter.Sub(Subtype("Aura")), ObjectFilter.Attached(to = Objects.Each(noun))))
             val host = Objects.AttachedTo(aura)
-            val other = Filters.all(ObjectFilter.Not(ObjectFilter.Is(host)), noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(host))))
+            // rvr fixes: only a permanent the Aura can legally enchant is offered (CR 701.3b, 303.4d)
+            val other = Filters.all(ObjectFilter.Not(ObjectFilter.Is(host)), noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(host))),
+                ObjectFilter.AttachableBy(aura))
             return listOf(Step.Choose(arcanum.api.Choice.Objects(other, Value.Fixed(1), Value.Fixed(1)), bind = "permanent", chooser = Players.You),
                 Step.Do(Effect.Attach(aura, Recipients(objects = Objects.Bound("permanent")))))
         }

@@ -151,6 +151,10 @@ sealed interface ObjectFilter {
     /** Has an activated ability with the tap symbol in its cost (CR 107.5: "a creature that has an activated ability with {T} in its
      * cost"); mana abilities count (CR 605.1a). */
     @Serializable @SerialName("has-tap-ability") data object HasTapAbility : ObjectFilter
+    /** A permanent one of [attachment] could legally be attached to as it is (CR 701.3b): an Aura as its enchant abilities allow
+     * (CR 303.4d), an Equipment to a creature (CR 301.5c), a Fortification to a land (CR 301.6), never to itself or to a permanent
+     * with protection from it (CR 702.16c, d) ("attach target Aura … to another permanent" chooses only among these). */
+    @Serializable @SerialName("attachable-by") data class AttachableBy(val attachment: Objects) : ObjectFilter
     /** An ability (on the Stack, or being activated) of [kind] (any when null), whose source matches [source], labelled
      * [label] ("activated or triggered ability you control from an artifact source", "an exhaust ability"). Its
      * controller is the ability's controller. Spells and abilities in other filters are matched as Stack objects too. */

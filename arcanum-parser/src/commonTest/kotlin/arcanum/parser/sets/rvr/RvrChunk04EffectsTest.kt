@@ -258,7 +258,8 @@ class RvrChunk04EffectsTest {
 
     // ---- Move, attach, deal damage
 
-    // CR 122.5: moving a counter; CR 701.3a: attaching the Aura to a permanent chosen on resolution, with the same controller as the one it's on
+    // CR 122.5: moving a counter; CR 701.3a: attaching the Aura to a permanent chosen on resolution, with the same controller as the one it's on;
+    // CR 701.3b: only one the Aura can be attached to is offered
     @Test
     fun helixTender() = card(
         name = "Helix Tender",
@@ -278,7 +279,8 @@ class RvrChunk04EffectsTest {
         )),
         activated(manaCost("{1}{U}"),
             Step.Choose(Choice.Objects(and(not(ObjectFilter.Is(Objects.AttachedTo(target("aura")))), permanentFilter,
-                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(Objects.AttachedTo(target("aura")))))), n(1), n(1)), bind = "permanent", chooser = Players.You),
+                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(Objects.AttachedTo(target("aura"))))), ObjectFilter.AttachableBy(target("aura"))), n(1), n(1)),
+                bind = "permanent", chooser = Players.You),
             Step.Do(Effect.Attach(target("aura"), Recipients(objects = Objects.Bound("permanent")))),
             targets = listOf(slot("aura", and(sub("Aura"), ObjectFilter.Attached(to = Objects.Each(permanentFilter)))))),
     )

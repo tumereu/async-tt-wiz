@@ -239,7 +239,7 @@ class RvrChunk04EffectsScenariosTest {
         attach(brambleMantle, gravelHound)
         alice.activates(helixTender, ability = 1, target = brambleMantle)
         allPass()
-        alice.chooses(sternRecluse)
+        // CR 701.3b: the Recluse is the only other permanent the Aura can enchant (not the Aura itself), so nothing is asked
         settle()
         expect {
             sternRecluse.power shouldBe 4

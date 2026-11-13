@@ -181,7 +181,10 @@ internal object Effects {
             is Effect.Untap -> Actions.tap(act, onBattlefield(scope, effect.objects), false)
             is Effect.Attach -> {
                 val to = recipients(scope, effect.to).firstOrNull() ?: return
-                onBattlefield(scope, effect.objects).forEach { if (TargetRef.Object(it) != to) Actions.attach(act, it, to) }
+                // CR 701.3b: what can't legally be attached to it doesn't move
+                onBattlefield(scope, effect.objects).forEach {
+                    if (TargetRef.Object(it) != to && arcanum.engine.sba.StateBasedActions.canBeAttached(act, it, to)) Actions.attach(act, it, to)
+                }
             }
             is Effect.Unattach -> onBattlefield(scope, effect.objects).forEach { Actions.attach(act, it, null) }
             // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g). What

@@ -123,6 +123,36 @@ internal data class Context(
 internal class Evaluator(val board: Board, val ctx: Context) {
     private val state: GameState get() = board.state
 
+    /** rvr fixes: whether [attachment] could legally be attached to the permanent [host] as both are (CR 701.3b): an Aura as its enchant
+     * abilities allow (CR 303.4d), an Equipment to a creature or as its abilities allow (CR 301.5c), a Fortification to a land (CR 301.6),
+     * not to itself or to a permanent with protection from it (CR 702.16c, d). Anything else may be attached wherever an effect puts it. */
+    private fun attachable(attachment: ObjectId, host: ObjectId): Boolean {
+        if (attachment == host || state.obj(host)?.zone != Zone.Battlefield) return false
+        val a = board.characteristics(attachment) ?: return false
+        val h = board.characteristics(host) ?: return false
+        val owner = board.controller(attachment) ?: return false
+        val e = Evaluator(board, Context(owner, attachment))
+        val mechanics = board.mechanicsOf(attachment)
+        val legal = when {
+            a.isType(CardType.Creature) -> true
+            a.hasSubtype(Subtype("Aura")) -> mechanics.filterIsInstance<arcanum.api.Mechanic.CanEnchant>().all { m ->
+                when (val what = m.what) {
+                    is arcanum.api.TargetKind.Objects -> e.matches(what.filter, host)
+                    is arcanum.api.TargetKind.Either -> e.matches(what.objects, host)
+                    is arcanum.api.TargetKind.Players -> false
+                }
+            }
+            a.hasSubtype(Subtype("Equipment")) -> h.isType(CardType.Creature) ||
+                mechanics.filterIsInstance<arcanum.api.Mechanic.CanAttachTo>().any { e.matches(it.what, host) }
+            a.hasSubtype(Subtype("Fortification")) -> h.isType(CardType.Land)
+            else -> true
+        }
+        val hostController = board.controller(host) ?: return legal
+        return legal && board.mechanicsOf(host).filterIsInstance<arcanum.api.Mechanic.Protection>().none {
+            Evaluator(board, Context(hostController, host)).matches(it.from, attachment)
+        }
+    }
+
     fun with(ctx: Context) = Evaluator(board, ctx)
 
     // ---- Objects
@@ -381,6 +411,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
             ObjectFilter.HasTapAbility -> c?.abilities.orEmpty().any { a -> (a.ability as? Ability.Activated)?.cost?.parts?.any { it == CostPart.TapSelf } == true } // rvr
+            is ObjectFilter.AttachableBy -> objects(filter.attachment).any { attachable(it, id) } // rvr
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)

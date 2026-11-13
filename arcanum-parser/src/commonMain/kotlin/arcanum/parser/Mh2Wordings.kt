@@ -95,7 +95,7 @@ internal object Mh2 {
     val GAIN_CONTROL_OF_EACH = Regex("""Gain control of each (.+)\.""")
     val WITHOUT_COUNTER_ON_IT = Regex("""(.+?) without an? (\S+) counter on it""")
     val GAIN_LIFE_EQUAL_TO_CARDS_DISCARDED_THIS_TURN = Regex("""You gain life equal to the number of cards you've discarded this turn\.""")
-    val LOOK_TOP_MAY_REVEAL_PUT_INTO_HAND_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. You may reveal an? (.+?) card from among them and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
+    val LOOK_TOP_MAY_REVEAL_PUT_INTO_HAND_REST_BOTTOM = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may reveal an? (.+?) card from among them and put (?:it|that card) into your hand\. Put the rest on the bottom of your library in a random order\.""")
     val LOYALTY_ABILITIES_COST_ADDITIONAL = Regex("""Planeswalkers' loyalty abilities you activate cost an additional \[\+(\d+)\] to activate\.""")
     val EACH_SPELL_YOU_CAST_THATS_COSTS_LESS = Regex("""Each spell you cast that's (\w+) or (\w+) costs (\{\d+\}) less to cast\.""")
     val REVEAL_TOP_TWO_ONE_HAND_OTHER_GRAVEYARD_IF = Regex("""Reveal the top two cards of your library\. Put one of them into your hand and the other into your graveyard\. If you put an? (.+?) card into your hand this way, (.+)""")

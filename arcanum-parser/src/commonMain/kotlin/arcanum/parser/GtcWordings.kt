@@ -66,7 +66,7 @@ internal object Gtc {
     val PRIMORDIAL_DESTROY = Regex("""destroy target (.+?) that player controls\.""")
     val SEARCH_UP_TO_X_DESTROYED = Regex("""Search your library for up to X (.+?) cards?, where X is the number of permanents destroyed this way, put those cards onto the battlefield tapped, then shuffle\.""")
 
-    val YOUR_NTH_SPELL_EACH_TURN = Regex("""you cast your (\w+) spell each turn""")
+    val YOUR_NTH_SPELL_EACH_TURN = Regex("""you cast your (\w+) (?:(.+?) )?spell each turn""")
     val GETS_FOR_EACH_BLOCKED = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each creature it's blocking\.""")
 
     val SHUFFLE_SELF_AND_TARGETS = Regex("""Shuffle (.+?) and up to (\w+) target (.+?) from a single graveyard into their owners' libraries\.""")

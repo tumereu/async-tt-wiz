@@ -783,6 +783,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c
             NumericProperty.UnlockedDoors -> o?.marks.orEmpty().count { it is arcanum.api.ObjectMark.Unlocked }
+            // mom: coloured mana symbols in its mana cost, each counted once (CR 107.4, 202.1)
+            NumericProperty.ColoredManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
+                s is arcanum.api.ManaSymbol.Colored || s is arcanum.api.ManaSymbol.Hybrid || s is arcanum.api.ManaSymbol.GenericHybrid ||
+                    s is arcanum.api.ManaSymbol.ColorlessHybrid || s is arcanum.api.ManaSymbol.Phyrexian || s is arcanum.api.ManaSymbol.PhyrexianHybrid
+            }
             // msh: mana symbols of a colour in its mana cost, hybrid ones included (CR 107.4, 202.1)
             is NumericProperty.ManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
                 when (s) {

@@ -292,6 +292,10 @@ internal object Triggers {
     /** The key under which a taken "Do this only once each turn" action is counted. */
     fun actionKey(origin: AbilityOrigin, player: PlayerId): String = "\$action:${origin.key}@$player"
 
+    /** The object a damage event of [trigger] was dealt to, when it was dealt to an object rather than a player. */
+    private fun damagedObject(trigger: Trigger.On, unit: TriggerEvent): Any? =
+        if (trigger.events.all { it is arcanum.api.EventPattern.Damage }) unit.objects.firstOrNull { it.role == EventRole.Object }?.ids else null
+
     /** The instances of [trigger] in [change] (CR 603.2): one per event, or one per batch ([Trigger.On.oneOrMore], CR
      * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,
      * or earlier batches, so "one or more cards for the first time each turn" keeps the whole batch); chapter abilities
@@ -308,7 +312,8 @@ internal object Triggers {
                 val batches = when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()
-                    trigger.batchPerPlayer -> all.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
+                    // mom: damage to a battle has no player: one batch per battle dealt damage ("to a player or battle", CR 310.6)
+                    trigger.batchPerPlayer -> all.groupBy { u -> u.players.firstOrNull() ?: damagedObject(trigger, u) }.values.map { batch(it) }
                     else -> listOf(batch(all))
                 }
                 // hob: "with creatures with total power 12 or greater": only a batch whose objects add up to it (CR 603.2c)

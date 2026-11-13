@@ -90,6 +90,16 @@ internal object Mom {
     val DRAW_MAY_DISCARD_ANY_NUMBER_WHEN_TWICE_DAMAGE = Regex("""Draw a card, then you may discard any number of (.+?) cards\. When you discard one or more cards this way, (.+?) deals twice that much damage to target (.+)\.""")
     // mom chunk 12: Djeru and Hazoret, Nahiri's Warcrafting: look at the top N (or the excess damage) cards, exile one, the rest on the bottom, play it
     val LOOK_MAY_EXILE_ONE_REST_BOTTOM_PLAY = Regex("""(?:(.+?) deals (\d+) damage to target (.+?)\. )?Look at the top (\w+) cards of your library(, where X is the excess damage dealt this way)?\. You may exile (?:one of those cards|an? (.+?) from among them)\. Put the rest on the bottom of your library in a random order\. (You may play the exiled card this turn|Until end of turn, you may cast the exiled card without paying its mana cost)\.""")
+    // mom chunk 13: Zimone and Dina "If you control eight or more lands, repeat this process once."
+    val IF_REPEAT_THIS_PROCESS_ONCE = Regex("""If (.+?), repeat this process once\.""")
+    // mom chunk 13: Scrappy Bruiser "Return that creature to its owner's hand at end of combat."
+    val RETURN_TO_HAND_AT_END_OF_COMBAT = Regex("""Return (that creature|it) to its owner's hand at end of combat\.""")
+    // mom chunk 13: Omnath, Locus of All
+    val LOOK_MAY_REVEAL_IF_COLORED_SYMBOLS_ADD_MANA = Regex("""Look at the top card of your library\. You may reveal that card if it has (\w+) or more colored mana symbols in its mana cost\. If you do, add (\w+) mana in any combination of its colors and put it into your hand\. If you don't reveal it, put it into your hand\.""")
+    // mom chunk 13: Zurgo and Ojutai "… You may return one of those Dragons to its owner's hand." after a look
+    val THEN_MAY_RETURN_ONE_OF_THOSE = Regex("""(Look at the top .+?\.) You may return one of those (.+?) to its owner's hand\.""")
+    // mom chunk 13: Baral and Kari Zev
+    val MAY_CAST_LESSER_SHARING_TYPE_IF_YOU_DONT = Regex("""You may cast an? (.+?) with lesser mana value that shares a card type with it from your hand without paying its mana cost\. If you don't, (create .+? token)\. It gains haste until end of turn\.""")
     val SOURCE_DAMAGE_PLUS_THIS_TURN = Regex("""If a source would deal damage to (a player or battle|a player|an opponent) this turn, it deals that much damage plus (\d+) instead\.""")
 }
 
@@ -127,7 +137,14 @@ internal object MomPhrases {
         return null
     }
 
+    // mom chunk 13: Joyful Stormsculptor "spell that has convoke" (CR 702.51)
+    private val THAT_HAS_KEYWORD = Regex("""(.+?) that (?:has|have) ([a-z]+)""")
+
     fun noun(phrase: String): ObjectFilter? {
+        THAT_HAS_KEYWORD.matchEntire(phrase)?.let { m ->
+            val keyword = arcanum.api.KeywordKind.byId(m.groupValues[2]) ?: return@let
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(keyword))
+        }
         CONTROLS_OR_PROTECTS.matchEntire(phrase)?.let { m ->
             val controlled = Filters.noun("${m.groupValues[1]} ${m.groupValues[2]} controls") ?: return null
             val protected = noun("${m.groupValues[3]} ${m.groupValues[2]} protects") ?: return null

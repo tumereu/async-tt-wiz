@@ -153,6 +153,10 @@ sealed interface NumericProperty {
     /** The number of [color] mana symbols in its mana cost, hybrid symbols of that colour included (CR 107.4, 202.1: "a spell
      * with one or more blue mana symbols in its mana cost"). */
     @Serializable @SerialName("mana-symbols") data class ManaSymbols(val color: Color) : NumericProperty
+    // mom
+    /** The number of coloured mana symbols in its mana cost, each hybrid or Phyrexian symbol of a colour counted once (CR 107.4, 202.1:
+     * "if it has three or more colored mana symbols in its mana cost"). */
+    @Serializable @SerialName("colored-mana-symbols") data object ColoredManaSymbols : NumericProperty
     // tla
     /** How many creature types it has ("for each of its creature types"; a changeling has every one, CR 702.73a). */
     @Serializable @SerialName("creature-types") data object CreatureTypes : NumericProperty

@@ -161,7 +161,7 @@ internal object Msh {
     val REMOVE_A_COUNTER_IF_YOU_DO = Regex("""Remove a counter from (.+?)\. If you do, (.+)""")
     val ONE_MORE_OF_EACH_KIND = Regex("""For each kind of counter on target (.+?), give that (.+?) another counter of that kind\.""")
     val MAY_PUT_FROM_AMONG_MILLED = Regex("""(?:You may put an?|Put up to (\w+)) (.+?) from among (?:the milled cards|those cards|them) (into your hand|onto the battlefield)\.""")
-    val TARGET_PLAYER_GAINS_SEARCHES = Regex("""Target player gains (\d+) life, then searches their library for an? (.+?), puts it onto the battlefield tapped, then shuffles\.""")
+    val TARGET_PLAYER_GAINS_SEARCHES = Regex("""Target player (?:gains (\d+) life, then )?searches their library for an? (.+?), puts it onto the battlefield tapped, then shuffles\.""")
     val PUT_COUNTER_ON_UP_TO_ONE = Regex("""Put an? (\S+) counter on up to one target (.+)\.""")
     val NEXT_SPELL_WITHOUT_PAYING = Regex("""The next (.+?) spell you cast this turn can be cast without paying its mana cost\.""")
     val BECOMES_COPY_EXCEPT_PT_IN_ADDITION = Regex("""[Uu]ntil your next turn, (.+?) becomes a copy of up to one target (.+?), except its name is (.+?), it's a legendary (\d+)/(\d+) ([A-Z][A-Za-z ]+?) creature in addition to its other types, and it has (.+)\.""")

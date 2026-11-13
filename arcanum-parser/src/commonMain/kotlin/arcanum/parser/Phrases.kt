@@ -646,6 +646,9 @@ internal object Events {
                 "a player" -> arcanum.api.RecipientFilter(players = PlayerFilter.Any)
                 "you" -> arcanum.api.RecipientFilter(players = PlayerFilter.You)
                 "you or a permanent you control" -> arcanum.api.RecipientFilter(objects = Filters.noun("permanent you control"), players = PlayerFilter.You)
+                // mom chunk 13: "an opponent or battle" (any battle, CR 310.6)
+                "an opponent or battle" -> arcanum.api.RecipientFilter(objects = ObjectFilter.Type(arcanum.api.CardType.Battle), players = PlayerFilter.Opponent)
+                "a player or battle" -> arcanum.api.RecipientFilter(objects = ObjectFilter.Type(arcanum.api.CardType.Battle), players = PlayerFilter.Any)
                 else -> return null
             }
             return EventPattern.Damage(source, to, combat = combat)
@@ -756,6 +759,11 @@ internal object Events {
         // blb chunk 04: "you expend 4" (CR 700.14)
         YOU_EXPEND.matchEntire(text)?.let { m -> return EventPattern.Expend(m.groupValues[1].toInt(), PlayerFilter.You) }
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
+        // mom chunk 13: an ability from that keyword's expansion (CR 702.165a: backup's triggered ability)
+        BECOMES_TARGET_OF_KEYWORD_ABILITY.matchEntire(text)?.let { m ->
+            val keyword = arcanum.api.KeywordKind.byId(m.groupValues[2]) ?: return@let
+            return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = ObjectFilter.AbilityOf(keyword = keyword))
+        }
         BECOMES_TARGET.matchEntire(text)?.let { m ->
             val by = when (m.groupValues[2]) {
                 "you control" -> PlayerFilter.You
@@ -948,7 +956,7 @@ internal object Events {
     private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07
     private val A_SOURCE_DEALS_DAMAGE_TO_OBJECT = Regex("""a source deals damage to (.+)""")
-    private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you|you or a permanent you control)""")
+    private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you|you or a permanent you control|an opponent or battle|a player or battle)""")
     // dsk chunk 06
     private val IS_TURNED_FACE_UP = Regex("""(.+) is turned face up""")
     private val YOU_TURN_FACE_UP = Regex("""you turn an? (.+) face up""")
@@ -1013,6 +1021,8 @@ internal object Events {
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
     private val TRANSFORMS = Regex("""(.+) transforms""")
     // blb chunk 01
+    // mom chunk 13: Mirror-Shield Hoplite "a creature you control becomes the target of a backup ability"
+    private val BECOMES_TARGET_OF_KEYWORD_ABILITY = Regex("""(.+) becomes the target of an? ([a-z]+) ability""")
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")

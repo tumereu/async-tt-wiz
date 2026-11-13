@@ -352,7 +352,8 @@ sealed interface Trigger {
     @Serializable @SerialName("on") data class On(
         val events: List<EventPattern>, val oneOrMore: Boolean = false, val atLeast: Int? = null,
         /** With [oneOrMore]: one batch per player the events are about ("deal combat damage to a player": one trigger per
-         * player dealt damage, each with its own "that player" and amount). */
+         * player dealt damage, each with its own "that player" and amount); damage to an object, one per object ("to a player or battle",
+         * CR 310.6). */
         val batchPerPlayer: Boolean = false,
         val nthThisTurn: Int? = null, val during: TurnStep? = null,
         // hob

@@ -422,7 +422,7 @@ internal object Filters {
         "Each opponent", "each opponent" -> Players.Each(PlayerFilter.Opponent)
         "You", "you" -> Players.You
         "Each player", "each player" -> Players.Each(PlayerFilter.Any)
-        else -> null
+        else -> OnePhrases.eachWho(phrase) // one chunk 03
     }
 
     private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
@@ -509,7 +509,7 @@ internal object Filters {
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
     /** Keywords named by a bare word in "with <keyword>" though written with a number ("toxic 1"). */
-    private val AMOUNT_KEYWORD_KINDS: List<arcanum.api.KeywordKind> = listOf(arcanum.api.Keyword.Toxic.Kind)
+    val AMOUNT_KEYWORD_KINDS: List<arcanum.api.KeywordKind> = listOf(arcanum.api.Keyword.Toxic.Kind)
     // chunk 51
     private val MANA_VALUE_PLUS_SACRIFICED = Regex("""(.+) with mana value equal to (\d+) plus the sacrificed \w+'s mana value""")
 }
@@ -1011,6 +1011,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        OnePhrases.condition(text)?.let { return it } // one
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))

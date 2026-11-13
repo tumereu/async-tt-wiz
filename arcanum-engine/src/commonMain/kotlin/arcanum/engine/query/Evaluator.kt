@@ -773,6 +773,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 property(if (toughness) NumericProperty.Toughness else NumericProperty.Power, id) +
                     rules.filterIsInstance<arcanum.api.Mechanic.PowerGreaterFor>().filter { it.keyword == property.keyword }.sumOf { it.amount }
             }
+            // one: "its total toxic value", the sum of its toxic abilities' N (CR 702.164c)
+            is NumericProperty.KeywordTotal -> c?.keywords.orEmpty().filter { it.kind == property.keyword }.sumOf { (it as? arcanum.api.HasAmount)?.amount ?: 0 }
             // tla: how many creature types it has (every one for a changeling, CR 702.73a)
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c

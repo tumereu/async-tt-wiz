@@ -1230,20 +1230,27 @@ internal class Sentences(
         }
         val m = INSTEAD_IF.matchEntire(line) ?: return null
         if (m.groupValues[1].isNotEmpty() && !RulesWords.isAbilityOrFlavorWord(m.groupValues[1])) return null
-        val condition = Conditions.condition(m.groupValues[3], self) ?: return null
+        // one chunk 03: "… instead if its controller has three or more poison counters" (the controller of the spell's target)
+        val condition = Conditions.condition(m.groupValues[3], self) ?: OnePhrases.itsController(m.groupValues[3], spell.instructions.targets) ?: return null
         val steps = spell.instructions.steps
         if (steps.isEmpty()) return null
         val last = steps.last()
+        // one chunk 03: "Counter target spell unless its controller pays {2}." is two steps, the payment and what happens if it wasn't made: the
+        // whole of it is replaced (no payment is offered when the other happens instead, CR 608.2c)
+        val unpaid = ((last as? Step.If)?.condition as? arcanum.api.Condition.Not)?.condition as? arcanum.api.Condition.Did
+        val lastSteps = if (unpaid != null && (steps.getOrNull(steps.size - 2) as? Step.Pay)?.bind == unpaid.name) steps.takeLast(2) else listOf(last)
         // "[This] deals 4 damage instead": the same damage to the same recipients, another amount.
         val damage = SELF_DEALS_N.matchEntire(m.groupValues[2])?.takeIf { isSelf(it.groupValues[1]) }?.let { d ->
             val previous = ((last as? Step.Do)?.effect as? Effect.DealDamage) ?: return null
             listOf(Step.Do(previous.copy(amount = Value.Fixed(d.groupValues[2].toInt()))))
         }
-        val replacement = damage ?: instructions(m.groupValues[2] + ".", spell.instructions.targets)?.takeIf { it.targets == spell.instructions.targets }?.steps
+        // one chunk 03: "Exile that creature instead", "Counter that spell instead": the spell's one object target
+        val that = spell.instructions.targets.singleOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+        val replacement = damage ?: instructions(m.groupValues[2] + ".", spell.instructions.targets, that = that)?.takeIf { it.targets == spell.instructions.targets }?.steps
             ?: return null
         return spell.copy(
             abilityWord = m.groupValues[1].ifEmpty { null },
-            instructions = spell.instructions.copy(steps = steps.dropLast(1) + Step.If(condition, then = replacement, otherwise = listOf(last))),
+            instructions = spell.instructions.copy(steps = steps.dropLast(lastSteps.size) + Step.If(condition, then = replacement, otherwise = lastSteps)),
         )
     }
 
@@ -4063,10 +4070,11 @@ internal class Sentences(
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
         fraEffect(sentence, context)?.let { return it }
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
-        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) // fin
+        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) /* fin */ ?: oneLateEffect(sentence, context) // one
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        oneEffect(sentence, context)?.let { return it } // one
         inrEffect(sentence, context)?.let { return it } // inr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
         Fdn.EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
@@ -4741,12 +4749,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(target, Destination(Zone.Exile), postBind = "exiled"))) + remembered(Objects.Bound("exiled"))
         }
         DESTROY_TARGET_IF.matchEntire(sentence)?.let { m ->
-            val noun = m.groupValues[2]
-            val target = if (m.groupValues[1] == "target") context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            val noun = m.groupValues[3]
+            val target = if (m.groupValues[2] == "target") context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
                 else context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
             return listOf(Step.If(arcanum.api.Condition.ObjectMatches(target,
-                ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[3].toInt()))),
-                then = listOf(Step.Do(Effect.Destroy(target)))))
+                ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[4].toInt()))),
+                then = if (m.groupValues[1] == "Destroy") listOf(Step.Do(Effect.Destroy(target))) else exile(target)))
         }
         DESTROY_EACH.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.Destroy(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null))))
@@ -10850,7 +10858,8 @@ internal class Sentences(
         val ALSO = Regex("""(.+?) also (.+)""")
         val YOU_AND_GAIN = Regex("""You and (.+) gain hexproof until end of turn\.""")
         val IT_IS = Regex("""(?:that creature|it) (is|isn't) (?:an? )?(.+)""")
-        val ATTACHED_GETS_HAS_LOSES = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: and has ([a-z ,]+?))?(?: and loses ([a-z ,]+?))?\.""")
+        // one chunk 03: "enchanted creature gets an additional +1/+0 and has first strike" (in addition to its other bonus, CR 613.4c)
+        val ATTACHED_GETS_HAS_LOSES = Regex("""(?:Equipped|Enchanted) creature gets (?:an additional )?([+-]\d+)/([+-]\d+)(?: and has ([a-z ,]+?))?(?: and loses ([a-z ,]+?))?\.""")
         val RETURN_COUNTED_FROM_GRAVEYARD = Regex("""[Rr]eturn (up to )?(two|three|four|five) target (.+?) from your graveyard to (your hand|the battlefield)\.""")
         val DESTROY_N_TARGETS = Regex("""[Dd]estroy (two|three) target (.+)\.""")
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
@@ -11017,7 +11026,8 @@ internal class Sentences(
         val SELF_DEALS_N = Regex("""(.+) deals (\d+) damage""")
         val SELF_DEALS_DAMAGE_TO = Regex("""(.+?) deals (\d+|X) damage to (any target|(?:another )?target .+)\.""") // inr chunk 08: another
         val KICKED_DEALS_INSTEAD = Regex("""If this spell was kicked, it deals (\d+) damage instead\.""")
-        val DESTROY_TARGET_IF = Regex("""Destroy (target|that) (.+?) if it has mana value (\d+) or less\.""")
+        // one chunk 03: also "Exile target creature if it has mana value 3 or less."
+        val DESTROY_TARGET_IF = Regex("""(Destroy|Exile) (target|that) (.+?) if it has mana value (\d+) or less\.""")
         val DESTROY_EACH = Regex("""Destroy each (.+)\.""")
         val EXILE_TARGET = Regex("""Exile target (.+?)( if its mana value is less than or equal to the number of colors of mana spent to cast this spell)?\.""")
         val RETURN_TARGET_TO_HAND = Regex("""Return target (.+) to its owner's hand\.""")
@@ -15566,6 +15576,36 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Color(), bind = "color", chooser = Players.You),
                 tmtUntilEndOfTurn(target, Mechanic.GainAbilities(keywords + arcanum.api.Keyword.HexproofFrom(color))),
                 tmtUntilEndOfTurn(target, Mechanic.CantBeBlockedBy(Filters.all(blockers, color))))
+        }
+        return null
+    }
+
+    /** one: single sentences no other rule reads, tried last in [effect]. */
+    private fun oneLateEffect(sentence: String, context: Context): List<Step>? {
+        // one chunk 03: "Exile that creature.", "Counter that spell." about the object named before (in an "instead" paragraph, the spell's
+        // target, CR 608.2c)
+        One.EXILE_OR_COUNTER_THAT.matchEntire(sentence)?.let { m ->
+            val that = context.that ?: return null
+            return if (m.groupValues[1] == "Exile") exile(that) else listOf(Step.Do(Effect.Counter(that)))
+        }
+        return null
+    }
+
+    /** one: single sentences, tried first in [effectRules]. */
+    private fun oneEffect(sentence: String, context: Context): List<Step>? {
+        // one chunk 03: Goliath Hatchery, "choose a creature you control, then draw cards equal to its total toxic value." (you choose one as it
+        // resolves, not a target; the chosen object is "it" after)
+        One.CHOOSE_THEN.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val it = context.it
+            context.it = Objects.Bound("chosen")
+            val then = effect(tmtSentence(m.groupValues[2]), context) ?: run { context.it = it; return null }
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You)) + then
+        }
+        // one chunk 03: "draw cards equal to its total toxic value" (the sum of its toxic N, CR 702.164c; "it" named before, or this object)
+        One.DRAW_EQUAL_TO_ITS_TOTAL.matchEntire(sentence)?.let { m ->
+            val kind = Filters.AMOUNT_KEYWORD_KINDS.firstOrNull { it.text.equals(m.groupValues[1], ignoreCase = true) } ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Of(arcanum.api.NumericProperty.KeywordTotal(kind), context.it ?: Objects.Self, arcanum.api.Combine.Single))))
         }
         return null
     }

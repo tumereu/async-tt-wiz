@@ -210,3 +210,12 @@ val proliferate: Step = Step.Do(Effect.Action(KeywordAction.Proliferate))
 /** A loyalty ability (CR 606.4). */
 fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)
+
+// ---- chunk 03: Corrupted
+
+/** [player] has [n] or more poison counters (counters on a player, CR 122.1f). */
+fun hasPoison(player: Players, n: Int = 3): Condition = Condition.Compare(Value.PlayerCounters(player, CounterKind.Poison), Comparison.AtLeast, n(n))
+/** "an opponent has three or more poison counters" (Corrupted). */
+val corrupted: Condition = Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(hasPoison(Players.Tested)))), atLeast = 1)
+/** "each opponent who has three or more poison counters" */
+val eachCorruptedOpponent: Players = Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(hasPoison(Players.Tested)))))

@@ -949,9 +949,17 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         runCatching { table(EngineProjection.project(base, model, viewer, at, null, null, tokenArt), model, at, viewer) }.getOrNull()
     }
 
-    /** The token pictures for the engine's tokens (SYS-072), from the device's card records. */
+    /** The token pictures for the engine's tokens (SYS-072), from the device's card records. With the device in the
+     * engine's worker ([inWorker]) the table sets it on the page, which has no device to publish from (web e2e, 2026-11-13:
+     * the table's first composition failed on it): it answers the worker's lookups ([RemoteDevice]), and the worker
+     * publishes its boards again with each picture found. */
     var tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None
-        set(value) { if (field !== value) { field = value; worker.run { publish() } } }
+        set(value) {
+            if (field === value) return
+            field = value
+            val r = remote
+            if (r != null) r.tokenArtSet() else worker.run { publish() }
+        }
     private val pictures = HashMap<arcanum.engine.state.ObjectId, org.asyncttwiz.protocol.SubmittedDefinition>()
 
     /** The player's own staging of a declaration made behind the head (at a decision stop in playback: their lanes and
@@ -2064,6 +2072,26 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The page closes the game: its device in the worker is forgotten (nothing here when the device is here). */
     fun close() { remote?.close() }
+
+    /** Web client step 4e: a step of a cast flow session, worked out in the worker beside the device ([CastSessions] there);
+     * [done] gets its answer on the page's thread (a dropped cast when the game closes first). */
+    fun castStep(request: org.asyncttwiz.automatum.boundary.CastRequest, done: (org.asyncttwiz.automatum.boundary.CastAnswer) -> Unit) {
+        val r = checkNotNull(remote) { "Cast steps go to the worker only when the device is there" }
+        r.request("cast ${request.op::class.simpleName}", { org.asyncttwiz.automatum.boundary.DeviceRequest.Cast(it, request) },
+            { org.asyncttwiz.automatum.boundary.DeviceResult.Cast(org.asyncttwiz.automatum.boundary.CastAnswer.Drop(CastSessions.FAILED)) }) { result ->
+            done((result as? org.asyncttwiz.automatum.boundary.DeviceResult.Cast)?.answer
+                ?: org.asyncttwiz.automatum.boundary.CastAnswer.Drop(CastSessions.FAILED))
+        }
+    }
+
+    /** Web client step 4e: the engine state of a flow the worker worked out on [board] (a board it published): the page's
+     * copy of the board's state with the flow's changes applied straight. */
+    fun castState(flow: org.asyncttwiz.automatum.boundary.CastFlowValue, board: TableBoard): GameState {
+        val r = checkNotNull(remote) { "Only a flow worked out in the worker comes without its state" }
+        val base = requireNotNull(board.engine) { "The flow's board has no engine state" }.state
+        val changes = flow.changes?.let { r.codec.decodeElement(kotlinx.serialization.builtins.ListSerializer(arcanum.engine.change.Change.serializer()), it) }
+        return castState(base, changes.orEmpty())
+    }
 
     // Last, once every property above is set
     init { load(snapshot, base) }

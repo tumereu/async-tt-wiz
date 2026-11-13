@@ -117,10 +117,9 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
             is DeviceAnswer.Done -> calls.done(answer.id, answer.result)
             is DeviceAnswer.Failed -> calls.failed(answer.id, answer.problem)
             DeviceAnswer.LoadFailed -> game.remoteLoadFailed()
-            is DeviceAnswer.TokenArt -> {
-                val found = try { game.tokenArt.find(answer.query) } catch (problem: Exception) { null }
-                tell { DeviceRequest.TokenArtFound(it, answer.query, found) }
-            }
+            // The table hasn't given the page its card records' lookup yet: answered once it does (the worker asks once each)
+            is DeviceAnswer.TokenArt ->
+                if (game.tokenArt === org.asyncttwiz.automatum.TokenArt.None) tokenQueries += answer.query else tokenArtFound(answer.query)
             is DeviceAnswer.NamedCard -> {
                 val found = try { game.namedCardsOnPage.definition(answer.name) } catch (problem: Exception) {
                     AppLog.warn("engine", "Device boundary: the card named ${answer.name} couldn't be looked up: ${problem.message?.take(200)}"); null
@@ -129,6 +128,25 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
             }
             is DeviceAnswer.Log -> Unit
         }
+    }
+
+    /** The worker's token picture lookups waiting for the page's [EngineGame.tokenArt] (SYS-072). */
+    private val tokenQueries = mutableListOf<org.asyncttwiz.automatum.TokenArtQuery>()
+
+    /** The page's [EngineGame.tokenArt] was set: the lookups waiting for it are answered. */
+    internal fun tokenArtSet() {
+        if (game.tokenArt === org.asyncttwiz.automatum.TokenArt.None || tokenQueries.isEmpty()) return
+        val waiting = tokenQueries.toList()
+        tokenQueries.clear()
+        AppLog.info("engine", "Device boundary: ${waiting.size} token picture lookups of ${gameId.take(8)} answered now the page has its card records")
+        waiting.forEach(::tokenArtFound)
+    }
+
+    private fun tokenArtFound(query: org.asyncttwiz.automatum.TokenArtQuery) {
+        val found = try { game.tokenArt.find(query) } catch (problem: Exception) {
+            AppLog.warn("engine", "Device boundary: a token picture couldn't be looked up: ${problem.message?.take(200)}"); null
+        }
+        tell { DeviceRequest.TokenArtFound(it, query, found) }
     }
 
     /** [r]'s action result as the device's own ([GameDevice.Acted]). */

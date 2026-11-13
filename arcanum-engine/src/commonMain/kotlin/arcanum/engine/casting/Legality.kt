@@ -390,7 +390,7 @@ internal object Legality {
         val key = instance.origin.key
         return when (val ability = instance.ability) {
             is Ability.Activated -> {
-                ability.rules.perTurn?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
+                perTurn(snap, source, ability)?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
                 if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability) && !asThoughNotActivated(snap, source, ability))
                     "only once" else null
             }
@@ -417,7 +417,7 @@ internal object Legality {
     fun manaUsesLeft(snap: Snapshot, source: ObjectId, instance: AbilityInstance): Int {
         val ability = instance.ability as? Ability.Activated ?: return 0
         var left = Int.MAX_VALUE
-        ability.rules.perTurn?.let { left = minOf(left, it - activationsThisTurn(snap, source, instance.origin.key)) }
+        perTurn(snap, source, ability)?.let { left = minOf(left, it - activationsThisTurn(snap, source, instance.origin.key)) }
         if (ability.rules.once && activationsEver(snap, source, instance.origin.key) >= 1) left = 0
         return left
     }
@@ -441,6 +441,15 @@ internal object Legality {
         if (action.instructions.steps.any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp } &&
             snap.view[source]?.has { it == arcanum.api.Mechanic.CantBeTurnedFaceUp } == true) return "it can't be turned face up"
         return null
+    }
+
+    /** How many times each turn [ability] of [source] may be activated: its own limit, or more where a rule lets its kind be
+     * ("Creatures you control can boast twice during each of your turns rather than once", CR 702.142a). */
+    private fun perTurn(snap: Snapshot, source: ObjectId, ability: Ability.Activated): Int? {
+        val own = ability.rules.perTurn ?: return null
+        val label = ability.label ?: return own
+        return snap.view[source]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? arcanum.api.Mechanic.LabelUsesPerTurn)?.takeIf { m -> m.label == label }?.count }
+            .fold(own, ::maxOf)
     }
 
     /** msh: "Each power-up ability of permanents you control can be activated an additional time" (CR 702.193a). */

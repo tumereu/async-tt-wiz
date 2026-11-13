@@ -226,6 +226,10 @@ internal class Sentences(
     /** chunk 33: what "the exiled card" means on this card (linked abilities, CR 607.2a); null when nothing links. */
     var exiledCard: Objects? = null
 
+    /** mom sweep: whether an exile here keeps its cards as "exiled with" this object: a later ability says "the exiled card" or names cards
+     * "exiled with" this object (CR 607.2a). */
+    private val remembersExile: Boolean get() = linkedExile || exiledCard == Objects.Remembered(EXILED_WITH)
+
     /** chunk 31: what "it" means in the triggered ability being read, and the zone it is in ("you may exile it" in a
      * dies trigger: the new card in the graveyard, CR 400.7). */
     private var triggerIt: Pair<Objects, Zone?>? = null
@@ -2364,6 +2368,8 @@ internal class Sentences(
                 val matches = arcanum.api.Condition.ObjectMatches(that(trigger), Filters.noun(w.groupValues[2]) ?: return null)
                 if (w.groupValues[1] == "was") matches else arcanum.api.Condition.Not(matches)
             }
+            // mom sweep: "if its power is 3 or greater" in a trigger about another object: the event's object, not this one (CR 603.4, 608.2h)
+            else if (Mom.ITS_POWER_IS.matches(it.groupValues[1]) && aboutAnother(trigger)) itsStat(Mom.ITS_POWER_IS.matchEntire(it.groupValues[1])!!, that(trigger))
             // dsk chunk 13: "if a land entered … this turn and you control a prime number of lands"
             else conditionWithAnd(it.groupValues[1]) ?: return null
         }
@@ -2603,6 +2609,22 @@ internal class Sentences(
 
     /** "That creature", "that card", "that permanent" in a triggered ability: the object of its (first) event. */
     // chunk 20
+    /** mom: "its power|toughness is N or greater|less" ([Mom.ITS_POWER_IS]) of [objects]. */
+    private fun itsStat(m: MatchResult, objects: Objects): arcanum.api.Condition {
+        val n = Value.Fixed(m.groupValues[2].toInt())
+        val comparison = if (m.groupValues[3] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast
+        return arcanum.api.Condition.ObjectMatches(objects,
+            if (m.groupValues[1] == "power") ObjectFilter.Power(comparison, n) else ObjectFilter.Toughness(comparison, n))
+    }
+
+    /** mom sweep: whether [trigger] is about an object other than this one entering, leaving or attacking ("Whenever a creature you control
+     * attacks"), so "it" and "its" in it mean that object. */
+    private fun aboutAnother(trigger: arcanum.api.Trigger.On): Boolean = when (val e = trigger.events.singleOrNull()) {
+        is EventPattern.ZoneChange -> e.objects != ObjectFilter.Is(Objects.Self)
+        is EventPattern.Attack -> e.attacker != ObjectFilter.Is(Objects.Self)
+        else -> false
+    }
+
     private fun that(trigger: arcanum.api.Trigger.On): Objects = when (val event = trigger.events.first()) {
         is EventPattern.ZoneChange -> Objects.EventObject(if (event.to == Zone.Battlefield) arcanum.api.EventRole.After else arcanum.api.EventRole.Before)
         is EventPattern.Discard -> Objects.EventObject(arcanum.api.EventRole.After)
@@ -2916,6 +2938,7 @@ internal class Sentences(
                 // blb chunk 02: where the sentence's targets and steps begin ("If the gift was promised, instead …" replaces them)
                 val targetsFrom = context.targets.size
                 val stepsFrom = steps.size
+                context.sentence = sentence
                 val modified = modify(sentence, steps, context)
                 if (modified != null) { steps.clear(); steps += modified; continue }
                 val parsed = effect(sentence, context)
@@ -3308,6 +3331,8 @@ internal class Sentences(
         val slotPhrases = mutableMapOf<String, String>()
         // chunk 25: the triggering event; what "it" and "them" refer to; the amount "that much" refers to
         var event: EventPattern? = null
+        /** mom sweep: the sentence of the instructions being read. */
+        var sentence: String? = null
         var it: Objects? = null
         var them: Objects? = null
         var thatMuch: Value? = null
@@ -3392,6 +3417,12 @@ internal class Sentences(
         fun lastTargetController(): Players? = targets.lastOrNull()?.let {
             if (it.what is arcanum.api.TargetKind.Players) Players.Target(it.name) else Players.ControllerOf(Objects.Target(it.name))
         }
+
+        /** mom sweep: in a trigger on this object's own zone change ("When this creature enters, tap target creature. …"), the object target
+         * named before, which "that creature" or "its" then means rather than this object (CR 608.2c); else null. */
+        fun targetInSelfZoneChange(): Objects? =
+            if ((event as? EventPattern.ZoneChange)?.objects != ObjectFilter.Is(Objects.Self)) null
+            else targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
 
         // chunk 35
         /** The trigger is this object leaving the battlefield for a graveyard ("When this creature dies"). */
@@ -4907,7 +4938,7 @@ internal class Sentences(
                     arcanum.api.Recipients(objects = context.target(Filters.slotName(noun), if (another) Filters.all(context.another(), filter) else filter))
                 }
             }
-            val source = if (m.groupValues[1].lowercase() == "it") otherAttacker(context) ?: Objects.Self else Objects.Self
+            val source = if (m.groupValues[1].lowercase() == "it") otherEventObject(context) ?: Objects.Self else Objects.Self
             return listOf(Step.Do(Effect.DealDamage(to, amount, source = source)))
         }
         // chunk 21: "Destroy each nonland permanent with mana value equal to the number of charge counters on this artifact."
@@ -5082,10 +5113,12 @@ internal class Sentences(
         }
         // chunk 35: "It deals damage equal to its power to any target." (the source's power, CR 113.7a)
         DEALS_DAMAGE_EQUAL_TO_ITS_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "It" }?.let { m ->
-            val amount = Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)
+            // mom sweep: "it" in a trigger on another object is that object ("Whenever a creature you control enters, it deals …", CR 608.2h)
+            val source = (if (m.groupValues[1].equals("it", ignoreCase = true)) otherEventObject(context) else null) ?: Objects.Self
+            val amount = Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single)
             val to = if (m.groupValues[2] == "any target") { context.anyTarget(); arcanum.api.Recipients(target = "any") }
                 else arcanum.api.Recipients(players = Filters.players(m.groupValues[2]) ?: return null)
-            return listOf(Step.Do(Effect.DealDamage(to, amount, source = Objects.Self)))
+            return listOf(Step.Do(Effect.DealDamage(to, amount, source = source)))
         }
         // chunk 35: "Return to your hand target artifact card in your graveyard with lesser mana value." (lesser than the
         // object of the trigger event, as it last existed, CR 603.10a)
@@ -5843,7 +5876,7 @@ internal class Sentences(
             context.it = Objects.Bound("exiled")
             // dsk chunk 04: linked to "cards exiled with this creature" (CR 607.2a)
             return listOf(Step.Do(Effect.Move(Objects.Target(slot), Destination(Zone.Exile), postBind = "exiled"))) +
-                (if (linkedExile || exiledCard == Objects.Remembered(EXILED_WITH)) remembered(Objects.Bound("exiled")) else emptyList())
+                (if (remembersExile) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList())
         }
         // "At the beginning of the next end step, [effect].": a delayed trigger (CR 603.7), about the objects named now
         AT_BEGINNING_OF_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
@@ -6270,9 +6303,10 @@ internal class Sentences(
                 else -> null
             }
         }
-        // gtc chunk 08: "its controller loses 2 life." (the event's object, or the last target)
+        // gtc chunk 08: "its controller loses 2 life." (the event's object, or the last target); mom sweep: in a trigger on this object's own
+        // zone change, the target named before ("When this creature enters, destroy target artifact. Its controller loses 2 life.", CR 608.2c)
         Gtc.ITS_CONTROLLER_LOSES.matchEntire(sentence)?.let { m ->
-            val of = context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val of = context.targetInSelfZoneChange() ?: context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
             return listOf(Step.Do(Effect.LoseLife(Players.ControllerOf(of), Value.Fixed(m.groupValues[1].toInt()))))
         }
         // gtc chunk 03: "add an additional {B}." (a triggered mana ability, CR 605.1b)
@@ -7262,7 +7296,7 @@ internal class Sentences(
     /** gtc: the source a "deals damage" sentence names: this object ("It" in an activated ability or about this object). */
     private fun gtcSource(text: String, context: Context): Objects? = when {
         // mom chunk 02: "Whenever a Dragon you control attacks, it deals 2 damage to any target.": the attacking creature
-        (text == "It" || text == "it") && otherAttacker(context) != null -> otherAttacker(context)
+        (text == "It" || text == "it") && otherEventObject(context) != null -> otherEventObject(context)
         isSelf(text) || text == "It" || text == "it" -> Objects.Self
         // inr chunk 05: "Blazing Torch deals 2 damage to any target." in an ability the Equipment gives: the Equipment is the source,
         // as it last existed if it was sacrificed to pay for it (CR 113.10, 608.2h)
@@ -7272,11 +7306,26 @@ internal class Sentences(
 
     /** mom chunk 02: in a trigger on another creature attacking ("Whenever a Dragon you control attacks, it …"), "it" is that attacking creature
      * (CR 508.1, 603.2); null when the attack is this object's own. */
-    private fun otherAttacker(context: Context): Objects? {
+    private fun otherEventObject(context: Context): Objects? {
+        // mom sweep: only as the ability's first sentence; after one that named an object ("put a +1/+1 counter on Crossbones. He deals …")
+        // "it" is that object
+        if (context.previous != null) return null
+        // nor after a part of the same sentence that names this object ("sacrifice this creature and it deals 3 damage …")
+        val before = context.sentence?.substringBefore(" it ", "")?.lowercase().orEmpty()
+        if (self.any { before.contains(it.lowercase()) }) return null
+        // mom sweep: likewise another object entering ("Whenever a creature you control enters, it deals …") or leaving the battlefield, as it
+        // last existed there ("Whenever a creature you control dies, it deals …", CR 608.2h)
+        (context.event as? EventPattern.ZoneChange)?.takeIf { e -> !isSelfFilter(e.objects) }?.let { e ->
+            if (e.to == Zone.Battlefield) return Objects.EventObject(EventRole.After)
+            if (e.from == Zone.Battlefield) return Objects.EventObject(EventRole.Before)
+        }
         val attacker = (context.event as? EventPattern.Attack)?.attacker ?: return null
-        if (attacker == ObjectFilter.Is(Objects.Self) || (attacker as? ObjectFilter.And)?.all?.firstOrNull() == ObjectFilter.Is(Objects.Self)) return null
+        if (isSelfFilter(attacker)) return null
         return Objects.EventObject(EventRole.Object)
     }
+
+    private fun isSelfFilter(filter: ObjectFilter): Boolean =
+        filter == ObjectFilter.Is(Objects.Self) || (filter as? ObjectFilter.And)?.all?.firstOrNull() == ObjectFilter.Is(Objects.Self)
 
     /** gtc: who is dealt damage: "any target", "target player or planeswalker", "target creature", "that player". */
     private fun gtcRecipients(text: String, context: Context): Recipients? = when (text) {
@@ -7446,10 +7495,7 @@ internal class Sentences(
         // its power is 3 or greater"): "its" is the event's object, not the ability's source (CR 608.2h)
         Mom.ITS_POWER_IS.matchEntire(text)?.let { m ->
             val event = context.it as? Objects.EventObject ?: return@let
-            val n = Value.Fixed(m.groupValues[2].toInt())
-            return arcanum.api.Condition.ObjectMatches(event,
-                if (m.groupValues[1] == "power") ObjectFilter.Power(if (m.groupValues[3] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast, n)
-                else ObjectFilter.Toughness(if (m.groupValues[3] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast, n))
+            return itsStat(m, event)
         }
         // fdn chunk 07: "target player has exactly 10 life" (the target is chosen as the spell is cast, CR 601.2c)
         Fdn.TARGET_PLAYER_HAS_EXACTLY_LIFE.matchEntire(text)?.let { m ->
@@ -7701,7 +7747,7 @@ internal class Sentences(
             return listOf(Step.May(listOf(Step.Do(Effect.Cast(exiled, withoutPaying = true, caster = owner, how = PlayKind.Cast))), player = owner))
         }
         // An exile no card memory needs is read by EXILE_UP_TO_TARGET, which names it for "that card" later.
-        UP_TO_ONE_TARGET.matchEntire(sentence)?.takeIf { it.groupValues[1] == "Destroy" || exiledCard == Objects.Remembered(EXILED_WITH) }?.let { m ->
+        UP_TO_ONE_TARGET.matchEntire(sentence)?.takeIf { it.groupValues[1] == "Destroy" || remembersExile }?.let { m ->
             val noun = m.groupValues[3]
             val filter = Filters.noun(noun) ?: return null
             val name = Filters.slotName(noun)
@@ -7709,10 +7755,12 @@ internal class Sentences(
                 else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter)), min = Value.Fixed(0), max = Value.Fixed(1))
             return if (m.groupValues[1] == "Exile") exile(Objects.Target(name)) else listOf(Step.Do(Effect.Destroy(Objects.Target(name))))
         }
-        DAMAGE_EQUAL_TO_POWER.matchEntire(sentence)?.takeIf { it.groupValues[1] == "It" || isSelf(it.groupValues[1]) }?.let {
+        DAMAGE_EQUAL_TO_POWER.matchEntire(sentence)?.takeIf { it.groupValues[1] == "It" || isSelf(it.groupValues[1]) }?.let { m ->
             context.anyTarget()
+            // mom sweep: "it" in a trigger on another object is that object ("Whenever a creature you control enters, it deals …", CR 608.2h)
+            val source = (if (m.groupValues[1].equals("it", ignoreCase = true)) otherEventObject(context) else null) ?: Objects.Self
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"),
-                Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single), source = Objects.Self)))
+                Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single), source = source)))
         }
         OPPONENTS_CANT_CAST.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantCast(Filters.noun(m.groupValues[1]) ?: return null)),
@@ -7757,7 +7805,7 @@ internal class Sentences(
 
     /** chunk 33: exile [objects]; when a later ability refers to "the exiled card", keep them as card memory (CR 607.2a). */
     private fun exile(objects: Objects): List<Step> =
-        if (exiledCard == Objects.Remembered(EXILED_WITH)) listOf(
+        if (remembersExile) listOf(
             Step.Do(Effect.Move(objects, Destination(Zone.Exile), postBind = "exiled")),
             Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"))))
         else listOf(Step.Do(Effect.Move(objects, Destination(Zone.Exile))))
@@ -8190,8 +8238,7 @@ internal class Sentences(
             if ((context.event as? EventPattern.ZoneChange)?.to != Zone.Battlefield) return@let
             // mom chunk 17: in "When this creature enters, tap target creature. Put a stun counter on that creature" the event's object is this
             // creature itself, so "that creature" is the target named before (CR 608.2c)
-            val named = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
-            val it = (if ((context.event as? EventPattern.ZoneChange)?.objects == ObjectFilter.Is(Objects.Self)) named else null) ?: context.that ?: return@let
+            val it = context.targetInSelfZoneChange() ?: context.that ?: return@let
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             return listOf(Step.Do(Effect.PutCounters(it, kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
         }
@@ -8426,6 +8473,15 @@ internal class Sentences(
             // something: zero chosen ("Tap any number of untapped creatures you control" tapping none) is no event, no trigger
             val anyNumber = first.filterIsInstance<Step.Choose>().lastOrNull { (it.choice as? arcanum.api.Choice.Objects)?.min == Value.Fixed(0) }
             if (anyNumber != null) return first + Step.If(arcanum.api.Condition.NonEmpty(anyNumber.bind), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive))))
+            // mom sweep: likewise after moving "up to N" targets ("Return up to one target creature card … When you do"): none chosen, none
+            // moved, no trigger (CR 603.12)
+            val move = (first.lastOrNull() as? Step.Do)?.effect as? Effect.Move
+            val upTo = (move?.objects as? Objects.Target)?.let { t -> context.targets.firstOrNull { it.name == t.slot } }?.takeIf { it.min == Value.Fixed(0) }
+            if (move != null && upTo != null) {
+                val moved = move.postBind ?: "moved"
+                return first.dropLast(1) + Step.Do(move.copy(postBind = moved)) +
+                    Step.If(arcanum.api.Condition.NonEmpty(moved), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive))))
+            }
             return first + Step.Do(Effect.ReflexiveTrigger(reflexive))
         }
         // blb chunk 09: "you may cast target instant or sorcery card with mana value equal to the number of coin counters on this
@@ -8995,7 +9051,7 @@ internal class Sentences(
             context.it = Objects.Bound("exiled")
             // fra chunk 11: kept for "the exiled card" of another ability (CR 607.2a)
             return listOf(Step.Do(Effect.Move(Objects.Bound(context.chosen.last()), Destination(Zone.Exile), postBind = "exiled"))) +
-                (if (exiledCard == Objects.Remembered(EXILED_WITH)) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList())
+                (if (remembersExile) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList())
         }
         // blb chunk 02: "You may cast that card for as long as it remains exiled, and mana of any type can be spent to cast
         // it." (CR 601.2a; D49: "for as long as it remains there" lasts indefinitely)
@@ -9563,7 +9619,8 @@ internal class Sentences(
         // existed, CR 608.2h)
         Rtr.IT_DEALS_DAMAGE_EQUAL_TO_ITS_POWER.matchEntire(sentence)?.let { m ->
             val to = rtrTarget(m.groupValues[1], context) ?: return null
-            return listOf(Step.Do(Effect.DealDamage(to, Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single), Objects.Self)))
+            val source = otherEventObject(context) ?: Objects.Self // mom sweep: in a trigger on another object, that object (CR 608.2h)
+            return listOf(Step.Do(Effect.DealDamage(to, Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single), source)))
         }
         // rtr chunk 08: "This creature deals 1 damage to target creature and each other creature with the same name as that creature."
         Rtr.DEALS_TO_TARGET_AND_SAME_NAME.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -10000,10 +10057,10 @@ internal class Sentences(
         }
         // rtr chunk 08: "Exile the top X cards of your library." (named for "from among them"); rtr chunk 07: "exile the top five
         // cards of your library" kept as linked when another ability refers to "the exiled cards" (CR 607.2a)
-        Rtr.EXILE_TOP_CARDS.matchEntire(sentence)?.takeIf { it.groupValues[1] == "X" || exiledCard == Objects.Remembered(EXILED_WITH) }?.let { m ->
+        Rtr.EXILE_TOP_CARDS.matchEntire(sentence)?.takeIf { it.groupValues[1] == "X" || remembersExile }?.let { m ->
             val count = if (m.groupValues[1] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             val cards = Objects.LibraryCards(Players.You, count, fromTop = true)
-            return if (exiledCard == Objects.Remembered(EXILED_WITH)) exile(cards)
+            return if (remembersExile) exile(cards)
                 else listOf(Step.Do(Effect.Move(cards, Destination(Zone.Exile), postBind = "exiled")))
         }
         // rtr chunk 05: "Rakdos's Return deals X damage to target opponent or planeswalker."
@@ -22227,8 +22284,9 @@ internal class Sentences(
         // "it deals damage equal to its mana value to each creature." (in its own leaves-the-battlefield trigger: as it last existed, CR 603.10a)
         Eoe.IT_DEALS_DAMAGE_EQUAL_TO_ITS_TO_EACH.matchEntire(sentence)?.let { m ->
             val property = if (m.groupValues[1] == "mana value") arcanum.api.NumericProperty.ManaValue else arcanum.api.NumericProperty.Power
+            val source = otherEventObject(context) ?: Objects.Self // mom sweep: in a trigger on another object, that object (CR 608.2h)
             return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Each(Filters.noun(m.groupValues[2]) ?: return null)),
-                Value.Of(property, Objects.Self, arcanum.api.Combine.Single), Objects.Self)))
+                Value.Of(property, source, arcanum.api.Combine.Single), source)))
         }
         // "each opponent exiles a card from their hand and may play that card for as long as it remains exiled. Each spell cast this way costs
         // {1} more to cast. Each land played this way enters tapped." (each card's owner may play it, CR 601.2f, 614.1c)

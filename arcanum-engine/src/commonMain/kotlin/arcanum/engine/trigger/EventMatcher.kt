@@ -66,7 +66,9 @@ internal object EventMatcher {
         }
         is EventPattern.Cast -> if (isCast(change)) {
             val item = (change as Change.StackItemAdded).item
-            val from = e.board.state.obj(item.id)?.castOrNone?.castFrom
+            // otj: as it was cast, also for a cast this turn whose spell has left the Stack ("if you haven't cast a spell from your hand
+            // this turn", CR 601.2a)
+            val from = e.castFrom(item.id)
             // fra backfill: an earlier cast this turn, counted for "your first … spell each turn" once that spell has
             // left the Stack, was a spell as it was cast (CR 601.2a)
             val spell = if (e.board.state.stackItems.containsKey(item.id)) pattern.spell else castAsSpell(pattern.spell)

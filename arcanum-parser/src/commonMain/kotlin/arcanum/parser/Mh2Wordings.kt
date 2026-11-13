@@ -106,7 +106,7 @@ internal object Mh2 {
     val PT_EACH_EQUAL_TO = Regex("""(.+)'s power and toughness are each equal to (.+)\.""")
     val CHOOSE_ONE_IF_CHOOSE_BOTH_INSTEAD = Regex("""choose one\. If (.+), choose both instead\.""")
     val INVESTIGATE_TWICE = Regex("""[Ii]nvestigate twice\.""")
-    val CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN = Regex("""You can't cast more than one spell each turn\.""")
+    val CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN = Regex("""(You|Each player) can't cast more than one spell each turn\.""")
     val AS_LONG_AS_NOT_ON_BATTLEFIELD_ITS_A_CREATURE = Regex("""As long as (.+?) isn't on the battlefield, it's an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")
     val CREATE_THEN_MILL_IF_MILLED_COUNTER_REPEAT = Regex("""Create (.+? token), then mill a card\. If an? (\w+) card was milled this way, put an? (\S+) counter on (.+?) and repeat this process\.""")
     val EACH_OPPONENT_LOSES_LIFE_EQUAL_TO = Regex("""Each opponent loses life equal to (.+)\.""")

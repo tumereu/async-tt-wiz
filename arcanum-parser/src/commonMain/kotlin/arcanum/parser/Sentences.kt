@@ -2045,7 +2045,8 @@ internal class Sentences(
         Conditions.condition(text, self)?.let { return it }
         rtrCondition(text)?.let { return it } // rtr
         val parts = text.split(" and ").takeIf { it.size > 1 } ?: return null
-        return arcanum.api.Condition.And(parts.map { Conditions.condition(it, self) ?: return null })
+        // otj chunk 05: each part also as the rtr conditions ("… and this creature doesn't have a flying counter on it")
+        return arcanum.api.Condition.And(parts.map { Conditions.condition(it, self) ?: rtrCondition(it) ?: return null })
     }
 
     /** chunk 45: the zone a condition on the object itself names ("this card is in your graveyard", "this card is
@@ -4916,10 +4917,13 @@ internal class Sentences(
                 tapped = m.groupValues[1].isNotEmpty(), controller = Players.You)))
         }
         // chunk 35: "It deals damage equal to its power to any target." (the source's power, CR 113.7a)
+        // otj chunk 05: "This creature deals damage equal to that creature's power to any target." (the event's object, as it last existed if it
+        // left, CR 608.2h)
         DEALS_DAMAGE_EQUAL_TO_ITS_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "It" }?.let { m ->
-            val amount = Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)
-            val to = if (m.groupValues[2] == "any target") { context.anyTarget(); arcanum.api.Recipients(target = "any") }
-                else arcanum.api.Recipients(players = Filters.players(m.groupValues[2]) ?: return null)
+            val of = if (m.groupValues[2] == "its") Objects.Self else context.that ?: return@let
+            val amount = Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single)
+            val to = if (m.groupValues[3] == "any target") { context.anyTarget(); arcanum.api.Recipients(target = "any") }
+                else arcanum.api.Recipients(players = Filters.players(m.groupValues[3]) ?: return null)
             return listOf(Step.Do(Effect.DealDamage(to, amount, source = Objects.Self)))
         }
         // chunk 35: "Return to your hand target artifact card in your graveyard with lesser mana value." (lesser than the
@@ -9043,7 +9047,7 @@ internal class Sentences(
     private fun rtrCondition(text: String): arcanum.api.Condition? {
         // rtr chunk 06: "this enchantment has no charge counters on it"
         Rtr.SELF_HAS_NO_COUNTERS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val kind = Counters.kind(m.groupValues[2].ifEmpty { m.groupValues[3] }) ?: return null
             return arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1)))
         }
         // rtr chunk 07: "this creature has five or more filibuster counters on it"
@@ -10876,7 +10880,8 @@ internal class Sentences(
         val ALL_ABLE_TO_BLOCK_DO_SO = Regex("""All creatures able to block (.+) do so\.""")
         val DURING_OTHER_TURNS_HAVE = Regex("""During turns other than yours, (.+) have ([a-z ,]+)\.""")
         val TWICE_THAT_MANY_COUNTERS = Regex("""If one or more (\S+) counters would be put on (.+), twice that many (\S+) counters are put on it instead\.""")
-        val SELF_HAS_NO_COUNTERS = Regex("""(.+) has no (\S+) counters on it""")
+        // otj chunk 05: also "this creature doesn't have a flying counter on it"
+        val SELF_HAS_NO_COUNTERS = Regex("""(.+) (?:has no (\S+) counters|doesn't have an? (\S+) counter) on it""")
         // rtr chunk 07
         // otj chunk 01: also "for each card in your hand"
         val GETS_FOR_EACH_CARD_IN_CONTROLLERS_HAND = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) for each card in (its controller's|your) hand\.""")
@@ -11523,7 +11528,8 @@ internal class Sentences(
         val CREATE_FOR_EACH_COUNTER_ON_SELF = Regex("""Create (an? .+ token(?: with .+?)?) for each (?:(\S+) )?counter on (.+)\.""")
         val DRAW_FOR_EACH_COUNTER_ON = Regex("""Draw a card for each (\S+) counter on (.+)\.""")
         val CREATE_X_WHERE_SELF_POWER = Regex("""Create X (tapped )?(.+ tokens), where X is (.+)'s power\.""")
-        val DEALS_DAMAGE_EQUAL_TO_ITS_POWER = Regex("""(.+?) deals damage equal to its power to (any target|each opponent)\.""")
+        // otj chunk 05: also "that creature's power" (the trigger event's object)
+        val DEALS_DAMAGE_EQUAL_TO_ITS_POWER = Regex("""(.+?) deals damage equal to (its|that creature's) power to (any target|each opponent)\.""")
         val RETURN_TO_HAND_WITH_LESSER_MANA_VALUE = Regex("""Return to your hand target (.+?) in your graveyard with lesser mana value\.""")
         val EACH_PLAYER_MAY_SEARCH_UP_TO = Regex("""Each player may search their library for up to (\w+) (.+?), put them onto the battlefield, then shuffle\.""")
         const val WITH_MANA_VALUE_X = " with mana value X"
@@ -15612,6 +15618,41 @@ internal class Sentences(
 
     /** otj: single-sentence effects. */
     private fun otjEffect(sentence: String, context: Context): List<Step>? {
+        // otj chunk 05: "Until end of turn, if you would put … instead." (a replacement effect the resolving ability makes, lasting until end of
+        // turn: a rule of the game, not of an object, CR 614.1a, 611.2a)
+        if (sentence.startsWith("Until end of turn, if ")) {
+            val static = line(sentence.removePrefix("Until end of turn, ").replaceFirstChar { it.uppercase() }) as? Ability.Static
+            if (static != null && static.condition == null && static.mechanics.isNotEmpty() && static.mechanics.all { it is Mechanic.Replacement })
+                return listOf(Step.Do(Effect.ApplyMechanics(static.mechanics, null, arcanum.api.Duration.EndOfTurn)))
+        }
+        // otj chunk 05: "you may cast target nonland permanent card from that player's graveyard, and mana of any type can be spent to cast that
+        // spell." (cast while it resolves, CR 608.2g, 601.2h)
+        Otj.MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE.matchEntire(sentence)?.let { m ->
+            val owner = when (m.groupValues[2]) {
+                "that player's" -> ObjectFilter.OwnedBy(PlayerFilter.Is(Players.EventPlayer))
+                "your" -> ObjectFilter.OwnedBy(PlayerFilter.You)
+                else -> null
+            }
+            val target = context.target("card", Filters.all(*listOfNotNull(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), owner).toTypedArray()))
+            return listOf(Step.May(listOf(Step.Do(Effect.Cast(target, PlayKind.Cast, caster = Players.You, manaAsAnyType = true))), Players.You))
+        }
+        // otj chunk 05: "you may cast a permanent spell with equal or lesser mana value from your hand without paying its mana cost" in a cast
+        // trigger: than the triggering spell, as it is now or last existed (CR 608.2h); a card in a hand isn't a spell yet, so the kind is read
+        // of cards ("If you don't" then asks whether a spell was cast)
+        Ltr.MAY_CAST_EQUAL_OR_LESSER_FREE.matchEntire(sentence.replaceFirstChar { it.uppercase() })?.takeIf { context.targets.isEmpty() && context.event is EventPattern.Cast }?.let { m ->
+            val than = context.that ?: return@let
+            // a land card is never cast (CR 305.1, 305.9)
+            val kind = Filters.all(Filters.noun(m.groupValues[1] + " card") ?: return@let, ObjectFilter.Not(ObjectFilter.Type(CardType.Land)))
+            context.seen = "otjMayCastFree"
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(kind, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost,
+                Value.Of(arcanum.api.NumericProperty.ManaValue, than, arcanum.api.Combine.Single)), ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)),
+                Value.Fixed(0), Value.Fixed(1)), bind = "card", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("card"), PlayKind.Cast, withoutPaying = true, bind = "spell", caster = Players.You)))
+        }
+        Otj.IF_YOU_DONT.matchEntire(sentence)?.takeIf { context.seen == "otjMayCastFree" }?.let { m ->
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty("spell")), then = then))
+        }
         // otj chunk 04: "Then you may exile a card from a graveyard." (chosen as it resolves, not targeted: zero or one, CR 608.2d); "it" and
         // "that card" are then the card in exile (CR 400.7)
         Otj.MAY_EXILE_A_FROM_GRAVEYARD.matchEntire(sentence)?.let { m ->
@@ -15793,6 +15834,21 @@ internal class Sentences(
 
     /** otj: abilities of a whole line. */
     private fun otjLine(line: String): Ability? {
+        // otj chunk 05: "If you would put one or more +1/+1 counters on a creature you control, put that many plus one +1/+1 counters on it
+        // instead." (counters you put, CR 614.1a)
+        Otj.YOU_WOULD_PUT_COUNTERS_PLUS.matchEntire(line)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1])?.takeIf { it == Counters.kind(m.groupValues[4]) } ?: return null
+            val on = Filters.noun(m.groupValues[2].removeArticle()) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CountersPut(on, kind, causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)),
+                modify = listOf(Modification.AddAmount(Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null))))), affects = Affected.Objects(Objects.Self))
+        }
+        // otj chunk 05: "Plotting cards from your hand costs {2} less." (plot's special action names it, CR 702.170a, 601.2f, 118.7)
+        Otj.PLOTTING_FROM_HAND_COSTS_LESS.matchEntire(line)?.let { m ->
+            val plotting = Filters.all(ObjectFilter.AbilityOf(source = ObjectFilter.InZone(Zone.Hand), keyword = arcanum.api.Keyword.Plot.Kind),
+                ObjectFilter.ControlledBy(PlayerFilter.You))
+            return Ability.Static(listOf(Mechanic.CostChange(plotting, arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))),
+                affects = Affected.Objects(Objects.Self))
+        }
         // otj chunk 01: "This creature enters with a +1/+1 counter on it plus an additional +1/+1 counter on it for each other creature you
         // control." (counted as it enters, CR 614.1c)
         Otj.ENTERS_WITH_COUNTER_PLUS_ADDITIONAL_FOR_EACH.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && it.groupValues[3] == it.groupValues[4] }?.let { m ->
@@ -21800,6 +21856,12 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.CostChange(what, arcanum.api.CostChange.More(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1)))),
                 affects = Affected.Objects(Objects.Self))
         }
+        // otj chunk 05: "Spells your opponents cast that target this creature cost an additional 3 life to cast." (CR 601.2f, 119.4)
+        CostPerTargetWordings.OPPONENTS_SPELLS_TARGETING_THIS_COST_LIFE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val what = ObjectFilter.And(listOf(ObjectFilter.ControlledBy(PlayerFilter.Opponent), ObjectFilter.Targets(objects = Objects.Self)))
+            return Ability.Static(listOf(Mechanic.AdditionalCostOf(what, Cost(listOf(CostPart.PayLife(Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)))))),
+                affects = Affected.Objects(Objects.Self))
+        }
         // tdm chunk 06: "Activated abilities of artifacts, creatures, and planeswalkers can't be activated." (CR 602.5)
         Tdm.ACTIVATED_ABILITIES_OF_LIST_CANT.matchEntire(line)?.let { m ->
             val items = m.groupValues[1].split(LazyRegexes.AND_LIST).map { Filters.noun(it.removeSuffix("s")) ?: return null }
@@ -22615,10 +22677,15 @@ internal class Sentences(
             } ?: return@let
             return Ability.Static(listOf(Mechanic.SetPowerToughness(value, value)), affects = Affected.Objects(Objects.Self), characteristicDefining = true)
         }
-        // mh2 chunk 12: "You can't cast more than one spell each turn." (CR 101.2: none once one was cast this turn)
-        if (Mh2.CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN.matches(line))
-            return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Any)), affects = Affected.Players(Players.You),
-                condition = arcanum.api.Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events))
+        // mh2 chunk 12: "You can't cast more than one spell each turn." (CR 101.2: none once one was cast this turn); otj chunk 05: "Each player
+        // can't …", each player by their own casts
+        Mh2.CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN.matchEntire(line)?.let { m ->
+            if (m.groupValues[1] == "You")
+                return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Any)), affects = Affected.Players(Players.You),
+                    condition = arcanum.api.Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events))
+            return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Any)), affects = Affected.Players(Players.Each(PlayerFilter.Any)),
+                condition = arcanum.api.Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.Is(Players.Affected)), atLeast = 1, measure = arcanum.api.Measure.Events))
+        }
         // mh2 chunk 12: "As long as Grist isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types." (works in every other
         // zone, CR 113.6b)
         Mh2.AS_LONG_AS_NOT_ON_BATTLEFIELD_ITS_A_CREATURE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->

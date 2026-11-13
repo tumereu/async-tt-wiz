@@ -543,6 +543,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** What happened to [id] as an object: a card's facts, a copy of a spell's own (CR 707.10), or as it last existed. */
     private fun facts(id: ObjectId) = state.obj(id)?.cast ?: copyFacts(id) ?: lki(id)?.cast
 
+    /** otj: the zone [id] was cast from, also once the spell has left the Stack (its last known information, CR 608.2h). */
+    fun castFrom(id: ObjectId): arcanum.api.Zone? = facts(id)?.castFrom
+
     private fun copyFacts(id: ObjectId) = (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.cast
 
     private fun counterList(id: ObjectId) = state.obj(id)?.counters ?: lki(id)?.counters

@@ -378,6 +378,12 @@ sealed interface Mechanic {
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
+    // otj
+    /** Spells matching [what] cost an additional [cost] to cast ("Spells your opponents cast that target this creature cost an additional
+     * 3 life to cast"): a cost increase that isn't mana, part of the total cost (CR 601.2f); a rule like [CostChange]. */
+    @Serializable @SerialName("additional-cost-of") data class AdditionalCostOf(val what: ObjectFilter, val cost: Cost) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     @Serializable @SerialName("cant-be-countered") data object CantBeCountered : Mechanic
     // sos
     /** The affected spells can't be copied ("This spell can't be copied."): an effect that would copy one creates no copy (CR 707.10). */

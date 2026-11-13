@@ -42,12 +42,27 @@ internal object Otj {
     val MAY_EXILE_A_FROM_GRAVEYARD = Regex("""You may exile an? (.+? from (?:a|your) graveyard)\.""")
     val IF_A_WAS_EXILED_THIS_WAY = Regex("""If an? (.+?) was exiled this way, (.+)""")
     val MAY_HAVE_BECOME_COPY_OF_THAT_CARD_UNTIL_EOT = Regex("""You may have (.+?) become a copy of that card until end of turn\.""")
+    // otj chunk 05: Tinybones, the Pickpocket
+    val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""[Yy]ou may cast target (.+?) from (that player's|your|a) graveyard, and mana of any type can be spent to cast that spell\.""")
+    // otj chunk 05: Kellan, the Kid: "If you don't, you may put a land card from your hand onto the battlefield." after a free cast
+    val IF_YOU_DONT = Regex("""If you don't, (.+)""")
+    // otj chunk 05: Prairie Dog: "if you would put one or more +1/+1 counters on a creature you control, put that many plus one +1/+1 counters
+    // on it instead" (after "Until end of turn, ")
+    val YOU_WOULD_PUT_COUNTERS_PLUS = Regex("""If you would put one or more (\S+) counters on (.+?), put that many plus (\w+) (\S+) counters on it instead\.""")
+    // otj chunk 05: Doc Aurlock: "Plotting cards from your hand costs {2} less." (plot's special action, CR 702.170a)
+    val PLOTTING_FROM_HAND_COSTS_LESS = Regex("""Plotting cards from your hand costs ((?:\{[^}]+\})+) less\.""")
     val CHOOSE_A_AND = Regex("""[Cc]hoose an? (.+?) and (.+)\.""")
 }
 
 /** Phrases first met in Outlaws of Thunder Junction (OTJ). */
 internal object OtjPhrases {
     fun condition(text: String): arcanum.api.Condition? {
+        // otj chunk 05: "you haven't cast a spell from your hand this turn" (CR 601.2a: where it was cast from)
+        if (text == "you haven't cast a spell from your hand this turn") return arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(
+            arcanum.api.EventPattern.Cast(arcanum.api.ObjectFilter.Any, arcanum.api.PlayerFilter.You, from = arcanum.api.Zone.Hand), atLeast = 1, measure = arcanum.api.Measure.Events))
+        // otj chunk 05: "you've committed a crime this turn" (CR 700.13)
+        if (text == "you've committed a crime this turn") return arcanum.api.Condition.HappenedThisTurn(
+            arcanum.api.EventPattern.CommitCrime(arcanum.api.PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events)
         // otj chunk 02: "it's your combat phase" (any step of your combat phase, CR 506.1)
         if (text == "it's your combat phase") return arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn,
             arcanum.api.Condition.Or(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.DeclareAttackers, arcanum.api.TurnStep.DeclareBlockers,

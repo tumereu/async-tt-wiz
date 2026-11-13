@@ -348,15 +348,18 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
 
 internal object LiveTableFixture {
     val game = TableFixture.game.copy(gameName = "Crackling Mist 4")
+    // The spells cost {G}: one with no mana cost can't be cast (CR 118.6), and Alice's untapped Forest pays any one of
+    // them, so her hand glows as castable now (TBL-117)
     private val definitions = listOf(
         DefinitionFace("land", "Forest", typeLine = "Basic Land — Forest", scryfallId = placeholderPrinting("Forest")),
         DefinitionFace("sentinel", "Meadow Sentinel", typeLine = "Creature — Soldier", power = "1", toughness = "3", corner = "1/3",
-            scryfallId = placeholderPrinting("Meadow Sentinel")),
+            manaCost = "{G}", scryfallId = placeholderPrinting("Meadow Sentinel")),
         DefinitionFace("river", "River Adept", typeLine = "Creature — Wizard", power = "1", toughness = "2", corner = "1/2",
-            scryfallId = placeholderPrinting("River Adept")),
+            manaCost = "{G}", scryfallId = placeholderPrinting("River Adept")),
         DefinitionFace("guide", "Lantern Guide", typeLine = "Creature — Scout", power = "2", toughness = "3", corner = "2/3",
-            scryfallId = placeholderPrinting("Lantern Guide")),
-        DefinitionFace("aegis", "Aegis Ward", typeLine = "Enchantment", scryfallId = placeholderPrinting("Aegis Ward"))
+            manaCost = "{G}", scryfallId = placeholderPrinting("Lantern Guide")),
+        DefinitionFace("aegis", "Aegis Ward", typeLine = "Enchantment", manaCost = "{G}",
+            scryfallId = placeholderPrinting("Aegis Ward"))
     ).map { face -> CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) } }
 
     fun play(hand: Int = 5): PlayState {

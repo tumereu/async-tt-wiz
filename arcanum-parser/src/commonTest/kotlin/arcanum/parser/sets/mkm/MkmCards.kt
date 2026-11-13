@@ -276,3 +276,7 @@ fun isSuspected(objects: Objects = Objects.Self): Condition = Condition.ObjectMa
 fun counterUnless(cost: String, slotName: String = "spell"): List<Step> = listOf(
     Step.Pay(manaCost(cost), payer = Players.ControllerOf(target(slotName)), bind = "paid"),
     Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Counter(target(slotName))))))
+
+// ---- chunk 12
+/** "{T}: Add {C}." */
+val addColorless: Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse("{C}")!!)), Players.You)))

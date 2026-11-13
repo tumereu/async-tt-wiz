@@ -99,7 +99,7 @@ internal object Mh2 {
     val LOYALTY_ABILITIES_COST_ADDITIONAL = Regex("""Planeswalkers' loyalty abilities you activate cost an additional \[\+(\d+)\] to activate\.""")
     val EACH_SPELL_YOU_CAST_THATS_COSTS_LESS = Regex("""Each spell you cast that's (\w+) or (\w+) costs (\{\d+\}) less to cast\.""")
     val REVEAL_TOP_TWO_ONE_HAND_OTHER_GRAVEYARD_IF = Regex("""Reveal the top two cards of your library\. Put one of them into your hand and the other into your graveyard\. If you put an? (.+?) card into your hand this way, (.+)""")
-    val THIS_OR_ANOTHER_ENTERS_FROM_GRAVEYARD_OR_CAST_FROM = Regex("""Whenever (.+?) or another (.+?) enters, if that creature entered from a graveyard or you cast it from a graveyard, (.+)""")
+    val THIS_OR_ANOTHER_ENTERS_FROM_GRAVEYARD_OR_CAST_FROM = Regex("""Whenever (.+?) or another (.+?) enters, if (?:that creature|it) entered from (a|your) graveyard or you cast it from (?:a|your) graveyard, (.+)""") // mh3 chunk 09: your graveyard
     val SELF_ENTERS_OR_DIES = Regex("""(.+?) enters or (.+?) dies""")
     // mh2 chunk 12
     val ECHO_COST = Regex("""Echo—(.+?)\.?""")

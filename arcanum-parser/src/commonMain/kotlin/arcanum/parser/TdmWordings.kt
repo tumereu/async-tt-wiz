@@ -314,11 +314,16 @@ internal object TdmPhrases {
         return null
     }
 
+    private val SPELLS_YOU_VE_CAST_THIS_TURN = Regex("""the number of (?:(.+) )?spells you've cast this turn""")
     fun value(text: String): Value? {
         // tdm chunk 08: "the number of counters on this creature" (every kind)
         if (text == "the number of counters on this creature") return Value.Of(NumericProperty.Counters(null), Objects.Self, Combine.Single)
         // tdm chunk 10: "the number of spells you've cast this turn" (CR 601.2i)
-        if (text == "the number of spells you've cast this turn") return Value.EventsThisTurn(EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.You), Measure.Events)
+        // mh3 chunk 09: also of some kinds ("the number of instant and sorcery spells you've cast this turn": a spell of either kind)
+        SPELLS_YOU_VE_CAST_THIS_TURN.matchEntire(text)?.let { m ->
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.replace(" and ", " or ")) ?: return null } ?: ObjectFilter.Any
+            return Value.EventsThisTurn(EventPattern.Cast(kind, by = PlayerFilter.You), Measure.Events)
+        }
         return null
     }
 }

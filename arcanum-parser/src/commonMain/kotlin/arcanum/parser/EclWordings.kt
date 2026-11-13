@@ -47,7 +47,7 @@ internal object Ecl {
     // ecl chunk 10
     val AS_LONG_AS_EQUIPPED_TOUGHNESS_GREATER = Regex("""As long as equipped creature's toughness is greater than its power, it assigns combat damage equal to its toughness rather than its power\.""")
     val EACH_CREATURE_TARGET_OPPONENT_LOSES = Regex("""[Ee]ach creature target opponent controls loses all abilities, becomes an? ([A-Z]\w+) in addition to its other types, and has base power and toughness (\d+)/(\d+)\.""")
-    val EXILE_UP_TO_N_TARGET_CARDS_FROM_GRAVEYARDS = Regex("""[Ee]xile up to (one|two|three) target cards from graveyards\.""")
+    val EXILE_UP_TO_N_TARGET_CARDS_FROM_GRAVEYARDS = Regex("""[Ee]xile up to (one|two|three|X) target cards from graveyards\.""") // mh3 chunk 09: X
     val LOOK_TOP_X_PUT_ANY_NUMBER = Regex("""Look at the top X cards of your library\. You may put any number of (.+?) from among them onto the battlefield\. Then shuffle\.""")
     val MAY_PUT_FROM_HAND_TAPPED_ATTACKING = Regex("""[Yy]ou may put an? (.+?) from your hand onto the battlefield tapped and attacking\.""")
     val EXILE_ANY_NUMBER_RETURN_NEXT_END = Regex("""Exile any number of target (creatures)\. At the beginning of the next end step, return those cards to the battlefield tapped under their owners' control\.""")

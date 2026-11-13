@@ -346,9 +346,11 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                         e.addSubtypes.mapNotNull { (it as? arcanum.api.SubtypeRef.Literal)?.subtype },
                     supertypes = ((f.supertypes + e.addSupertypes).distinct() - e.removeSupertypes.toSet()),
                 )
+                // mh3 chunk 09: colours that replace the copied ones replace those of its mana cost too (CR 707.9b)
                 is CopyException.Colors -> f.copy(
-                    colorIndicator = (if (e.add) colorsOf(f) else emptyList<Color>()) +
-                        e.colors.mapNotNull { (it as? arcanum.api.ColorRef.Literal)?.color },
+                    colorIndicator = ((if (e.add) colorsOf(f) else emptyList<Color>()) +
+                        e.colors.mapNotNull { (it as? arcanum.api.ColorRef.Literal)?.color }).distinct(),
+                    colorsFromIndicatorOnly = true,
                 )
                 is CopyException.PowerToughness -> f.copy(power = PrintedNumber.Fixed(e.power), toughness = PrintedNumber.Fixed(e.toughness))
                 is CopyException.AddAbilities -> f.copy(abilities = f.abilities + e.abilities)
@@ -361,6 +363,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
 
         /** CR 202.2, 204: colours from the mana cost and colour indicator. */
         fun colorsOf(face: FaceDefinition): List<Color> {
+            if (face.colorsFromIndicatorOnly) return Color.all.filter { it in face.colorIndicator.orEmpty() }
             val fromCost = face.manaCost?.symbols.orEmpty().flatMap { Evaluator.symbolColors(it) }
             return Color.all.filter { it in fromCost || it in face.colorIndicator.orEmpty() }
         }

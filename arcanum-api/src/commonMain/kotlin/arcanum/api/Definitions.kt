@@ -65,6 +65,10 @@ data class FaceDefinition(
     val abilities: List<Ability> = emptyList(),
     /** A dungeon's rooms, the topmost first (CR 309.4): [DungeonRoom]. */
     val rooms: List<DungeonRoom> = emptyList(),
+    // mh3
+    /** Its colours are exactly [colorIndicator], whatever its mana cost: a copy exception that sets them ("except it's a 1/1 black and
+     * green Insect", CR 707.9b). */
+    val colorsFromIndicatorOnly: Boolean = false,
 )
 
 /**

@@ -19,7 +19,7 @@ internal object Tmt {
     val PLURAL_VERB = Regex("""\b(attack|deal|enter|get|gain|block|have)\b""")
     // tmt chunk 01: keywords whose cost isn't mana ("Equip—Sacrifice another nonland permanent. Activate only once each turn.")
     val EQUIP_COST = Regex("""Equip—(.+?)\.( Activate only once each turn\.)?""")
-    val KICKER_COST = Regex("""Kicker—(.+?)\.?""")
+    val KICKER_COST = Regex("""(Kicker|Replicate)—(.+?)\.?""") // mh3 chunk 09: "Replicate—Pay {E}{E}{E}."
 
     // tmt chunk 02: sneak (CR 702.190)
     val SNEAK_PAID = Regex("""(?:this spell's|his|her|its|their|(.+)'s) sneak cost was paid( this turn)?""")
@@ -150,7 +150,10 @@ internal object TmtPhrases {
     fun noun(phrase: String): ObjectFilter? {
         // tmt chunk 02: "Dinosaurs you control other than this creature"
         Tmt.OTHER_THAN_SELF.matchEntire(phrase)?.takeIf { it.groupValues[2].startsWith("this ") }?.let { m ->
-            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+            // mh3 chunk 09: "blue permanent other than this planeswalker you control" (from "if you control a blue permanent other than …"): yours
+            val yours = m.groupValues[2].endsWith(" you control")
+            return Filters.all(*listOfNotNull(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You).takeIf { yours }).toTypedArray())
         }
         // tmt chunk 01: "creature you control with a counter on it" (of any kind)
         Tmt.WITH_A_COUNTER_ON_IT.matchEntire(phrase)?.let { m ->

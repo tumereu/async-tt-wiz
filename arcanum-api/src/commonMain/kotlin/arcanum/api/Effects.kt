@@ -457,7 +457,9 @@ sealed interface KeywordAction {
     @Serializable @SerialName("venture") data object Venture : KeywordAction
     /** "Venture into [quality]" (CR 701.49d: "venture into Undercity"): a new dungeon is one of [dungeons]. */
     @Serializable @SerialName("venture-into") data class VentureInto(val dungeons: ObjectFilter) : KeywordAction
-    @Serializable @SerialName("manifest") data class Manifest(val count: Value) : KeywordAction
+    /** Manifest the top [count] cards of the acting player's library one at a time (CR 701.40a, e), or (mh3) the cards [cards]
+     * instead ("each manifest two cards from their hands"), each under its owner's control. */
+    @Serializable @SerialName("manifest") data class Manifest(val count: Value, val cards: Objects? = null) : KeywordAction
     /** "[Players] manifest(s) dread" (CR 701.62a): look at the top two cards of their library, manifest one of them
      * (CR 701.40a: onto the battlefield face down as a 2/2 creature, [ObjectMark.Manifested]) and put the other into
      * their graveyard. The bind of [Effect.Action] names the manifested permanent ("that creature"). Triggers "whenever

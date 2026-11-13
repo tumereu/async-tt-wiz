@@ -110,6 +110,15 @@ internal object Actions {
         }
         val replaced = planned.mapNotNull { pm ->
             val o = act.obj(pm.id) ?: return@mapNotNull null
+            // mh3 chunk 09: entering transformed, it is checked as it will exist, back face up (CR 614.12, 712.14a): the back face's own "enters
+            // with" replacements apply ("Ral enters with an additional loyalty counter …"), the front face's don't
+            val back = if (pm.to == Zone.Battlefield && pm.transformed && o.face == 0 && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld))
+                o.definition.faces.getOrNull(1) else null
+            val backOwn = back?.abilities.orEmpty().filterIsInstance<arcanum.api.Ability.Static>().flatMapIndexed { i, s ->
+                s.mechanics.filterIsInstance<Mechanic.Replacement>().filter { selfEntering(it.event) }.map { r ->
+                    Replacement(r, pm.controller ?: o.owner, pm.id, arcanum.engine.state.Bindings.EMPTY, null, own = false, key = "back:${pm.id}:$i/${r.hashCode()}")
+                }
+            }
             Replacements.apply(
                 act, cause, pm, affected = act.controllerOf(pm.id) ?: o.owner, about = pm.id,
                 // rtr chunk 06: the proposed move names its cause, for "a spell or ability an opponent controls causes you to discard"
@@ -119,7 +128,9 @@ internal object Actions {
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
-                skip = { r, _ -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) },
+                skip = { r, _ -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) ||
+                    back != null && r.source == pm.id && r.effect == null && !r.key.startsWith("back:") && selfEntering(r.mechanic.event) },
+                extra = backOwn,
             )
         }
         // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
@@ -205,6 +216,9 @@ internal object Actions {
         if (r.enters) return if (r.host == m.attachTo) m else m.copy(attachTo = r.host)
         return if (o.zone == Zone.Stack) m.copy(to = Zone.Graveyard, attachTo = null, controller = null) else null
     }
+
+    private fun selfEntering(event: arcanum.api.EventPattern) =
+        event is arcanum.api.EventPattern.ZoneChange && event.objects == arcanum.api.ObjectFilter.Is(Objects.Self) && event.to == Zone.Battlefield
 
     /** Names a regeneration shield keeps its creature under (D26). */
     const val REGENERATED = "\$regenerated"

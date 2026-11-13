@@ -21,7 +21,8 @@ internal object FinPhrases {
     private val DIED_UNDER_CONTROL = Regex("""an? (\w+) died under (an opponent's|your) control this turn""")
     private val CARDS_ARE_IN_GRAVEYARD = Regex("""(\w+) or more cards are in your graveyard""")
     private val AND_SUBTYPE_YOU_CONTROL = Regex("""([A-Za-z]+ creatures) and ([A-Z][a-z]+?)(?:es|s) you control""")
-    private val ABILITIES_OR_SPELL = Regex("""activated ability, triggered ability, or (.+ spell)""")
+    // mh3 chunk 09: also one kind ("triggered ability or colorless spell")
+    private val ABILITIES_OR_SPELL = Regex("""((?:(?:activated|triggered) ability,? )+)or (.+ spell)""")
     // inr chunk 07: Overcharged Amalgam "spell, activated ability, or triggered ability"
     private val SPELL_OR_ABILITIES = Regex("""(.*spell), activated ability, or triggered ability""")
     private val SUBTYPE_LIST_YOU_CONTROL = Regex("""([A-Z][a-z]+), ([A-Z][a-z]+), and(?:/or)? ([A-Z][a-z]+) you control""")
@@ -46,8 +47,9 @@ internal object FinPhrases {
         // fin chunk 09: "activated ability, triggered ability, or noncreature spell" (abilities on the Stack, CR 113.1c)
         ABILITIES_OR_SPELL.matchEntire(phrase)?.let { m ->
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
-            val spell = Filters.noun(m.groupValues[1]) ?: return null
-            return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered), spell))
+            val spell = Filters.noun(m.groupValues[2]) ?: return null
+            val kinds = Regex("""activated|triggered""").findAll(m.groupValues[1]).map { if (it.value == "activated") arcanum.api.AbilityKind.Activated else arcanum.api.AbilityKind.Triggered }
+            return ObjectFilter.Or(kinds.map { ability(it) }.toList() + spell)
         }
         SPELL_OR_ABILITIES.matchEntire(phrase)?.let { m ->
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))

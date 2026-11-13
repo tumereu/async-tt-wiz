@@ -114,4 +114,23 @@ internal object Mh3 {
     val EXCHANGE_IF_YOU_DO = Regex("""(.*[Ee]xchange control of [^.]+\.) If you do, (.+)""")
     /** "Sacrifice that creature unless you pay an amount of {E} equal to its mana value." */
     val SACRIFICE_UNLESS_PAY_ENERGY_EQUAL = Regex("""[Ss]acrifice (?:that creature|it) unless you pay an amount of \{E\} equal to its (mana value|power)\.""")
+
+    // mh3 chunk 09
+    /** "it's a 1/1 black and green Insect" (a copy's exceptions, CR 707.9b) */
+    val COPY_EXCEPT_PT_COLORS_SUBTYPE = Regex("""it's an? (\d+)/(\d+) ((?:white|blue|black|red|green)(?:(?:, | and )(?:white|blue|black|red|green))*) ([A-Z]\w+)""")
+    /** "Target player creates X 0/1 colorless Eldrazi Spawn creature tokens with …" (X announced, CR 107.3a) */
+    val TARGET_PLAYER_CREATES_X = Regex("""Target player creates X (.+)""")
+    /** "Create a 1/1 … Insect creature token, then mill two cards. Put a deathtouch counter on the token if a black card was milled this way." */
+    val CREATE_THEN_MILL_COUNTER_ON_TOKEN_IF_MILLED = Regex("""(Create an? [^.]+? token), then mill (\w+) cards\. Put an? (\S+) counter on the token if an? (.+?) card was milled this way\.""")
+    /** "Ral enters with an additional loyalty counter on him for each instant and sorcery spell you've cast this turn." (CR 614.1c, 306.5b) */
+    val ENTERS_WITH_ADDITIONAL_FOR_EACH = Regex("""(.+?) enters with an additional (\S+) counter on (?:it|him|her|them) for each (.+?) (spell|creature|card|permanent|land) (.+)\.""")
+    /** "Put a lifelink counter on it if you control a white permanent other than that creature or Sorin." */
+    val IF_YOU_CONTROL_OTHER_THAN_THAT_OR_SELF = Regex("""(.+?) if you control an? (.+?) other than that (?:creature|permanent) or (.+)\.""")
+    /** "Up to two target players each manifest two cards from their hands. For each card manifested this way, you draw a card." (CR 701.40a) */
+    val TARGET_PLAYERS_EACH_MANIFEST_FROM_HANDS = Regex("""(?:Up to (\w+)|(\w+)) target players each manifest (\w+) cards? from their hands\.(?: For each card manifested this way, you draw a card\.)?""")
+    /** "Each opponent chooses an artifact, a creature, an enchantment, and a planeswalker from among the nonland permanents they control, then
+     * sacrifices the rest." */
+    val CHOOSES_TYPES_FROM_AMONG_SACRIFICES_REST = Regex("""Each (opponent|player) chooses ((?:an? \w+, )+and an? \w+) from among the (.+?) they control, then sacrifices the rest\.""")
+    /** "Mill three cards. Then you may pay {1} and 3 life. If you do, put a card from among those cards into your hand." */
+    val MILL_THEN_MAY_PAY_PUT_FROM_AMONG = Regex("""Mill (\w+) cards\. Then you may pay ([^.]+)\. If you do, put an? (.+?) from among (?:those cards|them) into your hand\.""")
 }

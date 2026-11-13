@@ -934,10 +934,13 @@ internal object Events {
     // dsk chunk 02
     private val ATTACKS_ALONE = Regex("""(.+) attacks alone""")
     // blb chunk 04: "your second main phase"
-    private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step|first main phase|second main phase)""")
+    // mh3 chunk 09: "the beginning of each of your postcombat main phases" (every one of them, additional ones included, CR 505.1a)
+    private val BEGINNING_OF_YOUR = Regex("""the beginning of (?:each of )?your (upkeep|draw step|end step|first main phase|second main phase|precombat main phase|postcombat main phases?)""")
     private val STEPS = mapOf<String, arcanum.api.TurnStep>("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
         // dsk chunk 02: the first main phase is the precombat main phase (CR 505.1a)
-        "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain)
+        "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain,
+        "precombat main phase" to arcanum.api.TurnStep.PrecombatMain, "postcombat main phase" to arcanum.api.TurnStep.PostcombatMain,
+        "postcombat main phases" to arcanum.api.TurnStep.PostcombatMain)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
@@ -1260,6 +1263,10 @@ internal object Conditions {
             return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(most))
         }
         // blb chunk 05: "you control a creature with power 4 or greater"
+        // mh3 chunk 09: "you control a red permanent other than Ajani" (the card's own name, as "other than this planeswalker")
+        CONTROL_A_OTHER_THAN_NAME.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
+            Filters.noun(m.groupValues[1] + " other than this permanent you control")?.let { return Condition.Exists(it, atLeast = 1) }
+        }
         BLB_CONTROL_A_PHRASE.matchEntire(text)?.let { m -> Filters.noun(m.groupValues[1] + " you control")?.let { return Condition.Exists(it, atLeast = 1) } }
         // blb chunk 03: "A or if B"
         OR_IF.matchEntire(text)?.let { m ->
@@ -1408,6 +1415,7 @@ internal object Conditions {
     // blb chunk 05
     private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (?:(\w+) or fewer|(no)) cards in hand""")
     private val BLB_CONTROL_A_PHRASE = Regex("""you control an? (.+)""")
+    private val CONTROL_A_OTHER_THAN_NAME = Regex("""you control an? (.+?) other than (.+)""")
     // blb chunk 03
     private val OR_IF = Regex("""(.+?) or if (.+)""")
     private val N_LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""(\w+) or more (.+) left your graveyard this turn""")

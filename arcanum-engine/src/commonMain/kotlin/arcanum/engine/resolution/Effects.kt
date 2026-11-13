@@ -1647,7 +1647,8 @@ internal object Effects {
             }
             // CR 701.40a, c: the top card of the library onto the battlefield face down as a 2/2 creature, one card at a time;
             // CR 701.58a: cloaked, it also has ward {2}
-            is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
+            is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(action.cards?.let { manifestCards(scope, scope.objects(it)) }
+                ?: manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
             is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
             // CR 701.56a: for each suspended card you own and each permanent you control with a time counter on it, you may add or
             // remove a time counter
@@ -1744,6 +1745,18 @@ internal object Effects {
                 ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
             Actions.tapStatus(act, moved, StatusFlag.Marked(mark), true)
             moved
+        }
+    }
+
+    /** mh3: CR 701.40a: [cards] (from a hand: "each manifest two cards from their hands") onto the battlefield face down as 2/2 creatures,
+     * each under its owner's control, together. */
+    private fun manifestCards(scope: Scope, cards: List<ObjectId>): List<ObjectId> {
+        val act = scope.act
+        val present = cards.filter { act.state.obj(it) != null }
+        if (present.isEmpty()) return emptyList()
+        val moved = Actions.move(act, scope.cause, present.map { PlannedMove(it, Zone.Battlefield, controller = act.state.obj(it)!!.owner, faceDown = true) })
+        return present.mapNotNull { moved[it]?.takeIf { id -> act.state.obj(id)?.zone == Zone.Battlefield } }.onEach {
+            Actions.tapStatus(act, it, StatusFlag.Marked(ObjectMark.Manifested), true)
         }
     }
 

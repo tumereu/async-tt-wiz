@@ -204,15 +204,15 @@ class OneChunk07MillScryConditionsScenariosTest {
         }
     }
 
-    // CR 205.1b: becoming an "artifact creature" keeps the prior card types and subtypes
+    // CR 205.1b: becoming a "[creature type] artifact creature" keeps the prior card types but replaces the creature types
     @Test
-    fun becomingAnArtifactCreatureKeepsItsSubtypes() = scenario {
+    fun becomingACreatureTypeArtifactCreatureReplacesItsCreatureTypes() = scenario {
         alice.battlefield(brassworkMyr, "Plains", "Plains")
         alice.activates(brassworkMyr)
         resolveAll()
         expect {
             brassworkMyr.power shouldBe 4
-            brassworkMyr.subtypes.toSet() shouldBe setOf(Subtype("Myr"), Subtype("Golem"))
+            brassworkMyr.subtypes.toSet() shouldBe setOf(Subtype("Golem"))
         }
     }
 

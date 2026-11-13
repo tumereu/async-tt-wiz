@@ -128,8 +128,10 @@ internal object Msh {
 
     // msh chunk 09: more wordings
     val EXILE_RETURN_AT_NEXT_END_STEP = Regex("""[Ee]xile (another )?target (.+?)\. Return (?:that card|it) to the battlefield under (its owner's|your) control at the beginning of the next end step\.""")
-    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast) cost (\{\d+\}) less to cast\.""")
-    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""(.+ spells you cast) this turn cost (\{\d+\}) less to cast\.""")
+    // woe chunk 07: also "… spells you cast that have an Adventure"
+    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast(?: that [^.]+?)?) cost (\{\d+\}) less to cast\.""")
+    // woe chunk 08: also "Spells you cast this turn that are black and/or red cost {X} less to cast, where X is …"
+    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""((?:.+ )?[Ss]pells you cast) this turn(?: that are ([a-z]+(?: and/or [a-z]+)*))? cost (\{\d+\}|\{X\}) less to cast(?:, where X is (.+?))?\.""")
     val TAKE_EXTRA_TURN = Regex("""Take an extra turn after this one\.""")
     val DURING_THAT_TURN_CANT_ACTIVATE = Regex("""During that turn, power-up abilities can't be activated\.""")
     val PUT_X_COUNTERS_ON = Regex("""Put X (\S+) counters on (.+)\.""")
@@ -261,13 +263,20 @@ internal object MshPhrases {
         ObjectFilter.Not(ObjectFilter.Sub(arcanum.api.Subtype("Villain"))),
         ObjectFilter.Or(listOf(ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.Red)), ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.White))))))
 
+    private val ATTACHED_YOU_CONTROL = Regex("""(equipped|enchanted) (creature|permanent) you control""")
+
     /** msh nouns, tried first in [Filters.noun]. */
     fun noun(phrase: String): ObjectFilter? {
         // msh chunk 06: "creature you control that's attacking alone" (CR 506.5)
         ATTACKING_ALONE.matchEntire(phrase)?.let { m -> return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.AttackingAlone) }
-        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5)
-        if (phrase == "equipped creature you control") return Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
-            ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
+        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5); woe chunk 01: "enchanted creature you
+        // control", "enchanted permanent you control" (one with an Aura attached, CR 303.4; read as written before the eoe rewrite of "enchanted
+        // permanent" to "enchanted creature")
+        ATTACHED_YOU_CONTROL.matchEntire(phrase)?.let { m ->
+            val noun = if (m.groupValues[2] == "creature") ObjectFilter.Type(arcanum.api.CardType.Creature) else ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
+            return Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype(if (m.groupValues[1] == "equipped") "Equipment" else "Aura"))))
+        }
         // msh chunk 09: "nontoken artifact or creature": the adjective goes with both types
         NON_A_OR_B.matchEntire(phrase)?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null,

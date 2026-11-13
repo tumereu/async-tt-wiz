@@ -58,7 +58,8 @@ class RvrChunk02FightHellbentMentorMillOverloadTest {
 
     // ---- Hellbent
 
-    // CR 207.2c (hellbent is an ability word), 101.2 / 615.12: can't be countered, its damage can't be prevented while you have no cards in hand
+    // CR 207.2c (hellbent is an ability word), 101.2 / 615.12: can't be countered, its damage can't be prevented while you have no cards in hand;
+    // the exile replacement applies only to a creature the spell did deal damage to (CR 614.1a), not one whose damage was prevented (CR 615.1a)
     @Test
     fun hellblazeTorrent() = card(
         name = "Hellblaze Torrent",
@@ -72,7 +73,9 @@ class RvrChunk02FightHellbentMentorMillOverloadTest {
         spell(
             damage(Value.Announced(name = "X"), toAny),
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
-                EventPattern.ZoneChange(and(ObjectFilter.Is(target("any")), creature), from = Zone.Battlefield, to = Zone.Graveyard),
+                EventPattern.ZoneChange(and(ObjectFilter.Is(target("any")), creature,
+                    ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()), role = arcanum.api.EventRole.Object)),
+                    from = Zone.Battlefield, to = Zone.Graveyard),
                 modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, Duration.EndOfTurn)),
             targets = listOf(anyTarget),
             announced = listOf("X"),

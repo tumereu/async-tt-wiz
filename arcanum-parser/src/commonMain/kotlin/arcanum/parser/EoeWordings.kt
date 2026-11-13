@@ -151,7 +151,8 @@ internal object Eoe {
     val EXILED_WITH_TO_GRAVEYARD_CREATE_FOR_EACH = Regex("""Put each card exiled with (.+?) into its owner's graveyard, then create (an? .+? token) for each card put into a graveyard this way\. Sacrifice (.+?)\.""")
     val IF_YOU_DIDNT_PUT_INTO_HAND = Regex("""If you didn't put a card into your hand this way, (.+)""")
     val RETURN_UP_TO_TOTAL_MV_COUNTER_EACH = Regex("""Return up to (\w+) target (.+?) with total mana value (\d+) or less from your graveyard to the battlefield\. Put a \+1/\+1 counter on each of them\.""")
-    val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs (\{\d+\}) less to activate if (.+?)\.""")
+    // woe chunk 08: also "… during your turn"
+    val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs (\{\d+\}) less to activate (?:if (.+?)|(during your turn))\.""")
     // inr chunk 01: also an ability quoted inside it ("… have haste and '{T}: … any target.'")
     val EMBLEM_PERIOD_INSIDE = Regex("""You get an emblem with "(.+\.'?)"""")
     val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with an? (\S+) counter on it for each (.+)\.""")
@@ -160,7 +161,8 @@ internal object Eoe {
     // eoe chunk 08: blue wordings
     val CHOOSE_UP_TO_ONE_UNBLOCKABLE_BASE_PT = Regex("""[Cc]hoose up to one target (.+?)\. That creature can't be blocked this turn and has base power and toughness (\d+)/(\d+) until end of turn\.""")
     val SURVEIL_X = Regex("""Surveil X\.""")
-    val LOOK_TWO_ONE_HAND_OTHER_GRAVEYARD = Regex("""[Ll]ook at the top two cards of your library\. Put one into your hand and the other into your graveyard\.""")
+    // woe fixes: "… Exile one of them and put the other into your hand." (Ashiok, Wicked Manipulator)
+    val LOOK_TWO_ONE_HAND_OTHER_GRAVEYARD = Regex("""[Ll]ook at the top two cards of your library\. (?:Put one into your hand and the other into your graveyard|(Exile one of them and put the other into your hand))\.""")
     val LOOK_X_ONE_KICKED_TWO = Regex("""Look at the top X cards of your library\. Put one of those cards into your hand\. If this spell was kicked, put two of those cards into your hand instead\. Put the rest on the bottom of your library in a random order\.""")
     val BECOMES_TAPPED_OR_DEALT_DAMAGE = Regex("""(.+?) becomes tapped or is dealt damage""")
     val RETURN_IF_IT_WAS_ATTACKING_CREATE = Regex("""Return target (.+?) to its owner's hand\. If it was attacking, create (.+)""")
@@ -190,8 +192,9 @@ internal object Eoe {
     val DRAW_ANOTHER_CARD = Regex("""[Dd]raw another card\.""")
     val YOU_SACRIFICE = Regex("""you sacrifice (another )(.+ or .+)""")
     val UNTIL_EOT_X_AND_MINUS_X = Regex("""[Uu]ntil end of turn, target (.+?) gets \+X/\+0 and target (.+?) gets -0/-X\.""")
+    // woe chunk 02: the "gets +N/+N and" part is optional ('Until end of turn, target creature you control gains "When this creature dies, …"')
     // mkm chunk 08: 'gets +1/+0, gains "…," and can attack as though it didn't have defender'
-    val UNTIL_EOT_GETS_AND_GAINS_QUOTED = Regex("""[Uu]ntil end of turn, (another target .+?|target .+?) gets ([+-]\d+)/([+-]\d+)(?: and|,) gains "(.+)"(?: and (.+?))?\.?""")
+    val UNTIL_EOT_GETS_AND_GAINS_QUOTED = Regex("""[Uu]ntil end of turn, (another target .+?|target .+?)(?: gets ([+-]\d+)/([+-]\d+)(?: and|,))? gains "(.+)"(?: and (.+?))?\.?""")
     val UNTIL_EOT_GAINS_QUOTED_CONTROLLER_MAY_DAMAGE = Regex("""Until end of turn, target (.+?) gains "(.+?)" That creature's controller may have (.+?) deal (\d+) damage to it\.""")
     val EACH_OPPONENT_CHOOSES_AND_EXILES = Regex("""[Ee]ach opponent chooses an? (.+?) they control and exiles it\.""")
     val SACRIFICE_SELF_PUT_EXILED_WITH_COUNTERS = Regex("""[Ss]acrifice (.+?), then put an? (.+?) exiled with it onto the battlefield under your control with (\w+) additional \+1/\+1 counters on it\.""")

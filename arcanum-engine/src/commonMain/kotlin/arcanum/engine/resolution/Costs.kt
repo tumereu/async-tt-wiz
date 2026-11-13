@@ -211,11 +211,11 @@ internal object Costs {
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(it, part.less)) }
             // Can't be paid (canPay), so never chosen
             is CostPart.Manual, is CostPart.ManaCostOf -> Unit
-            CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid)) }
+            CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid), cause) }
             CostPart.UntapSelf -> scope.self?.let { Actions.tap(act, listOf(it), false, listOf(Meaning.Paid)) }
             is CostPart.TapObjects -> {
                 val chosen = choose(scope, payer, part.what, Zone.Battlefield, "tap") { !(act.state.obj(it)?.tapped ?: true) }
-                Actions.tap(act, chosen, true, listOf(Meaning.Paid))
+                Actions.tap(act, chosen, true, listOf(Meaning.Paid), cause)
                 scope.bind(part.bind, NamedValue.Objects(chosen))
             }
             is CostPart.Sacrifice -> {

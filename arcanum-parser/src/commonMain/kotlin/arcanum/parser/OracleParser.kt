@@ -10,10 +10,6 @@ import arcanum.api.Cost
 import arcanum.api.CostPart
 import arcanum.api.ManaCost
 import arcanum.api.Objects
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Parses one card face's oracle text into a [FaceDefinition]. Reads only the text (no card-data keyword lists), so it
@@ -29,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 97
+    const val VERSION: Int = 98
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -371,8 +367,6 @@ object OracleParser {
                 parsed = (sentences.multi(stripped) ?: sentences.line(stripped)?.let(::listOf))?.singleOrNull()
                     ?.let { chosenByOpponent(it, index, TARGET_WORD.findAll(stripped).count()) }?.let(::listOf)
             }
-            // rvr fixes: "It's still a land." keeps every prior type and subtype, creature types included (CR 205.1b)
-            if (STILL_A_TYPE.containsMatchIn(line)) parsed = parsed?.map(::keepingPriorSubtypes)
             // dsk chunk 07: a later paragraph of a spell that refers to its earlier targets is read with them (CR 113.3a)
             if (instead == null && parsed == null && isSpell && previous is Ability.Spell) {
                 sentences.continuation(line, previous.instructions)?.let { joined ->
@@ -409,8 +403,34 @@ object OracleParser {
         // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
         // (linked abilities, CR 607.2a)
         val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
-        return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> ability.withText(raws[index]) }
+        return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> stillA(ability.withText(raws[index]), raws[index]) }
     }
+
+    /** woe fixes, rvr fixes: an object that becomes something but "is still a [type]" ("It's still a land.", "that's still a planeswalker";
+     * lci: "It's still a Cave land.", a subtype too)
+     * keeps all its prior card types, supertypes and subtypes (CR 205.1b), creature types included, so no type-setting in that ability
+     * replaces any of them; except that the rule's more specific case, becoming a "[creature type] artifact creature", still replaces
+     * creature types. Through the ability's JSON form, so every wording that sets types is handled alike. */
+    private fun stillA(ability: Ability, raw: String): Ability {
+        if (!STILL_A.containsMatchIn(REMINDER.replace(raw, ""))) return ability
+        val json = kotlinx.serialization.json.Json
+        fun keep(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+            is kotlinx.serialization.json.JsonObject -> {
+                val mapped = e.mapValues { (_, v) -> keep(v) }
+                val setsTypes = (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "types" && ("add" in e || "addSubtypes" in e)
+                val add = (e["add"] as? kotlinx.serialization.json.JsonArray)?.map { it.toString() }.orEmpty()
+                val artifactCreatureOfType = add.any { "\"artifact\"" in it } && add.any { "\"creature\"" in it } &&
+                    (e["addSubtypes"] as? kotlinx.serialization.json.JsonArray)?.isNotEmpty() == true
+                kotlinx.serialization.json.JsonObject(if (!setsTypes) mapped else if (artifactCreatureOfType) mapped - "replaceTypes" else mapped - "replaceTypes" - "replaceSubtypes")
+            }
+            is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map(::keep))
+            else -> e
+        }
+        val element = json.encodeToJsonElement(Ability.serializer(), ability)
+        val kept = keep(element)
+        return if (kept == element) ability else json.decodeFromJsonElement(Ability.serializer(), kept)
+    }
+    private val STILL_A = Regex("""\b(?:[Ii]t's|[Tt]hat's|[Hh]e's|[Ss]he's|[Tt]hey're|that are) still (?:an? )?(?:[A-Z][a-z]+ )*(?:land|artifact|creature|enchantment|planeswalker|battle)s?\b""")
 
     /** dft chunk 14: "This spell costs {1} less to cast if it targets a Mount or Vehicle you control": the spell's first target you control. */
     private fun dftCostTargetYouControl(abilities: List<Ability>): List<Ability> {
@@ -760,7 +780,8 @@ object OracleParser {
     /** A spree or tiered mode (CR 702.172a, 702.183a): "+ {1} — Counter target spell." */
     private val COST_MODE = Regex("""\+ ((?:\{[^}]+\})+) — (.+)""")
     private val PARTNER_WITH = Regex("""Partner with (.+)""")
-    private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
+    // woe chunk 08: "Choose one that hasn't been chosen —" (for this object)
+    private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: that hasn't been chosen)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")
@@ -819,33 +840,6 @@ object OracleParser {
             else -> null
         }
     }
-
-    /** "It's still a land.", "He's still a planeswalker."; lci: "It's still a Cave land." (a subtype too, CR 205.1b). */
-    private val STILL_A_TYPE = Regex("""\b(?:It's|He's|She's|They're) still an? (?:[A-Z][a-z]+ )*[a-z]+\.""")
-
-    /**
-     * rvr fixes, CR 205.1b: an effect that says the object is "still a [type]" keeps all the object's prior card types, supertypes
-     * and subtypes: its type change that makes it a creature replaces neither card types nor subtypes (a land creature's creature
-     * types stay). The rule's more specific case, "becomes a [creature type] artifact creature", still replaces creature types.
-     * Through the ability's JSON form, so every wording that sets types is handled alike.
-     */
-    private fun keepingPriorSubtypes(ability: Ability): Ability {
-        fun walk(e: JsonElement): JsonElement = when (e) {
-            is JsonObject -> {
-                val add = (e["add"] as? JsonArray)?.map { it.toString() }.orEmpty()
-                val animates = e["type"] == JsonPrimitive("types") && add.any { "\"creature\"" in it }
-                val artifactCreatureOfType = add.any { "\"artifact\"" in it } && (e["addSubtypes"] as? JsonArray)?.isNotEmpty() == true
-                val dropped = if (!animates) emptySet() else setOfNotNull("replaceTypes", "replaceSubtypes".takeUnless { artifactCreatureOfType })
-                JsonObject(e.filterKeys { it !in dropped }.mapValues { (_, v) -> walk(v) })
-            }
-            is JsonArray -> JsonArray(e.map(::walk))
-            else -> e
-        }
-        val tree = STILL_JSON.encodeToJsonElement(Ability.serializer(), ability)
-        val changed = walk(tree)
-        return if (changed == tree) ability else STILL_JSON.decodeFromJsonElement(Ability.serializer(), changed)
-    }
-    private val STILL_JSON = kotlinx.serialization.json.Json
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

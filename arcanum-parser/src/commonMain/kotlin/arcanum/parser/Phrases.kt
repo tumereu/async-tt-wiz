@@ -95,6 +95,7 @@ internal object Filters {
         FraPhrases.noun(phrase)?.let { return it } // fra
         InrPhrases.noun(phrase)?.let { return it } // inr
         LciPhrases.noun(phrase)?.let { return it } // lci
+        WoePhrases.noun(phrase)?.let { return it } // woe
         IsdPhrases.noun(phrase)?.let { return it } // isd
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
@@ -134,6 +135,9 @@ internal object Filters {
         }
         // dsk chunk 01: "a Room card that doesn't have the same name as a Room you control" (CR 709.4a: either name)
         NOT_SAME_NAME_AS.matchEntire(phrase)?.let { m ->
+            // woe chunk 05: "another permanent you control": any permanent but the one tested (CR 201.2a)
+            if (m.groupValues[2].startsWith("another ")) return all(noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removePrefix("another ")) ?: return null), other = true)))
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
         }
         // mkm chunk 08: "creatures that don't have a name" (a face-down permanent has none, CR 708.2a)
@@ -186,6 +190,9 @@ internal object Filters {
         OR_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)) }
         // chunk 14: "permanent card" (CR 110.4a): an artifact, battle, creature, enchantment, land, or planeswalker card.
         if (phrase == "permanent card" || phrase == "permanent cards") return ObjectFilter.Or(PERMANENT_TYPES.map { ObjectFilter.Type(it) })
+        // woe chunk 07: "permanent spell" (CR 110.4b): an artifact, battle, creature, enchantment, or planeswalker spell (a spell isn't a permanent)
+        if (phrase == "permanent spell" || phrase == "permanent spells")
+            return all(ObjectFilter.Or(PERMANENT_TYPES.filter { it != CardType.Land }.map { ObjectFilter.Type(it) }), ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
@@ -426,6 +433,7 @@ internal object Filters {
             .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
             .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" in a graveyard") // chunk 31, mkm chunk 09
+            .substringBefore(" that has an Adventure").substringBefore(" you own in exile").substringBefore(" you don't own in exile") // woe chunk 08
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
         // rvr chunk 04, lci chunk 10: "activated or triggered ability" (abilities on the Stack)
@@ -1041,7 +1049,7 @@ internal object Events {
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     private val A_SOURCE_DEALS_DAMAGE_TO = Regex("""a source deals damage to (.+)""")
     // dsk chunk 08
-    private val YOU_CAST_SPELL_THAT = Regex("""you cast an? (.+ spell that .+)""")
+    private val YOU_CAST_SPELL_THAT = Regex("""you cast an? ((?:.+ )?spell that(?: |'s ).+)""") // woe chunk 10: "spell that's white, blue, black, or red"
     // blb gaps 2
     private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07
@@ -1169,6 +1177,7 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        WoePhrases.condition(text, self)?.let { return it } // woe
         mkmCondition(text)?.let { return it } // mkm
         // fra chunk 06: "this creature isn't prepared" (CR 722.3a); mkm chunk 05: any mark, "this creature is suspected", "it's not suspected"
         // (about this object, CR 701.60a)
@@ -1632,7 +1641,8 @@ internal object Tokens {
         ), power = if (power == "X") Value.Announced(name = "X") else null, toughness = if (toughness == "X") Value.Announced(name = "X") else null)
     }
 
-    private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
+    // woe chunk 01: several words ("a Young Hero Role token", CR 111.10r)
+    private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+(?: [A-Z][a-z]+)*) tokens?""")
     private val COUNTED = Regex("""(${Numbers.WORD_PATTERN}) ((?:\d+/\d+|X/X|X/\d+|\d+/X) .+? creature) tokens?(?: with (.+))?""")
     // chunk 26
     private val QUOTED = Regex(""""(.+)"""")

@@ -142,6 +142,8 @@ data class CastFacts(
     /** The sources of the mana spent to cast it, one entry per mana that had a source ("if mana from a Treasure was spent",
      * CR 106.3); read as they last existed once they have left. */
     val manaSources: List<ObjectId> = emptyList(),
+    /** The [arcanum.api.Condition.AsCast] conditions of its instructions that held as it was cast (CR 601.2i). */
+    val heldAsCast: List<arcanum.api.Condition> = emptyList(),
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
     /** rvr: it was cast during a main phase of the player who cast it (addendum, CR 505.1, 207.2c). */

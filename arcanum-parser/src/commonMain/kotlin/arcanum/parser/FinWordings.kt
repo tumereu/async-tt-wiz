@@ -245,7 +245,7 @@ internal object Fin {
     val SEARCH_UP_TO_DIFFERENT_NAMES = Regex("""Search your library for up to (\w+) (.+?) with different names, put them onto the battlefield tapped, then shuffle\.""")
     val SELF_BECOMES_CREATURE = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z][a-z]+) creature in addition to its other types\.""")
     val UNTIL_EOT_GETS_AND_GAINS_QUOTE = Regex("""Until end of turn, target (.+?) gets \+(\d+)/\+(\d+) and gains "(.+)"\.?""")
-    val COUNTERS_EQUAL_ITS_POWER_ON_UP_TO_ONE = Regex("""Put a number of (\S+) counters equal to its power on up to one target (.+)\.""")
+    val COUNTERS_EQUAL_ITS_POWER_ON_UP_TO_ONE = Regex("""Put a number of (\S+) counters equal to its power on (?:up to one target (.+)|each (.+))\.""")
     val UNTIL_EOT_SELF_GETS_FOR_EACH = Regex("""Until end of turn, (.+?) gets \+1/\+1 for each (.+)\.""")
     val MILL_MAY_PUT_IF_TOWN_GAIN = Regex("""Mill (\w+) cards\. You may put an? (.+?) from among them into your hand\. If you put an? (.+?) into your hand this way, you gain (\d+) life\.""")
     val EXILE_IT_AND = Regex("""Exile it and (create .+)\.""")

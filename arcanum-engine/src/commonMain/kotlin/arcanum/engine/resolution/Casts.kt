@@ -39,10 +39,11 @@ internal object Casts {
         val caster = scope.players(effect.caster).firstOrNull() ?: scope.actor
         val cast = mutableListOf<ObjectId>()
         for (id in scope.objects(effect.objects).filter { act.state.obj(it) != null }) {
+            // woe chunk 04: a card that can't be cast this way isn't shown (a face-down card goes on hidden; showing it would also count as
+            // something done for "if you don't cast it", CR 608.2c)
+            if (effect.resultingSpell != null && !resultingSpellMatches(scope, effect.resultingSpell!!, id)) continue
             act.show(caster, listOf(id), public = true)
-            val e = scope.eval()
             val c = act.view()[id]?.characteristics ?: continue
-            if (effect.resultingSpell != null && !e.matches(effect.resultingSpell!!, id)) continue
             if (c.isType(CardType.Land)) {
                 // CR 305.1: a land is played, not cast
                 if (effect.how == PlayKind.Play) Actions.move(act, scope.cause, listOf(PlannedMove(id, Zone.Battlefield, controller = caster,
@@ -52,6 +53,16 @@ internal object Casts {
             arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost, effect.transformed, effect.manaAsAnyType)?.let { cast += it }
         }
         scope.bind(effect.bind, NamedValue.Objects(cast))
+    }
+
+    /** Whether casting [id] would make a spell matching [filter] ("if that spell's mana value is 4 or less"): a card exiled face down is cast
+     * face up (CR 601.2a, 708.2: face down it has no mana cost), so it is judged face up. */
+    private fun resultingSpellMatches(scope: Scope, filter: arcanum.api.ObjectFilter, id: ObjectId): Boolean {
+        val act = scope.act
+        val e = scope.eval()
+        if (act.state.obj(id)?.faceDown != true) return e.matches(filter, id)
+        val faceUp = act.state.deepCopy().also { it.apply(Change.Status(id, arcanum.engine.state.StatusFlag.FaceDown, before = true, after = false)) }
+        return arcanum.engine.query.Evaluator(arcanum.engine.query.ViewBoard(faceUp, arcanum.engine.Engine.view(faceUp)), e.ctx).matches(filter, id)
     }
 
     /**

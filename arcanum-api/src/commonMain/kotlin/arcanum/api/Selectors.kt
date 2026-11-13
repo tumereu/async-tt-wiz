@@ -143,7 +143,9 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("in-zone") data class InZone(val zone: Zone) : ObjectFilter
 
     @Serializable @SerialName("name") data class Named(val name: String) : ObjectFilter
-    @Serializable @SerialName("same-name") data class SameNameAs(val objects: Objects) : ObjectFilter
+    /** Has the same name as an object of [objects] (CR 201.2). [other]: an object that is not the one tested ("doesn't have the same name as
+     * another permanent you control": a permanent doesn't share its name with itself, CR 201.2a). */
+    @Serializable @SerialName("same-name") data class SameNameAs(val objects: Objects, val other: Boolean = false) : ObjectFilter
     /** mkm: has a name ("creatures that don't have a name" = [Not] of this): a face-down permanent has none (CR 708.2a). */
     @Serializable @SerialName("has-name") data object HasName : ObjectFilter
     /** Has the card name chosen by the [Step.Choose] named [name] in this resolution. */
@@ -275,6 +277,10 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("could-produce") data class CouldProduce(val mana: ManaCost) : ObjectFilter
     /** Its mana cost is exactly [cost] ("an artifact card with mana cost {0} or {1}", CR 202.1); a card with no mana cost has none. */
     @Serializable @SerialName("has-mana-cost") data class HasManaCost(val cost: ManaCost) : ObjectFilter
+    // woe
+    /** It has an Adventure: its copiable values include an Adventure spell's alternative characteristics, whether or not it uses
+     * them now ("permanent spells you cast that have an Adventure", "a card in exile that has an Adventure", CR 715.2a, b). */
+    @Serializable @SerialName("has-adventure") data object HasAdventure : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

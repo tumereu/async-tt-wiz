@@ -145,7 +145,8 @@ internal object Mh2 {
     val IT_GAINS_UNTIL_YOUR_NEXT_TURN = Regex("""[Ii]t gains ([a-z ]+) until your next turn\.""")
     val DESTROY_ALL_THREE_KINDS = Regex("""Destroy all (\w+)s, (\w+)s, and (\w+)s\.""")
     val ADD_ONE_MANA_OF_ANY_TYPE_THAT_LAND_PRODUCED = Regex("""[Aa]dd one mana of any type that land produced\.""")
-    val AS_ENTERS_CHOOSE_A_NUMBER = Regex("""As (.+) enters, choose a number\.""")
+    // woe chunk 08: also "… between 1 and 10"
+    val AS_ENTERS_CHOOSE_A_NUMBER = Regex("""As (.+) enters, choose a number(?: between (\d+) and (\d+))?\.""")
     val SPELLS_WITH_MV_EQUAL_TO_CHOSEN_NUMBER_CANT_BE_CAST = Regex("""(\w+) spells with mana value equal to the chosen number can't be cast\.""")
     // mh2 engine: "This spell has cascade as long as …"
     val THIS_SPELL_HAS_CASCADE_AS_LONG_AS = Regex("""This spell has cascade as long as (.+)\.""")

@@ -114,8 +114,11 @@ internal object Replacements {
         // blb: in an effect on locked objects (a spell and the permanent it becomes, CR 400.7d), "the affected object" is
         // each of them ("that creature enters with a finality counter on it")
         val locked = r.effect?.let { act.state.effects[it]?.locked }.orEmpty()
-        if (locked.isNotEmpty()) return locked.flatMap { id -> EventMatcher.instances(e.with(e.ctx.copy(affected = id)), r.mechanic.event, change, proposed = true) }
-        return EventMatcher.instances(e, r.mechanic.event, change, proposed = true)
+        val instances = if (locked.isNotEmpty()) locked.flatMap { id -> EventMatcher.instances(e.with(e.ctx.copy(affected = id)), r.mechanic.event, change, proposed = true) }
+            else EventMatcher.instances(e, r.mechanic.event, change, proposed = true)
+        // woe: "while your library has at least that many cards in it": only events for which its condition holds (CR 614.1a)
+        val condition = r.mechanic.condition ?: return instances
+        return instances.filter { instance -> e.with(e.ctx.copy(event = instance)).holds(condition) }
     }
 
     /**

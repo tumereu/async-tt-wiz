@@ -79,7 +79,8 @@ internal object Spm {
 
     // spm chunk 07: heroes and their tricks
     val UP_TO_ONE_TARGET_GAINS = Regex("""[Uu]p to one target (.+?) gains (.+) until end of turn\.""")
-    val ONE_OR_TWO_EACH_GET_AND_GAIN = Regex("""(One or two) target (.+?) each get ([+-]\d+)/([+-]\d+) and gain (.+) until end of turn\.""")
+    // woe chunk 01: also without the bonus ("One or two target creatures each gain haste until end of turn.")
+    val ONE_OR_TWO_EACH_GET_AND_GAIN = Regex("""(One or two) target (.+?) each (?:get ([+-]\d+)/([+-]\d+) and )?gain (.+) until end of turn\.""")
     val IF_ITS_A = Regex("""If it's an? ([A-Z]\w+)(?: card)?, (.+)""") // fdn: "If it's a Zombie card, draw a card."
     val SUSPECT = Regex("""[Ss]uspect (up to one )?(other )?target (.+?)\.""")
     val WHEN_EXCESS_DAMAGE_THIS_WAY_DESTROY = Regex("""When excess damage is dealt to the (.+?) this way, destroy up to one target (.+)\.""")
@@ -151,6 +152,7 @@ internal object SpmPhrases {
             return Condition.ObjectMatches(Objects.Self, Filters.noun(m.groupValues[2]) ?: return null)
         }
         // spm chunk 07: "two or more creatures entered the battlefield under your control this turn"
+        // woe chunk 06: Celebration (an ability word, CR 207.2c), "two or more nonland permanents entered ..."
         ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val noun = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return null
@@ -190,6 +192,6 @@ internal object SpmPhrases {
     private val WAS_CAST_USING = Regex("""(.+?) (?:was|were) cast using ([a-z-]+)""")
     private val WAS_CAST_FROM = Regex("""(.+?) was cast from your (graveyard|hand)""")
     private val IS_A_TYPE = Regex("""(.+?) is an? (creature|land|artifact)""")
-    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(\w+) or more (\w+) entered the battlefield under your control this turn""")
+    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(\w+) or more (.+?) entered the battlefield under your control this turn""")
     private val CAST_SPELL_THIS_TURN = Regex("""you've cast an? (spell with mana value \d+ or greater) this turn""")
 }

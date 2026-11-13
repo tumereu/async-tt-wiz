@@ -49,7 +49,8 @@ internal object Tmt {
     val RETURN_TARGET_AND_SAME_NAME = Regex("""Return target (.+?) and all other cards with the same name as that card from your graveyard to the battlefield( tapped)?\.""")
     val NUMBER_OF_COUNTERS_ON = Regex("""the number of counters on (.+)""")
     val PUT_FROM_THAT_PLAYERS_GRAVEYARD = Regex("""[Pp]ut up to one target (.+?) from that player's graveyard onto the battlefield under your control\. It enters tapped and attacking that player\.""")
-    val DESTROY_IF_TYPE_DESTROYED = Regex("""Destroy target (.+?)\. If an? (\w+) was destroyed this way, (.+)""")
+    // woe chunk 08: "If a permanent you controlled or a token was destroyed this way, …"
+    val DESTROY_IF_TYPE_DESTROYED = Regex("""Destroy target (.+?)\. If an? (\w+|.+? you controlled or an? \w+) was destroyed this way, (.+)""")
     val GAIN_LIFE_EQUAL_TO_ITS = Regex("""[Yy]ou gain life equal to its (power|toughness)\.""")
     val KICKED_INSTEAD = Regex("""If this spell was kicked, that creature gets ([+-]\d+)/([+-]\d+) until end of turn instead\.""")
     val GAIN_CONTROL_OF_ALL_UNTIL_EOT = Regex("""Gain control of all (.+?) until end of turn\. Untap them\. They gain (\w+) until end of turn\.""")
@@ -79,7 +80,8 @@ internal object Tmt {
     val MAY_SEARCH_IF_YOU_DONT_PUT = Regex("""[Yy]ou may search your library for an? (.+?) card, reveal it, put it into your hand, then shuffle\. If you don't put a card into your hand this way, (.+)""")
     val MAY_REMOVE_COUNTER_WHEN_YOU_DO = Regex("""[Yy]ou may remove a counter from (.+?)\. When you do, (.+)""")
     val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
-    val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}) less to activate\.( This effect can't reduce the mana in that cost to less than one mana\.)?""") // mkm chunk 02
+    // woe chunk 08: also "{X} less to activate, where X is …. This effect can't reduce the mana in that cost to less than one mana."; one chunk 09: "that target …"; mkm chunk 02: the floor of one mana
+    val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}|\{X\}) less to activate(?:, where X is (.+?))?\.( This effect can't reduce the mana in that cost to less than one mana\.)?""")
     val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     val EACH_PLAYER_CREATES = Regex("""[Ee]ach player creates (.+)\.""")
@@ -114,7 +116,7 @@ internal object Tmt {
     val CARDS_HAVE_SNEAK = Regex("""Creature cards in your graveyard have sneak (\{.+\})\.""")
     val CAST_USING_SNEAK = Regex("""You may cast creature spells from your graveyard using their sneak abilities\.""")
     val DURING_YOUR_TURN_CAST_FROM_GRAVEYARD_FINALITY = Regex("""During your turn, you may cast (.+?) spells with power or toughness (\d+) or less from your graveyard\. If you cast a spell this way, that creature enters with a finality counter on it\.""")
-    val CLONING_COPY_EXCEPT = Regex("""Create a token that's a copy of (it|a card exiled with this Saga), except it isn't legendary and is an? ([A-Z]\w+) in addition to its other types\.""")
+    val CLONING_COPY_EXCEPT = Regex("""Create a token that's a copy of (it|a card exiled with this Saga), except it isn't legendary(?:,| and) is an? ([A-Z]\w+) in addition to its other types(?:, and has ([a-z ,]+?))?\.""")
 }
 
 /** Phrases of Teenage Mutant Ninja Turtles (tmt) wordings: conditions and nouns. */

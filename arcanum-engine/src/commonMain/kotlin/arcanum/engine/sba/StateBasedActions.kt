@@ -178,6 +178,18 @@ internal object StateBasedActions {
         // CR 704.5x, y: battles without an appropriate protector get one; with none possible, they go to the graveyard
         toGraveyard += arcanum.engine.combat.Battles.checkProtectors(act, view, battlefield)
 
+        // woe chunk 01: CR 303.7a, 704.5z: of the Roles one player controls attached to one permanent, all but the one with the newest
+        // timestamp go to their owners' graveyards (an Aura gets a new timestamp as it becomes attached, CR 613.7e)
+        battlefield.mapNotNull { id ->
+            val o = state.objOrThrow(id)
+            val host = (o.attachedTo as? TargetRef.Object)?.id ?: return@mapNotNull null
+            if (view[id]?.characteristics?.subtypes?.any { it.name == "Role" } != true) return@mapNotNull null
+            Triple(id, host, view[id]?.controller ?: o.controller ?: o.owner)
+        }.groupBy { it.second to it.third }.values.filter { it.size >= 2 }.forEach { roles ->
+            val newest = roles.maxBy { state.objOrThrow(it.first).timestamp }.first
+            toGraveyard += roles.map { it.first }.filter { it != newest }
+        }
+
         // CR 704.5j: a player with two or more legendary permanents with the same name chooses one; the rest go
         // fra: permanents the "legend rule" doesn't apply to
         battlefield.filter { view[it]?.characteristics?.supertypes?.contains(Supertype.Legendary) == true &&

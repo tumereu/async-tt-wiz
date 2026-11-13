@@ -8,6 +8,7 @@ import arcanum.api.Measure
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
+import arcanum.api.SharedQuality
 import arcanum.api.Players
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
@@ -65,6 +66,24 @@ internal object One {
     val WITH_MANA_VALUE_LESS_THAN_SELFS = Regex("""(.+) with mana value less than (.+?'s (?:loyalty|power|toughness))""")
     // one chunk 06: Vraska, Betrayal's Sting
     val BECOMES_WITH_LOSES_OTHER_TYPES_AND_ABILITIES = Regex("""(Target .+?) becomes an? ([A-Z][A-Za-z ]+?) with "(.+?)" and loses all other card types and abilities\.""")
+    // one chunk 09: Capricious Hellraiser
+    val EXILE_RANDOM_CHOOSE_COPY_MAY_CAST = Regex(
+        """[Ee]xile (\w+) cards at random from your graveyard\. Choose an? (.+?) card from among them and copy it\. You may cast the copy without paying its mana cost\.""")
+    // one chunk 09: Red Sun's Twilight
+    val DESTROY_UP_TO_X_IF_COPY_EACH_HASTE_EXILE = Regex(
+        """Destroy up to X target (.+?)\. If X is (\d+) or more, for each (.+?) destroyed this way, create a token that's a copy of it\. Those tokens gain (\w+)\. Exile them at the beginning of the next end step\.""")
+    // one chunk 09: Ria Ivor, Bane of Bladehold
+    val NEXT_TIME_COMBAT_DAMAGE_TO_PLAYERS_PREVENT_CREATE = Regex(
+        """[Tt]he next time (target .+?) would deal combat damage to one or more players this combat, prevent that damage\. If damage is prevented this way, create that many (.+?)\.?""")
+    // one chunk 09: Monument to Perfection
+    val BECOMES_LOSES_ALL_GAINS = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z]\w*(?: [A-Z]\w*)*) artifact creature, loses all abilities, and gains (.+)\.""")
+    // one chunk 09: Geth, Thane of Contracts (a granted ability)
+    val WOULD_LEAVE_EXILE_INSTEAD_ANYWHERE_ELSE = Regex("""If (.+?) would leave the battlefield, exile it instead of putting it anywhere else\.""")
+    val IT_GAINS_QUOTED = Regex("""It gains "(.+)"\.?""")
+    val IF_X_DESTROY_ALL_OTHER = Regex("""If X is (\d+) or more, destroy all other (\w+)\.""")
+    val ITS_ATTACHED = Regex("""(?:it's|it is|that creature is) (equipped|enchanted)""")
+    // one chunk 09: Awaken the Sleeper, "destroy all Equipment attached to that creature"
+    val DESTROY_ALL_ATTACHED_TO = Regex("""([Yy]ou may )?[Dd]estroy all (Equipment|Auras) attached to (that creature|it)\.""")
     val IF_FEWER_COUNTERS_GET_DIFFERENCE = Regex("""If (target player|target opponent|that player) has fewer than (\w+) (\w+) counters, they get a number of (\w+) counters equal to the difference\.""")
 }
 
@@ -99,6 +118,8 @@ internal object OnePhrases {
     private val COUNTER_WAS_REMOVED_THIS_TURN = Regex("""an? (\S+) counter was removed from (.+?) this turn""")
     private val PUT_INTO_A_GRAVEYARD_THIS_TURN = Regex("""(an? .+?) was put into a graveyard this turn""")
     // one chunk 08: Mirran Safehouse, "as long as this artifact is on the battlefield" (the zone its static ability works in, CR 113.6)
+    // one chunk 09: "there are nine or more lands with different names among the basic, Sphere, and Locus lands you control" (CR 201.2)
+    private val DIFFERENT_NAMES_AMONG = Regex("""there are (\w+) or more (\w+) with different names among (?:the )?(.+?) (\w+) you control""")
     private val IS_ON_THE_BATTLEFIELD = Regex("""(.+) is on the battlefield""")
 
     fun value(text: String, exiled: Objects?): Value? = AS_YOU_ACTIVATE.matchEntire(text)?.let { Values.value(it.groupValues[1], exiled) }
@@ -108,6 +129,13 @@ internal object OnePhrases {
         ?: Filters.AMOUNT_KEYWORD_KINDS.firstOrNull { it.text.equals(word, ignoreCase = true) }
 
     fun condition(text: String, self: Set<String>): Condition? {
+        DIFFERENT_NAMES_AMONG.matchEntire(text)?.takeIf { it.groupValues[2] == it.groupValues[4] }?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[2].removeSuffix("s")
+            val kinds = m.groupValues[3].split(LazyRegexes.AND_LIST).map { Filters.noun("$it $noun you control") ?: return null }
+            val among = if (kinds.size == 1) kinds.single() else ObjectFilter.Or(kinds)
+            return Condition.Compare(Value.CountDistinct(Objects.Each(among), SharedQuality.Name), Comparison.AtLeast, Value.Fixed(n))
+        }
         IS_ON_THE_BATTLEFIELD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Battlefield))
         }

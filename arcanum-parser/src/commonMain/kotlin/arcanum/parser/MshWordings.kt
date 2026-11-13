@@ -141,7 +141,7 @@ internal object Msh {
     val THAT_PLAYER_DRAWS = Regex("""That player draws (a|\w+) cards?\.""")
     val RETURN_TAPPED_AND_ATTACKING_WITH_COUNTER = Regex("""[Rr]eturn target (.+?) to the battlefield tapped and attacking with an? (\S+) counter on it\.""")
     val REVEALS_NUMBER_YOU_CHOOSE_DISCARDS = Regex("""Target player reveals a number of cards from their hand equal to one plus (.+?)\. You choose one of them\. That player discards that card\.""")
-    val ATTACH_UP_TO_ONE_TO_TARGET = Regex("""[Aa]ttach up to one target (.+?) to target (.+)\.""")
+    val ATTACH_UP_TO_ONE_TO_TARGET = Regex("""[Aa]ttach up to one target (.+?) to (?:target (.+)|that creature)\.""")
     val DEALS_DIVIDED_ONE_OR_TWO = Regex("""(.+?) deals (\d+) damage divided as you choose among one or two targets\.""")
     val GAIN_CONTROL_VILLAIN_INSTEAD = Regex("""Gain control of target (.+?) until end of turn\. If you control an? (.+?) with greater mana value than that creature, gain control of that creature until the end of your next turn instead\. Untap that creature\. It gains (.+) until end of turn\.""")
     val GAINS_QUOTED_UNTIL_EOT = Regex("""(.+?) gains "(.+)" until end of turn\.""")

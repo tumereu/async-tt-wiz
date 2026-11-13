@@ -116,7 +116,8 @@ internal object Tdm {
     val COPY_NEXT_SPELL_THIS_TURN = Regex("""[Cc]opy the next spell you cast this turn when you cast it\. You may choose new targets for the copy\.""")
     // tdm chunk 09: "Draw a card, then you may discard a card. When you discard a nonland card this way, Glacial Dragonhunt deals 3 damage to
     // target creature."
-    val DRAW_MAY_DISCARD_WHEN_NONLAND_DAMAGE = Regex("""Draw a card, then you may discard a card\. When you discard an? (.+?) card this way, (.+?) deals (\d+) damage to target (.+)\.""")
+    // one chunk 09: "Draw a card. Then you may discard a nonland card. When you discard a card this way, …"
+    val DRAW_MAY_DISCARD_WHEN_NONLAND_DAMAGE = Regex("""Draw a card(?:, then|\. Then) you may discard an? (?:(\w+) )?card\. When you discard an? (?:(\w+) )?card this way, (.+?) deals (\d+) damage to target (.+)\.""")
     // tdm chunk 09: "look at the top three cards of your library. You may put one of those cards back on top of your library. Put the rest into your
     // graveyard."
     val LOOK_MAY_ONE_BACK_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put one of those cards back on top of your library\. Put the rest into your graveyard\.""")
@@ -157,7 +158,7 @@ internal object Tdm {
     // this turn, put a +1/+1 counter on that creature."
     val FIRST_TIME_COUNTERS_THIS_TURN = Regex("""it's the first time counters have been put on that creature this turn""")
     // tdm chunk 11: "During your turn, spells you cast cost {1} less to cast for each creature you control with power 4 or greater."
-    val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""During your turn, (.+?) cost (\{[^}]+\}) less to cast for each (.+)\.""")
+    val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""(During your turn, )?((?:.+? )?[Ss]pells you cast) cost (\{[^}]+\}) less to cast for each (.+)\.""")
     // tdm chunk 11: "Spells you cast have delve."
     val SPELLS_YOU_CAST_HAVE = Regex("""Spells you cast have (\w+)\.""")
     // tdm chunk 11: "Whenever you cast a spell, you lose life equal to its mana value."

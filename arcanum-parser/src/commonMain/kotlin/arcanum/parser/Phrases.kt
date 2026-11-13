@@ -1350,7 +1350,8 @@ internal object Conditions {
     private val WAS_KICKED = Regex("""(.+) was kicked""")
     private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more card types among cards in your graveyard""")
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
-    private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")
+    // one chunk 09: also "you have nine or more cards in your graveyard"
+    private val CARDS_IN_YOUR_GRAVEYARD = Regex("""(?:there are|you have) (\w+) or more cards in your graveyard""")
     private val CONTROL_N_OR_MORE = Regex("""you control (\w+) or more (\w+)""")
     private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different (names|powers)""")
     // chunk 26
@@ -1406,7 +1407,7 @@ internal const val SACRIFICED = "sacrificed"
 /** Token descriptions ("a 2/2 black Zombie creature token", CR 111.4). */
 internal object Tokens {
     /** "a Treasure token", "two 1/1 white Spirit creature tokens with flying": how many and what (CR 111.10, 111.4). */
-    fun spec(text: String): Pair<Int, TokenSpec>? {
+    fun spec(text: String, mixed: Boolean = false): Pair<Int, TokenSpec>? {
         PREDEFINED.matchEntire(text)?.let { m ->
             if (m.groupValues[2] !in arcanum.api.PredefinedTokens.names) return null
             return (Numbers.count(m.groupValues[1]) ?: return null) to TokenSpec.Predefined(m.groupValues[2])
@@ -1418,7 +1419,13 @@ internal object Tokens {
         val quoted = QUOTED.matchEntire(m.groupValues[3])?.let { q ->
             listOf(Sentences(setOf("this token", "this creature")).line(q.groupValues[1]) ?: return null)
         }
-        val keywords = quoted ?: m.groupValues[3].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
+        // one chunk 09: 'with toxic 1 and "This token can't block."': keywords, then a quoted ability (where asked: one such token is read by
+        // the wordings that name it)
+        val both = if (quoted == null && mixed) KEYWORDS_AND_QUOTED.matchEntire(m.groupValues[3])?.let { q ->
+            q.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null } +
+                (Sentences(setOf("this token", "this creature")).line(q.groupValues[2]) ?: return null)
+        } else null
+        val keywords = quoted ?: both ?: m.groupValues[3].takeIf { it.isNotEmpty() }?.split(LazyRegexes.AND_LIST)?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
         return count to token.copy(face = token.face.copy(abilities = keywords))
     }
 
@@ -1431,22 +1438,25 @@ internal object Tokens {
         for (word in m.groupValues[3].split(' ')) {
             Filters.CARD_TYPES[word]?.let { types += it } ?: subtypes.add(Subtype(word))
         }
-        // chunk 33: "an X/X … token": X is worked out when it is created (the ability's "where X is …")
-        val x = m.groupValues[1] == "X/X"
+        // chunk 33: "an X/X … token": X is worked out when it is created (the ability's "where X is …"); one chunk 09: "an X/1 …"
+        val power = m.groupValues[1].substringBefore('/')
+        val toughness = m.groupValues[1].substringAfter('/')
         return TokenSpec.Defined(FaceDefinition(
             name = subtypes.joinToString(" ") { it.name } + " Token",
             colorIndicator = colors,
             types = types, subtypes = subtypes,
-            power = if (x) PrintedNumber.X else PrintedNumber.Fixed(m.groupValues[1].substringBefore('/').toInt()),
-            toughness = if (x) PrintedNumber.X else PrintedNumber.Fixed(m.groupValues[1].substringAfter('/').toInt()),
-        ), power = if (x) Value.Announced(name = "X") else null, toughness = if (x) Value.Announced(name = "X") else null)
+            power = if (power == "X") PrintedNumber.X else PrintedNumber.Fixed(power.toInt()),
+            toughness = if (toughness == "X") PrintedNumber.X else PrintedNumber.Fixed(toughness.toInt()),
+        ), power = if (power == "X") Value.Announced(name = "X") else null, toughness = if (toughness == "X") Value.Announced(name = "X") else null)
     }
 
     private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
-    private val COUNTED = Regex("""(a|an|one|two|three|four|five) ((?:\d+/\d+|X/X) .+? creature) tokens?(?: with (.+))?""")
+    private val COUNTED = Regex("""(a|an|one|two|three|four|five) ((?:\d+/\d+|X/X|X/\d+|\d+/X) .+? creature) tokens?(?: with (.+))?""")
     // chunk 26
     private val QUOTED = Regex(""""(.+)"""")
-    private val TOKEN = Regex("""an? (\d+/\d+|X/X) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")
+    // one chunk 09
+    private val KEYWORDS_AND_QUOTED = Regex("""([a-z][a-z0-9 ,]*?) and "(.+)"""")
+    private val TOKEN = Regex("""an? (\d+/\d+|X/X|X/\d+|\d+/X) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
 
     /** dsk chunk 13: a colour word ("red"). */
@@ -1565,7 +1575,8 @@ internal object Values {
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
     // rtr chunk 06
-    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness|mana value)""")
+    // one chunk 09: any sacrificed noun ("the sacrificed artifact's mana value")
+    private val SACRIFICED_PROPERTY = Regex("""the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (power|toughness|mana value)""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

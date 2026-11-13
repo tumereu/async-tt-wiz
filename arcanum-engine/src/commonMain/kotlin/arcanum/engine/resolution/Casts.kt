@@ -45,8 +45,14 @@ internal object Casts {
             if (effect.resultingSpell != null && !e.matches(effect.resultingSpell!!, id)) continue
             if (c.isType(CardType.Land)) {
                 // CR 305.1: a land is played, not cast
-                if (effect.how == PlayKind.Play) Actions.move(act, scope.cause, listOf(PlannedMove(id, Zone.Battlefield, controller = caster,
-                    meanings = listOf(Meaning.PlayedLand))))
+                if (effect.how != PlayKind.Play) continue
+                // CR 305.2a-b, 305.3: playing a land during a resolution counts as a land play; ignored on another player's turn or with no
+                // land plays left
+                val turn = act.state.turn
+                val played = turn.landsPlayed[caster] ?: 0
+                if (turn.active != caster || played >= arcanum.engine.casting.Legality.landPlays(arcanum.engine.casting.Snapshot(act.state), caster)) continue
+                act.record(arcanum.engine.change.Changes.step(act.state, turn.copy(landsPlayed = turn.landsPlayed + (caster to played + 1))))
+                Actions.move(act, scope.cause, listOf(PlannedMove(id, Zone.Battlefield, controller = caster, meanings = listOf(Meaning.PlayedLand))))
                 continue
             }
             arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost, effect.transformed, effect.manaAsAnyType)?.let { cast += it }

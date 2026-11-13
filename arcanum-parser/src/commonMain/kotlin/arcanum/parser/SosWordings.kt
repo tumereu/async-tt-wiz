@@ -71,7 +71,7 @@ internal object Sos {
 
     // sos chunk 07: hands and discards
     val DISCARD_HAND_DRAW_EQUAL_OPPONENT_HAND = Regex("""Discard your hand, then draw cards equal to the number of cards in target opponent's hand\.""")
-    val DISCARD_HAND_DRAW_EQUAL_DISCARDED = Regex("""(Discard your hand|Target player discards all the cards in their hand), then (?:draw cards equal to the number of cards discarded this way|draws that many cards)\.""")
+    val DISCARD_HAND_DRAW_EQUAL_DISCARDED = Regex("""(Discard your hand|Discard all the cards in your hand|Target player discards all the cards in their hand), then (?:draw cards equal to the number of cards discarded this way|draws? that many cards)\.""") // bro chunk 08: Queen Kayla bin-Kroog
     val DISCARD_ANY_NUMBER_DRAW_THAT_MANY = Regex("""(Target player discards|[Dd]iscard) any number of cards, then (?:draws?) that many cards( plus one)?\.""")
     val DISCARDS_PUT_LAND_ONTO_BATTLEFIELD = Regex("""Target player discards (\w+) cards\. Put up to one land card discarded this way onto the battlefield tapped under your control\.""")
     val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_DISCARD = Regex("""Any number of target players each discard a card\.""")

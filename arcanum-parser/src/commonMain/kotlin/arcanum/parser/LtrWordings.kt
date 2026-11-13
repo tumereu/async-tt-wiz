@@ -191,7 +191,7 @@ internal object LtrPhrases {
     private val IN_YOUR_GRAVEYARD = Regex("""(.+? cards?) in your graveyard""")
     private val WITH_LESSER_POWER = Regex("""(.+?) with (lesser|greater) power""")
     private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+?) that was dealt damage this turn""")
-    private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""(.+? cards?) from an opponent's graveyard""")
+    private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""((?:.+? )?cards?) from an opponent's graveyard""") // bro chunk 08: also "card"
     private val AND_OR = Regex("""(\w+?)s? and/or (\w+?)s?""")
     private val POWER_AT_MOST_AMASSED = Regex("""(.+?) with power less than or equal to the amassed Army's power""")
     private val WITH_POWER_X = Regex("""(.+?) with power X""")

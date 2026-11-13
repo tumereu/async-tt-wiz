@@ -7586,7 +7586,8 @@ internal class Sentences(
                     // otj chunk 03: "That card gains flashback {0} until end of turn instead if …" replaces the flashback before it
                     (sentence.startsWith("That card gains flashback ") && acc.lastOrNull()?.contains("The flashback cost is") == true) ||
                     sentence.startsWith("When you do,") || // chunk 31
-                    (sentence.startsWith("Put ") && acc.lastOrNull()?.startsWith("Look at the top") == true) ||
+                    // otj chunk 04: also after "You may pay {1}. If you do, look at the top two cards …"
+                    (sentence.startsWith("Put ") && acc.lastOrNull()?.let { it.startsWith("Look at the top") || it.contains(". If you do, look at the top") } == true) ||
                     // chunk 47: a reflexive trigger ("When you do, …") runs to the end of the ability (CR 603.12)
                     acc.lastOrNull()?.contains(" When you do, ") == true) && acc.isNotEmpty())
                 acc[acc.size - 1] = acc.last() + " " + sentence
@@ -15611,6 +15612,32 @@ internal class Sentences(
 
     /** otj: single-sentence effects. */
     private fun otjEffect(sentence: String, context: Context): List<Step>? {
+        // otj chunk 04: "Then you may exile a card from a graveyard." (chosen as it resolves, not targeted: zero or one, CR 608.2d); "it" and
+        // "that card" are then the card in exile (CR 400.7)
+        Otj.MAY_EXILE_A_FROM_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            context.it = Objects.Bound("exiled")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile), postBind = "exiled")))
+        }
+        // otj chunk 04: "If a creature card was exiled this way, …" after a chosen exile: what it moved, if anything (CR 608.2c)
+        Otj.IF_A_WAS_EXILED_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val exiled = context.it?.takeIf { it == Objects.Bound("exiled") } ?: return null
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(exiled, kind), then = then))
+        }
+        // otj chunk 04: "you may have Lazav become a copy of that card until end of turn." (layer 1, CR 613.1a, 707.2)
+        Otj.MAY_HAVE_BECOME_COPY_OF_THAT_CARD_UNTIL_EOT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val card = context.it ?: return null
+            return listOf(Step.May(listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(card)), arcanum.api.Affected.Objects(Objects.Self),
+                arcanum.api.Duration.EndOfTurn))), Players.You))
+        }
+        // otj chunk 04: "exile up to one target black card from your graveyard and copy it." (CR 707.12: a copy of the exiled card)
+        Otj.AND_COPY_IT.matchEntire(sentence)?.let { m ->
+            val steps = effect(m.groupValues[1] + ".", context) ?: return null
+            return modify(if (m.groupValues[2] == "it") "Copy it." else "Copy them.", steps, context)
+        }
         // otj chunk 03: "Then you may return any number of creatures that saddled it this turn to their owner's hand." (chosen as it
         // resolves, not targeted; zero is a number, CR 107.1)
         Otj.MAY_RETURN_ANY_NUMBER_TO_OWNERS_HAND.matchEntire(sentence)?.let { m ->
@@ -15734,6 +15761,15 @@ internal class Sentences(
 
     /** otj: sentences that change the steps before them. */
     private fun otjModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // otj chunk 04: "You may cast the copy. If you do, you lose 2 life." after copying a card: casting it is the action (CR 707.12a,
+        // 608.2c), paying its costs
+        Otj.MAY_CAST_THE_COPY_IF_YOU_DO.matchEntire(sentence)?.let { m ->
+            val copy = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CopyCard) ?: return null
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return steps + Step.ForEach(arcanum.api.Each.Objects(Objects.Bound(copy.bind)), bind = "copy", steps = listOf(
+                Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("copy"), PlayKind.Cast, caster = Players.You))), payer = Players.You, bind = "cast"),
+                Step.If(arcanum.api.Condition.Did("cast"), then = then)))
+        }
         // otj chunk 03: "Repeat this process once.": the steps before it, done twice
         if (sentence == "Repeat this process once." && steps.isNotEmpty()) return listOf(Step.Repeat(Value.Fixed(2), steps.toList()))
         // otj chunk 03: "put a +1/+1 counter on each other creature you control. You gain 1 life for each of those creatures." (the creatures
@@ -17863,8 +17899,8 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("revealed"), Destination(Zone.Hand))),
                 Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("revealed")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
-        // spm chunk 05: "Look at the top five cards of your library. You may put a creature card from among them onto the battlefield. Put the
-        // rest on the bottom of your library in a random order."
+        // spm chunk 05: "Look at the top five cards of your library. You may put a creature card from among them onto the battlefield[ tapped].
+        // Put the rest on the bottom of your library in a random order." (otj chunk 04: tapped)
         // (the names tla gives the same wording)
         Spm.LOOK_TOP_N_MAY_PUT_ONTO_BATTLEFIELD.matchEntire(text)?.let { m ->
             val seen = spmN(m.groupValues[1]) ?: return null
@@ -17872,7 +17908,7 @@ internal class Sentences(
             return listOf(
                 Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "looked", players = Players.You)),
                 Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("looked")), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
                 Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
         // spm chunk 05: "look at that many cards from the top of your library. Put one of them into your hand and the rest into your

@@ -50,7 +50,7 @@ internal object Spm {
 
     // spm chunk 05: cards from libraries and graveyards
     val LOOK_TOP_N_MAY_REVEAL_UP_TO_PUT_HAND = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may reveal up to (\w+) (.+?) from among them and put them into your hand\. Put the rest on the bottom of your library in a random order\.""")
-    val LOOK_TOP_N_MAY_PUT_ONTO_BATTLEFIELD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put an? (.+?) from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\.""")
+    val LOOK_TOP_N_MAY_PUT_ONTO_BATTLEFIELD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put an? (.+?) from among them onto the battlefield( tapped)?\. Put the rest on the bottom of your library in a random order\.""")
     val LOOK_THAT_MANY_ONE_HAND_REST_GRAVEYARD = Regex("""[Ll]ook at that many cards from the top of your library\. Put one of them into your hand and the rest into your graveyard\.""")
     val BLACK_CAT = Regex("""[Ll]ook at the top (\w+) cards of target opponent's library, exile (\w+) of them face down, then put the rest on the bottom of their library in a random order\. You may play the exiled cards for as long as they remain exiled\. Mana of any type can be spent to cast spells this way\.""")
     val RETURN_SELF_AND_TARGET_FROM_GRAVEYARD = Regex("""Return (.+?) and target (.+?) from your graveyard to the battlefield( tapped)?\.""")

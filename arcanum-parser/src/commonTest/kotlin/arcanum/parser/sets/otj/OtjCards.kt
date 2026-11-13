@@ -249,3 +249,12 @@ fun attacksWhileSaddled(vararg steps: Step, targets: List<TargetSlot> = emptyLis
 val selfSaddled: Condition = Condition.ObjectMatches(Objects.Self, saddledMark)
 /** "[creature] that saddled it this turn" (CR 702.171c). */
 fun thatSaddledIt(filter: ObjectFilter): ObjectFilter = and(filter, ObjectFilter.SaddledThisTurn(Objects.Self))
+
+// otj chunk 04
+/** "Whenever you commit a crime" (CR 700.13). */
+val youCommitACrime: Trigger = on(EventPattern.CommitCrime(PlayerFilter.You))
+/** "Whenever you commit a crime, …"; [perTurn] 1 for "This ability triggers only once each turn." (CR 603.2h). */
+fun crime(vararg steps: Step, targets: List<TargetSlot> = emptyList(), perTurn: Int? = null, triggersOnlyIf: Condition? = null, functionsIn: List<Zone>? = null) =
+    triggered(youCommitACrime, *steps, targets = targets, perTurn = perTurn, triggersOnlyIf = triggersOnlyIf, functionsIn = functionsIn)
+/** "{T}: Add one mana of any color." */
+val tapForAnyColor: Ability = Ability.Activated(cost(tap), Instructions(steps = listOf(Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(amount = n(1))), players = Players.You)))), anyTime)

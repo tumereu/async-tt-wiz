@@ -34,6 +34,14 @@ internal object Otj {
     val AT_END_OF_COMBAT_EXILE_IT_AND_UP_TO_ONE_RETURN = Regex(
         """[Aa]t end of combat, exile it and up to one (.+?), then return those cards to the battlefield under their owners?'s? control\.""")
     val CREATE_TAPPED_ATTACKING_COPY_OF_IT = Regex("""[Cc]reate a tapped and attacking token that's a copy of (?:it|that creature)\.""")
+    // otj chunk 04: "exile up to one target black card from your graveyard and copy it. You may cast the copy. If you do, you lose 2 life."
+    val AND_COPY_IT = Regex("""(.+?) and copy (it|them)\.""")
+    val MAY_CAST_THE_COPY_IF_YOU_DO = Regex("""You may cast the copy\. If you do, (.+)""")
+    // otj chunk 04: "Then you may exile a card from a graveyard. If a creature card was exiled this way, you may have Lazav become a copy of that
+    // card until end of turn."
+    val MAY_EXILE_A_FROM_GRAVEYARD = Regex("""You may exile an? (.+? from (?:a|your) graveyard)\.""")
+    val IF_A_WAS_EXILED_THIS_WAY = Regex("""If an? (.+?) was exiled this way, (.+)""")
+    val MAY_HAVE_BECOME_COPY_OF_THAT_CARD_UNTIL_EOT = Regex("""You may have (.+?) become a copy of that card until end of turn\.""")
     val CHOOSE_A_AND = Regex("""[Cc]hoose an? (.+?) and (.+)\.""")
 }
 

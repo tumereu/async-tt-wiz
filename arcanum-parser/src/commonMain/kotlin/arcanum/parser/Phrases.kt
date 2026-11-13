@@ -123,6 +123,7 @@ internal object Filters {
         // chunk 40: "another creature", "other Elves you control": any but this object
         OTHER.matchEntire(phrase)?.let { m -> return all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun(m.groupValues[1]) ?: return null) }
         // chunks 31, 42: "creature card in your graveyard", "instant or sorcery card in your graveyard"
+        // otj chunk 04: "black card from your graveyard" (a target slot of "exile up to one target … from your graveyard")
         IN_YOUR_GRAVEYARD.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
         }
@@ -365,7 +366,7 @@ internal object Filters {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
         val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ").substringBefore(" that saddled ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
-            .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
+            .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" from your graveyard") // chunk 31, otj chunk 04
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
         // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
@@ -467,7 +468,7 @@ internal object Filters {
         // inr chunk 01
         "Werewolves" to "Werewolf")
     // chunk 31
-    private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
+    private val IN_YOUR_GRAVEYARD = Regex("""(.+) (?:in|from) your graveyard""") // otj chunk 04: "from"
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
     // chunk 32
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
@@ -726,6 +727,8 @@ internal object Events {
         ONE_OR_MORE_DIE.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(Filters.noun(m.groupValues[1]) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
         }
+        // otj chunk 04: "you commit a crime" (CR 700.13)
+        if (text == "you commit a crime") return EventPattern.CommitCrime(PlayerFilter.You)
         // blb chunk 04: "you expend 4" (CR 700.14)
         YOU_EXPEND.matchEntire(text)?.let { m -> return EventPattern.Expend(m.groupValues[1].toInt(), PlayerFilter.You) }
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)

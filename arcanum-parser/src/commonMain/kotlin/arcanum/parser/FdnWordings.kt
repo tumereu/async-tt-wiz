@@ -13,7 +13,7 @@ internal object Fdn {
     val LOSES_LIFE_EQUAL_TO_COUNTERS_ON_SELF = Regex("""(Each opponent|Each player) loses life equal to the number of (\w+) counters on (this \w+)\.""")
     val SELF_BECOMES_CREATURE_WITH_ALL_TYPES = Regex("""(This \w+) becomes an? (\d+)/(\d+) creature with (\w+) and all creature types\. It's still an? \w+\.""")
     val PLAYER_SUBJECT = Regex("""^(?:Each opponent|Each player|Target opponent|Target player|Each other player)""")
-    val VERB_PHRASE = Regex("""^(?:loses|gains|draws|discards|mills|sacrifices|exiles) .+""")
+    val VERB_PHRASE = Regex("""^(?:loses|gains|draws|discards|mills|sacrifices|exiles|gets) .+""") // one chunk 05: "gets a poison counter"
     val CANT_LOSE_AND_OPPONENTS_CANT_WIN = Regex("""You can't lose the game and your opponents can't win the game\.""")
     val PREVENT_COMBAT_TO_AND_BY_SELF = Regex("""Prevent all combat damage that would be dealt to and dealt by (this \w+|enchanted creature|equipped creature)\.""")
     val YOU_LOSE_LIFE_EQUAL_TO_THAT = Regex("""You lose life equal to that (permanent|creature|card)'s (mana value|power|toughness)\.""")
@@ -38,7 +38,9 @@ internal object Fdn {
     val PLAY_NOT_OWNED_WITH_COUNTERS_ANY_TYPE = Regex("""During your turn, you may play cards you don't own with (\S+) counters on them from exile, and mana of any type can be spent to cast those spells\.""")
     val EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER = Regex("""[Ee]xile it from their graveyard with an? (\S+) counter on it\.""")
     val GAINS_AND_GETS_UNTIL_EOT = Regex("""(.+?) gains (.+?) and gets ([+-]\w+)/([+-]\w+) until end of turn\.?""")
-    val OPPONENT_GAINS_CONTROL = Regex("""Target opponent gains control of target (.+?)\.""")
+    // woe chunk 07: also "That player gains control of target Treasure you control." (the player chosen before)
+    // mkm chunk 01: also "any number of target permanents you control"
+    val OPPONENT_GAINS_CONTROL = Regex("""(Target opponent|That player) gains control of (any number of )?target (.+?)\.""")
     val DESTROY_ALL_GAIN_FOR_EACH = Regex("""Destroy all (.+?)\. You gain (\d+) life for each (?:.+?) destroyed this way\.""")
     // chunk 05
     val TWO_AS_LONG_AS = Regex("""(As long as [^.]+\.) ([^.]+ as long as [^.]+\.)""")
@@ -51,7 +53,8 @@ internal object Fdn {
     val RETURN_MANA_VALUE_AT_MOST_SELF_POWER = Regex("""[Rr]eturn (another )?target (.+?) with mana value less than or equal to (.+)'s power from your graveyard to the battlefield\.""")
     // chunk 07
     val TARGET_PLAYER_HAS_EXACTLY_LIFE = Regex("""target player has exactly (\d+) life""")
-    val EXILE_IF_AT_LEAST_ONE_EXILED = Regex("""([Ee]xile [^.]+\.) If (?:at least one|an?) (.+?) (?:was|is) exiled this way, ([^.]+\.)""")
+    // rvr chunk 03: also "… You gain 2 life if at least one creature card was exiled this way."
+    val EXILE_IF_AT_LEAST_ONE_EXILED = Regex("""([Ee]xile [^.]+\.) (?:If (?:at least one|an?) (.+?) (?:was|is) exiled this way, ([^.]+\.)|([^.]+?) if (?:at least one|an?) (.+?) (?:was|is) exiled this way\.)""")
     val IT_WAS_ATTACKING = Regex("""(?:it|that creature) was (attacking|blocking)""")
     val EFFECT_WOULD_PUT_COUNTERS_TWICE = Regex("""If an effect would put one or more counters on an? (.+?), it puts twice that many of those counters on that \S+ instead\.""")
     val PLAY_LAND_AND_EACH_PERMANENT_TYPE_FROM_GRAVEYARD = Regex("""During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard\.""")
@@ -65,7 +68,7 @@ internal object Fdn {
     val IT_HAD_A_COUNTER = Regex("""it had an? (\S+) counter on it""")
     val RETURN_IT_WITH_ONE_FEWER_AT_NEXT_END_STEP = Regex("""[Rr]eturn it to the battlefield with one fewer (\S+) counter on it at the beginning of the next end step\.""")
     val REMOVE_COUNTERS_FROM_AMONG = Regex("""Remove (\w+) counters from among (.+)""")
-    val SPEND_ANY_TYPE_TO_CAST = Regex("""You can spend mana of any type to cast (.+) spells\.""")
+    val SPEND_ANY_TYPE_TO_CAST = Regex("""You (?:can spend mana of any type|may spend mana as though it were mana of (any color)) to cast (.+) spells\.""")
     val CHOOSES_PERMANENT_OF_EACH_TYPE_SACRIFICES_REST = Regex("""Each (opponent|player) chooses a permanent they control of each permanent type and sacrifices the rest\.""")
     // chunk 09
     val EXILE_TOP_OF_EACH_LIBRARY_CAST_ANY_NUMBER = Regex("""[Ee]xile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs\.?""")

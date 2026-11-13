@@ -75,7 +75,9 @@ internal sealed interface Question {
     /** Whether to splice [splice] onto the spell (CR 702.47a). */
     data class Splice(val key: String, val splice: Plan.Spliceable) : Question { override val stage get() = AnnounceStage.Modes }
     data class Announce(val name: String, val min: Int) : Question { override val stage get() = AnnounceStage.Announce }
-    data class Target(val slot: SlotOf, val forPlayer: PlayerId?, val options: List<TargetRef>, val min: Int, val max: Int?) : Question {
+    /** [chooser]: the player who chooses these targets when not the controller ([arcanum.api.TargetSlot.chosenBy], CR 601.2c). */
+    data class Target(val slot: SlotOf, val forPlayer: PlayerId?, val options: List<TargetRef>, val min: Int, val max: Int?,
+                      val chooser: PlayerId? = null) : Question {
         override val stage get() = AnnounceStage.Targets
     }
     data class Divide(val key: String, val amount: Int, val among: List<TargetRef>) : Question { override val stage get() = AnnounceStage.Divide }
@@ -83,7 +85,8 @@ internal sealed interface Question {
     data class Objects(val key: String, val choice: Costs.ObjectChoice) : Question { override val stage get() = AnnounceStage.Costs }
     data class ManaColor(val key: String, val among: List<Color>) : Question { override val stage get() = AnnounceStage.Costs }
     /** blb: a player chosen as a cost ("you may choose an opponent", gift, CR 702.174a). */
-    data class Player(val key: String, val among: List<PlayerId>) : Question { override val stage get() = AnnounceStage.Costs }
+    /** rvr: also the player who chooses a target of an opponent's choice ([stage] Targets, CR 601.2c). */
+    data class Player(val key: String, val among: List<PlayerId>, override val stage: AnnounceStage = AnnounceStage.Costs) : Question
     /** ecl: a creature type chosen as part of the cost ("you may choose a creature type and behold two creatures of that type", CR 601.2f). */
     data class CostChoice(val key: String, val part: CostPart.Choose) : Question { override val stage get() = AnnounceStage.Costs }
     data class Pay(val cost: ManaCost) : Question { override val stage get() = AnnounceStage.Mana }
@@ -119,6 +122,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val origin: AbilityOrigin? = (c.what as? Announced.Ability)?.origin
     val isManaAbility = ability != null && Legality.isManaAbility(ability)
     val isSpecialAction = ability is Ability.SpecialAction
+    /** The ability's own cost change: "This ability costs {1} less to activate for each …"; mkm: a disguise cost's "This cost is reduced by
+     * {1} for each …" on the special action (CR 118.7). */
+    private val ownCostChange: CostChange? get() = (ability as? Ability.Activated)?.rules?.costChange ?: (ability as? Ability.SpecialAction)?.costChange
 
     /** Before any provisional item: what the card and the board are now. */
     private val plain = Snapshot(base)
@@ -243,10 +249,25 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
      * (plans made one after another for the same choices, [arcanum.engine.view.ViewCache.provisional]). */
-    val snap: Snapshot = base.deepCopy().also { s ->
-        s._stackItems[itemId] = item
-        if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
-    }.let { s -> Snapshot(s) { base.viewCache?.provisional(item) { Layers.view(s) } ?: Layers.view(s) } }
+    val snap: Snapshot = run {
+        val paid = provisionalPaid()
+        base.deepCopy().also { s ->
+            s._stackItems[itemId] = item
+            if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
+            // mkm: the card's optional costs chosen so far count as paid while its total cost is determined ("This spell costs {2} less to
+            // cast if evidence was collected", CR 601.2f, 701.59c)
+            if (paid.isNotEmpty()) s._objects[itemId]?.let { o -> s._objects[itemId] = o.copy(cast = (o.cast ?: arcanum.engine.state.CastFacts()).copy(paid = paid)) }
+        }.let { s -> Snapshot(s) { (if (paid.isEmpty()) base.viewCache?.provisional(item) { Layers.view(s) } else null) ?: Layers.view(s) } }
+    }
+
+    /** mkm: the card's own optional additional costs chosen so far, as they will be recorded once paid. */
+    private fun provisionalPaid(): List<arcanum.engine.state.PaidCost> = if (!isSpell) emptyList() else snap0Abilities().flatMap { inst ->
+        (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.AdditionalCost>().filter { it.optional }.mapNotNull { m ->
+            optionalTimes(inst)?.takeIf { it > 0 }?.let { times ->
+                arcanum.engine.state.PaidCost(m.keyword, times, costIndex = if (m.keyword == Keyword.Kicker.Kind) (inst.origin as? AbilityOrigin.Expansion)?.index else null)
+            }
+        }
+    }
 
     /** Names filters and values see: choices so far, announced values and targets by slot. */
     val names: Bindings = run {
@@ -351,10 +372,22 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             .filter { (_, m) -> m.keyword == condition.keyword }.sumOf { (inst, _) -> optionalTimes(inst) ?: 0 } >= condition.times ||
             // CR 702.113b: the alternative cost chosen (awaken)
             (condition.keyword != null && alternative?.second?.keyword == condition.keyword && condition.times <= 1))
+        // rvr fixes: "if you cast this spell during your main phase" is known as it is cast (CR 601.2a, 601.2c), before the cast is recorded
+        is arcanum.api.Condition.CastDuringMainPhase -> if (condition.of == arcanum.api.Objects.Self) base.turn.active == player &&
+            (base.turn.step == arcanum.api.TurnStep.PrecombatMain || base.turn.step == arcanum.api.TurnStep.PostcombatMain) else eval.holds(condition)
         is arcanum.api.Condition.Not -> !holdsAsCast(condition.condition)
         is arcanum.api.Condition.And -> condition.all.all { holdsAsCast(it) }
         is arcanum.api.Condition.Or -> condition.any.any { holdsAsCast(it) }
         else -> eval.holds(condition)
+    }
+
+    /** woe chunk 04: whether [condition] reads the spell's own optional costs ([holdsAsCast] reads them from the choices). */
+    private fun readsCastChoices(condition: arcanum.api.Condition): Boolean = when (condition) {
+        is arcanum.api.Condition.Paid -> condition.of == arcanum.api.Objects.Self
+        is arcanum.api.Condition.Not -> readsCastChoices(condition.condition)
+        is arcanum.api.Condition.And -> condition.all.any(::readsCastChoices)
+        is arcanum.api.Condition.Or -> condition.any.any(::readsCastChoices)
+        else -> false
     }
 
     /** How often the optional cost of [inst] was chosen; null while not asked. */
@@ -452,15 +485,30 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val increases = mutableListOf<ManaCost>()
         val reductions = mutableListOf<Pair<ManaCost, Int>>()
         val chosen = chosenCostObjects()
+        // woe chunk 04: the spell's own reductions on a condition about its optional costs ("This spell costs {2} less to cast if it's bargained"),
+        // read from the choices made (CR 601.2b comes before 601.2f); the game's view can't know them before the spell is cast
+        val ownOnChoices = if (!isSpell) emptyList() else withGrantedAsSpell().filter { inst ->
+            (inst.ability as? Ability.Static)?.condition?.let(::readsCastChoices) == true }
+        ownOnChoices.forEach { inst ->
+            val static = inst.ability as Ability.Static
+            if (!holdsAsCast(static.condition!!)) return@forEach
+            val e = snap.evaluator(player, self = itemId, names = chosen)
+            static.mechanics.filterIsInstance<Mechanic.CostChange>().filter { e.matches(it.what, itemId) }.forEach { m ->
+                val mana = Costs.expand(m.change, e)
+                if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
+            }
+        }
         snap.view.game.rules.forEach { applied: AppliedMechanic ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
+            if (applied.source == itemId && ownOnChoices.any { it.origin == applied.origin }) return@forEach
             // The spell's own reduction may count what its additional cost will use ("for each card exiled this way")
             val names = if (applied.source == itemId) applied.names.with(chosen) else applied.names
             val e = snap.evaluator(applied.controller, self = applied.source, names = names)
             if (!e.matches(m.what, itemId)) return@forEach
             // "The next spell …" (CR 611.2f): only a spell it is still waiting for
             if (!NextSpells.appliesTo(snap.state, applied.effect, e, itemId)) return@forEach
-            val mana = Costs.expand(m.change, e)
+            // rvr chunk 04: the count may be about the spell itself ("for each of the chosen colors it is")
+            val mana = Costs.expand(m.change, e.with(e.ctx.copy(tested = itemId)))
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
         }
         // tmt backfill: "the next noncreature spell you cast this turn has affinity for artifacts": a keyword an effect
@@ -484,7 +532,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { ch ->
+        ownCostChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
@@ -517,7 +565,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val anyReduction: Boolean get() {
         fun lower(m: Mechanic) = m is Mechanic.CostChange && m.change !is CostChange.More
         return (assistable > 0 && choices.assist?.amount == null) ||
-            (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
+            ownCostChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
             snap.view.game.rules.any { lower(it.mechanic) }
     }
@@ -537,7 +585,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             repeat(times.coerceAtLeast(0)) { symbols += change.mana.symbols }
             return true
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { if (!add(it)) return null }
+        ownCostChange?.let { if (!add(it)) return null }
         withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
         snap.view.game.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
@@ -551,7 +599,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Whether a filter on the spell can't change with what is chosen while casting (an allow-list: its mana value can, with X, CR 202.3e; a term not
      * known here may). */
     private fun fixedBeforeChoices(f: ObjectFilter): Boolean = when (f) {
-        ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost -> true
+        ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost, ObjectFilter.HasAdventure -> true
         is ObjectFilter.ColorCount -> true
         is ObjectFilter.And -> f.all.all(::fixedBeforeChoices)
         is ObjectFilter.Or -> f.any.all(::fixedBeforeChoices)
@@ -574,7 +622,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      */
     val costMayVary: Boolean get() {
         fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null)
-        val any = assistable > 0 || (ability as? Ability.Activated)?.rules?.costChange != null ||
+        val any = assistable > 0 || ownCostChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
             snap.view.game.rules.any { change(it.mechanic) } ||
             instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||
@@ -589,7 +637,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Whether the open slot's targets limit each other (CR 601.2c): the same controller or owner, a shared or differing quality, a
      * total, one for each: some candidates then stop being legal with others picked. */
     fun targetsLimitEachOther(key: String): Boolean = instructions.let { Targets.slots(it, choices.modes) }.any { s ->
-        s.key == key.substringBefore(":") && (s.slot.sameController || s.slot.sameOwner || s.slot.sharing != null || s.slot.distinct != null || s.slot.onePer != null || s.slot.totalAtMost != null)
+        s.key == key.substringBefore(":") && arcanum.engine.action.Targeting.limitsEachOther(s.slot)
     }
 
     /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the
@@ -669,6 +717,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         targetSlots().forEach { slot ->
             val forPlayers = slot.slot.perPlayer?.let { f -> snap.state.playersFrom(player).filter { eval.matches(f, it) } }
             if (forPlayers == null) {
+                // rvr fixes: a target of an opponent's choice: the controller first picks which opponent chooses it (CR 601.2c; 801.5a's example)
+                val chosenBy = slot.slot.chosenBy
+                if (chosenBy != null && slot.key !in choices.targets && choices.names[PLAYER + CHOOSER + slot.key] == null) {
+                    val among = snap.state.playersFrom(player).filter { eval.matches(chosenBy, it) }
+                    if (among.isNotEmpty()) return Question.Player(CHOOSER + slot.key, among, AnnounceStage.Targets)
+                }
                 if (slot.key !in choices.targets) targetQuestion(slot, null)?.let { return it }
             } else forPlayers.forEach { p ->
                 if (choices.names[PER_PLAYER + slot.key + ":" + p.value] == null) targetQuestion(slot, p)?.let { return it }
@@ -815,7 +869,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val options = Targets.options(snap, e, itemId, if (isSpell) null else sourceId, slot.slot).filterNot { ref ->
             slot.slot.distinctFrom.any { other -> choices.targets[other].orEmpty().contains(ref) }
         }
-        return Question.Target(slot, forPlayer, options, min, max)
+        val chooser = (choices.names[PLAYER + CHOOSER + slot.key] as? NamedValue.Players)?.ids?.firstOrNull()
+        return Question.Target(slot, forPlayer, options, min, max, chooser)
     }
 
     private fun colorQuestion(): Question.ManaColor? {
@@ -874,7 +929,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Announce -> Decision.Announce(id, player, sourceId, q.name, q.min)
         // dgm: "any target chosen at random": the host picks one of the legal targets (a die with a side for each)
         is Question.Target -> if (q.slot.slot.atRandom) Decision.Random(id, player, sourceId, arcanum.engine.decision.RandomKind.Die(q.options.size, 1))
-            else Decision.Targets(id, player, sourceId, q.slot.key + (q.forPlayer?.let { ":$it" } ?: ""), q.options, q.min, q.max)
+            else Decision.Targets(id, q.chooser ?: player, sourceId, q.slot.key + (q.forPlayer?.let { ":$it" } ?: ""), q.options, q.min, q.max)
         is Question.Divide -> Decision.Divide(id, player, sourceId, q.amount, q.among, minEach = 1)
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text,
@@ -917,6 +972,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         const val PLAYER = "\$player:"
         const val OBJECTS = "\$objects:"
         const val PER_PLAYER = "\$per-player:"
+        /** rvr: under [PLAYER] + this + a slot's key, the player who chooses that slot's targets ([arcanum.api.TargetSlot.chosenBy]). */
+        const val CHOOSER = "\$chooser:"
         const val COLOR = "\$color:"
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })

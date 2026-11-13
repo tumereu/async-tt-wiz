@@ -27,7 +27,7 @@ internal object MechanicWordings {
         ObjectFilter.ControlledBy(PlayerFilter.You)))
 
     private val IS_YOUR_RING_BEARER = Regex("""(.+) is your Ring-bearer""")
-    private val WAS_BARGAINED = Regex("""(.+) was bargained""")
+    private val WAS_BARGAINED = Regex("""(.+?)(?: was|'s) bargained""") // woe chunk 04: "if it's bargained"
     /** "from anywhere": the ability says it functions in every zone it could be put into a graveyard from (CR 113.6b). */
     private val FROM_ANYWHERE = listOf<arcanum.api.Zone>(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Hand, arcanum.api.Zone.Library, arcanum.api.Zone.Exile,
         arcanum.api.Zone.Stack, arcanum.api.Zone.Command)
@@ -93,7 +93,8 @@ internal object MechanicWordings {
         CHOSE_OTHER_RING_BEARER.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) }?.let {
             return Condition.ObjectMatches(Objects.EventObject(EventRole.Object), ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
         }
-        // CR 702.166b: "if this spell was bargained", "if it was bargained" (a permanent's enters trigger)
+        // CR 702.166b: "if this spell was bargained", "if it was bargained" (a permanent's enters trigger), "if it's bargained" (a cost
+        // reduction, CR 601.2f)
         WAS_BARGAINED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] == "this spell" || isSelf(it.groupValues[1], self) }?.let {
             return Condition.Paid(Keyword.Bargain, times = 1, of = Objects.Self)
         }
@@ -276,7 +277,7 @@ internal object MechanicWordings {
     /** mom chunk 03: "Incubate 3.", "you incubate 2", "Incubate 2 twice.", "Incubate 2 five times"; mom chunk 04: "incubate 3 X times" (CR 701.53a) */
     val INCUBATE = Regex("""(?:[Yy]ou )?[Ii]ncubate (\d+|X)(?: (twice|\w+ times))?\.""")
     val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
-    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of your library\.""")
+    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of (your|that player's) library\.""") // mkm chunk 07: that player's
     /** "all creatures your opponents control", "each Merfolk creature you control" */
     val ALL_NOUN = Regex("""(?:[Aa]ll|[Ee]ach) (.+)""")
     val GOAD = Regex("""Goad (.+)\.""")

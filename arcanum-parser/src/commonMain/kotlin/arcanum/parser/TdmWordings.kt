@@ -101,7 +101,7 @@ internal object Tdm {
     // next attack this turn, untap each creature you control."
     val ADDITIONAL_COMBAT_THEN_WHEN_NEXT_ATTACK_UNTAP = Regex("""[Tt]here is an additional combat phase after this phase followed by an additional main phase\. When you next attack this turn, untap each creature you control\.""")
     // tdm chunk 09: "distribute three +1/+1 counters among one, two, or three target creatures you control"
-    val DISTRIBUTE_COUNTERS_AMONG = Regex("""[Dd]istribute (\w+) (\S+) counters among (one, two, or three) target (.+?)\.""")
+    val DISTRIBUTE_COUNTERS_AMONG = Regex("""[Dd]istribute (\w+) (\S+) counters among (one, two, or three|any number of) target (.+?)\.""")
     // tdm chunk 09: "Destroy all creatures and enchantments. Draw a card for each permanent destroyed this way."
     val DESTROY_ALL_DRAW_FOR_EACH = Regex("""Destroy all (.+?)\. Draw a card for each permanent destroyed this way\.""")
     // tdm chunk 09: "it deals 3 damage to each creature and each planeswalker"
@@ -116,7 +116,8 @@ internal object Tdm {
     val COPY_NEXT_SPELL_THIS_TURN = Regex("""[Cc]opy the next spell you cast this turn when you cast it\. You may choose new targets for the copy\.""")
     // tdm chunk 09: "Draw a card, then you may discard a card. When you discard a nonland card this way, Glacial Dragonhunt deals 3 damage to
     // target creature."
-    val DRAW_MAY_DISCARD_WHEN_NONLAND_DAMAGE = Regex("""Draw a card, then you may discard a card\. When you discard an? (.+?) card this way, (.+?) deals (\d+) damage to target (.+)\.""")
+    // one chunk 09: "Draw a card. Then you may discard a nonland card. When you discard a card this way, …"
+    val DRAW_MAY_DISCARD_WHEN_NONLAND_DAMAGE = Regex("""Draw a card(?:, then|\. Then) you may discard an? (?:(\w+) )?card\. When you discard an? (?:(\w+) )?card this way, (.+?) deals (\d+) damage to target (.+)\.""")
     // tdm chunk 09: "look at the top three cards of your library. You may put one of those cards back on top of your library. Put the rest into your
     // graveyard."
     val LOOK_MAY_ONE_BACK_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put one of those cards back on top of your library\. Put the rest into your graveyard\.""")
@@ -158,7 +159,7 @@ internal object Tdm {
     val FIRST_TIME_COUNTERS_THIS_TURN = Regex("""it's the first time (?:(\S+) )?counters have been put on that (?:creature|permanent) this turn""")
     // tdm chunk 11: "During your turn, spells you cast cost {1} less to cast for each creature you control with power 4 or greater."
     // mom chunk 01: also without "During your turn" ("Spells you cast cost {1} less to cast for each card your opponents have drawn this turn.")
-    val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""(During your turn, )?(.+?) cost (\{[^}]+\}) less to cast for each (.+)\.""")
+    val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""(During your turn, )?((?:.+? )?[Ss]pells you cast) cost (\{[^}]+\}) less to cast for each (.+)\.""")
     // tdm chunk 11: "Spells you cast have delve."
     val SPELLS_YOU_CAST_HAVE = Regex("""Spells you cast(?: from (exile|your hand))? have (\w+)\.""")
     // tdm chunk 11: "Whenever you cast a spell, you lose life equal to its mana value."
@@ -221,7 +222,8 @@ internal object Tdm {
     // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)
     val HEXPROOF_FROM = Regex("""[Hh]exproof from (.+)""")
     // tdm chunk 02: "If a creature attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time."
-    val ATTACKING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) attacking causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    // one chunk 07: "dying" too
+    val ATTACKING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) (attacking|dying) causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     // tdm chunk 10: "for each opponent, create a tapped token that's a copy of the exiled card attacking that opponent. At the beginning of your next end
     // step, sacrifice those tokens."
     // tdm chunk 14: "Sidisi": "Sacrifice a creature you control with mana value X other than Sidisi"

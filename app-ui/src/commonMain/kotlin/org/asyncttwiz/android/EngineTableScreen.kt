@@ -222,20 +222,29 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // the playing board
     var watchTappedAt by remember(game.id) { mutableStateOf<Long?>(null) }
     val back = remember(game.id) { TableBackStateMachine() }
+    // WEB-015: the desktop layout's table: the global top row, seat headers, the right dock and the action area; the dock is
+    // personal UI, open until folded away (WEB-017), and the chat in it counts as open (LOB-138's reading)
+    val desktopLayout = LocalAppLayout.current == AppLayout.Desktop
+    var dockOpen by remember { mutableStateOf(true) }
+    val chatDocked = desktopLayout && dockOpen
+    SideEffect { controller.chatDocked = chatDocked }
+    DisposableEffect(controller) { onDispose { controller.chatDocked = false } }
+    // The chat as a layer over the table (a side panel): not while it is docked
+    val chatLayer = state.chatOpen && !chatDocked
     // LOB-145: a pod game's chat has the pod's beside it; its unread messages light the chat button (no bubbles)
     val podChat = LocalPodChat.current
     val podId = game.podId
-    if (podChat != null && podId != null) PodChatRefresh(podChat, podId, state.chatOpen, "table")
+    if (podChat != null && podId != null) PodChatRefresh(podChat, podId, state.chatOpen || chatDocked, "table")
     val podView = podId?.let { podChat?.views?.get(it) }?.takeIf { !it.unavailable }
     val podUnread = podView?.unread(accountId) ?: 0
     val podAvailable = podChat != null && podId != null && podChat.views[podId]?.unavailable != true
-    val overlay = toolkit.hasBackOverlay || state.chatOpen
+    val overlay = toolkit.hasBackOverlay || chatLayer
     if (secondBackLeavesTable) BackHandler {
         // HIS-097: a branch's take-back can't be skipped or left
         if (takingBack) return@BackHandler
         if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
         when (back.back(elapsedRealtime(), overlay, false)) {
-            TableBackAction.CLOSE_OVERLAY -> if (state.chatOpen) controller.closeChat() else toolkit.dismissBackOverlay()
+            TableBackAction.CLOSE_OVERLAY -> if (chatLayer) controller.closeChat() else toolkit.dismissBackOverlay()
             TableBackAction.PROMPT -> shortNote("Press back again to leave")
             TableBackAction.LEAVE -> controller.back()
             TableBackAction.EXIT_REVIEW -> {}
@@ -246,7 +255,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         BackHandler(enabled = takingBack || overlay || routes.review != null) {
             if (takingBack) return@BackHandler
             if (!overlay && routes.review != null) routes.leaveReview()
-            else if (state.chatOpen) controller.closeChat() else toolkit.dismissBackOverlay()
+            else if (chatLayer) controller.closeChat() else toolkit.dismissBackOverlay()
         }
         LeaveScreenBackHandler { controller.back() }
     }
@@ -261,12 +270,24 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val choosing = if (reviewPlay == null) routes.choosingText(play) else null
     // TRN-066: what the band says reaches the report, once per change
     val waitLogged = remember(game.id) { AtomicReference<String?>(null) }
-    CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap) {
+    val chatOpener = { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id))) }
+    val desktopFrame = if (desktopLayout) DesktopFrame(dockOpen) else null
+    CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap,
+        LocalDesktopFrame provides desktopFrame) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
+            // WEB-020: the desktop table's global top row
+            if (desktopFrame != null) DesktopTopRow(game, play, accountId, toolkit, reviewing, hamburger.takeIf { !takingBack },
+                if (reviewPlay != null) ({ routes.leaveReview() }) else null, changes, dockOpen,
+                toggleDock = {
+                    AppLog.info("game", "Desktop dock ${if (dockOpen) "folded away" else "shown"}")
+                    // The docked chat doesn't turn into the side panel
+                    if (dockOpen) controller.closeChat()
+                    dockOpen = !dockOpen
+                }, chat = chatOpener, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread))
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
+                TableSurface(game, play, accountId, landscape || desktopLayout, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                     onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(chat = { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id))) },
+                    runtime = TableRuntimeHooks(chat = chatOpener,
                         navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
@@ -310,22 +331,31 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold, "double tap"); controller.engineSent() }) },
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
-                        chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
+                        chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape || desktopLayout,
                             routes.opponentName, read = { controller.readChatBubble(game.id, it) },
                             open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) }),
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat
                         quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
-                            send = controller::sendQuickChat, write = { controller.writeChat() })))
-                // Over the top row (whose move/step/turn), never taking its taps.
-                EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
-                    flashes = toolkit.choiceFlashes)
-                TurnBannerOverlay(routes.banners, shown.show != null, accountId, names, Modifier.align(Alignment.Center))
+                            send = controller::sendQuickChat, write = { controller.writeChat() }),
+                        // WEB-017: the Stack list and the game chat docked at the right
+                        desktopDock = if (!chatDocked) null else ({
+                            DesktopDock(play, accountId, names) { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
+                        })))
+                // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the
+                // battlefields' top, under the other player's seat header
+                Box(if (desktopFrame == null) Modifier.matchParentSize()
+                    else Modifier.width((maxWidth.value - desktopFrame.dockWidth).coerceAtLeast(0f).dp).fillMaxHeight()
+                        .padding(top = (DesktopTable.SEAT + 4f).dp)) {
+                    EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
+                        flashes = toolkit.choiceFlashes)
+                    TurnBannerOverlay(routes.banners, shown.show != null, accountId, names, Modifier.align(Alignment.Center))
+                }
             }
         }
     }
     // HIS-010, HIS-028: the timeline panel's gear opens the playback settings
     if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
-    if (state.chatOpen) {
+    if (chatLayer) {
         Dialog(onDismissRequest = controller::closeChat, properties = edgeToEdgeDialogProperties()) {
             TrackGameDialogInput()
             Box(Modifier.fillMaxSize()) {
@@ -374,11 +404,19 @@ fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEve
                 onExit = if (at == events.lastIndex && !routes.reviewPlaying) routes::leaveReview else null)
         }
     }
+    val desktop = LocalDesktopGeometry.current
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        // WEB-021: on the desktop table the strip runs along the bottom band under your hand, Previous / Auto / Next take the
+        // action area
+        if (desktop != null) {
+            Box(Modifier.align(Alignment.BottomStart).width((desktop.width - DesktopTable.ACTIONS).coerceAtLeast(0f).dp)
+                .height(TableTimelineHeight.dp).padding(horizontal = 8.dp)) { strip() }
+            Box(Modifier.align(Alignment.BottomEnd).width(DesktopTable.ACTIONS.dp).height(desktop.band.dp)) { transport() }
+        }
         // TBL-009: in landscape your life square, piles and emblems keep the bar's left end (the table's own grey bar
         // lies under them); the strip and Previous / Auto / Next share the rest
         // TBL-009 (owner, 2026-11-08): in the controls' fixed-width place at the bar's right end, your hand left of it
-        if (landscape) Row(Modifier.align(Alignment.BottomEnd).width(TablePresentation.Landscape.controls(maxWidth.value).dp)
+        else if (landscape) Row(Modifier.align(Alignment.BottomEnd).width(TablePresentation.Landscape.controls(maxWidth.value).dp)
             .height(tableBottomHeight(true, timeline = true).dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
@@ -396,6 +434,13 @@ fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEve
  */
 @Composable
 fun EngineRewindPanel(landscape: Boolean) {
+    // WEB-018: on the desktop table the action area
+    LocalDesktopGeometry.current?.let { desktop ->
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+            Box(Modifier.width(DesktopTable.ACTIONS.dp).height(desktop.band.dp).background(TimelineBarColor).testTag("rewind-panel"))
+        }
+        return
+    }
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = if (landscape) Alignment.BottomEnd else Alignment.BottomCenter) {
         // TBL-009: in landscape the controls' fixed-width place at the bar's right end
         Box(Modifier.then(if (landscape) Modifier.width(TablePresentation.Landscape.controls(maxWidth.value).dp) else Modifier.fillMaxWidth())

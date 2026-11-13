@@ -53,7 +53,10 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** LOB-136, LOB-137: the chat bubbles by the life squares; null: none. */
     val chatBubbles: TableChatBubbles? = null,
     /** LOB-139, TRN-030: the quick messages and Write button of your own Life panel; null: none. */
-    val quickChat: TableQuickChat? = null) {
+    val quickChat: TableQuickChat? = null,
+    /** WEB-017: the desktop table's right dock (the Stack list and the docked chat), drawn while its frame has the dock open;
+     * null: none. */
+    val desktopDock: (@Composable () -> Unit)? = null) {
     /** Timeline mode itself (not a branch's take-back, which only looks like it): its panel is taller (HIS-001, HIS-007). */
     val timelineOpen: Boolean get() = reviewing && timelinePlayback != TimelinePlaybackStatus.REWINDING
 }

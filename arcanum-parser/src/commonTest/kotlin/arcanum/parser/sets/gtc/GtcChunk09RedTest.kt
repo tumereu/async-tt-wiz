@@ -1,5 +1,6 @@
 package arcanum.parser.sets.gtc
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardType
@@ -115,7 +116,7 @@ class GtcChunk09RedTest {
         """,
     ) parsesTo abilities(
         Ability.Triggered(
-            Trigger.On(EventPattern.Damage(creatureYouControl, RecipientFilter(), combat = true)),
+            Trigger.On(EventPattern.Damage(creatureYouControl, RecipientFilter(), combat = true, per = DamageOccurrence.Source)),
             steps(Step.Do(Effect.PutCounters(Objects.Self, blaze, n(1)))),
         ),
         Ability.Activated(

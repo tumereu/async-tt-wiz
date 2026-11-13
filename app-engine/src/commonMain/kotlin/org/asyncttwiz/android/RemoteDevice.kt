@@ -66,11 +66,19 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
         private set
     /** Web client step 4d: a published board's plays the device hadn't worked out when it went out, asked of it by the
      * board's number (it holds the board: nothing else is sent). */
-    private val plays = DevicePlays { board, done ->
-        request("plays", { DeviceRequest.Plays(it, board) }) { r ->
-            val answer = r as? DeviceResult.Plays
-            done(answer?.hand, answer?.card)
-        }
+    private val plays = object : DevicePlays {
+        override fun ask(board: Long, done: (hand: org.asyncttwiz.automatum.HandPlays?, card: org.asyncttwiz.automatum.CardPlays?) -> Unit) =
+            request("plays", { DeviceRequest.Plays(it, board) }) { r ->
+                val answer = r as? DeviceResult.Plays
+                done(answer?.hand, answer?.card)
+            }
+
+        // Web client step 4e: a board's combat as the table shows it, worked out where the device is
+        override fun combat(board: Long, lanes: org.asyncttwiz.protocol.CombatArea?, drawn: Boolean,
+            done: (org.asyncttwiz.automatum.CombatShown?) -> Unit) =
+            request("combat", { DeviceRequest.Combat(it, board, lanes, drawn) }, { DeviceResult.Combat(null) }) { r ->
+                done((r as? DeviceResult.Combat)?.shown)
+            }
     }
     private var decoder = ShownDecoder(gameId, codec, plays = plays)
     private val calls = DeviceCalls(channel.log)

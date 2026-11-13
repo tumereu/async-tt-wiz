@@ -41,7 +41,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },
         { if (it == SharedFlowController.BUSY || it == REVEAL_BUSY) busyShake() else error = it },
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send },
-        takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() })
+        takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
+        // Web client step 4e: the flows' sessions run beside the game's device (the browser's engine worker), else here
+        port = TableSharedPort(LocalSharedPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     private val automatumWork = automatumWork
     /** TRN-063 (owner playtest 2026-11-09): the open panel's go-on action, which the main button holds. */
     val mainSlot = MainSlot()
@@ -62,7 +64,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private fun arrowStep(play: TableBoard): AutomatumStep = AutomatumStep.of(play, engine?.control() == true)
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, automatumWork,
-        { error }, { error = it }, board = { current() })
+        { error }, { error = it }, board = { current() }, game = { (engine as? EngineTableRoutes)?.engine })
     /** Bumped when hand plays worked out in the background are ready, so the hand menu shows them (SYS-025). */
     private var handPlaysReady by mutableStateOf(0)
 
@@ -148,6 +150,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     var abilityCard by mutableStateOf<String?>(null); private set
     /** The ability chip held for its details (an index of [abilities]), null when none. */
     var heldAbility by mutableStateOf<Int?>(null)
+    /** WEB-027: the battlefield card the mouse hovers on the desktop table, whose chips show faded (personal UI), null when none. */
+    var hoveredAbilities by mutableStateOf<String?>(null)
+    /** WEB-027: the hovered card's chip the mouse is on (solid), null when none. */
+    var hoveredAbility by mutableStateOf<Int?>(null)
 
     /** TBL-122: the abilities of the battlefield card [cardId] the viewer can activate on [play] now (mana abilities and
      * special actions included), in printed order; empty while a cast or an Automatum choice is open, null while
@@ -191,8 +197,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     /** TBL-122: a tap on the ability chip [index] of the open chips activates that ability; greyed, it does nothing. */
-    fun activateChip(index: Int): Boolean {
-        val card = abilityCard ?: return false
+    fun activateChip(index: Int, card: String? = abilityCard): Boolean {
+        card ?: return false
         val play = current() ?: return false
         val chosen = abilities(play, card)?.getOrNull(index)?.takeIf { it.legal } ?: run {
             AppLog.info("table", "Chip $index of $card greyed or gone: nothing activated")
@@ -309,7 +315,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val hand = HandController(viewer, { current()?.takeIf { enabled() } }, layoutState, automatumWork,
         cast = { card, chip -> error = null; castGesture = card; cast.start(card, chip.input, chip.times) },
         panel = { card, known -> error = null; castGesture = card; cast.startFromHand(card, known) },
-        shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
+        shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } },
+        game = { (engine as? EngineTableRoutes)?.engine })
     val table = TableActionController(::current, ::enabled, this, atTable = { atTable() && current() != null })
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
     private var invocation: String? = null
@@ -326,10 +333,15 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Holds [id] to inspect it; [group]: a battlefield group's members held together (TBL-111), the first shown first. */
     fun peek(id: String?, group: List<String>? = null) {
         if (id == null) { peek = null; return }
-        val play = current() ?: return
+        peek = inspection(id, group) ?: return
+    }
+
+    /** What inspecting [id] shows ([peek]; WEB-026: the desktop's quick look of it), null when it can't be inspected. */
+    fun inspection(id: String, group: List<String>? = null): ManualInspection? {
+        val play = current() ?: return null
         val first = group?.firstOrNull() ?: id
-        val card = CombatStackRules.inspection(play.board, first) ?: return
-        peek = ManualInspection(play.gameId, play.playId, first,
+        val card = CombatStackRules.inspection(play.board, first) ?: return null
+        return ManualInspection(play.gameId, play.playId, first,
             ManualDisclosure.permittedFaces(play.board, play.definitions, card, viewer, inspecting = true).map { it.faceId },
             stackEntryId = first.takeIf { it in CombatStackRules.stack(play.board).cards }, group = group.orEmpty().drop(1))
     }
@@ -479,13 +491,21 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         engine?.let { e ->
             error = null
             return when (intent) {
-                is TableActionIntent.Next -> when {
-                    declares(play) -> flows.step()
-                    // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
-                    // would stop at the viewer's own main phase on the way (STK-036). In Control the second main phase's
-                    // arrow says "End step" (owner bug 2026-11-07): a plain pass, stopping at the end step
-                    arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
-                    else -> e.pass()
+                is TableActionIntent.Next -> {
+                    // Web client step 4e: in-process answered at once (the result is the step's); across the boundary the
+                    // worker says who declares, then the step goes on
+                    var taken = true
+                    flows.declaring(play) { who ->
+                        taken = when {
+                            who == viewer -> flows.step()
+                            // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
+                            // would stop at the viewer's own main phase on the way (STK-036). In Control the second main phase's
+                            // arrow says "End step" (owner bug 2026-11-07): a plain pass, stopping at the end step
+                            arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
+                            else -> e.pass()
+                        }
+                    }
+                    taken
                 }
                 is TableActionIntent.End -> e.endTurn()
                 else -> false
@@ -493,12 +513,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         }
         return false
     }
-
-    /** Whether the viewer declares attackers or blockers on [play] now (the step arrow then declares what the lanes hold),
-     * from the board's own flow. Problem report XGN86Q: no panel shows at a declaration, so the panel's flow ([flows]'
-     * view) isn't there to ask. */
-    private fun declares(play: TableBoard): Boolean =
-        (flows.view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play))?.declaring == viewer
 
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
      * digest covers, SYS-057). An action the rules refuse anyway counts as shown-only: its own refusal is reported. */

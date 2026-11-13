@@ -15,10 +15,14 @@ INR Innistrad Remastered
 ISD Innistrad
 LTR The Lord of the Rings: Tales of Middle-earth
 MH2 Modern Horizons 2
+MKM Murders at Karlov Manor
 MSH Marvel Super Heroes
+ONE Phyrexia: All Will Be One
 RTR Return to Ravnica
+RVR Ravnica Remastered
 SOS Secrets of Strixhaven
 SPM Marvel's Spider-Man
 TDM Tarkir: Dragonstorm
 TLA Avatar: The Last Airbender
 TMT Teenage Mutant Ninja Turtles
+WOE Wilds of Eldraine

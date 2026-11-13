@@ -10,6 +10,8 @@ import arcanum.api.Destination
 import arcanum.api.Duration
 import arcanum.api.Effect
 import arcanum.api.EventPattern
+import arcanum.api.EventRole
+import arcanum.api.RecipientFilter
 import arcanum.api.Keyword
 import arcanum.api.Mechanic
 import arcanum.api.Modification
@@ -61,7 +63,8 @@ import kotlin.test.Test
  * granted activated abilities of an Aura on a land, threaten with untapping and a pump (CR 611.2c), Dragons attacking.
  */
 class RtrChunk09RedTest {
-    /** The replacement applies to the creature dealt damage, if it is one, for the rest of the turn. */
+    /** The replacement applies to the creature dealt damage, if it is one, for the rest of the turn (CR 614.1a); only if the damage was dealt,
+     * not prevented (CR 615.1a). */
     @Test
     fun obliteratingBlaze() = card(
         name = "Obliterating Blaze",
@@ -72,7 +75,7 @@ class RtrChunk09RedTest {
         spell(
             damage(Recipients(target = "any"), 3),
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
-                EventPattern.ZoneChange(all(ObjectFilter.Is(target("any")), creature), from = Zone.Battlefield, to = Zone.Graveyard),
+                EventPattern.ZoneChange(all(ObjectFilter.Is(target("any")), creature, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()), role = EventRole.Object)), from = Zone.Battlefield, to = Zone.Graveyard),
                 modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, Duration.EndOfTurn)),
             targets = listOf(anyTarget),
         ),

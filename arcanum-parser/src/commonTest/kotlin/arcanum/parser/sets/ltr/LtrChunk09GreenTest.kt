@@ -205,7 +205,7 @@ class LtrChunk09GreenTest {
             targets = listOf(slot("creature", creatureYouControl), slot("second creature", and(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You)))))),
     )
 
-    // CR 714.2b; a granted dies trigger, then a fight with up to one other target
+    // CR 714.2b; a granted dies trigger, then a fight with up to one other target (CR 115.3: a different creature from the first target)
     @Test
     fun fallOfTheElvenKing() = card(
         name = "Fall of the Elven King",
@@ -221,7 +221,7 @@ class LtrChunk09GreenTest {
         chapter(1, scry(2)),
         chapter(2, counters(target("creature"), 2), targets = listOf(slot("creature", creatureYouControl))),
         chapter(3, untilEndOfTurn(target("creature"), has(triggered(diesSelf, draw(2)))), doing(Effect.Fight(target("creature"), target("second creature"))),
-            targets = listOf(slot("creature", creatureYouControl), slot("second creature", and(another, creature), min = 0))),
+            targets = listOf(slot("creature", creatureYouControl), slot("second creature", creature, min = 0).copy(distinctFrom = listOf("creature")))),
     )
 
     // CR 500.4: green mana kept; mana for each attacking Treefolk

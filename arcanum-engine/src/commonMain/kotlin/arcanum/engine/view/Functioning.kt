@@ -21,6 +21,7 @@ object Functioning {
     val EVERYWHERE: Set<Zone> = setOf(
         Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command, Zone.Outside,
     )
+    private val SELF_TURNED_FACE_UP = EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self))
 
     fun zones(ability: Ability, instantOrSorcery: Boolean): Set<Zone> {
         val usual = if (instantOrSorcery) setOf(Zone.Stack) else setOf(Zone.Battlefield)
@@ -43,6 +44,9 @@ object Functioning {
         ability.mechanics.all { it is Mechanic.MayPlay || it is Mechanic.CastRestriction || it == Mechanic.InstantSpeed } && ability.selfOnly() -> EVERYWHERE
         // CR 113.6h: how it enters
         ability.mechanics.all { it is Mechanic.Replacement && it.event.isSelfEntering() } -> EVERYWHERE
+        // mkm: "As this creature enters or is turned face up, …": how it enters (CR 113.6h), and as it turns on the battlefield (CR 614.1e)
+        ability.mechanics.all { it is Mechanic.Replacement && (it.event.isSelfEntering() || it.event == SELF_TURNED_FACE_UP) } &&
+            ability.mechanics.any { (it as Mechanic.Replacement).event.isSelfEntering() } -> EVERYWHERE
         // CR 113.6d, g: what this spell costs, that it can't be countered
         ability.mechanics.all { it.isOwnCastingRule() } && ability.selfOnly() -> setOf(Zone.Stack)
         // "as it resolves" replacements of the spell itself (rebound, buyback): on the Stack
@@ -76,6 +80,10 @@ object Functioning {
                 event is EventPattern.Discard && event.cards.isSelf() -> setOf(Zone.Hand)
                 // CR 702.29c: "when you cycle this card" triggers from the zone the card winds up in
                 event is EventPattern.Cycle && event.cards.isSelf() -> EVERYWHERE
+                // rvr: "when this card is put into your graveyard from your library" doesn't look back (CR 603.10, 603.10a): it is checked on
+                // the card where it went, the graveyard (CR 113.6k)
+                event is EventPattern.ZoneChange && event.objects.isSelf() && event.from == Zone.Library && event.to != null &&
+                    event.to != Zone.Battlefield -> setOf(event.to!!)
                 // "enters from your hand" is an enters ability: it works on the battlefield (CR 603.6a)
                 event is EventPattern.ZoneChange && event.objects.isSelf() && event.from != null &&
                     event.from != Zone.Battlefield && event.to != Zone.Battlefield -> setOf(event.from!!)

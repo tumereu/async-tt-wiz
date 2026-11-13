@@ -129,6 +129,61 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
     var clockEpoch by remember(coordinator) { mutableIntStateOf(0) }
     var pointerTime by remember(coordinator) { mutableLongStateOf(0L) }
+    // WEB-023 to WEB-029: the mouse and the finger key on the desktop table (nothing of it in the phone layout)
+    val desktopFrame = LocalDesktopFrame.current
+    val mouseScope = rememberCoroutineScope()
+    val fingerKey = remember(coordinator) { DesktopFingerKey() }
+    val desktopHover = remember(coordinator, toolkit) { DesktopHover(mouseScope) { target ->
+        toolkit?.hand?.hover((target as? HoverTarget.Hand)?.cardId)
+        toolkit?.hoveredAbilities = (target as? HoverTarget.Field)?.cardId
+        toolkit?.hoveredAbility = null
+    } }
+    val mouse = remember(coordinator) { DesktopTableMouse(coordinator, { p -> presentation?.invoke()?.hit(p) }, mouseScope) }
+    SideEffect {
+        coordinator.holdInspects = desktopFrame == null
+        mouse.hoverChips = desktopHover
+        mouse.interrupted = { fingerKey.interrupt() }
+        mouse.moved = { clockEpoch++; preview = coordinator.preview }
+        mouse.quickLookAllowed = { toolkit?.peek == null && toolkit?.popupItem == null }
+        mouse.chipTarget = { item ->
+            val id = item.cardId
+            when {
+                id == null || currentRuntime.reviewing || toolkit == null -> null
+                item.kind == TableItemKind.CARD && item.zone == PlayZone.HAND && item.owner == accountId -> HoverTarget.Hand(id)
+                item.battlefieldCard && item.owner == accountId -> HoverTarget.Field(id)
+                else -> null
+            }
+        }
+    }
+    /** WEB-024: opens Inspect of [id] as the finger key does (TBL-111: a collapsed group's members together). */
+    fun keyInspect(id: String) {
+        mouse.dismissLook()
+        peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
+        peekSwipe.holdByKey()
+        val group = presentation?.invoke()?.let { shown -> shown.groupOf(id)?.takeIf { it.members.size > 1 && it.key != shown.expandedGroup } }
+        toolkit?.peek(id, group?.inspectOrder)
+    }
+    DesktopKeyboard.Listen(desktopFrame != null) { key ->
+        if (key.key != "Alt" && key.key != "Shift") {
+            if (key.down && !key.repeat) fingerKey.interrupt()
+            return@Listen false
+        }
+        if (key.repeat) return@Listen fingerKey.held
+        if (key.down && key.textField) return@Listen false
+        // The card under the pointer, as a held finger would inspect it (a pile's shown card too; not a hand row's backing)
+        val card = mouse.hovered?.let { item -> item.cardId ?: item.cards.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND } }
+        val effects = if (key.down) fingerKey.press(key.key, key.time, card, toolkit?.peek != null) else fingerKey.release(key.key, key.time)
+        if (effects.isNotEmpty()) AppLog.info("table", "Finger key ${key.key} ${if (key.down) "down" else "up"}${card?.let { " over $it" }.orEmpty()}: " +
+            effects.joinToString { it.toString() })
+        for (effect in effects) when (effect) {
+            is DesktopFingerKey.Effect.Pause -> currentViewPause?.key = effect.on
+            is DesktopFingerKey.Effect.Inspect -> keyInspect(effect.cardId)
+            DesktopFingerKey.Effect.Pin -> peekSwipe.pinByKey()
+            DesktopFingerKey.Effect.Close -> { peekSwipe.begin(); toolkit?.peek(null) }
+        }
+        effects.isNotEmpty() || fingerKey.held
+    }
+    DisposableEffect(viewPause) { onDispose { viewPause?.key = false } }
     DisposableEffect(coordinator) { onDispose { coordinator.cancel() } }
     LaunchedEffect(coordinator) {
         // Tick only an active recognition window, not an always-running animation at an idle table.
@@ -176,7 +231,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     val computedBoard = rememberComputedBoard(play, accountId)
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
         LocalOpponentPresence provides runtime.opponentPresence, LocalTableQuickChat provides runtime.quickChat,
-        LocalDockedPanels provides dockedPanels) {
+        LocalDockedPanels provides dockedPanels, LocalDesktopHover provides desktopHover.takeIf { desktopFrame != null }) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
@@ -191,6 +246,10 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val compactHeader = maxWidth < 400.dp
         val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
         val cardAppearance = rememberCardAppearance()
+        // WEB-015: the desktop table (the desktop layout's frame), drawn as landscape with its own arrangement
+        val desktop = LocalDesktopFrame.current
+        val desktopGeometry = desktop?.let { DesktopGeometry(maxWidth.value, maxHeight.value, (maxWidth.value - it.dockWidth).coerceAtLeast(1f),
+            DesktopTable.band(cardAppearance, runtime.timelineOpen)) }
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
         val computed = LocalComputedBoard.current
         // CMB-028: the viewer declares attackers: the band's lanes keep room for the next
@@ -207,11 +266,12 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         }
         // A board the scene can't be built from (a state nobody tested, prod crash WCRF3Q) keeps the last scene shown, reported
         val lastScene = remember(play.playId, accountId) { LastScene() }
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots, handRow) {
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots, handRow, desktop) {
             try {
                 TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                     maxHeight.value.coerceAtLeast(1f), landscape, laid, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
-                    computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots, handRow = handRow).also { lastScene.scene = it }
+                    computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots, handRow = handRow,
+                    desktop = desktop).also { lastScene.scene = it }
             } catch (failure: RuntimeException) {
                 Faults.report("TableScene", "table scene not built", mapOf("game" to game.id, "node" to play.nodeId,
                     "failure" to failure.stackTraceToString().take(4_000)))
@@ -299,7 +359,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 CustomAccessibilityAction("Scroll docks up") { layout = layout.copy(scrollY = layout.scrollY + (p.id to (p.scrollY - 68f).coerceAtLeast(0f))); true },
                 CustomAccessibilityAction("Scroll docks down") { layout = layout.copy(scrollY = layout.scrollY + (p.id to (p.scrollY + 68f).coerceAtMost(p.maxScrollY))); true }
             ) }
-        }.pointerInput(coordinator) {
+        }.then(if (desktopFrame != null) Modifier.desktopTableMouse(mouse, density) else Modifier).pointerInput(coordinator) {
             try {
                 awaitEachGesture {
                     val first = awaitFirstDown()
@@ -369,9 +429,20 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
             val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
             val pressGlow = rememberPressGlow(pressedId)
+            if (desktopGeometry != null) {
+                // WEB-016: each seat header in its player's colour across its battlefield; WEB-018: the bottom band, your hand
+                // and the action area, in the bars' colour
+                for (port in scene.viewports.filter { it.id.startsWith("dock/") && it.id.count { c -> c == '/' } == 1 }) {
+                    val owner = port.id.substringAfter("dock/")
+                    Box(Modifier.offset(0.dp, port.bounds.y.dp).size(desktopGeometry.tableRight.dp, DesktopTable.SEAT.dp)
+                        .background(seatHeaderColor(owner, accountId, runtime.reviewing)))
+                }
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(desktopGeometry.band.dp).background(barColor))
+            } else {
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape, runtime.timelineOpen).dp)
                 .background(barColor))
+            }
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
@@ -407,6 +478,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             Canvas(Modifier.fillMaxSize()) { drawPileBadges(rendered.value.scene, drawCache) }
             // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems
             EmblemChipsOverlay(scene, accountId)
+            // WEB-016: each seat header's avatar and name
+            if (desktopGeometry != null) SeatHeaderNames(game, scene, accountId)
             // TRN-072, TRN-073: a player's states and the game's day or night; holding one explains it
             StateChipsOverlay(scene)
             // STK-024 (owner playtest 2026-11-09): each source paying the open payment carries the mana it pays at its corner
@@ -417,10 +490,20 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // last here, so a tap on the other player's takes that tap from the table and its chips
             runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight) }
         }
+        CompositionLocalProvider(LocalDesktopGeometry provides desktopGeometry) {
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
-        TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
+        // WEB-026: the quick look of the card the mouse rests on
+        if (desktopGeometry != null && toolkit != null) mouse.quickLook?.let { item ->
+            DesktopQuickLook(play, accountId, item, toolkit, desktopGeometry.tableRight, tableHeight)
+        }
+        // WEB-020: on the desktop table the top row is the screen's, above the table
+        if (desktopGeometry == null) TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)
         TableControlsLayer(game, play, accountId, landscape, connected, runtime, toolkit, scene)
+        // WEB-017: the right dock, under the table's popups and panels
+        if (desktopGeometry != null && desktop.dockOpen) runtime.desktopDock?.let { dock ->
+            Box(Modifier.align(Alignment.TopEnd).width(DesktopTable.DOCK.dp).height((maxHeight.value - desktopGeometry.band).coerceAtLeast(0f).dp)) { dock() }
+        }
         // TBL-067: table popups keep off both hands where they fit elsewhere
         val hands = remember(scene) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
@@ -429,6 +512,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
               peekScroll = peekScroll, scene = scene, peekSwipe = peekSwipe, onTimeline = runtime.history,
               reviewing = runtime.reviewing, gameActionsBlocked = runtime.gameActionsBlocked)
          }
+        }
         }
     }
     }

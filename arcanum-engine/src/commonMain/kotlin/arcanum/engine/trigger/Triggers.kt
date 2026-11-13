@@ -238,7 +238,9 @@ internal object Triggers {
         state: GameState, board: ViewBoard, now: View, change: Change, s: Source, lookBack: Boolean, whole: Change = change,
     ): List<WaitingTrigger> {
         val e = Evaluator(board, Context(s.controller, s.id))
-        val instances = instancesOf(e, board.state, s.ability.trigger, change, whole, door = (s.origin.root as? AbilityOrigin.Printed)?.face)
+        val seen = withoutMutedFor(state, board, now, change, s) ?: return emptyList()
+        val seenWhole = withoutMutedFor(state, board, now, whole, s) ?: return emptyList()
+        val instances = instancesOf(e, board.state, s.ability.trigger, seen, seenWhole, door = (s.origin.root as? AbilityOrigin.Printed)?.face)
         if (instances.isEmpty()) return emptyList()
         val nowBoard = ViewBoard(state, now)
         val sourceSeen = if (lookBack) snapshot(board, s.id) else null
@@ -376,8 +378,20 @@ internal object Triggers {
 
     /** fra: [change] without the parts [Mechanic.EventDoesntTrigger] mutes ("Artifacts and creatures entering the battlefield
      * don't cause abilities to trigger"); null when nothing of it is left. */
-    private fun withoutMuted(state: GameState, view: View, change: Change): Change? {
-        val muting = view.game.rules.filter { it.mechanic is Mechanic.EventDoesntTrigger }
+    private fun withoutMuted(state: GameState, view: View, change: Change): Change? =
+        withoutMuted(state, view, change, view.game.rules.filter { val m = it.mechanic; m is Mechanic.EventDoesntTrigger && m.sources == null })
+
+    /** one chunk 08: [change] without the parts muted for [s]'s abilities alone ("Permanents entering don't cause abilities of permanents your
+     * opponents control to trigger", CR 603.2), [s] as it is on [board]; null when nothing of it is left. */
+    private fun withoutMutedFor(state: GameState, board: ViewBoard, view: View, change: Change, s: Source): Change? {
+        val scoped = view.game.rules.filter { applied ->
+            val sources = (applied.mechanic as? Mechanic.EventDoesntTrigger)?.sources ?: return@filter false
+            Evaluator(board, Context(applied.controller, applied.source, applied.names)).matches(sources, s.id)
+        }
+        return withoutMuted(state, view, change, scoped)
+    }
+
+    private fun withoutMuted(state: GameState, view: View, change: Change, muting: List<arcanum.engine.view.AppliedMechanic>): Change? {
         if (muting.isEmpty() || change !is Change.ZoneChange) return change
         val kept = change.moves.filter { mv ->
             muting.none { applied ->

@@ -55,7 +55,7 @@ internal object Msh {
     val FEWER_THAN_CARDS_IN_HAND = Regex("""you have fewer than (\w+) cards in hand""")
     val CANT_BE_BLOCKED_IF = Regex("""(.+) can't be blocked if (.+)\.""")
     val AS_LONG_AS_GETS_AND_ALL_TYPES = Regex("""As long as (.+), (.+?) gets \+(\d+)/\+(\d+) and is all creature types\.""")
-    val CANT_ATTACK_YOU_OR_BLOCK = Regex("""(.+) can't attack you or block (.+)\.""")
+    val CANT_ATTACK_YOU_OR_BLOCK = Regex("""(.+) can't attack you(?: or block (.+))?\.""") // rvr chunk 04: also "Creatures can't attack you."
     val PREVENT_ALL_DAMAGE_TO_SELF = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val DAMAGE_DEALT_OTHER_HEALED = Regex("""If damage would be dealt to (.+?), instead that damage is dealt, but all other damage already dealt to (?:it|him|her) is healed\.""")
     val OPENING_HAND_BEGIN = Regex("""If (.+) is in your opening hand, you may begin the game with (?:it|him|her) on the battlefield\.""")
@@ -127,8 +127,10 @@ internal object Msh {
 
     // msh chunk 09: more wordings
     val EXILE_RETURN_AT_NEXT_END_STEP = Regex("""[Ee]xile (another )?target (.+?)\. Return (?:that card|it) to the battlefield under (its owner's|your) control at the beginning of the next end step\.""")
-    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast) cost (\{\d+\}) less to cast\.""")
-    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""(.+ spells you cast) this turn cost (\{\d+\}) less to cast\.""")
+    // woe chunk 07: also "… spells you cast that have an Adventure"
+    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast(?: that [^.]+?)?) cost (\{\d+\}) less to cast\.""")
+    // woe chunk 08: also "Spells you cast this turn that are black and/or red cost {X} less to cast, where X is …"
+    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""((?:.+ )?[Ss]pells you cast) this turn(?: that are ([a-z]+(?: and/or [a-z]+)*))? cost (\{\d+\}|\{X\}) less to cast(?:, where X is (.+?))?\.""")
     val TAKE_EXTRA_TURN = Regex("""Take an extra turn after this one\.""")
     val DURING_THAT_TURN_CANT_ACTIVATE = Regex("""During that turn, power-up abilities can't be activated\.""")
     val PUT_X_COUNTERS_ON = Regex("""Put X (\S+) counters on (.+)\.""")
@@ -141,7 +143,7 @@ internal object Msh {
     val THAT_PLAYER_DRAWS = Regex("""That player draws (a|\w+) cards?\.""")
     val RETURN_TAPPED_AND_ATTACKING_WITH_COUNTER = Regex("""[Rr]eturn target (.+?) to the battlefield tapped and attacking with an? (\S+) counter on it\.""")
     val REVEALS_NUMBER_YOU_CHOOSE_DISCARDS = Regex("""Target player reveals a number of cards from their hand equal to one plus (.+?)\. You choose one of them\. That player discards that card\.""")
-    val ATTACH_UP_TO_ONE_TO_TARGET = Regex("""[Aa]ttach up to one target (.+?) to target (.+)\.""")
+    val ATTACH_UP_TO_ONE_TO_TARGET = Regex("""[Aa]ttach up to one target (.+?) to (?:target (.+)|that creature)\.""")
     val DEALS_DIVIDED_ONE_OR_TWO = Regex("""(.+?) deals (\d+) damage divided as you choose among one or two targets\.""")
     val GAIN_CONTROL_VILLAIN_INSTEAD = Regex("""Gain control of target (.+?) until end of turn\. If you control an? (.+?) with greater mana value than that creature, gain control of that creature until the end of your next turn instead\. Untap that creature\. It gains (.+) until end of turn\.""")
     val GAINS_QUOTED_UNTIL_EOT = Regex("""(.+?) gains "(.+)" until end of turn\.""")
@@ -156,7 +158,7 @@ internal object Msh {
     val CHOOSE_TARGET_DOUBLE_PT_GAINS = Regex("""Choose target (.+?)\. Until end of turn, double its power and toughness and it gains (.+)\.""")
     val LOSES_ALL_ABILITIES_AND_GAINS = Regex("""It loses all abilities and gains (.+)\.""")
     val CHOOSE_UP_TO_THAT_MANY_TARGETS_COUNTER = Regex("""Choose up to that many target (.+?)\. Put an? (\S+) counter on each of them\.""")
-    val HAS_GREATER_POWER_OR_TOUGHNESS = Regex("""it has greater power or toughness than (.+)""")
+    val HAS_GREATER_POWER_OR_TOUGHNESS = Regex("""(?:it|that creature) has greater power or toughness than (.+)|its power is greater than (.+?)'s power or its toughness is greater than \2's toughness""") // mkm chunk 02
     val FIRST_TIME_TAPPED_THIS_TURN = Regex("""it's the first time that creature has become tapped this turn""")
     val REMOVE_A_COUNTER_IF_YOU_DO = Regex("""Remove a counter from (.+?)\. If you do, (.+)""")
     val ONE_MORE_OF_EACH_KIND = Regex("""For each kind of counter on target (.+?), give that (.+?) another counter of that kind\.""")
@@ -262,13 +264,20 @@ internal object MshPhrases {
         ObjectFilter.Not(ObjectFilter.Sub(arcanum.api.Subtype("Villain"))),
         ObjectFilter.Or(listOf(ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.Red)), ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.White))))))
 
+    private val ATTACHED_YOU_CONTROL = Regex("""(equipped|enchanted) (creature|permanent) you control""")
+
     /** msh nouns, tried first in [Filters.noun]. */
     fun noun(phrase: String): ObjectFilter? {
         // msh chunk 06: "creature you control that's attacking alone" (CR 506.5)
         ATTACKING_ALONE.matchEntire(phrase)?.let { m -> return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.AttackingAlone) }
-        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5)
-        if (phrase == "equipped creature you control") return Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
-            ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
+        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5); woe chunk 01: "enchanted creature you
+        // control", "enchanted permanent you control" (one with an Aura attached, CR 303.4; read as written before the eoe rewrite of "enchanted
+        // permanent" to "enchanted creature")
+        ATTACHED_YOU_CONTROL.matchEntire(phrase)?.let { m ->
+            val noun = if (m.groupValues[2] == "creature") ObjectFilter.Type(arcanum.api.CardType.Creature) else ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
+            return Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype(if (m.groupValues[1] == "equipped") "Equipment" else "Aura"))))
+        }
         // msh chunk 09: "nontoken artifact or creature": the adjective goes with both types
         NON_A_OR_B.matchEntire(phrase)?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null,

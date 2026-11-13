@@ -100,7 +100,8 @@ internal object Payment {
             spent = paid.first
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
-        total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
+        // mkm fix: a secret choice is revealed first, while its source is still there to keep it (costs are paid in any order, CR 601.2h)
+        total.parts.sortedBy { it.part !is CostPart.RevealChoice }.forEach { payPart(act, plan, it, bound, snapshots) }
         // tla: paying a waterbend cost is waterbending, however it was paid (CR 701.67c)
         if (total.waterbends) recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, plan.player)))
         // blb: each forage paid (its parts' keys carry it, Costs.total) is a forage (CR 701.61a)
@@ -410,6 +411,13 @@ internal object Payment {
                     bound[it] = NamedValue.Objects(after)
                     // ecl: kept by the permanent the spell becomes (CR 607.2a, 400.7d)
                     bound[REMEMBERED + it] = NamedValue.Objects(after)
+                    // mkm: an activated ability's cost exiles cards "exiled with" its source: kept as the source's memory as the cost is paid
+                    // (CR 607.2a; "Collect evidence 6: …" then "cast a spell from among cards exiled with it")
+                    if (!plan.isSpell) recorder.state.obj(plan.sourceId)?.let { source ->
+                        val before = source.linked[it]
+                        val kept = NamedValue.Objects(((before as? NamedValue.Objects)?.ids.orEmpty() + after).distinct())
+                        if (kept != before) recorder.record(Change.Memory(plan.sourceId, it, before, kept))
+                    }
                 }
             }
             is CostPart.ReturnToHand -> {
@@ -479,6 +487,13 @@ internal object Payment {
             }
             // Reminder text the definition can't express: left to the players (P4)
             is CostPart.Manual -> Unit
+            // mkm fix: the secret choice the source keeps is revealed: no longer marked secret
+            is CostPart.RevealChoice -> {
+                val o = recorder.state.obj(plan.sourceId) ?: refuse("It's gone")
+                if (o.linked[part.key] == null) refuse("Nothing was chosen")
+                val key = arcanum.engine.state.Secrets.markerKey(part.key)
+                o.linked[key]?.let { recorder.record(Change.Memory(o.id, key, it, null)) }
+            }
             // blb: the chosen player is recorded with the spell's facts as it becomes cast (CR 702.174a)
             is CostPart.ChoosePlayer -> Unit
             // ecl: CR 701.68a: N -1/-1 counters on the chosen creature you control; it is "the blighted creature" (701.68c)
@@ -514,6 +529,28 @@ internal object Payment {
 
     // ---- Finishing
 
+    /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested. */
+    private fun asCastConditions(instructions: arcanum.api.Instructions): List<arcanum.api.Condition> {
+        fun of(c: arcanum.api.Condition): List<arcanum.api.Condition> = when (c) {
+            is arcanum.api.Condition.AsCast -> listOf(c.condition)
+            is arcanum.api.Condition.And -> c.all.flatMap(::of)
+            is arcanum.api.Condition.Or -> c.any.flatMap(::of)
+            is arcanum.api.Condition.Not -> of(c.condition)
+            else -> emptyList()
+        }
+        fun of(steps: List<arcanum.api.Step>): List<arcanum.api.Condition> = steps.flatMap { step ->
+            when (step) {
+                is arcanum.api.Step.If -> of(step.condition) + of(step.then) + of(step.otherwise)
+                is arcanum.api.Step.May -> of(step.steps)
+                is arcanum.api.Step.ForEach -> of(step.steps)
+                is arcanum.api.Step.Repeat -> of(step.steps)
+                is arcanum.api.Step.RepeatWhile -> of(step.condition) + of(step.steps)
+                else -> emptyList()
+            }
+        }
+        return of(instructions.steps) + instructions.modes?.options.orEmpty().flatMap { asCastConditions(it.instructions) }
+    }
+
     private fun finishSpell(
         recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>, spent: List<ManaUnit>,
         paidWith: Map<ManaPaymentWay, List<ObjectId>>,
@@ -521,8 +558,13 @@ internal object Payment {
         val s = recorder.state
         val id = plan.itemId
         val o = s.objOrThrow(id)
+        // woe: CR 601.2i: "if you controlled a Faerie as you cast this spell" is answered now, once
+        val asCast = asCastConditions(plan.instructions).distinct().let { conditions ->
+            if (conditions.isEmpty()) emptyList() else recorder.snapshot().evaluator(plan.player, self = id).let { e -> conditions.filter { e.holds(it) } }
+        }
         val facts = o.castOrNone.copy(
             castFrom = plan.castFrom,
+            heldAsCast = asCast,
             x = plan.choices.announced["X"],
             manaSpent = (Color.all + listOf<Color?>(null)).mapNotNull { c ->
                 spent.count { it.color == c }.takeIf { it > 0 }?.let { ManaSpent(c, it) }
@@ -678,6 +720,12 @@ internal object Payment {
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
+        // woe chunk 08: "{2}, {T}: Choose one that hasn't been chosen —": the modes this object has chosen (CR 700.2)
+        if ((plan.ability as? Ability.Activated)?.instructions?.modes?.onlyUnchosen == true && plan.choices.modes.isNotEmpty())
+            recorder.state.obj(plan.sourceId)?.let { o ->
+                arcanum.engine.change.Changes.cast(recorder.state, o.id, o.castOrNone.copy(modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct()))
+                    ?.let { recorder.record(it) }
+            }
         val loyalty = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is CostPart.Loyalty }
         countActivation(recorder, plan.sourceId, origin, loyalty)
         Casting.keepPriority(recorder, plan.player)
@@ -708,7 +756,8 @@ internal object Payment {
             val one = ability.copy(instructions = ability.instructions.copy(steps = listOf(Mana.withChosenColors(ability, step))))
             // CR 608.2h: what a sacrificed or discarded object could produce is read as it last existed, before paying
             val yields = if (add.mana.kind is arcanum.api.ManaKind.AsCouldProduce) Mana.yields(plan.snap, plan.player, plan.sourceId, one, plan.manaNames())
-                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names)
+                // one chunk 09: with the objects the cost bound ("an amount of {R} equal to the sacrificed artifact's mana value", CR 608.2h)
+                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names.with(bound))
             val combination = (add.mana.kind as? arcanum.api.ManaKind.Choose)?.combination == true
             // In any combination of colours: one mana of each colour chosen
             val units = if (combination && colors.size > 1) yields.flatMap { y -> colors.take(y.amount).flatMap { Mana.units(y.copy(amount = 1), it, plan.sourceId) } }

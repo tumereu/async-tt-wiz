@@ -230,7 +230,7 @@ server and both phones all read one pinned file.
 | Double tap (400 ms, 32 dp, TBL-042) | Double click (same timing) |
 | Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Hold Alt** with the pointer over a card (owner, D4): Inspect while Alt is held; a tap of Alt pins it, closed by Alt again, ✕, Esc or a click outside. The table dims behind it; the card's images with its changes beside them (as pinned Inspect shows them), a long list scrolling inside the layer, and a close button when pinned. The same on the table, the draft and every card screen. Shift is the fallback if a browser's Alt menu gets in the way (D4). Right-click never inspects; no press-and-hold on desktop |
 | A finger held still on the table pauses playback, a play shown and a combat hold (HIS-021, HIS-112, HIS-113); on a card it also inspects | **Holding Alt is the finger down** (owner): over a card it inspects and pauses, elsewhere it pauses; the left mouse button held still on the table pauses too |
-| Double tap a play shown or the table during a combat hold ends it (HIS-112, HIS-113) | Double click on it (the play, or the battlefields, combat band and their cards during a hold); a single click does nothing (D1, D11). Where the play overlaps board cards: open, §12 item 11 |
+| Double tap a play shown or the table during a combat hold ends it (HIS-112, HIS-113) | Double click on it (the play, or the battlefields, combat band and their cards during a hold); a single click does nothing (D1, D11). Where the play overlaps board cards it takes the clicks there (Claude's choice, §12 item 11) |
 | — | **Hover** a card ~250 ms for a quick look (owner): the large picture only, no dimming, gone when the pointer leaves |
 | A tap raises a hand card with its chips and amber Autotap outlines (ZON-079, ZON-080); a tap on a card with several abilities opens its chips (TBL-124) | **Hovering a usable card shows its chips faded** (owner), with the amber outlines of what Autotap would tap for the first chip; hovering a chip makes it solid and outlines that chip's sources. A click on a chip uses it at once; a click on the card does what a tap does. A battlefield card with one usable ability shows that one chip, so hover tells what a click will do (proposal) |
 | Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (the main button's hold, Undo = the Undo dialog; a games-list row its hold menu, D7); Shift+Space = the main button's hold; tooltips show on hover after 0.5 s |
@@ -515,6 +515,24 @@ Two batches come first, in this order:
   40 ms for the session step and 72 ms to the send's result, nothing of it on the page; worst page frame over the flows
   19.5 ms. Not yet: the shared-flow panels (choices, reveals, piles, payments while resolving) and the combat panels (their
   values and steps still on the page's copy of the board), and the hand's cost chips (`HandCasts.chips` on the page).
+- Built in 4e parts 2 and 3 (2026-11-13): a board's shared flow as a session where the device is (`automatum`'s
+  `SharedMessages`: `SharedRequest` steps by session, the shown flow's version and the board's number, `SharedFlowValue`
+  with the shared panels' plain data; app-engine's `SharedSessions` behind `SharedPort`, in the browser beside the game's
+  device, `DeviceRequest.Shared`; Android in-process, a flow shown at once and its steps on the Automatum worker as before).
+  The shared panels, the division panel and the step arrow draw only those values (`SharedShown`): the open decision with an
+  early division, priority and who declares, the listed answers, the payment after a "you may pay", what the viewer may see,
+  and the payment's mana are worked out there, as are every step (answers and their orders, replacement preferences,
+  payments and the player's taps with Autotap's topmost sources, Let it resolve, the step arrow's pass or declaration with
+  its costs' mana paid, early answers, castability's picks); a step on a version no longer kept or a board no longer held is
+  refused as stale, and sessions log their opening, versions, steps, refusals and end. Combat's values (`CombatShown`, now
+  serializable) for a board the worker's device published are asked of it by the board's number (CMB-040's assumed lanes
+  sent with it, `DeviceRequest.Combat`), as are a drafted declaration's refusal reasons and a raised hand card's cost chips
+  (`DeviceRequest.CombatRefusal`, `DeviceRequest.Chips`). Measured (`#engine-bench`, headless Chrome, the 120-object game, a
+  machine loaded by other builds): a board's shared-flow panel asked of the worker 21 ms; the step arrow's pass through its
+  session 15.5 ms to the result (2.5 ms worked out in the session); the staged board's combat asked of the worker 6.7 ms; the
+  declaration through the session 21.5 ms to the result (5.1 ms in the session); worst page frame over the flows 25 ms.
+  No step of the table's flows runs on the page any more; the page reads its copy of each board's state for names and what
+  is shown.
 
 ### Step 5: desktop table
 
@@ -530,6 +548,23 @@ Two batches come first, in this order:
   action area, prompt placement, phase track.
 - Tests: screenshot tests of the desktop table at 1440×900 (D1–D6 states), e2e flows in the desktop layout with mouse
   and key input (the JVM harness renders it at desktop size).
+- Built in 5a (2026-11-13): the layout choice and the Layout setting (WEB-013, WEB-014: `AppLayout`, `LocalAppLayout`,
+  `AccountEntry`'s `layout` parameter, which a test or harness can set); the desktop table's structure (WEB-015 to WEB-022:
+  `DesktopFrame` / `LocalDesktopFrame` from `EngineTableScreen`, `TablePresentation.scene`'s `desktop`, `DesktopTopRow`
+  with the phase track, seat headers, `DesktopDock` with `StackEntries` and the docked `ChatPanel`, the action area in
+  `TableControlsLayer`, `DesktopPrompt` placing panels by `PromptPlace`, the timeline's strip and transport, card sizes per
+  layout). Tests: `DesktopTableScreenshotTest` (D1, D2, D3, D3b, D5 and the table at rest), `AppLayoutTest`. Left for 5b:
+  the mouse (section 5); for 5c: hotkeys, the "?" sheet (D6), rebinding, e2e flows in the desktop layout. The desktop
+  Inspect (D4) is 5b's.
+- Built in 5b (2026-11-13): the mouse on the desktop table (WEB-023 to WEB-030): `DesktopMouse.kt` (`MouseButton`,
+  `DesktopFingerKey`, `DesktopTableMouse` and `Modifier.desktopTableMouse` ahead of the table's `TableGestureCoordinator`, whose
+  `holdInspects` is off on desktop; `DesktopHover` for the hover chips; `Modifier.desktopControl` for right-click and hover
+  tooltips on `ActionSquare` and the draft pick's burn; `DesktopQuickLook`), `DesktopKeyboard`, the page's keys
+  (`jsListenKeys`, which 5c's hotkeys listen to as well), `ViewPause.key`, `InspectSwipe.holdByKey` / `pinByKey`,
+  `HandController.hover` with `HoveredCardChips` and `HoveredAbilityChips`; the phase track's "Main" labels, the dock's Stack
+  card naming itself inside its frame, the desktop battlefield at 2×. Tests: `DesktopMouseTest`, D4 and hover chips in
+  `DesktopTableScreenshotTest`. Left for 5c besides its own: Alt over the play shown, the dock's Stack list and the draft's
+  cards (it only pauses there now).
 
 ### Step 6: desktop lobby, decks, drafts
 
@@ -571,7 +606,7 @@ Two batches come first, in this order:
 
 ## 12. Open questions for the owner
 
-All design questions are answered (2026-11-07, round 3 the same day; wireframes 2026-11-13) but item 11. Claude's choices to confirm in review:
+All design questions are answered (2026-11-07, round 3 the same day; wireframes 2026-11-13). Claude's choices to confirm in review:
 
 1. Catalog file format: gzip-compressed JSON lines (1a).
 2. Steps 1a + 1b may go to prod before any web work (1b).
@@ -589,4 +624,8 @@ All design questions are answered (2026-11-07, round 3 the same day; wireframes 
 
 10. Decided (owner, 2026-11-13): no right-click Inspect anywhere. Holding Alt is the desktop finger down (decision 31,
     section 5); right-click stays the burn in the draft and the hold action on controls.
-11. **Open, for step 5:** where does the desktop "double click ends a play" go when the play overlaps board cards?
+11. Claude's choice in 5b (2026-11-13), awaiting the owner: where the desktop "double click ends a play" goes when the play
+    overlaps board cards. As on the phone: the play shown (its card and its line) takes every click where it lies while it
+    shows, so a double click there ends it, and the board cards under it take no clicks until it is gone; board cards
+    elsewhere work as usual. During a combat hold a double click anywhere on the battlefields, the combat band and their
+    cards ends the hold (HIS-113); a single click does nothing to either (WEB-030).

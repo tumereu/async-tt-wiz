@@ -46,9 +46,17 @@ sealed interface EventPattern {
     @Serializable @SerialName("damage") data class Damage(
         val source: ObjectFilter, val to: RecipientFilter, val combat: Boolean? = null,
         val excess: Boolean = false,
+        // rvr fixes
+        /** What one occurrence of the event is in one damage event (CR 603.2c, 120.3): by default each source's damage to each
+         * recipient. */
+        val per: DamageOccurrence = DamageOccurrence.SourceAndRecipient,
     ) : EventPattern
     @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter) : EventPattern
+    // woe
+    /** [players] pay life (CR 119.4, 118.3b: a cost or an effect's payment, such as Phyrexian mana or "you may pay 2 life"); its amount
+     * ([Value.EventAmount]) is the life to be paid. A payment is also a loss of life, so [LoseLife] matches it too. */
+    @Serializable @SerialName("pay-life") data class PayLife(val players: PlayerFilter) : EventPattern
     /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]); [exceptFirstIn]: not the first card
      * that player draws in each of their own [exceptFirstIn] steps ("except the first one they draw in each of their draw
      * steps", dgm). */
@@ -104,6 +112,10 @@ sealed interface EventPattern {
         // fin
         /** With [forMana]: only when the mana produced includes this ("Whenever you tap a land for {C}", CR 106.12). */
         val producing: ManaCost? = null,
+        // woe
+        /** Only when a player matching this taps it by an effect or an ability's cost ("Whenever you tap an untapped creature an opponent
+         * controls", CR 701.26a: tapping is done by a player; attacking and being tapped as a cost of an ability of another player don't count). */
+        val by: PlayerFilter? = null,
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     // ltr chunk 13
@@ -236,7 +248,9 @@ sealed interface EventPattern {
      * for every verb, so a new verb is a new [KeywordActionKind], not a new event type. When an action counts as done is its own rule: for
      * most, once its whole process is done even if some of it was impossible (CR 701.22d, 701.25d, 701.44b, 701.50f, 701.57b). Role
      * object (the objects the action names, as they last existed if they have left, CR 701.44c, 701.50b); [Players.EventPlayer] is
-     * who did it (a permanent's controller, for what a permanent does); for scry and surveil, the event's amount is the cards looked at, which a short library makes fewer than N ("where X is the number of cards looked at while scrying this way"). */
+     * who did it (a permanent's controller, for what a permanent does); for scry and surveil, the event's amount is the cards looked at, which a short library makes fewer than N ("where X is the number of cards looked at while scrying this way").
+     * As a [Mechanic.Replacement]'s event, an action a player is about to do with no object: [Modification.MultiplyAmount] has it done that many
+     * times ("If you would proliferate, proliferate twice instead", CR 614.1a). */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: KeywordActionKind, val players: PlayerFilter? = null, val objects: ObjectFilter? = null,
     ) : EventPattern
@@ -338,6 +352,20 @@ val KeywordAction.kind: KeywordActionKind get() = when (this) {
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */
 @Serializable
 data class RecipientFilter(val objects: ObjectFilter? = null, val players: PlayerFilter? = null)
+
+/** What counts as one occurrence of an [EventPattern.Damage] within one damage event (CR 603.2c: an ability triggers once each time its
+ * trigger event occurs, repeatedly if one event contains several occurrences); the wording decides. */
+@Serializable
+sealed interface DamageOccurrence {
+    /** Each source's damage to each recipient ("whenever a source deals damage to you", "a creature deals combat damage to a player"). */
+    @Serializable @SerialName("source-and-recipient") data object SourceAndRecipient : DamageOccurrence
+    /** All the damage one recipient is dealt, however many sources deal it ("whenever this creature is dealt damage": combat damage from
+     * two blockers is one occurrence); amount = the total, roles source = every source, object = the recipient. */
+    @Serializable @SerialName("recipient") data object Recipient : DamageOccurrence
+    /** All the damage one source deals, to however many recipients ("whenever this creature deals damage": damage to a blocker and,
+     * trampling over, a player is one occurrence); amount = the total, roles source = the source, object = every object dealt damage. */
+    @Serializable @SerialName("source") data object Source : DamageOccurrence
+}
 
 /** What a triggered ability waits for (CR 603). */
 @Serializable

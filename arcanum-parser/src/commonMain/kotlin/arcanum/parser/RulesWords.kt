@@ -571,6 +571,8 @@ internal object RulesWords {
         "starscourge", "summon", "super nova", "take 59 flights of stairs", "take the elevator", "the allagan eye", "the minstrel's ballad",
         "thundaga", "thundara", "thunder", "time compression", "trance", "triple", "two-headed coin", "ultimate end", "ultimate jecht shot",
         "wark", "wave cannon", "wings of light", "zantetsuken",
+        // one: ONE's ability word, not in the pinned CR 207.2c list
+        "corrupted",
     )
 
     /** An ability word or flavor word ([abilityWords], [flavorWords]), compared without case. */

@@ -49,19 +49,27 @@ internal object EventMatcher {
         else -> filter
     }
 
-    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null): List<TriggerEvent> = when (pattern) {
+    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null, history: Boolean = false): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> {
             // tmt backfill: an object that left its zone is tested as it last existed, its controller too (CR 603.10a,
             // 608.2h), whichever board asks: "if a permanent left the battlefield under your control this turn" in a
             // static ability's condition
             val back = Evaluator(LastKnownBoard(e.board), e.ctx)
             moves(change).filter { m ->
+                // mkm fix: an event of the history is about the object as it was then: one that entered and is still there is
+                // read as it entered (CR 603.4, 708.2a: a creature that entered face down and was turned face up later still
+                // entered face down)
+                val tested = tested(m, pattern.from, proposed)
+                val asOf = if (history && tested == m.after.id && m.to == Zone.Battlefield) back.with(back.ctx.copy(asOf = m.after)) else back
                 (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
                     (pattern.notTo == null || m.to != pattern.notTo) &&
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
-                    (back.matches(pattern.objects, tested(m, pattern.from, proposed)) ||
+                    (asOf.matches(pattern.objects, tested) ||
                     // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
-                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)))
+                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)) ||
+                    // rvr: a card leaving the library is a new object where it went, and a move out of a hidden zone doesn't look back
+                    // ("when this card is put into your graveyard from your library": the card in the graveyard, CR 400.7, 603.10)
+                    (pattern.objects is ObjectFilter.Is && !proposed && m.from == Zone.Library && back.matches(pattern.objects, m.after.id)))
             }.map { moveEvent(e, it, proposed, pattern.from) }
         }
         is EventPattern.Cast -> if (isCast(change)) {
@@ -93,23 +101,36 @@ internal object EventMatcher {
             // ltr chunk 07: "is dealt excess damage" (CR 120.4a): only the part over lethal, its amount the excess
             (!pattern.excess || d.excess > 0) && (pattern.combat == null || pattern.combat == d.combat) &&
                 e.matches(pattern.source, d.source) && recipient(e, pattern.to, d.recipient)
-        }.map { d ->
+        }.let { parts ->
+            // rvr fixes: one occurrence per source and recipient, per recipient ("is dealt damage") or per source ("deals damage"),
+            // as the wording says (CR 603.2c); a group's amount is its total
+            when (pattern.per) {
+                arcanum.api.DamageOccurrence.SourceAndRecipient -> parts.map { listOf(it) }
+                arcanum.api.DamageOccurrence.Recipient -> parts.groupBy { it.recipient }.values.toList()
+                arcanum.api.DamageOccurrence.Source -> parts.groupBy { it.source }.values.toList()
+            }
+        }.map { group ->
+            val recipients = group.map { it.recipient }.distinct()
             TriggerEvent(
-                objects = listOf(RoleObjects(EventRole.Source, listOf(d.source))) +
-                    listOfNotNull((d.recipient as? TargetRef.Object)?.let { RoleObjects(EventRole.Object, listOf(it.id)) }),
-                players = listOfNotNull((d.recipient as? TargetRef.Player)?.id),
-                amount = if (pattern.excess) d.excess else d.amount,
+                objects = listOf(RoleObjects(EventRole.Source, group.map { it.source }.distinct())) +
+                    recipients.filterIsInstance<TargetRef.Object>().map { it.id }.takeIf { it.isNotEmpty() }
+                        ?.let { listOf(RoleObjects(EventRole.Object, it)) }.orEmpty(),
+                players = recipients.filterIsInstance<TargetRef.Player>().map { it.id },
+                amount = group.sumOf { if (pattern.excess) it.excess else it.amount },
             )
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)
         is EventPattern.LoseLife -> life(e, change, pattern.players, Meaning.LifeLost)
+        is EventPattern.PayLife -> life(e, change, pattern.players, Meaning.LifePaid)
         is EventPattern.Draw -> moves(change).filter { Meaning.Drew in it.meanings && e.matches(pattern.players, it.before.owner) &&
                 (pattern.exceptFirstIn?.let { step -> !firstDrawIn(e.board.state, step, it.before.owner) } ?: true) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.before.owner)) }
         is EventPattern.Discard -> moves(change).filter {
             Meaning.Discarded in it.meanings && e.matches(pattern.players, it.before.owner) && e.matches(pattern.cards, it.before.id)
         }.filter { causedBy(e, change, pattern.causedBy) }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
-        is EventPattern.Sacrifice -> moves(change).filter { Meaning.Sacrificed in it.meanings && e.matches(pattern.objects, it.before.id) }
+        // mkm chunk 14: the object is gone, so it is tested as it last existed, its controller too (CR 608.2h, 603.10a): "if you've
+        // sacrificed an artifact this turn" in a static ability's condition
+        is EventPattern.Sacrifice -> moves(change).filter { Meaning.Sacrificed in it.meanings && Evaluator(LastKnownBoard(e.board), e.ctx).matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
         // mh2: a creature sacrificed as an exploit ability of an object matching [exploiter] resolves (CR 702.110b)
         is EventPattern.Exploits -> (change as? Change.ZoneChange)?.takeIf { c -> exploitedBy(e, c, pattern.exploiter) }?.let { c ->
@@ -118,7 +139,7 @@ internal object EventMatcher {
                 event.copy(objects = event.objects + RoleObjects(EventRole.Source, listOfNotNull(c.by?.source)))
             }
         }.orEmpty()
-        is EventPattern.Destroyed -> moves(change).filter { Meaning.Destroyed in it.meanings && e.matches(pattern.objects, it.before.id) }
+        is EventPattern.Destroyed -> moves(change).filter { Meaning.Destroyed in it.meanings && Evaluator(LastKnownBoard(e.board), e.ctx).matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
         is EventPattern.Countered -> moves(change).filter { Meaning.Countered in it.meanings && e.matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Stack, EventRole.Before) } +
@@ -146,7 +167,9 @@ internal object EventMatcher {
             val paid = c.meanings.firstOrNull { it is Meaning.PaidFor && it.keyword == pattern.forCost } as? Meaning.PaidFor
             val forCost = pattern.forCost == null || paid != null
             // dft: the Vehicle crewed or the Mount saddled is the event's source ("that Mount or Vehicle", CR 702.122b, 702.171c)
-            if ((pattern.forMana == null || pattern.forMana == forMana) && forCost && e.matches(pattern.objects, c.id))
+            // woe: tapped by a player's effect or cost ("Whenever you tap ...")
+            val byOk = pattern.by == null || c.by?.let { e.matches(pattern.by!!, it.controller) } == true
+            if ((pattern.forMana == null || pattern.forMana == forMana) && forCost && byOk && e.matches(pattern.objects, c.id))
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(paid?.source?.let { RoleObjects(EventRole.Source, listOf(it)) }),
                     listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()
@@ -227,7 +250,7 @@ internal object EventMatcher {
         is EventPattern.Attach -> (change as? Change.Attached)?.takeIf { it.after != null && it.after != it.before }?.let { c ->
             val to = (c.after as? TargetRef.Object)?.id
             if (e.matches(pattern.objects, c.id) && (to == null || e.matches(pattern.to, to)))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))))) else null
+                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(to?.let { RoleObjects(EventRole.To, listOf(it)) }))) else null
         }.orEmpty()
         is EventPattern.Unattach -> unattached(e, change, pattern)
         is EventPattern.RollDie -> ((change as? Change.Happened)?.event as? GameEvent.DieRolled)
@@ -376,8 +399,10 @@ internal object EventMatcher {
         if ((put && delta <= 0) || (!put && delta >= 0)) return emptyList()
         if (kind != null && kind != c.kind) return emptyList()
         if (last && c.after != null) return emptyList()
-        if (!e.matches(objects, holder.id)) return emptyList()
-        return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(e.controllerOf(holder.id)),
+        // the holder as it was as the counters changed: its controller then (CR 608.2h), as it last existed if it has left since
+        val then = c.controller?.let { Evaluator(ControllerThenBoard(LastKnownBoard(e.board), holder.id, it), e.ctx) } ?: e
+        if (!then.matches(objects, holder.id)) return emptyList()
+        return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(c.controller ?: e.controllerOf(holder.id)),
             kotlin.math.abs(delta), counterKinds = listOf(c.kind)))
     }
 
@@ -465,15 +490,17 @@ internal object EventMatcher {
         // CR 509.3c: an attacker that was unblocked (or not yet either) and is blocked after the change
         val c = change as? Change.Combat ?: return emptyList()
         val wasBlocked = c.before?.attackers.orEmpty().filter { it.blocked }.map { it.id }.toSet()
+        // CR 509.3d: "becomes blocked by a creature" triggers for each creature blocking it as it becomes blocked, and for each creature
+        // newly blocking it after that (one put onto the battlefield blocking it, CR 509.4)
+        if (pattern.perBlocker) return c.after?.attackers.orEmpty().filter { it.blocked && e.matches(pattern.attacker, it.id) }.flatMap { a ->
+            val before = if (a.id !in wasBlocked) emptySet() else c.before?.blockers.orEmpty().filter { a.id in it.attackers }.map { it.id }.toSet()
+            c.after?.blockers.orEmpty().filter { a.id in it.attackers && it.id !in before && e.matches(pattern.blocker, it.id) }.map { b ->
+                TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, listOf(b.id))))
+            }
+        }
         return c.after?.attackers.orEmpty().filter { it.blocked && it.id !in wasBlocked && e.matches(pattern.attacker, it.id) }.flatMap { a ->
             val blockers = c.after?.blockers.orEmpty().filter { a.id in it.attackers && e.matches(pattern.blocker, it.id) }.map { it.id }
-            when {
-                blockers.isEmpty() -> emptyList()
-                pattern.perBlocker -> blockers.map { b ->
-                    TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, listOf(b))))
-                }
-                else -> listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, blockers))))
-            }
+            if (blockers.isEmpty()) emptyList() else listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, blockers))))
         }
     }
 
@@ -508,4 +535,16 @@ internal object EventMatcher {
 internal class LastKnownBoard(private val base: arcanum.engine.query.Board) : arcanum.engine.query.Board by base {
     override fun controller(id: ObjectId): PlayerId? = base.controller(id)
         ?: if (base.state.obj(id) == null && id !in base.state.stackItems) { base.readingLog(); base.snapshot(id)?.let { it.controller ?: it.owner } } else null
+}
+
+/** A [base] board without last known information: an object that has left its zone is gone (a "for as long as" duration
+ * tracking it ends, CR 611.2b, 400.7). */
+internal class CurrentBoard(private val base: arcanum.engine.query.Board) : arcanum.engine.query.Board by base {
+    override fun snapshot(id: ObjectId): arcanum.engine.state.ObjectSnapshot? = null
+}
+
+/** A [base] board on which [id]'s controller is [controller]: the controller it had as an earlier event happened (CR 608.2h). */
+internal class ControllerThenBoard(private val base: arcanum.engine.query.Board, private val id: ObjectId, private val controller: PlayerId) :
+    arcanum.engine.query.Board by base {
+    override fun controller(id: ObjectId): PlayerId? = if (id == this.id) controller else base.controller(id)
 }

@@ -30,10 +30,11 @@ internal object Hob {
     val CONTROLLER_AMASSES_X_POWER = Regex("""Its controller amasses (\w+) X, where X is that creature's power\.""")
     val AMASS_X_POWER = Regex("""[Aa]mass (\w+) X, where X is (.+?)'s power\.""")
     val AMASS_INSTEAD_IF_GRAVEYARD = Regex("""[Aa]mass (\w+) (\d+)\. If this spell was cast from a graveyard, amass (\w+) (\d+) instead\.""")
-    val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled that creature, (.+)""")
+    // mkm chunk 01: also "If you controlled it, …" after exiling a target; one chunk 07: "that artifact" (any permanent type noun)
+    val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled (?:that (?:creature|artifact|enchantment|land|planeswalker|battle|permanent)|it), (.+)""")
     val PUT_COUNTERS_ON_ONE_OR_MORE = Regex("""Whenever you put one or more counters on (.+ you control), (.+?) deals (\d+) damage to target opponent\.""")
     val PER_OPPONENT_EXILE_UNTIL_LEAVES = Regex("""For each opponent, exile up to one target (.+?) that player controls until (.+?) leaves the battlefield\.""")
-    val IT_GETS_FOR_EACH = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each (.+)\.""")
+    val IT_GETS_FOR_EACH = Regex("""(It|.+?) gets \+(\d+)/\+(\d+) until end of turn for each (.+)\.""")
     val TARGET_OPPONENT_SACRIFICES = Regex("""Target opponent sacrifices an? (.+?) of their choice\.""")
     val IF_THAT_CREATURE_IS_COUNTER_ON_IT = Regex("""If that creature is an? (.+?), put an? (\S+) counter on it\.""")
     val CREATURES_TARGET_PLAYER_CONTROLS_GET = Regex("""(Creatures) target player controls get ([+-]\d+)/([+-]\d+) until end of turn\.""")
@@ -94,7 +95,8 @@ internal object Hob {
 
     // hob chunk 09: white and blue
     val EAGLES_ARE_COMING = Regex("""Choose target (.+?) you own\. If this spell was kicked, instead choose any number of target (.+?) you own\. Return each chosen creature to your hand\. At the beginning of the next upkeep, create (.+?) for each creature returned to your hand this way\.""")
-    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards, reveal them, put one onto the battlefield tapped and the other into your hand, then shuffle\.""")
+    // mkm chunk 01: also "… Forest cards and reveal them. Put one of them onto the battlefield tapped and the other into your hand, then shuffle."
+    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards(?:, reveal them, put one| and reveal them\. Put one of them) onto the battlefield tapped and the other into your hand, then shuffle\.""")
     val EXILE_ALL_ATTACKING_TARGET_PLAYER = Regex("""Exile all attacking creatures target player controls\. That player may search their library for that many (.+?) cards, put those cards onto the battlefield tapped, then shuffle\.""")
     val BECOMES_TYPE_AND_GAINS = Regex("""Until end of turn, target (.+?) becomes an? (artifact|enchantment) in addition to its other types and gains (.+)\.""")
     val PLAYERS_CANT_CAST_THIS_TURN = Regex("""[Pp]layers can't cast spells this turn\.""")
@@ -131,7 +133,7 @@ internal object Hob {
     val DRAW_EXCEPT_FIRST_DRAW_TWO = Regex("""If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead\.""")
     val DIES_IF_CREATURE_RETURN_ARTIFACT = Regex("""When (.+?) die, if they were a creature, return them to the battlefield\. They're an artifact\.""")
     val MAY_CAST_AS_FLASH_IF_CONTROL = Regex("""You may cast this spell as though it had flash if you control an? (.+)\.""")
-    val HAS_ACTIVATED_OF_CARDS_IN_GRAVEYARD = Regex("""(.+?) has all activated abilities of all (.+?) cards in your graveyard\.""")
+    val HAS_ACTIVATED_OF_CARDS_IN_GRAVEYARD = Regex("""(.+?) has all activated abilities of all (.+?) cards in (your graveyard|all graveyards)\.""")
 
     // hob chunk 11: green and multicoloured
     val TRAMPLE_COUNTER_BECOMES_THEN_DRAW = Regex("""[Pp]ut an? (\S+) counter on up to one target (.+?)\. It becomes an? ([A-Z][a-z]+) in addition to its other types\. Then if you control (\w+) or more (.+?), draw (\w+) cards\.""")
@@ -175,9 +177,11 @@ internal object HobPhrases {
         // hob chunk 06: "the number of Treasures you control", "the number of artifacts your opponents control" (generic counting
         // already reads most; this is for the total power of creatures)
         // hob chunk 09: "the total power of creatures you control with flying"
-        if (text.startsWith("the total power of ")) {
-            val noun = text.removePrefix("the total power of ")
-            return Value.Of(NumericProperty.Power, Objects.Each(Filters.noun(noun) ?: return null), Combine.Total)
+        // mkm chunk 08: "the total toughness of creatures you control"
+        for ((word, property) in listOf("power" to NumericProperty.Power, "toughness" to NumericProperty.Toughness)) {
+            if (!text.startsWith("the total $word of ")) continue
+            val noun = text.removePrefix("the total $word of ")
+            return Value.Of(property, Objects.Each(Filters.noun(noun) ?: return null), Combine.Total)
         }
         return null
     }

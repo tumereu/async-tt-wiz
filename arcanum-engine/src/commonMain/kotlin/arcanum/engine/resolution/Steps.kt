@@ -4,6 +4,7 @@ import arcanum.api.CardType
 import arcanum.api.Choice
 import arcanum.api.Color
 import arcanum.api.Each
+import arcanum.api.Effect
 import arcanum.api.Modification
 import arcanum.api.Step
 import arcanum.engine.CardSupport
@@ -200,8 +201,24 @@ internal object Steps {
         val scopes = values.map { v ->
             Scope(scope.act, scope.cause, outer.with(step.bind, v), scope.event, actorOf(scope, v), scope.batch, scope.entering)
         }
-        if (step.together) {
+        val damage = ((step.steps.singleOrNull() as? Step.Do)?.effect as? Effect.DealDamage)?.takeIf { it.bind == null }
+        if (damage != null) {
+            // rvr fixes, CR 608.2f: "each of them deals damage …" (or damage to each player, an amount each) is one action on several
+            // objects or players, processed simultaneously: one damage event
+            Effects.dealDamageTogether(scopes, damage)
+        } else if (step.together) {
             step.steps.forEach { s -> stepTogether(scope, scopes, s) }
+        } else if (step.each is Each.Objects && scopes.size > 1 && step.steps.any(::casts)) {
+            // rvr fixes, CR 608.2f: casting each of several objects ("for each card exiled this way, copy it, and you may cast the copy")
+            // can't be done simultaneously: the resolving spell's controller chooses the order, one object at a time
+            val left = values.indices.toMutableList()
+            while (left.isNotEmpty()) {
+                val ids = left.map { (values[it] as NamedValue.Objects).ids.single() }
+                val next = if (left.size == 1) left.single()
+                    else left[ids.indexOf(scope.act.chooseObjects(scope.you, scope.self, ids, 1, 1, "Choose the next card (they're cast in the order you choose)").single())]
+                left -= next
+                run(scopes[next], step.steps)
+            }
         } else {
             scopes.forEach { run(it, step.steps) }
         }
@@ -229,6 +246,13 @@ internal object Steps {
             return
         }
         together(scope) { scopes.forEach { it.batch = scope.batch; run(it, s); it.batch = null } }
+    }
+
+    /** Whether [step] casts something (a spell cast while another resolves, CR 608.2g). */
+    private fun casts(step: Step): Boolean = when (step) {
+        is Step.Do -> step.effect is Effect.Cast
+        is Step.May -> step.steps.any(::casts)
+        else -> false
     }
 
     private fun actorOf(scope: Scope, value: NamedValue): PlayerId =
@@ -332,9 +356,16 @@ internal object Steps {
         }
         scope.bind(step.bind, value)
         if (step.remember) {
+            // mkm fix: a secret choice is marked known only to its chooser until revealed (Secrets)
+            val marker = if (step.secret) NamedValue.Players(listOf(chooser)) else null
             val entering = scope.entering
-            if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(step.bind, value))
-            else source?.let { id -> act.state.obj(id)?.let { o -> act.record(Change.Memory(id, step.bind, o.linked[step.bind], value)) } }
+            if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(step.bind, value)
+                .let { m -> if (marker != null) m.with(arcanum.engine.state.Secrets.markerKey(step.bind), marker) else m })
+            else source?.let { id -> act.state.obj(id)?.let { o ->
+                act.record(Change.Memory(id, step.bind, o.linked[step.bind], value))
+                val key = arcanum.engine.state.Secrets.markerKey(step.bind)
+                if (marker != null) act.record(Change.Memory(id, key, o.linked[key], marker))
+            } }
         }
     }
 
@@ -408,13 +439,14 @@ internal object Steps {
         val e = scope.eval()
         scope.entering = when (modification) {
             Modification.EntersTapped -> m.copy(tapped = true)
-            is Modification.EntersWithCounters -> m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
+            is Modification.EntersWithCounters -> if (!arcanum.engine.action.Actions.entersAs(scope.act, m, modification.ifEntersAs, scope.actor)) m
+                else m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
             is Modification.EntersUnderControlOf -> m.copy(controller = e.players(modification.players).firstOrNull() ?: m.controller)
             is Modification.EntersWithAbilities -> m.copy(abilities = m.abilities + modification.abilities)
             is Modification.EntersAsCopy -> {
                 val options = e.each(modification.of).filter { it != m.id }
                 scope.act.chooseObjects(scope.actor, m.id, options, if (modification.optional) 0 else 1, 1, "Enter as a copy of")
-                    .firstOrNull()?.let { m.copy(copyOf = it to modification.except) } ?: m
+                    .firstOrNull()?.let { arcanum.engine.action.Actions.asCopy(scope.act, m, it, modification, e, scope.actor) } ?: m
             }
             is Modification.ChangeDestination -> m.copy(to = modification.to.zone)
             Modification.Skip -> null

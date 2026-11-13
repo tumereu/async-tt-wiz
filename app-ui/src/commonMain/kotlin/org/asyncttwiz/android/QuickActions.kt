@@ -105,7 +105,9 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
     /** I-D46 (c): sends the viewer's own Automatum setting changes (Skip when I have no choice). */
     submit: (PlayAction) -> Boolean = { false },
     /** SYS-012: goes up to shake the main button (a refusal of an action made on it). */
-    mainShakes: Int = 0) {
+    mainShakes: Int = 0,
+    /** WEB-018: the desktop table's action area: the quick actions in a row over the main button, which is wider. */
+    stacked: Boolean = false) {
     if (!context.playable) return
     // I-D46 (c): with Automatum on the row is the viewer's Automatum toggles, on either player's turn
     val toggles = AutomatumToggles.shown(play, context)
@@ -124,8 +126,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
         val engine = LocalEngineRoutes.current
         // TRN-016, TRN-017 (owner playtest 2026-11-06): the main button keeps one width whatever quick actions show; they
         // share the rest of the row equally
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        val cells: @Composable RowScope.() -> Unit = {
                 // I-D56 §14 (TRN-059): on engine state the toggles are the player's private settings for this game
                 if (toggles && engine != null) EngineToggleCells(engine, true)
                 for (action in actions) key(action.intent) {
@@ -174,7 +175,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             }
             val says = AutomatumStep.of(play, control).words(play)
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
-            Box(Modifier.width(MainButtonWidth).shaken(mainShakes)) {
+            val mainButton: @Composable (Modifier) -> Unit = { place -> Box(place.shaken(mainShakes)) {
                 if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {
                     pressed(main.label); own { main.run(); true } }, controller.enabled(scope) || panelMain != null, Modifier.fillMaxWidth(), ::taken)
                 else if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
@@ -200,13 +201,22 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape),
                     if (main == null && !arrow && wait != null && assumeLook(wait)) Color.White else AutomatumViolet)
                 if (unconfirmed && engine != null) EngineUnconfirmedMark(engine.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
-            }
+            } }
+        if (stacked) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp), content = cells)
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { mainButton(Modifier.width(DesktopMainButtonWidth)) }
+        } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp), content = cells)
+            mainButton(Modifier.width(MainButtonWidth))
         }
     }
 }
 
 /** TRN-017: the main button's one width, whatever quick actions show beside it. */
 val MainButtonWidth = 112.dp
+
+/** WEB-018: the main button's width in the desktop table's action area, under the quick actions. */
+val DesktopMainButtonWidth = 176.dp
 
 val AdvanceArrowShape = GenericShape { size, _ ->
     val tip = size.height / 4f
@@ -262,6 +272,8 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
     val currentPerformHold by rememberUpdatedState(performHold)
     var holdTip by remember(name) { mutableStateOf(false) }
     var pressed by remember(name) { mutableStateOf(false) }
+    // WEB-028 (§5): on the desktop layout a right-click does the hold action, and resting the pointer shows the tooltip
+    val desktop = LocalAppLayout.current == AppLayout.Desktop
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
     Box(modifier.then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).graphicsLayer {
         scaleX = if (pressed) .92f else 1f; scaleY = scaleX
@@ -283,11 +295,17 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
         if (holdName != null) customActions = listOf(CustomAccessibilityAction(holdName) {
             if (enabled) { currentPerformHold?.invoke(); true } else false
         })
-    }.pointerInput(name) {
+    }.then(if (!desktop) Modifier else Modifier.desktopControl(listOf(name, enabled, holdName, gestureKey), onRight = {
+        if (!enabled) Unit
+        else if (currentPerformHold != null) { AppLog.info("game", "A right-click held $name"); currentPerformHold?.invoke() }
+        else holdTip = true
+    }, onHover = { holdTip = it })).pointerInput(name, desktop) {
         awaitPointerEventScope {
             while (true) {
                 val event = awaitPointerEvent()
-                if (event.changes.any { it.position != it.previousPosition || !it.pressed }) holdTip = false
+                // WEB-028: the mouse moving over it keeps the hover tooltip; a press or a release takes it away
+                if (desktop) { if (event.changes.any { !it.isConsumed && it.pressed != it.previousPressed }) holdTip = false }
+                else if (event.changes.any { it.position != it.previousPosition || !it.pressed }) holdTip = false
             }
         }
     }.pointerInput(name, enabled, holdName, gestureKey) {

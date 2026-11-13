@@ -36,18 +36,28 @@ internal object Lki {
                 is Change.ZoneChange -> change.moves.firstOrNull { it.before.id == id }?.let { m ->
                     return m.seen ?: ObjectSnapshot(m.before.id, m.before.owner, m.before.controller, m.before.zone, printed(m.before),
                         m.before.counters, m.before.damage, m.before.tapped, m.before.token, m.before.attachedTo, m.before.cast, m.before.linked,
-                        arcanum.engine.state.snapshotStatuses(m.before))
+                        arcanum.engine.state.snapshotStatuses(m.before), marks = m.before.marks)
                 }
                 is Change.Removed -> change.objects.firstOrNull { it.obj.id == id }?.let { p ->
                     val o = p.obj
                     return ObjectSnapshot(o.id, o.owner, o.controller, o.zone, printed(o), o.counters, o.damage, o.tapped, o.token,
-                        o.attachedTo, o.cast, o.linked, arcanum.engine.state.snapshotStatuses(o))
+                        o.attachedTo, o.cast, o.linked, arcanum.engine.state.snapshotStatuses(o), marks = o.marks)
                 }
                 else -> Unit
             }
         }
         state.stackItems.values.forEach { item -> item.snapshots.firstOrNull { it.id == id }?.let { return it } }
         state.delayedTriggers.values.forEach { d -> d.snapshots.firstOrNull { it.id == id }?.let { return it } }
+        return null
+    }
+
+    /** The zone change by which [id] left its zone (CR 400.7), once it has; null otherwise. */
+    fun move(state: GameState, id: ObjectId): arcanum.engine.change.Move? {
+        if (state.obj(id) != null) return null
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? Change.ZoneChange ?: continue
+            change.moves.firstOrNull { it.before.id == id }?.let { return it }
+        }
         return null
     }
 

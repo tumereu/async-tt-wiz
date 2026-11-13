@@ -13,7 +13,7 @@ internal object Ltr {
     val PUT_A_CARD_FROM_HAND_ON_BOTTOM = Regex("""[Pp]ut a card from your hand on the bottom of your library\.""")
     val IS_A_SUBTYPE_AND = Regex("""(Enchanted creature) is an? ([A-Z]\w+) and (.+)\.""")
     val IF_THAT_CREATURE_IS_INSTEAD = Regex("""If (that creature|it) is (equipped|legendary|an? [A-Z]\w+(?: or [A-Z]\w+)?), (.+) instead\.""")
-    val EQUIP_ABILITIES_COST_LESS = Regex("""Equip abilities you activate cost ((?:\{[^}]+\})+) less to activate\.""")
+    val EQUIP_ABILITIES_COST_LESS = Regex("""Equip abilities you activate( of other Equipment)? cost ((?:\{[^}]+\})+) less to activate\.""")
     val UNTIL_EOT_PREFIX = Regex("""Until end of turn, (.+)\.""")
     val ASSIGNS_DAMAGE_BY_TOUGHNESS = Regex("""(.+) assigns combat damage equal to its toughness rather than its power""")
     val WHENEVER_IF_NO_MANA_SPENT = Regex("""(Whenever .+?), if no mana was spent to cast it, (.+)""")
@@ -113,8 +113,8 @@ internal object Ltr {
     val ADD_TWICE_THAT_MUCH = Regex("""[Aa]dd twice that much (\{[WUBRGC]\})\.""")
     val YOU_CAST_A_SPELL_THAT_TARGETS = Regex("""you cast a spell that targets (.+)""")
     val GETS_PER_CARD_LOOKED_AT_SCRYING = Regex("""(.+?) gets \+1/\+1 until end of turn for each card looked at while scrying this way\.""")
-    val THAT_CREATURE_LOSES_UNTIL_EOT = Regex("""That creature loses (\w+) until end of turn\.""")
-    val MUST_BE_BLOCKED_THIS_TURN = Regex("""(.+?) must be blocked this turn if able\.""")
+    val THAT_CREATURE_LOSES_UNTIL_EOT = Regex("""That (?:creature|permanent) loses (\w+) until end of turn\.""")
+    val MUST_BE_BLOCKED_THIS_TURN = Regex("""(.+?) must be blocked (?:each combat )?this turn if able\.""")
     val CANT_BE_BLOCKED_BY_MORE_THAN_ONE_THIS_TURN = Regex("""(.+?) can't be blocked by more than one creature each combat this turn\.""")
     val DEALS_DAMAGE_EQUAL_TO_ITS_POWER_TO = Regex("""(.+?) deals damage equal to its power to (up to one target .+|target .+)\.""")
     val CREATE_NAMED_TOKEN_WITH_QUOTED = Regex("""Create ([A-Z][\w']+), an? (legendary )?(\d+)/(\d+) (\w+) ([A-Z]\w+) creature token with (.+?), and "(.+)"\.?""")
@@ -130,7 +130,7 @@ internal object Ltr {
     val MAY_REVEAL_TOP_IF_REVEALED = Regex("""(?:You may reveal the top card of your library|([Ll]ook at the top card of your library\. )You may reveal that card)\. If an? (.+?) card is revealed this way, (.+)""")
     val GAIN_PROTECTION_FROM_EACH_OF_COLORS = Regex("""(.+?) gains? protection from each of that creature's colors until end of turn\.""")
     val SCRY_REVEAL_ATTACKING_UNTIL_NEXT_TURN = Regex("""Scry (\w+), then you may reveal the top card of your library\. If an? (.+?) card is revealed this way, put it onto the battlefield tapped and attacking\. Until your next turn, it gains (\w+) if you control an? (\w+) and (\w+) if you control an? (\w+)\.""")
-    val EACH_DEAL_DAMAGE_EQUAL_TO_THEIR_POWER = Regex("""(Target .+?) and (up to one other target .+?) each deal damage equal to their power to (target .+)\.""")
+    val EACH_DEAL_DAMAGE_EQUAL_TO_THEIR_POWER = Regex("""((?:Target|Any number of target) .+?) and (up to one other target .+?) each deal damage equal to their power to (target .+)\.""")
     val CHOOSE_COUNTER_FROM_AMONG = Regex("""[Pp]ut your choice of a counter from among (.+) on (.+)\.""")
     val PUT_ONE_OF_EACH_OF_THOSE_KINDS = Regex("""[Pp]ut one of each of those kinds of counters on (.+)\.""")
     val YOU_PUT_COUNTERS_ON = Regex("""you put one or more counters on (.+)""")
@@ -289,11 +289,11 @@ internal object LtrPhrases {
                 ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Saga"))), ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You))),
                 arcanum.api.Combine.Total), Comparison.AtLeast, Value.Fixed(n))
         }
-        // ltr chunk 12: "two or more creatures died under your control this turn"
+        // ltr chunk 12: "two or more creatures died under your control this turn" (the creatures, not the events: two destroyed at once are two, CR 700.4)
         Ltr.N_OR_MORE_CREATURES_DIED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return@let
             return arcanum.api.Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature),
-                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You)), from = Zone.Battlefield, to = Zone.Graveyard), atLeast = n, measure = arcanum.api.Measure.Events)
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You)), from = Zone.Battlefield, to = Zone.Graveyard), atLeast = n, measure = arcanum.api.Measure.Objects)
         }
         // ltr chunk 10: "a permanent you controlled left the battlefield this turn" (as it last existed, CR 603.10a)
         if (Ltr.PERMANENT_YOU_CONTROLLED_LEFT.matches(text))

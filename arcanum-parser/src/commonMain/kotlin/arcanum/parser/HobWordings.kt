@@ -121,7 +121,7 @@ internal object Hob {
     val SUPPER = Regex("""Put onto the battlefield under your control all (.+?) in your opponents' graveyards that were put there from the battlefield this turn\. They are (\w+) artifacts with "(.+)"""")
     val GETS_AND_DEALS = Regex("""(.+?) gets \+(\d+)/\+(\d+) until end of turn and deals (\d+) damage to each opponent\.""")
     val DEALS_DIVIDED_AMONG = Regex("""(?:He|She|It|(.+?)) deals (\d+) damage divided as you choose among one, two, or three targets\.""")
-    val DEALS_DAMAGE_EQUAL_NUMBER_ANY = Regex("""(?:He|She|It|(.+?)) deals damage equal to (the number of .+?) to any target\.""")
+    val DEALS_DAMAGE_EQUAL_NUMBER_ANY = Regex("""(?:He|She|It|(.+?)) deals damage equal to (the number of .+?|the sacrificed \w+'s (?:power|toughness|mana value)) to any target\.""")
     val REVEAL_TOP_RANDOM_ONTO = Regex("""Reveal the top (\w+) cards of your library\. Put a random (.+?) card from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\.""")
     val QUEST_COUNTER_SACRIFICE_SEARCH = Regex("""Put an? (\w+) counter on (.+?)\. If it has (\w+) or more \w+ counters on it, sacrifice it\. If you do, search your hand and/or library for an? (.+?) card and put it onto the battlefield\. If you search your library this way, shuffle\.""")
     val CREATE_NAMED_ARTIFACT_CREATURE_TOKEN = Regex("""[Cc]reate an? (\d+)/(\d+) colorless ([A-Z][a-z]+) artifact creature token with ([a-z]+) named ([A-Z][A-Za-z ]+)\.""")

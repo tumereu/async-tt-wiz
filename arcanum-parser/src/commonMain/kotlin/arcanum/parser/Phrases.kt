@@ -1502,6 +1502,8 @@ internal object Values {
         FraPhrases.value(text)?.let { return it } // fra
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled)?.let { return Value.Times(it, 2) }
+        // mh3 chunk 06: "half the number of artifacts you control, rounded down" (CR 107.1a)
+        HALF_ROUNDED.matchEntire(text)?.let { m -> value(m.groupValues[1], exiled)?.let { return Value.Half(it, roundUp = m.groupValues[2] == "up") } }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
         if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)
@@ -1572,8 +1574,9 @@ internal object Values {
     // blb gaps 2
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
-    // rtr chunk 06
-    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness|mana value)""")
+    // rtr chunk 06; mh3 chunk 06: any sacrificed object ("the sacrificed artifact's mana value")
+    private val SACRIFICED_PROPERTY = Regex("""the sacrificed \w+'s (power|toughness|mana value)""")
+    private val HALF_ROUNDED = Regex("""half (.+), rounded (down|up)""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

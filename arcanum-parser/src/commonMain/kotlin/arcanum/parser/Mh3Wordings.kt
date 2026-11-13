@@ -81,4 +81,7 @@ internal object Mh3 {
     val TARGET_OPPONENT_EXILES_TOP = Regex("""Target opponent exiles the top (\w+) cards? of their library\.""")
     /** "… you may play those cards. If you cast a spell this way, mana of any type can be spent to cast it." (CR 609.4b) */
     val IF_CAST_THIS_WAY_ANY_TYPE = Regex("""(.+\.) If you cast a spell this way, mana of any type can be spent to cast it\.""")
+    // mh3 chunk 06: "you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token that's a copy of
+    // that creature. If you didn't create a token this way, create a 1/1 green Insect creature token."
+    val MAY_PAY_IF_ATTACHED_IF_YOU_DO_ELSE_TOKEN = Regex("""[Yy]ou may pay ((?:\{[^}]+\})+) if (.+?) is attached to (an? .+?)\. If you do, ([^.]+\.) If you didn't create a token this way, ([^.]+\.)""")
 }

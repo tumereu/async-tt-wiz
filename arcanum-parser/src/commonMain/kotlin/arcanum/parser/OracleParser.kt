@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 82
+    const val VERSION: Int = 83
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -46,7 +46,8 @@ object OracleParser {
             return face.copy(abilities = listOf(Ability.Unparsed(card.text)))
         }
         val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }
-        val self = selfNames(card.name, face)
+        // mh3 chunk 06: a bestow card calls itself "this Aura" (it is one when cast bestowed, CR 702.103b)
+        val self = selfNames(card.name, face).let { names -> if (BESTOW_LINE.containsMatchIn(card.text)) names + "this Aura" else names }
         var abilities = abilities(card.text, self, isSpell)
         val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
             // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
@@ -588,6 +589,8 @@ object OracleParser {
             return Keyword.HexproofFrom(when (m.groupValues[1]) {
                 "monocolored" -> arcanum.api.ObjectFilter.Monocolored
                 "multicolored" -> arcanum.api.ObjectFilter.Multicolored
+                // mh3 chunk 06: "hexproof from each color": from every object that has a colour (CR 702.11d, 105.2)
+                "each color" -> arcanum.api.ObjectFilter.Not(arcanum.api.ObjectFilter.Colorless)
                 // fdn chunk 05: "hexproof from black", "hexproof from instants" (a colour or a card type)
                 else -> Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             })
@@ -606,6 +609,10 @@ object OracleParser {
         SPLICE.matchEntire(part)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
+        }
+        // mh3 chunk 06: "Prototype {3}{R} — 2/2" (CR 702.160a): the prototype's mana cost, power and toughness
+        PROTOTYPE.matchEntire(part)?.let { m ->
+            return Keyword.Prototype(Cost.mana(ManaCost.parse(m.groupValues[1]) ?: return null), m.groupValues[2].toInt(), m.groupValues[3].toInt())
         }
         // chunk 45: "Bestow—{R}, Collect evidence 6." (CR 702.103a): a cost that isn't only mana.
         BESTOW_COST.matchEntire(part)?.let { m ->
@@ -733,6 +740,8 @@ object OracleParser {
     // chunk 40
     private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
     // chunk 45
+    private val BESTOW_LINE = Regex("""(?m)^Bestow\b""")
+    private val PROTOTYPE = Regex("""Prototype ((?:\{[^}]+\})+) — (\d+)/(\d+)""")
     private val BESTOW_COST = Regex("""Bestow—(.+?)\.?""")
     private val COMPANION = Regex("""Companion — (.+)""")
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")

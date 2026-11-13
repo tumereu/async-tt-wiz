@@ -15938,6 +15938,25 @@ internal class Sentences(
         }
         // mh3 chunk 01: "Exile up to one target …. If you do, …", "Exile target …. You may cast that card for as long as it remains exiled, …": the
         // later sentence is about the exiled card, a new object (CR 400.7); "if you do" holds only when something was exiled
+        // mh3 chunk 06: "you may pay {1}{G} if this permanent is attached to a creature you control. If you do, create a token that's a copy of that
+        // creature. If you didn't create a token this way, …": the payment is offered only while attached; "that creature" is the one it is attached
+        // to; the last sentence holds when no token was made, whether or not it was offered (CR 608.2c)
+        Mh3.MAY_PAY_IF_ATTACHED_IF_YOU_DO_ELSE_TOKEN.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val cost = ManaCost.parse(m.groupValues[1]) ?: return@let
+            val attachedTo = Filters.noun(m.groupValues[3].substringAfter(' ')) ?: return@let
+            val outerIt = context.it
+            context.it = Objects.AttachedTo(Objects.Self)
+            val made = effect(m.groupValues[4].replaceFirstChar { it.uppercase() }, context)
+            context.it = outerIt
+            val copies = made?.map { step ->
+                val create = (step as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+                Step.Do(create.copy(bind = "token"))
+            } ?: return@let
+            val otherwise = effect(m.groupValues[5].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.AttachedTo(Objects.Self), attachedTo), then = listOf(
+                Step.Pay(Cost.mana(cost), payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = copies))),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty("token")), then = otherwise))
+        }
         Mh3.EXILE_THEN.matchEntire(text)?.let { m ->
             val outerIt = context.it
             val steps = mh3ExileThen(m.groupValues[1], m.groupValues[2], context)

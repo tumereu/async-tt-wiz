@@ -213,4 +213,48 @@ class MomFixesScenariosTest {
             alice.hand.size shouldBe 1
         }
     }
+    // ---- "for the first time each turn" with one trigger per player or battle (second MOM fix chunk)
+
+    private val herald = Cards.invent("Breachfirst Herald", "{2}{W}", "Enchantment",
+        "Whenever one or more creatures you control deal combat damage to a player or battle for the first time each turn, draw a card.")
+    private val lancer = Cards.invent("Breachfirst Lancer", "{1}{W}", "Creature — Human Knight", "First strike", "2/2")
+    private val footman = Cards.invent("Breachfirst Footman", "{1}{W}", "Creature — Human Soldier", "", "2/2")
+    private val gate = Cards.inventFaces("Transform",
+        OracleCard("Siege of the Breachfirst Gate", "{2}{W}", "Battle — Siege", "", defense = "9"),
+        OracleCard("Breachfirst Gatewarden", null, "Creature — Spirit", "", power = "3", toughness = "3", colorIndicator = "W"),
+    )
+
+    /** Alice with [herald], [lancer] and [footman] and two Sieges, one protected by Bob and one by Carol; Alice's
+     * attackers go to the Sieges given, then both combat damage steps resolve. */
+    private fun firstTimePerBattle(lancerAt: Int, footmanAt: Int, then: arcanum.engine.scenario.Scenario.() -> Unit) = scenario(players = 3) {
+        alice.battlefield(herald, lancer, footman)
+        alice.battlefield(gate, counters = listOf(CounterKind.Defense to 9))
+        alice.battlefield(gate, counters = listOf(CounterKind.Defense to 9))
+        players.forEach { it.library("Island", "Island", "Island", "Island") }
+        val gates = listOf(card(gate, index = 0), card(gate, index = 1))
+        passPriority()
+        repeat(2) {
+            val protector = decision<Decision.ChoosePlayer>()
+            answer(Answer.Player(if (protector.source == gates[0]) bob.id else carol.id))
+        }
+        advanceTo(TurnStep.DeclareAttackers)
+        perform(Input.DeclareAttackers(alice.id, listOf(Attack(card(lancer), TargetRef.Object(gates[lancerAt])),
+            Attack(card(footman), TargetRef.Object(gates[footmanAt])))))
+        advanceTo(TurnStep.EndOfCombat)
+        resolveAll()
+        then()
+    }
+
+    // CR 603.2c, 120.1, 310.6: each battle dealt combat damage is its own trigger event, so the first damage to Carol's battle
+    // (regular damage step) is a first time even after first-strike damage to Bob's battle: two cards
+    @Test
+    fun firstTimeEachTurnCountsEachBattleOnItsOwn() = firstTimePerBattle(lancerAt = 0, footmanAt = 1) {
+        expect { alice.hand.size shouldBe 2 }
+    }
+
+    // CR 603.2c, 310.6: the same battle dealt combat damage again in the regular damage step isn't a first time: one card
+    @Test
+    fun firstTimeEachTurnSameBattleTwiceTriggersOnce() = firstTimePerBattle(lancerAt = 0, footmanAt = 0) {
+        expect { alice.hand.size shouldBe 1 }
+    }
 }

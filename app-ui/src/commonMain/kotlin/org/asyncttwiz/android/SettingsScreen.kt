@@ -53,6 +53,8 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                 HorizontalDivider()
             }
             SettingsSection("Table") {
+                // WEB-014: the browser's Layout (none on Android)
+                LayoutSetting()
                 CardMoveSpeedSetting(accountId)
                 EventTextSetting(accountId)
                 EdgeToEdgeSetting()

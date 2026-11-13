@@ -548,6 +548,14 @@ Two batches come first, in this order:
   action area, prompt placement, phase track.
 - Tests: screenshot tests of the desktop table at 1440×900 (D1–D6 states), e2e flows in the desktop layout with mouse
   and key input (the JVM harness renders it at desktop size).
+- Built in 5a (2026-11-13): the layout choice and the Layout setting (WEB-013, WEB-014: `AppLayout`, `LocalAppLayout`,
+  `AccountEntry`'s `layout` parameter, which a test or harness can set); the desktop table's structure (WEB-015 to WEB-022:
+  `DesktopFrame` / `LocalDesktopFrame` from `EngineTableScreen`, `TablePresentation.scene`'s `desktop`, `DesktopTopRow`
+  with the phase track, seat headers, `DesktopDock` with `StackEntries` and the docked `ChatPanel`, the action area in
+  `TableControlsLayer`, `DesktopPrompt` placing panels by `PromptPlace`, the timeline's strip and transport, card sizes per
+  layout). Tests: `DesktopTableScreenshotTest` (D1, D2, D3, D3b, D5 and the table at rest), `AppLayoutTest`. Left for 5b:
+  the mouse (section 5); for 5c: hotkeys, the "?" sheet (D6), rebinding, e2e flows in the desktop layout. The desktop
+  Inspect (D4) is 5b's.
 
 ### Step 6: desktop lobby, decks, drafts
 

@@ -61,7 +61,10 @@ internal object EventMatcher {
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
                     (back.matches(pattern.objects, tested(m, pattern.from, proposed)) ||
                     // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
-                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)))
+                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)) ||
+                    // rvr: a card leaving the library is a new object where it went, and a move out of a hidden zone doesn't look back
+                    // ("when this card is put into your graveyard from your library": the card in the graveyard, CR 400.7, 603.10)
+                    (pattern.objects is ObjectFilter.Is && !proposed && m.from == Zone.Library && back.matches(pattern.objects, m.after.id)))
             }.map { moveEvent(e, it, proposed, pattern.from) }
         }
         is EventPattern.Cast -> if (isCast(change)) {
@@ -97,12 +100,22 @@ internal object EventMatcher {
             // ltr chunk 07: "is dealt excess damage" (CR 120.4a): only the part over lethal, its amount the excess
             (!pattern.excess || d.excess > 0) && (pattern.combat == null || pattern.combat == d.combat) &&
                 e.matches(pattern.source, d.source) && recipient(e, pattern.to, d.recipient)
-        }.map { d ->
+        }.let { parts ->
+            // rvr fixes: one occurrence per source and recipient, per recipient ("is dealt damage") or per source ("deals damage"),
+            // as the wording says (CR 603.2c); a group's amount is its total
+            when (pattern.per) {
+                arcanum.api.DamageOccurrence.SourceAndRecipient -> parts.map { listOf(it) }
+                arcanum.api.DamageOccurrence.Recipient -> parts.groupBy { it.recipient }.values.toList()
+                arcanum.api.DamageOccurrence.Source -> parts.groupBy { it.source }.values.toList()
+            }
+        }.map { group ->
+            val recipients = group.map { it.recipient }.distinct()
             TriggerEvent(
-                objects = listOf(RoleObjects(EventRole.Source, listOf(d.source))) +
-                    listOfNotNull((d.recipient as? TargetRef.Object)?.let { RoleObjects(EventRole.Object, listOf(it.id)) }),
-                players = listOfNotNull((d.recipient as? TargetRef.Player)?.id),
-                amount = if (pattern.excess) d.excess else d.amount,
+                objects = listOf(RoleObjects(EventRole.Source, group.map { it.source }.distinct())) +
+                    recipients.filterIsInstance<TargetRef.Object>().map { it.id }.takeIf { it.isNotEmpty() }
+                        ?.let { listOf(RoleObjects(EventRole.Object, it)) }.orEmpty(),
+                players = recipients.filterIsInstance<TargetRef.Player>().map { it.id },
+                amount = group.sumOf { if (pattern.excess) it.excess else it.amount },
             )
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)
@@ -470,15 +483,17 @@ internal object EventMatcher {
         // CR 509.3c: an attacker that was unblocked (or not yet either) and is blocked after the change
         val c = change as? Change.Combat ?: return emptyList()
         val wasBlocked = c.before?.attackers.orEmpty().filter { it.blocked }.map { it.id }.toSet()
+        // CR 509.3d: "becomes blocked by a creature" triggers for each creature blocking it as it becomes blocked, and for each creature
+        // newly blocking it after that (one put onto the battlefield blocking it, CR 509.4)
+        if (pattern.perBlocker) return c.after?.attackers.orEmpty().filter { it.blocked && e.matches(pattern.attacker, it.id) }.flatMap { a ->
+            val before = if (a.id !in wasBlocked) emptySet() else c.before?.blockers.orEmpty().filter { a.id in it.attackers }.map { it.id }.toSet()
+            c.after?.blockers.orEmpty().filter { a.id in it.attackers && it.id !in before && e.matches(pattern.blocker, it.id) }.map { b ->
+                TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, listOf(b.id))))
+            }
+        }
         return c.after?.attackers.orEmpty().filter { it.blocked && it.id !in wasBlocked && e.matches(pattern.attacker, it.id) }.flatMap { a ->
             val blockers = c.after?.blockers.orEmpty().filter { a.id in it.attackers && e.matches(pattern.blocker, it.id) }.map { it.id }
-            when {
-                blockers.isEmpty() -> emptyList()
-                pattern.perBlocker -> blockers.map { b ->
-                    TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, listOf(b))))
-                }
-                else -> listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, blockers))))
-            }
+            if (blockers.isEmpty()) emptyList() else listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, blockers))))
         }
     }
 

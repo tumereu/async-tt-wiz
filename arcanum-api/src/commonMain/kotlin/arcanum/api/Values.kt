@@ -230,8 +230,9 @@ sealed interface Condition {
      * graveyard" about another creature. */
     @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects) : Condition
     // otj
-    /** [condition] held as this spell became cast (CR 601.2i): "if you controlled a Mount as you cast this spell". Checked then and kept
-     * with the spell; false for a spell that wasn't cast (a copy, CR 707.10). */
+    /** [condition] held as this spell became cast (CR 601.2i): "if you controlled a Mount as you cast this spell"; addendum, "if you cast
+     * this spell during your main phase" (CR 207.2c, 505.1). Checked then and kept with the spell; false for a spell that wasn't cast (a
+     * copy, CR 707.10). */
     @Serializable @SerialName("as-cast") data class AsCast(val condition: Condition) : Condition
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */

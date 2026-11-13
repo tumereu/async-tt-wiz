@@ -99,6 +99,28 @@ object WebBack {
 /** WEB-002: Back leaves a game's table at once in the browser. */
 actual val secondBackLeavesTable: Boolean = false
 
+/** WEB-013: the browser offers the desktop layout. */
+actual val desktopLayoutOffered: Boolean = true
+
+private fun jsPointerHovers(): Boolean = js("window.matchMedia('(hover: hover) and (pointer: fine)').matches")
+private fun jsWatchPointer(changed: () -> Unit): JsAny = js("""{
+    const query = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const listener = () => changed();
+    query.addEventListener('change', listener);
+    return () => query.removeEventListener('change', listener);
+}""")
+private fun jsCall(stop: JsAny): Unit = js("stop()")
+
+/** WEB-013: the browser's "(hover: hover) and (pointer: fine)" media query, followed while composed. */
+@Composable actual fun pointerHovers(): Boolean {
+    var hovers by remember { mutableStateOf(jsPointerHovers()) }
+    DisposableEffect(Unit) {
+        val stop = jsWatchPointer { hovers = jsPointerHovers() }
+        onDispose { jsCall(stop) }
+    }
+    return hovers
+}
+
 @Composable actual fun screenWidthDp(): Int =
     (LocalWindowInfo.current.containerSize.width / LocalDensity.current.density).toInt()
 

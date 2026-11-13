@@ -163,7 +163,7 @@ class OneChunk06AffinityCompleatedEnchantTest {
         loyalty(-1, create(creatureToken("Phyrexian Beast", listOf(Color.Green), 3, 3, abilities = listOf(Keyword.Toxic(1))))),
         loyalty(-4,
             damage(Value.DividedShare, toObjects(target("planeswalkers"))),
-            targets = listOf(TargetSlot("planeswalkers", TargetKind.Objects(or(creature, planeswalker)), min = n(1), max = null,
+            targets = listOf(TargetSlot("planeswalkers", TargetKind.Objects(or(creature, planeswalker)), min = n(0), max = null,
                 divided = Value.Of(NumericProperty.Power, Objects.Each(creatureYouControl), Combine.Greatest))),
         ),
     )

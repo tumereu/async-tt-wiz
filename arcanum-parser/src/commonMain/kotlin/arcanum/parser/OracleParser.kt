@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 88
+    const val VERSION: Int = 89
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -54,7 +54,10 @@ object OracleParser {
             // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
             (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life.")) ||
             // tla chunk 01: "As an additional cost to cast this spell, waterbend {X}." (X announced as it is cast, CR 601.2b, 107.3)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, waterbend {X}."))
+            (isSpell && card.text.contains("As an additional cost to cast this spell, waterbend {X}.")) ||
+            // one chunk 14: "As an additional cost to cast this spell, sacrifice an artifact or creature with mana value X." (X in an additional
+            // cost, not defined by the text: announced as it is cast, CR 107.3a)
+            (isSpell && ADDITIONAL_COST_WITH_X.containsMatchIn(card.text))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
@@ -716,6 +719,7 @@ object OracleParser {
     private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
+    private val ADDITIONAL_COST_WITH_X = Regex("""As an additional cost to cast this spell, [^.\n]*\bX\b""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")

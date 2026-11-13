@@ -22703,7 +22703,7 @@ internal class Sentences(
             val name = Filters.slotName(noun)
             // mh2 chunk 07: a fixed amount
             val amount = m.groupValues[2].toIntOrNull()?.let { Value.Fixed(it) } ?: Value.Announced(name = "X")
-            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(1), max = null, divided = amount)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = null, divided = amount)
             return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target(name)), Value.DividedShare, source)))
         }
         // tdm chunk 14: "each opponent loses half their life, rounded up" (CR 107.1a)

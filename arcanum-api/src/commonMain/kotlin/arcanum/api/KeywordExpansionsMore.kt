@@ -418,6 +418,29 @@ internal object KeywordExpansionsMore {
         Cost(cost.parts + CostPart.Exile(CostObjects.Self, Zone.Graveyard, postBind = bind)), Instructions(steps = steps),
         ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You), functionsIn = listOf(Zone.Graveyard))
 
-    /** [cost] paid [times] times (its mana parts; cumulative upkeep's "for each age counter"). */
-    private fun times(cost: Cost, times: Value) = Cost(cost.parts.map { if (it is CostPart.Mana && it.times == null) it.copy(times = times) else it })
+    /** [cost] paid [times] times (cumulative upkeep's "for each age counter", CR 702.24a): its mana parts [times] times, the
+     * counted parts ("Discard a card", "Pay 2 life", "Sacrifice a creature") [times] as many; a part that can't be scaled
+     * becomes [CostPart.Manual]. */
+    private fun times(cost: Cost, times: Value) = Cost(cost.parts.map { part ->
+        fun scaled(amount: Value): Value? = (amount as? Value.Fixed)?.value?.let { if (it == 1) times else Value.Times(times, it) }
+        fun scaledObjects(what: CostObjects): CostObjects? = when (what) {
+            is CostObjects.Choose -> what.count?.takeIf { what.total == null }?.let { scaled(it) }?.let { what.copy(count = it) }
+            else -> null
+        }
+        when (part) {
+            is CostPart.Mana -> if (part.times == null) part.copy(times = times) else null
+            is CostPart.PayLife -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.PayEnergy -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.Mill -> scaled(part.count)?.let { part.copy(count = it) }
+            is CostPart.GetCounters -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.PutCounters -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.RemoveCounters -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.Discard -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.Sacrifice -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.Exile -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.ReturnToHand -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.TapObjects -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            else -> null
+        } ?: CostPart.Manual("$part for each age counter")
+    })
 }

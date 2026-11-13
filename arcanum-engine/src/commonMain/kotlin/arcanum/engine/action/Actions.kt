@@ -493,6 +493,7 @@ internal object Actions {
         val linked = mutableListOf<WaitingTrigger>()
         // dsk gaps: prevention effects' additional effects, done immediately after the damage event (CR 615.5)
         val afterwards = mutableListOf<() -> Unit>()
+        val prevented = mutableMapOf<String, Int>()
         val after = parts.filter { it.amount > 0 }.mapNotNull { part ->
             val affected = when (val r = part.recipient) {
                 is TargetRef.Player -> r.id
@@ -503,7 +504,7 @@ internal object Actions {
                 proposed = { d -> Change.Damage(listOf(d)) },
                 modify = { d, r, instance ->
                     if (r.prevention == null) modifyDamage(act, d, r)
-                    else prevent(act, d, r, r.prevention, cantBePrevented || unpreventable(act, d), instance, afterwards)
+                    else prevent(act, d, r, r.prevention, cantBePrevented || unpreventable(act, d), instance, afterwards, prevented)
                 },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
@@ -698,16 +699,23 @@ internal object Actions {
     }
 
     /** Applies prevention effect [r] to [d] (CR 615): what is left of the damage, or null when none is. Damage that
-     * [cantBePrevented] is left as it is (CR 615.12). An additional effect is queued in [afterwards] (CR 615.5). */
+     * [cantBePrevented] is left as it is (CR 615.12). An additional effect is queued in [afterwards] (CR 615.5): once for all the
+     * simultaneous damage the same effect applies to ([prevented] adds up its amount by effect), unless it reads the damage event's own
+     * objects, which differ part by part (dmr chunk 04: "prevent that damage. Remove a +1/+1 counter" blocked by two creatures removes one;
+     * CR 615.13: a prevention effect is applied to one or more simultaneous damage events). */
     private fun prevent(
         act: Act, d: DamageDealt, r: Replacement, p: Prevention, cantBePrevented: Boolean, instance: TriggerEvent,
-        afterwards: MutableList<() -> Unit>,
+        afterwards: MutableList<() -> Unit>, prevented: MutableMap<String, Int>,
     ): DamageDealt? {
         if (p is Prevention.Amount && p.additional != null) {
             val steps = p.additional.steps
-            afterwards += {
+            val once = "EventObject(" !in steps.toString()
+            val first = !once || r.key !in prevented
+            prevented[r.key] = (prevented[r.key] ?: 0) + d.amount
+            if (first) afterwards += {
                 val c = Cause(r.controller, r.source, key = "prevented:${act.state.nextTimestamp()}")
-                arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, c, r.names, instance.copy(amount = d.amount)), steps)
+                val amount = if (once) prevented[r.key] ?: d.amount else d.amount
+                arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, c, r.names, instance.copy(amount = amount)), steps)
             }
         }
         if (cantBePrevented) return d

@@ -813,6 +813,15 @@ internal object Events {
         GTC_DEALS_COMBAT_DAMAGE.matchEntire(text)?.let { m ->
             return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(), combat = true.takeIf { m.groupValues[2].isNotEmpty() })
         }
+        // dmr chunk 04: "this creature deals damage to a creature" (combat or not, CR 120.1; to any one creature)
+        DMR_DEALS_DAMAGE_TO_A.matchEntire(text)?.let { m ->
+            val to = when (m.groupValues[3]) {
+                "player" -> arcanum.api.RecipientFilter(players = PlayerFilter.Any)
+                "opponent" -> arcanum.api.RecipientFilter(players = PlayerFilter.Opponent)
+                else -> arcanum.api.RecipientFilter(objects = Filters.noun(m.groupValues[3]) ?: return null)
+            }
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, to, combat = true.takeIf { m.groupValues[2].isNotEmpty() })
+        }
         // dgm: "a creature deals combat damage to you"
         GTC_DEALS_COMBAT_DAMAGE_TO_YOU.matchEntire(text)?.let { m ->
             return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = PlayerFilter.You), combat = true)
@@ -867,6 +876,7 @@ internal object Events {
     private val GTC_BECOMES_TAPPED = Regex("""(.+) becomes tapped""")
     private val GTC_IS_TAPPED_FOR_MANA = Regex("""(.+) is tapped for mana""")
     private val GTC_DEALS_COMBAT_DAMAGE = Regex("""(.+) deals (combat )?damage""")
+    private val DMR_DEALS_DAMAGE_TO_A = Regex("""(.+) deals (combat )?damage to an? (creature|player|opponent|planeswalker|permanent)""")
     private val GTC_DEALS_COMBAT_DAMAGE_TO_YOU = Regex("""(.+) deals combat damage to you""")
     private val GTC_PUT_INTO_OPPONENTS_GRAVEYARD = Regex("""(.+) is put into an opponent's graveyard from anywhere""")
     private val GTC_SPELL_DEALS_DAMAGE = Regex("""an? (.+ spell you control) deals damage""")
@@ -1313,6 +1323,10 @@ internal object Conditions {
             // dsk chunk 09: "you control another creature with power 2 or less"
             val exists = Condition.Exists(if (m.groupValues[2] == "another") Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter) else filter, atLeast = 1)
             return if (m.groupValues[1].isEmpty()) exists else Condition.Not(exists)
+        }
+        // dmr chunk 04: "this ability has been activated four or more times this turn" (counting this activation)
+        Dmr.ACTIVATED_N_OR_MORE_TIMES.matchEntire(text)?.let { m ->
+            return Condition.Compare(Value.AbilityUsesThisTurn(resolved = false), Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
         }
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
         NTH_RESOLUTION.matchEntire(text)?.let { m ->

@@ -4894,7 +4894,8 @@ internal class Sentences(
             // set check (RTR, TDM): "unless its controller pays {X}" in a spell with {X} in its cost: the X announced as
             // it was cast (CR 107.3a)
             val x = Value.Announced("X").takeIf { cost.symbols.any { it is arcanum.api.ManaSymbol.Variable } }
-            return unlessPays(Players.ControllerOf(spell), Cost(listOf(CostPart.Mana(cost, x = x))), listOf(counter))
+            val times = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { perEach(it) ?: return null }
+            return unlessPays(Players.ControllerOf(spell), Cost(listOf(CostPart.Mana(cost, times = times, x = x))), listOf(counter))
         }
         COUNTERED_THIS_WAY.matchEntire(sentence)?.let { m ->
             val spell = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
@@ -5668,7 +5669,12 @@ internal class Sentences(
         // chunks 52, 56: "If [condition], [effect]." (checked as it resolves)
         IF_CONDITION.matchEntire(sentence)?.let { m ->
             val condition = itCondition(m.groupValues[1], context) ?: Conditions.condition(m.groupValues[1], self)
+            val before = context.targets.size
             val then = condition?.let { effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) }
+            // dmr chunk 04: "If this spell was kicked, it deals damage … to target creature.": a target of the part that needs an
+            // additional cost paid is chosen only if it was (CR 601.2c)
+            if (condition is arcanum.api.Condition.Paid && condition.of == Objects.Self && then != null)
+                for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = condition)
             if (condition != null && then != null) return listOf(Step.If(condition, then = then))
         }
         // chunk 21: "You may [do something]." with nothing depending on it (CR 608.2d)
@@ -8753,7 +8759,10 @@ internal class Sentences(
         // blb chunk 02: "[Effect] at the beginning of the next end step." (a delayed trigger, CR 603.7)
         Blb.AT_NEXT_END_STEP.matchEntire(sentence)?.takeIf { it.groupValues[1] != "Return it to the battlefield under its owner's control" &&
             // inr sweep: one sentence only ("You may exile Hikari. If you do, return it …" isn't all delayed)
-            ". " !in it.groupValues[1] }?.let { m ->
+            ". " !in it.groupValues[1] &&
+            // dmr chunk 04: "If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next
+            // end step.": the condition is checked as the ability resolves, and only then is the delayed trigger created (CR 608.2c, 603.7a)
+            !it.groupValues[1].startsWith("If ") }?.let { m ->
             // inr chunk 06: "When you sacrifice this creature, return it to the battlefield transformed ... at the beginning of the next end step":
             // "it" is the card in the graveyard (CR 400.7), named now because the delayed trigger has another event (CR 603.7c)
             // inr chunk 14: the same for "Whenever another creature dies, return that card to its owner's hand at the beginning of the next end step"
@@ -11076,7 +11085,8 @@ internal class Sentences(
         val CREATE_NAMED_LEGENDARY_TOKEN = Regex("""Create ([A-Z][A-Za-z]+), an? (legendary )?(colorless) ([A-Z][a-z]+ [a-z]+) token with "(.+?)"(?: and ([a-z]+ \{[^}]+\}))?\.""")
         // blb chunk 07
         val AS_LONG_AS_SELF_HAS = Regex("""As long as (.+?), (.+?) has ([a-z ,]+)\.""")
-        val ENTERS_WITH_COUNTER_IF = Regex("""(.+) enters with (a|an|one|two) (\S+) counters? on it if (.+)\.""")
+        // dmr chunk 04: any number word ("four +1/+1 counters")
+        val ENTERS_WITH_COUNTER_IF = Regex("""(.+) enters with (${Numbers.WORD_PATTERN}) (\S+) counters? on it if (.+)\.""")
         val OTHERS_ENTER_WITH_ADDITIONAL = Regex("""(.+) enter with an additional (\S+) counter on them for each (.+)\.""")
         val PUT_ITS_COUNTERS_ON_TARGET = Regex("""Put its counters on target (.+)\.""")
         val CHOOSE_TARGET_PLAYER = Regex("""Choose target (opponent|player)\.""")
@@ -11177,7 +11187,8 @@ internal class Sentences(
         val UNTAP_UP_TO = Regex("""Untap up to (\w+) (.+)\.""")
         val RETURN_TO_HAND_COST = Regex("""Return (.+) to (?:its|their) owners?'s? hands?""")
         val EXILE_FROM_HAND_COST = Regex("""Exile an? (.+) from your hand""")
-        val COUNTER_TARGET = Regex("""Counter target (.+?)(?: unless its controller pays (\{.+\}))?\.""")
+        // dmr chunk 04: "… unless its controller pays {1} for each card in your graveyard" (CR 118.12a)
+        val COUNTER_TARGET = Regex("""Counter target (.+?)(?: unless its controller pays (\{.+?\})(?: for each (.+))?)?\.""")
         val COUNTERED_THIS_WAY = Regex("""If that spell is countered this way, (exile it|put it on top of its owner's library|put it into its owner's hand) instead of .+\.""")
         val NEXT_MAIN_PHASE_ADD_MANA_VALUE = Regex("""At the beginning of your next main phase, add an amount of \{C\} equal to that spell's mana value\.""")
         val yourHand = ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))
@@ -14381,7 +14392,8 @@ internal class Sentences(
         }
         // tmt chunk 07: "Go Ninja Go deals damage equal to the greatest power among creatures you control to target creature an opponent controls."
         Tmt.DEALS_DAMAGE_EQUAL_TO_TARGET.matchEntire(sentence)?.takeIf { tmtSelfName(it.groupValues[1]) }?.let { m ->
-            val amount = Values.value(m.groupValues[2], exiledCard) ?: return null
+            // dmr chunk 04: an amount this doesn't know goes on to the other rules ("that permanent's mana value", sos)
+            val amount = Values.value(m.groupValues[2], exiledCard) ?: return@let
             val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[3]))
             context.targets += tmtSlot(name, Filters.noun(m.groupValues[3]) ?: return null)
             return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target(name)), amount, Objects.Self)))
@@ -15739,6 +15751,20 @@ internal class Sentences(
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Dmr.playersWithMostLife)), Affected.Objects(Objects.Self),
                 arcanum.api.Duration.Indefinitely)))
         }
+        // dmr chunk 04: "If there are no mining counters on this land, sacrifice it." (checked as the ability resolves; "it" is this land)
+        Dmr.IF_NO_COUNTERS_SACRIFICE_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1))),
+                then = listOf(Step.Do(Effect.Sacrifice(Objects.Self)))))
+        }
+        // dmr chunk 04: "This creature becomes the color of your choice until end of turn." (layer 5, CR 105.3, 613.1e)
+        Dmr.BECOMES_COLOR_OF_CHOICE.matchEntire(sentence)?.let { m ->
+            val what = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1].startsWith("Target ") || m.groupValues[1].startsWith("target "))
+                context.target(Filters.slotName(m.groupValues[1].substringAfter(' ')), Filters.noun(m.groupValues[1].substringAfter(' ')) ?: return null) else return null
+            return listOf(Step.Choose(arcanum.api.Choice.Color(), bind = "color", chooser = Players.You),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetColors(listOf(arcanum.api.ColorRef.Chosen("color")))), Affected.Objects(what),
+                    arcanum.api.Duration.EndOfTurn)))
+        }
         return null
     }
 
@@ -15816,8 +15842,8 @@ internal class Sentences(
     private fun isdStatic(line: String): Ability? {
         // isd chunk 06: "If this creature would be dealt damage, prevent that damage and remove a +1/+1 counter from it." (the prevention, then
         // the rest as part of the same effect, CR 615.5)
-        Isd.WOULD_BE_DEALT_DAMAGE_PREVENT_AND.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val rest = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }.replace(Regex(""" (?:from|on) it$"""), " from this permanent") + ".", Context()) ?: return@let
+        Isd.WOULD_BE_DEALT_DAMAGE_PREVENT_AND.matchEntire(line)?.takeIf { isSelf(it.groupValues[1].ifEmpty { it.groupValues[2] }) }?.let { m ->
+            val rest = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }.replace(Regex(""" (?:from|on) it$"""), " from this permanent") + ".", Context()) ?: return@let
             return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self))),
                 additional = Instructions(steps = rest))), affects = Affected.Objects(Objects.Self))
         }
@@ -17338,8 +17364,13 @@ internal class Sentences(
         }
         // sos chunk 12: "Steal the Show deals damage equal to the number of instant and sorcery cards in your graveyard to target creature or
         // planeswalker."
-        Sos.DEALS_DAMAGE_EQUAL_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val amount = SosPhrases.value(m.groupValues[2]) ?: return@let
+        // dmr chunk 04: also "It deals damage …" in a spell or an activated ability (this object)
+        Sos.DEALS_DAMAGE_EQUAL_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "It" && context.event == null }?.let { m ->
+            // dmr chunk 04: "that permanent's mana value" (the target before, as it last existed: CR 608.2h)
+            val amount = SosPhrases.value(m.groupValues[2]) ?: Dmr.THAT_PERMANENTS_PROPERTY.matchEntire(m.groupValues[2])?.let { p ->
+                val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return@let null
+                Value.Of(Dmr.property(p.groupValues[1]), of, arcanum.api.Combine.Single)
+            } ?: return@let
             val target = context.target(Filters.slotName(m.groupValues[3]), Filters.noun(m.groupValues[3]) ?: return null)
             return listOf(Step.Do(Effect.DealDamage(Recipients(objects = target), amount, Objects.Self)))
         }

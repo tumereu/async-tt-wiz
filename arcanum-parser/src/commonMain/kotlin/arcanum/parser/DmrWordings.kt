@@ -16,6 +16,19 @@ internal object Dmr {
     val PUT_FROM_YOUR_GRAVEYARD_ON_BOTTOM_COST = Regex("""Put (\w+) cards? from your graveyard on the bottom of your library""")
     // dmr chunk 01: Wild Dogs
     val PLAYER_WITH_MOST_LIFE_GAINS_CONTROL = Regex("""[Tt]he player with the most life gains control of (.+)\.""")
+    // dmr chunk 04: Orim's Thunder
+    val THAT_PERMANENTS_PROPERTY = Regex("""that permanent's (mana value|power|toughness)""")
+    // dmr chunk 04: Spiritmonger
+    val BECOMES_COLOR_OF_CHOICE = Regex("""(.+?) becomes the color of your choice until end of turn\.""")
+    // dmr chunk 04: Dragon Whelp
+    val ACTIVATED_N_OR_MORE_TIMES = Regex("""this ability has been activated (\w+) or more times this turn""")
+    // dmr chunk 04: Gemstone Mine
+    val IF_NO_COUNTERS_SACRIFICE_IT = Regex("""If there are no (\S+) counters on (.+?), sacrifice it\.""")
+    fun property(word: String): arcanum.api.NumericProperty = when (word) {
+        "mana value" -> arcanum.api.NumericProperty.ManaValue
+        "power" -> arcanum.api.NumericProperty.Power
+        else -> arcanum.api.NumericProperty.Toughness
+    }
 
     /** "The player with the most life": each player whose life total equals the greatest life total (CR 119.1). */
     val playersWithMostLife: arcanum.api.Players = arcanum.api.Players.Each(arcanum.api.PlayerFilter.Where(arcanum.api.Condition.Compare(

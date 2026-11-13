@@ -23,7 +23,8 @@ internal object Isd {
     // isd chunk 06: Essence of the Wild
     val ENTER_AS_COPY_OF_SELF = Regex("""([A-Z][^.]+? you control) enter as a copy of (.+)\.""")
     // isd chunk 06: Unbreathing Horde
-    val WOULD_BE_DEALT_DAMAGE_PREVENT_AND = Regex("""If (.+?) would be dealt damage, prevent that damage and (.+)\.""")
+    // dmr chunk 04: also "If damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature."
+    val WOULD_BE_DEALT_DAMAGE_PREVENT_AND = Regex("""If (?:(.+?) would be dealt damage|damage would be dealt to (.+?)), prevent that damage(?: and|\.) (.+)\.""")
     // isd chunk 06: Kessig Cagebreakers
     val CREATE_TAPPED_AND_ATTACKING_FOR_EACH = Regex("""[Cc]reate (an? .+? token) that's tapped and attacking for each (.+)\.""")
     val HAS_KEYWORD = Regex("""(it|this \w+) has ([a-z][a-z ]*)""")

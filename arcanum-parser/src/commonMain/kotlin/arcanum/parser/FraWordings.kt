@@ -97,7 +97,8 @@ internal object Fra {
     val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|target .+?)\.""")
     val TARGET_LOSES_ALL_ABILITIES = Regex("""Target (.+?) loses all abilities until end of turn\.""")
     val SEARCH_UP_TO_THAT_MANY = Regex("""(You may )?[Ss]earch your library for up to that many (.+?), put them onto the battlefield( tapped)?, then shuffle\.""")
-    val GAINS_YOUR_CHOICE_OF = Regex("""(It|.+?) gains your choice of (.+?) until end of turn\.""")
+    // bro chunk 06: also "gets -1/-1 and gains your choice of …"
+    val GAINS_YOUR_CHOICE_OF = Regex("""(It|.+?) (?:gets ([+-]\d+)/([+-]\d+) and )?gains your choice of (.+?) until end of turn\.""")
     val THAT_CREATURE_DEALS_EACH_OPPONENT = Regex("""That creature deals (\d+) damage to each opponent\.""")
     val FIGHTS_UP_TO_ONE = Regex("""(It|.+?) fights up to one target (.+)\.""")
     val COUNTER_ON_EACH_TARGET_PLAYER_CONTROLS = Regex("""Put an? (\S+) counter on each (.+?) target player controls\.""")

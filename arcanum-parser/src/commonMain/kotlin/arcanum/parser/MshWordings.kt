@@ -23,7 +23,8 @@ internal object Msh {
     val AS_LONG_AS_YOU_AND_HAVE = Regex("""As long as (.+), you and (.+) have (hexproof)\.""")
     val YOU_CAST_SPELL_THAT_TARGETS = Regex("""you cast an? (.*?)spell that targets (?:an? |one or more )?(.+)""")
     val PLAYER_CASTS_SPELL_THAT_TARGETS = Regex("""a player casts a spell that targets (.+)""")
-    val OPPONENTS_CANT_CAST_DURING_YOUR_TURN = Regex("""Your opponents can't cast spells during your turn\.""")
+    // bro chunk 06: also "During your turn, your opponents can't cast spells or activate abilities of artifacts, creatures, or enchantments."
+    val OPPONENTS_CANT_CAST_DURING_YOUR_TURN = Regex("""(During your turn, y|Y)our opponents can't cast spells(?: or activate abilities of (.+?))?( during your turn)?\.""")
     val AS_LONG_AS_MAY_CAST_AS_FLASH = Regex("""As long as (.+), you may cast spells as though they had flash\.""")
     val TEAMWORK_INSTEAD = Regex("""If this spell was cast using teamwork, instead (.+)\.""")
     val TEAMWORK_IT_DEALS_INSTEAD = Regex("""If this spell was cast using teamwork, it deals (\d+) damage to that creature instead\.""")

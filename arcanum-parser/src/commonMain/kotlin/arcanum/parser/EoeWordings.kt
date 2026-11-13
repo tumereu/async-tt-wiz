@@ -104,7 +104,9 @@ internal object EoePhrases {
         }
         // eoe chunk 12: "another creature you control dies or is put into exile" (from the battlefield, CR 700.4)
         Eoe.DIES_OR_EXILED.matchEntire(text)?.let { m ->
-            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val subject = m.groupValues[1]
+            val noun = if (subject in self || subject.replaceFirstChar { it.lowercase() } in self) ObjectFilter.Is(arcanum.api.Objects.Self)
+                else if (subject.startsWith("another ")) Filters.noun(subject) ?: return null else return@let
             return listOf(EventPattern.ZoneChange(noun, from = Zone.Battlefield, to = Zone.Graveyard), EventPattern.ZoneChange(noun, from = Zone.Battlefield, to = Zone.Exile))
         }
         // eoe chunk 13: "you play a land or cast a spell" (CR 305.1, 601.2i)
@@ -242,7 +244,8 @@ internal object Eoe {
     val SPELLS_YOU_CAST_HAVE_AFFINITY = Regex("""Spells you cast have affinity for (\w+)\.""")
     val DESTROY_ALL_THEN_TARGET_PLAYERS_MILL_HALF = Regex("""Destroy all (.+?), then any number of target players each mill half their library, rounded (down|up)\.""")
     val TARGET_PLAYER_MILLS_EQUAL_LIFE = Regex("""Target player mills cards equal to your life total\.""")
-    val DIES_OR_EXILED = Regex("""(another .+?) dies or is put into exile""")
+    // bro chunk 06: also this object, and "… from the battlefield"
+    val DIES_OR_EXILED = Regex("""(.+?) dies or is put into exile(?: from the battlefield)?""")
     val SELF_DIES_OR_EXILED_WHILE_POWER = Regex("""When (.+?) dies or is put into exile while its power is (\d+) or greater, (.+)""")
     val EXILE_EACH_OPPONENTS_GRAVEYARD = Regex("""[Ee]xile each opponent's graveyard\.""")
     val ACTIVATED_COSTS_X_LESS_WHERE = Regex("""This ability costs \{X\} less to activate, where X is (.+?)\.""")

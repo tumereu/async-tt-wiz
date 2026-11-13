@@ -12,6 +12,10 @@ import arcanum.api.Zone
 internal object Mom {
     // mom chunk 01: Blightreaper Thallid "this creature transforms into Blightsower Thallid or dies"
     val TRANSFORMS_INTO_OR_DIES = Regex("""(.+) transforms into (.+) or dies""")
+    // mom chunk 03: Elesh Norn "that source's controller loses 2 life" (a damage trigger's source)
+    val THAT_SOURCES_CONTROLLER_LOSES = Regex("""[Tt]hat source's controller loses (\d+) life\.""")
+    // mom chunk 03: Corruption of Towashi "a permanent you control transforms or a permanent you control enters transformed"
+    val TRANSFORMS_OR_ENTERS_TRANSFORMED = Regex("""(.+) transforms or (.+) enters transformed""")
     // mom chunk 01: Zilortha, Apex of Ikoria
     val MAY_ASSIGN_AS_THOUGH_UNBLOCKED = Regex("""(?:For each (.+?), you may have that creature|You may have (.+?)) assign its combat damage as though it weren't blocked\.""")
     // mom chunk 01: Ayara, Furnace Queen
@@ -39,7 +43,15 @@ internal object MomPhrases {
     // mom chunk 01: Invasion of Ravnica "spell that's exactly two colors", "permanent … that isn't exactly two colors" (CR 105.2)
     private val THATS_EXACTLY_COLORS = Regex("""(.+?) that(?:'s| is| (isn't)) exactly (\w+) colors?""")
 
+    // mom chunk 03: The Argent Etchings "other permanents except for artifacts, lands, and Phyrexians"
+    private val EXCEPT_FOR = Regex("""(.+?) except for (.+)""")
+
     fun noun(phrase: String): ObjectFilter? {
+        EXCEPT_FOR.matchEntire(phrase)?.let { m ->
+            // "artifacts, lands, and Phyrexians": an object of any of them is excepted
+            val excepted = m.groupValues[2].split(Regex(""",? and |, """)).map { Filters.noun(it) ?: return null }
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(excepted.singleOrNull() ?: ObjectFilter.Or(excepted)))
+        }
         THATS_EXACTLY_COLORS.matchEntire(phrase)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return null
             val count = ObjectFilter.ColorCount(Numbers.count(m.groupValues[3]) ?: return null)

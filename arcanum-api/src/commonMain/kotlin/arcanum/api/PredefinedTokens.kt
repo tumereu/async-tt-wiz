@@ -46,11 +46,24 @@ object PredefinedTokens {
                 max = Value.Fixed(1), bind = "found", zones = listOf(Zone.Library), searcher = Players.You)),
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
             Step.Do(Effect.Shuffle(Players.You)))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        // mom chunk 03: CR 111.10i: the front face of the double-faced Incubator token, a colorless Incubator artifact with
+        // "{2}: Transform this token." (its back face is [back])
+        "Incubator" -> artifact("Incubator", Ability.Activated(Cost(listOf(mana("{2}"))), steps(Effect.Transform(Objects.Self)),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        else -> null
+    }
+
+    /** The back face of a double-faced predefined token (CR 111.10i), null for a single-faced one: the token's layout is then
+     * [Layout.Transform] with [face] as its front face. */
+    fun back(name: String): FaceDefinition? = when (name) {
+        // CR 111.10i: a 0/0 colorless Phyrexian artifact creature named Phyrexian Token
+        "Incubator" -> FaceDefinition("Phyrexian Token", colorIndicator = emptyList(), types = listOf(CardType.Artifact, CardType.Creature),
+            subtypes = listOf(Subtype("Phyrexian")), power = PrintedNumber.Fixed(0), toughness = PrintedNumber.Fixed(0))
         else -> null
     }
 
     /** Every name [face] knows. */
-    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander")
+    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander", "Incubator")
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)

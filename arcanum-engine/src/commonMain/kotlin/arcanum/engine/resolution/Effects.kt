@@ -1584,6 +1584,13 @@ internal object Effects {
                         Duration.Indefinitely, null, locked = listOf(army))
                 scope.bind(bind, NamedValue.Objects(listOf(army)))
             }
+            // mom chunk 03: CR 701.53a: create an Incubator token (CR 111.10i) that enters with N +1/+1 counters on it
+            is KeywordAction.Incubate -> {
+                val e = scope.eval()
+                val token = Actions.createTokens(act, cause, Actions.tokenValues(act, e, arcanum.api.TokenSpec.Predefined("Incubator")), 1, scope.actor,
+                    withCounters = listOf(CounterKind.PowerToughness(1, 1) to e.value(action.count).coerceAtLeast(0)))
+                scope.bind(bind, NamedValue.Objects(token))
+            }
             // fra: CR 701.4a: reveal a matching card from your hand or choose a matching permanent you control; ecl: N different ones
             is KeywordAction.Behold -> {
                 val options = beholdable(scope, scope.actor, action.filter)

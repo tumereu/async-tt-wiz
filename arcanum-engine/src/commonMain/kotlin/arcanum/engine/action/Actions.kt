@@ -839,10 +839,13 @@ internal object Actions {
      *
      * [fromSpellCopy]: a copy of a permanent spell becoming a token as it resolves (CR 111.13, 608.3f, 707.10f), with
      * the copy's facts; it isn't "created", so replacements and triggers on creating tokens don't see it.
+     *
+     * [withCounters]: counters each token enters with by the effect itself ("an Incubator token that enters with N +1/+1 counters on it",
+     * CR 701.53a), put on it as it enters with any others, so replacements on putting counters see them (CR 122.6).
      */
     fun createTokens(
         act: Act, cause: Cause, values: arcanum.engine.state.CopiableValues, count: Int, controller: PlayerId, tapped: Boolean = false,
-        attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.CastFacts? = null,
+        attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.CastFacts? = null, withCounters: List<Pair<CounterKind, Int>> = emptyList(),
     ): List<ObjectId> {
         if (count <= 0) return emptyList()
         val linked = mutableListOf<WaitingTrigger>()
@@ -902,7 +905,7 @@ internal object Actions {
             val enters = Replacements.candidates(act, cause).filter { r ->
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
             }
-            var o = t
+            var o = t.copy(counters = withCounters.filter { it.second > 0 }.map { (kind, n) -> CounterEntry(kind, n, t.timestamp) })
             enters.forEach { r ->
                 // gtc: "this creature" of another permanent's replacement is that permanent (Master Biomancer's power)
                 val e = Evaluator(proposedBoard(), Context(you = r.controller, self = r.source ?: t.id, names = r.names))
@@ -944,8 +947,12 @@ internal object Actions {
             power = spec.power?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.power,
             toughness = spec.toughness?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.toughness,
         ))
-        is arcanum.api.TokenSpec.Predefined -> arcanum.engine.state.CopiableValues.of(arcanum.api.PredefinedTokens.face(spec.name)
-            ?: FaceDefinition("${spec.name} Token"))
+        is arcanum.api.TokenSpec.Predefined -> {
+            val front = arcanum.api.PredefinedTokens.face(spec.name) ?: FaceDefinition("${spec.name} Token")
+            // mom chunk 03: a double-faced token (CR 111.10i), front face up
+            val back = arcanum.api.PredefinedTokens.back(spec.name)
+            if (back == null) arcanum.engine.state.CopiableValues.of(front) else arcanum.engine.state.CopiableValues(arcanum.api.Layout.Transform, listOf(front, back))
+        }
         is arcanum.api.TokenSpec.CopyOf -> {
             val of = e.objects(spec.objects).firstOrNull()
             val values = of?.let { arcanum.engine.view.Copiable(act.state).forToken(it)?.takeIf { v -> v.faces.isNotEmpty() } }

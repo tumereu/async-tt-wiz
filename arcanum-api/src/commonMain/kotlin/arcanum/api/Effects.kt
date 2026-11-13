@@ -447,6 +447,9 @@ sealed interface KeywordAction {
     @Serializable @SerialName("populate") data object Populate : KeywordAction
     @Serializable @SerialName("explore") data class Explore(val objects: Objects) : KeywordAction
     @Serializable @SerialName("amass") data class Amass(val subtype: Subtype, val count: Value) : KeywordAction
+    /** mom chunk 03: "Incubate N" (CR 701.53a): create an Incubator token ([PredefinedTokens], double-faced, CR 111.10i) that enters the
+     * battlefield with [count] +1/+1 counters on it. The bind of [Effect.Action] names the token. */
+    @Serializable @SerialName("incubate") data class Incubate(val count: Value) : KeywordAction
     @Serializable @SerialName("connive") data class Connive(val objects: Objects, val count: Value) : KeywordAction
     @Serializable @SerialName("discover") data class Discover(val count: Value) : KeywordAction
     /** "Venture into the dungeon" (CR 701.49a–c). */

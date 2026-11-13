@@ -275,6 +275,8 @@ sealed interface KeywordActionKind {
     @Serializable @SerialName("foretell") data object Foretell : KeywordActionKind
     @Serializable @SerialName("give-gift") data object GiveGift : KeywordActionKind
     @Serializable @SerialName("goad") data object Goad : KeywordActionKind
+    /** mom chunk 03: CR 701.53. */
+    @Serializable @SerialName("incubate") data object Incubate : KeywordActionKind
     @Serializable @SerialName("investigate") data object Investigate : KeywordActionKind
     @Serializable @SerialName("learn") data object Learn : KeywordActionKind
     @Serializable @SerialName("manifest") data object Manifest : KeywordActionKind
@@ -316,6 +318,7 @@ val KeywordAction.kind: KeywordActionKind get() = when (this) {
     KeywordAction.Forage -> KeywordActionKind.Forage
     KeywordAction.Foretell -> KeywordActionKind.Foretell
     is KeywordAction.Goad -> KeywordActionKind.Goad
+    is KeywordAction.Incubate -> KeywordActionKind.Incubate
     is KeywordAction.Investigate -> KeywordActionKind.Investigate
     KeywordAction.Learn -> KeywordActionKind.Learn
     is KeywordAction.Manifest -> KeywordActionKind.Manifest

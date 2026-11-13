@@ -258,6 +258,8 @@ internal object MechanicWordings {
     val ADAPT = Regex("""Adapt (\d+|X)\.""")
     val SUPPORT = Regex("""Support (\d+|X)\.""")
     val DISCOVER = Regex("""(?:You )?[Dd]iscover (\d+|X)\.""")
+    /** mom chunk 03: "Incubate 3.", "you incubate 2", "Incubate 2 twice.", "Incubate 2 five times" (CR 701.53a) */
+    val INCUBATE = Regex("""(?:[Yy]ou )?[Ii]ncubate (\d+|X)(?: (twice|\w+ times))?\.""")
     val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
     val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of your library\.""")
     /** "all creatures your opponents control", "each Merfolk creature you control" */

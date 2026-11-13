@@ -546,6 +546,13 @@ internal object Events {
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(transforms, EventPattern.ZoneChange(subject, from = Zone.Battlefield, to = Zone.Graveyard))
         }
+        // mom chunk 03: "a permanent you control transforms or a permanent you control enters transformed" (CR 701.27a, 712.14)
+        Mom.TRANSFORMS_OR_ENTERS_TRANSFORMED.matchEntire(text)?.let { m ->
+            val transforms = subject(m.groupValues[1], self) ?: return null
+            val enters = subject(m.groupValues[2], self) ?: return null
+            return listOf(EventPattern.Transform(transforms),
+                EventPattern.ZoneChange(Filters.all(enters, ObjectFilter.HasStatus(arcanum.api.Status.Transformed)), to = Zone.Battlefield))
+        }
         ENTERS_OR_DIES.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.ZoneChange(subject, from = Zone.Battlefield, to = Zone.Graveyard))
@@ -627,12 +634,15 @@ internal object Events {
         }
         // dsk chunk 07: "a source you control deals noncombat damage to an opponent"
         SOURCE_DEALS_DAMAGE_TO.matchEntire(text)?.let { m ->
-            val source = if (m.groupValues[1] == "a source you control") ObjectFilter.ControlledBy(PlayerFilter.You) else subject(m.groupValues[1], self) ?: return null
+            // mom chunk 03: "a source an opponent controls deals damage to you or a permanent you control" (either recipient)
+            val source = if (m.groupValues[1] == "a source you control") ObjectFilter.ControlledBy(PlayerFilter.You)
+                else if (m.groupValues[1] == "a source an opponent controls") ObjectFilter.ControlledBy(PlayerFilter.Opponent) else subject(m.groupValues[1], self) ?: return null
             val combat = when (m.groupValues[2]) { "noncombat " -> false; "combat " -> true; else -> null }
             val to = when (m.groupValues[3]) {
                 "an opponent" -> arcanum.api.RecipientFilter(players = PlayerFilter.Opponent)
                 "a player" -> arcanum.api.RecipientFilter(players = PlayerFilter.Any)
                 "you" -> arcanum.api.RecipientFilter(players = PlayerFilter.You)
+                "you or a permanent you control" -> arcanum.api.RecipientFilter(objects = Filters.noun("permanent you control"), players = PlayerFilter.You)
                 else -> return null
             }
             return EventPattern.Damage(source, to, combat = combat)
@@ -925,7 +935,7 @@ internal object Events {
     private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07
     private val A_SOURCE_DEALS_DAMAGE_TO_OBJECT = Regex("""a source deals damage to (.+)""")
-    private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you)""")
+    private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you|you or a permanent you control)""")
     // dsk chunk 06
     private val IS_TURNED_FACE_UP = Regex("""(.+) is turned face up""")
     private val YOU_TURN_FACE_UP = Regex("""you turn an? (.+) face up""")

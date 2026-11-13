@@ -229,3 +229,16 @@ val combatDamageToAPlayerOrBattle: Trigger = on(EventPattern.Damage(ObjectFilter
     players = PlayerFilter.Any), combat = true))
 /** The Siege reminder line (CR 310.11, 310.12): no ability of its own. */
 const val siegeReminder = "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)"
+
+// ---- mom chunk 03: incubate (CR 701.53, 111.10i)
+
+/** "Incubate N" (CR 701.53a) */
+fun incubate(count: Value): Step = Step.Do(Effect.Action(arcanum.api.KeywordAction.Incubate(count)))
+fun incubate(count: Int): Step = incubate(n(count))
+/** "Incubate N twice", "Incubate N five times": the action again each time */
+fun incubateTimes(times: Int, count: Value): Step = Step.Repeat(n(times), listOf(incubate(count)))
+val incubatorToken: ObjectFilter = and(sub("Incubator"), token, you)
+/** "transform all Incubator tokens you control" (CR 701.27a) */
+val transformAllIncubators: Step = Step.Do(Effect.Transform(Objects.Each(incubatorToken)))
+/** The incubate reminder of N ("two", "X"). */
+fun incubateReminder(n: String) = "(Create an Incubator token with $n +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)"

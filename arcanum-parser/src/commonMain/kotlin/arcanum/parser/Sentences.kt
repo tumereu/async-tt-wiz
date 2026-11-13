@@ -1185,6 +1185,14 @@ internal class Sentences(
         }
         // CR 701.57a
         MechanicWordings.DISCOVER.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Discover(mechanicCount(m.groupValues[1]) ?: return null)) }
+        // mom chunk 03: CR 701.53a; "twice", "five times": the whole action again each time
+        MechanicWordings.INCUBATE.matchEntire(sentence)?.let { m ->
+            val incubate = action(arcanum.api.KeywordAction.Incubate(mechanicCount(m.groupValues[1]) ?: return null))
+            val times = m.groupValues[2]
+            if (times.isEmpty()) return incubate
+            val n = if (times == "twice") 2 else Numbers.count(times.removeSuffix(" times")) ?: return null
+            return listOf(Step.Repeat(Value.Fixed(n), incubate))
+        }
         // CR 701.40a: "Manifest the top card of your library."
         MechanicWordings.MANIFEST_TOP.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Manifest(mechanicCount(m.groupValues[1]) ?: return null)) }
         // CR 701.58a: "Cloak the top card of your library."
@@ -2719,6 +2727,11 @@ internal class Sentences(
             if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
             else LtrPhrases.value(w.groupValues[1], event) /* ltr */ ?: mh2Value(w.groupValues[1]) /* mh2 */ ?: finValue(w.groupValues[1], event) /* fin */ ?: tlaValue(w.groupValues[1], event) ?: fdnValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
                 ?: TmtPhrases.value(w.groupValues[1], self) // tmt
+        }?.let { x ->
+            // mom chunk 03: "When this creature dies, incubate X, where X is its power": this object as it last existed on the battlefield, not
+            // the card it became (CR 400.7, 603.10a)
+            val left = (event as? EventPattern.ZoneChange)?.takeIf { it.objects == ObjectFilter.Is(Objects.Self) && it.from == Zone.Battlefield }
+            if (left != null && x is Value.Of && x.objects == Objects.Self) x.copy(objects = Objects.EventObject(EventRole.Before)) else x
         }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself; mom chunk 02: also when the plain
         // reading took X as the X its permanent was cast with ("gets -0/-X until end of turn, where X is this creature's power": X is defined
@@ -5313,7 +5326,10 @@ internal class Sentences(
         }
         // chunk 56: "Transform this creature." / "transform it" (CR 701.27)
         TRANSFORM.matchEntire(sentence)?.let { m ->
-            val objects = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1] == "it") context.it ?: return null else return@let
+            // mom chunk 03: "transform all Incubator tokens you control"
+            val all = m.groupValues[1].removePrefix("all ").takeIf { it != m.groupValues[1] }?.let { Filters.noun(it) }
+            val objects = if (isSelf(m.groupValues[1])) Objects.Self else if (m.groupValues[1] == "it") context.it ?: return null
+                else if (all != null) Objects.Each(all) else return@let
             context.it = objects // "Transform this land, then untap it." (inr chunk 02)
             return listOf(Step.Do(Effect.Transform(objects)))
         }
@@ -8749,7 +8765,10 @@ internal class Sentences(
             }
             val steps = effect(m.groupValues[1] + ".", context) ?: return null
             // fdn chunk 07: "that player loses 5 life unless they discard a card." after "Whenever an opponent casts a spell"
-            val payer = context.lastPlayer ?: Players.EventPlayer.takeIf { m.groupValues[1].startsWith("that player ", ignoreCase = true) && context.event != null } ?: return null
+            val payer = context.lastPlayer ?: Players.EventPlayer.takeIf { m.groupValues[1].startsWith("that player ", ignoreCase = true) && context.event != null }
+                // mom chunk 03: "that source's controller loses 2 life unless they pay {1}": the player who loses the life (CR 118.12a)
+                ?: ((steps.singleOrNull() as? Step.Do)?.effect as? Effect.LoseLife)?.players?.takeIf { it is Players.ControllerOf }
+                ?: return null
             return unlessPays(payer, options.singleOrNull() ?: Cost(listOf(CostPart.OneOf(options))), steps)
         }
         return null
@@ -15446,7 +15465,8 @@ internal class Sentences(
 
     private fun fdnValue(text: String, event: EventPattern?): Value? =
         // fdn chunk 06: "where X is the mana value of that spell" in a cast trigger (the spell, or as it last existed: CR 603.4, 608.2h)
-        if (event is EventPattern.Cast && text == "the mana value of that spell") Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single)
+        // mom chunk 03: also "that spell's mana value" ("incubate X, where X is that spell's mana value")
+        if (event is EventPattern.Cast && (text == "the mana value of that spell" || text == "that spell's mana value")) Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single)
         else null
 
     private fun fdnWhole(text: String, context: Context): List<Step>? {
@@ -15594,6 +15614,11 @@ internal class Sentences(
 
     /** mom: single sentences of March of the Machine, tried in [effect]. */
     private fun momEffect(sentence: String, context: Context): List<Step>? {
+        // mom chunk 03: "that source's controller loses 2 life" in a damage trigger: the source's controller, or its last controller if it
+        // has left (CR 608.2h)
+        Mom.THAT_SOURCES_CONTROLLER_LOSES.matchEntire(sentence)?.takeIf { context.event is EventPattern.Damage }?.let { m ->
+            return listOf(Step.Do(Effect.LoseLife(Players.ControllerOf(Objects.EventObject(EventRole.Source)), Value.Fixed(m.groupValues[1].toInt()))))
+        }
         // mom chunk 01: "shuffle target nonland permanent an opponent controls … into its owner's library" (CR 701.24a)
         Mom.SHUFFLE_TARGET_INTO_LIBRARY.matchEntire(sentence)?.let { m ->
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)

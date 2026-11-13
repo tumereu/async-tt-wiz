@@ -122,6 +122,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val origin: AbilityOrigin? = (c.what as? Announced.Ability)?.origin
     val isManaAbility = ability != null && Legality.isManaAbility(ability)
     val isSpecialAction = ability is Ability.SpecialAction
+    /** The ability's own cost change: "This ability costs {1} less to activate for each …"; mkm: a disguise cost's "This cost is reduced by
+     * {1} for each …" on the special action (CR 118.7). */
+    private val ownCostChange: CostChange? get() = (ability as? Ability.Activated)?.rules?.costChange ?: (ability as? Ability.SpecialAction)?.costChange
 
     /** Before any provisional item: what the card and the board are now. */
     private val plain = Snapshot(base)
@@ -246,10 +249,25 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
      * (plans made one after another for the same choices, [arcanum.engine.view.ViewCache.provisional]). */
-    val snap: Snapshot = base.deepCopy().also { s ->
-        s._stackItems[itemId] = item
-        if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
-    }.let { s -> Snapshot(s) { base.viewCache?.provisional(item) { Layers.view(s) } ?: Layers.view(s) } }
+    val snap: Snapshot = run {
+        val paid = provisionalPaid()
+        base.deepCopy().also { s ->
+            s._stackItems[itemId] = item
+            if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
+            // mkm: the card's optional costs chosen so far count as paid while its total cost is determined ("This spell costs {2} less to
+            // cast if evidence was collected", CR 601.2f, 701.59c)
+            if (paid.isNotEmpty()) s._objects[itemId]?.let { o -> s._objects[itemId] = o.copy(cast = (o.cast ?: arcanum.engine.state.CastFacts()).copy(paid = paid)) }
+        }.let { s -> Snapshot(s) { (if (paid.isEmpty()) base.viewCache?.provisional(item) { Layers.view(s) } else null) ?: Layers.view(s) } }
+    }
+
+    /** mkm: the card's own optional additional costs chosen so far, as they will be recorded once paid. */
+    private fun provisionalPaid(): List<arcanum.engine.state.PaidCost> = if (!isSpell) emptyList() else snap0Abilities().flatMap { inst ->
+        (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.AdditionalCost>().filter { it.optional }.mapNotNull { m ->
+            optionalTimes(inst)?.takeIf { it > 0 }?.let { times ->
+                arcanum.engine.state.PaidCost(m.keyword, times, costIndex = if (m.keyword == Keyword.Kicker.Kind) (inst.origin as? AbilityOrigin.Expansion)?.index else null)
+            }
+        }
+    }
 
     /** Names filters and values see: choices so far, announced values and targets by slot. */
     val names: Bindings = run {
@@ -491,7 +509,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { ch ->
+        ownCostChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
@@ -524,7 +542,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val anyReduction: Boolean get() {
         fun lower(m: Mechanic) = m is Mechanic.CostChange && m.change !is CostChange.More
         return (assistable > 0 && choices.assist?.amount == null) ||
-            (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
+            ownCostChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
             snap.view.game.rules.any { lower(it.mechanic) }
     }
@@ -544,7 +562,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             repeat(times.coerceAtLeast(0)) { symbols += change.mana.symbols }
             return true
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { if (!add(it)) return null }
+        ownCostChange?.let { if (!add(it)) return null }
         withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
         snap.view.game.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
@@ -580,7 +598,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      */
     val costMayVary: Boolean get() {
         fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null)
-        val any = assistable > 0 || (ability as? Ability.Activated)?.rules?.costChange != null ||
+        val any = assistable > 0 || ownCostChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
             snap.view.game.rules.any { change(it.mechanic) } ||
             instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||
@@ -595,7 +613,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Whether the open slot's targets limit each other (CR 601.2c): the same controller or owner, a shared or differing quality, a
      * total, one for each: some candidates then stop being legal with others picked. */
     fun targetsLimitEachOther(key: String): Boolean = instructions.let { Targets.slots(it, choices.modes) }.any { s ->
-        s.key == key.substringBefore(":") && (s.slot.sameController || s.slot.sameOwner || s.slot.sharing != null || s.slot.distinct != null || s.slot.onePer != null || s.slot.totalAtMost != null)
+        s.key == key.substringBefore(":") && arcanum.engine.action.Targeting.limitsEachOther(s.slot)
     }
 
     /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the

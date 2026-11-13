@@ -140,6 +140,8 @@ sealed interface ObjectFilter {
 
     @Serializable @SerialName("name") data class Named(val name: String) : ObjectFilter
     @Serializable @SerialName("same-name") data class SameNameAs(val objects: Objects) : ObjectFilter
+    /** mkm: has a name ("creatures that don't have a name" = [Not] of this): a face-down permanent has none (CR 708.2a). */
+    @Serializable @SerialName("has-name") data object HasName : ObjectFilter
     /** Has the card name chosen by the [Step.Choose] named [name] in this resolution. */
     @Serializable @SerialName("chosen-name") data class ChosenName(val name: String) : ObjectFilter
     /** Has the card name kept as card memory under [key] ("the chosen name" of a permanent). */
@@ -236,6 +238,10 @@ sealed interface ObjectFilter {
     /** An attacking creature that attacked alone: the only creature declared as an attacker in its combat (CR 506.5, "a
      * creature you control that's attacking alone"). */
     @Serializable @SerialName("attacking-alone") data object AttackingAlone : ObjectFilter
+    // mkm
+    /** Declared as an attacker in the current combat, even if since removed from combat ("if Tolsimir attacked this combat",
+     * CR 506.4, 508.1). Nothing matches outside the combat phase. */
+    @Serializable @SerialName("attacked-this-combat") data object AttackedThisCombat : ObjectFilter
     /** Targeted by one of [objects], spells or abilities ("Whenever you cast a spell that targets one or more creatures, those
      * creatures gain flying": the creatures that spell targets, CR 115.1). */
     @Serializable @SerialName("targeted-by") data class TargetedBy(val objects: Objects) : ObjectFilter
@@ -343,6 +349,10 @@ sealed interface SharedQuality {
     // tdm
     /** Kinds of counters on it (CR 122.1: "three or more different kinds of counters among creatures you control"). */
     @Serializable @SerialName("counter-kind") data object CounterKind : SharedQuality
+    // mkm
+    /** Its pair of colours, only for an object that is exactly two colours (CR 105.2: "the number of different color pairs among permanents
+     * you control that are exactly two colors"); an object of any other number of colours has none. */
+    @Serializable @SerialName("color-pair") data object ColorPair : SharedQuality
     // rvr
     /** Permanent types: artifact, battle, creature, enchantment, land, planeswalker (CR 110.4a: "shares a permanent type with it"). */
     @Serializable @SerialName("permanent-type") data object PermanentType : SharedQuality

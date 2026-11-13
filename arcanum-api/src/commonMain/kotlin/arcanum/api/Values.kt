@@ -123,7 +123,8 @@ sealed interface Value {
 
 /**
  * What a "this turn" count counts ([Value.EventsThisTurn], [Condition.HappenedThisTurn]): events (a board wipe is
- * one), objects (it is five creatures that died), or the amounts the events carried (life gained, damage dealt).
+ * one), objects (it is five creatures that died; each object once, a creature that attacked twice is one), or the amounts the events carried
+ * (life gained, damage dealt).
  * Each tagged event (D33) is one event: one draw, one zone change of several objects at once, one damage event.
  */
 @Serializable
@@ -135,6 +136,10 @@ sealed interface Measure {
     /** The number of different [quality] values among the events' objects, each as it was in its event ("for each card type
      * among spells you've cast this turn": the types of the spells as they were cast). */
     @Serializable @SerialName("distinct") data class Distinct(val quality: SharedQuality) : Measure
+    // mkm
+    /** The number of different sources of the events ("three or more sources you controlled dealt damage this turn": a source that dealt
+     * damage several times counts once, CR 120.1, 609.7). */
+    @Serializable @SerialName("sources") data object Sources : Measure
 }
 
 /** A number an object has (part of its properties). */

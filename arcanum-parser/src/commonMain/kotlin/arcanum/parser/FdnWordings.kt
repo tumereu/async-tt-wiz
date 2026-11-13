@@ -38,7 +38,8 @@ internal object Fdn {
     val PLAY_NOT_OWNED_WITH_COUNTERS_ANY_TYPE = Regex("""During your turn, you may play cards you don't own with (\S+) counters on them from exile, and mana of any type can be spent to cast those spells\.""")
     val EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER = Regex("""[Ee]xile it from their graveyard with an? (\S+) counter on it\.""")
     val GAINS_AND_GETS_UNTIL_EOT = Regex("""(.+?) gains (.+?) and gets ([+-]\w+)/([+-]\w+) until end of turn\.?""")
-    val OPPONENT_GAINS_CONTROL = Regex("""Target opponent gains control of target (.+?)\.""")
+    // mkm chunk 01: also "any number of target permanents you control"
+    val OPPONENT_GAINS_CONTROL = Regex("""Target opponent gains control of (any number of )?target (.+?)\.""")
     val DESTROY_ALL_GAIN_FOR_EACH = Regex("""Destroy all (.+?)\. You gain (\d+) life for each (?:.+?) destroyed this way\.""")
     // chunk 05
     val TWO_AS_LONG_AS = Regex("""(As long as [^.]+\.) ([^.]+ as long as [^.]+\.)""")
@@ -66,7 +67,7 @@ internal object Fdn {
     val IT_HAD_A_COUNTER = Regex("""it had an? (\S+) counter on it""")
     val RETURN_IT_WITH_ONE_FEWER_AT_NEXT_END_STEP = Regex("""[Rr]eturn it to the battlefield with one fewer (\S+) counter on it at the beginning of the next end step\.""")
     val REMOVE_COUNTERS_FROM_AMONG = Regex("""Remove (\w+) counters from among (.+)""")
-    val SPEND_ANY_TYPE_TO_CAST = Regex("""You can spend mana of any type to cast (.+) spells\.""")
+    val SPEND_ANY_TYPE_TO_CAST = Regex("""You (?:can spend mana of any type|may spend mana as though it were mana of (any color)) to cast (.+) spells\.""")
     val CHOOSES_PERMANENT_OF_EACH_TYPE_SACRIFICES_REST = Regex("""Each (opponent|player) chooses a permanent they control of each permanent type and sacrifices the rest\.""")
     // chunk 09
     val EXILE_TOP_OF_EACH_LIBRARY_CAST_ANY_NUMBER = Regex("""[Ee]xile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs\.?""")

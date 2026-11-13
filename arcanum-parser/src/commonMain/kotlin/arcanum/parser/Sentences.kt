@@ -3555,6 +3555,16 @@ internal class Sentences(
             context.them = Objects.Bound("returned")
             return listOf(Step.Do(Effect.Move(cards, Destination(Zone.Battlefield, controller = Players.You, counters = counters), postBind = "returned")))
         }
+        // mh3 chunk 04: "Put a creature card exiled with this creature onto the battlefield under your control with a finality counter on it."
+        // (CR 607.2a: one of the cards this object exiled, chosen on resolution; "it" afterwards is that card's new object, CR 400.7)
+        Mh3.PUT_A_EXILED_WITH_ONTO_BATTLEFIELD.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val cards = Objects.Where(Objects.Remembered(EXILED_WITH), Filters.noun(m.groupValues[1]) ?: return null)
+            val counters = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { listOf(arcanum.api.CountersToPut(Counters.kind(it) ?: return null, Value.Fixed(1))) }.orEmpty()
+            context.it = Objects.Bound("returned")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = cards), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You, counters = counters), postBind = "returned")))
+        }
         // dsk chunk 14: "Each of them is a 1/1 Spirit in addition to its other types." (for good, layers 4 and 7b)
         EACH_OF_THEM_IS_PT_SUBTYPE.matchEntire(sentence)?.let { m ->
             val them = context.them ?: return null
@@ -15154,7 +15164,9 @@ internal class Sentences(
                 } ?: return null
             return listOf(Step.Do(Effect.Sacrifice(Objects.Self))) + then
         }
-        if (sentence == "Sacrifice it." && (context.event as? EventPattern.CountersPut)?.objects == ObjectFilter.Is(Objects.Self))
+        // (mh3 chunk 04: unless an earlier sentence made "it" another object, e.g. a card this put onto the battlefield, CR 400.7)
+        if (sentence == "Sacrifice it." && (context.event as? EventPattern.CountersPut)?.objects == ObjectFilter.Is(Objects.Self) &&
+            (context.it == null || context.it is Objects.EventObject))
             return listOf(Step.Do(Effect.Sacrifice(Objects.Self)))
         // msh chunk 03: "[effect] and put a plan counter on this enchantment", "put a +1/+1 counter on target creature you control and a plan
         // counter on this enchantment"
@@ -15768,6 +15780,16 @@ internal class Sentences(
 
     /** mh3: one-sentence effects, tried first. */
     private fun mh3Effect(sentence: String, context: Context): List<Step>? {
+        // mh3 chunk 04: "It gains haste." (no duration: for as long as it stays, CR 611.2a) about the object "it" names
+        Mh3.IT_GAINS.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return@let
+            val keywords = keywords(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(it), arcanum.api.Duration.Indefinitely)))
+        }
+        // mh3 chunk 04: "Put an additional +1/+1 counter on it." is a counter put on it like any other (CR 122.1)
+        Mh3.PUT_ADDITIONAL_COUNTER.matchEntire(sentence)?.let { m ->
+            return effect("Put a ${m.groupValues[1]} counter on ${m.groupValues[2]}.", context)
+        }
         // mh3 chunk 02: "You get {E}{E}.", "you get X {E}", "you get an amount of {E} equal to the number of creatures you control" (CR 122.1)
         Mh3.GET_ENERGY.matchEntire(sentence)?.let { m ->
             val what = m.groupValues[1]

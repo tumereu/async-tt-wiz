@@ -59,4 +59,14 @@ internal object Mh3 {
     /** "Return it from your graveyard to the battlefield.", "… to your hand." about the card "it" names (a target chosen before). */
     val RETURN_IT_FROM_YOUR_GRAVEYARD = Regex("""[Rr]eturn (?:it|that card) from your graveyard to (the battlefield|your hand)\.""")
     val THEN_IF_THEN_MAY_CAST_THAT_CARD = Regex("""(.+?\. )?Then if (.+?), ([^.]+\.) (You may cast that card [^.]+\.)""")
+
+    // mh3 chunk 04: adapt, modified, counters
+    /** "the number of counters on permanents you control": the counters of all kinds on all of them (CR 122.1). */
+    val NUMBER_OF_COUNTERS_ON = Regex("""the number of counters on ((?:permanents|creatures|artifacts|lands|enchantments) .+)""")
+    /** "Put an additional +1/+1 counter on it.": "additional" only says it comes on top of the counters the event put. */
+    val PUT_ADDITIONAL_COUNTER = Regex("""[Pp]ut an additional (\S+) counter on (.+)\.""")
+    /** "Put a creature card exiled with this creature onto the battlefield under your control with a finality counter on it." */
+    val PUT_A_EXILED_WITH_ONTO_BATTLEFIELD = Regex("""Put an? (.+?) exiled with (.+?) onto the battlefield under your control(?: with an? (\S+) counter on it)?\.""")
+    /** "It gains haste.": keywords for good (the sentence's own duration words make it another wording). */
+    val IT_GAINS = Regex("""It gains ([a-z ,]+)\.""")
 }

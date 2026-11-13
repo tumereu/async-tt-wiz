@@ -1511,6 +1511,10 @@ internal object Values {
         if (text == "its power") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, Combine.Single)
         // dsk chunk 03: "the number of counters on this creature" (every kind; as it last existed once it has left, CR 608.2h)
         if (text == "the number of counters on this creature") return Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, Combine.Single)
+        // mh3 chunk 04: "the number of counters on permanents you control": every counter of every kind on those permanents added up
+        Mh3.NUMBER_OF_COUNTERS_ON.matchEntire(text)?.let { m ->
+            return Value.Of(arcanum.api.NumericProperty.Counters(null), Filters.objects(m.groupValues[1]) ?: return null, Combine.Total)
+        }
         // dsk chunk 02: "the number of unlocked doors among Rooms you control" (CR 709.5c)
         UNLOCKED_DOORS_AMONG.matchEntire(text)?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.UnlockedDoors, Filters.objects(m.groupValues[1]) ?: return null, Combine.Total)

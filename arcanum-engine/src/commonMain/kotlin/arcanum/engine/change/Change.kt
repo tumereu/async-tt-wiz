@@ -80,11 +80,13 @@ sealed interface Change {
         override fun inverse() = copy(before = after, after = before)
     }
 
-    /** Counters of [kind] on an object or player change from [before] to [after] (null: none; CR 122). */
+    /** Counters of [kind] on an object or player change from [before] to [after] (null: none; CR 122). [controller]: an object
+     * holder's controller after layers as they changed, filled in as the change is recorded, so "a counter was removed from a
+     * permanent you controlled this turn" judges the permanent as it was then (CR 608.2h). */
     @Serializable @SerialName("counters")
     data class Counters(
         val holder: TargetRef, val kind: CounterKind, val before: CounterEntry?, val after: CounterEntry?,
-        val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null,
+        val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null, val controller: PlayerId? = null,
     ) : Change {
         override fun inverse() = copy(before = after, after = before)
     }

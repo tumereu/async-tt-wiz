@@ -55,7 +55,21 @@ internal object StateBasedActions {
         }
     }
 
+    /**
+     * one sweep: a "for as long as" effect ends once its condition no longer holds, and stays ended (CR 611.2b). The view judges the condition
+     * before applying the layers, so a condition another effect falsifies ("for as long as you control this creature" after an opponent gains
+     * control of it, CR 613.1b) is judged here with every continuous effect applied.
+     */
+    private fun endLapsedDurations(act: Act) {
+        val state = act.state
+        val lasting = state.effects.values.filter { it.duration is arcanum.api.Duration.AsLongAs }
+        if (lasting.isEmpty()) return
+        val board = arcanum.engine.query.ViewBoard(state, act.view())
+        lasting.filter { !arcanum.engine.view.Layers.active(state, board, it) }.forEach { act.record(arcanum.engine.change.Change.EffectRemoved(it)) }
+    }
+
     private fun once(act: Act) {
+        endLapsedDurations(act)
         // fin: control changes made by continuous effects (CR 613.1b)
         ControlChanges.notice(act.recorder)
         val state = act.state
@@ -238,6 +252,27 @@ internal object StateBasedActions {
         val view = act.view()
         val enchant = view[id]?.mechanics.orEmpty().mapNotNull { a -> (a.mechanic as? Mechanic.CanEnchant)?.what }
         return canEnchant(act, id, view[id]?.controller ?: o.owner, enchant, host)
+    }
+
+    /** rvr fixes, CR 701.3b: whether the permanent [id] can be attached to [host] as it is: an Aura as its enchant abilities allow, an
+     * Equipment to a creature (or as its abilities allow, CR 301.5c), a Fortification to a land (CR 301.6), without protection from it
+     * (CR 702.16c, d). Anything else (a creature among them) goes wherever an effect attaches it. */
+    internal fun canBeAttached(act: Act, id: ObjectId, host: TargetRef): Boolean {
+        val view = act.view()
+        val c = view[id]?.characteristics ?: return true
+        if (c.isType(CardType.Creature)) return true
+        val aura = c.subtypes.any { it.name == "Aura" }
+        val equipment = c.subtypes.any { it.name == "Equipment" }
+        val fortification = c.subtypes.any { it.name == "Fortification" }
+        if (aura) return canEnchant(act, id, view[id]?.controller ?: act.state.objOrThrow(id).owner,
+            view[id]?.mechanics.orEmpty().mapNotNull { a -> (a.mechanic as? Mechanic.CanEnchant)?.what }, host)
+        if (!equipment && !fortification) return true
+        val hostId = (host as? TargetRef.Object)?.id ?: return false
+        val hostChars = view[hostId]?.characteristics
+        return hostId != id && act.state.obj(hostId)?.zone == Zone.Battlefield && when {
+            equipment -> hostChars?.isType(CardType.Creature) == true || canAttachTo(act, id, hostId)
+            else -> hostChars?.isType(CardType.Land) == true
+        } && !protectedFrom(act, host, id)
     }
 
     /**

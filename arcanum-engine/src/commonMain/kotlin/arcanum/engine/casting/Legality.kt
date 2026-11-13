@@ -17,6 +17,7 @@ import arcanum.engine.input.CastWay
 import arcanum.engine.input.Permission
 import arcanum.engine.mana.Mana
 import arcanum.engine.state.GameObject
+import arcanum.engine.state.castOrNone
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TurnCount
@@ -51,6 +52,8 @@ internal object Legality {
         if (o.zone != Zone.Hand || o.owner != player) {
             if (permissions(snap, player, card, PlayKind.Play).isEmpty()) return "no permission to play it from ${o.zone}"
         }
+        // rvr: "Your opponents can't play land cards from graveyards" (CR 101.2)
+        if (cantPlayLandBy(snap, player, card)) return "an effect says this player can't play that land (CR 101.2)"
         if (!sorceryTiming(snap, player)) return "lands are played in your main phase with an empty Stack (CR 305.1)"
         if (snap.state.turn.landsPlayed[player] ?: 0 >= landPlays(snap, player)) return "no land plays left this turn (CR 305.2)"
         return null
@@ -171,14 +174,14 @@ internal object Legality {
         val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
         // A permission a mark gives may hold it to sorcery timing (a plotted card, CR 702.170d)
         val asSorcery = arcanum.engine.foretell.MarkCasts.asSorcery(permission?.second?.origin)
-        val instant = !asSorcery && during != null || !asSorcery && !faceDown && (CardType.Instant in types || flash ||
-            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) ||
-            // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
-            chars?.abilities.orEmpty().any { inst -> (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash } })
+        val instant = !asSorcery && during != null || !asSorcery && !faceDown && instantSpeed(snap, player, card, types, flash)
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
+        if (onlyAsSorcery(snap, player, card) && !sorceryTiming(snap, player)) return "$player can cast it only as a sorcery (CR 307.5)"
         legendarySpellWithoutLegend(snap, player, face, types)?.let { return it }
         restriction(snap, player, card)?.let { return it }
-        if (cantCastBy(snap, player, card)) return "$player can't cast it"
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed the spell has other characteristics (CR 718.3b, 702.103b): the
+        // prohibition is tested on the spell as proposed ([prohibitedAsProposed]), not on the card as it is now
+        if (!changesCharacteristics(alternative(snap, card, way, player)?.second?.keyword) && cantCastBy(snap, player, card)) return "$player can't cast it"
         return null
     }
 
@@ -193,7 +196,28 @@ internal object Legality {
         if (CardType.Land in f.types) return "lands are played, not cast (CR 305.9)"
         restriction(snap, player, card, timing = false)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"
+        // rvr chunk 04: "can cast spells only any time they could cast a sorcery" needs priority, so not while resolving (CR 307.5)
+        if (onlyAsSorcery(snap, player, card)) return "$player can cast it only as a sorcery (CR 307.5)"
         return null
+    }
+
+    /** rvr chunk 04: [Mechanic.CastOnlyAsSorcery] on [player] for this spell (CR 307.5). */
+    private fun onlyAsSorcery(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+            val m = applied.mechanic as? Mechanic.CastOnlyAsSorcery ?: return@any false
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->
+                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(asSpell(m.spells), card)
+            }
+        }
+
+    /** rvr chunk 04: "The next sorcery spell you cast this turn can be cast as though it had flash": [Mechanic.InstantSpeed] of an effect
+     * on [player]'s next spells, tested on the card as the spell it would be (CR 601.3a, 611.2f); casting it uses the effect up. */
+    private fun nextSpellFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean = snap.view.game.rules.any { applied ->
+        if (applied.mechanic != Mechanic.InstantSpeed || applied.controller != player) return@any false
+        val id = applied.effect ?: return@any false
+        val effect = snap.state.effects[id]?.takeIf { it.affects is arcanum.api.Affected.NextSpells } ?: return@any false
+        val e = snap.evaluator(player, self = effect.source, names = effect.names)
+        NextSpells.appliesTo(snap.state, id, e.with(e.ctx.copy(prospectiveCast = true)), card)
     }
 
     /** Whether the printed [face] matches a type filter, or null when the filter asks more than types and subtypes. */
@@ -254,6 +278,52 @@ internal object Legality {
         }
         return null
     }
+
+    /** rvr: [Mechanic.CantPlayLands] on [player] for this land (CR 101.2). */
+    private fun cantPlayLandBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+            val m = applied.mechanic as? Mechanic.CantPlayLands ?: return@any false
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->
+                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(m.lands, card)
+            }
+        }
+
+    /** rvr fixes, CR 601.2e: whether [Mechanic.CantCast] prohibits the player from casting the spell [plan] proposes, with what has been
+     * chosen for it so far (its announced X counting in its mana value, CR 202.3e), on the board with its provisional item. */
+    fun prohibitedAsProposed(plan: Plan): Boolean {
+        if (!plan.isSpell) return false
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed, it is tested with those characteristics (CR 718.3b, 702.103b)
+        val keyword = plan.alternative?.second?.keyword
+        if (changesCharacteristics(keyword)) {
+            val s = plan.snap.state.deepCopy()
+            val o = s.obj(plan.itemId) ?: return false
+            if (o.castOrNone.alternative?.keyword != keyword) s._objects[plan.itemId] = o.copy(cast = o.castOrNone.copy(alternative = arcanum.engine.state.PaidCost(keyword, 1)))
+            val proposed = Snapshot(s)
+            if (cantCastBy(proposed, plan.player, plan.itemId)) return true
+            // CR 601.3b: begun outside sorcery timing because an effect let it be cast as though it had flash, that effect must still
+            // apply to the spell as proposed ("creature spells" don't include a bestowed Aura spell)
+            val st = plan.snap.state
+            val sorceryTime = st.turn.active == plan.player && st.stack.all { it == plan.itemId } &&
+                (st.turn.step == TurnStep.PrecombatMain || st.turn.step == TurnStep.PostcombatMain)
+            val c = proposed.view[plan.itemId]?.characteristics
+            return !plan.byEffect && !sorceryTime && c != null && !instantSpeed(proposed, plan.player, plan.itemId, c.types, c.hasKeyword(Keyword.Flash))
+        }
+        return plan.item.announced.isNotEmpty() && cantCastBy(plan.snap, plan.player, plan.itemId)
+    }
+
+    /** Whether [card] (of [types], [flash] when it has flash) may be cast any time [player] could cast an instant: an instant or with
+     * flash (CR 307.1, 702.8a), or an effect lets it be cast as though it had flash. */
+    private fun instantSpeed(snap: Snapshot, player: PlayerId, card: ObjectId, types: List<CardType>, flash: Boolean): Boolean =
+        CardType.Instant in types || flash ||
+            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) || nextSpellFlash(snap, player, card) ||
+            // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
+            snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
+                (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash }
+            }
+
+    /** An alternative cost that gives the spell other characteristics: prototype (CR 718.3b), bestow (CR 702.103b). */
+    private fun changesCharacteristics(keyword: arcanum.api.KeywordKind?): Boolean =
+        keyword == Keyword.Prototype.Kind || keyword == Keyword.Bestow.Kind
 
     /** [Mechanic.CantCast] on [player] for this spell (CR 101.2). */
     private fun cantCastBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
@@ -337,7 +407,9 @@ internal object Legality {
         // CR 606.3: loyalty abilities as a sorcery, once each turn per permanent
         // fra: "you may activate loyalty abilities of … any time you could cast an instant" (still once each turn)
         val instantLoyalty = snap.view[source]?.has { it == arcanum.api.Mechanic.LoyaltyAtInstantSpeed } == true
-        if (loyalty && (!(sorceryTiming(snap, player) || instantLoyalty) || activationsThisTurn(snap, source, LOYALTY_KEY) > 0)) {
+        // one: "you may activate loyalty abilities of Kaito twice this turn rather than only once"
+        val loyaltyUses = snap.view[source]?.mechanics.orEmpty().maxOfOrNull { (it.mechanic as? arcanum.api.Mechanic.LoyaltyActivationsPerTurn)?.count ?: 1 } ?: 1
+        if (loyalty && (!(sorceryTiming(snap, player) || instantLoyalty) || activationsThisTurn(snap, source, LOYALTY_KEY) >= loyaltyUses)) {
             return "a loyalty ability: once each turn, as a sorcery (CR 606.3)"
         }
         // CR 606.6: a negative loyalty cost needs that many loyalty counters

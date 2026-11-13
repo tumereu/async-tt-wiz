@@ -257,7 +257,8 @@ class GtcChunk14GruulTest {
         Ability.Activated(mana("{1}{R}{G}"), Instructions(
             targets = listOf(slot("land", ObjectFilter.And(listOf(land, you)))),
             steps = listOf(untilEndOfTurn(Objects.Target("land"),
-                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),  // CR 205.1b: "still a [type]" keeps all prior subtypes
+                // CR 205.1b: "still a …" keeps all its prior subtypes, creature types included (none replaced)
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),
                 Mechanic.SetPowerToughness(n(4), n(4)))),
         ), rules = anyTime),
     )

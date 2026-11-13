@@ -515,6 +515,24 @@ Two batches come first, in this order:
   40 ms for the session step and 72 ms to the send's result, nothing of it on the page; worst page frame over the flows
   19.5 ms. Not yet: the shared-flow panels (choices, reveals, piles, payments while resolving) and the combat panels (their
   values and steps still on the page's copy of the board), and the hand's cost chips (`HandCasts.chips` on the page).
+- Built in 4e parts 2 and 3 (2026-11-13): a board's shared flow as a session where the device is (`automatum`'s
+  `SharedMessages`: `SharedRequest` steps by session, the shown flow's version and the board's number, `SharedFlowValue`
+  with the shared panels' plain data; app-engine's `SharedSessions` behind `SharedPort`, in the browser beside the game's
+  device, `DeviceRequest.Shared`; Android in-process, a flow shown at once and its steps on the Automatum worker as before).
+  The shared panels, the division panel and the step arrow draw only those values (`SharedShown`): the open decision with an
+  early division, priority and who declares, the listed answers, the payment after a "you may pay", what the viewer may see,
+  and the payment's mana are worked out there, as are every step (answers and their orders, replacement preferences,
+  payments and the player's taps with Autotap's topmost sources, Let it resolve, the step arrow's pass or declaration with
+  its costs' mana paid, early answers, castability's picks); a step on a version no longer kept or a board no longer held is
+  refused as stale, and sessions log their opening, versions, steps, refusals and end. Combat's values (`CombatShown`, now
+  serializable) for a board the worker's device published are asked of it by the board's number (CMB-040's assumed lanes
+  sent with it, `DeviceRequest.Combat`), as are a drafted declaration's refusal reasons and a raised hand card's cost chips
+  (`DeviceRequest.CombatRefusal`, `DeviceRequest.Chips`). Measured (`#engine-bench`, headless Chrome, the 120-object game, a
+  machine loaded by other builds): a board's shared-flow panel asked of the worker 21 ms; the step arrow's pass through its
+  session 15.5 ms to the result (2.5 ms worked out in the session); the staged board's combat asked of the worker 6.7 ms; the
+  declaration through the session 21.5 ms to the result (5.1 ms in the session); worst page frame over the flows 25 ms.
+  No step of the table's flows runs on the page any more; the page reads its copy of each board's state for names and what
+  is shown.
 
 ### Step 5: desktop table
 
@@ -530,6 +548,14 @@ Two batches come first, in this order:
   action area, prompt placement, phase track.
 - Tests: screenshot tests of the desktop table at 1440×900 (D1–D6 states), e2e flows in the desktop layout with mouse
   and key input (the JVM harness renders it at desktop size).
+- Built in 5a (2026-11-13): the layout choice and the Layout setting (WEB-013, WEB-014: `AppLayout`, `LocalAppLayout`,
+  `AccountEntry`'s `layout` parameter, which a test or harness can set); the desktop table's structure (WEB-015 to WEB-022:
+  `DesktopFrame` / `LocalDesktopFrame` from `EngineTableScreen`, `TablePresentation.scene`'s `desktop`, `DesktopTopRow`
+  with the phase track, seat headers, `DesktopDock` with `StackEntries` and the docked `ChatPanel`, the action area in
+  `TableControlsLayer`, `DesktopPrompt` placing panels by `PromptPlace`, the timeline's strip and transport, card sizes per
+  layout). Tests: `DesktopTableScreenshotTest` (D1, D2, D3, D3b, D5 and the table at rest), `AppLayoutTest`. Left for 5b:
+  the mouse (section 5); for 5c: hotkeys, the "?" sheet (D6), rebinding, e2e flows in the desktop layout. The desktop
+  Inspect (D4) is 5b's.
 
 ### Step 6: desktop lobby, decks, drafts
 

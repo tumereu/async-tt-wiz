@@ -36,7 +36,7 @@ internal object Mh2 {
     val ENTERS_WITH_COUNTER_FOR_EACH_EXILED_WITH_IT = Regex("""(.+) enters with an? (\S+) counter on it for each (.+?) card exiled with it\.""")
     val SWITCH_PT_UNTIL_EOT = Regex("""Switch (.+?)'s power and toughness until end of turn\.""")
     val SEARCH_OPPONENTS_LIBRARY_PUT_UNDER_YOUR_CONTROL = Regex("""Search target opponent's library for an? (.+?) card and put that card onto the battlefield under your control\. Then that player shuffles\.""")
-    val BECOMES_THE_TARGET_OF_A_SPELL_OR_ABILITY = Regex("""(.+) becomes the target of a spell or ability""")
+    val BECOMES_THE_TARGET_OF_A_SPELL_OR_ABILITY = Regex("""(.+) becomes the target of a spell( or ability)?""")
     // mh2 chunk 04
     val CHOOSE_TARGET_OWNER_PUTS_TOP_OR_BOTTOM = Regex("""Choose up to one target (.+?)\. Its owner puts it on their choice of the top or bottom of their library\.""")
     val BECOMES_ARTIFACT_CREATURE_PUT_COUNTERS_ON_EACH_THAT_BECAME = Regex("""(Target|Each) (.+?) becomes an? (\d+)/(\d+) artifact creature\. Put (\w+) (\S+) counters on each artifact that became a creature this way\.""")
@@ -121,7 +121,7 @@ internal object Mh2 {
     val KEYWORD_IF_ITS_COLOR = Regex("""(?:and )?([a-z ]+) if it's (\w+)""")
     val EXILE_UP_TO_ONE_YOU_OWN_THEN_SEARCH_PUT_BOTH = Regex("""Exile up to one target (.+?) you own, then search your library for an? (.+?) card\. Put both cards onto the battlefield under your control, then shuffle\.""")
     val DOESNT_UNTAP_IF_HAS_COUNTER = Regex("""(.+) doesn't untap during your untap step if it has an? (\S+) counter on it\.""")
-    val TARGET_BECOMES_TYPE_IN_ADDITION_UNTIL_EOT = Regex("""Target (.+?) becomes an? (\w+) in addition to its other types until end of turn\.""")
+    val TARGET_BECOMES_TYPE_IN_ADDITION_UNTIL_EOT = Regex("""Target (.+?) becomes an? (\w+(?: \w+)?) in addition to its other (colors and )?types until end of turn\.""")
     val AS_ENTERS_EXILE_A_CARD_FROM_A_GRAVEYARD = Regex("""As (.+?) enters, exile an? (.+?) card from a graveyard\.""")
     val UNTIL_EOT_BECOMES_COPY_OF_EXILED_EXCEPT = Regex("""Until end of turn, (.+?) becomes a copy of the exiled card, except it's an? (\w+) (\w+) in addition to its other types\.""")
     val ARTIFACT_LANDWALK = Regex("""[Aa]rtifact landwalk""")

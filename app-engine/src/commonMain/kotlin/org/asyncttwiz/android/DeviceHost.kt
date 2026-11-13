@@ -200,7 +200,11 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                 is DeviceRequest.RequestView -> done(r.id, game.requestViewOn(r.viewer, r.localHead, r.target)?.let { v ->
                     DeviceResult.View(v.message, v.unseen, v.turn, v.board?.let(::loose)) } ?: DeviceResult.NoView)
                 is DeviceRequest.Plays -> done(r.id, plays(r.board))
+                is DeviceRequest.Combat -> done(r.id, combat(r.board, r.lanes, r.drawn))
+                is DeviceRequest.CombatRefusal -> done(r.id, combatRefusal(r))
+                is DeviceRequest.Chips -> done(r.id, chips(r.board, r.cardId))
                 is DeviceRequest.Cast -> done(r.id, DeviceResult.Cast(casts.handle(r.request, r.request.board?.let(::boardNumbered)) { r.request.stacks }))
+                is DeviceRequest.Shared -> done(r.id, DeviceResult.Shared(shared.handle(r.request, r.request.board?.let(::boardNumbered)) { r.request.stacks }))
                 is DeviceRequest.Repro -> game.repro { done(r.id, DeviceResult.Repro(it)) }
                 is DeviceRequest.LogBoard -> game.logBoard { done(r.id, DeviceResult.None) }
                 is DeviceRequest.TokenArtFound -> {
@@ -230,6 +234,38 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
         private val casts = CastSessions(open.me, encode = { changes ->
             game.codec.encodeElement(kotlinx.serialization.builtins.ListSerializer(arcanum.engine.change.Change.serializer()), changes)
         })
+
+        /** Web client step 4e: the player's shared-flow sessions, worked out here beside the device. */
+        private val shared = SharedSessions(open.me)
+
+        /** Web client step 4e: what the table shows of combat on the board numbered [number] (with [lanes] drawn on it when
+         * [drawn]: the blocks the attacker assumes, CMB-040); null when it isn't kept any more. */
+        private fun combat(number: Long, lanes: org.asyncttwiz.protocol.CombatArea?, drawn: Boolean): DeviceResult {
+            val board = boardNumbered(number)
+                ?: return DeviceResult.Combat(null).also { AppLog.info("engine", "Device boundary: combat of board $number, no longer kept here") }
+            val values = board.values ?: return DeviceResult.Combat(org.asyncttwiz.automatum.CombatShown.NONE)
+            val shown = if (drawn) values.onLanes(board.board.copy(combat = lanes)).combat() else values.combat()
+            return DeviceResult.Combat(shown)
+        }
+
+        /** Web client step 4e (I-D36): the engine's reason for refusing a drafted declaration on the board numbered [r]'s board. */
+        private fun combatRefusal(r: DeviceRequest.CombatRefusal): DeviceResult {
+            val board = boardNumbered(r.board) ?: return DeviceResult.Text(null)
+            val engine = board.engine ?: return DeviceResult.Text(null)
+            val why = try {
+                val call = org.asyncttwiz.automatum.EngineRun.of(engine.state, board.board.copy(combat = r.lanes), board.gameId) { error("No randomness") }
+                r.attacks?.let { org.asyncttwiz.automatum.CombatFlow.attackRefusal(call, it) }
+                    ?: r.blocks?.let { org.asyncttwiz.automatum.CombatFlow.blockRefusal(call, it) }
+            } catch (problem: Exception) { null }
+            AppLog.info("automatum", "Combat draft refusal on board ${r.board}: ${why ?: "none"}")
+            return DeviceResult.Text(why)
+        }
+
+        /** Web client step 4e (ZON-080): the cost chips of hand card [cardId] on the board numbered [number]. */
+        private fun chips(number: Long, cardId: String): DeviceResult {
+            val board = boardNumbered(number) ?: return DeviceResult.Chips(null, held = false)
+            return DeviceResult.Chips(HandChips.of(board, game.me, cardId))
+        }
 
         /** The published board numbered [number] (its [EngineBoardValues.number]) while kept here; null after. */
         private fun boardNumbered(number: Long): TableBoard? = recent.values.lastOrNull { it.board.values?.number == number }?.board

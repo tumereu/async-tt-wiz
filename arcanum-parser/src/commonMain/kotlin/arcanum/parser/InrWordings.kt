@@ -36,7 +36,7 @@ internal object Inr {
     // inr chunk 07: Triskaidekaphobia: "Each player with exactly 13 life loses the game" (CR 104.3e)
     val EACH_PLAYER_WITH_LIFE_LOSES = Regex("""Each player with (?:exactly (\d+)|(\d+) or (less|more)) life loses the game\.""")
     // inr chunk 07: Necroduality, Soul Separator: a copy of the object an earlier sentence or the trigger named (CR 707.2, 707.9b)
-    val CREATE_COPY_OF_THAT = Regex("""[Cc]reate a token that's a copy of (?:that card|that creature)(?:, except (.+))?\.""")
+    val CREATE_COPY_OF_THAT = Regex("""[Cc]reate a token that's a copy of (?:that card|that creature|it)(?:, except (.+))?\.""")
     // inr chunk 07: Soul Separator: "Create a black Zombie creature token with power equal to that card's power and toughness equal to that card's
     // toughness." (values fixed as the token is created, CR 111.4)
     val CREATE_TOKEN_PT_EQUAL_TO_THAT_CARDS = Regex("""[Cc]reate an? (\w+(?: and \w+)? [A-Z][A-Za-z ]+? creature) token with power equal to that (?:card|creature)'s power and toughness equal to that (?:card|creature)'s toughness\.""")

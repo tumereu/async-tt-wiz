@@ -87,8 +87,10 @@ internal object Spm {
     val LEGEND_RULE_DOESNT_APPLY_TO = Regex("""The "legend rule" doesn't apply to (.+?) you control\.""")
     val COSTS_LESS_IF_IT_TARGETS_SUBTYPE = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast if it targets an? ([A-Z]\w+)\.""")
     val ATTACHED_GETS_FOR_EACH_ATTACHED = Regex("""Enchanted creature gets ([+-]\d+)/([+-]\d+) for each Aura and Equipment attached to it\.""")
-    val ALL_DAMAGE_TO_YOU_TO_ENCHANTED = Regex("""All damage that would be dealt to you is dealt to enchanted creature instead\.""")
-    val PREVENT_DAMAGE_PUT_THAT_MANY_COUNTERS = Regex("""If damage would be dealt to (.+?), prevent that damage and put that many (\+1/\+1) counters on (?:him|her|it|them)\.""")
+    // rvr chunk 01: also "equipped creature"
+    val ALL_DAMAGE_TO_YOU_TO_ENCHANTED = Regex("""All damage that would be dealt to you is dealt to (?:enchanted|equipped) creature instead\.""")
+    // rvr chunk 03: also "put that many +1/+1 counters on it instead" (a replacement, not a prevention)
+    val PREVENT_DAMAGE_PUT_THAT_MANY_COUNTERS = Regex("""If damage would be dealt to (.+?), (prevent that damage and )?put that many (\+1/\+1) counters on (?:him|her|it|them)( instead)?\.""")
     val LOOK_AT_OPPONENTS_HAND_CHOOSE_CARD_TYPE = Regex("""As (.+?) enters, look at an opponent's hand, then choose (?:a card type other than (\w+)|any card name)\.""")
     val SPELLS_OF_CHOSEN_TYPE_COST_MORE = Regex("""Spells of the chosen type cost ((?:\{[^}]+\})+) more to cast\.""")
     val DOUBLE_EACH_KIND_ON_EACH = Regex("""[Dd]ouble the number of each kind of counter on each (.+)\.""")

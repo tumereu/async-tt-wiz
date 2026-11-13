@@ -171,7 +171,8 @@ class WoeChunk16CountersTapUntapTest {
         static(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
             modify = listOf(Modification.EntersWithCounters(p1p1, Value.CastX(Objects.Self))))),
         triggered(yourUpkeep,
-            Step.Pay(null, steps = listOf(doing(Effect.RemoveCounters(Objects.Self, p1p1, n(1)))), payer = Players.You, mandatory = false, bind = "paid"),
+            // CR 118.3: removing the counter is a cost, paid only in full
+            Step.Pay(Cost(listOf(CostPart.RemoveCounters(p1p1, n(1), CostObjects.Self))), payer = Players.You, mandatory = false, bind = "paid"),
             ifThen(Condition.Did("paid"), draw(1)),
             interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(p1p1, atLeast = 1))),
     )

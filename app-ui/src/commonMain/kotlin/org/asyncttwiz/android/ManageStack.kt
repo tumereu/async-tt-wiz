@@ -27,8 +27,19 @@ import org.asyncttwiz.protocol.*
 fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, targets: List<String>? = null,
     pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap()) {
     val order = CombatStackRules.stack(state.board).cards
-    val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
+    InlinePopupPanel(dismiss, title = "Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
+        StackEntries(state, viewer, Modifier.fillMaxWidth().heightIn(max = 440.dp), targets, pick, names)
+    }
+}
+
+/** The Stack's entries, top first, as the Stack list (STK-018) shows them: in its sheet ([ManageStackDialog]) and in the
+ * desktop table's dock (WEB-017). Holding an entry inspects it; [targets] and [pick] as in [ManageStackDialog]. */
+@Composable
+fun StackEntries(state: TableBoard, viewer: String, modifier: Modifier, targets: List<String>? = null,
+    pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap()) {
+    val order = CombatStackRules.stack(state.board).cards
+    val size = rememberCardAppearance().size(CardArea.STACK)
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
     fun place(index: Int) = if (index == 0) "Top" else "${index + 1}"
     // STK-018 (owner playtest 2026-11-07): what was chosen for each entry, and which entries target which
@@ -43,8 +54,8 @@ fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, ta
             ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
-    InlinePopupPanel(dismiss, title = "Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Box(modifier) {
+        LazyColumn(Modifier.fillMaxWidth().ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
                 val card = CombatStackRules.inspection(state.board, id)

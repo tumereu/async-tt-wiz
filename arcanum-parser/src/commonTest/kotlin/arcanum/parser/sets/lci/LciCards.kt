@@ -244,3 +244,12 @@ fun diesReturnTransformed(counters: List<CountersToPut> = emptyList()): Ability 
 /** "{N}{C}, {T}: Transform this land. Activate only if … and only as a sorcery." (CR 602.5b, 701.27a) */
 fun templeTransform(manaText: String, condition: Condition): Ability =
     activated(cost(mana(manaText), tap), transformSelf, rules = ActivationRules(Timing.Sorcery, PlayerFilter.You, condition = condition))
+
+// ---- lci chunk 11
+
+/** CR 700.11: one descend: a permanent card put into your graveyard from anywhere. */
+val descendEvent: EventPattern = EventPattern.ZoneChange(and(permanentCard, cardFilter, ObjectFilter.OwnedBy(PlayerFilter.You)), to = Zone.Graveyard)
+/** "you descended this turn" (CR 700.11) */
+val descendedThisTurn: Condition = Condition.HappenedThisTurn(descendEvent, atLeast = 1, measure = arcanum.api.Measure.Objects)
+/** "the player with the most life or tied for most life" (CR 702.105a) */
+val mostLife: PlayerFilter = PlayerFilter.Life(arcanum.api.Comparison.AtLeast, Value.GreatestFor(Players.Each(PlayerFilter.Any), Value.LifeOf(Players.Tested)))

@@ -125,6 +125,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun with(ctx: Context) = Evaluator(board, ctx)
 
+    /** [value] with [Objects.Tested] as [id]; a value that doesn't name it is read as it is. */
+    private fun valueTesting(id: ObjectId, value: arcanum.api.Value): Int =
+        if (ctx.tested == id || !namesTested(value)) value(value) else with(ctx.copy(tested = id)).value(value)
+    private fun namesTested(value: arcanum.api.Value): Boolean = value is arcanum.api.Value.Of && value.objects == arcanum.api.Objects.Tested
+
     // ---- Objects
 
     fun objects(objects: Objects): List<ObjectId> = when (objects) {
@@ -391,15 +396,17 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
                 (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
             } ?: false
+            // lci: a number about "its" own characteristics ("with power greater than its base power", "toughness greater than its power")
+            // reads [Objects.Tested] as the object this filter tests, wherever the filter is matched (a trigger's event, a cost)
             is ObjectFilter.Power -> {
                 board.readingPowerToughness()
-                c?.power?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+                c?.power?.let { compare(it, filter.comparison, valueTesting(id, filter.value)) } ?: false
             }
             is ObjectFilter.Toughness -> {
                 board.readingPowerToughness()
-                c?.toughness?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+                c?.toughness?.let { compare(it, filter.comparison, valueTesting(id, filter.value)) } ?: false
             }
-            is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, value(filter.value))
+            is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, valueTesting(id, filter.value))
             is ObjectFilter.Targets -> {
                 val item = state.stackItems[id]
                 val targets = item?.targets?.values?.flatten().orEmpty()

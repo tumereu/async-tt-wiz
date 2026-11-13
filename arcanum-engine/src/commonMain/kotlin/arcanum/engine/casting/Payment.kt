@@ -407,7 +407,9 @@ internal object Payment {
                 // lci: craft's materials come from the battlefield and/or the graveyard (CR 702.167a)
                 if (part.alsoFrom.isEmpty()) check(ids, part.from)
                 else ids.forEach { id -> if ((s.obj(id) ?: refuse("$id is gone")).zone !in part.alsoFrom + part.from) refuse("$id isn't in ${part.from}") }
-                val after = move(ids, Zone.Exile, emptyList(), part.preBind, part.postBind)
+                // lci: exiled to pay a craft ability's cost ("exiled … while you're activating a craft ability", CR 702.167a)
+                val paidFor = listOfNotNull(plan.keyword()?.takeIf { it is Keyword.Craft }?.let { Meaning.PaidFor(it.kind, source = plan.sourceId) })
+                val after = move(ids, Zone.Exile, paidFor, part.preBind, part.postBind)
                 part.remember?.let {
                     // lci: several exile parts kept under one key add up ("a Dinosaur, a Merfolk, …" of craft)
                     val kept = NamedValue.Objects((bound[it] as? NamedValue.Objects)?.ids.orEmpty() + after)

@@ -59,6 +59,8 @@ internal object EventMatcher {
                 (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
                     (pattern.notTo == null || m.to != pattern.notTo) &&
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
+                    // lci: moved to pay that keyword's cost (CR 702.167a)
+                    (pattern.forCost == null || m.meanings.any { it is Meaning.PaidFor && it.keyword == pattern.forCost }) &&
                     (back.matches(pattern.objects, tested(m, pattern.from, proposed)) ||
                     // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
                     (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)))

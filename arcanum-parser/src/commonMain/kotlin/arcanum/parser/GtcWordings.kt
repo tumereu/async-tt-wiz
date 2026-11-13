@@ -49,7 +49,7 @@ internal object Gtc {
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
 
-    val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:land|planeswalker|artifact)\.""")
+    val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:[A-Z]\w+ )?(?:land|planeswalker|artifact)\.""")
     val CHOOSE_KEYWORD = Regex("""Choose ([a-z ]+(?:, [a-z ]+)*,? or [a-z ]+)\.""")
     val GAIN_THAT_ABILITY = Regex("""(.+) gain that ability until end of turn\.""")
     val BECOMES = Regex("""(Until end of turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn)?( and can't be blocked this turn)?\.""")

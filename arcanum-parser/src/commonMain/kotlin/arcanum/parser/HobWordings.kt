@@ -114,7 +114,7 @@ internal object Hob {
 
     // hob chunk 10: black and red
     val SACRIFICES_OF_THEIR_CHOICE = Regex("""(.+? sacrifices? an? .+?) of their choice\.""")
-    val EXILE_UP_TO_ONE_FROM_OPPONENTS_GRAVEYARD = Regex("""[Ee]xile up to one target card from an opponent's graveyard\.""")
+    val EXILE_UP_TO_ONE_FROM_OPPONENTS_GRAVEYARD = Regex("""[Ee]xile (up to one )?target card from an opponent's graveyard\.""")
     val CHOOSE_ODD_OR_EVEN = Regex("""As (.+?) enters, choose (\w+) or (\w+)\.""")
     val OPPONENT_CASTS_CHOSEN_QUALITY = Regex("""an opponent casts a spell with mana value of the chosen quality""")
     val PLAY_EXILED_TOP_X_PAY_LIFE = Regex("""Exile the top X cards of target opponent's library\. You may play those cards this turn\. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\.""")

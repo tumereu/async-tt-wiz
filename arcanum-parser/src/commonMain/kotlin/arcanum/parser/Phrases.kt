@@ -459,7 +459,9 @@ internal object Filters {
         // tla chunk 02
         "Allies" to "Ally",
         // inr chunk 01
-        "Werewolves" to "Werewolf")
+        "Werewolves" to "Werewolf",
+        // lci chunk 11
+        "Fungi" to "Fungus")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
@@ -574,7 +576,7 @@ internal object Events {
         MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
-        LciPhrases.event(text)?.let { return it } // lci
+        LciPhrases.event(text, self)?.let { return it } // lci
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
         // (CR 508.1a)
         AND_AT_LEAST_OTHERS_ATTACK.matchEntire(text)?.let { m ->

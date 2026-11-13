@@ -74,6 +74,16 @@ internal object Lci {
     val IF_ABILITY_OF_COUNTERED_LOSES_ALL = Regex("""If an ability of (an? .+?) is countered this way, that permanent loses all abilities for as long as (.+?) remains on the battlefield\.""")
     val OPPONENTS_WHO_CONTROL = Regex("""the number of opponents who control an? (.+)""")
     val WHICHEVER_IS_GREATER = Regex("""(\w+) or (.+), whichever is greater""")
+    val VALUE_IS_N_OR_GREATER = Regex("""(the number of .+) is (\w+) or greater""")
+    val THAT_ARE_EITHER = Regex("""(.+?) that are (\w+) and/or (\w+)""")
+    val ITS_A_PT_CREATURE_IN_ADDITION = Regex("""It's an? (\d+)/(\d+) ((?:[A-Z]\w+ )+)creature(?: with ([a-z ,]+))? in addition to its other types\.""")
+    val TARGET_DEALS_POWER_TO_ANOTHER_TARGET = Regex("""[Tt]arget (.+?) deals damage equal to its power to another target (.+)\.""")
+    val REVEAL_PUT_ANY_NUMBER_ONTO_BATTLEFIELD = Regex("""[Rr]eveal (?:the top (\w+) cards|(that many) cards from the top) of your library\. Put any number of (.+?) from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
+    val YOU_MAY_IF_YOU_DO_OR_IF = Regex("""You may (.+?)\. If you do or if (.+?), (.+)""")
+    val MAY_HAVE_BASE_POWER_BECOME_THAT_CREATURES = Regex("""[Yy]ou may have (.+?)'s base power become equal to that creature's power until end of turn\.""")
+    val ATTACKS_THE_PLAYER_WITH_MOST_LIFE = Regex("""(.+) attacks the player with the most life or tied for most life""")
+    val WITH_POWER_GREATER_THAN_BASE = Regex("""(.+?),? (?:each )?with power greater than its base power""")
+    val EXILED_WHILE_ACTIVATING_CRAFT = Regex("""(.+) is exiled from the battlefield while you're activating a craft ability""")
     val CRAFT = Regex("""Craft with (.+?) ((?:\{[^}]+\})+)""")
     val CRAFT_EACH_OF = Regex("""(?:an? [A-Z]\w+, )+and an? [A-Z]\w+""")
     val CRAFT_COUNT = Regex("""(\w+)( or more)?(?: (.+))?""")
@@ -82,9 +92,11 @@ internal object Lci {
 /** The lci condition phrases, tried by [Conditions.condition]. */
 internal object LciPhrases {
     /** CR 700.11: "you descended this turn": a permanent card was put into your graveyard from anywhere this turn (a token isn't a card). */
-    val descended: Condition = Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(
+    val descended: Condition get() = Condition.HappenedThisTurn(descend, atLeast = 1, measure = Measure.Objects)
+    /** CR 700.11: one descend: a permanent card put into your graveyard from anywhere. */
+    private val descend: EventPattern = EventPattern.ZoneChange(ObjectFilter.And(listOf(
         ObjectFilter.Or(listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker).map { ObjectFilter.Type(it) }),
-        ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.OwnedBy(PlayerFilter.You))), to = Zone.Graveyard), atLeast = 1, measure = Measure.Objects)
+        ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.OwnedBy(PlayerFilter.You))), to = Zone.Graveyard)
 
     /** The materials of a craft ability (CR 702.167a, b): "artifact", "Cave", "two creatures", "one or more Dinosaurs", "one or more",
      * "four or more nonlands with activated abilities", "a Dinosaur, a Merfolk, a Pirate, and a Vampire" (each its own material). */
@@ -115,6 +127,8 @@ internal object LciPhrases {
 
     /** "the mana value of the exiled card used to craft it", "the total power of …", "the number of colors among …" (CR 702.167c). */
     fun value(text: String): Value? {
+        // lci chunk 11: "the number of times you descended this turn" (each permanent card put into your graveyard, CR 700.11)
+        if (text == "the number of times you descended this turn") return Value.EventsThisTurn(descend, Measure.Objects)
         // lci chunk 10: "the number of opponents who control an artifact" (CR 102.2)
         Lci.OPPONENTS_WHO_CONTROL.matchEntire(text)?.let { o ->
             val filter = Filters.noun(o.groupValues[1]) ?: return null
@@ -137,7 +151,21 @@ internal object LciPhrases {
 
     /** lci chunk 10: abilities on the Stack: "activated or triggered ability", "activated ability", "triggered ability" (CR 113.7; mana
      * abilities never are on the Stack, CR 605.3a). */
+    /** "the player with the most life or tied for most life" (CR 702.105a). */
+    private val mostLife: PlayerFilter get() = PlayerFilter.Life(Comparison.AtLeast, Value.GreatestFor(Players.Each(PlayerFilter.Any), Value.LifeOf(Players.Tested)))
+
     fun noun(phrase: String): ObjectFilter? {
+        // lci chunk 11: "creatures you control each with power greater than its base power" (each its own, CR 208.4b)
+        Lci.WITH_POWER_GREATER_THAN_BASE.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Power(Comparison.Greater,
+                Value.Of(arcanum.api.NumericProperty.BasePower, Objects.Tested, arcanum.api.Combine.Single)))
+        }
+        // lci chunk 11: "creatures you control that are Fungi and/or Saprolings" (either subtype or both)
+        Lci.THAT_ARE_EITHER.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            fun kind(plural: String) = Filters.noun(plural) ?: Filters.noun(plural.removeSuffix("s"))
+            return Filters.all(base, ObjectFilter.Or(listOf(kind(m.groupValues[2]) ?: return null, kind(m.groupValues[3]) ?: return null)))
+        }
         fun ability(kind: arcanum.api.AbilityKind) = ObjectFilter.AbilityOf(kind = kind)
         val kinds = when (phrase) {
             "activated or triggered ability" -> listOf(ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered))))
@@ -149,7 +177,16 @@ internal object LciPhrases {
     }
 
     /** Trigger events. */
-    fun event(text: String): EventPattern? {
+    fun event(text: String, self: Set<String>): EventPattern? {
+        // lci chunk 11: "this creature is exiled from the battlefield while you're activating a craft ability" (as a material, CR 702.167a)
+        Lci.EXILED_WHILE_ACTIVATING_CRAFT.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(Events.subjectOf(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile,
+                forCost = arcanum.api.Keyword.Craft.Kind)
+        }
+        // lci chunk 11: "this creature attacks the player with the most life or tied for most life" (as dethrone, CR 702.105a)
+        Lci.ATTACKS_THE_PLAYER_WITH_MOST_LIFE.matchEntire(text)?.let { m ->
+            return EventPattern.Attack(Events.subjectOf(m.groupValues[1], self) ?: return null, target = RecipientFilter(players = mostLife))
+        }
         // lci chunk 02: "you activate an ability that isn't a mana ability" (CR 605.1a, 602.2)
         if (text == "you activate an ability that isn't a mana ability") return EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You)
         return null
@@ -157,6 +194,13 @@ internal object LciPhrases {
 
     fun condition(text: String): Condition? {
         if (text == "you descended this turn") return descended
+        // lci chunk 11: "you have the most life or are tied for most life" (CR 102.2)
+        if (text == "you have the most life or are tied for most life") return Condition.PlayerMatches(Players.You, mostLife)
+        // lci chunk 11: "the number of other Caves you control plus the number of Cave cards in your graveyard is three or greater"
+        Lci.VALUE_IS_N_OR_GREATER.matchEntire(text)?.let { m ->
+            val value = Values.value(m.groupValues[1]) ?: return null
+            return Condition.Compare(value, Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
+        }
         // lci chunk 02: "this artifact or another artifact entered the battlefield under your control this turn": any of that kind did
         Lci.THIS_OR_ANOTHER_ENTERED.matchEntire(text)?.let { m ->
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,

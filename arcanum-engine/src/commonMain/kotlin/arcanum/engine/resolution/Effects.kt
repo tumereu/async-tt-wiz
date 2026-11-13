@@ -1492,8 +1492,10 @@ internal object Effects {
             KeywordAction.Forage, KeywordAction.Foretell, is KeywordAction.CollectEvidence -> emptyList()
             else -> doers(scope, action)
         }
+        // lci: a discover's N is the event's amount ("discover again for the same value", CR 701.57a)
+        val amount = (action as? KeywordAction.Discover)?.let { scope.value(it.count) }
         performKeywordAction(scope, action, bind)
-        done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
+        done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects, amount = amount))) }
     }
 
     /** One [GameEvent.KeywordActionDone] each: who does [action], and to or with what. */

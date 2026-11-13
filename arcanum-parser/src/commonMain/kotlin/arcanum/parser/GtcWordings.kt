@@ -135,7 +135,7 @@ internal object Gtc {
     val ALL_ABLE_TO_BLOCK_DO_SO = Regex("""All creatures able to block target (.+?) this turn do so\.""")
     val EACH_PLAYER_SACRIFICES_LIST = Regex("""Each player sacrifices (.+?) of their choice\.""")
     val PUT_X_COUNTERS_POWER_OF_EXILED = Regex("""Put X (\S+) counters on target (.+?), where X is the power of the card you exiled\.""")
-    val TARGET_DEALS_DAMAGE_EQUAL_POWER = Regex("""Target (.+?) deals damage equal to its power to (any target)\.""")
+    val TARGET_DEALS_DAMAGE_EQUAL_POWER = Regex("""Target (.+?) deals damage equal to its power to (any (?:other )?target)\.""")
     val REMOVE_ALL_COUNTERS_FROM_TARGET = Regex("""Remove all (\S+) counters from target (.+)\.""")
     val UNTAP_EACH = Regex("""Untap each (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_LOSES = Regex("""Target player draws (\w+) cards and loses (\d+) life\.""")

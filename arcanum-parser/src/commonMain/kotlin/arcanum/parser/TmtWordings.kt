@@ -117,7 +117,7 @@ internal object Tmt {
     val CARDS_HAVE_SNEAK = Regex("""Creature cards in your graveyard have sneak (\{.+\})\.""")
     val CAST_USING_SNEAK = Regex("""You may cast creature spells from your graveyard using their sneak abilities\.""")
     val DURING_YOUR_TURN_CAST_FROM_GRAVEYARD_FINALITY = Regex("""During your turn, you may cast (.+?) spells with power or toughness (\d+) or less from your graveyard\. If you cast a spell this way, that creature enters with a finality counter on it\.""")
-    val CLONING_COPY_EXCEPT = Regex("""Create a token that's a copy of (it|a card exiled with this Saga), except it isn't legendary and is an? ([A-Z]\w+) in addition to its other types\.""")
+    val CLONING_COPY_EXCEPT = Regex("""Create a token that's a copy of (it|a card exiled with this Saga), except it isn't legendary(?:,| and) is an? ([A-Z]\w+) in addition to its other types(?:, and has ([a-z ,]+?))?\.""")
 }
 
 /** Phrases of Teenage Mutant Ninja Turtles (tmt) wordings: conditions and nouns. */

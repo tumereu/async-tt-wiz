@@ -66,6 +66,15 @@ internal object Woe {
     val RETURN_TARGET_IN_EXILE_TO_HAND = Regex("""[Rr]eturn target (.+? in exile.*?) to your hand\.""")
     // woe chunk 08: "Until end of turn, target creature you control has base power and toughness 4/4 and gains flying and hexproof." (layers 7b, 6)
     val UNTIL_EOT_BASE_PT_AND_GAINS = Regex("""Until end of turn, ((?:[Uu]p to one )?target .+?) has base power and toughness (\d+)/(\d+) and gains ([a-z ,]+)\.""")
+    // woe chunk 09: "Other creatures you control that are enchanted by Auras you control have base power and toughness 4/4 and have flying."
+    val HAVE_BASE_PT_AND_HAVE = Regex("""(.+?) have base power and toughness (\d+)/(\d+) and have ([a-z ,]+)\.""")
+    // woe chunk 09: "Other creatures you control get +1/+0 for each Aura and Equipment attached to Kellan." (counted continuously, layer 7c)
+    val GET_FOR_EACH_ATTACHED_TO = Regex("""(.+?) gets? \+(\d+)/\+(\d+) for each (Aura and Equipment|Aura|Equipment) attached to (.+)\.""")
+    // woe chunk 09: "you may exile one or more creature cards from your graveyard. When you do, each other creature gets -X/-X until end of turn,
+    // where X is the number of cards exiled this way." (CR 603.12)
+    val MAY_EXILE_FROM_GRAVEYARD_WHEN_YOU_DO_GET_MINUS_X = Regex("""You may exile one or more (.+?) from your graveyard\. When you do, each (other )?(.+?) gets -X/-X until end of turn, where X is the number of cards exiled this way\.""")
+    // woe chunk 09: "Sacrifice all Reflections you control."
+    val SACRIFICE_ALL_YOU_CONTROL = Regex("""[Ss]acrifice all (.+?) you control\.""")
 }
 
 /** Phrases first met in Wilds of Eldraine (WOE). */
@@ -75,6 +84,7 @@ internal object WoePhrases {
     private val WITH_MV_POWER_OR_TOUGHNESS_EQUAL_TO_CHOSEN = Regex("""(.+?) with mana value, power, or toughness equal to the chosen number""")
     private val OWN_IN_EXILE = Regex("""(cards?) you (own|don't own) in exile""")
     private val THAT_HAS_AN_ADVENTURE = Regex("""(.+?) that (?:has|have) an Adventure""")
+    private val THAT_ARE_ENCHANTED_BY = Regex("""(.+?) that (?:are|is) enchanted by (.+)""")
 
     fun noun(phrase: String): arcanum.api.ObjectFilter? {
         // woe chunk 08: "card you own in exile", "card you don't own in exile" (cards in exile are owned, CR 108.3)
@@ -99,9 +109,29 @@ internal object WoePhrases {
             return Filters.all(base, arcanum.api.ObjectFilter.Or(listOf(arcanum.api.ObjectFilter.ManaValue(eq, n), arcanum.api.ObjectFilter.Power(eq, n),
                 arcanum.api.ObjectFilter.Toughness(eq, n))))
         }
+        // woe chunk 09: "other creatures you control that are enchanted by Auras you control" (an Aura of that kind attached, CR 303.4)
+        THAT_ARE_ENCHANTED_BY.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            val auras = Filters.noun(m.groupValues[2])?.takeIf { m.groupValues[2].startsWith("Aura") } ?: return null
+            return Filters.all(base, arcanum.api.ObjectFilter.Attached(attachments = auras))
+        }
         THAT_HAS_AN_ADVENTURE.matchEntire(phrase)?.let { m ->
             val base = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             return Filters.all(base, arcanum.api.ObjectFilter.HasAdventure)
+        }
+        return null
+    }
+
+    /** A number in a "where X is" ([event]: the ability's trigger event). */
+    fun value(text: String, event: arcanum.api.EventPattern?): arcanum.api.Value? {
+        // woe chunk 09: "When this creature dies, …, where X is the amount of damage dealt to it this turn" (the creature as it last existed on
+        // the battlefield, CR 603.10a; all damage dealt to it this turn, CR 120.3)
+        if (text == "the amount of damage dealt to it this turn") {
+            val died = event as? arcanum.api.EventPattern.ZoneChange ?: return null
+            if (died.from != arcanum.api.Zone.Battlefield) return null
+            val it = arcanum.api.Objects.EventObject(arcanum.api.EventRole.Before)
+            return arcanum.api.Value.EventsThisTurn(arcanum.api.EventPattern.Damage(arcanum.api.ObjectFilter.Any,
+                arcanum.api.RecipientFilter(objects = arcanum.api.ObjectFilter.Is(it))), arcanum.api.Measure.Amount)
         }
         return null
     }

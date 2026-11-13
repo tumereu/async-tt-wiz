@@ -2844,8 +2844,26 @@ internal class Sentences(
                 context.previous = targetsFrom to stepsFrom
             }
         } finally { announcedX = outerX }
-        val result = Instructions(targets = context.targets, steps = steps, replacements = context.replacements)
+        val result = Instructions(targets = context.targets, steps = localExileReturns(steps), replacements = context.replacements)
         return if (x == null) result else result.withX(x)
+    }
+
+    /** rvr chunk 07: a delayed trigger returning "the exiled card" that this same ability exiled holds the card as a bound object (CR 603.7c),
+     * not as the source's card memory: the source may be gone when the ability resolves (sacrificed as a cost, CR 400.7). */
+    private fun localExileReturns(steps: List<Step>): List<Step> {
+        val exilesHere = steps.any { ((it as? Step.Do)?.effect as? Effect.Move)?.let { m -> m.postBind == "exiled" && m.to.zone == Zone.Exile } == true }
+        if (!exilesHere) return steps
+        val remembered = Objects.Remembered(EXILED_WITH)
+        val bound = Objects.Bound("exiled")
+        return steps.map { step ->
+            val delayed = (step as? Step.Do)?.effect as? Effect.CreateDelayedTrigger ?: return@map step
+            val inner = delayed.instructions.steps.map { s ->
+                val move = (s as? Step.Do)?.effect as? Effect.Move
+                if (move == null || move.objects != remembered) s
+                else Step.Do(move.copy(objects = bound, to = move.to.copy(controller = if (move.to.controller == Players.OwnerOf(remembered)) Players.OwnerOf(bound) else move.to.controller)))
+            }
+            Step.Do(delayed.copy(instructions = delayed.instructions.copy(steps = inner)))
+        }
     }
 
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
@@ -5657,7 +5675,14 @@ internal class Sentences(
                 Step.Do(Effect.Draw(player, Value.Fixed(1))))
         }
         YOU_MAY.matchEntire(sentence)?.let { m ->
-            effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context)?.let { return listOf(Step.May(it, player = Players.You)) }
+            effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context)?.let { steps ->
+                // rvr chunk 07: "you may put two counters on a creature you control" is a choice of zero or one, not May (CR 701.3 pattern)
+                val first = steps.firstOrNull() as? Step.Choose
+                val choice = first?.choice as? arcanum.api.Choice.Objects
+                if (first != null && choice != null && choice.min == Value.Fixed(1) && choice.max == Value.Fixed(1))
+                    return listOf(first.copy(choice = choice.copy(min = Value.Fixed(0)))) + steps.drop(1)
+                return listOf(Step.May(steps, player = Players.You))
+            }
             // rvr chunk 05: "you may gain 2 life" (Savra): the clause read with its subject
             if (m.groupValues[1].startsWith("gain ")) effect("You " + m.groupValues[1] + ".", context)?.let { return listOf(Step.May(it, player = Players.You)) }
         }

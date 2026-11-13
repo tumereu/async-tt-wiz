@@ -77,7 +77,7 @@ internal object Casts {
             // CR 700.2b: a mode that couldn't choose its targets can't be chosen; with too few left, the ability is removed from the Stack
             val illegal = if (!required) emptySet() else m.options.indices.filterTo(mutableSetOf()) { i ->
                 m.options[i].instructions.targets.any { slot ->
-                    slot.perPlayer == null && Targeting.options(act, slot, controller, source, names, emptyMap(), self, event = event).size < ev.value(slot.min)
+                    slot.perPlayer == null && !Targeting.possible(slot, Targeting.options(act, slot, controller, source, names, emptyMap(), self, event = event), ev.value(slot.min), ev)
                 }
             }
             if (m.options.size - (used + illegal).size < m.min) return null
@@ -118,8 +118,8 @@ internal object Casts {
                     val pe = e.with(e.ctx.copy(slotPlayer = p))
                     val min = pe.value(slot.min)
                     val max = slot.max?.let { pe.value(it) }
-                    if (options.size < min && required) return null
-                    chosenAll += if (options.size <= min) options else act.chooseTargets(controller, source, slot.name, options, min, max)
+                    if (!Targeting.possible(slot, options, min, pe) && required) return null
+                    chosenAll += if (options.size <= min) options else Targeting.choose(act, controller, source, slot, options, min, max, pe)
                 }
                 if (chosenAll.isNotEmpty()) targets[slot.name] = chosenAll
                 continue
@@ -127,7 +127,8 @@ internal object Casts {
             val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event)
             val min = e.value(slot.min)
             val max = slot.max?.let { e.value(it) }
-            if (options.size < min && required) return null
+            // CR 603.3d: too few legal targets, or no group of them within the slot's limits on each other (CR 601.2c)
+            if (!Targeting.possible(slot, options, min, e) && required) return null
             // P5: no decision when every legal target must be chosen
             val chosen = when {
                 options.size <= min -> options
@@ -139,11 +140,8 @@ internal object Casts {
                     ?: controller, source, slot.name, options, min, max)
                 else -> act.chooseTargets(controller, source, slot.name, options, min, max)
             }
-            // msh: "up to two target creatures with total mana value 6 or less" (CR 601.2c)
-            slot.totalAtMost?.let { limit ->
-                val ids = chosen.mapNotNull { (it as? TargetRef.Object)?.id }
-                require(ids.sumOf { e.property(limit.property, it) } <= e.value(limit.atMost)) { "The targets' total is more than allowed" }
-            }
+            // mkm fixes: one controller or owner, shared or different qualities, a total: as for a spell (CR 603.3d, 601.2c)
+            Targeting.groupRefusal(slot, chosen, e)?.let { throw IllegalArgumentException(it) }
             if (chosen.isNotEmpty()) targets[slot.name] = chosen
         }
         return modes to targets

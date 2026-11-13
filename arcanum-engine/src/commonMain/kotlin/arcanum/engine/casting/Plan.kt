@@ -613,7 +613,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Whether the open slot's targets limit each other (CR 601.2c): the same controller or owner, a shared or differing quality, a
      * total, one for each: some candidates then stop being legal with others picked. */
     fun targetsLimitEachOther(key: String): Boolean = instructions.let { Targets.slots(it, choices.modes) }.any { s ->
-        s.key == key.substringBefore(":") && (s.slot.sameController || s.slot.sameOwner || s.slot.sharing != null || s.slot.distinct != null || s.slot.onePer != null || s.slot.totalAtMost != null)
+        s.key == key.substringBefore(":") && arcanum.engine.action.Targeting.limitsEachOther(s.slot)
     }
 
     /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the

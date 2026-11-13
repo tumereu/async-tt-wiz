@@ -1068,7 +1068,9 @@ internal object Effects {
                     val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
                     now[slot] = if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
-                        else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
+                        // mkm fixes: within the slot's limits on each other, as when first chosen (CR 707.10c, 601.2c)
+                        else Targeting.choose(act, controller, copyId, s, options, chosen.size, chosen.size,
+                            act.evaluator(arcanum.engine.query.Context(controller, original.source, names, stackItem = original)))
                 }
                 targets = now
             }
@@ -1393,7 +1395,9 @@ internal object Effects {
                     // mh2: "reselect the targets at random" (CR 115.7d): the host picks, a die with a side for each legal target
                     else if (effect.atRandom) List(minOf(chosen.size, options.size)) { options[(act.random(chooser, id,
                         arcanum.engine.decision.RandomKind.Die(options.size, 1)) as Answer.DieRolls).results.single() - 1] }.distinct()
-                    else act.chooseTargets(chooser, id, slot, options, chosen.size, chosen.size)
+                    // mkm fixes: the new targets keep the slot's limits on each other (CR 115.7, 601.2c)
+                    else Targeting.choose(act, chooser, id, s, options, chosen.size, chosen.size,
+                        act.evaluator(arcanum.engine.query.Context(item.controller, item.source, item.names, stackItem = item)))
                 }
             }
             if (targets != item.targets) act.record(Change.StackItemUpdated(item, item.copy(targets = targets)))

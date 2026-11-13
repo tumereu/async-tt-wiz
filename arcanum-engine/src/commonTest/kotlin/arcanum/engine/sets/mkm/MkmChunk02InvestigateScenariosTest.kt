@@ -54,7 +54,7 @@ class MkmChunk02InvestigateScenariosTest {
 
     private val flare = Cards.invent("Alley Flare", "{R}", "Instant", "Alley Flare deals 3 damage to target creature.")
     private val satchel = Cards.invent("Evidence Satchel", "{1}", "Artifact — Clue", "{2}, Sacrifice this artifact: Draw a card.")
-    private val gizmo = Cards.invent("Brass Gizmo", "{1}", "Artifact", "{1}, {T}: You gain 1 life.")
+    private val gizmo = Cards.invent("Copperwound Trinket", "{1}", "Artifact", "{1}, {T}: You gain 1 life.")
     private val skiff = Cards.invent("Wrecked Skiff", "{1}", "Artifact", "{1}{U}, {T}: Draw a card.")
 
     private fun Scenario.clues(): Int = state.objects.values.count { o -> o.zone == arcanum.api.Zone.Battlefield && nameOf(o) == "Clue Token" }

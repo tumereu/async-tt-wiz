@@ -36,7 +36,8 @@ internal object Msh {
     // msh chunk 02: connive (CR 701.50)
     val CONNIVES = Regex("""(.+?) connives\.""")
     val MAY_HAVE_IT_CONNIVE = Regex("""[Yy]ou may have (it|that creature) connive\.""")
-    val WOULD_CONNIVE_INSTEAD_DRAW = Regex("""If (.+) would connive, instead you draw a card, then that creature connives\.""")
+    // lci chunk 03: "If a creature you control would explore, instead you scry 1, then that creature explores."
+    val WOULD_CONNIVE_INSTEAD_DRAW = Regex("""If (.+) would (connive|explore), instead you (.+?), then that creature \2s\.""")
 
     // msh chunk 03: plan counters
     val NTH_COUNTER_PUT_ON = Regex("""the (\w+) (\S+) counter is put on (.+)""")

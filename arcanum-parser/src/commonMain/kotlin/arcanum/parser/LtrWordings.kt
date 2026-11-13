@@ -30,7 +30,8 @@ internal object Ltr {
     val FOR_AS_LONG_AS_YOU_CONTROL = Regex("""(.+) for as long as you control (.+)\.""")
     val CHOOSE_TARGET = Regex("""[Cc]hoose (up to one target .+)\.""")
     val EXILE_THEN_RETURN_UNDER_YOUR_CONTROL = Regex("""[Ee]xile (up to one target .+?|target .+?), then return (?:it|that card) to the battlefield under your control\.""") // inr chunk 09: that card
-    val TRAILING_IF_POWER = Regex("""([A-Z].+?) if (that creature|it)'s power is (\d+) or (less|greater)\.""")
+    // lci chunk 03: "Then destroy all other creatures if its power is exactly 20."
+    val TRAILING_IF_POWER = Regex("""([A-Z].+?) if (that creature's|its) power is (?:(\d+) or (less|greater)|exactly (\d+))\.""")
     val OTHER_THAN_SELF = Regex("""(.*?)\btarget (.+?) other than (.+?)(\.|,.*)""")
     val THEY_GAIN_UNTIL_EOT = Regex("""They gain (.+?) until end of turn\.""")
     val YOU_CREATE_A_TOKEN = Regex("""you create a token""")

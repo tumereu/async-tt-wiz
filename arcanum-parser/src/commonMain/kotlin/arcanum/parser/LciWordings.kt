@@ -28,6 +28,8 @@ internal object Lci {
     val CRAFTED_WITH_VALUE = Regex("""(the mana value|the total power|the number of colors among) (?:of )?(the exiled cards? used to craft .+)""")
     val MAY_PUT_CRAFTED_ONTO_BATTLEFIELD = Regex("""You may put an exiled (.+? card) used to craft (.+?) onto the battlefield under your control( tapped and attacking)?\.""")
     val HAS_EACH_ACTIVATED_ABILITY_OF = Regex("""(.+) has each activated ability of (.+?)\.( You may activate each of those abilities only once each turn\.)?""")
+    // lci chunk 03: "Then you may have it become a copy of another creature you control until end of turn." (layer 1, CR 707.2)
+    val MAY_HAVE_IT_BECOME_COPY_OF_ANOTHER = Regex("""(?:Then )?[Yy]ou may have (?:it|this creature) become a copy of another (.+?) until end of turn\.""")
     val CRAFT = Regex("""Craft with (.+?) ((?:\{[^}]+\})+)""")
     val CRAFT_EACH_OF = Regex("""(?:an? [A-Z]\w+, )+and an? [A-Z]\w+""")
     val CRAFT_COUNT = Regex("""(\w+)( or more)?(?: (.+))?""")

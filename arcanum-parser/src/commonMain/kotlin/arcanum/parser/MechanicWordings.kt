@@ -253,7 +253,8 @@ internal object MechanicWordings {
     val IS_A_COPY_OF = Regex("""(.+?) (?:is a copy|are copies) of (.+)\.""")
 
     /** Keyword actions (CR 701). */
-    val EXPLORES = Regex("""(.+?) explores\.""")
+    // lci chunk 03: "it explores X times", "That creature explores, then it explores again." (each a separate explore, CR 701.44b)
+    val EXPLORES = Regex("""(.+?) explores(?:, then it explores (again)| (X|\w+) times)?\.""")
     val MONSTROSITY = Regex("""Monstrosity (\d+|X)\.""")
     val ADAPT = Regex("""Adapt (\d+|X)\.""")
     val SUPPORT = Regex("""Support (\d+|X)\.""")

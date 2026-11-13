@@ -1425,12 +1425,7 @@ internal object Effects {
      */
     private fun conniveOne(scope: Scope, action: KeywordAction.Connive, id: ObjectId) {
         val act = scope.act
-        val applied = act.view().game.rules.firstOrNull { a ->
-            val m = a.mechanic as? arcanum.api.Mechanic.Replacement ?: return@firstOrNull false
-            val event = m.event as? arcanum.api.EventPattern.Connive ?: return@firstOrNull false
-            m.instead != null && scope.names[conniveGuard(a)] == null &&
-                Evaluator(act.board(), arcanum.engine.query.Context(a.controller, a.source, a.names)).matches(event.objects, id)
-        }
+        val applied = replacing(scope, id, "connive") { (it as? arcanum.api.EventPattern.Connive)?.objects }
         if (applied == null) {
             val one = scope.names.with(CONNIVER, NamedValue.Objects(listOf(id)))
             val single = action.copy(objects = Objects.Bound(CONNIVER))
@@ -1440,13 +1435,29 @@ internal object Effects {
             done.forEach { (player, objects) -> act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Connive, player, objects))) }
             return
         }
-        val m = applied.mechanic as arcanum.api.Mechanic.Replacement
-        val event = arcanum.engine.state.TriggerEvent(listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id))), listOfNotNull(act.controllerOf(id)))
-        val names = scope.names.with(applied.names).with(conniveGuard(applied), NamedValue.Number(1))
-        Steps.run(Scope(act, Cause(applied.controller, applied.source, key = "connive:$id"), names, event), m.instead!!.steps)
+        replaceWith(scope, applied, id, "connive")
     }
 
-    private fun conniveGuard(applied: arcanum.engine.view.AppliedMechanic) = "\$connive-replaced:${applied.source}:${applied.origin?.key}"
+    /** The first replacement of [verb] (a [arcanum.api.Mechanic.Replacement] with instructions whose event [objects] reads, CR 614.1a) that
+     * applies to [id], other than one already applied to this event (CR 614.5). */
+    private fun replacing(scope: Scope, id: ObjectId, verb: String, objects: (arcanum.api.EventPattern) -> arcanum.api.ObjectFilter?) =
+        scope.act.view().game.rules.firstOrNull { a ->
+            val m = a.mechanic as? arcanum.api.Mechanic.Replacement ?: return@firstOrNull false
+            val filter = objects(m.event) ?: return@firstOrNull false
+            m.instead != null && scope.names[replacedGuard(a, verb)] == null &&
+                Evaluator(scope.act.board(), arcanum.engine.query.Context(a.controller, a.source, a.names)).matches(filter, id)
+        }
+
+    /** Does [applied]'s instructions instead, with [id] as the event's object and the replacement marked as applied to it. */
+    private fun replaceWith(scope: Scope, applied: arcanum.engine.view.AppliedMechanic, id: ObjectId, verb: String) {
+        val act = scope.act
+        val m = applied.mechanic as arcanum.api.Mechanic.Replacement
+        val event = arcanum.engine.state.TriggerEvent(listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id))), listOfNotNull(act.controllerOf(id)))
+        val names = scope.names.with(applied.names).with(replacedGuard(applied, verb), NamedValue.Number(1))
+        Steps.run(Scope(act, Cause(applied.controller, applied.source, key = "$verb:$id"), names, event), m.instead!!.steps)
+    }
+
+    private fun replacedGuard(applied: arcanum.engine.view.AppliedMechanic, verb: String) = "\$$verb-replaced:${applied.source}:${applied.origin?.key}"
     private const val CONNIVER = "\$conniver"
 
     /** ecl: the creatures [player] could blight (CR 701.68a): creatures they control. */
@@ -1567,7 +1578,9 @@ internal object Effects {
                     // Ones that left get no counter and reveal the same cards whichever goes first, so nothing is asked about them alone
                     val explorer = if (theirs.none { act.state.obj(it)?.zone == Zone.Battlefield }) theirs.first()
                         else act.chooseObjects(chooser, scope.self, theirs, 1, 1, "Which one explores next?").single()
-                    explore(scope, explorer, chooser)
+                    // lci: "If a creature you control would explore, instead …" (CR 614.1a), once per replacement (CR 614.5)
+                    val applied = replacing(scope, explorer, "explore") { (it as? arcanum.api.EventPattern.Explore)?.objects }
+                    if (applied == null) explore(scope, explorer, chooser) else replaceWith(scope, applied, explorer, "explore")
                     left = left - explorer
                 }
             }
@@ -1721,17 +1734,18 @@ internal object Effects {
         val act = scope.act
         fun counter() { if (act.state.obj(explorer)?.zone == Zone.Battlefield) Actions.putCounters(act, scope.cause, TargetRef.Object(explorer), CounterKind.PowerToughness(1, 1), 1) }
         val top = act.state.player(controller).library.firstOrNull()
+        var revealed = top
         if (top == null) counter()
         else {
             act.show(controller, listOf(top), public = true)
             act.record(Change.Happened(GameEvent.Revealed(controller, listOf(top))))
-            if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) Actions.moveTo(act, scope.cause, listOf(top), Zone.Hand)
+            if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) revealed = Actions.moveTo(act, scope.cause, listOf(top), Zone.Hand)[top] ?: top
             else {
                 counter()
-                if (act.yesNo(controller, explorer, "Put it into your graveyard?")) Actions.moveTo(act, scope.cause, listOf(top), Zone.Graveyard)
+                if (act.yesNo(controller, explorer, "Put it into your graveyard?")) revealed = Actions.moveTo(act, scope.cause, listOf(top), Zone.Graveyard)[top] ?: top
             }
         }
-        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Explore, controller, listOf(explorer))))
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Explore, controller, listOf(explorer), revealed = revealed)))
     }
 
     /** CR 701.40a, c, 701.58a, c: the actor's top card onto the battlefield face down, [count] times one at a time, each [mark]ed

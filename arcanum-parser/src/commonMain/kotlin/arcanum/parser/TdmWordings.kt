@@ -235,8 +235,8 @@ internal object Tdm {
     val MAY_ATTACH_SELF_TO_IT = Regex("""You may attach (.+) to it\.""")
     // tdm chunk 09: "Put a +1/+1 counter on each of those creatures."
     val COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures\.""")
-    // tdm chunk 09: "If it was a token, draw a card."
-    val IF_IT_WAS_A_TOKEN = Regex("""If it was a token, (.+)\.""")
+    // tdm chunk 09: "If it was a token, draw a card."; lci chunk 03: "If it was tapped, create a Map token."
+    val IF_IT_WAS_A_TOKEN = Regex("""If it was (a token|tapped), (.+)\.""")
     val DESTROY_ITS_CONTROLLER_SEARCHES = Regex("""[Dd]estroy target (.+?)\. Its controller searches their library for an? (.+?) card, puts it onto the battlefield tapped with an? (\S+) counter on it, then shuffles\.""")
 }
 

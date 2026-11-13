@@ -1168,7 +1168,17 @@ internal class Sentences(
         }
         // CR 701.44a: "When this creature enters, it explores.", "Target creature you control explores."
         MechanicWordings.EXPLORES.matchEntire(sentence)?.let { m ->
-            return action(arcanum.api.KeywordAction.Explore(mechanicObjects(m.groupValues[1], context) ?: return null))
+            val explorer = mechanicObjects(m.groupValues[1], context) ?: return null
+            val explore = action(arcanum.api.KeywordAction.Explore(explorer))
+            // lci chunk 03: a later "its power" is the explorer's ("Amalia explores. Then destroy … if its power is exactly 20.")
+            context.it = explorer
+            val times = when {
+                m.groupValues[2].isNotEmpty() -> Value.Fixed(2)
+                m.groupValues[3] == "X" -> Value.Announced("X") // the X of the spell it was, in its enters trigger (CR 107.3m)
+                m.groupValues[3].isNotEmpty() -> Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null)
+                else -> return explore
+            }
+            return listOf(Step.Repeat(times, explore))
         }
         // CR 701.37a: "Monstrosity 3." (an activated ability's: this permanent)
         MechanicWordings.MONSTROSITY.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Monstrosity(mechanicCount(m.groupValues[1]) ?: return null)) }
@@ -14708,11 +14718,15 @@ internal class Sentences(
             val condition = Conditions.condition(m.groupValues[1], self) ?: return null
             return Ability.Static(listOf(Mechanic.CastAsThoughFlash(ObjectFilter.Any)), affects = Affected.Players(Players.You), condition = condition)
         }
-        // msh chunk 02: "If a creature you control would connive, instead you draw a card, then that creature connives." (CR 614.1a)
+        // msh chunk 02: "If a creature you control would connive, instead you draw a card, then that creature connives." (CR 614.1a); lci chunk 03:
+        // "… would explore, instead you scry 1, then that creature explores."
         Msh.WOULD_CONNIVE_INSTEAD_DRAW.matchEntire(line)?.let { m ->
             val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
-            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Connive(filter), instead = Instructions(steps = listOf(
-                Step.Do(Effect.Draw(Players.You, Value.Fixed(1))), mshConnive(Objects.EventObject(EventRole.Object)))))), affects = mshSelfOnly)
+            val first = instructions(m.groupValues[3].replaceFirstChar { it.uppercase() } + ".")?.takeIf { it.targets.isEmpty() } ?: return null
+            val explorer = Objects.EventObject(EventRole.Object)
+            val (event, then) = if (m.groupValues[2] == "connive") EventPattern.Connive(filter) to mshConnive(explorer)
+                else EventPattern.Explore(filter) to Step.Do(Effect.Action(arcanum.api.KeywordAction.Explore(explorer)))
+            return Ability.Static(listOf(Mechanic.Replacement(event, instead = Instructions(steps = first.steps + then))), affects = mshSelfOnly)
         }
         // msh chunk 04: "Stature can't be blocked if her power is 1 or less."
         Msh.CANT_BE_BLOCKED_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -15631,6 +15645,15 @@ internal class Sentences(
 
     /** lci: single-sentence effects. */
     private fun lciEffect(sentence: String, context: Context): List<Step>? {
+        // lci chunk 03: "Then you may have it become a copy of another creature you control until end of turn." (a permanent's own ability: choosing
+        // none is declining; layer 1, CR 707.2)
+        Lci.MAY_HAVE_IT_BECOME_COPY_OF_ANOTHER.matchEntire(sentence)?.takeIf { !isSpell && (context.it == null || context.it == Objects.Self) }?.let { m ->
+            val filter = Filters.all(context.another(), Filters.noun(m.groupValues[1]) ?: return null)
+            val copied = Objects.Bound("copied")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1)), bind = "copied", chooser = Players.You),
+                Step.If(arcanum.api.Condition.NonEmpty("copied"), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(copied)),
+                    Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))))
+        }
         // lci chunk 02: "Then you may put an exiled creature card used to craft The Grim Captain onto the battlefield under your control tapped and
         // attacking." (CR 702.167c; CR 508.4: not declared as an attacker, its controller chooses what it attacks)
         Lci.MAY_PUT_CRAFTED_ONTO_BATTLEFIELD.matchEntire(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() })
@@ -22056,13 +22079,14 @@ internal class Sentences(
             val bind = move.postBind ?: "returned"
             return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.PutCounters(Objects.Bound(bind), Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1)))
         }
-        // tdm chunk 09: "If it was a token, draw a card." after returning a permanent to its hand: the permanent as it last existed (CR 608.2h)
+        // tdm chunk 09: "If it was a token, draw a card." (lci chunk 03: "If it was tapped, …") after returning a permanent to its hand: the
+        // permanent as it last existed (CR 608.2h)
         Tdm.IF_IT_WAS_A_TOKEN.matchEntire(sentence)?.let { m ->
             val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
             val bind = move.preBind ?: "returned"
-            val then = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".") ?: return null
-            return steps.dropLast(1) + Step.Do(move.copy(preBind = bind)) +
-                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound(bind), ObjectFilter.Category(arcanum.api.ObjectCategory.Token)), then = then.steps)
+            val then = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".") ?: return null
+            val was = if (m.groupValues[1] == "tapped") ObjectFilter.HasStatus(arcanum.api.Status.Tapped) else ObjectFilter.Category(arcanum.api.ObjectCategory.Token)
+            return steps.dropLast(1) + Step.Do(move.copy(preBind = bind)) + Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound(bind), was), then = then.steps)
         }
         // tdm chunk 11: "It gains lifelink and haste until end of turn." after creating a token
         Tdm.CREATE_IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
@@ -24396,12 +24420,17 @@ internal class Sentences(
             context.it = outer
             return steps ?: return@let
         }
-        // ltr chunk 02: "Draw a card if that creature's power is 2 or less." (checked as it resolves)
+        // ltr chunk 02: "Draw a card if that creature's power is 2 or less." (checked as it resolves); lci chunk 03: "Then destroy all other
+        // creatures if its power is exactly 20." (a permanent's ability with no target or other "it": its own power)
         Ltr.TRAILING_IF_POWER.matchEntire(sentence)?.let { m ->
-            val objects = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: context.it ?: return@let
+            val objects = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: context.it ?: Objects.Self.takeIf { !isSpell } ?: return@let
             val then = effect("${m.groupValues[1]}.", context) ?: return@let
-            val comparison = if (m.groupValues[4] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast
-            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(objects, ObjectFilter.Power(comparison, Value.Fixed(m.groupValues[3].toInt()))), then = then))
+            val (comparison, n) = when {
+                m.groupValues[5].isNotEmpty() -> arcanum.api.Comparison.Equal to m.groupValues[5]
+                m.groupValues[4] == "less" -> arcanum.api.Comparison.AtMost to m.groupValues[3]
+                else -> arcanum.api.Comparison.AtLeast to m.groupValues[3]
+            }
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(objects, ObjectFilter.Power(comparison, Value.Fixed(n.toInt()))), then = then))
         }
         // ltr chunk 01: "Put a card from your hand on the bottom of your library." (CR 401.4)
         if (Ltr.PUT_A_CARD_FROM_HAND_ON_BOTTOM.matches(sentence))

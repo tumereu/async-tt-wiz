@@ -533,8 +533,10 @@ class SharedFlowController(
      */
     private fun sameDecision(worked: TableBoard): Boolean {
         val now = current() ?: return false
-        val same = now.board.combat == worked.board.combat && now.engine != null && worked.engine != null &&
-            org.asyncttwiz.protocol.game.GameDevice.sameDecision(worked.engine.state, now.engine.state)
+        val nowEngine = now.engine
+        val workedEngine = worked.engine
+        val same = now.board.combat == worked.board.combat && nowEngine != null && workedEngine != null &&
+            org.asyncttwiz.protocol.game.GameDevice.sameDecision(workedEngine.state, nowEngine.state)
         if (same) AppLog.info("decision", "Flow step worked out on an older board: the same decision on the board shown, sent")
         return same
     }

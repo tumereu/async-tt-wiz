@@ -68,14 +68,17 @@ import org.asyncttwiz.protocol.game.TableState
  * kept, Alice's first main phase): the first request with the board's snapshot, then hand plays and card plays on the
  * same board, then the next board sent as its event (Alice plays a land), while the page's frames are timed. Then the
  * device's own work as the page still does it (web client step 4c: until the device moves into the worker): a pass and
- * End turn worked out on the page's thread, with the worst frame meanwhile. The results go on the page, to the console
- * and, when done, into the title ("engine-bench: done").
+ * End turn worked out on the page's thread, with the worst frame meanwhile. Then the device itself in the worker (web client
+ * step 4c part 3, [DeviceHost]): the game opened there, a pass and End turn asked of it, each timed to its result and to its
+ * last board taken on the page, with the worst frame meanwhile. The results go on the page, to the console and, when done,
+ * into the title ("engine-bench: done").
  */
 fun runEngineBench(base: String) {
     val out = StringBuilder()
     fun line(text: String) { out.append(text).append('\n'); jsShowBench(out.toString()); println("engine-bench: $text") }
     val frames = Frames().also { it.start() }
-    val channel = startEngineWorker(base)
+    val workers = startEngineWorkers(base)
+    val channel = workers.planning
     val bench = try { BenchGame() } catch (problem: Exception) {
         line("The bench game couldn't be made: ${problem.stackTraceToString()}"); jsBenchTitle("engine-bench: failed"); return
     }
@@ -121,8 +124,10 @@ fun runEngineBench(base: String) {
                         val before = bench.line.size
                         onPage(frames, ::line, "End turn", bench::endTurn) {
                             boundary?.let { line(it.board("The board after End turn, with its motion steps", bench.line.drop(before))) }
-                            frames.stop()
-                            jsBenchTitle("engine-bench: done")
+                            val device = boundary?.let { b -> try { DeviceBench(workers.devices, bench, b.base, frames, ::line) } catch (problem: Exception) {
+                                line("The device bench couldn't start: ${problem.stackTraceToString()}"); null } }
+                            val finish = { frames.stop(); jsBenchTitle("engine-bench: done") }
+                            if (device == null) finish() else device.run(finish)
                         }
                     }
                 }
@@ -168,7 +173,7 @@ private class BoundaryBench(private val bench: BenchGame) {
     private val definitionsMap = MapSerializer(String.serializer(), SubmittedDefinition.serializer())
     private var visibleOut: List<ObjectId> = emptyList()
     private var visibleIn: List<ObjectId> = emptyList()
-    private val base = run {
+    val base = run {
         val containers = listOf(bench.alice, "bob").flatMap { p ->
             PlayZone.entries.filter { it != PlayZone.STACK }.map { zone -> PlayContainer("$p/$zone", zone, p) }
         } + PlayContainer("stack", PlayZone.STACK)
@@ -277,6 +282,62 @@ private class Frames {
 }
 
 /** The bench's game: its board after both keeps ([first]) and after Alice plays a land ([second], also as its event). */
+/**
+ * Web client step 4c part 3: the device itself in the worker ([DeviceHost], through the page's [DeviceChannel]): the bench
+ * game opened there for the player whose turn it is (the other player's passes assumed, HIS-096), then a pass and End turn
+ * asked of it, each timed to its result on the page and to its last board taken on the page ([EngineGame.Shown] decoded with
+ * the page's own copy of the state), with the page's worst frame meanwhile.
+ */
+private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlayState, private val frames: Frames,
+    private val line: (String) -> Unit) {
+    private var lastShownAt = 0.0
+    private var boards = 0
+    private val openedAt = jsNow()
+    private val game: EngineGame
+
+    init {
+        val me = bench.model.engine.turn.active.value
+        val head = bench.line.last().id
+        val snapshot = org.asyncttwiz.protocol.EngineSnapshot(bench.codec.encodeDefinitions(), "root", head, bench.codec.encodeModel(bench.model),
+            localHeads = mapOf(bench.alice to head, "bob" to head),
+            settings = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
+        frames.reset()
+        game = EngineGame("bench-device", me, base, snapshot, onShown = { lastShownAt = jsNow(); boards++ }, device = devices)
+    }
+
+    fun run(then: () -> Unit) {
+        // The first board: the game opened in the worker and its state sent whole
+        waitFor({ boards > 0 || game.loadFailed }) {
+            if (game.loadFailed) { line("Device in the worker: the game failed to load there"); then(); return@waitFor }
+            line("Device in the worker: opened, first board on the page after ${(lastShownAt - openedAt).f()} ms; worst frame ${frames.worst.f()} ms")
+            timed("A pass", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }) {
+                timed("End turn", { done -> game.endTurn { done("") } }, then)
+            }
+        }
+    }
+
+    /** [ask] timed: its result's round trip, its last board on the page (the worker's boards after the result too), the
+     * boards taken and the worst frame meanwhile; then [then]. */
+    private fun timed(kind: String, ask: (done: (String) -> Unit) -> Unit, then: () -> Unit) {
+        frames.reset()
+        jsLater(100) {
+            val before = boards
+            val at = jsNow()
+            ask { result ->
+                val answered = jsNow() - at
+                // The worker's boards after the result (the device's own steps) come within a moment
+                jsLater(400) {
+                    line("Device in the worker: $kind: result ${result.ifEmpty { "back" }} after ${answered.f()} ms; last board on the page " +
+                        "after ${(lastShownAt - at).f()} ms (${boards - before} boards); worst frame meanwhile ${frames.worst.f()} ms")
+                    then()
+                }
+            }
+        }
+    }
+
+    private fun waitFor(ready: () -> Boolean, then: () -> Unit) { if (ready()) then() else jsLater(20) { waitFor(ready, then) } }
+}
+
 private class BenchGame {
     val alice = "alice"
     private val bob = "bob"

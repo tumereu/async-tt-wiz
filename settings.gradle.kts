@@ -37,6 +37,7 @@ dependencyResolutionManagement {
 rootProject.name = "async-tt-wiz"
 include(":core", ":protocol", ":client-storage", ":androidApp", ":server")
 // The shared Compose UI (Compose Multiplatform: Android and the web client; docs/specs/web-client.md §1).
+include(":app-engine")
 include(":app-ui")
 // The web client's page and its served build (docs/specs/web-client.md §1 item 1, §2.1).
 include(":webApp")

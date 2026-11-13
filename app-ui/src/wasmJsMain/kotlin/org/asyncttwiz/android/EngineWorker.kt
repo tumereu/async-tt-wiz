@@ -2,14 +2,21 @@
 
 package org.asyncttwiz.android
 
+import org.asyncttwiz.automatum.boundary.DeviceMessage
 import org.asyncttwiz.automatum.boundary.MessageEngineChannel
+
+/** The page's two channels to the engine's Web Worker: the boards' planning and the games' devices (web client step 4c). */
+class EngineWorkerChannels(val planning: MessageEngineChannel, val devices: DeviceChannel)
 
 /**
  * Starts the engine's Web Worker (docs/specs/web-client.md §1 item 3: webApp's engine module, served as engine.js in the
  * build's folder [base]) and gives the page's side of the engine boundary to it: requests go to the worker as JSON
  * strings, its answers come back on the page's thread, so drawing never waits for the engine.
  */
-fun startEngineWorker(base: String): MessageEngineChannel {
+fun startEngineWorker(base: String): MessageEngineChannel = startEngineWorkers(base).planning
+
+/** [startEngineWorker] with the games' devices' channel too (web client step 4c part 3: [DeviceChannel]). */
+fun startEngineWorkers(base: String): EngineWorkerChannels {
     val url = base + "engine.js"
     val worker = jsNewWorker(url)
     val started = jsWorkerNow()
@@ -17,6 +24,7 @@ fun startEngineWorker(base: String): MessageEngineChannel {
     // READY message
     var waiting: MutableList<String>? = mutableListOf()
     val channel = MessageEngineChannel({ text -> waiting?.add(text) ?: jsPostMessage(worker, text) }, EngineBoundary.log)
+    val devices = DeviceChannel({ text -> waiting?.add(text) ?: jsPostMessage(worker, text) })
     jsOnWorkerMessages(worker, { text ->
         if (text == READY) {
             val queued = waiting.orEmpty()
@@ -24,14 +32,14 @@ fun startEngineWorker(base: String): MessageEngineChannel {
             EngineBoundary.log.log(false, "Engine boundary: worker ready after ${(jsWorkerNow() - started).toLong()} ms, " +
                 "${queued.size} requests waited")
             queued.forEach { jsPostMessage(worker, it) }
-        } else channel.received(text)
+        } else if (DeviceMessage.isDevice(text)) devices.received(text) else channel.received(text)
     }) { problem ->
         EngineBoundary.log.log(true, "Engine boundary: the worker failed: $problem")
         // The table's plays are worked out on the page from now on
         EngineBoundary.lost(problem)
     }
     EngineBoundary.log.log(false, "Engine boundary: worker started from $url")
-    return channel
+    return EngineWorkerChannels(channel, devices)
 }
 
 private fun jsNewWorker(url: String): JsAny = js("new Worker(url)")
@@ -46,3 +54,7 @@ private fun jsOnWorkerMessages(worker: JsAny, received: (String) -> Unit, failed
 private const val READY = "ready"
 
 private fun jsWorkerNow(): Double = js("performance.now()")
+
+/** Web client step 4c part 3: whether the page keeps the games' devices in the engine's Web Worker (`?device=worker`);
+ * until the flows step moves too (the combat staging works with the device), the table keeps them on the page. */
+fun jsDevicesInWorker(): Boolean = js("new URLSearchParams(location.search).get('device') === 'worker'")

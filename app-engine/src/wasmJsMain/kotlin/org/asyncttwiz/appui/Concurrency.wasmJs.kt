@@ -97,7 +97,7 @@ var uncaughtFailureHandler: (where: String, failure: Throwable) -> Unit = { wher
     println("Uncaught failure in $where: ${failure.stackTraceToString()}")
 }
 
-internal fun uncaught(where: String, failure: Throwable) = try { uncaughtFailureHandler(where, failure) } catch (_: Throwable) {}
+fun uncaught(where: String, failure: Throwable) = try { uncaughtFailureHandler(where, failure) } catch (_: Throwable) {}
 
 /** A single-thread executor in the browser: its tasks run one at a time in order on the page's thread ([SerialTasks]). */
 class PageExecutor(private val name: String, queueSize: Int = Int.MAX_VALUE) : ExecutorService {

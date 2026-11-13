@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import org.asyncttwiz.android.timeline
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled

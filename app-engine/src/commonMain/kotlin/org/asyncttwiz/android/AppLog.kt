@@ -23,8 +23,13 @@ object AppLog {
     fun error(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.ERROR, tag, message, failure)
     fun text(): String = buffer.text()
 
+    /** Web client step 4c part 3: in the engine's Web Worker, every line also goes to the page's app log (priority, tag and
+     * the message with its failure's summary), so problem reports carry the worker's lines; null elsewhere. */
+    @Volatile var forward: ((priority: Int, tag: String, message: String) -> Unit)? = null
+
     private fun write(priority: Int, tag: String, message: String, failure: Throwable?) {
         val line = buffer.add(priority, tag, message, failure)
+        forward?.let { f -> try { f(priority, tag, line.substringAfter(": ")) } catch (_: RuntimeException) {} }
         // Plain JVM unit tests have no logcat.
         try { platformLog(priority, "ATW/$tag", line.substringAfter(": ")) } catch (_: RuntimeException) {}
     }

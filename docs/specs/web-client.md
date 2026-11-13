@@ -470,6 +470,22 @@ Two batches come first, in this order:
   Not yet: the device itself in the worker (its state and every request for its actions and server events: `EngineGame`
   and what it uses must first leave the Compose module, since the worker builds without it), and the flows step (the
   board values' shared flow and combat, casts, `onShown`'s staging closure).
+- Built in 4c part 3 (2026-11-13): the device-side game logic in its own module without Compose (`app-engine`: `EngineGame`
+  and what it uses; app-ui keeps the table's snapshot state of a game, `EngineGameState`); the device in the worker
+  (`DeviceHost` there, `DeviceChannel` / `RemoteDevice` on the page, `automatum`'s `DeviceMessages`): opening and loading,
+  the server's events, every own action (checked against the board the page showed, SYS-011), undo and rewind requests,
+  playback and its holds, older history (the page fetches its pages), the timeline's, Undo dialog's and undo request's boards,
+  repro and the board log as requests; each published board back as part 2's message, then the request's result; the
+  worker's log lines into the page's app log; token pictures and named cards asked of the page's card records (a token
+  plain and a named card's decision waiting until the answer). Android unchanged (its device in-process). The page puts
+  the devices in the worker with `?device=worker` (`EngineBoundary.devices`); without it they stay on the page. Measured
+  (`#engine-bench`, headless Chrome, 120 objects, a loaded machine): the game opened in the worker, first board on the page
+  278 ms; a pass's result 52 ms, its last board 167 ms; End turn's result 228 ms; worst page frame meanwhile 23–34 ms.
+  Not yet: the table's own work with the device (`onShown`, the combat staging: refused while the device is in the worker,
+  so the switch stays off by default), the board values' shared flow and combat and casts (on the page's copy of the
+  state), a board's plays when published before they were worked out (asked of the planner with a snapshot: the page keeps
+  no `BoardLines` for the worker's boards), and the reads that return at once (`read`, `requestPreview`, `preview`,
+  `undoNeedsRequest`, `take`, `playToStop`: tests only, they fail loudly when the device is in the worker).
 
 ### Step 5: desktop table
 

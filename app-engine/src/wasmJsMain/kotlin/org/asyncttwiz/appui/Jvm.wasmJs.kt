@@ -128,9 +128,9 @@ actual interface Closeable : AutoCloseable
 actual class File
 
 /** An instant, as java.time.Instant writes and compares it. */
-actual class Instant internal constructor(internal val value: kotlin.time.Instant) : Comparable<Instant> {
+actual class Instant constructor(val value: kotlin.time.Instant) : Comparable<Instant> {
     actual override fun compareTo(other: Instant): Int = value.compareTo(other.value)
-    internal val epochMillis: Long get() = value.toEpochMilliseconds()
+    val epochMillis: Long get() = value.toEpochMilliseconds()
     override fun equals(other: Any?) = other is Instant && other.value == value
     override fun hashCode() = value.hashCode()
     override fun toString() = value.toString()
@@ -141,40 +141,40 @@ actual fun instantOfEpochMilli(millis: Long): Instant = Instant(kotlin.time.Inst
 
 /** A wall clock in the browser's time zone (the only zone the web uses). */
 actual abstract class Clock {
-    internal abstract fun millis(): Long
+    abstract fun millis(): Long
 }
 private object BrowserClock : Clock() { override fun millis() = currentTimeMillis() }
 actual fun systemDefaultZoneClock(): Clock = BrowserClock
 
 /** A date without a time; its text is ISO-8601 (2026-11-12), as java.time.LocalDate writes it. */
-actual class LocalDate internal constructor(internal val year: Int, internal val month: Int, internal val day: Int) {
+actual class LocalDate constructor(val year: Int, val month: Int, val day: Int) {
     /** Days since 1970-01-01. */
-    internal val epochDay: Long get() = daysFromCivil(year, month, day)
+    val epochDay: Long get() = daysFromCivil(year, month, day)
     /** 1 (Monday) to 7 (Sunday). */
-    internal val dayOfWeek: Int get() = (epochDay + 3).mod(7L).toInt() + 1
-    internal fun plusDays(days: Long): LocalDate = ofEpochDay(epochDay + days)
+    val dayOfWeek: Int get() = (epochDay + 3).mod(7L).toInt() + 1
+    fun plusDays(days: Long): LocalDate = ofEpochDay(epochDay + days)
     override fun equals(other: Any?) = other is LocalDate && other.year == year && other.month == month && other.day == day
     override fun hashCode() = (year * 13 + month) * 32 + day
     override fun toString() = "${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
-    internal companion object {
+    companion object {
         fun ofEpochDay(days: Long): LocalDate = civilFromDays(days)
     }
 }
 
 /** A date and time in the browser's time zone. */
-actual class ZonedDateTime internal constructor(internal val epochMillis: Long) {
+actual class ZonedDateTime constructor(val epochMillis: Long) {
     private val fields by lazy { jsLocalFields(epochMillis.toDouble()).split(',').map { it.toInt() } }
-    internal val year: Int get() = fields[0]
-    internal val month: Int get() = fields[1]
-    internal val day: Int get() = fields[2]
-    internal val hour: Int get() = fields[3]
-    internal val minute: Int get() = fields[4]
-    internal val date: LocalDate get() = LocalDate(year, month, day)
-    internal fun minusSeconds(seconds: Long) = ZonedDateTime(epochMillis - seconds * 1000)
+    val year: Int get() = fields[0]
+    val month: Int get() = fields[1]
+    val day: Int get() = fields[2]
+    val hour: Int get() = fields[3]
+    val minute: Int get() = fields[4]
+    val date: LocalDate get() = LocalDate(year, month, day)
+    fun minusSeconds(seconds: Long) = ZonedDateTime(epochMillis - seconds * 1000)
     override fun toString() = "${date}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
 }
 actual fun zonedNow(clock: Clock): ZonedDateTime = ZonedDateTime(clock.millis())
-internal fun Clock.nowMillis(): Long = millis()
+fun Clock.nowMillis(): Long = millis()
 
 // Howard Hinnant's civil calendar algorithms (proleptic Gregorian, as java.time).
 private fun daysFromCivil(year: Int, month: Int, day: Int): Long {
@@ -239,7 +239,7 @@ actual class BigInteger private constructor(private val negative: Boolean, priva
     override fun hashCode() = digits.hashCode() * if (negative) -1 else 1
     override fun toString() = if (negative) "-$digits" else digits
 
-    internal companion object {
+    companion object {
         fun of(negative: Boolean, digits: String): BigInteger {
             val trimmed = digits.trimStart('0').ifEmpty { "0" }
             return BigInteger(negative && trimmed != "0", trimmed)
@@ -398,7 +398,7 @@ private class SortedMap<K : Comparable<K>, V> : AbstractMutableMap<K, V>() {
 }
 
 /** [size] secure random bytes (crypto.getRandomValues). */
-internal fun secureRandomBytes(size: Int): ByteArray {
+fun secureRandomBytes(size: Int): ByteArray {
     if (size == 0) return ByteArray(0)
     val out = ByteArray(size)
     var offset = 0

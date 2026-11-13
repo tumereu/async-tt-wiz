@@ -356,9 +356,16 @@ internal object Steps {
         }
         scope.bind(step.bind, value)
         if (step.remember) {
+            // mkm fix: a secret choice is marked known only to its chooser until revealed (Secrets)
+            val marker = if (step.secret) NamedValue.Players(listOf(chooser)) else null
             val entering = scope.entering
-            if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(step.bind, value))
-            else source?.let { id -> act.state.obj(id)?.let { o -> act.record(Change.Memory(id, step.bind, o.linked[step.bind], value)) } }
+            if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(step.bind, value)
+                .let { m -> if (marker != null) m.with(arcanum.engine.state.Secrets.markerKey(step.bind), marker) else m })
+            else source?.let { id -> act.state.obj(id)?.let { o ->
+                act.record(Change.Memory(id, step.bind, o.linked[step.bind], value))
+                val key = arcanum.engine.state.Secrets.markerKey(step.bind)
+                if (marker != null) act.record(Change.Memory(id, key, o.linked[key], marker))
+            } }
         }
     }
 

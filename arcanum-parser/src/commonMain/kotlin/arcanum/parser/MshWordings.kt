@@ -158,7 +158,7 @@ internal object Msh {
     val CHOOSE_TARGET_DOUBLE_PT_GAINS = Regex("""Choose target (.+?)\. Until end of turn, double its power and toughness and it gains (.+)\.""")
     val LOSES_ALL_ABILITIES_AND_GAINS = Regex("""It loses all abilities and gains (.+)\.""")
     val CHOOSE_UP_TO_THAT_MANY_TARGETS_COUNTER = Regex("""Choose up to that many target (.+?)\. Put an? (\S+) counter on each of them\.""")
-    val HAS_GREATER_POWER_OR_TOUGHNESS = Regex("""(?:it|that creature) has greater power or toughness than (.+)""")
+    val HAS_GREATER_POWER_OR_TOUGHNESS = Regex("""(?:it|that creature) has greater power or toughness than (.+)|its power is greater than (.+?)'s power or its toughness is greater than \2's toughness""") // mkm chunk 02
     val FIRST_TIME_TAPPED_THIS_TURN = Regex("""it's the first time that creature has become tapped this turn""")
     val REMOVE_A_COUNTER_IF_YOU_DO = Regex("""Remove a counter from (.+?)\. If you do, (.+)""")
     val ONE_MORE_OF_EACH_KIND = Regex("""For each kind of counter on target (.+?), give that (.+?) another counter of that kind\.""")

@@ -14,6 +14,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -37,7 +41,9 @@ fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, ta
  * desktop table's dock (WEB-017). Holding an entry inspects it; [targets] and [pick] as in [ManageStackDialog]. */
 @Composable
 fun StackEntries(state: TableBoard, viewer: String, modifier: Modifier, targets: List<String>? = null,
-    pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap()) {
+    pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap(),
+    /** WEB-017: a card without its picture yet names itself small inside its frame (the desktop dock's list). */
+    nameInCard: Boolean = false) {
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
@@ -86,7 +92,12 @@ fun StackEntries(state: TableBoard, viewer: String, modifier: Modifier, targets:
                             Modifier.size(32.dp * size, 44.dp * size).then(described))
                         else Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
                             .then(described), contentAlignment = Alignment.Center) {
-                            if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())
+                            val small: (@Composable () -> Unit)? = if (!nameInCard) null else { {
+                                Text(entry.name, Modifier.padding(2.dp), fontSize = 9.sp, lineHeight = 10.sp, maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                            } }
+                            if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize().then(if (nameInCard) Modifier.clip(RoundedCornerShape(4.dp)) else Modifier),
+                                placeholder = small)
                             else MenuIcon("Inspect")
                         }
                         Column(Modifier.weight(1f)) {

@@ -497,7 +497,11 @@ sealed interface KeywordAction {
     @Serializable @SerialName("forage") data object Forage : KeywordAction
     /** Exile this card from its owner's hand face down; it becomes foretold: what the foretell special action does once its {2} is paid (CR 702.143a, b). */
     @Serializable @SerialName("foretell") data object Foretell : KeywordAction
-    @Serializable @SerialName("cloak") data class Cloak(val count: Value) : KeywordAction
+    /** Cloak (CR 701.58a): put cards onto the battlefield face down under the cloaking player's control as 2/2 creatures with ward {2}
+     * ([ObjectMark.Cloaked]), one at a time (701.58e): the top [count] cards of their library, or, given [cards], those cards wherever
+     * they are ("cloak a card from your hand", "cloak the top card of that player's library", "cloak two of them"; [count] is then
+     * unused). The bind of [Effect.Action] names the cloaked permanents. */
+    @Serializable @SerialName("cloak") data class Cloak(val count: Value, val cards: Objects? = null) : KeywordAction
     @Serializable @SerialName("time-travel") data object TimeTravel : KeywordAction
     @Serializable @SerialName("ring-tempts") data object TheRingTemptsYou : KeywordAction
     /** Exert [objects]: they don't untap during their controller's next untap step (CR 701.43). */

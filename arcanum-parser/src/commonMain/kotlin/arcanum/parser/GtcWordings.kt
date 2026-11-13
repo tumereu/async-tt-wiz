@@ -7,6 +7,7 @@ internal object Gtc {
     val PREDICATE_AND = Regex(""",? and (?=(?:gains?|gets?|can't|can|loses?) )""")
     val TIMING = Regex("""(.+?) (?:until end of turn|this turn)( as though it didn't have defender)?""")
     val GAIN_KEYWORDS = Regex("""gains? (.+)""")
+    val LOSE_KEYWORD = Regex("""loses? ([a-z]+(?: [a-z]+)?)""") // mkm chunk 09
     val GET_PT = Regex("""gets? ([+-](?:\d+|X))/([+-](?:\d+|X))""")
     val CANT_BE_BLOCKED_BY = Regex("""can't be blocked by (.+)""")
 
@@ -35,7 +36,7 @@ internal object Gtc {
     val DEALS_DAMAGE_TO_EQUAL = Regex("""(.+?) deals damage to (.+?) equal to (.+)\.""")
     val DEALS_DAMAGE_SAME_NAME = Regex("""(.+?) deals (\d+) damage to target (.+?) and each other (.+?) with the same name as that \w+\.""")
     val GAIN_CONTROL_OF_ALL = Regex("""Gain control of all (.+)\.""")
-    val BLOCKS_IF_ABLE = Regex("""(Target .+?) blocks this turn if able\.""")
+    val BLOCKS_IF_ABLE = Regex("""(Target .+?) (blocks|attacks or blocks)( that \w+)? this (turn|combat) if able\.""")
     val PUT_COUNTER_AND_UNTAP = Regex("""Put an? (\S+) counter on (target .+?) and untap it\.""")
     val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on enchanted creature\.""")
     val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
@@ -58,7 +59,8 @@ internal object Gtc {
     val COUNTERS_ON_SELF = Regex("""the number of (\S+) counters on (?:him|her|it|this creature|this permanent)""")
     val PUT_COUNTER_FOR_EACH = Regex("""Put an? (\S+) counter on (.+?) for each (.+)\.""")
     val TARGET_OPPONENT_CONTROLS = Regex("""(.+) target opponent controls""")
-    val FOR_EACH_OPPONENT = Regex("""For each opponent, (.+)""")
+    // mkm fix: "For each other player" is every player but you, not only opponents (a teammate is another player, CR 102.3, 810)
+    val FOR_EACH_OPPONENT = Regex("""For each (opponent|other player), (.+)""")
     val PRIMORDIAL_EXILE_GAIN_LIFE = Regex("""exile up to one target (.+?) that player controls and that player gains life equal to its power\.""")
     val PRIMORDIAL_CAST = Regex("""you may cast up to one target (.+?) from that player's graveyard without paying its mana cost\.""")
     val PRIMORDIAL_PUT_ONTO_BATTLEFIELD = Regex("""you may put up to one target (.+?) from that player's graveyard onto the battlefield under your control\.""")

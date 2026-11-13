@@ -129,6 +129,61 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
     var clockEpoch by remember(coordinator) { mutableIntStateOf(0) }
     var pointerTime by remember(coordinator) { mutableLongStateOf(0L) }
+    // WEB-023 to WEB-029: the mouse and the finger key on the desktop table (nothing of it in the phone layout)
+    val desktopFrame = LocalDesktopFrame.current
+    val mouseScope = rememberCoroutineScope()
+    val fingerKey = remember(coordinator) { DesktopFingerKey() }
+    val desktopHover = remember(coordinator, toolkit) { DesktopHover(mouseScope) { target ->
+        toolkit?.hand?.hover((target as? HoverTarget.Hand)?.cardId)
+        toolkit?.hoveredAbilities = (target as? HoverTarget.Field)?.cardId
+        toolkit?.hoveredAbility = null
+    } }
+    val mouse = remember(coordinator) { DesktopTableMouse(coordinator, { p -> presentation?.invoke()?.hit(p) }, mouseScope) }
+    SideEffect {
+        coordinator.holdInspects = desktopFrame == null
+        mouse.hoverChips = desktopHover
+        mouse.interrupted = { fingerKey.interrupt() }
+        mouse.moved = { clockEpoch++; preview = coordinator.preview }
+        mouse.quickLookAllowed = { toolkit?.peek == null && toolkit?.popupItem == null }
+        mouse.chipTarget = { item ->
+            val id = item.cardId
+            when {
+                id == null || currentRuntime.reviewing || toolkit == null -> null
+                item.kind == TableItemKind.CARD && item.zone == PlayZone.HAND && item.owner == accountId -> HoverTarget.Hand(id)
+                item.battlefieldCard && item.owner == accountId -> HoverTarget.Field(id)
+                else -> null
+            }
+        }
+    }
+    /** WEB-024: opens Inspect of [id] as the finger key does (TBL-111: a collapsed group's members together). */
+    fun keyInspect(id: String) {
+        mouse.dismissLook()
+        peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
+        peekSwipe.holdByKey()
+        val group = presentation?.invoke()?.let { shown -> shown.groupOf(id)?.takeIf { it.members.size > 1 && it.key != shown.expandedGroup } }
+        toolkit?.peek(id, group?.inspectOrder)
+    }
+    DesktopKeyboard.Listen(desktopFrame != null) { key ->
+        if (key.key != "Alt" && key.key != "Shift") {
+            if (key.down && !key.repeat) fingerKey.interrupt()
+            return@Listen false
+        }
+        if (key.repeat) return@Listen fingerKey.held
+        if (key.down && key.textField) return@Listen false
+        // The card under the pointer, as a held finger would inspect it (a pile's shown card too; not a hand row's backing)
+        val card = mouse.hovered?.let { item -> item.cardId ?: item.cards.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND } }
+        val effects = if (key.down) fingerKey.press(key.key, key.time, card, toolkit?.peek != null) else fingerKey.release(key.key, key.time)
+        if (effects.isNotEmpty()) AppLog.info("table", "Finger key ${key.key} ${if (key.down) "down" else "up"}${card?.let { " over $it" }.orEmpty()}: " +
+            effects.joinToString { it.toString() })
+        for (effect in effects) when (effect) {
+            is DesktopFingerKey.Effect.Pause -> currentViewPause?.key = effect.on
+            is DesktopFingerKey.Effect.Inspect -> keyInspect(effect.cardId)
+            DesktopFingerKey.Effect.Pin -> peekSwipe.pinByKey()
+            DesktopFingerKey.Effect.Close -> { peekSwipe.begin(); toolkit?.peek(null) }
+        }
+        effects.isNotEmpty() || fingerKey.held
+    }
+    DisposableEffect(viewPause) { onDispose { viewPause?.key = false } }
     DisposableEffect(coordinator) { onDispose { coordinator.cancel() } }
     LaunchedEffect(coordinator) {
         // Tick only an active recognition window, not an always-running animation at an idle table.
@@ -176,7 +231,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     val computedBoard = rememberComputedBoard(play, accountId)
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
         LocalOpponentPresence provides runtime.opponentPresence, LocalTableQuickChat provides runtime.quickChat,
-        LocalDockedPanels provides dockedPanels) {
+        LocalDockedPanels provides dockedPanels, LocalDesktopHover provides desktopHover.takeIf { desktopFrame != null }) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
@@ -304,7 +359,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 CustomAccessibilityAction("Scroll docks up") { layout = layout.copy(scrollY = layout.scrollY + (p.id to (p.scrollY - 68f).coerceAtLeast(0f))); true },
                 CustomAccessibilityAction("Scroll docks down") { layout = layout.copy(scrollY = layout.scrollY + (p.id to (p.scrollY + 68f).coerceAtMost(p.maxScrollY))); true }
             ) }
-        }.pointerInput(coordinator) {
+        }.then(if (desktopFrame != null) Modifier.desktopTableMouse(mouse, density) else Modifier).pointerInput(coordinator) {
             try {
                 awaitEachGesture {
                     val first = awaitFirstDown()
@@ -437,6 +492,10 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         }
         CompositionLocalProvider(LocalDesktopGeometry provides desktopGeometry) {
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
+        // WEB-026: the quick look of the card the mouse rests on
+        if (desktopGeometry != null && toolkit != null) mouse.quickLook?.let { item ->
+            DesktopQuickLook(play, accountId, item, toolkit, desktopGeometry.tableRight, tableHeight)
+        }
         // WEB-020: on the desktop table the top row is the screen's, above the table
         if (desktopGeometry == null) TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)

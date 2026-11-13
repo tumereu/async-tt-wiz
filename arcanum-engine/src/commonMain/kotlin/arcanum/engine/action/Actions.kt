@@ -263,7 +263,7 @@ internal object Actions {
                 // fin: "Lands you control enter untapped": applied after the others ([untapped])
                 Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
                 // fin: transforming and coin flips aren't zone changes
-                is Modification.AsTransforms, Modification.WinFlips -> move
+                is Modification.AsTransforms, is Modification.AsTurnedFaceUp, Modification.WinFlips -> move
             }
         }
         return move

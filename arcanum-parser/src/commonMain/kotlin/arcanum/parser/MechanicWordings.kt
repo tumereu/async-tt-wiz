@@ -260,7 +260,7 @@ internal object MechanicWordings {
     val SUPPORT = Regex("""Support (\d+|X)\.""")
     val DISCOVER = Regex("""(?:You )?[Dd]iscover (\d+|X)\.""")
     val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
-    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of your library\.""")
+    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of (your|that player's) library\.""") // mkm chunk 07: that player's
     /** "all creatures your opponents control", "each Merfolk creature you control" */
     val ALL_NOUN = Regex("""(?:[Aa]ll|[Ee]ach) (.+)""")
     val GOAD = Regex("""Goad (.+)\.""")

@@ -9,15 +9,17 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   hook); a wording of several sentences read as one in the set's `<set>Whole`, which sees only bodies with ". " inside;
   a static line that becomes several abilities in `Sentences.multi`. A new table line or slot beats a new rule.
 - "it" follows `context.it`: a rule that moves or exiles an object sets it (`Bound("exiled")`), so a later "it", "that
-  card" or "If it's a X" reads the new object (CR 400.7). In "When this enters", "it" is `EventObject(After)`. After a
-  Move of a target, event object or this card to the battlefield, `Sentences.followTargetsToBattlefield` points later
-  steps at the new permanent (CR 400.7j): such a rule needs no own `postBind`.
+  card" or "If it's a X" reads the new object (CR 400.7); a return to the battlefield binds `Bound("returned")`. In "When
+  this enters", "it" is `EventObject(After)`. After a Move of a target, event object or this card to the battlefield
+  without a bind, `Sentences.followTargetsToBattlefield` points later steps at the new permanent (CR 400.7j): such a rule
+  needs no own `postBind`.
 - "that many" binds the nearest amount an earlier part of the same ability defines (`context.thatMuch`, e.g. "sacrifice
   any number of ..., then draw that many") before the trigger event's amount.
 - "If you do" after a step that can fail (a mandatory exile, move or sacrifice): bind the moved objects (`postBind`) and
   check `Condition.NonEmpty`. A mandatory `Step.Pay` counts as paid even when nothing moved, so `Did` is wrong there.
 - "You may pay/sacrifice/discard ... If you do" = `Step.Pay(mandatory = false, ...)` + `Step.If(Did)`; audits calling it
-  unclear are false alarms.
+  unclear are false alarms. Its rest is read sentence by sentence, every later sentence belongs to it, and after
+  "create a ... token" a later "it" is the token (bound `token`, CR 608.2c).
 - A delayed trigger made by a triggered ability ("return it at the beginning of the next end step") has its own event:
   bind the outer event's object first (`Step.Bind(EventObject(After), "<name>")`) and use `Bound` inside (CR 603.7c).
 - "That creature" after a sacrifice is the sacrifice's bound object, last known information (CR 608.2h). After "gain
@@ -34,7 +36,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A cost that exiles the card from the graveyard, or a graveyard-return activated ability, needs no `functionsIn`;
   "When you cast this spell" reads with `functionsIn = null`.
 - Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
-  names X announces X (`ADDITIONAL_COST_X`, CR 601.2b). "any number of target X" divided has min 0.
+  names X announces X (`ADDITIONAL_COST_X`, CR 601.2b), unless "where X is ..." sets it (CR 107.3c). "any number of target X" divided has min 0.
 - A rule that adds a target slot reads everything else first: giving up afterwards leaks the slot into the next rule.
   The parser leaves an ability with an unused target slot unread (`DefinitionChecks.unusedTargetSlots`, CR 115.1).
 - "Until your next turn, X." reads as "X until your next turn."; an untargeted "you may return a <card> from your graveyard" is Choose 0..1, not May.
@@ -72,6 +74,11 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   `Effect.PreventDamage.redirectTo` (a redirection, so unpreventable damage moves too, CR 614.9).
 - Damage triggers pick `EventPattern.Damage.per` (CR 603.2c): `Recipient` for "X is dealt damage", `Source` for "X deals
   [combat] damage" with no recipient, default `SourceAndRecipient` for "a source deals damage to Y".
+- "each other player" / "for each other player" is every player but you (`PlayerFilter.Not(You)`), never "opponent":
+  teammates are other players but not opponents (CR 102.3). "Two or more creatures died" counts objects once
+  (`Measure.Objects`), not events (CR 700.4).
+- "secretly choose A, B, or C" = `Step.Choose(..., secret = true)` (the engine keeps who knows it); "Reveal the <choice>
+  you chose" is a cost, `CostPart.RevealChoice`, unpayable without a choice.
 - A battle (Siege) test card is built with `OracleCard(name, cost, type, text, defense = "5")`: `card()` has no defense.
 
 ## Engine scenarios
@@ -117,8 +124,13 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - First or double strike: `hits(...)` stops after the first damage step, `advanceTo(TurnStep.EndOfCombat)` for the
   second. A spell's divided amount has no suggestion: `answer(Answer.Division(listOf(Share(target(a), 2), ...)))`.
 - Objects that left are judged by last known information: a token "copy of it" copies the last known copiable values
-  (a clone copies what it copied, CR 707.2); events record the controller at the time (CR 608.2h). Test both with 3
-  players and a control change.
+  (a clone copies what it copied, CR 707.2); events and this-turn history read a gone object as it last was, controller
+  and marks included, and an entered object as it entered (face down stays face down, CR 608.2h, 603.4). "For as long
+  as" durations never read it: they end when the object leaves (CR 611.2b). Test with 3 players and a control change.
+- Target-group limits (single graveyard, same controller, sharing, different) are one check for spells, activated and
+  triggered abilities, copies and changed targets; a trigger with no legal group is removed (CR 603.3d). Test them on a
+  trigger too. A mark is read with `state.obj(card(x))?.marks?.contains(ObjectMark.Suspected)`.
+- A step that runs without priority (untap-step choices, end-step triggers): loop `resolve()` while `pending == null`.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
 - A scry or optional payment inside a resolving spell can leave a decision open before triggers (scry: `Answer.Objects(

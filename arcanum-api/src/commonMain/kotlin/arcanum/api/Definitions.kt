@@ -190,6 +190,9 @@ sealed interface Ability {
         /** Only while this holds ("turn a face-down permanent face up", CR 702.37e; "the companion you revealed"). */
         val condition: Condition? = null,
         val text: String? = null,
+        // mkm
+        /** A change of [cost] ("Disguise {5}{R}. This cost is reduced by {1} for each …", CR 118.7). */
+        val costChange: CostChange? = null,
     ) : Ability
 
     /** Text the parser could not read, kept exactly as printed (reminder text included) so it can be shown and
@@ -457,9 +460,10 @@ sealed interface Step {
     @Serializable @SerialName("repeat-while") data class RepeatWhile(val steps: List<Step>, val condition: Condition) : Step
     /** A choice made during resolution (colour, creature type, number, card name, player, objects, option),
      * named [bind]. With [remember], it is kept on the source as card memory (CR 607 linked abilities, "As ~ enters,
-     * choose a colour"). Secret choices stay manual (D25). */
+     * choose a colour"). [secret]: "secretly choose" (kept with [remember]): only the chooser knows it until it is revealed
+     * ([CostPart.RevealChoice]); a host doesn't show it to anyone else (CR 702.106b names secret choices). */
     @Serializable @SerialName("choose") data class Choose(
-        val choice: Choice, val bind: String, val chooser: Players, val remember: Boolean = false,
+        val choice: Choice, val bind: String, val chooser: Players, val remember: Boolean = false, val secret: Boolean = false,
     ) : Step
     /** Part of the text the definition can't express. An engine doesn't carry it out: a card with one isn't fully supported. */
     @Serializable @SerialName("manual") data class Manual(val text: String) : Step

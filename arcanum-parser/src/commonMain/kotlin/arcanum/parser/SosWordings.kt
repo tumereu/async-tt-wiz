@@ -46,7 +46,7 @@ internal object Sos {
     // sos chunk 04: stun counters (CR 122.1d) and tapping
     val TAP_IF_YOUR_TURN_STUN = Regex("""Tap target (.+?)\. If it's your turn, put a stun counter on it\.""")
     val TAP_PUT_TWICE_X_STUN = Regex("""Tap target (.+?)\. Put twice X stun counters on it\.""")
-    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)\. Put a stun counter on each of them\.""")
+    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)(?:\. Put| and put) a stun counter on each of them\.""") // mkm chunk 02: " and put"
     val ENTERS_WITH_STUN_THREE_MINUS_X = Regex("""(.+) enters with a number of stun counters on it equal to (\w+) minus X\. If X is (\d+) or less, it enters tapped\.""")
 
     // sos chunk 05: infusion (an ability word)
@@ -139,7 +139,8 @@ internal object Sos {
     val IT_GAINS_UNTIL_EOT = Regex("""It gains (.+) until end of turn\.""")
     val GRANDEUR = Regex("""Grandeur — Discard another card named (.+?): (.+)""")
     val LANDS_HAVE_QUOTED = Regex("""(Lands you control) have "(.+)"""")
-    val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters on it\.""")
+    // mkm sweep: one counter too ("Put a +1/+1 counter on it.")
+    val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters? on it\.""")
     val WHEN_ENTERS_CHOOSE_CARD_NAME = Regex("""When (.+?) enters, choose an? (.+?) card name\.""")
 }
 

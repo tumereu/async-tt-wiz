@@ -150,6 +150,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     var abilityCard by mutableStateOf<String?>(null); private set
     /** The ability chip held for its details (an index of [abilities]), null when none. */
     var heldAbility by mutableStateOf<Int?>(null)
+    /** WEB-027: the battlefield card the mouse hovers on the desktop table, whose chips show faded (personal UI), null when none. */
+    var hoveredAbilities by mutableStateOf<String?>(null)
+    /** WEB-027: the hovered card's chip the mouse is on (solid), null when none. */
+    var hoveredAbility by mutableStateOf<Int?>(null)
 
     /** TBL-122: the abilities of the battlefield card [cardId] the viewer can activate on [play] now (mana abilities and
      * special actions included), in printed order; empty while a cast or an Automatum choice is open, null while
@@ -193,8 +197,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     /** TBL-122: a tap on the ability chip [index] of the open chips activates that ability; greyed, it does nothing. */
-    fun activateChip(index: Int): Boolean {
-        val card = abilityCard ?: return false
+    fun activateChip(index: Int, card: String? = abilityCard): Boolean {
+        card ?: return false
         val play = current() ?: return false
         val chosen = abilities(play, card)?.getOrNull(index)?.takeIf { it.legal } ?: run {
             AppLog.info("table", "Chip $index of $card greyed or gone: nothing activated")
@@ -329,10 +333,15 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Holds [id] to inspect it; [group]: a battlefield group's members held together (TBL-111), the first shown first. */
     fun peek(id: String?, group: List<String>? = null) {
         if (id == null) { peek = null; return }
-        val play = current() ?: return
+        peek = inspection(id, group) ?: return
+    }
+
+    /** What inspecting [id] shows ([peek]; WEB-026: the desktop's quick look of it), null when it can't be inspected. */
+    fun inspection(id: String, group: List<String>? = null): ManualInspection? {
+        val play = current() ?: return null
         val first = group?.firstOrNull() ?: id
-        val card = CombatStackRules.inspection(play.board, first) ?: return
-        peek = ManualInspection(play.gameId, play.playId, first,
+        val card = CombatStackRules.inspection(play.board, first) ?: return null
+        return ManualInspection(play.gameId, play.playId, first,
             ManualDisclosure.permittedFaces(play.board, play.definitions, card, viewer, inspecting = true).map { it.faceId },
             stackEntryId = first.takeIf { it in CombatStackRules.stack(play.board).cards }, group = group.orEmpty().drop(1))
     }

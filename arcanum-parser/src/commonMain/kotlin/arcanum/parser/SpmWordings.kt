@@ -81,7 +81,7 @@ internal object Spm {
     // woe chunk 01: also without the bonus ("One or two target creatures each gain haste until end of turn.")
     val ONE_OR_TWO_EACH_GET_AND_GAIN = Regex("""(One or two) target (.+?) each (?:get ([+-]\d+)/([+-]\d+) and )?gain (.+) until end of turn\.""")
     val IF_ITS_A = Regex("""If it's an? ([A-Z]\w+)(?: card)?, (.+)""") // fdn: "If it's a Zombie card, draw a card."
-    val SUSPECT = Regex("""[Ss]uspect (up to one )?target (.+?)\.""")
+    val SUSPECT = Regex("""[Ss]uspect (up to one )?(other )?target (.+?)\.""")
     val WHEN_EXCESS_DAMAGE_THIS_WAY_DESTROY = Regex("""When excess damage is dealt to the (.+?) this way, destroy up to one target (.+)\.""")
     val CREATE_THEN_YOU = Regex("""[Cc]reate (.+?), then you (.+)""")
     val LEGEND_RULE_DOESNT_APPLY_TO = Regex("""The "legend rule" doesn't apply to (.+?) you control\.""")

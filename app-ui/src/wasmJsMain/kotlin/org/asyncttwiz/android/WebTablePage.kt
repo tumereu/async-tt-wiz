@@ -56,3 +56,30 @@ private fun jsVibrate(millis: Int): Unit = js("""{
         if (active && typeof navigator.vibrate === 'function') navigator.vibrate(millis);
     } catch (e) {}
 }""")
+
+/**
+ * The desktop layout's keyboard (docs/specs/web-client.md §5, §6; WEB-024): every key press and release on the page goes to
+ * [key] (its name, down or up, time, a held key's repeat, the modifiers, whether a text field has the keyboard), which says
+ * whether the app took it; a taken Alt keeps the browser's own Alt handling (its menu bar) off. When the window loses the
+ * focus every key still down is let go, so a held finger key never sticks.
+ */
+internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean) -> Boolean): Unit = js("""{
+    const typing = () => {
+        const element = document.activeElement;
+        return !!element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable === true);
+    };
+    const held = new Set();
+    const send = (event, down) => {
+        if (typeof event.key !== 'string') return;
+        if (down) held.add(event.key); else held.delete(event.key);
+        const taken = key(event.key, down, event.timeStamp, event.repeat === true, event.altKey, event.shiftKey, event.ctrlKey,
+            event.metaKey, typing());
+        if (taken && event.cancelable && event.key === 'Alt') event.preventDefault();
+    };
+    window.addEventListener('keydown', (event) => send(event, true), true);
+    window.addEventListener('keyup', (event) => send(event, false), true);
+    window.addEventListener('blur', () => {
+        for (const name of Array.from(held)) key(name, false, performance.now(), false, false, false, false, false, false);
+        held.clear();
+    });
+}""")

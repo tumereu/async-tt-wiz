@@ -17,11 +17,20 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A delayed trigger made by a triggered ability ("return it at the beginning of the next end step") has its own event:
   bind the outer event's object first (`Step.Bind(EventObject(After), "<name>")`) and use `Bound` inside (CR 603.7c).
 - "That creature" after a sacrifice is the sacrifice's bound object, last known information (CR 608.2h).
+- "that creature"/"it" in a damage trigger goes through `Sentences.damageThatRole` (the damaged one when this object dealt
+  it); in a block trigger it is `EventRole.OtherCombatant`. "Blocks a Y" triggers are `perAttacker`, "becomes blocked by a
+  Y" `perBlocker` (CR 509.3b-c). "That player" of a permanent entering is its controller, of a card put into a graveyard
+  that graveyard's owner (CR 110.2, 404.1).
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
 - A cost that exiles the card from the graveyard, or a graveyard-return activated ability, needs no `functionsIn`;
   "When you cast this spell" reads with `functionsIn = null`.
+- Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
+  names X announces X (`ADDITIONAL_COST_X`, CR 601.2b).
+- "enchanted player" = `Players.AttachedTo(Objects.Self)`; "Curses attached to you" = `ObjectFilter.Attached(toPlayers =
+  ...)`. "<cost part choosing one object> and pay its mana cost" = `CostPart.ManaCostOf(Bound)`; a token's text naming
+  the card that made it = `Objects.Creator`, kept by copies (CR 201.5a).
 - Slot names: one target card is `card`, "up to two target creature cards" is `cards`; a second "target creature" is
   `second creature`; "and/or" slots take the last noun ("artifacts"); "creature or planeswalker you don't control" is
   `permanent`; "player or planeswalker" is `TargetKind.Either(planeswalker, PlayerFilter.Any)`.
@@ -65,6 +74,11 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Several players: "any opponent may" asks `decision<Decision.May>().player` in turn order; a pile split asks the
   separator `ChooseObjects`, then the chooser `Answer.Option("first"/"second")`; several copies of a spell are ordered by
   their controller (`ChooseObjects`).
+- Several defenders: `perform(Input.DeclareAttackers(alice.id, listOf(Attack(card(a), TargetRef.Player(bob.id)), ...)))`;
+  `attach(curse, "bob")` attaches to a player. Random results: `random({ _ -> Answer.RandomObjects(listOf(card(x))) })`,
+  `random(Answer.CoinFlip(true))`.
+- A card with several ways to cast it (two flashback permissions): `casts(card, way = Engine.options(...).way)`;
+  `castsOf(player, name)` lists another player's ways.
 - Set support files hold shared drivers (`resolveAll`, `playOut`, `ownAlternative` for an alternative cost); import the
   one `helpers.md` lists under "Shared scenario drivers" (its package, file and line) rather than copying it.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
@@ -74,6 +88,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Invented names are global across the whole engine suite: grep `invent("<Name>"` and `all-card-names.txt` first.
 - Invented lands take cost `null`; invented planeswalker text needs "[+1]: ..." loyalty prefixes; change cost and
   subtypes only where it doesn't affect play.
+- An invented spell needs a mana cost (`{0}` for a free one): a spell with no mana cost can't be cast for it (CR 118.6).
 - A card of several faces: `Cards.inventFaces(layout, face(...), ...)` (colour indicator last) and `cardFaces(...)` in
   parser tests.
 - One cycle of near-identical cards (e.g. lands that enter tapped unless a condition holds): one private helper in the

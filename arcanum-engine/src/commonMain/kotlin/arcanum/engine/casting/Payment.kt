@@ -509,7 +509,7 @@ internal object Payment {
                 recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Behold, player, ids)))
             }
             is CostPart.OneOf -> refuse("Choose which cost to pay first")
-            is CostPart.Mana, CostPart.ItsManaCost, is CostPart.ItsManaCostLess -> Unit
+            is CostPart.Mana, CostPart.ItsManaCost, is CostPart.ItsManaCostLess, is CostPart.ManaCostOf -> Unit
         }
     }
 

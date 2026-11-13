@@ -91,7 +91,7 @@ internal object Tla {
     val LOOK_PUT_ONE_EACH_IF = Regex("""Look at the top (\w+) cards of your library\. Put one of those cards into your hand and the rest on the bottom of your library in any order\. Put each of those cards into your hand instead if (.+)\.""")
     val RETURN_IF_CONTROLLED_DRAW = Regex("""Return target (.+?) to its owner's hand\. If you controlled that permanent, draw a card\.""")
     val TAP_UP_TO_X_DISTRIBUTE_STUN = Regex("""Tap up to X target (.+?), then distribute (\w+) stun counters among any number of (.+)\.""")
-    val COPY_EXCEPT_NOT_LEGENDARY_PT_TYPE = Regex("""Create a token that's a copy of target (.+?), except it's not legendary and it's an? (\d+)/(\d+) ([A-Z]\w+) in addition to its other types\.""")
+    val COPY_EXCEPT_NOT_LEGENDARY_PT_TYPE = Regex("""Create a token that's a copy of target (.+?), except (it's not legendary and )?it's an? (\d+)/(\d+) ([A-Z]\w+)( creature)? in addition to its other types\.""")
     val AS_LONG_AS_THERES = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) as long as (there(?:'s| is| are) .+)\.""")
     val HAS_BASE_PT_UNTIL_EOT = Regex("""(.+) has base power and toughness (\d+)/(\d+) until end of turn\.""")
     val ENCHANTED_LOSES_ALL_IS_NAMED = Regex("""Enchanted creature loses all abilities and is an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+) and "(.+)" named (.+)\.""")

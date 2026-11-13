@@ -58,7 +58,7 @@ internal object Ltr {
     val DRAW_FOR_EACH_TARGET_OPPONENT_CONTROLS = Regex("""Draw a card for each (.+?) target opponent controls\.""")
     // ltr chunk 05
     val YOUR_OPPONENTS_CANT_GAIN_LIFE = Regex("""Your opponents can't gain life\.""")
-    val IF_THE_SACRIFICED_WAS = Regex("""If the sacrificed (creature|permanent) was (.+?), (.+)""")
+    val IF_THE_SACRIFICED_WAS = Regex("""If the sacrificed (creature|permanent|artifact) was (.+?), (.+)""") // bro chunk 01: artifact
     val MAY_SACRIFICE_IT_WHEN_YOU_DO = Regex("""(Whenever .+?), you may sacrifice it\. When you do, (.+)""")
     val YOU_CREATE_OR_SACRIFICE_A_TOKEN = Regex("""you create or sacrifice a token""")
     val CREATE_TAPPED_AND_ATTACKING_SACRIFICE_AT_END_OF_COMBAT = Regex("""Create (.+? tokens?(?: with [^.]+?)?)(?: named (.+?))? that's tapped and attacking\. (Sacrifice|Exile) that token at end of combat\.""") // isd chunk 07: Exile

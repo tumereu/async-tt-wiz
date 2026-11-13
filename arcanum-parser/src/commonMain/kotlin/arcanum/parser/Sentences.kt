@@ -2834,24 +2834,28 @@ internal class Sentences(
             // hob: wordings of several sentences read as a whole (the hob rules see the ability's whole text first)
             val body = (if (whereX == null) text else text.removeRange(whereX.range)).trim()
             val wholeFrom = context.targets.size
+            val capitalised = body.replaceFirstChar { it.uppercase() }
+            // bro chunk 01: a rule that fails gives back the targets it added, so the next rule's slot names don't count them
+            fun tryWhole(rule: (String, Context) -> List<Step>?): List<Step>? =
+                rule(capitalised, context) ?: null.also { while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex) }
             // eoe chunk 09: also a quoted ability's own period before the next sentence ('gains "…." That creature's controller …')
-            val whole = (if (body.contains(".\" ")) eoeWhole(body.replaceFirstChar { it.uppercase() }, context) else null) // eoe
-                ?: ltrWhole(body.replaceFirstChar { it.uppercase() }, context) // ltr
-                ?: mh2Whole(body.replaceFirstChar { it.uppercase() }, context) // mh2
-                ?: if (body.contains(". ")) dftWhole(body.replaceFirstChar { it.uppercase() }, context) // dft
-                ?: eoeWhole(body.replaceFirstChar { it.uppercase() }, context) // eoe
-                ?: tdmWhole(body.replaceFirstChar { it.uppercase() }, context) // tdm
-                ?: spmWhole(body.replaceFirstChar { it.uppercase() }, context) // spm
-                ?: eclWhole(body.replaceFirstChar { it.uppercase() }, context) // ecl
-                ?: tlaWhole(body.replaceFirstChar { it.uppercase() }, context) // tla
-                ?: sosWhole(body.replaceFirstChar { it.uppercase() }, context) // sos
-                ?: tmtWhole(body.replaceFirstChar { it.uppercase() }, context) // tmt
-                ?: mshWhole(body.replaceFirstChar { it.uppercase() }, context)
-                ?: fdnWhole(body.replaceFirstChar { it.uppercase() }, context) // fdn
-                ?: inrWhole(body.replaceFirstChar { it.uppercase() }, context) // inr
-                ?: isdWhole(body.replaceFirstChar { it.uppercase() }, context) // isd
-                ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
-                ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
+            val whole = (if (body.contains(".\" ")) tryWhole(::eoeWhole) else null) // eoe
+                ?: tryWhole(::ltrWhole) // ltr
+                ?: tryWhole(::mh2Whole) // mh2
+                ?: if (body.contains(". ")) tryWhole(::dftWhole) // dft
+                ?: tryWhole(::eoeWhole) // eoe
+                ?: tryWhole(::tdmWhole) // tdm
+                ?: tryWhole(::spmWhole) // spm
+                ?: tryWhole(::eclWhole) // ecl
+                ?: tryWhole(::tlaWhole) // tla
+                ?: tryWhole(::sosWhole) // sos
+                ?: tryWhole(::tmtWhole) // tmt
+                ?: tryWhole(::mshWhole)
+                ?: tryWhole(::fdnWhole) // fdn
+                ?: tryWhole(::inrWhole) // inr
+                ?: tryWhole(::isdWhole) // isd
+                ?: tryWhole(::hobEffect)
+                ?: tryWhole(::finWhole) /* fin */ else null
             if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
             if (whole != null) steps += whole
             else for (sentence in sentences(if (whereX == null) text else text.removeRange(whereX.range))) {
@@ -13180,13 +13184,22 @@ internal class Sentences(
                 Step.Do(Effect.PutCounters(Objects.Bound("stunned"), arcanum.api.CounterKind.Stun, Value.Fixed(n), distributed = true)))
         }
         // "Create a token that's a copy of target creature you control, except it's not legendary and it's a 4/4 Hero in addition to its other
-        // types." (CR 707.9b)
+        // types." (CR 707.9b); bro chunk 01: "Create a token that's a copy of target artifact you control, except it's a 1/1 Soldier creature in
+        // addition to its other types." (legendary kept; "creature" adds the card type; a later "it" is the token, as in "Put six +1/+1
+        // counters on it.")
         Tla.COPY_EXCEPT_NOT_LEGENDARY_PT_TYPE.matchEntire(sentence)?.let { m ->
-            val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
+            val subtype = m.groupValues[5].takeIf { it in RulesWords.subtypes } ?: return null
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val pt = arcanum.api.CopyException.PowerToughness(m.groupValues[3].toInt(), m.groupValues[4].toInt())
+            val subtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))
+            if (m.groupValues[2].isEmpty()) {
+                if (m.groupValues[6].isEmpty()) return null
+                context.it = Objects.Bound("token")
+                return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target, except = listOf(pt,
+                    arcanum.api.CopyException.Types(add = listOf(CardType.Creature), addSubtypes = subtypes))), Value.Fixed(1), Players.You, bind = "token")))
+            }
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target, except = listOf(
-                arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
-                arcanum.api.CopyException.PowerToughness(m.groupValues[2].toInt(), m.groupValues[3].toInt()))), Value.Fixed(1), Players.You)))
+                arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary), addSubtypes = subtypes), pt)), Value.Fixed(1), Players.You)))
         }
         // "This creature has base power and toughness 5/2 until end of turn." (layer 7b)
         Tla.HAS_BASE_PT_UNTIL_EOT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -14545,9 +14558,14 @@ internal class Sentences(
                 Affected.Objects(Objects.Where(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))), arcanum.api.Duration.EndOfTurn)))
         }
         // tmt chunk 05: "Each player creates a Food token."
+        // bro chunk 01: "Each player who controls an artifact or enchantment creates a 2/2 green Bear creature token." (checked as it resolves)
         Tmt.EACH_PLAYER_CREATES.matchEntire(sentence)?.let { m ->
-            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.Each(PlayerFilter.Any))))
+            val (count, token) = Tokens.spec(m.groupValues[2]) ?: return null
+            val who = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { controls ->
+                PlayerFilter.Where(arcanum.api.Condition.Exists(Filters.all(Filters.noun(controls.removeArticle()) ?: return null,
+                    ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Tested))), atLeast = 1))
+            } ?: PlayerFilter.Any
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.Each(who))))
         }
         // tmt chunk 05: "Sacrifice a permanent unless you discard a card." (CR 118.12a)
         Tmt.SACRIFICE_UNLESS_DISCARD.matchEntire(sentence)?.let { m ->

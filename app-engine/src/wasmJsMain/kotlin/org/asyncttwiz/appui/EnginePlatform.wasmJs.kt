@@ -47,3 +47,56 @@ private var browserBuildInfo: BuildInfo? = null
 fun installBuildInfo(info: BuildInfo) { browserBuildInfo = info }
 
 internal actual fun platformBuildInfo(): BuildInfo = checkNotNull(browserBuildInfo) { "No web build info installed" }
+
+/** What a build-values message to the engine's Web Worker starts with ([buildInfoMessage]). */
+const val BUILD_INFO_PREFIX = "atw-build:"
+
+/**
+ * Web client step 4d: the page's build values as one message to the engine's Web Worker (the devices there read them: the
+ * diagnostics switch, the version in a report), or null when none is installed on the page.
+ */
+fun buildInfoMessage(): String? {
+    val info = browserBuildInfo ?: return null
+    val json = kotlinx.serialization.json.buildJsonObject {
+        put("accountOrigin", kotlinx.serialization.json.JsonPrimitive(info.accountOrigin))
+        put("resetOrigin", kotlinx.serialization.json.JsonPrimitive(info.resetOrigin))
+        put("loopbackApi", kotlinx.serialization.json.JsonPrimitive(info.loopbackApi))
+        put("versionName", kotlinx.serialization.json.JsonPrimitive(info.versionName))
+        put("versionCode", kotlinx.serialization.json.JsonPrimitive(info.versionCode))
+        put("buildType", kotlinx.serialization.json.JsonPrimitive(info.buildType))
+        put("gitCommit", kotlinx.serialization.json.JsonPrimitive(info.gitCommit))
+        put("debug", kotlinx.serialization.json.JsonPrimitive(info.debug))
+        put("diagnostics", kotlinx.serialization.json.JsonPrimitive(info.diagnostics))
+        put("accountSwitcher", kotlinx.serialization.json.JsonPrimitive(info.accountSwitcher))
+        put("catalogChecksum", kotlinx.serialization.json.JsonPrimitive(info.catalogChecksum))
+        put("artTestOrigin", kotlinx.serialization.json.JsonPrimitive(info.artTestOrigin))
+        put("artBase", kotlinx.serialization.json.JsonPrimitive(info.artBase))
+        put("artContact", kotlinx.serialization.json.JsonPrimitive(info.artContact))
+    }
+    return BUILD_INFO_PREFIX + json.toString()
+}
+
+/** The engine's Web Worker: installs the page's build values from [text] ([buildInfoMessage]); false when it isn't one. */
+fun installBuildInfoMessage(text: String): Boolean {
+    if (!text.startsWith(BUILD_INFO_PREFIX)) return false
+    val o = kotlinx.serialization.json.Json.parseToJsonElement(text.removePrefix(BUILD_INFO_PREFIX)) as kotlinx.serialization.json.JsonObject
+    fun s(key: String) = (o[key] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+    fun b(key: String) = s(key) == "true"
+    installBuildInfo(object : BuildInfo {
+        override val accountOrigin = s("accountOrigin")
+        override val resetOrigin = s("resetOrigin")
+        override val loopbackApi = b("loopbackApi")
+        override val versionName = s("versionName")
+        override val versionCode = s("versionCode").toIntOrNull() ?: 0
+        override val buildType = s("buildType")
+        override val gitCommit = s("gitCommit")
+        override val debug = b("debug")
+        override val diagnostics = b("diagnostics")
+        override val accountSwitcher = b("accountSwitcher")
+        override val catalogChecksum = s("catalogChecksum")
+        override val artTestOrigin = s("artTestOrigin")
+        override val artBase = s("artBase")
+        override val artContact = s("artContact")
+    })
+    return true
+}

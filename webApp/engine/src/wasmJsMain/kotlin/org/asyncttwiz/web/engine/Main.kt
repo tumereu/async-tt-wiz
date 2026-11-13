@@ -28,6 +28,8 @@ fun main() {
             p.definition?.let { ParsedCard.Read(it, p.manualAbilities) } ?: ParsedCard.Unreadable(p.problem.orEmpty()) } }
     }
     onRequest { text ->
+        // Web client step 4d: the page's build values, its first message (the devices read them)
+        if (org.asyncttwiz.appui.installBuildInfoMessage(text)) return@onRequest
         if (DeviceMessage.isDevice(text)) { devices.handle(text); return@onRequest }
         val answer = try { planner.handle(EngineMessages.decodeRequest(text)) } catch (problem: Exception) {
             // A request it can't read: answered with no number, which the page logs as an answer nothing waits for

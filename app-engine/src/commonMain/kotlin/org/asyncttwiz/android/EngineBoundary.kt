@@ -54,12 +54,15 @@ object EngineBoundary {
         log.log(false, "Engine boundary: planning goes to the engine's Web Worker")
     }
 
-    /** The worker failed: planning goes back in-process on the page, and every wait for its answers ends. */
+    /** The worker failed: planning goes back in-process on the page, every wait for its answers ends, the devices in it are
+     * lost (their waiting calls get their refusals) and games opened after keep theirs on the page. */
     fun lost(why: String) {
         if (remote == null) return
         remote = null
         log.log(true, "Engine boundary: the worker is lost ($why): planning in-process on the page from now on")
         devices?.lost(why)
+        // Games opened from now on keep their device on the page
+        devices = null
         val woken = waits.values.toList()
         waits.clear()
         woken.forEach { it() }

@@ -64,7 +64,15 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
     /** The game's codec as the worker's device has it (its card data), from the snapshot it last loaded. */
     var codec: EngineJson = EngineJson(EngineJson.decodeDefinitions(snapshot.definitions))
         private set
-    private var decoder = ShownDecoder(gameId, codec)
+    /** Web client step 4d: a published board's plays the device hadn't worked out when it went out, asked of it by the
+     * board's number (it holds the board: nothing else is sent). */
+    private val plays = DevicePlays { board, done ->
+        request("plays", { DeviceRequest.Plays(it, board) }) { r ->
+            val answer = r as? DeviceResult.Plays
+            done(answer?.hand, answer?.card)
+        }
+    }
+    private var decoder = ShownDecoder(gameId, codec, plays = plays)
     private val calls = DeviceCalls(channel.log)
     private var closed = false
 
@@ -98,7 +106,7 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
                 answer.definitions?.let { text ->
                     // The device loaded (again): its boards are read anew, with its card data
                     codec = EngineJson(EngineJson.decodeDefinitions(text))
-                    decoder = ShownDecoder(gameId, codec)
+                    decoder = ShownDecoder(gameId, codec, plays = plays)
                 }
                 val decoded = try { decoder.decode(answer.shown) } catch (problem: Exception) {
                     AppLog.error("engine", "Device boundary: board v${answer.shown.version} of ${gameId.take(8)} couldn't be read", problem)

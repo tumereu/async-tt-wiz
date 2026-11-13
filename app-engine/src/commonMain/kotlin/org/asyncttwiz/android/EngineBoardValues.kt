@@ -62,6 +62,9 @@ class EngineBoardValues constructor(
     val number: Long = numbers.incrementAndGet(),
     /** [openingBottom] as the engine side worked it out (a board restored on the page); null: worked out here. */
     bottom: Int? = null,
+    /** Web client step 4d: a board the device in the browser's worker published, restored on the page: its plays the engine
+     * side hadn't worked out when it went out are asked of that device by [number] ([askPlays]); null otherwise. */
+    private val device: DevicePlays? = null,
 ) {
     /** TRN-062 (owner problem report 5DDSKK): the cards the viewer puts on the bottom of their library now, right after a
      * mulligan ([AutomatumOpening.bottomOwed]); worked out with the board, on the engine thread. */
@@ -133,6 +136,7 @@ class EngineBoardValues constructor(
      * there is no worker (Android: in-process, [workedHandPlays]) or nothing to send it.
      */
     fun askPlays(): Boolean {
+        device?.let { return askDevice(it) }
         val channel = EngineBoundary.remote ?: return false
         val table = table ?: return false
         if (handPlays != null && cardPlays != null) return true
@@ -149,6 +153,31 @@ class EngineBoardValues constructor(
             cardSeq = channel.next()
             EngineBoundary.waiting(gameId, wake)
             channel.ask(EngineRequest.CardPlaysOf(cardSeq, gameId, number, viewer), null, transfer) { answered(it) }
+        }
+        return true
+    }
+
+    /** Whether the plays are asked of the [device] now, and whether its answer lacked them (they are then worked out on the
+     * page when read). */
+    private var deviceAsked = false
+    private var deviceFailed = false
+
+    /**
+     * Web client step 4d: the plays of a board the device in the worker published before it had worked them out, asked of
+     * that device by [number] (it holds the board: nothing is sent but the number), once; the answer sets them on the
+     * page's thread and wakes what waits ([awaitingPlays]).
+     */
+    private fun askDevice(device: DevicePlays): Boolean {
+        if (handPlays != null && cardPlays != null) return true
+        if (deviceAsked || deviceFailed) return !deviceFailed
+        deviceAsked = true
+        device.ask(number) { hand, card ->
+            deviceAsked = false
+            if (handPlays == null && hand != null) { handPlays = hand; logOffZone(hand) }
+            if (cardPlays == null && card != null) cardPlays = card
+            // Not held there any more (or failed, logged by the device's calls): worked out on the page when read
+            if (handPlays == null || cardPlays == null) deviceFailed = true
+            woken()
         }
         return true
     }
@@ -185,6 +214,13 @@ class EngineBoardValues constructor(
      * when they weren't asked of the worker or its answer failed (a reader then works them out on the page).
      */
     fun awaitingPlays(hand: Boolean, wake: () -> Unit): Boolean {
+        if (device != null) {
+            // Asked of the worker's device when first read (a board the table never reads costs nothing)
+            if ((if (hand) handPlays else cardPlays) == null) askDevice(device)
+            val waiting = deviceAsked && (if (hand) handPlays == null else cardPlays == null)
+            if (waiting && wake !in waiters) waiters += wake
+            return waiting
+        }
         if (askedOf == null || askedOf !== EngineBoundary.remote) return false
         val waiting = if (hand) handPlays == null && handAsked else cardPlays == null && cardAsked
         if (waiting && wake !in waiters) waiters += wake
@@ -285,7 +321,7 @@ class EngineBoardValues constructor(
     /** CMB-040 (owner, 2026-11-05): these values for [next], the board with more drawn on its lanes (the blocks the
      * attacker places to assume): its combat worked out anew on it, the rest shared. */
     fun onLanes(next: org.asyncttwiz.protocol.BoardState): EngineBoardValues =
-        EngineBoardValues(viewer, computed, board.copy(board = next), gameId, state, view, visible, engine, table, lines).also {
+        EngineBoardValues(viewer, computed, board.copy(board = next), gameId, state, view, visible, engine, table, lines, device = device).also {
             it.handPlays = handPlays; it.cardPlays = cardPlays
         }
 
@@ -322,4 +358,10 @@ class EngineBoardValues constructor(
         /** For tests: forget the count. */
         fun reset() { made = 0 }
     }
+}
+
+/** Web client step 4d: the device in the browser's worker, asked for the plays of its published board numbered [board]
+ * ([EngineBoardValues.askPlays]); [done] gets them on the page's thread (null: not there any more). */
+fun interface DevicePlays {
+    fun ask(board: Long, done: (hand: HandPlays?, card: CardPlays?) -> Unit)
 }

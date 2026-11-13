@@ -177,7 +177,10 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
  * thread: what the flows step leaves on the page), [lines] the game's record of the line each board stands on.
  */
 class ShownDecoder(private val gameId: String, private val codec: EngineJson, private val engine: EngineWorker = EngineWorker.Direct,
-    private val lines: org.asyncttwiz.automatum.boundary.BoardLines? = null) {
+    private val lines: org.asyncttwiz.automatum.boundary.BoardLines? = null,
+    /** Web client step 4d: the device in the worker the published boards' plays are asked of when they went out without
+     * them ([EngineBoardValues.askPlays]); null: the page works them out. */
+    private val plays: DevicePlays? = null) {
     private val events = WireEventsIn(codec)
     private val definitions = WireDefinitionsIn()
     private val states = BoardStatesIn()
@@ -253,7 +256,7 @@ class ShownDecoder(private val gameId: String, private val codec: EngineJson, pr
         val view = EngineView(state, table, PlayerId(viewer), seen)
         val computed = w.computed?.let { ComputedBoard.restored(it, view.state) } ?: ComputedBoard.NONE
         val values = EngineBoardValues(viewer, computed, EngineProjection.Board(board, defs), game, view.state, null, seen, engine, table,
-            lines, number = number, bottom = w.openingBottom).also { it.restoredPlays(w.handPlays, w.cardPlays) }
+            lines, number = number, bottom = w.openingBottom, device = plays).also { it.restoredPlays(w.handPlays, w.cardPlays) }
         return TableBoard(game, playId, nodeId, board, defs, view, values, w.damageDealt).also { remember(number, it) }
     }
 

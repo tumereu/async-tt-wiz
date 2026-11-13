@@ -2888,7 +2888,7 @@ internal class Sentences(
                 context.previous = targetsFrom to stepsFrom
             }
         } finally { announcedX = outerX }
-        val result = Instructions(targets = context.targets, steps = steps, replacements = context.replacements)
+        val result = Instructions(targets = context.targets, steps = followTargetsToBattlefield(steps), replacements = context.replacements)
         return if (x == null) result else result.withX(x)
     }
 
@@ -25323,6 +25323,40 @@ internal fun nextTargetName(name: String, taken: List<String>): String =
     listOf("second", "third", "fourth", "fifth", "sixth").map { "$it $name" }.first { it !in taken }
 
 /** rtr chunk 08: [step] with every reference to target slot [from] made to [to]. */
+/** woe sweep: a card an earlier step put onto the battlefield (a target, the trigger's object, this card from another zone) is a new object
+ * there (CR 400.7); later steps find that permanent (CR 400.7j: "Return target creature card from your graveyard to the battlefield. Put a
+ * +1/+1 counter on it.", "When this creature dies, return it to the battlefield …. Put a +1/+1 counter on it."), so their references to the
+ * card are to what the move put there. */
+internal fun followTargetsToBattlefield(steps: List<Step>): List<Step> {
+    val result = steps.toMutableList()
+    for (i in result.indices) {
+        val move = (result[i] as? Step.Do)?.effect as? Effect.Move ?: continue
+        val moved = move.objects.takeIf { it is Objects.Target || it is Objects.EventObject || it == Objects.SelfAfter } ?: continue
+        if (move.to.zone != Zone.Battlefield) continue
+        val name = move.postBind ?: "moved-" + ((moved as? Objects.Target)?.slot ?: "it")
+        val later = (i + 1 until result.size).map { replaceObjects(result[it], moved, Objects.Bound(name)) }
+        if (later.indices.all { later[it] === result[i + 1 + it] }) continue
+        later.forEachIndexed { k, step -> result[i + 1 + k] = step }
+        if (move.postBind == null) result[i] = Step.Do(move.copy(postBind = name))
+    }
+    return result
+}
+
+/** [step] with every [from] in it replaced by [to] (the JSON form, as [renameTargetSlot] walks it). */
+internal fun replaceObjects(step: Step, from: Objects, to: Objects): Step {
+    val json = kotlinx.serialization.json.Json
+    val old = json.encodeToJsonElement(Objects.serializer(), from)
+    val new = json.encodeToJsonElement(Objects.serializer(), to)
+    fun walk(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when {
+        e == old -> new
+        e is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.mapValues { walk(it.value) })
+        e is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { walk(it) })
+        else -> e
+    }
+    val walked = walk(json.encodeToJsonElement(Step.serializer(), step))
+    return if (walked == json.encodeToJsonElement(Step.serializer(), step)) step else json.decodeFromJsonElement(Step.serializer(), walked)
+}
+
 internal fun renameTargetSlot(step: Step, from: String, to: String): Step {
     val json = kotlinx.serialization.json.Json
     fun walk(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {

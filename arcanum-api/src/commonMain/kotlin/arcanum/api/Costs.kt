@@ -83,10 +83,16 @@ sealed interface CostPart {
     ) : CostPart
     /** Pay one of [options] ("discard a card or pay {5}"). */
     @Serializable @SerialName("one-of") data class OneOf(val options: List<Cost>) : CostPart
-    /** A keyword action as a cost: behold, collect evidence, forage, exert; [bind] names what it used ("the beheld card"). */
-    @Serializable @SerialName("action") data class Action(val action: KeywordAction, val bind: String? = null) : CostPart
+    /** A keyword action as a cost: behold, collect evidence, forage, exert; [bind] names what it used ("the beheld card"). [remember]: the
+     * cards it exiles are kept as card memory under that key, for another ability that refers to the cards "exiled with" this object
+     * (collecting evidence, CR 607.2a). */
+    @Serializable @SerialName("action") data class Action(val action: KeywordAction, val bind: String? = null, val remember: String? = null) : CostPart
     @Serializable @SerialName("return-to-hand") data class ReturnToHand(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
     @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
+    // mkm fix
+    /** "Reveal the creature type you chose": reveals the secret choice the source keeps as card memory under [key] (a
+     * [Step.Choose] with secret, CR 607.2d); it can't be paid when the source keeps no such choice (CR 118.3). */
+    @Serializable @SerialName("reveal-choice") data class RevealChoice(val key: String) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
     @Serializable @SerialName("pay-energy") data class PayEnergy(val amount: Value) : CostPart
     /** Remove [amount] counters of [kind] from each of [from]'s objects, or ([distributed]) [amount] in total from among

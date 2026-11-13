@@ -145,7 +145,7 @@ internal object Fin {
     val TARGETS_OWNER_SHUFFLES = Regex("""Target (.+?)'s owner shuffles it into their library\.""")
     val REMOVE_COUNTER_FROM_TARGET = Regex("""Remove (a|an|one|two|three) (\S+) counters? from target (.+)\.""")
     val TRIPLE_TARGET_PT = Regex("""Triple target (.+?)'s power and toughness until end of turn\.""")
-    val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile) up to (\w+) target (.+?) from a single graveyard\.""")
+    val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile|Put) up to (\w+) target (.+?) from a single graveyard( onto the battlefield under your control)?\.""")
     val GAINS_QUOTE_AND_BASE_PT = Regex("""Until end of turn, target (.+?) gains "(.+?)" and has base power and toughness (\d+)/(\d+)\.""")
     val COUNTER_ON_ONE_OF_THEM = Regex("""Put an? (\S+) counter on one of them\.""")
     // fin chunk 03
@@ -239,7 +239,7 @@ internal object Fin {
     val PREVENT_COMBAT_DAMAGE_TO_SELF = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
     val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many (\S+) counters are put on that creature instead\.""")
     val TOKENS_PLUS_ONE = Regex("""If one or more tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
-    val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast ([A-Z][a-z]+) spells from the top of your library\.""")
+    val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast (.+?) spells from the top of your library\.""")
     val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val WHEN_YOU_SEARCH_THIS_WAY = Regex("""When you search your library this way, (.+)""")
     val SEARCH_UP_TO_DIFFERENT_NAMES = Regex("""Search your library for up to (\w+) (.+?) with different names, put them onto the battlefield tapped, then shuffle\.""")

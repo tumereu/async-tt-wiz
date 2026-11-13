@@ -100,7 +100,8 @@ internal object Payment {
             spent = paid.first
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
-        total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
+        // mkm fix: a secret choice is revealed first, while its source is still there to keep it (costs are paid in any order, CR 601.2h)
+        total.parts.sortedBy { it.part !is CostPart.RevealChoice }.forEach { payPart(act, plan, it, bound, snapshots) }
         // tla: paying a waterbend cost is waterbending, however it was paid (CR 701.67c)
         if (total.waterbends) recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, plan.player)))
         // blb: each forage paid (its parts' keys carry it, Costs.total) is a forage (CR 701.61a)
@@ -416,6 +417,13 @@ internal object Payment {
                     bound[it] = kept
                     // ecl: kept by the permanent the spell becomes (CR 607.2a, 400.7d)
                     bound[REMEMBERED + it] = kept
+                    // mkm: an activated ability's cost exiles cards "exiled with" its source: kept as the source's memory as the cost is paid
+                    // (CR 607.2a; "Collect evidence 6: …" then "cast a spell from among cards exiled with it")
+                    if (!plan.isSpell) recorder.state.obj(plan.sourceId)?.let { source ->
+                        val before = source.linked[it]
+                        val linked = NamedValue.Objects(((before as? NamedValue.Objects)?.ids.orEmpty() + after).distinct())
+                        if (linked != before) recorder.record(Change.Memory(plan.sourceId, it, before, linked))
+                    }
                 }
             }
             is CostPart.ReturnToHand -> {
@@ -486,6 +494,13 @@ internal object Payment {
             }
             // Reminder text the definition can't express: left to the players (P4)
             is CostPart.Manual -> Unit
+            // mkm fix: the secret choice the source keeps is revealed: no longer marked secret
+            is CostPart.RevealChoice -> {
+                val o = recorder.state.obj(plan.sourceId) ?: refuse("It's gone")
+                if (o.linked[part.key] == null) refuse("Nothing was chosen")
+                val key = arcanum.engine.state.Secrets.markerKey(part.key)
+                o.linked[key]?.let { recorder.record(Change.Memory(o.id, key, it, null)) }
+            }
             // blb: the chosen player is recorded with the spell's facts as it becomes cast (CR 702.174a)
             is CostPart.ChoosePlayer -> Unit
             // ecl: CR 701.68a: N -1/-1 counters on the chosen creature you control; it is "the blighted creature" (701.68c)

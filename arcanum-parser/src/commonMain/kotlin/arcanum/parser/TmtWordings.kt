@@ -70,7 +70,7 @@ internal object Tmt {
     val MAY_PUT_AND_OR_FROM_HAND = Regex("""[Yy]ou may put an? (\w+) card and/or an? (\w+) card from your hand onto the battlefield\.""")
     val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+\. .+)""")
     val IT_GAINS_UNTIL_EOT = Regex("""It gains ([a-z ,]+) until end of turn\.""")
-    val ACT_ON_IT_NEXT_END_STEP = Regex("""(Destroy|Sacrifice) it at the beginning of the next end step\.""")
+    val ACT_ON_IT_NEXT_END_STEP = Regex("""(Destroy|Sacrifice) it at the beginning of (the|your) next end step\.""") // mkm chunk 10: your
     val EXILE_TARGET_YOU_OWN = Regex("""Exile target (.+?) you own\.""")
     val ADD_THAT_MUCH = Regex("""[Aa]dd that much (\{[WUBRGC]\})\.""")
     val ENTERS_OR_DEALS_COMBAT_DAMAGE = Regex("""(.+) enters or deals combat damage to a player""")
@@ -79,7 +79,7 @@ internal object Tmt {
     val MAY_SEARCH_IF_YOU_DONT_PUT = Regex("""[Yy]ou may search your library for an? (.+?) card, reveal it, put it into your hand, then shuffle\. If you don't put a card into your hand this way, (.+)""")
     val MAY_REMOVE_COUNTER_WHEN_YOU_DO = Regex("""[Yy]ou may remove a counter from (.+?)\. When you do, (.+)""")
     val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
-    val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}) less to activate\.""")
+    val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}) less to activate\.( This effect can't reduce the mana in that cost to less than one mana\.)?""") // mkm chunk 02
     val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     val EACH_PLAYER_CREATES = Regex("""[Ee]ach player creates (.+)\.""")

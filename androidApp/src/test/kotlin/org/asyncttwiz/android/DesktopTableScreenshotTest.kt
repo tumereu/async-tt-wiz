@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -24,6 +25,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -86,6 +88,110 @@ class DesktopTableScreenshotTest {
     private fun scene(kit: EngineTableKit): TableScene = kit.alice.play().let { play ->
         TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.TOP_ROW, true, kit.toolkit.layoutState.value,
             appearance = DesktopCardAppearance, landscapeHome = true, handRow = HandRow.cards(play, kit.f.a), desktop = DesktopFrame())
+    }
+
+    /** The mouse moved over [item] of Alice's desktop table (its surface lies under the top row). */
+    private fun hover(item: TableItem) {
+        compose.onAllNodes(isRoot()).onFirst().performMouseInput {
+            moveTo(androidx.compose.ui.geometry.Offset(item.bounds.center.x, item.bounds.center.y + DesktopTable.TOP_ROW))
+        }
+        compose.waitForIdle()
+    }
+
+    /** The page's [name] key pressed ([down]) or released at [time] (ms). */
+    private fun key(name: String, down: Boolean, time: Long) {
+        compose.runOnIdle { DesktopKeyboard.dispatch(DesktopKey(name, down, time)) }
+        compose.waitForIdle()
+    }
+
+    // WEB-024, WEB-025, TBL-131 (D4): Alice cast her Ember Cub this turn; she holds Alt with the mouse over the Cub:
+    // Inspect shows it over the dimmed table with its changes beside it, without the close button, and the view is paused;
+    // a quick tap of Alt pins it with its close button, Alt again closes it
+    @Test fun holdingAltOverACardInspectsItWithItsChanges() {
+        val kit = EngineTableKit()
+        kit.opening()
+        kit.playLand()
+        val cub = kit.castCub()
+        render(kit)
+        val cubItem = scene(kit).items.single { it.cardId == cub && it.battlefieldCard }
+        hover(cubItem)
+        key("Alt", true, 10_000)
+        compose.onNodeWithTag("card-inspection").assertExists()
+        compose.onNodeWithContentDescription("Close inspection").assertDoesNotExist()
+        compose.runOnIdle { assertTrue(kit.routes.viewPause.key, "the finger key pauses the view") }
+        captureShot("$SCREENSHOTS/desktop/inspect-alt.png",
+            "Alice cast her Ember Cub this turn; holding Alt with the mouse over it inspects it over the dimmed desktop table, its picture at the left with its changes (entered this turn) beside it, as pinned Inspect shows them, and no close button while Alt is held.")
+        key("Alt", false, 12_000)
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+        hover(cubItem.copy(bounds = cubItem.bounds.copy(x = cubItem.bounds.x + 2f)))
+        key("Alt", true, 20_000)
+        key("Alt", false, 20_100)
+        compose.onNodeWithTag("card-inspection").assertExists()
+        compose.onNodeWithContentDescription("Close inspection").assertExists()
+        compose.runOnIdle { assertFalse(kit.routes.viewPause.key) }
+        key("Alt", true, 30_000)
+        key("Alt", false, 30_050)
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+    }
+
+    // WEB-027, ZON-080, WEB-026 (§5): with a Mountain and an Ember Shard out, the mouse rests on Alice's Ember Kit in hand: its
+    // two chips show faded above it and its quick look beside it, nothing outlined for its free regular way; on the "Cast with
+    // offspring" chip that chip turns solid and its one source is outlined in amber;
+    // a click on the faded "Cast with offspring" chip casts it that way at once
+    @Test fun hoveringAHandCardShowsItsChipsFadedWithTheirSources() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.KIT, Choices.SHARD, "Mountain"))))
+        kit.opening()
+        kit.playLand()
+        val shard = kit.atw(kit.hand(Choices.SHARD).first())
+        assertTrue(kit.toolkit.cast.start(shard), "the Shard is cast: ${kit.toolkit.error}")
+        kit.playOn("the Shard on the battlefield") { shard in kit.field(Choices.SHARD).map(kit::atw) && kit.aliceMain() }
+        val card = kit.atw(kit.hand(Choices.KIT).first())
+        render(kit)
+        hover(scene(kit).items.single { it.cardId == card && it.zone == PlayZone.HAND })
+        compose.mainClock.advanceTimeBy(QUICK_LOOK_MILLIS + 50)
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(card, kit.toolkit.hand.hovered)
+            assertEquals(null, kit.toolkit.hand.raised, "hovering raises nothing")
+            assertEquals(emptySet(), kit.toolkit.hand.sources(kit.alice.play()), "the Kit's regular way is free: nothing outlined")
+        }
+        compose.onNodeWithTag(HOVER_CHIPS_TAG).assertExists()
+        compose.onNodeWithTag(QUICK_LOOK_TAG).assertExists()
+        // The pointer moves up onto the "Cast with offspring" chip: it turns solid and its one source is outlined
+        compose.onNodeWithContentDescription("Way Cast with offspring {R}").performMouseInput { moveTo(center) }
+        compose.mainClock.advanceTimeBy(HOVER_CHIPS_KEEP_MILLIS + 50)
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(card, kit.toolkit.hand.hovered, "the chips stay while the pointer is on them")
+            assertEquals(1, kit.toolkit.hand.hoverChip)
+            assertEquals(1, kit.toolkit.hand.sources(kit.alice.play()).size, "the chip's source outlined")
+        }
+        captureShot("$SCREENSHOTS/desktop/hover-chips.png",
+            "With a Mountain and an Ember Shard out, the mouse rested on Alice's Ember Kit in her hand on the desktop table, then moved up onto its chips: \"Cast with offspring\" turned solid while the free \"Cast\" stays faded, and the one source it would tap is outlined in amber.")
+        compose.onNodeWithContentDescription("Way Cast with offspring {R}").performClick()
+        compose.waitForIdle()
+        kit.playOn("the Kit cast with offspring") { kit.state().stack.isNotEmpty() || card in kit.field(Choices.KIT).map(kit::atw) }
+    }
+
+    // WEB-028 (§5): on the desktop layout a right-click on a control does its hold action and never its tap; a left click
+    // taps it
+    @Test fun aRightClickOnAControlDoesItsHold() {
+        var taps = 0
+        var holds = 0
+        compose.setContent {
+            MaterialTheme {
+                CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop) {
+                    ActionSquare("End turn test", "", true, Modifier.testTag("square"), holdName = "End turn", onHold = { holds++ },
+                        onClick = { taps++ })
+                }
+            }
+        }
+        compose.onNodeWithTag("square").performMouseInput {
+            press(androidx.compose.ui.test.MouseButton.Secondary); release(androidx.compose.ui.test.MouseButton.Secondary)
+        }
+        compose.runOnIdle { assertEquals(1 to 0, holds to taps, "the right-click held it") }
+        compose.onNodeWithTag("square").performMouseInput { click() }
+        compose.runOnIdle { assertEquals(1 to 1, holds to taps, "the left click tapped it") }
     }
 
     // WEB-015, WEB-016, WEB-018, WEB-022: the desktop table's arrangement: the battlefields end at the dock, the other player's

@@ -136,6 +136,8 @@ internal object Filters {
         NOT_SAME_NAME_AS.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
         }
+        // mkm chunk 08: "creatures that don't have a name" (a face-down permanent has none, CR 708.2a)
+        WITHOUT_A_NAME.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasName)) }
         // dsk chunk 08: "an instant or sorcery spell that targets only a single creature you control" (CR 115.7)
         TARGETS_ONLY_A_SINGLE.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.SingleTarget(noun(m.groupValues[2]) ?: return null))
@@ -160,6 +162,10 @@ internal object Filters {
             val n = Value.Fixed(m.groupValues[3].toInt())
             val test = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
             return all(noun(m.groupValues[1]) ?: return null, test)
+        }
+        // mkm chunk 07: "creature you control other than enchanted creature": any but the one this Aura or Equipment is attached to
+        OTHER_THAN_ATTACHED.matchEntire(phrase)?.let { m ->
+            return all(ObjectFilter.Not(ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))), noun(m.groupValues[1]) ?: return null)
         }
         // chunk 40: "another creature", "other Elves you control": any but this object
         OTHER.matchEntire(phrase)?.let { m -> return all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun(m.groupValues[1]) ?: return null) }
@@ -223,6 +229,8 @@ internal object Filters {
         // fdn chunk 22: not "an instant card or a card with flash": the alternative after " or a" has its own noun, the " or " split owns it
         WITH_KEYWORD.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             OracleParser.keyword(m.groupValues[2])?.let { keyword -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(keyword.kind)) }
+            // mkm chunk 07: "creatures you control with disguise": a keyword that has a cost, named without it (CR 702.168a)
+            KEYWORDS_NAMED_WITHOUT_COST[m.groupValues[2]]?.let { kind -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(kind)) }
             // one chunk 02: "creature you control with toxic": a keyword that takes a number, named alone (any toxic value, CR 702.164)
             AMOUNT_KEYWORD_KINDS.firstOrNull { it.text.equals(m.groupValues[2], ignoreCase = true) }
                 ?.let { kind -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(kind)) }
@@ -255,6 +263,10 @@ internal object Filters {
         STATUS_ALTERNATIVES.matchEntire(phrase)?.let { m ->
             val statuses = m.groupValues[1].split(LazyRegexes.OR_LIST).map { word(it) ?: return null }
             return all(ObjectFilter.Or(statuses), noun(m.groupValues[2]) ?: return null)
+        }
+        // mkm chunk 01: "permanent you own but don't control"
+        Mkm.OWNED_NOT_CONTROLLED.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You), ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You)))
         }
         // dsk chunk 09: "creatures and/or enchantments you own"
         OWNED.matchEntire(phrase)?.let { m -> noun(m.groupValues[1].replace(" and/or ", " or "))?.let { return and(it, ObjectFilter.OwnedBy(PlayerFilter.You)) } }
@@ -410,8 +422,10 @@ internal object Filters {
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */.let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
-            .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */
+            .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
+            .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+            .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" in a graveyard") // chunk 31, mkm chunk 09
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
         // rvr chunk 04, lci chunk 10: "activated or triggered ability" (abilities on the Stack)
@@ -450,12 +464,16 @@ internal object Filters {
             "blocking" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocking) // blb chunk 10
             // dsk chunk 06: "a face-down permanent" (CR 708)
             "face-down" -> return ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)
+            // mkm chunk 07: "face-up creatures you control with disguise" (CR 708)
+            "face-up" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.FaceDown))
             "untapped" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
             // rtr chunk 05: "monocolored creature", "multicolored spell" (CR 105.2)
             "monocolored" -> return ObjectFilter.Monocolored
             "multicolored" -> return ObjectFilter.Multicolored
             // gtc chunk 06: "blocked creature" (CR 509.1h)
             "blocked" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocked)
+            // mkm chunk 04: "suspected creatures" (CR 701.60a)
+            "suspected" -> return ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Suspected))
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         // chunk 50: "historic": artifacts, legendaries and Sagas (CR 700.6)
@@ -469,7 +487,8 @@ internal object Filters {
     }
 
     fun players(phrase: String): Players? = when (phrase) {
-        "Each opponent", "each opponent" -> Players.Each(PlayerFilter.Opponent)
+        // mkm chunk 10: "each of your opponents"
+        "Each opponent", "each opponent", "each of your opponents" -> Players.Each(PlayerFilter.Opponent)
         "You", "you" -> Players.You
         "Each player", "each player" -> Players.Each(PlayerFilter.Any)
         else -> OnePhrases.eachWho(phrase) // one chunk 03
@@ -481,9 +500,10 @@ internal object Filters {
     // dsk chunk 07
     private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
+    private val WITHOUT_A_NAME = Regex("""(.+) that (?:don't|doesn't) have a name""")
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
     // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
-    private val SPELLS_YOU_CAST = Regex("""(\w+(?:(?:,| or|, or) \w+)*) spells you cast""")
+    private val SPELLS_YOU_CAST = Regex("""([\w-]+(?:(?:,| or|, or) [\w-]+)*) spells you cast""")
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
@@ -517,7 +537,7 @@ internal object Filters {
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val IN_GRAVEYARDS = Regex("""(.+) in graveyards""")
-    private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
+    private val FROM_A_GRAVEYARD = Regex("""(.+) (?:from|in) a graveyard""") // mkm chunk 09: "nonland card in a graveyard"
     // chunk 32
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
@@ -560,6 +580,9 @@ internal object Filters {
     private val EQUIPPED_PLURAL = Regex("""(equipped|enchanted) (creatures.*)""")
     // chunk 40
     private val OTHER = Regex("""(?:an)?other (.+)""")
+    /** Keywords with a cost, as a filter names them ("with disguise"). */
+    private val KEYWORDS_NAMED_WITHOUT_COST: Map<String, arcanum.api.KeywordKind> = mapOf("disguise" to arcanum.api.Keyword.Disguise.Kind)
+    private val OTHER_THAN_ATTACHED = Regex("""(.+) other than (?:enchanted|equipped) creature""")
     // chunk 42
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
     // chunk 36
@@ -611,6 +634,11 @@ internal object Events {
         ATTACKS_OR_BLOCKS.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.Attack(subject), EventPattern.Block(subject, attacker = ObjectFilter.Any))
+        }
+        // mkm chunk 01: "this creature enters or is turned face up" (CR 702.168d: turning it face up isn't entering)
+        Mkm.ENTERS_OR_TURNED_FACE_UP.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.TurnedFaceUp(subject))
         }
         // one chunk 10: "an equipped creature you control other than Rhuk attacks or dies"
         ATTACKS_OR_DIES.matchEntire(text)?.let { m ->
@@ -746,7 +774,11 @@ internal object Events {
         // chunks 45, 46: "at the beginning of combat on your turn"
         if (text == "the beginning of combat on your turn") return EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.You)
         // chunk 47: "a player sacrifices a permanent"
-        PLAYER_SACRIFICES.matchEntire(text)?.let { m -> return EventPattern.Sacrifice(Filters.noun(m.groupValues[1]) ?: return null) }
+        // mkm chunk 10: "an opponent sacrifices an artifact" (only a permanent's controller sacrifices it, CR 701.21a)
+        PLAYER_SACRIFICES.matchEntire(text)?.let { m ->
+            val kind = Filters.noun(m.groupValues[2]) ?: return null
+            return EventPattern.Sacrifice(if (m.groupValues[1] == "a player") kind else Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.Opponent)))
+        }
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
@@ -1069,7 +1101,7 @@ internal object Events {
     private val ATTACKS = Regex("""(.+) attacks""")
     // chunk 46
     // chunk 47
-    private val PLAYER_SACRIFICES = Regex("""a player sacrifices an? (.+)""")
+    private val PLAYER_SACRIFICES = Regex("""(a player|an opponent) sacrifices an? (.+)""")
     // chunk 50
     private val YOU_CAST_NOT_FROM_HAND = Regex("""you cast an? (?:(.+) )?spell from anywhere other than your hand""")
     private val BEGINNING_OF_EACH = Regex("""the beginning of each (upkeep|end step)""")
@@ -1095,6 +1127,30 @@ internal object Events {
 
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
+    /** mkm: "N or more sources you controlled dealt damage this turn", "N or more creatures attacked this turn", "N or more creature cards were put
+     * into graveyards from anywhere this turn". */
+    private fun mkmCondition(text: String): Condition? {
+        Mkm.N_SOURCES_DEALT_DAMAGE_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You), arcanum.api.RecipientFilter()),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Sources)
+        }
+        Mkm.N_ATTACKED_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.Attack(Filters.noun(m.groupValues[2]) ?: return null),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Objects)
+        }
+        Mkm.N_PUT_INTO_GRAVEYARDS_THIS_TURN.matchEntire(text)?.let { m ->
+            // "creature cards": a token put into a graveyard isn't a card (CR 108.2, 111.7)
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val cards = if (m.groupValues[2].endsWith("cards") || m.groupValues[2].endsWith("card")) Filters.all(noun, ObjectFilter.Category(
+                arcanum.api.ObjectCategory.Card)) else noun
+            // "your graveyard": a card goes to its owner's graveyard (CR 404.2)
+            val moved = if (m.groupValues[3] == "your graveyard") Filters.all(cards, ObjectFilter.OwnedBy(PlayerFilter.You)) else cards
+            val atLeast = if (m.groupValues[1].isEmpty()) 1 else Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(moved, to = Zone.Graveyard), atLeast = atLeast, measure = Measure.Objects)
+        }
+        return null
+    }
+
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
         LtrPhrases.condition(text)?.let { return it } // ltr
@@ -1113,6 +1169,13 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        mkmCondition(text)?.let { return it } // mkm
+        // fra chunk 06: "this creature isn't prepared" (CR 722.3a); mkm chunk 05: any mark, "this creature is suspected", "it's not suspected"
+        // (about this object, CR 701.60a)
+        MARKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            val marked = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Marked(ActionWordings.mark(m.groupValues[3]) ?: return@let)))
+            return if (m.groupValues[2].isEmpty()) marked else Condition.Not(marked)
+        }
         RvrPhrases.condition(text, self)?.let { return it } // rvr
         OnePhrases.condition(text, self)?.let { return it } // one
         IsdPhrases.condition(text, self)?.let { return it } // isd
@@ -1244,6 +1307,10 @@ internal object Conditions {
             val filter = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
             return Condition.ObjectMatches(Objects.Bound(SACRIFICED), filter)
         }
+        // mkm chunk 10: "Tolsimir attacked this combat" (declared as an attacker, even if removed from combat since, CR 506.4)
+        Mkm.ATTACKED_THIS_COMBAT.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.AttackedThisCombat)
+        }
         SELF_IS_TAPPED.matchEntire(text)?.let { tappedSubject(it.groupValues[1], self) }?.let {
             return Condition.ObjectMatches(it, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
         }
@@ -1363,6 +1430,8 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.Sacrifice(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
         }
+        // mkm chunk 03: "evidence was collected": the spell's linked optional additional cost was paid (CR 701.59c, 607.2)
+        if (text == "evidence was collected") return Condition.Paid(null, times = 1, of = Objects.Self)
         // blb chunk 02: "the gift was promised" (CR 702.174k)
         if (text == "the gift was promised") return Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self)
         if (text == "the gift wasn't promised") return Condition.Not(Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self))
@@ -1491,6 +1560,8 @@ internal object Conditions {
     // blb chunk 12
     // dgm
     private val GTC_ISNT_A_TOKEN = Regex("""(.+) isn't a token""")
+    // mkm chunk 05: "this creature is suspected", "it's not suspected", "this creature isn't prepared" (a mark, [ActionWordings.mark])
+    private val MARKED = Regex("""(.+?)(?: is|'s)(n't| not)? (\w+)""")
     private val OPPONENT_CONTROLS_MORE = Regex("""an opponent controls more (.+) than you""")
     private val TOTAL_POWER = Regex("""(.+) have total power (\d+) or greater""")
     private val SELF_POWER_AT_LEAST = Regex("""(.+)'s power is (\d+) or greater""")
@@ -1617,6 +1688,17 @@ internal object Values {
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
+        // mkm chunk 09: "the number of different color pairs among permanents you control that are exactly two colors" (CR 105.2)
+        Mkm.NUMBER_OF_COLOR_PAIRS_AMONG.matchEntire(text)?.let { m ->
+            return Value.CountDistinct(Filters.objects(m.groupValues[1]) ?: return null, arcanum.api.SharedQuality.ColorPair)
+        }
+        // mkm chunk 09: "the number of artifacts that were put into graveyards from the battlefield this turn" (each object once; tokens too, CR 111.7)
+        Mkm.NUMBER_PUT_INTO_GRAVEYARDS_FROM_THIS_TURN.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val graveyard = if (m.groupValues[2] == "your graveyard") Filters.all(filter, ObjectFilter.OwnedBy(PlayerFilter.You)) else filter
+            return Value.EventsThisTurn(EventPattern.ZoneChange(graveyard, from = Zone.Battlefield.takeIf { m.groupValues[3] == "the battlefield" }, to = Zone.Graveyard),
+                arcanum.api.Measure.Objects)
+        }
         RvrPhrases.value(text)?.let { return it } // rvr
         OnePhrases.value(text, exiled)?.let { return it } // one
         LciPhrases.value(text)?.let { return it } // lci

@@ -12,12 +12,10 @@ import arcanum.api.KeywordActionKind
 import arcanum.api.Measure
 import arcanum.api.NumericProperty
 import arcanum.api.ObjectFilter
-import arcanum.api.ObjectMark
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.RecipientFilter
 import arcanum.api.SharedQuality
-import arcanum.api.Status
 import arcanum.api.Value
 import arcanum.api.Zone
 
@@ -117,7 +115,7 @@ internal object Fra {
     val PROLIFERATE_TIMES = Regex("""[Pp]roliferate (?:(\w+) times|(twice))\.""") // one chunk 01: Ezuri, "proliferate twice"
     val REMOVE_UP_TO_COUNTERS = Regex("""Remove up to (\w+) counters from (another )?target (.+)\.""")
     val EXILE_UP_TO_ONE_THEN_RETURN = Regex("""Exile up to one (other )?target (.+?), then return that card to the battlefield under its owner's control\.""")
-    val PER_OPPONENT = Regex("""(destroy|tap|return|put \w+ \S+ counters? on) (up to one )?target (.+?) that player controls( to its owner's hand)?\.""")
+    val PER_OPPONENT = Regex("""(destroy|tap|exile|return|put \w+ \S+ counters? on) (up to one )?target (.+?) that player controls( to its owner's hand)?\.""")
     val BEHOLD = Regex("""[Bb]ehold an? (.+)""")
     val EXILE_FROM_HAND_TARGET_GAINS_UNTIL_CAST = Regex("""(.+?, Exile this card from your hand): Target (.+?) gains "(.+)" until this card is cast from exile\. You may cast this card for as long as it remains exiled\.""")
     val DIES_IF_NOT_TOKEN_COPY = Regex("""When (.+?) dies, if it isn't a token, create a token that's a copy of it\.""")
@@ -127,7 +125,7 @@ internal object Fra {
     val PUT_N_COUNTERS_ON_EACH = Regex("""Put (X|two|three|four) (\S+) counters on each (.+)\.""")
     val BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""(.+?) becomes a copy of target (.+?) until end of turn\.""")
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|X|two|three) (\S+) counters? on (?:it|that creature)\.""")
-    val PUT_COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures\.""")
+    val PUT_COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures( you don't control| you control)?\.""")
     val IT_FIGHTS_TARGET = Regex("""It fights target (.+)\.""")
     val LOYALTY_AT_INSTANT_SPEED = Regex("""Until end of turn, you may activate loyalty abilities of (.+?) on any player's turn any time you could cast an instant\.""")
     val IF_SACRIFICE_DEALS_GAIN = Regex("""If (.+?), sacrifice (.+?), it deals (\d+) damage to each opponent, and you gain (\d+) life\.""")
@@ -218,18 +216,12 @@ internal object FraPhrases {
         return null
     }
 
-    private val ISNT_PREPARED = Regex("""(.+?) (isn't|is) prepared""")
     private val OPPONENT_DEALT_NONCOMBAT = Regex("""an opponent (?:was|has been) dealt noncombat damage (this|last) turn""")
-    private val DRAWN_N_THIS_TURN = Regex("""you've drawn (\w+) or more cards this turn""")
+    private val DRAWN_N_THIS_TURN = Regex("""you've drawn (\w+) or more cards this turn|you've drawn more than (\w+) cards? this turn""")
     private val LOYALTY_AMONG = Regex("""there are (\S+) or more loyalty counters among (.+)""")
     private val NUMBER_WORDS = mapOf("twenty-five" to 25)
 
     fun condition(text: String, self: Set<String>): Condition? {
-        // fra chunk 06: "this creature isn't prepared" (CR 722.3a)
-        ISNT_PREPARED.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
-            val prepared = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Prepared)))
-            return if (m.groupValues[2] == "is") prepared else Condition.Not(prepared)
-        }
         // fra chunk 04: "you've scried or surveilled this turn"
         if (text == "you've scried or surveilled this turn") return Condition.Or(listOf(
             Condition.HappenedThisTurn(ActionWordings.youDid(KeywordActionKind.Scry), atLeast = 1, measure = Measure.Events),
@@ -242,7 +234,9 @@ internal object FraPhrases {
         }
         // fra chunk 08: "you've drawn three or more cards this turn"
         DRAWN_N_THIS_TURN.matchEntire(text)?.let { m ->
-            return Condition.HappenedThisTurn(EventPattern.Draw(PlayerFilter.You), atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Events)
+            // mkm chunk 10: "you've drawn more than one card this turn" (two or more)
+            val atLeast = if (m.groupValues[1].isNotEmpty()) Numbers.count(m.groupValues[1]) ?: return null else (Numbers.count(m.groupValues[2]) ?: return null) + 1
+            return Condition.HappenedThisTurn(EventPattern.Draw(PlayerFilter.You), atLeast = atLeast, measure = Measure.Events)
         }
         // fra chunk 08: "you didn't cast a spell this turn"
         // one chunk 07: "you haven't cast a spell this turn"

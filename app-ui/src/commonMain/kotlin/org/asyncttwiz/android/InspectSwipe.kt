@@ -23,10 +23,20 @@ class InspectSwipe {
     private var scrolled = false
     private var swiping = false
 
+    /** WEB-024: the desktop's finger key holds this Inspect: in its pinned look at once, without its close button. */
+    var keyHeld by mutableStateOf(false); private set
+
     /** A new hold begins: nothing swiped, not pinned. */
     fun begin() {
-        progress = 0f; pinned = false; scrolled = false; swiping = false
+        progress = 0f; pinned = false; scrolled = false; swiping = false; keyHeld = false
     }
+
+    /** WEB-024 (owner, D4): the desktop's finger key opens this Inspect: the pictures with their changes beside them, as
+     * pinned Inspect shows them, while the key is held. */
+    fun holdByKey() { begin(); progress = 1f; keyHeld = true }
+
+    /** WEB-024: a tap of the finger key pins the Inspect it opened, its close button showing. */
+    fun pinByKey() { keyHeld = false; pinned = true; progress = 1f }
 
     /**
      * The holding finger is [dx], [dy] from where the hold began. True when the movement is the swipe's (the caller doesn't

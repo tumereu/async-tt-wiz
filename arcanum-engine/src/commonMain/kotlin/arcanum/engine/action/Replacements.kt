@@ -170,7 +170,8 @@ internal object Replacements {
     fun replaceEmptyDraw(act: Act, cause: Cause?, player: PlayerId, instead: (Replacement, TriggerEvent) -> Unit): Boolean {
         val matching = candidates(act, cause).filter { r ->
             val pattern = r.mechanic.event as? arcanum.api.EventPattern.Draw ?: return@filter false
-            r.key !in act.replacing && r.mechanic.instead != null &&
+            // mkm: "skip that draw instead" applies with no card to draw too (CR 614.11)
+            r.key !in act.replacing && (r.mechanic.instead != null || arcanum.api.Modification.Skip in r.mechanic.modify) &&
                 (pattern.exceptFirstIn?.let { step -> !arcanum.engine.trigger.EventMatcher.firstDrawIn(act.state, step, player) } ?: true) &&
                 Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.players, player)
         }.map { it to TriggerEvent(players = listOf(player)) }
@@ -178,7 +179,7 @@ internal object Replacements {
         val (r, instance) = pick(act, matching, player, null)
         if (r.mechanic.optional && !act.yesNo(r.controller, r.source, "Apply ${describe(r)}?")) return false
         useUp(act, r)
-        instead(r, instance)
+        if (r.mechanic.instead != null) instead(r, instance)
         return true
     }
 

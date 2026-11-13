@@ -315,7 +315,7 @@ internal object KeywordExpansionsMore {
         is Keyword.Disguise -> listOf(
             Ability.Static(listOf(Mechanic.AlternativeCost(Keyword.Disguise.Kind, Cost.mana(ManaCost.parse("{3}")!!), faceDown = true)), affects = self),
             Ability.SpecialAction(keyword.cost, steps(Effect.TurnFaceUp(Objects.Self, x = KeywordExpansions.turnedUpX(keyword.cost))), timing = Timing.Any, functionsIn = listOf(Zone.Battlefield),
-                condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.FaceDown))))
+                condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.FaceDown)), costChange = keyword.costChange))
         // CR 702.170a, b: "Any time you have priority during your main phase while the stack is empty, you may exile this card from your
         // hand and pay [cost]. It becomes a plotted card." (a special action; casting a plotted card, 702.170d, is the engine's)
         is Keyword.Plot -> listOf(Ability.SpecialAction(keyword.cost, Instructions(steps = listOf(

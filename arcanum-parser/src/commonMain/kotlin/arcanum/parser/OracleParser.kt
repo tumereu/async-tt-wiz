@@ -29,7 +29,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 96
+    const val VERSION: Int = 97
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -56,7 +56,7 @@ object OracleParser {
             // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
             // sos chunk 08, tla chunk 01, isd chunk 10: "As an additional cost to cast this spell, pay X life | waterbend {X} | exile X cards from your
-            // graveyard." (X announced as it is cast, CR 601.2b, 107.3)
+            // graveyard." (X announced as it is cast, CR 601.2b, 107.3a); not "collect evidence X, where X is …" (defined by the text, CR 107.3c)
             // one chunk 14: "As an additional cost to cast this spell, sacrifice an artifact or creature with mana value X." (X in an additional
             // cost, not defined by the text: announced as it is cast, CR 107.3a)
             (isSpell && ADDITIONAL_COST_X.containsMatchIn(card.text))
@@ -127,7 +127,7 @@ object OracleParser {
     private fun meldPartner(text: String): String? =
         (MELDS_WITH.find(text) ?: NAMED_PARTNER.find(text)?.takeIf { "meld them into" in text })?.groupValues?.get(1)
 
-    private val ADDITIONAL_COST_X = Regex("""As an additional cost to cast this spell, [^.\n]*\bX\b""")
+    private val ADDITIONAL_COST_X = Regex("""As an additional cost to cast this spell, (?![^.\n]*\bwhere X is\b)[^.\n]*\bX\b""")
     private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
     private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 
@@ -162,7 +162,7 @@ object OracleParser {
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         // chunks 21, 26: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
         // dsk chunk 09: "each card exiled with it"
-        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it "))
+        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it ") || text.contains("exiled with it."))
         // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
         // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost
@@ -171,6 +171,8 @@ object OracleParser {
         sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
         // fin chunk 05: "When the chosen creature leaves the battlefield" links to the creature an earlier ability chose (CR 607.2a)
         sentences.finChosenCreatureLinked = text.contains("When the chosen creature leaves the battlefield")
+        // mkm chunk 02: "for each target beyond the first" counts the card's "any number of target players"
+        sentences.anyNumberOfTargets = ANY_NUMBER_OF_TARGET.find(text)?.groupValues?.get(1)
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
@@ -789,6 +791,7 @@ object OracleParser {
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
     // blb chunk 06
+    private val ANY_NUMBER_OF_TARGET = Regex("""any number of target (\w+)""")
     private val PAWPRINT_CHOOSE = Regex("""Choose up to (\w+) \{P\} worth of modes\. You may choose the same mode more than once\.""")
     private val PAWPRINT_MODE = Regex("""((?:\{P\})+) — (.+)""")
     // blb chunk 05

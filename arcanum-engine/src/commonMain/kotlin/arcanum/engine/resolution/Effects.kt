@@ -232,6 +232,8 @@ internal object Effects {
                 // CR 613.7f: it gets a new timestamp
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
                 effect.counters.forEach { c -> Actions.putCounters(act, cause, TargetRef.Object(id), c.kind, scope.value(c.amount)) }
+                // mkm: CR 614.1e: "As this creature is turned face up, …" happens as it turns, before anything sees it face up
+                asTurnedFaceUp(scope, id)
                 // CR 702.106c: a conspiracy's hidden agenda reveals the chosen name
                 arcanum.engine.conspiracy.Conspiracies.revealed(act, id)
             }
@@ -266,6 +268,8 @@ internal object Effects {
             is Effect.Mark -> {
                 val zones = arcanum.api.MarkRules.of(effect.mark).zones
                 scope.objects(effect.objects).filter { act.state.obj(it)?.zone in zones }.distinct()
+                    // mkm: "can't become suspected" (CR 701.60a): giving it the mark does nothing; taking it off still works
+                    .filter { effect.remove || act.view()[it]?.has { m -> m == Mechanic.CantBecomeMarked(effect.mark) } != true }
                     .forEach { Actions.setMark(act, it, effect.mark, !effect.remove, listOfNotNull(effect.cost)) }
             }
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
@@ -990,6 +994,18 @@ internal object Effects {
         if (steps.isNotEmpty()) Steps.run(Scope(act, arcanum.engine.action.Cause(controller, id, key = "transforms:$id"), arcanum.engine.state.Bindings.EMPTY, null), steps)
     }
 
+    /** mkm: "As this creature is turned face up, …" (CR 614.1e): its now face-up characteristics' replacements of the turning do their steps
+     * as part of it, not on the Stack. */
+    private fun asTurnedFaceUp(scope: Scope, id: ObjectId) {
+        val act = scope.act
+        val controller = act.controllerOf(id) ?: return
+        val steps = act.view()[id]?.characteristics?.abilities.orEmpty()
+            .flatMap { (it.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.Replacement>()
+            .filter { it.event == arcanum.api.EventPattern.TurnedFaceUp(arcanum.api.ObjectFilter.Is(Objects.Self)) }
+            .flatMap { r -> r.modify.filterIsInstance<arcanum.api.Modification.AsTurnedFaceUp>().flatMap { it.steps } }
+        if (steps.isNotEmpty()) Steps.run(Scope(act, arcanum.engine.action.Cause(controller, id, key = "turned-face-up:$id"), arcanum.engine.state.Bindings.EMPTY, null), steps)
+    }
+
     /**
      * fin: "meld them into [name]" (CR 701.42a, 712.4): the two exiled cards of a meld pair, owned by one player, become one permanent
      * under that player's control with the combined back face up: the card whose back face is [KeywordAction.Meld.into] enters
@@ -1057,7 +1073,9 @@ internal object Effects {
                     val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
                     now[slot] = if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
-                        else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
+                        // mkm fixes: within the slot's limits on each other, as when first chosen (CR 707.10c, 601.2c)
+                        else Targeting.choose(act, controller, copyId, s, options, chosen.size, chosen.size,
+                            act.evaluator(arcanum.engine.query.Context(controller, original.source, names, stackItem = original)))
                 }
                 targets = now
             }
@@ -1382,7 +1400,9 @@ internal object Effects {
                     // mh2: "reselect the targets at random" (CR 115.7d): the host picks, a die with a side for each legal target
                     else if (effect.atRandom) List(minOf(chosen.size, options.size)) { options[(act.random(chooser, id,
                         arcanum.engine.decision.RandomKind.Die(options.size, 1)) as Answer.DieRolls).results.single() - 1] }.distinct()
-                    else act.chooseTargets(chooser, id, slot, options, chosen.size, chosen.size)
+                    // mkm fixes: the new targets keep the slot's limits on each other (CR 115.7, 601.2c)
+                    else Targeting.choose(act, chooser, id, s, options, chosen.size, chosen.size,
+                        act.evaluator(arcanum.engine.query.Context(item.controller, item.source, item.names, stackItem = item)))
                 }
             }
             if (targets != item.targets) act.record(Change.StackItemUpdated(item, item.copy(targets = targets)))
@@ -1601,17 +1621,19 @@ internal object Effects {
             if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Earthbend, scope.actor, land)))
             return
         }
-        // lci: an expansion's "you" is the player doing the action: "Then that player discovers X" discovers from that player's library
-        // and that player casts the card (CR 701.57a); "target player investigates" makes the Clue theirs (CR 701.16a)
-        if (scope.actor != scope.you || (action is KeywordAction.Discover && bind != null)) KeywordExpansions.expand(action)?.let { steps ->
-            val doer = if (scope.actor == scope.you) scope else Scope(act, scope.cause.copy(controller = scope.actor), scope.names, scope.event, scope.actor)
-            Steps.run(doer, steps)
-            scope.names = doer.names
+        // mkm chunk 02, lci: what a keyword action is made of is done by the player doing it, its "you" (CR 701.16a: "Each player who controls
+        // the most creatures investigates": each of them creates their own Clue, CR 111.2; "Then that player discovers X" discovers from that
+        // player's library and that player casts the card, CR 701.57a)
+        KeywordExpansions.expand(action)?.let { steps ->
+            if (scope.actor == scope.you && !(action is KeywordAction.Discover && bind != null)) return Steps.run(scope, steps)
+            val performed = if (scope.actor == scope.you) scope
+                else Scope(scope.act, scope.cause.copy(controller = scope.actor), scope.names, scope.event, scope.actor, scope.batch, scope.entering)
+            Steps.run(performed, steps)
+            scope.names = performed.names
             // lci: CR 701.57c: the bind names the discovered card, which the expansion found
-            if (action is KeywordAction.Discover) scope.bind(bind, doer.names["discovered"] ?: NamedValue.Objects(emptyList()))
+            if (action is KeywordAction.Discover) scope.bind(bind, performed.names["discovered"] ?: NamedValue.Objects(emptyList()))
             return
         }
-        KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
         val cause = scope.cause
         when (action) {
             // CR 701.34a: choose any number of permanents and/or players with counters; give each another of each kind
@@ -1733,7 +1755,8 @@ internal object Effects {
             // CR 701.40a, c: the top card of the library onto the battlefield face down as a 2/2 creature, one card at a time;
             // CR 701.58a: cloaked, it also has ward {2}
             is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
-            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
+            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(action.cards?.let { cloak(scope, scope.objects(it)) }
+                ?: manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
             // CR 701.56a: for each suspended card you own and each permanent you control with a time counter on it, you may add or
             // remove a time counter
             KeywordAction.TimeTravel -> {
@@ -1829,6 +1852,19 @@ internal object Effects {
             val moved = Actions.move(act, scope.cause, listOf(PlannedMove(top, Zone.Battlefield, controller = scope.actor, faceDown = true)))[top]
                 ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
             Actions.tapStatus(act, moved, StatusFlag.Marked(mark), true)
+            moved
+        }
+    }
+
+    /** CR 701.58a, e: [cards] onto the battlefield face down under the cloaking player's control, one at a time, from whatever zone
+     * they are in (a hand, any player's library, exile); a card that doesn't arrive isn't cloaked (701.58f). */
+    private fun cloak(scope: Scope, cards: List<ObjectId>): List<ObjectId> {
+        val act = scope.act
+        return cards.distinct().mapNotNull { card ->
+            if (act.state.obj(card)?.zone.let { it == null || it == Zone.Battlefield || it == Zone.Stack }) return@mapNotNull null
+            val moved = Actions.move(act, scope.cause, listOf(PlannedMove(card, Zone.Battlefield, controller = scope.actor, faceDown = true)))[card]
+                ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
+            Actions.tapStatus(act, moved, StatusFlag.Marked(ObjectMark.Cloaked), true)
             moved
         }
     }

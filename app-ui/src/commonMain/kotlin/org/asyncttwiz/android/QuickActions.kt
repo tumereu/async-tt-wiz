@@ -272,6 +272,8 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
     val currentPerformHold by rememberUpdatedState(performHold)
     var holdTip by remember(name) { mutableStateOf(false) }
     var pressed by remember(name) { mutableStateOf(false) }
+    // WEB-028 (§5): on the desktop layout a right-click does the hold action, and resting the pointer shows the tooltip
+    val desktop = LocalAppLayout.current == AppLayout.Desktop
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
     Box(modifier.then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).graphicsLayer {
         scaleX = if (pressed) .92f else 1f; scaleY = scaleX
@@ -293,11 +295,17 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
         if (holdName != null) customActions = listOf(CustomAccessibilityAction(holdName) {
             if (enabled) { currentPerformHold?.invoke(); true } else false
         })
-    }.pointerInput(name) {
+    }.then(if (!desktop) Modifier else Modifier.desktopControl(listOf(name, enabled, holdName, gestureKey), onRight = {
+        if (!enabled) Unit
+        else if (currentPerformHold != null) { AppLog.info("game", "A right-click held $name"); currentPerformHold?.invoke() }
+        else holdTip = true
+    }, onHover = { holdTip = it })).pointerInput(name, desktop) {
         awaitPointerEventScope {
             while (true) {
                 val event = awaitPointerEvent()
-                if (event.changes.any { it.position != it.previousPosition || !it.pressed }) holdTip = false
+                // WEB-028: the mouse moving over it keeps the hover tooltip; a press or a release takes it away
+                if (desktop) { if (event.changes.any { !it.isConsumed && it.pressed != it.previousPressed }) holdTip = false }
+                else if (event.changes.any { it.position != it.previousPosition || !it.pressed }) holdTip = false
             }
         }
     }.pointerInput(name, enabled, holdName, gestureKey) {

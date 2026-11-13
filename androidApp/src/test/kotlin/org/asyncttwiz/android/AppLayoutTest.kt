@@ -48,20 +48,20 @@ class AppLayoutTest {
         assertEquals(LayoutChoice.Automatic, LayoutChoice.of("something else"))
     }
 
-    // WEB-022, TBL-034: card sizes are kept for each layout; the desktop layout's start at battlefield 1.5×, hand 2×, and
+    // WEB-022, TBL-034: card sizes are kept for each layout; the desktop layout's start at battlefield 2×, hand 2×, and
     // changing them leaves the phone layout's as they were
     @Test fun cardSizesAreKeptPerLayout() {
         val phone = CardAppearancePreferences(AppPlatform.current)
         val desktop = CardAppearancePreferences(AppPlatform.current, AppLayout.Desktop)
         assertEquals(1f, phone.read().cardSize)
         assertEquals(1f, phone.read().size(CardArea.HAND))
-        assertEquals(1.5f, desktop.read().cardSize)
+        assertEquals(2f, desktop.read().cardSize)
         assertEquals(2f, desktop.read().size(CardArea.HAND))
         assertEquals(1.5f, desktop.read().size(CardArea.PILES))
         desktop.setSize(2.5f, CardArea.HAND)
         assertEquals(2.5f, CardAppearancePreferences(AppPlatform.current, AppLayout.Desktop).read().size(CardArea.HAND))
         assertEquals(1f, phone.read().size(CardArea.HAND), "the phone layout's unchanged")
         phone.setSize(1.2f)
-        assertEquals(1.5f, desktop.read().cardSize, "the desktop layout's unchanged")
+        assertEquals(2f, desktop.read().cardSize, "the desktop layout's unchanged")
     }
 }

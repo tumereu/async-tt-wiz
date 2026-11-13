@@ -236,7 +236,10 @@ internal object Steps {
     private fun turnBasedActions(recorder: Recorder): Next {
         val s = recorder.state
         return when (s.turn.step) {
-            TurnStep.Untap -> { untap(recorder); Next.GoOn }
+            TurnStep.Untap -> when (val p = untap(recorder, emptyList())) {
+                is Progress.Waiting -> Next.Wait(p)
+                Progress.Done -> Next.GoOn
+            }
             TurnStep.Draw -> {
                 // CR 103.8a: the starting player skips the draw of their first turn in a two-player game
                 if (s.turn.number == 1 && s.skipFirstDraw) Next.Priority
@@ -271,10 +274,12 @@ internal object Steps {
     }
 
     /** CR 502.1, 502.3: phasing, then the active player's permanents untap, except those that don't (a stun counter is
-     * removed instead, CR 122.1d). */
-    private fun untap(recorder: Recorder) {
+     * removed instead, CR 122.1d) and those the active player chooses not to untap ([Mechanic.MayChooseNotToUntap]): that
+     * choice stops it, and it is redone from its start with the [answers] so far. */
+    private fun untap(recorder: Recorder, answers: List<Answer>): Progress {
         val s = recorder.state
         val active = s.turn.active
+        val mark = recorder.changes.size
         val snap = Snapshot(s)
         // CR 502.1, 702.26: phasing
         s.battlefield.toList().forEach { id ->
@@ -287,12 +292,24 @@ internal object Steps {
             }
         }
         val after = Snapshot(recorder.state)
-        recorder.state.battlefield.toList().forEach { id ->
-            val o = recorder.state.obj(id) ?: return@forEach
+        val untapping = recorder.state.battlefield.toList().filter { id ->
+            val o = recorder.state.obj(id) ?: return@filter false
             // CR 502.3: "untaps during each other player's untap step"
-            if (!o.tapped || o.phasedOut) return@forEach
-            if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@forEach
-            if (after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } == true) return@forEach
+            if (!o.tapped || o.phasedOut) return@filter false
+            if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@filter false
+            after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } != true
+        }
+        // mkm: CR 502.3: the active player determines which permanents untap: "you may choose not to untap this creature"
+        val optional = untapping.filter { id -> after.view[id]?.has { it == Mechanic.MayChooseNotToUntap } == true }
+        val kept = if (optional.isEmpty()) emptyList() else try {
+            val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker(answers, decisionId(s, active, "untap-choice").value))
+            act.chooseObjects(active, null, optional, 0, optional.size, "Choose the permanents not to untap (CR 502.3)")
+        } catch (n: arcanum.engine.action.NeedDecision) {
+            recorder.rollback(mark)
+            return Progress.Waiting(Pending(n.decision, Continuation.TurnBased(TurnAction.Untap(answers))))
+        }
+        untapping.filter { it !in kept }.forEach { id ->
+            val o = recorder.state.obj(id) ?: return@forEach
             // ltr chunk 03: "remove a +1/+1 counter from it instead. If you do, untap it." (CR 614.1a; without one it stays tapped)
             val instead = after.view[id]?.mechanics.orEmpty().firstNotNullOfOrNull { it.mechanic as? Mechanic.UntapReplacedByRemovingCounter }
             if (instead != null) {
@@ -305,6 +322,14 @@ internal object Steps {
                 recorder.record(Changes.tap(recorder.state, id, tapped = false))
             }
         }
+        return Progress.Done
+    }
+
+    /** mkm: an answer to the untap step's choice of permanents not to untap (CR 502.3): the untap is redone with it, then the step ends. */
+    fun resumeUntap(recorder: Recorder, action: TurnAction.Untap, answer: Answer): Progress {
+        require(answer is Answer.Objects) { "Choose the permanents not to untap" }
+        (untap(recorder, action.answers + answer) as? Progress.Waiting)?.let { return it }
+        return endStep(recorder, afterPriority = false)
     }
 
     /** CR 702.26a: phasing, the keyword or its meaning. */

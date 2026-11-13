@@ -24,6 +24,9 @@ as a fixed trigger order).
 Same game engine and server, its own UI: things are done the desktop way
 (mouse, keyboard, larger screen), not as a phone layout in a browser.
 
+Later, not a priority (owner 2026-11-13): a playback or recording system for finished games. Today
+finished games keep no history: it isn't needed in normal use.
+
 ## 3. Games with three or more players
 
 Design and trial.

@@ -6127,9 +6127,9 @@ internal class Sentences(
                 else -> null
             }
         }
-        // gtc chunk 08: "its controller loses 2 life." (the event's object, or the last target)
+        // gtc chunk 08: "its controller loses 2 life." (the event's object, a creature that died as it last existed (CR 603.10a), or the last target)
         Gtc.ITS_CONTROLLER_LOSES.matchEntire(sentence)?.let { m ->
-            val of = context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val of = lastKnownIt(context) ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
             return listOf(Step.Do(Effect.LoseLife(Players.ControllerOf(of), Value.Fixed(m.groupValues[1].toInt()))))
         }
         // gtc chunk 03: "add an additional {B}." (a triggered mana ability, CR 605.1b)

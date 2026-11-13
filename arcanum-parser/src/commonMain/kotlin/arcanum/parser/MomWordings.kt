@@ -73,6 +73,7 @@ internal object Mom {
     val SEARCH_EXILE_FACE_DOWN_MAY_PLAY = Regex("""[Ss]earch your library for an? (.+?), exile it face down, then shuffle\. For as long as that card remains exiled, you may play it\.""")
     // mom chunk 10: Rampaging Geoderm "it's attacking a battle", Portent Tracker "an opponent protects it" (conditions about it)
     val ITS_ATTACKING_A = Regex("""it's attacking an? (.+)""")
+    val ITS_POWER_IS = Regex("""its (power|toughness) is (\d+) or (greater|less)""") // chunk 17
     val PROTECTS_IT = Regex("""(an opponent|you) protects? it""")
     // mom chunk 10: Furnace Reins 'Until end of turn, it gains haste and "Whenever this creature deals combat damage …"'
     val UNTIL_EOT_IT_GAINS_AND_QUOTED = Regex("""Until end of turn, (it|that creature) gains ([a-z ,]+?) and "(.+)"\.?""")

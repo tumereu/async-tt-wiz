@@ -1946,7 +1946,7 @@ internal class Sentences(
         // chunk 45: "You may play lands from the top of your library."
         MAY_PLAY_FROM_TOP.matchEntire(line)?.let { m ->
             val how = if (m.groupValues[1] == "play") arcanum.api.PlayKind.Play else arcanum.api.PlayKind.Cast
-            val cards = Filters.noun(m.groupValues[2].removeSuffix(" spells")) ?: return null
+            val cards = Filters.noun(m.groupValues[2].removeSuffix(" spells").replace(Regex("^spells with "), "cards with ")) ?: return null // mom chunk 17: a card in the library is no spell yet
             return Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, how, topOnly = true, holder = PlayerFilter.You)), affects = arcanum.api.Affected.Objects(Objects.Each(
                 Filters.all(cards, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }
@@ -7329,6 +7329,15 @@ internal class Sentences(
 
     /** chunk 56: a condition about "it", the object an earlier sentence acted on ("it has no ice counters on it"). */
     private fun itCondition(text: String, context: Context): arcanum.api.Condition? {
+        // mom chunk 17: "its power is 3 or greater" in a trigger about another object ("Whenever a creature you control enters, draw a card if
+        // its power is 3 or greater"): "its" is the event's object, not the ability's source (CR 608.2h)
+        Mom.ITS_POWER_IS.matchEntire(text)?.let { m ->
+            val event = context.it as? Objects.EventObject ?: return@let
+            val n = Value.Fixed(m.groupValues[2].toInt())
+            return arcanum.api.Condition.ObjectMatches(event,
+                if (m.groupValues[1] == "power") ObjectFilter.Power(if (m.groupValues[3] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast, n)
+                else ObjectFilter.Toughness(if (m.groupValues[3] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast, n))
+        }
         // fdn chunk 07: "target player has exactly 10 life" (the target is chosen as the spell is cast, CR 601.2c)
         Fdn.TARGET_PLAYER_HAS_EXACTLY_LIFE.matchEntire(text)?.let { m ->
             return arcanum.api.Condition.Compare(Value.LifeOf(context.targetPlayer()), arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[1].toInt()))
@@ -8061,7 +8070,10 @@ internal class Sentences(
         // blb chunk 11: "Put two +1/+1 counters on that creature." in an enters trigger: the creature that entered
         Blb.COUNTERS_ON_THAT_CREATURE.matchEntire(sentence)?.let { m ->
             if ((context.event as? EventPattern.ZoneChange)?.to != Zone.Battlefield) return@let
-            val it = context.that ?: return@let
+            // mom chunk 17: in "When this creature enters, tap target creature. Put a stun counter on that creature" the event's object is this
+            // creature itself, so "that creature" is the target named before (CR 608.2c)
+            val named = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+            val it = (if ((context.event as? EventPattern.ZoneChange)?.objects == ObjectFilter.Is(Objects.Self)) named else null) ?: context.that ?: return@let
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             return listOf(Step.Do(Effect.PutCounters(it, kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
         }
@@ -8327,7 +8339,8 @@ internal class Sentences(
         // blb chunk 08: "Draw a card if this is the second time this ability has resolved this turn.", "Create a 1/1 black Snail
         // creature token if you don't control a Snail." (checked as it resolves)
         Blb.TRAILING_IF.matchEntire(sentence)?.let { m ->
-            val condition = Conditions.condition(m.groupValues[2], self) ?: return@let
+            val condition = Mom.ITS_POWER_IS.matchEntire(m.groupValues[2])?.let { itCondition(m.groupValues[2], context) } // mom chunk 17
+                ?: Conditions.condition(m.groupValues[2], self) ?: return@let
             val then = effect(m.groupValues[1] + ".", context) ?: return@let
             return listOf(Step.If(condition, then = then))
         }

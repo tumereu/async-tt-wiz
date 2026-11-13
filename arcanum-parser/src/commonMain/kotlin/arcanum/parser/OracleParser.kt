@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 91
+    const val VERSION: Int = 92
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -391,7 +391,14 @@ object OracleParser {
             val static = ability as? Ability.Static ?: return@map ability
             val condition = static.condition as? arcanum.api.Condition.ObjectMatches ?: return@map ability
             if ((condition.objects as? arcanum.api.Objects.Target)?.slot != "dft: target you control") return@map ability
-            static.copy(condition = condition.copy(objects = arcanum.api.Objects.Target(slot?.name ?: return@map ability)))
+            if (slot != null) return@map static.copy(condition = condition.copy(objects = arcanum.api.Objects.Target(slot.name)))
+            // otj chunk 15: "if it targets a permanent you control" with "up to two target nonland permanents": the spell's only object slot, true
+            // when any chosen target is yours (CR 601.2f); a slot of exactly one target is tested directly
+            val only = slots.singleOrNull()?.takeIf { it.what is arcanum.api.TargetKind.Objects } ?: return@map ability
+            val target = arcanum.api.Objects.Target(only.name)
+            if (only.max == arcanum.api.Value.Fixed(1)) return@map static.copy(condition = condition.copy(objects = target))
+            static.copy(condition = arcanum.api.Condition.Compare(arcanum.api.Value.Count(arcanum.api.Objects.Where(target, condition.filter)),
+                arcanum.api.Comparison.AtLeast, arcanum.api.Value.Fixed(1)))
         }
     }
 

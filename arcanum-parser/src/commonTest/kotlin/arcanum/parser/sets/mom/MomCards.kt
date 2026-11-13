@@ -242,3 +242,10 @@ val incubatorToken: ObjectFilter = and(sub("Incubator"), token, you)
 val transformAllIncubators: Step = Step.Do(Effect.Transform(Objects.Each(incubatorToken)))
 /** The incubate reminder of N ("two", "X"). */
 fun incubateReminder(n: String) = "(Create an Incubator token with $n +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)"
+
+/** "This land enters tapped." (CR 614.1d) */
+val entersTapped: Ability = Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+    modify = listOf(arcanum.api.Modification.EntersTapped))), affects = Affected.Objects(Objects.Self))
+/** "{T}: Add {A} or {B}." */
+fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
+    colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { arcanum.api.ColorRef.Literal(it) })), Players.You)))

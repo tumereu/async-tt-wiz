@@ -275,8 +275,10 @@ internal class Sentences(
         CHAPTERS.matchEntire(line)?.let { m ->
             val chapters = m.groupValues[1].split(", ").mapNotNull { ROMAN[it] }
             // fin: "IV — Mega Flare — [effect]": a flavor word after the chapter numbers (CR 207.2d)
+            // dmu chunk 02: "III — Domain — [effect]": an ability word is kept on the chapter ability (CR 207.2c)
+            val word = ABILITY_WORD.matchEntire(m.groupValues[2])?.groupValues?.get(1)?.takeIf { it.lowercase() in RulesWords.abilityWords }
             if (chapters.size == m.groupValues[1].split(", ").size)
-                return Ability.Triggered(arcanum.api.Trigger.Chapter(chapters), instructions(modeBody(m.groupValues[2])) ?: return null)
+                return Ability.Triggered(arcanum.api.Trigger.Chapter(chapters), instructions(modeBody(m.groupValues[2])) ?: return null, abilityWord = word)
         }
         // "Channel — [ability]": an ability word, no rules meaning (CR 207.2c). Keywords with a dash ("Ward—{2}") have
         // no spaces around it.
@@ -2108,6 +2110,15 @@ internal class Sentences(
     private fun keywords(text: String): List<Ability>? =
         text.split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
 
+    private val AMONG_KINDS = Regex("""(basic land type|color) among (.+)""")
+
+    /** dmu chunk 02: "for each basic land type among lands you control" (domain, CR 305.6), "for each color among permanents
+     * you control": the distinct qualities among those objects, not the objects. */
+    private fun amongCount(phrase: String): Value? = AMONG_KINDS.matchEntire(phrase)?.let { m ->
+        val quality = if (m.groupValues[1] == "color") arcanum.api.SharedQuality.Color else arcanum.api.SharedQuality.BasicLandType
+        Value.CountDistinct(Filters.objects(m.groupValues[2], self) ?: return null, quality)
+    }
+
     /** chunk 41: what "for each [phrase]" counts: "+1/+1 counter on this Equipment" (its counters), or matching objects. */
     private fun perEach(phrase: String, itIsSelf: Boolean = false): Value? {
         COUNTER_ON.matchEntire(phrase)?.takeIf { isSelf(it.groupValues[2]) || (itIsSelf && it.groupValues[2] == "it") }?.let { m ->
@@ -2118,6 +2129,7 @@ internal class Sentences(
             val first = Filters.objects(a, self); val second = Filters.objects(b, self)
             if (first != null && second != null) return Value.Sum(listOf(Value.Count(first), Value.Count(second)))
         }
+        amongCount(phrase)?.let { return it }
         // chunk 52: "instant and sorcery card in your graveyard": each card that is either
         return (Filters.objects(phrase, self) ?: Filters.objects(phrase.replace(" and ", " or "), self))?.let { Value.Count(it) }
     }
@@ -2158,7 +2170,7 @@ internal class Sentences(
         // one chunk 10: "can't attack or block"
         if (predicate == "can't attack or block") return@flatMap listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any))
         listOf(GETS_PT.matchEntire(predicate)?.let { m ->
-            val per = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Value.Count(Filters.objects(it) ?: return null) }
+            val per = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { amongCount(it) ?: Value.Count(Filters.objects(it) ?: return null) }
             fun amount(n: Int): Value = when {
                 per == null || n == 0 -> Value.Fixed(n)
                 n == 1 -> per
@@ -2280,7 +2292,8 @@ internal class Sentences(
         }
         COSTS_LESS_FOR_EACH.find(text)?.let { m ->
             val per = ManaCost.parse(m.groupValues[1]) ?: return null
-            val count = Filters.objects(m.groupValues[2], self)?.let { Value.Count(it) }
+            val count = amongCount(m.groupValues[2]) // dmu chunk 02
+                ?: Filters.objects(m.groupValues[2], self)?.let { Value.Count(it) }
                 // sos chunk 13: "for each page counter on this artifact"
                 ?: COUNTER_ON.matchEntire(m.groupValues[2])?.takeIf { isSelf(it.groupValues[2]) }?.let { c ->
                     Counters.kind(c.groupValues[1])?.let { Value.Of(arcanum.api.NumericProperty.Counters(it), Objects.Self, arcanum.api.Combine.Single) } }
@@ -4301,7 +4314,8 @@ internal class Sentences(
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
         fraEffect(sentence, context)?.let { return it }
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
-        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) /* fin */ ?: oneLateEffect(sentence, context) // one
+        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) /* fin */ ?: oneLateEffect(sentence, context) /* one */
+            ?: dmuLateEffect(sentence, context) // dmu
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
@@ -5563,7 +5577,7 @@ internal class Sentences(
         TARGET_GETS_FOR_EACH_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[1]
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
-            val per = Value.Count(Filters.objects(m.groupValues[4]) ?: return null)
+            val per = amongCount(m.groupValues[4]) ?: Value.Count(Filters.objects(m.groupValues[4]) ?: return null)
             fun amount(n: Int): Value = when (n) { 0 -> Value.Fixed(0); 1 -> per; else -> Value.Times(per, n) }
             return listOf(Step.Do(Effect.ApplyMechanics(
                 listOf(Mechanic.ModifyPowerToughness(amount(m.groupValues[2].toInt()), amount(m.groupValues[3].toInt()))),
@@ -9843,7 +9857,7 @@ internal class Sentences(
                 tail.startsWith(" and attacks this turn if able") -> { more += Mechanic.MustAttack(); tail = tail.removePrefix(" and attacks this turn if able") }
                 tail.startsWith(" for each ") -> {
                     val f = Rtr.FOR_EACH_PART.find(tail) ?: return null
-                    per = Value.Count(Filters.objects(f.groupValues[1]) ?: return null)
+                    per = amongCount(f.groupValues[1]) ?: Value.Count(Filters.objects(f.groupValues[1]) ?: return null) // dmu chunk 02
                     tail = tail.removeRange(f.range)
                 }
                 tail.startsWith(" and gains ") -> {
@@ -9934,6 +9948,11 @@ internal class Sentences(
             return steps + Step.Choose(arcanum.api.Choice.Player(PlayerFilter.Opponent), bind = "opponent", chooser = Players.You) +
                 Step.Do(Effect.SeparatePiles(Objects.Bound(seen), separator = Players.Bound("opponent"), chooser = Players.You,
                     chosenBind = "chosen pile", otherBind = "other pile"))
+        }
+        // dmu chunk 02: also "… and the other into your graveyard."
+        if (sentence == "Put one pile into your hand and the other into your graveyard." && last is Effect.SeparatePiles) {
+            return steps + Step.Do(Effect.Move(Objects.Bound(last.chosenBind ?: return null), Destination(Zone.Hand))) +
+                Step.Do(Effect.Move(Objects.Bound(last.otherBind ?: return null), Destination(Zone.Graveyard)))
         }
         if (sentence == "Put one pile into your hand and the other on the bottom of your library in any order." && last is Effect.SeparatePiles) {
             return steps + Step.Do(Effect.Move(Objects.Bound(last.chosenBind ?: return null), Destination(Zone.Hand))) +
@@ -13485,6 +13504,7 @@ internal class Sentences(
         Tla.CREATE_FOR_EACH.matchEntire(sentence)?.let { m ->
             val (one, token) = Tokens.spec(m.groupValues[1]) ?: return@let
             if (one != 1) return@let
+            amongCount(m.groupValues[2])?.let { return listOf(Step.Do(Effect.CreateToken(token, it, Players.You))) } // dmu chunk 02
             val noun = Filters.noun(m.groupValues[2]) ?: return@let
             return listOf(Step.Do(Effect.CreateToken(token, Value.Count(Objects.Each(noun)), Players.You)))
         }
@@ -14801,9 +14821,9 @@ internal class Sentences(
         // tmt chunk 07: "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle."
         Tmt.SEARCH_UP_TO_PUT_THEM_TAPPED.matchEntire(sentence)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
-            val filter = Filters.noun(m.groupValues[2] + " card") ?: return null
+            val filter = Filters.noun(m.groupValues[2] + " card" + m.groupValues[3]) ?: return null
             return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(n), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
-                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[4].isNotEmpty()))),
                 Step.Do(Effect.Shuffle(Players.You)))
         }
         // tmt chunk 04: "Add that much {R}." (the damage dealt, CR 120.3)
@@ -16763,8 +16783,54 @@ internal class Sentences(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Chosen("type")), replaceSubtypes = true)),
                     Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }
+        // dmu chunk 02: after a look at the top cards, "Put up to one of them on top of your library and the rest on the bottom in a random order.",
+        // "Put up to two of them into your hand and the rest into your graveyard." (the cards seen, CR 401.4)
+        Dmu.PUT_N_OF_THEM_REST.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return null
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val min = if (m.groupValues[1].isEmpty()) n else 0
+            context.picked = "kept"
+            val first = if (m.groupValues[3] == "into your hand") Destination(Zone.Hand) else Destination(Zone.Library, libraryPosition = 0)
+            val rest = if (m.groupValues[4] == "into your graveyard") Destination(Zone.Graveyard) else Destination(Zone.Library, libraryPosition = -1, randomOrder = true)
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, min = Value.Fixed(min), max = Value.Fixed(n), from = Objects.Bound(seen)), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), first)),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound(seen), Objects.Bound("kept")), rest)))
+        }
+        // dmu chunk 02: after a look, "You may put one of those cards on top of your library." (the rest follow in "Put the rest …")
+        if (sentence == "You may put one of those cards on top of your library.") {
+            val seen = context.seen ?: return null
+            context.picked = "kept"
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Library, libraryPosition = 0))))
+        }
+        // dmu chunk 02: "Return that card to the battlefield if its mana value is less than or equal to the number of basic land types among lands
+        // you control." (compared as it resolves)
+        Dmu.IF_ITS_MANA_VALUE_AT_MOST.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            val value = Values.value(m.groupValues[2]) ?: return null
+            val then = effect(m.groupValues[1] + ".", context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, value)), then = then))
+        }
         // dmu chunk 01: "Those permanents phase out." (CR 702.26)
         if (Dmu.THOSE_PHASE_OUT.matches(sentence)) return listOf(Step.Do(Effect.PhaseOut(context.them ?: return null)))
+        return null
+    }
+
+    /** dmu: sentences no other rule reads, tried last. */
+    private fun dmuLateEffect(sentence: String, context: Context): List<Step>? {
+        // dmu chunk 02: "Return that card to the battlefield." after "Choose target creature card in your graveyard." (the object named before)
+        Dmu.RETURN_IT.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            val to = if (m.groupValues[1] == "your hand") Destination(Zone.Hand) else Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty())
+            return listOf(Step.Do(Effect.Move(it, to)))
+        }
+        // dmu chunk 02: "Look at the top X cards of your library. Put up to two of them into your hand and the rest into your graveyard." (one
+        // sentence joined by [sentences]): the look, then what is done with the cards seen
+        Dmu.LOOK_THEN_PUT.matchEntire(sentence)?.let { m ->
+            val look = effect(m.groupValues[1], context) ?: return null
+            if (context.seen == null) return null
+            return look + (effect(m.groupValues[2], context) ?: return null)
+        }
         return null
     }
 
@@ -21435,7 +21501,7 @@ internal class Sentences(
         }
         // fin chunk 13: "Until end of turn, this creature gets +1/+1 for each permanent card in your graveyard."
         Fin.UNTIL_EOT_SELF_GETS_FOR_EACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[2]) ?: return null))
+            val per = amongCount(m.groupValues[2]) /* dmu chunk 02 */ ?: Value.Count(Objects.Each(Filters.noun(m.groupValues[2]) ?: return null))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(per, per)), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
         }
         // fin chunk 13: "Exile it and create ten tapped Treasure tokens." in this creature's dies trigger (the card in the graveyard, CR 400.7)
@@ -23935,8 +24001,11 @@ internal class Sentences(
         }
         // mh2 chunk 12: "Territorial Kavu's power and toughness are each equal to the number of basic land types among lands you control." (CR 604.3)
         Mh2.PT_EACH_EQUAL_TO.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            // dmu chunk 02: "… are each equal to twice the number of basic land types among lands you control"
+            val twice = m.groupValues[2].startsWith("twice ")
+            val amount = m.groupValues[2].removePrefix("twice ")
             // inr chunk 03: "… equal to the number of A in your graveyard plus the number of B you own in exile" (a sum of counts, CR 604.3)
-            val value = Mh2Phrases.value(m.groupValues[2], null) ?: m.groupValues[2].split(" plus the number of ").takeIf { it.size > 1 }?.let { parts ->
+            val value = Mh2Phrases.value(amount, null) ?: amount.split(" plus the number of ").takeIf { it.size > 1 }?.let { parts ->
                 Value.Sum(parts.mapIndexed { i, part ->
                     val noun = if (i == 0) part.removePrefix("the number of ") else part
                     // "cards with flashback you own in exile": the cards cast with flashback end there (CR 702.34a)
@@ -23945,8 +24014,9 @@ internal class Sentences(
                             ObjectFilter.InZone(Zone.Exile), ObjectFilter.OwnedBy(PlayerFilter.You))))
                     else Value.Count(Filters.objects(noun) ?: return@let null)
                 })
-            } ?: Values.value(m.groupValues[2], null)?.takeIf { it is Value.Of } /* dmu chunk 01: "the greatest mana value among cards in your graveyard" */ ?: return@let
-            return Ability.Static(listOf(Mechanic.SetPowerToughness(value, value)), affects = Affected.Objects(Objects.Self), characteristicDefining = true)
+            } ?: Values.value(amount, null)?.takeIf { it is Value.Of } /* dmu chunk 01: "the greatest mana value among cards in your graveyard" */ ?: return@let
+            val each = if (twice) Value.Times(value, 2) else value
+            return Ability.Static(listOf(Mechanic.SetPowerToughness(each, each)), affects = Affected.Objects(Objects.Self), characteristicDefining = true)
         }
         // mh2 chunk 12: "You can't cast more than one spell each turn." (CR 101.2: none once one was cast this turn)
         if (Mh2.CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN.matches(line))

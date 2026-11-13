@@ -349,9 +349,13 @@ internal object Filters {
         // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
         // one chunk 10: also "with mana value less than or equal to the mana value of the discarded card"
         GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
-            val value = Values.value(m.groupValues[3]) ?: return null
-            return all(noun(m.groupValues[1]) ?: return null,
-                if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtMost, value) else ObjectFilter.ManaValue(Comparison.AtMost, value))
+            val value = Values.value(m.groupValues[4]) ?: return null
+            val comparison = if (m.groupValues[3].isEmpty()) Comparison.Less else Comparison.AtMost
+            return all(noun(m.groupValues[1]) ?: return null, when (m.groupValues[2]) {
+                "power" -> ObjectFilter.Power(comparison, value)
+                "toughness" -> ObjectFilter.Toughness(comparison, value)
+                else -> ObjectFilter.ManaValue(comparison, value)
+            })
         }
         // dgm: "creatures named Biovisionary" (CR 201.2)
         GTC_NAMED.matchEntire(phrase)?.let { m ->
@@ -368,7 +372,8 @@ internal object Filters {
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
-    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with (power|mana value) less than or equal to (.+)""")
+    // dmu chunk 02: also "with toughness less than the number of basic land types among lands you control"
+    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with (power|toughness|mana value) less than (or equal to )?(.+)""")
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
     private val GTC_NAMED = Regex("""((?:other )?(?:creatures?|permanents?)(?: you control)?) named (.+?)( you control)?""")
 
@@ -467,7 +472,8 @@ internal object Filters {
     private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls|defending player controls|enchanted player controls)""")
     // dsk chunk 09
     private val OWNED = Regex("""(.+) you own""")
-    private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
+    // dmu chunk 02: also "land cards that each have a basic land type"
+    private val WITH_BASIC_LAND_TYPE = Regex("""(.+?) (?:with a|that (?:each )?ha(?:s|ve) a) basic land type""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
     /** Plural creature types as printed ("Elves you control"); regular plurals are only read where the text needs them. */
@@ -1265,6 +1271,12 @@ internal object Conditions {
         SELF_IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
         }
+        // dmu chunk 02: "there are five basic land types among lands you control" (domain, CR 305.6); exactly that many, or "or more"
+        BASIC_LAND_TYPES_AMONG.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Compare(Value.CountDistinct(Filters.objects(m.groupValues[3], self) ?: return null, arcanum.api.SharedQuality.BasicLandType),
+                if (m.groupValues[2].isEmpty()) arcanum.api.Comparison.Equal else arcanum.api.Comparison.AtLeast, Value.Fixed(n))
+        }
         // chunk 42: "there are three or more land cards in your graveyard"
         THERE_ARE_N_OR_MORE.matchEntire(text)?.let { m ->
             return Condition.Exists(Filters.noun(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null)
@@ -1432,6 +1444,8 @@ internal object Conditions {
     private val SELF_IS_ATTACKING = Regex("""(.+) is attacking""")
     // chunk 42
     private val THERE_ARE_N_OR_MORE = Regex("""there are (\w+) or more (.+)""")
+    // dmu chunk 02
+    private val BASIC_LAND_TYPES_AMONG = Regex("""there are (\w+)( or more)? basic land types among (.+)""")
     // chunk 45
     private val IS_SUSPENDED = Regex("""(.+) is suspended""")
     private val DIED_THIS_TURN = Regex("""(\w+) or more (.+) died this turn""")

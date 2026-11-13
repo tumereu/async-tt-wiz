@@ -119,6 +119,10 @@ sealed interface Value {
     @Serializable @SerialName("flips-won") data class FlipsWon(val name: String) : Value
     /** How many of the coin flips named [name] its player lost ("For each flip you lose, …", CR 705.2). */
     @Serializable @SerialName("flips-lost") data class FlipsLost(val name: String) : Value
+    // woe
+    /** [then] while [condition] holds, else [otherwise] ("This ability costs {1} less to activate during your turn": {1} less once
+     * during your turn, CR 601.2f). */
+    @Serializable @SerialName("if") data class If(val condition: Condition, val then: Value, val otherwise: Value = Fixed(0)) : Value
 }
 
 /**

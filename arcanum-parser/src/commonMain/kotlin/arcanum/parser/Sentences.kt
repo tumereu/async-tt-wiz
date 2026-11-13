@@ -1306,7 +1306,8 @@ internal class Sentences(
         if (options.isEmpty()) return null
         // "Choose one or more —" / "Choose one or both —": up to every mode, each at most once.
         val max = if (choose.groupValues[2].isNotEmpty()) options.size else n
-        return arcanum.api.Modes(options, min = n, max = max, repeatable = choose.value.contains("same mode"), chooser = Players.You)
+        return arcanum.api.Modes(options, min = n, max = max, repeatable = choose.value.contains("same mode"), chooser = Players.You,
+            onlyUnchosen = choose.value.contains(" that hasn't been chosen"))
     }
 
     /** The instructions of an instant or sorcery (CR 113.3a). */
@@ -1634,7 +1635,8 @@ internal class Sentences(
             // chunk 55: a subtype keeps its capital ("Elves you control")
             val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
             val keywords = if (m.groupValues[2].isEmpty()) emptyList() else m.groupValues[2].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return null }
-            val granted = Sentences(setOf("this creature", "this permanent")).line(m.groupValues[3]) ?: return null
+            // woe chunk 08: 'Artifacts you control have "{2}, Sacrifice this artifact: …"'
+            val granted = Sentences(setOf("this creature", "this permanent", "this artifact")).line(m.groupValues[3]) ?: return null
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords + granted)), affects = arcanum.api.Affected.Objects(Objects.Each(filter)))
         }
         // chunk 26: "This token can't be blocked."
@@ -2171,7 +2173,7 @@ internal class Sentences(
         // eoe chunk 07: "This ability costs {2} less to activate if you control a creature with a +1/+1 counter on it." (CR 601.2f): once
         // when the condition holds
         Eoe.COSTS_LESS_TO_ACTIVATE_IF.find(text)?.let { m ->
-            val times = eoeOnceIf(Conditions.condition(m.groupValues[2], self) ?: return null) ?: return null
+            val times = eoeOnceIf(if (m.groupValues[3].isNotEmpty()) arcanum.api.Condition.YourTurn else Conditions.condition(m.groupValues[2], self) ?: return null) ?: return null
             costChange = arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null, times)
             text = text.removeRange(m.range).trim()
         }
@@ -2378,7 +2380,9 @@ internal class Sentences(
         if (options.isEmpty()) return null
         val unchosen = choose.groupValues[2].isNotEmpty()
         val thisTurn = choose.groupValues[3].isNotEmpty()
-        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = n, max = n,
+        // woe chunk 08: "choose one or more —": up to every mode, each at most once (CR 700.2d)
+        val max = if (choose.groupValues[4].isNotEmpty()) options.size else n
+        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = n, max = max,
             onlyUnchosen = unchosen && !thisTurn, onlyUnchosenThisTurn = thisTurn, chooser = Players.You)), interveningIf = interveningIf, triggersOnlyIf = onlyIf)
     }
 
@@ -7122,10 +7126,10 @@ internal class Sentences(
         // blb gaps 2: "cast creature spells with mana value 4 or greater or creature spells with {X} in their mana costs": two
         // kinds of spell, each with its own "with"
         BlbGaps2.CAST_SPELLS_WITH_OR_WITH.matchEntire(text)?.let { m ->
-            val first = Filters.noun(m.groupValues[1] + " " + m.groupValues[2]) ?: return null
-            val second = Filters.noun(m.groupValues[3] + " " + m.groupValues[4]) ?: return null
             val spell = ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)
-            return ObjectFilter.Or(listOf(Filters.all(spell, first), Filters.all(spell, second)))
+            // woe chunk 08: without a type, "spells with …" (the noun is a spell already)
+            fun kind(type: String, with: String) = if (type.isEmpty()) Filters.noun("spell $with") else Filters.noun("$type $with")?.let { Filters.all(spell, it) }
+            return ObjectFilter.Or(listOf(kind(m.groupValues[1], m.groupValues[2]) ?: return null, kind(m.groupValues[3], m.groupValues[4]) ?: return null))
         }
         val uses = text.split(LazyRegexes.OR_AND_LIST).map { use ->
             when (use) {
@@ -10832,7 +10836,8 @@ internal class Sentences(
 
     private object BlbGaps2 {
         val TAP_CREATURE_FOR_EACH_MANA = Regex("""For each mana in this ability's activation cost, you may tap an untapped creature you control rather than pay that mana\.""")
-        val CAST_SPELLS_WITH_OR_WITH = Regex("""cast (\w+) spells (with .+) or (\w+) spells (with .+)""")
+        // woe chunk 08: also without a type ("cast spells with mana value 5 or greater or spells with {X} in their mana costs")
+        val CAST_SPELLS_WITH_OR_WITH = Regex("""cast (?:(\w+) )?spells (with .+) or (?:(\w+) )?spells (with .+)""")
         val NTH_SPELLS_IF = Regex("""if it's ((?:the \w+ .+? spell(?: other than .+?)?, )+(?:or )?the \w+ .+? spell(?: other than .+?)?) you(?:'ve)? cast this turn, (.+)""")
         val NTH_SPELL_ITEM = Regex("""the (\w+) (.+?) spell(?: other than (.+))?""")
         val YOU_THREE = Regex("""You (?!may )([^,]+), ([^,]+), and ([^,]+)\.""")
@@ -11372,7 +11377,7 @@ internal class Sentences(
         val ACTIVATE_ONLY_AS_SORCERY = Regex("""Activate only as a sorcery\.""")
         val ACTIVATE_ONLY_DURING_YOUR_TURN = Regex("""Activate only during your turn\.""")
         val TRIGGERS_ONLY_ONCE = Regex("""This ability triggers only once each turn\.""")
-        val CHOOSE_MODES = Regex("""choose (one|two)( that hasn't been chosen( this turn)?)?(?: —|\.)""") // tmt chunk 02: or a period
+        val CHOOSE_MODES = Regex("""choose (one|two)( that hasn't been chosen( this turn)?)?( or more| or both)?(?: —|\.)""") // tmt chunk 02: or a period; woe chunk 08: "one or more"
         val DURING_YOUR_TURN = Regex("""(.+) during your turn""")
         val ONE_OR_MORE_LEAVE = Regex("""one or more (.+) leave the battlefield""")
         val YOU_CREATE_ONE_OR_MORE = Regex("""you create one or more (.+) tokens""")
@@ -13937,8 +13942,12 @@ internal class Sentences(
         // tmt chunk 06: "Activated abilities of artifact tokens you control cost {1} less to activate." (CR 602.2b, 601.2f)
         Tmt.ACTIVATED_ABILITIES_COST_LESS.matchEntire(line)?.let { m ->
             val sources = Filters.noun(m.groupValues[1]) ?: return null
+            // woe chunk 08: "{X} less …, where X is Agatha's power" (one generic mana X times, CR 601.2f), with a floor of one mana
+            val change = if (m.groupValues[2] == "{X}") arcanum.api.CostChange.Less(ManaCost.parse("{1}")!!,
+                Values.value(m.groupValues[3]) ?: selfNumber(m.groupValues[3]) ?: return null)
+                else arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1))
             return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated, source = sources),
-                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1)), minimum = 0)), affects = Affected.Objects(Objects.Self))
+                change, minimum = if (m.groupValues[4].isNotEmpty()) 1 else 0)), affects = Affected.Objects(Objects.Self))
         }
         return null
     }
@@ -14399,9 +14408,11 @@ internal class Sentences(
         Tmt.DESTROY_IF_TYPE_DESTROYED.matchEntire(sentence)?.let { m ->
             val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[1]))
             context.targets += tmtSlot(name, Filters.noun(m.groupValues[1]) ?: return null)
-            val type = Filters.noun(m.groupValues[2]) ?: return null
+            // woe chunk 08: "a permanent you controlled or a token": either, of the permanent as it last existed (CR 608.2h)
+            val type = m.groupValues[2].split(Regex(" or an? ")).map { Filters.noun(it.replace(" you controlled", " you control")) ?: return null }
+                .let { if (it.size == 1) it[0] else ObjectFilter.Or(it) }
             val then = effect(tmtSentence(m.groupValues[3]), context) ?: return null
-            return listOf(Step.Do(Effect.Destroy(Objects.Target(name), postBind = "destroyed")),
+            return listOf(Step.Do(Effect.Destroy(Objects.Target(name), preBind = "destroyed")),
                 Step.If(arcanum.api.Condition.Compare(Value.Count(Objects.Where(Objects.Bound("destroyed"), type)), arcanum.api.Comparison.AtLeast, Value.Fixed(1)), then = then))
         }
         // tmt chunk 04: "You gain life equal to its toughness." (the creature that died, as it last existed, CR 603.10a)
@@ -15755,6 +15766,13 @@ internal class Sentences(
 
     /** woe: static abilities. */
     private fun woeStatic(line: String): Ability? {
+        // woe chunk 08: "If you tap a basic land for mana, it produces three times as much of that mana instead." (a replacement of the mana
+        // production event, CR 106.12b, 614.1a)
+        Woe.TAP_FOR_MANA_PRODUCES_TIMES.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Tap(filter, forMana = true, by = PlayerFilter.You),
+                modify = listOf(Modification.MultiplyAmount(if (m.groupValues[2] == "twice") 2 else 3)))), affects = Affected.Objects(Objects.Self))
+        }
         // woe chunk 06: 'As long as …, Goddric is a Dragon with base power and toughness 4/4, flying, and "{R}: Dragons you control get +1/+0 until
         // end of turn."' (the new creature type replaces the others, CR 205.1b; layers 4, 7b and 6, CR 613.1d, 613.4b, 613.1f; a granted
         // ability isn't characteristic-defining, CR 604.3a)
@@ -15776,6 +15794,40 @@ internal class Sentences(
 
     /** woe: whole multi-sentence effects. */
     private fun woeWhole(text: String, context: Context): List<Step>? {
+        // woe chunk 08: "Exile target creature or planeswalker. Search its controller's graveyard, hand, and library for any number of cards with the
+        // same name as that permanent and exile them. That player shuffles, then draws a card for each card exiled from their hand this way."
+        // (the permanent and its controller as it last existed, CR 608.2h; the cards found in the hand are named before all are exiled together)
+        Woe.EXILE_SEARCH_SAME_NAME_DRAW_FOR_HAND.matchEntire(text)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val player = Players.ControllerOf(Objects.Bound("exiled permanent"))
+            val zones = listOf(Zone.Graveyard, Zone.Hand, Zone.Library)
+            val all = Value.Count(Objects.Each(Filters.all(ObjectFilter.OwnedBy(PlayerFilter.Is(player)), ObjectFilter.Or(zones.map { ObjectFilter.InZone(it) }))))
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Exile), preBind = "exiled permanent")),
+                Step.Do(Effect.Search(player, ObjectFilter.SameNameAs(Objects.Bound("exiled permanent")), max = all, zones = zones, bind = "found", searcher = Players.You)),
+                Step.Bind(Objects.Where(Objects.Bound("found"), ObjectFilter.InZone(Zone.Hand)), "from hand"),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Exile))),
+                Step.Do(Effect.Shuffle(player)),
+                Step.Do(Effect.Draw(player, Value.Count(Objects.Bound("from hand")))))
+        }
+        // woe chunk 08: "Choose a number between 0 and 10. Destroy all creatures with power greater than or equal to the chosen number." (chosen as
+        // it resolves, CR 608.2d)
+        Woe.CHOOSE_NUMBER_DESTROY_ALL_WITH_POWER.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[3]) ?: return null
+            val n = Value.Bound("number")
+            val comparison = when (m.groupValues[5]) {
+                "greater than or equal to" -> arcanum.api.Comparison.AtLeast
+                "less than or equal to" -> arcanum.api.Comparison.AtMost
+                else -> arcanum.api.Comparison.Equal
+            }
+            val with = when (m.groupValues[4]) {
+                "power" -> ObjectFilter.Power(comparison, n)
+                "toughness" -> ObjectFilter.Toughness(comparison, n)
+                else -> ObjectFilter.ManaValue(comparison, n)
+            }
+            return listOf(Step.Choose(arcanum.api.Choice.Number(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt())), bind = "number",
+                chooser = Players.You),
+                Step.Do(Effect.Destroy(Objects.Each(Filters.all(noun, with)))))
+        }
         // woe chunk 04: "Search your library for a card, exile it face down, then shuffle. If this spell was bargained, you may cast the exiled card
         // without paying its mana cost if that spell's mana value is 4 or less. Put the exiled card into your hand if it wasn't cast this way."
         // (CR 406.3, 601.2: the spell's mana value as cast, CR 118.9)
@@ -15795,6 +15847,33 @@ internal class Sentences(
 
     /** woe: effect sentences, tried first in [effectRules]. */
     private fun woeEffect(sentence: String, context: Context): List<Step>? {
+        // woe chunk 08: "Return target card you own in exile that has an Adventure to your hand." (CR 400.7: a card in exile you own)
+        Woe.RETURN_TARGET_IN_EXILE_TO_HAND.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Hand))))
+        }
+        // woe chunk 08: "If you don't control a Faerie, exile a card from your hand." (the player chooses as it resolves)
+        Woe.EXILE_N_FROM_YOUR_HAND.matchEntire(sentence)?.let { m ->
+            val n = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(handOf(Players.You), n, n), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))))
+        }
+        // woe chunk 08: "When this creature dies, you may cast it from your graveyard as an Adventure until the end of your next turn." (a
+        // permission for its Adventure half only, CR 715.3; the card in the graveyard is a new object, CR 400.7)
+        Woe.MAY_CAST_FROM_GRAVEYARD_AS_ADVENTURE.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            val duration = if (m.groupValues[2] == "this turn") arcanum.api.Duration.EndOfTurn else arcanum.api.Duration.UntilEndOfYourNextTurn
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast,
+                resultingSpell = ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(Subtype("Adventure"))), holder = PlayerFilter.You)), Affected.Objects(it), duration)))
+        }
+        // woe chunk 08: "Until end of turn, target creature you control has base power and toughness 4/4 and gains flying and hexproof." (layers
+        // 7b and 6, CR 613.4b, 613.1f)
+        Woe.UNTIL_EOT_BASE_PT_AND_GAINS.matchEntire(sentence)?.let { m ->
+            val keywords = m.groupValues[4].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it.trim()) ?: return null }
+            val target = eoeTarget(m.groupValues[1], context) ?: return null
+            return listOf(eoeUntilEndOfTurn(target, Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
+                Mechanic.GainAbilities(keywords)))
+        }
         // woe chunk 07: "Counter target spell unless its controller pays {2} plus an additional {1} for each Faerie you control." (one generic
         // amount, counted as it resolves, CR 118.12, 608.2h)
         Woe.COUNTER_UNLESS_PAYS_PLUS_FOR_EACH.matchEntire(sentence)?.let { m ->
@@ -16310,9 +16389,16 @@ internal class Sentences(
         if (Msh.CONTROL_OPPONENT_NEXT_TURN.matches(sentence)) return listOf(Step.Do(Effect.ControlNextTurn(context.targetOpponent(), Players.You)))
         // msh chunk 10: "Artifact spells you cast this turn cost {1} less to cast." (a rule change for the turn, CR 611.2c)
         Msh.SPELLS_YOU_CAST_THIS_TURN_COST_LESS.matchEntire(sentence)?.let { m ->
-            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
-            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CostChange(spells, arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null,
-                Value.Fixed(1)))), null, arcanum.api.Duration.EndOfTurn)))
+            val noun = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            // woe chunk 08: "that are black and/or red" (either colour, CR 105.2); "{X} less, where X is the amount of life you lost this turn" (X
+            // found as the ability resolves, CR 608.2h)
+            val colors = m.groupValues[2].takeIf { it.isNotEmpty() }?.split(" and/or ")?.map { w ->
+                ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Tokens.color(w) ?: return null)) }
+            val spells = colors?.let { Filters.all(noun, it.singleOrNull() ?: ObjectFilter.Or(it)) } ?: noun
+            val change = if (m.groupValues[3] == "{X}") arcanum.api.CostChange.Less(ManaCost.parse("{1}")!!,
+                Values.value(m.groupValues[4]) ?: if (announcedX) Value.Announced(name = "X") else return null)
+                else arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[3]) ?: return null, Value.Fixed(1))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CostChange(spells, change)), null, arcanum.api.Duration.EndOfTurn)))
         }
         // msh chunk 07: "Take an extra turn after this one." (CR 500.7)
         if (Msh.TAKE_EXTRA_TURN.matches(sentence)) return listOf(Step.Do(Effect.ExtraTurn(Players.You)))
@@ -20828,6 +20914,8 @@ internal class Sentences(
     private fun eoeOnceIf(condition: arcanum.api.Condition): Value? = when (condition) {
         is arcanum.api.Condition.Exists -> Value.Min(listOf(Value.Count(Objects.Each(condition.filter)), Value.Fixed(1))).takeIf { condition.atLeast == 1 }
         is arcanum.api.Condition.HappenedThisTurn -> Value.Min(listOf(Value.EventsThisTurn(condition.event, condition.measure), Value.Fixed(1))).takeIf { condition.atLeast == 1 }
+        // woe chunk 08: "during your turn"
+        arcanum.api.Condition.YourTurn -> Value.If(condition, Value.Fixed(1))
         else -> null
     }
 
@@ -22481,9 +22569,12 @@ internal class Sentences(
                 condition = condition, functionsIn = listOf(Zone.Stack))
         }
         // mh2 chunk 16: "As this creature enters, choose a number." (CR 614.12, 607.2d)
-        Mh2.AS_ENTERS_CHOOSE_A_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+        Mh2.AS_ENTERS_CHOOSE_A_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            // woe chunk 08: "choose a number between 1 and 10"
+            val range = if (m.groupValues[2].isEmpty()) arcanum.api.Choice.Number(Value.Fixed(0))
+                else arcanum.api.Choice.Number(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))
             return mh2SelfStatic(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(Modification.AsEnters(listOf(
-                Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0)), bind = "number", chooser = Players.You, remember = true))))))
+                Step.Choose(range, bind = "number", chooser = Players.You, remember = true))))))
         }
         // mh2 chunk 16: "Noncreature spells with mana value equal to the chosen number can't be cast." (by any player, CR 101.2)
         Mh2.SPELLS_WITH_MV_EQUAL_TO_CHOSEN_NUMBER_CANT_BE_CAST.matchEntire(line)?.let { m ->
@@ -23320,7 +23411,7 @@ internal class Sentences(
         Ltr.MAY_SACRIFICE_IT_WHEN_YOU_DO.matchEntire(header)?.let { m ->
             val w = WHENEVER.matchEntire("${m.groupValues[1]}, draw a card.") ?: return@let
             val (trigger, onlyIf) = trigger(w.groupValues[2]) ?: return@let
-            val choose = CHOOSE_MODES.matchEntire(m.groupValues[2]) ?: return@let
+            val choose = CHOOSE_MODES.matchEntire(m.groupValues[2])?.takeIf { it.groupValues[4].isEmpty() } ?: return@let
             val n = Numbers.count(choose.groupValues[1]) ?: return@let
             val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it)) ?: return@let, text = it) }
             return Ability.Triggered(trigger, Instructions(steps = listOf(
@@ -23332,7 +23423,7 @@ internal class Sentences(
         Woe.MAY_PAY_WHEN_YOU_DO_CHOOSE.matchEntire(header)?.let { m ->
             val w = WHENEVER.matchEntire("${m.groupValues[1]}, draw a card.") ?: return@let
             val (trigger, onlyIf) = trigger(w.groupValues[2]) ?: return@let
-            val choose = CHOOSE_MODES.matchEntire(m.groupValues[3]) ?: return@let
+            val choose = CHOOSE_MODES.matchEntire(m.groupValues[3])?.takeIf { it.groupValues[4].isEmpty() } ?: return@let
             val n = Numbers.count(choose.groupValues[1]) ?: return@let
             val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it)) ?: return@let, text = it) }
             return Ability.Triggered(trigger, Instructions(steps = listOf(

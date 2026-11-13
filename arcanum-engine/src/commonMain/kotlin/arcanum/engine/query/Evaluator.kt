@@ -740,6 +740,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             objects(value.objects).flatMap { characteristics(it)?.colors.orEmpty() }.distinct().count { it in among }
         }
         is Value.Min -> value.parts.minOfOrNull { value(it) } ?: 0
+        is Value.If -> if (holds(value.condition)) value(value.then) else value(value.otherwise)
         // gtc chunk 05: the greatest of a value for each player ("the greatest number of cards a player discarded this way")
         is Value.GreatestFor -> players(value.players).maxOfOrNull { p -> with(ctx.copy(testedPlayer = p)).value(value.value) } ?: 0
     }

@@ -51,14 +51,54 @@ internal object Woe {
     val COUNTER_UNLESS_PAYS_PLUS_FOR_EACH = Regex("""Counter target (.+?) unless its controller pays \{(\d+)\} plus an additional \{(\d+)\} for each (.+)\.""")
     // woe chunk 07: "Create a Monster Role token attached to target creature you control. When you do, that creature fights …" (CR 603.12)
     val CREATE_ATTACHED_WHEN_YOU_DO = Regex("""(Create an? .+? token attached to .+?)\. When you do, (.+)""")
+    // woe chunk 08: "If you tap a basic land for mana, it produces three times as much of that mana instead." (CR 106.12b)
+    val TAP_FOR_MANA_PRODUCES_TIMES = Regex("""If you tap an? (.+?) for mana, it produces (twice|three times) as much of that mana instead\.""")
+    // woe chunk 08: "exile a card from your hand" (you choose it; a hand is hidden, so no target)
+    val EXILE_N_FROM_YOUR_HAND = Regex("""[Ee]xile (a|an|one|two|three) cards? from your hand\.""")
+    // woe chunk 08: "you may cast it from your graveyard as an Adventure until the end of your next turn" (CR 715.3, 715.4)
+    val MAY_CAST_FROM_GRAVEYARD_AS_ADVENTURE = Regex("""[Yy]ou may cast (it|that card) from your graveyard as an Adventure (this turn|until the end of your next turn)\.""")
+    // woe chunk 08: "Choose a number between 0 and 10. Destroy all creatures with power greater than or equal to the chosen number."
+    val CHOOSE_NUMBER_DESTROY_ALL_WITH_POWER = Regex("""Choose a number between (\d+) and (\d+)\. Destroy all (.+?) with (power|toughness|mana value) (greater than or equal to|less than or equal to|equal to) the chosen number\.""")
+    // woe chunk 08: "Exile target creature or planeswalker. Search its controller's graveyard, hand, and library for any number of cards with the same
+    // name as that permanent and exile them. That player shuffles, then draws a card for each card exiled from their hand this way."
+    val EXILE_SEARCH_SAME_NAME_DRAW_FOR_HAND = Regex("""Exile target (.+?)\. Search its controller's graveyard, hand, and library for any number of cards with the same name as that (?:permanent|creature) and exile them\. That player shuffles, then draws a card for each card exiled from their hand this way\.""")
+    // woe chunk 08: "Return target card you own in exile that has an Adventure to your hand."
+    val RETURN_TARGET_IN_EXILE_TO_HAND = Regex("""[Rr]eturn target (.+? in exile.*?) to your hand\.""")
+    // woe chunk 08: "Until end of turn, target creature you control has base power and toughness 4/4 and gains flying and hexproof." (layers 7b, 6)
+    val UNTIL_EOT_BASE_PT_AND_GAINS = Regex("""Until end of turn, ((?:[Uu]p to one )?target .+?) has base power and toughness (\d+)/(\d+) and gains ([a-z ,]+)\.""")
 }
 
 /** Phrases first met in Wilds of Eldraine (WOE). */
 internal object WoePhrases {
     // woe chunk 07: "permanent spells you cast that have an Adventure", "cards that have an Adventure" (CR 715.2a)
+    private val THAT_ARE_TYPES_OR_ADVENTURE = Regex("""(.+?) that are ((?:[a-z]+ cards, )+)and/or have an Adventure""")
+    private val WITH_MV_POWER_OR_TOUGHNESS_EQUAL_TO_CHOSEN = Regex("""(.+?) with mana value, power, or toughness equal to the chosen number""")
+    private val OWN_IN_EXILE = Regex("""(cards?) you (own|don't own) in exile""")
     private val THAT_HAS_AN_ADVENTURE = Regex("""(.+?) that (?:has|have) an Adventure""")
 
     fun noun(phrase: String): arcanum.api.ObjectFilter? {
+        // woe chunk 08: "card you own in exile", "card you don't own in exile" (cards in exile are owned, CR 108.3)
+        OWN_IN_EXILE.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            val you = arcanum.api.PlayerFilter.You
+            return Filters.all(base, arcanum.api.ObjectFilter.InZone(arcanum.api.Zone.Exile),
+                arcanum.api.ObjectFilter.OwnedBy(if (m.groupValues[2] == "own") you else arcanum.api.PlayerFilter.Not(you)))
+        }
+        // woe chunk 08: "cards in your graveyard that are instant cards, sorcery cards, and/or have an Adventure" (any of them, CR 715.2a)
+        THAT_ARE_TYPES_OR_ADVENTURE.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            val kinds = m.groupValues[2].trimEnd(',', ' ').split(", ").map { Filters.noun(it.removeSuffix(" cards")) ?: return null }
+            return Filters.all(base, arcanum.api.ObjectFilter.Or(kinds + arcanum.api.ObjectFilter.HasAdventure))
+        }
+        // woe chunk 08: "a spell with mana value, power, or toughness equal to the chosen number" (the number this permanent chose as it
+        // entered, CR 607.2d)
+        WITH_MV_POWER_OR_TOUGHNESS_EQUAL_TO_CHOSEN.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            val n = arcanum.api.Value.Remembered("number")
+            val eq = arcanum.api.Comparison.Equal
+            return Filters.all(base, arcanum.api.ObjectFilter.Or(listOf(arcanum.api.ObjectFilter.ManaValue(eq, n), arcanum.api.ObjectFilter.Power(eq, n),
+                arcanum.api.ObjectFilter.Toughness(eq, n))))
+        }
         THAT_HAS_AN_ADVENTURE.matchEntire(phrase)?.let { m ->
             val base = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             return Filters.all(base, arcanum.api.ObjectFilter.HasAdventure)
@@ -67,9 +107,19 @@ internal object WoePhrases {
     }
 
     // woe chunk 07: "you own a card in exile that has an Adventure" (CR 715.2a; cards in exile are owned, CR 108.3)
+    private val LIFE_TOTAL_OR_LESS = Regex("""your life total is (\d+) or less""")
+    private val A_NOUN_IS_ATTACKING = Regex("""an? ([A-Z]\w+|creature) is attacking""")
     private val YOU_OWN_IN_EXILE = Regex("""you own an? (\w+) in exile(?: (that .+))?""")
 
     fun condition(text: String): arcanum.api.Condition? {
+        // woe chunk 08: "your life total is 5 or less"
+        LIFE_TOTAL_OR_LESS.matchEntire(text)?.let { m ->
+            return arcanum.api.Condition.Compare(arcanum.api.Value.LifeOf(arcanum.api.Players.You), arcanum.api.Comparison.AtMost, arcanum.api.Value.Fixed(m.groupValues[1].toInt()))
+        }
+        // woe chunk 08: "a Rat is attacking" (any player's attacking Rat, CR 506.4)
+        A_NOUN_IS_ATTACKING.matchEntire(text)?.let { m ->
+            return arcanum.api.Condition.Exists(Filters.noun("attacking " + m.groupValues[1]) ?: return null, atLeast = 1)
+        }
         YOU_OWN_IN_EXILE.matchEntire(text)?.let { m ->
             val noun = Filters.noun(listOf(m.groupValues[1], m.groupValues[2]).filter { it.isNotEmpty() }.joinToString(" ")) ?: return null
             return arcanum.api.Condition.Exists(Filters.all(noun, arcanum.api.ObjectFilter.InZone(arcanum.api.Zone.Exile),

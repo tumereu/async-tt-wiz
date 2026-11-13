@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 84
+    const val VERSION: Int = 85
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -713,7 +713,8 @@ object OracleParser {
     /** A spree or tiered mode (CR 702.172a, 702.183a): "+ {1} — Counter target spell." */
     private val COST_MODE = Regex("""\+ ((?:\{[^}]+\})+) — (.+)""")
     private val PARTNER_WITH = Regex("""Partner with (.+)""")
-    private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
+    // woe chunk 08: "Choose one that hasn't been chosen —" (for this object)
+    private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: that hasn't been chosen)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")

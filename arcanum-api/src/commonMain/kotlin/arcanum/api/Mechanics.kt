@@ -371,8 +371,8 @@ sealed interface Mechanic {
      * as though they haven't been activated", CR 702.177b): their "activate only once" doesn't stop them while this applies. */
     @Serializable @SerialName("as-though-not-activated") data class AsThoughNotActivated(val label: AbilityLabel) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
-     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
-     * below (0: no minimum). */
+     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the mana a reduction can't take the cost
+     * below, each mana symbol left counting as one ("can't reduce the mana in that cost to less than one mana"; 0: no minimum). */
     @Serializable @SerialName("cost-change") data class CostChange(
         val what: ObjectFilter, val change: arcanum.api.CostChange, val minimum: Int = 0,
     ) : Mechanic {
@@ -643,6 +643,8 @@ sealed interface Modification {
         /** Names the object copied, for the replacement's [Mechanic.Replacement.whenApplied] ("When you do, exile that card"). */
         val bind: String? = null,
     ) : Modification
+    /** The event's amount [factor] times ("twice that many"); on an [EventPattern.Tap] with `forMana = true`, the mana produced by
+     * tapping that permanent for mana ("it produces three times as much of that mana instead", CR 106.12b). */
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If

@@ -671,6 +671,12 @@ internal object Payment {
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
+        // woe chunk 08: "{2}, {T}: Choose one that hasn't been chosen —": the modes this object has chosen (CR 700.2)
+        if ((plan.ability as? Ability.Activated)?.instructions?.modes?.onlyUnchosen == true && plan.choices.modes.isNotEmpty())
+            recorder.state.obj(plan.sourceId)?.let { o ->
+                arcanum.engine.change.Changes.cast(recorder.state, o.id, o.castOrNone.copy(modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct()))
+                    ?.let { recorder.record(it) }
+            }
         val loyalty = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is CostPart.Loyalty }
         countActivation(recorder, plan.sourceId, origin, loyalty)
         Casting.keepPriority(recorder, plan.player)

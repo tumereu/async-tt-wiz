@@ -222,6 +222,8 @@ internal object SosPhrases {
         if (text == "the number of cards you've drawn this turn") return Value.EventsThisTurn(EventPattern.Draw(PlayerFilter.You), Measure.Events)
         // sos chunk 05: "the amount of life you gained this turn"
         if (text == "the amount of life you gained this turn") return Value.EventsThisTurn(EventPattern.GainLife(PlayerFilter.You), Measure.Amount)
+        // woe chunk 08: "the amount of life you lost this turn"
+        if (text == "the amount of life you lost this turn") return Value.EventsThisTurn(EventPattern.LoseLife(PlayerFilter.You), Measure.Amount)
         // sos chunk 09: "the number of differently named lands you control"
         DIFFERENTLY_NAMED.matchEntire(text)?.let { m ->
             return Value.CountDistinct(Filters.objects(m.groupValues[1]) ?: return null, SharedQuality.Name)

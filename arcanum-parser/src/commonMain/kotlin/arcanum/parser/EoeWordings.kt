@@ -137,7 +137,8 @@ internal object Eoe {
     val EXILED_WITH_TO_GRAVEYARD_CREATE_FOR_EACH = Regex("""Put each card exiled with (.+?) into its owner's graveyard, then create (an? .+? token) for each card put into a graveyard this way\. Sacrifice (.+?)\.""")
     val IF_YOU_DIDNT_PUT_INTO_HAND = Regex("""If you didn't put a card into your hand this way, (.+)""")
     val RETURN_UP_TO_TOTAL_MV_COUNTER_EACH = Regex("""Return up to (\w+) target (.+?) with total mana value (\d+) or less from your graveyard to the battlefield\. Put a \+1/\+1 counter on each of them\.""")
-    val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs (\{\d+\}) less to activate if (.+?)\.""")
+    // woe chunk 08: also "… during your turn"
+    val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs (\{\d+\}) less to activate (?:if (.+?)|(during your turn))\.""")
     // inr chunk 01: also an ability quoted inside it ("… have haste and '{T}: … any target.'")
     val EMBLEM_PERIOD_INSIDE = Regex("""You get an emblem with "(.+\.'?)"""")
     val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with an? (\S+) counter on it for each (.+)\.""")
@@ -157,7 +158,7 @@ internal object Eoe {
     val AS_LONG_AS_DRAW_PLUS_ONE = Regex("""As long as (.+?), if you would draw one or more cards, you draw that many cards plus one instead\.""")
     val COUNTER_ON_TARGET_AND_DRAW = Regex("""[Pp]ut a \+1/\+1 counter on target (.+?) and draw a card\.""")
     val DEFENDING_PLAYER_MILLS = Regex("""[Dd]efending player mills (\w+) cards\.""")
-    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering the battlefield causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    val ENTERING_TRIGGERS_ADDITIONAL_TIME = Regex("""If a permanent entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val BECOMES_ARTIFACT_CREATURE_BASE_GAINS = Regex("""([Uu]p to one (?:other )?target .+?) becomes an artifact creature with base power and toughness (\d+)/(\d+) and gains ([a-z ]+) until end of turn\.""")
     val COUNTER_IF_SPENT_LESS_DRAW = Regex("""Counter target spell\. If the amount of mana spent to cast that spell was less than its mana value, you draw a card\.""")
     val NTH_SPELL_EACH_TURN_COSTS_LESS = Regex("""The (\w+) spell you cast each turn costs ((?:\{[^}]+\})+) less to cast\.""")

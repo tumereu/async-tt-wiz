@@ -2452,6 +2452,7 @@ internal class Sentences(
                 them = about?.objects?.takeIf { it != Objects.Self }, that = about?.objects?.takeIf { it is Objects.AttachedTo } ?: that(trigger))
         } finally { conditionAmount = null }
         triggerIt = null
+        instructions = instructions?.let { itsOfTheTriggerObject(it, trigger, conditional?.groupValues?.get(2) ?: rest) }
         // chunk 33: X in this permanent's enters trigger is the X chosen for the spell it was (CR 107.3m)
         if (trigger.events == listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)) && !rest.contains("where X is"))
             instructions = instructions?.withX(Value.CastX(of = Objects.Self))
@@ -2474,7 +2475,9 @@ internal class Sentences(
         // inr chunk 09: eminence "if Edgar is in the command zone or on the battlefield": each of the zones (CR 113.6b)
         val zones = zone?.let { listOf(it) } ?: (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.Or)?.any
             ?.map { (it as? ObjectFilter.InZone)?.zone ?: return@map null }?.takeIf { z -> z.all { it != null } }?.filterNotNull()
-        return Ability.Triggered(trigger.copy(oneOrMore = oneOrMore), instructions, interveningIf = interveningIf,
+        // otj sweep: "Whenever another creature you control enters, if its power is 3 or greater, …": the creature that entered
+        val ifCondition = interveningIf?.let { c -> conditional?.groupValues?.get(1)?.let { itsOfTheTriggerObject(arcanum.api.Condition.serializer(), c, trigger, it) } ?: c }
+        return Ability.Triggered(trigger.copy(oneOrMore = oneOrMore), instructions, interveningIf = ifCondition,
             functionsIn = zones, perTurn = perTurn, triggersOnlyIf = onlyIf, once = once, actionOncePerTurn = actionOnce)
     }
 
@@ -2673,6 +2676,72 @@ internal class Sentences(
         is EventPattern.BecomesBlocked -> Objects.EventObject(if (event.perBlocker) EventRole.OtherCombatant else EventRole.Object)
         is EventPattern.Damage -> Objects.EventObject(damageThatRole(event))
         else -> Objects.EventObject(role = EventRole.Object)
+    }
+
+    /**
+     * otj sweep: in a triggered ability whose effect never names this object, "its power", "its toughness" and "its mana value" can't be
+     * this object's: they are the trigger's object's ("Whenever a creature you control attacks, it deals damage equal to its power …",
+     * "Whenever another creature you control dies, draw X cards, where X is its power", "draw a card if its power is 3 or greater"), as it
+     * last existed if it left (CR 603.10a, 608.2h); so is "it" dealing damage. The readers that don't see the trigger read them as this
+     * object's; this puts the trigger's object in their place, and the defending player of an attack trigger's attacker (CR 508.5). Not with a quoted ability (its own "its") nor when the trigger's object is this object.
+     */
+    private fun itsOfTheTriggerObject(instructions: Instructions, trigger: arcanum.api.Trigger.On, effect: String): Instructions =
+        itsOfTheTriggerObject(Instructions.serializer(), instructions, trigger, effect)
+
+    private fun <T> itsOfTheTriggerObject(serializer: kotlinx.serialization.KSerializer<T>, read: T, trigger: arcanum.api.Trigger.On, effect: String): T {
+        val itDeals = Otj.IT_DEALS.containsMatchIn(effect)
+        // "defending player" in an attack trigger is the player the attacking creature attacks (CR 508.5)
+        val defending = trigger.events.singleOrNull() is EventPattern.Attack && "defending player" in effect
+        if ('"' in effect || !(itDeals || defending || Otj.ITS_PROPERTY.containsMatchIn(effect))) return read
+        if (self.any { name -> Regex("(?<!\\w)" + Regex.escape(name) + "(?!\\w)", RegexOption.IGNORE_CASE).containsMatchIn(effect) }) return read
+        if (trigger.events.size != 1 || !triggerAboutOther(trigger.events.single())) return read
+        val json = kotlinx.serialization.json.Json
+        val it = json.encodeToJsonElement(Objects.serializer(), that(trigger))
+        val selfJson = json.encodeToJsonElement(Objects.serializer(), Objects.Self)
+        val defendingOfSelf = json.encodeToJsonElement(Players.serializer(), Players.DefendingPlayerOf(Objects.Self))
+        val properties = listOf(arcanum.api.NumericProperty.Power, arcanum.api.NumericProperty.Toughness, arcanum.api.NumericProperty.ManaValue)
+        val values = properties.associate { p ->
+            json.encodeToJsonElement(Value.serializer(), Value.Of(p, Objects.Self, arcanum.api.Combine.Single)) to
+                json.encodeToJsonElement(Value.serializer(), Value.Of(p, that(trigger), arcanum.api.Combine.Single))
+        }
+        val zero = Value.Fixed(0)
+        val filterTypes = listOf(ObjectFilter.Power(arcanum.api.Comparison.AtLeast, zero), ObjectFilter.Toughness(arcanum.api.Comparison.AtLeast, zero),
+            ObjectFilter.ManaValue(arcanum.api.Comparison.AtLeast, zero)).map { (json.encodeToJsonElement(ObjectFilter.serializer(), it) as kotlinx.serialization.json.JsonObject)["type"] }
+        val objectIs = (json.encodeToJsonElement(arcanum.api.Condition.serializer(), arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Any))
+            as kotlinx.serialization.json.JsonObject)["type"]
+        fun replace(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when {
+            values.containsKey(e) -> values.getValue(e)
+            defending && e == defendingOfSelf -> json.encodeToJsonElement(Players.serializer(), Players.DefendingPlayerOf(that(trigger)))
+            // "it deals damage …": the trigger's object is the source
+            itDeals && e is kotlinx.serialization.json.JsonObject && e["source"] == selfJson && "amount" in e && "to" in e ->
+                kotlinx.serialization.json.JsonObject(e.mapValues { (k, v) -> if (k == "source") it else replace(v) })
+            e is kotlinx.serialization.json.JsonObject && e["type"] == objectIs && e["objects"] == selfJson &&
+                (e["filter"] as? kotlinx.serialization.json.JsonObject)?.get("type") in filterTypes ->
+                kotlinx.serialization.json.JsonObject(e + ("objects" to it))
+            e is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.mapValues { replace(it.value) })
+            e is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { replace(it) })
+            else -> e
+        }
+        return json.decodeFromJsonElement(serializer, replace(json.encodeToJsonElement(serializer, read)))
+    }
+
+    /** otj sweep: whether [event]'s object, the one "it" names in the effect, is (or may be) another object than this one. */
+    private fun triggerAboutOther(event: EventPattern?): Boolean {
+        val selfOnly = ObjectFilter.Is(Objects.Self)
+        // this object, also with more conditions ("Whenever this creature attacks while saddled")
+        fun other(f: ObjectFilter) = f != selfOnly && (f as? ObjectFilter.And)?.all?.contains(selfOnly) != true
+        return when (event) {
+            is EventPattern.ZoneChange -> other(event.objects)
+            is EventPattern.Attack -> other(event.attacker)
+            is EventPattern.Block -> !event.perAttacker && other(event.blocker)
+            is EventPattern.BecomesBlocked -> !event.perBlocker && other(event.attacker)
+            is EventPattern.BecomesTarget -> other(event.objects)
+            is EventPattern.Cast -> other(event.spell)
+            is EventPattern.Discard -> other(event.cards)
+            // "Whenever this creature is dealt damage, it deals …": "it" is this creature, the one dealt the damage
+            is EventPattern.Damage -> other(event.source) && !(event.to.objects?.let { !other(it) } == true && damageThatRole(event) == EventRole.Object)
+            else -> false
+        }
     }
 
     /** isd sweep: "that creature" of a damage event is the creature the trigger names besides this one (CR 120.2): the one that dealt
@@ -17176,9 +17245,14 @@ internal class Sentences(
      * ("whenever a creature you control enters", "whenever another creature you control dies"), that object, as it is or as it last
      * existed (CR 603.10a, 608.2h), and it is the damage's source (CR 120.3); otherwise this object.
      */
-    private fun itDealingDamage(context: Context): Objects =
-        (context.event as? EventPattern.ZoneChange)?.takeIf { it.objects != ObjectFilter.Is(Objects.Self) }
+    private fun itDealingDamage(context: Context): Objects = when (val event = context.event) {
+        is EventPattern.ZoneChange -> event.takeIf { it.objects != ObjectFilter.Is(Objects.Self) }
             ?.let { Objects.EventObject(if (it.to == Zone.Battlefield) arcanum.api.EventRole.After else arcanum.api.EventRole.Before) } ?: Objects.Self
+        // otj sweep: "Whenever a creature you control attacks, it deals damage equal to its power …": the attacking creature, unless "it" has
+        // become this object since ("put a +1/+1 counter on this creature, then it deals damage …")
+        else -> context.it?.takeIf { it is Objects.EventObject && triggerAboutOther(event) }
+            ?.let { if (event is EventPattern.Damage) Objects.EventObject(damageThatRole(event)) else it } ?: Objects.Self
+    }
 
     private fun rvrEffect(sentence: String, context: Context): List<Step>? {
         // rvr fixes: Carom: "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead."
@@ -26333,7 +26407,9 @@ internal class Sentences(
         // ltr chunk 09: "Haldir deals damage equal to its power to up to one target creature."
         Ltr.DEALS_DAMAGE_EQUAL_TO_ITS_POWER_TO.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val objects = ltrObjects(m.groupValues[2], context) ?: return@let
-            return listOf(Step.Do(Effect.DealDamage(Recipients(objects = objects), Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single), Objects.Self)))
+            // otj sweep: "Whenever equipped creature attacks, it deals damage equal to its power …": the attacking creature deals it
+            val source = if (m.groupValues[1].equals("it", ignoreCase = true)) itDealingDamage(context) else Objects.Self
+            return listOf(Step.Do(Effect.DealDamage(Recipients(objects = objects), Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single), source)))
         }
         // ltr chunk 08: "Create Smaug, a legendary 6/6 red Dragon creature token with flying, haste, and "When Smaug dies, create fourteen Treasure tokens."" (CR 111.4)
         Ltr.CREATE_NAMED_TOKEN_WITH_QUOTED.matchEntire(sentence)?.let { m ->

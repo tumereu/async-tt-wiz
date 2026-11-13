@@ -2,6 +2,10 @@ package arcanum.parser
 
 /** Wordings first met in Outlaws of Thunder Junction (OTJ). */
 internal object Otj {
+    // otj sweep: "its power", "its toughness", "its mana value" (Sentences.itsOfTheTriggerObject)
+    val ITS_PROPERTY = Regex("""\bits (power|toughness|mana value)\b""")
+    // otj sweep: "it deals damage" (Sentences.itsOfTheTriggerObject)
+    val IT_DEALS = Regex("""\b[Ii]t deals (?:\w+ )?damage\b""")
     // otj chunk 01: "It becomes plotted." (a card in exile, CR 702.170c)
     val BECOMES_PLOTTED = Regex("""(.+?) becomes plotted\.""")
     // otj chunk 01: Make Your Own Luck: the card exiled from among the looked-at ones, then the rest into the hand

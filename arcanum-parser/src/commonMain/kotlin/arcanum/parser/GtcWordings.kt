@@ -51,7 +51,8 @@ internal object Gtc {
     val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:land|planeswalker|artifact)\.""")
     val CHOOSE_KEYWORD = Regex("""Choose ([a-z ]+(?:, [a-z ]+)*,? or [a-z ]+)\.""")
     val GAIN_THAT_ABILITY = Regex("""(.+) gain that ability until end of turn\.""")
-    val BECOMES = Regex("""(Until end of turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn)?( and can't be blocked this turn)?\.""")
+    // rvr chunk 03: also "Until your next turn, "
+    val BECOMES = Regex("""(Until end of turn, |Until your next turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn)?( and can't be blocked this turn)?\.""")
     val BECOMES_DESCRIPTION = Regex("""an? (?:(\d+)/(\d+) )?(?:((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) )?((?:[A-Z][a-z]+ )*)(artifact creature|creature)(?: with (.+))?""")
     val PT_EACH_EQUAL = Regex("""power and toughness each equal to (.+)""")
     val COUNTERS_ON_SELF = Regex("""the number of (\S+) counters on (?:him|her|it|this creature|this permanent)""")
@@ -138,7 +139,8 @@ internal object Gtc {
     val REMOVE_ALL_COUNTERS_FROM_TARGET = Regex("""Remove all (\S+) counters from target (.+)\.""")
     val UNTAP_EACH = Regex("""Untap each (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_LOSES = Regex("""Target player draws (\w+) cards and loses (\d+) life\.""")
-    val DEALS_DAMAGE_TO_PLAYER_EQUAL_HAND = Regex("""(.+?) deals damage to target player equal to the number of cards in that player's hand\.""")
+    // rvr chunk 03: also "the number of cards that player owns in exile"
+    val DEALS_DAMAGE_TO_PLAYER_EQUAL_HAND = Regex("""(.+?) deals damage to target player equal to the number of cards (in that player's hand|that player owns in exile)\.""")
     val WIN_IF_DIFFERENT_NAMES = Regex("""If you control (\w+) or more (\w+)s with different names, you win the game\.""")
     val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""They put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
     val WOULD_DRAW_WHILE_NO_CARDS = Regex("""If you would draw a card while you have no cards in hand, instead (.+)\.""")

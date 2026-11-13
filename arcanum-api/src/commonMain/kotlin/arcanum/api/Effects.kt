@@ -398,6 +398,11 @@ data class Destination(
      * a continuous effect that applies as it enters the battlefield, not after (CR 611.2e), so its enters triggers and
      * state-based actions see it. */
     val entersAs: List<Mechanic> = emptyList(),
+    // rvr
+    /** Onto the battlefield blocking [blocking] (an attacking creature, "put … onto the battlefield blocking that creature"). Not
+     * declared as a blocker, so "whenever blocks" doesn't trigger, but "becomes blocked by a creature" does (CR 509.3d, 509.4); if
+     * that creature is no longer attacking, or its controller isn't the defending player for it, it isn't blocking (CR 509.4a). */
+    val blocking: Objects? = null,
 )
 
 /** [amount] counters of [kind]. */

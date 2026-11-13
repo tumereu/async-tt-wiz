@@ -112,7 +112,8 @@ internal object EoePhrases {
         // eoe chunk 11: "this creature blocks a creature with flying" (CR 509.1)
         Eoe.BLOCKS_A.matchEntire(text)?.let { m ->
             if (m.groupValues[1] !in self) return@let
-            return listOf(EventPattern.Block(ObjectFilter.Is(Objects.Self), Filters.noun(m.groupValues[2]) ?: return null))
+            // rvr chunk 03: "blocks a creature" triggers once for each attacking creature it blocks (CR 509.3b)
+            return listOf(EventPattern.Block(ObjectFilter.Is(Objects.Self), Filters.noun(m.groupValues[2]) ?: return null, perAttacker = true))
         }
         // eoe chunk 09: "an opponent discards a card" (CR 701.9a)
         if (text == "an opponent discards a card") return listOf(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.Opponent))

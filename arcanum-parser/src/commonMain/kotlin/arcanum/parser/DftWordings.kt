@@ -20,7 +20,7 @@ internal object Dft {
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|one|two|three) (\S+) counters? on it\.""")
     val FOR_EACH_PLAYER_DESTROY_UP_TO_ONE = Regex("""For each player, destroy up to one target (.+?) that player controls\. If an? (.+?) you controlled was destroyed this way, (.+)""")
     val GAIN_CONTROL_AS_LONG_AS_CANT_ATTACK_OR_BLOCK = Regex("""Gain control of target (.+?) for as long as you control (.+?)\. That creature can't attack or block for as long as you control (.+?)\.""")
-    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card from your graveyard to your hand\.""")
+    val RETURN_A_CARD_FROM_YOUR_GRAVEYARD = Regex("""Return an? (.+?) card from your graveyard to (your hand|the battlefield)\.""")
     val RETURN_UP_TO_ONE_TARGET_TO_BATTLEFIELD = Regex("""Return up to one target (.+?) card from your graveyard to the battlefield\.""")
     val CREATE_THAT_MANY = Regex("""[Cc]reate that many (tapped )?(.+)\.""")
     // dft chunk 02
@@ -88,7 +88,8 @@ internal object Dft {
     val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)""")
     // dft chunk 13
     val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
-    val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there are (\w+) additional combat phases\.""")
+    // rvr chunk 03: also "there is an additional combat phase followed by an additional main phase"
+    val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there (?:are (\w+) additional combat phases|is an additional combat phase followed by an additional main phase)\.""")
     val EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED = Regex("""At the beginning of each combat this turn, untap all (.+?) that attacked this turn\.""")
     // dft chunk 14
     val UNTAP_ENCHANTED_PERMANENT = Regex("""Untap enchanted (permanent|creature)\.""")

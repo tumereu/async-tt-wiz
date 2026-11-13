@@ -67,6 +67,8 @@ internal data class PlannedMove(
     val attachTo: TargetRef? = null,
     val transformed: Boolean = false,
     val attacking: TargetRef? = null,
+    /** rvr: the attacking creature it enters blocking (CR 509.4). */
+    val blocking: ObjectId? = null,
     /** Set by "as enters" steps and modifications (CR 614.12): card memory, copy, extra abilities. */
     val memory: Bindings = Bindings.EMPTY,
     val copyOf: Pair<ObjectId, List<CopyException>>? = null,
@@ -354,6 +356,20 @@ internal object Actions {
             act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + arcanum.engine.state.Attacker(after, m.attacking!!))))
         }
         act.record(Change.ZoneChange(all))
+        // rvr: put onto the battlefield blocking an attacking creature (CR 509.4): blocking only if that creature still attacks and its
+        // controller is the defending player for it (CR 509.4a); the attacker is blocked (CR 509.1h). Recorded once it is on the
+        // battlefield, so "becomes blocked by a creature" sees the creature (CR 509.3d)
+        moves.filter { it.blocking != null && it.to == Zone.Battlefield }.forEach { m ->
+            val combat = act.state.combat ?: return@forEach
+            val attacker = combat.attackers.firstOrNull { it.id == m.blocking } ?: return@forEach
+            val moved = all.first { it.before.id == m.id }.after
+            val controller = m.controller ?: act.state.obj(m.id)?.owner
+            val board = act.board()
+            if (controller == null || arcanum.engine.combat.Battles.defender(act.state, { board.controller(it) }, attacker.target) != controller) return@forEach
+            act.record(Change.Combat(combat, combat.copy(
+                attackers = combat.attackers.map { if (it.id == attacker.id) it.copy(blocked = true) else it },
+                blockers = combat.blockers + arcanum.engine.state.Blocker(moved.id, listOf(attacker.id), controller))))
+        }
         arcanum.engine.room.Rooms.enteredUnlocked(act, all.filter { it.before.zone == Zone.Stack && it.after.zone == Zone.Battlefield }.map { it.after.id })
         // fra: marks it enters with; becoming prepared makes its prepare spell's copy (CR 722.3a, c)
         moves.filter { it.marks.isNotEmpty() && it.to == Zone.Battlefield }.forEach { m ->

@@ -437,7 +437,8 @@ class EoeChunk13GreenTest {
     ) parsesTo abilities(
         Keyword.Reach,
         triggered(
-            on(EventPattern.Block(blocker = isSelf, attacker = and(creature, ObjectFilter.HasKeyword(keyword = Keyword.Flying)))),
+            // CR 509.3b: once for each creature with flying it blocks
+            on(EventPattern.Block(blocker = isSelf, attacker = and(creature, ObjectFilter.HasKeyword(keyword = Keyword.Flying)), perAttacker = true)),
             untilEndOfTurn(Objects.Self, pt(5, 0)),
         ),
     )

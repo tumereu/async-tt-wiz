@@ -681,6 +681,7 @@ internal object Effects {
         val attachTo = dest.attachedTo?.let { recipients(scope, it).firstOrNull() }
         val counters = dest.counters.map { it.kind to e.value(it.amount) }
         val attacking = dest.attacking?.let { attackTarget(scope, it) }
+        val blocking = dest.blocking?.let { e.objects(it).firstOrNull() }
         var ordered = ids
         if (dest.randomOrder && ids.size > 1) {
             ordered = act.randomObjects(scope.actor, scope.self, ids, ids.size)
@@ -700,7 +701,7 @@ internal object Effects {
                 id, dest.zone, position, if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
                     ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller,
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
-                attachTo = attachTo, transformed = dest.transformed, attacking = attacking,
+                attachTo = attachTo, transformed = dest.transformed, attacking = attacking, blocking = blocking,
                 randomOrder = dest.randomOrder && dest.zone == Zone.Library && ids.size > 1,
                 entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
             )

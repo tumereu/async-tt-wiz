@@ -460,15 +460,17 @@ internal object EventMatcher {
         // CR 509.3c: an attacker that was unblocked (or not yet either) and is blocked after the change
         val c = change as? Change.Combat ?: return emptyList()
         val wasBlocked = c.before?.attackers.orEmpty().filter { it.blocked }.map { it.id }.toSet()
+        // CR 509.3d: "becomes blocked by a creature" triggers for each creature blocking it as it becomes blocked, and for each creature
+        // newly blocking it after that (one put onto the battlefield blocking it, CR 509.4)
+        if (pattern.perBlocker) return c.after?.attackers.orEmpty().filter { it.blocked && e.matches(pattern.attacker, it.id) }.flatMap { a ->
+            val before = if (a.id !in wasBlocked) emptySet() else c.before?.blockers.orEmpty().filter { a.id in it.attackers }.map { it.id }.toSet()
+            c.after?.blockers.orEmpty().filter { a.id in it.attackers && it.id !in before && e.matches(pattern.blocker, it.id) }.map { b ->
+                TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, listOf(b.id))))
+            }
+        }
         return c.after?.attackers.orEmpty().filter { it.blocked && it.id !in wasBlocked && e.matches(pattern.attacker, it.id) }.flatMap { a ->
             val blockers = c.after?.blockers.orEmpty().filter { a.id in it.attackers && e.matches(pattern.blocker, it.id) }.map { it.id }
-            when {
-                blockers.isEmpty() -> emptyList()
-                pattern.perBlocker -> blockers.map { b ->
-                    TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, listOf(b))))
-                }
-                else -> listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, blockers))))
-            }
+            if (blockers.isEmpty()) emptyList() else listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.id)), RoleObjects(EventRole.OtherCombatant, blockers))))
         }
     }
 

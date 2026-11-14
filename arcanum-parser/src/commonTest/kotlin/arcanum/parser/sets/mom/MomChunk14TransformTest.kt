@@ -160,12 +160,12 @@ class MomChunk14TransformTest {
     )
 
     @Test
-    fun invasionOfMoag() = cardFaces(Layout.Transform,
-        siege("Invasion of Moag", "{2}{G}{W}", "When this Siege enters, put a +1/+1 counter on each creature you control.", "5") to abilities(
+    fun invasionOfMossvale() = cardFaces(Layout.Transform,
+        siege("Invasion of Mossvale", "{2}{G}{W}", "When this Siege enters, put a +1/+1 counter on each creature you control.", "5") to abilities(
             triggered(entersSelf, counters(Objects.Each(creatureYouControl))),
         ),
         card(
-            name = "Bloomwielder Dryads",
+            name = "Bloomtender Dryads",
             cost = null,
             type = "Creature — Dryad",
             text = """

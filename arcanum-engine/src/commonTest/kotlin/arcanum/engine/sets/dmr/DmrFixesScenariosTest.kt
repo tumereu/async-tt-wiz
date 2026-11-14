@@ -175,4 +175,50 @@ class DmrFixesScenariosTest {
         alice.activates("Forest")
         expect { alice.pool.size shouldBe 1 }
     }
+
+    private val orb = Cards.invent("Muffling Orb", "{2}", "Artifact", """
+        If a land is tapped for two or more mana, it produces {C} instead of any other type and amount.
+        Each spell a player casts costs {1} more to cast for each other spell that player has cast this turn.
+    """)
+    private val spire = Cards.invent("Twin Spire Ruin", null, "Land", "{T}: Add {C}{C}.")
+    private val emberTonic = Cards.invent("Ember Tonic", "{R}", "Instant", "You gain 1 life.")
+    private val brineTonic = Cards.invent("Brine Tonic", "{U}", "Instant", "You gain 1 life.")
+
+    // CR 106.12, 614.1a: a land tapped for two or more mana produces {C} instead; one tapped for one mana is unchanged
+    @Test
+    fun aLandTappedForTwoManaProducesOneColorless() = scenario {
+        alice.battlefield(orb, spire, "Forest")
+        alice.activates(spire)
+        expect { alice.pool.map { it.color } shouldBe listOf(null) }
+        alice.activates("Forest")
+        expect { alice.pool.map { it.color } shouldBe listOf(null, arcanum.api.Color.Green) }
+    }
+
+    // CR 601.2f: each spell costs {1} more for each other spell its caster cast this turn; another player's spells don't count
+    // (3 players)
+    @Test
+    fun spellsCostMoreForEachOtherSpellTheirCasterCast() = scenario(players = 3) {
+        alice.battlefield(orb, "Mountain", "Mountain", "Mountain")
+        bob.battlefield("Island", "Island")
+        alice.hand(emberTonic, emberTonic)
+        bob.hand(brineTonic)
+        alice.casts(emberTonic)
+        allPass()
+        expect { alice.life shouldBe 21 }
+        alice.passes()
+        bob.casts(brineTonic)
+        allPass()
+        expect {
+            bob.life shouldBe 21
+            card("Island", 1).tapped shouldBe false
+        }
+        alice.casts(emberTonic)
+        allPass()
+        expect {
+            alice.life shouldBe 22
+            card("Mountain", 0).tapped shouldBe true
+            card("Mountain", 1).tapped shouldBe true
+            card("Mountain", 2).tapped shouldBe true
+        }
+    }
 }

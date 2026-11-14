@@ -18907,6 +18907,24 @@ internal class Sentences(
 
     /** isd: single-sentence effects. */
     private fun dmrStatic(line: String): Ability? {
+        // dmr fixes: "If a land is tapped for two or more mana, it produces {C} instead of any other type and amount." (a replacement of
+        // the mana it would produce, CR 106.12, 614.1a)
+        Dmr.TAPPED_FOR_N_MANA_PRODUCES_INSTEAD.matchEntire(line)?.let { m ->
+            val what = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val mana = ManaCost.parse(m.groupValues[3]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Tap(what, forMana = true), modify = listOf(arcanum.api.Modification.ProducesInstead(mana)),
+                condition = arcanum.api.Condition.Compare(Value.EventAmount, arcanum.api.Comparison.AtLeast, Value.Fixed(n)))), affects = Affected.Objects(Objects.Self))
+        }
+        // dmr fixes: "Each spell a player casts costs {1} more to cast for each other spell that player has cast this turn." (the spell being
+        // cast is the tested object, its caster that player, CR 601.2f)
+        Dmr.SPELL_COSTS_MORE_PER_OTHER_SPELL_THAT_PLAYER_CAST.matchEntire(line)?.let { m ->
+            val per = ManaCost.parse(m.groupValues[1]) ?: return null
+            val others = Value.EventsThisTurn(EventPattern.Cast(ObjectFilter.Not(ObjectFilter.Is(Objects.Tested)),
+                PlayerFilter.Is(Players.ControllerOf(Objects.Tested))), arcanum.api.Measure.Events)
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.noun("spell") ?: return null, arcanum.api.CostChange.More(per, others))),
+                affects = Affected.Objects(Objects.Self))
+        }
         // dmr chunk 06: "No more than two creatures can attack you each combat." (CR 506.4, 508.1c: attacks on your planeswalkers aren't counted)
         Dmr.NO_MORE_THAN_CAN_ATTACK_YOU.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.MaximumAttackers(Numbers.count(m.groupValues[1]) ?: return null, target = Recipients(players = Players.You))),

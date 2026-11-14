@@ -302,7 +302,7 @@ internal object Actions {
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
                 is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage,
-                is Modification.RaiseAmountTo -> move
+                is Modification.RaiseAmountTo, is Modification.ProducesInstead -> move
                 // fin: "Lands you control enter untapped": applied after the others ([untapped])
                 Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
                 // fin: transforming and coin flips aren't zone changes

@@ -765,6 +765,11 @@ sealed interface Modification {
      * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three
      * times as much of that mana instead", CR 106.12b). */
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
+    // dmr
+    /** Of a permanent tapped for mana ([EventPattern.Tap] with forMana): it produces [mana] instead of any other type and amount
+     * (CR 106.12, 614.1a; "If a land is tapped for two or more mana, it produces {C} instead", the amount checked by the
+     * replacement's condition with [Value.EventAmount]). */
+    @Serializable @SerialName("produces-instead") data class ProducesInstead(val mana: ManaCost) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If
      * you don't, it enters tapped"), choose ("choose a creature type"). Effects on [Objects.Self] apply to it as it

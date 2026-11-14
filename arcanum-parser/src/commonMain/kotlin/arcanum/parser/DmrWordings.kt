@@ -6,6 +6,9 @@ internal object Dmr {
     val CANT_ATTACK_UNLESS_DEFENDER_CONTROLS = Regex("""(This \w+) can't attack unless defending player controls an? (.+)\.""")
     val BECOMES_PT_CREATURE_WITH_QUOTED = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z]\w*(?: [A-Z]\w*)*) creature with "(.+)"\.?""")
     val SELF_IS_A = Regex("""(this \w+) is an? (\w+)""")
+    // dmr fixes: Damping Sphere
+    val TAPPED_FOR_N_MANA_PRODUCES_INSTEAD = Regex("""If (an? .+?) is tapped for (\w+) or more mana, it produces ((?:\{[^}]+\})+) instead of any other type and amount\.""")
+    val SPELL_COSTS_MORE_PER_OTHER_SPELL_THAT_PLAYER_CAST = Regex("""Each spell a player casts costs ((?:\{[^}]+\})+) more to cast for each other spell that player has cast this turn\.""")
     // dmr chunk 02: Lightning Reflexes (a Mirage-era flash wording, the same on every card that has it)
     const val FLASH_SACRIFICE_AT_NEXT_CLEANUP = "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been " +
         "cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step."

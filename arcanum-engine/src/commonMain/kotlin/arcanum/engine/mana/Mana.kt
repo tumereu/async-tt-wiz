@@ -229,9 +229,33 @@ internal object Mana {
         val eval = snap.evaluator(player, self = id, names = names)
         val snow = snap.view[id]?.characteristics?.supertypes?.contains(Supertype.Snow) == true
         val factor = tappedForManaFactor(snap, player, id, ability)
-        return ability.instructions.steps.mapNotNull { (it as? Step.Do)?.effect as? Effect.AddMana }.flatMap { add ->
-            yieldsOf(snap, eval, add.mana, snow, depth = 0).map { if (factor == 1) it else it.copy(amount = it.amount * factor) }
+        val adds = ability.instructions.steps.mapNotNull { (it as? Step.Do)?.effect as? Effect.AddMana }
+        val produced = adds.flatMap { add -> yieldsOf(snap, eval, add.mana, snow, depth = 0) }
+        // dmr fixes: "it produces {C} instead of any other type and amount" (CR 106.12, 614.1a), applied before the multipliers: the order
+        // the land's controller chooses (CR 616.1) that loses them the least mana
+        val instead = tappedForManaInstead(snap, player, id, ability, produced.sumOf { it.amount })
+        val made = if (instead == null) produced
+            else yieldsOf(snap, eval, (adds.firstOrNull()?.mana ?: arcanum.api.ManaProduction(ManaKind.Fixed(instead))).let {
+                arcanum.api.ManaProduction(ManaKind.Fixed(instead), restriction = it.restriction) }, snow, depth = 0)
+        return made.map { if (factor == 1) it else it.copy(amount = it.amount * factor) }
+    }
+
+    /** dmr fixes: the mana a replacement makes [id] produce instead of any other type and amount when tapped for [amount] mana with
+     * [ability] ({T} in its cost, CR 106.12), its condition read with the amount as the event's (Damping Sphere: "for two or more mana"). */
+    private fun tappedForManaInstead(snap: Snapshot, player: PlayerId, id: ObjectId, ability: Ability.Activated, amount: Int): arcanum.api.ManaCost? {
+        if (CostPart.TapSelf !in ability.cost.parts || amount <= 0) return null
+        snap.view.game.rules.forEach { applied ->
+            val r = applied.mechanic as? Mechanic.Replacement ?: return@forEach
+            val tap = r.event as? arcanum.api.EventPattern.Tap ?: return@forEach
+            val instead = r.modify.singleOrNull() as? arcanum.api.Modification.ProducesInstead ?: return@forEach
+            if (tap.forMana != true || r.optional || r.instead != null) return@forEach
+            val e = snap.evaluator(applied.controller, self = applied.source, names = applied.names)
+            if (!e.matches(tap.objects, id) || (tap.by != null && !e.matches(tap.by!!, player))) return@forEach
+            val withEvent = e.with(e.ctx.copy(event = arcanum.engine.state.TriggerEvent(amount = amount)))
+            if (r.condition?.let { withEvent.holds(it) } == false) return@forEach
+            return instead.mana
         }
+        return null
     }
 
     /** woe: "If you tap a basic land for mana, it produces three times as much of that mana instead": replacements of tapping [id] for mana

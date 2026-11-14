@@ -72,6 +72,11 @@ sealed interface ObjectStatus {
     /** Phased out until another object leaves the battlefield (CR 702.26, 610.3): it doesn't phase in during untap steps. */
     @Serializable @SerialName("held-phased-out") data object HeldPhasedOut : ObjectStatus { override val key: String get() = "held-phased-out" }
 
+    /** dmu: phased out and held out while [player] controls [source] (CR 611.2b, 702.26b): it doesn't phase in during untap steps meanwhile. */
+    @Serializable @SerialName("held-phased-out-while") data class HeldPhasedOutWhile(val source: ObjectId, val player: PlayerId) : ObjectStatus {
+        override val key: String get() = "held-phased-out-while"
+    }
+
     /** The marks it gained whose [arcanum.api.MarkRule.recordsTurn] asks to keep when, one entry per mark, the latest. */
     @Serializable @SerialName("marks-gained") data class MarksGained(val records: List<MarkGained>) : ObjectStatus {
         override val key: String get() = "marks-gained"
@@ -206,6 +211,7 @@ internal val GameObject.fixedCopies: List<FixedCopy> get() = statuses.status<Obj
 internal val GameObject.dealtCombatDamage: Boolean get() = statuses.status<ObjectStatus.DealtCombatDamage>() != null
 internal val GameObject.dealtDamage: Boolean get() = statuses.status<ObjectStatus.DealtDamage>() != null
 internal val GameObject.heldPhasedOut: Boolean get() = statuses.status<ObjectStatus.HeldPhasedOut>() != null
+internal val GameObject.heldPhasedOutWhile: ObjectStatus.HeldPhasedOutWhile? get() = statuses.status<ObjectStatus.HeldPhasedOutWhile>()
 internal val GameObject.turnedFaceUp: Boolean get() = statuses.status<ObjectStatus.TurnedFaceUp>() != null
 internal val GameObject.marksGained: List<MarkGained> get() = statuses.status<ObjectStatus.MarksGained>()?.records.orEmpty()
 

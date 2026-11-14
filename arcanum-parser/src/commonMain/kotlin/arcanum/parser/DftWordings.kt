@@ -14,7 +14,8 @@ internal object Dft {
     val DURING_OTHER_TURNS = Regex("""During turns other than yours, (.+)""")
     val IS_AN_ARTIFACT_CREATURE = Regex("""(.+) is an artifact creature\.""")
     val GETS_X_WHERE = Regex("""(.+) gets ([+-])X/([+-])X, where X is (.+)\.""")
-    val ABILITIES_OF_CHOSEN_NAME_COST_MORE = Regex("""Activated abilities of sources with the chosen name cost (\{\d+\}) more to activate\.""")
+    // dmu chunk 05: also "… unless they're mana abilities."
+    val ABILITIES_OF_CHOSEN_NAME_COST_MORE = Regex("""Activated abilities of sources with the chosen name cost (\{\d+\}) more to activate( unless they're mana abilities)?\.""")
     val TAP_N_OTHER_UNTAPPED = Regex("""Tap (\w+) other untapped (.+) you control""")
     val UNTIL_EOT_BECOMES_ARTIFACT_CREATURE_AND_GAINS = Regex("""Until end of turn, (.+?) becomes an artifact creature and gains ([a-z ,]+)\.""")
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|one|two|three) (\S+) counters? on it\.""")

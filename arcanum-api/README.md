@@ -218,6 +218,10 @@ The definition model (overview in `Definitions.kt`):
 - Innistrad (set `isd`): `ObjectFilter.Attached.toPlayers` (Curses attached to a player, CR 303.4e), `CostPart.ManaCostOf` ("exile a
   creature card from your graveyard and pay its mana cost", CR 601.2f) and `Objects.Creator` (in a token's ability, the object that
   created it, CR 201.5a).
+- Dominaria United (set `dmu`): `Effect.PhaseOut.whileYouControl` ("it can't phase in for as long as you control this Saga"),
+  `Mechanic.AdditionalCost.reducesBy` (the Defilers' life payment reducing only coloured mana), the predefined Powerstone token
+  (CR 111.10h), `Mechanic.CantPayLifeToCastOrActivate` ("players can't pay life to cast spells or to activate abilities that aren't
+  mana abilities", CR 119.4) and `EventRole.Targeted` (the objects a cast spell targeted, read as last known once gone, CR 608.2h).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

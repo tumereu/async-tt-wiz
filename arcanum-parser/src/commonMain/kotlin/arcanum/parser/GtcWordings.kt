@@ -4,7 +4,8 @@ package arcanum.parser
 internal object Gtc {
     // gtc chunk 01: "[subject] gain(s) …/get(s) …/can't … until end of turn and … this turn."
     val TIMED_PREDICATES = Regex("""(.+?) ((?:gains?|gets?|can't|can|loses?) .+ (?:until end of turn|this turn)(?: as though it didn't have defender)?)\.""")
-    val PREDICATE_AND = Regex(""",? and (?=(?:gains?|gets?|can't|can|loses?) )""")
+    // dmu chunk 05: also a list ("gains haste, can attack as though it didn't have defender, and assigns combat damage …")
+    val PREDICATE_AND = Regex(""",? and (?=(?:gains?|gets?|can't|can|loses?|assigns) )|, (?=(?:gains?|gets?|can't|can|loses?|assigns) )""")
     val TIMING = Regex("""(.+?) (?:until end of turn|this turn)( as though it didn't have defender)?""")
     val GAIN_KEYWORDS = Regex("""gains? (.+)""")
     val LOSE_KEYWORD = Regex("""loses? ([a-z]+(?: [a-z]+)?)""") // mkm chunk 09
@@ -37,7 +38,7 @@ internal object Gtc {
     val DEALS_DAMAGE_TO_EQUAL = Regex("""(.+?) deals damage to (.+?) equal to (.+)\.""")
     val DEALS_DAMAGE_SAME_NAME = Regex("""(.+?) deals (\d+) damage to target (.+?) and each other (.+?) with the same name as that \w+\.""")
     val GAIN_CONTROL_OF_ALL = Regex("""Gain control of all (.+)\.""")
-    val BLOCKS_IF_ABLE = Regex("""(Target .+?) (blocks|attacks or blocks)( that \w+)? this (turn|combat) if able\.""")
+    val BLOCKS_IF_ABLE = Regex("""(Target .+?|That creature) (blocks|attacks or blocks)( that \w+)? this (turn|combat) if able\.""")
     val PUT_COUNTER_AND_UNTAP = Regex("""Put an? (\S+) counter on (target .+?) and untap it\.""")
     val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on (?:enchanted|equipped) creature\.""")
     val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
@@ -121,7 +122,7 @@ internal object Gtc {
     val EACH_OPPONENT_LOSES_TWO_TIMES_X = Regex("""Each opponent loses two times X life\.""")
     val UNTIL_EOT_BECOMES_WITH_BASE = Regex("""Until end of turn, (target|each) (.+?) (becomes .+|loses all abilities and becomes .+)\.""")
     val BECOMES_COLOR_TYPE_BASE = Regex("""becomes an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) with base power and toughness (\d+)/(\d+)""")
-    val THAT_CREATURE_GETS_MINUS_FOR_EACH = Regex("""That creature gets -(\d+)/-(\d+) until end of turn for each (.+?) card in your graveyard\.""")
+    val THAT_CREATURE_GETS_MINUS_FOR_EACH = Regex("""That creature gets (?:an additional )?-(\d+)/-(\d+) until end of turn for each (.+?) card in your graveyard\.""")
     val MAY_SWITCH_PT = Regex("""You may switch (.+?)'s power and toughness until end of turn\.""")
     val PUT_N_COUNTERS_ON_ATTACHED = Regex("""Put (two|three|four) (\S+) counters on enchanted creature\.""")
     val RETURN_AT_NEXT_COMBAT_WITH_HASTE = Regex("""At the beginning of the next combat, return those cards to the battlefield under their owner's control and those creatures gain haste until end of turn\.""")
@@ -149,8 +150,9 @@ internal object Gtc {
     val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""They put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
     val WOULD_DRAW_WHILE_NO_CARDS = Regex("""If you would draw a card while you have no cards in hand, instead (.+)\.""")
     val AS_LONG_AS_LIFE = Regex("""As long as you have (\d+) or more life and an opponent has (\d+) or less life, (.+?) ((?:gets|has) .+)\.""")
-    /** "Spells with the chosen name you cast cost {2} less to cast.", "Spells with the chosen name cost {3} more to cast." (mh3: anyone's) */
-    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name( you cast)? cost (\{\d+\}) (less|more) to cast\.""")
+    /** "Spells with the chosen name you cast cost {2} less to cast.", "Spells with the chosen name cost {3} more to cast." (mh3: anyone's),
+     * "Spells your opponents cast with the chosen name cost {2} more to cast." (dmu chunk 05) */
+    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells (?:with the chosen name( you cast)?|(your opponents) cast with the chosen name) cost (\{\d+\}) (less|more) to cast\.""")
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
     val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of (?:any|an?) (.+?), except it has "(.+)"\.?""")

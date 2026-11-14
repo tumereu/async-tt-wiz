@@ -28,7 +28,7 @@ sealed interface EventPattern {
         @Serializable(with = KeywordKindSerializer::class) val forCost: KeywordKind? = null,
     ) : EventPattern
     /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
-     * from exile"). Role object = the spell. */
+     * from exile"). Role object = the spell; role targeted = the objects it targeted as it was cast. */
     @Serializable @SerialName("cast") data class Cast(
         val spell: ObjectFilter, val by: PlayerFilter, val from: Zone? = null,
     ) : EventPattern

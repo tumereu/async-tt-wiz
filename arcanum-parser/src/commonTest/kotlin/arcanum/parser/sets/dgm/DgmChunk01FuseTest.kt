@@ -101,8 +101,9 @@ class DgmChunk01FuseTest {
         half("Invading", "{4}{B}{R}", "Sorcery", "Put a creature card from a graveyard onto the battlefield under your control. It gains haste until end of turn.") to
             abilities(spell(
                 Step.Choose(Choice.Objects(ObjectFilter.And(listOf(creature, ObjectFilter.InZone(Zone.Graveyard))), n(1), n(1)), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You))),
-                gains(Objects.Bound("chosen"), Keyword.Haste),
+                // dmu sweep: haste goes to the permanent the card became (CR 400.7), named as it enters
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You), postBind = "put chosen")),
+                gains(Objects.Bound("put chosen"), Keyword.Haste),
             ), Keyword.Fuse),
     )
 

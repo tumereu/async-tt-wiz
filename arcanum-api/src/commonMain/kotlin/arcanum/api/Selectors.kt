@@ -101,6 +101,11 @@ sealed interface EventRole {
     /** In an attach event: the object or player it became attached to ("that creature" of "whenever this Equipment becomes
      * attached to a creature", "for as long as this Equipment remains attached to it", CR 701.3a, 608.2h). */
     @Serializable @SerialName("to") data object To : EventRole
+    // dmu fixes
+    /** In a cast: the objects the spell targeted as it became cast ("a copy of that artifact or creature" of "whenever you cast a spell that
+     * targets only a single artifact or creature you control"); one that has left its zone since is read by its last known information
+     * (CR 115.1, 601.2c, 608.2h). */
+    @Serializable @SerialName("targeted") data object Targeted : EventRole
 }
 
 /**

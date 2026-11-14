@@ -5,6 +5,7 @@ BRO The Brothers' War
 DFT Aetherdrift
 DGM Dragon's Maze
 DMR Dominaria Remastered
+DMU Dominaria United
 DSK Duskmourn: House of Horror
 ECL Lorwyn Eclipsed
 EOE Edge of Eternities

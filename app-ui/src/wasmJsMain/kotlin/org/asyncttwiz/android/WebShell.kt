@@ -107,7 +107,10 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         }
         // The screens' semantics mirrored into the page (screen readers; the browser smoke finds controls by them)
         ComposeViewport(body, configure = { isA11YEnabled = true }) {
-            CompositionLocalProvider(LocalFontFamilyResolver provides org.asyncttwiz.appui.webFontResolver) { shell.Content() }
+            // WEB-059: the mirror follows the screen again once a popup or dialog closes
+            SemanticsMirrorRepair {
+                CompositionLocalProvider(LocalFontFamilyResolver provides org.asyncttwiz.appui.webFontResolver) { shell.Content() }
+            }
         }
         jsHideLoading()
     }

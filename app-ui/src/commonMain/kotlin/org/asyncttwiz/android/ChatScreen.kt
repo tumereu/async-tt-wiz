@@ -110,7 +110,8 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
         }
         if (tab == ChatTab.GAME || podView == null || podChat == null) GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f), visible)
         else PodChatBody(podChat, podView, accountId,
-            if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, visible, Modifier.weight(1f))
+            if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, visible, Modifier.weight(1f),
+            write = controller.chatWrites.takeIf { state.chatWrite })
     }
     }
     val gameTab = tab == ChatTab.GAME
@@ -146,7 +147,7 @@ private fun ChatTabRow(selected: ChatTab, gameUnread: Int, podUnread: Int, selec
 
 /** The game's own chat: its messages (with "Read" marks, LOB-138), outgoing sends and the composer. */
 @Composable
-private fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, staleDraft: Boolean, modifier: Modifier,
+fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, staleDraft: Boolean, modifier: Modifier,
     visible: Boolean) {
     val state = controller.state
     val chat = state.chat
@@ -194,9 +195,14 @@ private fun GameChatBody(controller: LobbyController, game: GameSummary, account
             }
             items(chat.messages.size, key = { chat.messages[chat.messages.lastIndex - it].id }) { index ->
                 val message = chat.messages[chat.messages.lastIndex - index]
-                // LOB-138: your message the other player has read says so
-                ChatMessageRow(if (message.author == game.inviter.accountId) game.inviter.username else game.recipient.username,
-                    message.text, message.author == accountId, if (message.author == accountId && chat.read(message)) "Read" else "")
+                // LOB-067: a date line above the first message of each day
+                Column {
+                    ChatDayLine(message.createdAt, chat.messages.getOrNull(chat.messages.lastIndex - index - 1)?.createdAt)
+                    // LOB-138: your message the other player has read says so
+                    ChatMessageRow(if (message.author == game.inviter.accountId) game.inviter.username else game.recipient.username,
+                        message.text, message.author == accountId, if (message.author == accountId && chat.read(message)) "Read" else "",
+                        chatTime(message.createdAt))
+                }
             }
         }
         }
@@ -211,8 +217,13 @@ private fun GameChatBody(controller: LobbyController, game: GameSummary, account
 /** DRF-170, LOB-145: a pod's chat: its messages with their authors' names, sends on their way and the composer; no "Read" marks. */
 @Composable
 fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: String, ownName: String, visible: Boolean,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier,
+    /** LOB-139, WEB-017: opened by Write (or the desktop's chat button or key) on the Pod tab: its input takes the focus, again
+     * each time this changes; null: not asked. */
+    write: Int? = null) {
     val podId = view.podId
+    val input = remember { FocusRequester() }
+    LaunchedEffect(podId, write) { if (write != null) input.requestFocus() }
     val list = rememberLazyListState()
     FollowLatest(list, podId, view.outgoing.lastOrNull()?.requestId ?: view.messages.lastOrNull()?.id)
     val current by rememberUpdatedState(view)
@@ -234,14 +245,17 @@ fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: String, o
                 }
                 items(view.messages.size, key = { view.messages[view.messages.lastIndex - it].id }) { index ->
                     val message = view.messages[view.messages.lastIndex - index]
-                    ChatMessageRow(name(message.author), message.text, message.author == accountId, "")
+                    Column {
+                        ChatDayLine(message.createdAt, view.messages.getOrNull(view.messages.lastIndex - index - 1)?.createdAt)
+                        ChatMessageRow(name(message.author), message.text, message.author == accountId, "", chatTime(message.createdAt))
+                    }
                 }
             }
         }
         ChatComposer(view.draft, { chat.compose(podId, it) }, {
             chat.send(podId)
             list.requestScrollToItem(0)
-        }, view.canSend(), stale = false, clear = {}, description = "Pod chat message draft")
+        }, view.canSend(), stale = false, clear = {}, Modifier.focusRequester(input), description = "Pod chat message draft")
     }
 }
 
@@ -313,16 +327,34 @@ private fun ChatComposer(draft: String, compose: (String) -> Unit, send: () -> U
     }
 }
 
+/** LOB-067 (owner, 2026-11-14): a message's row: its author, text, delivery or Read [status] and its small [time] ("14:05"),
+ * none while it is on its way. */
 @Composable
-private fun ChatMessageRow(author: String, text: String, own: Boolean, status: String) {
+private fun ChatMessageRow(author: String, text: String, own: Boolean, status: String, time: String = "") {
     Surface(Modifier.fillMaxWidth(), color = if (own) MaterialTheme.colorScheme.primaryContainer else ScreenBackground,
         shape = MaterialTheme.shapes.small) {
         Column(Modifier.padding(10.dp)) {
             Text(author, style = MaterialTheme.typography.labelMedium, maxLines = 1)
             Text(text)
             Box(Modifier.fillMaxWidth().height(16.dp)) {
-                if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                if (status.isNotEmpty()) Text(status, Modifier.align(Alignment.CenterStart), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                if (time.isNotEmpty()) Text(time, Modifier.align(Alignment.CenterEnd).testTag("chat-time"),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
         }
+    }
+}
+
+/** LOB-067: above a message written on another day than the one before it ([previous], null: the oldest loaded), a centred
+ * line with the day ("Today", "Yesterday", "Sat 14 Nov"). */
+@Composable
+private fun ChatDayLine(createdAt: String, previous: String?) {
+    val day = chatDay(createdAt)
+    if (day.isEmpty() || previous != null && chatDay(previous) == day) return
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp).testTag("chat-day"), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalDivider(Modifier.weight(1f), color = ScreenBorder)
+        Text(day, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        HorizontalDivider(Modifier.weight(1f), color = ScreenBorder)
     }
 }

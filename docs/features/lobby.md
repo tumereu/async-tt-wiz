@@ -21,6 +21,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-012** While the card records are not ready, the avatar choices area says "Avatars need the card catalog." with the phase and percentage, and the choices appear by themselves when ready. (r17)
 - **LOB-013** Settings → Profile shows your avatar and name with a pen button that opens one "Edit profile" dialog: smaller avatar choices without scrolling, search above them, reroll, username field, Cancel and Save (no Skip). (r18)
 - **LOB-014** Avatars appear next to player names everywhere: game rows, game lobby, contacts and search, invitations, pod rows and the side menu. (r17)
+- **LOB-149** Avatar choices (the first-sign-in chooser, LOB-011, and Edit profile, LOB-013) show each card's name under its art (up to two lines) and, above them, what they are: "Random legendary creatures and planeswalkers", or "Cards matching “<search>”: N". They lie in a framed area that scrolls inside its frame; a shade at its top or bottom edge shows more lies that way. In the desktop layout the choices are larger and as many to a row as fit, the chooser keeps to a readable width and the Edit profile dialog is wider and taller (owner, 2026-11-14). (r74)
 
 ### Navigation and main menu
 
@@ -38,7 +39,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-023** The Games screen shows one "GAMES" card with a count and all games and invitations in one list; "No games yet." when empty. A "New game" button sits at the top right. (r30)
 - **LOB-024** A game row: opponent avatar, bold game name, a move chip ("Your move" filled, "<name>'s move" plain, or "Invitation"/"Setup"; the move of TRN-058), the pod name line for pod games, then "vs <opponent> · <status> · <last activity>", the time if today, else the date, from your local head and next stop (HIS-032). (r50)
 - **LOB-025** Row status texts: "In play", "Invitation pending", "Invitation declined", "Preparing"; a held pod challenge reads "Challenged you · submit your deck to accept" (Accept greyed) for you and "Waiting for <name>'s deck" for the challenger. (r30)
-- **LOB-026** Holding an unstarted game's row offers "Cancel game"; holding a game in play offers "Delete game", confirmed by a dialog warning that it removes the game for both players with no restore ("Keep game" / "Delete game"); its match in play is kept as an Unfinished record (LOB-127). (r58)
+- **LOB-026** Holding an unstarted game's row offers "Cancel game"; holding a game in play offers its chat ("Chat", LOB-148) and "Delete game", confirmed by a dialog warning that it removes the game for both players with no restore ("Keep game" / "Delete game"); its match in play is kept as an Unfinished record (LOB-127). (r74)
 
 ### Contacts and new games
 
@@ -111,8 +112,8 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Game chat
 
-- **LOB-066** A chat button on the table's top bar (on the desktop table only while its dock is folded away; the chat is docked otherwise, WEB-017) opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145); a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r62)
-- **LOB-067** Messages show author and text, your own tinted; the newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r13)
+- **LOB-066** A chat button on the table's top bar (on the desktop table only while its dock is folded away, and there it unfolds the dock to its chat, ready to type, on the tab with unread messages: the desktop table has no chat panel, WEB-017) opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145); a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r62)
+- **LOB-067** Messages show author and text, your own tinted, and a small time at the row's bottom right ("14:05", the device's time zone; none while a message is on its way); above the first message of each day lies a centred date line, "Today", "Yesterday" or "Sat 14 Nov" ("Wed 31 Dec 2025" in an earlier year). The newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r74)
 - **LOB-068** The keyboard's Send key sends like the Send button. A message being sent says "Checking delivery…", a failed one "Not delivered". (r24)
 - **LOB-069** Unread counts and what each player has read are kept on the server per player and game, so they match on every device: a bubble read on one of your devices is gone on the other. (r58)
 - **LOB-070** A typed but unsent message is kept per game; a draft from an earlier play must be cleared before writing a new one. (r16)
@@ -121,6 +122,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-137** A message you send shows always right above your own life square (in landscape above the bottom bar, where your square sits), over whatever lies there, as a bubble in your colour for about 3 s once the table is in sight (in portrait after the chat closes), then fades in 0.4 s; it takes no taps. (r61)
 - **LOB-138** Your message shows a small "Read" under it in the chat once the other player has read it (tapped its bubble or seen it in their chat), at once while you have the game open. (r58)
 - **LOB-139** Quick messages are in your own Life panel (TRN-030), not in the chat: chips "Thinking…", "One sec", "Your move?", "Got a response", "No responses" and "GG" (greyed while a message can't go), each sends its text with one tap as a message like any other (your bubble, LOB-137) and closes the panel; a typed draft stays as it is. After them an icon-only Write button (a pencil; holding it says "Write a message", SYS-045) opens the chat with its input focused and the soft keyboard up, ready to type. (r61)
+- **LOB-148** A game's chat opens from the games list (Games screen, menu panel; on the desktop by right-click): holding a game in play opens its menu, whose "Chat" button reads "Chat · 2 unread" while the other player has messages you haven't read (counted as the menu opens). It opens the game's chat (the Game chat alone, also in a pod game) as a side panel over the list without opening the game: its messages are read as they show (LOB-069, LOB-138) and you can write and send as in the table's chat; its ✕ or Back closes it. (r74)
 
 ### Game history and Stats
 
@@ -177,7 +179,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Card records
 
-- **LOB-091** Card records come from the ATW server: the card catalog the app was built for (SYS-081). On start, when the installed records aren't that catalog (a first launch, a new app), the app downloads and installs it without asking, before or after sign-in; sign-in works meanwhile, with "Card records updating · 43%" and a bar at the top. A failed download is tried once more by itself, then the line says "Card records couldn't be downloaded" with Retry. (r50)
+- **LOB-091** Card records come from the ATW server: the card catalog the app was built for (SYS-081). On start, when the installed records aren't that catalog (a first launch, a new app), the app downloads and installs it without asking, before or after sign-in; sign-in works meanwhile, with "Card records updating · 43%" and a bar at the top (in the desktop layout lying over the top of the page, so nothing under it moves when it comes or goes). A failed download is tried once more by itself, then the line says "Card records couldn't be downloaded" with Retry. (r50)
 - **LOB-093** Settings → Card records shows the installed date and record count; while card records install, "Card records updating · 43%" with a bar; after a failed download, that line with Retry. (r9)
 - **LOB-094** How far an installation is reads as one share of the whole: the download is its first fifth, adding the records takes it to 60%, and preparing card search goes on from there to 99%. (r55)
 - **LOB-095** The card records are always the catalog the app was built for: installed records of another catalog or format are replaced with it at startup. (r17)

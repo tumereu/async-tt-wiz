@@ -152,10 +152,15 @@ data class DamagePreview(
  *   to that damage minus the life it gained at the same moment (the damage's results, CR 510.2);
  * - [attackers]: what each attacker (ATW card id) dealt to its own attack target (unblocked, or trample over its
  *   blockers); its pair's lane shows it;
- * - [gained]: the life each player gained at those moments (lifelink, CR 702.15b), by account id.
+ * - [gained]: the life each player gained at those moments (lifelink, CR 702.15b), by account id;
+ * - [creatures]: the combat damage each creature was dealt (attackers and blockers, ATW card id), all its damage steps together;
+ * - [dying]: those of [creatures] still on the battlefield with lethal damage marked (CR 704.5g, 704.5h: damage at least its
+ *   toughness, or any from a source with deathtouch) and not indestructible (CR 702.12b): in the damage's hold (HIS-113) they lie
+ *   there until the state-based actions destroy them.
  */
-data class CombatDamageDealt(val targets: Map<String?, Int>, val attackers: Map<String, Int>, val gained: Map<String, Int>) {
-    val empty: Boolean get() = targets.isEmpty() && gained.isEmpty()
+data class CombatDamageDealt(val targets: Map<String?, Int>, val attackers: Map<String, Int>, val gained: Map<String, Int>,
+    val creatures: Map<String, Int> = emptyMap(), val dying: Set<String> = emptySet()) {
+    val empty: Boolean get() = targets.isEmpty() && gained.isEmpty() && creatures.isEmpty()
 }
 
 /**
@@ -237,6 +242,9 @@ object CombatFlow {
         val byAttacker = LinkedHashMap<String, Int>()
         val lost = LinkedHashMap<String, Int>()
         val gained = LinkedHashMap<String, Int>()
+        val creatures = LinkedHashMap<String, Int>()
+        // A planeswalker or battle attacked shows its damage on its chip, not as a creature's
+        val attackTargets = attackedBy.values.toSet()
         var moment = false
         fun lane(target: TargetRef): String? = when (target) {
             is TargetRef.Player -> null
@@ -248,6 +256,9 @@ object CombatFlow {
                     val combatDamage = change.dealt.filter { it.combat }
                     moment = combatDamage.isNotEmpty()
                     for (dd in combatDamage) {
+                        // CMB-050 (owner notes 2026-11-14): each creature's own damage, its splash or skull
+                        ((dd.recipient as? TargetRef.Object)?.id as? ObjectId.Card)?.takeIf { dd.amount > 0 && dd.recipient !in attackTargets }
+                            ?.let { creatures[it.card.value] = (creatures[it.card.value] ?: 0) + dd.amount }
                         val target = attackedBy[dd.source] ?: continue
                         // Only what reached its own attack target (unblocked, or trample over its blockers)
                         if (dd.recipient != target) continue
@@ -272,7 +283,20 @@ object CombatFlow {
         }
         // A player attacked: what it lost to the damage minus what it gained then
         if (null in toTargets && defender != null) toTargets[null] = (lost[defender.value] ?: 0) - (gained[defender.value] ?: 0)
-        return CombatDamageDealt(toTargets, byAttacker, gained).takeUnless { it.empty && byAttacker.isEmpty() }
+        val view = Engine.view(state)
+        val dying = creatures.keys.filter { id ->
+            state.battlefield.firstOrNull { (it as? ObjectId.Card)?.card?.value == id }?.let { lethal(state, view, it) } == true
+        }.toSet()
+        return CombatDamageDealt(toTargets, byAttacker, gained, creatures, dying).takeUnless { it.empty && byAttacker.isEmpty() }
+    }
+
+    /** Whether creature [id] has lethal damage marked as the state-based actions read it (CR 704.5g, 704.5h) and isn't
+     * indestructible (CR 702.12b). */
+    private fun lethal(state: GameState, view: arcanum.engine.view.View, id: ObjectId): Boolean {
+        val o = state.obj(id) ?: return false
+        val c = view[id]?.characteristics ?: return false
+        if (o.damage <= 0 || c.hasKeyword(arcanum.api.Keyword.Indestructible)) return false
+        return o.damage >= (c.toughness ?: 0) || o.statuses.any { it is arcanum.engine.state.ObjectStatus.DeathtouchDamage }
     }
 
     /** Whether [board]'s combat runs through the engine: attackers were declared through it (its combat record is

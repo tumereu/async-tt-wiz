@@ -152,6 +152,7 @@ fun AuthenticatedShell(controller: AuthController, landscapeWindow: Boolean, cat
     if (lobby != null) {
         SetupCancellationDialogs(lobby)
         GameDeletionDialogs(lobby)
+        GameListChat(lobby, account.accountId)
     }
 }
 

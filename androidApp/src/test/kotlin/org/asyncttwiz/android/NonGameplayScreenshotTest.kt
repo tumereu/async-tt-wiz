@@ -278,7 +278,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "contacts" -> "Contacts screen with riley and morgan, and a search for sam showing one result"
             "create-game" -> "Contacts screen with the new game dialog for riley, named Crackling Mist, with Cancel and Create"
             "waiting-invite" -> "game lobby after riley declined the invitation, your deck chosen, with Change deck and Prepare deck"
-            "game-context" -> "Games list with the options dialog of game Azure Spark open, offering Delete game"
+            "game-context" -> "Games list with the options dialog of game Azure Spark open, offering its Chat and Delete game"
             "delete-game" -> "Games list with the Delete game confirmation for Azure Spark, with Keep game and Delete game"
             "cancel-lobby" -> "game lobby with the Cancel game confirmation, with Keep game and Cancel game"
             "lobby-select-deck" -> "game lobby where riley is ready and you have not chosen a deck yet"

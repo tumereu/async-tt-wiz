@@ -240,7 +240,8 @@ object EngineEventText {
                 ?.takeIf { it != "Activated ability" && it != "Triggered ability" }?.replaceFirstChar { it.lowercase() } ?: "ability"
             val shown = when (val id = item.id) {
                 is ObjectId.Card -> name(id, state, viewer)
-                else -> (item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer))
+                else -> (item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer)
+                    ?: org.asyncttwiz.automatum.StackAbilityText.ruleName(item))
                     ?.let { if (ability) "$it's $kind" else it }
             }
             return "${shown ?: if (ability) "an ability" else "a spell"} resolved"

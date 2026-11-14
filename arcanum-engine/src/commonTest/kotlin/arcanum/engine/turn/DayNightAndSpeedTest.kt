@@ -97,6 +97,99 @@ class DayNightAndSpeedTest {
         assertEquals(4, Speed.of(state, alice.id))
     }
 
+    /** The speed abilities on the Stack (CR 702.179d: no source, controlled by the player with speed). */
+    private fun arcanum.engine.scenario.Scenario.speedTriggers() =
+        state.stack.mapNotNull { state.stackItems[it] }.filter { it.origin == Speed.RULE }
+
+    // CR 702.179d, 603.3, 113.3c: the speed increase is a triggered ability: it goes on the Stack, controlled by the player, with no
+    // source and the ability's own text, and the speed rises only as it resolves
+    @Test
+    fun speedIncreaseUsesTheStack() = scenario {
+        alice.battlefield(kart, "Mountain")
+        alice.hand("Storm Spark")
+        settle()
+        alice.casts("Storm Spark", target = "bob")
+        allPass()
+        val trigger = speedTriggers().single()
+        assertEquals(alice.id, trigger.controller)
+        assertEquals(null, trigger.source)
+        assertEquals(Speed.ABILITY.text, (trigger.ability as arcanum.api.Ability.Triggered).text)
+        assertEquals(1, Speed.of(state, alice.id))
+        allPass()
+        assertEquals(2, Speed.of(state, alice.id))
+        assertEquals(emptyList(), state.stack)
+    }
+
+    // CR 702.179d, 603.4: "if your speed is less than 4" is an intervening if: at max speed the ability doesn't trigger at all
+    @Test
+    fun speedDoesNotTriggerAtMaxSpeed() = scenario {
+        alice.battlefield(kart, "Mountain")
+        alice.hand("Storm Spark")
+        settle()
+        change(Change.PlayerStatusChanged(alice.id, arcanum.engine.state.PlayerStatus.Speed(1), arcanum.engine.state.PlayerStatus.Speed(4)))
+        alice.casts("Storm Spark", target = "bob")
+        allPass()
+        assertEquals(emptyList(), state.stack)
+        assertEquals(emptyList(), state.triggered)
+        assertEquals(4, Speed.of(state, alice.id))
+    }
+
+    // CR 702.179d: "during your turn": an opponent losing life in another player's turn doesn't trigger it
+    @Test
+    fun speedDoesNotTriggerInAnotherPlayersTurn() = scenario {
+        alice.battlefield(kart, "Mountain")
+        alice.hand("Storm Spark")
+        players.forEach { it.library("Forest", "Forest", "Forest", "Forest") }
+        settle()
+        advanceTo(TurnStep.PrecombatMain, turn = 2)
+        passPriority()
+        alice.casts("Storm Spark", target = "bob")
+        allPass()
+        assertEquals(emptyList(), speedTriggers())
+        assertEquals(1, Speed.of(state, alice.id))
+    }
+
+    // CR 702.179d: "triggers only once each turn" counts its triggering, not the turn's life losses: a loss before the player had speed
+    // doesn't use it up
+    @Test
+    fun speedTriggersAfterALossBeforeHavingSpeed() = scenario {
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain")
+        alice.hand("Storm Spark", kart, "Storm Spark")
+        settle()
+        alice.casts("Storm Spark", target = "bob")
+        allPass()
+        alice.casts(kart)
+        allPass()
+        assertEquals(1, Speed.of(state, alice.id))
+        alice.casts("Storm Spark", target = "bob")
+        allPass()
+        assertEquals(1, speedTriggers().size)
+        allPass()
+        assertEquals(2, Speed.of(state, alice.id))
+    }
+
+    // CR 702.179d: with three players, opponents losing life together trigger it once, and it triggers only once each turn
+    @Test
+    fun speedTriggersOnceForOpponentsLosingLifeTogether() = scenario(players = 3) {
+        alice.battlefield(kart, "Swamp", "Mountain")
+        alice.hand("Kettle Kitten", "Storm Spark")
+        settle()
+        alice.casts("Kettle Kitten")
+        allPass()
+        allPass()
+        expect {
+            bob.life shouldBe 19
+            carol.life shouldBe 19
+        }
+        assertEquals(1, speedTriggers().size)
+        allPass()
+        assertEquals(2, Speed.of(state, alice.id))
+        alice.casts("Storm Spark", target = "carol")
+        allPass()
+        assertEquals(emptyList(), speedTriggers())
+        assertEquals(2, Speed.of(state, alice.id))
+    }
+
     // CR 702.150a: each Phyrexian symbol paid with life: two fewer loyalty counters
     @Test
     fun compleated() = scenario {

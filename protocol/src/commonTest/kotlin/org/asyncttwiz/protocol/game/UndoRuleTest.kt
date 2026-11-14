@@ -67,6 +67,44 @@ class UndoRuleTest {
         assertTrue(model.sameAs(expected))
     }
 
+    // CMB-043, SYS-058 (owner notes 2026-11-14 evening: after the other player's approved rewind the game came back to declare
+    // attackers with the attacker's earlier staging still there): a rewind keeps the other player's combat staging only while the
+    // game still awaits the declaration it stages at the new head, so a rewind back out of the declare attackers step drops it
+    @Test
+    fun aRewindOutOfTheDeclarationDropsItsStaging() {
+        val points = mutableListOf<Pair<String, GameModel>>()
+        val events = mutableListOf<GameEvent>()
+        fun declaring() = model.engine.let { s -> s.pending == null && s.turn.step == arcanum.api.TurnStep.DeclareAttackers &&
+            s.players.any { p -> Engine.options(s, p.id, EnginePreferences.of(s)).any { it is Input.DeclareAttackers } } &&
+            s.battlefield.any { s.obj(it)?.controller == s.turn.active } }
+        while (!declaring()) {
+            points += parent to model.copy()
+            events += games.next(model, parent).also { parent = it.id }
+        }
+        val active = model.engine.turn.active
+        val other = model.engine.players.first { it.id != active }.id
+        val attacker = model.engine.battlefield.first { model.engine.obj(it)?.controller == active }
+        val staging = EventBuilder(model, "staging", parent, active.value).apply {
+            table(TableChange.AttackDraft(null, listOf(arcanum.engine.input.Attack(attacker, arcanum.engine.state.TargetRef.Player(other)))))
+        }.build()
+        events += staging
+        fun rewound(index: Int): Pair<List<GameEvent>, List<String>> {
+            val (target, at) = points[index]
+            val dropped = mutableListOf<String>()
+            val added = Rewind.again(at.copy(), target, events.drop(index), other, 1, { "again${dropped.size}" }, { e, why -> dropped += "${e.id}: $why" }) {}
+            return added to dropped
+        }
+        // Back to before the declare attackers step: the staging doesn't stand, and the logs say why
+        val before = points.indexOfLast { it.second.engine.turn.step != arcanum.api.TurnStep.DeclareAttackers }
+        val (added, dropped) = rewound(before)
+        assertTrue(added.none { e -> e.table.any { it is TableChange.AttackDraft } }, "no staging re-added: $added")
+        assertTrue(dropped.any { it.startsWith("staging: its combat staging") }, "said why: $dropped")
+        // Back to a point in the same declare attackers step (the step's first board): it stands (SYS-058)
+        val inStep = points.indexOfFirst { it.second.engine.turn.step == arcanum.api.TurnStep.DeclareAttackers && it.second.engine.turn.number == model.engine.turn.number }
+        if (inStep >= 0 && points[inStep].second.engine.let { s -> s.players.any { p -> Engine.options(s, p.id, EnginePreferences.of(s)).any { it is Input.DeclareAttackers } } })
+            assertTrue(rewound(inStep).first.any { e -> e.table.any { it is TableChange.AttackDraft } }, "kept within its step")
+    }
+
     @Test
     fun aLaterEngineInputBlocksUndoingAnyEarlierEngineChange() {
         val land = untilALandCanBePlayed()

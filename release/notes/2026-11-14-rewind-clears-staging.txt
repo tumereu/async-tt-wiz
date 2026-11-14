@@ -1,0 +1,1 @@
+fix: Taking the game back to before an attack (an undo or an approved rewind) no longer leaves the earlier staged attackers or blockers on the table.

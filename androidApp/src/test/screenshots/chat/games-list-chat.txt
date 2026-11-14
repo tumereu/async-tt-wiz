@@ -1,0 +1,1 @@
+alex opened Azure Spark's chat from its row menu on the games list: the game chat with riley shows over the list, the game itself not opened; each message has its small time, under a Yesterday and a Today line.

@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 class AppLayoutTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     @Before fun clear() {
-        for (name in listOf("card-appearance", "card-appearance-desktop", "layout"))
+        for (name in listOf("card-appearance", "card-sizes-desktop", "layout"))
             context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
@@ -48,20 +48,30 @@ class AppLayoutTest {
         assertEquals(LayoutChoice.Automatic, LayoutChoice.of("something else"))
     }
 
-    // WEB-022, TBL-034: card sizes are kept for each layout; the desktop layout's start at battlefield 2×, hand 2×, and
-    // changing them leaves the phone layout's as they were
+    // WEB-022, TBL-034: card sizes are kept for each layout, every slider starting at 1×; the desktop layout draws its cards
+    // larger at the same slider sizes (battlefield 2×, hand 2.6×, piles 1.6×, the Stack and panels 2×), the sliders scaling
+    // on top, and changing them leaves the phone layout's as they were
     @Test fun cardSizesAreKeptPerLayout() {
         val phone = CardAppearancePreferences(AppPlatform.current)
         val desktop = CardAppearancePreferences(AppPlatform.current, AppLayout.Desktop)
         assertEquals(1f, phone.read().cardSize)
+        assertEquals(1f, phone.read().battlefield)
         assertEquals(1f, phone.read().size(CardArea.HAND))
-        assertEquals(2f, desktop.read().cardSize)
-        assertEquals(2f, desktop.read().size(CardArea.HAND))
-        assertEquals(1.5f, desktop.read().size(CardArea.PILES))
-        desktop.setSize(2.5f, CardArea.HAND)
-        assertEquals(2.5f, CardAppearancePreferences(AppPlatform.current, AppLayout.Desktop).read().size(CardArea.HAND))
+        assertEquals(1f, desktop.read().cardSize)
+        assertEquals(1f, desktop.read().slider(CardArea.HAND))
+        assertEquals(2f, desktop.read().battlefield)
+        assertEquals(2.6f, desktop.read().size(CardArea.HAND))
+        assertEquals(1.6f, desktop.read().size(CardArea.PILES))
+        assertEquals(2f, desktop.read().size(CardArea.STACK))
+        assertEquals(2f, desktop.read().size(CardArea.PANELS))
+        desktop.customizeAreas(true)
+        desktop.setSize(1.5f, CardArea.HAND)
+        val again = CardAppearancePreferences(AppPlatform.current, AppLayout.Desktop).read()
+        assertEquals(1.5f, again.slider(CardArea.HAND))
+        assertEquals(1.5f * 2.6f, again.size(CardArea.HAND), "the slider on top of the desktop's own size")
         assertEquals(1f, phone.read().size(CardArea.HAND), "the phone layout's unchanged")
         phone.setSize(1.2f)
-        assertEquals(2f, desktop.read().cardSize, "the desktop layout's unchanged")
+        assertEquals(1f, desktop.read().cardSize, "the desktop layout's unchanged")
+        assertEquals(2f, desktop.read().battlefield)
     }
 }

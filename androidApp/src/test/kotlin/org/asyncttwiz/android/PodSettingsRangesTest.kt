@@ -54,7 +54,8 @@ class PodSettingsRangesTest {
         fun fields(settings: DraftSettings, source: PodSource = cube) = podSettingFields(settings, source)
         assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester()))
         assertEquals(listOf(PodSetting.PACKS, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester(), recipe))
-        assertEquals(listOf(PodSetting.CARDS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.rotisserie(), recipe))
+        // DRF-182: Rotisserie's pool and picks per player, set apart
+        assertEquals(listOf(PodSetting.POOL_EACH, PodSetting.PICKS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.rotisserie(), recipe))
         // DRF-156: Winston has the same Tables tile, 1–4, default 1.
         assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.PILES, PodSetting.TABLES, PodSetting.SIDEBOARD), fields(DraftSettings.winston()))
         assertEquals(1..4, PodSetting.TABLES.range(DraftSettings.winston()))
@@ -70,7 +71,17 @@ class PodSettingsRangesTest {
         assertEquals(2..6, PodSetting.PILES.range(DraftSettings.winston()))
         assertEquals(2..8, PodSetting.PILES.range(DraftSettings.winchester()))
         assertEquals(1..24, PodSetting.TABLE_OPEN.range(DraftSettings.rochester()))
-        assertEquals(5..225, PodSetting.CARDS_EACH.range(DraftSettings.rotisserie()))
+        assertEquals(5..225, PodSetting.CARDS_EACH.range(DraftSettings.sealed()))
+        // DRF-182: the pool follows the picks until set; then neither crosses the other
+        val rotisserie = DraftSettings.rotisserie()
+        assertEquals(listOf(45, 45), listOf(PodSetting.POOL_EACH.value(rotisserie), PodSetting.PICKS_EACH.value(rotisserie)))
+        assertEquals(5..225, PodSetting.PICKS_EACH.range(rotisserie))
+        assertEquals(45..225, PodSetting.POOL_EACH.range(rotisserie))
+        val apart = PodSetting.POOL_EACH.apply(PodSetting.PICKS_EACH.apply(rotisserie, 30), 60)
+        assertEquals(listOf(30, 60), listOf(apart.cardsPerPlayer, apart.poolPerPlayer))
+        assertEquals(5..60, PodSetting.PICKS_EACH.range(apart))
+        assertEquals(30..225, PodSetting.POOL_EACH.range(apart))
+        assertEquals(40, PodSetting.POOL_EACH.value(PodSetting.PICKS_EACH.apply(rotisserie, 40)))
         assertEquals(1..30, PodSetting.BOOSTERS.range(DraftSettings.sealed()))
         assertEquals("1 each", PodSetting.TABLE_OPEN.emptyText)
     }

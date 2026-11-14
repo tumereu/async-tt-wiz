@@ -86,14 +86,14 @@ class DesktopTableScreenshotTest {
 
     /** Alice's scene of her desktop table (the surface under the top row: 1440 × 844). */
     private fun scene(kit: EngineTableKit): TableScene = kit.alice.play().let { play ->
-        TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.TOP_ROW, true, kit.toolkit.layoutState.value,
+        TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.topRow(1440f), true, kit.toolkit.layoutState.value,
             appearance = DesktopCardAppearance, landscapeHome = true, handRow = HandRow.cards(play, kit.f.a), desktop = DesktopFrame())
     }
 
     /** The mouse moved over [item] of Alice's desktop table (its surface lies under the top row). */
     private fun hover(item: TableItem) {
         compose.onAllNodes(isRoot()).onFirst().performMouseInput {
-            moveTo(androidx.compose.ui.geometry.Offset(item.bounds.center.x, item.bounds.center.y + DesktopTable.TOP_ROW))
+            moveTo(androidx.compose.ui.geometry.Offset(item.bounds.center.x, item.bounds.center.y + DesktopTable.topRow(1440f)))
         }
         compose.waitForIdle()
     }
@@ -195,31 +195,52 @@ class DesktopTableScreenshotTest {
     }
 
     // WEB-015, WEB-016, WEB-018, WEB-022: the desktop table's arrangement: the battlefields end at the dock, the other player's
-    // seat header is at the top with their hand's small backs, yours lies right above the bottom band, your hand is centred
+    // seat header is at the top with their hand as a small fan of backs, yours lies right above the bottom band, your hand is centred
     // in the band left of the action area at the desktop's larger size, and the Stack isn't on the battlefields
     @Test fun theSceneLaysOutSeatHeadersHandAndBattlefieldsForTheDock() {
         val kit = EngineTableKit()
         kit.opening()
         val scene = scene(kit)
-        val height = 900f - DesktopTable.TOP_ROW
+        val height = 900f - DesktopTable.topRow(1440f)
         val band = DesktopTable.band(DesktopCardAppearance, false)
         val world = assertNotNull(scene.world).viewport
         assertTrue(world.right <= 1440f - DesktopTable.DOCK, "the battlefields end at the dock: $world")
         val bobLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.b }.bounds
         val aliceLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.a }.bounds
-        assertEquals(0f, bobLife.y, "Bob's seat header at the top")
-        assertEquals(height - band - DesktopTable.SEAT, aliceLife.y, "Alice's seat header right above the bottom band")
+        val margin = (DesktopTable.SEAT - DesktopTable.LIFE) / 2
+        assertEquals(margin, bobLife.y, "Bob's seat header at the top, its life square in its middle")
+        assertEquals(height - band - DesktopTable.SEAT + margin, aliceLife.y, "Alice's seat header right above the bottom band")
         assertEquals(DesktopTable.NAME, aliceLife.x, "after the avatar and name")
-        assertTrue(world.y >= bobLife.bottom && world.bottom <= aliceLife.y, "the battlefields between the seat headers: $world")
+        assertEquals(DesktopTable.LIFE, aliceLife.height)
+        assertTrue(world.y >= DesktopTable.SEAT && world.bottom <= height - band - DesktopTable.SEAT,
+            "the battlefields between the seat headers: $world")
+        // WEB-016, WEB-022: the piles twice the landscape bar row's 32 dp, inside their seat header with their count bubbles
+        val piles = scene.items.filter { it.kind == TableItemKind.PILE && it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
+        assertEquals(6, piles.size)
+        assertTrue(piles.all { it.bounds.height == DesktopTable.PILE_HEIGHT }, "piles 64 tall: ${piles.map { it.bounds }}")
+        val bobsPiles = piles.filter { it.bounds.y < DesktopTable.SEAT }
+        assertTrue(bobsPiles.size == 3 && bobsPiles.all { it.pileCountBubble(DesktopTable.PILE_BADGE).y >= 0f && it.bounds.bottom <= DesktopTable.SEAT },
+            "Bob's piles and their bubbles inside his seat header: ${bobsPiles.map { it.bounds }}")
+        // WEB-022: battlefield cards 2× (before the opening zoom, TBL-121)
+        assertEquals(2f * 28f, scene.cardWidth / scene.camera.zoom, .5f)
         val hand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.a }
         assertEquals(7, hand.size)
-        assertTrue(hand.all { it.bounds.height == 80f }, "hand cards at 2×")
+        assertTrue(hand.all { it.bounds.height == 104f }, "hand cards at 2.6×")
         val middle = (hand.minOf { it.bounds.x } + hand.maxOf { it.bounds.right }) / 2
         val bandMiddle = (8f + 1440f - DesktopTable.ACTIONS - 8f) / 2
         assertTrue(kotlin.math.abs(middle - bandMiddle) < 16f, "centred in the band left of the action area: $middle vs $bandMiddle")
         assertTrue(hand.all { it.bounds.y >= height - band }, "in the bottom band")
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
-        assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
+        assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.y >= 0f && it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
+        // WEB-016, ZON-001 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): Bob's hand is
+        // the phone's small fan of card backs after his piles, its cards the piles' size times FAN_CARD, turned and overlapping,
+        // its count at its right
+        assertTrue(scene.items.single { it.kind == TableItemKind.HAND && it.owner == kit.f.b }.handFan, "Bob's hand drawn as a fan")
+        val fanCard = DesktopTable.PILE_HEIGHT * TablePresentation.FAN_CARD
+        assertTrue(bobsHand.all { it.cardTransform?.height == fanCard }, "fan cards ${fanCard} tall: ${bobsHand.map { it.cardTransform }}")
+        assertTrue(bobsHand.first().cardTransform!!.rotation < 0f && bobsHand.last().cardTransform!!.rotation > 0f, "turned as a fan")
+        assertTrue(bobsHand.zipWithNext().all { (a, b) -> b.bounds.x < a.bounds.right }, "overlapping: ${bobsHand.map { it.bounds }}")
+        assertTrue(bobsHand.all { it.bounds.x > bobsPiles.maxOf { pile -> pile.bounds.right } }, "after his piles")
         val stackItem = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         val stack = stackItem.bounds
         assertTrue(stack.x >= 1440f - DesktopTable.DOCK, "the Stack under the dock, not on the battlefields: $stack")
@@ -245,10 +266,25 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithContentDescription("Close chat").assertDoesNotExist()
         compose.onNodeWithTag("action-area").assertExists()
         compose.onNodeWithContentDescription("Undo").assertExists()
+        // WEB-018 (owner, desktop playtest 2026-11-14): Undo a real button a third of the bottom row wide, the main button the
+        // other two thirds, lined up with no room between them but the quick actions' gap
+        val area = compose.onNodeWithTag("action-area").fetchSemanticsNode().boundsInRoot
+        val undo = compose.onNodeWithTag(DESKTOP_UNDO_TAG).fetchSemanticsNode().boundsInRoot
+        val main = compose.onNodeWithTag("main-button").fetchSemanticsNode().boundsInRoot
+        val pad = DesktopTable.ACTIONS_PADDING * DesktopTable.UI_SCALE
+        val row = main.right - undo.left
+        // a third of the row and two thirds, with the quick actions' gap between them
+        val gap = org.asyncttwiz.android.DesktopTable.ACTION_GAP * org.asyncttwiz.android.DesktopTable.UI_SCALE
+        assertEquals(area.width - 2 * pad, row, 2f, "the row spans the action area: $undo, $main in $area")
+        assertEquals((row - 2 * gap) / 3, undo.width, 1.5f, "Undo a third: $undo of $row")
+        assertEquals(row - (row - 2 * gap) / 3 - gap, main.width, 1.5f, "the main button two thirds: $main of $row")
+        assertTrue(main.left - undo.right in 0f..(DesktopTable.ACTION_GAP * DesktopTable.UI_SCALE + 1f), "no room between them: $undo, $main")
+        assertEquals(main.top, undo.top, 1f, "lined up")
+        assertEquals(main.height, undo.height, 1f, "as tall")
         compose.onAllNodesWithText("Bob").onFirst().assertExists()
         compose.onNodeWithText("You").assertExists()
         captureShot("$SCREENSHOTS/desktop/table.png",
-            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and the quick actions over Undo and the main button at the bottom right.")
+            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top with his hand as a small fan of card backs after his piles, as on the phone, and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
     }
 
     // WEB-017, WEB-016, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the dock's
@@ -270,6 +306,36 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast Storm Spark · deals 3 damage to Ember Cub"))
         captureShot("$SCREENSHOTS/desktop/table-responding.png",
             "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the dock's Stack list shows the Spark with its target named in its text, the band under Bob's seat header says what it does, and the main button at the bottom right reads Resolve.")
+    }
+
+    // WEB-015, WEB-016, WEB-020, WEB-022: in a 1920 × 1080 window, with Alice's Mountain and Ember Cub out at her main phase,
+    // the table at the desktop's default sizes: the top row, the seat headers and the action area drawn larger as at 1440
+    @Config(qualifiers = "w1920dp-h1080dp-land-mdpi")
+    @Test fun theDefaultSizesInAFullHdWindow() {
+        val kit = EngineTableKit()
+        kit.toReadyCub()
+        render(kit)
+        compose.onNodeWithTag("phase-track").assertIsDisplayed()
+        compose.onNodeWithTag("action-area").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/desktop/table-1920.png",
+            "Alice's desktop table in a 1920 × 1080 window at her main phase with her Mountain and Ember Cub out, at the desktop's default sizes: the top row, the seat headers with their piles, her hand and the action area drawn as at 1440 × 900, the battlefields taking the extra room with all six rows in view.")
+    }
+
+    // WEB-022, TBL-034, TBL-121: the owner's ask, battlefield cards twice the default (the Card size slider at 2×, on top of
+    // the desktop's own 2×): in a 1440 × 900 window the six rows don't fit even at the opening's least zoom (0.65×), so the
+    // table opens centred on the battlefields and Alice's land row with her Mountain lies below the view
+    @Test fun battlefieldCardsAtTwiceTheDefault() {
+        val preferences = CardAppearancePreferences(org.asyncttwiz.appui.AppPlatform.current, AppLayout.Desktop)
+        // Only the battlefield's: the areas keep their own 1× sliders
+        preferences.customizeAreas(true)
+        preferences.setSize(2f)
+        try {
+            val kit = EngineTableKit()
+            kit.toReadyCub()
+            render(kit)
+            captureShot("$SCREENSHOTS/desktop/table-battlefield-4x.png",
+                "Alice turned on Customize per area and set the Card size slider to 2× on the desktop table (battlefield cards 4× the phone's, twice the default; her hand as before) at her main phase with her Mountain and Ember Cub out: in a 1440 × 900 window the six battlefield rows don't fit even at the opening's least zoom, so the view is centred on the battlefields and her land row with the Mountain lies below it.")
+        } finally { preferences.setSize(1f); preferences.customizeAreas(false) }
     }
 
     // WEB-015, CMB-001, CMB-028 (D2): Alice declares attackers: the combat band opens between the battlefields with her staged
@@ -323,6 +389,70 @@ class DesktopTableScreenshotTest {
         compose.onAllNodesWithTag("prompt-dim").assertCountEquals(2)
         captureShot("$SCREENSHOTS/desktop/prompt-overlay.png",
             "Alice began casting Cinder Charm on the desktop table: its modes are a centred overlay over the battlefields with the table and the dock dimmed behind it, while the top row and the action area with the main button stay as they are.")
+    }
+
+    /** Bob kept and Alice mulliganed twice: the Keep / Bottom overlay asks for one card for the bottom; the overlay's bounds,
+     * its Bottom area's and its eye's, in the window. */
+    private fun keepBottomOverlay(): Triple<androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect> {
+        val kit = EngineTableKit()
+        kit.bob.keep()
+        repeat(2) { round ->
+            val before = kit.state().player(kit.me).hand.toList()
+            assertTrue(kit.toolkit.opening(TableActionIntent.OpeningMulligan(kit.scope)), "mulligan ${round + 1}")
+            kit.playOn("Alice's hand after mulligan ${round + 1}") { kit.state().player(kit.me).hand.toList() != before }
+        }
+        kit.playOn("one card owed for the bottom") { AutomatumOpening.bottomOwed(kit.alice.play()) == 1 }
+        render(kit)
+        compose.waitForIdle()
+        val panel = compose.onNodeWithContentDescription("Keep or bottom").fetchSemanticsNode().boundsInRoot
+        val bottom = compose.onNodeWithContentDescription("Bottom area").fetchSemanticsNode().boundsInRoot
+        val eye = compose.onAllNodes(hasContentDescription("mulligan panel", substring = true)).onFirst().fetchSemanticsNode().boundsInRoot
+        return Triple(panel, bottom, eye)
+    }
+
+    /** WEB-019: [panel] whole in a [width] × [height] window, its Bottom area and eye whole inside it. */
+    private fun assertWhole(width: Float, height: Float, panel: androidx.compose.ui.geometry.Rect,
+        bottom: androidx.compose.ui.geometry.Rect, eye: androidx.compose.ui.geometry.Rect) {
+        assertTrue(panel.top >= DesktopTable.topRow(width) && panel.bottom <= height && panel.right <= width - DesktopTable.DOCK,
+            "the overlay in the window over the battlefields: $panel")
+        assertTrue(bottom.top >= panel.top && bottom.bottom <= eye.top + 1f && eye.bottom <= panel.bottom + 1f,
+            "the Bottom area whole above the eye, inside the overlay: $bottom, $eye in $panel")
+    }
+
+    // WEB-019 (coordinator, 2026-11-14: a desktop panel always fits its room; the Keep / Bottom overlay's Bottom area was cut
+    // off at 1440 × 900): right after Alice's second mulligan the Keep / Bottom overlay is drawn only as large as fits, its
+    // whole Bottom area and its eye in view
+    @Test fun theKeepBottomOverlayFitsItsRoom() {
+        val (panel, bottom, eye) = keepBottomOverlay()
+        assertWhole(1440f, 900f, panel, bottom, eye)
+        captureShot("$SCREENSHOTS/desktop/keep-bottom-overlay.png",
+            "Bob kept and Alice mulliganed twice on the desktop table at 1440 × 900: the Keep / Bottom overlay is drawn as large as fits over the battlefields (less than 1.3×), its Keep area with her seven cards, its whole Bottom area and its eye in view, OK on the main button.")
+    }
+
+    // WEB-019: the same in a 1280 × 720 window: drawn smaller still, the overlay whole in its room with its eye (where even
+    // 1× doesn't fit, its content scrolls as the phone's does)
+    @Config(qualifiers = "w1280dp-h720dp-land-mdpi")
+    @Test fun theKeepBottomOverlayFitsASmallWindow() {
+        val (panel, _, eye) = keepBottomOverlay()
+        assertTrue(panel.top >= DesktopTable.topRow(1280f) && panel.bottom <= 720f && eye.bottom <= panel.bottom + 1f,
+            "the overlay and its eye in the window: $panel, $eye")
+        captureShot("$SCREENSHOTS/desktop/keep-bottom-overlay-1280.png",
+            "The same Keep / Bottom overlay in a 1280 × 720 window: drawn smaller to fit the room over the battlefields, whole with its Bottom area and its eye.")
+    }
+
+    // WEB-019: a cast panel with modes in a 1280 × 720 window: the centred overlay fits the room over the battlefields
+    @Config(qualifiers = "w1280dp-h720dp-land-mdpi")
+    @Test fun aCastPanelFitsASmallWindow() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.CHARM, "Mountain"))))
+        kit.opening()
+        assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.CHARM).first())), "the cast begins: ${kit.toolkit.error}")
+        render(kit)
+        compose.waitForIdle()
+        val panel = compose.onNodeWithContentDescription("Cast panel").fetchSemanticsNode().boundsInRoot
+        assertTrue(panel.top >= DesktopTable.topRow(1280f) && panel.bottom <= 720f, "the cast panel in the window: $panel")
+        compose.onNodeWithText("You gain 2 life.").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/desktop/prompt-overlay-1280.png",
+            "Alice began casting Cinder Charm on the desktop table in a 1280 × 720 window: its modes are the centred overlay, drawn as large as fits the room over the battlefields.")
     }
 
     // WEB-020, WEB-021, WEB-017 (D5), LOB-138: the real table screen in the desktop layout, on a game opened from the server:

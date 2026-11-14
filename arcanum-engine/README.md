@@ -548,7 +548,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts
   transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: `GameStatus.DayNight`, untap check CR 731.2, daybound and nightbound
   transforming and entering transformed), speed (`turn/Speed`: `PlayerStatus.Speed`, start your engines! as a state-based action, the
-  inherent once-each-turn trigger as a sourceless repeating delayed trigger, max speed), compleated (Phyrexian symbols paid with
+  inherent trigger (702.179d) as a sourceless waiting trigger of origin `AbilityOrigin.Rule("speed")`, only in its controller's turn,
+  only below max speed (an intervening if, CR 603.4) and only once each turn, max speed), compleated (Phyrexian symbols paid with
   life, `CastFacts.phyrexianPaidWithLife`), read ahead (the lore counters chosen as it enters; only that chapter triggers that
   turn), doubling mana, time travel, and controlling another player (above).
 - Done, by-hand mechanics, second round (2026-11-03, scenarios in `ring/TheRingTest`, `combat/EnlistTest`, `soulbond/SoulbondTest`,
@@ -592,7 +593,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   enter this dungeon unless you "venture into Undercity."", CR 701.49d) is never chosen by a plain venture; its
   `ObjectStatus.VentureRoom` says which room a dungeon's marker is on (a host's display). Every room effect of the dungeons in the card data is carried out
   (scenarios on invented rooms with the printed templates in `dungeon/DungeonRoomsTest`; `SUPPORT_VERSION` 9). The initiative's three inherent triggers (CR 726.2: upkeep, combat
-  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers; when
+  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers of origin `AbilityOrigin.Rule("initiative")`; when
   its holder leaves the game the active player (or, the active player leaving, the next player in turn order) takes it (726.4).
   Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an
   attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature

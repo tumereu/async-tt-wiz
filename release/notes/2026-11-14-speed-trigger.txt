@@ -1,0 +1,1 @@
+fix: Speed no longer tries to go up when it is already at its maximum, and its Stack entry is called "Speed" with the rule's text instead of "Ability's ability".

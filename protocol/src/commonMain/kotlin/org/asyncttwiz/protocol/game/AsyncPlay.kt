@@ -121,12 +121,12 @@ object Rewind {
                     continue
                 }
                 // Owner problem report VXSGKH: their passes (tapped, by their device, assumed and confirmed) never count
-                othersInput(model.engine, engine)?.let { return request("otherPlayersInput", event, "their ${it::class.simpleName}") }
+                othersInput(model.engine, engine)?.let { return request("otherPlayersInput", event, "their ${it.toString().substringBefore('(')}") }
                 passes++
             } else {
                 // Your assumption of another player's real input (a block, a keep) is theirs once they have seen it
                 val assumed = engine?.steps?.firstNotNullOfOrNull { s -> s.input?.takeIf { s.assumedBy != null && it !is Input.PassPriority } }
-                if (assumed != null && i <= seen) return request("confirmed", event, "your assumed ${assumed::class.simpleName} for them, seen")
+                if (assumed != null && i <= seen) return request("confirmed", event, "your assumed ${assumed.toString().substringBefore('(')} for them, seen")
                 own++
                 if (event.assumed?.input is Input.PassPriority) assumedPasses++
             }
@@ -181,18 +181,36 @@ object Rewind {
      * What a rewind by [player] to [target] adds (owner's rule 2026-11-04: an undo only pops events, it adds none of its
      * own): the other players' table-only events among [after] that may stand ([standing]), made again on [model] (the
      * state at [target], moved along) while they still apply, each handed to [added] as it is made. The first of them
-     * starts the new [line] (its reshuffle, §9); with none, the next event made at [target] starts it ([lineDue]).
+     * starts the new [line] (its reshuffle, §9); with none, the next event made at [target] starts it ([lineDue]). Combat
+     * staging (an attack or block draft, CMB-043) stands only while [model] still awaits the declaration it stages (owner notes
+     * 2026-11-14 evening: a rewind back out of the declare attackers step left the attacker's staging on the table for when the
+     * game came back there); what doesn't stand is handed to [dropped] with why, for the logs.
      */
     fun again(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, line: Int, ids: () -> String,
-        added: (GameEvent) -> Unit): List<GameEvent> {
+        dropped: (GameEvent, String) -> Unit = { _, _ -> }, added: (GameEvent) -> Unit): List<GameEvent> {
         val events = mutableListOf<GameEvent>()
         for (kept in standing(after, player)) {
+            val (table, out) = kept.table.partition { awaited(model, it) }
+            if (out.isNotEmpty()) dropped(kept, "its combat staging (${out.joinToString { if (it is TableChange.AttackDraft) "attackers" else "blockers" }}) stages a " +
+                "declaration the game no longer awaits at turn ${model.engine.turn.number} ${model.engine.turn.step}")
+            if (table.isEmpty()) continue
             val builder = EventBuilder(model, ids(), events.lastOrNull()?.id ?: target, kept.author)
             if (events.isEmpty()) builder.startLine(line)
-            try { kept.table.forEach(builder::table) } catch (_: IllegalStateException) { builder.abandon(); continue }
+            try { table.forEach(builder::table) } catch (_: IllegalStateException) { builder.abandon(); dropped(kept, "it no longer applies"); continue }
             events += builder.build().also(added)
         }
         return events
+    }
+
+    /** Whether table change [change] may stand on [model]: an attack or block draft (other than one ending the staging) only
+     * while some player may declare attackers (blockers) there; anything else always. */
+    private fun awaited(model: GameModel, change: TableChange): Boolean {
+        val attacks = change is TableChange.AttackDraft && change.after != null
+        val blocks = change is TableChange.BlockDraft && change.after != null
+        if (!attacks && !blocks) return true
+        val s = model.engine
+        val options = runCatching { s.players.flatMap { Engine.options(s, it.id, EnginePreferences.of(s)) } }.getOrDefault(emptyList())
+        return if (attacks) options.any { it is Input.DeclareAttackers } else options.any { it is Input.DeclareBlockers }
     }
 
     /** The line the next event made on [model] (the main line's head) starts, or null: after a rewind that added no

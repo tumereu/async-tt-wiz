@@ -24,24 +24,24 @@ class PodPresetsTest {
             presets.map(::podPresetSummary))
         assertEquals("Booster · DMU · 1 pack", podPresetSummary(preset("x", DraftSettings(packsPerPlayer = 1, packsOpenAtOnce = 1), setCode = "DMU")))
         assertEquals("Booster · Old cube · 3×15", podPresetSummary(preset("old", DraftSettings(mode = DraftMode.GLIMPSE), cubeName = "Old cube")))
-        assertEquals(listOf("Glimpse · Built-in · 9×15"), PodBuiltInPresets.map(::podPresetSummary))
+        // DRF-031: Glimpse is an ordinary preset without a source
+        assertEquals("Booster · No source · 9×15", podPresetSummary(preset("Glimpse", DraftSettings.glimpse())))
         // Each engine's size in its own terms.
         assertEquals("Rotisserie · Cube · 45 cards each", podPresetSummary(DraftSettings.rotisserie(), "Cube", set = false))
+        // DRF-032, DRF-182: a pool larger than the picks
+        assertEquals("Rotisserie · Cube · 45 of 60 cards each",
+            podPresetSummary(DraftSettings.rotisserie().copy(poolPerPlayer = 60), "Cube", set = false))
         assertEquals("Sealed · Cube · 45 cards each", podPresetSummary(DraftSettings.sealed(), "Cube", set = false))
         assertEquals("Sealed · DMU · 6 boosters", podPresetSummary(DraftSettings.sealed(), "DMU", set = true))
         assertEquals("Winston · Cube · 3×15", podPresetSummary(DraftSettings.winston(), "Cube", set = false))
         assertEquals("Rochester · DMU · 3 packs", podPresetSummary(DraftSettings.rochester(), "DMU", set = true))
     }
 
-    // DRF-031, DRF-033
-    @Test fun builtInsComeFirstAndTheirNamesAreReserved() {
-        assertEquals(listOf("Glimpse") + presets.map { it.name }, PodPresetState(presets = presets).filtered.map { it.name })
-        assertEquals(listOf("Glimpse", "Glimpse night"), PodPresetState(presets = presets, query = "glimpse").filtered.map { it.name })
-        assertTrue(PodBuiltInPresets.all { it.builtIn })
-        assertFalse(presets.any { it.builtIn })
-        assertTrue(podBuiltInName("glimpse") && podBuiltInName("GLIMPSE"))
-        // Booster is a mode, not a preset (DRF-020): the name is free.
-        assertFalse(podBuiltInName("Booster") || podBuiltInName("Glimpse night"))
+    // DRF-031 (owner, 2026-11-14): the list is the account's own presets, Glimpse among them (from the server); no built-ins
+    @Test fun theListIsTheAccountsOwnPresets() {
+        assertEquals(presets.map { it.name }, PodPresetState(presets = presets).filtered.map { it.name })
+        assertEquals(listOf("Glimpse night"), PodPresetState(presets = presets, query = "glimpse").filtered.map { it.name })
+        assertEquals(emptyList(), PodPresetState().filtered)
     }
 
     // DRF-031

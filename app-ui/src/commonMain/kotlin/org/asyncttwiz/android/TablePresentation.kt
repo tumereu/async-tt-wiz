@@ -320,7 +320,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
 
 val TableItem.stackBadge get() = countBadge ?: TableBounds(bounds.x, bounds.y, 20f, 20f)
 /** The smaller special-pile bubble straddles the card's top-left corner in either layout. */
-val TableItem.pileCountBubble get() = TableBounds(bounds.x - 8f, bounds.y - 8f, 16f, 16f)
+val TableItem.pileCountBubble get() = pileCountBubble(1f)
+/** [pileCountBubble] [scale] times as large (a desktop seat header's, [DesktopTable.PILE_BADGE]). */
+fun TableItem.pileCountBubble(scale: Float) = TableBounds(bounds.x - 8f * scale, bounds.y - 8f * scale, 16f * scale, 16f * scale)
 val TableScene.columnPitch get() = TablePresentation.COLUMN_PITCH * cardWidth / 28f
 val TableItem.visibleAnchor get() = if (visible.any { it.contains(bounds.center) }) bounds.center
     else visible.maxByOrNull { it.width * it.height }?.center
@@ -466,7 +468,7 @@ object TablePresentation {
             return f.tableArtwork(faces.indexOf(f))?.forTable()
         }
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
-        val battlefieldScale = cardScale(appearance.cardSize)
+        val battlefieldScale = appearance.battlefield
         val columnPitch = COLUMN_PITCH * battlefieldScale
         val handWidth = hudWidth * appearance.size(CardArea.HAND)
         val handHeight = hudHeight * appearance.size(CardArea.HAND)
@@ -475,8 +477,9 @@ object TablePresentation {
         val tableRight = if (desktop == null) width else (width - desktop.dockWidth).coerceAtLeast(1f)
         val handRight = if (desktop == null) width else (width - DesktopTable.ACTIONS).coerceAtLeast(1f)
         val desktopBand = desktop?.let { DesktopTable.band(handHeight, timeline) } ?: 0f
-        // TBL-009: in landscape the piles fit their bar row
-        val pileScale = appearance.size(CardArea.PILES).let { if (landscape) minOf(it, Landscape.PILE_HEIGHT / hudHeight) else it }
+        // TBL-009: in landscape the piles fit their bar row; WEB-016, WEB-022: on the desktop table their seat header
+        val pileScale = appearance.size(CardArea.PILES).let { if (landscape) minOf(it,
+            (if (desktop != null) DesktopTable.PILE_HEIGHT else Landscape.PILE_HEIGHT) / hudHeight) else it }
         val pileWidth = hudWidth * pileScale
         val pileHeight = hudHeight * pileScale
         // CMB-001, CMB-007 (owner playtest 2026-11-06): the combat band between the battlefields is always there, collapsed
@@ -665,15 +668,14 @@ object TablePresentation {
                 // its card isn't drawn in the hand while its entry is on the Stack (the card stays there, STK-001)
                 hand.copy(cards = hand.cards.filter { it !in castFromHand })
             }
-            // ZON-001 (owner, 2026-11-11): in portrait the other player's hand is a fan in their row, placed with it below
-            val fan = !ownSide && !landscape
-            // WEB-016: on the desktop table the other player's hand is a row of small cards in their seat header, after their
-            // piles and chips; yours is centred in the bottom band, left of the action area (WEB-018), larger
-            val sideHandWidth = if (desktop != null && !ownSide) pileWidth else handWidth
-            val sideHandHeight = if (desktop != null && !ownSide) pileHeight else handHeight
+            // ZON-001 (owner, 2026-11-11): in portrait the other player's hand is a fan in their row, placed with it below;
+            // WEB-016 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?") on the desktop table
+            // the same fan in their seat header, after their piles
+            val fan = !ownSide && (!landscape || desktop != null)
+            val desktopFan = fan && desktop != null
+            // WEB-016: on the desktop table your hand is centred in the bottom band, left of the action area (WEB-018), larger
             val normalHandBounds = if (desktop != null) {
-                if (!ownSide) DesktopTable.rowRight(tableRight, own = false, places, emblems, stateRow).let { left ->
-                    TableBounds(left + 6f, dockRowY[0] + 2f, (tableRight - 8f - left - 6f).coerceAtLeast(sideHandWidth), DesktopTable.SEAT - 4f) }
+                if (!ownSide) TableBounds(0f, 0f, 0f, 0f) // the fan's own place is worked out with the seat header's below
                 else TableBounds(8f, height - desktopBand + DesktopTable.handRoom(handHeight), (handRight - 16f).coerceAtLeast(handWidth),
                     handHeight + 8f)
             } else if (!ownSide) {
@@ -694,19 +696,19 @@ object TablePresentation {
                 else handRow.filter { it.cardId in byId && it.cardId !in hand.cards && it.cardId !in castFromHand }
             val handCount = hand.cards.size + extras.size
             val dividerGap = if (extras.isNotEmpty() && hand.cards.isNotEmpty()) HAND_ROW_DIVIDER - 4f else 0f
-            val handContent = if (handCount == 0) 0f else (handCount - 1) * (sideHandWidth + 4f) + sideHandWidth + dividerGap
+            val handContent = if (handCount == 0) 0f else (handCount - 1) * (handWidth + 4f) + handWidth + dividerGap
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             // ZON-081: a hand pulled past its end (Automatum on) is drawn that far off, springing back on release
             val pulled = ui.overscroll[hp.id] ?: 0f
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll - pulled
             items += TableItem(hand.id, handBounds, handLabel, hand.cards.size.toString(),
                 player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id,
-                handDivider = if (dividerGap > 0f) start + hand.cards.size * (sideHandWidth + 4f) - 4f + HAND_ROW_DIVIDER / 2 else null)
+                handDivider = if (dividerGap > 0f) start + hand.cards.size * (handWidth + 4f) - 4f + HAND_ROW_DIVIDER / 2 else null)
             hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
                 // ZON-079: the raised card sits a quarter of its height higher
                 val raised = ownSide && !reviewing && id == ui.raised
-                val b = TableBounds(start + n * (sideHandWidth + 4f), handBounds.y + (handBounds.height - sideHandHeight) / 2 -
-                    if (raised) sideHandHeight * RAISE else 0f, sideHandWidth, sideHandHeight)
+                val b = TableBounds(start + n * (handWidth + 4f), handBounds.y + (handBounds.height - handHeight) / 2 -
+                    if (raised) handHeight * RAISE else 0f, handWidth, handHeight)
                 card(c, b, b, player.accountId, PlayZone.HAND, hp.id)
                 if (raised) items[items.lastIndex] = items.last().copy(raised = true)
             } }
@@ -753,7 +755,8 @@ object TablePresentation {
             // WEB-016: on the desktop table after the seat header's avatar and name
             val dockX = if (desktop != null) DesktopTable.NAME else if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
             // TRN-053, TRN-072: chips always have their room in the row: where the piles don't leave it they scroll under it
-            val dockWidth = if (desktop != null) DesktopTable.rowRight(tableRight, ownSide, places, emblems, stateRow) - dockX
+            val dockWidth = if (desktop != null) DesktopTable.rowRight(tableRight, ownSide, places, emblems, stateRow,
+                    fan = if (desktopFan) fanWidth else 0f) - dockX
                 else if (landscape) Landscape.rowRight(width, ownSide, places, emblems, stateRow) - dockX
                 else (if (portraitCounters >= gridWidth) width - gridWidth
                 else if (shrink) portraitDock
@@ -761,34 +764,42 @@ object TablePresentation {
                     if (emblems) minOf(full, width - EmblemChips.MIN_AREA_WIDTH - 16f).coerceAtLeast(0f) else full }
             // ZON-001: the fan keeps its place at the row's end; the piles scroll left of it when there isn't room for both
             val rowRight = dockX + dockWidth
-            val dock = TableBounds(dockX, rowY, (dockWidth - fanRoom).coerceAtLeast(0f), rowHeight)
-            val dp = port("dock/${player.accountId}", dock, if (landscape) dockWidth else pilesDock +
+            // WEB-016: a desktop seat header's life square and piles are larger than the landscape bar row's
+            fun barPilesRight(x: Float, places: Int) = if (desktop != null) DesktopTable.pilesRight(x, places) else Landscape.pilesRight(x, places)
+            // WEB-016: in a desktop seat header the life square and piles, then the other player's fan, then their chips
+            val dock = if (desktopFan) TableBounds(dockX, rowY, barPilesRight(dockX, places) - dockX, rowHeight)
+                else TableBounds(dockX, rowY, (dockWidth - fanRoom).coerceAtLeast(0f), rowHeight)
+            val dp = port("dock/${player.accountId}", dock, if (landscape) dock.width else pilesDock +
                 (places - 3) * spacing, bar = landscape)
+            val pilePitch = if (desktop != null) DesktopTable.PILE_PITCH else Landscape.PILE_PITCH
+            val lifeSide = if (desktop != null) DesktopTable.LIFE else Landscape.LIFE
             // Each pile's left edge: in landscape centred in its own touch target after the life square
-            fun pileX(n: Int) = if (landscape) Landscape.pilesRight(dockX, n) + (Landscape.PILE_PITCH - pileWidth) / 2
+            fun pileX(n: Int) = if (landscape) barPilesRight(dockX, n) + (pilePitch - pileWidth) / 2
                 else PILE_START + n * spacing - dp.scroll
             val pileY = if (landscape) rowY + (rowHeight - pileHeight) / 2 else rowY + if (ownSide) OWN_PILE_TOP else 12f
             // TRN-053: in portrait the emblem chips sit in the empty room right of the piles (and the other player's hand's
             // fan, ZON-001), clear of the hands; in landscape right after the piles in the bar row
             val pilesRight = PILE_START + (places - 1) * spacing + pileWidth - dp.scroll
-            val fanX = minOf(PILE_START + (places - 1) * spacing + pileWidth, dock.right) + FAN_GAP
-            val chipsArea = if (landscape) (Landscape.pilesRight(dockX, places) + 4f).let { x ->
-                    val room = (dock.right - x).coerceAtLeast(0f)
+            val fanX = if (desktopFan) dock.right + FAN_GAP else minOf(PILE_START + (places - 1) * spacing + pileWidth, dock.right) + FAN_GAP
+            val chipsArea = if (landscape) (if (desktopFan) fanX + fanWidth + 4f else barPilesRight(dockX, places) + 4f).let { x ->
+                    val room = (rowRight - x).coerceAtLeast(0f)
                     TableBounds(x, rowY + 4f, room, rowHeight - 8f) }
                 else (if (fan) fanX + fanWidth + 8f else minOf(pilesRight, dock.right) + 8f).let { x ->
                     // Your trimmed row gives its chips its whole height
                     if (ownSide) TableBounds(x, rowY, width - x - 8f, rowHeight)
                     else TableBounds(x, rowY + 4f, width - x - 8f, rowHeight - 8f) }
-            val life = if (landscape) TableBounds(dockX, rowY + (rowHeight - Landscape.LIFE) / 2, Landscape.LIFE, Landscape.LIFE)
+            val life = if (landscape) TableBounds(dockX, rowY + (rowHeight - lifeSide) / 2, lifeSide, lifeSide)
                 else TableBounds(10f - dp.scroll, rowY + if (ownSide) OWN_LIFE_TOP else 8f, 48f, 48f)
             if (fan) {
                 // ZON-001 (owner, 2026-11-11): a small fan of their hand's cards (backs) after their piles, its count at its
                 // right; the cards are the hand's own items, so holding one inspects it and cards fly from it as from the row
                 val fanBounds = TableBounds(fanX, rowY + 4f, fanWidth, rowHeight - 8f)
-                // Its own part of the row (white as the row), outside the piles' scrolling
+                // Its own part of the row (white as the row), outside the piles' scrolling; WEB-016: on the desktop table
+                // between the piles and the chips, on the seat header's colour
                 val fanLeft = fanX - FAN_GAP
-                val fp = port("dock/${player.accountId}/hand", TableBounds(fanLeft, rowY, rowRight - fanLeft, rowHeight),
-                    rowRight - fanLeft)
+                val fanRight = if (desktopFan) fanX + fanWidth else rowRight
+                val fp = port("dock/${player.accountId}/hand", TableBounds(fanLeft, rowY, fanRight - fanLeft, rowHeight),
+                    fanRight - fanLeft, bar = desktopFan)
                 items += TableItem(hand.id, fanBounds, handLabel, hand.cards.size.toString(),
                     player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, fp.id, handFan = true)
                 val faces = handFan(hand.cards.size, TablePoint(fanX + (fanWidth - FAN_COUNT) / 2, pileY + pileHeight / 2),

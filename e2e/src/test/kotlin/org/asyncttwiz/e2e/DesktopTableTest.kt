@@ -3,11 +3,14 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import arcanum.api.TurnStep
 import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.android.DESKTOP_UNDO_TAG
 import org.asyncttwiz.android.DOCK_STACK_TAG
 import org.asyncttwiz.android.HOTKEY_SHEET_TAG
 import org.asyncttwiz.android.HotkeyAction
@@ -52,7 +55,7 @@ class DesktopTableTest : E2e() {
 
     private fun sheetShown() = alice.shows(hasTestTag(HOTKEY_SHEET_TAG))
 
-    // WEB-034, WEB-023, WEB-024, WEB-031: "?" lists the keys and closes again; Alice keeps by a click, plays a Mountain and
+    // WEB-034, WEB-023, WEB-024, WEB-031, WEB-018: "?" lists the keys and closes again; Alice keeps by a click, plays a Mountain and
     // casts an Ember Cub by clicks, holds Alt over the Cub to inspect it, Space goes on from her Main 1 and Shift+Space ends
     // her turn
     @Test fun aTurnWithTheMouseAndTheKeys() {
@@ -63,6 +66,17 @@ class DesktopTableTest : E2e() {
         alice.pressKey("?", shift = true)
         waitUntil("the list closed") { !sheetShown() }
         keep()
+        // WEB-018 (owner, desktop playtest 2026-11-14): under the quick actions Undo is a third of the row, the main button the
+        // other two thirds, lined up with no room between them
+        waitUntil("Alice's main button") { alice.settled(this) && alice.shows(hasTestTag("main-button")) }
+        val undo = alice.tagged(DESKTOP_UNDO_TAG).fetchSemanticsNode().boundsInRoot
+        val main = alice.tagged("main-button").fetchSemanticsNode().boundsInRoot
+        val row = main.right - undo.left
+        // a third of the row and two thirds, with the quick actions' gap between them
+        val gap = org.asyncttwiz.android.DesktopTable.ACTION_GAP * org.asyncttwiz.android.DesktopTable.UI_SCALE
+        assertEquals((row - 2 * gap) / 3, undo.width, 1.5f, "Undo a third of the row: $undo, $main")
+        assertEquals(row - (row - 2 * gap) / 3 - gap, main.width, 1.5f, "the main button two thirds: $undo, $main")
+        assertTrue(main.left - undo.right in 0f..4f && kotlin.math.abs(main.top - undo.top) <= 1f, "lined up, no room between: $undo, $main")
         clickFromHand("Mountain")
         waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) {
             alice.field("Mountain").isNotEmpty() && alice.showsOnBattlefield("Mountain") && alice.inOwnMain()
@@ -123,6 +137,55 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
+    // ZON-001, WEB-016 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): on Alice's desktop
+    // table Bob's hand is the phone's small fan of card backs in his seat header, after his piles and level with his life
+    // square, its cards overlapping (a row of small cards side by side before)
+    @Test fun theOtherPlayersHandIsAFanInTheirSeatHeader() {
+        start()
+        val life = alice.described("${bob.name}, life 20", substring = true).fetchSemanticsNode().boundsInRoot
+        val exile = alice.described("${bob.name} exile,", substring = true).fetchSemanticsNode().boundsInRoot
+        val cards = alice.nodes(hasContentDescription("Covered card, owner ${bob.name}, ", substring = true)).fetchSemanticsNodes()
+            .map { it.boundsInRoot }.sortedBy { it.left }
+        assertEquals(bob.state.player(bob.me).hand.size, cards.size, "his whole hand as card backs: ${alice.screen()}")
+        assertTrue(cards.all { it.left > exile.right && it.center.y > life.top && it.center.y < life.bottom },
+            "in his seat header after his piles: $cards, exile $exile, life $life")
+        assertTrue(cards.zipWithNext().all { (a, b) -> b.left < a.right }, "fanned, each card over the one before: $cards")
+        assertEquals(emptyList(), alice.leaks.leaks)
+    }
+
+    // WEB-017, LOB-066, WEB-031 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):
+    // Alice folds the dock away; Bob's message lights the top row's chat button, whose click unfolds the dock to its chat,
+    // ready to type, with no chat panel over the table (before: the side panel), and the message read there clears the dot.
+    // Folded away again, C does the same
+    @Test fun theChatButtonOpensTheDocksChat() {
+        start()
+        val draft = hasContentDescription("Chat message draft")
+        alice.tagged("dock-button").performMouseInput { click() }
+        waitUntil("Alice's dock folded away") { !alice.shows(hasTestTag("desktop-dock")) }
+        bob.described("Chat, ", substring = true).performClick()
+        waitUntil("Bob's chat open") { bob.shows(draft) }
+        bob.described("Chat message draft").performTextInput("Ready?")
+        waitUntil("Bob's draft") { bob.lobby.state.chat.draft?.text == "Ready?" }
+        bob.described("Send").performClick()
+        waitUntil("Bob's message accepted") { bob.lobby.state.chat.messages.size == 1 }
+        bob.described("Close chat").performClick()
+        waitUntil("Alice's chat button lit", along = listOf(bob)) { alice.shows(hasContentDescription("Chat, 1 unread messages")) }
+        alice.described("Chat, 1 unread messages").performMouseInput { click() }
+        waitUntil("the dock's chat unfolded, ready to type: ${alice.screen()}") {
+            alice.shows(hasTestTag("desktop-dock")) && alice.shows(draft and isFocused())
+        }
+        assertTrue(!alice.shows(hasContentDescription("Close chat")), "no chat panel over the table: ${alice.screen()}")
+        assertTrue(alice.showsText("Ready?"), "Bob's message in the dock")
+        waitUntil("Bob's message read") { alice.lobby.state.chat.unread == 0 }
+        // Folded away again, the chat key unfolds it ready to type too
+        alice.tagged("dock-button").performMouseInput { click() }
+        waitUntil("Alice's dock folded away") { !alice.shows(hasTestTag("desktop-dock")) }
+        alice.pressKey("c")
+        waitUntil("the dock's chat unfolded by C, ready to type") { alice.shows(hasTestTag("desktop-dock")) && alice.shows(draft and isFocused()) }
+        assertTrue(!alice.shows(hasContentDescription("Close chat")), "no chat panel over the table: ${alice.screen()}")
+        assertEquals(emptyList(), alice.leaks.leaks)
+    }
+
     /** How cyan the glow is at [x], [y] of [picture]: how far its red falls below its green and blue (0 on white or grey). */
     private fun cyanAt(picture: android.graphics.Bitmap, x: Float, y: Float): Int {
         val pixel = picture.getPixel(x.toInt(), y.toInt())
@@ -145,7 +208,7 @@ class DesktopTableTest : E2e() {
         repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
         val mountain = alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow
         val cub = alice.handCard("Ember Cub").fetchSemanticsNode().boundsInWindow
-        assertEquals(56f, mountain.width, 1f, "the desktop's hand card at 2×: $mountain")
+        assertEquals(28f * 2.6f, mountain.width, 1f, "the desktop's hand card at 2.6×: $mountain")
         val picture = alice.picture()
         // The band's own colour at the same height, away from the cards
         val band = cyanAt(picture, 20f, mountain.top - mountain.width * .1f)

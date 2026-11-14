@@ -1,0 +1,72 @@
+package org.asyncttwiz.e2e
+
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import org.asyncttwiz.android.PodTab
+import org.asyncttwiz.android.ShellDestination
+import org.asyncttwiz.protocol.GameLifecycle
+import org.asyncttwiz.protocol.InvitationState
+import org.junit.Test
+import java.util.UUID
+import kotlin.test.assertEquals
+
+/**
+ * Owner, 2026-11-14 (DRF-181): the pod Games tab's Challenge button, while the member has an open challenge to you, accepts
+ * that challenge instead of making a new game; "New challenge" in its choices still challenges them again.
+ */
+class PodChallengeAcceptTest : E2e() {
+    // DRF-181, DRF-121, DRF-123: Alice challenges Bob; Bob's Challenge beside her accepts it and opens its lobby, no second
+    // game made; back in the pod, New challenge sends her a new challenge
+    @Test fun challengeAcceptsTheirOpenChallengeAndNewChallengeQueuesAnother() {
+        launchPlayers()
+        val name = "E2E challenge back ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftedPod(alice.account, bob.account, name)
+        ServerSetup.submitPodDeck(alice.account, pod)
+        ServerSetup.submitPodDeck(bob.account, pod)
+        val game = ServerSetup.challenge(alice.account, bob.account, pod, "E2E Alice's challenge")
+
+        bob.auth.navigate(ShellDestination.PODS)
+        bob.pods.open(pod, PodTab.GAMES)
+        bob.lobby.refresh()
+        val accept = hasTestTag("pod-challenge-accept-${alice.id}")
+        waitUntil("Bob's Challenge beside Alice accepting her challenge") {
+            bob.pods.state.tab == PodTab.GAMES && bob.shows(accept and isEnabled()) && bob.shows(hasTestTag("pod-game-${game.id}"))
+        }
+        bob.node(accept).performScrollTo().performClick()
+        waitUntil("Alice's challenge accepted and its lobby open on Bob's phone") {
+            bob.lobby.state.selected == game.id &&
+                ServerSetup.head(bob.account, game.id).summary.invitationState == InvitationState.ACCEPTED
+        }
+        val podGames = { E2eStack.query("SELECT count(*) FROM game WHERE pod_id = '$pod'").single().toInt() }
+        assertEquals(1, podGames(), "accepting made no new game")
+        assertEquals(GameLifecycle.LOBBY, ServerSetup.head(bob.account, game.id).summary.lifecycle)
+
+        // Back to the pod: no open challenge from Alice any more, so the plain Challenge returns; Alice challenges again and
+        // Bob chooses New challenge instead of accepting
+        bob.lobby.back()
+        waitUntil("Bob's lobby closed") { bob.lobby.state.selected == null }
+        bob.auth.navigate(ShellDestination.PODS)
+        bob.pods.open(pod, PodTab.GAMES)
+        waitUntil("the plain Challenge beside Alice") {
+            bob.shows(hasContentDescription("Challenge") and isEnabled()) && !bob.shows(hasTestTag("pod-challenge-choices-${alice.id}"))
+        }
+        val second = ServerSetup.challenge(alice.account, bob.account, pod, "E2E Alice's second challenge")
+        bob.lobby.refresh()
+        val choices = hasTestTag("pod-challenge-choices-${alice.id}")
+        waitUntil("Bob's challenge choices beside Alice") { bob.shows(choices) && bob.shows(accept and isEnabled()) }
+        bob.node(choices).performScrollTo().performClick()
+        waitUntil("New challenge offered") { bob.shows(hasText("New challenge")) }
+        bob.text("New challenge").performClick()
+        waitUntil("Bob's new challenge to Alice made and opened") {
+            val selected = bob.lobby.state.selected
+            selected != null && selected != game.id && bob.lobby.state.detail?.let { it.inviter.accountId == bob.id } == true
+        }
+        assertEquals(3, podGames(), "New challenge made a third game, the second challenge still open")
+        assertEquals(InvitationState.PENDING, ServerSetup.head(bob.account, second.id).summary.invitationState,
+            "Alice's second challenge still waits")
+    }
+}

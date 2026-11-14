@@ -221,6 +221,7 @@ object EngineProjection {
                     faceDown = (id as? ObjectId.Card)?.let { state.objects[it] }?.faceDown == true, item = mtg)
             } else {
                 val name = item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name
+                    ?: StackAbilityText.ruleName(item)
                     ?: (item.kind as? StackItemKind.SpellCopy)?.let { state.stackItems[it.copied]?.let { c -> (c.id as? ObjectId.Card)?.let { cid -> state.objects[cid]?.definition?.faces?.firstOrNull()?.name } } }
                 val definition = AtwTokens.ability(name, item.ability).also { definitions[it.digest] = it }
                 val shown = PlayCard("ability:$id", definition.digest, item.controller.value, stackContainer.id,

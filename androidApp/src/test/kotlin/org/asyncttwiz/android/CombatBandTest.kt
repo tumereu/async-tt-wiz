@@ -307,13 +307,15 @@ class CombatBandTest {
         show(k.f.a, assertNotNull(aliceDealt ?: step(k.f.a) { it.damageDealt }, "the damage's hold board on Alice's phone"))
         compose.onAllNodes(hasContentDescription("combat damage to", substring = true), useUnmergedTree = true).assertCountEquals(0)
         compose.onAllNodes(hasContentDescription("on the band", substring = true), useUnmergedTree = true).assertCountEquals(0)
+        // CMB-050, HIS-113 (owner notes 2026-11-14 evening): the two Cubs that fought each carry a skull with the 2 they took
+        compose.onAllNodes(hasContentDescription("Took 2 combat damage and dies"), useUnmergedTree = true).assertCountEquals(2)
         captureShot("$SCREENSHOTS/combat-sequence/4-damage-alice.png",
-            "Alice's phone, 4 of 5, a forced hold (show plays and combat): the combat damage is dealt; Bob's chip carries a red splash with his total 4 (nothing per lane), and the two Cubs that fought still lie in the band until the hold ends.")
+            "Alice's phone, 4 of 5, a forced hold (show plays and combat): the combat damage is dealt; Bob's chip carries a red splash with his total 4 (nothing per lane), and the two Cubs that fought still lie in the band, each with a skull holding the 2 it took, until the hold ends.")
         k.scenario.confirmStops[k.f.b] = true
         k.playOn("the damage dealt on Bob's phone", bobActs = false) { k.scenario.shown[k.f.b].orEmpty().any { t -> t.steps.any { it.damageDealt } } }
         show(k.f.b, step(k.f.b) { it.damageDealt })
         captureShot("$SCREENSHOTS/combat-sequence/4-damage-bob.png",
-            "Bob's phone, 4 of 5, a forced hold (show plays and combat): the same damage from his side, mirrored: his chip by his battlefield carries the red splash with his total 4.")
+            "Bob's phone, 4 of 5, a forced hold (show plays and combat): the same damage from his side, mirrored: his chip by his battlefield carries the red splash with his total 4, and the two Cubs that fought each a skull with the 2 it took.")
         k.playOn("Alice's second main phase") {
             // The combat holds end by their time (HIS-113), as the table ends them
             for (game in listOf(k.alice, k.bob)) game.shown?.combatHold?.let { game.dismissCombatHold(it) }

@@ -68,16 +68,27 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     /** Whether the semantics mirror has something [selector] finds now. */
     fun shows(selector: String): Boolean = page.locator(selector).count() > 0
 
+    /** Where the semantics mirror places what [selector] finds first (CSS px of the page), waiting up to 5 s for an element
+     * just attached to be given its place. */
+    fun box(selector: String): com.microsoft.playwright.options.BoundingBox {
+        val deadline = System.nanoTime() + 5_000_000_000L
+        while (true) {
+            page.locator(selector).first().takeIf { page.locator(selector).count() > 0 }?.boundingBox()?.let { return it }
+            check(System.nanoTime() < deadline) { "$selector has no place on the page" }
+            Thread.sleep(100)
+        }
+    }
+
     /** A tap in the middle of the control [selector] finds, on the page's canvas (the mirror only says where it is). */
     fun tap(selector: String) {
-        val box = checkNotNull(page.locator(selector).first().boundingBox()) { "$selector has no place on the page" }
+        val box = box(selector)
         page.mouse().click(box.x + box.width / 2, box.y + box.height / 2)
     }
 
     /** The mouse moved to the middle of what [selector] finds (no button pressed), then the cursor the page shows there
      * ([cursorAt]). */
     fun cursorOver(selector: String): String {
-        val box = checkNotNull(page.locator(selector).first().boundingBox()) { "$selector has no place on the page" }
+        val box = box(selector)
         return cursorAt(box.x + box.width / 2, box.y + box.height / 2)
     }
 
@@ -109,12 +120,15 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     /** Lines of the page's console that tell of a fault (an uncaught error, a crash report, code missing on the web). */
     fun faults(): List<String> = console.filter { it.contains("pageerror") || it.contains("ATW/crash") || it.contains("NotImplementedError") }
 
+    /** The page's semantics mirror as lines: each element's tag, id, role, label, text and place. */
+    fun semantics(): String = page.evaluate(SEMANTICS).toString()
+
     /** A failure's evidence in e2e/build/e2e/failures/[name]: the page's picture, its console and its semantics. */
     fun evidence(name: String) {
         val dir = File(E2eStack.output, "failures/$name").apply { mkdirs() }
         runCatching { page.screenshot(Page.ScreenshotOptions().setPath(Paths.get(dir.path, "page.png"))) }
         File(dir, "console.log").writeText(console.joinToString("\n"))
-        runCatching { File(dir, "semantics.txt").writeText(page.evaluate(SEMANTICS).toString()) }
+        runCatching { File(dir, "semantics.txt").writeText(semantics()) }
     }
 
     override fun close() {

@@ -67,3 +67,17 @@ actual fun offsetDateTimeMillis(text: String): Long = java.time.OffsetDateTime.p
 actual fun secondsUntilHttpDate(now: Instant, value: String?): Long =
     java.time.Duration.between(now, java.time.ZonedDateTime.parse(value,
         java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()).seconds.coerceAtLeast(0)
+
+actual fun chatTime(createdAt: String, clock: Clock): String = runCatching {
+    Instant.parse(createdAt).atZone(clock.zone).format(DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH))
+}.getOrDefault("")
+
+actual fun chatDay(createdAt: String, clock: Clock): String = runCatching {
+    val day = Instant.parse(createdAt).atZone(clock.zone).toLocalDate()
+    val today = LocalDate.now(clock)
+    when (day) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else -> day.format(DateTimeFormatter.ofPattern(if (day.year == today.year) "EEE d MMM" else "EEE d MMM uuuu", Locale.ENGLISH))
+    }
+}.getOrDefault("")

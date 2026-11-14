@@ -1,0 +1,1 @@
+mod: On a computer's large screen, your hand cards and the decks are bigger, and the top bar, the panels and the buttons at the bottom right are easier to read.

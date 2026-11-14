@@ -157,6 +157,19 @@ class CastController(
         return own?.let { minOf(it, payable) } ?: payable
     }
 
+    /** STK-024 (owner 2026-11-14): an X being set in the panel ([Decision.Announce]) shows what pays that much: the payment
+     * is worked out again with it (not answered; a later step or preview replaces it), without making the panel busy. */
+    override fun preview(decision: Decision, value: Int) {
+        val f = flow ?: return
+        if (decision !is Decision.Announce || f.pending?.id != decision.id || busy) return
+        val run = ++generation
+        AppLog.info("cast", "X set to $value in the panel: the payment worked out with it")
+        port.ask(CastRequest(session, f.version, null, CastOp.Preview(Answer.Number(value), choices())), null, { current()?.let(stacks) }) { answer ->
+            if (run != generation || flow !== f) return@ask
+            apply(answer, null, f)
+        }
+    }
+
     /** STK-052: a value of an X known not to be payable (a gap a reduction leaves) greys Cast at the X step. */
     override fun payable(decision: Decision, value: Int): Boolean = announcedMost[decision.id]?.unpayable?.contains(value) != true
 

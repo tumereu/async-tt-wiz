@@ -25,8 +25,12 @@ enum class PodSetting(val label: String) {
     OPEN_PACKS("Open packs"), GRIDS("Grids"), OPEN_GRIDS("Open grids"), SIDEBOARD("Sideboard"), LIBRARIANS("Librarians"),
     /** Rochester: packs open at once across the table; empty = one per player. */
     TABLE_OPEN("Open packs"),
-    /** Rotisserie and cube Sealed. */
+    /** Cube Sealed. */
     CARDS_EACH("Cards each"),
+    /** Rotisserie: the cards each player picks (DRF-152). */
+    PICKS_EACH("Picks each"),
+    /** Rotisserie: the cards per player laid out in the pool, at least the picks (DRF-152). */
+    POOL_EACH("Pool each"),
     /** Winston and Winchester. */
     PILES("Piles"),
     /** Sealed from a set. */
@@ -39,7 +43,8 @@ enum class PodSetting(val label: String) {
         DISCARD -> s.discardRemainingAt; OPEN_PACKS -> s.packsOpenAtOnce; GRIDS -> s.grids
         OPEN_GRIDS -> s.gridsOpenAtOnce; SIDEBOARD -> s.sideboardLimit
         LIBRARIANS -> s.librarians
-        TABLE_OPEN -> s.tablePacksOpen; CARDS_EACH -> s.cardsPerPlayer; PILES -> s.piles; BOOSTERS -> s.packsPerPlayer
+        TABLE_OPEN -> s.tablePacksOpen; CARDS_EACH, PICKS_EACH -> s.cardsPerPlayer; POOL_EACH -> s.rotisseriePool
+        PILES -> s.piles; BOOSTERS -> s.packsPerPlayer
         TABLES -> s.tables
     }
     /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player). */
@@ -57,6 +62,8 @@ enum class PodSetting(val label: String) {
         LIBRARIANS -> 0..10
         TABLE_OPEN -> 1..s.packsPerPlayer * DraftMode.ROCHESTER.players.last
         CARDS_EACH -> 5..225
+        PICKS_EACH -> 5..(s.poolPerPlayer ?: 225)
+        POOL_EACH -> maxOf(5, s.cardsPerPlayer)..225
         PILES -> if (s.mode == DraftMode.WINCHESTER) 2..8 else 2..6
         BOOSTERS -> 1..30
         TABLES -> 1..s.mode.players.last
@@ -74,6 +81,8 @@ enum class PodSetting(val label: String) {
         LIBRARIANS -> "0–10"
         TABLE_OPEN -> "1–${range(s).last}; more than all packs opens them all"
         CARDS_EACH -> "5–225"
+        PICKS_EACH -> s.poolPerPlayer?.let { "5 up to the pool each: $it" } ?: "5–225"
+        POOL_EACH -> "Picks each: ${s.cardsPerPlayer}; maximum 225"
         PILES -> "${range(s).first}–${range(s).last}"
         BOOSTERS -> "1–30"
         TABLES -> "1–${range(s).last}; more than the players gives one table each"
@@ -93,7 +102,9 @@ enum class PodSetting(val label: String) {
         SIDEBOARD -> "The most cards a deck may have in its sideboard. ∞ = no limit."
         LIBRARIANS -> "Cogwork Librarians each player starts with. Spend one to take an extra card from a pack; the Librarian goes into that pack."
         TABLE_OPEN -> "How many packs lie open at the same time, so players don't have to wait for each other. 1 each = one pack per player."
-        CARDS_EACH -> if (s.mode == DraftMode.SEALED) "How many random cube cards each player gets." else "How many cards each player picks from the pool."
+        CARDS_EACH -> "How many random cube cards each player gets."
+        PICKS_EACH -> "How many cards each player picks from the pool."
+        POOL_EACH -> "How many cards the pool holds per player. Cards nobody picks stay in the pool."
         PILES -> if (s.mode == DraftMode.WINCHESTER) "How many face-up piles lie on the table." else "How many piles lie on the table."
         BOOSTERS -> "How many boosters each player opens."
         TABLES -> "How many separate tables the cards are split into, each with its own stack and piles, so players can pick at different tables at the same time."
@@ -112,7 +123,7 @@ enum class PodSetting(val label: String) {
             SIDEBOARD -> s.copy(sideboardLimit = value)
             LIBRARIANS -> s.copy(librarians = value)
             TABLE_OPEN -> s.copy(tablePacksOpen = value)
-            CARDS_EACH -> s.copy(cardsPerPlayer = value); PILES -> s.copy(piles = value); BOOSTERS -> s.copy(packsPerPlayer = value)
+            CARDS_EACH, PICKS_EACH -> s.copy(cardsPerPlayer = value); POOL_EACH -> s.copy(poolPerPlayer = value); PILES -> s.copy(piles = value); BOOSTERS -> s.copy(packsPerPlayer = value)
             TABLES -> s.copy(tables = value)
         }
     }
@@ -124,7 +135,7 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
     return when (settings.mode) {
         DraftMode.GRID -> listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS)
         DraftMode.ROCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.TABLE_OPEN)
-        DraftMode.ROTISSERIE -> listOf(PodSetting.CARDS_EACH)
+        DraftMode.ROTISSERIE -> listOf(PodSetting.POOL_EACH, PodSetting.PICKS_EACH)
         DraftMode.WINSTON, DraftMode.WINCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES, PodSetting.TABLES)
         DraftMode.SEALED -> listOf(if (source.kind == PodSourceKind.SET) PodSetting.BOOSTERS else PodSetting.CARDS_EACH)
         DraftMode.BOOSTER, DraftMode.GLIMPSE -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
@@ -132,7 +143,7 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
     } + PodSetting.SIDEBOARD
 }
 
-/** The modes the mode button's popup lists (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
+/** The modes the mode button's popup lists (DRF-020); Glimpse is a preset of Booster (DRF-031), not a mode. */
 val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
 fun podModeName(mode: DraftMode): String = when (mode) {

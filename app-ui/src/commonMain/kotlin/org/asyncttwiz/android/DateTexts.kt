@@ -39,3 +39,10 @@ expect fun offsetDateTimeMillis(text: String): Long
 
 /** The seconds from [now] until the HTTP date [value] (RFC 1123), at least 0; throws when unreadable. */
 expect fun secondsUntilHttpDate(now: Instant, value: String?): Long
+
+/** LOB-067 (owner, 2026-11-14): a chat message's time, "14:05", in the device's zone; "" when unreadable. */
+expect fun chatTime(createdAt: String, clock: Clock = AppClock.clock()): String
+
+/** LOB-067: the day of a chat message for the date line between days: "Today", "Yesterday", "Sat 14 Nov" this year,
+ * "Sat 14 Nov 2025" before; "" when unreadable. */
+expect fun chatDay(createdAt: String, clock: Clock = AppClock.clock()): String

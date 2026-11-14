@@ -463,7 +463,8 @@ fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEve
         if (desktop != null) {
             Box(Modifier.align(Alignment.BottomStart).width((desktop.width - DesktopTable.ACTIONS).coerceAtLeast(0f).dp)
                 .height(TableTimelineHeight.dp).padding(horizontal = 8.dp)) { strip() }
-            Box(Modifier.align(Alignment.BottomEnd).width(DesktopTable.ACTIONS.dp).height(desktop.band.dp)) { transport() }
+            Box(Modifier.align(Alignment.BottomEnd).width(DesktopTable.ACTIONS.dp).height(desktop.band.dp)) {
+                DesktopScaled(DesktopTable.UI_SCALE) { transport() } }
         }
         // TBL-009: in landscape your life square, piles and emblems keep the bar's left end (the table's own grey bar
         // lies under them); the strip and Previous / Auto / Next share the rest

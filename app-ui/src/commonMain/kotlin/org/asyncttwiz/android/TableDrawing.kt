@@ -200,7 +200,8 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
             TableItemKind.LIFE -> {
                 drawRect(color, xy(b.x, b.y), size(b.width, b.height))
                 paint.color = NativeColors.WHITE; paint.textSize = 24 * density; paint.isFakeBoldText = true
-                centeredText(i.value, b, 24f)
+                // WEB-016: a desktop seat header's larger life square has a number as much larger (the phone's square is 48)
+                centeredText(i.value, b, 24f * b.height / TablePresentation.Landscape.LIFE)
                 paint.color = NativeColors.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
                 if (presenceDot != null && i.owner != viewer) {
                     // Opponent presence: inside the top-right corner, clear of the status dot/bubble below the square.
@@ -335,7 +336,9 @@ private fun DrawScope.pileBadges(painter: TableCardPainter, scene: TableScene) =
     // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
     // An empty Temp pile shows only its order number, no "0" count.
     for (i in scene.items.filter { it.kind == TableItemKind.PILE && !(it.temp && it.cards.isEmpty()) }) {
-        val badge = if (i.zone == PlayZone.STACK) i.stackBadge else i.pileCountBubble
+        // WEB-016: a desktop seat header's larger piles have larger count bubbles
+        val badgeScale = if (scene.desktop && i.zone != PlayZone.STACK) DesktopTable.PILE_BADGE else 1f
+        val badge = if (i.zone == PlayZone.STACK) i.stackBadge else i.pileCountBubble(badgeScale)
         val port = if (i.countBadge != null) TableBounds(0f, 0f, size.width / density, size.height / density)
             else scene.viewports.firstOrNull { it.id == i.viewport }?.bounds
                 ?: run { Faults.report("TableDrawing", "pile badge without its viewport", mapOf("pile" to i.id, "viewport" to i.viewport.toString())); continue }
@@ -344,7 +347,7 @@ private fun DrawScope.pileBadges(painter: TableCardPainter, scene: TableScene) =
             drawCircle(Color.White, badge.width / 2 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))
             paint.color = NativeColors.WHITE; paint.isFakeBoldText = true
             val previousSize = paint.textSize
-            paint.textSize = (if (i.zone == PlayZone.STACK) 11f else 8.8f) * density
+            paint.textSize = (if (i.zone == PlayZone.STACK) 11f else 8.8f * badgeScale) * density
             text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y - cache.centerOffset() / density, 5)
             paint.textSize = previousSize
             paint.color = NativeColors.DKGRAY; paint.isFakeBoldText = false

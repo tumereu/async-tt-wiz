@@ -86,14 +86,14 @@ class DesktopTableScreenshotTest {
 
     /** Alice's scene of her desktop table (the surface under the top row: 1440 × 844). */
     private fun scene(kit: EngineTableKit): TableScene = kit.alice.play().let { play ->
-        TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.TOP_ROW, true, kit.toolkit.layoutState.value,
+        TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.topRow(1440f), true, kit.toolkit.layoutState.value,
             appearance = DesktopCardAppearance, landscapeHome = true, handRow = HandRow.cards(play, kit.f.a), desktop = DesktopFrame())
     }
 
     /** The mouse moved over [item] of Alice's desktop table (its surface lies under the top row). */
     private fun hover(item: TableItem) {
         compose.onAllNodes(isRoot()).onFirst().performMouseInput {
-            moveTo(androidx.compose.ui.geometry.Offset(item.bounds.center.x, item.bounds.center.y + DesktopTable.TOP_ROW))
+            moveTo(androidx.compose.ui.geometry.Offset(item.bounds.center.x, item.bounds.center.y + DesktopTable.topRow(1440f)))
         }
         compose.waitForIdle()
     }
@@ -201,19 +201,31 @@ class DesktopTableScreenshotTest {
         val kit = EngineTableKit()
         kit.opening()
         val scene = scene(kit)
-        val height = 900f - DesktopTable.TOP_ROW
+        val height = 900f - DesktopTable.topRow(1440f)
         val band = DesktopTable.band(DesktopCardAppearance, false)
         val world = assertNotNull(scene.world).viewport
         assertTrue(world.right <= 1440f - DesktopTable.DOCK, "the battlefields end at the dock: $world")
         val bobLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.b }.bounds
         val aliceLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.a }.bounds
-        assertEquals(0f, bobLife.y, "Bob's seat header at the top")
-        assertEquals(height - band - DesktopTable.SEAT, aliceLife.y, "Alice's seat header right above the bottom band")
+        val margin = (DesktopTable.SEAT - DesktopTable.LIFE) / 2
+        assertEquals(margin, bobLife.y, "Bob's seat header at the top, its life square in its middle")
+        assertEquals(height - band - DesktopTable.SEAT + margin, aliceLife.y, "Alice's seat header right above the bottom band")
         assertEquals(DesktopTable.NAME, aliceLife.x, "after the avatar and name")
-        assertTrue(world.y >= bobLife.bottom && world.bottom <= aliceLife.y, "the battlefields between the seat headers: $world")
+        assertEquals(DesktopTable.LIFE, aliceLife.height)
+        assertTrue(world.y >= DesktopTable.SEAT && world.bottom <= height - band - DesktopTable.SEAT,
+            "the battlefields between the seat headers: $world")
+        // WEB-016, WEB-022: the piles twice the landscape bar row's 32 dp, inside their seat header with their count bubbles
+        val piles = scene.items.filter { it.kind == TableItemKind.PILE && it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
+        assertEquals(6, piles.size)
+        assertTrue(piles.all { it.bounds.height == DesktopTable.PILE_HEIGHT }, "piles 64 tall: ${piles.map { it.bounds }}")
+        val bobsPiles = piles.filter { it.bounds.y < DesktopTable.SEAT }
+        assertTrue(bobsPiles.size == 3 && bobsPiles.all { it.pileCountBubble(DesktopTable.PILE_BADGE).y >= 0f && it.bounds.bottom <= DesktopTable.SEAT },
+            "Bob's piles and their bubbles inside his seat header: ${bobsPiles.map { it.bounds }}")
+        // WEB-022: battlefield cards 2× (before the opening zoom, TBL-121)
+        assertEquals(2f * 28f, scene.cardWidth / scene.camera.zoom, .5f)
         val hand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.a }
         assertEquals(7, hand.size)
-        assertTrue(hand.all { it.bounds.height == 80f }, "hand cards at 2×")
+        assertTrue(hand.all { it.bounds.height == 104f }, "hand cards at 2.6×")
         val middle = (hand.minOf { it.bounds.x } + hand.maxOf { it.bounds.right }) / 2
         val bandMiddle = (8f + 1440f - DesktopTable.ACTIONS - 8f) / 2
         assertTrue(kotlin.math.abs(middle - bandMiddle) < 16f, "centred in the band left of the action area: $middle vs $bandMiddle")
@@ -245,10 +257,23 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithContentDescription("Close chat").assertDoesNotExist()
         compose.onNodeWithTag("action-area").assertExists()
         compose.onNodeWithContentDescription("Undo").assertExists()
+        // WEB-018 (owner, desktop playtest 2026-11-14): Undo a real button a third of the bottom row wide, the main button the
+        // other two thirds, lined up with no room between them but the quick actions' gap
+        val area = compose.onNodeWithTag("action-area").fetchSemanticsNode().boundsInRoot
+        val undo = compose.onNodeWithTag(DESKTOP_UNDO_TAG).fetchSemanticsNode().boundsInRoot
+        val main = compose.onNodeWithTag("main-button").fetchSemanticsNode().boundsInRoot
+        val pad = DesktopTable.ACTIONS_PADDING * DesktopTable.UI_SCALE
+        val row = main.right - undo.left
+        assertEquals(area.width - 2 * pad, row, 2f, "the row spans the action area: $undo, $main in $area")
+        assertEquals(row / 3, undo.width, 2f, "Undo a third: $undo of $row")
+        assertEquals(row * 2 / 3, main.width, 2f, "the main button two thirds: $main of $row")
+        assertTrue(main.left - undo.right in 0f..(DesktopTable.ACTION_GAP * DesktopTable.UI_SCALE + 1f), "no room between them: $undo, $main")
+        assertEquals(main.top, undo.top, 1f, "lined up")
+        assertEquals(main.height, undo.height, 1f, "as tall")
         compose.onAllNodesWithText("Bob").onFirst().assertExists()
         compose.onNodeWithText("You").assertExists()
         captureShot("$SCREENSHOTS/desktop/table.png",
-            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and the quick actions over Undo and the main button at the bottom right.")
+            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
     }
 
     // WEB-017, WEB-016, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the dock's
@@ -270,6 +295,36 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast Storm Spark · deals 3 damage to Ember Cub"))
         captureShot("$SCREENSHOTS/desktop/table-responding.png",
             "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the dock's Stack list shows the Spark with its target named in its text, the band under Bob's seat header says what it does, and the main button at the bottom right reads Resolve.")
+    }
+
+    // WEB-015, WEB-016, WEB-020, WEB-022: in a 1920 × 1080 window, with Alice's Mountain and Ember Cub out at her main phase,
+    // the table at the desktop's default sizes: the top row, the seat headers and the action area drawn larger as at 1440
+    @Config(qualifiers = "w1920dp-h1080dp-land-mdpi")
+    @Test fun theDefaultSizesInAFullHdWindow() {
+        val kit = EngineTableKit()
+        kit.toReadyCub()
+        render(kit)
+        compose.onNodeWithTag("phase-track").assertIsDisplayed()
+        compose.onNodeWithTag("action-area").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/desktop/table-1920.png",
+            "Alice's desktop table in a 1920 × 1080 window at her main phase with her Mountain and Ember Cub out, at the desktop's default sizes: the top row, the seat headers with their piles, her hand and the action area drawn as at 1440 × 900, the battlefields taking the extra room with all six rows in view.")
+    }
+
+    // WEB-022, TBL-034, TBL-121: the owner's ask, battlefield cards twice the default (the Card size slider at 2×, on top of
+    // the desktop's own 2×): in a 1440 × 900 window the six rows don't fit even at the opening's least zoom (0.65×), so the
+    // table opens centred on the battlefields and Alice's land row with her Mountain lies below the view
+    @Test fun battlefieldCardsAtTwiceTheDefault() {
+        val preferences = CardAppearancePreferences(org.asyncttwiz.appui.AppPlatform.current, AppLayout.Desktop)
+        // Only the battlefield's: the areas keep their own 1× sliders
+        preferences.customizeAreas(true)
+        preferences.setSize(2f)
+        try {
+            val kit = EngineTableKit()
+            kit.toReadyCub()
+            render(kit)
+            captureShot("$SCREENSHOTS/desktop/table-battlefield-4x.png",
+                "Alice turned on Customize per area and set the Card size slider to 2× on the desktop table (battlefield cards 4× the phone's, twice the default; her hand as before) at her main phase with her Mountain and Ember Cub out: in a 1440 × 900 window the six battlefield rows don't fit even at the opening's least zoom, so the view is centred on the battlefields and her land row with the Mountain lies below it.")
+        } finally { preferences.setSize(1f); preferences.customizeAreas(false) }
     }
 
     // WEB-015, CMB-001, CMB-028 (D2): Alice declares attackers: the combat band opens between the battlefields with her staged

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
 import arcanum.api.TurnStep
 import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.android.DESKTOP_UNDO_TAG
 import org.asyncttwiz.android.DOCK_STACK_TAG
 import org.asyncttwiz.android.HOTKEY_SHEET_TAG
 import org.asyncttwiz.android.HotkeyAction
@@ -52,7 +53,7 @@ class DesktopTableTest : E2e() {
 
     private fun sheetShown() = alice.shows(hasTestTag(HOTKEY_SHEET_TAG))
 
-    // WEB-034, WEB-023, WEB-024, WEB-031: "?" lists the keys and closes again; Alice keeps by a click, plays a Mountain and
+    // WEB-034, WEB-023, WEB-024, WEB-031, WEB-018: "?" lists the keys and closes again; Alice keeps by a click, plays a Mountain and
     // casts an Ember Cub by clicks, holds Alt over the Cub to inspect it, Space goes on from her Main 1 and Shift+Space ends
     // her turn
     @Test fun aTurnWithTheMouseAndTheKeys() {
@@ -63,6 +64,15 @@ class DesktopTableTest : E2e() {
         alice.pressKey("?", shift = true)
         waitUntil("the list closed") { !sheetShown() }
         keep()
+        // WEB-018 (owner, desktop playtest 2026-11-14): under the quick actions Undo is a third of the row, the main button the
+        // other two thirds, lined up with no room between them
+        waitUntil("Alice's main button") { alice.settled(this) && alice.shows(hasTestTag("main-button")) }
+        val undo = alice.tagged(DESKTOP_UNDO_TAG).fetchSemanticsNode().boundsInRoot
+        val main = alice.tagged("main-button").fetchSemanticsNode().boundsInRoot
+        val row = main.right - undo.left
+        assertEquals(row / 3, undo.width, 2f, "Undo a third of the row: $undo, $main")
+        assertEquals(row * 2 / 3, main.width, 2f, "the main button two thirds: $undo, $main")
+        assertTrue(main.left - undo.right in 0f..4f && kotlin.math.abs(main.top - undo.top) <= 1f, "lined up, no room between: $undo, $main")
         clickFromHand("Mountain")
         waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) {
             alice.field("Mountain").isNotEmpty() && alice.showsOnBattlefield("Mountain") && alice.inOwnMain()
@@ -145,7 +155,7 @@ class DesktopTableTest : E2e() {
         repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
         val mountain = alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow
         val cub = alice.handCard("Ember Cub").fetchSemanticsNode().boundsInWindow
-        assertEquals(56f, mountain.width, 1f, "the desktop's hand card at 2×: $mountain")
+        assertEquals(28f * 2.6f, mountain.width, 1f, "the desktop's hand card at 2.6×: $mountain")
         val picture = alice.picture()
         // The band's own colour at the same height, away from the cards
         val band = cyanAt(picture, 20f, mountain.top - mountain.width * .1f)

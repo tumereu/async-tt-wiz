@@ -233,8 +233,8 @@ number	item	screenshot	catalog	decisions	sequence
 232	Plays put on the Stack in one go fly in and pile up large in the middle	engine/play-show-pile.png	HIS-112 HIS-021		
 233	Hand row: a flashback card from the graveyard after a divider, with its zone badge	hand/hand-row-flashback.png	ZON-079		
 234	Hand row: a graveyard card raised with a greyed Flashback chip and a live ability chip	hand/hand-row-ability-chips.png	ZON-079 ZON-080 TBL-128		
-235	Desktop table: top row with the phase track, seat headers, docked Stack and chat, hand and action area	desktop/table.png	WEB-015 WEB-016 WEB-017 WEB-018 WEB-020 WEB-022 TBL-117		Desktop table
-236	Desktop table: responding to Bob's spell, the Stack listed in the dock	desktop/table-responding.png	WEB-017 WEB-016 STK-057		Desktop table
+235	Desktop table at its default sizes (1440 × 900): top row with the phase track, seat headers, docked Stack and chat, hand and action area	desktop/table.png	WEB-015 WEB-016 WEB-017 WEB-018 WEB-020 WEB-022 TBL-117		Desktop table
+236	Desktop table: responding to Bob's spell, the Stack listed in the dock	desktop/table-responding.png	WEB-017 WEB-016 STK-057 WEB-022		Desktop table
 237	Desktop table: declaring attackers, the combat band between the battlefields	desktop/table-attackers.png	WEB-015 CMB-001 CMB-028		Desktop table
 238	Desktop table: a decision that needs the board is a strip bottom-centre	desktop/prompt-strip.png	WEB-019 STK-047		Desktop table
 239	Desktop table: a choice that doesn't need the board is a centred overlay over the dimmed table	desktop/prompt-overlay.png	WEB-019 STK-023		Desktop table
@@ -256,3 +256,5 @@ number	item	screenshot	catalog	decisions	sequence
 255	Web: Settings → This browser, notifications on with their kinds, and Install app	web/browser-settings.png	WEB-050 WEB-051 WEB-054		Browser notifications
 256	Web: notifications refused by the browser, the switch back off	web/browser-notifications-blocked.png	WEB-050		Browser notifications
 257	Web: the Games list's hint to turn notifications on	web/games-hint.png	WEB-053		Browser notifications
+258	Desktop table at its default sizes in a 1920 × 1080 window, Mountain and Ember Cub out	desktop/table-1920.png	WEB-015 WEB-016 WEB-020 WEB-022		Desktop sizes
+259	Desktop table with battlefield cards twice the default (Card size 2×): the land rows open out of view at 1440 × 900	desktop/table-battlefield-4x.png	WEB-022 TBL-034 TBL-121		Desktop sizes

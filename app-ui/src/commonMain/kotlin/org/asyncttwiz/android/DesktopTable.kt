@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
@@ -42,8 +44,19 @@ val LocalDesktopFrame = compositionLocalOf<DesktopFrame?> { null }
 
 /** WEB-015: the desktop table's fixed parts' sizes, in dp (CSS px). */
 object DesktopTable {
-    /** The global top row (WEB-020): menu, turn line and move pill, the phase track, the dock and Table actions buttons. */
+    /** The global top row (WEB-020) at 1×: menu, turn line and move pill, the phase track, the dock and Table actions
+     * buttons. It is drawn [topRowScale] larger. */
     const val TOP_ROW = 56f
+    /** WEB-020 (owner, desktop playtest 2026-11-14: its texts too small): how much larger than at 1× the top row is drawn, its
+     * texts, icons and squares alike, in a window [width] wide: 1.3× where it has room (from about 1300 wide), less down to 1×
+     * in the narrowest desktop window, so its phase track always fits. */
+    fun topRowScale(width: Float): Float = (width / 1000f).coerceIn(1f, UI_SCALE)
+    /** The top row's height in a window [width] wide. */
+    fun topRow(width: Float): Float = TOP_ROW * topRowScale(width)
+    /** WEB-018, WEB-020 (owner, desktop playtest 2026-11-14: "Others up to agent, perhaps 30%"): how much larger than the
+     * phone's the desktop table draws its controls: the action area's quick actions, Undo and main button, the panels
+     * (WEB-019) and the top row. */
+    const val UI_SCALE = 1.3f
     /** The right dock's width (WEB-017). */
     const val DOCK = 320f
     /** How far inside the open dock's left edge the table's own Stack lies, hidden under it (WEB-017): its count bubble
@@ -53,14 +66,39 @@ object DesktopTable {
     const val DOCK_STACK_SHARE = .45f
     /** The action area's width at the bottom right (WEB-018), under the dock, whether the dock is open or not. */
     const val ACTIONS = 320f
-    /** A seat header's height (WEB-016): the life square's. */
-    const val SEAT = 48f
+    /** A seat header's height (WEB-016): its piles ([PILE_HEIGHT]) with their count bubbles above them inside it. */
+    const val SEAT = 84f
+    /** A seat header's life square's side (the landscape bar row's 48 dp before 2026-11-14), its number drawn as much larger. */
+    const val LIFE = 64f
+    /** The piles' height in a seat header (WEB-022: twice the 32 dp a landscape bar row fits). */
+    const val PILE_HEIGHT = 64f
+    /** Each pile's own place, side by side, the first [PILE_GAP] after the life square. */
+    const val PILE_PITCH = 64f
+    const val PILE_GAP = 12f
+    /** How much larger than the phone's a pile's count bubble is in a seat header, with its larger piles. */
+    const val PILE_BADGE = 1.25f
     /** The room before a seat header's life square: the player's avatar and name. */
-    const val NAME = 132f
+    const val NAME = 172f
+    /** The seat header's avatar's side and the name's size (sp). */
+    const val AVATAR = 36f
+    const val NAME_TEXT = 17f
     /** The narrowest the other player's hand gets in their seat header before their chips' room gives way. */
     const val MIN_OPPONENT_HAND = 64f
-    /** The bottom band's least height: the action area's quick actions over Undo and the main button. */
-    const val MIN_BAND = 128f
+    /** The bottom band's least height: the action area's quick actions over Undo and the main button, drawn [UI_SCALE]
+     * larger, with its padding. */
+    val MIN_BAND = (DESKTOP_ACTIONS_HEIGHT + 2 * ACTIONS_PADDING) * UI_SCALE
+    /** The action area's padding around its rows (at 1×). */
+    const val ACTIONS_PADDING = 8f
+    /** WEB-018: the gap between the action area's buttons, as between the quick actions (at 1×). */
+    const val ACTION_GAP = 2f
+    /** WEB-018 (owner, desktop playtest 2026-11-14: "Undo button size 1/3, resolve button size 2/3?"): Undo's width in the
+     * action area's bottom row [row] wide: a third of it, as wide as the first of three quick actions above it. */
+    fun undoWidth(row: Float) = (row - 2 * ACTION_GAP) / 3
+    /** WEB-018: the main button's width in the bottom row [row] wide: the rest after Undo and the gap, two thirds. */
+    fun mainWidth(row: Float) = row - undoWidth(row) - ACTION_GAP
+
+    /** The right end of a seat header's life square and [places] piles from its left end [x]. */
+    fun pilesRight(x: Float, places: Int) = x + LIFE + PILE_GAP + places * PILE_PITCH
     /** A prompt strip's most width (WEB-019): bottom-centre, above your seat header. */
     const val PROMPT_WIDTH = 640f
     /** A centred overlay's width (WEB-019). */
@@ -83,7 +121,7 @@ object DesktopTable {
      * hand after it doesn't move; yours has it only with chips (your hand is in the bottom band).
      */
     fun rowRight(tableWidth: Float, own: Boolean, places: Int, emblems: Boolean, wanted: Float): Float {
-        val piles = TablePresentation.Landscape.pilesRight(NAME, places)
+        val piles = pilesRight(NAME, places)
         if (own && !emblems) return piles
         val fit = (tableWidth - 10f - (if (own) 0f else MIN_OPPONENT_HAND + 10f) - piles - 4f)
         return piles + 4f + maxOf(TablePresentation.Landscape.EMBLEMS, wanted).coerceAtMost(fit).coerceAtLeast(TablePresentation.Landscape.MIN_EMBLEMS)
@@ -124,13 +162,14 @@ private const val OVERLAY_DIM = .45f
  * the battlefields, at most [DesktopTable.PROMPT_WIDTH] wide, its bottom on your seat header, so the board stays in view.
  * [PromptPlace.Choice]: a centred overlay [DesktopTable.OVERLAY_WIDTH] wide over the battlefields, the table and the dock
  * dimmed under it and taking no input while it shows (the eye hides it, and the dimming with it); the top row and the action
- * area stay as they are, since the go-on is the main button. Reports its height as a docked panel (D2) for the strip.
+ * area stay as they are, since the go-on is the main button. Reports its height as a docked panel (D2) for the strip. Either
+ * draws the panel [DesktopTable.UI_SCALE] larger than the phone's (owner, desktop playtest 2026-11-14), in its same width.
  */
 @Composable
 fun DesktopPrompt(geometry: DesktopGeometry, place: PromptPlace, content: @Composable () -> Unit) {
     val docked = dockedPanelReporter()
     if (place == PromptPlace.Board) {
-        Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        Layout(content = { DesktopScaled(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
             val bottom = geometry.seatTop.dp.roundToPx().coerceIn(0, constraints.maxHeight)
             val tableRight = geometry.tableRight.dp.roundToPx().coerceAtMost(constraints.maxWidth)
             val width = minOf(DesktopTable.PROMPT_WIDTH.dp.roundToPx(), tableRight - 16.dp.roundToPx()).coerceAtLeast(0)
@@ -152,7 +191,7 @@ fun DesktopPrompt(geometry: DesktopGeometry, place: PromptPlace, content: @Compo
             awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
         } else Modifier))
     CompositionLocalProvider(LocalPromptDim provides dim) {
-        Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        Layout(content = { DesktopScaled(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
             val tableRight = geometry.tableRight.dp.roundToPx().coerceAtMost(constraints.maxWidth)
             val room = geometry.seatTop.dp.roundToPx().coerceIn(0, constraints.maxHeight)
             val width = minOf(DesktopTable.OVERLAY_WIDTH.dp.roundToPx(), tableRight - 32.dp.roundToPx()).coerceAtLeast(0)
@@ -177,7 +216,9 @@ fun DesktopTopRow(game: GameSummary, play: TableBoard, viewer: String, toolkit: 
     chat: (() -> Unit)?, chatUnread: Int, modifier: Modifier = Modifier) {
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
     val attention = attentionPresentation(game, play, viewer, reviewing, toolkit?.enabled() == true)
-    Row(modifier.fillMaxWidth().height(DesktopTable.TOP_ROW.dp).background(tableBarColor(play.board, viewer, reviewing))
+    // WEB-020 (owner, desktop playtest 2026-11-14): drawn larger where the window has room
+    BoxWithConstraints(modifier.fillMaxWidth()) { DesktopScaled(DesktopTable.topRowScale(maxWidth.value)) {
+    Row(Modifier.fillMaxWidth().height(DesktopTable.TOP_ROW.dp).background(tableBarColor(play.board, viewer, reviewing))
         .padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ActionSquare("Open navigation", "", navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") },
             onClick = { navigation?.invoke() })
@@ -211,6 +252,17 @@ fun DesktopTopRow(game: GameSummary, play: TableBoard, viewer: String, toolkit: 
         if (!reviewing) ActionSquare("Table actions", "", toolkit != null, Modifier.width(48.dp), icon = { TableChromeIcon("grid") },
             onClick = { toolkit?.tableMenu() })
     }
+    } }
+}
+
+/**
+ * WEB-018, WEB-020 (owner, desktop playtest 2026-11-14: the top bar's and the quick action buttons' texts too small): [content]
+ * drawn [scale] times larger, its sizes and texts alike, so the desktop table's controls grow without the phone's changing.
+ */
+@Composable
+fun DesktopScaled(scale: Float, content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale), content = content)
 }
 
 /** The dock button's icon: a window with its right panel. */
@@ -320,8 +372,8 @@ fun SeatHeaderNames(game: GameSummary, scene: TableScene, viewer: String) {
         Row(Modifier.offset((life.bounds.x - DesktopTable.NAME).dp, life.bounds.y.dp)
             .size(DesktopTable.NAME.dp, life.bounds.height.dp).padding(start = 10.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Avatar(player, size = 28.dp)
-            Text(if (own) "You" else player.username, color = if (own) OwnTableColor else OpponentTableColor, fontSize = 13.sp,
+            Avatar(player, size = DesktopTable.AVATAR.dp)
+            Text(if (own) "You" else player.username, color = if (own) OwnTableColor else OpponentTableColor, fontSize = DesktopTable.NAME_TEXT.sp,
                 fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }

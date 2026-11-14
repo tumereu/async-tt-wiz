@@ -46,7 +46,6 @@ Table and casting:
 - Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
 
 Lobby, chat and accounts:
-- Challenge button (pods and wherever it shows): if they have an open challenge to you, it accepts that one instead of creating a new room; a "New challenge" choice still queues more challenges to them.
 - A game's chat can be opened from the lobby (e.g. the game row's menu, with an unread count).
 - Game and pod chat messages show a small timestamp, with a date line between days.
 - The undeletable default Glimpse preset becomes a regular preset every account gets on creation (existing accounts get it as an ordinary copy), freely editable and deletable like other presets.

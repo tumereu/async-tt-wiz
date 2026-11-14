@@ -569,12 +569,7 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
         detail.members.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
                 if (podChallengeOffered(detail, member, accountId) && lobby != null)
-                    HoldTip("Challenge") {
-                    FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
-                        enabled = mine?.submitted == true && !lobby.state.mutating) {
-                        Icon(AppPlatform.current.swordsOutlined(), contentDescription = "Challenge")
-                    }
-                    }
+                    PodChallengeButtons(detail, member, accountId, lobby, games, enabled = mine?.submitted == true && !lobby.state.mutating)
             }
         }
         // DRF-121 (game history §3.2): the pod's standings and every match of it, played or being played, no decks
@@ -611,6 +606,55 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
         }
     }
 }
+
+/** DRF-181: the Challenge button beside a member. While they have an open challenge to you in this pod, it accepts that one
+ * (the oldest) instead of making a new game, and a choices button beside it offers "New challenge", which challenges them
+ * again as before. */
+@Composable
+private fun RowScope.PodChallengeButtons(detail: PodDetail, member: PodMember, accountId: String, lobby: LobbyController,
+    games: List<GameSummary>, enabled: Boolean) {
+    val open = podOpenChallengeFrom(games, detail.id, member.account.accountId, accountId)
+    fun challenge(why: String) {
+        AppLog.info("lobby", "Pod ${detail.id.take(8)}: new challenge to ${member.account.username} ($why)")
+        lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion())
+    }
+    if (open == null) {
+        HoldTip("Challenge") {
+            FilledIconButton({ challenge("Challenge button") }, enabled = enabled) {
+                Icon(AppPlatform.current.swordsOutlined(), contentDescription = "Challenge")
+            }
+        }
+        return
+    }
+    val accept = "Challenge: accept ${member.account.username}'s challenge"
+    HoldTip(accept) {
+        FilledIconButton({
+            AppLog.info("lobby", "Pod ${detail.id.take(8)}: Challenge accepts ${member.account.username}'s open challenge " +
+                "${open.id.take(8)} \"${open.gameName}\"")
+            lobby.respond(open, true)
+        // As the challenge's own Accept (MenuInvitationActions): once its game is connected and nothing of it is on its way
+        }, Modifier.testTag("pod-challenge-accept-${member.account.accountId}"),
+            enabled = enabled && open.id in lobby.state.connectedGames && open.id !in lobby.state.pendingGames) {
+            Icon(AppPlatform.current.swordsOutlined(), contentDescription = accept)
+        }
+    }
+    var choices by remember { mutableStateOf(false) }
+    Box {
+        HoldTip("Challenge choices") {
+            IconButton({ choices = true }, Modifier.testTag("pod-challenge-choices-${member.account.accountId}")) {
+                EntryIcon("Challenge choices", "more")
+            }
+        }
+        DropdownMenu(choices, { choices = false }) {
+            DropdownMenuItem(text = { Text("New challenge") }, enabled = enabled, onClick = { choices = false; challenge("New challenge") })
+        }
+    }
+}
+
+/** DRF-181: [opponentId]'s oldest open challenge to [accountId] in pod [podId], acceptable now (not waiting for a deck). */
+fun podOpenChallengeFrom(games: List<GameSummary>, podId: String, opponentId: String, accountId: String): GameSummary? =
+    games.filter { it.podId == podId && it.inviter.accountId == opponentId && incomingInvitation(it, accountId) && !it.invitationHeld }
+        .minByOrNull { it.createdAt }
 
 /** Once the draft is over any other member can be challenged; one still building gets the invitation on submitting. */
 fun podChallengeOffered(detail: PodDetail, member: PodMember, accountId: String) =

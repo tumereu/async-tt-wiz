@@ -88,7 +88,10 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(noun(m.groupValues[2]) ?: return null, noun(m.groupValues[3]) ?: return null)))
         }
         // blb chunk 11: "creature you control with toughness greater than its power"
+        // bro chunk 09: "creature you control with power equal to its toughness"
         TOUGHNESS_GREATER_THAN_POWER.matchEntire(phrase)?.let { m ->
+            if (m.groupValues[2].startsWith("power")) return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Power(Comparison.Equal,
+                Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Tested, Combine.Single)))
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Toughness(Comparison.Greater,
                 Value.Of(arcanum.api.NumericProperty.Power, Objects.Tested, Combine.Single)))
         }
@@ -495,7 +498,7 @@ internal object Filters {
     private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or an? (\w+)""")
     // blb chunk 11
-    private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")
+    private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with (toughness greater than its power|power equal to its toughness)""")
     // blb chunk 09
     private val OWN_IN_EXILE_AND_GRAVEYARD = Regex("""(.+) you own in exile and in your graveyard""")
     // blb chunk 08

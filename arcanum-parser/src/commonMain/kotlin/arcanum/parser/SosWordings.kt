@@ -46,7 +46,7 @@ internal object Sos {
     // sos chunk 04: stun counters (CR 122.1d) and tapping
     val TAP_IF_YOUR_TURN_STUN = Regex("""Tap target (.+?)\. If it's your turn, put a stun counter on it\.""")
     val TAP_PUT_TWICE_X_STUN = Regex("""Tap target (.+?)\. Put twice X stun counters on it\.""")
-    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)\. Put a stun counter on each of them\.""")
+    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)\. Put (\w+) stun counters? on each of them\.""")
     val ENTERS_WITH_STUN_THREE_MINUS_X = Regex("""(.+) enters with a number of stun counters on it equal to (\w+) minus X\. If X is (\d+) or less, it enters tapped\.""")
 
     // sos chunk 05: infusion (an ability word)
@@ -101,7 +101,7 @@ internal object Sos {
     val COPY_TARGET_SPELL_GAINS = Regex("""Copy target (.+?) spell you control\. The copy gains (\w+) and "(.+)"\.?""")
     val SPELLS_HAVE_KEYWORD = Regex("""(Instant and sorcery spells you cast(?: from your hand)?|Each instant and sorcery spell you cast) (?:have|has) (.+?)\.""")
     val CARDS_IN_HAND_HAVE_KEYWORD = Regex("""Each (.+?) card in your hand has (.+?)\.""")
-    val ONCE_EACH_TURN_CAST_FREE = Regex("""Once during each of your turns, you may cast an? (.+?) from your hand without paying its mana cost\.""")
+    val ONCE_EACH_TURN_CAST_FREE = Regex("""Once during each of your turns, you may cast an? (.+?) from your hand( or the top of your library)? without paying its mana cost\.""")
     val CAST_TRIGGER_MAY_SACRIFICE_COPY = Regex("""[Yy]ou may sacrifice an? (.+?)\. If you do, copy that spell and you may choose new targets for the copy\.""")
     val CAST_TRIGGER_MAY_TAP_COPY = Regex("""[Yy]ou may tap (\w+) untapped (.+?) you control\. If you do, copy that spell\. You may choose new targets for the copy\.""")
 

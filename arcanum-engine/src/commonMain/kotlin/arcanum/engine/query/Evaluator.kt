@@ -392,11 +392,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             } ?: false
             is ObjectFilter.Power -> {
                 board.readingPowerToughness()
-                c?.power?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+                c?.power?.let { compare(it, filter.comparison, testedValue(id, filter.value)) } ?: false
             }
             is ObjectFilter.Toughness -> {
                 board.readingPowerToughness()
-                c?.toughness?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+                c?.toughness?.let { compare(it, filter.comparison, testedValue(id, filter.value)) } ?: false
             }
             is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, value(filter.value))
             is ObjectFilter.Targets -> {
@@ -454,6 +454,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasManaCost -> c?.manaCost == filter.cost
         }
     }
+
+    /** bro: a filter's own number read with [id] as the tested object, so "with power equal to its toughness" compares the object with
+     * itself wherever the filter is matched (a trigger's event, a static's affected objects), not only where a caller binds it. */
+    private fun testedValue(id: ObjectId, v: Value): Int = if (v is Value.Fixed) v.value else with(ctx.copy(tested = id)).value(v)
 
     private fun matchesAbility(filter: ObjectFilter.AbilityOf, id: ObjectId): Boolean {
         val item = state.stackItems[id] ?: return false

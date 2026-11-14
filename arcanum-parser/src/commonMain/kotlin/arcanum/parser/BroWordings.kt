@@ -48,6 +48,7 @@ internal object Bro {
     val EXILE_TOP_OF_TARGET_LIBRARY = Regex("""Exile the top (X|\w+) cards of target (opponent|player)'s library\.""")
     val MAY_PLAY_LANDS_CAST_SPELLS_EXILED_FREE = Regex("""You may play lands and cast spells from among (?:cards exiled this way|them|those cards) without paying their mana costs\.""")
     val FOR_EACH_TYPE_AMONG_CAST_MAY_PUT = Regex("""For each card type among (.+?) you've cast this turn, you may put a card of that type from among the revealed cards into your hand\.""")
+    val EACH_PLAYER_REVEALS_EQUAL_PUTS_ONTO_REST_GRAVEYARD = Regex("""Each player reveals a number of cards from the top of their library equal to the number of (.+?) they control, puts all (.+?) they revealed this way onto the battlefield, and puts the rest into their graveyard\.""")
     /** The card types a spell can have (CR 205.2a; lands and dungeons are never cast). */
     val SPELL_CARD_TYPES = listOf(arcanum.api.CardType.Artifact, arcanum.api.CardType.Battle, arcanum.api.CardType.Creature, arcanum.api.CardType.Enchantment,
         arcanum.api.CardType.Instant, arcanum.api.CardType.Kindred, arcanum.api.CardType.Planeswalker, arcanum.api.CardType.Sorcery)

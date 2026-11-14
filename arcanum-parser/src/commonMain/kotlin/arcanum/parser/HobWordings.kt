@@ -42,7 +42,7 @@ internal object Hob {
     val SACRIFICE_WHEN_YOU_DO_EXCESS = Regex("""You may sacrifice another creature\. When you do, (.+?) deals damage equal to that creature's power to another target creature\. If excess damage was dealt this way, amass (\w+) X, where X is that excess damage\.""")
 
     // hob chunk 04: Sagas and their exiled cards
-    val SEARCH_EXILE_THEM = Regex("""Search your library for up to (\w+) (.+?) cards, exile them, then shuffle\.""")
+    val SEARCH_EXILE_THEM = Regex("""[Ss]earch your library for up to (\w+) (.+?) cards, (exile them|put them into your graveyard), then shuffle\.""")
     val PUT_A_CARD_EXILED_WITH_INTO_HAND = Regex("""Put a card exiled with (.+?) into its owner's hand\.""")
     val WHENEVER_YOU_ATTACK_THIS_TURN = Regex("""Whenever you attack this turn, (.+)""")
     val FOR_AS_LONG_AS_REMAINS = Regex("""(.+?) for as long as (.+?) remains on the battlefield\.""")

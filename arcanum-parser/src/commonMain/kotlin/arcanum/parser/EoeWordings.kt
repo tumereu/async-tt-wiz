@@ -104,9 +104,9 @@ internal object EoePhrases {
         }
         // eoe chunk 12: "another creature you control dies or is put into exile" (from the battlefield, CR 700.4)
         Eoe.DIES_OR_EXILED.matchEntire(text)?.let { m ->
-            val subject = m.groupValues[1]
-            val noun = if (subject in self || subject.replaceFirstChar { it.lowercase() } in self) ObjectFilter.Is(arcanum.api.Objects.Self)
-                else if (subject.startsWith("another ")) Filters.noun(subject) ?: return null else return@let
+            // bro chunk 09: "this artifact or another nontoken artifact you control is put into a graveyard from the battlefield or is put into
+            // exile from the battlefield"
+            val noun = Events.subjectOf(m.groupValues[1], self) ?: return@let
             return listOf(EventPattern.ZoneChange(noun, from = Zone.Battlefield, to = Zone.Graveyard), EventPattern.ZoneChange(noun, from = Zone.Battlefield, to = Zone.Exile))
         }
         // eoe chunk 13: "you play a land or cast a spell" (CR 305.1, 601.2i)
@@ -181,7 +181,7 @@ internal object Eoe {
 
     // eoe chunk 09: black wordings
     val DEFENDING_PLAYER_LOSES_HALF = Regex("""[Dd]efending player loses half their life, rounded (up|down)\.""")
-    val PUT_ONTO_BATTLEFIELD_TAPPED_ATTACKING = Regex("""[Pp]ut target (.+?) from defending player's graveyard onto the battlefield under your control tapped and attacking\.""")
+    val PUT_ONTO_BATTLEFIELD_TAPPED_ATTACKING = Regex("""[Pp]ut target (.+?) from (defending player's|a) graveyard onto the battlefield under your control( tapped and attacking)?\.""")
     val THEN_IF_POWER_DESTROY = Regex("""Then if that creature's power is (\d+) or less, destroy it\.""")
     val THEY_LOSE_LIFE = Regex("""[Tt]hey lose (\d+) life\.""")
     val EACH_OPPONENT_DISCARDS_WHO_CANT_LOSES = Regex("""[Ee]ach opponent discards a card\. Each opponent who can't loses (\d+) life\.""")
@@ -245,7 +245,7 @@ internal object Eoe {
     val DESTROY_ALL_THEN_TARGET_PLAYERS_MILL_HALF = Regex("""Destroy all (.+?), then any number of target players each mill half their library, rounded (down|up)\.""")
     val TARGET_PLAYER_MILLS_EQUAL_LIFE = Regex("""Target player mills cards equal to your life total\.""")
     // bro chunk 06: also this object, and "… from the battlefield"
-    val DIES_OR_EXILED = Regex("""(.+?) dies or is put into exile(?: from the battlefield)?""")
+    val DIES_OR_EXILED = Regex("""(.+?) (?:dies|is put into a graveyard from the battlefield) or is put into exile(?: from the battlefield)?""")
     val SELF_DIES_OR_EXILED_WHILE_POWER = Regex("""When (.+?) dies or is put into exile while its power is (\d+) or greater, (.+)""")
     val EXILE_EACH_OPPONENTS_GRAVEYARD = Regex("""[Ee]xile each opponent's graveyard\.""")
     val ACTIVATED_COSTS_X_LESS_WHERE = Regex("""This ability costs \{X\} less to activate, where X is (.+?)\.""")

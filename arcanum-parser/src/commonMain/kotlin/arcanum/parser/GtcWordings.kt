@@ -158,7 +158,7 @@ internal object Gtc {
     val EXILE_SELF_COST = Regex("""Exile (.+)""")
     val MILL_COST = Regex("""Mill (\w+) cards?""")
 
-    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal up to (\w+) (.+?) cards from among them and put the revealed cards into your hand\.""")
+    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal (?:up to (\w+)|any number of) (.+?) cards from among them and put the revealed cards into your hand\.""")
     val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+)\. If you do, (.+)""")
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")

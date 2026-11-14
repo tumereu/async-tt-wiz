@@ -40,26 +40,36 @@ public final class SpringService implements AutoCloseable {
     private final ResetMailWorker mail;
     private final GameHub games;
     private final ActivityDelivery activity;
+    /** WEB-052: browser notifications, null without a VAPID key (WEB_PUSH_KEY_FILE). */
+    private final org.asyncttwiz.server.activity.WebPushSender webPush;
     private final org.asyncttwiz.server.history.GameCleanup cleanup;
     private ConfigurableApplicationContext health;
     private ConfigurableApplicationContext publicApi;
     private boolean closed;
 
     public SpringService(ServiceSettings settings) {
-        this(settings, org.asyncttwiz.server.activity.FcmServiceAccount.fromEnvironment());
+        this(settings, org.asyncttwiz.server.activity.FcmServiceAccount.fromEnvironment(),
+                org.asyncttwiz.server.activity.WebPushSender.fromEnvironment(settings.publicBaseUrl()));
     }
 
     /** Optional explicit adapter injection for embedded callers/tests.
      * The ordinary service performs maintenance without any provider credentials. */
     public SpringService(ServiceSettings settings, ActivityPushAdapter activityPush) {
+        this(settings, activityPush, null);
+    }
+
+    /** With browser notifications sent by [webPush] (WEB-052), null for none. */
+    public SpringService(ServiceSettings settings, ActivityPushAdapter activityPush,
+                         org.asyncttwiz.server.activity.WebPushSender webPush) {
         this.settings = settings;
+        this.webPush = webPush;
         runtime = new ServiceRuntime(settings.database());
         resets = settings.resetMail() == null ? null : new PasswordResetService(runtime, settings.resetMail());
         mail = resets == null ? null : new ResetMailWorker(runtime, resets, new SmtpResetMailer(settings.resetMail()));
         if (mail != null) runtime.attachWorker(() -> resets.validatePending(), mail::available);
         games = new GameHub(runtime);
         runtime.attachWorker(() -> games.validatePending(), games::available);
-        activity = new ActivityDelivery(runtime, activityPush, java.time.Clock.systemUTC());
+        activity = new ActivityDelivery(runtime, activityPush, java.time.Clock.systemUTC(), webPush);
         cleanup = new org.asyncttwiz.server.history.GameCleanup(runtime, java.time.Clock.systemUTC());
     }
 
@@ -127,7 +137,8 @@ public final class SpringService implements AutoCloseable {
             });
             context.getBeanFactory().registerSingleton("servletWebServerFactory", factory);
             context.getBeanFactory().registerSingleton("serviceServlet", new ServletRegistrationBean<>(
-                    new Routes(runtime, isHealth, resets, settings, games), "/"));
+                    new Routes(runtime, isHealth, resets, settings, games,
+                            webPush == null ? null : webPush.getPublicKey()), "/"));
         });
         return application.run();
     }
@@ -157,7 +168,8 @@ public final class SpringService implements AutoCloseable {
         private final org.asyncttwiz.server.diagnostics.ProblemReportHttp problemReports;
         private final org.asyncttwiz.server.web.ArchidektProxyHttp archidekt;
         private final org.asyncttwiz.server.web.WebAppHttp webApp;
-        Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings, GameHub hub) {
+        Routes(ServiceRuntime runtime, boolean health, PasswordResetService resets, ServiceSettings settings, GameHub hub,
+               String webPushKey) {
             this.runtime = runtime;
             this.health = health;
             accounts = health ? null : new AccountHttp(runtime, resets, settings.resetMail());
@@ -165,7 +177,7 @@ public final class SpringService implements AutoCloseable {
             pods = health ? null : new org.asyncttwiz.server.pods.PodHttp(runtime);
             lobby = health ? null : new LobbyHttp(runtime);
             games = health ? null : new GameHttp(runtime, hub);
-            activity = health ? null : new ActivityHttp(runtime, hub::presenceChanged);
+            activity = health ? null : new ActivityHttp(runtime, webPushKey, hub::presenceChanged);
             history = health ? null : new org.asyncttwiz.server.history.HistoryHttp(runtime);
             crashReports = health ? null : new CrashReportHttp(runtime, java.time.Clock.systemUTC());
             appReleases = health ? null : new org.asyncttwiz.server.releases.AppReleaseHttp();

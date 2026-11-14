@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.unit.dp
 import coil3.PlatformContext
 import kotlinx.coroutines.await
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -180,31 +181,51 @@ internal class WebPreferences(name: String) : Preferences {
 }
 
 /**
- * Activity alerts in the browser: none yet (browser notifications are web client step 7). Keeps the signed-in owner so
- * notification routes and rejected sessions are told apart as on Android.
+ * Activity alerts in the browser: its notifications come from the server through the browser's push service (WEB-052), so
+ * this keeps the signed-in owner (notification routes and rejected sessions are told apart as on Android), hands it to
+ * [notifications] (WEB-050), and closes the notifications of what the page shows (LOB-078, DRF-138).
  */
-internal class BrowserActivityDelivery : PlatformActivityDelivery {
+internal class BrowserActivityDelivery(origin: String) : PlatformActivityDelivery {
     private data class Owner(val account: String, val binding: String, val token: String)
     private var owner: Owner? = null
+    private val browser = BrowserPlatformJs()
+    /** Browser notifications, their kinds and the Games list's hint (WEB-050, WEB-051, WEB-053), kept in this browser. */
+    val notifications = WebNotifications(browser, org.asyncttwiz.appui.AppPlatform.current.preferences("web-notifications"),
+        BrowserPushServer(origin)) {
+        // The activity installation's id, the one the game connection names too (AuthViewModel's)
+        org.asyncttwiz.appui.AppPlatform.current.preferences("installation").let { preferences ->
+            preferences.getString("id", null) ?: org.asyncttwiz.appui.randomUuid().also { preferences.edit().putString("id", it).apply() }
+        }
+    }
     override var authenticationRequired: ((String) -> Unit)? = null
     override var activityHints: ((List<ActivityHint>) -> Unit)? = null
+
+    init { browser.onInstallChange { notifications.refresh() } }
+
     override fun rememberPods(pods: List<PodSummary>) {}
     override fun session(account: String?, token: String?): Boolean {
         if (account == null || token == null) { clear(); return false }
         if (owner?.account == account && owner?.token == token) return false
-        owner = Owner(account, org.asyncttwiz.appui.randomUuid(), token)
+        val next = Owner(account, org.asyncttwiz.appui.randomUuid(), token)
+        owner = next
+        org.asyncttwiz.appui.pageScope.launch { notifications.session(WebPushOwner(next.account, next.binding, next.token)) }
         return true
     }
-    override fun clear(expectedBinding: String?) { if (expectedBinding == null || expectedBinding == owner?.binding) owner = null }
-    override fun display(screen: ActivityScreen, foreground: Boolean) {}
-    override fun foreground() {}
+    override fun clear(expectedBinding: String?) {
+        if (expectedBinding != null && expectedBinding != owner?.binding) return
+        owner = null
+        org.asyncttwiz.appui.pageScope.launch { notifications.session(null) }
+    }
+    override fun display(screen: ActivityScreen, foreground: Boolean) { if (foreground) browser.cancelShown(screen) }
+    override fun foreground() { org.asyncttwiz.appui.pageScope.launch { notifications.foreground() } }
     override fun accepts(account: String?, binding: String?): Boolean =
         account != null && binding != null && owner?.account == account && owner?.binding == binding
-    override fun rejected(token: String) { if (owner?.token == token) owner = null }
+    override fun rejected(token: String) { if (owner?.token == token) clear() }
 }
 
 /** The app's services in the browser ([AppServices]): the storage the shell opened, the card records and pictures. */
-internal class BrowserAppServices(private val storage: BrowserStorage, private val catalog: BrowserCatalogController) : AppServices {
+internal class BrowserAppServices(private val storage: BrowserStorage, private val catalog: BrowserCatalogController,
+    origin: String) : AppServices {
     private val artwork by lazy { BrowserArtworkService() }
     override fun catalogRepository(): CardCatalog = catalog.repository
     override fun catalogController(): CardRecordsController = catalog
@@ -212,5 +233,5 @@ internal class BrowserAppServices(private val storage: BrowserStorage, private v
     override val artworkContext: PlatformContext get() = PlatformContext.INSTANCE
     override fun sessionStore(): SessionStore = storage.sessionStore()
     override fun accountLocalData(): AppLocalData = storage.accountLocalData()
-    override val activityDelivery: PlatformActivityDelivery = BrowserActivityDelivery()
+    override val activityDelivery: BrowserActivityDelivery = BrowserActivityDelivery(origin)
 }

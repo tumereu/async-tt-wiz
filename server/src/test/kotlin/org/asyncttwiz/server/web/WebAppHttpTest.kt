@@ -85,6 +85,29 @@ class WebAppHttpTest {
         }
     }
 
+    // WEB-054: the service worker, the manifest and its icons at the top of the site, asked for again on each visit
+    @Test fun `the installable app's files are served at the top of the site, revalidated on each visit`() {
+        publish()
+        Files.writeString(directory.resolve("sw.js"), "self.addEventListener('push', () => {})")
+        Files.writeString(directory.resolve("manifest.webmanifest"), """{"name":"ATW"}""")
+        Files.createDirectories(directory.resolve("icons"))
+        Files.write(directory.resolve("icons/icon-192.png"), byteArrayOf(-119, 80, 78, 71))
+        withServer(WebAppHttp(directory)) { get ->
+            val worker = get("/sw.js", "GET")
+            assertEquals(200, worker.statusCode())
+            assertTrue(worker.headers().firstValue("Content-Type").orElseThrow().startsWith("text/javascript"))
+            assertEquals("no-cache", worker.headers().firstValue("Cache-Control").orElseThrow())
+            val manifest = get("/manifest.webmanifest", "GET")
+            assertEquals("""{"name":"ATW"}""", manifest.body().decodeToString())
+            assertTrue(manifest.headers().firstValue("Content-Type").orElseThrow().startsWith("application/manifest+json"))
+            val icon = get("/icons/icon-192.png", "GET")
+            assertEquals("image/png", icon.headers().firstValue("Content-Type").orElseThrow())
+            assertArrayEquals(byteArrayOf(-119, 80, 78, 71), icon.body())
+            for (missing in listOf("/icons/icon-512.png", "/icons/../secret.txt", "/icons/secret.txt", "/build", "/index.html"))
+                assertTrue(get(missing, "GET").statusCode() in setOf(400, 404), missing)
+        }
+    }
+
     @Test fun `without a build the server serves no web app`() {
         withServer(WebAppHttp(directory)) { get ->
             assertEquals(404, get("/", "GET").statusCode())

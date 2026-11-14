@@ -240,7 +240,9 @@ private fun checkTexts(printed: OracleCard, abilities: List<Ability>) {
     for (emblem in abilities.flatMap(::emblems)) {
         val text = (emblem["text"] as? kotlinx.serialization.json.JsonPrimitive)?.content
             ?: kotlin.test.fail("${printed.name}: an emblem's ability has no text: $emblem")
-        assertEquals(true, "emblem with \"$text\"" in printed.text, "${printed.name}: emblem text \"$text\" isn't quoted on the card")
+        // CR 114.3: an emblem of several abilities, 'with "[first]" and "[second]"'
+        assertEquals(true, "emblem with \"$text\"" in printed.text || "\" and \"$text\"" in printed.text,
+            "${printed.name}: emblem text \"$text\" isn't quoted on the card")
     }
     abilities.forEach { ability ->
         val (text, instructions) = when (ability) {

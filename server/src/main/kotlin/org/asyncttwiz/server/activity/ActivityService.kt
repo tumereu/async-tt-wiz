@@ -81,12 +81,18 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val generation = if (same) old!!.generation!! else UUID.randomUUID()
             val invalid = old?.invalidTokenHash
             val token = input.pushToken?.takeUnless { tokenHash(it) == invalid }
+            // WEB-052: a browser's Web Push subscription, to a push service only (WebPushSender.pushService)
+            val webPush = input.webPush?.let { subscription ->
+                val endpoint = runCatching { java.net.URI(subscription.endpoint) }.getOrNull()
+                if (endpoint == null || !WebPushSender.pushService(endpoint)) throw ActivityFailure(400, "invalid_request")
+                ActivityWire.json.encodeToString(WebPushSubscription.serializer(), subscription)
+            }
             // Remove queued old-account hints before transferring this installation's ownership.
             if (!same && old != null) sql.deleteFrom(INSTALL).where(INSTALL.INSTALLATION_ID.eq(id)).execute()
             sql.insertInto(INSTALL).set(INSTALL.INSTALLATION_ID, id).set(INSTALL.ACCOUNT_ID, account(principal))
                 .set(INSTALL.SESSION_ID, principal.sessionId).set(INSTALL.BINDING, binding).set(INSTALL.GENERATION, generation)
-                .set(INSTALL.PUSH_TOKEN, token).set(INSTALL.INVALID_TOKEN_HASH, invalid)
-                .onConflict(INSTALL.INSTALLATION_ID).doUpdate().set(INSTALL.PUSH_TOKEN, token).execute()
+                .set(INSTALL.PUSH_TOKEN, token).set(INSTALL.INVALID_TOKEN_HASH, invalid).set(INSTALL.WEB_PUSH, webPush)
+                .onConflict(INSTALL.INSTALLATION_ID).doUpdate().set(INSTALL.PUSH_TOKEN, token).set(INSTALL.WEB_PUSH, webPush).execute()
             ActivityRegistration(generation.toString())
         }
     }
@@ -183,13 +189,35 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
             .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game, identity)))
             .orderBy(activity).limit(101).fetch()
-        val kinds = rows.take(100).map { ActivityKind.valueOf(it[kind]!!) }
+        val entries = hints(sql, owner, rows.take(100), activity, kind, game, identity, author)
+        val more = rows.size > 100
+        val next = if (more) {
+            if (reset) "r:$snapshot:${entries.last().activityId}" else entries.last().activityId
+        } else (if (reset) snapshot else high).toString()
+        // Sync cursor advances immediately. Notification eligibility is re-evaluated independently
+        // on every poll, including empty deltas, so an actor's later heartbeat can reset the timer.
+        val ready = sql.selectFrom(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME"))
+            .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).and(SUMMARY.ACTIVITY_ID.le(high))
+            .orderBy(SUMMARY.ACTIVITY_ID.desc()).fetch().asSequence().mapNotNull { row -> readyHint(sql, owner, row, due = true) }
+            .take(50).toList()
+        // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
+        val reminders = reminders(sql, owner, SUMMARY.REMINDER_ACTIVITY_ID.le(high))
+        val notices = (ready + reminders).sortedByDescending { ActivityWire.ordinal(it.activityId) }.take(50)
+        ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + notices)
+    }
+
+    /** The feed's entries for [owner]'s [rows] of the event log or, after a reset, the summaries ([activity] ... [author]
+     * their fields), each with the names its notification shows; the rows hold the game's name, pod and held challenge. */
+    private fun hints(sql: DSLContext, owner: UUID, rows: List<org.jooq.Record>, activity: org.jooq.Field<Long?>,
+        kind: org.jooq.Field<String?>, game: org.jooq.Field<UUID?>, identity: org.jooq.Field<UUID?>,
+        author: org.jooq.Field<UUID?>): List<ActivityHint> {
+        val kinds = rows.map { ActivityKind.valueOf(it[kind]!!) }
         // Pod names in one query, not one per entry.
-        val pods = rows.take(100).filterIndexed { index, _ -> kinds[index].name.startsWith("POD_") }.mapNotNull { it[game] }.toSet()
+        val pods = rows.filterIndexed { index, _ -> kinds[index].name.startsWith("POD_") }.mapNotNull { it[game] }.toSet()
         val podNames = if (pods.isEmpty()) emptyMap() else sql.select(POD.ID, POD.NAME, POD.SOURCE_NAME).from(POD).where(POD.ID.`in`(pods)).fetch()
             .associate { it[POD.ID]!! to (it[POD.NAME] to it[POD.SOURCE_NAME]) }
         // Game history §4.5: a removal warning names the game and the recipient's opponent, in one query
-        val warned = rows.take(100).filterIndexed { index, _ -> kinds[index] == ActivityKind.GAME_REMOVAL }.mapNotNull { it[game] }.toSet()
+        val warned = rows.filterIndexed { index, _ -> kinds[index] == ActivityKind.GAME_REMOVAL }.mapNotNull { it[game] }.toSet()
         val inviterName = ACCOUNT.`as`("warned_inviter"); val recipientName = ACCOUNT.`as`("warned_recipient")
         val gameNames = if (warned.isEmpty()) emptyMap() else sql.select(GAME.ID, GAME.GAME_NAME, GAME.INVITER_ID, inviterName.USERNAME,
             recipientName.USERNAME).from(GAME).join(inviterName).on(inviterName.ID.eq(GAME.INVITER_ID))
@@ -197,10 +225,10 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             .associate { it.value1()!! to (it.value2()!! to if (it.value3() == owner) it.value5()!! else it.value4()!!) }
         // DRF-137, LOB-072: an invitation names who sent it, in one query
         val invitingKinds = setOf(ActivityKind.INVITATION, ActivityKind.POD_INVITATION)
-        val inviters = rows.take(100).filterIndexed { index, _ -> kinds[index] in invitingKinds }.mapNotNull { it[author] }.toSet()
+        val inviters = rows.filterIndexed { index, _ -> kinds[index] in invitingKinds }.mapNotNull { it[author] }.toSet()
         val inviterNames = if (inviters.isEmpty()) emptyMap() else sql.select(ACCOUNT.ID, ACCOUNT.USERNAME).from(ACCOUNT)
             .where(ACCOUNT.ID.`in`(inviters)).fetch().associate { it.value1()!! to it.value2()!! }
-        val entries = rows.take(100).mapIndexed { index, row ->
+        return rows.mapIndexed { index, row ->
             val type = kinds[index]
             val pod = if (type.name.startsWith("POD_")) podNames[row[game]] else null
             val named = if (type == ActivityKind.GAME_REMOVAL) gameNames[row[game]] else null
@@ -215,59 +243,74 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 opponentName = named?.second ?: row[author]?.takeIf { type in invitingKinds }?.let(inviterNames::get),
                 podId = challengePod?.toString(), held = challengePod != null && row[GAME.POD_INVITATION_HELD] == true)
         }
-        val more = rows.size > 100
-        val next = if (more) {
-            if (reset) "r:$snapshot:${entries.last().activityId}" else entries.last().activityId
-        } else (if (reset) snapshot else high).toString()
-        // Sync cursor advances immediately. Notification eligibility is re-evaluated independently
-        // on every poll, including empty deltas, so an actor's later heartbeat can reset the timer.
-        val ready = sql.selectFrom(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME"))
-            .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).and(SUMMARY.ACTIVITY_ID.le(high))
-            .orderBy(SUMMARY.ACTIVITY_ID.desc()).fetch().asSequence().mapNotNull { row ->
-                // LOB-111: the game and, in the same query, the outcome of the result suggestion whose acceptance is this
-                // activity (the play it ended records that request); null for any other activity.
-                val joined = sql.select(GAME.fields().toList() + outcome + suggestionAuthor + suggestionByRules + ENGINE_SEAT.RESUME_AT + ownDeckName)
-                    .from(GAME).leftJoin(GAME_PLAY)
-                    .on(GAME_PLAY.GAME_ID.eq(GAME.ID)).and(GAME_PLAY.ENDED_REQUEST_ID.eq(row.identity))
-                    .leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY)).and(ENGINE_SEAT.ACCOUNT_ID.eq(owner))
-                    .leftJoin(PLAYER_PREPARATION).on(PLAYER_PREPARATION.GAME_ID.eq(GAME.ID)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner))
-                    .where(GAME.ID.eq(row.gameId)).fetchOne() ?: return@mapNotNull null
-                val gameRow = joined.into(GAME)
-                val byRules = joined[suggestionByRules] == "true"
-                // I-D53: the rules' result is told from the recipient's side (its author may be either player)
-                val gameOver = joined[outcome]?.let { o -> SuggestedResult.entries.firstOrNull { it.name == o } }?.let { o ->
-                    if (!byRules) o else ResultSuggestion("", joined[suggestionAuthor].orEmpty(), o).outcomeFor(owner.toString()) }
-                if (gameRow.lifecycle !in listOf("LOBBY", "ACTIVE")) return@mapNotNull null
-                val authorId = row.authorId ?: return@mapNotNull null
-                // CR 104.3a (I-D52): the accepter accepted their own loss: they conceded
-                val conceded = gameOver != null && !byRules && joined[suggestionAuthor] == authorId.toString()
-                val recipient = ActivityTiming.leases(sql, row.gameId!!, owner)
-                // A push already sent for this activity decided it was due; a later actor input must not hide it.
-                val pushed = row.pushedThrough!! >= row.activityId!! && !ActivityTiming.present(recipient, now())
-                if (!pushed && !ActivityTiming.due(ActivityTiming.leases(sql, row.gameId!!, authorId),
-                        recipient, row.lastEventAt!!, row.yourMove!!, now())) return@mapNotNull null
-                val opponent = sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(authorId)).fetchSingle()
-                ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
-                    authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
-                        row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!, gameOver = gameOver,
-                        opponentReady = row.opponentReady!!, conceded = conceded, byRules = byRules && gameOver != null,
-                        branched = row.branched!! && gameOver == null, resumeAt = resumePoint(joined[ENGINE_SEAT.RESUME_AT]),
-                        deckName = joined[ownDeckName]))
-            }.take(50).toList()
-        // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
-        val reminders = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME + ENGINE_SEAT.RESUME_AT + ownDeckName).from(SUMMARY)
+    }
+
+    /** A game's notice for [owner] from their summary [row] (LOB-072, LOB-111, LOB-114, LOB-116), null when there is none to
+     * tell (the game left play, nobody to name); with [due] only once a push of it would be due (LOB-073). */
+    private fun readyHint(sql: DSLContext, owner: UUID, row: org.asyncttwiz.server.generated.tables.records.ActivitySummaryRecord,
+        due: Boolean): ActivityHint? {
+        // LOB-111: the game and, in the same query, the outcome of the result suggestion whose acceptance is this
+        // activity (the play it ended records that request); null for any other activity.
+        val joined = sql.select(GAME.fields().toList() + outcome + suggestionAuthor + suggestionByRules + ENGINE_SEAT.RESUME_AT + ownDeckName)
+            .from(GAME).leftJoin(GAME_PLAY)
+            .on(GAME_PLAY.GAME_ID.eq(GAME.ID)).and(GAME_PLAY.ENDED_REQUEST_ID.eq(row.identity))
+            .leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY)).and(ENGINE_SEAT.ACCOUNT_ID.eq(owner))
+            .leftJoin(PLAYER_PREPARATION).on(PLAYER_PREPARATION.GAME_ID.eq(GAME.ID)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner))
+            .where(GAME.ID.eq(row.gameId)).fetchOne() ?: return null
+        val gameRow = joined.into(GAME)
+        val byRules = joined[suggestionByRules] == "true"
+        // I-D53: the rules' result is told from the recipient's side (its author may be either player)
+        val gameOver = joined[outcome]?.let { o -> SuggestedResult.entries.firstOrNull { it.name == o } }?.let { o ->
+            if (!byRules) o else ResultSuggestion("", joined[suggestionAuthor].orEmpty(), o).outcomeFor(owner.toString()) }
+        if (gameRow.lifecycle !in listOf("LOBBY", "ACTIVE")) return null
+        val authorId = row.authorId ?: return null
+        // CR 104.3a (I-D52): the accepter accepted their own loss: they conceded
+        val conceded = gameOver != null && !byRules && joined[suggestionAuthor] == authorId.toString()
+        val recipient = ActivityTiming.leases(sql, row.gameId!!, owner)
+        // A push already sent for this activity decided it was due; a later actor input must not hide it.
+        val pushed = row.pushedThrough!! >= row.activityId!! && !ActivityTiming.present(recipient, now())
+        if (due && !pushed && !ActivityTiming.due(ActivityTiming.leases(sql, row.gameId!!, authorId),
+                recipient, row.lastEventAt!!, row.yourMove!!, now())) return null
+        val opponent = sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(authorId)).fetchSingle()
+        return ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
+            authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
+                row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!, gameOver = gameOver,
+                opponentReady = row.opponentReady!!, conceded = conceded, byRules = byRules && gameOver != null,
+                branched = row.branched!! && gameOver == null, resumeAt = resumePoint(joined[ENGINE_SEAT.RESUME_AT]),
+                deckName = joined[ownDeckName]))
+    }
+
+    /** The waiting reminders (LOB-075) of [owner] that [condition] chooses, newest first, while their stretch is unanswered. */
+    private fun reminders(sql: DSLContext, owner: UUID, condition: org.jooq.Condition): List<ActivityHint> =
+        sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME + ENGINE_SEAT.RESUME_AT + ownDeckName).from(SUMMARY)
             .join(GAME).on(GAME.ID.eq(SUMMARY.GAME_ID)).join(ACCOUNT).on(ACCOUNT.ID.eq(SUMMARY.AUTHOR_ID))
             .leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY)).and(ENGINE_SEAT.ACCOUNT_ID.eq(owner))
             .leftJoin(PLAYER_PREPARATION).on(PLAYER_PREPARATION.GAME_ID.eq(GAME.ID)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner))
-            .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME")).and(SUMMARY.REMINDER_ACTIVITY_ID.le(high))
+            .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME")).and(condition)
             .and(GAME.LIFECYCLE.eq("ACTIVE")).andNot(answered()).orderBy(SUMMARY.REMINDER_ACTIVITY_ID.desc()).limit(50).fetch().map { row ->
                 ActivityHint(row[SUMMARY.REMINDER_ACTIVITY_ID].toString(), ActivityKind.GAME, row[SUMMARY.GAME_ID].toString(),
                     row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
                         row[ACCOUNT.USERNAME]!!, row[SUMMARY.REMINDER_MOVE_AT].toString(), row[SUMMARY.YOUR_MOVE]!!, reminder = true,
                         resumeAt = resumePoint(row[ENGINE_SEAT.RESUME_AT]), deckName = row[ownDeckName]))
             }
-        val notices = (ready + reminders).sortedByDescending { ActivityWire.ordinal(it.activityId) }.take(50)
-        ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + notices)
+
+    /**
+     * WEB-052: what one pending push of [owner]'s tells, as the feed tells it ([page]'s entries and notices): a game's notice
+     * from their summary (its waiting reminder when [activity] is that), anything else from its event; null when there is
+     * nothing to tell any more. The push's own timing has made it due already.
+     */
+    internal fun pushHint(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, activity: Long): ActivityHint? {
+        if (kind == ActivityKind.GAME) {
+            val summary = sql.selectFrom(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game))
+                .and(SUMMARY.KIND.eq("GAME")).fetchOne() ?: return null
+            return if (summary.reminderActivityId == activity)
+                reminders(sql, owner, SUMMARY.GAME_ID.eq(game).and(SUMMARY.REMINDER_ACTIVITY_ID.eq(activity))).firstOrNull()
+            else readyHint(sql, owner, summary, due = false)
+        }
+        val rows = sql.select(EVENT.ACTIVITY_ID, EVENT.KIND, EVENT.GAME_ID, EVENT.IDENTITY, EVENT.AUTHOR_ID, GAME.GAME_NAME, GAME.POD_ID,
+            GAME.POD_NAME, GAME.POD_INVITATION_HELD).from(EVENT).leftJoin(GAME).on(GAME.ID.eq(EVENT.GAME_ID))
+            .where(EVENT.ACCOUNT_ID.eq(owner)).and(EVENT.ACTIVITY_ID.eq(activity)).fetch()
+        return hints(sql, owner, rows, EVENT.ACTIVITY_ID, EVENT.KIND, EVENT.GAME_ID, EVENT.IDENTITY, EVENT.AUTHOR_ID).singleOrNull()
     }
 
     /** I-D57: the recipient's own deck name in the game (their private pod deck name, else the deck they selected), with
@@ -529,8 +572,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         private fun queuePush(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, events: List<Pair<Long, UUID>>, time: OffsetDateTime) {
             val installs = sql.select(INSTALL.GENERATION).from(INSTALL).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
                 .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).where(INSTALL.ACCOUNT_ID.eq(owner))
-                .and(INSTALL.PUSH_TOKEN.isNotNull).and(SESSION.REVOKED_AT.isNull).and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
-                .fetch(INSTALL.GENERATION)
+                .and(INSTALL.PUSH_TOKEN.isNotNull.or(INSTALL.WEB_PUSH.isNotNull)).and(SESSION.REVOKED_AT.isNull)
+                .and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH)).fetch(INSTALL.GENERATION)
             for (generation in installs) {
                 val pending = sql.selectFrom(PUSH).where(PUSH.GENERATION.eq(generation)).and(PUSH.GAME_ID.eq(game))
                     .and(PUSH.KIND.eq(kind.name)).forUpdate().fetchOne()

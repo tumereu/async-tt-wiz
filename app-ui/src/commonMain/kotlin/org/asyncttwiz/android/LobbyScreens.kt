@@ -101,7 +101,10 @@ fun GamesContent(controller: LobbyController, accountId: String) {
     val state = controller.state
     ScreenBusyOverlay(lobbyBusyMessage(state, "Loading games…")) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
+    // WEB-053: in a browser, the one hint to turn notifications on
+    val hint = LocalWebNotifications.current?.takeIf { it.state.showHint }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        hint?.let { web -> item { NotificationsHintCard(web) } }
         item {
             // One list in the shared order (see gameListOrder): invitations sit between the two kinds of game.
             val games = orderedGames(state.games + state.invitations.filter { incomingInvitation(it, accountId) }, accountId)

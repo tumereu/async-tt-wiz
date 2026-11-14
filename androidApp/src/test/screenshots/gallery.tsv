@@ -253,3 +253,6 @@ number	item	screenshot	catalog	decisions	sequence
 252	Desktop: Settings' groups as cards in two columns	desktop/settings.png	WEB-043 WEB-035		Desktop screens
 253	Desktop: the draft pick, click keeps and right-click burns, trays and Confirm at the bottom	desktop/draft-pick.png	WEB-044 WEB-036 DRF-056		Desktop screens
 254	Desktop: Build with a card's edge zones under the pointer, no review	desktop/build-edge-zones.png	WEB-045		Desktop screens
+255	Web: Settings → This browser, notifications on with their kinds, and Install app	web/browser-settings.png	WEB-050 WEB-051 WEB-054		Browser notifications
+256	Web: notifications refused by the browser, the switch back off	web/browser-notifications-blocked.png	WEB-050		Browser notifications
+257	Web: the Games list's hint to turn notifications on	web/games-hint.png	WEB-053		Browser notifications

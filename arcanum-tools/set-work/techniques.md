@@ -41,11 +41,18 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - "that creature"/"it" in a damage trigger goes through `Sentences.damageThatRole` (the damaged one when this object dealt
   it); in a block trigger it is `EventRole.OtherCombatant`. "Blocks a Y" triggers are `perAttacker`, "becomes blocked by a
   Y" `perBlocker` (CR 509.3b-c). "That player" of a permanent entering is its controller, of a card put into a graveyard
-  that graveyard's owner (CR 110.2, 404.1).
+  that graveyard's owner (CR 110.2, 404.1). After "Choose target opponent." a later "that player controls" is the chosen
+  player; after "Exile target card from a graveyard." "it" is the target and "that player" its owner.
+- "this card from your graveyard" in an ability whose trigger or cost puts it there (dies, put into a graveyard from
+  anywhere, discard, sacrifice) works outside the graveyard (CR 113.6m) and means the new object
+  (`selfAfterInGraveyard`, CR 400.7); a leaves-the-battlefield trigger stays graveyard-only.
+- In "a X card or a Y card with mana value N or less" the qualifier belongs to the last alternative only. A may-play or
+  cast-free static's affected filter never keeps `Category(Spell)`: in a hand or library it matches nothing (CR 601.2a).
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
-- "Copy that spell." keeps the copy's targets; only "you may choose new targets" sets `newTargets` (CR 707.10c).
+- Every copy keeps the original's targets ("Copy target ... spell", "copy it", "copy this spell", copies in delayed
+  triggers and repeats); only a following "You may choose new targets" sets `newTargets` (CR 707.10, 707.10c).
 - "If ... would ... this turn, ... instead." or "Until end of turn, if ... instead." inside an effect is a replacement
   lasting until end of turn; an amount in it ("plus X") is fixed as the effect resolves (CR 608.2h).
 - "permanent spell" and "permanent card" (in a graveyard, hand, library) mean permanent types (CR 110.4a-b), never
@@ -55,7 +62,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   "When you cast this spell" reads with `functionsIn = null`.
 - Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
   names X announces X (`ADDITIONAL_COST_X`, CR 601.2b), unless "where X is ..." sets it (CR 107.3c). "any number of target X" divided has min 0.
-- A rule that adds a target slot reads everything else first: giving up afterwards leaks the slot into the next rule.
+- A rule that adds a target slot reads everything else first: giving up afterwards leaks the slot into the next rule;
+  a rule group called through `Sentences.attempt(context) { ... }` gives back the slots of a failed rule.
   The parser leaves an ability with an unused target slot unread (`DefinitionChecks.unusedTargetSlots`, CR 115.1).
 - "Until your next turn, X." reads as "X until your next turn."; an untargeted "you may return a <card> from your graveyard" is Choose 0..1, not May.
 - "enchanted player" = `Players.AttachedTo(Objects.Self)`; "Curses attached to you" = `ObjectFilter.Attached(toPlayers =
@@ -125,6 +133,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A trigger with targets or a "may": `resolveAll()` after the cast, then `Answer.Targets`, `allPass()`, then
   `Answer.YesNo`; an empty optional slot is `Answer.Targets(emptyList())`. `resolve()` resolves one item, to act before a
   trigger resolves. Modes of a triggered ability with no legal target are unavailable (CR 700.2b).
+  Answering a cast's `Targets` by hand leaves its `ManaPayment` open: finish with `playOut()`. Which ways a card can be
+  cast now (free casts, permissions): `Engine.options(state, p.id).filterIsInstance<Input.Cast>()` lists payable ones.
 - `activates(name, ability = i)` counts activated abilities only, mana abilities included, from 0 (a planeswalker's
   loyalty abilities in printed order). A planeswalker needs `battlefield(x, counters = listOf(CounterKind.Loyalty to n))`;
   a 0/0 X creature needs +1/+1 counters; a tap ability can't be activated twice a turn.
@@ -194,9 +204,12 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   subtypes only where it doesn't affect play.
 - An invented spell needs a mana cost (`{0}` for a free one): a spell with no mana cost can't be cast for it (CR 118.6).
 - A card of several faces: `Cards.inventFaces(layout, face(...), ...)` (colour indicator last) and `cardFaces(...)` in
-  parser tests.
+  parser tests; a meld pair is `Cards.inventFaces("Meld:<partner>", front, back)` for both cards.
+- A predefined token (Treasure, Powerstone, ...) on the battlefield from the start: `Cards.define("<X> Proxy", ...)` of
+  `PredefinedTokens.face("<X>")`; created ones are named "<X> Token".
 - One cycle of near-identical cards (e.g. lands that enter tapped unless a condition holds): one private helper in the
   chunk's test file, one test per card.
 - In one Gradle call, `--tests` applies to the task just before it; `bin/set-tests.sh` handles this.
 - Sibling misreads: `<plan>/parser-base.snapshot` holds every card's model JSON (fifth tab column); a `python3 -I`
-  scan of it finds every card with the same wrong shape in seconds.
+  scan of it finds every card with the same wrong shape in seconds, e.g. a `{"type":"bound","name":N}` with no binder
+  (`bind`, `*Bind`, `announced`) in the same card.

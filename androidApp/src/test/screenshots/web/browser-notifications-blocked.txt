@@ -1,0 +1,1 @@
+Settings in a browser after Browser notifications was turned on and the browser refused: the switch is off again, saying it is blocked in the browser's site settings.

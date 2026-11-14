@@ -51,6 +51,11 @@ internal object FinPhrases {
             val kinds = Regex("""activated|triggered""").findAll(m.groupValues[1]).map { if (it.value == "activated") arcanum.api.AbilityKind.Activated else arcanum.api.AbilityKind.Triggered }
             return ObjectFilter.Or(kinds.map { ability(it) }.toList() + spell)
         }
+        // bro chunk 07: "activated or triggered ability" (abilities on the Stack, CR 113.1c)
+        if (phrase == "activated or triggered ability") {
+            fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
+            return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
+        }
         SPELL_OR_ABILITIES.matchEntire(phrase)?.let { m ->
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
             // otj chunk 02: "instant spell, sorcery spell, activated ability, or triggered ability": each spell noun is an alternative (CR 113.1)
@@ -235,7 +240,8 @@ internal object Fin {
     val DEALS_DAMAGE_EQUAL_TO_DEFENDING = Regex("""(.+?) deals damage equal to (the number of .+?) to defending player\.""")
     val DAMAGE_TARGET_AND_X_TO_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target creature and (X|\d+) damage to (?:that creature's|its) controller\.""") // inr chunk 08: N, its
     val ATTACH_UP_TO_ONE_TARGET_TO_TARGET = Regex("""Attach up to one target (.+?) to target (.+)\.""")
-    val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?)'s power""")
+    // bro chunk 03: "Pay life equal to this creature's power"
+    val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?|this [a-z]+)'s power""")
     val WHENEVER_COPY_OF_IT_EQUIP_LESS = Regex("""Whenever (.+?), create a token that's a copy of it, except it has "This Equipment's equip abilities cost (\{\d+\}) less to activate\." Sacrifice that token at the beginning of the next (upkeep|end step)\.""")
     // fin chunk 13
     val DOUBLE_SELF_POWER_EOT = Regex("""(Whenever .+?), double (.+?)'s power until end of turn\.""")
@@ -245,7 +251,8 @@ internal object Fin {
     val PREVENT_COMBAT_DAMAGE_TO_SELF = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
     val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many (\S+) counters are put on that creature instead\.""")
     val TOKENS_PLUS_ONE = Regex("""If one or more tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
-    val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast (.+?) spells from the top of your library\.""")
+    // mkm chunk 06: any spell noun; bro chunk 09: no noun, any spells
+    val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast (?:(.+?) )?spells from the top of your library\.""")
     val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val WHEN_YOU_SEARCH_THIS_WAY = Regex("""When you search your library this way, (.+)""")
     val SEARCH_UP_TO_DIFFERENT_NAMES = Regex("""Search your library for up to (\w+) (.+?) with different names, put them onto the battlefield tapped, then shuffle\.""")
@@ -284,9 +291,10 @@ internal object Fin {
     val PLAY_HIDEAWAY_IF_LEGENDS = Regex("""(.+?): You may play the exiled card without paying its mana cost if you control (\w+) or more legendary creatures\.""")
     val ENTERS_TAPPED_UNLESS_EARLY_TURN = Regex("""(.+?) enters tapped unless it's your first, second, or third turn of the game\.""")
     /** A meld trigger: "At the beginning of <step>, if you both own and control X and a creature named Y, [you may pay {cost}. If you do, ]exile them, then meld them into Z." */
-    val MELD_AT_STEP = Regex("""At (the beginning of .+?), if you both own and control (.+?) and a creature named (.+?), (?:you may pay ((?:\{[^}]+\})+)\. If you do, )?exile them, then meld them into (.+)\.""")
+    // bro chunk 04: a land or artifact partner, and another condition before it ("if there are four or more land cards in your graveyard and …")
+    val MELD_AT_STEP = Regex("""At (the beginning of .+?), if (?:(.+?) and )?you both own and control (.+?) and an? (creature|land|artifact) named (.+?), (?:you may pay ((?:\{[^}]+\})+)\. If you do, )?exile them, then meld them into (.+)\.""")
     /** A meld activated ability: "<cost>: If you both own and control X and a creature named Y, exile them, then meld them into Z." */
-    val MELD_ACTIVATED = Regex("""(.+?): If you both own and control (.+?) and a creature named (.+?), exile them, then meld them into (.+)\.""")
+    val MELD_ACTIVATED = Regex("""(.+?): If you both own and control (.+?) and an? (creature|land|artifact) named (.+?), exile them, then meld them into (.+?)\.( Activate only as a sorcery\.)?""")
     val DIES_DESTROY_AND_RETURN = Regex("""When (.+?) dies, destroy target permanent and return target (.+?) from your graveyard to the battlefield\.""")
     val COUNTER_ON_IT_FOR_EACH = Regex("""Put an? (\S+) counter on it for each (.+)\.""")
 }

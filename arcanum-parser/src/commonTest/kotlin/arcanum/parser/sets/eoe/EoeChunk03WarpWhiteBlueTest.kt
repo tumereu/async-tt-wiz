@@ -296,9 +296,10 @@ class EoeChunk03WarpWhiteBlueTest {
             doing(
                 Effect.Search(
                     library = Players.You,
-                    filter = and(
-                        or(and(ObjectFilter.Super(supertype = Supertype.Basic), sub("Plains")), creature),
-                        ObjectFilter.ManaValue(comparison = Comparison.AtMost, value = n(1)),
+                    // "with mana value 1 or less" is the creature card's alone: "or a creature card" names its own noun
+                    filter = or(
+                        and(ObjectFilter.Super(supertype = Supertype.Basic), sub("Plains")),
+                        and(creature, ObjectFilter.ManaValue(comparison = Comparison.AtMost, value = n(1))),
                     ),
                     max = n(1),
                     reveal = true,

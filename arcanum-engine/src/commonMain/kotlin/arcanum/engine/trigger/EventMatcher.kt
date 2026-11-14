@@ -329,6 +329,10 @@ internal object EventMatcher {
                 RoleObjects(EventRole.Rest, it.rest)), listOf(it.player))) }.orEmpty()
         is EventPattern.KeywordActionDone -> keywordActionDone(e, change, pattern.action, pattern.players, pattern.objects, pattern.revealed)
         is EventPattern.GotMark -> gotMark(e, change, pattern.mark, pattern.objects)
+        // CR 701.22a, d: once per scry that put one or more cards on the bottom
+        is EventPattern.ScriedToBottom -> ((change as? Change.Happened)?.event as? GameEvent.ScriedToBottom)
+            ?.takeIf { e.matches(pattern.players, it.player) }
+            ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = it.count)) }.orEmpty()
     }
 
     /** [action] done by a player matching [players], with objects matching [objects], those tested as they last existed if they have left

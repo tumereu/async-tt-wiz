@@ -46,7 +46,7 @@ internal object Sos {
     // sos chunk 04: stun counters (CR 122.1d) and tapping
     val TAP_IF_YOUR_TURN_STUN = Regex("""Tap target (.+?)\. If it's your turn, put a stun counter on it\.""")
     val TAP_PUT_TWICE_X_STUN = Regex("""Tap target (.+?)\. Put twice X stun counters on it\.""")
-    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)(?:\. Put| and put) a stun counter on each of them\.""") // mkm chunk 02: " and put"
+    val TAP_UP_TO_PUT_STUN_ON_EACH = Regex("""Tap up to (\w+) target (.+?)(?:\. Put| and put) (\w+) stun counters? on each of them\.""") // mkm chunk 02: " and put"; bro chunk 09: two
     val ENTERS_WITH_STUN_THREE_MINUS_X = Regex("""(.+) enters with a number of stun counters on it equal to (\w+) minus X\. If X is (\d+) or less, it enters tapped\.""")
 
     // sos chunk 05: infusion (an ability word)
@@ -72,7 +72,7 @@ internal object Sos {
 
     // sos chunk 07: hands and discards
     val DISCARD_HAND_DRAW_EQUAL_OPPONENT_HAND = Regex("""Discard your hand, then draw cards equal to the number of cards in target opponent's hand\.""")
-    val DISCARD_HAND_DRAW_EQUAL_DISCARDED = Regex("""(Discard your hand|Target player discards all the cards in their hand), then (?:draw cards equal to the number of cards discarded this way|draws that many cards)\.""")
+    val DISCARD_HAND_DRAW_EQUAL_DISCARDED = Regex("""(Discard your hand|Discard all the cards in your hand|Target player discards all the cards in their hand), then (?:draw cards equal to the number of cards discarded this way|draws? that many cards)\.""") // bro chunk 08: Queen Kayla bin-Kroog
     val DISCARD_ANY_NUMBER_DRAW_THAT_MANY = Regex("""(Target player discards|[Dd]iscard) any number of cards, then (?:draws?) that many cards( plus one)?\.""")
     val DISCARDS_PUT_LAND_ONTO_BATTLEFIELD = Regex("""Target player discards (\w+) cards\. Put up to one land card discarded this way onto the battlefield tapped under your control\.""")
     val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_DISCARD = Regex("""[Aa]ny number of target (players|opponents) each discard a card\.""") // otj chunk 11: opponents
@@ -103,7 +103,7 @@ internal object Sos {
     val COPY_TARGET_SPELL_GAINS = Regex("""Copy target (.+?) spell you control\. The copy gains (\w+) and "(.+)"\.?""")
     val SPELLS_HAVE_KEYWORD = Regex("""(Instant and sorcery spells you cast(?: from your hand)?|Each instant and sorcery spell you cast) (?:have|has) (.+?)\.""")
     val CARDS_IN_HAND_HAVE_KEYWORD = Regex("""Each (.+?) card in your hand has (.+?)\.""")
-    val ONCE_EACH_TURN_CAST_FREE = Regex("""Once during each of your turns, you may cast an? (.+?) from your hand without paying its mana cost\.""")
+    val ONCE_EACH_TURN_CAST_FREE = Regex("""Once during each of your turns, you may cast an? (.+?) from your hand( or the top of your library)? without paying its mana cost\.""")
     val CAST_TRIGGER_MAY_SACRIFICE_COPY = Regex("""[Yy]ou may sacrifice an? (.+?)\. If you do, copy that spell and you may choose new targets for the copy\.""")
     val CAST_TRIGGER_MAY_TAP_COPY = Regex("""[Yy]ou may tap (\w+) untapped (.+?) you control\. If you do, copy that spell\. You may choose new targets for the copy\.""")
 

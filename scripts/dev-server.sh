@@ -66,7 +66,13 @@ esac
 
 [[ -s $DEV/db-password ]] || openssl rand -hex 24 > "$DEV/db-password"
 [[ -s $DEV/reset-mail-key ]] || openssl rand -base64 32 > "$DEV/reset-mail-key"
-chmod 600 "$DEV/db-password" "$DEV/reset-mail-key"
+# Browser notifications' VAPID key pair (WEB-052): the private key (PKCS#8) and its public key, in one PEM file
+if [[ ! -s $DEV/web-push-key ]]; then
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$DEV/web-push-key"
+    openssl pkey -in "$DEV/web-push-key" -pubout >> "$DEV/web-push-key"
+fi
+chmod 600 "$DEV/db-password" "$DEV/reset-mail-key" "$DEV/web-push-key"
+export WEB_PUSH_KEY_FILE="$DEV/web-push-key"
 export DB_URL=jdbc:postgresql://127.0.0.1:55432/atw_dev DB_USER=atw_dev
 export DB_PASSWORD_FILE="$DEV/db-password" PUBLIC_BASE_URL=http://127.0.0.1:8080
 export SERVER_ADDRESS=127.0.0.1 SERVER_PORT=8080 HEALTH_ADDRESS=127.0.0.1 HEALTH_PORT=8081

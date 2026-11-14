@@ -285,6 +285,14 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     }
 
     companion object {
+        // bro chunk 03
+        /** [except] with [CopyException.OwnPowerToughness] fixed to [own]'s power and toughness, the entering object's as it enters
+         * (its prototype's when cast prototyped, CR 718.3b; CR 707.9b). */
+        fun ownPowerToughness(except: List<CopyException>, own: Characteristics?): List<CopyException> =
+            if (CopyException.OwnPowerToughness !in except) except else except.mapNotNull { x ->
+                if (x != CopyException.OwnPowerToughness) x
+                else CopyException.PowerToughness(own?.power ?: return@mapNotNull null, own.toughness ?: return@mapNotNull null)
+            }
         /** [o]'s copiable values from its card alone (or its face-down values, CR 708.2a), before copy effects and the rest of layer 1:
          * what [arcanum.engine.state.ObjectSnapshot.copiable] is compared with. */
         fun plain(o: GameObject): CopiableValues =
@@ -388,6 +396,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                 is CopyException.ManaCostOf -> f.copy(manaCost = e.cost)
                 // gtc chunk 12: replaced by the ability itself as the copy effect is created (CR 707.9b)
                 CopyException.ThisAbility -> f
+                // bro: replaced by fixed values as the object enters as a copy (CR 707.9b)
+                CopyException.OwnPowerToughness -> f
             }
         }
 

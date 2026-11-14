@@ -101,7 +101,13 @@ cp -a webApp/build/web "$snapshot/web"
 
 [[ -s $STATE/db-password ]] || openssl rand -hex 24 > "$STATE/db-password"
 [[ -s $STATE/reset-mail-key ]] || openssl rand -base64 32 > "$STATE/reset-mail-key"
-chmod 600 "$STATE/db-password" "$STATE/reset-mail-key"
+# Browser notifications' VAPID key pair (WEB-052): the private key (PKCS#8) and its public key, in one PEM file
+if [[ ! -s $STATE/web-push-key ]]; then
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$STATE/web-push-key"
+    openssl pkey -in "$STATE/web-push-key" -pubout >> "$STATE/web-push-key"
+fi
+chmod 600 "$STATE/db-password" "$STATE/reset-mail-key" "$STATE/web-push-key"
+export WEB_PUSH_KEY_FILE="$STATE/web-push-key"
 export DB_URL=jdbc:postgresql://127.0.0.1:55433/atw_test DB_USER=atw_test
 export DB_PASSWORD_FILE="$STATE/db-password" RESET_MAIL_KEY_FILE="$STATE/reset-mail-key"
 export PUBLIC_BASE_URL=$ORIGIN RESET_BASE_URL=$ORIGIN

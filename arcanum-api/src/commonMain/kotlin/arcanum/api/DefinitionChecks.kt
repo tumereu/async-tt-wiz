@@ -124,8 +124,9 @@ object DefinitionChecks {
                 if (type == "as-enters") {
                     // Deep: steps nested in an If are steps of the entering too.
                     visitAll(element["steps"] ?: JsonArray(emptyList())) { step ->
-                        // spm: looking at cards changes nothing ("As this creature enters, look at an opponent's hand, then choose …")
-                        if (step.typeName() == "do" && ((step["effect"] as? JsonObject)?.typeName() != "look"))
+                        // spm: looking at cards changes nothing ("As this creature enters, look at an opponent's hand, then choose …"); bro:
+                        // nor does revealing them ("As this land enters, you may reveal a Soldier card from your hand", CR 614.12)
+                        if (step.typeName() == "do" && ((step["effect"] as? JsonObject)?.typeName() !in setOf("look", "reveal")))
                             found += "\"as enters\" may only pay, choose, check or modify how it enters, not do effects (CR 614.12)"
                     }
                     visitShallow(element["steps"]) { step ->

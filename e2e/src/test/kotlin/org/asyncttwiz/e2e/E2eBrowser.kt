@@ -43,6 +43,12 @@ internal class E2eBrowser : AutoCloseable {
         if (page.locator("div[role=button]:text-is('Skip')").count() > 0) tap("div[role=button]:text-is('Skip')")
     }
 
+    /** The site may show notifications (as if the player had allowed them in the browser's prompt). */
+    fun allowNotifications() {
+        context.grantPermissions(listOf("notifications"), com.microsoft.playwright.BrowserContext.GrantPermissionsOptions()
+            .setOrigin(E2eStack.origin))
+    }
+
     /** The page's address path. */
     fun path(): String = java.net.URI(page.url()).path
 

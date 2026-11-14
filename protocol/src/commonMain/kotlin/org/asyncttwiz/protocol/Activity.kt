@@ -63,7 +63,29 @@ import kotlinx.serialization.json.Json
 @Serializable data class WaitingGames(val games: List<ActivityHint>)
 @Serializable data class GamePresence(val gameId: String, val presenceId: String,
     val didSomething: Boolean = false, val left: Boolean = false)
-@Serializable data class RegisterInstallation(val installationId: String, val binding: String, val pushToken: String? = null)
+/** [webPush]: a browser's Web Push subscription (WEB-050), in place of an Android [pushToken]; omitted when none. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class RegisterInstallation(val installationId: String, val binding: String, val pushToken: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val webPush: WebPushSubscription? = null)
+
+/**
+ * WEB-050, WEB-051: a browser's push subscription as its push service gave it ([endpoint], the browser's public key [p256dh]
+ * and [auth] secret, both base64url without padding), and which of the three kinds of notification (LOB-072) it wants.
+ */
+@Serializable data class WebPushSubscription(val endpoint: String, val p256dh: String, val auth: String,
+    val invitations: Boolean = true, val games: Boolean = true, val drafts: Boolean = true)
+
+/** GET /activity/web-push: the server's public VAPID key (base64url, an uncompressed P-256 point), which a browser's
+ * subscription is made for. */
+@Serializable data class WebPushKey(val publicKey: String)
+
+/**
+ * WEB-052: what the server sends a browser in a Web Push message (encrypted for that browser alone, RFC 8291): the
+ * notification's [title] and [body] in the Android app's words (LOB-072), its [tag] (a newer one of the same game, pod or
+ * invitation replaces it), the app address a click opens ([path]) and the time of what it tells ([time], epoch millis).
+ */
+@Serializable data class WebPushNotice(val title: String, val body: String? = null, val tag: String, val path: String,
+    val time: Long? = null)
 @Serializable data class ActivityRegistration(val generation: String)
 @Serializable data class ActivityPushHint(val generation: String, val gameId: String, val activityId: String,
     val identity: String)
@@ -81,7 +103,13 @@ object ActivityWire {
     val json = Json { encodeDefaults = true; ignoreUnknownKeys = false }
     fun ordinal(value: String): Long? = value.takeIf { it.matches(Regex("0|[1-9][0-9]{0,18}")) }?.toLongOrNull()
     fun valid(input: RegisterInstallation) = DeckValidation.uuid(input.installationId) && DeckValidation.uuid(input.binding) &&
-        (input.pushToken == null || (input.pushToken.length in 1..4096 && input.pushToken.all { it.code in 33..126 }))
+        (input.pushToken == null || (input.pushToken.length in 1..4096 && input.pushToken.all { it.code in 33..126 })) &&
+        (input.webPush == null || (input.pushToken == null && valid(input.webPush)))
+    /** An https endpoint without user info, query-safe printable ASCII, and the browser's keys in their sizes: an
+     * uncompressed P-256 point (65 bytes, starting 0x04) and a 16-byte secret. */
+    fun valid(subscription: WebPushSubscription) = subscription.endpoint.length in 12..1024 &&
+        Regex("https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/[\\x21-\\x7e]*").matches(subscription.endpoint) &&
+        Regex("B[A-Za-z0-9_-]{86}").matches(subscription.p256dh) && Regex("[A-Za-z0-9_-]{21}[AQgw]").matches(subscription.auth)
     fun valid(hint: ActivityPushHint) = DeckValidation.uuid(hint.generation) && DeckValidation.uuid(hint.gameId) &&
         ordinal(hint.activityId) != null && DeckValidation.uuid(hint.identity)
 }

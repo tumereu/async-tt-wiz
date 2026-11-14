@@ -64,6 +64,7 @@ internal sealed interface Question {
         is ManaColor -> "ManaColor"
         is Player -> "Player"
         is CostChoice -> "CostChoice"
+        is CounterPick -> "CounterPick"
         is Pay -> "Pay"
         is Assist -> "Assist"
         is AssistAmount -> "AssistAmount"
@@ -89,6 +90,8 @@ internal sealed interface Question {
     data class Player(val key: String, val among: List<PlayerId>, override val stage: AnnounceStage = AnnounceStage.Costs) : Question
     /** ecl: a creature type chosen as part of the cost ("you may choose a creature type and behold two creatures of that type", CR 601.2f). */
     data class CostChoice(val key: String, val part: CostPart.Choose) : Question { override val stage get() = AnnounceStage.Costs }
+    /** mh3 sweep: the next counter a "remove N counters" cost of no one kind takes, among [labels] ([CounterCosts], CR 118.3). */
+    data class CounterPick(val key: String, val labels: List<String>) : Question { override val stage get() = AnnounceStage.Costs }
     data class Pay(val cost: ManaCost) : Question { override val stage get() = AnnounceStage.Mana }
     /** Assist (CR 702.132a): the caster may choose another player among [among] to help pay. */
     data class Assist(val among: List<PlayerId>) : Question { override val stage get() = AnnounceStage.Costs }
@@ -719,6 +722,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 if (choices.names[PLAYER + kp.key] == null) return Question.Player(kp.key, snap.state.playersFrom(player).filter { eval.matches(part.filter, it) })
                 return@forEach
             }
+            // mh3 sweep: which counters a "remove N counters" cost of no one kind takes, once its objects are known (CR 118.3)
+            if (part is CostPart.RemoveCounters && part.kind == null)
+                (counterProgress(kp.key, part) as? CounterCosts.Progress.Ask)?.let { return Question.CounterPick(kp.key, it.labels) }
             val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval) ?: return@forEach
             if (choices.names[OBJECTS + kp.key] == null) return Question.Objects(kp.key, choice)
         }
@@ -733,6 +739,20 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         }
         if (total.hasMana && manaToPay.symbols.isNotEmpty()) return Question.Pay(manaToPay)
         return null
+    }
+
+    /** mh3 sweep: where choosing the counters of [part] (a "remove N counters" cost of no one kind, keyed [key]) stands; null before its
+     * objects are chosen. */
+    fun counterProgress(key: String, part: CostPart.RemoveCounters): CounterCosts.Progress? {
+        val ids = when (val from = part.from) {
+            arcanum.api.CostObjects.Self -> listOf(sourceId)
+            is arcanum.api.CostObjects.These -> eval.objects(from.objects)
+            is arcanum.api.CostObjects.Choose -> (choices.names[OBJECTS + key] as? NamedValue.Objects)?.ids ?: return null
+        }
+        val picks = (choices.names[COUNTERS + key] as? NamedValue.Names)?.names.orEmpty()
+        return CounterCosts.progress(snap.state, ids, eval.value(part.amount), part.distributed, picks) { id ->
+            snap.view[id]?.characteristics?.name ?: id.toString()
+        }
     }
 
     /** Assist (CR 702.132a): the generic mana of the total cost another player may pay; 0 without assist. */
@@ -924,6 +944,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             else Decision.Targets(id, q.chooser ?: player, sourceId, q.slot.key + (q.forPlayer?.let { ":$it" } ?: ""), q.options, q.min, q.max)
         is Question.Divide -> Decision.Divide(id, player, sourceId, q.amount, q.among, minEach = 1)
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
+        is Question.CounterPick -> Decision.ChooseOption(id, player, sourceId, q.labels, "Choose a counter to remove")
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text,
             q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast))) },
             cost = total.parts.firstOrNull { it.key == q.key }?.at)
@@ -963,6 +984,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         /** blb: the player chosen for a [CostPart.ChoosePlayer] cost, by its key. */
         const val PLAYER = "\$player:"
         const val OBJECTS = "\$objects:"
+        /** mh3 sweep: under this + a cost part's key, the labels of the counters picked for it so far ([Question.CounterPick]). */
+        const val COUNTERS = "\$counters:"
         const val PER_PLAYER = "\$per-player:"
         /** rvr: under [PLAYER] + this + a slot's key, the player who chooses that slot's targets ([arcanum.api.TargetSlot.chosenBy]). */
         const val CHOOSER = "\$chooser:"

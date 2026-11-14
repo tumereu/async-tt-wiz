@@ -282,6 +282,7 @@ internal object Payment {
             is Question.ManaColor -> head is Answer.ColorChoice
             is Question.Modes -> head is Answer.Modes
             is Question.OneOf -> head is Answer.Option
+            is Question.CounterPick -> head is Answer.Option
             is Question.Player -> head is Answer.Player
             is Question.CostChoice -> head is Answer.SubtypeChoice || head is Answer.Objects
             else -> false
@@ -439,12 +440,20 @@ internal object Payment {
             }
             is CostPart.RemoveCounters -> {
                 val n = eval.value(part.amount)
+                // mh3 sweep: of no one kind, the counters the payer picked, of any kinds (CR 118.3)
+                if (part.kind == null) {
+                    val done = plan.counterProgress(kp.key, part) as? CounterCosts.Progress.Done ?: refuse("Choose the counters to remove")
+                    done.removals.forEach { (id, kind, count) ->
+                        recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -count, listOf(Meaning.Paid)))
+                    }
+                    return
+                }
                 // gtc: "remove N counters from among …": taken from the chosen objects in the order chosen
                 if (part.distributed) {
                     var left = n
                     objects(part.from).forEach { id ->
                         val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                        val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@forEach
+                        val kind = part.kind!!
                         val taken = minOf(left, o.counters(kind))
                         if (taken > 0) recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -taken, listOf(Meaning.Paid)))
                         left -= taken
@@ -454,7 +463,7 @@ internal object Payment {
                 }
                 objects(part.from).forEach { id ->
                     val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                    val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: refuse("No counters on $id")
+                    val kind = part.kind!!
                     if (o.counters(kind) < n) refuse("Not enough counters on $id")
                     recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -n, listOf(Meaning.Paid)))
                 }

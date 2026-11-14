@@ -103,6 +103,12 @@ internal object Answers {
                 if (shares.sumOf { it.amount } != q.amount) refuse("Divide exactly ${q.amount}")
                 c.copy(divided = c.divided + shares.map { DividedShare(q.key, it.target, it.amount) })
             }
+            is Question.CounterPick -> {
+                val chosen = (answer as? Answer.Option)?.chosen ?: refuse("Expected an option")
+                if (chosen !in q.labels) refuse("Not an option: $chosen")
+                val before = (c.names[Plan.COUNTERS + q.key] as? NamedValue.Names)?.names.orEmpty()
+                c.copy(names = c.names.with(Plan.COUNTERS + q.key, NamedValue.Names(before + chosen)))
+            }
             is Question.OneOf -> {
                 val chosen = (answer as? Answer.Option)?.chosen ?: refuse("Expected an option")
                 val index = q.labels.indexOf(chosen).takeIf { it >= 0 } ?: refuse("Not an option: $chosen")
@@ -213,13 +219,13 @@ internal object Answers {
         }
     }
 
-    /** Whether each of [ids] has the counters [part] removes (of its kind, else of the kind it has first, as paid). */
+    /** Whether each of [ids] has the counters [part] removes (of its kind; mh3 sweep: else of any kinds, CR 118.3). */
     private fun enoughCounters(plan: Plan, part: CostPart.RemoveCounters, ids: List<arcanum.engine.state.ObjectId>): Boolean {
         val n = plan.eval.value(part.amount)
+        if (part.kind == null) return CounterCosts.progress(plan.snap.state, ids, n, part.distributed, emptyList()) { it.toString() } != CounterCosts.Progress.Unpayable
         return ids.all { id ->
             val o = plan.snap.state.obj(id) ?: return@all false
-            val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@all n <= 0
-            o.counters(kind) >= n
+            o.counters(part.kind!!) >= n
         }
     }
 }

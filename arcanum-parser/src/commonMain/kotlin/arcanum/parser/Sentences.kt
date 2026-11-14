@@ -3010,19 +3010,25 @@ internal class Sentences(
                 ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
             if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
             if (whole != null) steps += whole
-            else for (sentence in sentences(if (whereX == null) text else text.removeRange(whereX.range))) {
-                // blb chunk 02: where the sentence's targets and steps begin ("If the gift was promised, instead …" replaces them)
-                val targetsFrom = context.targets.size
-                val stepsFrom = steps.size
-                val modified = modify(sentence, steps, context)
-                if (modified != null) { steps.clear(); steps += modified; continue }
-                val parsed = effect(sentence, context)
-                if (parsed == null) {
-                    // blb chunk 02: "that card", "this way" after a move or destruction: name what it moved (CR 400.7)
-                    val rebound = afterMove(sentence, steps, context) ?: return null
-                    steps.clear(); steps += rebound
-                } else steps += renameRepeatedTargets(parsed, context, targetsFrom) // rtr chunk 08
-                context.previous = targetsFrom to stepsFrom
+            else {
+                val all = sentences(if (whereX == null) text else text.removeRange(whereX.range))
+                for ((index, sentence) in all.withIndex()) {
+                    // blb chunk 02: where the sentence's targets and steps begin ("If the gift was promised, instead …" replaces them)
+                    val targetsFrom = context.targets.size
+                    val stepsFrom = steps.size
+                    val modified = modify(sentence, steps, context)
+                    if (modified != null) { steps.clear(); steps += modified; continue }
+                    val itBefore = context.it
+                    val parsed = effect(sentence, context)
+                    if (parsed == null) {
+                        // blb chunk 02: "that card", "this way" after a move or destruction: name what it moved (CR 400.7)
+                        val rebound = afterMove(sentence, steps, context) ?: return null
+                        steps.clear(); steps += rebound
+                    } else steps += renameRepeatedTargets(parsed, context, targetsFrom) // rtr chunk 08
+                    if (parsed != null && context.it == itBefore && all.getOrNull(index + 1)?.let { IT_WORD.containsMatchIn(it) } == true)
+                        nameTargetPutOntoBattlefield(steps, context, targetsFrom)
+                    context.previous = targetsFrom to stepsFrom
+                }
             }
         } finally { announcedX = outerX }
         val result = Instructions(targets = context.targets, steps = localExileReturns(steps), replacements = context.replacements).let { if (x == null) it else it.withX(x) }
@@ -3030,6 +3036,19 @@ internal class Sentences(
         // is the number of artifacts that player controls") is the player the instructions named before ("Choose target opponent.", CR 608.2c)
         val named = context.lastPlayer
         return if (event == null && named != null) result.withThatPlayer(named) else result
+    }
+
+    /** mh3 sweep: after a sentence putting its one new target onto the battlefield ("When this creature enters, return target creature card
+     * from your graveyard to the battlefield."), "it" in a trigger is that permanent, a new object (CR 400.7, 608.2c), named as it enters,
+     * not the trigger's object ("Exile it at the beginning of the next end step."). */
+    private fun nameTargetPutOntoBattlefield(steps: MutableList<Step>, context: Context, targetsFrom: Int) {
+        if (context.it !is Objects.EventObject && context.it != Objects.Self) return
+        val slot = context.targets.drop(targetsFrom).singleOrNull() ?: return
+        val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return
+        if (move.objects != Objects.Target(slot.name) || move.to.zone != Zone.Battlefield || move.postBind != null) return
+        if (slot.max != Value.Fixed(1)) return
+        steps[steps.lastIndex] = Step.Do(move.copy(postBind = PUT_ONTO_BATTLEFIELD))
+        context.it = Objects.Bound(PUT_ONTO_BATTLEFIELD)
     }
 
     /** rvr chunk 07: a delayed trigger returning "the exiled card" that this same ability exiled holds the card as a bound object (CR 603.7c),
@@ -11949,6 +11968,9 @@ internal class Sentences(
         const val TOKENS = "tokens"
         /** inr sweep: the object of a triggered ability's event, named for a delayed trigger it creates (CR 603.7c). */
         const val EVENT_OBJECT = "event object"
+        /** mh3 sweep: the permanent a sentence put onto the battlefield from its one target, for "it" after it ([nameTargetPutOntoBattlefield]). */
+        const val PUT_ONTO_BATTLEFIELD = "returned"
+        private val IT_WORD = Regex("""\b[Ii]t\b""")
         val THEY_GAIN = Regex("""They gain (.+)\.""")
         val YOU_MAY_IF_YOU_DO = Regex("""You may (.+?)\. If you do, (.+)""")
         /** fix1: what "If you do, …" says that refers back to the object of the action. */
@@ -24536,6 +24558,18 @@ internal class Sentences(
             val then = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".") ?: return null
             return steps.dropLast(1) + Step.Do(move.copy(preBind = bind)) +
                 Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound(bind), ObjectFilter.Category(arcanum.api.ObjectCategory.Token)), then = then.steps)
+        }
+        // mh3 sweep: "If it was a Soldier, put a +1/+1 counter on this creature." after returning a target to its owner's hand: "it" is that
+        // target as it last existed (CR 608.2h), not the object the trigger names
+        IF_IT_WAS.matchEntire(sentence)?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
+            val target = move.objects as? Objects.Target ?: return@let
+            // into a hidden zone only: an exiled card is still seen there ("the exiled card", bound by the rules after a move)
+            if (context.it == target || move.to.zone != Zone.Hand && move.to.zone != Zone.Library) return@let
+            val filter = Filters.noun(m.groupValues[1]) ?: return@let
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            context.it = target
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(target, filter), then = then)
         }
         // tdm chunk 11: "It gains lifelink and haste until end of turn." after creating a token
         Tdm.CREATE_IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->

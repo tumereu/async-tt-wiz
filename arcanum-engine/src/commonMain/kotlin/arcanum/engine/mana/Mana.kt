@@ -179,7 +179,10 @@ internal object Mana {
             CostPart.UntapSelf -> o.zone == Zone.Battlefield && o.tapped && !sick(snap, id)
             is CostPart.Sacrifice -> part.what != CostObjects.Self ||
                 (o.zone == Zone.Battlefield && ov?.has { it is Mechanic.CantBeSacrificed } != true)
-            is CostPart.PayLife -> snap.state.player(player).life >= snap.evaluator(player, self = id).value(part.amount)
+            // mh3 sweep: and not by a player who can't lose life (CR 119.8)
+            is CostPart.PayLife -> snap.evaluator(player, self = id).value(part.amount).let { n ->
+                n <= 0 || snap.state.player(player).life >= n && snap.view.players[player]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantLoseLife }
+            }
             else -> true
         }
     }
@@ -509,6 +512,8 @@ internal object Mana {
      * than {B} (or another colour, [Mechanic.PayLifeForMana]), each symbol that can be announced as that colour: a plain one and a hybrid
      * one with that colour as a half ({B/G}, {2/B}, {C/B}), which is announced as its nonhybrid equivalent before it's paid (CR 601.2b). */
     fun lifeSymbols(snap: Snapshot, player: PlayerId, cost: ManaCost): List<Int> {
+        // mh3 sweep: none for a player who can't lose life: they can't pay life (CR 119.8)
+        if (snap.view.players[player]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantLoseLife }) return emptyList()
         val colors = snap.view.players[player]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.PayLifeForMana)?.color }.toSet()
         return cost.symbols.withIndex().filter { (_, s) ->
             when (s) {

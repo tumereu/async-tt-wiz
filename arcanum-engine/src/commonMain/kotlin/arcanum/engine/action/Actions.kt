@@ -123,6 +123,9 @@ internal object Actions {
                     Replacement(r, pm.controller ?: o.owner, pm.id, arcanum.engine.state.Bindings.EMPTY, null, own = false, key = "back:${pm.id}:$i/${r.hashCode()}")
                 }
             }
+            // mh3 sweep: entering face down (manifested, cast face down) it has no abilities as it will exist: none of its own "enters with"
+            // replacements apply (CR 614.12, 708.2a, 701.40a)
+            val enteringFaceDown = pm.to == Zone.Battlefield && pm.faceDown
             Replacements.apply(
                 act, cause, pm, affected = act.controllerOf(pm.id) ?: o.owner, about = pm.id,
                 // rtr chunk 06: the proposed move names its cause, for "a spell or ability an opponent controls causes you to discard"
@@ -132,9 +135,11 @@ internal object Actions {
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
-                skip = { r, _ -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) ||
-                    back != null && r.source == pm.id && r.effect == null && !r.key.startsWith("back:") && selfEntering(r.mechanic.event) },
+                skip = { r, m -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) ||
+                    (back != null || enteringFaceDown || m.copyOf != null) && r.source == pm.id && r.effect == null && !r.key.startsWith("back:") &&
+                    !r.key.startsWith("copy:") && selfEntering(r.mechanic.event) },
                 extra = backOwn,
+                more = { m -> copiedOwn(act, o, m) },
             )
         }
         // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
@@ -222,6 +227,22 @@ internal object Actions {
         if (r.enters) return if (r.host == m.attachTo) m else m.copy(attachTo = r.host)
         return if (o.zone == Zone.Stack) m.copy(to = Zone.Graveyard, attachTo = null, controller = null) else null
     }
+
+    /** mh3 sweep: entering as a copy, it is checked as it will exist (CR 614.12, 707.2): the copied object's own "enters with" replacements
+     * (with the copy's exceptions) apply to it ("This creature enters with two +1/+1 counters on it"); not another copy effect. */
+    private fun copiedOwn(act: Act, o: GameObject, m: PlannedMove): List<Replacement> {
+        val except = m.copyOf?.second ?: return emptyList()
+        val face = enteringFace(act, o, m)?.let { arcanum.engine.view.Copiable.exceptions(it, except) } ?: return emptyList()
+        return ownEntering(face).mapIndexed { i, r ->
+            Replacement(r, m.controller ?: o.owner, m.id, arcanum.engine.state.Bindings.EMPTY, null, own = false, key = "copy:${m.id}:$i/${r.hashCode()}")
+        }
+    }
+
+    /** mh3 sweep: [face]'s own unconditional replacements of its entering the battlefield (CR 614.1c, 614.12), other than copy effects. */
+    private fun ownEntering(face: arcanum.api.FaceDefinition): List<Mechanic.Replacement> =
+        face.abilities.filterIsInstance<arcanum.api.Ability.Static>().filter { it.condition == null }.flatMap { it.mechanics }
+            .filterIsInstance<Mechanic.Replacement>()
+            .filter { selfEntering(it.event) && it.instead == null && it.modify.none { mod -> mod is Modification.EntersAsCopy } }
 
     private fun selfEntering(event: arcanum.api.EventPattern) =
         event is arcanum.api.EventPattern.ZoneChange && event.objects == arcanum.api.ObjectFilter.Is(Objects.Self) && event.to == Zone.Battlefield
@@ -991,7 +1012,12 @@ internal object Actions {
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
             }
             var o = t
-            enters.forEach { r ->
+            // mh3 sweep: and the token's own "enters with" replacements, as it will exist (a copy of a creature with "This creature enters with
+            // two +1/+1 counters on it", CR 614.12, 111.10)
+            val own = t.definition.faces.getOrNull(t.face)?.let { ownEntering(it) }.orEmpty().filter { !it.optional }.map { r ->
+                Replacement(r, t.controller ?: controller, t.id, arcanum.engine.state.Bindings.EMPTY, null, own = true, key = "token:${t.id}/${r.hashCode()}")
+            }
+            (enters + own).forEach { r ->
                 // gtc: "this creature" of another permanent's replacement is that permanent (Master Biomancer's power)
                 val e = Evaluator(proposedBoard(), Context(you = r.controller, self = r.source ?: t.id, names = r.names))
                 r.mechanic.modify.forEach { mod ->

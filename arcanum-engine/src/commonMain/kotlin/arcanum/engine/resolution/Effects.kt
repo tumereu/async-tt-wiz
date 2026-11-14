@@ -451,6 +451,9 @@ internal object Effects {
                 val b = scope.players(effect.second).firstOrNull() ?: return
                 val la = act.state.player(a).life
                 val lb = act.state.player(b).life
+                // mh3 sweep: a player who can't gain (or lose) life can't make an exchange that would raise (or lower) their life total: it
+                // doesn't happen for either player (CR 119.7, 119.8)
+                if (!canExchangeLife(act, a, lb - la) || !canExchangeLife(act, b, la - lb)) return
                 setLife(scope, a, lb)
                 setLife(scope, b, la)
             }
@@ -460,6 +463,7 @@ internal object Effects {
                 val id = onBattlefield(scope, effect.creature).firstOrNull() ?: return
                 val life = act.state.player(p).life
                 val stat = scope.value(Value.Of(effect.property, effect.creature, arcanum.api.Combine.Single))
+                if (!canExchangeLife(act, p, stat - life)) return // mh3 sweep: CR 119.7, 119.8
                 setLife(scope, p, stat)
                 val set = if (effect.property == arcanum.api.NumericProperty.Power) Mechanic.SetPowerToughness(Value.Fixed(life), null)
                     else Mechanic.SetPowerToughness(null, Value.Fixed(life))
@@ -614,11 +618,23 @@ internal object Effects {
     }
 
     /** one, mh3 chunk 11: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil", "flying"). */
-    private fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
+    fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
         is arcanum.api.CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
         is arcanum.api.CounterKind.Named -> kind.name
         is arcanum.api.CounterKind.Keyword -> kind.keyword.id
-        else -> kind::class.simpleName.orEmpty().lowercase()
+        // mh3 sweep: written out, not the class's name, which a shrunk Android build renames (a device and a server must offer the same options)
+        arcanum.api.CounterKind.Shield -> "shield"
+        arcanum.api.CounterKind.Stun -> "stun"
+        arcanum.api.CounterKind.Finality -> "finality"
+        arcanum.api.CounterKind.Rad -> "rad"
+        arcanum.api.CounterKind.Hone -> "hone"
+        arcanum.api.CounterKind.Time -> "time"
+        arcanum.api.CounterKind.Level -> "level"
+        arcanum.api.CounterKind.Loyalty -> "loyalty"
+        arcanum.api.CounterKind.Lore -> "lore"
+        arcanum.api.CounterKind.Defense -> "defense"
+        arcanum.api.CounterKind.Poison -> "poison"
+        arcanum.api.CounterKind.Energy -> "energy"
     }
 
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {
@@ -656,6 +672,14 @@ internal object Effects {
         }
         val moved = Actions.move(scope.act, scope.cause, moves)
         scope.bind(postBind, NamedValue.Objects(moves.mapNotNull { moved[it.id] }))
+    }
+
+    /** mh3 sweep: whether [player]'s life total may change by [diff] in an exchange: not up when they can't gain life, not down when they
+     * can't lose life (CR 119.7, 119.8). */
+    private fun canExchangeLife(act: arcanum.engine.action.Act, player: PlayerId, diff: Int): Boolean = when {
+        diff > 0 -> act.view().players[player]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantGainLife }
+        diff < 0 -> !Actions.cantLoseLife(act, player)
+        else -> true
     }
 
     private fun setLife(scope: Scope, player: PlayerId, to: Int) {

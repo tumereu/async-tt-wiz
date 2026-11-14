@@ -61,6 +61,18 @@ class PodPresetHttpTest {
                     json.encodeToString(CreateCube(id(), "Preset cube", listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 40))))).body()).cube
 
                 assertEquals(401, request(null, "GET", "/v1/pod-presets").statusCode())
+                // DRF-031: a new account has the Glimpse preset, an ordinary one: renamed, replaced and deleted like any other
+                val starting = list(a).single()
+                assertEquals(PodPreset(starting.id, "Glimpse", DraftSettings.glimpse(), updatedAt = starting.updatedAt), starting)
+                val glimpsePath = "/v1/pod-presets/${starting.id}"
+                assertEquals(200, request(a, "PUT", glimpsePath, json.encodeToString(RenamePodPreset("My Glimpse"))).statusCode())
+                assertEquals("preset_exists", json.decodeFromString<PodError>(save(a, SavePodPreset("my glimpse", DraftSettings()), 409)).code)
+                assertEquals(9, json.decodeFromString<PodPreset>(save(a, SavePodPreset("Glimpse", DraftSettings.glimpse(), overwrite = false), 201))
+                    .settings.packsPerPlayer)
+                val replacedGlimpse = json.decodeFromString<PodPreset>(save(a, SavePodPreset("my glimpse", DraftSettings.glimpse().copy(burn = 3),
+                    overwrite = true), 200))
+                assertEquals(listOf(starting.id, 3), listOf(replacedGlimpse.id, replacedGlimpse.settings.burn))
+                for (preset in list(a)) assertEquals(200, request(a, "DELETE", "/v1/pod-presets/${preset.id}").statusCode())
                 assertEquals(emptyList<PodPreset>(), list(a))
                 val glimpse = DraftSettings.glimpse().copy(librarians = 2, sideboardLimit = 15)
                 // The Librarian snapshot is supplied again when a pod is created; a preset never stores it.
@@ -92,7 +104,7 @@ class PodPresetHttpTest {
                 assertEquals(400, request(a, "PUT", renamePath, json.encodeToString(RenamePodPreset("x".repeat(61)))).statusCode())
 
                 // Other accounts neither see nor change the presets, nor can they reference another account's cube.
-                assertEquals(emptyList<PodPreset>(), list(b))
+                assertEquals(listOf("Glimpse"), list(b).map { it.name })
                 assertEquals(404, request(b, "PUT", renamePath, json.encodeToString(RenamePodPreset("Stolen"))).statusCode())
                 assertEquals(404, request(b, "DELETE", renamePath).statusCode())
                 assertEquals("cube_not_found", json.decodeFromString<PodError>(save(b, SavePodPreset("Theirs", DraftSettings(), cubeId = cube.id), 404)).code)
@@ -142,7 +154,8 @@ class PodPresetHttpTest {
                     packSets = listOf("RTR", "G T C")), 400)
 
                 // Limit on the number of presets; overwriting an existing one stays possible at the limit.
-                repeat(PodPresetValidation.MAX_PRESETS - 1) { save(b, SavePodPreset("Filler $it", DraftSettings()), 201) }
+                // b has Glimpse (DRF-031) and Cube night
+                repeat(PodPresetValidation.MAX_PRESETS - 2) { save(b, SavePodPreset("Filler $it", DraftSettings()), 201) }
                 assertEquals("too_many_presets", json.decodeFromString<PodError>(save(b, SavePodPreset("One more", DraftSettings()), 409)).code)
                 save(b, SavePodPreset("filler 0", DraftSettings.grid(), overwrite = true), 200)
             }

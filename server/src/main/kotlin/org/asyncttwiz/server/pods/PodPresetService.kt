@@ -113,6 +113,19 @@ class PodPresetService(private val runtime: ServiceRuntime) {
             }
     }
 
+    companion object {
+        /** DRF-031 (owner, 2026-11-14): the presets a new account starts with: Glimpse, a Booster of 9 packs × 15 that burns
+         * 2, without a source; ordinary presets, renamed, replaced and deleted like any other (V88 gave existing accounts
+         * the same). */
+        val DEFAULTS = listOf("Glimpse" to DraftSettings.glimpse())
+
+        fun addDefaults(sql: DSLContext, account: UUID) {
+            for ((name, settings) in DEFAULTS) sql.insertInto(POD_PRESET).set(POD_PRESET.ID, UUID.randomUUID()).set(POD_PRESET.ACCOUNT_ID, account)
+                .set(POD_PRESET.NAME, name).set(POD_PRESET.NAME_KEY, PodPresetValidation.key(name))
+                .set(POD_PRESET.SETTINGS, DeckJson.format.encodeToString(settings)).onConflictDoNothing().execute()
+        }
+    }
+
     private fun transaction(principal: AccountService.Principal, action: (DSLContext, UUID) -> Result): Result =
         runtime.transaction { connection -> action(DSL.using(connection, SQLDialect.POSTGRES), UUID.fromString(principal.account.accountId)) }
 }

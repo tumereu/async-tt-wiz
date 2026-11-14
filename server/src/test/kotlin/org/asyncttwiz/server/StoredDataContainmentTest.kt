@@ -154,7 +154,9 @@ class StoredDataContainmentTest {
 
                 val presets = PodPresetService(runtime).list(a)
                 assertEquals(200, presets.status, "One unreadable preset must not break the presets list")
-                assertEquals(listOf(s.goodPreset), json.decodeFromString<PodPresetList>(presets.body).presets.map { it.id })
+                // The account's own Glimpse (DRF-031) and the readable one
+                assertEquals(listOf("Glimpse", "Readable preset"), json.decodeFromString<PodPresetList>(presets.body).presets.map { it.name })
+                assertTrue(s.goodPreset in json.decodeFromString<PodPresetList>(presets.body).presets.map { it.id })
 
                 val decks = DeckService(runtime).list(a, null)
                 assertEquals(200, decks.status, "One unreadable card must not break the decks list")

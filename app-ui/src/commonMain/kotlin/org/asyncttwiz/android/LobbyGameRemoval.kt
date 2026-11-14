@@ -15,6 +15,8 @@ class LobbyGameRemoval(private val scope: LobbyScope, private val accountId: () 
         if (offersGameDeletion(game)) {
             setupCancellation.clear()
             state = state.copy(gameContext = game)
+            // LOB-148: the menu's Chat counts the game's unread messages: its read state is asked for now
+            session?.askChatRead(game.id)
         }
     }
     fun dismissGameContext() { state = state.copy(gameContext = null) }

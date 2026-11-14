@@ -43,7 +43,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             if (command.action !is GameAction.Submit && !command.action.isEngine) refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, now = clock,
         personalChat = personalChat,
-        openedGame = { state.selected }, engineWorker = engineWorker, engineLoad = { it == state.selected }, namedCards = namedCards) }
+        openedGame = { state.selected ?: state.listChat }, engineWorker = engineWorker, engineLoad = { it == state.selected }, namedCards = namedCards) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
     private val scope = object : LobbyScope {
         override var state: LobbyState
@@ -95,20 +95,34 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             state = state.copy(chatTab = tab, chatFocus = null)
         }
     }
+    /** LOB-148: opens [game]'s chat from the games list (its row's menu), without opening the game; its Game chat only. */
+    fun openListChat(game: GameSummary) {
+        if (closed || state.selected != null || game.lifecycle != GameLifecycle.ACTIVE || state.games.none { it.id == game.id }) return
+        AppLog.info("chat", "Chat of ${game.id.take(8)} opened from the games list (${state.chatUnread[game.id] ?: 0} unread)")
+        state = state.copy(listChat = game.id, chatOpen = true, chatFocus = null, chatWrite = false, chatTab = ChatTab.GAME,
+            gameContext = null)
+        connectionState()
+    }
+    /** The game the open chat writes in: the open game's, or the one opened from the games list (LOB-148). */
+    private val chatGame: GameSummary? get() = state.detail ?: state.listChat?.let { id -> state.games.firstOrNull { it.id == id } }
     /** LOB-139: Write in the Life panel: the chat open with its input focused and the soft keyboard up; [tab]: on that tab
      * in a pod game (WEB-017: the desktop's chat button, on the tab with unread messages). */
     fun writeChat(tab: ChatTab = ChatTab.GAME) { openChat(tab = tab); if (state.chatOpen) { state = state.copy(chatWrite = true); chatWrites++ } }
     /** LOB-139, WEB-031: how often Write (or the desktop's chat key) asked for the input: each time takes the keyboard again. */
     var chatWrites by androidx.compose.runtime.mutableIntStateOf(0); private set
-    fun closeChat() { state = state.copy(chatOpen = false, chatFocus = null, chatWrite = false) }
+    fun closeChat() {
+        state.listChat?.let { AppLog.info("chat", "Chat of ${it.take(8)} closed, back on the games list") }
+        state = state.copy(chatOpen = false, chatFocus = null, chatWrite = false, listChat = null)
+        if (state.selected == null) connectionState()
+    }
     /** WEB-017: the game's chat is docked on the desktop table (always shown), so its messages are read as they show and its
      * tabs switch, as in the open chat (LOB-138, LOB-145). Personal UI, set by the table. */
     var chatDocked: Boolean = false
         set(value) { if (field != value) { field = value; AppLog.info("chat", "Chat ${if (value) "docked" else "not docked"}") } }
     var gameInput: (() -> Unit)? = null
-    fun composeChat(text: String) { gameInput?.invoke(); state.detail?.let { personalChat.compose(it, text); connectionState() } }
+    fun composeChat(text: String) { gameInput?.invoke(); chatGame?.let { personalChat.compose(it, text); connectionState() } }
     fun sendChat() {
-        val game = state.detail ?: return
+        val game = chatGame ?: return
         val draft = state.chat.draft ?: return
         if (!closed && state.chat.canSend(game, true) && session?.sendChat(game, draft.text) == true) {
             personalChat.sent(game.id, draft.text); connectionState()
@@ -134,7 +148,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     val chatViewEpoch get() = epoch
     fun presentedChat(gameId: String, viewEpoch: Long, ids: Set<String>) {
         // Fence stale layout callbacks after navigation/Logout or a changed account's panel.
-        if (!closed && viewEpoch == epoch && (state.chatOpen || chatDocked) && state.chatTab == ChatTab.GAME && state.selected == gameId) {
+        if (!closed && viewEpoch == epoch && (state.chatOpen || chatDocked) && state.chatTab == ChatTab.GAME && (state.selected ?: state.listChat) == gameId) {
             session?.presentedChat(gameId, ids); connectionState()
         }
     }
@@ -150,8 +164,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, board = state.detail?.let(wire::board),
             ownPodDeckName = state.selected?.let(wire::ownPodDeckName),
             opponentPresence = state.selected?.let(wire::opponentPresence),
-            chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
-            chatLoaded = state.selected?.let(wire::chatLoaded) == true)
+            chat = (state.selected ?: state.listChat)?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
+            chatLoaded = (state.selected ?: state.listChat)?.let(wire::chatLoaded) == true,
+            // LOB-148: the games list's unread counts, once each game's read state is known
+            chatUnread = state.games.filter { it.lifecycle == GameLifecycle.ACTIVE && personalChat.readKnown(it.id) }
+                .associate { it.id to personalChat.unread(it.id, accountId(), wire.chat(it.id)) }.filterValues { it > 0 })
         // Never re-enter the session from its own status callback; run waiting taps right after it.
         if (queue.anyReady()) post(queue::runQueued)
     }
@@ -176,6 +193,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }
         if (state.selected == game.id) routes.reconcileActivityTarget(game)
         if (!listed && state.selected == game.id) leaveUnavailable()
+        if (state.listChat == game.id && (!listed || game.lifecycle != GameLifecycle.ACTIVE)) {
+            AppLog.info("chat", "Chat of ${game.id.take(8)} closed: the game is ${game.lifecycle.name.lowercase()}")
+            state = state.copy(listChat = null, chatOpen = false)
+        }
     }
     private fun leaveUnavailable() {
         state.selected?.let { AppLog.info("lobby", "Game ${it.take(8)} no longer available: back to the list") }
@@ -318,7 +339,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         // TRN-065 (e2e GameEndDialogTest, 2026-11-10): which game opens, and what of its last result stands
         AppLog.info("lobby", "Game ${id.take(8)} opened" + (if (state.mutating) ": ignored, a change is being saved" else
             latest[id]?.let { game -> " (${game.lifecycle}${game.resultNotice?.let { ", result OK owed by ${owedBy(it.unseen)}" }.orEmpty()})" }.orEmpty()))
-        if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); session?.openedChanged(); openGame(); refresh() } }
+        if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), listChat = null, gameContext = null, deletion = null, error = null); session?.openedChanged(); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)

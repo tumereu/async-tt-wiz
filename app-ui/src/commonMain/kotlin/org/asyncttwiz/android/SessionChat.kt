@@ -18,6 +18,8 @@ class SessionChat(private val scope: SessionScope, private val connection: GameC
     private val chatReadRetry = mutableMapOf<String, Long>()
     /** LOB-138: games whose read state moved on the server while a read request was on its way: asked again after it. */
     private val chatReadStale = mutableSetOf<String>()
+    /** LOB-148: games not open whose read state was asked for (their row's menu shows the unread count): asked once. */
+    private val pushedReads = mutableSetOf<String>()
     private val chatSubmissions = linkedMapOf<String, ChatSubmission>()
     fun chat(gameId: String) = messages[gameId].orEmpty()
     fun chatLoaded(gameId: String) = gameId in chatRevisions
@@ -30,9 +32,12 @@ class SessionChat(private val scope: SessionScope, private val connection: GameC
     fun syncChatRead(gameId: String) {
         if (!syncable(gameId) || gameId in chatReadRequests) return
         val input = personalChat.pendingRead(gameId)
-        if (gameId != openedGame() && input == null) return
+        // LOB-148: a game not open asks only when asked to ([askRead])
+        val asked = gameId in pushedReads
+        if (gameId != openedGame() && input == null && !asked) return
         if (now() < (chatReadRetry[gameId] ?: 0)) return
-        if (input == null && now() < (chatReadRefresh[gameId] ?: 0)) return
+        if (input == null && !asked && now() < (chatReadRefresh[gameId] ?: 0)) return
+        pushedReads.remove(gameId)
         chatReadRequests.add(gameId)
         val generation = scope.epoch; val owner = scope.account
         val started = connection.chatRead(gameId, input) { state -> scope.post {
@@ -54,6 +59,11 @@ class SessionChat(private val scope: SessionScope, private val connection: GameC
      * device): its read state is asked for at once rather than at the next refresh. */
     fun readChanged(gameId: String) {
         chatReadRefresh.remove(gameId)
+        if (gameId in chatReadRequests) chatReadStale.add(gameId) else syncChatRead(gameId)
+    }
+    /** LOB-148: [gameId]'s read state is asked for now, also for a game not open (its row's menu counts its unread messages). */
+    fun askRead(gameId: String) {
+        pushedReads.add(gameId)
         if (gameId in chatReadRequests) chatReadStale.add(gameId) else syncChatRead(gameId)
     }
     fun outgoingChat(gameId: String) = chatSubmissions.values.filter { it.command.scope.gameId == gameId }
@@ -120,10 +130,10 @@ class SessionChat(private val scope: SessionScope, private val connection: GameC
     /** The game's personal context is gone (unavailable, cancelled or deleted). */
     fun remove(gameId: String) {
         messages.remove(gameId); chatRevisions.remove(gameId); chatCursors.remove(gameId); olderChat.remove(gameId); chatReads.remove(gameId)
-        personalChat.remove(gameId); chatReadRequests.remove(gameId); chatReadRefresh.remove(gameId); chatReadRetry.remove(gameId)
+        personalChat.remove(gameId); chatReadRequests.remove(gameId); pushedReads.remove(gameId); chatReadRefresh.remove(gameId); chatReadRetry.remove(gameId)
         chatSubmissions.entries.removeAll { it.value.command.scope.gameId == gameId }
     }
     /** In-flight reads belong to the old socket epoch. */
     fun disconnected() { chatReads.clear(); chatReadRequests.clear(); chatReadRefresh.clear(); chatReadRetry.clear(); chatReadStale.clear() }
-    fun clear() { messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); personalChat.clear(); chatSubmissions.clear() }
+    fun clear() { pushedReads.clear(); messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); personalChat.clear(); chatSubmissions.clear() }
 }

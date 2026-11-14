@@ -33,14 +33,6 @@ Table and casting:
 - An uncrewed Vehicle shows "Crew N" in its bottom text when it fits (usually one short line); Crew N comes before any crewed P/T.
 - Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
 
-Lobby, chat and accounts:
-- Challenge button (pods and wherever it shows): if they have an open challenge to you, it accepts that one instead of creating a new room; a "New challenge" choice still queues more challenges to them.
-- A game's chat can be opened from the lobby (e.g. the game row's menu, with an unread count).
-- Game and pod chat messages show a small timestamp, with a date line between days.
-- The undeletable default Glimpse preset becomes a regular preset every account gets on creation (existing accounts get it as an ordinary copy), freely editable and deletable like other presets.
-- Rotisserie draft: separate settings for the pool size per player and the picks per player.
-- Avatar selection, phone and desktop: the choices get context (show names); the search results area that becomes scrollable looks it (borders/edges); the desktop layout uses its much larger space.
-
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).

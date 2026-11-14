@@ -41,7 +41,6 @@ fun PodPresetsDialog(controller: PodPresetController) {
         // A long list keeps its height while searching, so the dialog does not jump as rows filter out.
         Box(Modifier.fillMaxWidth().then(if (state.searchable) Modifier.height(400.dp) else Modifier.heightIn(min = 72.dp, max = 400.dp)),
             contentAlignment = Alignment.TopCenter) {
-            // Built-in presets show at once; the account's own follow once loaded.
             if (rows.isEmpty() && state.loaded) Text("No presets match", color = MaterialTheme.colorScheme.onSurfaceVariant)
             else LazyColumn(Modifier.fillMaxWidth().testTag("pod-preset-list")) {
                 items(rows, key = { it.id }) { preset ->
@@ -87,11 +86,8 @@ private fun PodPresetRow(preset: PodPreset, enabled: Boolean, load: () -> Unit, 
             Text(podPresetSummary(preset), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 color = if (preset.cubeMissing) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        // Built-in presets can't be renamed or deleted (DRF-033).
-        if (!preset.builtIn) {
-            HoldTip("Rename ${preset.name}") { IconButton(rename, enabled = enabled) { EntryIcon("Rename ${preset.name}", "rename") } }
-            HoldTip("Delete ${preset.name}") { IconButton(delete, enabled = enabled) { EntryIcon("Delete ${preset.name}", "delete") } }
-        }
+        HoldTip("Rename ${preset.name}") { IconButton(rename, enabled = enabled) { EntryIcon("Rename ${preset.name}", "rename") } }
+        HoldTip("Delete ${preset.name}") { IconButton(delete, enabled = enabled) { EntryIcon("Delete ${preset.name}", "delete") } }
     }
 }
 

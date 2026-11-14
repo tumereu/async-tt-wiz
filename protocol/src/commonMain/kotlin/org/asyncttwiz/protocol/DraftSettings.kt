@@ -2,7 +2,7 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** GLIMPSE is only read from pods and presets saved before Glimpse became a built-in preset of BOOSTER (DRF-020). */
+/** GLIMPSE is only read from pods and presets saved before Glimpse became a preset of BOOSTER (DRF-020, DRF-031). */
 @Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID, ROCHESTER, ROTISSERIE, WINSTON, WINCHESTER, SEALED }
 @Serializable enum class DraftColor { W, U, B, R, G }
 
@@ -28,10 +28,15 @@ data class DraftSettings(
      * random cards from it, instead of filling grids from boosters in card order.
      */
     val freshBoosters: Boolean = true,
-    /** Rotisserie, and Sealed from a cube: the cards each player ends with. */
+    /** Rotisserie, and Sealed from a cube: the cards each player ends with (Rotisserie: picks per player). */
     val cardsPerPlayer: Int = 45,
     /** Winston and Winchester: how many piles. */
     val piles: Int = 3,
+    /**
+     * Rotisserie (DRF-152, owner 2026-11-14): the cards per player laid out in the pool, at least [cardsPerPlayer]; the cards
+     * nobody picks stay in it. Null: as many as each picks.
+     */
+    val poolPerPlayer: Int? = null,
     /** Rochester: packs open at once across the table; null = one per player. */
     val tablePacksOpen: Int? = null,
     /** Winston and Winchester: independent tables the cards are split into (DRF-156, DRF-158); more than the players gives one per player. */
@@ -51,7 +56,11 @@ data class DraftSettings(
         if (players !in mode.players) add(DraftSettingsIssue.PLAYERS)
         if (mode.limited) {
             when (mode) {
-                DraftMode.ROTISSERIE -> if (cardsPerPlayer !in 5..225) add(DraftSettingsIssue.CARDS_PER_PLAYER)
+                DraftMode.ROTISSERIE -> {
+                    if (cardsPerPlayer !in 5..225) add(DraftSettingsIssue.CARDS_PER_PLAYER)
+                    if (poolPerPlayer != null && (poolPerPlayer !in 5..225 || poolPerPlayer < cardsPerPlayer))
+                        add(DraftSettingsIssue.POOL_PER_PLAYER)
+                }
                 DraftMode.SEALED -> {
                     if (cardsPerPlayer !in 5..225) add(DraftSettingsIssue.CARDS_PER_PLAYER)
                     if (packsPerPlayer !in 1..30) add(DraftSettingsIssue.PACKS_PER_PLAYER)
@@ -83,6 +92,9 @@ data class DraftSettings(
         if (packsOpenAtOnce !in 1..packsPerPlayer) add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
     }
 
+    /** Rotisserie: the cards per player laid out in the pool ([poolPerPlayer], else [cardsPerPlayer]). */
+    val rotisseriePool: Int get() = poolPerPlayer ?: cardsPerPlayer
+
     val rounds: Int get() = if (mode == DraftMode.GRID) (grids + gridsOpenAtOnce - 1) / gridsOpenAtOnce
         else (packsPerPlayer + packsOpenAtOnce - 1) / packsOpenAtOnce
 
@@ -90,7 +102,7 @@ data class DraftSettings(
 
     companion object {
         fun booster() = DraftSettings()
-        /** The built-in Glimpse preset of Booster (DRF-020). */
+        /** The Glimpse preset of Booster every account starts with (DRF-020, DRF-031). */
         fun glimpse() = DraftSettings(packsPerPlayer = 9, burn = 2)
         fun grid() = DraftSettings(mode = DraftMode.GRID)
         fun rochester() = DraftSettings(mode = DraftMode.ROCHESTER)
@@ -116,6 +128,8 @@ data class DraftSettings(
     PLAYERS, PACKS_PER_PLAYER, CARDS_PER_PACK, KEEP, BURN, KEEP_AND_BURN,
     DISCARD_REMAINING_AT, PACKS_OPEN_AT_ONCE, SIDEBOARD_LIMIT,
     GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE, LIBRARIANS, CARDS_PER_PLAYER, PILES, TABLES,
+    /** Rotisserie: the pool per player is out of range or smaller than the picks per player. */
+    POOL_PER_PLAYER,
 }
 
 @Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)

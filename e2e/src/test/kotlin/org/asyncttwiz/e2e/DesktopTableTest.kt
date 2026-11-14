@@ -3,9 +3,11 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import arcanum.api.TurnStep
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.android.DESKTOP_UNDO_TAG
@@ -146,6 +148,39 @@ class DesktopTableTest : E2e() {
         assertTrue(cards.all { it.left > exile.right && it.center.y > life.top && it.center.y < life.bottom },
             "in his seat header after his piles: $cards, exile $exile, life $life")
         assertTrue(cards.zipWithNext().all { (a, b) -> b.left < a.right }, "fanned, each card over the one before: $cards")
+        assertEquals(emptyList(), alice.leaks.leaks)
+    }
+
+    // WEB-017, LOB-066, WEB-031 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):
+    // Alice folds the dock away; Bob's message lights the top row's chat button, whose click unfolds the dock to its chat,
+    // ready to type, with no chat panel over the table (before: the side panel), and the message read there clears the dot.
+    // Folded away again, C does the same
+    @Test fun theChatButtonOpensTheDocksChat() {
+        start()
+        val draft = hasContentDescription("Chat message draft")
+        alice.tagged("dock-button").performMouseInput { click() }
+        waitUntil("Alice's dock folded away") { !alice.shows(hasTestTag("desktop-dock")) }
+        bob.described("Chat, ", substring = true).performClick()
+        waitUntil("Bob's chat open") { bob.shows(draft) }
+        bob.described("Chat message draft").performTextInput("Ready?")
+        waitUntil("Bob's draft") { bob.lobby.state.chat.draft?.text == "Ready?" }
+        bob.described("Send").performClick()
+        waitUntil("Bob's message accepted") { bob.lobby.state.chat.messages.size == 1 }
+        bob.described("Close chat").performClick()
+        waitUntil("Alice's chat button lit", along = listOf(bob)) { alice.shows(hasContentDescription("Chat, 1 unread messages")) }
+        alice.described("Chat, 1 unread messages").performMouseInput { click() }
+        waitUntil("the dock's chat unfolded, ready to type: ${alice.screen()}") {
+            alice.shows(hasTestTag("desktop-dock")) && alice.shows(draft and isFocused())
+        }
+        assertTrue(!alice.shows(hasContentDescription("Close chat")), "no chat panel over the table: ${alice.screen()}")
+        assertTrue(alice.showsText("Ready?"), "Bob's message in the dock")
+        waitUntil("Bob's message read") { alice.lobby.state.chat.unread == 0 }
+        // Folded away again, the chat key unfolds it ready to type too
+        alice.tagged("dock-button").performMouseInput { click() }
+        waitUntil("Alice's dock folded away") { !alice.shows(hasTestTag("desktop-dock")) }
+        alice.pressKey("c")
+        waitUntil("the dock's chat unfolded by C, ready to type") { alice.shows(hasTestTag("desktop-dock")) && alice.shows(draft and isFocused()) }
+        assertTrue(!alice.shows(hasContentDescription("Close chat")), "no chat panel over the table: ${alice.screen()}")
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 

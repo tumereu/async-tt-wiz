@@ -2,9 +2,6 @@ package org.asyncttwiz.e2e
 
 import org.asyncttwiz.android.timeline
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isEnabled
-import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
@@ -82,9 +79,10 @@ class MainPhaseUndoTest : E2e() {
     }
 
 
-    // HIS-084, HIS-087, HIS-099, HIS-100: Bob live, having seen her assumption of his pass: the same rules as ever ask him:
-    // Undo opens its dialog at the tap's point; he accepts and has nothing to redo, and she stands in her Main 1
-    @Test fun whenTheOtherPlayerHasSeenItUndoAsksThemAtTheTapsPoint() {
+    // HIS-084, HIS-087, HIS-100 (owner problem report VXSGKH: passes never need consent): Bob live, having seen her
+    // assumption of his pass: one Undo still goes back at once, free, with no dialog; he has nothing to redo, and she
+    // stands in her Main 1
+    @Test fun whenTheOtherPlayerHasSeenItsPassesUndoIsStillFree() {
         val hand = aliceDrewInHerMain()
         val turn = alice.state.turn.number
         aliceLeavesHerMain()
@@ -92,15 +90,12 @@ class MainPhaseUndoTest : E2e() {
             val head = alice.engine { device.session.head }
             alice.settled(this) && bob.shown.localHead == head && alice.engine { device.localHeads[bob.me] } == head
         }
+        var dialog = false
+        everyRun += { if (alice.shows(hasTestTag("undo-scroller"))) dialog = true }
         alice.tap("Undo")
-        val confirm = hasTestTag("rewind-confirm") and isEnabled()
-        waitUntil("Alice's Undo dialog at her tap, asking Bob") {
-            alice.shows(confirm) && alice.shows(hasTestTag("undo-point") and hasText("You went to combat")) && alice.showsText("Ask ${bob.name}")
-        }
-        alice.node(confirm).performClick()
-        waitUntil("Bob asked") { bob.shows(hasTestTag("request-accept")) }
-        bob.tagged("request-accept").performClick()
         aliceBackInHerMain(hand, turn)
+        everyRun.clear()
+        assertFalse(dialog, "free: no dialog")
         assertEquals(alice.me, bob.state.turn.active, "Alice's turn; Bob has nothing to redo")
         // HIS-076: Bob's phone reads what she pressed from the record
         waitUntil("Bob told what she undid") { bob.told("${alice.name} undid: went to combat") }

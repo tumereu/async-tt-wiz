@@ -39,20 +39,6 @@ class PassesAndUndoTest : E2e() {
         return shown
     }
 
-    /** Alice's Undo dialog is open at the point of her Herald's cast (its Undo enabled: the board there worked out), she
-     * asks, Bob accepts: the server goes back to [target] and both tables show the [herald] back in her hand. */
-    private fun aliceAsksAndBobAccepts(target: String, herald: String) {
-        val confirm = hasTestTag("rewind-confirm") and isEnabled()
-        waitUntil("Alice's undo request dialog at her cast") {
-            alice.shows(confirm) && alice.shows(hasTestTag("undo-point") and hasText("You cast Ember Herald"))
-        }
-        alice.node(confirm).performClick()
-        waitUntil("Bob asked to accept the undo") { bob.shows(hasTestTag("request-accept")) }
-        bob.node(hasTestTag("request-accept")).performClick()
-        waitUntil("the server back at the target") { serverGame()?.headId == target }
-        waitUntil("both tables back") { listOf(alice, bob).all { p -> p.game?.shown?.transition?.undone != null && where(p.shown.board, herald) == "HAND" } }
-    }
-
     // HIS-101, HIS-075, HIS-099, HIS-084 (§29.2, owner 2026-11-04): across turns full of passes no timeline
     // or event chip text says anyone passed (assumed or not): a pass reads only as what it led to, one that led to nothing
     // shows nowhere; the Undo dialog lists no pass (an End turn's first pass is "You ended the turn", her tap leaving her main
@@ -147,20 +133,20 @@ class PassesAndUndoTest : E2e() {
         assertEquals(GameDevice.Status.YourMove, alice.status)
     }
 
-    // HIS-030, HIS-108, HIS-099, TBL-040 (§29.4, owner 2026-11-04 and 2026-11-05): Alice undoes her cast that Bob had seen
-    // (he accepts her request): on both phones the board goes back in one animation (the Herald from the battlefield
-    // straight back to her hand, no board in between, no jump) with "Undid: cast Ember Herald" for her and "Alice undid:
-    // cast Ember Herald" for Bob
+    // HIS-030, HIS-108, HIS-087, TBL-040 (§29.4, owner 2026-11-04 and 2026-11-05): Alice undoes her cast that Bob had seen
+    // (free: after it only his passes, owner problem report VXSGKH): on both phones the board goes back in one animation
+    // (the Herald from the battlefield straight back to her hand, no board in between, no jump) with "Undid: cast Ember
+    // Herald" for her and "Alice undid: cast Ember Herald" for Bob
     @Test fun undoAnimatesBackwardsOnBothDevicesWithItsText() {
         val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false)
         val herald = cast.herald
         assertEquals("BATTLEFIELD", where(alice.shown.board, herald), "the Herald resolved on Alice's assumption")
         bobCatchesUp()
         assertEquals("BATTLEFIELD", where(bob.shown.board, herald), "Bob saw it resolve")
-        // Bob saw it: Alice asks (Undo opens the request), Bob accepts
         val target = assertNotNull(alice.shown.undoTarget)
         alice.tap("Undo")
-        aliceAsksAndBobAccepts(target, herald)
+        waitUntil("the server back at the target") { serverGame()?.headId == target }
+        waitUntil("both tables back") { listOf(alice, bob).all { p -> p.game?.shown?.transition?.undone != null && where(p.shown.board, herald) == "HAND" } }
 
         for ((player, text) in listOf(alice to "Undid: cast Ember Herald", bob to "${alice.name} undid: cast Ember Herald")) {
             val t = assertNotNull(player.shown.transition)
@@ -177,23 +163,37 @@ class PassesAndUndoTest : E2e() {
         assertEquals("HAND", where(alice.shown.board, herald))
     }
 
-    // HIS-084, HIS-099, SYS-025 (full suites 2026-11-08): Alice's phone hasn't heard yet that Bob saw her cast when she
-    // taps Undo, so it shows the undo at once; the server finds it needs Bob's approval, her game loads again and the Undo
-    // dialog opens at the point before her cast (never at the newest point), its Undo waiting until that point's board is
-    // in; she asks, Bob accepts and the server goes back to before her cast
+    // HIS-084, HIS-099, SYS-025 (full suites 2026-11-08): Alice's phone hasn't heard yet that Bob made a real move after
+    // her End turn (his Mountain in his turn) when she taps Undo, so it shows the undo at once; the server finds it needs
+    // Bob's approval, her game loads again and the Undo dialog opens at the point before her End turn (never at the newest
+    // point), its Undo waiting until that point's board is in; she asks, Bob accepts and the server goes back there
     @Test fun anUndoShownAtOnceThatNeedsApprovalOpensTheDialogAtItsPoint() {
-        val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false)
-        val herald = cast.herald
-        // What the server tells Alice waits: she doesn't hear that Bob saw her cast
+        aliceCastsAHeraldWhileBobIsAway(endTurn = true, bobCanRespond = false, bobHolds = "Mountain")
+        val ended = alice.engine { device.session.events }.last { it.author == alice.id && it.press == org.asyncttwiz.protocol.game.MainPress.EndTurn }
+        val target = ended.parentId
+        assertEquals(target, alice.shown.undoTarget)
+        // What the server tells Alice waits: she doesn't hear Bob's Mountain
         alice.link.holdIncoming()
-        bobCatchesUp()
-        val target = assertNotNull(alice.shown.undoTarget)
-        assertEquals(cast.cast.parentId, target)
+        bob.back()
+        // Bob catches up and plays a Mountain in his Main 1
+        waitUntil("Bob's Mountain on the server", along = listOf(bob)) {
+            bob.field("Mountain").isNotEmpty() && bob.engine { device.session.pending.isEmpty() }
+        }
         alice.tap("Undo")
-        waitUntil("the undo shown on her table at once") { where(alice.shown.board, herald) == "HAND" }
+        waitUntil("the undo shown on her table at once") { alice.state.turn.active == alice.me && alice.inOwnMain() }
         assertTrue(serverGame()?.headId != target, "not on the server yet")
         alice.link.releaseIncoming()
-        aliceAsksAndBobAccepts(target, herald)
+        val confirm = hasTestTag("rewind-confirm") and isEnabled()
+        waitUntil("Alice's undo request dialog at her End turn") {
+            alice.shows(confirm) && alice.shows(hasTestTag("undo-point") and hasText("You ended the turn"))
+        }
+        alice.node(confirm).performClick()
+        waitUntil("Bob asked to accept the undo") { bob.shows(hasTestTag("request-accept")) }
+        bob.node(hasTestTag("request-accept")).performClick()
+        waitUntil("the server back at the target") { serverGame()?.headId == target }
+        waitUntil("both tables back in Alice's Main 1, Bob's Mountain in his hand") {
+            alice.inOwnMain() && bob.field("Mountain").isEmpty() && bob.state.turn.active == alice.me
+        }
     }
 
     // HIS-102 (§29.2, smoke 2026-11-04): with both apps open, Alice casts an Ember Herald and Bob's pass lets it resolve:

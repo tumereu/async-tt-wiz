@@ -88,18 +88,18 @@ class QueuedUndoTest {
     private fun castable(s: GameState) = Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).any { it is Input.Cast }
     private fun bobsMountain(s: GameState) = s.battlefield.firstOrNull { s.obj(it)?.controller == bobId }
 
-    /** A Storm Spark cast by Alice with her own answers (the first target, the suggested payment). */
-    private fun spark(s: GameState): List<Input> {
-        val cast = assertNotNull(Engine.options(s, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
+    /** A Storm Spark cast by [player] (Alice by default) with their own answers (the first target, the suggested payment). */
+    private fun spark(s: GameState, player: PlayerId = alice): List<Input> {
+        val cast = assertNotNull(Engine.options(s, player, org.asyncttwiz.protocol.game.EnginePreferences.of(s)).filterIsInstance<Input.Cast>().firstOrNull(), "a Storm Spark castable")
         val copy = s.deepCopy()
         val inputs = mutableListOf<Input>(cast)
         var input: Input = cast
         repeat(10) {
             Engine.perform(copy, input, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
-            if (d is Decision.Random || Host.decider(copy, d.player) != alice) return inputs
+            if (d is Decision.Random || Host.decider(copy, d.player) != player) return inputs
             input = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
-            else Engine.options(copy, alice, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            else Engine.options(copy, player, org.asyncttwiz.protocol.game.EnginePreferences.of(copy)).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += input
         }
         return inputs
@@ -179,19 +179,21 @@ class QueuedUndoTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-107, HIS-087, HIS-099, SYS-025: the server has her cast and Bob has answered it (his pass) before her Undo
-    // arrives, while her device hasn't heard back: her table shows the undo at once, the server finds it isn't free, so her
-    // game loads again from the server's line and the Undo dialog opens with the point before her cast chosen
+    // HIS-107, HIS-087, HIS-099, SYS-025: the server has her cast and Bob has answered it (a Storm Spark of his in response:
+    // a real input, not a pass, which wouldn't count, owner problem report VXSGKH) before her Undo arrives, while her device
+    // hasn't heard back: her table shows the undo at once, the server finds it isn't free, so her game loads again from the
+    // server's line and the Undo dialog opens with the point before her cast chosen
     @Test fun anUndoNoLongerFreeOnTheServerOpensTheUndoDialog() {
         val game = aliceInMain()
         val bob = sim.game(f.b)
         game.send(spark(game.device.model.engine))
         val cast = lastCast(game)
         sim.flush(f.a)
-        // Bob's device shows her cast and he passes before Alice hears anything back
+        // Bob's device shows her cast and he responds before Alice hears anything back
         sim.deliver(f.b); bob.playToStop(); bob.tick(sim.now)
-        assertFalse(bob.pass() is GameDevice.Acted.Refused)
+        bob.send(spark(bob.device.model.engine, bobId))
         sim.flush(f.b)
+        assertTrue(sim.line().any { e -> e.author == f.b && e.engine?.steps.orEmpty().any { it.input is Input.Cast } }, "Bob's Spark on the server")
         assertEquals(GameDevice.Undo.Free(cast.parentId), game.undo())
         aliceRoundTrip(game)
         assertTrue(game.notes.any { it == GameDevice.Note.RequestNeeded(cast.parentId) }, "the Undo dialog: ${game.notes}")

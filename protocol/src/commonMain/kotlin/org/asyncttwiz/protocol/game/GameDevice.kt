@@ -1929,6 +1929,7 @@ class GameDevice(
      * on the line it takes back. */
     fun undo(target: String? = undoTarget()): Undo {
         val from = where()
+        undoWhy = null
         return undoTo(target).also { remember("undo asked to $target from $from: $it") }
     }
 
@@ -1943,13 +1944,27 @@ class GameDevice(
         val after = lineAfter(target) ?: return Undo.Request(target, "unknown")
         if (after.isEmpty()) return Undo.Unavailable("nothing")
         val at = (reach(target) as? Reach.State)?.model ?: return Undo.Request(target, "unknown")
-        val reason = Rewind.requestNeeded(at, target, after, me, heads.filterKeys { it != me }.values.toList())
-        if (reason != null) return Undo.Request(target, reason)
+        val verdict = judged(at, target, after)
+        if (verdict.reason != null) return Undo.Request(target, verdict.reason)
         forgetRemakes()
         send(GameAction.EngineRewind(target))
         undoLocally(target)
         return Undo.Free(target)
     }
+
+    /** Why the latest undo this device worked out was free or a request ([Rewind.Verdict.why]: the events after its
+     * point, whose, which counted and why; owner rule 2026-11-09, problem report VXSGKH), for the app log; null before
+     * any. Also in the device's record. */
+    var undoWhy: String? = null
+        private set
+
+    /** [Rewind.judge] of undoing to [target] from [at] (the state there, used up) with the main line's events [after]
+     * it, remembered ([undoWhy]). */
+    private fun judged(at: GameModel, target: String, after: List<GameEvent>): Rewind.Verdict =
+        Rewind.judge(at, target, after, me, heads.filterKeys { it != me }.values.toList()).also {
+            undoWhy = it.why
+            remember("undo to $target judged: ${it.why}")
+        }
 
     /**
      * SYS-025 (owner, 2026-11-08): the player's own free undo to [target], sent, shown at once as every own action is:
@@ -1985,6 +2000,7 @@ class GameDevice(
      */
     fun undoTap(): Undo {
         val from = where()
+        undoWhy = null
         return tappedUndo().also { remember("undo tapped from $from: $it") }
     }
 
@@ -2018,7 +2034,7 @@ class GameDevice(
         if (target != session.localHead) return null
         val after = (lineAfter(target) ?: return null) + session.pending
         val at = (reach(target) as? Reach.State)?.model ?: return null
-        if (Rewind.requestNeeded(at, target, after, me, heads.filterKeys { it != me }.values.toList()) != null) return null
+        if (judged(at, target, after).reason != null) return null
         forgetRemakes()
         send(GameAction.EngineRewind(target))
         undoLocally(target)

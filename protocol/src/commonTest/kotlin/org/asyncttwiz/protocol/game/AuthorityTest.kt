@@ -315,9 +315,51 @@ class AuthorityTest {
         assertEquals(bottom, server.state().engine.player(bob).library.last())
         val places = server.state().engine.let { s -> s.setup.libraryPlaces(bob).filterKeys { it in s.player(bob).library } }
         assertEquals(mapOf<ObjectId, Int>(bottom to 0), places)
-        // Once Alice confirmed Bob's assumption, undoing past it is a request too
+        // Alice confirming Bob's assumption of her pass changes nothing (owner problem report VXSGKH: passes never count):
+        // the look still makes it a request
         server.seen(alice, server.head)
-        assertEquals("confirmed", server.rewindNeeds(bob, beforeCast))
+        assertEquals("shown", server.rewindNeeds(bob, beforeCast))
+    }
+
+    // HIS-087 (owner problem report VXSGKH: "undoing a pass should never need consent"): the other player's passes after the
+    // point never make undo a request, whether they passed themselves (a tap or their device) or confirmed the undoer's
+    // assumption of their pass; a resolution their pass let through that shows the undoer a card still does
+    @Test
+    fun theOtherPlayersPassesNeverMakeUndoARequest() {
+        val glimmer = arcanum.engine.cards.Cards.invent("Idle Glimmer", "{0}", "Instant", "Draw a card.")
+        val server = AsyncServer(EngineGames(3, List(40) { "Forest" } to (List(20) { "Island" } + List(20) { glimmer })))
+        val alice = server.alice; val bob = server.bob
+        server.start(bob)
+        server.keepAndAssumeKeep(bob)
+        server.atOwnMain(bob)
+        server.seen(alice, server.head)
+        val beforeLand = server.head
+        // Bob plays an Island and passes; Alice passes herself, and has seen it all: the game moves on to his combat
+        server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
+        server.act(bob, Input.PassPriority(bob)).getOrThrow()
+        server.seen(alice, server.head)
+        server.act(alice, Input.PassPriority(alice)).getOrThrow()
+        assertEquals(TurnStep.BeginningOfCombat, server.state().engine.turn.step)
+        assertEquals(server.head, server.heads[alice])
+        assertNull(server.rewindNeeds(bob, beforeLand))
+        server.rewind(bob, beforeLand)
+        // His assumption of her pass, confirmed by her
+        server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
+        server.act(bob, Input.PassPriority(bob)).getOrThrow()
+        server.act(bob, Input.PassPriority(alice), assumed = true).getOrThrow()
+        server.seen(alice, server.head)
+        assertNull(server.rewindNeeds(bob, beforeLand))
+        server.rewind(bob, beforeLand)
+        // Her own pass lets his Idle Glimmer resolve: he draws a card, something new for him
+        server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
+        val beforeCast = server.head
+        server.act(bob, Input.Cast(bob, hand(server.state(), bob, "Idle Glimmer")), follow = server.flow(bob)).getOrThrow()
+        if (server.state().engine.priority.holder == bob) server.act(bob, Input.PassPriority(bob)).getOrThrow()
+        server.seen(alice, server.head)
+        val hand = server.state().engine.player(bob).hand.size
+        server.act(alice, Input.PassPriority(alice)).getOrThrow()
+        assertEquals(hand + 1, server.state().engine.player(bob).hand.size, "the Glimmer resolved on her pass")
+        assertEquals("shown", server.rewindNeeds(bob, beforeCast))
     }
 
     // I-D56 §11: conceding while behind is the conceder's real input at their local head: a branch

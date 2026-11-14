@@ -51,13 +51,15 @@ internal class HeraldCast(val herald: String, val cast: GameEvent, val line: Lis
  * respond, HIS-095), both keep, Bob goes away; Alice plays a Mountain and casts an Ember Herald, her phone assuming Bob
  * lets it resolve ("Always assume resolves" on, HIS-096); the Herald and its token reach her battlefield. With [endTurn]
  * she then ends her turn. With [bobCanRespond] false Bob's deck is Mountains, Ember Cubs and Storm Sparks instead (in
- * Alice's first turn he has no mana, so nothing he could respond with); [bobSettings]: his play defaults.
+ * Alice's first turn he has no mana, so nothing he could respond with); [bobSettings]: his play defaults; [bobHolds]: a
+ * card his opening hand holds.
  */
 internal fun E2e.aliceCastsAHeraldWhileBobIsAway(endTurn: Boolean = true, bobCanRespond: Boolean = true,
-    bobSettings: PlaySettings? = null): HeraldCast {
+    bobSettings: PlaySettings? = null, bobHolds: String? = null): HeraldCast {
     startGame(TestDeck.thirds(TestCards.herald), if (bobCanRespond) TestDeck.glimmers() else TestDeck.thirds(),
         aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always), bobSettings = bobSettings,
-        deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && (!bobCanRespond || "Idle Glimmer" in hand(b)) })
+        deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && (!bobCanRespond || "Idle Glimmer" in hand(b)) &&
+            (bobHolds == null || bobHolds in hand(b)) })
     bothOpen()
     bothKeep(bobAway = true)
     alice.playFromHand("Mountain", this)

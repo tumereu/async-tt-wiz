@@ -55,8 +55,9 @@ class EngineMotionQueue {
             this.version = version
             val same = transition != null && transition.serial == serial
             val takeBackGoesOn = same && transition.undone?.branch == true
-            val combatGoesOn = same && playing && (stopped.value?.first == run || stopAt != null || stopEntries.isNotEmpty())
-            if (combatGoesOn) AppLog.info("game", "Combat hold: the board's steps go on from step ${index + 1} of ${steps.size}" +
+            // HIS-112: steps stopped where a play shown went on the Stack go on too (from there, once it landed)
+            val combatGoesOn = same && playing && (stopped.value?.first == run || stopAt != null)
+            if (combatGoesOn) AppLog.info("game", "View hold: the board's steps go on from step ${index + 1} of ${steps.size}" +
                 (stopAt?.let { ", now held for ${it::class.simpleName}" } ?: ""))
             if (!takeBackGoesOn && !combatGoesOn) {
                 steps = if (transition == null || transition.serial == serial || transition.jump) emptyList() else transition.steps

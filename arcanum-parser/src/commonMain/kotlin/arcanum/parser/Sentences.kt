@@ -8187,6 +8187,9 @@ internal class Sentences(
             val name = Filters.slotName(noun)
             context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(context.another(), Filters.noun(noun) ?: return null)),
                 min = Value.Fixed(if (m.groupValues[1] == "another") 1 else 0), max = Value.Fixed(1))
+            // bro chunk 16: "If it was a Soldier, …" afterwards is the returned target as it last existed on the battlefield (CR 608.2h),
+            // not the trigger's object
+            context.it = Objects.Target(name)
             return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
         }
         // blb chunk 11: "Return another creature you control to its owner's hand. If you do, …" (a choice, not a target)
@@ -16125,6 +16128,14 @@ internal class Sentences(
             if (Zone.Hand !in search.zones) return null
             return steps.dropLast(1) + Step.Bind(Objects.Where(move.objects, ObjectFilter.InZone(Zone.Hand)), "exiled from hand") + steps.last() +
                 Step.Do(Effect.Shuffle(search.library)) + Step.Do(Effect.Draw(search.library, Value.Count(Objects.Bound("exiled from hand"))))
+        }
+        // bro chunk 16: "You gain 1 life for each card exiled this way." after "Exile target player's graveyard.": the cards actually exiled
+        // (CR 400.7), named by the exile itself
+        Gtc.GAIN_LIFE_FOR_EACH_EXILED.matchEntire(sentence)?.let { m ->
+            val move = (last as? Step.Do)?.effect as? Effect.Move ?: return@let
+            if (move.to.zone != Zone.Exile || move.postBind != null) return@let
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = "exiled")) +
+                Step.Do(Effect.GainLife(Players.You, Value.Times(Value.Count(Objects.Bound("exiled")), m.groupValues[1].toInt())))
         }
         // bro chunk 08: "You gain life equal to the damage dealt this way." after a damage effect: the damage actually dealt (after prevention,
         // CR 120.3, 615)

@@ -29,9 +29,14 @@ internal fun jsCloseWatcher(closed: () -> Unit): JsAny? = js("""(() => {
 })()""")
 internal fun jsDestroyCloseWatcher(watcher: JsAny): Unit = js("{ try { watcher.destroy(); } catch (e) {} }")
 
-/** Whether a text field has the keyboard (Compose's text input is a hidden input or textarea while typing). */
+/**
+ * Whether a text field has the keyboard (Compose's text input is a hidden input or textarea while typing). Compose draws
+ * inside a shadow root, where its input lives: the document's active element is then only the shadow root's host, so the
+ * focus is followed down through the shadow roots to the element that really has it.
+ */
 internal fun jsTyping(): Boolean = js("""(() => {
-    const element = document.activeElement;
+    let element = document.activeElement;
+    while (element && element.shadowRoot && element.shadowRoot.activeElement) element = element.shadowRoot.activeElement;
     return !!element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable === true);
 })()""")
 

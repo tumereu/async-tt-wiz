@@ -76,27 +76,64 @@ data class DesktopKey(val key: String, val down: Boolean, val time: Long, val re
  * The desktop layout's keyboard (§6): the page hands every key press and release here ([dispatch], the web platform's
  * window listeners), and the screens listening ([Listen]) take them, the last listening first. Step 5c's hotkeys listen
  * here too. Nothing dispatches on Android. Main thread.
+ *
+ * WEB-031 (owner, 2026-11-14): while a text field has the keyboard ([DesktopKey.textField]) every key press goes only to it,
+ * as typing: no listener hears it (but one waiting for a key to bind, `whileTyping`), so no hotkey, "?" included, ever acts
+ * on a typed key. Releases still reach every listener, so a key held before the field took the keyboard is let go.
  */
 object DesktopKeyboard {
-    private val listeners = mutableListOf<(DesktopKey) -> Boolean>()
+    private class Entry(val whileTyping: Boolean, val listener: (DesktopKey) -> Boolean)
+    private val listeners = mutableListOf<Entry>()
 
     /** Hands [event] to the listeners, the newest first, until one takes it; whether one did (the page then keeps the
-     * browser's own handling of the key off). */
-    fun dispatch(event: DesktopKey): Boolean = listeners.asReversed().toList().any { it(event) }
+     * browser's own handling of the key off). A press while a text field has the keyboard reaches only `whileTyping` ones. */
+    fun dispatch(event: DesktopKey): Boolean {
+        val typing = event.down && event.textField
+        if (typing) heldBack(event) else if (event.down) typingNoted = null
+        return listeners.asReversed().toList().any { (!typing || it.whileTyping) && it.listener(event) }
+    }
 
     /** Whether anything listens (a desktop table is shown). */
     val listening: Boolean get() = listeners.isNotEmpty()
 
-    /** Listens to the keyboard while composed and [enabled]; [listener] returns whether it took the key. */
+    /** Listens to the keyboard while composed and [enabled]; [listener] returns whether it took the key. [whileTyping]: it
+     * also hears presses while a text field has the keyboard (only for waiting on the key to bind, WEB-035). */
     @Composable
-    fun Listen(enabled: Boolean, listener: (DesktopKey) -> Boolean) {
+    fun Listen(enabled: Boolean, whileTyping: Boolean = false, listener: (DesktopKey) -> Boolean) {
         val current by rememberUpdatedState(listener)
-        DisposableEffect(enabled) {
-            val entry: (DesktopKey) -> Boolean = { current(it) }
+        DisposableEffect(enabled, whileTyping) {
+            val entry = Entry(whileTyping) { current(it) }
             if (enabled) listeners += entry
             onDispose { listeners -= entry }
         }
     }
+
+    /** When the current stretch of typing was last noted in the log (its key's time), null outside one. */
+    private var typingNoted: Long? = null
+    /** Presses held back from the listeners since that note. */
+    private var heldBackSince = 0
+
+    /**
+     * Logs, once per stretch of typing and then at most every [TYPING_NOTE_MILLIS], that presses go to the text field and
+     * not to the hotkeys (with how many since the last note), so a report of a key "doing nothing" explains itself. A typed
+     * character is never named (the field may be a password's); keys with names (Enter, Tab, ←) and Ctrl / ⌘ chords are.
+     */
+    private fun heldBack(event: DesktopKey) {
+        if (listeners.isEmpty() || event.key in KeyChord.MODIFIERS) return
+        heldBackSince++
+        val noted = typingNoted
+        if (noted != null && event.time - noted in 0 until TYPING_NOTE_MILLIS) return
+        val name = when {
+            event.ctrl || event.meta || event.key.length > 1 -> KeyChord.of(event)?.label ?: "a named key"
+            else -> "a typed character"
+        }
+        AppLog.info("keys", "Typing: $name went to the text field, no hotkey acts while one has the keyboard" +
+            if (heldBackSince > 1) " ($heldBackSince keys since the last note)" else "")
+        typingNoted = event.time
+        heldBackSince = 0
+    }
+
+    private const val TYPING_NOTE_MILLIS = 30_000L
 }
 
 /**

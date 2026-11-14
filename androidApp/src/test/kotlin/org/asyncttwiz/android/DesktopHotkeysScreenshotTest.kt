@@ -143,4 +143,33 @@ class DesktopHotkeysScreenshotTest {
             assertTrue(source.writes.size == 2, "two saves: ${source.writes}")
         }
     }
+
+    // WEB-031, WEB-034 (owner, 2026-11-14): while a text field has the keyboard no listener hears a press, "?" and Space
+    // included, the "?" sheet's opener among them; only one waiting for a key to bind does. Releases reach every listener
+    @Test fun typedKeysReachNoHotkey() {
+        val heard = mutableListOf<String>()
+        val binding = mutableListOf<String>()
+        compose.setContent {
+            CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop) {
+                Box(Modifier.fillMaxSize()) {
+                    HotkeySheetHost(true) {}
+                    DesktopKeyboard.Listen(true) { key -> heard += "${key.key} ${if (key.down) "down" else "up"}"; false }
+                    DesktopKeyboard.Listen(true, whileTyping = true) { key -> if (key.down) binding += key.key; false }
+                }
+            }
+        }
+        compose.runOnIdle {
+            for (name in listOf("?", " ", "t")) {
+                time += 100
+                assertTrue(!DesktopKeyboard.dispatch(DesktopKey(name, true, time, shift = name == "?", textField = true)), "$name not taken")
+                DesktopKeyboard.dispatch(DesktopKey(name, false, time + 20, textField = true))
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag(HOTKEY_SHEET_TAG).assertDoesNotExist()
+        assertEquals(listOf("? up", "  up", "t up"), heard, "only the releases")
+        assertEquals(listOf("?", " ", "t"), binding, "a key being bound hears them")
+        press("?", shift = true)
+        compose.onNodeWithTag(HOTKEY_SHEET_TAG).assertExists()
+    }
 }

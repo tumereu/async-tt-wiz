@@ -1,0 +1,1 @@
+fix: In the desktop web version, typing in the chat, a problem report or any other text field no longer works the keyboard shortcuts: "?" and every other key just type.

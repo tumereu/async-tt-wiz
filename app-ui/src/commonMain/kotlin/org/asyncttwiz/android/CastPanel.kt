@@ -167,6 +167,9 @@ interface FlowQuestions {
         is Decision.ChooseNumber -> decision.max
         else -> null
     }
+    /** STK-024 (owner 2026-11-14): [value] is being set for the number [decision] asks (a cast's X): the table outlines what
+     * would pay with it. Nothing is answered. */
+    fun preview(decision: Decision, value: Int) {}
     /** STK-052: whether [value] of the number [decision] asks may be answered: false for a value of a cast's X known not to
      * be payable (a gap a reduction leaves), so an earlier choice is never a dead end. */
     fun payable(decision: Decision, value: Int): Boolean = true
@@ -495,7 +498,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
             // STK-052: a value in a gap of what can be paid greys Cast too
             val payable = (max == null || max >= min) && cast.payable(decision, value)
             Section(choiceWhat(decision), choiceHint(decision)) {
-                Stepper(value, min, max?.coerceAtLeast(min)) { value = it }
+                Stepper(value, min, max?.coerceAtLeast(min)) { value = it; cast.preview(decision, it) }
                 if (!payable) Text("It can't be paid now.", fontSize = 11.sp, color = Color(0xff4b5a5f))
                 OkRow(decision, payable) { cast.answer(Answer.Number(value)) }
             }

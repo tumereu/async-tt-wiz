@@ -80,6 +80,7 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
                 is CastOp.Begin -> step.begin(op)
                 is CastOp.HandChoice -> step.handChoice(entry!!.flow, op)
                 is CastOp.Update -> step.update(entry!!.flow, op)
+                is CastOp.Preview -> step.preview(entry!!.flow, op)
                 is CastOp.Tap -> step.tap(entry!!, op)
                 is CastOp.ChooseWay -> step.chooseWay(entry!!, op)
                 is CastOp.Cast -> step.cast(entry!!.flow, op)
@@ -225,6 +226,13 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
             return settle(next, fresh = false, auto = true, c.autotap, c.keep, c.custom, picks = c.taps.taps())
         }
 
+        /** STK-024 (owner 2026-11-14): the payment the open question comes to with [CastOp.Preview.answer] (the X being set),
+         * the flow itself unchanged: the table outlines what pays that much. */
+        fun preview(f: CastFlow, op: CastOp.Preview): Outcome {
+            val c = op.choices
+            return settle(f, fresh = false, auto = false, c.autotap, c.keep, c.custom, clear = false, picks = c.taps.taps(), open = op.answer)
+        }
+
         /** STK-024 (owner playtest 2026-11-09): a tap on a source: one paying is taken out, one not paying is added with its
          * sensible way ([ManaTaps.tap]). */
         fun tap(e: Entry, op: CastOp.Tap): Outcome {
@@ -292,11 +300,11 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
          * the player chose ([keep], carried to this payment). Autotap never decides (castability §1.3): a payment it can't
          * make opens the panel for the player to pay by hand. Else shown with its open question, and the payment it comes
          * to ([HandCasts.ahead], STK-024: Autotap's suggestion pre-chosen, or the player's own sources; nothing chosen with
-         * Autotap off).
+         * Autotap off); [open]: the open question's answer the payment is worked out with, not given (STK-024: the X being set).
          */
         fun settle(next: CastFlow, fresh: Boolean, auto: Boolean, autotapOn: Boolean, keep: List<ManaUse>?, custom: Boolean = false,
             ways: List<Input>? = null, clear: Boolean = true, picks: ManaTaps = ManaTaps(),
-            hand: org.asyncttwiz.automatum.HandCastOptions? = null, choosing: Boolean? = null): Outcome {
+            hand: org.asyncttwiz.automatum.HandCastOptions? = null, choosing: Boolean? = null, open: Answer? = null): Outcome {
             val payment = next.pending as? Decision.ManaPayment
             if (auto && next.complete) complete(next, autotapOn, fresh = fresh)?.let { return it }
             // STK-024 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on
@@ -304,9 +312,11 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
                 val chosen = chosen(next, payment, autotapOn, custom, keep, picks)
                 if (chosen.isNotEmpty() && next.pays(chosen)) complete(next, autotapOn, chosen, fresh)?.let { return it }
             }
-            val ahead = if (payment != null) next else HandCasts.ahead(next)
+            val ahead = if (payment != null) next else HandCasts.ahead(next, open)
             val due = ahead?.pending as? Decision.ManaPayment
             val mana = if (ahead != null && due != null) chosen(ahead, due, autotapOn, custom, keep, picks) else emptyList()
+            if (open != null) AppLog.info("cast", "Payment with ${next.pending?.kind} answered $open: " +
+                (due?.let { "${it.cost}, paying ${mana.joinToString { use -> ManaWays.label(use) }}" } ?: "nothing to pay"))
             val pending = next.pending
             val listed = if (pending != null && pending !is Decision.Targets && pending !is Decision.ManaPayment) next.listedAnswers() else emptyList()
             val paid = if (ahead != null && due != null) ahead.pays(mana) else true

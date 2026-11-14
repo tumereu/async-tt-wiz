@@ -10,6 +10,7 @@ import androidx.compose.ui.test.isNotEnabled
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -76,6 +77,46 @@ class XCastTest : E2e() {
         waitUntil("Alice's target bar") { alice.shows(hasText("Choose any target") and isHeading()) }
         alice.node(hasContentDescription("${bob.name}, life 20", substring = true)).performClick()
         waitUntil("the Burst dealing 1 to Bob", along = listOf(bob)) { alice.state.player(bob.me).life == 19 }
+        assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
+    }
+
+    /** How many of [this] player's table cards are outlined as paying the open cast (STK-024's amber outline). */
+    private fun E2ePlayer.outlinedSources(): Int =
+        nodes(androidx.compose.ui.test.SemanticsMatcher("source") { "source" in it.config.getOrElse(org.asyncttwiz.android.TableMarks) { emptySet() } })
+            .fetchSemanticsNodes().size
+
+    // STK-024 (owner notes 2026-11-14 evening: changing X while casting didn't change the outlined sources): with three Ember
+    // Shards out, the outline follows X as it is set: none at X = 0, one at 1, two at 2, one again at 1; Cast pays with them
+    @Test fun theOutlineFollowsX() {
+        startGame(TestDeck("Shard bursts", listOf(TestCards.shard to 20, TestCards.burst to 20)),
+            deal = { a, _ -> hand(a).count { it == "Ember Shard" } >= 3 && "Ember Burst" in hand(a) })
+        bothOpen()
+        bothKeep(bobAway = false)
+        repeat(3) { n ->
+            alice.playFromHand("Ember Shard", this)
+            waitUntil("${n + 1} Shards out", along = listOf(bob)) {
+                alice.field("Ember Shard").size == n + 1 && alice.inOwnMain() && alice.engine { device.session.pending.isEmpty() }
+            }
+        }
+        alice.playFromHand("Ember Burst", this)
+        waitUntil("Alice's cast panel with X at 0") { alice.shows(hasContentDescription("Cast panel")) && alice.shows(hasContentDescription("Value 0")) }
+        waitUntil("nothing outlined at X = 0") { alice.outlinedSources() == 0 }
+        alice.tap("One more")
+        waitUntil("one Shard outlined at X = 1: ${alice.outlinedSources()}") { alice.shows(hasContentDescription("Value 1")) && alice.outlinedSources() == 1 }
+        alice.tap("One more")
+        waitUntil("two Shards outlined at X = 2: ${alice.outlinedSources()}") { alice.shows(hasContentDescription("Value 2")) && alice.outlinedSources() == 2 }
+        alice.tap("One less")
+        waitUntil("one Shard outlined at X = 1 again: ${alice.outlinedSources()}") { alice.shows(hasContentDescription("Value 1")) && alice.outlinedSources() == 1 }
+        alice.tap("One more")
+        waitUntil("two again") { alice.shows(hasContentDescription("Value 2")) && alice.outlinedSources() == 2 }
+        val cast = alice.castButton()
+        alice.node(androidx.compose.ui.test.SemanticsMatcher("Cast button") { it.id == cast.id }).performClick()
+        waitUntil("Alice's target bar") { alice.shows(hasText("Choose any target") and isHeading()) }
+        alice.node(hasContentDescription("${bob.name}, life 20", substring = true)).performClick()
+        waitUntil("the Burst dealing 2 to Bob, on the server", along = listOf(bob)) {
+            alice.state.player(bob.me).life == 18 && alice.engine { device.session.pending.isEmpty() }
+        }
+        assertEquals(2, alice.field("Ember Shard").count { alice.state.obj(it)?.tapped == true }, "the two outlined Shards paid")
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 }

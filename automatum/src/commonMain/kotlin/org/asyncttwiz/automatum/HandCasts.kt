@@ -242,14 +242,21 @@ object HandCasts {
     /**
      * The open cast [flow] taken on to its payment (STK-024, owner 2026-11-07: the cast panel shows and lets the player
      * choose what pays while earlier questions are open): every question before it answered as the chips are worked out
-     * (the way to its smallest cost, [CastScreen.castCosts]: X at its least). [flow] itself when its payment is open; null
-     * when it reaches no payment (a free spell, or a question without a listed answer). Blocking (one replay per question).
+     * (the way to its smallest cost, [CastScreen.castCosts]: X at its least), the open one with [open] when given (STK-024,
+     * owner 2026-11-14: the X being set in the panel; the smallest way when the engine refuses it). [flow] itself when its payment
+     * is open; null when it reaches no payment (a free spell, or a question without a listed answer). Blocking (one replay per
+     * question).
      */
-    fun ahead(flow: CastFlow): CastFlow? {
-        val open = flow.pending ?: return null
-        if (open is Decision.ManaPayment) return flow
+    fun ahead(flow: CastFlow, open: Answer? = null): CastFlow? {
+        val pending = flow.pending ?: return null
+        if (pending is Decision.ManaPayment) return flow
         var at = flow
-        for (answer in CastScreen.castCosts(flow.state).answers) {
+        if (open != null) {
+            at = try { flow.answer(open) } catch (_: IllegalArgumentException) { return ahead(flow) }
+            if (at.pending is Decision.ManaPayment) return at
+            at.pending ?: return null
+        }
+        for (answer in CastScreen.castCosts(at.state).answers) {
             at = try { at.answer(answer) } catch (_: IllegalArgumentException) { return null }
         }
         return at.takeIf { it.pending is Decision.ManaPayment }

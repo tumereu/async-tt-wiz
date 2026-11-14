@@ -18,7 +18,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Owner notes 2026-11-14 evening (tested on prod 0.2.x, so each is first checked on master): clear bugs, one worker beside the desktop batch.
 
-- Changing X while casting doesn't update the tap prediction (the outline of the sources that will pay).
 - The end-of-combat damage result pause no longer shows the creatures' damage splashes and skulls (regression?).
 - A requested rewind to an earlier step didn't clear combat staging: after the other player rewound and the game came back to declare attackers, the attacker's earlier staged declarations were still there.
 - Desktop: the "Updating card records" loading bar at the top pushes the views down and makes them jump when it finishes; make it an overlay.

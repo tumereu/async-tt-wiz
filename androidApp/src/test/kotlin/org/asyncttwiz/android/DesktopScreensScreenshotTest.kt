@@ -242,7 +242,8 @@ class DesktopScreensScreenshotTest {
                 androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
                     Column(Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth).fillMaxSize()) {
                         ScreenHeader("Settings", null)
-                        SettingsContent(null, "a", {}, fixtures.auth, FakeSettings())
+                        SettingsContent(null, "a", {}, fixtures.auth, FakeSettings(),
+                            versionText = "Version 0.2.0 (1) debug · commit fixture")
                     }
                 }
             }

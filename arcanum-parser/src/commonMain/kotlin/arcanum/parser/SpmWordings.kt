@@ -31,7 +31,7 @@ internal object Spm {
     val UNTIL_EOT_BECOMES_SUBTYPE_BASE_PT_GAINS = Regex("""Until end of turn, target (.+?) becomes an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+) and gains (.+)\.""")
     val LOSES_ALL_BECOMES_COLOR_CREATURE = Regex("""(.+?) loses all abilities and becomes an? (white|blue|black|red|green) ([A-Z]\w+) creature with base power and toughness (\d+)/(\d+)\.""")
     val BECOMES_ARTIFACT_CREATURE_BASE_PT_UNTIL_EOT = Regex("""(.+?) becomes an artifact creature with base power and toughness (\d+)/(\d+) until end of turn\.""")
-    val IT_BECOMES_TYPES_IN_ADDITION = Regex("""(?:It|That creature) becomes an? (legendary )?((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
+    val IT_BECOMES_TYPES_IN_ADDITION = Regex("""(?:It|That creature) becomes an? (legendary )?((?:[A-Z]\w+ ?)+) in addition to its other types(?: and gains (.+?))?\.""")
     val EQUIPPED_GETS_AND_IS_IN_ADDITION = Regex("""Equipped creature gets ([+-]\d+)/([+-]\d+) and is an? ((?:[A-Z]\w+ ?)+) in addition to its other types\.""")
     val UNTIL_EOT_GETS_AND_BECOMES_IN_ADDITION = Regex("""Until end of turn, target (.+?) gets ([+-]\d+)/([+-]\d+) and becomes an? ([A-Z]\w+) in addition to its other types\.""")
     val GAINS_AND_BECOMES_COLORLESS = Regex("""(?:It|He|She) gains ([a-z ]+) and becomes colorless until end of turn\.""")

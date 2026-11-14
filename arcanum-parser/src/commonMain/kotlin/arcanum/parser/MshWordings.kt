@@ -46,7 +46,7 @@ internal object Msh {
 
     // msh chunk 04: Heroes and Villains
     val ATTACKED_WITH_THIS_TURN = Regex("""you attacked with an? (.+) this turn""")
-    val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
+    val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(an?|another) (.+) entered the battlefield under your control this turn""") // mom: another
     val HAS_COUNTER_ON = Regex("""(.+) has an? (\S+) counter on (?:it|him|her|them)""")
     val OPPONENT_HAS_CAST_THIS_TURN = Regex("""an opponent has cast a spell this turn""")
     val POWER_AT_MOST = Regex("""(?:its|his|her|(.+)'s) power is (\d+) or (less|greater)""")
@@ -107,7 +107,7 @@ internal object Msh {
     val RETURN_ONE_OR_TWO = Regex("""Return one or two target (.+) to their owners' hands\.""")
     val SPELLS_WITH_MANA_VALUE_COST_X_LESS_POWER = Regex("""(.+ spells you cast) with mana value (\d+) or greater cost \{X\} less to cast, where X is (.+)'s power\.""")
     val NONCOMBAT_DAMAGE_PLUS_POWER = Regex("""If a source you control would deal noncombat damage to an opponent or a permanent an opponent controls, instead it deals that much damage plus X, where X is (.+)'s power\.""")
-    val EXILE_HAND_DRAW_PLAY = Regex("""Exile all the cards from your hand, then draw that many cards\. Until the end of your next turn, you may play cards exiled this way\.""")
+    val EXILE_HAND_DRAW_PLAY = Regex("""Exile all (?:the )?cards from your hand, then draw that many cards\. Until the end of your next turn, you may play cards exiled this way\.""")
     val WHEN_YOU_NEXT_CAST_COPY = Regex("""When you next cast an? (.+?) spell with mana value less than or equal to (.+)'s power this turn, copy that spell\. You may choose new targets for the copy\.""")
     val COST_OR_COST = Regex("""((?:Sacrifice|Discard|Exile|Pay|sacrifice|discard|exile|pay) .+?) or ((?:sacrifice|discard|exile|pay) .+)""")
     val GET_COUNTERS = Regex("""Get (\w+) (\S+) counters""")
@@ -164,8 +164,8 @@ internal object Msh {
     val FIRST_TIME_TAPPED_THIS_TURN = Regex("""it's the first time that creature has become tapped this turn""")
     val REMOVE_A_COUNTER_IF_YOU_DO = Regex("""Remove a counter from (.+?)\. If you do, (.+)""")
     val ONE_MORE_OF_EACH_KIND = Regex("""For each kind of counter on target (.+?), give that (.+?) another counter of that kind\.""")
-    val MAY_PUT_FROM_AMONG_MILLED = Regex("""(You may put|Put) (an?|up to \w+) (.+?) from among (?:the milled cards|those cards|them) into your hand\.""")
-    val TARGET_PLAYER_GAINS_SEARCHES = Regex("""Target player gains (\d+) life, then searches their library for an? (.+?), puts it onto the battlefield tapped, then shuffles\.""")
+    val MAY_PUT_FROM_AMONG_MILLED = Regex("""(You may put|Put) (an?|up to \w+) (.+?) from among (?:the milled cards|those cards|them) (into your hand|onto the battlefield)\.""")
+    val TARGET_PLAYER_GAINS_SEARCHES = Regex("""Target player (?:gains (\d+) life, then )?searches their library for an? (.+?), puts it onto the battlefield tapped, then shuffles\.""")
     val PUT_COUNTER_ON_UP_TO_ONE = Regex("""Put an? (\S+) counter on up to one target (.+)\.""")
     val NEXT_SPELL_WITHOUT_PAYING = Regex("""The next (.+?) spell you cast this turn can be cast without paying its mana cost\.""")
     val BECOMES_COPY_EXCEPT_PT_IN_ADDITION = Regex("""[Uu]ntil your next turn, (.+?) becomes a copy of up to one target (.+?), except its name is (.+?), it's a legendary (\d+)/(\d+) ([A-Z][A-Za-z ]+?) creature in addition to its other types, and it has (.+)\.""")
@@ -222,8 +222,10 @@ internal object MshPhrases {
             return Condition.HappenedThisTurn(EventPattern.Attack(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
         }
         // msh chunk 04: "a Hero entered the battlefield under your control this turn"
+        // mom chunk 10: "another Knight entered the battlefield under your control this turn" (not this object)
         Msh.ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val filter = if (m.groupValues[1] == "another") Filters.all(ObjectFilter.Not(ObjectFilter.Is(arcanum.api.Objects.Self)), noun) else noun
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield),
                 atLeast = 1, measure = Measure.Events)
         }

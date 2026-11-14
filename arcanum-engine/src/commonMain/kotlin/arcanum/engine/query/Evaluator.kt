@@ -340,6 +340,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 }
             }.distinct()
         }
+        // mom: the player protecting each battle (CR 310.8)
+        is Players.ProtectorOf -> objects(players.battles).mapNotNull { state.obj(it)?.protector }.distinct()
         Players.Holder -> listOfNotNull(ctx.holder)
         Players.Tested -> listOfNotNull(ctx.testedPlayer)
         Players.SlotPlayer -> listOfNotNull(ctx.slotPlayer)
@@ -426,6 +428,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.Colorless -> c != null && c.colors.isEmpty()
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
+            is ObjectFilter.ColorCount -> c != null && c.colors.size == filter.count
+            // mom chunk 09: CR 712.1: two faces of a nonmodal, modal or meld double-faced card (or token, CR 111.13)
+            ObjectFilter.DoubleFaced -> o != null && o.definition.faces.size > 1 &&
+                (o.definition.layout == arcanum.api.Layout.Transform || o.definition.layout == arcanum.api.Layout.ModalDoubleFaced || o.definition.layout is arcanum.api.Layout.Meld)
             is ObjectFilter.Shares -> objects(filter.objects).any { other -> other != id && shares(filter.quality, id, other) }
             // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
             is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false
@@ -887,6 +893,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c
             NumericProperty.UnlockedDoors -> o?.marks.orEmpty().count { it is arcanum.api.ObjectMark.Unlocked }
+            // mom: coloured mana symbols in its mana cost, each counted once (CR 107.4, 202.1)
+            NumericProperty.ColoredManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
+                s is arcanum.api.ManaSymbol.Colored || s is arcanum.api.ManaSymbol.Hybrid || s is arcanum.api.ManaSymbol.GenericHybrid ||
+                    s is arcanum.api.ManaSymbol.ColorlessHybrid || s is arcanum.api.ManaSymbol.Phyrexian || s is arcanum.api.ManaSymbol.PhyrexianHybrid
+            }
             // msh: mana symbols of a colour in its mana cost, hybrid ones included (CR 107.4, 202.1)
             is NumericProperty.ManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
                 when (s) {
@@ -1030,6 +1041,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
+        // mom: every turn after your last one ended, this one included (CR 500.1); turns a host dropped from the log count none
+        is Condition.HappenedSinceYourLastTurn -> {
+            val last = (if (state.turn.active == ctx.you) state.turn.previousTurnStarted[ctx.you] else state.turn.turnStarted[ctx.you]) ?: 0
+            (last + 1..state.turn.number).sumOf { History.count(this, condition.event, condition.measure, turn = it) } >= condition.atLeast
+        }
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()
         // sos: paradigm (CR 702.192a): a spell with that name controlled by such a player resolved earlier this game
         is Condition.ResolvedEarlierThisGame -> objects(condition.of).flatMap { names(characteristics(it)) }.any { name ->

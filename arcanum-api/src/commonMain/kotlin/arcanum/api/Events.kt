@@ -147,6 +147,10 @@ sealed interface EventPattern {
         /** Only when at least this many other creatures are declared as attackers with it ("Whenever this creature and at
          * least two other creatures attack", battalion, an ability word, CR 207.2c); 0: any number. */
         val withOthers: Int = 0,
+        // mom
+        /** What the other attackers counted by [withOthers] must be ("this token and at least one other creature token attack"); null:
+         * any creatures. */
+        val others: ObjectFilter? = null,
     ) : EventPattern
     /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
      * once per attacker blocked (CR 509.3a, b). Roles object (the blocker), other combatant (the attacker). */
@@ -305,6 +309,8 @@ sealed interface KeywordActionKind {
     @Serializable @SerialName("foretell") data object Foretell : KeywordActionKind
     @Serializable @SerialName("give-gift") data object GiveGift : KeywordActionKind
     @Serializable @SerialName("goad") data object Goad : KeywordActionKind
+    /** mom chunk 03: CR 701.53. */
+    @Serializable @SerialName("incubate") data object Incubate : KeywordActionKind
     @Serializable @SerialName("investigate") data object Investigate : KeywordActionKind
     @Serializable @SerialName("learn") data object Learn : KeywordActionKind
     @Serializable @SerialName("manifest") data object Manifest : KeywordActionKind
@@ -346,6 +352,7 @@ val KeywordAction.kind: KeywordActionKind get() = when (this) {
     KeywordAction.Forage -> KeywordActionKind.Forage
     KeywordAction.Foretell -> KeywordActionKind.Foretell
     is KeywordAction.Goad -> KeywordActionKind.Goad
+    is KeywordAction.Incubate -> KeywordActionKind.Incubate
     is KeywordAction.Investigate -> KeywordActionKind.Investigate
     KeywordAction.Learn -> KeywordActionKind.Learn
     is KeywordAction.Manifest -> KeywordActionKind.Manifest
@@ -393,7 +400,8 @@ sealed interface Trigger {
     @Serializable @SerialName("on") data class On(
         val events: List<EventPattern>, val oneOrMore: Boolean = false, val atLeast: Int? = null,
         /** With [oneOrMore]: one batch per player the events are about ("deal combat damage to a player": one trigger per
-         * player dealt damage, each with its own "that player" and amount). */
+         * player dealt damage, each with its own "that player" and amount); damage to an object, one per object ("to a player or battle",
+         * CR 310.6). */
         val batchPerPlayer: Boolean = false,
         val nthThisTurn: Int? = null, val during: TurnStep? = null,
         // hob

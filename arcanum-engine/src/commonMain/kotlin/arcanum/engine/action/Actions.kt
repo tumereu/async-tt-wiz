@@ -929,14 +929,47 @@ internal object Actions {
     }
 
     /** Removes up to [amount] counters of [kind] from [holder]; returns how many were removed. */
-    fun removeCounters(act: Act, holder: TargetRef, kind: CounterKind, amount: Int): Int {
+    fun removeCounters(act: Act, holder: TargetRef, kind: CounterKind, amount: Int, meanings: List<Meaning> = emptyList()): Int {
         val has = when (holder) {
             is TargetRef.Object -> act.obj(holder.id)?.counters(kind) ?: 0
             is TargetRef.Player -> act.state.player(holder.id).counters(kind)
         }
         val n = minOf(has, amount)
-        if (n > 0) act.record(Changes.counters(act.state, holder, kind, -n))
+        if (n > 0) act.record(Changes.counters(act.state, holder, kind, -n, meanings))
         return n
+    }
+
+    /**
+     * Removes [amount] counters from object [id]: of [kind], or, with [kind] null ("remove up to three counters from target
+     * creature"), counters of any kinds [chooser] chooses one at a time as the effect applies (CR 608.2d, 609.3: no choice when
+     * one kind is there or every counter goes). Returns the number removed.
+     */
+    fun removeChosenCounters(act: Act, chooser: PlayerId, source: ObjectId?, id: ObjectId, kind: CounterKind?, amount: Int,
+                             meanings: List<Meaning> = emptyList()): Int {
+        if (kind != null) return removeCounters(act, TargetRef.Object(id), kind, amount, meanings)
+        val total = act.obj(id)?.counters?.sumOf { maxOf(it.count, 0) } ?: 0
+        return removeChosenCountersAmong(act, chooser, source, listOf(id), minOf(amount, total), distributed = false, meanings)
+    }
+
+    /**
+     * Removes exactly [amount] counters of any kinds from each of [ids] (or, [distributed], from among them), [chooser] picking each
+     * counter where there is a choice ([arcanum.engine.casting.CounterCosts], CR 118.3, 608.2d). Removes nothing when there aren't
+     * enough. Returns the number removed.
+     */
+    fun removeChosenCountersAmong(act: Act, chooser: PlayerId, source: ObjectId?, ids: List<ObjectId>, amount: Int, distributed: Boolean,
+                                  meanings: List<Meaning> = emptyList()): Int {
+        val picks = mutableListOf<String>()
+        while (true) {
+            when (val progress = arcanum.engine.casting.CounterCosts.progress(act.state, ids, amount, distributed, picks) { id ->
+                act.view()[id]?.characteristics?.name ?: id.toString()
+            }) {
+                is arcanum.engine.casting.CounterCosts.Progress.Ask ->
+                    picks += act.chooseOption(chooser, source, progress.labels, text = "Choose a counter to remove")
+                is arcanum.engine.casting.CounterCosts.Progress.Done ->
+                    return progress.removals.sumOf { (id, k, count) -> removeCounters(act, TargetRef.Object(id), k, count, meanings) }
+                arcanum.engine.casting.CounterCosts.Progress.Unpayable -> return 0
+            }
+        }
     }
 
     // ---- Tapping (CR 701.26)
@@ -967,16 +1000,19 @@ internal object Actions {
      *
      * [fromSpellCopy]: a copy of a permanent spell becoming a token as it resolves (CR 111.13, 608.3f, 707.10f), with
      * the copy's facts; it isn't "created", so replacements and triggers on creating tokens don't see it.
+     *
+     * [withCounters]: counters each token enters with by the effect itself ("an Incubator token that enters with N +1/+1 counters on it",
+     * CR 701.53a), put on it as it enters with any others, so replacements on putting counters see them (CR 122.6).
      */
     fun createTokens(
         act: Act, cause: Cause, values: arcanum.engine.state.CopiableValues, count: Int, controller: PlayerId, tapped: Boolean = false,
-        attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.CastFacts? = null,
-    ): List<ObjectId> = createTokensTogether(act, cause, listOf(TokenRequest(values, count, controller, tapped, attachTo)), fromSpellCopy).single()
+        attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.CastFacts? = null, withCounters: List<Pair<CounterKind, Int>> = emptyList(),
+    ): List<ObjectId> = createTokensTogether(act, cause, listOf(TokenRequest(values, count, controller, tapped, attachTo, withCounters)), fromSpellCopy).single()
 
     /** One creation of [count] tokens with [values] under [controller]'s control, for [createTokensTogether]. */
     class TokenRequest(
         val values: arcanum.engine.state.CopiableValues, val count: Int, val controller: PlayerId, val tapped: Boolean = false,
-        val attachTo: TargetRef? = null,
+        val attachTo: TargetRef? = null, val withCounters: List<Pair<CounterKind, Int>> = emptyList(),
     )
 
     /** The tokens of one [TokenRequest] as they will be created, replacements applied. */
@@ -992,7 +1028,7 @@ internal object Actions {
     ): List<List<ObjectId>> {
         var skip = 0
         val prepared = requests.map { r ->
-            prepareTokens(act, cause, r.values, r.count, r.controller, r.tapped, r.attachTo, fromSpellCopy, skip)
+            prepareTokens(act, cause, r.values, r.count, r.controller, r.tapped, r.attachTo, r.withCounters, fromSpellCopy, skip)
                 ?.also { p -> skip = (p.tokens.maxOf { it.timestamp } - act.state.nextTimestamp() + 1).toInt() }
         }
         val all = prepared.flatMap { it?.tokens.orEmpty() }
@@ -1014,7 +1050,7 @@ internal object Actions {
     /** [createTokens] up to recording the event; [skip] timestamps are left for tokens prepared before these in the same event. */
     private fun prepareTokens(
         act: Act, cause: Cause, values: arcanum.engine.state.CopiableValues, count: Int, controller: PlayerId, tapped: Boolean,
-        attachTo: TargetRef?, fromSpellCopy: arcanum.engine.state.CastFacts?, skip: Int,
+        attachTo: TargetRef?, withCounters: List<Pair<CounterKind, Int>>, fromSpellCopy: arcanum.engine.state.CastFacts?, skip: Int,
     ): PreparedTokens? {
         if (count <= 0) return null
         val linked = mutableListOf<WaitingTrigger>()
@@ -1079,7 +1115,7 @@ internal object Actions {
             val enters = Replacements.candidates(act, cause).filter { r ->
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
             }
-            var o = t
+            var o = t.copy(counters = withCounters.filter { it.second > 0 }.map { (kind, n) -> CounterEntry(kind, n, t.timestamp) })
             // mh3 sweep: and the token's own "enters with" replacements, as it will exist (a copy of a creature with "This creature enters with
             // two +1/+1 counters on it", CR 614.12, 111.10)
             val own = t.definition.faces.getOrNull(t.face)?.let { ownEntering(it) }.orEmpty().filter { !it.optional }.map { r ->
@@ -1148,8 +1184,12 @@ internal object Actions {
             power = spec.power?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.power,
             toughness = spec.toughness?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.toughness,
         ))
-        is arcanum.api.TokenSpec.Predefined -> arcanum.engine.state.CopiableValues.of(arcanum.api.PredefinedTokens.face(spec.name)
-            ?: FaceDefinition("${spec.name} Token"))
+        is arcanum.api.TokenSpec.Predefined -> {
+            val front = arcanum.api.PredefinedTokens.face(spec.name) ?: FaceDefinition("${spec.name} Token")
+            // mom chunk 03: a double-faced token (CR 111.10i), front face up
+            val back = arcanum.api.PredefinedTokens.back(spec.name)
+            if (back == null) arcanum.engine.state.CopiableValues.of(front) else arcanum.engine.state.CopiableValues(arcanum.api.Layout.Transform, listOf(front, back))
+        }
         is arcanum.api.TokenSpec.CopyOf -> {
             val of = e.objects(spec.objects).firstOrNull()
             val values = of?.let { copiedForToken(act, it)?.takeIf { v -> v.faces.isNotEmpty() } }

@@ -313,6 +313,24 @@ class DftGreenAndMulticoloredScenariosTest {
         expect { DftSet.mimeoplastExaltedOne.counters(p1p1) shouldBe 6 }
     }
 
+    // CR 607.2a, 707.9b: the activated ability targets a card it exiled (in exile) and becomes a 0/0 copy of it with six counters
+    @Test
+    fun mimeoplastBecomesACopyOfACardExiledWithIt() = scenario {
+        alice.battlefield("Swamp", "Forest", "Island", "Swamp", "Swamp", "Forest", "Forest")
+        alice.hand(DftSet.mimeoplastExaltedOne)
+        alice.graveyard(giant, ogre)
+        alice.casts(DftSet.mimeoplastExaltedOne, x = 2, paying = listOf("Swamp", "Forest", "Island", "Swamp", "Swamp"))
+        resolveAll()
+        choose(giant, ogre)
+        val mimeoplast = arcanum.engine.scenario.CardRef(card(DftSet.mimeoplastExaltedOne), "Mimeoplast")
+        alice.activates(DftSet.mimeoplastExaltedOne, target = giant)
+        resolveAll()
+        expect {
+            mimeoplast.subtypes shouldBe listOf(arcanum.api.Subtype("Giant"))
+            mimeoplast.power shouldBe 6
+        }
+    }
+
     @Test
     fun oildeepColossusSwapsACard() = scenario {
         alice.battlefield("Island", "Island", "Swamp", "Swamp")

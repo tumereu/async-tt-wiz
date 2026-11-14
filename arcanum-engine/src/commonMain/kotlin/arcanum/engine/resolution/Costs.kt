@@ -261,24 +261,8 @@ internal object Costs {
                 val ids = choose(scope, payer, part.from, Zone.Battlefield, "remove counters from")
                 val kind = part.kind
                 if (kind != null) ids.forEach { id -> Actions.removeCounters(act, TargetRef.Object(id), kind, scope.value(part.amount)) }
-                else {
-                    // mh3 sweep: of no one kind, the payer picks each counter where there is a choice (CR 118.3, 608.2d)
-                    val picks = mutableListOf<String>()
-                    while (true) {
-                        val progress = arcanum.engine.casting.CounterCosts.progress(act.state, ids, scope.value(part.amount), part.distributed, picks) { id ->
-                            act.view()[id]?.characteristics?.name ?: id.toString()
-                        }
-                        when (progress) {
-                            is arcanum.engine.casting.CounterCosts.Progress.Ask ->
-                                picks += act.chooseOption(payer, scope.self, progress.labels, text = "Choose a counter to remove")
-                            is arcanum.engine.casting.CounterCosts.Progress.Done -> {
-                                progress.removals.forEach { (id, k, count) -> Actions.removeCounters(act, TargetRef.Object(id), k, count) }
-                                break
-                            }
-                            arcanum.engine.casting.CounterCosts.Progress.Unpayable -> break
-                        }
-                    }
-                }
+                // of no named kind, the payer picks each counter where there is a choice (CR 118.3, 601.2h, 608.2d)
+                else Actions.removeChosenCountersAmong(act, payer, scope.self, ids, scope.value(part.amount), part.distributed)
             }
             // msh: "Get five poison counters" (ward, CR 122.1)
             is CostPart.GetCounters -> Actions.putCounters(act, cause, TargetRef.Player(payer), part.kind, scope.value(part.amount), listOf(Meaning.Paid))

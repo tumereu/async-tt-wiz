@@ -55,7 +55,7 @@ class LciChunk10EffectsScenariosTest {
     """, "1/1")
     private val cinder = Cards.invent("Quick Cinder", "{R}", "Instant", "Quick Cinder deals 3 damage to any target.")
     private val ox = Cards.invent("Gloamfield Ox", "{1}{G}", "Creature — Ox", "", "2/2")
-    private val trinket = Cards.invent("Copper Trinket", "{1}", "Artifact", "")
+    private val trinket = Cards.invent("Tarnished Trinket", "{1}", "Artifact", "")
     private val cave = Cards.invent("Glimmer Cave", null, "Land — Cave", "{T}: Add {W}.")
 
     /** It enters tapped as a copy of an opponent's graveyard land, and it's a Cave as well. */

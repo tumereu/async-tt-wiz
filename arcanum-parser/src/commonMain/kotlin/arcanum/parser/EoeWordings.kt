@@ -24,6 +24,7 @@ internal object EoePhrases {
         Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.WasPaid(Keyword.Warp.Kind, times = 1), by = PlayerFilter.Any), atLeast = 1, measure = Measure.Objects)))
 
     // eoe chunk 07: "you've cast two or more spells this turn", "you've cast another spell this turn" (not the spell being cast)
+    // mom chunk 02: "you've cast three or more instant and/or sorcery spells this turn" (each such spell counts once, CR 601.2i)
     // rvr chunk 04: also of a kind, "you've cast three or more instant and sorcery spells this turn" (each spell either one)
     private val CAST_N_OR_MORE = Regex("""you've cast (\w+) or more (?:(.+?) )?spells this turn""")
     // eoe chunk 07: "you've gained 3 or more life this turn"
@@ -34,7 +35,7 @@ internal object EoePhrases {
     fun condition(text: String, self: Set<String>): Condition? {
         if (text == VOID) return void
         CAST_N_OR_MORE.matchEntire(text)?.let { m ->
-            val spells = if (m.groupValues[2].isEmpty()) ObjectFilter.Any else Filters.noun(m.groupValues[2].replace(" and ", " or ") + " spell") ?: return null
+            val spells = if (m.groupValues[2].isEmpty()) ObjectFilter.Any else Filters.noun(m.groupValues[2].replace(" and/or ", " or ").replace(" and ", " or ") + " spell") ?: return null
             return Condition.HappenedThisTurn(EventPattern.Cast(spells, PlayerFilter.You), atLeast = Numbers.count(m.groupValues[1]) ?: return null,
                 measure = Measure.Events)
         }
@@ -155,7 +156,7 @@ internal object Eoe {
     val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs ((?:\{[^}]+\})+) less to activate (?:if (.+?)|(during your turn))\.""")
     // inr chunk 01: also an ability quoted inside it ("… have haste and '{T}: … any target.'")
     val EMBLEM_PERIOD_INSIDE = Regex("""You get an emblem with "(.+\.'?)"""")
-    val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with an? (\S+) counter on it for each (.+)\.""")
+    val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with (an?|two|three) (\S+) (counters?) on it for each (.+)\.""")
     val ENTERS_WITH_NUMBER_EQUAL_TO = Regex("""(.+) enters with a number of (\S+) counters on it equal to (.+)\.""")
 
     // eoe chunk 08: blue wordings
@@ -234,7 +235,7 @@ internal object Eoe {
     val LOOK_X_PUT_ANY_NUMBER_ONTO_BATTLEFIELD_SHUFFLE = Regex("""[Ll]ook at the top X cards of your library\. Put any number of (.+?) from among them onto the battlefield tapped, then shuffle\.""")
     val COMBAT_DAMAGE_CANT_BE_PREVENTED = Regex("""Combat damage can't be prevented\.""")
     val COUNTERS_WOULD_BE_PUT_TWICE = Regex("""If one or more counters would be put on an? (.+?), twice that many of each of those kinds of counters are put on it instead\.""")
-    val DOUBLE_POWER_UNTIL_EOT = Regex("""[Dd]ouble (?:the power of target (.+?)|target (.+?)'s power) until end of turn\.""")
+    val DOUBLE_POWER_UNTIL_EOT = Regex("""[Dd]ouble (?:the power of target (.+?)|target (.+?)'s power|(its|this creature's) power) until end of turn\.""")
     val RETURN_UP_TO_HAND_THEN_UP_TO_BATTLEFIELD = Regex("""Return up to (\w+) target (.+?) from your graveyard to your hand, then return up to (\w+) target (.+?) from your graveyard to the battlefield tapped\.""")
     val BLOCKS_A = Regex("""(.+?) blocks an? (.+)""")
     val STATIONS_USING_TOUGHNESS = Regex("""Each (.+?) stations permanents using its toughness rather than its power\.""")
@@ -258,7 +259,8 @@ internal object Eoe {
     val LIFE_BECOMES_HALF_STARTING = Regex("""[Yy]our life total becomes half your starting life total, rounded (up|down)\.""")
     val ADD_X_ANY_ONE_COLOR_COUNTERS = Regex("""Add X mana of any one color, where X is the number of (\S+) counters on (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_GAINS = Regex("""Target player draws (\w+) cards and gains (\d+) life\.""")
-    val THAT_PLAYER_GETS_POISON = Regex("""(That player|that player|Its controller|its controller|Target opponent|target opponent|Target player|target player|Each opponent|each opponent|Each player|each player|You|you) gets? (an additional|\w+) (poison) counters?\.""")
+    // mom chunk 01: also "they get that many poison counters" (the damage dealt, CR 120.3)
+    val THAT_PLAYER_GETS_POISON = Regex("""(That player|that player|They|they|Its controller|its controller|Target opponent|target opponent|Target player|target player|Each opponent|each opponent|Each player|each player|You|you) gets? (an additional|that many|\w+) (poison) counters?\.""")
     val CREATE_COPY_EXCEPT_LEGENDARY = Regex("""Create a token that's a copy of target (.+?), except it's legendary\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets ([+-]\d+)/([+-]\d+) and has "(.+?\.)"""")
     val TAP_X_UNTAPPED = Regex("""Tap X untapped (.+)""")

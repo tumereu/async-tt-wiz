@@ -31,6 +31,8 @@ internal object MechanicWordings {
     /** "from anywhere": the ability says it functions in every zone it could be put into a graveyard from (CR 113.6b). */
     private val FROM_ANYWHERE = listOf<arcanum.api.Zone>(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Hand, arcanum.api.Zone.Library, arcanum.api.Zone.Exile,
         arcanum.api.Zone.Stack, arcanum.api.Zone.Command)
+    private val SELF_LEAVES_EXILE_INSTEAD = Regex("""If (.+) would leave the battlefield, exile it instead of putting it anywhere else\.""")
+    private val SELF_DIES_EXILE_INSTEAD = Regex("""If (.+) would die, exile it instead\.""")
     private val SELF_TO_GRAVEYARD_EXILE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, exile it instead\.""")
     // fdn chunk 07: "If Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead."
     private val SELF_TO_GRAVEYARD_SHUFFLE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, reveal (.+) and shuffle it into its owner's library instead\.""")
@@ -196,6 +198,19 @@ internal object MechanicWordings {
                 modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))), affects = Affected.Objects(Objects.Self),
                 functionsIn = FROM_ANYWHERE)
         }
+        // mom chunk 07: "If this land would leave the battlefield, exile it instead of putting it anywhere else." (CR 614.1a); a move to exile
+        // isn't replaced
+        SELF_LEAVES_EXILE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = arcanum.api.Zone.Battlefield,
+                notTo = arcanum.api.Zone.Exile), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // mom chunk 11: "If this creature would die, exile it instead." (dies = battlefield to graveyard, CR 700.4, 614.1a)
+        SELF_DIES_EXILE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = arcanum.api.Zone.Battlefield,
+                to = arcanum.api.Zone.Graveyard), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))),
+                affects = Affected.Objects(Objects.Self))
+        }
         // fdn chunk 07: the card goes into its owner's library and that library is shuffled in place of the graveyard (CR 614.1a, 701.24)
         SELF_TO_GRAVEYARD_SHUFFLE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[2]) }?.let {
             val self = Objects.Self
@@ -263,6 +278,8 @@ internal object MechanicWordings {
     val SUPPORT = Regex("""Support (\d+|X)\.""")
     // lci chunk 01: "Then that player discovers X." (another player discovers, CR 701.57a)
     val DISCOVER = Regex("""(?:You |(?:Then )?([Tt]hat player|[Tt]arget player) )?[Dd]iscovers? (\d+|X)\.""")
+    /** mom chunk 03: "Incubate 3.", "you incubate 2", "Incubate 2 twice.", "Incubate 2 five times"; mom chunk 04: "incubate 3 X times" (CR 701.53a) */
+    val INCUBATE = Regex("""(?:[Yy]ou )?[Ii]ncubate (\d+|X)(?: (twice|\w+ times))?\.""")
     val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
     val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of (your|that player's) library\.""") // mkm chunk 07: that player's
     /** "all creatures your opponents control", "each Merfolk creature you control" */

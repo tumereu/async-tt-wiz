@@ -18,6 +18,7 @@ LTR The Lord of the Rings: Tales of Middle-earth
 MH2 Modern Horizons 2
 MH3 Modern Horizons 3
 MKM Murders at Karlov Manor
+MOM March of the Machine
 MSH Marvel Super Heroes
 ONE Phyrexia: All Will Be One
 OTJ Outlaws of Thunder Junction

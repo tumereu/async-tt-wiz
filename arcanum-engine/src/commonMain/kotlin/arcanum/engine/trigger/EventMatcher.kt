@@ -475,7 +475,10 @@ internal object EventMatcher {
         if (pattern.alone && all.size != 1) return emptyList()
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared together (CR 508.1a)
         if (declared.size < 1 + pattern.withOthers) return emptyList()
-        return declared.filter { a -> e.matches(pattern.attacker, a.id) && (pattern.target == null || recipient(e, pattern.target!!, a.target)) }
+        // mom: "at least one other creature token": the others counted must match too
+        fun withOthers(a: arcanum.engine.state.Attacker) = pattern.others == null ||
+            declared.count { it.id != a.id && e.matches(pattern.others!!, it.id) } >= pattern.withOthers
+        return declared.filter { a -> e.matches(pattern.attacker, a.id) && (pattern.target == null || recipient(e, pattern.target!!, a.target)) && withOthers(a) }
             .map { a ->
                 TriggerEvent(
                     objects = listOf(RoleObjects(EventRole.Object, listOf(a.id))) +

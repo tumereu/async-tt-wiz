@@ -166,22 +166,8 @@ internal object Effects {
             is Effect.RemoveCounters -> {
                 var removed = 0
                 scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
-                    val n = scope.value(effect.amount)
-                    val present = act.state.objOrThrow(id).counters.filter { it.count > 0 }
-                    // mh3 chunk 11: "Remove a counter from target permanent": of a kind the effect's controller chooses when it has several
-                    // kinds and not all of them go (CR 608.2d)
-                    if (effect.kind == null && present.size > 1 && n < present.sumOf { it.count }) {
-                        repeat(n) {
-                            val have = act.state.objOrThrow(id).counters.filter { it.count > 0 }.map { it.kind }
-                            val labels = have.map { counterLabel(it) }
-                            val chosen = act.chooseOption(cause?.controller ?: act.state.turn.active, id, labels, text = "Choose the kind of counter to remove")
-                            removed += Actions.removeCounters(act, TargetRef.Object(id), have[labels.indexOf(chosen).coerceAtLeast(0)], 1)
-                        }
-                        return@forEach
-                    }
-                    val kinds = effect.kind?.let { listOf(it) } ?: present.map { it.kind }
-                    var left = n
-                    kinds.forEach { k -> if (left > 0) Actions.removeCounters(act, TargetRef.Object(id), k, left).let { left -= it; removed += it } }
+                    // CR 608.2d: of no named kind, the effect's controller chooses which counters (mh3 chunk 11, mom)
+                    removed += Actions.removeChosenCounters(act, scope.you, scope.self, id, effect.kind, scope.value(effect.amount))
                 }
                 // mh3 chunk 12: a player's counters ("… from another target permanent or opponent"), of a kind the effect's controller chooses
                 // when they have several (CR 122.1, 608.2d)
@@ -625,12 +611,12 @@ internal object Effects {
         return won
     }
 
-    /** one, mh3 chunk 11: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil", "flying"). */
+    /** one: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil", "flying"); written out, not the class's name,
+     * which a shrunk Android build renames, as the options must match on every device (RuntimeNamesTest). */
     fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
         is arcanum.api.CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
         is arcanum.api.CounterKind.Named -> kind.name
         is arcanum.api.CounterKind.Keyword -> kind.keyword.id
-        // mh3 sweep: written out, not the class's name, which a shrunk Android build renames (a device and a server must offer the same options)
         arcanum.api.CounterKind.Shield -> "shield"
         arcanum.api.CounterKind.Stun -> "stun"
         arcanum.api.CounterKind.Finality -> "finality"
@@ -1011,8 +997,22 @@ internal object Effects {
     }
 
     private fun revealUntil(scope: Scope, effect: Effect.RevealUntil) {
+        // mom: "each player exiles cards from the top of their library until …": each library in turn, APNAP order (CR 101.4); the found
+        // and the other cards of every library together
+        val found = mutableListOf<ObjectId>()
+        val rest = mutableListOf<ObjectId>()
+        for (owner in scope.players(effect.library)) {
+            val (f, r) = revealUntilIn(scope, effect, owner)
+            found += f
+            rest += r
+        }
+        scope.bind(effect.foundBind, NamedValue.Objects(found))
+        scope.bind(effect.restBind, NamedValue.Objects(rest))
+    }
+
+    /** One library's part of [revealUntil]: the found and the other cards turned over, where they ended up. */
+    private fun revealUntilIn(scope: Scope, effect: Effect.RevealUntil, owner: PlayerId): Pair<List<ObjectId>, List<ObjectId>> {
         val act = scope.act
-        val owner = scope.players(effect.library).firstOrNull() ?: return
         val library = act.state.player(owner).library
         val wanted = scope.value(effect.count)
         // sos: "until you exile cards with total mana value 4 or greater": until the matching cards' total reaches it
@@ -1033,14 +1033,9 @@ internal object Effects {
         }
         if (effect.reveal && turned.isNotEmpty()) act.record(Change.Happened(GameEvent.Revealed(owner, turned)))
         val rest = turned.filter { it !in found }
-        if (effect.into != null) {
-            val moved = Actions.moveTo(act, scope.cause, turned, effect.into!!)
-            scope.bind(effect.foundBind, NamedValue.Objects(found.mapNotNull { moved[it] }))
-            scope.bind(effect.restBind, NamedValue.Objects(rest.mapNotNull { moved[it] }))
-        } else {
-            scope.bind(effect.foundBind, NamedValue.Objects(found))
-            scope.bind(effect.restBind, NamedValue.Objects(rest))
-        }
+        if (effect.into == null) return found to rest
+        val moved = Actions.moveTo(act, scope.cause, turned, effect.into!!)
+        return found.mapNotNull { moved[it] } to rest.mapNotNull { moved[it] }
     }
 
     // ---- Counters
@@ -1845,6 +1840,13 @@ internal object Effects {
                     applyMechanics(scope, listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(action.subtype)))), null,
                         Duration.Indefinitely, null, locked = listOf(army))
                 scope.bind(bind, NamedValue.Objects(listOf(army)))
+            }
+            // mom chunk 03: CR 701.53a: create an Incubator token (CR 111.10i) that enters with N +1/+1 counters on it
+            is KeywordAction.Incubate -> {
+                val e = scope.eval()
+                val token = Actions.createTokens(act, cause, Actions.tokenValues(act, e, arcanum.api.TokenSpec.Predefined("Incubator")), 1, scope.actor,
+                    withCounters = listOf(CounterKind.PowerToughness(1, 1) to e.value(action.count).coerceAtLeast(0)))
+                scope.bind(bind, NamedValue.Objects(token))
             }
             // fra: CR 701.4a: reveal a matching card from your hand or choose a matching permanent you control; ecl: N different ones
             is KeywordAction.Behold -> {

@@ -62,6 +62,9 @@ sealed interface CastOp {
     @Serializable @SerialName("follow") data class Follow(val choices: CastChoices, val hand: HandChoiceWire? = null) : CastOp
     /** A complete flow whose send waited while the board moved on: completed again on the board named. */
     @Serializable @SerialName("replan") data class Replan(val autotap: Boolean) : CastOp
+    /** STK-024 (owner 2026-11-14): the payment the open question comes to answered with [answer] (the X being set in the
+     * panel), shown without answering it. */
+    @Serializable @SerialName("preview") data class Preview(val answer: Answer, val choices: CastChoices) : CastOp
     /** Castability §3: what may be picked in the open choice with [picked] so far (nothing changes). */
     @Serializable @SerialName("selection") data class Selection(val picked: List<TargetRef>) : CastOp
     /** The session ends ([how]: sent, cancelled, dropped …); nothing is answered. */

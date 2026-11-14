@@ -1,0 +1,1 @@
+fix: When a creature connives, the card you draw now shows face up in the discard choice.

@@ -200,7 +200,8 @@ sealed interface AbilityOrigin {
 
     /** A special action the rules give an object rather than an ability it has (CR 116.2): unlocking a Room's locked
      * door (CR 709.5e, [name] "unlock-left" / "unlock-right"), turning a manifested permanent face up (CR 701.40b,
-     * "manifested"). */
+     * "manifested"); or an inherent triggered ability the rules give a player, with no source (an exception to CR 113.8): speed's
+     * ("speed", CR 702.179d), the initiative's ("initiative", CR 726.2). */
     @Serializable @SerialName("rule") data class Rule(val name: String) : AbilityOrigin {
         override val key: String get() = "r:$name"
     }

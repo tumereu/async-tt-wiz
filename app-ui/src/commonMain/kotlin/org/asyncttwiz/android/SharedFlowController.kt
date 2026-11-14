@@ -478,7 +478,10 @@ class SharedFlowController(
      * zones that aren't public (their library during a search). An object that left a public zone face up (a trigger's
      * source that died) shows what it was there (CR 608.2h). Objects in public zones are named only when visible to
      * the viewer, so a face-down creature stays hidden from the player dividing damage onto it (#4). Someone choosing for
-     * the other player sees that player's hidden cards only as hidden cards. An option that has left (STK-060) shows what it was. */
+     * the other player sees that player's hidden cards only as hidden cards. An option that has left (STK-060) shows what it was.
+     * Problem report JN5UQN: an option the same engine step made before asking (connive's drawn card, CR 701.50a: the step is
+     * redone with the answer, so the state holds that card as it was before the step, in its owner's library) is shown to the
+     * deciding player when it is their own card in a zone that isn't public. */
     override fun shown(id: ObjectId): Boolean {
         val flow = view ?: return false
         if (id is ObjectId.StackItem) return true
@@ -486,9 +489,21 @@ class SharedFlowController(
         if (id in flow.value.left) return true
         // A trigger's source that has left the battlefield (3UE2NW): what it was there is public
         if (org.asyncttwiz.automatum.LastKnown.public(flow.state, id)) return true
-        val zone = flow.state.obj(id)?.zone
-        return flow.decision?.player?.value == viewer && zone != null && zone !in PUBLIC_ZONES
+        val deciding = flow.decision?.player?.value == viewer
+        val obj = flow.state.obj(id)
+        if (obj == null && deciding && id is ObjectId.Card && (flow.decision as? Decision.ChooseObjects)?.options?.contains(id) == true) {
+            val before = flow.state.objects.values.firstOrNull { it.card == id.card }
+            val own = before != null && before.owner.value == viewer && before.zone !in PUBLIC_ZONES
+            val key = "${flow.decision?.id?.value}/$id"
+            if (loggedMade.add(key)) AppLog.info("decision", "Choice ${flow.decision?.id?.value} offers $id, made in the same step before " +
+                "it was asked (${before?.definition?.faces?.firstOrNull()?.name ?: "no such card"}, now ${before?.zone}): " +
+                if (own) "shown to its owner face up" else "hidden")
+            return own
+        }
+        return deciding && obj != null && obj.zone !in PUBLIC_ZONES
     }
+    /** The options [shown] logged as made in the step that asks about them (one line each). */
+    private val loggedMade = mutableSetOf<String>()
 
     /**
      * Sends [op], made on [play]'s board, where the flows run and sends the viewer's own inputs it comes to, unless the board

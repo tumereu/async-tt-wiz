@@ -135,6 +135,37 @@ class EngineCombatTest {
         assertNull(CombatFlow.dealt(passUntil(end) { it.turn.step == TurnStep.PostcombatMain }), "gone with the combat")
     }
 
+    // CMB-050, HIS-113 (owner notes 2026-11-14 evening: the damage's hold showed no splashes or skulls on the creatures; CR 510.2,
+    // 704.5g): right after the damage, before the state-based actions, each creature dealt combat damage has its amount and those
+    // with lethal damage are dying; once they are gone the survivors keep their amounts until the combat ends
+    @Test fun theCreaturesDealtCombatDamageAndThoseDying() {
+        val (ogre, cub) = table.put(alice, Zone.Battlefield, "Hill Ogre", "Stout Bear")
+        val (bear) = table.put(bob, Zone.Battlefield, "Stout Bear")
+        val blocking = toBlockers(declaredAttackers(listOf(LaneAttack(ogre), LaneAttack(cub))))
+        val blocked = run(blocking).also { CombatFlow.declareBlockers(it, listOf(LaneBlock(bear, ogre))) }.working
+        // The damage's hold (as the table's motion splits it): the passes made change by change until the combat damage and its
+        // results (damage marked, life) are applied, before what follows them (the state-based actions moving the dying)
+        val held = blocked.deepCopy()
+        var dealing = false
+        hold@ while (true) {
+            val holder = assertNotNull(held.priority.holder, "nobody holds priority at ${held.turn.step}")
+            val out = arcanum.engine.Engine.perform(held, Input.PassPriority(holder), org.asyncttwiz.protocol.game.EnginePreferences.of(held))
+            for (c in out.changes) {
+                if (dealing && (c is arcanum.engine.change.Change.ZoneChange || c is arcanum.engine.change.Change.Step ||
+                        c is arcanum.engine.change.Change.Priority || c is arcanum.engine.change.Change.PendingSet)) break@hold
+                held.apply(c)
+                if (c is arcanum.engine.change.Change.Damage && c.dealt.any { it.combat }) dealing = true
+            }
+            if (dealing) break
+        }
+        val dealt = assertNotNull(CombatFlow.dealt(held))
+        assertEquals(mapOf(bear to 3, ogre to 2), dealt.creatures, "the Bear took the Ogre's 3, the Ogre the Bear's 2; Alice's Bear hit Bob")
+        assertEquals(setOf(bear), dealt.dying, "the 2/2 Bear has lethal damage, the 3/3 Ogre doesn't")
+        val after = passUntil(blocked) { it.turn.step == TurnStep.CombatDamage }
+        assertEquals(setOf(), assertNotNull(CombatFlow.dealt(after)).dying, "the Bear is gone")
+        assertEquals(2, CombatFlow.dealt(after)?.creatures?.get(ogre))
+    }
+
     // CMB-044 (CR 508.1h): a cost to attack shows on the staged attacker ("{2}"); declared with Autotap its mana is paid
     // by itself, otherwise the payment is the attacker's open choice
     @Test fun aManaCostToAttackIsShownAndAutotapped() {

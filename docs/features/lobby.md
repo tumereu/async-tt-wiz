@@ -177,7 +177,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Card records
 
-- **LOB-091** Card records come from the ATW server: the card catalog the app was built for (SYS-081). On start, when the installed records aren't that catalog (a first launch, a new app), the app downloads and installs it without asking, before or after sign-in; sign-in works meanwhile, with "Card records updating · 43%" and a bar at the top. A failed download is tried once more by itself, then the line says "Card records couldn't be downloaded" with Retry. (r50)
+- **LOB-091** Card records come from the ATW server: the card catalog the app was built for (SYS-081). On start, when the installed records aren't that catalog (a first launch, a new app), the app downloads and installs it without asking, before or after sign-in; sign-in works meanwhile, with "Card records updating · 43%" and a bar at the top (in the desktop layout lying over the top of the page, so nothing under it moves when it comes or goes). A failed download is tried once more by itself, then the line says "Card records couldn't be downloaded" with Retry. (r50)
 - **LOB-093** Settings → Card records shows the installed date and record count; while card records install, "Card records updating · 43%" with a bar; after a failed download, that line with Retry. (r9)
 - **LOB-094** How far an installation is reads as one share of the whole: the download is its first fifth, adding the records takes it to 60%, and preparing card search goes on from there to 99%. (r55)
 - **LOB-095** The card records are always the catalog the app was built for: installed records of another catalog or format are replaced with it at startup. (r17)

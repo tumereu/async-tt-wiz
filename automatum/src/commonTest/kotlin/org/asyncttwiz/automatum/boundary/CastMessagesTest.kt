@@ -105,6 +105,7 @@ class CastMessagesTest {
             CastOp.Update(CastChange.Change(0, Answer.Number(2)), choices),
             CastOp.Update(CastChange.Back(0), choices),
             CastOp.Update(CastChange.Way(flow.begin), choices),
+            CastOp.Preview(Answer.Number(3), choices),
             CastOp.Tap(listOf(use), ManaBelongs.Key("k"), "source c1", listOf(use), taps, true),
             CastOp.Tap(listOf(use), ManaBelongs.Uses(listOf(use)), "chip", emptyList(), ManaTapsWire(), false),
             CastOp.ChooseWay("c1", use, listOf(use), taps, true),

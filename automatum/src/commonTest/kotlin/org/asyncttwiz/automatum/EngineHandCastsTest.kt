@@ -383,6 +383,24 @@ class EngineHandCastsTest {
         assertTrue(ahead.pays(payment.suggestion))
     }
 
+    // STK-024 (owner 2026-11-14: changing X didn't change the outlined sources): the payment ahead follows the X being set, the
+    // smallest way still taken for the questions after it; a refused X falls back to X at its least
+    @Test fun aheadFollowsTheXBeingSet() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain")
+        val (doomfire) = table.put(alice, Zone.Hand, "Doomfire")
+        val state = table.state()
+        val flow = CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(doomfire).first(), CastFlow.Seeds(table::seed))
+        assertIs<Decision.Announce>(flow.pending)
+        fun cost(open: arcanum.engine.decision.Answer?) = assertIs<Decision.ManaPayment>(assertNotNull(HandCasts.ahead(flow, open)).pending).cost.toString()
+        assertEquals("{R}", cost(null))
+        assertEquals("{2}{R}", cost(arcanum.engine.decision.Answer.Number(2)))
+        val three = assertNotNull(HandCasts.ahead(flow, arcanum.engine.decision.Answer.Number(3)))
+        val payment = assertIs<Decision.ManaPayment>(three.pending)
+        assertEquals(4, payment.suggestion.size)
+        assertTrue(three.pays(payment.suggestion))
+        assertEquals("{R}", cost(arcanum.engine.decision.Answer.Number(-1)))
+    }
+
     // ZON-080 (owner 2026-11-07): the cast panel changes the way and extras, keeping the answers that still fit
     @Test fun withChoiceKeepsTheTarget() {
         table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")

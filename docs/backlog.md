@@ -16,15 +16,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Owner notes 2026-11-14 evening (tested on prod 0.2.x, so each is first checked on master): clear bugs, one worker beside the desktop batch.
-
-- Speed (Start your engines!): the speed increase triggers when the player is already at max speed (it has an intervening "if your speed is less than 4": CR check), and its Stack entry/log text reads "ability's ability" (placeholder-like text is an error). Owner also asks whether it should use the Stack at all: per the rules it is a triggered ability, so it does.
-- Changing X while casting doesn't update the tap prediction (the outline of the sources that will pay).
-- The end-of-combat damage result pause no longer shows the creatures' damage splashes and skulls (regression?).
-- A requested rewind to an earlier step didn't clear combat staging: after the other player rewound and the game came back to declare attackers, the attacker's earlier staged declarations were still there.
-- Desktop: the "Updating card records" loading bar at the top pushes the views down and makes them jump when it finishes; make it an overlay.
-- Problem report JN5UQN (prod, owner 2026-11-14): the other player said the card their connive drew was shown face down (the owner didn't see their screen). Reproduce in a two-player game: after connive the drawn card, the discard choice and the discarded card must show as they should (your own drawn card face up to you; a discarded card face up to both); fix, e2e, logging. Report text: "when I connived the drawn card was shown upside down" (beta16, Samsung phone): check orientation too.
-
 Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.
 
 - Web: the page's hidden accessibility structure (the semantics mirror screen readers and the e2e tests read) keeps showing a dialog or menu after it closes, until a reload (found 2026-11-14 by the frame-rate worker). Reproduce with an e2e test, fix.

@@ -1,0 +1,1 @@
+fix: Changing X while casting now updates which mana sources are outlined to pay.

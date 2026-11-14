@@ -303,13 +303,6 @@ if (!fcmEnabled) {
     }
 }
 
-// Compose Multiplatform 1.11 (app-ui, and Coil through it) asks for androidx savedstate 1.4.0, though its Android
-// artifacts carry no code, only pointers to androidx Compose; the app keeps the savedstate its androidx Compose brings
-// (web client step 2: nothing changes on Android). Compile classpaths never had the 1.4.0 request.
-configurations.matching { !it.name.contains("CompileClasspath") }.configureEach {
-    resolutionStrategy.eachDependency { if (requested.group == "androidx.savedstate") useVersion("1.3.3") }
-}
-
 dependencies {
     implementation(project(":core"))
     implementation(project(":protocol"))

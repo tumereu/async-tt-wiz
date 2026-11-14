@@ -260,3 +260,5 @@ number	item	screenshot	catalog	decisions	sequence
 259	Games list: a game row's menu offers its chat with the unread count	chat/games-list-row-menu.png	LOB-148 LOB-026		Chat from the games list
 260	Games list: the game's chat open over the list, the game not opened	chat/games-list-chat.png	LOB-148		Chat from the games list
 261	Draft: Rotisserie setup with the pool and the picks per player apart	draft/setup-rotisserie.png	DRF-182 DRF-152
+262	Avatar choices on a phone: search results named under their art in a framed, shaded area	settings/avatar-search-phone.png	LOB-149 LOB-013		Avatar choices
+263	Desktop: avatar search results, larger and seven to a row	desktop/avatar-search.png	LOB-149		Avatar choices

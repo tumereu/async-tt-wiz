@@ -21,6 +21,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-012** While the card records are not ready, the avatar choices area says "Avatars need the card catalog." with the phase and percentage, and the choices appear by themselves when ready. (r17)
 - **LOB-013** Settings → Profile shows your avatar and name with a pen button that opens one "Edit profile" dialog: smaller avatar choices without scrolling, search above them, reroll, username field, Cancel and Save (no Skip). (r18)
 - **LOB-014** Avatars appear next to player names everywhere: game rows, game lobby, contacts and search, invitations, pod rows and the side menu. (r17)
+- **LOB-149** Avatar choices (the first-sign-in chooser, LOB-011, and Edit profile, LOB-013) show each card's name under its art (up to two lines) and, above them, what they are: "Random legendary creatures and planeswalkers", or "Cards matching “<search>”: N". They lie in a framed area that scrolls inside its frame; a shade at its top or bottom edge shows more lies that way. In the desktop layout the choices are larger and as many to a row as fit, the chooser keeps to a readable width and the Edit profile dialog is wider and taller (owner, 2026-11-14). (r74)
 
 ### Navigation and main menu
 

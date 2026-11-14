@@ -47,7 +47,6 @@ Table and casting:
 
 Lobby, chat and accounts:
 - Game and pod chat messages show a small timestamp, with a date line between days.
-- Avatar selection, phone and desktop: the choices get context (show names); the search results area that becomes scrollable looks it (borders/edges); the desktop layout uses its much larger space.
 
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 

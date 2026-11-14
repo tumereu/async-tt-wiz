@@ -9,15 +9,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 /**
- * The DMU replacement cards of chunk 09, played: the invented names carry the oracle text of the ten tapped dual lands (Contaminated
- * Aquifer is the pattern), Cult Conscript, Nemata, Primeval Warden and Timeless Lotus.
+ * The DMU replacement cards of chunk 09, played: the invented names carry the oracle text of the ten tapped dual lands (one is the
+ * pattern), a Skeleton with a conditional graveyard return, a treefolk with an exile replacement and a tapped artifact.
  */
 class DmuChunk09ReplacementScenariosTest {
-    private val aquifer = Cards.invent("Murkwater Aquifer", null, "Land — Island Swamp", """
+    private val aquifer = Cards.invent("Sallow Aquifer", null, "Land — Island Swamp", """
         ({T}: Add {U} or {B}.)
         This land enters tapped.
     """)
-    private val conscript = Cards.invent("Bonepit Conscript", "{B}", "Creature — Skeleton Warrior", """
+    private val conscript = Cards.invent("Gravepit Conscript", "{B}", "Creature — Skeleton Warrior", """
         This creature enters tapped.
         {1}{B}: Return this card from your graveyard to the battlefield. Activate only if a non-Skeleton creature died under your control this turn.
     """, "2/1")
@@ -31,13 +31,13 @@ class DmuChunk09ReplacementScenariosTest {
         Dormant Lotus enters tapped.
         {T}: Add {W}{U}{B}{R}{G}.
     """)
-    private val bear = Cards.invent("Quillbrook Bear", "{1}{G}", "Creature — Bear", "", "2/2")
-    private val skeleton = Cards.invent("Quillbrook Bones", "{B}", "Creature — Skeleton", "", "1/1")
-    private val shrub = Cards.invent("Quillbrook Shrub", "{G}", "Creature — Saproling", "", "1/1")
-    private val shrub2 = Cards.invent("Quillbrook Sapling", "{G}", "Creature — Saproling", "", "1/1")
-    private val ox = Cards.invent("Quillbrook Ox", "{1}{G}", "Creature — Ox", "", "2/2")
-    private val hog = Cards.invent("Quillbrook Hog", "{1}{G}", "Creature — Boar", "", "2/2")
-    private val zap = Cards.invent("Quillbrook Zap", "{R}", "Instant", "Quillbrook Zap deals 5 damage to target creature.")
+    private val bear = Cards.invent("Briar Bear", "{1}{G}", "Creature — Bear", "", "2/2")
+    private val skeleton = Cards.invent("Briar Bones", "{B}", "Creature — Skeleton", "", "1/1")
+    private val shrub = Cards.invent("Briar Shrub", "{G}", "Creature — Saproling", "", "1/1")
+    private val shrub2 = Cards.invent("Briar Sapling", "{G}", "Creature — Saproling", "", "1/1")
+    private val ox = Cards.invent("Briar Ox", "{1}{G}", "Creature — Ox", "", "2/2")
+    private val hog = Cards.invent("Briar Hog", "{1}{G}", "Creature — Boar", "", "2/2")
+    private val zap = Cards.invent("Briar Zap", "{R}", "Instant", "Briar Zap deals 5 damage to target creature.")
 
     // CR 614.1c, 614.12
     @Test

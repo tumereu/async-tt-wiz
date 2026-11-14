@@ -46,21 +46,21 @@ class DmuChunk09ReplacementTest {
         """,
     ) parsesTo abilities(entersTapped)
 
-    @Test fun contaminatedAquifer() = dualLand("Contaminated Aquifer", "Island Swamp", "U", "B")
-    @Test fun geothermalBog() = dualLand("Geothermal Bog", "Swamp Mountain", "B", "R")
-    @Test fun hauntedMire() = dualLand("Haunted Mire", "Swamp Forest", "B", "G")
-    @Test fun idyllicBeachfront() = dualLand("Idyllic Beachfront", "Plains Island", "W", "U")
-    @Test fun moltenTributary() = dualLand("Molten Tributary", "Island Mountain", "U", "R")
-    @Test fun radiantGrove() = dualLand("Radiant Grove", "Forest Plains", "G", "W")
-    @Test fun sacredPeaks() = dualLand("Sacred Peaks", "Mountain Plains", "R", "W")
-    @Test fun sunlitMarsh() = dualLand("Sunlit Marsh", "Plains Swamp", "W", "B")
-    @Test fun tangledIslet() = dualLand("Tangled Islet", "Forest Island", "G", "U")
-    @Test fun woodedRidgeline() = dualLand("Wooded Ridgeline", "Mountain Forest", "R", "G")
+    @Test fun sallowAquifer() = dualLand("Sallow Aquifer", "Island Swamp", "U", "B")
+    @Test fun ashenBog() = dualLand("Ashen Bog", "Swamp Mountain", "B", "R")
+    @Test fun gloomwoodMire() = dualLand("Gloomwood Mire", "Swamp Forest", "B", "G")
+    @Test fun dawnshoreStrand() = dualLand("Dawnshore Strand", "Plains Island", "W", "U")
+    @Test fun emberTributary() = dualLand("Ember Tributary", "Island Mountain", "U", "R")
+    @Test fun verdantGlade() = dualLand("Verdant Glade", "Forest Plains", "G", "W")
+    @Test fun cinderPeaks() = dualLand("Cinder Peaks", "Mountain Plains", "R", "W")
+    @Test fun paleMarsh() = dualLand("Pale Marsh", "Plains Swamp", "W", "B")
+    @Test fun mossyIslet() = dualLand("Mossy Islet", "Forest Island", "G", "U")
+    @Test fun ridgewoodBluff() = dualLand("Ridgewood Bluff", "Mountain Forest", "R", "G")
 
     // CR 614.1c, 603.4: a non-Skeleton creature died under your control (events, CR 700.4)
     @Test
-    fun cultConscript() = card(
-        name = "Cult Conscript",
+    fun gravepitConscript() = card(
+        name = "Gravepit Conscript",
         cost = "{B}",
         type = "Creature — Skeleton Warrior",
         pt = "2/1",
@@ -84,8 +84,8 @@ class DmuChunk09ReplacementTest {
 
     // CR 614.1: life gain is modified before it happens
     @Test
-    fun knightOfDawnsLight() = card(
-        name = "Knight of Dawn's Light",
+    fun knightOfMorningGleam() = card(
+        name = "Knight of Morning Gleam",
         cost = "{1}{W}",
         type = "Creature — Human Knight",
         pt = "2/2",
@@ -102,15 +102,15 @@ class DmuChunk09ReplacementTest {
 
     // CR 614.6, 603.7: "When you do" follows the replaced event; the exile replaces dying
     @Test
-    fun nemataPrimevalWarden() = card(
-        name = "Nemata, Primeval Warden",
+    fun nemloWildWarden() = card(
+        name = "Nemlo, Wild Warden",
         cost = "{2}{B}{G}",
         type = "Legendary Creature — Treefolk",
         pt = "3/4",
         text = """
             Reach
             If a creature an opponent controls would die, exile it instead. When you do, create a 1/1 green Saproling creature token.
-            {G}, Sacrifice a Saproling: Nemata gets +2/+2 until end of turn.
+            {G}, Sacrifice a Saproling: Nemlo gets +2/+2 until end of turn.
             {1}{B}, Sacrifice two Saprolings: Draw a card.
         """,
     ) parsesTo abilities(
@@ -124,8 +124,8 @@ class DmuChunk09ReplacementTest {
 
     // CR 614.1c, 107.3: X is the value announced for the spell
     @Test
-    fun shivanDevastator() = card(
-        name = "Shivan Devastator",
+    fun cinderDevastator() = card(
+        name = "Cinder Devastator",
         cost = "{X}{R}",
         type = "Creature — Dragon Hydra",
         pt = "0/0",
@@ -142,12 +142,12 @@ class DmuChunk09ReplacementTest {
 
     // CR 614.1c: a tapped artifact makes no mana the turn it enters
     @Test
-    fun timelessLotus() = card(
-        name = "Timeless Lotus",
+    fun dormantLotus() = card(
+        name = "Dormant Lotus",
         cost = "{5}",
         type = "Legendary Artifact",
         text = """
-            Timeless Lotus enters tapped.
+            Dormant Lotus enters tapped.
             {T}: Add {W}{U}{B}{R}{G}.
         """,
     ) parsesTo abilities(

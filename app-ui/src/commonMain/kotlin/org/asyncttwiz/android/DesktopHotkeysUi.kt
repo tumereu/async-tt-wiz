@@ -168,7 +168,8 @@ fun KeyboardShortcutsSetting(state: AccountSettingsState?, applied: KeyBindingsS
     fun save(next: KeyBindings) {
         if (state != null) state.setKeyBindings(next, applied) else applied?.set(next)
     }
-    DesktopKeyboard.Listen(waiting != null) { key ->
+    // Waiting for the key to bind: the next press is this one's, even while a text field has the keyboard
+    DesktopKeyboard.Listen(waiting != null, whileTyping = true) { key ->
         val action = waiting ?: return@Listen false
         if (!key.down) return@Listen true
         if (key.key == "Escape" || key.key == "Esc") {

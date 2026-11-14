@@ -88,8 +88,8 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         else EngineBoundary.log.log(false, "Engine boundary: the games' devices stay on the page (?device=page)")
         jsGuardTablePage()
         // WEB-024: the page's keys reach the desktop table (the finger key) and, from step 5c, its hotkeys
-        jsListenKeys { key, down, time, repeat, alt, shift, ctrl, meta, typing ->
-            DesktopKeyboard.dispatch(DesktopKey(key, down, time.toLong(), repeat, alt, shift, ctrl, meta, typing))
+        jsListenKeys { key, down, time, repeat, alt, shift, ctrl, meta ->
+            DesktopKeyboard.dispatch(DesktopKey(key, down, time.toLong(), repeat, alt, shift, ctrl, meta, textField = jsTyping()))
         }
         unlockSound()
         val auth = AuthViewModel(AppServices.current)

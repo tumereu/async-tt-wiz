@@ -59,15 +59,11 @@ private fun jsVibrate(millis: Int): Unit = js("""{
 
 /**
  * The desktop layout's keyboard (docs/specs/web-client.md §5, §6; WEB-024): every key press and release on the page goes to
- * [key] (its name, down or up, time, a held key's repeat, the modifiers, whether a text field has the keyboard), which says
- * whether the app took it; a taken Alt keeps the browser's own Alt handling (its menu bar) off. When the window loses the
- * focus every key still down is let go, so a held finger key never sticks.
+ * [key] (its name, down or up, time, a held key's repeat, the modifiers), which says whether the app took it (and asks
+ * [jsTyping] whether a text field has the keyboard); a taken Alt keeps the browser's own Alt handling (its menu bar) off.
+ * When the window loses the focus every key still down is let go, so a held finger key never sticks.
  */
-internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean) -> Boolean): Unit = js("""{
-    const typing = () => {
-        const element = document.activeElement;
-        return !!element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable === true);
-    };
+internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boolean, Boolean, Boolean) -> Boolean): Unit = js("""{
     const held = new Set();
     // WEB-031: the keys whose press a hotkey took: their release is the app's too
     const taken = new Set();
@@ -75,7 +71,7 @@ internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boole
         if (typeof event.key !== 'string') return;
         if (down) held.add(event.key); else held.delete(event.key);
         const took = key(event.key, down, event.timeStamp, event.repeat === true, event.altKey, event.shiftKey, event.ctrlKey,
-            event.metaKey, typing());
+            event.metaKey);
         if (took && event.cancelable && event.key === 'Alt') event.preventDefault();
         if (event.key === 'Alt' || event.key === 'Shift') return;
         // WEB-031: a hotkey the app took is the app's only, its press and its release: no browser default (Tab's focus move,
@@ -90,7 +86,7 @@ internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boole
     window.addEventListener('keydown', (event) => send(event, true), true);
     window.addEventListener('keyup', (event) => send(event, false), true);
     window.addEventListener('blur', () => {
-        for (const name of Array.from(held)) key(name, false, performance.now(), false, false, false, false, false, false);
+        for (const name of Array.from(held)) key(name, false, performance.now(), false, false, false, false, false);
         held.clear();
     });
 }""")

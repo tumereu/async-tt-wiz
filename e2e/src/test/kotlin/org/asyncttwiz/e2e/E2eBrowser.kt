@@ -13,14 +13,15 @@ import java.util.concurrent.CopyOnWriteArrayList
  * A player in a real browser (docs/specs/web-client.md §10): the installed Chrome, headless through Playwright, on the
  * web build the server serves beside its API ([E2eStack.origin], WEB_APP_DIR), in a phone-sized window. Controls are found
  * by the screens' semantics, which the page mirrors into its document (test tags are element ids, labels and texts are
- * the elements'), and tapped on the page's canvas where they are, as a player's finger would. [chromeArgs]: more of
+ * the elements'), and tapped on the page's canvas where they are, as a player's finger would. [width] × [height] is the
+ * window (CSS px): a phone's by default; 1024 × 600 or more draws the desktop layout (WEB-013). [chromeArgs]: more of
  * Chrome's command-line switches.
  */
-internal class E2eBrowser(chromeArgs: List<String> = emptyList()) : AutoCloseable {
+internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<String> = emptyList()) : AutoCloseable {
     private val playwright = Playwright.create()
     private val browser = playwright.chromium().launch(BrowserType.LaunchOptions().setChannel("chrome").setHeadless(true)
         .setArgs(chromeArgs))
-    private val context = browser.newContext(Browser.NewContextOptions().setViewportSize(412, 860))
+    private val context = browser.newContext(Browser.NewContextOptions().setViewportSize(width, height))
     val page: Page = context.newPage()
     /** The page's console lines and errors. */
     val console = CopyOnWriteArrayList<String>()
@@ -84,6 +85,10 @@ internal class E2eBrowser(chromeArgs: List<String> = emptyList()) : AutoCloseabl
     fun mainWords(): String? = page.locator("#main-button").takeIf { it.count() > 0 }?.first()?.let { button ->
         button.getAttribute("aria-label") ?: button.textContent()
     }
+
+    /** The text in the text field [selector] finds (its value as the page's semantics mirror holds it), "" when empty. */
+    fun fieldText(selector: String): String = page.locator(selector).first().evaluate(
+        "e => (e.value !== undefined ? e.value : (e.textContent || ''))").toString()
 
     /** Lines of the page's console that tell of a fault (an uncaught error, a crash report, code missing on the web). */
     fun faults(): List<String> = console.filter { it.contains("pageerror") || it.contains("ATW/crash") || it.contains("NotImplementedError") }

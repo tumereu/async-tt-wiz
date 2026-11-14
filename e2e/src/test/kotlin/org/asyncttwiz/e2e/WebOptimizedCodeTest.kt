@@ -18,7 +18,7 @@ class WebOptimizedCodeTest {
     @Test fun aTableOpensWithEveryFunctionOptimized() {
         val (alice, bob) = ServerSetup.fresh()
         val started = ServerSetup.prepare(alice, bob, TestDeck.thirds(), TestDeck.thirds(), name = "Optimized game").ready()
-        E2eBrowser(listOf("--js-flags=--no-liftoff")).use { web ->
+        E2eBrowser(chromeArgs = listOf("--js-flags=--no-liftoff")).use { web ->
             try {
                 web.signIn(alice)
                 val before = ServerSetup.head(alice, started.id).engine?.localHeads?.get(alice.id)

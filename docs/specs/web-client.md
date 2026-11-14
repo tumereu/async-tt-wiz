@@ -584,6 +584,15 @@ Two batches come first, in this order:
   settings rows (D10). Hotkeys K/B/U, ←/→/↓, Tab / Shift+Tab, Ctrl+S.
 - Tests: screenshots per screen at desktop size; e2e: build a deck in the two-pane editor, hiding and reopening the
   search; draft a pick with clicks and keys; move a Build card by its edge zone.
+- Built in 6a (2026-11-14): the permanent side menu shell (WEB-037: `AuthenticatedShell` draws its landscape shell, 280 wide,
+  whenever the layout is desktop; the table and a started pod keep the menu button), wide lists (WEB-038: `desktopReadable`
+  in `DesktopScreens.kt` for Games, Contacts and Pods, `GameRow`'s one-line desktop row, the decks and cubes grids), the
+  two-pane editor with Hide search and its rail (WEB-039, WEB-040: `DesktopCardListEditor.kt`, reached from
+  `CardListEditorScaffold`; `CardListCardsTab`'s `openSearch`), Ctrl+S (WEB-041: `HotkeyAction.Save`, `HotkeyPlace.Editor`),
+  Stats in columns (WEB-042: `StatsColumns`) and Settings in two columns (WEB-043: `DesktopSettings`). Tests:
+  `DesktopScreensScreenshotTest`, e2e `DesktopDeckEditorTest`. Left for 6b: the draft pick (D9), edge zones in Build,
+  Prepare and the Cards tab (the editor's list cards still move by swipe and menu; ← / → / ↓ there), no Build review on
+  desktop, dragging a search result into a section (§7.5), a right-click on a games-list row (§5, D7).
 
 ### Step 7: notifications, install, tab title
 

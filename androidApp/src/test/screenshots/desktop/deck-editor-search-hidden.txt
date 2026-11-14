@@ -1,0 +1,1 @@
+After Hide search the editor's search is folded into the slim Search rail at the right edge and the deck list takes the full width.

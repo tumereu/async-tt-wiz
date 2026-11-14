@@ -149,6 +149,11 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     }
     init {
         decks.cardRecords = cardRecords; deckImport.cardRecords = cardRecords; lobby.cardRecords = cardRecords; pods.cardRecords = cardRecords
+        // The editor's card search reads the phone's card records, as the app's does (AuthViewModel)
+        catalog?.let { records ->
+            deckImport.search.source = { query, cursor -> records.repository.searchCards(query, cursor) }
+            deckImport.search.cardData = { records.repository.searchData(it) }
+        }
     }
     var decksShown by mutableStateOf(false)
     internal val heartbeat = GameHeartbeatController({ token, presence ->

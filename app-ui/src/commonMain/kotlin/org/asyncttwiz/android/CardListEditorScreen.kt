@@ -62,7 +62,9 @@ fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, landscape: 
     dismissError: () -> Unit, nameRow: @Composable () -> Unit, listField: @Composable ColumnScope.() -> Unit,
     feedback: @Composable ColumnScope.() -> Unit, deleteLabel: String? = null, delete: () -> Unit = {}, deleteEnabled: Boolean = true,
     textProblems: Boolean = false) {
-    if (search.state.open) { CardSearchPage(editor, search, landscape); return }
+    // WEB-039: the desktop layout has the search beside the list, never the full-screen page
+    val desktop = desktopLayout()
+    if (search.state.open && !desktop) { CardSearchPage(editor, search, landscape); return }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val columns = rememberDeckViewColumns(if (editor.kind == CardListKind.CUBE) DeckViewScreen.CUBE_EDITOR else DeckViewScreen.EDITOR)
@@ -88,6 +90,23 @@ fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, landscape: 
             Box(Modifier.weight(1f)) { nameRow() }
             AutomatumSupportIcon(support, Modifier.testTag("automatum-support"))
         }
+    }
+    // WEB-039, WEB-040, WEB-041: the desktop layout's two panes
+    if (desktop) {
+        val link: @Composable () -> Unit = {
+            val open = { keyboard?.hide(); focus.clearFocus(); openLink() }
+            ScreenOutlinedButton(open, Modifier.testTag("open-import-link"), enabled = linkEnabled) {
+                EntryIcon(null, "link"); Spacer(Modifier.width(8.dp)); Text(IMPORT_FROM_LINK)
+            }
+            if (deleteLabel != null) TextButton({ keyboard?.hide(); focus.clearFocus(); delete() },
+                Modifier.heightIn(min = 48.dp).testTag("delete-list"), enabled = deleteEnabled,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(screenIcon("delete"), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(deleteLabel, maxLines = 1)
+                }
+        }
+        DesktopCardListEditor(title, navigation, editor, search, tab, columns, tabs, named, link,
+            canSave, saving, { keyboard?.hide(); focus.clearFocus(); save() }, saveTag, lookupPending, error, dismissError, listField, feedback)
+        return
     }
     Column(Modifier.fillMaxSize()) {
         // Landscape keeps the pictures tall enough: the name joins the title row, the Cards summary the tab row.
@@ -157,11 +176,11 @@ fun DiscardChangesDialog(keepEditing: () -> Unit, discard: () -> Unit) {
 fun rememberCardListTab(existing: Boolean) = rememberSaveable { mutableStateOf(if (existing) CardListTab.CARDS else CardListTab.TEXT) }
 
 @Composable
-private fun Modifier.verticalScrollable() = this.then(Modifier.verticalScroll(rememberScrollState()))
+internal fun Modifier.verticalScrollable() = this.then(Modifier.verticalScroll(rememberScrollState()))
 
 /** I-D51: the edited list's Automatum support, its cards' data made as saving makes it, worked out off the main thread. */
 @Composable
-private fun rememberEditorSupport(editor: CardListEditor): CardListSupport? {
+internal fun rememberEditorSupport(editor: CardListEditor): CardListSupport? {
     val check = LocalCardListSupport.current ?: return null
     val entries = editor.entries
     val support by produceState<CardListSupport?>(null, check, entries) {
@@ -189,8 +208,8 @@ private fun rememberCardDefinitions(editor: CardListEditor): (ResolvedDeckEntry)
 
 /** The list as pictures by section: a swipe moves one copy to another section (LOB-105), tap opens the card menu, hold previews. */
 @Composable
-private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, lookupPending: Boolean, columns: PodBuildColumns,
-    summary: Boolean, feedback: @Composable ColumnScope.() -> Unit) {
+internal fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, lookupPending: Boolean, columns: PodBuildColumns,
+    summary: Boolean, feedback: @Composable ColumnScope.() -> Unit, openSearch: ((DeckSection) -> Unit)? = null) {
     val entries = editor.entries
     val definitionOf = rememberCardDefinitions(editor)
     val menus = remember { PodCardMenuOwner() }
@@ -226,7 +245,7 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                         visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count,
                             empty = if (matcher != null) "No matching cards" else "Empty", headerAction = {
                             HoldTip("Add cards to ${saved.sectionLabel()}") {
-                                IconButton({ editor.destination(section); search.open(CardListEdits.total(entries)) },
+                                IconButton({ editor.destination(section); if (openSearch != null) openSearch(section) else search.open(CardListEdits.total(entries)) },
                                     Modifier.testTag("add-cards-${saved.shortLabel().lowercase()}"), enabled = editor.editable) {
                                     Icon(screenIcon("add"), "Add cards to ${saved.sectionLabel()}", tint = saved.sectionColor())
                                 }
@@ -290,7 +309,7 @@ private fun CardListFilterBar(search: CardListSearch, oneRow: Boolean, error: St
 
 /** The Cards tab's line: the section counts and the columns control. */
 @Composable
-private fun CardListSummary(editor: CardListEditor, entries: List<ResolvedDeckEntry>, columns: PodBuildColumns, modifier: Modifier) {
+internal fun CardListSummary(editor: CardListEditor, entries: List<ResolvedDeckEntry>, columns: PodBuildColumns, modifier: Modifier) {
     Row(modifier.height(40.dp).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(cardListSummary(editor.kind, entries), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -429,13 +448,13 @@ fun cardSearchDoneLabel(added: Long): String = when {
 }
 
 /** The chips chosen and what a tap on each does: on the search page (LOB-119) or the Cards tab's filter (LOB-142). */
-private class SearchChipChoices(val colors: Set<SearchColor>, val types: Set<SearchType>, val values: Set<SearchManaValue>,
+internal class SearchChipChoices(val colors: Set<SearchColor>, val types: Set<SearchType>, val values: Set<SearchManaValue>,
     val color: (SearchColor) -> Unit, val type: (SearchType) -> Unit, val value: (SearchManaValue) -> Unit)
 
 /** The quick filters: colours as card-text mana symbols, mana values as generic mana symbols, then card types; 32 dp tall
  * chips 4 dp apart (no 48 dp touch padding between them). */
 @Composable
-private fun SearchChips(state: SearchChipChoices, oneRow: Boolean) {
+internal fun SearchChips(state: SearchChipChoices, oneRow: Boolean) {
     @Composable fun row(content: @Composable RowScope.() -> Unit) =
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
@@ -471,7 +490,7 @@ private fun SearchChips(state: SearchChipChoices, oneRow: Boolean) {
 
 /** Where tapped results go: one button per section in its colour, the chosen one filled. */
 @Composable
-private fun DestinationGroup(editor: CardListEditor, modifier: Modifier) {
+internal fun DestinationGroup(editor: CardListEditor, modifier: Modifier) {
     Row(modifier.padding(horizontal = 16.dp, vertical = 8.dp).selectableGroup(), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Add to", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -492,7 +511,7 @@ private fun DestinationGroup(editor: CardListEditor, modifier: Modifier) {
  * order and colour) with that section's count; tapping a square removes one copy from it. Tap adds one copy to the chosen
  * section, whose square pulses; hold previews. */
 @Composable
-private fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: CatalogMetadata?, entries: List<ResolvedDeckEntry>,
+internal fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: CatalogMetadata?, entries: List<ResolvedDeckEntry>,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
     val destination = editor.destination
     val count = CardListEdits.count(entries, card.name, destination)

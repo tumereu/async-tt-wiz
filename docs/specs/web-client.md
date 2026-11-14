@@ -593,6 +593,16 @@ Two batches come first, in this order:
   `DesktopScreensScreenshotTest`, e2e `DesktopDeckEditorTest`. Left for 6b: the draft pick (D9), edge zones in Build,
   Prepare and the Cards tab (the editor's list cards still move by swipe and menu; ← / → / ↓ there), no Build review on
   desktop, dragging a search result into a section (§7.5), a right-click on a games-list row (§5, D7).
+- Built in 6b (2026-11-14): the draft pick (WEB-044: `podPickGestures`' `mouseClick`, through which the desktop mouse clicks
+  without holding or swiping; click keeps, the hovered card's ⋯, Enter = Confirm, eight to a row by default under
+  `columns-desktop`), edge zones and their keys (WEB-045, WEB-046: `DesktopEdgeZones.kt`, `rememberEdgeZones` in `PodBuildCard`
+  and `SwipeDeckCard`, so Build, deck preparation, Prepare cube and the editor's Cards tab; ← / → / ↓ and Alt held on the
+  hovered card are fixed keys, `FixedKey.cards`, since ← / → are also the timeline's; no Build review on desktop), the
+  games-list right-click (WEB-047: `gameRowActions`' `desktop`), Enter in dialogs (WEB-048: `DialogMainButton`, not on red
+  ones), dragging a search result into a section (WEB-049: `CardListDrop`, `podPickGestures`' `mouseDrag`). Tests:
+  `DesktopCardsTest`, `DesktopDraftScreenshotTest`, `DesktopScreensScreenshotTest`, e2e `DesktopDraftTest`. Not built: the
+  hover quick look in the draft (§5's "hover gives the quick look"); Alt over a card-screen card shows it only while held
+  (no pin).
 
 ### Step 7: notifications, install, tab title
 

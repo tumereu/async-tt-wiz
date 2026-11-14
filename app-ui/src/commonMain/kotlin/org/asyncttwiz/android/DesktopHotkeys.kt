@@ -82,6 +82,9 @@ sealed class HotkeyPlace(val title: String) {
     data object Pod : HotkeyPlace("Pod screens")
     data object Draft : HotkeyPlace("Draft pick, the card under the pointer")
     data object Editor : HotkeyPlace("Deck and cube editor")
+    /** WEB-046: a card under the pointer in Build, Prepare and the editor; its keys are fixed ([FixedKey.cards]), so it has no
+     * rows in Settings and is not in [all]. */
+    data object Cards : HotkeyPlace("Build, Prepare and the editor, the card under the pointer")
 
     companion object {
         val all: List<HotkeyPlace> get() = listOf(Table, Timeline, Pod, Draft, Editor)
@@ -131,10 +134,19 @@ data class FixedKey(val keys: String, val label: String, val place: HotkeyPlace)
     companion object {
         val all: List<FixedKey> = listOf(
             FixedKey("Esc", "Close the top popup, Inspect, panel or dialog; drop an unsent cast", HotkeyPlace.Table),
-            FixedKey("Enter", "The open panel's go-on on the main button (Cast, Done, OK, Pay)", HotkeyPlace.Table),
+            FixedKey("Enter", "The open panel's go-on on the main button (Cast, Done, OK, Pay), a dialog's main button, a draft pick's Confirm",
+                HotkeyPlace.Table),
             FixedKey("1–9", "Choose the Nth mode, way or option of the open panel", HotkeyPlace.Table),
             FixedKey("Alt (held)", "Over a card: Inspect while held, a tap pins it; elsewhere pauses (Shift works too)", HotkeyPlace.Table),
             FixedKey("?", "This list of keys", HotkeyPlace.Table))
+
+        /** WEB-046: the keys on a card under the pointer in Build, Prepare and the editor (its edge zones, WEB-045). Fixed: ← and →
+         * are the timeline's keys too, and one key does one thing in the settings (WEB-035). */
+        val cards: List<FixedKey> = listOf(
+            FixedKey("←", "Move one copy to its left edge zone's section", HotkeyPlace.Cards),
+            FixedKey("→", "Move one copy to its right edge zone's section", HotkeyPlace.Cards),
+            FixedKey("↓", "Open its menu", HotkeyPlace.Cards),
+            FixedKey("Alt (held)", "Show it large while held (Shift works too)", HotkeyPlace.Cards))
     }
 }
 

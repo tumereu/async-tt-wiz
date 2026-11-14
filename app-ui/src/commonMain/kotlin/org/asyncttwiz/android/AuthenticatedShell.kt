@@ -177,7 +177,7 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
                 // One combined handler owns tap/hold; nesting another clickable drawer item would
                 // allow a recognized context hold to also open the game on release.
                 Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp).testTag("navigation-game-${game.id}")
-                    .gameRowActions(lobby, game) {
+                    .gameRowActions(lobby, game, desktop = desktopLayout()) {
                         // Like the Menu list: an invitation is answered on the Games screen, not opened as a lobby.
                         if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
                         else { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
@@ -347,7 +347,7 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
                                      val incoming = incomingInvitation(game, accountId)
                                      val ready = cardRecordsReady()
                                      GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
-                                         .gameRowActions(lobby, game, enabled = ready || incoming) {
+                                         .gameRowActions(lobby, game, enabled = ready || incoming, desktop = desktopLayout()) {
                                              navigate(ShellDestination.GAMES)
                                              if (!incoming) lobby.open(game.id)
                                          }, trailing = if (incoming) ({

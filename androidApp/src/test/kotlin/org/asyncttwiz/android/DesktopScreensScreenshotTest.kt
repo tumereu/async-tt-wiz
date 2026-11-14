@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
@@ -189,6 +190,52 @@ class DesktopScreensScreenshotTest {
         compose.onNodeWithTag("search-rail").performClick()
         compose.onNodeWithTag("card-search-field").assertTextContains("t:creature")
         compose.onNodeWithTag("search-result-Moss Stalker").assertIsDisplayed()
+    }
+
+    // WEB-049, LOB-121: a search result dragged onto the Mainboard header goes into Main though Add to is on Side; dropped back on
+    // the search pane it adds nothing
+    @Test fun aSearchResultDraggedIntoASection() {
+        val editor = editor("Moss Stalker")
+        signedIn(ShellDestination.DECKS)
+        compose.setContent { Desktop { AuthenticatedShell(fixtures.auth, true, deckImport = editor) } }
+        compose.waitForIdle()
+        compose.onNodeWithTag("card-search-field").performTextInput("t:creature")
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        compose.onNodeWithTag("destination-side").performClick()
+        val result = compose.onNodeWithTag("search-result-Moss Stalker").fetchSemanticsNode().boundsInRoot
+        val header = compose.onNodeWithText("Mainboard · 60").fetchSemanticsNode().boundsInRoot
+        val onHeader = Offset(header.center.x - result.left, header.center.y - result.top)
+        compose.onNodeWithTag("search-result-Moss Stalker").performMouseInput { moveTo(center); press(); moveTo(center + Offset(-40f, 0f)) }
+        compose.onNodeWithTag("search-result-Moss Stalker").performMouseInput { moveTo(onHeader) }
+        compose.onNodeWithContentDescription("Moss Stalker: add to Mainboard").assertIsDisplayed()
+        compose.onNodeWithTag("search-result-Moss Stalker").performMouseInput { release() }
+        compose.runOnIdle {
+            assertEquals(1, CardListEdits.count(editor.entries!!, "Moss Stalker", DeckSection.MAINBOARD))
+            assertEquals(0, CardListEdits.count(editor.entries!!, "Moss Stalker", DeckSection.SIDEBOARD))
+        }
+        compose.onNodeWithTag("search-drag").assertDoesNotExist()
+        compose.onNodeWithTag("search-result-Moss Stalker").performMouseInput {
+            moveTo(center); press(); moveTo(center + Offset(0f, 60f)); release()
+        }
+        compose.runOnIdle { assertEquals(1, DeckSection.entries.sumOf { CardListEdits.count(editor.entries!!, "Moss Stalker", it) }) }
+    }
+
+    // WEB-047, LOB-026 (D7): a right-click on a game row offers what holding it does, and never opens the game
+    @Test fun aRightClickOnAGameRowOffersItsActions() {
+        fixtures.configure("play")
+        signedIn(ShellDestination.GAMES)
+        compose.setContent { Desktop { AuthenticatedShell(fixtures.auth, true, lobby = fixtures.lobby, pods = pods) } }
+        compose.waitForIdle()
+        val game = fixtures.lobby.state.games.first { it.gameName == "Azure Spark" }
+        val offered = fixtures.lobby.offersGameDeletion(game) || fixtures.lobby.offersSetupCancellation(game)
+        compose.onNodeWithTag("quick-continue-${game.id}").performMouseInput {
+            moveTo(center); press(androidx.compose.ui.test.MouseButton.Secondary); release(androidx.compose.ui.test.MouseButton.Secondary)
+        }
+        compose.waitForIdle()
+        assertEquals(null, fixtures.lobby.state.selected, "the game not opened")
+        assertEquals(offered, fixtures.lobby.state.gameContext != null || fixtures.lobby.setupCancellation.context != null,
+            "the row's hold actions offered")
     }
 
     // WEB-041: Ctrl+S saves the edited deck as the Save button does; while a text field has the keyboard it does nothing

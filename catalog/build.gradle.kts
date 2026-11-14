@@ -22,7 +22,7 @@ kotlin {
     }
     android {
         namespace = "org.asyncttwiz.catalog"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }

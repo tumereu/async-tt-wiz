@@ -16,7 +16,7 @@ kotlin {
     }
     android {
         namespace = "org.asyncttwiz.automatum"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }

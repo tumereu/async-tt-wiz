@@ -98,7 +98,7 @@ androidComponents.onVariants { variant ->
 
 android {
     namespace = "org.asyncttwiz.android"
-    compileSdk = 36
+    compileSdk = 37
     val defaultDebugStore = signingConfigs.getByName("debug").storeFile?.canonicalFile
     val externalReleaseSigning = releaseSigningInputs?.let { inputs ->
         val store = externalSigningFile(inputs[0])

@@ -2,11 +2,11 @@
 kotlin = "2.4.21"
 agp = "9.3.3"
 serialization = "1.12.0"
-compose-bom = "2026.06.01"
+compose-bom = "2026.09.00"
 # Compose Multiplatform (app-ui, docs/specs/web-client.md step 2). On Android its artifacts only point at androidx
 # Compose, at or below compose-bom's versions, so Android keeps the BOM's Compose. Material3 stays at 1.9.0, the last CMP
 # Material3 built on androidx Material3 1.4.0 (the BOM's); the later ones are built on 1.5.0 alphas.
-compose-multiplatform = "1.11.1"
+compose-multiplatform = "1.12.2"
 compose-multiplatform-material3 = "1.9.0"
 cmp-lifecycle = "2.9.6"
 activity = "1.13.0"
@@ -27,7 +27,7 @@ icu = "74.2"
 bouncycastle = "1.84"
 ktor = "3.6.0"
 angus-mail = "2.0.5"
-coil = "3.5.0"
+coil = "3.6.3"
 okhttp = "4.12.0"
 work = "2.10.1"
 metrics = "1.0.0"
@@ -53,7 +53,8 @@ cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multip
 # The web shell's Back (web client step 3): Compose's own Back handling and the navigation events it is built on, at the
 # versions Compose Multiplatform brings.
 cmp-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "compose-multiplatform" }
-navigationevent = { module = "androidx.navigationevent:navigationevent", version = "1.0.1" }
+navigationevent = { module = "androidx.navigationevent:navigationevent", version = "1.1.1" }
+navigationevent-compose = { module = "org.jetbrains.androidx.navigationevent:navigationevent-compose", version = "1.1.0" }
 # The real-browser smoke of the web build (docs/specs/web-client.md §10, e2e/): Playwright driving the installed Chrome.
 playwright = { module = "com.microsoft.playwright:playwright", version = "1.63.0" }
 cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform-material3" }

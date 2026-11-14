@@ -354,6 +354,15 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         e2e.waitUntil("$name's table") { game?.shown != null }
     }
 
+    /** This player's screen as it is drawn now (window coordinates, 1 px per dp at the tests' mdpi). */
+    fun picture(): android.graphics.Bitmap {
+        val view = activity.window.decorView
+        val bitmap = android.graphics.Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1),
+            android.graphics.Bitmap.Config.ARGB_8888)
+        view.draw(android.graphics.Canvas(bitmap))
+        return bitmap
+    }
+
     /** Failure evidence: this player's screen (picture and semantics tree) and the app's log. */
     fun evidence(dir: File) {
         dir.mkdirs()

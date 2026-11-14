@@ -123,6 +123,36 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
+    /** How cyan the glow is at [x], [y] of [picture]: how far its red falls below its green and blue (0 on white or grey). */
+    private fun cyanAt(picture: android.graphics.Bitmap, x: Float, y: Float): Int {
+        val pixel = picture.getPixel(x.toInt(), y.toInt())
+        val red = (pixel shr 16) and 255; val green = (pixel shr 8) and 255; val blue = pixel and 255
+        return minOf(green, blue) - red
+    }
+
+    /** How cyan [picture] is over the middle of the card [bounds]' top edge, a tenth of its width above it: the phone's glow
+     * (4 dp around its 28 dp wide cards) reaches that far from a card of any size. */
+    private fun glowAbove(picture: android.graphics.Bitmap, bounds: androidx.compose.ui.geometry.Rect): Int =
+        cyanAt(picture, bounds.center.x, bounds.top - bounds.width * .1f)
+
+    // TBL-117 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
+    // are highlight?"): at Alice's Main 1 with no land out, her Mountain may be played and glows around it as on the phone,
+    // as far from the card for its size; her Ember Cub, which she can't pay for, doesn't
+    @Test fun onlyThePlayableHandCardGlowsAsOnThePhone() {
+        start()
+        keep()
+        waitUntil("Alice's game settled") { alice.settled(this) }
+        repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
+        val mountain = alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow
+        val cub = alice.handCard("Ember Cub").fetchSemanticsNode().boundsInWindow
+        assertEquals(56f, mountain.width, 1f, "the desktop's hand card at 2×: $mountain")
+        val picture = alice.picture()
+        // The band's own colour at the same height, away from the cards
+        val band = cyanAt(picture, 20f, mountain.top - mountain.width * .1f)
+        assertTrue(glowAbove(picture, mountain) - band >= 10, "the Mountain glows: ${glowAbove(picture, mountain)} over $band at $mountain")
+        assertTrue(glowAbove(picture, cub) - band <= 3, "the Cub doesn't glow: ${glowAbove(picture, cub)} over $band at $cub")
+    }
+
     // WEB-035, WEB-033, WEB-034: from the list of keys Alice opens Settings and gives the main button N; the server keeps it
     // for her account; back at the table Space no longer goes on and N does
     @Test fun aReboundKeyActsOnTheTable() {

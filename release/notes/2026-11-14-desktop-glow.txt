@@ -1,0 +1,1 @@
+fix: On the big-screen web table the cards you can play now glow clearly around them, as on the phone.

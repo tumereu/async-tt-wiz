@@ -273,7 +273,15 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     /** TBL-053: the groups on both battlefields (stacks, cards with attachments, cards alone), in arrival order. */
     val battlefieldGroups: List<BattlefieldGroup> = emptyList(),
     /** TBL-122: the group the viewer opened ([TableLayoutState.expandedGroup]), while it is on the table. */
-    val expandedGroup: String? = null) {
+    val expandedGroup: String? = null,
+    /** WEB-015: laid out for the desktop layout's table, whose cards are larger: the glows behind them grow with them
+     * (TBL-117, [glowScale]). */
+    val desktop: Boolean = false) {
+    /** TBL-117 (owner, desktop playtest 2026-11-14): how much wider than the phone's the glows of [item] (a card) are: on
+     * the desktop table as much as the card is larger than the phone's 28 dp wide card, so they stand out from it as far
+     * for its size as on the phone; 1 on the phone. */
+    fun glowScale(item: TableItem): Float =
+        if (!desktop) 1f else (minOf(item.bounds.width, item.bounds.height) / 28f).coerceAtLeast(1f)
     /** TBL-053: the group of the battlefield card [cardId], null for a card in no group. */
     fun groupOf(cardId: String?): BattlefieldGroup? = cardId?.let { id -> battlefieldGroups.firstOrNull { id in it.members } }
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
@@ -936,7 +944,7 @@ object TablePresentation {
             } else cardId to source.copy(sourceId = item.sourceId)
         }.toMap()
         return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
-             stackRegion = stackRegion, world = world, appearance = appearance,
+             stackRegion = stackRegion, world = world, appearance = appearance, desktop = desktop != null,
             // TRN-073; WEB-017: with the desktop dock open, at the battlefields' top right end
             dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it,
                 if (stackOnTable) stackRegion else TableBounds(tableRight - 6f, worldViewport.y + EmblemChips.SIZE + 14f, 0f, 0f)) },

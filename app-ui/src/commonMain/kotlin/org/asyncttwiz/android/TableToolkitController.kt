@@ -124,7 +124,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // A mana ability alone is no reason to glow (owner, 2026-11-03): lands and mana rocks would glow whenever you hold
         // priority
         return plays.byCard.filterValues { offered -> offered.any { it.legal && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Mana } }
-            .keys.also { playableCache = plays to it }
+            .keys.also { glowing ->
+                // TBL-117 (owner, desktop playtest 2026-11-14): what glows, as it changes, so a report of a wrong glow says it
+                if (glowing != playableCache?.second) AppLog.info("glow", "Glowing at ${play.nodeId}: ${glowing.size} of " +
+                    "${plays.byCard.size} cards with plays${if (glowing.isEmpty()) "" else ": " + glowing.take(12).joinToString()}")
+                playableCache = plays to glowing
+            }
     }
     private var playableCache: Pair<org.asyncttwiz.automatum.CardPlays, Set<String>>? = null
 

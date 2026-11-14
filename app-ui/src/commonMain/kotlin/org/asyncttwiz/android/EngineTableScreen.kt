@@ -272,8 +272,60 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val waitLogged = remember(game.id) { AtomicReference<String?>(null) }
     val chatOpener = { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id))) }
     val desktopFrame = if (desktopLayout) DesktopFrame(dockOpen) else null
+    // WEB-031, WEB-032: the desktop table's hotkeys (§6), never while a text field has the keyboard
+    val hotkeys = remember(game.id) { TableHotkeys() }
+    val bindings = currentKeyBindings()
+    DesktopKeyboard.Listen(desktopLayout) { key ->
+        if (!key.down || key.textField) return@Listen false
+        val chord = KeyChord.of(key) ?: return@Listen false
+        // A popup, Inspect, panel view or the chat over the table takes the keys but Esc (Compose's Back closes it)
+        val layer = toolkit.hasBackOverlay || chatLayer
+        fun did(what: String, done: Boolean): Boolean {
+            AppLog.info("keys", "Hotkey ${chord.text} on the table: $what${if (done) "" else " (nothing to do)"}")
+            return done
+        }
+        // §6: Enter is the open panel's go-on on the main button; 1–9 choose its Nth option
+        if (chord == KeyChord("Enter")) return@Listen if (layer || key.repeat || toolkit.mainSlot.action == null) false
+            else did("the panel's ${toolkit.mainSlot.action?.label}", hotkeys.main.tap?.invoke() != null)
+        val digit = chord.key.singleOrNull()?.takeIf { !chord.ctrl && it in '1'..'9' }?.digitToInt()
+        if (digit != null) return@Listen if (layer || key.repeat) false else did("option $digit", hotkeys.options.choose(digit))
+        val action = bindings.actionOf(chord) ?: return@Listen false
+        if (layer) return@Listen false
+        // A held key repeats only the timeline's steps
+        if (key.repeat && action != HotkeyAction.Previous && action != HotkeyAction.Next) return@Listen true
+        val opponent = shown.opponent.value
+        fun pile(owner: String, zone: PlayZone) = play.board.containers.firstOrNull { it.zone == zone && it.accountId == owner }?.id
+            ?.let { toolkit.openPublicPile(it); true } ?: false
+        val events = timeline
+        val at = routes.review?.let { cursor -> events.indexOfFirst { it.id == cursor } }?.takeIf { it >= 0 }
+        when (action) {
+            HotkeyAction.Main -> did("main button", hotkeys.main.tap?.invoke() != null)
+            HotkeyAction.MainHold -> did("main button's hold", hotkeys.main.hold?.invoke() != null)
+            HotkeyAction.Undo -> did("Undo", hotkeys.undo.tap?.invoke() != null)
+            HotkeyAction.Fit -> did("zoom to fit", toolkit.fitTable?.invoke() != null)
+            HotkeyAction.Stack -> did("Stack list", CombatStackRules.stack(play.board).cards.isNotEmpty().also { if (it) toolkit.stackContents() })
+            HotkeyAction.Graveyard -> did("own graveyard", pile(accountId, PlayZone.GRAVEYARD))
+            HotkeyAction.Exile -> did("own exile", pile(accountId, PlayZone.EXILE))
+            HotkeyAction.OpponentGraveyard -> did("the other player's graveyard", pile(opponent, PlayZone.GRAVEYARD))
+            HotkeyAction.OpponentExile -> did("the other player's exile", pile(opponent, PlayZone.EXILE))
+            HotkeyAction.Mode -> did("next response mode", !takingBack && routes.nextResponseMode())
+            HotkeyAction.Chat -> did("write in chat", (game.lifecycle == GameLifecycle.ACTIVE).also { if (it) controller.writeChat() })
+            HotkeyAction.Timeline -> when {
+                reviewPlay != null -> did("timeline mode off", true).also { routes.leaveReview() }
+                events.isNotEmpty() && !takingBack -> did("timeline mode on", true).also { routes.enterReview(events.last().id) }
+                else -> did("timeline mode", false)
+            }
+            HotkeyAction.Previous -> did("previous event", at != null && at > 0).also { done ->
+                if (done && at != null) { routes.reviewPlaying = false; routes.review = events[at - 1].id } }
+            HotkeyAction.Next -> did("next event", at != null && at < events.lastIndex).also { done ->
+                if (done && at != null) { routes.reviewPlaying = false; routes.review = events[at + 1].id } }
+            HotkeyAction.Auto -> did("Auto", at != null).also { if (it) routes.reviewPlaying = !routes.reviewPlaying }
+            else -> false
+        }
+    }
     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap,
-        LocalDesktopFrame provides desktopFrame) {
+        LocalDesktopFrame provides desktopFrame, LocalTableHotkeys provides hotkeys.takeIf { desktopLayout },
+        LocalPanelOptions provides hotkeys.options.takeIf { desktopLayout }) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
             // WEB-020: the desktop table's global top row
             if (desktopFrame != null) DesktopTopRow(game, play, accountId, toolkit, reviewing, hamburger.takeIf { !takingBack },

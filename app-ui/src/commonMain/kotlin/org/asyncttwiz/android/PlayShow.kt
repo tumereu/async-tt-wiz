@@ -405,7 +405,9 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                 }
                 .testTag(if (now) PLAY_SHOW_TAG else PLAY_SHOW_WAITING_TAG)
                 .semantics { contentDescription = look.description }
-                .then(touches)) {
+                .then(touches)
+                // WEB-024: on the desktop table the finger key over the play shown inspects it, as holding it does on the phone
+                .then(if (now) Modifier.fingerTarget("entry:${entry.entry}") else Modifier)) {
                 val ability = look.ability
                 when {
                     ability != null -> AbilityTokenFace(ability, look.art, look.own, Modifier.size(width.dp, height.dp), look.typeIcon)

@@ -30,7 +30,8 @@ internal object Ltr {
     val FOR_AS_LONG_AS_YOU_CONTROL = Regex("""(.+) for as long as you control (.+)\.""")
     val CHOOSE_TARGET = Regex("""[Cc]hoose (up to one target .+)\.""")
     val EXILE_THEN_RETURN_UNDER_YOUR_CONTROL = Regex("""[Ee]xile (up to one target .+?|target .+?), then return (?:it|that card) to the battlefield under your control\.""") // inr chunk 09: that card
-    val TRAILING_IF_POWER = Regex("""([A-Z].+?) if (that creature|it)'s power is (\d+) or (less|greater)\.""")
+    // lci chunk 03: "Then destroy all other creatures if its power is exactly 20."
+    val TRAILING_IF_POWER = Regex("""([A-Z].+?) if (that creature's|its) power is (?:(\d+) or (less|greater)|exactly (\d+))\.""")
     val OTHER_THAN_SELF = Regex("""(.*?)\btarget (.+?) other than (.+?)(\.|,.*)""")
     val THEY_GAIN_UNTIL_EOT = Regex("""They gain (.+?) until end of turn\.""")
     val YOU_CREATE_A_TOKEN = Regex("""you create a token""")
@@ -93,7 +94,7 @@ internal object Ltr {
     val UNTIL_EOT_GAIN_CONTROL_OF_TARGET = Regex("""[Uu]ntil end of turn, gain control of (target .+?)\. (.+)""")
     val DEALS_DAMAGE_TO_EACH_OF_UP_TO = Regex("""(.+?) deals (\w+) damage to each of up to (\w+) target (.+)\.""")
     val IF_ITS_A_IT_ALSO_GAINS = Regex("""If it's (legendary|an? .+?), it also gains (.+) until end of turn\.""")
-    val IS_DEALT_EXCESS_NONCOMBAT_DAMAGE = Regex("""an? (.+?) is dealt excess noncombat damage""")
+    val IS_DEALT_EXCESS_NONCOMBAT_DAMAGE = Regex("""(?:an? (.+?) is|one or more (.+?) are) dealt excess noncombat damage""")
     val THAT_EXCESS_DAMAGE = "that excess damage"
     val AS_LONG_AS_EQUIPPED_IS_IT_HAS = Regex("""As long as equipped creature is (legendary|an? .+?), it has (.+)\.""")
     val TARGET_CANT_BLOCK_UNTIL_EOT = Regex("""(Up to one target .+?|Target .+?) can't block until end of turn\.""")
@@ -105,7 +106,7 @@ internal object Ltr {
     val LOSES_UNTIL_EOT_IF_WOULD_DIE_EXILE = Regex("""That creature loses (\w+) until end of turn\. If that creature would die this turn, exile it instead\.""")
     val FELL_THE_FOREST = Regex("""Sacrifice any number of lands\. Reveal the top X cards of your library, where X is the number of lands sacrificed this way\. Choose any number of (.+?) cards revealed this way\. Put all nonland cards chosen this way onto the battlefield, then put all land cards chosen this way onto the battlefield tapped, then put the rest on the bottom of your library in a random order\.""")
     val SACRIFICE_A_LAND_SEARCH_INSTEAD = Regex("""Sacrifice a land\. Search your library for up to (\w+) (.+?) cards, put them onto the battlefield tapped, then shuffle\. If (.+?), instead search your library for up to (\w+) \2 cards, put them onto the battlefield tapped, then shuffle\.""")
-    val SPEND_ONLY_AND_CANT_BE_COUNTERED = Regex("""(.+?) Spend this mana only to cast an? (.+?) spell, and that spell can't be countered\.""")
+    val SPEND_ONLY_AND_CANT_BE_COUNTERED = Regex("""(.+?) Spend this mana only to cast an? (.+?) spell( of the chosen type)?, and that spell can't be countered\.""") // lci: chosen type
     val CHOOSE_ONE_AND_GETS = Regex("""(Whenever .+?), choose one and (.+?) gets ([+-]\d+)/([+-]\d+) until end of turn\.""")
     val SCRY_THEN_MAY_REVEAL_IF_REVEALED_DRAW = Regex("""Scry (\w+), then you may reveal the top card of your library\. If an? (.+?) card is revealed this way, (.+)""")
     val COUNTER_IF_POWER_THEN_PUMP_FIGHT = Regex("""Put a \+1/\+1 counter on (target .+?) if its power is (\d+) or greater\. Then that creature gets ([+-]\d+)/([+-]\d+) until end of turn and fights (target .+)\.""")

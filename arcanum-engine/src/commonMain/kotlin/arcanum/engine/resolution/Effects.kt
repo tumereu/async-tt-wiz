@@ -130,7 +130,7 @@ internal object Effects {
                 scope.bind(effect.postBind, NamedValue.Objects(milled.map { it.value }))
             }
             is Effect.Scry -> scope.players(effect.players).forEach { p -> scry(scope, p, scope.value(effect.count), effect.bind) }
-            is Effect.Surveil -> scope.players(effect.players).forEach { p -> surveil(scope, p, scope.value(effect.count), effect.bind) }
+            is Effect.Surveil -> scope.players(effect.players).forEach { p -> surveil(scope, p, scope.value(effect.count), effect.bind, effect.onTop) }
             is Effect.Search -> search(scope, effect)
             is Effect.Shuffle -> {
                 val kept = effect.except?.let { scope.objects(it) }.orEmpty()
@@ -741,6 +741,9 @@ internal object Effects {
                 attachTo = attachTo, transformed = dest.transformed, attacking = attacking, blocking = blocking,
                 randomOrder = dest.randomOrder && dest.zone == Zone.Library && ids.size > 1,
                 entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
+                // lci: what the ability kept for the permanent ("the exiled cards used to craft it", CR 702.167c, 607.2a)
+                memory = if (dest.zone != Zone.Battlefield) arcanum.engine.state.Bindings.EMPTY
+                    else arcanum.engine.state.Bindings(dest.keeps.mapNotNull { k -> scope.names[k]?.let { k to it } }.toMap()),
             )
         }
         val batch = scope.batch
@@ -831,12 +834,13 @@ internal object Effects {
     }
 
     /** CR 701.25: look at the top N, put any number into the graveyard and the rest on top in any order. */
-    private fun surveil(scope: Scope, player: PlayerId, n: Int, bind: String?) {
+    private fun surveil(scope: Scope, player: PlayerId, n: Int, bind: String?, onTop: String? = null) {
         val act = scope.act
         val top = act.state.player(player).library.take(n)
         // CR 701.25c, d: surveilling 0 is no event; surveilling with no library is, the actions being impossible
         if (top.isEmpty()) {
             if (n > 0) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Surveil, player, amount = 0)))
+            scope.bind(onTop, NamedValue.Objects(emptyList()))
             return
         }
         act.show(player, top)
@@ -850,6 +854,7 @@ internal object Effects {
         }
         act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Surveil, player, amount = top.size)))
         scope.bind(bind, NamedValue.Objects(moved.values.toList()))
+        scope.bind(onTop, NamedValue.Objects(ordered))
     }
 
     /** CR 701.23: the searcher looks at the zones and finds up to N matching cards (finding none is allowed, 701.23b). */
@@ -1508,12 +1513,7 @@ internal object Effects {
      */
     private fun conniveOne(scope: Scope, action: KeywordAction.Connive, id: ObjectId) {
         val act = scope.act
-        val applied = act.view().game.rules.firstOrNull { a ->
-            val m = a.mechanic as? arcanum.api.Mechanic.Replacement ?: return@firstOrNull false
-            val event = m.event as? arcanum.api.EventPattern.Connive ?: return@firstOrNull false
-            m.instead != null && scope.names[conniveGuard(a)] == null &&
-                Evaluator(act.board(), arcanum.engine.query.Context(a.controller, a.source, a.names)).matches(event.objects, id)
-        }
+        val applied = replacing(scope, id, "connive") { (it as? arcanum.api.EventPattern.Connive)?.objects }
         if (applied == null) {
             val one = scope.names.with(CONNIVER, NamedValue.Objects(listOf(id)))
             val single = action.copy(objects = Objects.Bound(CONNIVER))
@@ -1523,13 +1523,29 @@ internal object Effects {
             done.forEach { (player, objects) -> act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Connive, player, objects))) }
             return
         }
-        val m = applied.mechanic as arcanum.api.Mechanic.Replacement
-        val event = arcanum.engine.state.TriggerEvent(listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id))), listOfNotNull(act.controllerOf(id)))
-        val names = scope.names.with(applied.names).with(conniveGuard(applied), NamedValue.Number(1))
-        Steps.run(Scope(act, Cause(applied.controller, applied.source, key = "connive:$id"), names, event), m.instead!!.steps)
+        replaceWith(scope, applied, id, "connive")
     }
 
-    private fun conniveGuard(applied: arcanum.engine.view.AppliedMechanic) = "\$connive-replaced:${applied.source}:${applied.origin?.key}"
+    /** The first replacement of [verb] (a [arcanum.api.Mechanic.Replacement] with instructions whose event [objects] reads, CR 614.1a) that
+     * applies to [id], other than one already applied to this event (CR 614.5). */
+    private fun replacing(scope: Scope, id: ObjectId, verb: String, objects: (arcanum.api.EventPattern) -> arcanum.api.ObjectFilter?) =
+        scope.act.view().game.rules.firstOrNull { a ->
+            val m = a.mechanic as? arcanum.api.Mechanic.Replacement ?: return@firstOrNull false
+            val filter = objects(m.event) ?: return@firstOrNull false
+            m.instead != null && scope.names[replacedGuard(a, verb)] == null &&
+                Evaluator(scope.act.board(), arcanum.engine.query.Context(a.controller, a.source, a.names)).matches(filter, id)
+        }
+
+    /** Does [applied]'s instructions instead, with [id] as the event's object and the replacement marked as applied to it. */
+    private fun replaceWith(scope: Scope, applied: arcanum.engine.view.AppliedMechanic, id: ObjectId, verb: String) {
+        val act = scope.act
+        val m = applied.mechanic as arcanum.api.Mechanic.Replacement
+        val event = arcanum.engine.state.TriggerEvent(listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id))), listOfNotNull(act.controllerOf(id)))
+        val names = scope.names.with(applied.names).with(replacedGuard(applied, verb), NamedValue.Number(1))
+        Steps.run(Scope(act, Cause(applied.controller, applied.source, key = "$verb:$id"), names, event), m.instead!!.steps)
+    }
+
+    private fun replacedGuard(applied: arcanum.engine.view.AppliedMechanic, verb: String) = "\$$verb-replaced:${applied.source}:${applied.origin?.key}"
     private const val CONNIVER = "\$conniver"
 
     /** ecl: the creatures [player] could blight (CR 701.68a): creatures they control. */
@@ -1562,9 +1578,11 @@ internal object Effects {
             KeywordAction.Forage, KeywordAction.Foretell, is KeywordAction.CollectEvidence -> emptyList()
             else -> doers(scope, action)
         }
+        // lci: a discover's N is the event's amount ("discover again for the same value", CR 701.57a)
+        val amount = (action as? KeywordAction.Discover)?.let { scope.value(it.count) }
         repeat(times(scope, action, done)) {
             performKeywordAction(scope, action, bind)
-            done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects))) }
+            done.forEach { (player, objects) -> scope.act.record(Change.Happened(GameEvent.KeywordActionDone(action.kind, player, objects, amount = amount))) }
         }
     }
 
@@ -1620,13 +1638,17 @@ internal object Effects {
             if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Earthbend, scope.actor, land)))
             return
         }
-        // mkm chunk 02: what a keyword action is made of is done by the player doing it, its "you" (CR 701.16a: "Each player who controls the most
-        // creatures investigates": each of them creates their own Clue, CR 111.2)
+        // mkm chunk 02, lci: what a keyword action is made of is done by the player doing it, its "you" (CR 701.16a: "Each player who controls
+        // the most creatures investigates": each of them creates their own Clue, CR 111.2; "Then that player discovers X" discovers from that
+        // player's library and that player casts the card, CR 701.57a)
         KeywordExpansions.expand(action)?.let { steps ->
-            if (scope.actor == scope.you) return Steps.run(scope, steps)
-            val performed = Scope(scope.act, scope.cause.copy(controller = scope.actor), scope.names, scope.event, scope.actor, scope.batch, scope.entering)
+            if (scope.actor == scope.you && !(action is KeywordAction.Discover && bind != null)) return Steps.run(scope, steps)
+            val performed = if (scope.actor == scope.you) scope
+                else Scope(scope.act, scope.cause.copy(controller = scope.actor), scope.names, scope.event, scope.actor, scope.batch, scope.entering)
             Steps.run(performed, steps)
             scope.names = performed.names
+            // lci: CR 701.57c: the bind names the discovered card, which the expansion found
+            if (action is KeywordAction.Discover) scope.bind(bind, performed.names["discovered"] ?: NamedValue.Objects(emptyList()))
             return
         }
         val cause = scope.cause
@@ -1667,7 +1689,9 @@ internal object Effects {
                     // Ones that left get no counter and reveal the same cards whichever goes first, so nothing is asked about them alone
                     val explorer = if (theirs.none { act.state.obj(it)?.zone == Zone.Battlefield }) theirs.first()
                         else act.chooseObjects(chooser, scope.self, theirs, 1, 1, "Which one explores next?").single()
-                    explore(scope, explorer, chooser)
+                    // lci: "If a creature you control would explore, instead …" (CR 614.1a), once per replacement (CR 614.5)
+                    val applied = replacing(scope, explorer, "explore") { (it as? arcanum.api.EventPattern.Explore)?.objects }
+                    if (applied == null) explore(scope, explorer, chooser) else replaceWith(scope, applied, explorer, "explore")
                     left = left - explorer
                 }
             }
@@ -1829,17 +1853,18 @@ internal object Effects {
         val act = scope.act
         fun counter() { if (act.state.obj(explorer)?.zone == Zone.Battlefield) Actions.putCounters(act, scope.cause, TargetRef.Object(explorer), CounterKind.PowerToughness(1, 1), 1) }
         val top = act.state.player(controller).library.firstOrNull()
+        var revealed = top
         if (top == null) counter()
         else {
             act.show(controller, listOf(top), public = true)
             act.record(Change.Happened(GameEvent.Revealed(controller, listOf(top))))
-            if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) Actions.moveTo(act, scope.cause, listOf(top), Zone.Hand)
+            if (scope.eval().characteristics(top)?.isType(CardType.Land) == true) revealed = Actions.moveTo(act, scope.cause, listOf(top), Zone.Hand)[top] ?: top
             else {
                 counter()
-                if (act.yesNo(controller, explorer, "Put it into your graveyard?")) Actions.moveTo(act, scope.cause, listOf(top), Zone.Graveyard)
+                if (act.yesNo(controller, explorer, "Put it into your graveyard?")) revealed = Actions.moveTo(act, scope.cause, listOf(top), Zone.Graveyard)[top] ?: top
             }
         }
-        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Explore, controller, listOf(explorer))))
+        act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Explore, controller, listOf(explorer), revealed = revealed)))
     }
 
     /** CR 701.40a, c, 701.58a, c: the actor's top card onto the battlefield face down, [count] times one at a time, each [mark]ed

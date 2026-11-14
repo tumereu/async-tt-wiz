@@ -59,7 +59,7 @@ internal object Sos {
 
     // sos chunk 06: looking and revealing
     val LOOK_PUT_ONE_OR_TWO_IF = Regex("""Look at the top (\w+) cards of your library\. Put one of them into your hand and the rest on the bottom of your library in any order\. If (.+?), instead put two of them into your hand and the rest on the bottom of your library in any order\.""")
-    val LOOK_TOP_X_PUT_ONE_REST_BOTTOM_RANDOM = Regex("""[Ll]ook at the top X cards of your library\. Put one of them into your hand and the rest on the bottom of your library in a random order\.""")
+    val LOOK_TOP_X_PUT_ONE_REST_BOTTOM_RANDOM = Regex("""[Ll]ook at the top X cards of your library\. Put (one|two) of (?:them|those cards) into your hand and the rest on the bottom of your library in a random order\.""")
     val LOOK_TOP_X_PUT_ONE_REST_GRAVEYARD = Regex("""[Ll]ook at the top X cards of your library\. Put one of those cards into your hand and the rest into your graveyard\.""")
     val LOOK_TOP_N_PUT_ONE_OTHER = Regex("""Look at the top (\w+) cards of your library\. Put one of (?:them|those cards) into your hand and the other (on the bottom of your library|into your graveyard)\.""")
     val LOOK_REVEAL_UP_TO_LANDS_BATTLEFIELD_CREATURES_HAND = Regex("""Look at the top (\w+) cards of your library\. You may reveal up to (\w+) (.+?) from among them, then put the rest on the bottom of your library in a random order\. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand\.""")

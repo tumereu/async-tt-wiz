@@ -105,7 +105,7 @@ internal object Tdm {
     // tdm chunk 09: "Destroy all creatures and enchantments. Draw a card for each permanent destroyed this way."
     val DESTROY_ALL_DRAW_FOR_EACH = Regex("""Destroy all (.+?)\. Draw a card for each permanent destroyed this way\.""")
     // tdm chunk 09: "it deals 3 damage to each creature and each planeswalker"
-    val DEALS_DAMAGE_TO_EACH_AND_EACH = Regex("""(.+?) deals (\d+) damage to each (\w+) and each (\w+)\.""")
+    val DEALS_DAMAGE_TO_EACH_AND_EACH = Regex("""(.+?) deals (X|\d+) damage to each (\w+) and each (\w+)\.""")
     // tdm chunk 09: "Double the power and toughness of target creature you control until end of turn. Then it fights up to one target creature an
     // opponent controls."
     val DOUBLE_PT_THEN_FIGHTS = Regex("""Double the power and toughness of target (.+?) until end of turn\. Then it fights up to one target (.+)\.""")
@@ -238,8 +238,8 @@ internal object Tdm {
     val MAY_ATTACH_SELF_TO_IT = Regex("""You may attach (.+) to it\.""")
     // tdm chunk 09: "Put a +1/+1 counter on each of those creatures."
     val COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures\.""")
-    // tdm chunk 09: "If it was a token, draw a card."
-    val IF_IT_WAS_A_TOKEN = Regex("""If it was a token, (.+)\.""")
+    // tdm chunk 09: "If it was a token, draw a card."; lci chunk 03: "If it was tapped, create a Map token."
+    val IF_IT_WAS_A_TOKEN = Regex("""If it was (a token|tapped), (.+)\.""")
     val DESTROY_ITS_CONTROLLER_SEARCHES = Regex("""[Dd]estroy target (.+?)\. Its controller searches their library for an? (.+?) card, puts it onto the battlefield tapped with an? (\S+) counter on it, then shuffles\.""")
 }
 

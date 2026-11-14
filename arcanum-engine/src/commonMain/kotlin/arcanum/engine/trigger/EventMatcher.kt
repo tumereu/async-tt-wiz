@@ -64,6 +64,8 @@ internal object EventMatcher {
                 (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
                     (pattern.notTo == null || m.to != pattern.notTo) &&
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
+                    // lci: moved to pay that keyword's cost (CR 702.167a)
+                    (pattern.forCost == null || m.meanings.any { it is Meaning.PaidFor && it.keyword == pattern.forCost }) &&
                     (asOf.matches(pattern.objects, tested) ||
                     // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
                     (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)) ||
@@ -201,8 +203,8 @@ internal object EventMatcher {
                     .filter { e.matches(players, it) && e.matches(pattern.by, item) }
                     .map { TriggerEvent(listOf(RoleObjects(EventRole.Source, listOf(item))), listOf(it)) } }.orEmpty())
         }
-        // msh: conniving is only replaced (CR 614.1a, see Effects); nothing triggers on it yet
-        is EventPattern.Connive -> emptyList()
+        // msh, lci: conniving and exploring are only replaced here (CR 614.1a, see Effects); "whenever … explores" is KeywordActionDone
+        is EventPattern.Connive, is EventPattern.Explore -> emptyList()
         is EventPattern.CreateToken -> (change as? Change.Created)?.takeIf { Meaning.TokenCreated in it.meanings }?.objects.orEmpty()
             .filter { e.matches(pattern.tokens, it.obj.id) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.obj.id))), listOfNotNull(it.obj.controller ?: it.obj.owner)) }
@@ -312,16 +314,19 @@ internal object EventMatcher {
             ?.takeIf { e.matches(pattern.players, it.player) }
             ?.let { listOf(TriggerEvent(listOfNotNull(it.manifested?.let { m -> RoleObjects(EventRole.Object, listOf(m)) },
                 RoleObjects(EventRole.Rest, it.rest)), listOf(it.player))) }.orEmpty()
-        is EventPattern.KeywordActionDone -> keywordActionDone(e, change, pattern.action, pattern.players, pattern.objects)
+        is EventPattern.KeywordActionDone -> keywordActionDone(e, change, pattern.action, pattern.players, pattern.objects, pattern.revealed)
         is EventPattern.GotMark -> gotMark(e, change, pattern.mark, pattern.objects)
     }
 
     /** [action] done by a player matching [players], with objects matching [objects], those tested as they last existed if they have left
      * (CR 701.44c, 701.50b). */
-    private fun keywordActionDone(e: Evaluator, change: Change, action: KeywordActionKind, players: PlayerFilter?, objects: ObjectFilter?): List<TriggerEvent> {
+    private fun keywordActionDone(e: Evaluator, change: Change, action: KeywordActionKind, players: PlayerFilter?, objects: ObjectFilter?,
+                                  revealed: ObjectFilter?): List<TriggerEvent> {
         val done = ((change as? Change.Happened)?.event as? GameEvent.KeywordActionDone)?.takeIf { it.action == action } ?: return emptyList()
         if (players != null && !e.matches(players, done.player)) return emptyList()
         val back = Evaluator(LastKnownBoard(e.board), e.ctx)
+        // lci: "explores a land card": the revealed card, where it went (CR 701.44a)
+        if (revealed != null && done.revealed?.let { back.matches(revealed, it) } != true) return emptyList()
         val named = if (objects == null) done.objects else done.objects.filter { back.matches(objects, it) }
         if (objects != null && named.isEmpty()) return emptyList()
         return listOf(TriggerEvent(if (named.isEmpty()) emptyList() else listOf(RoleObjects(EventRole.Object, named)), listOf(done.player), done.amount))

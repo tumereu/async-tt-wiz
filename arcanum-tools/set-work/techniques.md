@@ -26,11 +26,12 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   control of target X" it is that target; "sacrifice/exile it (that token) at the next end step" after creating a token is
   the token; in an attach trigger it is the creature attached to (`EventRole.To`), not whatever is attached at resolution.
   An intervening "if it has ..." after "another creature enters/attacks" is the event object, not this object.
-- "it"/"its power" in a trigger about another object entering, leaving or attacking is that object
-  (`otherEventObject`, intervening ifs too), never a hard-coded this object; in a self-enters/leaves trigger "that
-  creature"/"its controller" after a target is the target (`Context.targetInSelfZoneChange`).
-- A self-dies/leaves trigger's "X is its power / the counters on it" reads `EventObject(Before)` (CR 603.10a); its "you may
-  exile/shuffle this card" acts on the graveyard card (`SelfAfter`, CR 400.7), so a later "When you do" can happen.
+- Number readers in `Sentences` take the ability's context (`context.value(text)`, not `Values.value`). "it"/"its power" in
+  a trigger about another object entering, leaving or attacking is that object (`otherEventObject`, intervening ifs too),
+  as it last existed if it left (CR 603.10a); right after a move or destroy of a target, "its <number>" is the target as it
+  last existed (CR 608.2h). In a self-enters/leaves trigger "that creature"/"its controller" after a target is the target
+  (`Context.targetInSelfZoneChange`); a self-dies trigger's "X is its power" is `EventObject(Before)` and its "you may exile
+  this card" the graveyard card (`SelfAfter`, CR 400.7), so a later "When you do" can happen.
 - A reflexive "When you do" after an "any number" or "up to N" choice is `If(NonEmpty(bind))`: choosing nothing is no
   event (CR 603.12). "You may X. If you do, Y. If you don't, Z." is one `If(Did, then = Y, otherwise = Z)`.
 - An exile on a card that refers to cards "exiled with" it remembers them (`Sentences.remembersExile`, CR 607.2a); "target
@@ -42,6 +43,9 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
+- "permanent spell" and "permanent card" (in a graveyard, hand, library) mean permanent types (CR 110.4a-b), never
+  `Category(Permanent)`, which matches only the battlefield: go through `Filters.noun`/`Filters.spellKind`.
+- Ability-word patterns accept digits ("Descend 4 — ..."); "<player> <keyword action>s" = `ForEach` over that player.
 - A cost that exiles the card from the graveyard, or a graveyard-return activated ability, needs no `functionsIn`;
   "When you cast this spell" reads with `functionsIn = null`.
 - Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
@@ -137,6 +141,11 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   (a clone copies what it copied, CR 707.2); events and this-turn history read a gone object as it last was, controller
   and marks included, and an entered object as it entered (face down stays face down, CR 608.2h, 603.4). "For as long
   as" durations never read it: they end when the object leaves (CR 611.2b). Test with 3 players and a control change.
+- Damage results (life loss, infect/toxic poison, wither and infect -1/-1 counters) go through `Actions.loseLife` and
+  `Actions.putCounters` with the source's controller as giver, so replacements apply (CR 120.3, 614.1a); a replacement
+  that multiplies or raises an amount touches only the part of the event it names.
+- Costs: each object pays one sacrifice/exile/discard/return part and one tap part only, and an activation with no
+  distinct assignment isn't offered (CR 601.2h, 602.2b): test multi-material costs with a creature of two types.
 - Target-group limits (single graveyard, same controller, sharing, different) are one check for spells, activated and
   triggered abilities, copies and changed targets; a trigger with no legal group is removed (CR 603.3d). Test them on a
   trigger too. A mark is read with `state.obj(card(x))?.marks?.contains(ObjectMark.Suspected)`.
@@ -146,6 +155,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   batches, and counts "first time each turn", per player or per battle (`Triggers.batchKey`, CR 603.2c, 310.6).
 - Removing counters of no named kind asks the remover which, one `ChooseOption` per counter (`Actions.removeChosenCounters`,
   CR 608.2d), for effects and costs alike.
+- `paying = listOf("<source>:G")` picks a source and colour, granted mana abilities included; an ability on the Stack as a
+  target: `state.stack.first { state.stackItems[it]?.source == card(name) }`.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
 - A scry or optional payment inside a resolving spell can leave a decision open before triggers (scry: `Answer.Objects(

@@ -233,6 +233,16 @@ internal object KeywordExpansionsMore {
         // face's "If it would be put into a graveyard from anywhere, exile it instead" is printed there)
         is Keyword.Disturb -> listOf(Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, cost = keyword.cost, transformed = true,
             holder = PlayerFilter.You)), affects = self))
+        // CR 702.167a, c: "[Cost], Exile this permanent, Exile [materials] from among permanents you control and/or cards in your graveyard:
+        // Return this card to the battlefield transformed under its owner's control. Activate only as a sorcery." (the returned permanent
+        // keeps the exiled materials under the keyword's id)
+        is Keyword.Craft -> listOf(Ability.Activated(
+            Cost(keyword.cost.parts + CostPart.Exile(CostObjects.Self, Zone.Battlefield, postBind = CRAFTED) + keyword.materials.map {
+                CostPart.Exile(it, Zone.Battlefield, remember = Keyword.Craft.Kind.id, alsoFrom = listOf(Zone.Graveyard))
+            }),
+            steps(Effect.Move(Objects.Bound(CRAFTED), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound(CRAFTED)),
+                transformed = true, keeps = listOf(Keyword.Craft.Kind.id)))),
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
         // CR 702.59a: "When a creature is put into your graveyard from the battlefield, you may pay [cost]. If you do, return this card from
         // your graveyard to your hand. Otherwise, exile this card." (functions only in the graveyard)
         is Keyword.Recover -> listOf(Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
@@ -406,6 +416,9 @@ internal object KeywordExpansionsMore {
     private val nextEndStep = Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any))
     private val otherUntappedCreatureYouControl = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
         ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped))))
+
+    /** The card a craft ability exiled from the battlefield as its cost (CR 702.167a). */
+    private const val CRAFTED = "crafted"
 
     private fun paid(keyword: KeywordKind) = Condition.Paid(keyword, times = 1, of = Objects.Self)
     private fun steps(vararg effects: Effect) = Instructions(steps = effects.map { Step.Do(it) })

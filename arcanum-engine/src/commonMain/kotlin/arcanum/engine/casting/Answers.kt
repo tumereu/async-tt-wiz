@@ -91,6 +91,7 @@ internal object Answers {
                 ch.total?.let { total ->
                     val sum = chosen.sumOf { plan.eval.property(total.property, it) }
                     if (sum < plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be at least ${plan.eval.value(total.atLeast)}")
+                    if (total.exactly && sum != plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be exactly ${plan.eval.value(total.atLeast)}")
                 }
                 c.copy(names = c.names.with(Plan.OBJECTS + q.key, NamedValue.Objects(chosen)))
             }

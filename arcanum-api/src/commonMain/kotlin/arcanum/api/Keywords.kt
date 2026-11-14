@@ -1051,6 +1051,17 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "class-level"; override val text: String get() = "Level"; override val rule: String get() = "716.2" }
     }
+    // lci
+    /** "Craft with [materials] [cost]" (CR 702.167a): "[Cost], Exile this permanent, Exile [materials] from among permanents you
+     * control and/or cards in your graveyard: Return this card to the battlefield transformed under its owner's control. Activate
+     * only as a sorcery." Each of [materials] is exiled as its own part ("a Dinosaur, a Merfolk, …"); a type or subtype without
+     * "card" means a permanent or a card in a graveyard (702.167b). The exiled cards are kept by the returned permanent under this
+     * keyword's id ([Objects.LinkedTo], "the exiled cards used to craft it", 702.167c). [printed] is the materials as printed. */
+    @Serializable @SerialName("craft") data class Craft(val materials: List<CostObjects.Choose>, override val cost: Cost, val printed: String) : Keyword, HasCost {
+        override val kind: KeywordKind get() = Kind
+        override val text: String get() = "Craft with $printed"
+        companion object Kind : KeywordKind { override val id: String get() = "craft"; override val text: String get() = "Craft"; override val rule: String get() = "702.167" }
+    }
 }
 
 /** What a gift gives the chosen opponent (CR 702.174d–i). */
@@ -1267,6 +1278,7 @@ interface KeywordKind {
                 Keyword.Prototype.Kind,
                 Keyword.Gift.Kind,
                 Keyword.ClassLevel.Kind,
+                Keyword.Craft.Kind,
             )
         }
         fun byId(id: String): KeywordKind? = all.firstOrNull { it.id == id }

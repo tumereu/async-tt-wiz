@@ -40,6 +40,13 @@ object PredefinedTokens {
             Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))),
             rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+        // lci chunk 03: CR 111.10s: a Map artifact token with "{1}, {T}, Sacrifice this token: Target creature you control explores.
+        // Activate only as a sorcery."
+        "Map" -> artifact("Map", Ability.Activated(Cost(listOf(mana("{1}"), CostPart.TapSelf, sacrificeSelf)),
+            Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
+                ObjectFilter.ControlledBy(PlayerFilter.You)))), min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.Action(KeywordAction.Explore(Objects.Target("creature")))))),
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
         // eoe: CR 111.10u: a Lander artifact token with "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put
         // it onto the battlefield tapped, then shuffle."
         "Lander" -> artifact("Lander", Ability.Activated(Cost(listOf(mana("{2}"), CostPart.TapSelf, sacrificeSelf)), Instructions(steps = listOf(
@@ -80,7 +87,7 @@ object PredefinedTokens {
     }
 
     /** Every name [face] knows. */
-    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander", "Incubator",
+    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander", "Incubator", "Map",
         "Cursed Role", "Monster Role", "Royal Role", "Sorcerer Role", "Virtuous Role", "Wicked Role", "Young Hero Role")
 
     private val plusOne = Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1))

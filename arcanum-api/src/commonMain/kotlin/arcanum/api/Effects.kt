@@ -57,7 +57,8 @@ sealed interface Effect {
     @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null) : Effect
     /** [bind] names the cards put on the bottom (scry) or into the graveyard (surveil). */
     @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value, val bind: String? = null) : Effect
-    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null) : Effect
+    /** [onTop] names the cards put back on top of the library ("for each card you put on top of your library", CR 701.25a). */
+    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null, val onTop: String? = null) : Effect
     /** [searcher] searches [library]'s [zones] (their library, "and/or graveyard") for up to [max] cards matching
      * [filter], with [differentNames] if they must all have different names; the found cards are named [bind] and moved by
      * a following step. [reveal] shows them (CR 701.23). Any player may be told to search any player's library: "search
@@ -417,6 +418,10 @@ data class Destination(
      * declared as a blocker, so "whenever blocks" doesn't trigger, but "becomes blocked by a creature" does (CR 509.3d, 509.4); if
      * that creature is no longer attacking, or its controller isn't the defending player for it, it isn't blocking (CR 509.4a). */
     val blocking: Objects? = null,
+    // lci
+    /** Names bound earlier in the ability (by a cost's `remember` or a step) whose objects the permanent keeps as its card memory
+     * under the same names as it enters ("the exiled cards used to craft it", CR 702.167c, 607.2a). */
+    val keeps: List<String> = emptyList(),
 )
 
 /** [amount] counters of [kind]. */
@@ -470,6 +475,8 @@ sealed interface KeywordAction {
      * battlefield with [count] +1/+1 counters on it. The bind of [Effect.Action] names the token. */
     @Serializable @SerialName("incubate") data class Incubate(val count: Value) : KeywordAction
     @Serializable @SerialName("connive") data class Connive(val objects: Objects, val count: Value) : KeywordAction
+    /** "Discover N" (CR 701.57a). [Effect.Action.bind] names the discovered card (CR 701.57c: the last card exiled, if its mana value is N
+     * or less, whether it was cast or put into a hand); it names nothing when there was none. */
     @Serializable @SerialName("discover") data class Discover(val count: Value) : KeywordAction
     /** "Venture into the dungeon" (CR 701.49a–c). */
     @Serializable @SerialName("venture") data object Venture : KeywordAction

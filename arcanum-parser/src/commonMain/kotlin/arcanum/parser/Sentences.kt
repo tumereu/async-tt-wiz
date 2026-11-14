@@ -1966,6 +1966,8 @@ internal class Sentences(
                 subject == "Enchanted creature" -> arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self))
                 // dsk chunk 05: "Equipped creature has menace."
                 subject == "Equipped creature" -> arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self))
+                // dmu chunk 07: "The chosen creature gets +3/+3 and has flying." (chosen as this entered, CR 607.2a)
+                subject == "The chosen creature" -> arcanum.api.Affected.Objects(Objects.Remembered(CHOSEN))
                 // dsk chunk 07: subtypes keep their capitals ("Insects and Spiders you control")
                 else -> (Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: Filters.noun(subject))?.let { arcanum.api.Affected.Objects(Objects.Each(it)) }
             }
@@ -8637,8 +8639,11 @@ internal class Sentences(
             return listOf(Step.May(listOf(Step.Do(Effect.Cast(card, withoutPaying = true, bind = "spell", how = PlayKind.Cast, caster = Players.You))), player = Players.You))
         }
         // blb chunk 09: "Return this card from your graveyard to the battlefield tapped and attacking." (CR 508.4)
-        Blb.RETURN_SELF_TAPPED_AND_ATTACKING.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = true, attacking = arcanum.api.AttackTarget.Chosen))))
+        // dmu chunk 07: "… tapped and attacking with a +1/+1 counter on it." (CR 122.6)
+        Blb.RETURN_SELF_TAPPED_AND_ATTACKING.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val counters = if (m.groupValues[2].isEmpty()) emptyList() else listOf(arcanum.api.CountersToPut(Counters.kind(m.groupValues[3]) ?: return null,
+                Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)))
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, counters = counters))))
         }
         // blb chunk 09: "Target opponent discards two cards."
         Blb.TARGET_PLAYER_DISCARDS.matchEntire(sentence)?.let { m ->
@@ -9296,11 +9301,13 @@ internal class Sentences(
             val counters = m.groupValues[2].takeIf { it.isNotEmpty() }?.let {
                 listOf(arcanum.api.CountersToPut(Counters.kind(it) ?: return null, Value.Fixed(1)))
             }.orEmpty()
+            // dmu chunk 07: "… onto the battlefield attached to Danitha." (an Aura or Equipment put there attached, not cast: no target, CR 303.4f, 301.5c)
+            val attachedTo = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { if (isSelf(it)) arcanum.api.Recipients(objects = Objects.Self) else return null }
             val where = ObjectFilter.Or(listOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.InZone(Zone.Graveyard)))
             return listOf(
                 Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, where, ObjectFilter.OwnedBy(PlayerFilter.You)),
                     min = Value.Fixed(0), max = Value.Fixed(1)), bind = "chosen", chooser = Players.You),
-                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, counters = counters))))
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, counters = counters, attachedTo = attachedTo))))
         }
         return null
     }
@@ -11380,7 +11387,7 @@ internal class Sentences(
         val CREATE_X_TOKENS = Regex("""[Cc]reate X (.+ tokens(?: with .+)?)\.""")
         val EXILE_UNTIL = Regex("""Exile cards from the top of your library until you exile (.+)\.""")
         val MAY_CAST_IT_BY = Regex("""You may cast (?:that card|it) by (.+) rather than paying its mana cost\.""")
-        val MAY_PUT_FROM_HAND_OR_GRAVEYARD = Regex("""You may put an? (.+) from your hand or graveyard onto the battlefield(?: with an? (\S+) counter on it)?\.""")
+        val MAY_PUT_FROM_HAND_OR_GRAVEYARD = Regex("""You may put an? (.+) from your hand or graveyard onto the battlefield(?: with an? (\S+) counter on it| attached to (.+))?\.""")
         val IF_WOULD_DIE_EXILE = Regex("""If an? (.+?) would die, exile it instead\.""")
     }
 
@@ -11461,7 +11468,7 @@ internal class Sentences(
         val RETURN_UP_TO_ONE_TO_HAND = Regex("""[Rr]eturn up to one target (.+) to its owner's hand\.""")
         val DO_THEN_WHEN_YOU_DO = Regex("""(.+?)\. When you do, (.+)""")
         val MAY_CAST_TARGET_WITH_COUNTERS_MANA_VALUE = Regex("""You may cast target (.+?) with mana value equal to the number of (\S+) counters on (.+?) from your graveyard without paying its mana cost\.""")
-        val RETURN_SELF_TAPPED_AND_ATTACKING = Regex("""Return (.+) from your graveyard to the battlefield tapped and attacking\.""")
+        val RETURN_SELF_TAPPED_AND_ATTACKING = Regex("""Return (.+) from your graveyard to the battlefield tapped and attacking(?: with (a|an|one|two) (\S+) counters? on it)?\.""")
         val TARGET_PLAYER_DISCARDS = Regex("""Target (opponent|player) discards (a|one|two|three) cards?\.""")
         val TARGET_PLAYER_EXILES_FROM_HAND = Regex("""Target (opponent|player) exiles a card from their (hand|graveyard)\.""") // isd chunk 07: graveyard
         val PUT_TARGET_FROM_GRAVEYARD_ON_BOTTOM = Regex("""Put target (.+) from your graveyard on the bottom of your library\.""")
@@ -16822,6 +16829,31 @@ internal class Sentences(
 
     /** dmu: whole lines, tried after the other sets' lines. */
     private fun dmuLine(line: String): Ability? {
+        // dmu chunk 07: Thran Portal, "Mana abilities of this land cost an additional 1 life to activate." (CR 602.2b, 601.2f; its basic land
+        // type's intrinsic mana ability too, CR 305.6)
+        Dmu.MANA_ABILITIES_COST_ADDITIONAL_LIFE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.AdditionalActivationCost(Cost(listOf(CostPart.PayLife(Value.Fixed(m.groupValues[2].toInt())))), manaAbilitiesOnly = true)),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // dmu chunk 07: Rivaz, 'Whenever you cast a Dragon creature spell from your graveyard, it gains "When this creature dies, exile it."' (the
+        // spell and the permanent it becomes, CR 400.7d)
+        Dmu.WHENEVER_CAST_IT_GAINS_QUOTED.matchEntire(line)?.let { m ->
+            val (trigger, _) = trigger(m.groupValues[1]) ?: return null
+            val granted = Sentences(setOf("this creature", "this permanent")).line(m.groupValues[2]) ?: return null
+            return Ability.Triggered(trigger, Instructions(steps = listOf(Step.Do(Effect.SpellGets(Objects.EventObject(arcanum.api.EventRole.Object),
+                listOf(Mechanic.GainAbilities(listOf(granted))))))))
+        }
+        // dmu chunk 07: Serra Paragon, 'Once during each of your turns, you may play a land from your graveyard or cast a permanent spell with mana
+        // value 3 or less from your graveyard. If you do, it gains "When this permanent is put into a graveyard from the battlefield, exile it and
+        // you gain 2 life."' (one use a turn for both; the land or the spell and the permanent it becomes gain it, CR 305.1, 400.7d)
+        Dmu.ONCE_PLAY_LAND_OR_CAST_FROM_GRAVEYARD_GAINS.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replace(" spell", " card")) ?: return null
+            val granted = Sentences(setOf("this permanent")).line(m.groupValues[2]) ?: return null
+            val cards = ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Land), spells))
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, perTurn = 1, how = PlayKind.Play, holder = PlayerFilter.You,
+                spellGets = listOf(Mechanic.GainAbilities(listOf(granted))))), condition = arcanum.api.Condition.YourTurn,
+                affects = Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+        }
         // dmu chunk 05: the Defilers, "As an additional cost to cast white permanent spells, you may pay 2 life. Those spells cost {W} less to cast
         // if you paid life this way. This effect reduces only the amount of white mana you pay.": each such spell you cast has an optional additional
         // cost that, paid, reduces only its white mana (CR 601.2b, 601.2f; a spell's controller is the player who cast it, CR 112.2)
@@ -16854,6 +16886,28 @@ internal class Sentences(
 
     /** dmu: sentences, tried first. */
     private fun dmuEffect(sentence: String, context: Context): List<Step>? {
+        // dmu chunk 07: Tyrannical Pitlord, "When this creature leaves the battlefield, sacrifice the chosen creature." (the creature chosen as it
+        // entered, linked, CR 607.2a; only if you control it, CR 701.21a)
+        Dmu.SACRIFICE_THE_CHOSEN.matchEntire(sentence)?.let { return listOf(Step.Do(Effect.Sacrifice(Objects.Remembered(CHOSEN)))) }
+        // dmu chunk 07: Zur, "Target non-Aura enchantment you control becomes a creature in addition to its other types and has base power and base
+        // toughness each equal to its mana value." (for good; the mana value fixed as it resolves, CR 611.2c, 608.2h; layers 4 and 7b)
+        Dmu.BECOMES_CREATURE_BASE_PT_MANA_VALUE.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            val mv = Value.Of(arcanum.api.NumericProperty.ManaValue, target, arcanum.api.Combine.Single)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature)), Mechanic.SetPowerToughness(mv, mv)),
+                Affected.Objects(target), arcanum.api.Duration.Indefinitely)))
+        }
+        // dmu chunk 07: Vesuvan Duplimancy, after "Whenever you cast a spell that targets only a single artifact or creature you control", "create a
+        // token that's a copy of that artifact or creature, except it's not legendary." (the spell's one target, CR 115.7, 707.9b)
+        Dmu.CREATE_COPY_OF_THAT_TARGET.matchEntire(sentence)?.let { m ->
+            val cast = context.event as? EventPattern.Cast ?: return@let
+            if (cast.spell !is ObjectFilter.SingleTarget && (cast.spell as? ObjectFilter.And)?.all?.any { it is ObjectFilter.SingleTarget } != true) return@let
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val except = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { copyExceptions(it) ?: return null }.orEmpty()
+            val targeted = Objects.Each(Filters.all(noun, ObjectFilter.TargetedBy(Objects.EventObject(arcanum.api.EventRole.Object))))
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(targeted, except), count = Value.Fixed(1), controller = Players.You)))
+        }
         // dmu chunk 06: Academy Loremaster, "that player may draw an additional card. If they do, spells they cast this turn cost {2} more to cast."
         // (the event's player decides, CR 608.2d; a cost increase for that player's spells this turn, CR 601.2f)
         // dmu chunk 06: Sol'Kanar, "Exile Sol'Kanar, then return it to the battlefield under an opponent's control." (the card exiled, a new object,
@@ -16957,6 +17011,23 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("kept"), first)),
                 Step.Do(Effect.Move(Objects.Except(Objects.Bound(seen), Objects.Bound("kept")), rest)))
         }
+        // dmu chunk 07: after a reveal, "Put a land card from among them into your hand and the rest on the bottom of your library in a random
+        // order." (one if there is one, CR 609.3; the rest is every other card revealed)
+        Dmu.PUT_A_CARD_FROM_AMONG_REST.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            context.picked = "kept"
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound(seen), Objects.Bound("kept")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // dmu chunk 07: Soul of Windgrace, "you may put a land card from a graveyard onto the battlefield tapped under your control." (any
+        // graveyard; a choice of zero or one, CR 110.2a)
+        Dmu.MAY_PUT_FROM_A_GRAVEYARD_UNDER_YOUR_CONTROL.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty(), controller = Players.You))))
+        }
         // dmu chunk 02: after a look, "You may put one of those cards on top of your library." (the rest follow in "Put the rest …")
         if (sentence == "You may put one of those cards on top of your library.") {
             val seen = context.seen ?: return null
@@ -17025,6 +17096,44 @@ internal class Sentences(
 
     /** dmu: wordings of several sentences read as one. */
     private fun dmuWhole(text: String, context: Context): List<Step>? {
+        // dmu chunk 07: Threats Undetected, "Search your library for up to four creature cards with different powers and reveal them. An opponent
+        // chooses two of those cards. Shuffle the chosen cards into your library and put the rest into your hand." (an opponent of your choice
+        // chooses, CR 701.23a)
+        Dmu.SEARCH_DIFFERENT_OPPONENT_CHOOSES_SHUFFLE.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[2] + " card") ?: return null
+            val n = Numbers.count(m.groupValues[4]) ?: return null
+            val found = Objects.Bound("found")
+            val names = m.groupValues[3] == "names"
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), reveal = true,
+                    zones = listOf(Zone.Library), differentNames = names, bind = "found", searcher = Players.You,
+                    differentIn = if (names) null else arcanum.api.NumericProperty.Power)),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(n), Value.Fixed(n), from = found), bind = "chosen", chooser = Players.Each(PlayerFilter.Opponent)),
+                // the rest leave the library before the shuffle, which would make the found cards new objects there
+                Step.Do(Effect.Move(Objects.Except(found, Objects.Bound("chosen")), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Library))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // dmu chunk 07: Ivy, "You may copy that spell. The copy targets Ivy." (every target of the copy is Ivy; no copy if Ivy can't be, CR 707.10e)
+        Dmu.MAY_COPY_THAT_SPELL_COPY_TARGETS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) && context.event is EventPattern.Cast }?.let {
+            return listOf(Step.May(listOf(Step.Do(Effect.CopySpell(Objects.EventObject(arcanum.api.EventRole.Object), Players.You, newTargets = false,
+                forEachCouldTarget = Objects.Self))), player = Players.You))
+        }
+        // dmu chunk 07: Najal, "You may pay {2}. If you do, when you next cast an instant or sorcery spell this turn, copy it. You may choose new
+        // targets for the copy." (the delayed trigger is created only if paid, CR 603.7a)
+        Dmu.MAY_PAY_IF_YOU_DO_WHEN_NEXT.matchEntire(text)?.let { m ->
+            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
+            val then = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() })?.takeIf { it.targets.isEmpty() && it.modes == null }?.steps ?: return null
+            return listOf(Step.Pay(Cost(listOf(CostPart.Mana(mana))), payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = then))
+        }
+        // dmu chunk 07: Shanna, "You may pay {X}. If you do, draw X cards. X can't be greater than the amount of life you gained this turn." (X
+        // chosen as the cost is paid, at most that much, CR 107.3a, 107.1c)
+        Dmu.MAY_PAY_X_IF_YOU_DO_X_AT_MOST.matchEntire(text)?.let { m ->
+            val most = Values.value(m.groupValues[2]) ?: return null
+            val then = instructions(m.groupValues[1])?.takeIf { it.targets.isEmpty() && it.modes == null }?.withX(Value.Bound("X"))?.steps ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0), max = most), bind = "X", chooser = Players.You),
+                Step.Pay(Cost(listOf(CostPart.Mana(ManaCost.parse("{X}")!!, x = Value.Bound("X")))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = then))
+        }
         // dmu chunk 06: Jaya, "Choose target creature an opponent controls. Whenever you attack this turn, Jaya deals damage equal to the number
         // of attacking creatures to that creature." (a delayed trigger for the rest of the turn about the creature chosen now, CR 603.7b-c, 508.3d)
         Dmu.CHOOSE_TARGET_WHENEVER_YOU_ATTACK.matchEntire(text)?.let { m ->

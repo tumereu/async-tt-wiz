@@ -653,7 +653,11 @@ internal object Payment {
         plan.snap.view[plan.itemId]?.characteristics?.abilities?.firstOrNull { it.origin == root }?.let { (it.ability as? Keyword)?.kind }
 
     private fun countPermission(recorder: Recorder, plan: Plan) {
-        val p = plan.way.permission ?: return
+        countPermissionUse(recorder, plan.way.permission ?: return)
+    }
+
+    /** One use of a "once each turn" permission (CR 601.2, 305.1: casting or playing a land with it). */
+    internal fun countPermissionUse(recorder: Recorder, p: arcanum.engine.input.Permission) {
         val source = p.source?.let { recorder.state.obj(it)?.id } ?: return
         val key = Legality.PERMISSION_PREFIX + (p.ability?.key ?: p.effect?.value ?: "")
         val o = recorder.state.objOrThrow(source)

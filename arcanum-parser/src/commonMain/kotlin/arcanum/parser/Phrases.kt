@@ -634,6 +634,7 @@ internal object Events {
         MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
+        Dmu.event(text, self)?.let { return it } // dmu
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
         // (CR 508.1a)
         AND_AT_LEAST_OTHERS_ATTACK.matchEntire(text)?.let { m ->

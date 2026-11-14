@@ -812,6 +812,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 (if (property == NumericProperty.Power) c?.power else c?.toughness) ?: 0
             }
             NumericProperty.ManaValue -> c?.let { manaValue(id, it) } ?: 0
+            NumericProperty.BasePower -> {
+                board.readingPowerToughness()
+                c?.basePower ?: c?.power ?: 0
+            }
             NumericProperty.Loyalty -> c?.loyalty ?: 0
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }

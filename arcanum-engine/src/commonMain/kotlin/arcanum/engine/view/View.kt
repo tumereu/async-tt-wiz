@@ -118,6 +118,8 @@ data class Characteristics(
     val loyalty: Int? = null,
     val defense: Int? = null,
     val abilities: List<AbilityInstance> = emptyList(),
+    /** dmu: its base power (CR 208.4b), its power after layer 7b; null when no layer run worked it out (then its power). */
+    val basePower: Int? = null,
 ) {
     fun isType(type: CardType): Boolean = type in types
 

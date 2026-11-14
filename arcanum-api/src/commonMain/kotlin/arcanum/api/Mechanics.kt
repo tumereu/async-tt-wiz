@@ -341,6 +341,10 @@ sealed interface Mechanic {
     ) : Mechanic
     /** Some of the spell's mana may be paid another [way] (delve, convoke, improvise; CR 702.66a, 702.51a). */
     @Serializable @SerialName("pay-mana-by") data class PayManaBy(val way: ManaPaymentWay) : Mechanic
+    // dmu
+    /** Activated abilities of the affected objects ([manaAbilitiesOnly]: only their mana abilities) cost [cost] more to activate, paid in addition
+     * to their other costs ("Mana abilities of this land cost an additional 1 life to activate", CR 602.2b, 601.2f). */
+    @Serializable @SerialName("additional-activation-cost") data class AdditionalActivationCost(val cost: Cost, val manaAbilitiesOnly: Boolean = false) : Mechanic
     /** "You can't spend mana to cast this spell." */
     @Serializable @SerialName("cant-spend-mana") data object CantSpendMana : Mechanic
     /** "X can't be [lessThan − 1]" ("X can't be 0"). */

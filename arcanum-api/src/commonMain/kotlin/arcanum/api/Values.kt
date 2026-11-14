@@ -172,6 +172,10 @@ sealed interface NumericProperty {
     @Serializable @SerialName("keyword-total") data class KeywordTotal(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
     ) : NumericProperty
+    // dmu
+    /** Its base power (CR 208.4b): its power after characteristic-defining abilities and effects that set power (layers 7a, 7b),
+     * without effects and counters that only modify it ("a creature with power greater than its base power"). */
+    @Serializable @SerialName("base-power") data object BasePower : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */

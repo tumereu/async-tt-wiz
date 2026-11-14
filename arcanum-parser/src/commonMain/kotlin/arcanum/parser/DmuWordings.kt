@@ -43,6 +43,8 @@ internal object Dmu {
     val SPEND_ONLY_OR_KICKED = Regex("""cast (?:an? )?(.+?) spell or a kicked spell""")
     val PUT_IT_ON_BOTTOM = Regex("""(You may p|P)ut (?:it|that card) on the bottom of your library\.""")
     val DIDNT_PUT_ONTO_BATTLEFIELD = Regex("""If you didn't put a card onto the battlefield this way, (.+)\.""")
+    val PUT_A_CARD_FROM_AMONG_REST = Regex("""Put an? (.+?) from among them into your hand and the rest on the bottom of your library in a random order\.""")
+    val MAY_PUT_FROM_A_GRAVEYARD_UNDER_YOUR_CONTROL = Regex("""[Yy]ou may put an? (.+?) from a graveyard onto the battlefield( tapped)? under your control\.""")
     val IF_SELF_IS_A = Regex("""If (.+?) is an? ([A-Z]\w+), (.+)\.""")
     val YOU_MAY_SACRIFICE_IF_YOU_DO = Regex("""You may sacrifice (an? .+?)\. If you do, (.+)""")
     val EACH_OPPONENT_MAY_SACRIFICE_SHARING = Regex("""[Ee]ach opponent may sacrifice (an? .+?) of their choice that shares a card type with it\.""")
@@ -55,10 +57,21 @@ internal object Dmu {
     val EXILE_UNTIL_LESSER_MAY_CAST_REST_BOTTOM = Regex("""Exile cards from the top of your library until you exile an? (.+?) with lesser mana value\. You may cast that card without paying its mana cost\. Put the rest on the bottom of your library in a random order\.""")
     val EXILE_THEN_RETURN_UNDER = Regex("""Exile (.+?), then return it to the battlefield under (your|its owner's|an opponent's) control\.""")
     val THAT_PLAYER_MAY_DRAW_ADDITIONAL = Regex("""That player may draw an additional card\.""")
+    val MAY_PAY_IF_YOU_DO_WHEN_NEXT = Regex("""You may pay ((?:\{[^}]+\})+)\. If you do, (when you next cast .+)""")
+    val MAY_PAY_X_IF_YOU_DO_X_AT_MOST = Regex("""You may pay \{X\}\. If you do, (.+?\.) X can't be greater than (.+)\.""")
+    val BECOMES_CREATURE_BASE_PT_MANA_VALUE = Regex("""Target (.+?) becomes a creature in addition to its other types and has base power and base toughness each equal to its mana value\.""")
+    val SEARCH_DIFFERENT_OPPONENT_CHOOSES_SHUFFLE = Regex("""Search your library for up to (\w+) (.+?) cards with different (powers|names) and reveal them\. An opponent chooses (\w+) of those cards\. Shuffle the chosen cards into your library and put the rest into your hand\.""")
+    val MAY_COPY_THAT_SPELL_COPY_TARGETS = Regex("""You may copy that spell\. The copy targets (.+)\.""")
+    val CREATE_COPY_OF_THAT_TARGET = Regex("""[Cc]reate a token that's a copy of that (.+?)(?:, except (.+))?\.""")
+    val WHENEVER_CAST_IT_GAINS_QUOTED = Regex("""Whenever (you cast .+?), it gains "(.+)"""")
+    val ONCE_PLAY_LAND_OR_CAST_FROM_GRAVEYARD_GAINS = Regex("""Once during each of your turns, you may play a land from your graveyard or cast an? (.+?) from your graveyard\. If you do, it gains "(.+)"""")
+    val MANA_ABILITIES_COST_ADDITIONAL_LIFE = Regex("""Mana abilities of (.+?) cost an additional (\d+) life to activate\.""")
+    val SACRIFICE_THE_CHOSEN = Regex("""[Ss]acrifice the chosen (?:creature|permanent|artifact)\.""")
     val SPELLS_THEY_CAST_THIS_TURN_COST = Regex("""Spells they cast this turn cost (\{\d+\}) (more|less) to cast\.""")
     private val OPPONENT_CAST_N_OR_MORE = Regex("""an opponent cast (\w+) or more spells this turn""")
     private val OPPONENT_CONTROLLED_DEALT_EXCESS = Regex("""an? (.+?) an opponent controlled was dealt excess damage this turn""")
     private val ACTIVATED_N_OR_MORE_TIMES = Regex("""this ability has been activated (\w+) or more times this turn""")
+    private val CONTROL_POWER_ABOVE_BASE = Regex("""you control an? (.+?) with power greater than its base power""")
     private val X_IS_N_OR = Regex("""X is (\w+) or (less|more)""")
 
     /** dmu chunk 05: conditions. */
@@ -79,10 +92,36 @@ internal object Dmu {
         ACTIVATED_N_OR_MORE_TIMES.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.AbilityUsesThisTurn(resolved = false), Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
         }
+        // dmu chunk 07: "you control a creature with power greater than its base power" (CR 208.4b)
+        CONTROL_POWER_ABOVE_BASE.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1] + " you control") ?: return null
+            return Condition.Exists(Filters.all(noun, ObjectFilter.Where(Condition.Compare(Value.Of(arcanum.api.NumericProperty.Power, Objects.Tested, arcanum.api.Combine.Single),
+                Comparison.Greater, Value.Of(arcanum.api.NumericProperty.BasePower, Objects.Tested, arcanum.api.Combine.Single)))), atLeast = 1)
+        }
         // "X is 3 or less": this spell's X (CR 107.3)
         X_IS_N_OR.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.CastX(Objects.Self), if (m.groupValues[2] == "less") Comparison.AtMost else Comparison.AtLeast,
                 Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        }
+        return null
+    }
+
+    private val CASTS_SPELL_TARGETING_ONLY_SINGLE = Regex("""(a player casts|you cast) a spell that targets only a single (.+?)(?: other than (.+))?""")
+    private val YOU_CAST_FROM_YOUR_GRAVEYARD = Regex("""you cast an? (.+? spell) from your graveyard""")
+
+    /** dmu chunk 07: cast events. */
+    fun event(text: String, self: Set<String>): EventPattern? {
+        // "a player casts a spell that targets only a single creature other than Ivy", "you cast a spell that targets only a single artifact or
+        // creature you control" (one target in all, CR 115.7)
+        CASTS_SPELL_TARGETING_ONLY_SINGLE.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val target = if (m.groupValues[3].isEmpty()) noun else if (m.groupValues[3] in self) Filters.all(noun, ObjectFilter.Not(ObjectFilter.Is(Objects.Self))) else return null
+            return EventPattern.Cast(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.SingleTarget(target)),
+                by = if (m.groupValues[1] == "you cast") PlayerFilter.You else PlayerFilter.Any)
+        }
+        // "you cast a Dragon creature spell from your graveyard" (CR 601.2a: cast from that zone)
+        YOU_CAST_FROM_YOUR_GRAVEYARD.matchEntire(text)?.let { m ->
+            return EventPattern.Cast(Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You, from = arcanum.api.Zone.Graveyard)
         }
         return null
     }

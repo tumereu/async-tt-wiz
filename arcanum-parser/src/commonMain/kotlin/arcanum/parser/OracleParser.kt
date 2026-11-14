@@ -29,7 +29,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 101
+    const val VERSION: Int = 102
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -129,7 +129,8 @@ object OracleParser {
 
     private val ADDITIONAL_COST_X = Regex("""As an additional cost to cast this spell, [^.\n]*\bX\b""")
     private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
-    private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
+    private val REGNAL_NUMBER = Regex("""(.+) [IVXLC]+""")
+    private val NAMED_PARTNER =Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
@@ -140,6 +141,8 @@ object OracleParser {
             listOfNotNull(name.substringBefore(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != "The" }) +
             // set check (LTR): a legendary card's name before " of " ("Rosie Cotton" of "Rosie Cotton of South Lane", CR 201.5c)
             listOfNotNull(name.substringBefore(" of ").takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != name }) +
+            // dmu chunk 07: a legendary name without its regnal number ("King Darien" of "King Darien XLVIII", CR 201.5c)
+            listOfNotNull(REGNAL_NUMBER.matchEntire(name)?.groupValues?.get(1)?.takeIf { arcanum.api.Supertype.Legendary in face.supertypes }) +
             // chunk 20
             face.subtypes.map { "this " + it.name }).let { names ->
             // msh: dotless aliases ("MODOK" for "M.O.D.O.K.", "Ms Marvel"), which [dotless] writes the lines with

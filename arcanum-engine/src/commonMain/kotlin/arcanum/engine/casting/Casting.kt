@@ -19,6 +19,8 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.input.CastWay
 import arcanum.engine.input.Input
 import arcanum.engine.state.Bindings
+import arcanum.engine.state.EffectId
+import arcanum.engine.state.EffectObject
 import arcanum.engine.state.NamedValue
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PriorityState
@@ -61,8 +63,20 @@ internal object Casting {
         // Through the event pipeline: "enters tapped", "as this land enters" choices (CR 614.12); a choice waits
         // eoe: "Each land played this way enters tapped" (the permission it is played with, CR 614.1c)
         val fromHand = s.obj(input.card)?.let { it.zone == Zone.Hand && it.owner == input.player } == true
-        val tapped = !fromHand && Legality.permissions(snap, input.player, input.card, PlayKind.Play).firstOrNull()
-            ?.let { (it.second.mechanic as? arcanum.api.Mechanic.MayPlay)?.landsEnterTapped } == true
+        val permitted = if (fromHand) null else Legality.permissions(snap, input.player, input.card, PlayKind.Play).firstOrNull()
+        val mayPlay = permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay
+        val tapped = mayPlay?.landsEnterTapped == true
+        // dmu: a "once during each of your turns" permission is used up by a land played with it, and what it gives the land applies as it
+        // enters (Serra Paragon, CR 305.1, 611.2e)
+        if (permitted != null && mayPlay?.perTurn != null) Payment.countPermissionUse(recorder, permitted.first)
+        if (permitted != null && mayPlay != null && mayPlay.spellGets.isNotEmpty()) {
+            val next = (input.card as ObjectId.Card).next()
+            recorder.record(Changes.effect(recorder.state) { t ->
+                EffectObject(EffectId("permission:${input.card}"), mayPlay.spellGets, affects = null, locked = listOf(next), source = null,
+                    controller = input.player, timestamp = t, createdTurn = s.turn.number, duration = arcanum.api.Duration.Indefinitely,
+                    names = Bindings(mapOf(arcanum.engine.resolution.Effects.FOLLOWS_SPELL to NamedValue.Objects(listOf(next)))))
+            })
+        }
         val entering = arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.Move(listOf(input.card), Zone.Battlefield,
             listOf(Meaning.PlayedLand), under = input.player, tapped = tapped, controller = input.player, source = input.card))
         if (entering is Progress.Waiting) return entering

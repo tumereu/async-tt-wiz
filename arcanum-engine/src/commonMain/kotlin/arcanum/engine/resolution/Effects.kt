@@ -875,6 +875,11 @@ internal object Effects {
                 val names = chosen.map { e.characteristics(it)?.name }
                 require(names.distinct().size == names.size) { "The cards must have different names" }
             }
+            // dmu: "with different powers" (D32: a rule-breaking answer is refused)
+            effect.differentIn?.let { property ->
+                val values = chosen.map { e.property(property, it) }
+                require(values.distinct().size == values.size) { "The cards must differ in that number" }
+            }
             // rvr: "with total mana value 6 or less" (D32: a rule-breaking answer is refused)
             effect.totalAtMost?.let { limit ->
                 require(chosen.sumOf { e.property(limit.property, it) } <= scope.value(limit.atMost)) { "The found cards' total is more than allowed" }

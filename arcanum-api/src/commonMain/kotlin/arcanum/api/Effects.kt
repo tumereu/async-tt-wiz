@@ -71,6 +71,9 @@ sealed interface Effect {
         /** The found cards' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("any number of creature cards with
          * total mana value 6 or less", CR 701.23a). */
         val totalAtMost: Choice.TotalLimit? = null,
+        // dmu
+        /** The found cards each have a different value of this property ("up to four creature cards with different powers", CR 701.23a). */
+        val differentIn: NumericProperty? = null,
     ) : Effect
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */

@@ -72,8 +72,10 @@ class DesktopTableTest : E2e() {
         val undo = alice.tagged(DESKTOP_UNDO_TAG).fetchSemanticsNode().boundsInRoot
         val main = alice.tagged("main-button").fetchSemanticsNode().boundsInRoot
         val row = main.right - undo.left
-        assertEquals(row / 3, undo.width, 2f, "Undo a third of the row: $undo, $main")
-        assertEquals(row * 2 / 3, main.width, 2f, "the main button two thirds: $undo, $main")
+        // a third of the row and two thirds, with the quick actions' gap between them
+        val gap = org.asyncttwiz.android.DesktopTable.ACTION_GAP * org.asyncttwiz.android.DesktopTable.UI_SCALE
+        assertEquals((row - 2 * gap) / 3, undo.width, 1.5f, "Undo a third of the row: $undo, $main")
+        assertEquals(row - (row - 2 * gap) / 3 - gap, main.width, 1.5f, "the main button two thirds: $undo, $main")
         assertTrue(main.left - undo.right in 0f..4f && kotlin.math.abs(main.top - undo.top) <= 1f, "lined up, no room between: $undo, $main")
         clickFromHand("Mountain")
         waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) {

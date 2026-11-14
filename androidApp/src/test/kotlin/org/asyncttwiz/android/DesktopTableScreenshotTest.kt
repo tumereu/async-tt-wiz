@@ -273,9 +273,11 @@ class DesktopTableScreenshotTest {
         val main = compose.onNodeWithTag("main-button").fetchSemanticsNode().boundsInRoot
         val pad = DesktopTable.ACTIONS_PADDING * DesktopTable.UI_SCALE
         val row = main.right - undo.left
+        // a third of the row and two thirds, with the quick actions' gap between them
+        val gap = org.asyncttwiz.android.DesktopTable.ACTION_GAP * org.asyncttwiz.android.DesktopTable.UI_SCALE
         assertEquals(area.width - 2 * pad, row, 2f, "the row spans the action area: $undo, $main in $area")
-        assertEquals(row / 3, undo.width, 2f, "Undo a third: $undo of $row")
-        assertEquals(row * 2 / 3, main.width, 2f, "the main button two thirds: $main of $row")
+        assertEquals((row - 2 * gap) / 3, undo.width, 1.5f, "Undo a third: $undo of $row")
+        assertEquals(row - (row - 2 * gap) / 3 - gap, main.width, 1.5f, "the main button two thirds: $main of $row")
         assertTrue(main.left - undo.right in 0f..(DesktopTable.ACTION_GAP * DesktopTable.UI_SCALE + 1f), "no room between them: $undo, $main")
         assertEquals(main.top, undo.top, 1f, "lined up")
         assertEquals(main.height, undo.height, 1f, "as tall")

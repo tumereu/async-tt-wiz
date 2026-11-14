@@ -16,6 +16,19 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.
+
+- Chrome on the owner's Windows PC shows an "out of memory" error and the web client doesn't start (Firefox starts it; headless Chrome in WSL does too). Find the cause and fix it, with logging so a failed start explains itself.
+- Typing never acts as a hotkey (WEB-031, WEB-034, WEB-036, WEB-041, WEB-046): while a text field has the keyboard (chat, problem report, search, deck name, any field), every key, "?" included, goes only to it. An e2e test that types "?" and other hotkeys into the chat and the problem report and fails before the fix comes first (owner).
+- Problem report VXSGKH: undoing never needs the other player's approval because of their passes, whether automatic or tapped (owner: "undoing a pass should never need consent"): passes after the point no longer make Undo a request; a real input of theirs or something new shown to you still does (HIS-087, HIS-084, HIS-099). E2e test first, plus logging of why each Undo is free or a request.
+- The Stack in the desktop dock is almost hidden while the chat under it is open (WEB-017): the Stack keeps the room its entries need, the chat gets the rest.
+- Playable cards' glow (TBL-117) is wrong in the desktop layout: hand cards don't glow as on the phone, or every card does. Reproduce in the desktop layout and fix.
+- Every clickable control and card in the web client shows the hand pointer on hover (text fields the text cursor), as web buttons do.
+- Desktop layout default sizes (TBL-034's sliders stay, on top of the new defaults): battlefield cards and decks and their texts at least twice today's size, hand cards about 30% bigger, the top row's and the quick actions' texts and the rest about 30% bigger where it reads better (the worker proposes, the owner reviews in the gallery) (WEB-015, WEB-018, WEB-020).
+- Desktop action area (WEB-018): Undo becomes a real button lined up with the main button, Undo about a third of the row and the main button two thirds, no empty space between them.
+- One chat on the desktop table (WEB-017, LOB-066): the top row's chat button opens or focuses the dock's chat (unfolding the dock); no second chat view.
+- Firefox frame rate: the desktop table is laggy in Firefox. Problem reports log frame times first (slow frames, what was on screen); then profile and fix the Firefox path.
+
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).

@@ -220,8 +220,13 @@ class DesktopTableScreenshotTest {
         assertTrue(hand.all { it.bounds.y >= height - band }, "in the bottom band")
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
         assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
-        val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }.bounds
+        val stackItem = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+        val stack = stackItem.bounds
         assertTrue(stack.x >= 1440f - DesktopTable.DOCK, "the Stack under the dock, not on the battlefields: $stack")
+        // WEB-017 (owner, desktop playtest 2026-11-14): its count bubble and its frame's shadow wholly under the dock too
+        val region = assertNotNull(scene.stackRegion)
+        assertTrue(stackItem.stackBadge.x >= 1440f - DesktopTable.DOCK && region.x - 4f >= 1440f - DesktopTable.DOCK,
+            "nothing of the Stack peeks out at the dock's edge: ${stackItem.stackBadge}, $region")
     }
 
     // WEB-015, WEB-016, WEB-017, WEB-018, WEB-020: the table at Alice's first main phase: the top row with the turn line, move

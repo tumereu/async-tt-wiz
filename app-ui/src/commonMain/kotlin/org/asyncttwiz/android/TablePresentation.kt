@@ -844,10 +844,11 @@ object TablePresentation {
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)
             else worldViewport.center.y
         // STK-007: pinned at the right edge, vertically mid-screen (in landscape too, TBL-009); WEB-017: with the desktop dock
-        // open just inside its left edge, under it (the dock shows the Stack as its list; what flies to the Stack and the top
-        // entry's arrows go there)
-        val stackCenter = TablePoint(if (stackOnTable) tableRight - stackWidth / 2 - stackPadding else tableRight + stackWidth / 2 + stackPadding,
-            portraitStackY)
+        // open inside it, under it (the dock shows the Stack as its list; what flies to the Stack and the top entry's arrows go
+        // there), wholly: its count bubble and frame never peek out at the dock's left edge (owner, desktop playtest
+        // 2026-11-14: "a green half-circle in the chat pane")
+        val stackCenter = TablePoint(if (stackOnTable) tableRight - stackWidth / 2 - stackPadding
+            else tableRight + DesktopTable.HIDDEN_STACK_INSET + stackWidth / 2 + stackPadding, portraitStackY)
         val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)

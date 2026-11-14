@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -45,6 +46,11 @@ object DesktopTable {
     const val TOP_ROW = 56f
     /** The right dock's width (WEB-017). */
     const val DOCK = 320f
+    /** How far inside the open dock's left edge the table's own Stack lies, hidden under it (WEB-017): its count bubble
+     * (which overhangs its corner) and its frame stay wholly under the dock. */
+    const val HIDDEN_STACK_INSET = 24f
+    /** The most of the dock's height the Stack's entries take (WEB-017); they scroll beyond it, and the chat has the rest. */
+    const val DOCK_STACK_SHARE = .45f
     /** The action area's width at the bottom right (WEB-018), under the dock, whether the dock is open or not. */
     const val ACTIONS = 320f
     /** A seat header's height (WEB-016): the life square's. */
@@ -268,25 +274,39 @@ fun desktopPhaseLabel(phase: String): String = when (phase) {
 fun DesktopDock(play: TableBoard, viewer: String, names: Map<String, String>, modifier: Modifier = Modifier,
     chat: @Composable (Modifier) -> Unit) {
     val order = CombatStackRules.stack(play.board).cards
+    // WEB-017 (owner, desktop playtest 2026-11-14): how the dock shares its height between the Stack and the chat, logged as
+    // it changes, so a report of a squeezed Stack or chat says what was measured
+    var stackShown by remember { mutableIntStateOf(0) }
+    var chatShown by remember { mutableIntStateOf(0) }
     Column(modifier.fillMaxSize().background(Color(0xfffafbfb)).border(1.dp, Color(0xffd5d8dc))
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }.testTag("desktop-dock")) {
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-            val stackMax = maxHeight * .45f
+            val stackMax = maxHeight * DesktopTable.DOCK_STACK_SHARE
+            val dockHeight = maxHeight.value.toInt()
+            val density = androidx.compose.ui.platform.LocalDensity.current.density
+            LaunchedEffect(order.size, stackShown, chatShown, dockHeight) {
+                if (stackShown > 0 || chatShown > 0) AppLog.info("dock", "Desktop dock $dockHeight dp: Stack ${order.size} entries in " +
+                    "$stackShown dp (at most ${stackMax.value.toInt()}), chat $chatShown dp")
+            }
             Column(Modifier.fillMaxSize()) {
                 Text("STACK · ${order.size}", Modifier.padding(start = 16.dp, top = 10.dp, bottom = 6.dp).semantics { heading() },
                     fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, color = MenuInk)
-                if (order.isEmpty()) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp)
+                val measured = Modifier.onSizeChanged { stackShown = (it.height / density).toInt() }
+                if (order.isEmpty()) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp).then(measured)
                     .border(1.dp, MenuBorder, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
                     Text("Empty", fontSize = 12.sp, color = MenuInk.copy(alpha = .6f))
-                } else StackEntries(play, viewer, Modifier.padding(horizontal = 12.dp).fillMaxWidth().heightIn(max = stackMax), names = names,
-                    nameInCard = true)
+                } else StackEntries(play, viewer, Modifier.padding(horizontal = 12.dp).fillMaxWidth().heightIn(max = stackMax).then(measured)
+                    .testTag(DOCK_STACK_TAG), names = names, nameInCard = true)
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider(color = Color(0xffd5d8dc))
-                chat(Modifier.fillMaxWidth().weight(1f))
+                chat(Modifier.fillMaxWidth().weight(1f).onSizeChanged { chatShown = (it.height / density).toInt() })
             }
         }
     }
 }
+
+/** WEB-017: the dock's list of Stack entries (not shown while the Stack is empty). */
+const val DOCK_STACK_TAG = "dock-stack"
 
 /**
  * WEB-016 (owner, decision 27): each seat header's start: the player's avatar and name, before their life square, piles and

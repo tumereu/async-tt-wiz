@@ -220,11 +220,16 @@ class DesktopTableScreenshotTest {
         assertTrue(hand.all { it.bounds.y >= height - band }, "in the bottom band")
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
         assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
-        val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }.bounds
+        val stackItem = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+        val stack = stackItem.bounds
         assertTrue(stack.x >= 1440f - DesktopTable.DOCK, "the Stack under the dock, not on the battlefields: $stack")
+        // WEB-017 (owner, desktop playtest 2026-11-14): its count bubble and its frame's shadow wholly under the dock too
+        val region = assertNotNull(scene.stackRegion)
+        assertTrue(stackItem.stackBadge.x >= 1440f - DesktopTable.DOCK && region.x - 4f >= 1440f - DesktopTable.DOCK,
+            "nothing of the Stack peeks out at the dock's edge: ${stackItem.stackBadge}, $region")
     }
 
-    // WEB-015, WEB-016, WEB-017, WEB-018, WEB-020: the table at Alice's first main phase: the top row with the turn line, move
+    // WEB-015, WEB-016, WEB-017, WEB-018, WEB-020, TBL-117: the table at Alice's first main phase: the top row with the turn line, move
     // pill and phase track (no step button), the seat headers with avatars and names, the dock with an empty Stack and the
     // chat, the action area with Undo and the main button
     @Test fun theDesktopTableHasTopRowSeatHeadersDockAndActionArea() {
@@ -243,7 +248,7 @@ class DesktopTableScreenshotTest {
         compose.onAllNodesWithText("Bob").onFirst().assertExists()
         compose.onNodeWithText("You").assertExists()
         captureShot("$SCREENSHOTS/desktop/table.png",
-            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, the Stack (empty) and the game chat docked at the right, and the quick actions over Undo and the main button at the bottom right.")
+            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and the quick actions over Undo and the main button at the bottom right.")
     }
 
     // WEB-017, WEB-016, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the dock's

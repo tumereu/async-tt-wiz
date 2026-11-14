@@ -8,9 +8,13 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
 import arcanum.api.TurnStep
 import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.android.DOCK_STACK_TAG
 import org.asyncttwiz.android.HOTKEY_SHEET_TAG
 import org.asyncttwiz.android.HotkeyAction
 import org.asyncttwiz.android.hotkeyRowTag
+import org.asyncttwiz.protocol.game.AssumeResolves
+import org.asyncttwiz.protocol.game.PlaySettings
+import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.Test
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
@@ -22,9 +26,12 @@ import kotlin.test.assertTrue
  */
 @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
 class DesktopTableTest : E2e() {
-    /** Alice (desktop layout) holds a Mountain and an Ember Cub; Bob a Mountain. Both have opened the game. */
-    private fun start() {
-        startGame(aliceDesktop = true, deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
+    /** Alice (desktop layout) holds a Mountain and an Ember Cub; Bob a Mountain. Both have opened the game. [bobWaits]: Bob
+     * plays in Control and Alice assumes none of his passes, so what she casts waits on the Stack until he passes. */
+    private fun start(bobWaits: Boolean = false) {
+        startGame(aliceDesktop = true, aliceSettings = PlaySettings().assuming(AssumeResolves.Never).takeIf { bobWaits },
+            bobSettings = PlaySettings(mode = ResponseMode.FullControl).takeIf { bobWaits },
+            deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
         bothOpen()
         assertTrue(alice.shows(hasTestTag("phase-track")), "Alice's table in the desktop layout: ${alice.screen()}")
     }
@@ -88,6 +95,62 @@ class DesktopTableTest : E2e() {
         }
         waitUntil("Bob's turn after Alice's Shift+Space", along = listOf(bob)) { alice.state.turn.number >= 2 }
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
+    }
+
+    // WEB-017, STK-007 (owner, desktop playtest 2026-11-14: "a green half-circle in the chat pane was the Stack, almost
+    // completely hidden by the open chat panel"): Alice casts her Ember Cub and waits for Bob: the dock lists it whole above
+    // the chat, and the table's own Stack, hidden under the open dock, shows nothing of itself at the dock's edge (its count
+    // bubble peeked out there)
+    @Test fun theDockListsTheStackAboveTheChatAndNothingOfItPeeksOut() {
+        start(bobWaits = true)
+        keep()
+        clickFromHand("Mountain")
+        waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        clickFromHand("Ember Cub")
+        waitUntil("the Cub on Alice's Stack, waiting for Bob") {
+            alice.state.stack.isNotEmpty() && alice.shows(hasTestTag(DOCK_STACK_TAG)) && alice.showsText("Top · Ember Cub")
+        }
+        run()
+        val dock = alice.tagged("desktop-dock").fetchSemanticsNode().boundsInRoot
+        val list = alice.tagged(DOCK_STACK_TAG).fetchSemanticsNode().boundsInRoot
+        val entry = alice.text("Top · Ember Cub").fetchSemanticsNode().boundsInRoot
+        val chat = alice.text("Game chat").fetchSemanticsNode().boundsInRoot
+        assertTrue(entry.top >= list.top && entry.bottom <= list.bottom && entry.height > 0f, "the entry whole in the dock's list: $entry in $list")
+        assertTrue(list.bottom <= chat.top, "the list above the chat: $list, chat at $chat")
+        assertTrue(dock.contains(list.topLeft) && dock.contains(list.bottomRight), "in the dock: $list in $dock")
+        val stack = alice.node(hasContentDescription("Stack, 1 entries")).fetchSemanticsNode().boundsInRoot
+        assertTrue(stack.left >= dock.left, "the table's Stack wholly under the dock, its count bubble too: $stack, dock $dock")
+        assertEquals(emptyList(), alice.leaks.leaks)
+    }
+
+    /** How cyan the glow is at [x], [y] of [picture]: how far its red falls below its green and blue (0 on white or grey). */
+    private fun cyanAt(picture: android.graphics.Bitmap, x: Float, y: Float): Int {
+        val pixel = picture.getPixel(x.toInt(), y.toInt())
+        val red = (pixel shr 16) and 255; val green = (pixel shr 8) and 255; val blue = pixel and 255
+        return minOf(green, blue) - red
+    }
+
+    /** How cyan [picture] is over the middle of the card [bounds]' top edge, a tenth of its width above it: the phone's glow
+     * (4 dp around its 28 dp wide cards) reaches that far from a card of any size. */
+    private fun glowAbove(picture: android.graphics.Bitmap, bounds: androidx.compose.ui.geometry.Rect): Int =
+        cyanAt(picture, bounds.center.x, bounds.top - bounds.width * .1f)
+
+    // TBL-117 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
+    // are highlight?"): at Alice's Main 1 with no land out, her Mountain may be played and glows around it as on the phone,
+    // as far from the card for its size; her Ember Cub, which she can't pay for, doesn't
+    @Test fun onlyThePlayableHandCardGlowsAsOnThePhone() {
+        start()
+        keep()
+        waitUntil("Alice's game settled") { alice.settled(this) }
+        repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
+        val mountain = alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow
+        val cub = alice.handCard("Ember Cub").fetchSemanticsNode().boundsInWindow
+        assertEquals(56f, mountain.width, 1f, "the desktop's hand card at 2×: $mountain")
+        val picture = alice.picture()
+        // The band's own colour at the same height, away from the cards
+        val band = cyanAt(picture, 20f, mountain.top - mountain.width * .1f)
+        assertTrue(glowAbove(picture, mountain) - band >= 10, "the Mountain glows: ${glowAbove(picture, mountain)} over $band at $mountain")
+        assertTrue(glowAbove(picture, cub) - band <= 3, "the Cub doesn't glow: ${glowAbove(picture, cub)} over $band at $cub")
     }
 
     // WEB-035, WEB-033, WEB-034: from the list of keys Alice opens Settings and gives the main button N; the server keeps it

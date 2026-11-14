@@ -126,7 +126,7 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     val focused = listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
-    fun outlines(i: TableItem, b: TableBounds, card: Boolean = false) {
+    fun outlines(i: TableItem, b: TableBounds, card: Boolean = false, glowScale: Float = 1f) {
         if (i.sourceId != null && i.sourceId in relatedSources) {
             val inset = if (card) -2f else 3f
             drawRect(Color(0xffbd982f), xy(b.x + inset, b.y + inset),
@@ -145,9 +145,10 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
             // TBL-117, STK-047 (owner playtest 2026-11-06): under a finger the target's glow grows a little and brightens;
             // a picked target's is always at full strength
             val press = if (chosen) 1f else if (pressed != null && pressed.first == i.id) pressed.second else 0f
-            val halo = 2f + 1.5f * press
+            // WEB-015: on the desktop table as much wider as its cards are larger (TableScene.glowScale)
+            val halo = (2f + 1.5f * press) * glowScale
             drawRect(AutomatumViolet.copy(alpha = .35f + .25f * press), xy(b.x - outset - halo, b.y - outset - halo),
-                size(b.width + 2 * outset + 2 * halo, b.height + 2 * outset + 2 * halo), style = Stroke((6 + 3 * press) * density))
+                size(b.width + 2 * outset + 2 * halo, b.height + 2 * outset + 2 * halo), style = Stroke((6 + 3 * press) * glowScale * density))
             drawRect(AutomatumViolet, xy(b.x - outset, b.y - outset), size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2.5f * density))
         }
         if (chosen) {
@@ -168,8 +169,9 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     for (i in scene.items) for (part in i.visible) {
         // Preserve clipped/occluded edges, but leave room around a whole face for its outline.
-        // ... more for the card a finger is down on, whose glow grows (TBL-117)
-        val outset = if (i.kind != TableItemKind.CARD) 0f else if (pressed?.first == i.id) 8f else 4f
+        // ... more for the card a finger is down on, whose glow grows (TBL-117); on the desktop table more for its larger
+        // cards, whose glows grow with them (TableScene.glowScale)
+        val outset = if (i.kind != TableItemKind.CARD) 0f else (if (pressed?.first == i.id) 8f else 4f) * scene.glowScale(i)
         val left = part.x - if (part.x == i.bounds.x) outset else 0f
         val top = part.y - if (part.y == i.bounds.y) outset else 0f
         val right = part.right + if (part.right == i.bounds.right) outset else 0f
@@ -240,10 +242,13 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                       // TBL-117 (owner playtest 2026-11-06): under a finger a card's glow grows a little and brightens
                       val press = if (pressed != null && pressed.first == i.id) pressed.second else 0f
                       val grow = 1f + .6f * press; val bright = 1f + .7f * press
+                      // TBL-117 (owner, desktop playtest 2026-11-14): on the desktop table the glows stand out from its larger
+                      // cards as far for their size as on the phone
+                      val glowScale = scene.glowScale(i)
                       // I-D46 (a): a soft halo behind the card, fading outward within the card's outline room
                       val glowAlpha = if (playable.isEmpty() || i.zone == PlayZone.STACK) 0f else playable[i.cardId] ?: 0f
                       if (glowAlpha > 0f) for (ring in 4 downTo 1) {
-                          val spread = ring * grow
+                          val spread = ring * grow * glowScale
                           drawRoundRect(AutomatumCyan.copy(alpha = (.16f * glowAlpha * bright).coerceAtMost(1f)), xy(x - spread, y - spread),
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
@@ -251,15 +256,15 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                       val expandAlpha = if (expandGlow.isEmpty()) 0f else expandGlow[i.cardId] ?: 0f
                       if (expandAlpha > 0f) {
                           for (ring in 4 downTo 1) {
-                              val spread = ring * grow
+                              val spread = ring * grow * glowScale
                               drawRoundRect(GroupExpandGlow.copy(alpha = .75f * expandAlpha), xy(x - spread, y - spread),
                                   size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                           }
-                          drawRoundRect(GroupExpandEdge.copy(alpha = .9f * expandAlpha), xy(x - 4f * grow, y - 4f * grow),
-                              size(cardWidth + 8f * grow, cardHeight + 8f * grow), CornerRadius(6f * density), style = Stroke(1.2f * density))
+                          drawRoundRect(GroupExpandEdge.copy(alpha = .9f * expandAlpha), xy(x - 4f * grow * glowScale, y - 4f * grow * glowScale),
+                              size(cardWidth + 8f * grow * glowScale, cardHeight + 8f * grow * glowScale), CornerRadius(6f * density), style = Stroke(1.2f * density))
                       }
                       if (i.viewport != "combat" && !i.projection && i.cardId in attackable) for (ring in 4 downTo 1) {
-                          val spread = ring * grow
+                          val spread = ring * grow * glowScale
                           drawRoundRect(AttackOrange.copy(alpha = (.3f * bright).coerceAtMost(1f)), xy(x - spread, y - spread),
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
@@ -286,7 +291,7 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                           paint.color = NativeColors.DKGRAY
                       }
                      paint.textSize = 11 * density
-                     outlines(i, TableBounds(x, y, cardWidth, cardHeight), card = true)
+                     outlines(i, TableBounds(x, y, cardWidth, cardHeight), card = true, glowScale = glowScale)
                  }
             }
         }

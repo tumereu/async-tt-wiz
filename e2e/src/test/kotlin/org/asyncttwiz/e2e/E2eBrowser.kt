@@ -74,6 +74,22 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
         page.mouse().click(box.x + box.width / 2, box.y + box.height / 2)
     }
 
+    /** The mouse moved to the middle of what [selector] finds (no button pressed), then the cursor the page shows there
+     * ([cursorAt]). */
+    fun cursorOver(selector: String): String {
+        val box = checkNotNull(page.locator(selector).first().boundingBox()) { "$selector has no place on the page" }
+        return cursorAt(box.x + box.width / 2, box.y + box.height / 2)
+    }
+
+    /** The mouse moved to ([x], [y]) (no button pressed); the cursor the page shows there once the app has had a frame to
+     * set it, as CSS names it ("pointer", "text", "default"): the computed cursor of the element under the mouse. */
+    fun cursorAt(x: Double, y: Double): String {
+        page.mouse().move(x - 3, y - 3)
+        page.mouse().move(x, y, com.microsoft.playwright.Mouse.MoveOptions().setSteps(3))
+        page.evaluate("() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))")
+        return page.evaluate(CURSOR, listOf(x, y)).toString()
+    }
+
     /** The control (a button) whose label is [label] (alone, or merged with its own words: "Keep, Keep"), as the Android
      * tests' `showsControl` finds it by its description: a quick-action cell such as the opening's Keep (TRN-062). */
     fun control(label: String): String = "div[role=button][aria-label='$label'], div[role=button][aria-label^='$label, ']"
@@ -107,6 +123,12 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     }
 
     private companion object {
+        /** The computed cursor of the element at the point ([x, y]), looking into shadow roots. */
+        const val CURSOR = """([x, y]) => {
+            let e = document.elementFromPoint(x, y);
+            while (e && e.shadowRoot) { const inner = e.shadowRoot.elementFromPoint(x, y); if (!inner || inner === e) break; e = inner; }
+            return e ? getComputedStyle(e).cursor : 'none';
+        }"""
         /** The page's semantics mirror (inside the app's shadow root) as lines: each element's tag, id, role, label, text,
          * place. */
         const val SEMANTICS = """() => {

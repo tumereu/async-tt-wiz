@@ -273,7 +273,15 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     /** TBL-053: the groups on both battlefields (stacks, cards with attachments, cards alone), in arrival order. */
     val battlefieldGroups: List<BattlefieldGroup> = emptyList(),
     /** TBL-122: the group the viewer opened ([TableLayoutState.expandedGroup]), while it is on the table. */
-    val expandedGroup: String? = null) {
+    val expandedGroup: String? = null,
+    /** WEB-015: laid out for the desktop layout's table, whose cards are larger: the glows behind them grow with them
+     * (TBL-117, [glowScale]). */
+    val desktop: Boolean = false) {
+    /** TBL-117 (owner, desktop playtest 2026-11-14): how much wider than the phone's the glows of [item] (a card) are: on
+     * the desktop table as much as the card is larger than the phone's 28 dp wide card, so they stand out from it as far
+     * for its size as on the phone; 1 on the phone. */
+    fun glowScale(item: TableItem): Float =
+        if (!desktop) 1f else (minOf(item.bounds.width, item.bounds.height) / 28f).coerceAtLeast(1f)
     /** TBL-053: the group of the battlefield card [cardId], null for a card in no group. */
     fun groupOf(cardId: String?): BattlefieldGroup? = cardId?.let { id -> battlefieldGroups.firstOrNull { id in it.members } }
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
@@ -844,10 +852,11 @@ object TablePresentation {
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)
             else worldViewport.center.y
         // STK-007: pinned at the right edge, vertically mid-screen (in landscape too, TBL-009); WEB-017: with the desktop dock
-        // open just inside its left edge, under it (the dock shows the Stack as its list; what flies to the Stack and the top
-        // entry's arrows go there)
-        val stackCenter = TablePoint(if (stackOnTable) tableRight - stackWidth / 2 - stackPadding else tableRight + stackWidth / 2 + stackPadding,
-            portraitStackY)
+        // open inside it, under it (the dock shows the Stack as its list; what flies to the Stack and the top entry's arrows go
+        // there), wholly: its count bubble and frame never peek out at the dock's left edge (owner, desktop playtest
+        // 2026-11-14: "a green half-circle in the chat pane")
+        val stackCenter = TablePoint(if (stackOnTable) tableRight - stackWidth / 2 - stackPadding
+            else tableRight + DesktopTable.HIDDEN_STACK_INSET + stackWidth / 2 + stackPadding, portraitStackY)
         val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
@@ -935,7 +944,7 @@ object TablePresentation {
             } else cardId to source.copy(sourceId = item.sourceId)
         }.toMap()
         return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
-             stackRegion = stackRegion, world = world, appearance = appearance,
+             stackRegion = stackRegion, world = world, appearance = appearance, desktop = desktop != null,
             // TRN-073; WEB-017: with the desktop dock open, at the battlefields' top right end
             dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it,
                 if (stackOnTable) stackRegion else TableBounds(tableRight - 6f, worldViewport.y + EmblemChips.SIZE + 14f, 0f, 0f)) },

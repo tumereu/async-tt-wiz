@@ -3,6 +3,7 @@
 package org.asyncttwiz.android
 
 import kotlin.js.Promise
+import kotlinx.coroutines.await
 
 // The browser APIs the storage, card records and pictures use (web client step 3a), as small JavaScript functions: IndexedDB,
 // fetch, DecompressionStream with SHA-256, the Cache API and persistent storage. Values cross as text (JSON), numbers and
@@ -100,6 +101,13 @@ internal fun storagePersist(): Promise<JsBoolean> = js("""
     })()""")
 
 // fetch
+
+/** The answer of a request made with the functions below. Their rejection (the browser couldn't make the request, or it
+ * failed) reaches Kotlin as a JavaScript error, which isn't an Exception: it comes out as an IOException, so callers
+ * catching a failed request's Exception take it as one instead of letting it through as a crash. */
+internal suspend fun <T : JsAny?> Promise<T>.awaitRequest(): T = try { await<T>() } catch (failure: Throwable) {
+    throw if (failure is Exception) failure else org.asyncttwiz.appui.requestFailed(failure)
+}
 
 /** GET [url] as text of at most [maxBytes] bytes, no cache, no redirects; rejects unless the answer is 200. */
 internal fun fetchText(url: String, maxBytes: Double): Promise<JsString> = js("""

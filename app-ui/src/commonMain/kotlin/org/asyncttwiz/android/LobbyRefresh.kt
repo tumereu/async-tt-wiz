@@ -26,7 +26,7 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
     @Volatile var inForeground = true
         private set
     private var refreshError: String? = null
-    private val quietFailures = QuietRefreshFailures(clock)
+    private val quietFailures = QuietRefreshFailures(clock, tag = "lobby")
     /** Fences a list read in flight, so its result is dropped. */
     fun fence() { refreshVersion++ }
     fun clear() { refreshError = null; quietFailures.succeeded(); gamesSince = null; invitationsSince = null }

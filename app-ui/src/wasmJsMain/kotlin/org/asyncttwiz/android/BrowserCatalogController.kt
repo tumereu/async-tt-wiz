@@ -96,7 +96,7 @@ internal class BrowserCatalogDownloads(private val origin: String) : CatalogDown
     init { require(!origin.endsWith('/')) { "Not a catalog origin" } }
 
     override suspend fun current(): CatalogVersion {
-        val text = fetchText("$origin/v1/catalog", 64.0 * 1024).await<JsString>().toString()
+        val text = fetchText("$origin/v1/catalog", 64.0 * 1024).awaitRequest<JsString>().toString()
         return json.decodeFromString(CatalogVersion.serializer(), text).also {
             check(BrowserCatalogInstaller.validChecksum(it.checksum)) { "Not a catalog checksum" }
         }
@@ -104,7 +104,7 @@ internal class BrowserCatalogDownloads(private val origin: String) : CatalogDown
 
     override suspend fun download(checksum: String, progress: (Long) -> Unit): JsAny {
         require(BrowserCatalogInstaller.validChecksum(checksum))
-        return fetchBlob("$origin/v1/catalog/$checksum", MAX_BYTES.toDouble()) { progress(it.toLong()) }.await()
+        return fetchBlob("$origin/v1/catalog/$checksum", MAX_BYTES.toDouble()) { progress(it.toLong()) }.awaitRequest()
     }
 
     private companion object {

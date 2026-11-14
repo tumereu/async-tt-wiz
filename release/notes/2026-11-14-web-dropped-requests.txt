@@ -1,0 +1,1 @@
+fix: In the web version, a dropped connection while the draft, game or deck lists load no longer counts as a crash or stops the Drafts screen from updating: the lists try again quietly, as on the phone.

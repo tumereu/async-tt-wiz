@@ -56,7 +56,11 @@ class ActivityApi(private val origin: String, private val client: HttpClient = A
             if (bytes.size > 65536) throw ActivityFetchFailure(400)
             return bytes.decodeToString(throwOnInvalidSequence = true)
         } catch (failure: ActivityFetchFailure) { throw failure
-        } catch (_: Exception) { throw ActivityFetchFailure(0) }
+        } catch (failure: Exception) {
+            if (failure !is kotlinx.coroutines.CancellationException)
+                AppLog.warn("http", "${method.value} ${path.substringBefore('?')} failed", failure)
+            throw ActivityFetchFailure(0)
+        }
     }
     override fun close() = client.close()
     companion object {

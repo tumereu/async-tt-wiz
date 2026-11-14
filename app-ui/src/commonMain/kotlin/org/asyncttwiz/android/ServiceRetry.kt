@@ -15,7 +15,7 @@ suspend fun <T> serviceRetry(wait: (suspend (Long) -> Unit)? = null,
         if (!current()) throw kotlinx.coroutines.CancellationException("Request owner changed")
         try { return action() } catch (failure: Exception) {
             if (!transientServiceFailure(failure) || attempt == delays.size) throw failure
-            AppLog.info("http", "Retrying after ${simpleClassName(failure)}")
+            AppLog.info("http", "Retrying in ${delays[attempt]} ms after ${failureKind(failure)}")
             if (wait == null) delay(delays[attempt]) else wait(delays[attempt])
         }
     }
@@ -30,12 +30,39 @@ fun transientServiceFailure(failure: Throwable): Boolean = when (failure) {
     else -> failure is kotlinx.io.IOException
 }
 
+/** A request failure in a few words for the app log: its code (network, unavailable, ...), else its class. */
+fun failureKind(failure: Throwable): String = when (failure) {
+    is DeckFailure -> "DeckFailure(${failure.code})"
+    is LobbyFailure -> "LobbyFailure(${failure.code})"
+    is PodFailure -> "PodFailure(${failure.code})"
+    is AccountFailure -> "AccountFailure(${failure.code})"
+    else -> simpleClassName(failure)
+}
+
 /** Automatic refreshes of data already on screen stay silent through short outages; the player
- * is told only once they have kept failing for [quietMillis]. Requests the player made report at once. */
-class QuietRefreshFailures(private val now: () -> Long, private val quietMillis: Long = 30_000) {
+ * is told only once they have kept failing for [quietMillis]. Requests the player made report at once.
+ * With a [tag], a stretch of failures is in the app log as it starts, as the note shows and as it ends (not per poll). */
+class QuietRefreshFailures(private val now: () -> Long, private val quietMillis: Long = 30_000, private val tag: String? = null) {
     private var since: Long? = null
-    fun succeeded() { since = null }
+    private var failures = 0
+    private var noted = false
+    fun succeeded() {
+        val start = since
+        if (start != null && tag != null) AppLog.info(tag, "Refreshes work again after $failures quiet failures in " +
+            "${(now() - start) / 1000} s${if (noted) "; the can't-reach note hidden" else ""}")
+        since = null; failures = 0; noted = false
+    }
     /** Records a transient failure of a quiet refresh; true once such failures have lasted [quietMillis]. */
-    fun failed(): Boolean { val start = since ?: now().also { since = it }; return now() - start >= quietMillis }
+    fun failed(): Boolean {
+        val start = since ?: now().also { since = it }
+        failures++
+        val note = now() - start >= quietMillis
+        if (tag != null) {
+            if (failures == 1) AppLog.info(tag, "Refresh failed: kept quiet, the next refresh retries; the can't-reach note after ${quietMillis / 1000} s")
+            else if (note && !noted) AppLog.info(tag, "Refreshes failing for ${(now() - start) / 1000} s ($failures failures): the can't-reach note shown")
+        }
+        noted = noted || note
+        return note
+    }
 }
 fun monotonicMillis() = nanoTime() / 1_000_000

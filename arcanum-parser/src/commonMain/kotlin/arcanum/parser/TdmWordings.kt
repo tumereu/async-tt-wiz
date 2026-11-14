@@ -157,11 +157,12 @@ internal object Tdm {
     val DAMAGE_ANY_GAIN_IF_PLAYER_DISCARDS = Regex("""(.+?) deals (\d+) damage to any target and you gain (\d+) life\. If a player is dealt damage this way, they discard a card\.""")
     // tdm chunk 11: "Whenever one or more counters are put on a creature you control, if it's the first time counters have been put on that creature
     // this turn, put a +1/+1 counter on that creature."
-    val FIRST_TIME_COUNTERS_THIS_TURN = Regex("""it's the first time counters have been put on that creature this turn""")
+    val FIRST_TIME_COUNTERS_THIS_TURN = Regex("""it's the first time (?:(\S+) )?counters have been put on that (?:creature|permanent) this turn""")
     // tdm chunk 11: "During your turn, spells you cast cost {1} less to cast for each creature you control with power 4 or greater."
+    // mom chunk 01: also without "During your turn" ("Spells you cast cost {1} less to cast for each card your opponents have drawn this turn.")
     val DURING_YOUR_TURN_SPELLS_COST_LESS_FOR_EACH = Regex("""(During your turn, )?((?:.+? )?[Ss]pells you cast) cost (\{[^}]+\}) less to cast for each (.+)\.""")
     // tdm chunk 11: "Spells you cast have delve."
-    val SPELLS_YOU_CAST_HAVE = Regex("""Spells you cast have (\w+)\.""")
+    val SPELLS_YOU_CAST_HAVE = Regex("""Spells you cast(?: from (exile|your hand))? have (\w+)\.""")
     // tdm chunk 11: "Whenever you cast a spell, you lose life equal to its mana value."
     val LOSE_LIFE_EQUAL_ITS_MV = Regex("""[Yy]ou lose life equal to its mana value\.""")
     // tdm chunk 11: "it deals X damage divided as you choose among any number of target creatures and/or planeswalkers your opponents control, where X
@@ -308,8 +309,12 @@ internal object TdmPhrases {
         }
         // tdm chunk 11: "it's the first time counters have been put on that creature this turn" (the counters of the event are the first: one such
         // event this turn)
-        if (Tdm.FIRST_TIME_COUNTERS_THIS_TURN.matches(text)) return Condition.Compare(Value.EventsThisTurn(EventPattern.CountersPut(
-            ObjectFilter.Is(Objects.EventObject(arcanum.api.EventRole.Object))), Measure.Events), Comparison.Equal, Value.Fixed(1))
+        // mom chunk 11: "it's the first time +1/+1 counters have been put on that permanent this turn" (only counters of that kind count)
+        Tdm.FIRST_TIME_COUNTERS_THIS_TURN.matchEntire(text)?.let { m ->
+            val kind = if (m.groupValues[1].isEmpty()) null else Counters.kind(m.groupValues[1]) ?: return null
+            return Condition.Compare(Value.EventsThisTurn(EventPattern.CountersPut(
+                ObjectFilter.Is(Objects.EventObject(arcanum.api.EventRole.Object)), kind), Measure.Events), Comparison.Equal, Value.Fixed(1))
+        }
         // tdm chunk 09: "it's your main phase" (CR 505.1)
         if (text == "it's your main phase") return Condition.And(listOf(Condition.YourTurn,
             Condition.Or(listOf(Condition.StepIs(TurnStep.PrecombatMain), Condition.StepIs(TurnStep.PostcombatMain)))))

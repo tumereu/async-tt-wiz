@@ -135,8 +135,14 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("colorless") data object Colorless : ObjectFilter
     @Serializable @SerialName("multicolored") data object Multicolored : ObjectFilter
     @Serializable @SerialName("monocolored") data object Monocolored : ObjectFilter
+    // mom
+    /** Is exactly [count] of the five colours ("a spell that's exactly two colors", CR 105.2). */
+    @Serializable @SerialName("color-count") data class ColorCount(val count: Int) : ObjectFilter
     /** Shares a colour / card type / creature type with [objects]. */
     @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects) : ObjectFilter
+    /** mom chunk 09: a double-faced card or permanent: a nonmodal or modal double-faced card or a meld card (CR 712.1), also a double-faced
+     * token (CR 111.13), whichever face is up ("If it's a land or double-faced card"). */
+    @Serializable @SerialName("double-faced") data object DoubleFaced : ObjectFilter
 
     @Serializable @SerialName("controlled-by") data class ControlledBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("owned-by") data class OwnedBy(val players: PlayerFilter) : ObjectFilter
@@ -397,6 +403,9 @@ sealed interface Players {
      * the battle they attack (CR 506.2, 802.2a). In an attack trigger, "defending player" is
      * `DefendingPlayerOf(EventObject())`; [EventPlayer] is only for "the player it's attacking". */
     @Serializable @SerialName("defending-player-of") data class DefendingPlayerOf(val attackers: Objects) : Players
+    // mom chunk 10
+    /** The protector of each battle in [battles] ("If an opponent protects it", CR 310.8, 310.9). */
+    @Serializable @SerialName("protector-of") data class ProtectorOf(val battles: Objects) : Players
     /** In a permission ([Mechanic.MayPlay]): the player using it ("Any player may cast creature spells … from their
      * hand": cards owned by the holder). */
     @Serializable @SerialName("holder") data object Holder : Players

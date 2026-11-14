@@ -454,19 +454,18 @@ internal object Payment {
                     var left = n
                     objects(part.from).forEach { id ->
                         val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                        val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@forEach
-                        val taken = minOf(left, o.counters(kind))
-                        if (taken > 0) recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -taken, listOf(Meaning.Paid)))
-                        left -= taken
+                        val has = part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }
+                        // CR 601.2h, 608.2d: of no named kind, the payer chooses which counters
+                        if (has > 0 && left > 0) left -= Actions.removeChosenCounters(act, player, plan.sourceId, id, part.kind, minOf(left, has), listOf(Meaning.Paid))
                     }
                     if (left > 0) refuse("Not enough counters among them")
                     return
                 }
                 objects(part.from).forEach { id ->
                     val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                    val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: refuse("No counters on $id")
-                    if (o.counters(kind) < n) refuse("Not enough counters on $id")
-                    recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -n, listOf(Meaning.Paid)))
+                    // CR 601.2h, 608.2d: of no named kind, any counters count and the payer chooses which
+                    if ((part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }) < n) refuse("Not enough counters on $id")
+                    Actions.removeChosenCounters(act, player, plan.sourceId, id, part.kind, n, listOf(Meaning.Paid))
                 }
             }
             // msh: "Get five poison counters" (ward, CR 122.1)
@@ -603,6 +602,7 @@ internal object Payment {
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
+            permission.total?.let { total -> usePermission(recorder, plan, total) }
             // blb: what the permission gives a spell cast with it ("that creature enters with a finality counter", CR 400.7d)
             if (permission.spellGets.isNotEmpty()) recorder.record(Changes.effect(recorder.state) { t ->
                 val next = (id as? ObjectId.Card)?.next()
@@ -702,6 +702,13 @@ internal object Payment {
 
     private fun recorderKeyword(plan: Plan, root: AbilityOrigin) =
         plan.snap.view[plan.itemId]?.characteristics?.abilities?.firstOrNull { it.origin == root }?.let { (it.ability as? Keyword)?.kind }
+
+    /** mom: a spell cast with a permission limited to [total] spells in all uses one up; the effect that grants it keeps the count (and its
+     * other mechanics). */
+    private fun usePermission(recorder: Recorder, plan: Plan, total: Int) {
+        val effect = plan.way.permission?.effect?.let { recorder.state.effects[it] } ?: return
+        recorder.record(Change.EffectUpdated(effect, effect.copy(usesLeft = (effect.usesLeft ?: total) - 1)))
+    }
 
     private fun countPermission(recorder: Recorder, plan: Plan) {
         val p = plan.way.permission ?: return

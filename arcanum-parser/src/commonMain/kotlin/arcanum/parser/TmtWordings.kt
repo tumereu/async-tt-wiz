@@ -82,7 +82,7 @@ internal object Tmt {
     val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
     // woe chunk 08: also "{X} less to activate, where X is …. This effect can't reduce the mana in that cost to less than one mana."; one chunk 09: "that target …"; mkm chunk 02: the floor of one mana
     val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}|\{X\}) less to activate(?:, where X is (.+?))?\.( This effect can't reduce the mana in that cost to less than one mana\.)?""")
-    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
+    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(any number of|\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // mom chunk 07: "for any number of Praetor cards"; fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     val EACH_PLAYER_CREATES = Regex("""[Ee]ach player creates (.+)\.""")
     val OPPONENTS_ARE_ATTACKED = Regex("""one or more of your opponents are attacked""")
@@ -101,7 +101,8 @@ internal object Tmt {
     val UNTAP_ONE_OR_TWO_ADDITIONAL_COMBAT = Regex("""[Uu]ntap one or two target (.+?)\. After this phase, there is an additional combat phase\.""")
     val REVEAL_UNTIL_TAPPED_ATTACKING = Regex("""[Rr]eveal cards from the top of your library until you reveal an? (.+?) card\. Put that card onto the battlefield tapped and attacking and the rest on the bottom of your library in a random order\.""")
     val MANA_SPENT_LESS_THAN_MANA_VALUE = Regex("""the amount of mana spent to cast it was less than its mana value""")
-    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create a token that's a copy of (.+?)(?:, except (.+?))?\. (?:That token|It) gains haste\. Sacrifice it at the beginning of the next end step\.""")
+    // mom chunk 12: also "It gains haste." and "Create five tokens that are copies of … They gain haste. Sacrifice them …"; lci chunk 10: ", except …"
+    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:That token|It) gains haste\. Sacrifice it at the beginning of the next end step\.|Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:They|Those tokens) gain haste\. Sacrifice them at the beginning of the next end step\.""")
     val TARGET_PLAYER_GAINS_AND_DRAWS = Regex("""Target player gains (\d+) life and draws (\w+) cards?\.""")
     val EACH_OF_YOUR_OPPONENTS = Regex("""Each of your opponents (.+)""")
     val TOKEN_FOR_EACH_COUNTER_ON_IT = Regex("""[Cc]reate an? (\w+) token for each (\+1/\+1) counter on it\.""")

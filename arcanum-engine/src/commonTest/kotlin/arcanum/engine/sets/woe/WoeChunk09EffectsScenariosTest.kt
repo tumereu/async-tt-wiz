@@ -33,7 +33,7 @@ class WoeChunk09EffectsScenariosTest {
     private val ogre = Cards.invent("Cragside Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
     private val hulk = Cards.invent("Moorland Hulk", "{5}{G}", "Creature — Beast", "", "7/7")
     private val squire = Cards.invent("Field Squire", "{W}", "Creature — Human Soldier", "", "1/1")
-    private val jolt = Cards.invent("Cinder Smite", "{R}", "Instant", "Cinder Smite deals 3 damage to target creature.")
+    private val jolt = Cards.invent("Cinder Snap", "{R}", "Instant", "Cinder Snap deals 3 damage to target creature.")
     private val spit = Cards.invent("Ember Spit", "{R}", "Instant", "Ember Spit deals 3 damage to any target.")
     private val prick = Cards.invent("Needle Prick", "{R}", "Instant", "Needle Prick deals 1 damage to target creature.")
     private val ward = Cards.invent("Gilded Ward", "{W}", "Enchantment — Aura", "Enchant creature")

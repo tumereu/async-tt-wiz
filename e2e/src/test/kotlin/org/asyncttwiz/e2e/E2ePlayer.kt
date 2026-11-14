@@ -282,8 +282,9 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         return org.asyncttwiz.android.DesktopKeyboard.dispatch(org.asyncttwiz.android.DesktopKey(name, down, keyTime, shift = shift, ctrl = ctrl))
     }
 
-    /** The page's key [name] pressed and released (a tap of it), with [shift] / [ctrl] held. */
-    fun press(name: String, shift: Boolean = false, ctrl: Boolean = false) {
+    /** The page's key [name] pressed and released (a tap of it), with [shift] / [ctrl] held. Not named `press`: a member
+     * hides a test's own `E2ePlayer.press` extension (MoveColourTest's taps became keys nobody took). */
+    fun pressKey(name: String, shift: Boolean = false, ctrl: Boolean = false) {
         if (shift) key("Shift", true, shift = true)
         key(name, true, shift, ctrl)
         key(name, false, shift, ctrl)

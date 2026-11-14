@@ -50,10 +50,10 @@ class DesktopTableTest : E2e() {
     // her turn
     @Test fun aTurnWithTheMouseAndTheKeys() {
         start()
-        alice.press("?", shift = true)
+        alice.pressKey("?", shift = true)
         waitUntil("the list of keys over Alice's table") { sheetShown() }
         assertTrue(alice.showsText("Ctrl+Z") && alice.showsText("Shift+Space"), "her keys listed: ${alice.screen()}")
-        alice.press("?", shift = true)
+        alice.pressKey("?", shift = true)
         waitUntil("the list closed") { !sheetShown() }
         keep()
         clickFromHand("Mountain")
@@ -76,7 +76,7 @@ class DesktopTableTest : E2e() {
         // WEB-031: Space is a tap on the main button
         val words = alice.mainWords()
         alice.pastMainGuard()
-        alice.press(" ")
+        alice.pressKey(" ")
         waitUntil("Alice past her Main 1 after Space (the main button said $words)") {
             alice.state.turn.step != TurnStep.PrecombatMain || alice.state.turn.active != alice.me
         }
@@ -84,7 +84,7 @@ class DesktopTableTest : E2e() {
         waitUntil("Alice's main button") { alice.settled(this) && alice.stepArrow() != null || alice.state.turn.active != alice.me }
         if (alice.state.turn.active == alice.me) {
             alice.pastMainGuard()
-            alice.press(" ", shift = true)
+            alice.pressKey(" ", shift = true)
         }
         waitUntil("Bob's turn after Alice's Shift+Space", along = listOf(bob)) { alice.state.turn.number >= 2 }
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
@@ -94,13 +94,13 @@ class DesktopTableTest : E2e() {
     // for her account; back at the table Space no longer goes on and N does
     @Test fun aReboundKeyActsOnTheTable() {
         start()
-        alice.press("?", shift = true)
+        alice.pressKey("?", shift = true)
         waitUntil("the list of keys") { sheetShown() }
         alice.tagged("hotkey-sheet-settings").performClick()
         waitUntil("Alice's keyboard settings") { alice.shows(hasTestTag("keyboard-shortcuts")) && !sheetShown() }
         alice.tagged(hotkeyRowTag(HotkeyAction.Main)).performScrollTo().performClick()
         waitUntil("the row waiting for a key") { alice.showsText("Press a key… Esc cancels") }
-        alice.press("n")
+        alice.pressKey("n")
         waitUntil("N on the main button's row") { alice.shows(hasContentDescription("Main button: N")) }
         waitUntil("the server keeping Alice's key") {
             runBlocking { org.asyncttwiz.android.AccountApi(E2eStack.origin).use { it.accountSettings(alice.account.token) } }.keyBindings ==
@@ -113,11 +113,11 @@ class DesktopTableTest : E2e() {
         keep()
         waitUntil("Alice's game settled") { alice.settled(this) && alice.stepArrow() != null }
         alice.pastMainGuard()
-        alice.press(" ")
+        alice.pressKey(" ")
         repeat(3) { run(skip = java.time.Duration.ofMillis(400)) }
         assertTrue(alice.inOwnMain(), "Space does nothing now")
         alice.pastMainGuard()
-        alice.press("n")
+        alice.pressKey("n")
         waitUntil("Alice past her Main 1 after N") { alice.state.turn.step != TurnStep.PrecombatMain || alice.state.turn.active != alice.me }
         assertEquals(emptyList(), alice.leaks.leaks)
     }

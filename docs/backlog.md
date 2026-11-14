@@ -33,6 +33,26 @@ Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 
 - One chat on the desktop table (WEB-017, LOB-066): the top row's chat button opens or focuses the dock's chat (unfolding the dock); no second chat view.
 - Stack animation (spec `docs/specs/stack-animation.md`, owner 2026-11-14): source → middle → Stack with no second move, an entry on the Stack only as long as its own animation (target arrows pre-resolve, the effect post-resolve) (HIS-112, STK-058, TBL-125).
 
+Owner notes 2026-11-14 evening, agreed changes (after the desktop playtest batch and the Stack animation; two workers may run in parallel, one per group). Each is first checked on master.
+
+Table and casting:
+- Casting with a mana source that taps cards (e.g. Supportive Parents: "Tap two untapped creatures you control: Add one mana") when the app finds no sure payment: no dialog offering cards by name, ever (owner: anything done on the board is done by tapping the cards themselves; a card can have auras, counters, effects, too much to show as a dialog choice). The cast panel just says what's still owed and that you produce the mana on the board; the attempt stays allowed as now.
+- Mana chips while casting: a pile of lands shows one combined chip of all the mana the pile will produce (single cards keep their own chip); the out-of-view mana text goes (the eye toggle and panning show the sources).
+- While a cast, choice or other panel is open, your hand is dimmed (about 40%) and not tappable, unless the choice is about a hand card.
+- "Assume resolves" reads "Assume pass" when the Stack is empty (nothing to resolve).
+- Combat chips under combatants keep readable at any zoom: their text scales down with the zoom (or clips) instead of disappearing. The "who it's attacking" chip goes: the attacker's lane already shows it.
+- Piles where your tap spreads the pile rather than selects get a different glow when targeting or pseudo-targeting; after the spread every valid target has the normal targeting glow.
+- An uncrewed Vehicle shows "Crew N" in its bottom text when it fits (usually one short line); Crew N comes before any crewed P/T.
+- Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
+
+Lobby, chat and accounts:
+- Challenge button (pods and wherever it shows): if they have an open challenge to you, it accepts that one instead of creating a new room; a "New challenge" choice still queues more challenges to them.
+- A game's chat can be opened from the lobby (e.g. the game row's menu, with an unread count).
+- Game and pod chat messages show a small timestamp, with a date line between days.
+- The undeletable default Glimpse preset becomes a regular preset every account gets on creation (existing accounts get it as an ordinary copy), freely editable and deletable like other presets.
+- Rotisserie draft: separate settings for the pool size per player and the picks per player.
+- Avatar selection, phone and desktop: the choices get context (show names); the search results area that becomes scrollable looks it (borders/edges); the desktop layout uses its much larger space.
+
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).
@@ -91,6 +111,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - Summoning-sick permanents in the same battlefield group as their non-sick copies (owner idea, 2026-11-07; owner testing first): one group regardless of sickness with a "2 sick" badge, attacks picking a non-sick member first, so groups don't reshuffle after the turn.
 
 ## Later (nice to have)
+
+- Repeating a loop ("infinite" combos; owner 2026-11-14): record a sequence of actions as a macro and repeat it N times, with the engine handling large numbers (mana, life, damage, counters) and many tokens (a counted token pile instead of a million objects). **Don't build until properly specified** (owner: "needs more design").
 
 - Automatic answers (owner wishlist, 2026-11-12): remembered answers to "you may" choices (always yes / always no per ability), perhaps for other repeated choices too, like the remembered trigger orders below.
 

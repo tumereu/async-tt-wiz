@@ -31,6 +31,12 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val bottomPanel: (@Composable (@Composable () -> Unit) -> Unit)? = null,
     val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
+    /** Stack animation step 5 (owner spec 2026-11-14): the share of its own time the board's next animation takes (a
+     * repeat's resolution plays faster); 1: its whole time. */
+    val sceneTimeShare: Double = 1.0,
+    /** HIS-112: the Stack entries of plays shown that landed: one arriving on the Stack appears in place (the play shown
+     * flew there), never flying there itself. */
+    val landedEntries: List<String> = emptyList(),
     val liveView: Boolean = !reviewing,
     val changes: TableChanges? = null,
     /** The opponent's presence: a dot on their life square and a line in their life panel. */

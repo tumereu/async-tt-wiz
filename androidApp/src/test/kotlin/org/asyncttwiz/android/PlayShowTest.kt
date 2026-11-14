@@ -48,13 +48,9 @@ class PlayShowTest {
             MaterialTheme {
                 NoRipples {
                     CompositionLocalProvider(LocalEngineRoutes provides kit.routes) {
-                        Box(Modifier.fillMaxSize()) {
-                            val play = kit.alice.play()
-                            TableSurface(kit.f.game, play, kit.f.a, false, Modifier.fillMaxSize(), connected = true,
-                                onIntent = kit.toolkit::handle, toolkit = kit.toolkit,
-                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { kit.routes.undo() },
-                                    controlsConnected = true, waitingLine = kit.routes.waitingLine(play)))
-                        }
+                        // Stack animation (owner 2026-11-14): her table as the engine table draws it, the play's entry off it
+                        // until it lands
+                        Box(Modifier.fillMaxSize()) { StackAnimatedTable(kit, Modifier.fillMaxSize()) }
                     }
                 }
             }

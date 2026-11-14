@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
@@ -382,8 +383,13 @@ fun desktopPhaseLabel(phase: String): String = when (phase) {
  */
 @Composable
 fun DesktopDock(play: TableBoard, viewer: String, names: Map<String, String>, modifier: Modifier = Modifier,
+    /** HIS-112 (Stack animation, owner 2026-11-14): told where a new top entry goes in the list (root dp, a card's size; null
+     * once the dock is gone), for a play shown to fly into it. */
+    stackPlace: (TableBounds?) -> Unit = {},
     chat: @Composable (Modifier) -> Unit) {
     val order = CombatStackRules.stack(play.board).cards
+    val entrySize = rememberCardAppearance().size(CardArea.STACK)
+    DisposableEffect(Unit) { onDispose { stackPlace(null) } }
     // WEB-017 (owner, desktop playtest 2026-11-14): how the dock shares its height between the Stack and the chat, logged as
     // it changes, so a report of a squeezed Stack or chat says what was measured
     var stackShown by remember { mutableIntStateOf(0) }
@@ -401,7 +407,17 @@ fun DesktopDock(play: TableBoard, viewer: String, names: Map<String, String>, mo
             Column(Modifier.fillMaxSize()) {
                 Text("STACK · ${order.size}", Modifier.padding(start = 16.dp, top = 10.dp, bottom = 6.dp).semantics { heading() },
                     fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, color = MenuInk)
-                val measured = Modifier.onSizeChanged { stackShown = (it.height / density).toInt() }
+                // The list's top (its first entry's card, or the "Empty" box's middle): where a new top entry shows, as it is drawn
+                // on the screen (its corners mapped to the root, so a scaled dock, DesktopScaled, gives its drawn place and size)
+                val measured = Modifier.onSizeChanged { stackShown = (it.height / density).toInt() }.onGloballyPositioned { c ->
+                    val w = 32f * entrySize * density
+                    val h = 44f * entrySize * density
+                    val x = if (order.isEmpty()) (c.size.width - w) / 2 else 0f
+                    val y = if (order.isEmpty()) (c.size.height - h) / 2 else 0f
+                    val from = c.localToRoot(androidx.compose.ui.geometry.Offset(x, y))
+                    val to = c.localToRoot(androidx.compose.ui.geometry.Offset(x + w, y + h))
+                    stackPlace(TableBounds(from.x / density, from.y / density, (to.x - from.x) / density, (to.y - from.y) / density))
+                }
                 if (order.isEmpty()) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp).then(measured)
                     .border(1.dp, MenuBorder, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
                     Text("Empty", fontSize = 12.sp, color = MenuInk.copy(alpha = .6f))

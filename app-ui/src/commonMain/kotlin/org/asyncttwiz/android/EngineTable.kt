@@ -48,6 +48,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.first
 import org.asyncttwiz.protocol.*
@@ -110,6 +111,9 @@ interface EngineRoutes {
 
     /** HIS-021, HIS-112, HIS-113: whether a held finger pauses something the view is waiting on now (the corner's icon). */
     fun viewPaused(): Boolean = false
+
+    /** The Stack animation of this table (owner spec 2026-11-14: HIS-112, STK-058, TBL-125); null without a game's view. */
+    val stackAnimation: StackAnimation? get() = null
 }
 
 /**
@@ -230,6 +234,10 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
      * to wait for its rewind (HIS-097). Set by the table. */
     var motionBusy: () -> Boolean = { false }
 
+    /** HIS-112, Stack animation: whether the table is ready for the plays shown now (the board's steps where they went on
+     * the Stack, no entry's arrows playing; read as snapshot state). Set by the table. */
+    var showReady: () -> Boolean = { true }
+
     /** Enters timeline mode at [at] (HIS-004); playback running meanwhile waits paused for the centre text (HIS-006). */
     fun enterReview(at: String) {
         engine?.historyRetry()
@@ -326,9 +334,12 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     override val viewPause = ViewPause()
 
+    override val stackAnimation = StackAnimation(viewer)
+
     /** Live and in catch-up playback, not in timeline mode (its own Auto, HIS-017) or a branch's take-back (HIS-106). */
     override fun viewPaused(): Boolean = viewPause.paused && review == null && game()?.shown?.let { s ->
-        !s.takingBack && (s.show != null || s.combatHold != null || s.status is GameDevice.Status.Playing) } == true
+        !s.takingBack && (s.show != null || s.combatHold != null || s.status is GameDevice.Status.Playing ||
+            stackAnimation.targeting?.done == false) } == true
 
     /** TRN-015, I-D56 §14: the step arrow acts only for the viewer: shown while they may act. */
     fun arrowShown(): Boolean = when (status()) {
@@ -788,11 +799,10 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     LaunchedEffect(game, showMillis > 0) { game.showPlays(showMillis > 0) }
     // HIS-112 (owner playtest 2026-11-11): the next play shows the moment the one before lands, not once the device's
     // dismissal of that one is back from the engine thread: the plays this table ended are passed over until the device's
-    // list drops them
-    val endedShows = remember(game) { mutableStateListOf<GameDevice.PlayShow>() }
-    SideEffect { if (endedShows.any { it !in shown.moments }) endedShows.retainAll(shown.moments.toSet()) }
+    // list drops them (the Stack animation keeps them: their entries show on the board from their landing on)
+    val stackAnimation = routes.stackAnimation
     // HIS-112 (owner 2026-11-12): the plays put on the Stack in one go show together: they fly in, then show top first
-    val shows = playShowGroup(shown.moments, endedShows)
+    val shows = playShowGroup(shown.moments, stackAnimation.ended)
     val show = shows.firstOrNull()
     val showPace = remember(game) { PlayShowPace() }
     val showTapScope = rememberCoroutineScope()
@@ -800,7 +810,9 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     // TRN-074: a play and the turn banner never overlap: one follows the other
     if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         val peekHeight = holdPreviewScreenHeight()
-        PlayShowOverlay(play, scene, routes.viewer, shows, names, showMillis, routes.viewPause, tapScope = showTapScope, pace = showPace,
+        // Made from the board with their entries on it (the table's board has them off until they land)
+        PlayShowOverlay(LocalUnhiddenPlay.current ?: play, scene, routes.viewer, shows, names, showMillis, routes.viewPause,
+            tapScope = showTapScope, pace = showPace, ready = { routes.showReady() }, dockTop = { stackAnimation.dockTop },
             // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
             inspect = { held, holding ->
                 if (holding) {
@@ -811,7 +823,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
             },
             moved = { dx, dy, step ->
                 if (peekSwipe?.moved(dx, dy) != true) peekScroll?.holdPreviewScroll(step, peekHeight)
-            }) { ended -> endedShows += ended; game.dismissShow(ended); routes.pump() }
+            }) { ended -> stackAnimation.land(ended); game.dismissShow(ended); routes.pump() }
     }
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
@@ -924,6 +936,9 @@ const val OLDER_HISTORY_MARGIN = 12
 
 private const val QUICK_PLAYBACK_MS = 120L
 
+/** Stack animation: the longest playback waits for the table to settle on an event that put an entry on the Stack. */
+private const val STACK_SETTLE_CAP_MS = 1_000L
+
 /** HIS-021 (§29.3): the playback delay at Card move speed 1×: about a third of the old 1 s default. */
 const val PLAYBACK_DELAY_MS = 330L
 
@@ -934,13 +949,16 @@ fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardMoveMultip
  * HIS-021 (§27, §29.3, §29.6): how long playback waits after showing [shown] before the next event: nothing after an
  * event that changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved; with playback's Full
  * control on, [mode], the delay too, except a pass made right after the same player's own action, [previous], HIS-104), a
- * short moment after the other player's staging and early answers, else the playback [delay].
+ * short moment after the other player's staging and early answers, nothing after an event that left an entry it put on the
+ * Stack there (Stack animation, owner 2026-11-14: an entry stays on the Stack only as long as its own animation, its move
+ * there and its arrows, which the table plays before the next event), else the playback [delay].
  */
 fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null): Long = when {
     shown == null -> 0L
     EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl && !EnginePlaybackPace.passAfterOwnAction(shown, previous)) delay else 0L
     shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft ||
         it is TableChange.EarlyAnswered } -> QUICK_PLAYBACK_MS
+    EnginePlaybackPace.leavesStackEntry(shown) -> 0L
     else -> delay
 }
 
@@ -965,6 +983,16 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         // HIS-112, HIS-021: an event whose plays were shown already had its moment: no playback delay after it
         val wait = if (last != null && last.id == shown.showDone) 0L
             else playbackWait(last, playbackDelay(multiplier), shown.settings.mode, shown.held.getOrNull(shown.held.size - 2))
+        val stack = routes.stackAnimation
+        if (!shown.takingBack && stack.busy) snapshotFlow { stack.busy }.first { !it }
+        if (!shown.takingBack && stack.driven && last != null && EnginePlaybackPace.leavesStackEntry(last)) {
+            // Stack animation (owner spec 2026-11-14): an entry put on the Stack stays there only as long as its own animation:
+            // its move there (the table settling on the event's board), then its arrows (step 4) below
+            val settled = withTimeoutOrNull(STACK_SETTLE_CAP_MS) { snapshotFlow { stack.settledNode == last.id }.first { it } }
+            if (settled == null) AppLog.info("game", "Playback: the table didn't settle on ${last.id.take(8)} within $STACK_SETTLE_CAP_MS ms; going on")
+        }
+        // Stack animation: the next event waits for the top entry's arrows (step 4) to play
+        if (!shown.takingBack && stack.busy) snapshotFlow { stack.busy }.first { !it }
         if (pause != null) pause.wait(wait) else if (wait > 0) delay(wait)
         // Web client step 4d: the callback form (the device may be in the browser's worker; Android answers at once)
         if (game.shown?.status is GameDevice.Status.Playing) game.step { routes.pump() }
@@ -983,6 +1011,21 @@ object EnginePlaybackPace {
         if (event.table.isNotEmpty()) return false
         if (part.steps.any { it.input?.let(::empty) == false }) return false
         return part.changes.none(::visible)
+    }
+
+    /**
+     * Stack animation (owner spec 2026-11-14; the fixed pause it removes: HIS-021's playback delay held a spell or ability
+     * the other player put on the Stack there, small, before the next event could resolve it): whether [event] put an entry
+     * on the Stack that is still there after it.
+     */
+    fun leavesStackEntry(event: GameEvent): Boolean {
+        val added = HashSet<ObjectId>()
+        for (change in event.engine?.changes.orEmpty()) when (change) {
+            is arcanum.engine.change.Change.StackItemAdded -> added += change.item.id
+            is arcanum.engine.change.Change.StackItemRemoved -> added -= change.item.id
+            else -> {}
+        }
+        return added.isNotEmpty()
     }
 
     /**

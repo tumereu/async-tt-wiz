@@ -201,7 +201,9 @@ class HistorySceneAnimation(initial: TableScene) {
     }
     /** False means confirmation/metadata only: the caller must leave the running clock alone. */
     fun retarget(target: TableScene, currentProgress: Float, faceChanges: Set<String> = emptySet(),
-        shuffles: Set<String> = emptySet(), shuffleCursor: String? = null): Boolean {
+        shuffles: Set<String> = emptySet(), shuffleCursor: String? = null,
+        /** HIS-112: Stack entries whose play shown flew into their place: arriving, they appear there. */
+        landed: Set<String> = emptySet()): Boolean {
         val freshShuffle = shuffles.isNotEmpty() && shuffleCursor != null && shuffleCursor != lastShuffleCursor
         if (target.animationTargets == destination.animationTargets && !freshShuffle) {
             if (shuffleCursor != null) lastShuffleCursor = shuffleCursor
@@ -232,6 +234,12 @@ class HistorySceneAnimation(initial: TableScene) {
         val arrivals = end.values.filter { it.item.kind == TableItemKind.CARD && it.item.animationId !in start }
         for (arrival in arrivals) {
             val item = arrival.item
+            if (item.zone == org.asyncttwiz.protocol.PlayZone.STACK && item.cardId in landed) {
+                // HIS-112 (owner playtest 2026-11-14): a play shown landed here: its entry takes the flying card's place, with
+                // no move or fade of its own
+                start = start + (item.animationId to arrival.copy(alpha = 1f))
+                continue
+            }
             if (item.zone == org.asyncttwiz.protocol.PlayZone.STACK && item.projection &&
                 !destination.stackContains(item.cardId)) {
                 destination.realCardBounds(item.sourceId)?.let { bounds ->

@@ -25,6 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -165,6 +170,12 @@ class PlayShowPace {
         return repeats to gap
     }
 
+    /** How many times [key] showed before in the chain a play beginning at [now] would continue (nothing changed). */
+    fun peek(key: Any?, now: Long): Int {
+        if (key == null || landedAt?.let { now - it <= PLAY_SHOW_CHAIN_GAP_MILLIS } != true) return 0
+        return seen[key] ?: 0
+    }
+
     /** The play shown landed at [now] (a play taken back or ended by timeline mode never lands: the next begins a chain). */
     fun landed(now: Long) { landedAt = now }
 
@@ -260,19 +271,25 @@ fun playShowStart(board: TableBounds, source: TableBounds?): TableBounds? {
     return TableBounds(x - source.width / 2, y - source.height / 2, source.width, source.height)
 }
 
+/** HIS-112: what a group of plays shown looks like and where each flies in from, fixed as they begin. */
+private class PlayShowLooks(val shown: List<PlayShown>, val sources: List<TableBounds?>)
+
 /**
- * HIS-112 (owner 2026-11-07, 2026-11-12; MTG Arena as the reference): the plays [shows] put on the Stack in one go
- * ([playShowGroup]) fly in from their sources on the table ([playShowSource]; one out of sight from the board's edge in its
- * direction), growing from small to large in the middle, one after another [PLAY_SHOW_STAGGER_MILLIS] apart in Stack order,
- * so they pile up there, the last on top. Then one at a time, top first: it stays large for [millis] (shorter for a repeat
- * of the same ability in its chain, [pace]: [playShowMillis]) with its line under it, then shrink-flies to its Stack card
- * (else the Stack's top card or the Stack), with an accelerating curve ([playShowFlightMillis]), its line gone as the flight
- * starts and the card fading out over the flight's second half; the next is already waiting large under it. When it lands
- * it is gone from this screen at once, and [done] (the device's dismissal, on the engine thread) runs for it. A double tap
- * on the one shown ends it at once, a single tap does nothing, and holding it inspects it ([inspect], [moved]: TBL-104,
- * TBL-131). A finger held on it or on the table pauses its time ([pause]) and holds the pile once flown in. The view holds
- * meanwhile (the device holds the later events). Only the card shown and its line take touches. Cheap per frame: the
- * flights are read while drawing only, nothing composes again.
+ * HIS-112 (owner 2026-11-07, 2026-11-12, 2026-11-14; MTG Arena as the reference): steps 1–3 of the Stack animation
+ * ([StackSchedule]). Once the table is [ready] for them (the board drawn where they went on the Stack, nothing else of the
+ * Stack animation playing), the plays [shows] put on the Stack in one go ([playShowGroup]) fly in from their sources on the
+ * table ([playShowSource]; one out of sight from the board's edge in its direction), growing from small to large in the
+ * middle, one after another [PLAY_SHOW_STAGGER_MILLIS] apart in Stack order, so they pile up there, the last on top. Then one
+ * at a time, top first: it stays large for [millis] (shorter for a repeat of the same ability in its chain, [pace]:
+ * [playShowMillis]) with its line under it, then shrink-flies into its entry's place ([playShowTarget]: the Stack's top on
+ * the phone, the dock's list on the desktop table, [dockTop]), with an accelerating curve ([playShowFlightMillis]), its line
+ * gone as the flight starts and the card fading out over the flight's second half; the next is already waiting large under
+ * it. Until it lands its entry isn't on the table's board ([withoutEntries]); when it lands it is gone from this screen at
+ * once and [done] runs for it (its entry shows in its place, and the device's dismissal follows). A double tap on the one
+ * shown ends it at once, a single tap does nothing, and holding it inspects it ([inspect], [moved]: TBL-104, TBL-131). A
+ * finger held on it or on the table pauses its time ([pause]) and holds the pile once flown in. The view holds meanwhile (the
+ * device holds the later events). Only the card shown and its line take touches. Cheap per frame: the flights are read while
+ * drawing only, nothing composes again. [play] is the board with the plays' entries on it.
  */
 @Composable
 fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: List<GameDevice.PlayShow>,
@@ -282,14 +299,29 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     /** Outlives these plays: a tap's double-tap time goes on after they have gone. */
     tapScope: CoroutineScope = rememberCoroutineScope(),
     /** Outlives these plays: the chain they are part of, for their pace. */
-    pace: PlayShowPace = remember { PlayShowPace() }, done: (GameDevice.PlayShow) -> Unit) {
+    pace: PlayShowPace = remember { PlayShowPace() },
+    /** Whether the table is ready for these plays (read as snapshot state). */
+    ready: () -> Boolean = { true },
+    /** WEB-017: the desktop dock's list top (root dp) the plays fly into, null on the phone or with the dock folded. */
+    dockTop: () -> TableBounds? = { null }, done: (GameDevice.PlayShow) -> Unit) {
     val board = scene.world?.visibleViewport ?: return
     val first = shows.firstOrNull() ?: return
     // Fixed for the group's life: what shows, where each flies from and to (the table as it is when they begin)
     val group = remember(first) { shows.toList() }
-    val shown = remember(first) { group.map { PlayShows.of(play, it, viewer, names) } }
-    val sources = remember(first) { group.map { playShowStart(board, playShowSource(scene, play, it)) } }
-    val targets = remember(first) { group.map { playShowTarget(scene, it) } }
+    val currentPlay by rememberUpdatedState(play)
+    val currentScene by rememberUpdatedState(scene)
+    fun looksNow(): PlayShowLooks {
+        val p = currentPlay
+        val s = currentScene
+        val area = s.world?.visibleViewport ?: board
+        return PlayShowLooks(group.map { PlayShows.of(p, it, viewer, names) }, group.map { playShowStart(area, playShowSource(s, p, it)) })
+    }
+    // Made as they begin: at once when the table is ready for them, else once it is
+    var looks by remember(first) { mutableStateOf(if (ready()) looksNow() else null) }
+    // Where each flies to, worked out as its flight starts (the dock's list or the Stack where they are then)
+    val targets = remember(first) { arrayOfNulls<TableBounds>(group.size) }
+    // Where this overlay's board lies on the screen (root dp), for the dock's place
+    val boxOrigin = remember(first) { FloatArray(2) }
     val multiplier by rememberCardMovePreferences(viewer).multiplierState()
     val height = minOf(board.height * .46f, PLAY_SHOW_MAX_HEIGHT)
     val width = height / 1.4f
@@ -305,6 +337,14 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     // A double tap on the play shown: off this screen at once, the next under it shows
     fun skip(i: Int) { showing[0]?.cancel(); end(i) }
     LaunchedEffect(first) {
+        // The board drawn where they went on the Stack, and nothing else of the Stack animation playing (an entry's arrows)
+        if (looks == null) {
+            val asked = withFrameMillis { it }
+            snapshotFlow { ready() }.first { it }
+            looks = looksNow()
+            AppLog.info("game", "Plays shown in ${group.first().event.take(8)}: waited ${withFrameMillis { it } - asked} ms for the " +
+                "table to reach them (the board's steps, an entry's arrows)")
+        }
         val arrival = playShowFlightMillis(multiplier)
         val began = withFrameMillis { it }
         coroutineScope {
@@ -316,6 +356,8 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
         val arrived = withFrameMillis { it }
         // A finger held as they arrive holds the pile there
         pause.lifted()
+        val shown = looks?.shown ?: return@LaunchedEffect
+        val sources = looks?.sources ?: return@LaunchedEffect
         for (i in group.indices.reversed()) {
             current = i
             flying = false
@@ -325,10 +367,16 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             val flightFor = playShowFlightMillis(multiplier, repeats)
             PlayShowProbe.listener?.invoke(viewer, group[i], repeats, showFor, flightFor)
             var flown = start
-            val target = targets[i]
+            var target: TableBounds? = null
             val run = launch {
                 pause.wait(showFor)
                 flown = withFrameMillis { it }
+                // Step 3 into its entry's place: the dock's list on the desktop table, else the Stack (WEB-017, STK-007)
+                val s = currentScene
+                val area = s.world?.visibleViewport ?: board
+                target = dockTop()?.let { d -> TableBounds(d.x - (boxOrigin[0] - area.x), d.y - (boxOrigin[1] - area.y), d.width, d.height) }
+                    ?: playShowTarget(s, group[i])
+                targets[i] = target
                 flying = true
                 if (target != null) leave[i].animateTo(1f, tween(flightFor, easing = FastOutLinearInEasing))
                 // A finger held during the flight still holds the view: what comes next waits for it
@@ -339,15 +387,18 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             showing[0] = null
             val landed = withFrameMillis { it }
             pace.landed(landed)
-            // HIS-112 (owner playtest 2026-11-11): where a play's time goes, for the report: the gap before it (the device and
-            // the table getting it on screen), its arrival with the others of its event, its time shown against the setting,
-            // its flight
-            AppLog.info("game", "Play shown ${group[i].kind::class.simpleName} in ${group[i].event.take(8)} " +
-                "(${group.size - i} of ${group.size} put on the Stack together, from ${if (sources[i] == null) "nowhere on the table" else "its source"}): " +
+            // HIS-112 (owner playtest 2026-11-11; Stack animation spec 2026-11-14: each step's start and length): where a play's
+            // time goes, for the report: the gap before it (the device and the table getting it on screen), step 1 (its
+            // fly-in with the others of its event), step 2 (its middle hold against the setting), step 3 (its flight to the
+            // Stack), each from the group's start
+            AppLog.info("game", "Play shown ${group[i].kind::class.simpleName} ${group[i].entry} in ${group[i].event.take(8)} " +
+                "(${group.size - i} of ${group.size} put on the Stack together, from ${if (sources[i] == null) "nowhere on the table" else "its source"}" +
+                (if (dockTop() != null) ", into the dock's list" else "") + "): " +
                 (if (gap == null) "first of its chain" else "$gap ms after the one before landed") +
-                (if (i == group.lastIndex) ", flown in ${arrived - began} ms (${group.size} from ${PLAY_SHOW_STAGGER_MILLIS} ms apart, $arrival ms each)" else "") +
-                ", shown ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms), flight ${landed - flown} ms ($flightFor ms)" +
-                (if (run.isCancelled) ", ended by a double tap" else "") + if (target == null) ", no Stack card to fly to" else "")
+                "; step 1 (fly-in) at 0 ms for ${arrived - began} ms (${group.size} from $PLAY_SHOW_STAGGER_MILLIS ms apart, $arrival ms each)" +
+                "; step 2 (middle hold) at ${start - began} ms for ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms)" +
+                "; step 3 (to the Stack) at ${flown - began} ms for ${landed - flown} ms ($flightFor ms)" +
+                (if (run.isCancelled) ", ended by a double tap" else if (target == null) ", no Stack place to fly to" else ""))
             end(i)
         }
     }
@@ -357,13 +408,16 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     val step = if (group.size <= 1) 0f else minOf(PLAY_SHOW_PILE_STEP, PLAY_SHOW_PILE_SPREAD / (group.size - 1))
     // The pile's middle stays the board's: each play's place in it, from the board's centre (dp)
     fun pile(i: Int): Float = (i - (group.size - 1) / 2f) * step
-    Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
+        .onGloballyPositioned { c -> c.positionInRoot().let { boxOrigin[0] = it.x / density.density; boxOrigin[1] = it.y / density.density } },
+        contentAlignment = Alignment.Center) {
+        val shown = looks?.shown ?: return@Box
+        val sources = looks?.sources ?: return@Box
         for (i in group.indices) if (i !in gone) key(i) {
             val entry = group[i]
             val look = shown[i]
             val now = i == current
             val source = sources[i]
-            val target = targets[i]
             // HIS-112 (owner, 2026-11-08): a single tap does nothing, so a skip isn't triggered by accident
             val touches = if (!now) Modifier else Modifier.choiceCardGestures(entry,
                 tap = { if (pause.tapOnShow(tapScope)) skip(i) },
@@ -390,6 +444,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                         } else { sx = .2f + .8f * a; sy = sx; fade = a }
                     }
                     val l = leave[i].value
+                    val target = targets[i]
                     if (target != null && l > 0f) {
                         x = home + (target.center.x - board.center.x - home) * l
                         y = home + (target.center.y - board.center.y - home) * l

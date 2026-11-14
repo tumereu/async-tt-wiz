@@ -312,12 +312,13 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             val settled = runtime.onSceneSettled
             val faceChanges = runtime.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
             val shuffles = if (navigation) emptySet() else runtime.changes?.shuffles(play.nodeId).orEmpty()
-            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId)) {
+            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId, runtime.landedEntries.toSet())) {
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
                 if (navigation || !raiseOnly && runtime.changes?.animates(play.nodeId) == false) progress.snapTo(1f)
-                else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
+                else progress.animateTo(1f, tween((animation.durationMillis * runtime.sceneTimeShare).toInt().coerceAtLeast(1),
+                    easing = androidx.compose.animation.core.LinearEasing))
             } else if (progress.value < 1f) {
                 // Metadata can cancel this effect mid-scene, but cannot slow its existing clock.
                 progress.animateTo(1f, tween(animation.remainingDurationMillis(progress.value), easing = androidx.compose.animation.core.LinearEasing))
@@ -486,8 +487,11 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // STK-058 (owner playtest 2026-11-07): the top Stack entry's target arrows, for both players; not while the viewer
             // picks targets themselves (their violet glow, STK-047)
             val stackNames = remember(game) { gameNames(game) }
+            // Stack animation (owner spec 2026-11-14): on the live table they grow in step 4 and fade in step 5
             if (toolkit?.let { it.cast.targeting || it.flows.targeting } != true)
-                StackTargetArrows(play, scene, accountId, stackNames) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
+                StackTargetArrows(play, scene, accountId, stackNames,
+                    LocalEngineRoutes.current?.stackAnimation?.takeIf { !runtime.reviewing }, moveMultiplier) { item ->
+                    rendered.value.items[item.id]?.bounds ?: item.bounds }
             // STK-058 (owner gallery review 2026-11-07): the piles' count bubbles over every arrow and overlay above the table
             Canvas(Modifier.fillMaxSize()) { drawPileBadges(rendered.value.scene, drawCache) }
             // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems

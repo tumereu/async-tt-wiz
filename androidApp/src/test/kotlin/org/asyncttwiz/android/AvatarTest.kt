@@ -42,6 +42,24 @@ class AvatarTest {
         compose.onNodeWithText("Card records updating · 10%").assertIsDisplayed()
     }
 
+    // LOB-091 (owner notes 2026-11-14 evening: on the desktop the card records' bar pushed the page down and made it jump when it
+    // finished): in the desktop layout the bar lies over the top of the page; the sign-in form stays where it is when it goes
+    @Test fun desktopCatalogStatusLiesOverThePage() {
+        val fixture = ScreenFixtures()
+        fixture.auth.seed(AuthState(restoring = false))
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { viewModels.put("catalog", it) }
+        catalog.seed(CatalogUiState(progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.DOWNLOADING, 50, 100)))
+        compose.setContent { AccountEntry(fixture.auth, fixture.reset, catalog, layout = AppLayout.Desktop) }
+        compose.onNodeWithTag("catalog-download-status").assertIsDisplayed()
+        val withBar = compose.onNodeWithTag("email").fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle { catalog.seed(CatalogUiState(ready = true)) }
+        compose.onNodeWithTag("catalog-download-status").assertDoesNotExist()
+        assertEquals(withBar, compose.onNodeWithTag("email").fetchSemanticsNode().boundsInRoot, "the form didn't move")
+        compose.runOnIdle { catalog.seed(CatalogUiState(progress = org.asyncttwiz.storage.CatalogProgress(org.asyncttwiz.storage.CatalogPhase.DOWNLOADING, 10, 100))) }
+        compose.onNodeWithTag("catalog-download-status").assertIsDisplayed()
+        assertEquals(withBar, compose.onNodeWithTag("email").fetchSemanticsNode().boundsInRoot, "nor when the bar came back")
+    }
+
     // LOB-011, LOB-012
     @Test fun firstLoginShowsWaitingChooserAndSkipDoesNotNagOnNextLogin() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

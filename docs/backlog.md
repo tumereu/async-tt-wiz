@@ -18,7 +18,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Owner notes 2026-11-14 evening (tested on prod 0.2.x, so each is first checked on master): clear bugs, one worker beside the desktop batch.
 
-- Desktop: the "Updating card records" loading bar at the top pushes the views down and makes them jump when it finishes; make it an overlay.
 - Problem report JN5UQN (prod, owner 2026-11-14): the other player said the card their connive drew was shown face down (the owner didn't see their screen). Reproduce in a two-player game: after connive the drawn card, the discard choice and the discarded card must show as they should (your own drawn card face up to you; a discarded card face up to both); fix, e2e, logging. Report text: "when I connived the drawn card was shown upside down" (beta16, Samsung phone): check orientation too.
 
 Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.

@@ -74,8 +74,11 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
             // SYS-085: edge to edge, the table also takes the camera's strip
             .windowInsetsPadding(if (!tabletop) WindowInsets.safeDrawing else if (edgeToEdge) WindowInsets(0, 0, 0, 0)
                 else WindowInsets.displayCutout).imePadding()) {
+            // LOB-091 (owner 2026-11-14): on the desktop layout the card records' status lies over the top of the page,
+            // so nothing under it moves when it comes or goes; on the phone it sits above the page
+            val statusOver = layout == AppLayout.Desktop
             Column(Modifier.fillMaxSize()) {
-            if (state.account == null && catalog != null) CatalogDownloadStatus(catalog)
+            if (state.account == null && catalog != null && !statusOver) CatalogDownloadStatus(catalog)
             Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 reset.state != null -> ResetEntry(reset)
@@ -132,6 +135,8 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                 state.busy -> state.message ?: if (state.page == AuthPage.REGISTER) "Creating account…" else "Signing in…"
                 else -> null
             }, modifier = Modifier.align(Alignment.BottomCenter))
+            if (state.account == null && catalog != null && statusOver)
+                CatalogDownloadStatus(catalog, Modifier.align(Alignment.TopCenter).fillMaxWidth())
             // WEB-034: "?" shows the list of keys over any screen of the desktop layout
             HotkeySheetHost(layout == AppLayout.Desktop && state.account != null) { controller.push(ShellDestination.SETTINGS) }
         }

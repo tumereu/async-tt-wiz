@@ -4684,7 +4684,7 @@ internal class Sentences(
             if (m.groupValues[2] != "copy that spell") return null
             context.copied = true
             return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.Cast(spell, by = PlayerFilter.You)),
-                Instructions(steps = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = true)))),
+                Instructions(steps = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = false)))),
                 duration = arcanum.api.Duration.EndOfTurn)))
         }
         // dsk chunk 11: "Choose two target creatures controlled by the same opponent." / "That player chooses one of those
@@ -5439,12 +5439,13 @@ internal class Sentences(
             return listOf(Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
                 Step.May(player = payer, steps = listOf(Step.Do(Effect.CopySpell(Objects.Self, controller = payer, newTargets = true)))))))
         }
-        // "Copy target instant or sorcery spell[ you control]." (CR 707.10)
+        // "Copy target instant or sorcery spell[ you control]." (CR 707.10): the copy keeps the original's targets; a following "You may choose new
+        // targets for the copy." turns new targets on (CR 707.10c, [otjModify])
         COPY_TARGET.matchEntire(sentence)?.let { m ->
             context.copied = true
-            return listOf(Step.Do(Effect.CopySpell(context.target("spell", Filters.noun(m.groupValues[1]) ?: return null), controller = Players.You, newTargets = true)))
+            return listOf(Step.Do(Effect.CopySpell(context.target("spell", Filters.noun(m.groupValues[1]) ?: return null), controller = Players.You, newTargets = false)))
         }
-        // CR 707.10c: the copy's controller may choose new targets, which CopySpell allows by default.
+        // CR 707.10c: "You may choose new targets for the copy." after a copy that already allows them
         COPY_NEW_TARGETS.matchEntire(sentence)?.let { return if (context.copied) emptyList() else null }
         if (sentence == "You may copy this spell and may choose a new target for the copy.") {
             context.copied = true
@@ -5535,7 +5536,7 @@ internal class Sentences(
         IF_X_AT_LEAST_COPY_TWICE.matchEntire(sentence)?.let { m ->
             context.copied = true
             return listOf(Step.If(arcanum.api.Condition.Compare(Value.Announced(name = "X"), arcanum.api.Comparison.AtLeast, Value.Fixed(m.groupValues[1].toInt())),
-                then = listOf(Step.Repeat(Value.Fixed(2), listOf(Step.Do(Effect.CopySpell(Objects.Bound("cast"), controller = Players.You, newTargets = true)))))))
+                then = listOf(Step.Repeat(Value.Fixed(2), listOf(Step.Do(Effect.CopySpell(Objects.Bound("cast"), controller = Players.You, newTargets = false)))))))
         }
         // chunk 15
         RETURN_SELF_FROM_GRAVEYARD_TO_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
@@ -7932,7 +7933,7 @@ internal class Sentences(
             // mom chunk 13: "Whenever a creature you control becomes the target of a backup ability, copy that ability.": the ability is the event's
             // source, the creature its object
             val role = if (context.event is EventPattern.BecomesTarget) EventRole.Source else EventRole.Object
-            return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(role), controller = Players.You, newTargets = true)))
+            return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(role), controller = Players.You, newTargets = false)))
         }
         if (sentence == "You may choose new targets for the copy." && context.copied) return emptyList()
         return null
@@ -8152,7 +8153,7 @@ internal class Sentences(
         // lci chunk 02: also the ability activated ("Whenever you activate an ability that isn't a mana ability, copy it.", CR 707.10)
         if (sentence == "Copy it." && (context.event is EventPattern.Cast || context.event is EventPattern.Activate)) {
             context.copied = true
-            return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = true)))
+            return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = false)))
         }
         // dgm: "[This] deals damage to any target equal to the power of the card returned this way."
         Gtc.DEALS_DAMAGE_EQUAL_POWER_RETURNED.matchEntire(sentence)?.let { m ->
@@ -19499,9 +19500,20 @@ internal class Sentences(
         if (COPY_NEW_TARGETS.matches(sentence)) {
             fun newTargets(steps: List<Step>): List<Step>? {
                 val changed = when (val last = steps.lastOrNull()) {
-                    is Step.Do -> (last.effect as? Effect.CopySpell)?.takeIf { !it.newTargets }?.let { Step.Do(it.copy(newTargets = true)) }
-                    is Step.If -> newTargets(last.then)?.let { last.copy(then = it) }
+                    is Step.Do -> when (val e = last.effect) {
+                        is Effect.CopySpell -> e.takeIf { !it.newTargets }?.let { Step.Do(it.copy(newTargets = true)) }
+                        // bro fix: the copy a delayed trigger makes ("When you next cast … this turn, copy that spell.", CR 603.7)
+                        is Effect.CreateDelayedTrigger -> newTargets(e.instructions.steps)?.let { Step.Do(e.copy(instructions = e.instructions.copy(steps = it))) }
+                        else -> null
+                    }
+                    // bro fix: both branches ("copy that spell twice instead": the one copy and the two)
+                    is Step.If -> {
+                        val then = newTargets(last.then)
+                        val otherwise = last.otherwise.takeIf { it.isNotEmpty() }?.let { newTargets(it) }
+                        if (then == null && otherwise == null) null else last.copy(then = then ?: last.then, otherwise = otherwise ?: last.otherwise)
+                    }
                     is Step.May -> newTargets(last.steps)?.let { last.copy(steps = it) }
+                    is Step.Repeat -> newTargets(last.steps)?.let { last.copy(steps = it) }
                     else -> null
                 } ?: return null
                 return steps.dropLast(1) + changed
@@ -24073,7 +24085,7 @@ internal class Sentences(
         Sos.WHEN_YOU_CAST_WHILE_MAY_COPY.matchEntire(line)?.let { m ->
             val condition = Conditions.condition(m.groupValues[1], self) ?: return null
             return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), PlayerFilter.You)),
-                Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.CopySpell(Objects.Self, Players.You, newTargets = true))), player = Players.You))),
+                Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.CopySpell(Objects.Self, Players.You, newTargets = false))), player = Players.You))),
                 triggersOnlyIf = condition, functionsIn = listOf(Zone.Stack))
         }
         // sos chunk 09: "At the beginning of combat on your turn, you may pay {X}. When you do, move X +1/+1 counters from this creature onto
@@ -28997,7 +29009,7 @@ internal class Sentences(
         Tdm.COPY_IT_THEN_EXILE_WITH_TIME_COUNTERS_SUSPEND.matchEntire(text)?.let { m ->
             val spell = Objects.EventObject(EventRole.Object)
             val n = Numbers.count(m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.CopySpell(spell, Players.You, newTargets = true)),
+            return listOf(Step.Do(Effect.CopySpell(spell, Players.You, newTargets = false)),
                 Step.Do(Effect.Move(spell, Destination(Zone.Exile, counters = listOf(arcanum.api.CountersToPut(arcanum.api.CounterKind.Time, Value.Fixed(n)))), postBind = "exiled")),
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Bound("exiled"), ObjectFilter.HasKeyword(arcanum.api.Keyword.Suspend.Kind))),
                     then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Suspend(n, Cost(emptyList()))))),
@@ -29291,7 +29303,7 @@ internal class Sentences(
         }
         // tdm chunk 13: "Copy this spell." (CR 707.10)
         Tdm.COPY_THIS_SPELL.matchEntire(sentence)?.let {
-            return listOf(Step.Do(Effect.CopySpell(Objects.Self, Players.You, newTargets = true)))
+            return listOf(Step.Do(Effect.CopySpell(Objects.Self, Players.You, newTargets = false)))
         }
         // tdm chunk 13: "Put its counters on up to one target creature you control." (the creature that died, as it last existed, CR 603.10a)
         Tdm.PUT_ITS_COUNTERS_ON_UP_TO_ONE.matchEntire(sentence)?.takeIf { !context.selfDied() }?.let { m ->

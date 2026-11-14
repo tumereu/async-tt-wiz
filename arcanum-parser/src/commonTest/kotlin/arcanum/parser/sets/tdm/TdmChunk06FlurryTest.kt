@@ -588,6 +588,7 @@ class TdmChunk06FlurryTest {
         ),
     )
 
+    // CR 707.10: the copy keeps the spell's choices (new targets only when the text says so, CR 707.10c)
     @Test
     fun sageOfTheHeavens() = card(
         name = "Sage of the Heavens",
@@ -601,7 +602,7 @@ class TdmChunk06FlurryTest {
     ) parsesTo abilities(
         Ability.Triggered(
             trigger = Trigger.On(events = listOf(EventPattern.Cast(spell = isSelf, by = PlayerFilter.You))),
-            instructions = Instructions(steps = listOf(doing(Effect.CopySpell(objects = Objects.Self, controller = Players.You, newTargets = true)))),
+            instructions = Instructions(steps = listOf(doing(Effect.CopySpell(objects = Objects.Self, controller = Players.You, newTargets = false)))),
             interveningIf = Condition.HappenedThisTurn(
                 event = EventPattern.Cast(spell = not(isSelf), by = PlayerFilter.You),
                 atLeast = 1,
@@ -612,6 +613,7 @@ class TdmChunk06FlurryTest {
         Keyword.Lifelink,
     )
 
+    // CR 707.10: the copy keeps the spell's choices (new targets only when the text says so, CR 707.10c)
     @Test
     fun rhenuMasterSchemer() = card(
         name = "Rhenu, Master Schemer",
@@ -628,7 +630,7 @@ class TdmChunk06FlurryTest {
                         Effect.CopySpell(
                             objects = Objects.EventObject(role = EventRole.Object),
                             controller = Players.You,
-                            newTargets = true,
+                            newTargets = false,
                         ),
                     ),
                     doing(

@@ -12,7 +12,8 @@ class BroChunk16MoveReplacementRevealTest {
     private val charge = CounterKind.Named("charge")
     private val artifactOrCreature = or(artifact, creature)
 
-    // CR 400.3: returned to its owner's hand; CR 707.10: copying a spell
+    // CR 400.3: returned to its owner's hand; CR 707.10: copying a spell, the copy keeping its targets (new ones only when the text says so,
+    // CR 707.10c)
     @Test
     fun drafnasKin() = card(
         name = "Drafna's Kin", cost = "{1}{U}", type = "Legendary Creature — Human Artificer Advisor", pt = "2/1",
@@ -22,7 +23,7 @@ class BroChunk16MoveReplacementRevealTest {
         """,
     ) parsesTo abilities(
         activated(cost(mana("{1}{U}")), move(target("artifact"), Zone.Hand), targets = listOf(slot("artifact", and(artifact, you)))),
-        activated(cost(mana("{3}"), tap), doing(Effect.CopySpell(target("spell"), Players.You, newTargets = true)),
+        activated(cost(mana("{3}"), tap), doing(Effect.CopySpell(target("spell"), Players.You, newTargets = false)),
             targets = listOf(slot("spell", and(artifact, spellFilter, you)))),
     )
 

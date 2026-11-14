@@ -106,7 +106,8 @@ class SosChunk11CastingAndCopyingTest {
             ifThen(Condition.Did("paid"), doing(Effect.CopySpell(thatSpell, Players.You, newTargets = true)))),
     )
 
-    // CR 603.2: "while you control a creature" is checked only as it triggers; CR 701.21a: each player chooses
+    // CR 603.2: "while you control a creature" is checked only as it triggers; CR 701.21a: each player chooses; CR 707.10: the copy keeps
+    // the spell's choices (new targets only when the text says so, CR 707.10c)
     @Test
     fun coldShoulder() = card(
         name = "Cold Shoulder",
@@ -117,7 +118,7 @@ class SosChunk11CastingAndCopyingTest {
             Each player sacrifices a creature of their choice. Each opponent loses 1 life and you gain 1 life.
         """,
     ) parsesTo abilities(
-        triggered(youCast(ObjectFilter.Is(Objects.Self)), Step.May(listOf(doing(Effect.CopySpell(Objects.Self, Players.You, newTargets = true))), Players.You),
+        triggered(youCast(ObjectFilter.Is(Objects.Self)), Step.May(listOf(doing(Effect.CopySpell(Objects.Self, Players.You, newTargets = false))), Players.You),
             triggersOnlyIf = Condition.Exists(creatureYouControl, atLeast = 1), functionsIn = listOf(Zone.Stack)),
         spell(
             Step.ForEach(Each.Players(Players.Each(PlayerFilter.Any)), "player", listOf(

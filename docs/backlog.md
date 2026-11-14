@@ -33,8 +33,6 @@ Table and casting:
 - An uncrewed Vehicle shows "Crew N" in its bottom text when it fits (usually one short line); Crew N comes before any crewed P/T.
 - Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
 
-Lobby, chat and accounts:
-
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).

@@ -83,12 +83,12 @@ object Functioning {
                 event is EventPattern.Cycle && event.cards.isSelf() -> EVERYWHERE
                 // rvr: "when this card is put into your graveyard from your library" doesn't look back (CR 603.10, 603.10a): it is checked on
                 // the card where it went, the graveyard (CR 113.6k)
-                event is EventPattern.ZoneChange && event.objects.isSelf() && event.from == Zone.Library && event.to != null &&
+                event is EventPattern.ZoneChange && event.objects.isSelfMoving() && event.from == Zone.Library && event.to != null &&
                     event.to != Zone.Battlefield -> setOf(event.to!!)
                 // "enters from your hand" is an enters ability: it works on the battlefield (CR 603.6a)
-                event is EventPattern.ZoneChange && event.objects.isSelf() && event.from != null &&
+                event is EventPattern.ZoneChange && event.objects.isSelfMoving() && event.from != null &&
                     event.from != Zone.Battlefield && event.to != Zone.Battlefield -> setOf(event.from!!)
-                event is EventPattern.ZoneChange && event.objects.isSelf() && event.from == null &&
+                event is EventPattern.ZoneChange && event.objects.isSelfMoving() && event.from == null &&
                     event.to != null && event.to != Zone.Battlefield -> EVERYWHERE
                 // "When this card becomes plotted": a mark that can't live on a permanent is gained where it lives (exile, CR 702.170c)
                 event is EventPattern.GotMark && event.objects.isSelf() && Zone.Battlefield !in MarkRules.of(event.mark).zones ->
@@ -103,6 +103,9 @@ object Functioning {
         (affects as? arcanum.api.Affected.Objects)?.objects == Objects.Self
 
     private fun ObjectFilter.isSelf(): Boolean = this == ObjectFilter.Is(Objects.Self)
+
+    /** This object, also with qualifiers ("put into your graveyard from anywhere": this card, owned by you; bro fixes, CR 113.6k). */
+    private fun ObjectFilter.isSelfMoving(): Boolean = isSelf() || (this as? ObjectFilter.And)?.all?.contains(ObjectFilter.Is(Objects.Self)) == true
 
     private fun EventPattern.isSelfEntering(): Boolean =
         this is EventPattern.ZoneChange && objects.isSelf() && to == Zone.Battlefield

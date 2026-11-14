@@ -475,6 +475,9 @@ sealed interface AttackTarget {
     @Serializable @SerialName("same-as") data class SameAs(val objects: Objects) : AttackTarget
     /** These ("attacking that opponent"). */
     @Serializable @SerialName("these") data class These(val recipients: Recipients) : AttackTarget
+    /** [players] or a planeswalker they control, as the attacking creature's controller chooses (myriad: "attacking that player or a
+     * planeswalker they control", CR 702.116a, 508.4). */
+    @Serializable @SerialName("player-or-their-planeswalker") data class PlayerOrTheirPlaneswalker(val players: Players) : AttackTarget
 }
 
 /** What [KeywordAction.Double] doubles. */
@@ -571,7 +574,14 @@ sealed interface KeywordAction {
     // fin
     /** "Meld them into [into]" (CR 701.42a): the two cards of [objects], a meld pair, are put onto the battlefield with their back faces up and
      * combined as one permanent (CR 712.4): [into], the back face both cards share. If they can't be melded, they stay where they are (701.42c). */
-    @Serializable @SerialName("meld") data class Meld(val objects: Objects, val into: String) : KeywordAction
+    @Serializable @SerialName("meld") data class Meld(
+        val objects: Objects, val into: String,
+        // bro
+        /** The melded permanent enters tapped ("It enters tapped and attacking."). */
+        val tapped: Boolean = false,
+        /** It enters attacking (CR 508.4: not declared as an attacker, so "whenever attacks" doesn't trigger); null = not attacking. */
+        val attacking: AttackTarget? = null,
+    ) : KeywordAction
     // ecl
     /** "[Players] blight(s) N" (CR 701.68a): each of [players] puts [count] -1/-1 counters on a creature they control. A player who
      * can't do it (no creatures) can't choose to blight (701.68b); the bind of [Effect.Action] or [CostPart.Action] names the creature

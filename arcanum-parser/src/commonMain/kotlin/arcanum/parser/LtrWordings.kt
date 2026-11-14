@@ -28,7 +28,7 @@ internal object Ltr {
     // ltr chunk 02
     val ATTACH_TARGET_TO_SELF = Regex("""[Aa]ttach (target .+?) to (.+)\.""")
     val FOR_AS_LONG_AS_YOU_CONTROL = Regex("""(.+) for as long as you control (.+)\.""")
-    val CHOOSE_TARGET = Regex("""[Cc]hoose (up to one target .+)\.""")
+    val CHOOSE_TARGET = Regex("""[Cc]hoose (up to one target .+|up to two (?:other )?target (?!.+ that were put there ).+)\.""")
     val EXILE_THEN_RETURN_UNDER_YOUR_CONTROL = Regex("""[Ee]xile (up to one target .+?|target .+?), then return (?:it|that card) to the battlefield under your control\.""") // inr chunk 09: that card
     // lci chunk 03: "Then destroy all other creatures if its power is exactly 20."
     val TRAILING_IF_POWER = Regex("""([A-Z].+?) if (that creature's|its) power is (?:(\d+) or (less|greater)|exactly (\d+))\.""")
@@ -59,7 +59,7 @@ internal object Ltr {
     val DRAW_FOR_EACH_TARGET_OPPONENT_CONTROLS = Regex("""Draw a card for each (.+?) target opponent controls\.""")
     // ltr chunk 05
     val YOUR_OPPONENTS_CANT_GAIN_LIFE = Regex("""Your opponents can't gain life\.""")
-    val IF_THE_SACRIFICED_WAS = Regex("""If the sacrificed (creature|permanent) was (.+?), (.+)""")
+    val IF_THE_SACRIFICED_WAS = Regex("""If the sacrificed (creature|permanent|artifact) was (.+?), (.+)""") // bro chunk 01: artifact
     val MAY_SACRIFICE_IT_WHEN_YOU_DO = Regex("""(Whenever .+?), you may sacrifice it\. When you do, (.+)""")
     val YOU_CREATE_OR_SACRIFICE_A_TOKEN = Regex("""you create or sacrifice a token""")
     val CREATE_TAPPED_AND_ATTACKING_SACRIFICE_AT_END_OF_COMBAT = Regex("""Create (.+? tokens?(?: with [^.]+?)?)(?: named (.+?))? that's tapped and attacking\. (Sacrifice|Exile) that token at end of combat\.""") // isd chunk 07: Exile
@@ -192,7 +192,7 @@ internal object LtrPhrases {
     private val IN_YOUR_GRAVEYARD = Regex("""(.+? cards?) in your graveyard""")
     private val WITH_LESSER_POWER = Regex("""(.+?) with (lesser|greater) power""")
     private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+?) that was dealt damage this turn""")
-    private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""(.+? cards?) from an opponent's graveyard""")
+    private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""((?:.+? )?cards?) from an opponent's graveyard""") // bro chunk 08: also "card"
     private val AND_OR = Regex("""(\w+?)s? and/or (\w+?)s?""")
     private val POWER_AT_MOST_AMASSED = Regex("""(.+?) with power less than or equal to the amassed Army's power""")
     private val WITH_POWER_X = Regex("""(.+?) with power X""")

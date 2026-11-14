@@ -39,7 +39,7 @@ internal object Tmt {
     val MAY_ATTACH_TO_IT = Regex("""[Yy]ou may attach (.+) to it\.""")
     val CANT_ATTACK_UNLESS_CONTROL = Regex("""(.+) can't attack unless you control (.+)\.""")
     val SPELL_THAT_TARGETS = Regex("""spell that targets (?:an? )?(.+)""")
-    val MILLS_HALF_LIBRARY = Regex("""(Target opponent|Target player|Each opponent) mills half their library, rounded (up|down)\.""")
+    val MILLS_HALF_LIBRARY = Regex("""(Target opponent|Target player|Each opponent|[Dd]efending player) mills half their library, rounded (up|down)\.""")
     val DRAW_EQUAL_TO_DIFFERENCE = Regex("""[Dd]raw cards equal to the difference\.""")
     val FEWER_THAN_IN_HAND = Regex("""you have fewer than (\w+) cards in hand""")
     val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an? ((?:[A-Z]\w+ )*)artifact creature with base power and toughness (\d+)/(\d+)( in addition to its other types)?\.""") // lci: subtypes
@@ -65,7 +65,8 @@ internal object Tmt {
     val PUT_COUNTERS_ON_UP_TO_ONE = Regex("""[Pp]ut (\w+) (\S+) counters? on up to one (other )?target (.+)\.""")
     val EXILE_THEN_COPY_IT = Regex("""Exile target (.+?)\. Create a token that's a copy of it, except it isn't legendary and is an? ([A-Z]\w+) in addition to its other types\.""")
     val DEALS_DAMAGE_EQUAL_TO_TARGET = Regex("""(.+?) deals damage equal to (.+) to target (.+)\.""")
-    val IF_IT_ISNT_CREATURE_BECOMES = Regex("""If it isn't a creature, it becomes an? (\d+)/(\d+) ([A-Z][A-Za-z ]+?) creature in addition to its other types\.""")
+    // bro chunk 06: also with no subtype ("it becomes a 0/0 creature …")
+    val IF_IT_ISNT_CREATURE_BECOMES = Regex("""If it isn't a creature, it becomes an? (\d+)/(\d+) (?:([A-Z][A-Za-z ]+?) )?creature in addition to its other types\.""")
     val WITH_A_COUNTER_ON_IT = Regex("""(.+) with a counter on (?:it|them)""")
     val LIST_OR_CREATURE_WITH = Regex("""(.+), or (creature with .+)""")
     val MAY_PUT_AND_OR_FROM_HAND = Regex("""[Yy]ou may put an? (\w+) card and/or an? (\w+) card from your hand onto the battlefield\.""")
@@ -84,7 +85,8 @@ internal object Tmt {
     val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}|\{X\}) less to activate(?:, where X is (.+?))?\.( This effect can't reduce the mana in that cost to less than one mana\.)?""")
     val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(any number of|\w+) (.+?) cards, put them (?:onto the battlefield( tapped)?|(into your graveyard)), then shuffle\.""") // mom chunk 07: "for any number of Praetor cards"; fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped; mh3 chunk 12: into your graveyard
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
-    val EACH_PLAYER_CREATES = Regex("""[Ee]ach player creates (.+)\.""")
+    // bro chunk 01: "Each player who controls an artifact or enchantment creates ..."
+    val EACH_PLAYER_CREATES = Regex("""[Ee]ach player(?: who controls (.+?))? creates (.+)\.""")
     val OPPONENTS_ARE_ATTACKED = Regex("""one or more of your opponents are attacked""")
     val SACRIFICE_UNLESS_DISCARD = Regex("""[Ss]acrifice an? (.+?) unless you discard a card\.""")
     val RETURN_IF_ARTIFACT_CREATURE_OTHERWISE = Regex("""Choose target (.+?)\. Return it to the battlefield if it's an artifact creature card\. Otherwise, return it to the battlefield and it's an? (\d+)/(\d+) ([A-Z]\w+) artifact creature with ([a-z ,]+)\.""")

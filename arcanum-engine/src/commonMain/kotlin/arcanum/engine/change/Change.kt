@@ -533,6 +533,10 @@ sealed interface GameEvent {
         /** The card the action revealed, where it went (explore, CR 701.44a). */
         val revealed: ObjectId? = null,
     ) : GameEvent
+    // bro
+    /** [player] scried and put [count] (one or more) of the cards on the bottom of their library (CR 701.22a): what
+     * [arcanum.api.EventPattern.ScriedToBottom] reads. */
+    @Serializable @SerialName("scried-to-bottom") data class ScriedToBottom(val player: PlayerId, val count: Int) : GameEvent
 }
 
 /**

@@ -274,6 +274,10 @@ sealed interface EventPattern {
         /** lci: the card the action revealed matches this (null: any or none): "Whenever a creature you control explores a land card" (CR 701.44a). */
         val revealed: ObjectFilter? = null,
     ) : EventPattern
+    /** A player matching [players] scries and chooses to put one or more of the cards on the bottom of their library (CR 701.22a): "Whenever
+     * you choose to put one or more cards on the bottom of your library while scrying". Once per scry, after the whole scry is done (CR
+     * 701.22d); [Players.EventPlayer] is who scried and the event's amount is how many cards they put on the bottom ("that many"). */
+    @Serializable @SerialName("scried-to-bottom") data class ScriedToBottom(val players: PlayerFilter) : EventPattern
     /** An object matching [objects] gains the designation [mark], which it didn't have: "Whenever a creature you control becomes monstrous"
      * (CR 701.37b, 702.112b, 701.60a, 722.3a, 702.171b). One that already has it can't gain it again (CR 701.60d, 722.3a). One pattern for
      * every mark, so a new mark needs no new event type. Role object (the marked object); [Players.EventPlayer] is its controller. */

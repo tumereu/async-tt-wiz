@@ -6,6 +6,19 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableArtworkTest {
+    // A table picture is asked for in steps of 32 pixels, never below the size drawn: a zoom (or a card growing a little)
+    // asks again only as it passes a step (web frame rate, 2026-11-14: every step of a wheel zoom decoded every picture)
+    @Test fun tablePicturesAreAskedForInStepsNeverSmallerThanDrawn() {
+        assertEquals(32, tableArtworkPixels(1))
+        assertEquals(32, tableArtworkPixels(0))
+        assertEquals(96, tableArtworkPixels(65))
+        assertEquals(96, tableArtworkPixels(96))
+        assertEquals(128, tableArtworkPixels(97))
+        // A wheel zoom of a 100 px card from 0.65× to 2× asks for a handful of sizes, not one per step
+        assertEquals(5, (65..200).map(::tableArtworkPixels).distinct().size)
+        assertEquals(4096, tableArtworkPixels(5000))
+    }
+
     @Test fun everyServerAcceptedFaceCountFallsBackForUnsupportedArtworkIndices() {
         for (count in listOf(17, 64)) {
             val ids = List(count) { java.util.UUID.randomUUID().toString() }

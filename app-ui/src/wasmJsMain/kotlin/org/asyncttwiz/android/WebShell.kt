@@ -208,7 +208,10 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
                 AppLog.info("web-page", (if (tableChrome) "Table page: browser gestures off" else "Screen page: browser gestures back") +
                     jsHeapText())
                 jsTablePage(tableChrome)
-                onDispose { }
+                // WEB-057: the table's and the draft's frame times into the app log
+                if (tableChrome) DebugJank.sessionShown(
+                    if (router.tableOpen()) "table of game ${auth.lobby.state.selected}" else "draft of pod ${auth.pods.state.selected}")
+                onDispose { if (tableChrome) DebugJank.sessionHidden("left") }
             }
             Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalCardListSupport provides auth.cardListSupport, LocalCardMarks provides auth.cardMarks,

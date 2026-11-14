@@ -28,8 +28,8 @@ import org.asyncttwiz.protocol.ReconnectEpisode
 // read), crashes (failures nothing caught: the page's error events and the app's own queues) and slow-action, reconnect and
 // tap reports, sent to the same endpoints as Android's while reports are on. Nothing is kept across a reload but the visit
 // journal's last lines (WEB-056, [BrowserVisitJournal]: a visit the browser ended is named in the next one's app log); a
-// crash doesn't end the page, so its report goes at once (or when the session is known). Stutter reports (DebugJank) are
-// left out on the web for now: the browser gives no cheap frame timing that matches Android's JankStats.
+// crash doesn't end the page, so its report goes at once (or when the session is known). Stutters (DebugJank) aren't sent
+// apart as Android's are: the table's and the draft's frame times go into the app log (BrowserFrameTimes.kt, WEB-057).
 
 /** Starts the page's diagnostics; the web entry point calls it once, first thing (after the platform is installed). */
 fun startBrowserDiagnostics() {
@@ -217,21 +217,4 @@ actual object DebugLatency {
         if (force) forced = true
         wake.trySend(Unit)
     }
-}
-
-/** Stutter reports are off on the web (see above): nothing is recorded. */
-actual object DebugJank {
-    actual fun catchUp(game: String, running: Boolean) {}
-    actual fun catchingUp(): Boolean = false
-    actual fun treeInFlight(): Boolean = false
-    actual fun animation(owner: String, running: Boolean) {}
-    actual fun state(vararg values: Pair<String, String>) {}
-    actual fun action(name: String) {}
-    actual fun beginWork(kind: String): Long = 0
-    actual fun endWork(kind: String, start: Long) {}
-    actual fun track(owner: Any, tracking: JankTracking) {}
-    actual fun untrack(owner: Any) {}
-    actual fun frame(startNanos: Long, durationNanos: Long, isJank: Boolean, refreshRate: Float, states: Map<String, String>) {}
-    actual fun authenticated(value: String?) {}
-    actual fun discard() {}
 }

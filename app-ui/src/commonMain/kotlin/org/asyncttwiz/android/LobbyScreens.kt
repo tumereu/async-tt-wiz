@@ -129,7 +129,12 @@ fun GameDeletionDialogs(controller: LobbyController) {
         ScreenDialog(controller::dismissGameContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
             close = "Close game actions", actions = {
                 DialogMainButton("Delete game", { controller.requestGameDeletion(game) }, danger = true)
-            })
+            }) {
+            // LOB-148: the game's chat, with its unread count, without opening the game
+            val unread = controller.state.chatUnread[game.id] ?: 0
+            ScreenOutlinedButton({ controller.openListChat(game) }, Modifier.fillMaxWidth().testTag("game-row-chat"),
+                enabled = controller.state.selected == null) { ButtonLabel("chat", gameRowChatLabel(unread)) }
+        }
     }
     controller.state.deletion?.let { capture ->
         ScreenDialog(controller::dismissGameDeletion, title = capture.title, actions = {

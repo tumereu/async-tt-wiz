@@ -257,3 +257,5 @@ number	item	screenshot	catalog	decisions	sequence
 256	Web: notifications refused by the browser, the switch back off	web/browser-notifications-blocked.png	WEB-050		Browser notifications
 257	Web: the Games list's hint to turn notifications on	web/games-hint.png	WEB-053		Browser notifications
 258	Pod Games tab: Challenge accepts the member's open challenge, New challenge in its choices	draft/pod-challenge-choices.png	DRF-181
+259	Games list: a game row's menu offers its chat with the unread count	chat/games-list-row-menu.png	LOB-148 LOB-026		Chat from the games list
+260	Games list: the game's chat open over the list, the game not opened	chat/games-list-chat.png	LOB-148		Chat from the games list

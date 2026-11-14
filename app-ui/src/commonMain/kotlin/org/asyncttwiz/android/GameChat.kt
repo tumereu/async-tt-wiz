@@ -61,8 +61,6 @@ class GameChat {
         if (pendingRead(state.gameId) == null) presented.remove(state.gameId)
     }
     fun presentation(gameId: String, account: String?, messages: List<ChatMessage>, outgoing: List<ChatSubmission>): ChatPresentation {
-        fun after(revision: Long) = if (messages is IndexedChatMessages) messages.incomingAfter(revision, account)
-            else messages.count { it.author != account && GameWire.ordinal(it.revision) > revision }
         val cursor = cursor(gameId)
         val state = accepted[gameId]
         // LOB-136: a stretch of unread messages starts at the cursor it found and ends once nothing is unread; none before
@@ -70,14 +68,25 @@ class GameChat {
         val bubble = if (state == null) null
             else ChatBubbleRules.incoming(messages, account, cursor, stretches.getOrPut(gameId) { cursor })
         if (bubble == null) stretches.remove(gameId)
+        return ChatPresentation(messages, outgoing, drafts[gameId], unread(gameId, account, messages),
+            state?.peerReadThrough?.let(GameWire::ordinal) ?: 0, bubble, sentChats[gameId])
+    }
+    /** The other player's messages in [gameId] the viewer hasn't read (LOB-069), leaving the bubbles' stretch alone: also for
+     * a game that isn't open (the games list's count, LOB-148). */
+    fun unread(gameId: String, account: String?, messages: List<ChatMessage>): Int {
+        fun after(revision: Long) = if (messages is IndexedChatMessages) messages.incomingAfter(revision, account)
+            else messages.count { it.author != account && GameWire.ordinal(it.revision) > revision }
+        val cursor = cursor(gameId)
+        val state = accepted[gameId]
         val count = if (state == null || cursor >= GameWire.ordinal(state.throughRevision)) after(cursor) else {
             // The server includes unloaded history. Only subtract locally presented messages;
             // the acknowledgement supplies the exact count if the cursor crosses unloaded rows.
             state.unread - (after(GameWire.ordinal(state.readThrough)) - after(cursor)) + after(GameWire.ordinal(state.throughRevision))
         }
-        return ChatPresentation(messages, outgoing, drafts[gameId], count.coerceAtLeast(0),
-            state?.peerReadThrough?.let(GameWire::ordinal) ?: 0, bubble, sentChats[gameId])
+        return count.coerceAtLeast(0)
     }
+    /** Whether the server's read state of [gameId] is known: before it, every loaded message would count as unread. */
+    fun readKnown(gameId: String) = gameId in accepted
     fun remove(gameId: String) { accepted.remove(gameId); presented.remove(gameId); stretches.remove(gameId); sentChats.remove(gameId) }
     fun clear() { drafts.clear(); accepted.clear(); presented.clear(); stretches.clear(); sentChats.clear() }
 }

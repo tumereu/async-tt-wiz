@@ -82,6 +82,8 @@ class GameSession(private val connection: GameConnection, private val credential
     fun chat(gameId: String) = chats.chat(gameId)
     fun chatLoaded(gameId: String) = chats.chatLoaded(gameId)
     fun presentedChat(gameId: String, ids: Set<String>) = chats.presentedChat(gameId, ids)
+    /** LOB-148: asks [gameId]'s chat read state now, also for a game not open. */
+    fun askChatRead(gameId: String) = chats.askRead(gameId)
     fun outgoingChat(gameId: String) = chats.outgoingChat(gameId)
     fun loadOlderChat(gameId: String): Boolean = chats.loadOlderChat(gameId)
     fun sendChat(game: GameSummary, text: String): Boolean = measureLatency(game, GameAction.SendChat(text)) {

@@ -38,7 +38,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-023** The Games screen shows one "GAMES" card with a count and all games and invitations in one list; "No games yet." when empty. A "New game" button sits at the top right. (r30)
 - **LOB-024** A game row: opponent avatar, bold game name, a move chip ("Your move" filled, "<name>'s move" plain, or "Invitation"/"Setup"; the move of TRN-058), the pod name line for pod games, then "vs <opponent> · <status> · <last activity>", the time if today, else the date, from your local head and next stop (HIS-032). (r50)
 - **LOB-025** Row status texts: "In play", "Invitation pending", "Invitation declined", "Preparing"; a held pod challenge reads "Challenged you · submit your deck to accept" (Accept greyed) for you and "Waiting for <name>'s deck" for the challenger. (r30)
-- **LOB-026** Holding an unstarted game's row offers "Cancel game"; holding a game in play offers "Delete game", confirmed by a dialog warning that it removes the game for both players with no restore ("Keep game" / "Delete game"); its match in play is kept as an Unfinished record (LOB-127). (r58)
+- **LOB-026** Holding an unstarted game's row offers "Cancel game"; holding a game in play offers its chat ("Chat", LOB-148) and "Delete game", confirmed by a dialog warning that it removes the game for both players with no restore ("Keep game" / "Delete game"); its match in play is kept as an Unfinished record (LOB-127). (r74)
 
 ### Contacts and new games
 
@@ -121,6 +121,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-137** A message you send shows always right above your own life square (in landscape above the bottom bar, where your square sits), over whatever lies there, as a bubble in your colour for about 3 s once the table is in sight (in portrait after the chat closes), then fades in 0.4 s; it takes no taps. (r61)
 - **LOB-138** Your message shows a small "Read" under it in the chat once the other player has read it (tapped its bubble or seen it in their chat), at once while you have the game open. (r58)
 - **LOB-139** Quick messages are in your own Life panel (TRN-030), not in the chat: chips "Thinking…", "One sec", "Your move?", "Got a response", "No responses" and "GG" (greyed while a message can't go), each sends its text with one tap as a message like any other (your bubble, LOB-137) and closes the panel; a typed draft stays as it is. After them an icon-only Write button (a pencil; holding it says "Write a message", SYS-045) opens the chat with its input focused and the soft keyboard up, ready to type. (r61)
+- **LOB-148** A game's chat opens from the games list (Games screen, menu panel; on the desktop by right-click): holding a game in play opens its menu, whose "Chat" button reads "Chat · 2 unread" while the other player has messages you haven't read (counted as the menu opens). It opens the game's chat (the Game chat alone, also in a pod game) as a side panel over the list without opening the game: its messages are read as they show (LOB-069, LOB-138) and you can write and send as in the table's chat; its ✕ or Back closes it. (r74)
 
 ### Game history and Stats
 

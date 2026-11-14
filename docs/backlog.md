@@ -46,7 +46,6 @@ Table and casting:
 - Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
 
 Lobby, chat and accounts:
-- A game's chat can be opened from the lobby (e.g. the game row's menu, with an unread count).
 - Game and pod chat messages show a small timestamp, with a date line between days.
 - The undeletable default Glimpse preset becomes a regular preset every account gets on creation (existing accounts get it as an ordinary copy), freely editable and deletable like other presets.
 - Rotisserie draft: separate settings for the pool size per player and the picks per player.

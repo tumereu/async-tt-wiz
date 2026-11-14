@@ -28,6 +28,10 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val chatWrite: Boolean = false,
     /** LOB-145: the tab the chat shows in a pod game (personal UI). */
     val chatTab: ChatTab = ChatTab.GAME,
+    /** LOB-148: the game whose chat is open from the games list (no game selected); [chat] is then its chat. */
+    val listChat: String? = null,
+    /** LOB-148: the other player's unread messages per game in play, by game id (games with none left out). */
+    val chatUnread: Map<String, Int> = emptyMap(),
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,

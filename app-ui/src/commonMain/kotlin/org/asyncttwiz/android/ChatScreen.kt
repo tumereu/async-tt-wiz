@@ -146,7 +146,7 @@ private fun ChatTabRow(selected: ChatTab, gameUnread: Int, podUnread: Int, selec
 
 /** The game's own chat: its messages (with "Read" marks, LOB-138), outgoing sends and the composer. */
 @Composable
-private fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, staleDraft: Boolean, modifier: Modifier,
+fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, staleDraft: Boolean, modifier: Modifier,
     visible: Boolean) {
     val state = controller.state
     val chat = state.chat

@@ -332,13 +332,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Players.Active -> listOf(state.turn.active)
         is Players.DefendingPlayerOf -> {
             val attackers = objects(players.attackers).toSet()
-            state.combat?.attackers.orEmpty().filter { it.id in attackers }.mapNotNull { attack ->
-                when (val target = attack.target) {
-                    is TargetRef.Player -> target.id
-                    // The controller of the planeswalker, or the protector of the battle (CR 506.2, 310.9d)
-                    is TargetRef.Object -> state.obj(target.id)?.protector ?: controllerOf(target.id)
-                }
-            }.distinct()
+            // The controller of the planeswalker, or the protector of the battle (CR 506.2, 310.9d)
+            state.combat?.attackers.orEmpty().filter { it.id in attackers }
+                .mapNotNull { arcanum.engine.combat.Battles.defender(state, ::controllerOf, it.target) }.distinct()
         }
         // mom: the player protecting each battle (CR 310.8)
         is Players.ProtectorOf -> objects(players.battles).mapNotNull { state.obj(it)?.protector }.distinct()

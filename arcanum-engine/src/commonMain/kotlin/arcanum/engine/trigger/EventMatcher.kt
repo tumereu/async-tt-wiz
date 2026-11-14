@@ -462,10 +462,9 @@ internal object EventMatcher {
         is TargetRef.Player -> if (filter.players == null) filter.objects == null else e.matches(filter.players!!, ref.id)
     }
 
-    private fun defendingPlayer(e: Evaluator, target: TargetRef): PlayerId? = when (target) {
-        is TargetRef.Player -> target.id
-        is TargetRef.Object -> e.controllerOf(target.id)
-    }
+    /** The defending player of an attack on [target] (CR 506.2, 310.9d): a battle's protector, a planeswalker's controller. */
+    private fun defendingPlayer(e: Evaluator, target: TargetRef): PlayerId? =
+        arcanum.engine.combat.Battles.defender(e.board.state, { e.controllerOf(it) }, target)
 
     private fun attacks(e: Evaluator, change: Change, pattern: EventPattern.Attack): List<TriggerEvent> {
         val c = change as? Change.Combat ?: return emptyList()

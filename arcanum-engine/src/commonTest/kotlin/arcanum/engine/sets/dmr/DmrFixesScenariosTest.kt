@@ -1,12 +1,24 @@
 package arcanum.engine.sets.dmr
 
+import arcanum.api.Ability
+import arcanum.api.CardDefinition
+import arcanum.api.CardType
+import arcanum.api.Effect
+import arcanum.api.EventPattern
+import arcanum.api.Instructions
+import arcanum.api.ObjectFilter
+import arcanum.api.Players
+import arcanum.api.Step
+import arcanum.api.Trigger
 import arcanum.api.TurnStep
+import arcanum.api.Value
 import arcanum.api.Zone
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Attack
 import arcanum.engine.input.Input
+import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.sets.blb.resolveAll
 import arcanum.engine.sets.ltr.aliceUpkeep
@@ -268,5 +280,62 @@ class DmrFixesScenariosTest {
         advanceTo(TurnStep.DeclareAttackers, turn = 4)
         assertFails { alice.attacks(elk, defender = "carol") }
         alice.attacks(elk, defender = "bob")
+    }
+
+    // ---- The defending player of an attack event (CR 506.2, 310.9d), read as the trigger's event player
+
+    /** "Whenever a creature attacks, [the defending player] loses 1 life." / "... attacks and isn't blocked, ...", written by hand
+     * with the attack event's player (the parser reads "defending player" as the attacker's defending player instead). */
+    private fun heraldOf(name: String, unblocked: Boolean): String {
+        val base = Cards.definition(Cards.invent("Warhorn Herald Base", "{1}{B}", "Creature — Human Cleric",
+            "Whenever a creature attacks, defending player loses 1 life.", "1/1"))
+        val face = base.faces.single()
+        val attacks = face.abilities.single() as Ability.Triggered
+        val creature = ObjectFilter.Type(CardType.Creature)
+        val trigger = Trigger.On(if (unblocked) EventPattern.AttacksUnblocked(creature) else EventPattern.Attack(creature))
+        val ability = attacks.copy(trigger = trigger,
+            instructions = Instructions(steps = listOf(Step.Do(Effect.LoseLife(Players.EventPlayer, Value.Fixed(1))))))
+        return Cards.define(name, CardDefinition(base.layout, listOf(face.copy(name = name, abilities = listOf(ability)))))
+    }
+    private val herald = heraldOf("Warhorn Herald", unblocked = false)
+    private val crier = heraldOf("Breach Crier", unblocked = true)
+    private val charger = Cards.invent("Ridgeline Charger", "{1}{R}", "Creature — Goblin Warrior", "", "2/2")
+
+    /** Alice casts the Siege with carol protecting it and attacks it with the Charger; bob has [watcher]. */
+    private fun Scenario.attackCarolsBattle(watcher: String) {
+        alice.battlefield(charger, "Mountain", "Mountain", "Mountain")
+        bob.battlefield(watcher)
+        alice.hand(siege)
+        alice.casts(siege)
+        allPass()
+        assertIs<Decision.ChoosePlayer>(pending)
+        answer(Answer.Player(carol.id))
+        advanceTo(TurnStep.DeclareAttackers)
+        perform(Input.DeclareAttackers(alice.id, listOf(Attack(card(charger), TargetRef.Object(card(siege))))))
+    }
+
+    // CR 506.2, 310.9d: a creature attacking a battle: the defending player is the battle's protector (carol), not its controller
+    // (alice) (3 players)
+    @Test
+    fun attackTriggerEventPlayerIsTheAttackedBattlesProtector() = scenario(players = 3) {
+        attackCarolsBattle(herald)
+        resolveAll()
+        expect {
+            carol.life shouldBe 19
+            alice.life shouldBe 20
+            bob.life shouldBe 20
+        }
+    }
+
+    // CR 506.2, 310.9d, 509.3g: unblocked, attacking a battle: the event's player is still the battle's protector
+    @Test
+    fun unblockedTriggerEventPlayerIsTheAttackedBattlesProtector() = scenario(players = 3) {
+        attackCarolsBattle(crier)
+        allPass()
+        resolveAll()
+        expect {
+            carol.life shouldBe 19
+            alice.life shouldBe 20
+        }
     }
 }

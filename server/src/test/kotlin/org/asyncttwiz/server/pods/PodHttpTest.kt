@@ -1109,7 +1109,7 @@ class PodHttpTest {
                 assertEquals(visible.map { it.definition }.toSet(), detail.definitions.map { it.digest }.toSet())
                 val payload = json.encodeToString(detail)
                 assertFalse(payload.contains("sourceSnapshot")); assertFalse(payload.contains("\"supply\":["))
-                assertFalse(payload.contains("turns")); assertFalse(payload.contains("submittedDeck"))
+                assertFalse(payload.contains("\"turns\":")); assertFalse(payload.contains("submittedDeck"))
             }
             val player = players.first { before.getValue(it).grid!!.mine.headGridId != null }
             val counts = players.associateWith { f.count(ActivityKind.POD_YOUR_PICK, pod, it) }

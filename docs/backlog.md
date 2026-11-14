@@ -23,7 +23,7 @@ Owner notes 2026-11-14 evening (tested on prod 0.2.x, so each is first checked o
 - The end-of-combat damage result pause no longer shows the creatures' damage splashes and skulls (regression?).
 - A requested rewind to an earlier step didn't clear combat staging: after the other player rewound and the game came back to declare attackers, the attacker's earlier staged declarations were still there.
 - Desktop: the "Updating card records" loading bar at the top pushes the views down and makes them jump when it finishes; make it an overlay.
-- Problem report JN5UQN (prod, owner 2026-11-14): the other player said the card their connive drew was shown face down (the owner didn't see their screen). Reproduce in a two-player game: after connive the drawn card, the discard choice and the discarded card must show as they should (your own drawn card face up to you; a discarded card face up to both); fix, e2e, logging. The report itself couldn't be read yet (the Pi is unreachable over Tailscale from this machine).
+- Problem report JN5UQN (prod, owner 2026-11-14): the other player said the card their connive drew was shown face down (the owner didn't see their screen). Reproduce in a two-player game: after connive the drawn card, the discard choice and the discarded card must show as they should (your own drawn card face up to you; a discarded card face up to both); fix, e2e, logging. Report text: "when I connived the drawn card was shown upside down" (beta16, Samsung phone): check orientation too.
 
 Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.
 

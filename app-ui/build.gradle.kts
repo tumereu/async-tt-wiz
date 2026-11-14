@@ -14,7 +14,7 @@ kotlin {
     jvmToolchain(21)
     android {
         namespace = "org.asyncttwiz.appui"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }
@@ -69,6 +69,7 @@ kotlin {
             // The web shell's Back (step 3): Esc and the close watcher go through Compose's own Back handling.
             implementation(libs.cmp.ui.backhandler)
             implementation(libs.navigationevent)
+            implementation(libs.navigationevent.compose)
         }
     }
 }

@@ -206,13 +206,13 @@ internal object Filters {
         OR_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)) }
         // chunk 14: "permanent card" (CR 110.4a): an artifact, battle, creature, enchantment, land, or planeswalker card.
         if (phrase == "permanent card" || phrase == "permanent cards") return ObjectFilter.Or(PERMANENT_TYPES.map { ObjectFilter.Type(it) })
-        // woe chunk 07: "permanent spell" (CR 110.4b): an artifact, battle, creature, enchantment, or planeswalker spell (a spell isn't a permanent)
+        // woe chunk 07, dmu chunk 05: "permanent spell" (CR 110.4b): an artifact, battle, creature, enchantment, or planeswalker spell (a spell
+        // isn't a permanent)
         if (phrase == "permanent spell" || phrase == "permanent spells")
             return all(ObjectFilter.Or(PERMANENT_TYPES.filter { it != CardType.Land }.map { ObjectFilter.Type(it) }), ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
-        // dmu chunk 05: "permanent spell", "white permanent spell": a spell of a permanent type (CR 110.4b), not a permanent (one on the battlefield)
-        if (phrase == "permanent spell" || phrase == "permanent spells") return all(noun("permanent card")!!, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
+        // dmu chunk 05: "white permanent spell": a spell of a permanent type (CR 110.4b), not a permanent (one on the battlefield)
         QUALIFIED_PERMANENT_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent spell")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
 
@@ -810,7 +810,7 @@ internal object Events {
                 from = Zone.Library, to = Zone.Graveyard)
         }
         // dsk chunk 11: "a creature you control becomes blocked" (once per combat each, CR 509.3c)
-        // mom chunk 02: "this creature becomes blocked by a creature" (once per blocker, CR 509.3d)
+        // mom chunk 02, isd chunk 04: "this creature becomes blocked by a creature", "… by a Vampire" (once per blocker, CR 509.3d)
         BECOMES_BLOCKED_BY.matchEntire(text)?.let { m ->
             return EventPattern.BecomesBlocked(subject(m.groupValues[1], self) ?: return null, Filters.noun(m.groupValues[2]) ?: return null, perBlocker = true)
         }

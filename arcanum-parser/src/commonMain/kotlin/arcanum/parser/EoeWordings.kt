@@ -121,11 +121,6 @@ internal object EoePhrases {
             val other = Filters.noun(m.groupValues[2]) ?: return null
             return listOf(EventPattern.Block(subject, other, perAttacker = true), EventPattern.BecomesBlocked(subject, other, perBlocker = true))
         }
-        // isd chunk 04: "this creature becomes blocked by a Vampire" (once for each such blocker, CR 509.3d)
-        Isd.BECOMES_BLOCKED_BY_A.matchEntire(text)?.let { m ->
-            val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let
-            return listOf(EventPattern.BecomesBlocked(subject, Filters.noun(m.groupValues[2]) ?: return null, perBlocker = true))
-        }
         // eoe chunk 11: "this creature blocks a creature with flying": once for each such attacker it blocks (CR 509.3b)
         Eoe.BLOCKS_A.matchEntire(text)?.let { m ->
             val subject = Events.subjectOf(m.groupValues[1], self) ?: return@let

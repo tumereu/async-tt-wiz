@@ -57,10 +57,18 @@ import org.asyncttwiz.protocol.PodPhase
 /** Starts the web app in this page with the build's values [build] (the webApp module's entry point). */
 fun startWebApp(build: BuildInfo, assetBase: String) {
     installBuildInfo(build)
+    // WEB-056: the app log kept in the browser as the page goes, so a visit the browser ends is named by the next
+    BrowserVisitJournal.start(jsBuildId())
     pageScope.launch {
         val assets = try { WebAppPlatform.fetchAssets(assetBase) } catch (failure: Throwable) {
             jsLoadingMessage("ATW couldn't load. Check your connection and reload the page.")
             throw failure
+        }
+        // The drawing library (Skiko) loads its own wasm beside the app's: nothing may measure or draw text before it has. A
+        // reload from the browser's cache could reach the fonts first ("_h is not a function": the page stayed on its
+        // loading screen; seen in WebSmokeTest, 2026-11-14)
+        kotlinx.coroutines.suspendCancellableCoroutine<Unit> { ready ->
+            org.jetbrains.skiko.wasm.onWasmReady { ready.resumeWith(Result.success(Unit)) }
         }
         val platform = WebAppPlatform(assets, jsFirstVisit())
         AppPlatform.install(platform)
@@ -197,7 +205,8 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
             // WEB-011: the browser's own scrolling, zooming, selection and menus stay off the table and the draft
             val tableChrome = router.tableOpen() || router.draftOpen()
             DisposableEffect(tableChrome) {
-                AppLog.info("web-page", if (tableChrome) "Table page: browser gestures off" else "Screen page: browser gestures back")
+                AppLog.info("web-page", (if (tableChrome) "Table page: browser gestures off" else "Screen page: browser gestures back") +
+                    jsHeapText())
                 jsTablePage(tableChrome)
                 onDispose { }
             }

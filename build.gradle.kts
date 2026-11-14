@@ -35,6 +35,16 @@ allprojects {
     }
 }
 
+// WEB-056 (owner report 2026-11-14): Binaryen inlines a function called from one place however big it is, and so once made
+// one 422 KB function of the parser's sentence rules: too big for Chrome's optimizing compiler, which ended the web page
+// "out of memory" as soon as that code got busy (a table's card parsing). A function called from one place is inlined only
+// up to 2000 of Binaryen's size units; webApp's webOptimizedCompileCheck checks every function of the served build.
+allprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec>().configureEach {
+        binaryenArguments.add("--one-caller-inline-max-function-size=2000")
+    }
+}
+
 allprojects {
     group = "org.asyncttwiz"
     version = "0.1.0"

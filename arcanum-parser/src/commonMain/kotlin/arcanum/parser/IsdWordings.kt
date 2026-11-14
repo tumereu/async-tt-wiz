@@ -52,7 +52,6 @@ internal object Isd {
     val REVEAL_UNTIL_GETS_FOR_EACH_REVEALED = Regex("""(.+?) reveals cards from the top of their library until they reveal an? (.+?) card\. (The creature|That creature|It) gets \+(\d+)/\+(\d+) until end of turn for each card revealed this way\. That player puts the revealed cards into their graveyard\.""")
     // isd chunk 04: Wooden Stake
     val BLOCKS_OR_BECOMES_BLOCKED_BY_A = Regex("""(.+?) blocks or becomes blocked by an? (.+)""")
-    val BECOMES_BLOCKED_BY_A = Regex("""(.+?) becomes blocked by an? (.+)""")
     // isd chunk 04: Sharpened Pitchfork: "equipped creature is a Human"
     val ATTACHED_IS = Regex("""(equipped|enchanted) creature is (legendary|an? .+)""")
     // isd chunk 05: Undead Alchemist

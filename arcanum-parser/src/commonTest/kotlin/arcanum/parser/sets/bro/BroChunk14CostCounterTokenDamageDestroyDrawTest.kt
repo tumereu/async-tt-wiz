@@ -237,7 +237,7 @@ class BroChunk14CostCounterTokenDamageDestroyDrawTest {
 
     @Test
     fun thraxodemon() = card(
-        name = "Gloom Imp", cost = "{1}{B}", type = "Creature — Demon", pt = "2/2",
+        name = "Gloomhaunt Imp", cost = "{1}{B}", type = "Creature — Demon", pt = "2/2",
         text = "{3}, {T}, Sacrifice another creature or artifact: Draw a card.",
     ) parsesTo abilities(activated(cost(mana("{3}"), tap, sacrificeA(and(another, or(creature, artifact)))), draw(1)))
 

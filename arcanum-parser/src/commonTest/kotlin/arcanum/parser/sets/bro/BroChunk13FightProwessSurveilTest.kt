@@ -171,7 +171,7 @@ class BroChunk13FightProwessSurveilTest {
     // CR 118.8 (additional cost), 701.21a (sacrifice): the cost text span covers the whole "sacrifice a creature"
     @Test
     fun grimBargain() = card(
-        name = "Grim Bargain",
+        name = "Grim Tithe Bargain",
         cost = "{1}{B}",
         type = "Sorcery",
         text = """

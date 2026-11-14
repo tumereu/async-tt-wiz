@@ -110,7 +110,7 @@ class BroChunk11AddManaTest {
             counters(Objects.Self), untapIt(Objects.Self)),
     )
 
-    // CR 701.? n/a; "This land" is still a land (CR 205.1b); the target is an attacking Assembly-Worker
+    // "This land" is still a land, its creature types replaced (CR 205.1b); the target is an attacking Assembly-Worker
     @Test
     fun mishrasFoundry() = card(
         name = "Hearth Foundry", cost = null, type = "Land",
@@ -122,7 +122,7 @@ class BroChunk11AddManaTest {
     ) parsesTo abilities(
         addColorless,
         activated(cost(mana("{2}")), untilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature),
-            addSubtypes = listOf(SubtypeRef.Literal(Subtype("Assembly-Worker")))), Mechanic.SetPowerToughness(n(2), n(2)))),
+            addSubtypes = listOf(SubtypeRef.Literal(Subtype("Assembly-Worker"))), replaceSubtypes = true), Mechanic.SetPowerToughness(n(2), n(2)))),
         activated(cost(mana("{1}"), tap), pump(target("Assembly-Worker"), 2, 2),
             targets = listOf(slot("Assembly-Worker", and(attacking, sub("Assembly-Worker"))))),
     )

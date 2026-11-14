@@ -47,7 +47,7 @@ class DmrChunk11ManaCostsCountersTokensTest {
         activated(cost(mana("{1}"), tap, sacrificeSelf), draw(1)),
     )
 
-    // CR 205.3m, 613.1d: becomes an artifact creature, still a land; the pump is for Assembly-Workers only
+    // CR 205.3m, 613.1d: becomes an artifact creature, still a land (CR 205.1b: its creature types replaced); the pump is for Assembly-Workers only
     @Test
     fun tolvansFoundry() = card(
         name = "Tolvan's Foundry", cost = null, type = "Land",
@@ -59,7 +59,7 @@ class DmrChunk11ManaCostsCountersTokensTest {
     ) parsesTo abilities(
         addMana("{C}"),
         activated(cost(mana("{1}")), untilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature),
-            addSubtypes = listOf(SubtypeRef.Literal(Subtype("Assembly-Worker")))), Mechanic.SetPowerToughness(n(2), n(2)))),
+            addSubtypes = listOf(SubtypeRef.Literal(Subtype("Assembly-Worker"))), replaceSubtypes = true), Mechanic.SetPowerToughness(n(2), n(2)))),
         activated(cost(tap), pump(target("creature"), 1, 1), targets = listOf(slot("creature", and(sub("Assembly-Worker"), creature)))),
     )
 

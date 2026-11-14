@@ -273,7 +273,7 @@ class Mh2Chunk16TimeshiftedTest {
         activated(cost(mana("{2}"), tap), doing(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{B}")!!, times = count(and(sub("Swamp"), you)))), Players.You))),
     )
 
-    // CR 613.1d: a 2/2 artifact creature until end of turn, still a land
+    // CR 613.1d: a 2/2 artifact creature until end of turn, still a land; CR 205.1b: its creature types replaced
     @Test
     fun mishrasWorkfloor() = card(
         name = "Mishra's Workfloor",
@@ -287,7 +287,7 @@ class Mh2Chunk16TimeshiftedTest {
     ) parsesTo abilities(
         addColorless,
         activated(cost(mana("{1}")), untilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature),
-            addSubtypes = listOf(SubtypeRef.Literal(Subtype("Assembly-Worker")))), Mechanic.SetPowerToughness(n(2), n(2)))),
+            addSubtypes = listOf(SubtypeRef.Literal(Subtype("Assembly-Worker"))), replaceSubtypes = true), Mechanic.SetPowerToughness(n(2), n(2)))),
         activated(cost(tap), pump(target("creature"), 1, 1), targets = listOf(slot("creature", and(sub("Assembly-Worker"), creature)))),
     )
 

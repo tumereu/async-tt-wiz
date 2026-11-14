@@ -573,12 +573,23 @@ internal object Effects {
         return won
     }
 
-    /** one: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil"). */
+    /** one: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil"); written out, as the options must match on every device (RuntimeNamesTest). */
     private fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
         is arcanum.api.CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
         is arcanum.api.CounterKind.Named -> kind.name
         is arcanum.api.CounterKind.Keyword -> kind.keyword.id
-        else -> kind::class.simpleName.orEmpty().lowercase()
+        arcanum.api.CounterKind.Shield -> "shield"
+        arcanum.api.CounterKind.Stun -> "stun"
+        arcanum.api.CounterKind.Finality -> "finality"
+        arcanum.api.CounterKind.Rad -> "rad"
+        arcanum.api.CounterKind.Hone -> "hone"
+        arcanum.api.CounterKind.Time -> "time"
+        arcanum.api.CounterKind.Level -> "level"
+        arcanum.api.CounterKind.Loyalty -> "loyalty"
+        arcanum.api.CounterKind.Lore -> "lore"
+        arcanum.api.CounterKind.Defense -> "defense"
+        arcanum.api.CounterKind.Poison -> "poison"
+        arcanum.api.CounterKind.Energy -> "energy"
     }
 
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {

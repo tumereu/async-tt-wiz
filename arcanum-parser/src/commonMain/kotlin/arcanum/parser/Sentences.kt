@@ -3203,7 +3203,7 @@ internal class Sentences(
             } else null
     }
 
-    private val ITS_NUMBERS = mapOf("its power" to arcanum.api.NumericProperty.Power, "its toughness" to arcanum.api.NumericProperty.Toughness,
+    private val ITS_NUMBERS: Map<String, arcanum.api.NumericProperty> = mapOf("its power" to arcanum.api.NumericProperty.Power, "its toughness" to arcanum.api.NumericProperty.Toughness,
         "its mana value" to arcanum.api.NumericProperty.ManaValue)
 
     /** lci fixes: "sacrifice another creature. You gain X life …, where X is that creature's power": the one object sacrificed, named as it
@@ -8022,7 +8022,7 @@ internal class Sentences(
             val to = gtcRecipients(m.groupValues[2].replace("any other target", "any target"), context) ?: return null
             // woe chunk 09: "… to any other target. Then sacrifice it." (a different object from the first target, CR 115.3; "it" is that creature)
             if (m.groupValues[2] == "any other target") {
-                val slot = context.targets.removeLast()
+                val slot = context.targets.removeAt(context.targets.lastIndex)
                 context.targets += slot.copy(distinctFrom = listOf((source as Objects.Target).slot))
                 context.it = source
             }

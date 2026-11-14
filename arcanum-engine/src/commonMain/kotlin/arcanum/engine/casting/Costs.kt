@@ -275,7 +275,7 @@ internal object Costs {
         val most = HashMap<Int, List<ObjectId>>().apply { put(0, emptyList()) }
         for (id in options) {
             val v = value(id).coerceAtLeast(0)
-            for ((sum, chosen) in most.entries.toList()) {
+            for ((sum, chosen) in most.toList()) { // pairs, not live entries: Wasm entries refuse reads once the map changes
                 val s = sum + v
                 if (s <= target && (most[s]?.size ?: -1) < chosen.size + 1) most[s] = chosen + id
             }

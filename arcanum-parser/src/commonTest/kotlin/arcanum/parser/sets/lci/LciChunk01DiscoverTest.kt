@@ -48,9 +48,8 @@ class LciChunk01DiscoverTest {
     /** CR 110.4b: an artifact, battle, creature, enchantment, or planeswalker spell. */
     private val permanentSpell = or(artifact, ObjectFilter.Type(CardType.Battle), creature, enchantment, planeswalker)
     private fun handOf(player: Players) = and(inZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(player)))
-    private val discoverText = "(Exile cards from the top of your library until you exile a nonland card with mana value %d or less. Cast it without " +
+    private fun reminder(n: Int) = "(Exile cards from the top of your library until you exile a nonland card with mana value $n or less. Cast it without " +
         "paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)"
-    private fun reminder(n: Int) = discoverText.format(n)
     private fun manaValueOf(objects: Objects) = Value.Of(NumericProperty.ManaValue, objects, Combine.Single)
 
     /** CR 700.11: "you descended this turn": a permanent card was put into your graveyard from anywhere this turn. */

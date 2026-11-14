@@ -67,9 +67,9 @@ class CastWaysTest : E2e() {
         val suggested = alice.payment()!!.removePrefix("Payment: Paid with ")
         val other = if (suggested == "Mountain") "Ember Shard" else "Mountain"
         // STK-024 (owner gallery review 2026-11-09, gallery 102): what pays reads from the table's outlines, not a sentence of the
-        // panel's; a source under the panel is the one thing the table can't show, so only it is named
+        // panel's; (owner notes 2026-11-14) not even a source under the panel is named: the eye and panning show it
         assertFalse(alice.showsText("Paid with", substring = true), "no sentence naming the sources: ${alice.screen()}")
-        waitUntil("the source under the panel named: ${alice.screen()}") { alice.showsText("Out of view: $suggested") }
+        assertFalse(alice.showsText("Out of view", substring = true), "no source under the panel named: ${alice.screen()}")
         fun onTable(name: String, check: () -> Boolean, what: String) {
             alice.tap("Hide cast panel")
             waitUntil("the panel hidden") { alice.showsControl("Show cast panel") }

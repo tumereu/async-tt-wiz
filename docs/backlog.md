@@ -23,7 +23,6 @@ Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 
 Owner notes 2026-11-14 evening, agreed changes (after the desktop playtest batch and the Stack animation; two workers may run in parallel, one per group). Each is first checked on master.
 
 Table and casting:
-- Mana chips while casting: a pile of lands shows one combined chip of all the mana the pile will produce (single cards keep their own chip); the out-of-view mana text goes (the eye toggle and panning show the sources).
 - While a cast, choice or other panel is open, your hand is dimmed (about 40%) and not tappable, unless the choice is about a hand card.
 - "Assume resolves" reads "Assume pass" when the Stack is empty (nothing to resolve).
 - Combat chips under combatants keep readable at any zoom: their text scales down with the zoom (or clips) instead of disappearing. The "who it's attacking" chip goes: the attacker's lane already shows it.

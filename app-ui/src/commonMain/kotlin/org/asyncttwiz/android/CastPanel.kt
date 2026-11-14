@@ -88,16 +88,11 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
         AboveHand(handRow) { TargetBar(cast, flow, play, source, toolkit.viewer, names) }
         return
     }
-    // STK-024: the panel's height says which of the sources paying lie under it
-    var panelHeight by remember { mutableFloatStateOf(0f) }
-    val density = LocalDensity.current
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
     // WEB-019: on the desktop table paying with permanents needs the board (a strip); ways, extras, X and modes don't (an overlay)
     DockedAboveHand(handRow, if (flow.pending is Decision.ManaPayment) PromptPlace.Board else PromptPlace.Choice) {
-        Box(Modifier.onSizeChanged { panelHeight = with(density) { it.height.toDp().value } }) {
-            CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) {
-                CastPanel(cast, flow, play, names, source) { card -> scene == null || handRow == null || scene.inView(card, handRow.y - panelHeight) }
-            }
+        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) {
+            CastPanel(cast, flow, play, names, source)
         }
     }
 }
@@ -302,7 +297,7 @@ fun IconText(icon: ImageVector, text: String) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, names: Map<String, String>, source: ChoiceCardData, inView: (String) -> Boolean) {
+private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, names: Map<String, String>, source: ChoiceCardData) {
     val inspector = remember { ChoiceInspector() }
     // STK-023: a choice built up in place is answered by Cast (no OK of its own)
     val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
@@ -381,7 +376,7 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                     else -> cast.pick?.let { CardText("Then ${it.prompt} on the table.", style = TextStyle(fontSize = 12.sp)) }
                         ?: CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
                 }
-                PaymentLine(cast, play, inView)
+                PaymentLine(cast, play)
                 // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
                 cast.notice?.let { CardText(it, color = Color(0xffb3261e), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium)) }
             }
@@ -696,12 +691,12 @@ fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, deci
 /**
  * STK-024 (owner 2026-11-07, gallery review 2026-11-09): what pays the open cast reads from the table, its sources outlined
  * there (Autotap's suggestion, until the player taps sources there); this section, compact, says only that and how to change
- * it, or in red why it isn't paid (Cast is greyed then). A source is named only while the table can't show it ([inView]);
- * pool mana, life and other ways the table can't tap are chips here. The names stay in the section's description for screen readers.
+ * it, or in red what is still owed (Cast is greyed then); no source is named (owner notes 2026-11-14: the eye and panning show
+ * them); pool mana, life and other ways the table can't tap are chips here. The names stay in the section's description for screen readers.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String) -> Boolean) {
+private fun PaymentLine(cast: CastController, play: TableBoard) {
     val payment = cast.payment ?: return
     val due = payment.cost.toString()
     if (due.isEmpty()) return
@@ -713,11 +708,9 @@ private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String)
         else -> "Not enough to pay $due: produce more mana on the board."
     }
     val onTable = cast.mana.filter { cast.tableSource(it) != null }
-    val outOfView = onTable.filterNot { use -> cast.tableSource(use)?.let(inView) != false }.map { useName(cast, play, it) }
     Section("Mana · $due") {
         val line = if (names.isEmpty()) "Nothing chosen yet." else "Paid with ${names.joinToString()}"
         Column(Modifier.semantics { contentDescription = "Payment: $line" }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (outOfView.isNotEmpty()) CardText("Out of view: ${outOfView.joinToString()}", style = TextStyle(fontSize = 12.sp))
             if (reason != null) CardText(reason, Modifier.semantics { contentDescription = "Not paid: $reason" }, color = Color(0xffb3261e),
                 style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium))
             else Text(if (onTable.isEmpty()) "Tap a source on the table to change it." else "Outlined sources pay. Tap sources on the table to change them.",
@@ -737,15 +730,6 @@ private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String)
             }
         }
     }
-}
-
-/** STK-024: whether the battlefield card [card] can be seen on the table with an open panel's top at [top] (dp): at least half
- * of it inside its battlefield, above the panel. */
-fun TableScene.inView(card: String, top: Float): Boolean {
-    val item = items.firstOrNull { it.cardId == card && it.zone == PlayZone.BATTLEFIELD } ?: return false
-    val field = viewports.firstOrNull { it.id == item.viewport }?.bounds ?: item.bounds
-    val seen = item.bounds.intersection(field) ?: return false
-    return seen.width >= item.bounds.width / 2 && minOf(seen.bottom, top) - seen.y >= item.bounds.height / 2
 }
 
 /** A payment's use as the payment line names it: its source card, "Pool mana", "2 life". */

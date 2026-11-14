@@ -113,6 +113,14 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - "If that creature/it was a <noun>" in a leaves-the-battlefield trigger, or after returning a target to hand or library,
   reads last known information (`EventObject(Before)`, CR 603.10a, 608.2h); "If it was a <... card>" stays the card.
 - A token defined only by reminder text ("Create a X token. (It's a 2/2 ... with \"...\")") = `Sentences.reminderTokens`.
+- An imperative "Sacrifice it/this/the token" = `Effect.Sacrifice(by = Players.You)` (only what you control, CR 701.21a);
+  `by = null` = each permanent's own controller ("its controller sacrifices it", objects a player chose).
+- A spell's static ability that sets up a delayed trigger (dash, blitz, "if you cast it any time a sorcery couldn't have
+  been cast ... sacrifices it") is `Mechanic.DelayedTriggerAsEnters`, made as the permanent enters (CR 608.3g), never a
+  trigger of the permanent (it would be lost with its abilities). "life lost this way" binds the LoseLife before it.
+- "during their last turn" = `PlayerFilter.LastTurn(event)` (CR 800.4i): with 3+ players a player's last turn can be
+  older than the game's previous turn (`GameState.logNeededFrom`). Attacks on a battle: the protector is the defending
+  player (CR 506.2; `Battles.defender`, `ObjectFilter.ProtectedBy`).
 
 ## Engine scenarios
 - All setup (`battlefield`, `hand`, `library`, `life`, `turn`, `attach`) comes before the first move; afterwards only
@@ -191,6 +199,12 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - "Put onto the battlefield tapped and attacking" asks its controller `Decision.Targets` slot "attacking" when several
   players, planeswalkers or battles could be attacked (CR 508.4). A mana ability's choice of objects counting its mana
   is asked on activation.
+- Engine facts: a search for N plain cards in a hidden zone finds min(N, available) (CR 701.23d), so give the library
+  more cards when the test needs the choice; a cost or effect moving a library card makes an ability no mana ability
+  (CR 605.1a); an "instead" replacement of one card in a multi-card move replaces only that card (CR 614.6).
+- `castsWithoutCosts` skips target legality and doesn't use up "the next spell" effects: test those with `casts(name)`
+  and `decision<Decision.Targets>().options`. Castability: `Engine.options(state, id).filterIsInstance<Input.Cast>()`
+  (`casts` starts even an unaffordable cast). `paying = listOf("Island")` may pick another player's Island.
 
 ## Test conventions
 - Tokens made by one effect (a `ForEach` of only `CreateToken`, a together batch, "each player creates") enter as one

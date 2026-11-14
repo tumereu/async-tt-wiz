@@ -15,6 +15,9 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   needs no own `postBind`.
 - "that many" binds the nearest amount an earlier part of the same ability defines (`context.thatMuch`, e.g. "sacrifice
   any number of ..., then draw that many") before the trigger event's amount.
+- In a trigger about another object whose text never names this object, "its power/toughness/mana value" and "it deals
+  damage" are the trigger's object (`Sentences.itsOfTheTriggerObject`, `itDealingDamage`; intervening ifs too, CR
+  608.2c, 603.10a). After "Put a +1/+1 counter on this creature", a later "it" is this creature (`context.it = Self`).
 - "If you do" after a step that can fail (a mandatory exile, move or sacrifice): bind the moved objects (`postBind`) and
   check `Condition.NonEmpty`. A mandatory `Step.Pay` counts as paid even when nothing moved, so `Did` is wrong there.
 - "You may pay/sacrifice/discard ... If you do" = `Step.Pay(mandatory = false, ...)` + `Step.If(Did)`; audits calling it
@@ -33,6 +36,9 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
+- "Copy that spell." keeps the copy's targets; only "you may choose new targets" sets `newTargets` (CR 707.10c).
+- "If ... would ... this turn, ... instead." or "Until end of turn, if ... instead." inside an effect is a replacement
+  lasting until end of turn; an amount in it ("plus X") is fixed as the effect resolves (CR 608.2h).
 - A cost that exiles the card from the graveyard, or a graveyard-return activated ability, needs no `functionsIn`;
   "When you cast this spell" reads with `functionsIn = null`.
 - Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
@@ -141,6 +147,12 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   controller the order one at a time: answer with `alice.chooses(name)`.
 
 ## Test conventions
+- Tokens made by one effect (a `ForEach` of only `CreateToken`, a together batch, "each player creates") enter as one
+  event, so "one or more tokens enter" triggers once (CR 608.2f). `DefinitionChecks` demands `together = true` on every
+  `ForEach` over players.
+- A card drawn or returned while a decision of the same resolution is open is a new id the scenario's names don't show:
+  pick it by `(id as ObjectId.Card).card` or answer `Answer.Objects((pending as Decision.ChooseObjects).options)`. After
+  `castsWithoutCosts` whose trigger needs targets, drive with the shared `playOut(picks)`, not `resolveAll`.
 - Invented names are global across the whole engine suite: grep `invent("<Name>"` and `all-card-names.txt` first.
 - Invented lands take cost `null`; invented planeswalker text needs "[+1]: ..." loyalty prefixes; change cost and
   subtypes only where it doesn't affect play.
@@ -150,3 +162,5 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - One cycle of near-identical cards (e.g. lands that enter tapped unless a condition holds): one private helper in the
   chunk's test file, one test per card.
 - In one Gradle call, `--tests` applies to the task just before it; `bin/set-tests.sh` handles this.
+- Sibling misreads: `<plan>/parser-base.snapshot` holds every card's model JSON (fifth tab column); a `python3 -I`
+  scan of it finds every card with the same wrong shape in seconds.

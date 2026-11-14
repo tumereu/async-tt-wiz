@@ -24,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.backhandler.LocalCompatNavigationEventDispatcherOwner
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -32,6 +31,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
 import androidx.navigationevent.NavigationEventInput
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import kotlinx.browser.document
 import kotlinx.coroutines.await
 import kotlinx.coroutines.delay
@@ -235,7 +235,7 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
  * Without a layer the system Back is the browser's Back.
  */
 @Composable private fun WebCloseWatcher() {
-    val owner = LocalCompatNavigationEventDispatcherOwner.current ?: return
+    val owner = LocalNavigationEventDispatcherOwner.current ?: return
     DisposableEffect(owner) {
         val input = CloseWatcherInput()
         owner.navigationEventDispatcher.addInput(input)

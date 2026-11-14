@@ -14,7 +14,7 @@ kotlin {
     jvmToolchain(21)
     android {
         namespace = "org.asyncttwiz.storage"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
         withHostTest {}

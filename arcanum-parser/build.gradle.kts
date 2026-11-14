@@ -14,7 +14,7 @@ kotlin {
     }
     android {
         namespace = "arcanum.parser"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }

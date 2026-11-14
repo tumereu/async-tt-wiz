@@ -258,12 +258,13 @@ sealed interface Mechanic {
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */
     @Serializable @SerialName("instant-speed") data object InstantSpeed : Mechanic
     // dmr
-    /** As this spell becomes cast, if [condition] holds then, the static ability that let it be cast creates a delayed triggered
-     * ability ([trigger], [instructions]; CR 603.7a, 601.2i), controlled by the caster: it exists apart from the spell, so it still
-     * triggers if the permanent the spell becomes loses its abilities. In it, [Objects.Self] is the spell and [Objects.SelfAfter]
-     * the permanent it becomes (CR 400.7). ("If you cast it any time a sorcery couldn't have been cast, the controller of the
-     * permanent it becomes sacrifices it at the beginning of the next cleanup step.") */
-    @Serializable @SerialName("delayed-trigger-when-cast") data class DelayedTriggerWhenCast(
+    /** A static ability of a permanent spell that functions on the Stack: as the permanent the spell becomes is put onto the
+     * battlefield, if [condition] holds of the spell then, it creates a delayed triggered ability ([trigger], [instructions]; CR 608.3g,
+     * 603.7a), controlled by the spell's controller: it exists apart from the permanent, so it still triggers if the permanent loses
+     * its abilities. In it, [Objects.Self] is the spell and [Objects.SelfAfter] the permanent it becomes (CR 400.7). (Dash, blitz; "If
+     * you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning
+     * of the next cleanup step.") */
+    @Serializable @SerialName("delayed-trigger-as-enters") data class DelayedTriggerAsEnters(
         val trigger: Trigger, val instructions: Instructions, val condition: Condition? = null,
     ) : Mechanic
     /** The affected players may cast spells matching [spells] as though they had flash, from wherever they could cast

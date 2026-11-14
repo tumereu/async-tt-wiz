@@ -67,7 +67,7 @@ class DmrChunk02EnchantTest {
         """,
     ) parsesTo abilities(
         static(Mechanic.InstantSpeed),
-        static(Mechanic.DelayedTriggerWhenCast(stepBegins(TurnStep.Cleanup, PlayerFilter.Any),
+        static(Mechanic.DelayedTriggerAsEnters(stepBegins(TurnStep.Cleanup, PlayerFilter.Any),
             Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.SelfAfter, by = Players.ControllerOf(Objects.SelfAfter))))),
             condition = Condition.CastOutsideSorceryTiming(Objects.Self))),
         enchant(creature),

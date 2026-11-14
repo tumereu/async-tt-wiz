@@ -620,7 +620,6 @@ internal object Payment {
         NextSpells.useUp(recorder, id)
         arcanum.engine.prepare.Prepare.onCast(recorder, id) // fra: CR 722.3c
         spentOnSpells(recorder, plan.player, spent.size)
-        delayedWhenCast(recorder, plan.player, id)
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
@@ -672,23 +671,6 @@ internal object Payment {
         // CR 608.2g: no player receives priority after a spell cast while another resolves
         if (!plan.byEffect) Casting.keepPriority(recorder, plan.player)
         return Progress.Done
-    }
-
-    /** dmr fixes: CR 603.7a, 601.2i: the delayed triggered abilities the spell's static abilities create as it becomes cast
-     * ([Mechanic.DelayedTriggerWhenCast]), controlled by its caster; "this" in them is the spell. */
-    private fun delayedWhenCast(recorder: Recorder, player: PlayerId, spell: ObjectId) {
-        val snap = recorder.snapshot()
-        val wanted = snap.view[spell]?.characteristics?.abilities.orEmpty().mapNotNull { it.ability as? Ability.Static }
-            .flatMap { it.mechanics.filterIsInstance<Mechanic.DelayedTriggerWhenCast>() }
-        if (wanted.isEmpty()) return
-        val e = snap.evaluator(player, self = spell)
-        wanted.filter { m -> m.condition?.let { e.holds(it) } ?: true }.forEach { m ->
-            val s = recorder.state
-            val ts = s.nextTimestamp()
-            recorder.record(Change.DelayedTriggerAdded(arcanum.engine.state.DelayedTrigger(
-                id = EffectId("D$ts"), trigger = m.trigger, instructions = m.instructions, source = spell, controller = player,
-                timestamp = ts, createdTurn = s.turn.number, snapshots = listOfNotNull(snap.snapshot(spell)))))
-        }
     }
 
     /** CR 700.14: the mana [player] spent to cast spells this turn, counted in the engine's bookkeeping (the previous turn's

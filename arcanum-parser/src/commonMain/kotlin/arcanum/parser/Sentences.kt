@@ -19007,11 +19007,12 @@ internal class Sentences(
     private fun dmrMulti(line: String): List<Ability>? {
         // dmr chunk 02: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the
         // controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step." (CR 702.8a, 307.1, 514.3a): the
-        // permission, and a delayed trigger the static ability creates as the spell is cast (dmr fixes: CR 603.7a, 601.2i; it isn't the
-        // permanent's, so it still happens if the permanent loses its abilities); the permanent's controller sacrifices it (CR 400.7)
+        // permission, and a delayed trigger the static ability creates as the permanent the spell becomes enters (dmr fixes, sweep: CR
+        // 608.3g, 603.7a; it isn't the permanent's, so it still happens if the permanent loses its abilities); the permanent's controller
+        // sacrifices it (CR 400.7)
         if (line == Dmr.FLASH_SACRIFICE_AT_NEXT_CLEANUP) return listOf(
             Ability.Static(listOf(Mechanic.InstantSpeed), affects = Affected.Objects(Objects.Self)),
-            Ability.Static(listOf(Mechanic.DelayedTriggerWhenCast(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Cleanup, PlayerFilter.Any)),
+            Ability.Static(listOf(Mechanic.DelayedTriggerAsEnters(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Cleanup, PlayerFilter.Any)),
                 Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.SelfAfter, by = Players.ControllerOf(Objects.SelfAfter))))),
                 condition = arcanum.api.Condition.CastOutsideSorceryTiming(Objects.Self))), affects = Affected.Objects(Objects.Self)))
         return null

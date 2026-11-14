@@ -137,7 +137,7 @@ class DmrFixesScenariosTest {
     """, "2/2")
     private val silence = Cards.invent("Stilling Silence", "{2}{U}", "Enchantment", "Creatures lose all abilities.")
 
-    // CR 603.7a, 601.2i: the delayed trigger is created as the spell is cast, by the static ability that let it be cast: the permanent
+    // CR 608.3g, 603.7a: the delayed trigger is created as the permanent enters, by the spell's static ability: the permanent
     // it becomes is sacrificed at the next cleanup step even though it has no abilities on the battlefield
     @Test
     fun flashCastPermanentIsSacrificedEvenWithoutAbilities() = scenario {

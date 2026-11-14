@@ -53,13 +53,14 @@ internal object KeywordExpansionsMore {
             self, Duration.EndOfTurn))))
         // CR 702.109a: "You may cast this card by paying [cost] rather than its mana cost," "If this spell's dash cost was paid, return
         // the permanent this spell becomes to its owner's hand at the beginning of the next end step," and "As long as this permanent's
-        // dash cost was paid, it has haste." (the return as an end step trigger of the permanent: the first end step after it entered)
+        // dash cost was paid, it has haste." (dmr sweep: the return is a delayed trigger the spell's static ability creates as the permanent
+        // enters, CR 608.3g, so it still happens if the permanent loses its abilities)
         is Keyword.Dash -> {
             val paid = paid(Keyword.Dash.Kind)
             listOf(
                 alternative(Keyword.Dash.Kind, keyword.cost),
                 Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), condition = paid, affects = self),
-                Ability.Triggered(nextEndStep, steps(Effect.Move(Objects.Self, Destination(Zone.Hand))), interveningIf = paid))
+                delayedAsEnters(steps(Effect.Move(Objects.SelfAfter, Destination(Zone.Hand))), paid))
         }
         // CR 702.152a: "You may cast this card by paying [cost] rather than its mana cost," "If this spell's blitz cost was paid, sacrifice
         // the permanent this spell becomes at the beginning of the next end step," and "As long as this permanent's blitz cost was paid, it
@@ -70,7 +71,9 @@ internal object KeywordExpansionsMore {
                 alternative(Keyword.Blitz.Kind, keyword.cost),
                 Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste,
                     Ability.Triggered(diesSelf, steps(Effect.Draw(Players.You, Value.Fixed(1))))))), condition = paid, affects = self),
-                Ability.Triggered(nextEndStep, steps(Effect.Sacrifice(Objects.Self, by = Players.You)), interveningIf = paid))
+                // dmr sweep: a delayed trigger the spell's static ability creates as the permanent enters (CR 608.3g), its caster sacrificing
+                // the permanent if they still control it (CR 701.21a)
+                delayedAsEnters(steps(Effect.Sacrifice(Objects.SelfAfter, by = Players.You)), paid))
         }
         // CR 702.30a: "At the beginning of your upkeep, if this permanent came under your control since the beginning of your last
         // upkeep, sacrifice it unless you pay [cost]." (it enters marked as due; the upkeep that asks for the echo removes the mark)
@@ -413,13 +416,18 @@ internal object KeywordExpansionsMore {
     private val castSelf = Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any))
     private val attacks = Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self)))
     private val yourUpkeep = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You))
-    /** "At the beginning of the next end step", as a trigger of the permanent: its first end step after it entered. */
+    /** "At the beginning of the next end step", as the trigger of a delayed triggered ability (it triggers once, CR 603.7c). */
     private val nextEndStep = Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any))
     private val otherUntappedCreatureYouControl = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
         ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped))))
 
     /** The card a craft ability exiled from the battlefield as its cost (CR 702.167a). */
     private const val CRAFTED = "crafted"
+
+    /** "If this spell's … cost was paid, … at the beginning of the next end step": a static ability of the spell creating a delayed
+     * triggered ability as the permanent it becomes enters (CR 608.3g, 603.7a), [Objects.SelfAfter] in [instructions] being that permanent. */
+    private fun delayedAsEnters(instructions: Instructions, condition: Condition) = Ability.Static(listOf(Mechanic.DelayedTriggerAsEnters(
+        nextEndStep, instructions, condition)), affects = self)
 
     private fun paid(keyword: KeywordKind) = Condition.Paid(keyword, times = 1, of = Objects.Self)
     private fun steps(vararg effects: Effect) = Instructions(steps = effects.map { Step.Do(it) })

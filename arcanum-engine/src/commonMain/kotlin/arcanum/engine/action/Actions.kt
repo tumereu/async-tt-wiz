@@ -485,7 +485,9 @@ internal object Actions {
     /** [m] entering as a copy of [of] by [mod], with the counters it enters with as a copy and tapped if it enters tapped as a copy (CR 614.1c, 707.9b). */
     fun asCopy(act: Act, m: PlannedMove, of: ObjectId, mod: Modification.EntersAsCopy, e: Evaluator, controller: PlayerId): PlannedMove {
         // lci: "enter tapped as a copy of": tapped only as a copy; mh3: a copy effect that lasts until end of turn
-        val copy = m.copy(copyOf = of to mod.except, copyDuration = mod.duration, tapped = m.tapped || mod.tapped)
+        // bro chunk 03: "its power and toughness are equal to this creature's" fixed as it enters (CR 707.9b, 718.3b)
+        val except = arcanum.engine.view.Copiable.ownPowerToughness(mod.except, e.characteristics(m.id))
+        val copy = m.copy(copyOf = of to except, copyDuration = mod.duration, tapped = m.tapped || mod.tapped)
         val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) }.map { it.kind to e.value(it.amount) }
         return if (counters.isEmpty()) copy else copy.copy(counters = copy.counters + counters)
     }

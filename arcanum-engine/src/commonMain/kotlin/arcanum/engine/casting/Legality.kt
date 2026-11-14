@@ -293,7 +293,7 @@ internal object Legality {
     }
 
     /** rvr: [Mechanic.CantPlayLands] on [player] for this land (CR 101.2). */
-    private fun cantPlayLandBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+    internal fun cantPlayLandBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CantPlayLands ?: return@any false
             snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->

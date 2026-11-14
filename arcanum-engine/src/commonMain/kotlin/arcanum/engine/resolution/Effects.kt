@@ -864,6 +864,19 @@ internal object Effects {
                 ?: scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
         }
         is arcanum.api.AttackTarget.These -> recipients(scope, target.recipients).firstOrNull()
+        // bro sweep: myriad, "attacking that player or a planeswalker they control": its controller chooses among those it could attack
+        // (CR 702.116a, 508.4; neither left, CR 508.4a: not attacking)
+        is arcanum.api.AttackTarget.PlayerOrTheirPlaneswalker -> {
+            val act = scope.act
+            val players = scope.players(target.players).toSet()
+            val options = arcanum.engine.combat.CombatRules.attackTargets(arcanum.engine.casting.Snapshot(act.state, viewOf = { act.view() }), scope.actor)
+                .filter { ref -> when (ref) {
+                    is TargetRef.Player -> ref.id in players
+                    is TargetRef.Object -> act.controllerOf(ref.id) in players &&
+                        act.view()[ref.id]?.characteristics?.isType(CardType.Planeswalker) == true
+                } }
+            if (options.size <= 1) options.firstOrNull() else act.chooseTargets(scope.actor, scope.self, ATTACKING_SLOT, options, 1, 1).single()
+        }
     }
 
     /** What a move means by where it goes (D33). */
@@ -912,6 +925,8 @@ internal object Effects {
         val after = kept + rest + bottom
         if (after != act.state.player(player).library) act.record(Change.Reorder(Zone.Library, player, act.state.player(player).library, after))
         act.record(Change.Happened(GameEvent.KeywordActionDone(KeywordActionKind.Scry, player, amount = top.size)))
+        // bro chunk 05: "whenever you choose to put one or more cards on the bottom of your library while scrying" (CR 701.22a, d)
+        if (bottom.isNotEmpty()) act.record(Change.Happened(GameEvent.ScriedToBottom(player, bottom.size)))
         scope.bind(bind, NamedValue.Objects(bottom))
     }
 
@@ -1152,7 +1167,10 @@ internal object Effects {
         val other = cards.first { it.id != top.id }
         val partner = (top.definition.layout as Layout.Meld).partner
         if (other.definition.layout !is Layout.Meld || other.definition.faces.firstOrNull()?.name != partner) return
-        val entered = Actions.move(act, scope.cause, listOf(PlannedMove(top.id, Zone.Battlefield, controller = top.owner, transformed = true)))[top.id]
+        // bro: "It enters tapped and attacking." (CR 508.4)
+        val attacking = action.attacking?.let { if (it == arcanum.api.AttackTarget.Chosen) chosenAttackTarget(act, top.owner, scope.self) else attackTarget(scope, it) }
+        val entered = Actions.move(act, scope.cause, listOf(PlannedMove(top.id, Zone.Battlefield, controller = top.owner, transformed = true,
+            tapped = action.tapped, attacking = attacking)))[top.id]
         val now = entered?.let { act.state.obj(it) }?.takeIf { it.zone == Zone.Battlefield } ?: return
         val lone = act.state.objOrThrow(other.id)
         act.record(Change.Removed(listOf(Placed(lone, act.state.zone(Zone.Exile, lone.owner).indexOf(lone.id))), listOf(Meaning.Merged)))

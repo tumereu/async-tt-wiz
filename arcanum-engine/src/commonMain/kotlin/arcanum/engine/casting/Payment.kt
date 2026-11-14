@@ -401,8 +401,14 @@ internal object Payment {
                 move(ids, Zone.Graveyard, listOf(Meaning.Sacrificed), part.preBind, part.postBind)
             }
             is CostPart.Discard -> {
-                if (part.random) refuse("Random discards as a cost aren't supported yet")
-                val ids = objects(part.what)
+                // bro sweep: "Discard a card at random" (CR 701.9b): the host picks among the cards in the hand the cost could discard
+                val ids = if (!part.random) objects(part.what) else {
+                    val choose = part.what as? CostObjects.Choose ?: refuse("A random discard picks among cards")
+                    val among = s.player(player).hand.filter { eval.matches(choose.filter, it) }
+                    val n = choose.count?.let { eval.value(it) } ?: among.size
+                    if (among.size < n) refuse("Not enough cards in hand to discard $n at random")
+                    act.randomObjects(player, plan.sourceId, among, n)
+                }
                 check(ids, Zone.Hand)
                 // CR 702.29c: discarding the card to pay a cycling (or typecycling) cost is cycling it
                 val cycled = part.what == CostObjects.Self && plan.keyword().let { it is Keyword.Cycling || it is Keyword.Typecycling }

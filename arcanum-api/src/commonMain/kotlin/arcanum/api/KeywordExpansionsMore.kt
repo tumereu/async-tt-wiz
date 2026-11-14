@@ -117,12 +117,12 @@ internal object KeywordExpansionsMore {
             Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("mobilized")))))))))
         // CR 702.116a: "Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a
         // copy of this creature that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created
-        // this way, exile the tokens at end of combat." (attacking that player)
+        // this way, exile the tokens at end of combat." (attacking that player or a planeswalker they control, as its controller chooses)
         Keyword.Myriad -> listOf(Ability.Triggered(attacks, Instructions(steps = listOf(
             Step.ForEach(Each.Players(Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent,
                 PlayerFilter.Not(PlayerFilter.Is(Players.DefendingPlayerOf(Objects.Self))))))), "myriad-opponent", listOf(
                 Step.May(listOf(Step.Do(Effect.CreateToken(TokenSpec.CopyOf(Objects.Self), count = Value.Fixed(1), controller = Players.You, tapped = true,
-                    attacking = AttackTarget.These(Recipients(players = Players.Bound("myriad-opponent"))), bind = "myriad"))), player = Players.You))),
+                    attacking = AttackTarget.PlayerOrTheirPlaneswalker(Players.Bound("myriad-opponent")), bind = "myriad"))), player = Players.You))),
             Step.If(Condition.NonEmpty("myriad"), listOf(Step.Do(Effect.CreateDelayedTrigger(
                 Trigger.On(EventPattern.StepBegins(TurnStep.EndOfCombat, PlayerFilter.Any)), steps(Effect.Move(Objects.Bound("myriad"), Destination(Zone.Exile)))))))))))
         // CR 702.121a: "Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked with a creature

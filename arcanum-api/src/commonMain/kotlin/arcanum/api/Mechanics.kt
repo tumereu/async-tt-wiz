@@ -700,6 +700,10 @@ sealed interface CopyException {
     // gtc chunk 12
     /** "… and it has this ability": the copy also has the ability whose effect made it a copy (CR 707.9a, b). */
     @Serializable @SerialName("this-ability") data object ThisAbility : CopyException
+    // bro chunk 03
+    /** "… and its power and toughness are equal to this creature's power and toughness": the entering object's own power and
+     * toughness (its prototype's when cast prototyped, CR 718.3b), fixed as it enters as a copy (CR 707.9b, 614.12). */
+    @Serializable @SerialName("own-pt") data object OwnPowerToughness : CopyException
 }
 
 /** Other ways to pay a spell's mana. */

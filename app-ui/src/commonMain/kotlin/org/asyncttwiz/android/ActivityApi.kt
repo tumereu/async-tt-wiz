@@ -25,6 +25,14 @@ class ActivityApi(private val origin: String, private val client: HttpClient = A
     }) }
     suspend fun register(token: String, input: RegisterInstallation): ActivityRegistration =
         ActivityWire.json.decodeFromString(call(token, HttpMethod.Put, "/activity/installations", ActivityWire.json.encodeToString(input)))
+    /** WEB-050: this installation's registration taken back (the browser's notifications turned off). */
+    suspend fun unregister(token: String, installationId: String) {
+        call(token, HttpMethod.Delete, "/activity/installations?id=" + urlEncode(installationId))
+    }
+    /** WEB-050: the server's key for browsers' push subscriptions; null when it sends no browser notifications. */
+    suspend fun webPushKey(token: String): String? = try {
+        ActivityWire.json.decodeFromString<WebPushKey>(call(token, HttpMethod.Get, "/activity/web-push")).publicKey
+    } catch (failure: ActivityFetchFailure) { if (failure.status == 404) null else throw failure }
     suspend fun page(token: String, cursor: String?): ActivityPage = ActivityWire.json.decodeFromString(
         call(token, HttpMethod.Get, "/activity" + (cursor?.let { "?after=" + urlEncode(it) } ?: "")))
     suspend fun target(token: String, route: ActivityRoute): ActivityTarget = ActivityWire.json.decodeFromString(

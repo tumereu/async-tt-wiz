@@ -611,6 +611,13 @@ Two batches come first, in this order:
   the "(N) ATW" tab title.
 - Tests: server tests for subscriptions and sending; unit tests for the hint and switches; browser smoke for the
   manifest and service worker registering.
+- Built (2026-11-14): WEB-050 to WEB-055. The server keeps a browser's subscription on its activity installation (V87
+  `web_push`) and sends the notice itself, in the feed's words (`ActivityTexts`, shared with Android), encrypted for the
+  browser with the JDK's own crypto (`WebPush.kt`: RFC 8291 aes128gcm, RFC 8292 VAPID), from the same push queue as
+  Firebase; only to known push services. VAPID key pair: the PEM file WEB_PUSH_KEY_FILE names (dev-server.sh and
+  test-env.sh make one); without it the switch says notifications aren't set up. The service worker (`/sw.js`) caches
+  nothing. Tests: `WebPushTest`, `WebPushDeliveryTest`, `WebNotificationsTest`, `WebNotificationsScreenshotTest`, e2e
+  `WebNotificationsTest`.
 
 ### Step 8: complete, then prod
 

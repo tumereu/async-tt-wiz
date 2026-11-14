@@ -4,7 +4,8 @@ import java.security.MessageDigest
 
 // The web client's page (docs/specs/web-client.md §1 item 1, §11 step 3): the browser entry point, index.html with the
 // first load's loading screen, and the build the server serves (§2.1). The app itself is :app-ui's.
-//   ./scripts/gradle.sh :webApp:webDist     the served build in build/web (index.html, build, <build id>/...)
+//   ./scripts/gradle.sh :webApp:webDist     the served build in build/web (index.html, build, <build id>/..., and at the
+//                                           top sw.js, manifest.webmanifest and icons/)
 // The server serves it from WEB_APP_DIR (set to that folder); without one it serves no web app.
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -106,7 +107,11 @@ val webDist = tasks.register("webDist") {
     inputs.dir(engineSource)
     outputs.dir(output)
     doLast {
-        fun filesOf(from: File) = from.walkTopDown().filter { it.isFile && it.name != "index.html" }.map { it.relativeTo(from).invariantSeparatorsPath to it }
+        // WEB-054: the service worker, the manifest and its icons go to the top of the site (a service worker reaches only its
+        // own folder and below; an installed app keeps its manifest's address), not into the build's folder
+        val atTop = { path: String -> path == "sw.js" || path == "manifest.webmanifest" || path.startsWith("icons/") }
+        fun filesOf(from: File) = from.walkTopDown().filter { it.isFile && it.name != "index.html" }
+            .map { it.relativeTo(from).invariantSeparatorsPath to it }.filterNot { atTop(it.first) }
         val files = (filesOf(source.get().asFile) + filesOf(engineSource.get().asFile)).sortedBy { it.first }.toList()
         check(files.map { it.first }.toSet().size == files.size) { "The app's and the engine worker's files share a name" }
         val digest = MessageDigest.getInstance("SHA-256")
@@ -119,6 +124,8 @@ val webDist = tasks.register("webDist") {
         to.resolve("index.html").writeText(from.resolve("index.html").readText()
             .replace("%ATW_BASE%", "/web/$build/").replace("%ATW_BUILD%", build))
         to.resolve("build").writeText(build + "\n")
+        from.walkTopDown().filter { it.isFile && atTop(it.relativeTo(from).invariantSeparatorsPath) }
+            .forEach { it.copyTo(to.resolve(it.relativeTo(from).invariantSeparatorsPath)) }
         logger.lifecycle("Web build $build in $to")
     }
 }

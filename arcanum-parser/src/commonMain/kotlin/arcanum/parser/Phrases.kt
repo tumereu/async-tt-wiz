@@ -41,6 +41,7 @@ internal object Numbers {
 
 /** Noun phrases naming objects and players ("nonbasic land", "a Mountain or Plains card", "creature you control"). */
 private val HALF_ROUNDED = Regex("""half (.+), rounded (up|down)""")
+private val TIMES = Regex("""(\w+) times (.+)""")
 
 internal object Filters {
     /**
@@ -126,7 +127,10 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(noun(m.groupValues[2]) ?: return null, noun(m.groupValues[3]) ?: return null)))
         }
         // blb chunk 11: "creature you control with toughness greater than its power"
+        // bro chunk 09: "creature you control with power equal to its toughness"
         TOUGHNESS_GREATER_THAN_POWER.matchEntire(phrase)?.let { m ->
+            if (m.groupValues[2].startsWith("power")) return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Power(Comparison.Equal,
+                Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Tested, Combine.Single)))
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Toughness(Comparison.Greater,
                 Value.Of(arcanum.api.NumericProperty.Power, Objects.Tested, Combine.Single)))
         }
@@ -258,7 +262,9 @@ internal object Filters {
         // chunk 31: "card from a graveyard"
         FROM_A_GRAVEYARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         // chunk 32: "creature card with power 2 or less", "… with toughness 2 or less"
-        WITH_POWER_OR_TOUGHNESS.matchEntire(phrase)?.let { m ->
+        // bro chunk 05: not "a Plains card or a creature card with mana value 3 or less": an alternative after " or a" has its own noun and
+        // its own "with", the " or " split owns it
+        WITH_POWER_OR_TOUGHNESS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val n = Value.Fixed(m.groupValues[3].toInt())
             // blb chunk 01: "… or greater"
             val comparison = if (m.groupValues[4] == "greater") Comparison.AtLeast else Comparison.AtMost
@@ -272,7 +278,7 @@ internal object Filters {
             val comparison = if (m.groupValues[3] == "greater") Comparison.AtLeast else Comparison.AtMost
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Where(Condition.Compare(total, comparison, Value.Fixed(m.groupValues[2].toInt()))))
         }
-        WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
+        WITH_MANA_VALUE.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             // mh3 chunk 01: "with mana value 4, 5, or 6": any of those; dmu chunk 04: "with mana value 1 or 2"
             if (m.groupValues[2].contains(" or ")) return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(m.groupValues[2].split(", ", "or ")
                 .filter { it.isNotBlank() }.map { ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(it.trim().toInt())) }))
@@ -372,8 +378,10 @@ internal object Filters {
                     noun(last.drop(1).joinToString(" ")) ?: return null)
         }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
+        // bro chunk 05: "3 or less" inside an alternative isn't one
         if (phrase.contains(" or ")) {
-            val list = phrase.split(LazyRegexes.OR_LIST).filter { it.isNotEmpty() }
+            val list = phrase.split(OR_LIST_NOT_COMPARISON).filter { it.isNotEmpty() }
+            if (list.size < 2) return null
             return ObjectFilter.Or(list.map { noun(it.removeArticle()) ?: return null })
         }
         // blb chunk 08: "Rabbits, Bats, Birds, and Mice": a list of creature types is any of them (CR 205.3m)
@@ -478,6 +486,8 @@ internal object Filters {
         if (core == "activated or triggered ability") return "ability"
         // inr chunk 07: "spell, activated ability, or triggered ability" is named for the spell, as "…, or noncreature spell" is
         if (core.contains(", ") && core.endsWith(" triggered ability") && core.split(", ").first().endsWith("spell")) return "spell"
+        // bro chunk 07: "activated or triggered ability" is an ability
+        if (core == "activated or triggered ability") return "ability"
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 
@@ -629,7 +639,7 @@ internal object Filters {
     private val THAT_ARE_EQUIPPED = Regex("""(.+) that (?:are|is) equipped""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or (?:an? )?(\w+)""")
     // blb chunk 11
-    private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")
+    private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with (toughness greater than its power|power equal to its toughness)""")
     // blb chunk 09
     private val OWN_IN_EXILE_AND_GRAVEYARD = Regex("""(.+) you own in exile and in your graveyard""")
     // blb chunk 08
@@ -652,6 +662,7 @@ internal object Filters {
     private val QUALIFIED_PERMANENT_SPELL = Regex("""(.+) permanent spells?""")
     // chunk 36
     private val OR_AN_ALTERNATIVE = Regex(" or an? ")
+    private val OR_LIST_NOT_COMPARISON = Regex(""",? or (?!less\b|greater\b|more\b|fewer\b)|, """)
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
@@ -755,6 +766,12 @@ internal object Events {
         FraPhrases.event(text, self)?.let { return it } // fra
         Dmu.event(text, self)?.let { return it } // dmu
         LciPhrases.event(text, self)?.let { return it } // lci
+        // bro chunk 05: "you choose to put one or more cards on the bottom of your library while scrying" (CR 701.22a)
+        Bro.SCRIED_TO_BOTTOM.matchEntire(text)?.let { m -> return EventPattern.ScriedToBottom(when (m.groupValues[1]) {
+            "you" -> PlayerFilter.You
+            "an opponent" -> PlayerFilter.Opponent
+            else -> PlayerFilter.Any
+        }) }
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
         // (CR 508.1a)
         AND_AT_LEAST_OTHERS_ATTACK.matchEntire(text)?.let { m ->
@@ -885,7 +902,9 @@ internal object Events {
         }
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
-            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+            // bro chunk 07: also "is put into exile from the battlefield" (a leaves-the-battlefield trigger, CR 603.10a)
+            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield,
+                to = if (m.groupValues[2] == "exile") Zone.Exile else Zone.Graveyard)
         }
         // chunk 12
         // "you cast a creature spell": the event's object is always a spell, so the filter names only its kind.
@@ -1201,8 +1220,9 @@ internal object Events {
         "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain,
         "precombat main phase" to arcanum.api.TurnStep.PrecombatMain, "postcombat main phase" to arcanum.api.TurnStep.PostcombatMain,
         "postcombat main phases" to arcanum.api.TurnStep.PostcombatMain)
-    // mom chunk 10: "one or more artifacts and/or creatures you control are put into a graveyard from the battlefield" (a batch)
-    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into a graveyard from the battlefield""")
+    // mom chunk 10: "one or more artifacts and/or creatures you control are put into a graveyard from the battlefield" (a batch); bro chunk 07:
+    // also "into exile"
+    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into (a graveyard|exile) from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
     // chunk 12
@@ -1339,6 +1359,7 @@ internal object Conditions {
         RvrPhrases.condition(text, self)?.let { return it } // rvr
         OnePhrases.condition(text, self)?.let { return it } // one
         IsdPhrases.condition(text, self)?.let { return it } // isd
+        BroPhrases.condition(text, self)?.let { return it } // bro
         Dmu.condition(text)?.let { return it } // dmu
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
@@ -1899,6 +1920,8 @@ internal object Values {
         IsdPhrases.value(text)?.let { return it } // isd
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled, its)?.let { return Value.Times(it, 2) }
+        // bro chunk 03: "three times this creature's power"
+        TIMES.matchEntire(text)?.let { m -> value(m.groupValues[2], exiled, its)?.let { return Value.Times(it, Numbers.count(m.groupValues[1]) ?: return null) } }
         // mh3 chunk 06, isd chunk 06: "half the number of artifacts you control, rounded down" (CR 107.1a)
         HALF_ROUNDED.matchEntire(text)?.let { m -> value(m.groupValues[1], exiled, its)?.let { return Value.Half(it, roundUp = m.groupValues[2] == "up") } }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)

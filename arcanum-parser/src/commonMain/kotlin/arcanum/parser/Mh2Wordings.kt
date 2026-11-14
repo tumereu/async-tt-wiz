@@ -83,7 +83,7 @@ internal object Mh2 {
     val GET_PT_FOR_EACH_COUNTER_ON_SELF = Regex("""(.+) get \+(\d+)/\+(\d+) for each (\S+) counter on (.+)\.""")
     val ISNT_LEGENDARY_IF_TOKEN = Regex("""(.+) isn't legendary if it's a token\.""")
     val CHOOSE_LAND_OR_NONLAND_REVEAL_UNTIL = Regex("""Choose land or nonland\. Reveal cards from the top of your library until you reveal a card of the chosen kind\. Put that card into your hand and the rest on the bottom of your library in a random order\.""")
-    val ENTERS_WITH_N_COUNTERS_FOR_EACH_COLOR_SPENT = Regex("""(.+) enters with (\w+) (\S+) counters on it for each color of mana spent to cast it\.""")
+    val ENTERS_WITH_N_COUNTERS_FOR_EACH_COLOR_SPENT = Regex("""(.+) enters with (\w+) (\S+) counters on it for each (color of mana|(?:\{[WUBRGC]\})+) spent to cast it\.""")
     val TARGET_PLAYER_SHUFFLES_GRAVEYARD_INTO_LIBRARY = Regex("""Target player shuffles their graveyard into their library\.""")
     val PREVENT_ALL_COMBAT_DAMAGE_THIS_TURN = Regex("""Prevent all combat damage that would be dealt this turn\.""")
     // mh2 chunk 10

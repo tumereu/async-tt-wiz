@@ -312,7 +312,7 @@ class CastabilityTest : E2e() {
         start(deck(TestCards.painStone to 20, TestCards.redFlash to 20), mapOf("Pain Stone" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
         plays(alice, "Pain Stone")
         alice.playFromHand("Red Flash", this)
-        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {R}: produce the mana on the board.")) }
         alice.onTable("Pain Stone")
         waitUntil("paid") { alice.payment() == "Payment: Paid with Pain Stone" }
         alice.tapCast()
@@ -442,7 +442,7 @@ class CastabilityTest : E2e() {
         alice.playFromHand("Storm Spark", this)
         waitUntil("the target bar: ${alice.screen()}") { alice.choosingTargets() }
         alice.node(hasContentDescription("${bob.name}, life 20", substring = true)).performClick()
-        waitUntil("the panel after the targets: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        waitUntil("the panel after the targets: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {R}: produce the mana on the board.")) }
         assertTrue(alice.state.stack.isEmpty(), "nothing sent")
         alice.onTable("Mountain")
         waitUntil("paid") { alice.payment() == "Payment: Paid with Mountain" }
@@ -613,7 +613,7 @@ class CastabilityTest : E2e() {
         start(deck(TestCards.cairn to 20, TestCards.redFlash to 20), mapOf("Ember Cairn" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
         plays(alice, "Ember Cairn")
         alice.playFromHand("Red Flash", this)
-        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {R}: produce the mana on the board.")) }
         alice.onTable("Ember Cairn")
         waitUntil("paid") { alice.payment() == "Payment: Paid with Ember Cairn" }
         assertFalse(alice.shows(hasContentDescription("{T}: Add {R}.")), "no chips")
@@ -674,7 +674,7 @@ class CastabilityTest : E2e() {
         plays(alice, "Ember Shard", "Ember Shard", "Ember Shard")
         waitUntil("the three Shards in one stack") { alice.shows(alice.shardStack(3)) }
         alice.playFromHand("Red Flash", this)
-        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {R}: produce the mana on the board.")) }
         alice.tap("Hide cast panel")
         waitUntil("the panel hidden") { alice.showsControl("Show cast panel") }
         alice.node(alice.shardStack(3)).performClick()

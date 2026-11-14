@@ -286,7 +286,7 @@ class CastChipsTest {
         val filled = toolkit.cast.paySources().single()
         kit.tap(kit.item(filled))
         refresh()
-        compose.onNodeWithContentDescription("Not paid: Tap sources on the table to pay {R}.").assertExists()
+        compose.onNodeWithContentDescription("Not paid: Still owed {R}: produce the mana on the board.").assertExists()
         compose.onNode(hasText("Cast") and hasClickAction()).assertIsNotEnabled()
         kit.tap(kit.item(shard))
         refresh()

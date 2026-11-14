@@ -1,0 +1,1 @@
+Alice opened Blue Note's cast panel with Autotap off and her Hearth Elders ("Tap two untapped creatures you control: Add one mana of any color.") and Ash Pups out: no chip names them, the panel says only "Still owed {U}: produce the mana on the board." in red, and Cast is greyed.

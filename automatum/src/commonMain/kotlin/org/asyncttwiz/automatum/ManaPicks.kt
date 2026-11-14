@@ -13,6 +13,11 @@ object ManaPicks {
      * life or another way, in the engine's order. */
     fun groups(decision: Decision.ManaPayment): List<List<ManaUse>> = decision.options.groupBy(::key).values.toList()
 
+    /** STK-024 (owner 2026-11-14): whether [use] is a mana ability whose cost uses other objects (CR 605.3a: "Tap two untapped
+     * creatures you control", the creature an altar sacrifices). Such a use is never offered as a choice naming those objects:
+     * its source is tapped on the table, the objects its cost uses as the engine lists them. */
+    fun usesObjects(use: ManaUse): Boolean = use is ManaUse.Ability && use.answers.any { it is arcanum.engine.decision.Answer.Objects }
+
     /** What the player taps for [use]: the same for every use of one source (its abilities and colours). */
     fun key(use: ManaUse): String = when (use) {
         // CR 605.3a: a source used with another object (the creature an altar sacrifices) is a pick of its own

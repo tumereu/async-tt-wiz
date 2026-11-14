@@ -69,7 +69,7 @@ class PickOnTableTest : E2e() {
         start(deck(TestCards.fork to 20, TestCards.blueNote to 20), mapOf("Ember Fork" to 1, "Blue Note" to 1), PlaySettings(autotap = false))
         plays("Ember Fork")
         alice.playFromHand("Blue Note", this)
-        waitUntil("the panel, nothing paying: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {U}.")) }
+        waitUntil("the panel, nothing paying: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {U}: produce the mana on the board.")) }
         assertFalse(alice.shows(hasContentDescription("Cast panel") and androidx.compose.ui.test.hasAnyDescendant(hasClickAction() and hasContentDescription("Cast"))),
             "no Cast in the panel: ${alice.screen()}")
         alice.tap("Hide cast panel")
@@ -102,7 +102,7 @@ class PickOnTableTest : E2e() {
         start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 1, "Red Flash" to 1), PlaySettings(autotap = false))
         plays("Ember Shard")
         alice.playFromHand("Red Flash", this)
-        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {R}: produce the mana on the board.")) }
         alice.tap("Hide cast panel")
         waitUntil("the panel hidden") { alice.showsControl("Show cast panel") }
         alice.battlefieldCard("Ember Shard").performClick()

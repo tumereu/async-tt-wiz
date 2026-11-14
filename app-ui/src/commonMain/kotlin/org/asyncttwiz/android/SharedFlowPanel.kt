@@ -357,7 +357,7 @@ private fun payOnMain(questions: FlowQuestions, decision: Decision, payment: Dec
     })
 
 /** TRN-063: why Pay on the main button is greyed. */
-fun notPaying(payment: Decision.ManaPayment) = "Not paid yet: tap sources on the table to pay ${payment.cost}."
+fun notPaying(payment: Decision.ManaPayment) = "Not paid yet: produce the mana for ${payment.cost} on the board."
 
 /**
  * STK-049 (owner playtest 2026-11-09): a mana payment while something resolves ("unless its controller pays {1}", "you may pay {1}",
@@ -373,7 +373,9 @@ private fun FlowPayBar(flows: SharedFlowController, flow: SharedShown, play: Tab
     AutomatumDockBar("Pay on the table", eye = true) {
         TargetBarTitle(choiceWhat(payment), line, if (flows.paid) "Paid" else "Not paid yet")
         // Pool mana and life, which the table can't show, as chips
-        val others = org.asyncttwiz.automatum.ManaPicks.groups(payment).filter { group -> flows.tableSource(group.first()) == null }
+        // STK-024 (owner 2026-11-14): a source whose cost uses other cards is tapped on the table, never a chip
+        val others = org.asyncttwiz.automatum.ManaPicks.groups(payment).filter { group -> flows.tableSource(group.first()) == null &&
+            !org.asyncttwiz.automatum.ManaPicks.usesObjects(group.first()) }
         for (group in others) {
             val used = flows.mana.firstOrNull { it in group }
             val label = org.asyncttwiz.automatum.ManaWays.label(used ?: group.first())

@@ -407,7 +407,7 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
 /** TRN-063: why Cast on the main button is greyed: Automatum works the last step out. */
 const val CAST_WORKING = "Automatum is working this out."
 /** TRN-063, STK-024: why Cast on the main button is greyed: the mana chosen doesn't pay. */
-const val CAST_UNPAID = "The sources chosen don't pay the cost: tap sources on the table."
+const val CAST_UNPAID = "The cost isn't paid yet: produce the mana on the board."
 
 /** I-D48: an icon-only control without a hold action of its own says what it does on hold. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -665,7 +665,8 @@ private fun modeText(mode: arcanum.engine.decision.ModeOption) = mode.text
 @Composable
 fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ManaPayment) {
     Section("Mana · ${decision.cost}", choiceHint(decision)) {
-        val groups = ManaPicks.groups(decision)
+        // STK-024 (owner 2026-11-14): never a chip naming the cards a source's cost uses
+        val groups = ManaPicks.groups(decision).filterNot { ManaPicks.usesObjects(it.first()) }
         val viewer = LocalChoiceFrame.current.viewer
         val inspector = remember(decision.id) { ChoiceInspector() }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -705,10 +706,11 @@ private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String)
     val due = payment.cost.toString()
     if (due.isEmpty()) return
     val names = cast.mana.map { useName(cast, play, it) }
+    // STK-024 (owner 2026-11-14): never a card named as a choice: what is still owed, produced on the board
     val reason = when {
         cast.paid -> null
-        names.isEmpty() -> "Tap sources on the table to pay $due."
-        else -> "Not enough to pay $due: tap more sources on the table."
+        names.isEmpty() -> "Still owed $due: produce the mana on the board."
+        else -> "Not enough to pay $due: produce more mana on the board."
     }
     val onTable = cast.mana.filter { cast.tableSource(it) != null }
     val outOfView = onTable.filterNot { use -> cast.tableSource(use)?.let(inView) != false }.map { useName(cast, play, it) }
@@ -721,7 +723,9 @@ private fun PaymentLine(cast: CastController, play: TableBoard, inView: (String)
             else Text(if (onTable.isEmpty()) "Tap a source on the table to change it." else "Outlined sources pay. Tap sources on the table to change them.",
                 fontSize = 11.sp, color = Color(0xff4b5a5f))
         }
-        val others = ManaPicks.groups(payment).filter { group -> cast.tableSource(group.first()) == null }
+        // STK-024 (owner 2026-11-14): a source whose cost uses other cards (tapping two creatures, sacrificing one) is never a chip
+        // naming them: it is tapped on the table like any other source
+        val others = ManaPicks.groups(payment).filter { group -> cast.tableSource(group.first()) == null && !ManaPicks.usesObjects(group.first()) }
         if (others.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (group in others) {
                 val used = cast.mana.firstOrNull { it in group }

@@ -23,7 +23,6 @@ Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 
 Owner notes 2026-11-14 evening, agreed changes (after the desktop playtest batch and the Stack animation; two workers may run in parallel, one per group). Each is first checked on master.
 
 Table and casting:
-- Casting with a mana source that taps cards (e.g. Supportive Parents: "Tap two untapped creatures you control: Add one mana") when the app finds no sure payment: no dialog offering cards by name, ever (owner: anything done on the board is done by tapping the cards themselves; a card can have auras, counters, effects, too much to show as a dialog choice). The cast panel just says what's still owed and that you produce the mana on the board; the attempt stays allowed as now.
 - Mana chips while casting: a pile of lands shows one combined chip of all the mana the pile will produce (single cards keep their own chip); the out-of-view mana text goes (the eye toggle and panning show the sources).
 - While a cast, choice or other panel is open, your hand is dimmed (about 40%) and not tappable, unless the choice is about a hand card.
 - "Assume resolves" reads "Assume pass" when the Stack is empty (nothing to resolve).

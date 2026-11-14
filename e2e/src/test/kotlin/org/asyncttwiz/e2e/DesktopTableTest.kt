@@ -133,6 +133,22 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
+    // ZON-001, WEB-016 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): on Alice's desktop
+    // table Bob's hand is the phone's small fan of card backs in his seat header, after his piles and level with his life
+    // square, its cards overlapping (a row of small cards side by side before)
+    @Test fun theOtherPlayersHandIsAFanInTheirSeatHeader() {
+        start()
+        val life = alice.described("${bob.name}, life 20", substring = true).fetchSemanticsNode().boundsInRoot
+        val exile = alice.described("${bob.name} exile,", substring = true).fetchSemanticsNode().boundsInRoot
+        val cards = alice.nodes(hasContentDescription("Covered card, owner ${bob.name}, ", substring = true)).fetchSemanticsNodes()
+            .map { it.boundsInRoot }.sortedBy { it.left }
+        assertEquals(bob.state.player(bob.me).hand.size, cards.size, "his whole hand as card backs: ${alice.screen()}")
+        assertTrue(cards.all { it.left > exile.right && it.center.y > life.top && it.center.y < life.bottom },
+            "in his seat header after his piles: $cards, exile $exile, life $life")
+        assertTrue(cards.zipWithNext().all { (a, b) -> b.left < a.right }, "fanned, each card over the one before: $cards")
+        assertEquals(emptyList(), alice.leaks.leaks)
+    }
+
     /** How cyan the glow is at [x], [y] of [picture]: how far its red falls below its green and blue (0 on white or grey). */
     private fun cyanAt(picture: android.graphics.Bitmap, x: Float, y: Float): Int {
         val pixel = picture.getPixel(x.toInt(), y.toInt())

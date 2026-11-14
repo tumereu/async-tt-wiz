@@ -195,7 +195,7 @@ class DesktopTableScreenshotTest {
     }
 
     // WEB-015, WEB-016, WEB-018, WEB-022: the desktop table's arrangement: the battlefields end at the dock, the other player's
-    // seat header is at the top with their hand's small backs, yours lies right above the bottom band, your hand is centred
+    // seat header is at the top with their hand as a small fan of backs, yours lies right above the bottom band, your hand is centred
     // in the band left of the action area at the desktop's larger size, and the Stack isn't on the battlefields
     @Test fun theSceneLaysOutSeatHeadersHandAndBattlefieldsForTheDock() {
         val kit = EngineTableKit()
@@ -231,7 +231,16 @@ class DesktopTableScreenshotTest {
         assertTrue(kotlin.math.abs(middle - bandMiddle) < 16f, "centred in the band left of the action area: $middle vs $bandMiddle")
         assertTrue(hand.all { it.bounds.y >= height - band }, "in the bottom band")
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
-        assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
+        assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.y >= 0f && it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
+        // WEB-016, ZON-001 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): Bob's hand is
+        // the phone's small fan of card backs after his piles, its cards the piles' size times FAN_CARD, turned and overlapping,
+        // its count at its right
+        assertTrue(scene.items.single { it.kind == TableItemKind.HAND && it.owner == kit.f.b }.handFan, "Bob's hand drawn as a fan")
+        val fanCard = DesktopTable.PILE_HEIGHT * TablePresentation.FAN_CARD
+        assertTrue(bobsHand.all { it.cardTransform?.height == fanCard }, "fan cards ${fanCard} tall: ${bobsHand.map { it.cardTransform }}")
+        assertTrue(bobsHand.first().cardTransform!!.rotation < 0f && bobsHand.last().cardTransform!!.rotation > 0f, "turned as a fan")
+        assertTrue(bobsHand.zipWithNext().all { (a, b) -> b.bounds.x < a.bounds.right }, "overlapping: ${bobsHand.map { it.bounds }}")
+        assertTrue(bobsHand.all { it.bounds.x > bobsPiles.maxOf { pile -> pile.bounds.right } }, "after his piles")
         val stackItem = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         val stack = stackItem.bounds
         assertTrue(stack.x >= 1440f - DesktopTable.DOCK, "the Stack under the dock, not on the battlefields: $stack")
@@ -273,7 +282,7 @@ class DesktopTableScreenshotTest {
         compose.onAllNodesWithText("Bob").onFirst().assertExists()
         compose.onNodeWithText("You").assertExists()
         captureShot("$SCREENSHOTS/desktop/table.png",
-            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
+            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top with his hand as a small fan of card backs after his piles, as on the phone, and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
     }
 
     // WEB-017, WEB-016, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the dock's

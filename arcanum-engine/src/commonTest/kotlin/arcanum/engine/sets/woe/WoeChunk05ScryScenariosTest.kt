@@ -51,7 +51,7 @@ class WoeChunk05ScryScenariosTest {
         {2}, {T}, Sacrifice Sir Pepper: You gain life equal to its power.
     """.trimIndent(), "3/1")
     private val mara = Cards.invent("Whispering Mara", "{2}{B}", "Legendary Planeswalker — Mara", "[+1]: You gain 1 life.", null, "3")
-    private val trinket = Cards.invent("Pewter Charm", "{1}", "Artifact", "{T}, Sacrifice this artifact: You gain 1 life.")
+    private val trinket = Cards.invent("Pewter Keepsake", "{1}", "Artifact", "{T}, Sacrifice this artifact: You gain 1 life.")
     private val terror = Cards.invent("Futile Terror", "{B}", "Enchantment", """
         When this enchantment enters, each opponent discards a card and loses 2 life.
         When this enchantment is put into a graveyard from the battlefield, scry 2.

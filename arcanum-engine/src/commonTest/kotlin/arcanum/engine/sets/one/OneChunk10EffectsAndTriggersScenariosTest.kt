@@ -34,7 +34,7 @@ class OneChunk10EffectsAndTriggersScenariosTest {
     private val tusker = Cards.invent("Plodding Tusker", "{1}{G}", "Creature — Boar", "", "2/2")
     private val lumbering = Cards.invent("Lumbering Tusker", "{1}{G}", "Creature — Boar", "", "2/2")
     private val hulk = Cards.invent("Towering Hulk", "{5}", "Artifact Creature — Golem", "", "5/5")
-    private val trinket = Cards.invent("Copper Trinket", "{2}", "Artifact", "")
+    private val trinket = Cards.invent("Copper Knickknack", "{2}", "Artifact", "")
     private val jolt = Cards.invent("Scorching Jolt", "{R}", "Instant", "Scorching Jolt deals 3 damage to any target.")
     private val brawn = Cards.invent("Surge of Brawn", "{G}", "Instant", "Put two +1/+1 counters on target creature.")
     private val field = Cards.invent("Return to the Field", "{1}{W}", "Sorcery", "Return target creature card from your graveyard to the battlefield.")

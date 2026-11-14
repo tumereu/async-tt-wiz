@@ -24,6 +24,8 @@ fun main() {
     devices.forwardLogs()
     // The games' card definitions, parsed here from their own card data (the page keeps its parsed cards in its storage)
     AutomatumBoards.definitionSource = { submitted ->
+        // WEB-056: the page has the "parsing" line before the parsing starts
+        devices.flushLogs()
         submitted.associate { s -> s.digest to org.asyncttwiz.protocol.game.GameCards.parse(s.definition).let { p ->
             p.definition?.let { ParsedCard.Read(it, p.manualAbilities) } ?: ParsedCard.Unreadable(p.problem.orEmpty()) } }
     }

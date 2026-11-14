@@ -55,7 +55,9 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
         post(DeviceMessage.answer(game, answer))
     }
 
-    private fun flushLogs() {
+    /** Sends the log lines made so far; also before long work (WEB-056: a worker the browser ends in it has said what it
+     * was doing). */
+    fun flushLogs() {
         if (logs.isEmpty()) return
         val lines = logs.toList()
         logs.clear()

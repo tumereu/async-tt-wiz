@@ -15,6 +15,7 @@ browser; the desktop layout arranges the same parts for a large window, a mouse 
 
 - **WEB-005** The first visit shows a loading screen (the wizard hat, "ATW", "Loading Async Tabletop Wizards…" and a moving bar) until the app draws; later visits load from the browser's cache. When the app can't load it says "ATW couldn't load. Check your connection and reload the page." (r71)
 - **WEB-006** A tab left open on an older version reloads itself when the server has a newer one (checked when the page opens, when it comes back to the foreground and every 10 minutes): at once on the menu, the Games list or the sign-in page, or as a game is opened; never while a dialog, panel or menu is open or text is being typed. Elsewhere it waits until you reach one of those. After the reload a short note says "ATW was updated", and What's new (LOB-087) follows its usual rules; a first visit counts as a fresh install. (r71)
+- **WEB-056** The web client runs in desktop Chrome as in other browsers, also as a game's table opens: none of its code is too big for Chrome's optimizing compiler, which would end the page with "Aw, Snap! Out of memory" once that code got busy (the build checks it). When the browser ends a visit anyway (a crash, out of memory, a background tab it discarded) or the app can't start, the next visit's app log, and so a problem report sent then, says so with that visit's last log lines. (r74)
 
 ### Sign-in, card records and sound
 

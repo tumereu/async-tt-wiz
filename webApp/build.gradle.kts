@@ -1,6 +1,10 @@
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
 
 // The web client's page (docs/specs/web-client.md §1 item 1, §11 step 3): the browser entry point, index.html with the
 // first load's loading screen, and the build the server serves (§2.1). The app itself is :app-ui's.
@@ -90,6 +94,47 @@ kotlin {
     }
 }
 
+// WEB-056 (owner report 2026-11-14): Chrome compiles a hot WebAssembly function again with V8's optimizing compiler, and a
+// function too big for it ends the whole page ("Aw, Snap! Out of memory": V8's "Fatal process out of memory: Zone"); Firefox
+// copes. Binaryen's inlining once made one 422 KB function of the parser's sentence rules, which a table's card parsing
+// soon made hot. Each module of the served build is compiled here as Chrome would, every function at once with that
+// compiler (Node's V8), and the build fails when one is too big. The root build keeps Binaryen from making such functions.
+abstract class WasmOptimizedCompileCheck : DefaultTask() {
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NAME_ONLY) abstract val modules: ConfigurableFileCollection
+    @get:Input abstract val node: Property<String>
+    @get:OutputFile abstract val result: RegularFileProperty
+    @get:Inject abstract val exec: ExecOperations
+
+    @TaskAction fun check() {
+        val compiled = modules.files.filter { it.name.endsWith(".wasm") }.sortedBy { it.name }.map { module ->
+            val output = ByteArrayOutputStream()
+            val run = exec.exec {
+                commandLine(node.get(), "--no-liftoff", "--no-wasm-lazy-compilation", "-e",
+                    "const t = Date.now(); new WebAssembly.Module(require('fs').readFileSync(process.argv[1])); " +
+                        "console.log('compiled in ' + (Date.now() - t) + ' ms')", module.absolutePath)
+                standardOutput = output; errorOutput = output; isIgnoreExitValue = true
+            }
+            val text = output.toString().trim()
+            if (run.exitValue != 0) throw GradleException("${module.name} (${module.length() / 1024} KB) doesn't compile with V8's " +
+                "optimizing compiler, so Chrome would end the page once that code gets busy (WEB-056): a function is too big " +
+                "for it (Binaryen's inlining, or a huge Kotlin function such as one of arcanum.parser.Sentences: split it). " +
+                "Node said:\n${text.lines().take(8).joinToString("\n")}")
+            "${module.name}: $text".also { logger.lifecycle("Optimized compile check: $it") }
+        }
+        result.get().asFile.writeText(compiled.joinToString("\n") + "\n")
+    }
+}
+val webOptimizedCompileCheck = tasks.register<WasmOptimizedCompileCheck>("webOptimizedCompileCheck") {
+    group = "verification"
+    description = "Compiles the served build's WebAssembly with V8's optimizing compiler, as Chrome does hot code (WEB-056)."
+    // Their webpack runs on the Node.js the Kotlin plugin installs, which runs the check too
+    dependsOn("wasmJsBrowserDistribution", ":webApp:engine:wasmJsBrowserDistribution")
+    node.set((project.extensions.findByType<WasmNodeJsEnvSpec>() ?: rootProject.extensions.getByType<WasmNodeJsEnvSpec>()).executable)
+    for (module in listOf(project, project(":webApp:engine")))
+        modules.from(module.layout.buildDirectory.dir("dist/wasmJs/productionExecutable").map { it.asFileTree.matching { include("*.wasm") } })
+    result.set(layout.buildDirectory.file("webOptimizedCompileCheck.txt"))
+}
+
 // The served build (§2.1): the production distribution's files under a folder named by their content's hash, so they are
 // cached for good, beside index.html (pointing at that folder, never cached) and `build` (the hash: open tabs compare it
 // with their own, WEB-006).
@@ -100,6 +145,8 @@ val webDist = tasks.register("webDist") {
     dependsOn(distribution)
     // The engine's Web Worker (engine.js and its wasm), beside the app's files (docs/specs/web-client.md §1 item 3)
     dependsOn(":webApp:engine:wasmJsBrowserDistribution")
+    // WEB-056: never a build Chrome would end "out of memory"
+    dependsOn(webOptimizedCompileCheck)
     val source = layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
     val engineSource = project(":webApp:engine").layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
     val output = layout.buildDirectory.dir("web")

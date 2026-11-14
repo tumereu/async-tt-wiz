@@ -89,6 +89,13 @@ object DesktopTable {
     val MIN_BAND = (DESKTOP_ACTIONS_HEIGHT + 2 * ACTIONS_PADDING) * UI_SCALE
     /** The action area's padding around its rows (at 1×). */
     const val ACTIONS_PADDING = 8f
+    /** WEB-018: the gap between the action area's buttons, as between the quick actions (at 1×). */
+    const val ACTION_GAP = 2f
+    /** WEB-018 (owner, desktop playtest 2026-11-14: "Undo button size 1/3, resolve button size 2/3?"): Undo's width in the
+     * action area's bottom row [row] wide: a third of it, as wide as the first of three quick actions above it. */
+    fun undoWidth(row: Float) = (row - 2 * ACTION_GAP) / 3
+    /** WEB-018: the main button's width in the bottom row [row] wide: the rest after Undo and the gap, two thirds. */
+    fun mainWidth(row: Float) = row - undoWidth(row) - ACTION_GAP
 
     /** The right end of a seat header's life square and [places] piles from its left end [x]. */
     fun pilesRight(x: Float, places: Int) = x + LIFE + PILE_GAP + places * PILE_PITCH

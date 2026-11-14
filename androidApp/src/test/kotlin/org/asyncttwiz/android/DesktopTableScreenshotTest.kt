@@ -257,10 +257,23 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithContentDescription("Close chat").assertDoesNotExist()
         compose.onNodeWithTag("action-area").assertExists()
         compose.onNodeWithContentDescription("Undo").assertExists()
+        // WEB-018 (owner, desktop playtest 2026-11-14): Undo a real button a third of the bottom row wide, the main button the
+        // other two thirds, lined up with no room between them but the quick actions' gap
+        val area = compose.onNodeWithTag("action-area").fetchSemanticsNode().boundsInRoot
+        val undo = compose.onNodeWithTag(DESKTOP_UNDO_TAG).fetchSemanticsNode().boundsInRoot
+        val main = compose.onNodeWithTag("main-button").fetchSemanticsNode().boundsInRoot
+        val pad = DesktopTable.ACTIONS_PADDING * DesktopTable.UI_SCALE
+        val row = main.right - undo.left
+        assertEquals(area.width - 2 * pad, row, 2f, "the row spans the action area: $undo, $main in $area")
+        assertEquals(row / 3, undo.width, 2f, "Undo a third: $undo of $row")
+        assertEquals(row * 2 / 3, main.width, 2f, "the main button two thirds: $main of $row")
+        assertTrue(main.left - undo.right in 0f..(DesktopTable.ACTION_GAP * DesktopTable.UI_SCALE + 1f), "no room between them: $undo, $main")
+        assertEquals(main.top, undo.top, 1f, "lined up")
+        assertEquals(main.height, undo.height, 1f, "as tall")
         compose.onAllNodesWithText("Bob").onFirst().assertExists()
         compose.onNodeWithText("You").assertExists()
         captureShot("$SCREENSHOTS/desktop/table.png",
-            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and the quick actions over Undo and the main button at the bottom right.")
+            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
     }
 
     // WEB-017, WEB-016, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the dock's

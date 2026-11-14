@@ -1,5 +1,6 @@
 package arcanum.engine.sets.fin
 
+import arcanum.engine.decision.Answer
 import arcanum.api.Keyword
 import arcanum.api.TurnStep
 import arcanum.api.Zone
@@ -49,6 +50,8 @@ class FinWhiteScenariosTest {
         alice.hand(FinSet.parcelMoogle)
         alice.casts(FinSet.parcelMoogle)
         resolveAll()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("library and graveyard"))
         choose(trinket)
         expect { alice.hand has trinket }
     }

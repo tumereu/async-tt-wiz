@@ -7,7 +7,8 @@ internal object Fdn {
     val ADD_WHEN_THAT_MANA_SPENT = Regex("""(\{T\}: Add \{\w\}\.) When that mana is spent to cast an? (.+? spell), (.+)\.""")
     val YOU_PUT_COUNTERS_ON_SELF = Regex("""you put one or more (\S+) counters on (.+)""")
     val COUNTERS_ARE_PUT_ON = Regex("""one or more (\S+) counters are put on (.+)""")
-    val ADD_SPELL_GAINS_KEYWORD_UNTIL_EOT = Regex("""(\{T\}: Add \{\w\}\.) If that mana is spent on an? (.+? spell), it gains ([a-z ]+) until end of turn\.""")
+    // mh3 chunk 08: any cost ("{R}, {T}, Exert this land: Add {R}{R}. If any of that mana is spent on a creature spell, …")
+    val ADD_SPELL_GAINS_KEYWORD_UNTIL_EOT = Regex("""([^.:]+: Add (?:\{\w\})+\.) If (?:any of )?that mana is spent on an? (.+? spell), it gains ([a-z ]+) until end of turn\.""")
     val DEALT_DAMAGE_BY_DIES = Regex("""an? (\w+) dealt damage by (.+) this turn dies""")
     // fdn chunk 10b
     val LOSES_LIFE_EQUAL_TO_COUNTERS_ON_SELF = Regex("""(Each opponent|Each player) loses life equal to the number of (\w+) counters on (this \w+)\.""")
@@ -38,12 +39,16 @@ internal object Fdn {
     val PLAY_NOT_OWNED_WITH_COUNTERS_ANY_TYPE = Regex("""During your turn, you may play cards you don't own with (\S+) counters on them from exile, and mana of any type can be spent to cast those spells\.""")
     val EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER = Regex("""[Ee]xile it from their graveyard with an? (\S+) counter on it\.""")
     val GAINS_AND_GETS_UNTIL_EOT = Regex("""(.+?) gains (.+?) and gets ([+-]\w+)/([+-]\w+) until end of turn\.?""")
-    val OPPONENT_GAINS_CONTROL = Regex("""Target opponent gains control of target (.+?)\.""")
+    // woe chunk 07: also "That player gains control of target Treasure you control." (the player chosen before)
+    // mkm chunk 01: also "any number of target permanents you control"
+    val OPPONENT_GAINS_CONTROL = Regex("""(Target opponent|That player) gains control of (any number of )?target (.+?)\.""")
     val DESTROY_ALL_GAIN_FOR_EACH = Regex("""Destroy all (.+?)\. You gain (\d+) life for each (?:.+?) destroyed this way\.""")
     // chunk 05
     val TWO_AS_LONG_AS = Regex("""(As long as [^.]+\.) ([^.]+ as long as [^.]+\.)""")
     val ANY_PLAYER_CONTROLS = Regex("""any player controls an? (.+)""")
-    val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), it enters with (\S+ \S+) counters? on it\.""")
+    // otj chunk 01: also "this creature" and counters of several kinds ("two +1/+1 counters and a lifelink counter"); mh3 chunk 01: "and with
+    // [keywords]" ("… two +1/+1 counters and a trample counter on it and with haste")
+    val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), (?:it|this [a-z]+) enters with (\S+ \S+ counters?(?: and \S+ \S+ counters?)?) on it(?: and with (.+?))?\.""")
     val FOR_EACH_PUT_INTO_GRAVEYARD_CREATE = Regex("""For each (.+?) put into a graveyard this way, (?:you )?create (.+)\.""")
     val FIRST_TIME_DURING_EACH_OF_YOUR_TURNS = Regex("""(.+) for the first time during each of your turns""")
     // chunk 06
@@ -66,7 +71,7 @@ internal object Fdn {
     val IT_HAD_A_COUNTER = Regex("""it had an? (\S+) counter on it""")
     val RETURN_IT_WITH_ONE_FEWER_AT_NEXT_END_STEP = Regex("""[Rr]eturn it to the battlefield with one fewer (\S+) counter on it at the beginning of the next end step\.""")
     val REMOVE_COUNTERS_FROM_AMONG = Regex("""Remove (\w+) counters from among (.+)""")
-    val SPEND_ANY_TYPE_TO_CAST = Regex("""You can spend mana of any type to cast (.+) spells\.""")
+    val SPEND_ANY_TYPE_TO_CAST = Regex("""You (?:can spend mana of any type|may spend mana as though it were mana of (any color)) to cast (.+) spells\.""")
     val CHOOSES_PERMANENT_OF_EACH_TYPE_SACRIFICES_REST = Regex("""Each (opponent|player) chooses a permanent they control of each permanent type and sacrifices the rest\.""")
     // chunk 09
     val EXILE_TOP_OF_EACH_LIBRARY_CAST_ANY_NUMBER = Regex("""[Ee]xile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs\.?""")

@@ -13,10 +13,15 @@ GTC Gatecrash
 HOB The Hobbit
 INR Innistrad Remastered
 ISD Innistrad
+LCI The Lost Caverns of Ixalan
 LTR The Lord of the Rings: Tales of Middle-earth
 MH2 Modern Horizons 2
+MH3 Modern Horizons 3
+MKM Murders at Karlov Manor
+MOM March of the Machine
 MSH Marvel Super Heroes
 ONE Phyrexia: All Will Be One
+OTJ Outlaws of Thunder Junction
 RTR Return to Ravnica
 RVR Ravnica Remastered
 SOS Secrets of Strixhaven
@@ -24,3 +29,4 @@ SPM Marvel's Spider-Man
 TDM Tarkir: Dragonstorm
 TLA Avatar: The Last Airbender
 TMT Teenage Mutant Ninja Turtles
+WOE Wilds of Eldraine

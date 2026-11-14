@@ -229,7 +229,7 @@ class DmuChunk01KickerTest {
         ),
     )
 
-    // CR 702.33d; CR 608.2h: the returned card's mana value
+    // CR 702.33d; CR 608.2h: the returned card's mana value (the permanent it became, CR 400.7)
     @Test
     fun sheoldredsRestoration() = card(
         name = "Grim Restoration Rite",
@@ -242,9 +242,9 @@ class DmuChunk01KickerTest {
         """,
     ) parsesTo abilities(
         kicker("{2}{W}"),
-        Value.Of(NumericProperty.ManaValue, target("card"), Combine.Single).let { mv ->
+        Value.Of(NumericProperty.ManaValue, Objects.Bound("moved-card"), Combine.Single).let { mv ->
             spell(
-                move(target("card"), Zone.Battlefield),
+                move(target("card"), Zone.Battlefield, postBind = "moved-card"),
                 Step.If(kicked, then = listOf(Step.Do(Effect.GainLife(Players.You, mv))), otherwise = listOf(Step.Do(Effect.LoseLife(Players.You, mv)))),
                 move(Objects.Self, Zone.Exile),
                 targets = listOf(slot("card", inYourGraveyard(creature))),

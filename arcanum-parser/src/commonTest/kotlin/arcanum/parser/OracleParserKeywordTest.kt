@@ -65,18 +65,18 @@ class OracleParserKeywordTest {
             ObjectFilter.Category(ObjectCategory.Card), count = Value.Fixed(1))))))), abilities("Flying; ward—Discard a card."))
     }
 
+    // CR 702.33b: "Kicker [cost 1] and/or [cost 2]" is two kicker costs (mh3 chunk 08)
+    @Test
+    fun kickerWithTwoCosts() {
+        assertEquals(listOf(Keyword.Kicker(listOf(mana("{1}{U}"), mana("{2}{B}")))), abilities("Kicker {1}{U} and/or {2}{B}"))
+    }
+
     @Test
     fun keywordWrittenWithTheWrongValuesStaysUnparsed() {
         listOf("Flying 2", "Crew", "Crew X", "Equip", "Equip legendary creature {3}",
             "Suspend 4", "Partner—Friends forever").forEach { text ->
             assertEquals(listOf(Ability.Unparsed(text)), abilities(text), text)
         }
-    }
-
-    // CR 702.33b: "Kicker [cost 1] and/or [cost 2]" is two kicker costs (dmu chunk 01; it was listed above as a wrong value)
-    @Test
-    fun kickerWithTwoCosts() {
-        assertEquals(listOf(Keyword.Kicker(listOf(mana("{1}{U}"), mana("{2}{B}")))), abilities("Kicker {1}{U} and/or {2}{B}"))
     }
 
     @Test

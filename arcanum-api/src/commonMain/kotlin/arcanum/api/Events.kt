@@ -22,6 +22,10 @@ sealed interface EventPattern {
         val resolving: Boolean = false,
         /** Only a move to any zone but this one ("leaves the battlefield without dying": not to a graveyard, CR 700.4). */
         val notTo: Zone? = null,
+        // lci
+        /** Only a move made to pay the cost of an ability of this keyword ("is exiled from the battlefield while you're activating a craft
+         * ability": exiled as one of its materials, CR 702.167a, 602.2b). */
+        @Serializable(with = KeywordKindSerializer::class) val forCost: KeywordKind? = null,
     ) : EventPattern
     /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
      * from exile"). Role object = the spell. */
@@ -40,6 +44,10 @@ sealed interface EventPattern {
         // dft
         /** Only abilities with this label ("whenever you activate an exhaust ability", CR 702.177a). */
         val label: AbilityLabel? = null,
+        // otj
+        /** Only abilities that, on the Stack, match this ("an ability that targets a creature or player": the ability itself,
+         * with the targets chosen as it was activated, CR 602.2b, 115.1b); a mana ability, never on the Stack, never matches. */
+        val ability: ObjectFilter? = null,
     ) : EventPattern
     /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any; [excess]:
      * only damage over lethal (CR 120.4a). Roles source, object (the recipient); amount = the damage. */
@@ -53,6 +61,10 @@ sealed interface EventPattern {
     ) : EventPattern
     @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter) : EventPattern
+    // woe
+    /** [players] pay life (CR 119.4, 118.3b: a cost or an effect's payment, such as Phyrexian mana or "you may pay 2 life"); its amount
+     * ([Value.EventAmount]) is the life to be paid. A payment is also a loss of life, so [LoseLife] matches it too. */
+    @Serializable @SerialName("pay-life") data class PayLife(val players: PlayerFilter) : EventPattern
     /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]); [exceptFirstIn]: not the first card
      * that player draws in each of their own [exceptFirstIn] steps ("except the first one they draw in each of their draw
      * steps", dgm). */
@@ -97,6 +109,12 @@ sealed interface EventPattern {
     @Serializable @SerialName("player-counters") data class PlayerCountersPut(
         val players: PlayerFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
     ) : EventPattern
+    // mh3
+    /** Counters of [kind] are removed from a player matching [players], paid or lost ("you've paid or lost four or more {E} this turn",
+     * CR 107.14); the event's amount is how many. */
+    @Serializable @SerialName("player-counters-removed") data class PlayerCountersRemoved(
+        val players: PlayerFilter, val kind: CounterKind? = null,
+    ) : EventPattern
     /** An object matching [objects] becomes tapped; [forMana]: only (true) or never (false) for mana; [forCost]: only when
      * tapped to pay that keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a; dft: "whenever this creature saddles a Mount
      * or crews a Vehicle", CR 702.171c, 702.122b). Role object (the tapped one); with [forCost] of a crew or saddle ability, role source is the
@@ -108,6 +126,10 @@ sealed interface EventPattern {
         // fin
         /** With [forMana]: only when the mana produced includes this ("Whenever you tap a land for {C}", CR 106.12). */
         val producing: ManaCost? = null,
+        // woe
+        /** Only when a player matching this taps it by an effect or an ability's cost ("Whenever you tap an untapped creature an opponent
+         * controls", CR 701.26a: tapping is done by a player; attacking and being tapped as a cost of an ability of another player don't count). */
+        val by: PlayerFilter? = null,
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     // ltr chunk 13
@@ -125,6 +147,10 @@ sealed interface EventPattern {
         /** Only when at least this many other creatures are declared as attackers with it ("Whenever this creature and at
          * least two other creatures attack", battalion, an ability word, CR 207.2c); 0: any number. */
         val withOthers: Int = 0,
+        // mom
+        /** What the other attackers counted by [withOthers] must be ("this token and at least one other creature token attack"); null:
+         * any creatures. */
+        val others: ObjectFilter? = null,
     ) : EventPattern
     /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
      * once per attacker blocked (CR 509.3a, b). Roles object (the blocker), other combatant (the attacker). */
@@ -183,7 +209,7 @@ sealed interface EventPattern {
         val from: Zone? = null, val notFrom: Zone? = null,
     ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes attached to something matching [to]. Role object
-     * (the attachment). */
+     * (the attachment); role [EventRole.To] the object it became attached to. */
     @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter, val to: ObjectFilter) : EventPattern
     @Serializable @SerialName("roll-die") data class RollDie(val players: PlayerFilter) : EventPattern
     /** A player matching [players] flips a coin (CR 705); mh2: [won], only a flip that player wins ("whenever you win a coin flip", CR 705.2). */
@@ -222,6 +248,10 @@ sealed interface EventPattern {
     /** A permanent matching [objects] would connive or connives (CR 701.50): what a replacement replaces ("If a creature you
      * control would connive, instead …"). Role object (the conniving permanent); [Players.EventPlayer] is its controller. */
     @Serializable @SerialName("connive") data class Connive(val objects: ObjectFilter) : EventPattern
+    // lci
+    /** A permanent matching [objects] would explore (CR 701.44): what a replacement replaces ("If a creature you control would explore,
+     * instead …", CR 614.1a). Role object (the exploring permanent); [Players.EventPlayer] is its controller. */
+    @Serializable @SerialName("explore") data class Explore(val objects: ObjectFilter) : EventPattern
     // tla
     /** A triggered ability of an object matching [source] triggers on an event matching [cause] ("Whenever a creature you control
      * attacking causes a triggered ability of that creature to trigger", CR 603.2). Roles object (the triggered ability, once it is
@@ -236,11 +266,13 @@ sealed interface EventPattern {
      * for every verb, so a new verb is a new [KeywordActionKind], not a new event type. When an action counts as done is its own rule: for
      * most, once its whole process is done even if some of it was impossible (CR 701.22d, 701.25d, 701.44b, 701.50f, 701.57b). Role
      * object (the objects the action names, as they last existed if they have left, CR 701.44c, 701.50b); [Players.EventPlayer] is
-     * who did it (a permanent's controller, for what a permanent does); for scry and surveil, the event's amount is the cards looked at, which a short library makes fewer than N ("where X is the number of cards looked at while scrying this way").
+     * who did it (a permanent's controller, for what a permanent does); for scry and surveil, the event's amount is the cards looked at, which a short library makes fewer than N ("where X is the number of cards looked at while scrying this way"); for discover, it is N ("discover again for the same value", CR 701.57a).
      * As a [Mechanic.Replacement]'s event, an action a player is about to do with no object: [Modification.MultiplyAmount] has it done that many
      * times ("If you would proliferate, proliferate twice instead", CR 614.1a). */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: KeywordActionKind, val players: PlayerFilter? = null, val objects: ObjectFilter? = null,
+        /** lci: the card the action revealed matches this (null: any or none): "Whenever a creature you control explores a land card" (CR 701.44a). */
+        val revealed: ObjectFilter? = null,
     ) : EventPattern
     /** An object matching [objects] gains the designation [mark], which it didn't have: "Whenever a creature you control becomes monstrous"
      * (CR 701.37b, 702.112b, 701.60a, 722.3a, 702.171b). One that already has it can't gain it again (CR 701.60d, 722.3a). One pattern for
@@ -277,6 +309,8 @@ sealed interface KeywordActionKind {
     @Serializable @SerialName("foretell") data object Foretell : KeywordActionKind
     @Serializable @SerialName("give-gift") data object GiveGift : KeywordActionKind
     @Serializable @SerialName("goad") data object Goad : KeywordActionKind
+    /** mom chunk 03: CR 701.53. */
+    @Serializable @SerialName("incubate") data object Incubate : KeywordActionKind
     @Serializable @SerialName("investigate") data object Investigate : KeywordActionKind
     @Serializable @SerialName("learn") data object Learn : KeywordActionKind
     @Serializable @SerialName("manifest") data object Manifest : KeywordActionKind
@@ -318,6 +352,7 @@ val KeywordAction.kind: KeywordActionKind get() = when (this) {
     KeywordAction.Forage -> KeywordActionKind.Forage
     KeywordAction.Foretell -> KeywordActionKind.Foretell
     is KeywordAction.Goad -> KeywordActionKind.Goad
+    is KeywordAction.Incubate -> KeywordActionKind.Incubate
     is KeywordAction.Investigate -> KeywordActionKind.Investigate
     KeywordAction.Learn -> KeywordActionKind.Learn
     is KeywordAction.Manifest -> KeywordActionKind.Manifest
@@ -365,7 +400,8 @@ sealed interface Trigger {
     @Serializable @SerialName("on") data class On(
         val events: List<EventPattern>, val oneOrMore: Boolean = false, val atLeast: Int? = null,
         /** With [oneOrMore]: one batch per player the events are about ("deal combat damage to a player": one trigger per
-         * player dealt damage, each with its own "that player" and amount). */
+         * player dealt damage, each with its own "that player" and amount); damage to an object, one per object ("to a player or battle",
+         * CR 310.6). */
         val batchPerPlayer: Boolean = false,
         val nthThisTurn: Int? = null, val during: TurnStep? = null,
         // hob

@@ -63,13 +63,15 @@ internal object Inr {
     // inr chunk 08: Vexing Devil: "any opponent may have it deal 4 damage to them." (each in turn order until one does, CR 101.4)
     val ANY_OPPONENT_MAY_HAVE_DEAL_TO_THEM = Regex("""[Aa]ny opponent may have (it|this [a-z]+) deal (\d+) damage to them\.""")
     // inr chunk 08: Moonlight Hunt: "Each creature you control that's a Wolf or a Werewolf deals damage equal to its power to that creature."
-    val EACH_DEALS_POWER_TO_THAT = Regex("""Each (.+?) deals damage equal to its power to (that creature|target .+)\.""")
+    // mkm chunk 06: "Each creature you control deals 1 damage to that creature." (a fixed amount from each)
+    val EACH_DEALS_POWER_TO_THAT = Regex("""Each (.+?) deals (?:damage equal to its power|(\d+) damage) to (that creature|target .+)\.""")
     // inr chunk 08: Tree of Perdition (CR 701.12g)
     val EXCHANGE_LIFE_WITH_SELF_PT = Regex("""Exchange (target opponent's|target player's|your) life total with (.+)'s (power|toughness)\.""")
     // inr chunk 08: Chandra, Dressed to Kill: "If it's red, you may cast it this turn." (the card exiled just before)
     val IF_ITS_COLOR = Regex("""If it's (white|blue|black|red|green), (.+)""")
     // inr chunk 08: Chandra, Dressed to Kill: "You may cast red spells from among them this turn." (CR 601.2a)
-    val MAY_CAST_COLOR_SPELLS_FROM_AMONG_THEM = Regex("""You may cast (white|blue|black|red|green) spells from among (?:them|those cards) this turn\.""")
+    // mh3 chunk 09: any kind of spell ("instant and sorcery spells"), also "without paying their mana costs"
+    val MAY_CAST_COLOR_SPELLS_FROM_AMONG_THEM = Regex("""You may cast (.+?) spells from among (?:them|those cards) this turn( without paying their mana costs)?\.""")
     // inr chunk 08: Fiend Hunter: "you may exile another target creature." (CR 115.1)
     val EXILE_ANOTHER_TARGET = Regex("""Exile another target (.+)\.""")
     // inr chunk 08: Compelling Deterrence: "Return target … to its owner's hand. Then that player discards a card if you control a Zombie."
@@ -136,7 +138,8 @@ internal object InrPhrases {
                 measure = Measure.Amount)
         }
         // inr chunk 07: Laboratory Maniac "while your library has no cards in it"
-        if (text == "your library has no cards in it")
+        // mkm chunk 08: Living Conundrum "there are no cards in your library"
+        if (text == "your library has no cards in it" || text == "there are no cards in your library")
             return Condition.Not(Condition.Exists(Filters.all(ObjectFilter.InZone(arcanum.api.Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
         // inr chunk 07: Lupine Prototype "a player has no cards in hand" (any player, CR 402)
         if (text == "a player has no cards in hand")

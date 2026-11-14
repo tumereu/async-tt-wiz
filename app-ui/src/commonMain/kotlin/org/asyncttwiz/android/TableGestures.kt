@@ -69,6 +69,9 @@ class TableGestureCoordinator(
      * now (one the viewer stages as an attacker, places as a blocker or places to assume); a drag on any other pans the
      * table, as without a combat. */
     var combatDrag: (TableItem) -> Boolean = { true }
+    /** WEB-023 (§5): whether holding a card still inspects it (the phone); on the desktop table a held left button only
+     * pauses the view, as Inspect is the finger key's (WEB-024). */
+    var holdInspects: Boolean = true
     private var fingerHeld = false
     private fun held(now: Boolean) { if (now != fingerHeld) { fingerHeld = now; onHeld(now) } }
     /** The world this gesture navigates in: the scene's, with the open panel's room, holding a camera a closed panel
@@ -94,7 +97,9 @@ class TableGestureCoordinator(
     val busy get() = capture != null || pending != null || spring != null || handSpring != null
     // The hand row background previews nothing; its cards have their own items.
     private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND }
-    val peeking get() = capture?.let { it.phase == Phase.HOLD && peekId(it.item) != null } == true
+    val peeking get() = holdInspects && capture?.let { it.phase == Phase.HOLD && peekId(it.item) != null } == true
+    /** Whether a pointer is down on the table now (WEB-029: the wheel waits for it). */
+    val pressed: Boolean get() = capture != null
     fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
         it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&
             distance(point, it.capture.start) <= slopDp * 4
@@ -110,7 +115,7 @@ class TableGestureCoordinator(
         if (c?.scope != null && c.phase !in listOf(Phase.PAN, Phase.SCROLL, Phase.TRANSFORM) &&
             c.scope.cardIds.any { id -> scene.items.none { it.cardId == id || id in it.cards } }) {
             if (c.double) diagnostic("nearMiss:targetRemoved")
-            if (c.phase == Phase.HOLD) emit(TableIntent.Peek(null))
+            if (c.phase == Phase.HOLD && holdInspects) emit(TableIntent.Peek(null))
             held(false)
             // Invalidate the card operation, not the first-down region. A later second pointer
             // must not acquire the region underneath its new centroid after a remote removal.
@@ -198,7 +203,7 @@ class TableGestureCoordinator(
             c.holdStart = c.point
             held(true)
             // Covered pile controls never implicitly View a Library.
-            peekId(c.item)?.let { emit(TableIntent.Peek(it)) }
+            if (holdInspects) peekId(c.item)?.let { emit(TableIntent.Peek(it)) }
             preview = TableGesturePreview()
         }
     }
@@ -325,7 +330,7 @@ class TableGestureCoordinator(
                 if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true)
                     c.destination?.let { d -> emit(TableIntent.Move(c.scope, d, c.sources, drag = true, fromHandRow = c.item.handZone != null)) }
             }
-            Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null, released = true))
+            Phase.HOLD -> if (holdInspects && peekId(c.item) != null) emit(TableIntent.Peek(null, released = true))
             else -> Unit
         }
         settleCamera()
@@ -336,7 +341,7 @@ class TableGestureCoordinator(
         if (!scale.isFinite() || scale <= 0f) return
         if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:secondPointer")
         pendingCleared = "secondPointer"; pending = null
-        if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
+        if (capture?.phase == Phase.HOLD && holdInspects) emit(TableIntent.Peek(null))
         held(false)
         capture?.phase = Phase.TRANSFORM
         preview = TableGesturePreview()
@@ -367,7 +372,19 @@ class TableGestureCoordinator(
             old.y + (anchorY - pan.y) / old.zoom - anchorY / zoom, zoom)
         navigate(next, elastic = true)
     }
+    /** TBL-012, WEB-031: zooms the table to fit, as a double tap on the empty battlefield does. */
+    fun fit() { scene.world?.fit()?.let { navigate(it) } }
     fun panBy(x: Float, y: Float) = navigate(scene.camera.copy(x = scene.camera.x + x, y = scene.camera.y + y))
+    /** WEB-029: pans the table by [dx], [dy] dp on the screen (the wheel sideways, the middle button), within its bounds. */
+    fun panScreen(dx: Float, dy: Float) {
+        val camera = scene.camera
+        navigate(camera.copy(x = camera.x + dx / camera.zoom, y = camera.y + dy / camera.zoom))
+    }
+    /** WEB-029: zooms the battlefields by [factor] around [at] (dp on the table), within 0.65–2×, as a pinch there would. */
+    fun zoomAt(at: TablePoint, factor: Float) {
+        transform(TablePoint(0f, 0f), factor, at)
+        cancel()
+    }
     private fun navigate(camera: TableCamera, elastic: Boolean = false) {
         spring = null
         gestureNavigated = true
@@ -402,7 +419,7 @@ class TableGestureCoordinator(
         if (target != scene.camera) spring = SpringReturn(scene.camera, target)
     }
     fun cancel() {
-        if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
+        if (capture?.phase == Phase.HOLD && holdInspects) emit(TableIntent.Peek(null))
         held(false)
         if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:cancelled")
         capture = null; pendingCleared = "cancelled"; pending = null; preview = TableGesturePreview()

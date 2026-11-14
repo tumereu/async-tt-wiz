@@ -36,7 +36,8 @@ internal object Msh {
     // msh chunk 02: connive (CR 701.50)
     val CONNIVES = Regex("""(.+?) connives\.""")
     val MAY_HAVE_IT_CONNIVE = Regex("""[Yy]ou may have (it|that creature) connive\.""")
-    val WOULD_CONNIVE_INSTEAD_DRAW = Regex("""If (.+) would connive, instead you draw a card, then that creature connives\.""")
+    // lci chunk 03: "If a creature you control would explore, instead you scry 1, then that creature explores."
+    val WOULD_CONNIVE_INSTEAD_DRAW = Regex("""If (.+) would (connive|explore), instead you (.+?), then that creature \2s\.""")
 
     // msh chunk 03: plan counters
     val NTH_COUNTER_PUT_ON = Regex("""the (\w+) (\S+) counter is put on (.+)""")
@@ -45,7 +46,7 @@ internal object Msh {
 
     // msh chunk 04: Heroes and Villains
     val ATTACKED_WITH_THIS_TURN = Regex("""you attacked with an? (.+) this turn""")
-    val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
+    val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(an?|another) (.+) entered the battlefield under your control this turn""") // mom: another
     val HAS_COUNTER_ON = Regex("""(.+) has an? (\S+) counter on (?:it|him|her|them)""")
     val OPPONENT_HAS_CAST_THIS_TURN = Regex("""an opponent has cast a spell this turn""")
     val POWER_AT_MOST = Regex("""(?:its|his|her|(.+)'s) power is (\d+) or (less|greater)""")
@@ -76,7 +77,7 @@ internal object Msh {
     val COUNTERS_PLUS_ONE = Regex("""If you would put one or more counters on (.+), put that many plus one of each of those kinds of counters on that permanent instead\.""")
     val COPY_TARGET_ABILITY = Regex("""Copy target activated or triggered ability you control from an? (\w+) source\. You may choose new targets for the copy\.""")
     val CAST_WITH_MANA_SYMBOLS_CREATE_THAT_MANY = Regex("""Whenever you cast an? (\w+) spell with one or more (white|blue|black|red|green) mana symbols in its mana cost, create that many (.+) tokens\.""")
-    val FOR_EACH_CREATE_COPY_NOT_LEGENDARY = Regex("""For each (.+), create a token that's a copy of that (creature|permanent)(, except it isn't legendary)?\.""") // inr chunk 09: permanent, no exception
+    val FOR_EACH_CREATE_COPY_NOT_LEGENDARY = Regex("""For each (.+), create a token that's a copy of (?:that (creature|permanent)|it)(?:, except (.+))?\.""") // mh3 chunk 09: "it", other exceptions // inr chunk 09: permanent, no exception
     val TARGET_BECOMES_COPY_OF_SECOND = Regex("""Target (.+) becomes a copy of a second target (.+) until end of turn, except it isn't legendary\.""")
     val MAY_PUT_FROM_HAND_IF_EQUIPMENT_ATTACH = Regex("""[Yy]ou may put an? (.+) from your hand onto the battlefield\. If it's an? (\w+), attach it to (.+)\.""")
     val UNTIL_EOT_TARGET_BECOMES_ARTIFACT_CREATURE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+) and gains (.+)\.""")
@@ -106,7 +107,7 @@ internal object Msh {
     val RETURN_ONE_OR_TWO = Regex("""Return one or two target (.+) to their owners' hands\.""")
     val SPELLS_WITH_MANA_VALUE_COST_X_LESS_POWER = Regex("""(.+ spells you cast) with mana value (\d+) or greater cost \{X\} less to cast, where X is (.+)'s power\.""")
     val NONCOMBAT_DAMAGE_PLUS_POWER = Regex("""If a source you control would deal noncombat damage to an opponent or a permanent an opponent controls, instead it deals that much damage plus X, where X is (.+)'s power\.""")
-    val EXILE_HAND_DRAW_PLAY = Regex("""Exile all the cards from your hand, then draw that many cards\. Until the end of your next turn, you may play cards exiled this way\.""")
+    val EXILE_HAND_DRAW_PLAY = Regex("""Exile all (?:the )?cards from your hand, then draw that many cards\. Until the end of your next turn, you may play cards exiled this way\.""")
     val WHEN_YOU_NEXT_CAST_COPY = Regex("""When you next cast an? (.+?) spell with mana value less than or equal to (.+)'s power this turn, copy that spell\. You may choose new targets for the copy\.""")
     val COST_OR_COST = Regex("""((?:Sacrifice|Discard|Exile|Pay|sacrifice|discard|exile|pay) .+?) or ((?:sacrifice|discard|exile|pay) .+)""")
     val GET_COUNTERS = Regex("""Get (\w+) (\S+) counters""")
@@ -127,8 +128,11 @@ internal object Msh {
 
     // msh chunk 09: more wordings
     val EXILE_RETURN_AT_NEXT_END_STEP = Regex("""[Ee]xile (another )?target (.+?)\. Return (?:that card|it) to the battlefield under (its owner's|your) control at the beginning of the next end step\.""")
-    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast) cost (\{\d+\}) less to cast\.""")
-    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""(.+ spells you cast) this turn cost (\{\d+\}) less to cast\.""")
+    // woe chunk 07: also "… spells you cast that have an Adventure"
+    val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast(?: that [^.]+?)?) cost (\{\d+\}) less to cast\.""")
+    // woe chunk 08: also "Spells you cast this turn that are black and/or red cost {X} less to cast, where X is …"; mh3 chunk 09: "Until your
+    // next turn, … spells you cast cost …"
+    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""(Until your next turn, )?((?:.+ )?[Ss]pells you cast)( this turn)?(?: that are ([a-z]+(?: and/or [a-z]+)*))? cost (\{\d+\}|\{X\}) less to cast(?:, where X is (.+?))?\.""")
     val TAKE_EXTRA_TURN = Regex("""Take an extra turn after this one\.""")
     val DURING_THAT_TURN_CANT_ACTIVATE = Regex("""During that turn, power-up abilities can't be activated\.""")
     val PUT_X_COUNTERS_ON = Regex("""Put X (\S+) counters on (.+)\.""")
@@ -156,12 +160,12 @@ internal object Msh {
     val CHOOSE_TARGET_DOUBLE_PT_GAINS = Regex("""Choose target (.+?)\. Until end of turn, double its power and toughness and it gains (.+)\.""")
     val LOSES_ALL_ABILITIES_AND_GAINS = Regex("""It loses all abilities and gains (.+)\.""")
     val CHOOSE_UP_TO_THAT_MANY_TARGETS_COUNTER = Regex("""Choose up to that many target (.+?)\. Put an? (\S+) counter on each of them\.""")
-    val HAS_GREATER_POWER_OR_TOUGHNESS = Regex("""(?:it|that creature) has greater power or toughness than (.+)""")
+    val HAS_GREATER_POWER_OR_TOUGHNESS = Regex("""(?:it|that creature) has greater power or toughness than (.+)|its power is greater than (.+?)'s power or its toughness is greater than \2's toughness""") // mkm chunk 02
     val FIRST_TIME_TAPPED_THIS_TURN = Regex("""it's the first time that creature has become tapped this turn""")
     val REMOVE_A_COUNTER_IF_YOU_DO = Regex("""Remove a counter from (.+?)\. If you do, (.+)""")
     val ONE_MORE_OF_EACH_KIND = Regex("""For each kind of counter on target (.+?), give that (.+?) another counter of that kind\.""")
-    val MAY_PUT_FROM_AMONG_MILLED = Regex("""You may put an? (.+?) from among (?:the milled cards|those cards|them) into your hand\.""")
-    val TARGET_PLAYER_GAINS_SEARCHES = Regex("""Target player gains (\d+) life, then searches their library for an? (.+?), puts it onto the battlefield tapped, then shuffles\.""")
+    val MAY_PUT_FROM_AMONG_MILLED = Regex("""(You may put|Put) (an?|up to \w+) (.+?) from among (?:the milled cards|those cards|them) (into your hand|onto the battlefield)\.""")
+    val TARGET_PLAYER_GAINS_SEARCHES = Regex("""Target player (?:gains (\d+) life, then )?searches their library for an? (.+?), puts it onto the battlefield tapped, then shuffles\.""")
     val PUT_COUNTER_ON_UP_TO_ONE = Regex("""Put an? (\S+) counter on up to one target (.+)\.""")
     val NEXT_SPELL_WITHOUT_PAYING = Regex("""The next (.+?) spell you cast this turn can be cast without paying its mana cost\.""")
     val BECOMES_COPY_EXCEPT_PT_IN_ADDITION = Regex("""[Uu]ntil your next turn, (.+?) becomes a copy of up to one target (.+?), except its name is (.+?), it's a legendary (\d+)/(\d+) ([A-Z][A-Za-z ]+?) creature in addition to its other types, and it has (.+)\.""")
@@ -218,8 +222,10 @@ internal object MshPhrases {
             return Condition.HappenedThisTurn(EventPattern.Attack(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
         }
         // msh chunk 04: "a Hero entered the battlefield under your control this turn"
+        // mom chunk 10: "another Knight entered the battlefield under your control this turn" (not this object)
         Msh.ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val filter = if (m.groupValues[1] == "another") Filters.all(ObjectFilter.Not(ObjectFilter.Is(arcanum.api.Objects.Self)), noun) else noun
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield),
                 atLeast = 1, measure = Measure.Events)
         }
@@ -260,13 +266,20 @@ internal object MshPhrases {
         ObjectFilter.Not(ObjectFilter.Sub(arcanum.api.Subtype("Villain"))),
         ObjectFilter.Or(listOf(ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.Red)), ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.White))))))
 
+    private val ATTACHED_YOU_CONTROL = Regex("""(equipped|enchanted) (creature|permanent) you control""")
+
     /** msh nouns, tried first in [Filters.noun]. */
     fun noun(phrase: String): ObjectFilter? {
         // msh chunk 06: "creature you control that's attacking alone" (CR 506.5)
         ATTACKING_ALONE.matchEntire(phrase)?.let { m -> return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.AttackingAlone) }
-        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5)
-        if (phrase == "equipped creature you control") return Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
-            ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
+        // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5); woe chunk 01: "enchanted creature you
+        // control", "enchanted permanent you control" (one with an Aura attached, CR 303.4; read as written before the eoe rewrite of "enchanted
+        // permanent" to "enchanted creature")
+        ATTACHED_YOU_CONTROL.matchEntire(phrase)?.let { m ->
+            val noun = if (m.groupValues[2] == "creature") ObjectFilter.Type(arcanum.api.CardType.Creature) else ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
+            return Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype(if (m.groupValues[1] == "equipped") "Equipment" else "Aura"))))
+        }
         // msh chunk 09: "nontoken artifact or creature": the adjective goes with both types
         NON_A_OR_B.matchEntire(phrase)?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null,

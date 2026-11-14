@@ -116,6 +116,8 @@ abstract class E2e {
         aliceCatalog: Boolean = false, holdAliceCatalog: Boolean = false,
         /** Alice plays on a phone of her own; false: only Bob has one (Alice plays in a browser, [E2eBrowser]). */
         alicePhone: Boolean = true,
+        /** WEB-013: Alice's app in the desktop layout (the web client's desktop table, mouse and keys) at the test's window size. */
+        aliceDesktop: Boolean = false,
         deal: Deal.(TestAccount, TestAccount) -> Boolean = { _, _ -> true }) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
@@ -125,7 +127,8 @@ abstract class E2e {
             name = "${javaClass.simpleName} ${java.util.UUID.randomUUID().toString().take(6)}", deal = { it.deal(a, b) })
         game = prepared.invitation
         aliceAccount = a
-        if (alicePhone) alice = E2ePlayer(a, compose, aliceWorker, withCatalog = aliceCatalog, holdCatalog = holdAliceCatalog).also(players::add)
+        if (alicePhone) alice = E2ePlayer(a, compose, aliceWorker, withCatalog = aliceCatalog, holdCatalog = holdAliceCatalog,
+            desktop = aliceDesktop).also(players::add)
         bob = E2ePlayer(b, compose).also(players::add)
         if (alicePhone) alice.launch()
         bob.launch()
@@ -136,11 +139,13 @@ abstract class E2e {
      * pod: [ServerSetup.draftingPod]). [aliceSets]: the draft sets on Alice's phone (none without card records). */
     /** [aliceCatalog]: Alice's phone installs the server's card catalog on start, as the app does (docs/specs/web-client.md
      * section 3.5); without it the phones have no card records and nothing waits for them. */
-    internal fun launchPlayers(aliceSets: org.asyncttwiz.android.PodSetRepository? = null, aliceCatalog: Boolean = false) {
+    internal fun launchPlayers(aliceSets: org.asyncttwiz.android.PodSetRepository? = null, aliceCatalog: Boolean = false,
+        /** WEB-013: Alice's app in the desktop layout at the test's window size. */
+        aliceDesktop: Boolean = false) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
         aliceAccount = a
-        alice = E2ePlayer(a, compose, setRepository = aliceSets, withCatalog = aliceCatalog).also(players::add)
+        alice = E2ePlayer(a, compose, setRepository = aliceSets, withCatalog = aliceCatalog, desktop = aliceDesktop).also(players::add)
         bob = E2ePlayer(b, compose).also(players::add)
         alice.launch(); bob.launch()
     }

@@ -9,17 +9,35 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   hook); a wording of several sentences read as one in the set's `<set>Whole`, which sees only bodies with ". " inside;
   a static line that becomes several abilities in `Sentences.multi`. A new table line or slot beats a new rule.
 - "it" follows `context.it`: a rule that moves or exiles an object sets it (`Bound("exiled")`), so a later "it", "that
-  card" or "If it's a X" reads the new object (CR 400.7). In "When this enters", "it" is `EventObject(After)`.
+  card" or "If it's a X" reads the new object (CR 400.7); a return to the battlefield binds `Bound("returned")`. In "When
+  this enters", "it" is `EventObject(After)`. After a Move of a target, event object or this card to the battlefield
+  without a bind, `Sentences.followTargetsToBattlefield` points later steps at the new permanent (CR 400.7j): such a rule
+  needs no own `postBind`.
+- "that many" binds the nearest amount an earlier part of the same ability defines (`context.thatMuch`, e.g. "sacrifice
+  any number of ..., then draw that many") before the trigger event's amount.
 - "If you do" after a step that can fail (a mandatory exile, move or sacrifice): bind the moved objects (`postBind`) and
   check `Condition.NonEmpty`. A mandatory `Step.Pay` counts as paid even when nothing moved, so `Did` is wrong there.
 - "You may pay/sacrifice/discard ... If you do" = `Step.Pay(mandatory = false, ...)` + `Step.If(Did)`; audits calling it
-  unclear are false alarms.
+  unclear are false alarms. Its rest is read sentence by sentence, every later sentence belongs to it, and after
+  "create a ... token" a later "it" is the token (bound `token`, CR 608.2c).
 - A delayed trigger made by a triggered ability ("return it at the beginning of the next end step") has its own event:
   bind the outer event's object first (`Step.Bind(EventObject(After), "<name>")`) and use `Bound` inside (CR 603.7c).
 - "That creature" after a sacrifice is the sacrifice's bound object, last known information (CR 608.2h). After "gain
   control of target X" it is that target; "sacrifice/exile it (that token) at the next end step" after creating a token is
   the token; in an attach trigger it is the creature attached to (`EventRole.To`), not whatever is attached at resolution.
   An intervening "if it has ..." after "another creature enters/attacks" is the event object, not this object.
+- Number readers in `Sentences` take the ability's context (`context.value(text)`, not `Values.value`). In a trigger about
+  another object whose text never names this object, "its power/toughness/mana value" (where X and intervening ifs too)
+  and "it deals damage" are the trigger's object, as it last existed if it left (`Sentences.itsOfTheTriggerObject`,
+  `otherEventObject`; CR 608.2c, 603.10a); after "put a +1/+1 counter on this creature" a later "it" is this creature
+  (`context.it = Self`). Right after a move or destroy of a target, "its <number>" is the target as it last existed
+  (CR 608.2h). In a self-enters/leaves trigger "that creature"/"its controller" after a target is the target
+  (`Context.targetInSelfZoneChange`); a self-dies trigger's "X is its power" is `EventObject(Before)` and its "you may exile
+  this card" the graveyard card (`SelfAfter`, CR 400.7), so a later "When you do" can happen.
+- A reflexive "When you do" after an "any number" or "up to N" choice is `If(NonEmpty(bind))`: choosing nothing is no
+  event (CR 603.12). "You may X. If you do, Y. If you don't, Z." is one `If(Did, then = Y, otherwise = Z)`.
+- An exile on a card that refers to cards "exiled with" it remembers them (`Sentences.remembersExile`, CR 607.2a); "target
+  card exiled with <self>" needs `InZone(Exile)` or the engine looks only on the battlefield.
 - "that creature"/"it" in a damage trigger goes through `Sentences.damageThatRole` (the damaged one when this object dealt
   it); in a block trigger it is `EventRole.OtherCombatant`. "Blocks a Y" triggers are `perAttacker`, "becomes blocked by a
   Y" `perBlocker` (CR 509.3b-c). "That player" of a permanent entering is its controller, of a card put into a graveyard
@@ -27,14 +45,19 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
+- "Copy that spell." keeps the copy's targets; only "you may choose new targets" sets `newTargets` (CR 707.10c).
+- "If ... would ... this turn, ... instead." or "Until end of turn, if ... instead." inside an effect is a replacement
+  lasting until end of turn; an amount in it ("plus X") is fixed as the effect resolves (CR 608.2h).
+- "permanent spell" and "permanent card" (in a graveyard, hand, library) mean permanent types (CR 110.4a-b), never
+  `Category(Permanent)`, which matches only the battlefield: go through `Filters.noun`/`Filters.spellKind`.
+- Ability-word patterns accept digits ("Descend 4 — ..."); "<player> <keyword action>s" = `ForEach` over that player.
 - A cost that exiles the card from the graveyard, or a graveyard-return activated ability, needs no `functionsIn`;
   "When you cast this spell" reads with `functionsIn = null`.
 - Number words: `Numbers.WORD_PATTERN` (a..twenty), never a hand-written "one|two|..." list. Any additional cost that
-  names X announces X (`ADDITIONAL_COST_X`, CR 601.2b). "any number of target X" divided has min 0.
+  names X announces X (`ADDITIONAL_COST_X`, CR 601.2b), unless "where X is ..." sets it (CR 107.3c). "any number of target X" divided has min 0.
 - A rule that adds a target slot reads everything else first: giving up afterwards leaks the slot into the next rule.
   The parser leaves an ability with an unused target slot unread (`DefinitionChecks.unusedTargetSlots`, CR 115.1).
-- "becomes a [type] artifact creature" keeps the object's other subtypes (CR 205.1b); "Until your next turn, X." reads
-  as "X until your next turn."; an untargeted "you may return a <card> from your graveyard" is Choose 0..1, not May.
+- "Until your next turn, X." reads as "X until your next turn."; an untargeted "you may return a <card> from your graveyard" is Choose 0..1, not May.
 - "enchanted player" = `Players.AttachedTo(Objects.Self)`; "Curses attached to you" = `ObjectFilter.Attached(toPlayers =
   ...)`. "<cost part choosing one object> and pay its mana cost" = `CostPart.ManaCostOf(Bound)`; a token's text naming
   the card that made it = `Objects.Creator`, kept by copies (CR 201.5a).
@@ -57,13 +80,31 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A delayed "return the exiled card" made by the ability that exiled it reads `Bound("exiled")` (the source may be gone).
 - "If [condition settled at cast: main phase, kicked, paid], [targeted effect]": those target slots
   are `onlyIf` (CR 601.2c).
-- "It's still a <type>." keeps all prior types (no replaceTypes/replaceSubtypes); "[creature type] artifact creature"
-  still replaces creature types (CR 205.1b, last sentence).
+- Type-setting (CR 205.1a-b): "becomes a ... creature" replaces card types; "artifact creature", "still a <type>" and "in
+  addition to its other types" keep all prior types and subtypes; "[creature type] artifact creature" replaces creature
+  types only (`replaceSubtypes` is per kind), also beside "still a land"; a copy exception "it's a ... creature" sets types.
+- "other target" after an earlier target is `distinctFrom` that slot (CR 115.3), not `Not(Is(Self))`. A condition judged
+  "as you cast" is `Condition.AsCast` (copies aren't cast); a spell's own cost reduction may read its cast choices.
+- Replacements: "dealt damage this way would die this turn, exile it instead" covers only objects actually dealt damage
+  (prevented damage isn't dealt, CR 615.1a); "if you would pay life" is `EventPattern.PayLife` with a
+  `Replacement.condition`, payability stays CR 119.4; mana multipliers are a `Replacement` on `Tap(forMana = true)`.
 - A target "of an opponent's choice" is `TargetSlot.chosenBy`; "the next N damage ... is dealt to X instead" is
   `Effect.PreventDamage.redirectTo` (a redirection, so unpreventable damage moves too, CR 614.9).
 - Damage triggers pick `EventPattern.Damage.per` (CR 603.2c): `Recipient` for "X is dealt damage", `Source` for "X deals
   [combat] damage" with no recipient, default `SourceAndRecipient` for "a source deals damage to Y".
+- "each other player" / "for each other player" is every player but you (`PlayerFilter.Not(You)`), never "opponent":
+  teammates are other players but not opponents (CR 102.3). "Two or more creatures died" counts objects once
+  (`Measure.Objects`), not events (CR 700.4).
+- "secretly choose A, B, or C" = `Step.Choose(..., secret = true)` (the engine keeps who knows it); "Reveal the <choice>
+  you chose" is a cost, `CostPart.RevealChoice`, unpayable without a choice.
 - A battle (Siege) test card is built with `OracleCard(name, cost, type, text, defense = "5")`: `card()` has no defense.
+  `OracleCard` takes power and toughness separately: a "4/4" passed as power leaves toughness 0 (`inventFaces` refuses it).
+- "you may pay {X}. If you do, ... X ..." keeps `Pay(Mana {X})` with X chosen as it is paid (CR 107.3f); "search your
+  library and/or graveyard" = `Effect.Search(zonesChosen = true)` (the engine asks `ChooseOption` first, shuffles only a
+  searched library). "When you do, if ..." puts the same If on the reflexive trigger (CR 603.4).
+- "If that creature/it was a <noun>" in a leaves-the-battlefield trigger, or after returning a target to hand or library,
+  reads last known information (`EventObject(Before)`, CR 603.10a, 608.2h); "If it was a <... card>" stays the card.
+- A token defined only by reminder text ("Create a X token. (It's a 2/2 ... with \"...\")") = `Sentences.reminderTokens`.
 
 ## Engine scenarios
 - All setup (`battlefield`, `hand`, `library`, `life`, `turn`, `attach`) comes before the first move; afterwards only
@@ -108,14 +149,46 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - First or double strike: `hits(...)` stops after the first damage step, `advanceTo(TurnStep.EndOfCombat)` for the
   second. A spell's divided amount has no suggestion: `answer(Answer.Division(listOf(Share(target(a), 2), ...)))`.
 - Objects that left are judged by last known information: a token "copy of it" copies the last known copiable values
-  (a clone copies what it copied, CR 707.2); events record the controller at the time (CR 608.2h). Test both with 3
-  players and a control change.
+  (a clone copies what it copied, CR 707.2); events and this-turn history read a gone object as it last was, controller
+  and marks included, and an entered object as it entered (face down stays face down, CR 608.2h, 603.4). "For as long
+  as" durations never read it: they end when the object leaves (CR 611.2b). Test with 3 players and a control change.
+- Damage results (life loss, infect/toxic poison, wither and infect -1/-1 counters) go through `Actions.loseLife` and
+  `Actions.putCounters` with the source's controller as giver, so replacements apply (CR 120.3, 614.1a); a replacement
+  that multiplies or raises an amount touches only the part of the event it names.
+- Costs: each object pays one sacrifice/exile/discard/return part and one tap part only, and an activation with no
+  distinct assignment isn't offered (CR 601.2h, 602.2b): test multi-material costs with a creature of two types.
+- Target-group limits (single graveyard, same controller, sharing, different) are one check for spells, activated and
+  triggered abilities, copies and changed targets; a trigger with no legal group is removed (CR 603.3d). Test them on a
+  trigger too. A mark is read with `state.obj(card(x))?.marks?.contains(ObjectMark.Suspected)`.
+- A step that runs without priority (untap-step choices, end-step triggers): loop `resolve()` while `pending == null`.
+- Battles: with 3 players a Siege asks `ChoosePlayer` (its protector) on cast or at the first `passPriority()`; `settle()`
+  leaves no priority holder, so in combat scenarios skip it. "One or more ... deal combat damage to a player or battle"
+  batches, and counts "first time each turn", per player or per battle (`Triggers.batchKey`, CR 603.2c, 310.6).
+- Removing counters of no named kind asks the remover which, one `ChooseOption` per counter (`Actions.removeChosenCounters`,
+  CR 608.2d, 118.3), for effects and costs alike (a cast's cost: before paying, `Question.CounterPick`).
+- `paying = listOf("<source>:G")` picks a source and colour, granted mana abilities included; an ability on the Stack as a
+  target: `state.stack.first { state.stackItems[it]?.source == card(name) }`.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
+- A scry or optional payment inside a resolving spell can leave a decision open before triggers (scry: `Answer.Objects(
+  emptyList())`); a mana ability with a colour choice asks colour and payment in either order: answer what is pending.
+- An Adventure face: `casts("Face", way = CastWay(face = 1))`; a player target needs `target = "bob"` even with one
+  opponent. Saga chapter II after I: `loreChapter(saga, n)`, then `advanceTo(PrecombatMain, turn = 5)`.
 - A `ForEach` whose only step is `DealDamage` is one damage event (CR 608.2f); a `ForEach` that casts copies asks the
   controller the order one at a time: answer with `alice.chooses(name)`.
+- Player names in `target(...)`/`defender =` are lowercase ("carol"); `card(x)` inside `expect {}` is a
+  CardRef. `battlefield(...)` doesn't apply "enters with N counters": pass `counters =`. Coin flips: `scenario(seed = n)`.
+- "Put onto the battlefield tapped and attacking" asks its controller `Decision.Targets` slot "attacking" when several
+  players, planeswalkers or battles could be attacked (CR 508.4). A mana ability's choice of objects counting its mana
+  is asked on activation.
 
 ## Test conventions
+- Tokens made by one effect (a `ForEach` of only `CreateToken`, a together batch, "each player creates") enter as one
+  event, so "one or more tokens enter" triggers once (CR 608.2f). `DefinitionChecks` demands `together = true` on every
+  `ForEach` over players.
+- A card drawn or returned while a decision of the same resolution is open is a new id the scenario's names don't show:
+  pick it by `(id as ObjectId.Card).card` or answer `Answer.Objects((pending as Decision.ChooseObjects).options)`. After
+  `castsWithoutCosts` whose trigger needs targets, drive with the shared `playOut(picks)`, not `resolveAll`.
 - Invented names are global across the whole engine suite: grep `invent("<Name>"` and `all-card-names.txt` first.
 - Invented lands take cost `null`; invented planeswalker text needs "[+1]: ..." loyalty prefixes; change cost and
   subtypes only where it doesn't affect play.
@@ -125,3 +198,5 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - One cycle of near-identical cards (e.g. lands that enter tapped unless a condition holds): one private helper in the
   chunk's test file, one test per card.
 - In one Gradle call, `--tests` applies to the task just before it; `bin/set-tests.sh` handles this.
+- Sibling misreads: `<plan>/parser-base.snapshot` holds every card's model JSON (fifth tab column); a `python3 -I`
+  scan of it finds every card with the same wrong shape in seconds.

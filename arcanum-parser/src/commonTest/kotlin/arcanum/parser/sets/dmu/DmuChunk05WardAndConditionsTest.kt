@@ -395,9 +395,11 @@ class DmuChunk05WardAndConditionsTest {
     // ---- The Defilers: CR 110.4b (a permanent spell is a spell of a permanent type), CR 601.2b (an optional additional cost of each such spell you cast), 601.2f (paid, {C} less, only of that colour,
     // not generic mana as CR 118.7b, c would), CR 112.2 (a spell's controller is who cast it)
 
-    private fun coloredSpells(color: Color) = and(ObjectFilter.OfColor(color), permanentCard)
+    // a permanent spell is an artifact, battle, creature, enchantment, or planeswalker spell (CR 110.4b; a land is never cast, CR 305.9)
+    private fun coloredPermanentSpells(color: Color) = and(ObjectFilter.OfColor(color), ObjectFilter.Or(listOf(CardType.Artifact, CardType.Battle,
+        CardType.Creature, CardType.Enchantment, CardType.Planeswalker).map { ObjectFilter.Type(it) }))
     private fun defilerCost(color: Color, symbol: String) = static(has(static(Mechanic.AdditionalCost(cost = cost(CostPart.PayLife(n(2))), optional = true,
-        reducesBy = ManaCost.parse(symbol)!!))), affects = Objects.Each(and(coloredSpells(color), spellFilter, you)))
+        reducesBy = ManaCost.parse(symbol)!!))), affects = Objects.Each(and(coloredPermanentSpells(color), spellFilter, you)))
     private fun defilerText(color: String, symbol: String) =
         "As an additional cost to cast $color permanent spells, you may pay 2 life. Those spells cost $symbol less to cast if you paid life this way. This effect reduces only the amount of $color mana you pay."
 
@@ -415,7 +417,7 @@ class DmuChunk05WardAndConditionsTest {
     ) parsesTo abilities(
         Keyword.Flying,
         defilerCost(Color.Blue, "{U}"),
-        triggered(youCast(coloredSpells(Color.Blue)), draw(1)),
+        triggered(youCast(coloredPermanentSpells(Color.Blue)), draw(1)),
     )
 
     @Test
@@ -432,7 +434,7 @@ class DmuChunk05WardAndConditionsTest {
     ) parsesTo abilities(
         Keyword.Vigilance,
         defilerCost(Color.White, "{W}"),
-        triggered(youCast(coloredSpells(Color.White)), create(soldier)),
+        triggered(youCast(coloredPermanentSpells(Color.White)), create(soldier)),
     )
 
     @Test
@@ -449,7 +451,7 @@ class DmuChunk05WardAndConditionsTest {
     ) parsesTo abilities(
         Keyword.Menace,
         defilerCost(Color.Black, "{B}"),
-        triggered(youCast(coloredSpells(Color.Black)), pump(target("creature"), 1, 1, has(Keyword.Menace)), targets = listOf(slot("creature", creatureYouControl))),
+        triggered(youCast(coloredPermanentSpells(Color.Black)), pump(target("creature"), 1, 1, has(Keyword.Menace)), targets = listOf(slot("creature", creatureYouControl))),
     )
 
     @Test
@@ -466,7 +468,7 @@ class DmuChunk05WardAndConditionsTest {
     ) parsesTo abilities(
         Keyword.FirstStrike,
         defilerCost(Color.Red, "{R}"),
-        triggered(youCast(coloredSpells(Color.Red)), damage(1, toAny), targets = listOf(anyTarget)),
+        triggered(youCast(coloredPermanentSpells(Color.Red)), damage(1, toAny), targets = listOf(anyTarget)),
     )
 
     @Test
@@ -483,6 +485,6 @@ class DmuChunk05WardAndConditionsTest {
     ) parsesTo abilities(
         Keyword.Trample,
         defilerCost(Color.Green, "{G}"),
-        triggered(youCast(coloredSpells(Color.Green)), counters(Objects.Each(creatureYouControl))),
+        triggered(youCast(coloredPermanentSpells(Color.Green)), counters(Objects.Each(creatureYouControl))),
     )
 }

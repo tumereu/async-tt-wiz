@@ -42,7 +42,7 @@ class IsdChunk14MoveMustAttackCountersRevealSearchTapScenariosTest {
     """, "*/*")
     private val priest = Cards.invent("Dusk Priest", "{1}{W}", "Creature — Human Cleric", "{1}, {T}: Tap target non-Human creature.", "1/2")
     private val grasp = Cards.invent("Stirring Grasp", "{2}{G}", "Instant", "Untap target creature. It gets +2/+4 and gains reach until end of turn.")
-    private val lash = Cards.invent("Ember Lash", "{R}", "Instant", "Ember Lash deals 2 damage to target creature.")
+    private val lash = Cards.invent("Ember Whip", "{R}", "Instant", "Ember Whip deals 2 damage to target creature.")
     private val bear = Cards.invent("Brindle Cub", "{1}{G}", "Creature — Bear", "", "2/2")
     private val townsman = Cards.invent("Parish Hand", "{1}{W}", "Creature — Human", "", "2/2")
 

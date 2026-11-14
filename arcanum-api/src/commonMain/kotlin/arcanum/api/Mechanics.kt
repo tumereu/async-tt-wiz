@@ -305,6 +305,14 @@ sealed interface Mechanic {
         val costChange: arcanum.api.CostChange? = null,
         /** A land played with this permission enters tapped ("Each land played this way enters tapped", CR 614.1c). */
         val landsEnterTapped: Boolean = false,
+        // mh3
+        /** Only colorless mana may be spent as though it were mana of any colour for them ("you may spend colorless mana as
+         * though it were mana of any color to cast that spell", CR 609.4b); [manaAsAnyColor] is all mana. */
+        val colorlessAsAnyColor: Boolean = false,
+        // mom chunk 11
+        /** At most this many spells cast with this permission in all, over the whole duration of the effect that grants it
+         * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a). */
+        val total: Int? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.
@@ -323,6 +331,10 @@ sealed interface Mechanic {
         val duringYour: TurnStep? = null,
         // eoe
         val from: Zone? = null,
+        // mh3
+        /** A spell cast by paying it may be cast as though it had flash ("If you cast a spell this way, you may cast it as though it
+         * had flash", CR 601.3c). */
+        val flash: Boolean = false,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */
@@ -368,6 +380,10 @@ sealed interface Mechanic {
         // rvr chunk 05
         /** Only their loyalty abilities ("has all loyalty abilities of all other planeswalkers on the battlefield", CR 606.2). */
         val onlyLoyalty: Boolean = false,
+        // lci
+        /** Each of those abilities may be activated only this many times each turn ("You may activate each of those abilities only once each
+         * turn", CR 602.5b). */
+        val perTurn: Int? = null,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
@@ -383,12 +399,18 @@ sealed interface Mechanic {
      * as though they haven't been activated", CR 702.177b): their "activate only once" doesn't stop them while this applies. */
     @Serializable @SerialName("as-though-not-activated") data class AsThoughNotActivated(val label: AbilityLabel) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
-     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
-     * below (0: no minimum). The change's count may name the spell or ability being paid for as [Objects.Tested] ("{1} less
-     * for each of the chosen colors it is"). */
+     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the mana, every symbol counted, a reduction can't take the
+     * cost below (0: no minimum; 1: "This effect can't reduce the mana in that cost to less than one mana", CR 118.7). The change's
+     * count may name the spell or ability being paid for as [Objects.Tested] ("{1} less for each of the chosen colors it is"). */
     @Serializable @SerialName("cost-change") data class CostChange(
         val what: ObjectFilter, val change: arcanum.api.CostChange, val minimum: Int = 0,
     ) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
+    // otj
+    /** Spells matching [what] cost an additional [cost] to cast ("Spells your opponents cast that target this creature cost an additional
+     * 3 life to cast"): a cost increase that isn't mana, part of the total cost (CR 601.2f); a rule like [CostChange]. */
+    @Serializable @SerialName("additional-cost-of") data class AdditionalCostOf(val what: ObjectFilter, val cost: Cost) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("cant-be-countered") data object CantBeCountered : Mechanic
@@ -446,11 +468,22 @@ sealed interface Mechanic {
     /** May look at [objects] ("you may look at the top card of your library any time"); [reveal]: it's revealed to all
      * instead ("play with the top card of your library revealed"). */
     @Serializable @SerialName("may-look-at") data class MayLookAt(val objects: Objects, val reveal: Boolean = false) : Mechanic
+    // otj
+    /** The affected cards' [keyword] abilities function in [zone] too, not only where that keyword works ("You may plot nonland cards
+     * from the top of your library", CR 702.170f, 113.6): its special action is taken from there, the card moving from that zone as
+     * it is. [topOnly]: only the top card of a library. */
+    @Serializable @SerialName("keyword-functions-in") data class KeywordFunctionsIn(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val zone: Zone, val topOnly: Boolean = false,
+    ) : Mechanic
     /** Damage matching [event] can't be prevented (CR 615.12); replacement effects still apply. */
     @Serializable @SerialName("damage-cant-be-prevented") data class DamageCantBePrevented(val event: EventPattern) : Mechanic
 
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
+    // mh3
+    /** The affected player can't lose life (CR 119.8): damage dealt to them doesn't reduce their life total, and they can't pay more than 0
+     * life (CR 119.4b). With [CantGainLife]: "your life total can't change". */
+    @Serializable @SerialName("cant-lose-life") data object CantLoseLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
     // one chunk 07
     /** The affected players can't get counters of [kind] ("you can't get additional poison counters this turn", CR 122.1, 101.2): putting
@@ -478,6 +511,10 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    // mkm
+    /** In its controller's untap step, that player may choose not to untap the affected permanent ("You may choose not to untap
+     * this creature during your untap step", CR 502.3: the active player determines which permanents untap). */
+    @Serializable @SerialName("may-choose-not-to-untap") data object MayChooseNotToUntap : Mechanic
     // ltr chunk 03
     /** In its controller's untap step the affected permanent doesn't untap as usual: a counter of [kind] is removed from it instead, and
      * if one was, it untaps ("If this creature would untap during your untap step, remove a +1/+1 counter from it instead. If you do,
@@ -489,12 +526,26 @@ sealed interface Mechanic {
     // msh
     /** The affected permanents can't become untapped: not in an untap step and not by any effect ("can't become untapped"). */
     @Serializable @SerialName("cant-become-untapped") data object CantBecomeUntapped : Mechanic
+    // mkm
+    /** The affected permanents can't get [mark] ("can't become suspected", CR 701.60a): an effect that would give it to them does nothing for
+     * them; taking it off still works. */
+    @Serializable @SerialName("cant-become-marked") data class CantBecomeMarked(val mark: ObjectMark) : Mechanic
     /** The affected objects' abilities may be activated as though they had haste ({T} and {Q} in their costs, CR 302.6);
      * attacking still needs haste ("You may activate abilities of creatures you control as though those creatures had
      * haste"). */
     @Serializable @SerialName("abilities-ignore-summoning-sickness") data object AbilitiesIgnoreSummoningSickness : Mechanic
     /** The affected permanents untap during each other player's untap step too (CR 502.3). */
     @Serializable @SerialName("untaps-during-other-untap-steps") data object UntapsDuringOtherUntapSteps : Mechanic
+    // mh3 fixes
+    /** The affected players may pay 2 life rather than pay each {[color]} mana symbol in a cost ("For each {B} in a cost, you may pay 2
+     * life rather than pay that mana"): only the plain coloured symbol, not a hybrid one (CR 107.4e, 601.2h); unlike Phyrexian mana it
+     * changes no cost (CR 107.4f). */
+    @Serializable @SerialName("pay-life-for-mana") data class PayLifeForMana(val color: Color) : Mechanic
+    /** The affected players can't untap more than [max] permanents matching [filter] during their untap steps ("Players can't untap more
+     * than one nonbasic land during their untap steps"): the active player chooses which of those untap (CR 502.3). */
+    @Serializable @SerialName("untap-limit") data class UntapLimit(val max: Int, val filter: ObjectFilter) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** The affected players don't lose the game for having 0 or less life (CR 704.5a doesn't apply to them). */
     @Serializable @SerialName("no-loss-for-zero-life") data object NoLossForZeroLife : Mechanic
     /** The affected players' maximum hand size is [value] (CR 402.2), instead of seven. */
@@ -504,6 +555,11 @@ sealed interface Mechanic {
     /** "If this card is in your opening hand, you may begin the game with it on the battlefield" (CR 103.6a): an
      * opening-hand action, taken after mulligans; works in the hand. */
     @Serializable @SerialName("may-begin-on-battlefield") data object MayBeginOnBattlefield : Mechanic
+    // mh3 fixes
+    /** "You may reveal this card from your opening hand. If you do, [instructions]" (CR 103.6b): an opening-hand action, taken after
+     * mulligans; its owner reveals the card and [instructions] happen (usually a delayed trigger "at the beginning of your first upkeep",
+     * CR 603.7); works in the hand. */
+    @Serializable @SerialName("opening-hand-reveal") data class OpeningHandReveal(val instructions: Instructions) : Mechanic
     /** "Any time you could mulligan and this card is in your hand, you may [instructions]" (CR 103.5b): an action its owner may
      * take where they would declare whether they take a mulligan, then they declare; works in the hand. */
     @Serializable @SerialName("when-you-could-mulligan") data class WhenYouCouldMulligan(val instructions: Instructions) : Mechanic
@@ -585,6 +641,10 @@ sealed interface Mechanic {
         /** A triggered ability linked to this replacement, triggering each time it is applied ("When this card is
          * exiled this way", madness, CR 702.35a, 603.11); [Objects.EventObject] in it is the replaced event's object. */
         val whenApplied: Instructions? = null,
+        // woe
+        /** It applies only to an event for which [condition] holds, checked as the event would happen with the event as the trigger event
+         * ([Value.EventAmount] its amount): "If you would pay life while your library has at least that many cards in it" (CR 614.1a). */
+        val condition: Condition? = null,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -693,8 +753,17 @@ sealed interface Modification {
         /** Counters it enters with only when it enters as a copy ("except it enters with an additional +1/+1 counter on it if it's a
          * creature"): not copiable values, but part of the same replacement (CR 614.1c, 707.9b). */
         val withCounters: List<EntersWithCounters> = emptyList(),
+        // lci
+        /** "enter tapped as a copy of": tapped only if it enters as a copy (CR 614.1c, 707.9). */
+        val tapped: Boolean = false,
+        // mh3
+        /** How long the copy effect lasts ("As this artifact enters, you may have it become a copy of any creature on the battlefield until end
+         * of turn", CR 611.2a); null: for as long as it stays (CR 707.4). */
+        val duration: Duration? = null,
     ) : Modification
-    /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times it is done. */
+    /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times
+     * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three
+     * times as much of that mana instead", CR 106.12b). */
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If
@@ -706,6 +775,10 @@ sealed interface Modification {
      * Stack, with the permanent already its new face; used on a [Mechanic.Replacement] of [EventPattern.Transform]. Unlike [AsEnters], the
      * steps may do anything ("you get an emblem", "choose an opponent"). */
     @Serializable @SerialName("as-transforms") data class AsTransforms(val steps: List<Step>) : Modification
+    // mkm
+    /** "As this creature is turned face up, …" (CR 614.1e): [steps] happen while the permanent is turned face up, not afterward and not on
+     * the Stack, with the permanent already face up; used on a [Mechanic.Replacement] of [EventPattern.TurnedFaceUp]. */
+    @Serializable @SerialName("as-turned-face-up") data class AsTurnedFaceUp(val steps: List<Step>) : Modification
     /** On a [Mechanic.Replacement] of [EventPattern.FlipCoin]: the coins come up heads and the flipping player wins those flips ("those
      * coins come up heads and you win those flips", CR 705.2). */
     @Serializable @SerialName("win-flips") data object WinFlips : Modification
@@ -728,7 +801,9 @@ sealed interface Modification {
     @Serializable @SerialName("skip") data object Skip : Modification
     // fra
     /** The entering permanent enters with [mark] ("This creature enters prepared", CR 722.3a): it has the designation as it
-     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). */
+     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). otj: a moved card gets it wherever
+     * [MarkRules] lets it live ("exile that spell instead of putting it into your graveyard as it resolves. If you do, it becomes
+     * plotted", CR 702.170c); where it can't, nothing. */
     @Serializable @SerialName("enters-marked") data class EntersMarked(val mark: ObjectMark) : Modification
     /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
      * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */
@@ -737,4 +812,9 @@ sealed interface Modification {
     /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that
      * damage is dealt, but all other damage already dealt to him is healed", CR 701.69a). */
     @Serializable @SerialName("heals-other-damage") data object HealsOtherDamage : Modification
+    // lci
+    /** An amount less than [amount] is [amount] instead ("would deal an amount of noncombat damage less than Ojer's power …, that source
+     * deals damage equal to Ojer's power instead", CR 614.1a): the replacement applies only to an event whose amount is less, checked again
+     * after each other replacement (616.1f). */
+    @Serializable @SerialName("raise-amount-to") data class RaiseAmountTo(val amount: Value) : Modification
 }

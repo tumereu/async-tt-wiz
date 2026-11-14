@@ -1,0 +1,1 @@
+Alex opened Games on the desktop layout: the side menu stays open at the left, and the games list keeps a readable width, each row the avatar, the name over its vs line, the move chip or Accept and Decline, and the chevron.

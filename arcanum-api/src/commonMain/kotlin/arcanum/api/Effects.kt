@@ -57,7 +57,8 @@ sealed interface Effect {
     @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null) : Effect
     /** [bind] names the cards put on the bottom (scry) or into the graveyard (surveil). */
     @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value, val bind: String? = null) : Effect
-    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null) : Effect
+    /** [onTop] names the cards put back on top of the library ("for each card you put on top of your library", CR 701.25a). */
+    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null, val onTop: String? = null) : Effect
     /** [searcher] searches [library]'s [zones] (their library, "and/or graveyard") for up to [max] cards matching
      * [filter], with [differentNames] if they must all have different names; the found cards are named [bind] and moved by
      * a following step. [reveal] shows them (CR 701.23). Any player may be told to search any player's library: "search
@@ -74,6 +75,11 @@ sealed interface Effect {
         // dmu
         /** The found cards each have a different value of this property ("up to four creature cards with different powers", CR 701.23a). */
         val differentIn: NumericProperty? = null,
+        // mh3 fixes
+        /** "and/or" ("Search your library and/or graveyard"): the searcher chooses which of [zones] to search, one or more; a zone not chosen
+         * isn't searched, so a library left alone isn't shuffled ("If you search your library this way, shuffle", [Condition.Searched]) and
+         * "whenever a player searches their library" doesn't trigger (CR 701.23a, 701.23f). False: every one of [zones] is searched. */
+        val zonesChosen: Boolean = false,
     ) : Effect
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */
@@ -96,11 +102,14 @@ sealed interface Effect {
         val objects: Objects, val kind: CounterKind, val amount: Value, val distributed: Boolean = false,
     ) : Effect
     /** Remove [amount] counters of [kind] (any kind when null) from each of [objects]; [bind] names the number removed ("Draw
-     * that many cards", dgm). */
+     * that many cards", dgm); mh3: also from each of [players] ("remove a counter from another target permanent or opponent": a player's
+     * counters, CR 122.1). */
     @Serializable @SerialName("remove-counters") data class RemoveCounters(
         val objects: Objects, val kind: CounterKind?, val amount: Value,
         // dgm
         val bind: String? = null,
+        // mh3
+        val players: Players? = null,
     ) : Effect
     @Serializable @SerialName("player-counters") data class GivePlayerCounters(val players: Players, val kind: CounterKind, val amount: Value) : Effect
 
@@ -235,6 +244,10 @@ sealed interface Effect {
         val chosen: Boolean = false,
         /** Names the number of counters moved ("If you do": at least one, CR 608.2c). */
         val bind: String? = null,
+        // mh3 chunk 11
+        /** With [kind] null: [amount] counters in all rather than [amount] of each kind, each of a kind on [from] the effect's controller
+         * chooses ("Move a counter from target permanent you control onto a second target permanent", CR 122.1, 608.2d). */
+        val inAll: Boolean = false,
     ) : Effect
     /** "Change the target of target spell or ability" / "you may choose new targets for it" (CR 115.7). */
     @Serializable @SerialName("change-targets") data class ChangeTargets(
@@ -269,7 +282,19 @@ sealed interface Effect {
      * step (CR 514), with no other phases or steps in between. */
     @Serializable @SerialName("end-turn") data object EndTurn : Effect
     /** "There is an additional [step] after this step" (CR 500.9): the step happens again right after the current one. */
-    @Serializable @SerialName("additional-step") data class AdditionalStep(val step: TurnStep) : Effect
+    @Serializable @SerialName("additional-step") data class AdditionalStep(
+        val step: TurnStep,
+        // otj
+        /** "[count] additional upkeep steps after this phase" (CR 500.10): each a phase of its own made after the current phase, holding only
+         * [step] (the phase's other steps are skipped, CR 500.11). False: right after the current step. */
+        val afterPhase: Boolean = false,
+        /** How many such steps; counted as the effect happens. */
+        val count: Value = Value.Fixed(1),
+    ) : Effect
+    // mh3
+    /** "There is an additional beginning phase after this phase" (CR 500.8): an additional phase, named by its first step ([TurnStep.Untap]:
+     * a beginning phase), right after the phase under way, before phases added earlier. */
+    @Serializable @SerialName("additional-phase") data class AdditionalPhase(val firstStep: TurnStep) : Effect
     /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
     @Serializable @SerialName("extra-combat") data class ExtraCombat(
         val untapAttackers: Boolean = false, val followedByMain: Boolean = false,
@@ -424,6 +449,10 @@ data class Destination(
      * declared as a blocker, so "whenever blocks" doesn't trigger, but "becomes blocked by a creature" does (CR 509.3d, 509.4); if
      * that creature is no longer attacking, or its controller isn't the defending player for it, it isn't blocking (CR 509.4a). */
     val blocking: Objects? = null,
+    // lci
+    /** Names bound earlier in the ability (by a cost's `remember` or a step) whose objects the permanent keeps as its card memory
+     * under the same names as it enters ("the exiled cards used to craft it", CR 702.167c, 607.2a). */
+    val keeps: List<String> = emptyList(),
 )
 
 /** [amount] counters of [kind]. */
@@ -473,13 +502,20 @@ sealed interface KeywordAction {
     @Serializable @SerialName("populate") data object Populate : KeywordAction
     @Serializable @SerialName("explore") data class Explore(val objects: Objects) : KeywordAction
     @Serializable @SerialName("amass") data class Amass(val subtype: Subtype, val count: Value) : KeywordAction
+    /** mom chunk 03: "Incubate N" (CR 701.53a): create an Incubator token ([PredefinedTokens], double-faced, CR 111.10i) that enters the
+     * battlefield with [count] +1/+1 counters on it. The bind of [Effect.Action] names the token. */
+    @Serializable @SerialName("incubate") data class Incubate(val count: Value) : KeywordAction
     @Serializable @SerialName("connive") data class Connive(val objects: Objects, val count: Value) : KeywordAction
+    /** "Discover N" (CR 701.57a). [Effect.Action.bind] names the discovered card (CR 701.57c: the last card exiled, if its mana value is N
+     * or less, whether it was cast or put into a hand); it names nothing when there was none. */
     @Serializable @SerialName("discover") data class Discover(val count: Value) : KeywordAction
     /** "Venture into the dungeon" (CR 701.49a–c). */
     @Serializable @SerialName("venture") data object Venture : KeywordAction
     /** "Venture into [quality]" (CR 701.49d: "venture into Undercity"): a new dungeon is one of [dungeons]. */
     @Serializable @SerialName("venture-into") data class VentureInto(val dungeons: ObjectFilter) : KeywordAction
-    @Serializable @SerialName("manifest") data class Manifest(val count: Value) : KeywordAction
+    /** Manifest the top [count] cards of the acting player's library one at a time (CR 701.40a, e), or (mh3) the cards [cards]
+     * instead ("each manifest two cards from their hands"), each under its owner's control. */
+    @Serializable @SerialName("manifest") data class Manifest(val count: Value, val cards: Objects? = null) : KeywordAction
     /** "[Players] manifest(s) dread" (CR 701.62a): look at the top two cards of their library, manifest one of them
      * (CR 701.40a: onto the battlefield face down as a 2/2 creature, [ObjectMark.Manifested]) and put the other into
      * their graveyard. The bind of [Effect.Action] names the manifested permanent ("that creature"). Triggers "whenever
@@ -504,7 +540,11 @@ sealed interface KeywordAction {
     @Serializable @SerialName("forage") data object Forage : KeywordAction
     /** Exile this card from its owner's hand face down; it becomes foretold: what the foretell special action does once its {2} is paid (CR 702.143a, b). */
     @Serializable @SerialName("foretell") data object Foretell : KeywordAction
-    @Serializable @SerialName("cloak") data class Cloak(val count: Value) : KeywordAction
+    /** Cloak (CR 701.58a): put cards onto the battlefield face down under the cloaking player's control as 2/2 creatures with ward {2}
+     * ([ObjectMark.Cloaked]), one at a time (701.58e): the top [count] cards of their library, or, given [cards], those cards wherever
+     * they are ("cloak a card from your hand", "cloak the top card of that player's library", "cloak two of them"; [count] is then
+     * unused). The bind of [Effect.Action] names the cloaked permanents. */
+    @Serializable @SerialName("cloak") data class Cloak(val count: Value, val cards: Objects? = null) : KeywordAction
     @Serializable @SerialName("time-travel") data object TimeTravel : KeywordAction
     @Serializable @SerialName("ring-tempts") data object TheRingTemptsYou : KeywordAction
     /** Exert [objects]: they don't untap during their controller's next untap step (CR 701.43). */

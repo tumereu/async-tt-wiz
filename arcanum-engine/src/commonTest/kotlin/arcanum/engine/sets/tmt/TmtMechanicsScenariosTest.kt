@@ -320,6 +320,8 @@ class TmtMechanicsScenariosTest {
         put(alice, listOf(legends[2], legends[3]), Zone.Outside)
         alice.casts(eternal)
         resolveAll()
+        // "and/or": the searcher chooses the zones (CR 701.23a)
+        answer(Answer.Option("library and outside the game"))
         alice.chooses(*legends.toTypedArray())
         resolveAll()
         bob.chooses(legends[0], legends[2])

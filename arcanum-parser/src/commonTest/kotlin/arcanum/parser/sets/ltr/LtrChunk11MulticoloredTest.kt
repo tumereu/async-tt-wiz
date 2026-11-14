@@ -275,7 +275,7 @@ class LtrChunk11MulticoloredTest {
             min = 1, max = 1, chooser = Players.You, maxIf = Condition.Exists(and(sub("Wizard"), you), atLeast = 1), maxIfCount = 2, upToMaxIf = true))),
     )
 
-    // CR 120.3: each of the two deals damage equal to its power
+    // CR 120.3: each of the two deals damage equal to its power; CR 115.3: "other target" is a different creature from the first target
     @Test
     fun friendlyContest() = card(
         name = "Friendly Contest",
@@ -285,7 +285,7 @@ class LtrChunk11MulticoloredTest {
     ) parsesTo abilities(
         spell(damage(power(target("creature")), toObjects(target("third creature")), source = target("creature")),
             damage(power(target("second creature")), toObjects(target("third creature")), source = target("second creature")),
-            targets = listOf(slot("creature", creatureYouControl), slot("second creature", and(another, legendary, creature, you), min = 0),
+            targets = listOf(slot("creature", creatureYouControl), slot("second creature", and(legendary, creature, you), min = 0).copy(distinctFrom = listOf("creature")),
                 slot("third creature", and(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You)))))),
     )
 

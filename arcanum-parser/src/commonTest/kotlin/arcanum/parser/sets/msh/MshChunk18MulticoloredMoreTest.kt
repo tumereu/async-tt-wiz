@@ -200,8 +200,9 @@ class MshChunk18MulticoloredMoreTest {
         triggered(stepBegins(arcanum.api.TurnStep.PrecombatMain, PlayerFilter.You),
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target("target"), except = listOf(
                 arcanum.api.CopyException.Name("Copyist, Mercenary Mimic"),
+                // CR 205.1a: "he's a legendary Human Mercenary Villain creature" sets its card types (no "in addition")
                 arcanum.api.CopyException.Types(add = listOf(CardType.Creature), addSubtypes = listOf("Human", "Mercenary", "Villain").map { SubtypeRef.Literal(Subtype(it)) },
-                    addSupertypes = listOf(Supertype.Legendary), replaceSubtypes = true)))), arcanum.api.Affected.Objects(Objects.Self), Duration.UntilYourNextTurn)),
+                    addSupertypes = listOf(Supertype.Legendary), replaceSubtypes = true, replaceTypes = true)))), arcanum.api.Affected.Objects(Objects.Self), Duration.UntilYourNextTurn)),
             targets = listOf(slot("target", or(and(creature, inZone(Zone.Battlefield)), and(creature, cardFilter, inZone(Zone.Graveyard))), min = 0)),
             abilityWord = "Photographic Reflexes"),
     )
@@ -262,7 +263,7 @@ class MshChunk18MulticoloredMoreTest {
     ) parsesTo abilities(
         spell(
             Step.Do(Effect.Search(Players.You, and(artifact, creature, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Announced("X"))), max = n(1),
-                zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You)),
+                zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", searcher = Players.You, zonesChosen = true)),
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, counters = listOf(arcanum.api.CountersToPut(p1p1, Value.Announced("X")))), postBind = "put")),
             Step.If(Condition.Compare(Value.Announced("X"), arcanum.api.Comparison.AtLeast, n(4)), then = listOf(gains(Objects.Bound("put"), Keyword.Haste))),
             Step.If(Condition.Searched("found", Zone.Library), then = listOf(shuffle)),

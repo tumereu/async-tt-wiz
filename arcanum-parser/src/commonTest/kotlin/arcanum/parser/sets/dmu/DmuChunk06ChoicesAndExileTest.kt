@@ -105,10 +105,10 @@ class DmuChunk06ChoicesAndExileTest {
         Ability.Triggered(youCast(creature), Instructions(modes = modes(
             mode(destroy(target("permanent")), targets = listOf(slot("permanent", or(artifact, enchantment)))),
             mode(
-                doing(Effect.LookAt(Objects.LibraryCards(Players.You, n(5), fromTop = true), Players.You, bind = "seen")),
-                Step.Choose(Choice.Objects(land, n(0), n(1), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
+                doing(Effect.LookAt(Objects.LibraryCards(Players.You, n(5), fromTop = true), Players.You, bind = "looked")),
+                Step.Choose(Choice.Objects(land, n(0), n(1), from = Objects.Bound("looked")), bind = "chosen", chooser = Players.You),
                 move(Objects.Bound("chosen"), Zone.Battlefield, tapped = true),
-                doing(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), bottomRandom)),
+                doing(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")), bottomRandom)),
             ),
             mode(gainLife(4)),
         ))),
@@ -176,7 +176,8 @@ class DmuChunk06ChoicesAndExileTest {
         text = "Choose target creature you control and target creature you don't control. If you cast this spell during your main phase, the creature you control gets +1/+1 until end of turn. Then those creatures fight each other. (Each deals damage equal to its power to the other.)",
     ) parsesTo abilities(
         spell(
-            Step.If(Condition.CastDuringMainPhase(Objects.Self), then = listOf(pump(target("creature"), 1, 1))),
+            Step.If(Condition.AsCast(Condition.And(listOf(Condition.YourTurn,
+                Condition.Or(listOf(Condition.StepIs(TurnStep.PrecombatMain), Condition.StepIs(TurnStep.PostcombatMain)))))), then = listOf(pump(target("creature"), 1, 1))),
             doing(Effect.Fight(target("creature"), target("other creature"))),
             targets = listOf(slot("creature", creatureYouControl),
                 slot("other creature", and(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You))))),

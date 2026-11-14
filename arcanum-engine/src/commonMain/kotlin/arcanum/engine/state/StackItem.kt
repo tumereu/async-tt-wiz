@@ -123,6 +123,9 @@ data class ObjectSnapshot(
     // fra
     /** It was an attacking creature ("if it wasn't attacking", CR 608.2h). */
     val attacking: Boolean = false,
+    // mkm
+    /** Its marks ([GameObject.marks]): "if the sacrificed creature was suspected" (CR 608.2h). */
+    val marks: List<arcanum.api.ObjectMark> = emptyList(),
     // one
     /** Its copiable values (CR 707.2) when they weren't those of its card alone ([arcanum.engine.view.Copiable.plain]): a copy effect,
      * a prototype or a merge made them; for "a token that's a copy of it" once it has left (CR 608.2h). */

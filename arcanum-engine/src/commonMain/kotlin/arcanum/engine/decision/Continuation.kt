@@ -219,6 +219,9 @@ sealed interface TurnAction {
     /** The active player discards down to their maximum hand size (CR 514.1), through the event pipeline (madness):
      * redone from its start with the [answers] so far (D29). */
     @Serializable @SerialName("cleanup-discard") data class CleanupDiscard(val answers: List<Answer> = emptyList()) : TurnAction
+    /** The active player chooses which permanents untap (CR 502.3): mkm: those they may choose not to untap, mh3: under an untap limit;
+     * the untap step redone from its start with the [answers] so far. */
+    @Serializable @SerialName("untap-choice") data class Untap(val answers: List<Answer> = emptyList()) : TurnAction
 }
 
 /** [amount] combat damage from [source] assigned to [target]. */

@@ -30,14 +30,16 @@ internal object Hob {
     val CONTROLLER_AMASSES_X_POWER = Regex("""Its controller amasses (\w+) X, where X is that creature's power\.""")
     val AMASS_X_POWER = Regex("""[Aa]mass (\w+) X, where X is (.+?)'s power\.""")
     val AMASS_INSTEAD_IF_GRAVEYARD = Regex("""[Aa]mass (\w+) (\d+)\. If this spell was cast from a graveyard, amass (\w+) (\d+) instead\.""")
-    // one chunk 07: "that artifact" (any permanent type noun)
-    val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled that (?:creature|artifact|enchantment|land|planeswalker|battle|permanent), (.+)""")
+    // mkm chunk 01: also "If you controlled it, …" after exiling a target; one chunk 07: "that artifact" (any permanent type noun)
+    val IF_YOU_CONTROLLED_THAT_CREATURE = Regex("""If you controlled (?:that (?:creature|artifact|enchantment|land|planeswalker|battle|permanent)|it), (.+)""")
     val PUT_COUNTERS_ON_ONE_OR_MORE = Regex("""Whenever you put one or more counters on (.+ you control), (.+?) deals (\d+) damage to target opponent\.""")
     val PER_OPPONENT_EXILE_UNTIL_LEAVES = Regex("""For each opponent, exile up to one target (.+?) that player controls until (.+?) leaves the battlefield\.""")
-    val IT_GETS_FOR_EACH = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each (.+)\.""")
+    // woe chunk 05: any subject; otj chunk 12: signed, "an additional"
+    val IT_GETS_FOR_EACH = Regex("""(It|.+?) gets (?:an additional )?([+-]\d+)/([+-]\d+) until end of turn for each (.+)\.""")
     val TARGET_OPPONENT_SACRIFICES = Regex("""Target opponent sacrifices an? (.+?) of their choice\.""")
     val IF_THAT_CREATURE_IS_COUNTER_ON_IT = Regex("""If that creature is an? (.+?), put an? (\S+) counter on it\.""")
-    val CREATURES_TARGET_PLAYER_CONTROLS_GET = Regex("""(Creatures) target player controls get ([+-]\d+)/([+-]\d+) until end of turn\.""")
+    // otj chunk 12: also "target opponent" and "lose first strike and double strike"
+    val CREATURES_TARGET_PLAYER_CONTROLS_GET = Regex("""(Creatures) target (player|opponent) controls (?:get ([+-]\d+)/([+-]\d+)|lose (.+?)) until end of turn\.""")
     val CREATE_X_TAPPED = Regex("""Create X tapped (\w+) tokens\.""")
     val A_PLAYER_LOSES_LIFE = Regex("""a player loses life""")
     val SACRIFICE_WHEN_YOU_DO_EXCESS = Regex("""You may sacrifice another creature\. When you do, (.+?) deals damage equal to that creature's power to another target creature\. If excess damage was dealt this way, amass (\w+) X, where X is that excess damage\.""")
@@ -50,13 +52,17 @@ internal object Hob {
     val PREVENT_ALL_DAMAGE_DEALT_BY = Regex("""Prevent all damage that would be dealt by (up to one )?target (.+)""")
     val EXILE_UP_TO_ONE_RETURN_NEXT_END = Regex("""Exile up to one target (.+?)\. If you do, return it to the battlefield under its owner's control at the beginning of the next end step\.""")
     val CREATE_THEN_IF_SACRIFICE_SELF = Regex("""Create (.+?)\. Then if you control (\w+) or more (.+?), sacrifice (.+?)\. If you do, create (.+)\.""")
-    val SAGA_GAINS_QUOTED = Regex("""(.+?) gains "(.+)"\.""")
+    // lci chunk 05: also with the period inside the quotes ('gains "Creatures you control have \'{T}: Add {R}, {G}, or {W}.\'"')
+    val SAGA_GAINS_QUOTED = Regex("""(.+?) gains "(.+)"\.?""")
+    /** A quoted ability's own quoted ability, in single quotes ("… have '{T}: Add {R}.'"). */
+    val INNER_SINGLE_QUOTED = Regex("""(^| )'(.+)'$""")
 
     // hob chunk 05: adventures
     val MILL_THEN_PUT_FROM_AMONG = Regex("""Mill (\w+) cards, then put (an|all|up to (?:one|two|three)) (.+?) cards? from among them into your hand\.""")
     // (the dsk chunk 12 wording "untapped creatures you control" with "They each …" after it is read by its own rule)
     val TAP_ONE_OR_TWO = Regex("""Tap one or two target (creatures)\.""")
-    val EXCHANGE_CONTROL_SHARING = Regex("""Exchange control of two target (.+?) that share a card type\.""")
+    // otj chunk 02: also without "that share a card type" (Shifting Grift)
+    val EXCHANGE_CONTROL_SHARING = Regex("""Exchange control of two target (.+?)( that share a card type)?\.""")
     val EXILE_TWO_RETURN = Regex("""Exile two target (.+?), then return them to the battlefield under their owner's control\.""")
     val LOOK_EXILE_FACE_DOWN_PLAY_IF = Regex("""Look at the top (\w+) cards of your library and exile them face down\. For as long as they remain exiled, you may play them if you control an? (.+)\.""")
     val CREATE_X_TOKENS = Regex("""Create X (.+) tokens\.""")
@@ -95,7 +101,9 @@ internal object Hob {
 
     // hob chunk 09: white and blue
     val EAGLES_ARE_COMING = Regex("""Choose target (.+?) you own\. If this spell was kicked, instead choose any number of target (.+?) you own\. Return each chosen creature to your hand\. At the beginning of the next upkeep, create (.+?) for each creature returned to your hand this way\.""")
-    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards, reveal them, put one onto the battlefield tapped and the other into your hand, then shuffle\.""")
+    // mkm chunk 01: also "… Forest cards and reveal them. Put one of them onto the battlefield tapped and the other into your hand, then shuffle."
+    // mh3: "reveal those cards"
+    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards(?:, reveal (?:them|those cards), put one| and reveal them\. Put one of them) onto the battlefield tapped and the other into your hand, then shuffle\.""")
     val EXILE_ALL_ATTACKING_TARGET_PLAYER = Regex("""Exile all attacking creatures target player controls\. That player may search their library for that many (.+?) cards, put those cards onto the battlefield tapped, then shuffle\.""")
     val BECOMES_TYPE_AND_GAINS = Regex("""Until end of turn, target (.+?) becomes an? (artifact|enchantment) in addition to its other types and gains (.+)\.""")
     val PLAYERS_CANT_CAST_THIS_TURN = Regex("""[Pp]layers can't cast spells this turn\.""")
@@ -112,7 +120,7 @@ internal object Hob {
 
     // hob chunk 10: black and red
     val SACRIFICES_OF_THEIR_CHOICE = Regex("""(.+? sacrifices? an? .+?) of their choice\.""")
-    val EXILE_UP_TO_ONE_FROM_OPPONENTS_GRAVEYARD = Regex("""[Ee]xile up to one target card from an opponent's graveyard\.""")
+    val EXILE_UP_TO_ONE_FROM_OPPONENTS_GRAVEYARD = Regex("""[Ee]xile (up to one )?target card from an opponent's graveyard\.""")
     val CHOOSE_ODD_OR_EVEN = Regex("""As (.+?) enters, choose (\w+) or (\w+)\.""")
     val OPPONENT_CASTS_CHOSEN_QUALITY = Regex("""an opponent casts a spell with mana value of the chosen quality""")
     val PLAY_EXILED_TOP_X_PAY_LIFE = Regex("""Exile the top X cards of target opponent's library\. You may play those cards this turn\. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\.""")
@@ -122,13 +130,14 @@ internal object Hob {
     val SUPPER = Regex("""Put onto the battlefield under your control all (.+?) in your opponents' graveyards that were put there from the battlefield this turn\. They are (\w+) artifacts with "(.+)"""")
     val GETS_AND_DEALS = Regex("""(.+?) gets \+(\d+)/\+(\d+) until end of turn and deals (\d+) damage to each opponent\.""")
     val DEALS_DIVIDED_AMONG = Regex("""(?:He|She|It|(.+?)) deals (\d+) damage divided as you choose among one, two, or three targets\.""")
-    val DEALS_DAMAGE_EQUAL_NUMBER_ANY = Regex("""(?:He|She|It|(.+?)) deals damage equal to (the number of .+?) to any target\.""")
+    val DEALS_DAMAGE_EQUAL_NUMBER_ANY = Regex("""(?:He|She|It|(.+?)) deals damage equal to (the number of .+?|the sacrificed \w+'s (?:power|toughness|mana value)) to any target\.""")
     val REVEAL_TOP_RANDOM_ONTO = Regex("""Reveal the top (\w+) cards of your library\. Put a random (.+?) card from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\.""")
     val QUEST_COUNTER_SACRIFICE_SEARCH = Regex("""Put an? (\w+) counter on (.+?)\. If it has (\w+) or more \w+ counters on it, sacrifice it\. If you do, search your hand and/or library for an? (.+?) card and put it onto the battlefield\. If you search your library this way, shuffle\.""")
     val CREATE_NAMED_ARTIFACT_CREATURE_TOKEN = Regex("""[Cc]reate an? (\d+)/(\d+) colorless ([A-Z][a-z]+) artifact creature token with ([a-z]+) named ([A-Z][A-Za-z ]+)\.""")
     val CREATE_X_TAPPED_TREASURES_WHERE = Regex("""[Cc]reate X tapped (\w+) tokens, where X is (.+)\.""")
     val IF_MANA_FROM_SPENT = Regex("""if mana from an? (.+?) was spent to cast it""")
-    val TOKENS_TWICE_THAT_MANY = Regex("""If (?:one or more tokens would be created under your control, twice that many of those tokens are created|an effect would create one or more tokens under your control, it creates twice that many of those tokens) instead\.""") // fdn: the second
+    // fdn: the second; lci chunk 05: "one or more creature tokens", "three times that many"
+    val TOKENS_TWICE_THAT_MANY = Regex("""If (?:one or more (creature )?tokens would be created under your control, (twice|three times) that many of those tokens are created|an effect would create one or more tokens under your control, it creates twice that many of those tokens) instead\.""")
     val DRAW_EXCEPT_FIRST_DRAW_TWO = Regex("""If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead\.""")
     val DIES_IF_CREATURE_RETURN_ARTIFACT = Regex("""When (.+?) die, if they were a creature, return them to the battlefield\. They're an artifact\.""")
     val MAY_CAST_AS_FLASH_IF_CONTROL = Regex("""You may cast this spell as though it had flash if you control an? (.+)\.""")
@@ -158,13 +167,15 @@ internal object HobPhrases {
         // hob chunk 01
         if (text == "you have an enduring story") return enduringStory
         // hob chunk 12: "mana from a Treasure was spent to cast it" (the spell of a cast trigger, CR 106.3)
+        // mom chunk 11: "three or more mana from creatures was spent to cast it" (at least that much of it, CR 106.3)
         MANA_FROM_SPENT.matchEntire(text)?.let { m ->
-            return Condition.Compare(Value.ManaSpent(of = Objects.EventObject(arcanum.api.EventRole.Object), source = Filters.noun(m.groupValues[1]) ?: return null),
-                arcanum.api.Comparison.Greater, Value.Fixed(0))
+            val spent = Value.ManaSpent(of = Objects.EventObject(arcanum.api.EventRole.Object), source = Filters.noun(m.groupValues[2]) ?: return null)
+            if (m.groupValues[1].isEmpty()) return Condition.Compare(spent, arcanum.api.Comparison.Greater, Value.Fixed(0))
+            return Condition.Compare(spent, arcanum.api.Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
         }
         return null
     }
-    private val MANA_FROM_SPENT = Regex("""mana from an? (.+?) was spent to cast it""")
+    private val MANA_FROM_SPENT = Regex("""(?:(\w+) or more )?mana from (?:an? )?(.+?) was spent to cast it""")
 
     /** "each graveyard with seven or more cards in it": the players whose graveyards hold that many cards. */
     fun graveyardsWith(count: Int): Players = Players.Each(PlayerFilter.Where(Condition.Exists(
@@ -174,9 +185,11 @@ internal object HobPhrases {
         // hob chunk 06: "the number of Treasures you control", "the number of artifacts your opponents control" (generic counting
         // already reads most; this is for the total power of creatures)
         // hob chunk 09: "the total power of creatures you control with flying"
-        if (text.startsWith("the total power of ")) {
-            val noun = text.removePrefix("the total power of ")
-            return Value.Of(NumericProperty.Power, Objects.Each(Filters.noun(noun) ?: return null), Combine.Total)
+        // mkm chunk 08: "the total toughness of creatures you control"
+        for ((word, property) in listOf("power" to NumericProperty.Power, "toughness" to NumericProperty.Toughness)) {
+            if (!text.startsWith("the total $word of ")) continue
+            val noun = text.removePrefix("the total $word of ")
+            return Value.Of(property, Objects.Each(Filters.noun(noun) ?: return null), Combine.Total)
         }
         return null
     }

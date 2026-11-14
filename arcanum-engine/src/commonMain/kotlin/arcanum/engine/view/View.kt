@@ -58,6 +58,9 @@ data class ObjectView(
     /** Its copiable values as a whole (CR 707.2): layout and all faces, printed or copied, before its Room's doors lock
      * anything (CR 709.5). */
     val copiable: arcanum.engine.state.CopiableValues? = null,
+    /** lci: its base power (CR 208.4b): its power after layers 7a and 7b, before effects and counters that modify it; null for a
+     * noncreature. */
+    val basePower: Int? = null,
     /** Its statuses ([GameObject.statuses]) with those the view derives: a Class on the battlefield that has gained no level
      * shows level 1 ([arcanum.engine.state.ObjectStatus.ClassLevel], CR 716.2a). */
     val statuses: List<arcanum.engine.state.ObjectStatus> = emptyList(),
@@ -118,8 +121,6 @@ data class Characteristics(
     val loyalty: Int? = null,
     val defense: Int? = null,
     val abilities: List<AbilityInstance> = emptyList(),
-    /** dmu: its base power (CR 208.4b), its power after layer 7b; null when no layer run worked it out (then its power). */
-    val basePower: Int? = null,
 ) {
     fun isType(type: CardType): Boolean = type in types
 

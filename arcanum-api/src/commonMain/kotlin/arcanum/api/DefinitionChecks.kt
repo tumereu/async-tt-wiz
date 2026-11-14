@@ -65,7 +65,8 @@ object DefinitionChecks {
         // inr chunk 06: the permanent sacrificed and the card it became in the graveyard (CR 701.21a, 400.7)
         "sacrifice" to setOf("object", "before", "after"),
         "unattach" to setOf("object", "from"),
-        "attach" to setOf("object", "to"), // one
+        // otj, one: the attachment and what it became attached to (CR 701.3a)
+        "attach" to setOf("object", "to"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),
         // dft: tapped to crew or saddle: the Vehicle or Mount (CR 702.122b, 702.171c)
@@ -75,7 +76,7 @@ object DefinitionChecks {
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
     private val asEntersSteps = setOf("pay", "choose", "if", "modify")
-    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind") // inr chunk 08: payerBind
+    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind", "onTop") // inr chunk 08: payerBind; lci chunk 04: onTop (surveil)
 
     /** Problems in [card], one readable line each; empty when it is fine. [keywordTable]: [card] holds abilities from
      * [KeywordExpansions], where keyword costs and keyword-only mechanics belong. */
@@ -207,7 +208,9 @@ object DefinitionChecks {
                 }
                 if (type == "pay" && element.string("bind") == null)
                     found += "a Pay that nothing reads is a May; give it a bind for \"if you do\""
-                if (type == "discard" && element.typeOf("count") == "count")
+                // mh3 chunk 17: a count of cards bound earlier ("draw cards …, then discard that many") is a number, not the hand
+                if (type == "discard" && element.typeOf("count") == "count" &&
+                    ((element["count"] as? JsonObject)?.typeOf("objects") != "bound"))
                     found += "\"discard your hand\" is Discard(objects = the cards in that hand)"
                 if (type == "cast" && "objects" in element && element.boolean("withoutPaying") && element["cost"] != null)
                     found += "cast either without paying or for a cost, not both"
@@ -372,6 +375,11 @@ object DefinitionChecks {
                         (objectSlot ?: playerSlot)?.let { recipientUses += Triple(it, (objectSlot != null) to (playerSlot != null), false) }
                     }
                     (element["announced"] as? JsonArray)?.forEach { announced += it.jsonPrimitive.content }
+                    // An X nothing defines in a cost paid on resolution ("you may pay {X}. If you do, you gain X life") is chosen as it is
+                    // paid, and the rest of the resolution reads it as X (CR 107.3f, 118.12)
+                    if (element.typeName() == "pay") visitAll(element["cost"] ?: JsonArray(emptyList())) { part ->
+                        if (part.typeName() == "mana" && "x" !in part && part.string("cost")?.contains("{X}") == true) announced += "X"
+                    }
                     when (element.typeName()) {
                         "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose", "chosen", "chosen-name", "searched" ->
                             element.string("name")?.let { usedNames += it }

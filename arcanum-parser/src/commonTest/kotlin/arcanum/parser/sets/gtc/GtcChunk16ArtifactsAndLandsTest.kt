@@ -55,7 +55,7 @@ class GtcChunk16ArtifactsAndLandsTest {
     /** "[cost]: This artifact becomes a P/T [colours] [type] artifact creature [with …] until end of turn" (CR 205.1b). */
     private fun keyrune(cost: String, p: Int, t: Int, colors: List<Color>, subtype: String, vararg also: Mechanic) = Ability.Activated(mana(cost), steps(
         untilEndOfTurn(Objects.Self, *(listOf<Mechanic>(
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype)))),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true), // CR 205.1b: a "[creature type] artifact creature" replaces creature types
             Mechanic.SetColors(colors.map { ColorRef.Literal(it) })) + also.toList()).toTypedArray()),
     ), rules = anyTime)
 

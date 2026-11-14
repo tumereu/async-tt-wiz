@@ -294,6 +294,13 @@ internal object Triggers {
     /** The key under which a taken "Do this only once each turn" action is counted. */
     fun actionKey(origin: AbilityOrigin, player: PlayerId): String = "\$action:${origin.key}@$player"
 
+    /** The object a damage event of [trigger] was dealt to, when it was dealt to an object rather than a player. */
+    private fun damagedObject(trigger: Trigger.On, unit: TriggerEvent): Any? =
+        if (trigger.events.all { it is arcanum.api.EventPattern.Damage }) unit.objects.firstOrNull { it.role == EventRole.Object }?.ids else null
+
+    /** What a [Trigger.On.batchPerPlayer] batch is about: its player, or the object (battle) it was dealt damage to (CR 310.6). */
+    private fun batchKey(trigger: Trigger.On, unit: TriggerEvent): Any? = unit.players.firstOrNull() ?: damagedObject(trigger, unit)
+
     /** The instances of [trigger] in [change] (CR 603.2): one per event, or one per batch ([Trigger.On.oneOrMore], CR
      * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,
      * or earlier batches, so "one or more cards for the first time each turn" keeps the whole batch); chapter abilities
@@ -310,7 +317,8 @@ internal object Triggers {
                 val batches = when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()
-                    trigger.batchPerPlayer -> all.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
+                    // mom: damage to a battle has no player: one batch per battle dealt damage ("to a player or battle", CR 310.6)
+                    trigger.batchPerPlayer -> all.groupBy { u -> batchKey(trigger, u) }.values.map { batch(it) }
                     else -> listOf(batch(all))
                 }
                 // hob: "with creatures with total power 12 or greater": only a batch whose objects add up to it (CR 603.2c)
@@ -338,8 +346,9 @@ internal object Triggers {
                 // spm: "your first or second card each turn" ([Trigger.On.throughNth]): any of the first n
                 fun nth(k: Int) = if (trigger.throughNth) k <= n else k == n
                 if (!trigger.oneOrMore) now.filterIndexed { i, unit -> nth(earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1) }
+                // mom: counted per batch key, so each battle dealt damage has its own first time ("to a player or battle", CR 603.2c, 310.6)
                 else now.filter { unit ->
-                    nth(earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1)
+                    nth(earlier.count { !trigger.batchPerPlayer || batchKey(trigger, it) == batchKey(trigger, unit) } + 1)
                 }
             } ?: now
             counted.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
@@ -502,7 +511,7 @@ internal object Triggers {
         var chosen: Pair<List<Int>, Map<String, List<TargetRef>>>? = null
         val choices = try {
             Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event,
-                watch = { modes, targets -> chosen = modes to targets })
+                watch = { modes, targets -> chosen = modes to targets }, pendingKind = arcanum.api.AbilityKind.Triggered)
         } catch (n: NeedDecision) {
             // CR 603.3d: a decision of its modes or targets: what was chosen before it, for the one choosing
             chosen?.let { (modes, targets) -> placing.current = announcing(arcanum.engine.decision.AnnounceStage.Targets, modes, targets.toMap()) }

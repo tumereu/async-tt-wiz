@@ -48,10 +48,13 @@ internal object Casts {
                 // CR 305.1: a land is played, not cast
                 if (effect.how != PlayKind.Play) continue
                 // CR 305.2a-b, 305.3: playing a land during a resolution counts as a land play; ignored on another player's turn or with no
-                // land plays left
+                // land plays left; bro sweep: nor when an effect says the player can't play that land ("can't play land cards from exile",
+                // CR 101.2), as for any land play
                 val turn = act.state.turn
                 val played = turn.landsPlayed[caster] ?: 0
-                if (turn.active != caster || played >= arcanum.engine.casting.Legality.landPlays(arcanum.engine.casting.Snapshot(act.state), caster)) continue
+                val snap = arcanum.engine.casting.Snapshot(act.state, viewOf = { act.view() })
+                if (turn.active != caster || played >= arcanum.engine.casting.Legality.landPlays(snap, caster)) continue
+                if (arcanum.engine.casting.Legality.cantPlayLandBy(snap, caster, id)) continue
                 act.record(arcanum.engine.change.Changes.step(act.state, turn.copy(landsPlayed = turn.landsPlayed + (caster to played + 1))))
                 Actions.move(act, scope.cause, listOf(PlannedMove(id, Zone.Battlefield, controller = caster, meanings = listOf(Meaning.PlayedLand))))
                 continue

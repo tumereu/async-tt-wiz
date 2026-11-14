@@ -475,6 +475,9 @@ sealed interface AttackTarget {
     @Serializable @SerialName("same-as") data class SameAs(val objects: Objects) : AttackTarget
     /** These ("attacking that opponent"). */
     @Serializable @SerialName("these") data class These(val recipients: Recipients) : AttackTarget
+    /** [players] or a planeswalker they control, as the attacking creature's controller chooses (myriad: "attacking that player or a
+     * planeswalker they control", CR 702.116a, 508.4). */
+    @Serializable @SerialName("player-or-their-planeswalker") data class PlayerOrTheirPlaneswalker(val players: Players) : AttackTarget
 }
 
 /** What [KeywordAction.Double] doubles. */

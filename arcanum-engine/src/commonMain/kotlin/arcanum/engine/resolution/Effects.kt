@@ -858,6 +858,19 @@ internal object Effects {
                 ?: scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
         }
         is arcanum.api.AttackTarget.These -> recipients(scope, target.recipients).firstOrNull()
+        // bro sweep: myriad, "attacking that player or a planeswalker they control": its controller chooses among those it could attack
+        // (CR 702.116a, 508.4; neither left, CR 508.4a: not attacking)
+        is arcanum.api.AttackTarget.PlayerOrTheirPlaneswalker -> {
+            val act = scope.act
+            val players = scope.players(target.players).toSet()
+            val options = arcanum.engine.combat.CombatRules.attackTargets(arcanum.engine.casting.Snapshot(act.state, viewOf = { act.view() }), scope.actor)
+                .filter { ref -> when (ref) {
+                    is TargetRef.Player -> ref.id in players
+                    is TargetRef.Object -> act.controllerOf(ref.id) in players &&
+                        act.view()[ref.id]?.characteristics?.isType(CardType.Planeswalker) == true
+                } }
+            if (options.size <= 1) options.firstOrNull() else act.chooseTargets(scope.actor, scope.self, ATTACKING_SLOT, options, 1, 1).single()
+        }
     }
 
     /** What a move means by where it goes (D33). */

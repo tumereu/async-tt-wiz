@@ -2173,8 +2173,10 @@ internal class Sentences(
         MAY_PLAY_FROM_TOP.matchEntire(line)?.let { m ->
             val how = if (m.groupValues[1] == "play") arcanum.api.PlayKind.Play else arcanum.api.PlayKind.Cast
             // "an instant or sorcery spell": a card of that kind in the library (it becomes a spell as it is cast, CR 601.2a)
-            val cards = if (m.groupValues[2].endsWith(" spell")) Filters.noun(m.groupValues[2].removeArticle().removeSuffix(" spell") + " card") ?: return null
+            val named = if (m.groupValues[2].endsWith(" spell")) Filters.noun(m.groupValues[2].removeArticle().removeSuffix(" spell") + " card") ?: return null
                 else Filters.noun(m.groupValues[2].removeSuffix(" spells").replace(Regex("^spells with "), "cards with ")) ?: return null // mom chunk 17: a card in the library is no spell yet
+            // bro sweep: "creature spells of the chosen type": the cards in the library that would become them (CR 601.2a), not spells
+            val cards = asCards(named)
             return Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, how, topOnly = true, holder = PlayerFilter.You)), affects = arcanum.api.Affected.Objects(Objects.Each(
                 Filters.all(cards, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }
@@ -3090,7 +3092,25 @@ internal class Sentences(
         return Cost(parts.flatten())
     }
 
-    private fun costPart(text: String): List<CostPart>? {
+    private fun costPart(text: String): List<CostPart>? = costPartRules(text)?.let { parts ->
+        // bro sweep: "the discarded card" afterwards is the one card a discard cost discards, whatever kind it names or however it is picked
+        // ("Discard a creature card", "Discard a card at random", CR 602.2b, 608.2h)
+        if (!discardedCard) parts else parts.map { p ->
+            val one = ((p as? CostPart.Discard)?.what as? CostObjects.Choose)?.count == Value.Fixed(1)
+            if (p is CostPart.Discard && one && p.preBind == null && p.postBind == null) p.copy(preBind = "discarded") else p
+        }
+    }
+
+    /** [filter] read on cards that aren't spells yet (in a library, a hand, a graveyard): "spell" as "card", since such a card becomes a
+     * spell only as it is cast (CR 601.2a). */
+    private fun asCards(filter: ObjectFilter): ObjectFilter = when (filter) {
+        ObjectFilter.Category(arcanum.api.ObjectCategory.Spell) -> ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
+        is ObjectFilter.And -> ObjectFilter.And(filter.all.map(::asCards))
+        is ObjectFilter.Or -> ObjectFilter.Or(filter.any.map(::asCards))
+        else -> filter
+    }
+
+    private fun costPartRules(text: String): List<CostPart>? {
         // mom chunk 07: "exile this card" in a trigger on this object dying: the card it became in the graveyard, not this permanent (CR 400.7)
         if (text == "Exile this card") triggerIt?.takeIf { it.second == Zone.Graveyard }?.let { return listOf(CostPart.Exile(CostObjects.These(it.first), from = Zone.Graveyard)) }
         // fin chunk 12: "Pay life equal to Raubahn's power" (ward's cost, read where the card's name isn't known: the permanent with the ward)
@@ -3316,6 +3336,7 @@ internal class Sentences(
         }
         return read(text, defined, seedTargets, event, them, that, itZone, seedIt = it)?.let { ltrBindAmassedArmy(text, it) } // ltr
             ?.let { mkmBindDiscarded(defined, it) }
+            ?.let { bindLifeLost(it) } // bro sweep
             // lci chunk 01: "Discover X, where X is that spell's mana value." (the object "it" names where X is used, CR 608.2h)
             ?: if (defined == null) whereX(text)?.let { IT_NUMBER.matchEntire(it.groupValues[1]) }?.let { m ->
                 read(text, null, seedTargets, event, them, that, itZone, seedIt = it, itNumber = m.groupValues[1].ifEmpty { "its" } to when (m.groupValues[2]) {
@@ -3410,6 +3431,18 @@ internal class Sentences(
 
     /** mkm chunk 10: "Then you may discard two cards. When you do, …, where X is the greatest mana value among cards discarded this way": the X
      * (defined for the whole ability) reads the discarded cards, so the discard names them. */
+    /** bro sweep: "the life lost this way" ("Each opponent loses 3 life. You gain life equal to the life lost this way.", also behind "If this
+     * spell was kicked, …") is the life the last loss before it took, every player's together (CR 119.3): that loss names it when no rule
+     * did. */
+    private fun bindLifeLost(instructions: Instructions): Instructions {
+        val text = instructions.steps.toString()
+        if (!text.contains("Bound(name=lost)") || text.contains("bind=lost")) return instructions
+        val at = instructions.steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.LoseLife)?.bind == null && (it as? Step.Do)?.effect is Effect.LoseLife }
+        if (at < 0) return instructions
+        val lose = (instructions.steps[at] as Step.Do).effect as Effect.LoseLife
+        return instructions.copy(steps = instructions.steps.toMutableList().also { it[at] = Step.Do(lose.copy(bind = "lost")) })
+    }
+
     private fun mkmBindDiscarded(defined: Value?, instructions: Instructions): Instructions {
         if (defined == null || !defined.toString().contains("Bound(name=discarded)")) return instructions
         return instructions.copy(steps = instructions.steps.map { step ->

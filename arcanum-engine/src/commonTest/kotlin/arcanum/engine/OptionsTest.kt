@@ -144,7 +144,7 @@ class OptionsTest {
     @Test
     fun everythingListedIsAccepted() = scenario {
         alice.battlefield("Forest", "Mountain", "Island", "Swamp", "Plains", "Elvish Seer", "Lotus Frond", "Eden Cloak", "Velis, Mender of the Lost Way")
-        alice.hand("Storm Spark", "Grindstone Rasp", "Doomfire", "Flash Surge", "Bone Splinters", "Thicketwood Elves", "Forest", "Hallowed Mire Triad")
+        alice.hand("Storm Spark", "Grindstone Rasp", "Doomfire", "Flash Surge", "Ossein Shards", "Thicketwood Elves", "Forest", "Hallowed Mire Triad")
         alice.graveyard("Cinder Bolt", "Magma Needle")
         bob.battlefield("Thicketwood Elves", "Lotus Frond")
         allAccepted(alice)
@@ -167,10 +167,10 @@ class OptionsTest {
     @Test
     fun spellWithAnUnpayableCostIsntListed() = scenario {
         alice.battlefield("Swamp")
-        alice.hand("Bone Splinters")
+        alice.hand("Ossein Shards")
         bob.battlefield("Thicketwood Elves")
-        assertTrue("Bone Splinters" !in casts(alice))
-        assertFailsWith<IllegalArgumentException> { perform(Input.Cast(alice.id, card("Bone Splinters"))) }
+        assertTrue("Ossein Shards" !in casts(alice))
+        assertFailsWith<IllegalArgumentException> { perform(Input.Cast(alice.id, card("Ossein Shards"))) }
         allAccepted(alice)
     }
 
@@ -225,9 +225,9 @@ class OptionsTest {
     @Test
     fun xIsOfferedAtTheValueATargetNeeds() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Island", "Island")
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         bob.battlefield("Bull of the Pyre")
-        perform(castOf(alice, "Rescind"))
+        perform(castOf(alice, "Revoke Writ"))
         assertEquals(listOf(5), numbersListed(alice))
         allAccepted(alice)
     }
@@ -236,9 +236,9 @@ class OptionsTest {
     @Test
     fun xIsOfferedOnlyAsFarAsManaIsFound() = scenario {
         alice.battlefield("Island", "Island", "Island")
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         bob.battlefield("Elvish Hierophant", "Wall of Portents")
-        perform(castOf(alice, "Rescind"))
+        perform(castOf(alice, "Revoke Writ"))
         assertEquals(listOf(2), numbersListed(alice))
         allAccepted(alice)
     }
@@ -247,9 +247,9 @@ class OptionsTest {
     @Test
     fun spellNoXWorksForIsntListed() = scenario {
         alice.battlefield("Island", "Island", "Island")
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         bob.battlefield("Elvish Hierophant")
-        assertTrue("Rescind" !in casts(alice))
+        assertTrue("Revoke Writ" !in casts(alice))
         allAccepted(alice)
     }
 

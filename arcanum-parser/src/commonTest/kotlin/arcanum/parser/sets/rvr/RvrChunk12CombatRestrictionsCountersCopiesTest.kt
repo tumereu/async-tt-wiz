@@ -165,15 +165,15 @@ class RvrChunk12CombatRestrictionsCountersCopiesTest {
     fun expansionExplosionLookalike() = cardFaces(
         layout = Layout.Split,
         card(
-            name = "Expansion", cost = "{U/R}{U/R}", type = "Instant",
+            name = "Broaden Reach", cost = "{U/R}{U/R}", type = "Instant",
             text = "Copy target instant or sorcery spell with mana value 4 or less. You may choose new targets for the copy.",
         ) to abilities(
             spell(doing(Effect.CopySpell(targetSpell, controller = Players.You, newTargets = true)),
                 targets = listOf(slot("spell", and(instantOrSorcery, spellFilter, manaValue(Comparison.AtMost, 4))))),
         ),
         card(
-            name = "Explosion", cost = "{X}{U}{U}{R}{R}", type = "Instant",
-            text = "Explosion deals X damage to any target. Target player draws X cards.",
+            name = "Burst Asunder", cost = "{X}{U}{U}{R}{R}", type = "Instant",
+            text = "Burst Asunder deals X damage to any target. Target player draws X cards.",
         ) to abilities(
             spell(damage(Value.Announced("X"), toAny), Step.Do(Effect.Draw(Players.Target("player"), Value.Announced("X"))),
                 targets = listOf(anyTarget, targetPlayer), announced = listOf("X")),

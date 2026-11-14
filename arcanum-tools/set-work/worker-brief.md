@@ -33,6 +33,10 @@ and it isn't small, leave the card unread and name it with what it would take; t
 - **Any number of players.** Engine code and models must be right for 3+ players: APNAP order, "each opponent", "any
   opponent may", choices per player. Where a card involves opponents or each player, play it with `scenario(players = 3)`.
 - Never argue that a card is rare or odd; every card is supported.
+- **Rulings register** `~/projects/atw-cache/set-plans/rulings.tsv` (tab-separated `CR, wording, reading, set, test, date`),
+  shared by every set: grep it for the rule number or wording before an unclear reading and follow it; append one line for
+  each judgment call you make. If an entry conflicts with what you'd decide, don't decide: name it in your reply.
+- Before a general fix, check that another set didn't just fix the same gap: `git log master --oneline -15 -- <file>`.
 
 ## Tests
 Your chunk file shows each card's verdict from `plan.tsv`.
@@ -45,9 +49,10 @@ Your chunk file shows each card's verdict from `plan.tsv`.
   `arcanum-engine/src/commonTest/kotlin/arcanum/engine/sets/<code>/<Code>ChunkNN<Theme>ScenariosTest.kt`. The set's first
   chunk creates `<Code>Cards.kt` in its package with the generic helpers it needs copied from the most recently worked
   set's helper file (named in `helpers.md`), not that set's set-specific ones.
-- Each test card has an invented name: check it isn't a real card (`grep -x -F "<name>" ~/projects/atw-cache/all-card-names.txt`)
-  and isn't already used by another test (invented names are global across the engine suite). Use the exact oracle text with
-  the name replaced; change cost and subtypes only where it doesn't affect play.
+- Each test card has an invented name, never a real card's and never one another test defines differently (engine test
+  names are global); `InventedNamesTest` (in `--full`) checks both, and `grep -x -F "<name>" ~/projects/atw-cache/all-card-names.txt`
+  checks one name at once. Use the exact oracle text with the name replaced; change cost and subtypes only where it doesn't
+  affect play.
 - Expected values come from the oracle text and the CR, never copied from parser output. Cite CR numbers in the test name or
   a comment above it.
 
@@ -62,17 +67,20 @@ alarm gets a test showing the model right. Name each one and which it was in you
   Before your set's parser test folder exists it runs the whole parser suite (about a minute).
   Extra patterns apply to the engine only once your set's engine test folder exists.
 - Last: `bin/set-tests.sh <code> --full`: the whole parser and engine suites (without the engine's long random-game and
-  fuzz classes, which later steps run) plus a comparison of every card's model with
-  the set's starting point. Supported cards changed outside your set, cube changes and cards no longer read must all be 0,
-  or named in your reply with the reason. Check each held-out card it lists as read differently and fix any now wrong.
+  fuzz classes, which later steps run), the automatum and Wasm compiles, `InventedNamesTest`, and a comparison of every
+  card's model with the set's starting point. Supported cards changed outside your set, cube changes and cards no longer
+  read must all be 0, or named in your reply with the reason. Check each held-out card it lists as read differently and fix
+  any now wrong; `cards of other running sets read differently` are cards another set is working on that no test guards
+  yet: check each against its text (`bin/set-cards.py <THEIR CODE> <name>`) and fix your rule if it now reads one wrongly.
   If you change anything after this run, run it again.
 - Every Gradle task goes through `bin/gradle-slot.sh <tasks>` (or the scripts above), one at a time; never `./gradlew` or
   `./scripts/gradle.sh` directly.
 - A card's oracle text: `bin/set-cards.py <CODE> [card name ...]`. Never load `AllPrintings.json.gz` in a script of your
   own: it takes about 4.6 GB of memory outside the builds' cap, and several workers run at once.
-- Commit in the worktree. Never merge or push.
+- Commit in the worktree. Never push or merge, except master into your branch through `bin/sync-master.sh`.
 - Append at most 5 lines to `<plan>/notes.md`: what later chunks can reuse (a new table, helper, scenario technique). No history.
 - Stop every background command or monitor you started before your final reply.
 
 Final reply, at most 12 lines: cards done, cards left and why, engine or parser bugs found (fixed or not), misreads, API
-changes, changed test expectations (which and why), supported cards whose model changed (which and why), choices made.
+changes, changed test expectations (which and why), supported cards whose model changed (which and why), rulings-register
+lines added and conflicts found, choices made.

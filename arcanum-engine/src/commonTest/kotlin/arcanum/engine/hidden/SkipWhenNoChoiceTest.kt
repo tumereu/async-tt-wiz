@@ -51,8 +51,8 @@ class SkipWhenNoChoiceTest {
 
     /** "Choose a creature card in your hand. Put it onto the battlefield." ({G} sorcery, written in the model: the parser
      * reads no such wording yet.) */
-    private val summons = Cards.define("Kindred Summons", CardDefinition(Layout.Normal, listOf(FaceDefinition(
-        "Kindred Summons", ManaCost.parse("{G}"), types = listOf(CardType.Sorcery),
+    private val summons = Cards.define("Kinfolk Calling", CardDefinition(Layout.Normal, listOf(FaceDefinition(
+        "Kinfolk Calling", ManaCost.parse("{G}"), types = listOf(CardType.Sorcery),
         abilities = listOf(Ability.Spell(Instructions(steps = listOf(
             Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.InZone(Zone.Hand),
                 ObjectFilter.OwnedBy(PlayerFilter.You))), min = Value.Fixed(1), max = Value.Fixed(1)), bind = "chosen", chooser = Players.You),

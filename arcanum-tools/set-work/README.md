@@ -24,8 +24,24 @@ set's starting point, so a regression is caught where it is made.
 - One Gradle job at a time per worker, always through `bin/gradle-slot.sh` (machine-wide build slots).
 - Nobody loads `AllPrintings.json.gz` in a script of their own: it takes about 4.6 GB outside the builds' memory cap.
   `bin/set-cards.py <CODE> [card name ...]` prints a set's cards from a small per-set extract, written once per set.
-- Several sets may be worked at once, each in its own worktree with its own orchestrator; the plan and merge steps take
-  turns through machine-wide locks (`bin/set-plan.sh`, `bin/plan-lock.sh`, `bin/merge-to-master.sh`).
+
+## Several sets at once
+Each set has its own worktree and orchestrator; the plan and merge steps take turns through machine-wide locks
+(`bin/set-plan.sh`, `bin/plan-lock.sh`, `bin/merge-to-master.sh`). About 6 sets at a time is the machine's limit: more
+saturates the build slots and memory.
+- **Integrate continuously,** so a general fix reaches the other sets within the hour: each chunk starts with
+  `bin/sync-master.sh <CODE>` (brings master in, retakes the base snapshot) and each accepted green chunk is merged with
+  `bin/merge-to-master.sh <code> --chunk`. The set isn't in `supported-sets.txt` until its close, so a mid-set merge
+  changes no supported set; supported cards changed outside the set must still be named with a reason.
+- **Before a general engine or parser fix,** check whether another set just fixed the same gap:
+  `git log master --oneline -15 -- <file>`.
+- **Rulings register** `~/projects/atw-cache/set-plans/rulings.tsv` (`CR<TAB>wording<TAB>reading<TAB>set<TAB>test<TAB>date`),
+  shared by all sets: check it before deciding an unclear reading, and append each judgment call. An entry that conflicts
+  with what you'd decide isn't decided in a chunk: it goes to `fixes.md`, and the fix step settles it from the CR text,
+  corrects the register and changes every test that encodes the other reading.
+- **Other sets' cards.** A running set's cards that read but aren't supported yet have no test guarding them, so
+  `set-tests.sh --full` prints `parserDiff cards of other running sets read differently`; each one is checked against its
+  text and the rule fixed if it now reads it wrongly.
 
 ## One-time setup
 Run `arcanum-tools/set-work/bin/setup.sh` from the repository root. Everything it fetches or writes lives in the local data
@@ -57,7 +73,7 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
    or `REPEAT`), `chunks/NN.md`, `digest.md`, `difficult.md` (over-inclusive warnings), `notes.md` and `audit/`.
    `coveredShapes` writes one machine-wide file (`~/projects/atw-cache/set-plans/covered-shapes.tsv`), so sets take turns
    through the lock, and a set started from the same sources as the last run reuses its file.
-3. **Starting point.** In `<wt>`: `bin/base-snapshot.sh <CODE>` (the parser's model of every local card, to
+3. **Starting point.** In `<wt>`: `bin/base-snapshot.sh <CODE> --from master` (the parser's model of every local card, to
    `<plan>/parser-base.snapshot`; `bin/set-tests.sh <code> --full` compares against it).
 4. **Worker aids.** `python3 -I bin/chunk-pointers.py <wt> <plan>` adds, per card, the most alike existing parser test and
    engine scenario as `file:line`. `python3 -I bin/helper-index.py <wt> <plan>` writes `<plan>/helpers.md`, the test
@@ -80,10 +96,15 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
    copies, replacements, layers, storm, meld); otherwise sonnet. Run `python3 -I bin/chunk-models.py <plan>` instead of
    reading `difficult.md`: it prints each chunk's cards, unread, cards in `difficult.md`'s "## Cards", whether it is
    test-only ("mechanical"), its theme and the model by this rule; pass `model: sonnet` for sonnet, nothing for default.
+   Each worker starts with `bin/sync-master.sh <CODE>` (its prompt says so), so it works on current master.
    After each reply:
    - `git -C <wt> status --short` must be empty and the reply must name a commit; otherwise send the worker back to finish.
    - If the reply says it skipped or didn't repeat the final `bin/set-tests.sh <code> --full`, run it yourself in `<wt>`.
      Supported cards changed outside the set, cube changes and cards no longer read must be 0 or named with a reason.
+   - Merge the accepted chunk: `bin/merge-to-master.sh <code> --chunk` in `<wt>`. Exit 4 (conflict with master): the next
+     worker's `sync-master.sh` meets it, resolves it and reruns `set-tests.sh <code> --full`; retry the merge after its
+     chunk. Exit 5 (checks failed after master came in): give the failures to the next worker ("First fix:" in its prompt).
+     Exit 3: retry in a few minutes. With no worker left to run, send a fix worker with just that.
    - Stop the worker (TaskStop), even if it says it is waiting for background work: a finished worker woken later by a
      leftover background command rereads its whole context each time.
    - Note the chunk's result in `<plan>/coordinator-log.md`: cards done/left, commit, and from the reply: engine or parser
@@ -94,15 +115,16 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
 7. **Review of Sonnet's parser work** (when Sonnet did parser chunks, not only test-only ones): one default-model agent with
    the Sonnet review prompt checks about 20 models from those chunks, all their newly read cards first. Findings go to
    `fixes.md`. A Sonnet-made misread means the next set gives Sonnet fewer parser chunks.
-8. **Fix chunk.** One default-model worker with the fix prompt fixes everything in `fixes.md` and every unfixed "found" item
-   of the log. If it leaves items, run fresh fix workers with the remaining ones until none are left.
+8. **Fix chunk.** One default-model worker with the fix prompt fixes everything in `fixes.md` (rulings-register conflicts
+   included) and every unfixed "found" item of the log. If it leaves items, run fresh fix workers with the remaining ones
+   until none are left.
 9. **Bug-class sweep.** One default-model worker with the sweep prompt takes each engine and parser fix of the set, names
    its root cause, probes the sibling code paths with failing-first tests and fixes what fails. One card's bug is often a
    whole class (a spell handles something a triggered ability doesn't); this step finds the rest before a card does.
+
+   Fix and sweep workers start with `sync-master.sh` too, and each of their replies is checked and merged like a chunk's.
 10. **Close.** In `<wt>`:
-    - `git merge master` (resolve conflicts; a parser `VERSION` conflict takes the higher number plus one).
-    - `bin/base-snapshot.sh <CODE> --from master` replaces the starting point with current master's, so the comparison
-      shows only this branch's changes.
+    - `bin/sync-master.sh <CODE>` (a conflict: resolve it as it says, then run it again).
     - `bin/set-tests.sh <code> --full --long`, then `bin/gradle-slot.sh :arcanum-tools:setSupport :arcanum-tools:test`, then
       `bin/plan-lock.sh bin/gradle-slot.sh :arcanum-tools:setPlan --args=<CODE>`: 0 unread.
     - Add the set to `arcanum-tools/src/main/resources/arcanum/tools/supported-sets.txt` (code and name, sorted) and, in
@@ -116,15 +138,17 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
       in the closing commit.
     - Accept: every check green, every changed supported card named with a reason, nothing left in `fixes.md`. Then merge
       `set/<code>` to master by the project's merge rule (here: sets merge as soon as they are accepted) with
-      `bin/merge-to-master.sh <code>` (in `<wt>`; it takes the merge lock, brings in master again if it moved and reruns
-      the checks), and remove the worktree.
+      `bin/merge-to-master.sh <code>` (in `<wt>`; it also runs `:automatum:jvmTest` and the parser and engine Wasm tests,
+      takes the merge lock, brings in master again if it moved and reruns the checks). Write `<plan>/DONE` (one line: merge
+      commit, date, set, card counts; `set-tests.sh` stops watching the set's cards) and remove the worktree.
 
 ## While it runs
 - **Time.** A chunk takes 10-80 minutes: test-only chunks about 10-25, heavy parser chunks 45-80. A 300-card set takes
   roughly a day of wall time; chunks run one at a time because they share one worktree and the build slots.
 - **Running times, roughly:** `coveredShapes` 6-8 minutes, `setPlan` under a minute, `base-snapshot.sh` 1-2 minutes,
-  `set-tests.sh` 1-3 minutes, with `--full` about 3-4: it leaves out the engine's long random-game and fuzz classes;
-  `--full --long` (about 2 minutes more) runs them too and is what the fix, sweep and close steps use.
+  `set-tests.sh` 1-3 minutes, with `--full` about 4-8 (it compiles automatum and Wasm too, and leaves out the engine's
+  long random-game and fuzz classes); `--full --long` (about 2 minutes more) runs them too and is what the fix, sweep and
+  close steps use. `merge-to-master.sh --chunk` takes a few minutes, the full merge about 15.
 - Gradle (through `gradle-slot.sh`) waits silently for a free build slot: no output for a while isn't a hang.
 - **Context.** Workers stop at about 250k context and report what's left. If one goes far past it, tell it to commit at
   the next green point and report the rest; the rest becomes a new chunk.

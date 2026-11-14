@@ -20,7 +20,7 @@ class ReorderAtOpenChoiceTest {
     private val dread = Cards.invent("Looming Unease", "{0}", "Sorcery", "Manifest dread.")
     private val scry = Cards.invent("Glimpse Ahead", "{0}", "Sorcery", "Scry 2.")
     private val surveil = Cards.invent("Quiet Watch", "{0}", "Sorcery", "Surveil 2.")
-    private val look = Cards.invent("Careful Study", "{0}", "Sorcery",
+    private val look = Cards.invent("Diligent Review", "{0}", "Sorcery",
         "Look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.")
     private val mill = Cards.invent("Rummage Below", "{0}", "Sorcery",
         "Mill two cards. You may put a creature card from among them into your hand.")

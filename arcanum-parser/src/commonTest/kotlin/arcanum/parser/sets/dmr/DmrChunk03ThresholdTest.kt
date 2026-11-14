@@ -181,7 +181,7 @@ class DmrChunk03ThresholdTest {
     // CR 207.2c
     @Test
     fun forestBear() = card(
-        name = "Forest Bear",
+        name = "Woodland Ursine",
         cost = "{1}{G}",
         type = "Creature — Human Bear Druid",
         pt = "1/1",

@@ -33,9 +33,9 @@ class InrChunk14TokensDamageDelayedDestroyScenariosTest {
         When this creature enters, create a Blood token.
         Whenever you sacrifice a Blood token, you gain 1 life.
     """, "1/4")
-    private val abrade = Cards.invent("Scour", "{1}{R}", "Instant", """
+    private val abrade = Cards.invent("Purge Sweep", "{1}{R}", "Instant", """
         Choose one —
-        • Scour deals 3 damage to target creature.
+        • Purge Sweep deals 3 damage to target creature.
         • Destroy target artifact.
     """)
     private val thermo = Cards.invent("Thermo-Mixer", "{1}{R}", "Creature — Human Shaman", """

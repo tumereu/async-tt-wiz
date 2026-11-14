@@ -89,17 +89,17 @@ class Review2MultiFacedTest {
         expect { alice.graveyard has "Brash Pilferer // Petty Pinch" }
     }
 
-    /** A transformed permanent's mana value is its front face's: Risen Leviathan has mana value 2, so Rescind with X 2
+    /** A transformed permanent's mana value is its front face's: Risen Leviathan has mana value 2, so Revoke Writ with X 2
      * can target it. */
     // CR 712.8e
     @Test
     fun aTransformedPermanentHasItsFrontFacesManaValue() = scenario {
         alice.battlefield("Island", "Island", "Island")
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         bob.battlefield("Shape Beneath the Floe // Risen Leviathan")
         backFaceUp("Shape Beneath the Floe // Risen Leviathan")
         alice.library("Island")
-        alice.casts("Rescind", x = 2, target = "Shape Beneath the Floe // Risen Leviathan")
+        alice.casts("Revoke Writ", x = 2, target = "Shape Beneath the Floe // Risen Leviathan")
         allPass()
         expect { bob.hand has "Shape Beneath the Floe // Risen Leviathan" }
     }

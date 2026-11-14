@@ -53,7 +53,7 @@ class EclMoreCardsScenariosTest {
     """)
     private val bear = Cards.invent("Plaza Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val ogre = Cards.invent("Plaza Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
-    private val jolt = Cards.invent("Spark Jolt", "{R}", "Instant", "Spark Jolt deals 2 damage to any target.")
+    private val jolt = Cards.invent("Crackle Jolt", "{R}", "Instant", "Crackle Jolt deals 2 damage to any target.")
     private val bolt = Cards.invent("Searing Bolt", "{R}", "Instant", "Searing Bolt deals 3 damage to any target.")
 
     private fun Scenario.resolveAll() {

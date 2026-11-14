@@ -300,14 +300,14 @@ class Review1CastingTest {
         assertEquals(listOf<TargetRef>(TargetRef.Object(card("Storm Spark"))), d.options)
     }
 
-    /** The target of an X spell is chosen after X: Rescind with X=2 can't target a mana value 1 permanent. */
+    /** The target of an X spell is chosen after X: Revoke Writ with X=2 can't target a mana value 1 permanent. */
     // CR 601.2b, 601.2c
     @Test
     fun targetsAreCheckedAgainstTheAnnouncedX() = scenario {
         alice.battlefield("Island", "Island", "Island")
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         bob.battlefield("Elvish Seer", "Canopy Visionary")
-        perform(Input.Cast(alice.id, card("Rescind")))
+        perform(Input.Cast(alice.id, card("Revoke Writ")))
         answer(Answer.Number(3))
         val d = decision<Decision.Targets>()
         assertTrue(TargetRef.Object(card("Canopy Visionary")) in d.options)

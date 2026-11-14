@@ -54,13 +54,13 @@ class FdnChunk25CounterDestroyDiscardScenariosTest {
     private val redRaider = Cards.invent("Red Raider", "{1}{R}", "Creature — Goblin", "", "2/2")
     private val greenGrub = Cards.invent("Green Grub", "{1}{G}", "Creature — Insect", "", "2/2")
     private val blueDrifter = Cards.invent("Blue Drifter", "{1}{U}", "Creature — Illusion", "", "2/2")
-    private val whiteKnight = Cards.invent("White Knight", "{1}{W}", "Creature — Human Knight", "", "2/2")
+    private val whiteKnight = Cards.invent("Argent Knight", "{1}{W}", "Creature — Human Knight", "", "2/2")
     private val blackBat = Cards.invent("Black Bat", "{1}{B}", "Creature — Bat", "", "2/2")
-    private val bigWolf = Cards.invent("Lone Wolf", "{3}{G}", "Creature — Wolf", "", "4/4")
+    private val bigWolf = Cards.invent("Solitary Wolf", "{3}{G}", "Creature — Wolf", "", "4/4")
     private val zombieHusk = Cards.invent("Zombie Husk", "{1}{B}", "Creature — Zombie", "", "2/2")
     private val goldIdol = Cards.invent("Tin Trinket", "{2}", "Artifact", "")
     private val paleAura = Cards.invent("Pale Aura", "{1}{W}", "Enchantment", "")
-    private val quickStudy = Cards.invent("Quick Study", "{1}{R}", "Sorcery", "Draw a card.")
+    private val quickStudy = Cards.invent("Swift Lesson", "{1}{R}", "Sorcery", "Draw a card.")
     private val sparkJab = Cards.invent("Spark Jab", "{R}", "Instant", "Spark Jab deals 1 damage to target player.")
 
     private fun Scenario.resolveAll() {

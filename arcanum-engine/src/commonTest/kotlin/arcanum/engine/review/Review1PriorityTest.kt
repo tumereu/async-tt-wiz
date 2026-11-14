@@ -120,8 +120,8 @@ class Review1PriorityTest {
     @Test
     fun optionsInABusyMainPhaseAreAccepted() = scenario {
         alice.battlefield("Mountain", "Forest", "Island", "Swamp", "Plains", "Elvish Seer", "Lotus Frond")
-        alice.hand("Storm Spark", "Plowshare Decree", "Rescind", "Warlord's Decree", "Doomfire",
-            "Hollow Victory", "Bone Splinters", "Lingering Shades", "Forest")
+        alice.hand("Storm Spark", "Plowshare Decree", "Revoke Writ", "Warlord's Decree", "Doomfire",
+            "Hollow Victory", "Ossein Shards", "Lingering Shades", "Forest")
         alice.graveyard("Cinder Bolt", "Magma Needle")
         bob.battlefield("Thicketwood Elves")
         expectEveryOptionAccepted()

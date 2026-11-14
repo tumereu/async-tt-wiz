@@ -72,7 +72,7 @@ class EclMechanicsScenariosTest {
     private val bear = Cards.invent("Plaza Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val redBear = Cards.invent("Ember Bear", "{1}{R}", "Creature — Bear", "", "2/2")
     private val ogre = Cards.invent("Plaza Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
-    private val shock = Cards.invent("Spark Jolt", "{R}", "Instant", "Spark Jolt deals 2 damage to any target.")
+    private val shock = Cards.invent("Crackle Jolt", "{R}", "Instant", "Crackle Jolt deals 2 damage to any target.")
     private val elfMatron = Cards.invent("Grove Matron", "{1}{G}", "Creature — Elf", "", "3/3")
     private val unmake = Cards.invent("Unmake Ward", "{W}{W}", "Instant", "Exile target creature.")
 

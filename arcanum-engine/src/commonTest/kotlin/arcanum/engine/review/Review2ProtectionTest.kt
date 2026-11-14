@@ -256,14 +256,14 @@ class Review2ProtectionTest {
         expect { bob.graveyard has indestructible }
     }
 
-    /** An indestructible creature can be sacrificed (Bone Splinters' cost), and then it dies. */
+    /** An indestructible creature can be sacrificed (Ossein Shards' cost), and then it dies. */
     // CR 701.21a, 702.12b
     @Test
     fun indestructibleCanBeSacrificed() = scenario {
         alice.battlefield("Swamp", indestructible)
-        alice.hand("Bone Splinters")
+        alice.hand("Ossein Shards")
         bob.battlefield("Elvish Seer")
-        alice.casts("Bone Splinters", target = "Elvish Seer", option = "Sacrifice", choosing = listOf(indestructible))
+        alice.casts("Ossein Shards", target = "Elvish Seer", option = "Sacrifice", choosing = listOf(indestructible))
         expect { alice.graveyard has indestructible }
     }
 

@@ -100,7 +100,7 @@ class EclCopiesAndFreeCastsScenariosTest {
             bob.exile has bear
             bob.library has ogre
         }
-        // two Elves and Faeries: Spark Jolt (mana value 1) is cast without mana
+        // two Elves and Faeries: Crackle Jolt (mana value 1) is cast without mana
         alice.casts(jolt, target = "bob")
         resolveAll()
         assertEquals(18, bob.life)

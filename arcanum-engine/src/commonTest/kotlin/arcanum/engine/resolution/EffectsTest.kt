@@ -582,11 +582,11 @@ class EffectsTest {
     // CR 107.3, 202.3: X announced for the spell; mana value matching
     @Test
     fun returnPermanentWithManaValueX() = scenario {
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         alice.library("Forest")
         bob.battlefield("Umbral Elves")
 
-        alice.castsWithoutCosts("Rescind", target = "Umbral Elves", x = 1)
+        alice.castsWithoutCosts("Revoke Writ", target = "Umbral Elves", x = 1)
         resolve()
 
         expect {

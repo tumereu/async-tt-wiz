@@ -237,7 +237,7 @@ class EclVividAndCountersScenariosTest {
     @Test
     fun pellExilesCardsToCast() = scenario {
         alice.battlefield("Mountain", pell)
-        // the ogre is drawn; blue and red: the first two nonland cards revealed are the red Spark Jolt and the blue Quiet Study
+        // the ogre is drawn; blue and red: the first two nonland cards revealed are the red Crackle Jolt and the blue Quiet Study
         alice.library(ogre, jolt, "Mountain", ponder, bear)
         bob.library(bear)
         advanceTo(TurnStep.PrecombatMain, turn = 3)

@@ -26,6 +26,8 @@ SET-WORK <code> chunk <NN>
 
 Worktree: <wt> (branch set/<code>; work there by absolute path, never in another checkout).
 Plan: <plan>, your chunk: chunks/<NN>.md.
+Start with `arcanum-tools/set-work/bin/sync-master.sh <CODE>` in <wt>; if it reports a conflict with master, resolve it as it says (then it runs again) and check the result with `arcanum-tools/set-work/bin/set-tests.sh <code> --full`.
+[If the last merge to master failed its checks: First fix: <the failures merge-to-master.sh printed>.]
 
 Follow <wt>/arcanum-tools/set-work/worker-brief.md.
 
@@ -55,7 +57,8 @@ Reply in at most 20 lines: each defect (card, what the model or engine does, wha
 SET-WORK <code> fixes
 
 Worktree: <wt> (branch set/<code>; by absolute path).
-Fix every item in <plan>/fixes.md and every "found" item in <plan>/coordinator-log.md not marked fixed, as general parser or engine fixes. Each fix gets a test that fails before it and cites the CR. Every rules violation is fixed, additive API changes included; engine code must be right for any number of players. A test that cites a rule may change only where it encoded the rule wrongly: name each such test and why. A ruling question: settle it from the CR text and say how. If an item is too big for your context, leave it and say exactly what it needs; the next fix worker takes it.
+Start with `arcanum-tools/set-work/bin/sync-master.sh <CODE>` in <wt>; if it reports a conflict with master, resolve it as it says (then it runs again) and check the result with `arcanum-tools/set-work/bin/set-tests.sh <code> --full`.
+Fix every item in <plan>/fixes.md and every "found" item in <plan>/coordinator-log.md not marked fixed, as general parser or engine fixes. Each fix gets a test that fails before it and cites the CR. Every rules violation is fixed, additive API changes included; engine code must be right for any number of players. A test that cites a rule may change only where it encoded the rule wrongly: name each such test and why. A ruling question: settle it from the CR text, say how, and add it to the rulings register (~/projects/atw-cache/set-plans/rulings.tsv). A register conflict: settle it from the CR text, correct or remove the wrong line, and change every test that encodes the wrong reading, in any set (name each and why). If an item is too big for your context, leave it and say exactly what it needs; the next fix worker takes it.
 Follow the "Find things with tools", "Parser", "API", "Rules correctness" and "Finish" parts of <wt>/arcanum-tools/set-work/worker-brief.md, with `--full --long` for the last full run, then also run `arcanum-tools/set-work/bin/gradle-slot.sh :arcanum-tools:setSupport`. A supported card outside this set may change only where one of your fixes requires it: name each and why.
 If your context passes about 250k, stop at the next green point, commit, and report what remains.
 ```
@@ -65,6 +68,7 @@ If your context passes about 250k, stop at the next green point, commit, and rep
 SET-WORK <code> sweep
 
 Worktree: <wt> (branch set/<code>; by absolute path).
+Start with `arcanum-tools/set-work/bin/sync-master.sh <CODE>` in <wt>; if it reports a conflict with master, resolve it as it says (then it runs again) and check the result with `arcanum-tools/set-work/bin/set-tests.sh <code> --full`.
 
 Set work keeps finding bugs in existing engine and parser code one card at a time; your job is to find their siblings before a card does. Read the "found" items of <plan>/coordinator-log.md and the fix commits of this branch (`git log --oneline master..HEAD`; look at a fix's diff only around the change).
 
@@ -72,7 +76,7 @@ For each engine or parser fix:
 1. Name its root-cause class in one line (e.g. "a later choice doesn't see what an earlier one bound", "one path handles X, a sibling path doesn't").
 2. List the sibling paths it could equally affect: spells, activated, triggered and static abilities, replacement effects, delayed and reflexive triggers, copies, costs, 3+ players.
 3. For each sibling that plausibly has the same gap, write a probe test with an invented card, citing the CR, in arcanum-engine/src/commonTest/kotlin/arcanum/engine/sets/<code>/<Code>SweepScenariosTest.kt (or a parser probe in arcanum-parser/src/commonTest/kotlin/arcanum/parser/sets/<code>/<Code>SweepTest.kt). A probe that passes stays as a regression test.
-4. A probe that fails: fix it generally, with the probe as its failing-first test. If the fix is too big for your context (e.g. two duplicate code paths that should become one), keep the probe out of the suite and say exactly what it needs; it goes to a fix worker.
+4. A probe that fails: fix it generally, with the probe as its failing-first test. A probe that meets a rulings-register entry (~/projects/atw-cache/set-plans/rulings.tsv) follows it; one that contradicts it is settled from the CR text: correct the register and every test that encodes the wrong reading, in any set. If the fix is too big for your context (e.g. two duplicate code paths that should become one), keep the probe out of the suite and say exactly what it needs; it goes to a fix worker.
 
 Follow the "Find things with tools", "Parser", "API", "Rules correctness" and "Finish" parts of <wt>/arcanum-tools/set-work/worker-brief.md, with `--full --long` for the last full run.
 If your context passes about 250k, stop at the next green point, commit, and report what remains.

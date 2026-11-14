@@ -414,7 +414,7 @@ class InrChunk02TransformTest {
             activated(cost(tap, CostPart.TapObjects(CostObjects.Choose(creature, n(1)))), transformSelf),
         ),
         card(
-            name = "Angry Mob",
+            name = "Seething Crowd",
             cost = null,
             type = "Creature — Human",
             text = """

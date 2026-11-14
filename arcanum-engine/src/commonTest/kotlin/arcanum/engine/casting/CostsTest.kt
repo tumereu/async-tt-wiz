@@ -77,8 +77,8 @@ class CostsTest {
     fun sacrificeOrDiscard() = scenario {
         alice.battlefield("Swamp", "Elvish Seer", "Thicketwood Elves")
         bob.battlefield("Wall of Portents")
-        alice.hand("Bone Splinters", "Forest")
-        alice.casts("Bone Splinters", target = "Wall of Portents", option = "Sacrifice", choosing = listOf("Thicketwood Elves"))
+        alice.hand("Ossein Shards", "Forest")
+        alice.casts("Ossein Shards", target = "Wall of Portents", option = "Sacrifice", choosing = listOf("Thicketwood Elves"))
         expect {
             alice.graveyard has "Thicketwood Elves"
             alice.battlefield has "Elvish Seer"
@@ -86,9 +86,9 @@ class CostsTest {
             log mentions "Sacrificed"
         }
         // The sacrificed creature's last known information stays with the spell (CR 608.2h)
-        val item = state.stackItems[card("Bone Splinters")]!!
+        val item = state.stackItems[card("Ossein Shards")]!!
         assertTrue(item.snapshots.any { it.characteristics?.name == "Thicketwood Elves" })
-        assertEquals(listOf(PaidCost(null, 1)), facts("Bone Splinters").paid)
+        assertEquals(listOf(PaidCost(null, 1)), facts("Ossein Shards").paid)
     }
 
     // CR 602.2b, 601.2h: a cost's choice of objects names the printed part it pays, so a host can show its phrase: the activated
@@ -110,10 +110,10 @@ class CostsTest {
     fun anAdditionalCostsChoiceNamesItsAbility() = scenario {
         alice.battlefield("Swamp", "Elvish Seer", "Thicketwood Elves")
         bob.battlefield("Wall of Portents")
-        alice.hand("Bone Splinters")
-        perform(Input.Cast(alice.id, card("Bone Splinters")))
+        alice.hand("Ossein Shards")
+        perform(Input.Cast(alice.id, card("Ossein Shards")))
         answer(Answer.Targets(listOf(arcanum.engine.state.TargetRef.Object(card("Wall of Portents")))))
-        val statics = view()[card("Bone Splinters")]!!.characteristics!!.abilities.filter { inst ->
+        val statics = view()[card("Ossein Shards")]!!.characteristics!!.abilities.filter { inst ->
             (inst.ability as? Ability.Static)?.mechanics?.any { it is Mechanic.AdditionalCost } == true }
         if (pending is Decision.ChooseOption) answer(Answer.Option("Sacrifice"))
         assertEquals(statics.single().origin, assertIs<Decision.ChooseObjects>(pending).cost?.ability)
@@ -124,11 +124,11 @@ class CostsTest {
     fun onlyPayableOptionIsChosen() = scenario {
         alice.battlefield("Swamp")
         bob.battlefield("Wall of Portents")
-        alice.hand("Bone Splinters", "Forest")
-        alice.casts("Bone Splinters", target = "Wall of Portents")
+        alice.hand("Ossein Shards", "Forest")
+        alice.casts("Ossein Shards", target = "Wall of Portents")
         expect {
             alice.graveyard has "Forest"
-            stack.names shouldBe listOf("Bone Splinters")
+            stack.names shouldBe listOf("Ossein Shards")
         }
     }
 

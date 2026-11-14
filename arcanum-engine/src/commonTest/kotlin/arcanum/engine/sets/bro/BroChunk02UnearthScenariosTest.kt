@@ -42,7 +42,7 @@ class BroChunk02UnearthScenariosTest {
     private val targetTrinket = Cards.invent("Rusted Trinket", "{1}", "Artifact")
     private val mudBear = Cards.invent("Mud Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val rockOgre = Cards.invent("Rock Ogre", "{3}{R}", "Creature — Ogre", "", "3/3")
-    private val sandScout = Cards.invent("Sand Scout", "{1}{W}", "Creature — Human Scout", "", "2/2")
+    private val sandScout = Cards.invent("Dune Lookout", "{1}{W}", "Creature — Human Scout", "", "2/2")
 
     private fun Scenario.powerstones(player: ScenarioPlayer) = player.battlefield.names.count { it == "Powerstone Token" }
     private val islands = Array(8) { "Island" }

@@ -27,7 +27,14 @@ dependencies {
     testRuntimeOnly(libs.junit.launcher)
 }
 
-tasks.test { useJUnitPlatform() }
+tasks.test {
+    useJUnitPlatform()
+    // InventedNamesTest reads the parser's and engine's test sources and, when present, the local list of real card names.
+    inputs.dir(rootProject.file("arcanum-parser/src/commonTest")).withPropertyName("parserTests").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file("arcanum-engine/src/commonTest")).withPropertyName("engineTests").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(File(System.getProperty("user.home"), "projects/atw-cache/all-card-names.txt")).withPropertyName("realCardNames")
+        .withPathSensitivity(PathSensitivity.NONE)
+}
 
 
 // Local files outside the repository the tools use; each has a default (see ParserToolPaths). The MTGJSON AllPrintings

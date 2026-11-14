@@ -41,7 +41,7 @@ class MomChunk16ManaTokensAndApplyScenariosTest {
         Flying, vigilance
         {T}: Create a 2/2 white and blue Knight creature token with vigilance. Activate only if you've cast two or more spells this turn.
     """, "2/2")
-    private val brute = Cards.invent("Mudback Brute", "{2}{G}", "Creature — Beast", "", "3/3")
+    private val brute = Cards.invent("Mirebank Brute", "{2}{G}", "Creature — Beast", "", "3/3")
     private val fodder = Cards.invent("Pale Fodder", "{W}", "Creature — Human", "", "1/1")
     private val phyrexian = Cards.invent("Coal Phyrexian", "{2}{B}", "Creature — Phyrexian Horror", "", "3/3")
     private val colossus = Cards.invent("Ember Colossus", "{5}{R}", "Creature — Giant", "", "6/6")

@@ -9440,8 +9440,9 @@ internal class Sentences(
         Blb.TARGET_GETS_X_SELF_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[4]) }?.let { m ->
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
             val x = Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)
-            // lci chunk 10: "-X/-X, where X is this creature's power" is that power too, not the X it was cast with
-            fun part(text: String) = when (text) { "+X" -> x; "-X" -> Value.Times(x, -1); else -> ptChange(text) }
+            // "-X/-X, where X is this creature's power" falls through to the where-X reading in instructions(), which also reads a leaving
+            // object's power as it last existed (CR 107.3c, 603.10a)
+            fun part(text: String) = if (text == "+X") x else ptChange(text)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(part(m.groupValues[2]) ?: return null, part(m.groupValues[3]) ?: return null)),
                 Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }

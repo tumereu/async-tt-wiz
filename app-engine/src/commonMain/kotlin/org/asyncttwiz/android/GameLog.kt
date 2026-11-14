@@ -114,7 +114,9 @@ class GameLog(gameId: String, private val me: PlayerId) {
     private fun onTable(s: GameState, id: ObjectId) = name(s, id) + if (s.obj(id)?.tapped == true) " (tapped)" else ""
 
     private fun name(s: GameState, id: ObjectId): String {
-        val o: GameObject = s.obj(id) ?: return "?"
+        // Problem report JN5UQN: an option the step made before asking (connive's drawn card) is that card as it was before it
+        val o: GameObject = s.obj(id) ?: return (id as? ObjectId.Card)?.let { c -> s.objects.values.firstOrNull { it.card == c.card } }
+            ?.let { "${it.definition?.faces?.getOrNull(it.face)?.name ?: "hidden card"} (made in this step; before it in ${it.zone})" } ?: "?"
         if (o.faceDown && o.controller != me) return "face-down card"
         val name = o.definition?.faces?.getOrNull(o.face)?.name ?: return "hidden card"
         return if (o.faceDown) "$name (face down)" else name

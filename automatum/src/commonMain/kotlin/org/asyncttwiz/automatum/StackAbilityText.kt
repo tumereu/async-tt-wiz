@@ -251,6 +251,19 @@ object StackAbilityText {
         else -> null
     }?.options
 
+    /**
+     * The name a sourceless ability the rules give a player goes by ([AbilityOrigin.Rule]: speed's increase, CR 702.179d; the
+     * initiative's, CR 726.2): the rule's name as the rules glossary calls it ("Speed", "Initiative"), standing where a source's
+     * name would ("Speed's ability"); null for an item with a source or another origin, or a rule the glossary doesn't name
+     * (logged as an error).
+     */
+    fun ruleName(item: StackItem): String? {
+        if (item.source != null) return null
+        val rule = item.origin as? AbilityOrigin.Rule ?: return null
+        return arcanum.api.RulesGlossary.state(rule.name)?.name
+            ?: null.also { Faults.report("StackAbilityText", "rule ability without a glossary name", mapOf("rule" to rule.name)) }
+    }
+
     /** The keyword whose expansion [item]'s ability is ([AbilityOrigin.Expansion]), as its source was last seen. */
     private fun keyword(item: StackItem): Keyword? {
         val origin = item.origin as? AbilityOrigin.Expansion ?: return null

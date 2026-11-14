@@ -155,7 +155,7 @@ internal object Dungeons {
                     .mapNotNull { d -> board.controller(d.source) ?: d.sourceSeen?.controller }.distinct().filter { it != holder }
                     .forEach { p ->
                         found += WaitingTrigger(holder, Ability.Triggered(arcanum.api.Trigger.On(emptyList()), Instructions(steps = listOf(
-                            Step.Do(Effect.GiveDesignation(Players.Bound(TAKER), Designation.Initiative)))), text = "takes the initiative"), null, null,
+                            Step.Do(Effect.GiveDesignation(Players.Bound(TAKER), Designation.Initiative)))), text = "takes the initiative"), RULE, null,
                             event = TriggerEvent(players = listOf(p)), names = Bindings.EMPTY.with(TAKER, NamedValue.Players(listOf(p))))
                     }
             }
@@ -166,6 +166,9 @@ internal object Dungeons {
 
     private const val TAKER = "\$takes-initiative"
 
+    /** The origin of the initiative's inherent abilities on the Stack (CR 726.2): a rule's, with no source. */
+    private val RULE = arcanum.engine.view.AbilityOrigin.Rule("initiative")
+
     private fun ventureUndercity(player: PlayerId) = WaitingTrigger(player, Ability.Triggered(arcanum.api.Trigger.On(emptyList()),
-        Instructions(steps = listOf(Step.Do(Effect.Action(KeywordAction.VentureInto(UNDERCITY))))), text = "venture into Undercity"), null, null)
+        Instructions(steps = listOf(Step.Do(Effect.Action(KeywordAction.VentureInto(UNDERCITY))))), text = "venture into Undercity"), RULE, null)
 }

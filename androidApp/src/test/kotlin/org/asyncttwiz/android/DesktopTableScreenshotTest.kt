@@ -391,6 +391,70 @@ class DesktopTableScreenshotTest {
             "Alice began casting Cinder Charm on the desktop table: its modes are a centred overlay over the battlefields with the table and the dock dimmed behind it, while the top row and the action area with the main button stay as they are.")
     }
 
+    /** Bob kept and Alice mulliganed twice: the Keep / Bottom overlay asks for one card for the bottom; the overlay's bounds,
+     * its Bottom area's and its eye's, in the window. */
+    private fun keepBottomOverlay(): Triple<androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect> {
+        val kit = EngineTableKit()
+        kit.bob.keep()
+        repeat(2) { round ->
+            val before = kit.state().player(kit.me).hand.toList()
+            assertTrue(kit.toolkit.opening(TableActionIntent.OpeningMulligan(kit.scope)), "mulligan ${round + 1}")
+            kit.playOn("Alice's hand after mulligan ${round + 1}") { kit.state().player(kit.me).hand.toList() != before }
+        }
+        kit.playOn("one card owed for the bottom") { AutomatumOpening.bottomOwed(kit.alice.play()) == 1 }
+        render(kit)
+        compose.waitForIdle()
+        val panel = compose.onNodeWithContentDescription("Keep or bottom").fetchSemanticsNode().boundsInRoot
+        val bottom = compose.onNodeWithContentDescription("Bottom area").fetchSemanticsNode().boundsInRoot
+        val eye = compose.onAllNodes(hasContentDescription("mulligan panel", substring = true)).onFirst().fetchSemanticsNode().boundsInRoot
+        return Triple(panel, bottom, eye)
+    }
+
+    /** WEB-019: [panel] whole in a [width] × [height] window, its Bottom area and eye whole inside it. */
+    private fun assertWhole(width: Float, height: Float, panel: androidx.compose.ui.geometry.Rect,
+        bottom: androidx.compose.ui.geometry.Rect, eye: androidx.compose.ui.geometry.Rect) {
+        assertTrue(panel.top >= DesktopTable.topRow(width) && panel.bottom <= height && panel.right <= width - DesktopTable.DOCK,
+            "the overlay in the window over the battlefields: $panel")
+        assertTrue(bottom.top >= panel.top && bottom.bottom <= eye.top + 1f && eye.bottom <= panel.bottom + 1f,
+            "the Bottom area whole above the eye, inside the overlay: $bottom, $eye in $panel")
+    }
+
+    // WEB-019 (coordinator, 2026-11-14: a desktop panel always fits its room; the Keep / Bottom overlay's Bottom area was cut
+    // off at 1440 × 900): right after Alice's second mulligan the Keep / Bottom overlay is drawn only as large as fits, its
+    // whole Bottom area and its eye in view
+    @Test fun theKeepBottomOverlayFitsItsRoom() {
+        val (panel, bottom, eye) = keepBottomOverlay()
+        assertWhole(1440f, 900f, panel, bottom, eye)
+        captureShot("$SCREENSHOTS/desktop/keep-bottom-overlay.png",
+            "Bob kept and Alice mulliganed twice on the desktop table at 1440 × 900: the Keep / Bottom overlay is drawn as large as fits over the battlefields (less than 1.3×), its Keep area with her seven cards, its whole Bottom area and its eye in view, OK on the main button.")
+    }
+
+    // WEB-019: the same in a 1280 × 720 window: drawn smaller still, the overlay whole in its room with its eye (where even
+    // 1× doesn't fit, its content scrolls as the phone's does)
+    @Config(qualifiers = "w1280dp-h720dp-land-mdpi")
+    @Test fun theKeepBottomOverlayFitsASmallWindow() {
+        val (panel, _, eye) = keepBottomOverlay()
+        assertTrue(panel.top >= DesktopTable.topRow(1280f) && panel.bottom <= 720f && eye.bottom <= panel.bottom + 1f,
+            "the overlay and its eye in the window: $panel, $eye")
+        captureShot("$SCREENSHOTS/desktop/keep-bottom-overlay-1280.png",
+            "The same Keep / Bottom overlay in a 1280 × 720 window: drawn smaller to fit the room over the battlefields, whole with its Bottom area and its eye.")
+    }
+
+    // WEB-019: a cast panel with modes in a 1280 × 720 window: the centred overlay fits the room over the battlefields
+    @Config(qualifiers = "w1280dp-h720dp-land-mdpi")
+    @Test fun aCastPanelFitsASmallWindow() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.CHARM, "Mountain"))))
+        kit.opening()
+        assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.CHARM).first())), "the cast begins: ${kit.toolkit.error}")
+        render(kit)
+        compose.waitForIdle()
+        val panel = compose.onNodeWithContentDescription("Cast panel").fetchSemanticsNode().boundsInRoot
+        assertTrue(panel.top >= DesktopTable.topRow(1280f) && panel.bottom <= 720f, "the cast panel in the window: $panel")
+        compose.onNodeWithText("You gain 2 life.").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/desktop/prompt-overlay-1280.png",
+            "Alice began casting Cinder Charm on the desktop table in a 1280 × 720 window: its modes are the centred overlay, drawn as large as fits the room over the battlefields.")
+    }
+
     // WEB-020, WEB-021, WEB-017 (D5), LOB-138: the real table screen in the desktop layout, on a game opened from the server:
     // the chat docked and read as it shows; Table actions → Timeline puts the strip under the hand and Previous / Auto / Next
     // in the action area, Return to current in the top row

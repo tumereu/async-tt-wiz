@@ -63,7 +63,8 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
     // WEB-004: in the browser Esc leaves the draft as Back does, once nothing is open over it
     LeaveScreenBackHandler(pickTab) { controller.back() }
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
+        // WEB-038: on the desktop layout the pods list keeps a readable width
+        Column((if (state.selected == null && state.creating == null) Modifier.desktopReadable() else Modifier).fillMaxSize()) {
             if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
                 if (state.selected == null && state.creating == null) {
                     ScreenCreateAction("New pod", "add", { controller.newPod() }, Modifier.testTag("new-pod"))

@@ -81,9 +81,10 @@ sealed class HotkeyPlace(val title: String) {
     data object Timeline : HotkeyPlace("Timeline mode")
     data object Pod : HotkeyPlace("Pod screens")
     data object Draft : HotkeyPlace("Draft pick, the card under the pointer")
+    data object Editor : HotkeyPlace("Deck and cube editor")
 
     companion object {
-        val all: List<HotkeyPlace> get() = listOf(Table, Timeline, Pod, Draft)
+        val all: List<HotkeyPlace> get() = listOf(Table, Timeline, Pod, Draft, Editor)
     }
 }
 
@@ -114,11 +115,13 @@ sealed class HotkeyAction(val id: String, val label: String, val place: HotkeyPl
     data object Keep : HotkeyAction("keep", "Keep", HotkeyPlace.Draft, KeyChord("K"))
     data object Burn : HotkeyAction("burn", "Burn", HotkeyPlace.Draft, KeyChord("B"))
     data object Unmark : HotkeyAction("unmark", "Unmark", HotkeyPlace.Draft, KeyChord("U"))
+    /** WEB-041: saves the deck or cube being edited, as its Save button does. */
+    data object Save : HotkeyAction("save", "Save", HotkeyPlace.Editor, KeyChord("S", ctrl = true))
 
     companion object {
         /** Every rebindable hotkey, in the order the "?" sheet and Settings list them. */
         val all: List<HotkeyAction> get() = listOf(Main, MainHold, Undo, Fit, Stack, Graveyard, Exile, OpponentGraveyard,
-            OpponentExile, Mode, Chat, Timeline, Previous, Next, Auto, NextTab, PreviousTab, Keep, Burn, Unmark)
+            OpponentExile, Mode, Chat, Timeline, Previous, Next, Auto, NextTab, PreviousTab, Keep, Burn, Unmark, Save)
         fun of(id: String): HotkeyAction? = all.firstOrNull { it.id == id }
     }
 }

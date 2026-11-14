@@ -6122,7 +6122,8 @@ internal class Sentences(
         }
         // gtc chunk 06: "Exile all other permanents.", "Exile all artifacts."
         Gtc.EXILE_ALL.matchEntire(sentence)?.let { m ->
-            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.noun(m.groupValues[1]) ?: return@let), Destination(Zone.Exile))))
+            // dmr chunk 08: "the exiled cards" returned when this leaves are kept as card memory (CR 607.2a)
+            return exile(Objects.Each(Filters.noun(m.groupValues[1]) ?: return@let))
         }
         // gtc chunk 07: "Draw cards equal to the number of cards in your library"
         Gtc.DRAW_CARDS_EQUAL_TO.matchEntire(sentence)?.let { m ->

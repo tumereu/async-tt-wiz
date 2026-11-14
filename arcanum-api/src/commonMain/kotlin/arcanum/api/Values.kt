@@ -166,6 +166,10 @@ sealed interface NumericProperty {
     /** The number of [color] mana symbols in its mana cost, hybrid symbols of that colour included (CR 107.4, 202.1: "a spell
      * with one or more blue mana symbols in its mana cost"). */
     @Serializable @SerialName("mana-symbols") data class ManaSymbols(val color: Color) : NumericProperty
+    // mom
+    /** The number of coloured mana symbols in its mana cost, each hybrid or Phyrexian symbol of a colour counted once (CR 107.4, 202.1:
+     * "if it has three or more colored mana symbols in its mana cost"). */
+    @Serializable @SerialName("colored-mana-symbols") data object ColoredManaSymbols : NumericProperty
     // tla
     /** How many creature types it has ("for each of its creature types"; a changeling has every one, CR 702.73a). */
     @Serializable @SerialName("creature-types") data object CreatureTypes : NumericProperty
@@ -256,6 +260,13 @@ sealed interface Condition {
     /** [event] happened during the previous turn, at least [atLeast] times by [measure] ("if an opponent was dealt noncombat
      * damage last turn"). */
     @Serializable @SerialName("last-turn") data class HappenedLastTurn(
+        val event: EventPattern, val atLeast: Int, val measure: Measure,
+    ) : Condition
+    // mom
+    /** [event] happened since your most recent turn before this one ended (every turn after it, this one included, CR 500.1), at least
+     * [atLeast] times by [measure] ("if you haven't been dealt combat damage since your last turn" is its [Condition.Not]); since the game
+     * began when you haven't had such a turn. With three or more players this spans several turns. */
+    @Serializable @SerialName("since-your-last-turn") data class HappenedSinceYourLastTurn(
         val event: EventPattern, val atLeast: Int, val measure: Measure,
     ) : Condition
     /** The objects named [name] by an effect are not empty ("if a creature died this way"). */

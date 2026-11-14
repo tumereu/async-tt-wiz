@@ -41,7 +41,7 @@ internal object Ltr {
     val UNTAP_REPLACED_BY_REMOVING_COUNTER = Regex("""If (.+?) would untap during your untap step, remove an? (\S+) counter from it instead\. If you do, untap it\.""")
     val IF_MAY_EXILE_THIS_FROM_GRAVEYARD = Regex("""(Whenever .+?), if (.+?), you may exile this card from your graveyard\. If you do, (.+)""")
     val SHUFFLE_TARGET_CARDS_INTO_LIBRARY = Regex("""Shuffle (any number of target .+?) from your graveyard into your library\.(?: (.+))?""")
-    val CAST_SPELLS_THIS_TURN_AS_THOUGH_FLASH = Regex("""You may cast spells this turn as though they had flash\.""")
+    val CAST_SPELLS_THIS_TURN_AS_THOUGH_FLASH = Regex("""You may cast (.+?) this turn as though they had flash\.""")
     val UNTAP_N_OTHER_TARGET = Regex("""Untap (two|three) other target (.+)\.""")
     val IF_IT_WAS_A_SPELL = Regex("""If it was an? (.+?) spell, (.+)""")
     val TARGET_OPPONENT_GAINS_CONTROL_IF_THEY_DO = Regex("""Target opponent gains control of (target .+?)\. If they do, (.+)""")

@@ -66,7 +66,7 @@ internal object Fra {
     val COSTS_X_LESS_WHERE = Regex("""(.+?) costs \{X\} less to cast, where X is (.+)\.""")
     val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast (if .+?)\.""")
     val GETS_FOR_EVERY = Regex("""(.+?) gets \+(\d+)/\+(\d+) for every (\w+) (cards in your graveyard)\.""")
-    val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on it instead\.""")
+    val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on (?:it|that permanent|that creature) instead\.""") // mom: "that permanent"
     val TOKENS_CREATED_INSTEAD = Regex("""If one or more (.+?) tokens would be created under your control, that many (.+? creature) tokens(?: with (.+))? are created instead\.""")
     val ENCHANTED_IS_CREATURE_WITH_BASE = Regex("""Enchanted permanent is an? ([A-Z][a-z]+(?: [A-Z][a-z]+)*) creature with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets \+(\d+)/\+(\d+) and has (?:([a-z ,]+?) and )?"(.+)"""")
@@ -93,8 +93,8 @@ internal object Fra {
     val EACH_PLAYER_MAY_DISCARD_HAND_DRAW = Regex("""Each player may discard their hand and draw (\w+) cards\.""")
     val FOR_EACH_CREATURE_COPY_EXCEPT = Regex("""For each creature target player controls, create a token that's a copy of that creature, except it has (\w+) and "(.+)"\.""")
     val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\.""")
-    // otj chunk 11: "each of two other target creatures"
-    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|target .+?|each of (\w+) other target (.+?))\.""")
+    // otj chunk 11: "each of two other target creatures"; mom chunk 12: "another target creature, planeswalker, or battle"
+    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|(?:another )?target .+?|each of (\w+) other target (.+?))\.""")
     val TARGET_LOSES_ALL_ABILITIES = Regex("""Target (.+?) loses all abilities until end of turn\.""")
     val SEARCH_UP_TO_THAT_MANY = Regex("""(You may )?[Ss]earch your library for up to that many (.+?), put them onto the battlefield( tapped)?, then shuffle\.""")
     val GAINS_YOUR_CHOICE_OF = Regex("""(It|.+?) gains your choice of (.+?) until end of turn\.""")

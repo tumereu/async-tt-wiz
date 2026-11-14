@@ -256,7 +256,7 @@ internal object SosPhrases {
     private val GAINED_N_OR_MORE_LIFE = Regex("""you gained (\d+) or more life this turn""")
     private val TOTAL_TOUGHNESS = Regex("""(.+) have total toughness (\d+) or greater""")
     private val CAST_THIS_TURN = Regex("""you've cast an? (.+?) spell this turn""")
-    private val CARDS_IN_YOUR_HAND = Regex("""you have (\w+) or more cards in your hand""")
+    private val CARDS_IN_YOUR_HAND = Regex("""you have (\w+) or more cards in (?:your )?hand""") // mom chunk 02: "in hand"
     private val THERE_IS_A_AND_B_IN_GRAVEYARD = Regex("""there is an? (.+?) and an? (.+?) in your graveyard""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""an? (.+?) died under your control this turn""")
     private val YOU_PUT_COUNTER_ON_THIS_TURN = Regex("""you put a counter on (.+) this turn""")

@@ -196,7 +196,8 @@ internal object Tla {
     val HAS_AS_LONG_AS_UNSPENT = Regex("""(.+) has (.+?) as long as you have (\w+) or more unspent mana\.""")
     val MAY_EXILE_IT_WHEN_YOU_DO = Regex("""you may exile it\. When you do, (.+)""")
     val DISCARD_UP_TO_DRAW_THAT_MANY = Regex("""discard up to (\w+) cards, then draw that many cards\.""")
-    val AND_AT_LEAST_ONE_OTHER_ATTACK = Regex("""(.+) and at least one other creature attack""")
+    // mom chunk 01: also "this token and at least one other creature token attack"
+    val AND_AT_LEAST_ONE_OTHER_ATTACK = Regex("""(.+) and at least one other creature( token)? attack""")
     val IF_THAT_SPELL_IS_ADDITIONAL_COUNTER = Regex("""If that spell is an? (\w+), put an additional \+1/\+1 counter on that land\.""")
     val CHOOSE_UNCHOSEN_AND_LOSE = Regex("""At the beginning of your first main phase, choose one that hasn't been chosen and you lose (\d+) life —""")
     val EXILE_RETURN_UNDER_OPPONENT = Regex("""Exile (.+?), then return (?:him|her|it|them) to the battlefield under an opponent's control\.""")

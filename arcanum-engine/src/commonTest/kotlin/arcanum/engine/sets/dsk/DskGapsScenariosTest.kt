@@ -41,7 +41,7 @@ import kotlin.test.assertTrue
 class DskGapsScenariosTest {
     private val gallery = Cards.invent("Smoldering Gallery", "{4}{R}{R}", "Enchantment",
         "Once each turn, you may pay {0} rather than pay the mana cost for a spell you cast from exile.")
-    private val lash = Cards.invent("Ember Lash", "{2}{R}", "Sorcery", "Ember Lash deals 2 damage to each opponent.")
+    private val lash = Cards.invent("Ember Lick", "{2}{R}", "Sorcery", "Ember Lick deals 2 damage to each opponent.")
     private val gust = Cards.invent("Cinder Gust", "{2}{R}", "Sorcery", "Cinder Gust deals 2 damage to each opponent.")
 
     /** "You may cast those cards this turn" on the named cards in exile. */
@@ -328,7 +328,7 @@ class DskGapsScenariosTest {
         answer(Answer.Targets(listOf(target(lash), target(gust))))
         allPass()
         alice.chooses(lash) // CR 608.2f: the caster chooses the order the copies are cast in
-        // The copy of Ember Lash is cast, paying {2}{R}; the copy of Cinder Gust isn't
+        // The copy of Ember Lick is cast, paying {2}{R}; the copy of Cinder Gust isn't
         answer(Answer.YesNo(true))
         answer(Answer.ManaPayment((pending as Decision.ManaPayment).suggestion))
         answer(Answer.YesNo(false))

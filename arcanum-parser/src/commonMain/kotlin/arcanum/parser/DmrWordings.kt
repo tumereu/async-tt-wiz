@@ -39,6 +39,27 @@ internal object Dmr {
     // dmr chunk 05: Spinal Embrace
     val SACRIFICE_IT_IF_YOU_DO = Regex("""(Sacrifice (?:it|that creature))\. If you do, (.+)""")
     val AND_GAIN_CONTROL_OF_IT = Regex("""(.+?) and gain control of it\.""")
+    // dmr chunk 06: Decimate
+    val DESTROY_TARGET_LIST = Regex("""Destroy (target [^,.]+(?:, target [^,.]+)*,? and target [^,.]+)\.""")
+    // dmr chunk 06: Glory (after "Choose a color.")
+    val GAIN_PROTECTION_FROM_CHOSEN_COLOR_EOT = Regex("""(.+?) gains? protection from the chosen color until end of turn\.""")
+    // dmr chunk 06: Gerrard's Verdict
+    val GAIN_LIFE_FOR_EACH_DISCARDED = Regex("""You gain (\d+) life for each (.+?) discarded this way\.""")
+    // dmr chunk 06: Chainer, Dementia Master; Dralnu's Crusade
+    val PUT_TARGET_FROM_A_GRAVEYARD = Regex("""Put target (.+?) from a graveyard onto the battlefield under your control\.""")
+    val IS_COLOR_AND_SUBTYPE_IN_ADDITION = Regex("""(That creature|It|All .+?) (?:is|are) (white|blue|black|red|green) and (?:is an?|are) ([A-Z]\w+?)s? in addition to (?:its|their) other creature types\.""")
+    // dmr chunk 06: Life // Death
+    val BECOME_PT_CREATURES_UNTIL_EOT = Regex("""(?:All )?(.+?) become (\d+)/(\d+) creatures until end of turn\.""")
+    val STILL_LANDS = Regex("""They're still lands\.""")
+    // dmr chunk 06: Umbilicus
+    val RETURNS_A_PERMANENT_THEY_CONTROL = Regex("""(They|That player|Target player|Target opponent) returns? an? (.+?) they control to its owner's hand\.""")
+    // dmr chunk 06: Congregate
+    val PLAYER_GAINS_LIFE_FOR_EACH = Regex("""(Target player|Target opponent|Each player|Each opponent) gains (\d+) life for each (.+)\.""")
+    // dmr chunk 06: Crawlspace
+    val NO_MORE_THAN_CAN_ATTACK_YOU = Regex("""No more than (\w+) creatures? can attack you each combat\.""")
+    // dmr chunk 06: Sylvan Library
+    val MAY_DRAW_ADDITIONAL_CHOOSE_DRAWN_PAY_LIFE_OR_TOP = Regex("""You may draw (\w+) additional cards?\. If you do, choose (\w+) cards in your hand drawn this turn\. """ +
+        """For each of those cards, pay (\d+) life or put the card on top of your library\.""")
     fun property(word: String): arcanum.api.NumericProperty = when (word) {
         "mana value" -> arcanum.api.NumericProperty.ManaValue
         "power" -> arcanum.api.NumericProperty.Power

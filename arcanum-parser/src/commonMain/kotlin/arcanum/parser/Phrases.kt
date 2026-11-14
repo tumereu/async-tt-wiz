@@ -74,6 +74,10 @@ internal object Filters {
                 noun("${m.groupValues[1]} ${m.groupValues[3]}${m.groupValues[4]}") ?: return null))
         }
         gtcNoun(phrase)?.let { return it }
+        // dmr chunk 06: "permanent of that color" (the color this ability's "choose a color" named)
+        OF_THAT_COLOR.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OfColor(arcanum.api.ColorRef.Chosen("color")))
+        }
         // fdn chunk 10a: "creatures you control of the chosen color" (the color chosen as this permanent entered, CR 105.1)
         OF_CHOSEN_COLOR.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OfColor(arcanum.api.ColorRef.Remembered("color")))
@@ -424,6 +428,8 @@ internal object Filters {
         "Each opponent", "each opponent" -> Players.Each(PlayerFilter.Opponent)
         "You", "you" -> Players.You
         "Each player", "each player" -> Players.Each(PlayerFilter.Any)
+        // dmr chunk 06: every player but you, opponents or not (CR 102.2, 102.3)
+        "Each other player", "each other player" -> Players.Each(PlayerFilter.Not(PlayerFilter.You))
         else -> null
     }
 
@@ -486,6 +492,7 @@ internal object Filters {
     // blb chunk 12
     private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
     private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
+    private val OF_THAT_COLOR = Regex("""(.+) of that color""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or an? (\w+)""")
     // blb chunk 11
     private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")
@@ -1225,7 +1232,8 @@ internal object Conditions {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
         }
         // chunk 42: "there are three or more land cards in your graveyard"
-        THERE_ARE_N_OR_MORE.matchEntire(text)?.let { m ->
+        // dmr chunk 06: "you have four or more creature cards in your graveyard" (the same count of your graveyard's cards)
+        (THERE_ARE_N_OR_MORE.matchEntire(text) ?: YOU_HAVE_N_OR_MORE_IN_GRAVEYARD.matchEntire(text))?.let { m ->
             return Condition.Exists(Filters.noun(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null)
         }
         // chunk 36: "a card left your graveyard this turn"
@@ -1387,6 +1395,7 @@ internal object Conditions {
     private val SELF_IS_ATTACKING = Regex("""(.+) is attacking""")
     // chunk 42
     private val THERE_ARE_N_OR_MORE = Regex("""there are (\w+) or more (.+)""")
+    private val YOU_HAVE_N_OR_MORE_IN_GRAVEYARD = Regex("""you have (\w+) or more (.+ in your graveyard)""")
     // chunk 45
     private val IS_SUSPENDED = Regex("""(.+) is suspended""")
     private val DIED_THIS_TURN = Regex("""(\w+) or more (.+) died this turn""")

@@ -2116,6 +2116,7 @@ internal class Sentences(
         } ?: when (predicate) {
             "attacks each combat if able" -> Mechanic.MustAttack()
             "can't block" -> Mechanic.CantBlock(attackers = ObjectFilter.Any)
+            "can't attack" -> Mechanic.CantAttack() // dmr chunk 06: "Non-Eye creatures you control can't attack." (CR 508.1c)
             "can't be blocked" -> Mechanic.CantBeBlocked
             "can't transform" -> Mechanic.CantTransform // inr chunk 04
             // dmr chunk 02: "gets +3/+3 and doesn't untap during its controller's untap step" (CR 502.3)
@@ -2871,6 +2872,7 @@ internal class Sentences(
                 ?: fdnWhole(body.replaceFirstChar { it.uppercase() }, context) // fdn
                 ?: inrWhole(body.replaceFirstChar { it.uppercase() }, context) // inr
                 ?: isdWhole(body.replaceFirstChar { it.uppercase() }, context) // isd
+                ?: dmrWhole(body.replaceFirstChar { it.uppercase() }, context) // dmr
                 ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
                 ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
             if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
@@ -2897,6 +2899,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        dmrModify(sentence, steps, context)?.let { return it } // dmr
         ltrModify(sentence, steps, context)?.let { return it } // ltr
         mh2Modify(sentence, steps, context)?.let { return it } // mh2
         dftModify(sentence, steps, context)?.let { return it } // dft
@@ -3872,9 +3875,10 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty(), controller = controller, counters = counters))))
         }
         // dsk chunk 10: "They may pay 3 life." (the controller of the creature that died) then "If they don't, [effect]." (D52)
+        // dmr chunk 06: "that player may pay 2 life." (the player named before, or the event's: "each player's upkeep", CR 603.2)
         THEY_MAY_PAY.matchEntire(sentence)?.let { m ->
-            val payer = Players.ControllerOf(context.that ?: return null)
-            val parts = costPart(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            val payer = if (m.groupValues[1] == "They") Players.ControllerOf(context.that ?: return null) else playersIn(m.groupValues[1], context) ?: return null
+            val parts = costPart(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
             return listOf(Step.Pay(Cost(parts), payer = payer, bind = "paid"))
         }
         IF_THEY_DONT.matchEntire(sentence)?.let { m ->
@@ -4168,6 +4172,7 @@ internal class Sentences(
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
+        dmrEarlyEffect(sentence, context)?.let { return it } // dmr
         isdEffect(sentence, context)?.let { return it } // isd
         inrEffect(sentence, context)?.let { return it } // inr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
@@ -11338,7 +11343,7 @@ internal class Sentences(
         val UP_TO_THAT_MANY_TARGETS_GET = Regex("""Up to that many target (.+?) each get ([+-]\d+)/([+-]\d+) until end of turn\.""")
         val LOOK_PUT_ONE_INTO_HAND_REST_GRAVEYARD = Regex("""Look at the top (\w+) cards of your library\. Put one of them into your hand and the rest into your graveyard\.""")
         val RETURN_THAT_CARD_UNDER_CONTROL = Regex("""Return (that card|it) under (your|its owner's) control( tapped)?(?: with (an?|two|three) (\S+) counters? on it)?\.""")
-        val THEY_MAY_PAY = Regex("""They may (pay \d+ life)\.""")
+        val THEY_MAY_PAY = Regex("""(They|That player) may (pay \d+ life)\.""")
         val IF_THEY_DONT = Regex("""If they don't, (.+)""")
         val YOU_MAY_CHOOSE_FROM_IT = Regex("""You may choose (an? .+?) from it\.""")
         val TARGET_PLAYER_SACRIFICES_OTHER_THAN = Regex("""Target player sacrifices an? (.+?) of their choice other than enchanted creature\.""")
@@ -15720,6 +15725,17 @@ internal class Sentences(
 
     /** isd: single-sentence effects. */
     private fun dmrStatic(line: String): Ability? {
+        // dmr chunk 06: "No more than two creatures can attack you each combat." (CR 506.4, 508.1c: attacks on your planeswalkers aren't counted)
+        Dmr.NO_MORE_THAN_CAN_ATTACK_YOU.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.MaximumAttackers(Numbers.count(m.groupValues[1]) ?: return null, target = Recipients(players = Players.You))),
+                affects = Affected.Objects(Objects.Each(ObjectFilter.Type(CardType.Creature))))
+        }
+        // dmr chunk 06: "All Goblins are black and are Zombies in addition to their other creature types." (layers 4 and 5, CR 205.3d, 105.3)
+        Dmr.IS_COLOR_AND_SUBTYPE_IN_ADDITION.matchEntire(line)?.takeIf { it.groupValues[1].startsWith("All ") }?.let { m ->
+            val noun = m.groupValues[1].removePrefix("All ")
+            val each = Filters.noun(noun) ?: return null
+            return Ability.Static(dmrColorAndSubtype(m) ?: return null, affects = Affected.Objects(Objects.Each(each)))
+        }
         // dmr chunk 05: "Each untapped creature you control gets +0/+2 as long as it's not attacking." (each creature's own condition: the
         // affected set is redetermined continuously, CR 611.3a)
         Dmr.EACH_GETS_AS_LONG_AS_NOT_ATTACKING.matchEntire(line)?.let { m ->
@@ -15742,6 +15758,33 @@ internal class Sentences(
         return null
     }
 
+    /** dmr chunk 06: "is black and is a Nightmare in addition to its other creature types": the color replaces the old ones (CR 105.3), the
+     * creature type is added (CR 205.1b). */
+    private fun dmrColorAndSubtype(m: MatchResult): List<Mechanic>? {
+        val color = Tokens.color(m.groupValues[2]) ?: return null
+        val subtype = m.groupValues[3].takeIf { it in RulesWords.subtypes } ?: return null
+        return listOf(Mechanic.SetColors(listOf(ColorRef.Literal(color))),
+            Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))))
+    }
+
+    /** dmr: wordings of several sentences read as one. */
+    private fun dmrWhole(text: String, context: Context): List<Step>? {
+        // dmr chunk 06: "You may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay
+        // 4 life or put the card on top of your library." (a card drawn this turn: the draw event's card while it stays in hand, CR 400.7; life
+        // can be paid only if the life total is at least that much, CR 119.4)
+        Dmr.MAY_DRAW_ADDITIONAL_CHOOSE_DRAWN_PAY_LIFE_OR_TOP.matchEntire(text)?.let { m ->
+            val drawn = Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You),
+                ObjectFilter.ThisTurn(EventPattern.Draw(PlayerFilter.Any), role = EventRole.Object))
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            return listOf(Step.May(listOf(
+                Step.Do(Effect.Draw(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))),
+                Step.Choose(arcanum.api.Choice.Objects(drawn, Value.Fixed(n), Value.Fixed(n)), bind = "chosen", chooser = Players.You),
+                Step.ForEach(arcanum.api.Each.Objects(Objects.Bound("chosen")), "card", unlessPays(Players.You, Cost(listOf(CostPart.PayLife(Value.Fixed(m.groupValues[3].toInt())))),
+                    listOf(Step.Do(Effect.Move(Objects.Bound("card"), Destination(Zone.Library, libraryPosition = 0))))))), player = Players.You))
+        }
+        return null
+    }
+
     /** dmr: lines that are more than one ability. */
     private fun dmrMulti(line: String): List<Ability>? {
         // dmr chunk 02: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the
@@ -15756,7 +15799,84 @@ internal class Sentences(
         return null
     }
 
+    /** dmr: effects read before the general rules (which would read their words another way). */
+    private fun dmrEarlyEffect(sentence: String, context: Context): List<Step>? {
+        // dmr chunk 06: "Destroy target artifact, target creature, target enchantment, and target land." (a target for each, CR 115.1; all
+        // destroyed at once, CR 701.8a)
+        Dmr.DESTROY_TARGET_LIST.matchEntire(sentence)?.let { m ->
+            val nouns = m.groupValues[1].split(LazyRegexes.AND_LIST).map { it.removePrefix("target ").takeIf { n -> n != it } ?: return null }
+            val names = nouns.map { Filters.slotName(it) }
+            if (names.toSet().size != names.size) return null
+            val targets = nouns.zip(names).map { (noun, name) -> context.target(name, Filters.noun(noun) ?: return null) }
+            return listOf(Step.Do(Effect.Destroy(Objects.Union(targets))))
+        }
+        return null
+    }
+
+    /** dmr: sentences that change the step before them. */
+    private fun dmrModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // dmr chunk 06: "They're still lands." after they became creatures: they keep their other types (CR 205.1b)
+        if (Dmr.STILL_LANDS.matches(sentence)) {
+            val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics ?: return null
+            val types = apply.mechanics.filterIsInstance<Mechanic.SetTypes>().singleOrNull()?.takeIf { CardType.Creature in it.add && it.replaceTypes } ?: return null
+            return steps.dropLast(1) + Step.Do(apply.copy(mechanics = apply.mechanics.map { if (it === types) types.copy(replaceTypes = false) else it }))
+        }
+        // dmr chunk 06: "Creatures you control gain protection from the chosen color until end of turn." after "Choose a color." (the color
+        // that choice named, not one remembered by the permanent, CR 702.16a); the creatures are fixed as it resolves (CR 611.2c)
+        Dmr.GAIN_PROTECTION_FROM_CHOSEN_COLOR_EOT.matchEntire(sentence)?.takeIf { steps.any { s -> s is Step.Choose && s.choice is arcanum.api.Choice.Color && s.bind == "color" } }?.let { m ->
+            val what = if (isSelf(m.groupValues[1])) Objects.Self else Objects.Each(Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null)
+            return steps + listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Protection(
+                ObjectFilter.OfColor(ColorRef.Chosen("color")))))), Affected.Objects(what), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dmr chunk 06: "You gain life equal to the life lost this way." after a loss of life: that loss names the amount (CR 119.3, 608.2c)
+        if (sentence == "You gain life equal to the life lost this way.") {
+            val lose = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.LoseLife)?.takeIf { it.bind == null } ?: return null
+            return steps.dropLast(1) + Step.Do(lose.copy(bind = "lost")) + Step.Do(Effect.GainLife(Players.You, Value.Bound("lost")))
+        }
+        // dmr chunk 06: "You gain 3 life for each land card discarded this way." after a discard (the discarded cards in the graveyard, CR 701.9a)
+        Dmr.GAIN_LIFE_FOR_EACH_DISCARDED.matchEntire(sentence)?.let { m ->
+            val discard = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Discard)?.takeIf { it.postBind == null } ?: return null
+            val noun = m.groupValues[2]
+            val counted = if (noun == "card") Objects.Bound("discarded") else Objects.Where(Objects.Bound("discarded"), Filters.noun(noun) ?: return null)
+            return steps.dropLast(1) + Step.Do(discard.copy(postBind = "discarded")) +
+                Step.Do(Effect.GainLife(Players.You, times(Value.Count(counted), m.groupValues[1].toInt())))
+        }
+        return null
+    }
+
     private fun dmrEffect(sentence: String, context: Context): List<Step>? {
+        // dmr chunk 06: "Put target creature card from a graveyard onto the battlefield under your control." ("that creature" afterwards is the
+        // permanent it became, CR 400.7)
+        Dmr.PUT_TARGET_FROM_A_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)))
+            context.it = Objects.Bound("returned")
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Battlefield, controller = Players.You), postBind = "returned")))
+        }
+        // dmr chunk 06: "That creature is black and is a Nightmare in addition to its other creature types." (for as long as it stays, CR 611.2a)
+        Dmr.IS_COLOR_AND_SUBTYPE_IN_ADDITION.matchEntire(sentence)?.takeIf { !it.groupValues[1].startsWith("All ") }?.let { m ->
+            val it = context.it ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(dmrColorAndSubtype(m) ?: return null, Affected.Objects(it), arcanum.api.Duration.Indefinitely)))
+        }
+        // dmr chunk 06: "All lands you control become 1/1 creatures until end of turn." (the lands then, CR 611.2c; "become creatures" replaces
+        // their card types, CR 205.1a, unless "They're still lands." follows)
+        Dmr.BECOME_PT_CREATURES_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature), replaceTypes = true),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
+                Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dmr chunk 06: "they return a permanent they control to its owner's hand." (that player chooses one as it resolves, CR 608.2d)
+        Dmr.RETURNS_A_PERMANENT_THEY_CONTROL.matchEntire(sentence)?.let { m ->
+            val player = playersIn(m.groupValues[1], context) ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(player)))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "returned", chooser = player),
+                Step.Do(Effect.Move(Objects.Bound("returned"), Destination(Zone.Hand))))
+        }
+        // dmr chunk 06: "Target player gains 2 life for each creature on the battlefield." (counted as it resolves, CR 608.2h)
+        Dmr.PLAYER_GAINS_LIFE_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val player = playersIn(m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.GainLife(player, times(perEach(m.groupValues[3]) ?: return null, m.groupValues[2].toInt()))))
+        }
         // dmr chunk 05: "Sacrifice it. If you do, you gain life equal to its toughness." (in "At the beginning of the next end step, …", CR 603.7):
         // done only if it was sacrificed (CR 701.21a); "its" is the sacrificed creature as it last existed (CR 608.2h)
         Dmr.SACRIFICE_IT_IF_YOU_DO.matchEntire(sentence)?.let { m ->

@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 93
+    const val VERSION: Int = 94
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -695,6 +695,8 @@ object OracleParser {
                 "multicolored" -> arcanum.api.ObjectFilter.Multicolored
                 "monocolored" -> arcanum.api.ObjectFilter.Monocolored
                 "everything" -> arcanum.api.ObjectFilter.Any
+                // dmr chunk 06: "protection from the chosen color" (the color chosen as this permanent entered, CR 607.2a)
+                "the chosen color" -> arcanum.api.ObjectFilter.OfColor(arcanum.api.ColorRef.Remembered("color"))
                 else -> Filters.noun(quality) ?: return null
             })
         }
@@ -754,7 +756,7 @@ object OracleParser {
     // chunk 50
     // isd chunk 06: also a creature type, "protection from Zombies" (CR 702.16a)
     // isd chunk 07: "protection from non-Human creatures"
-    private val PROTECTION = Regex("""[Pp]rotection from ([A-Za-z]+|non-[A-Z][a-z]+ [a-z]+)""")
+    private val PROTECTION = Regex("""[Pp]rotection from ([A-Za-z]+|non-[A-Z][a-z]+ [a-z]+|the chosen color)""")
     private val PROTECTION_LIST_ITEM = Regex("""(?:and )?from ([A-Za-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")

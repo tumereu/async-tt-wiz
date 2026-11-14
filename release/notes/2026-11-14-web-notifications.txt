@@ -1,0 +1,1 @@
+add: In the web version you can turn on notifications in Settings (or from the hint on the Games list) to hear about your moves, invitations and drafts even with the tab closed, install ATW as an app from Settings, and the tab's title shows how many games wait for your move.

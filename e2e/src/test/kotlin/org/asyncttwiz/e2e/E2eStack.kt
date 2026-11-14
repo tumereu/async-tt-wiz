@@ -63,12 +63,20 @@ object E2eStack {
         val passwordFile = File(dir, "db-password").apply { writeText(password) }
         val resetKey = File(dir, "reset-mail-key").apply { writeText(java.util.Base64.getEncoder().encodeToString(ByteArray(32) { 7 })) }
         val secret = File(dir, "game-secret")
+        // WEB-052: the server's VAPID key pair for browser notifications (the private key and its public key, one PEM file)
+        val webPushKey = File(dir, "web-push-key").apply {
+            val keys = java.security.KeyPairGenerator.getInstance("EC")
+                .apply { initialize(java.security.spec.ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+            fun pem(name: String, bytes: ByteArray) = "-----BEGIN $name-----\n" +
+                java.util.Base64.getMimeEncoder(64, "\n".toByteArray()).encodeToString(bytes) + "\n-----END $name-----\n"
+            writeText(pem("PRIVATE KEY", keys.private.encoded) + pem("PUBLIC KEY", keys.public.encoded))
+        }
         val environment = mapOf("DB_URL" to "jdbc:postgresql://$host:5432/atw_e2e", "DB_USER" to "atw_e2e",
             "DB_PASSWORD_FILE" to passwordFile.path, "PUBLIC_BASE_URL" to "http://127.0.0.1:8080",
             "SERVER_ADDRESS" to "127.0.0.1", "SERVER_PORT" to "0", "HEALTH_ADDRESS" to "127.0.0.1", "HEALTH_PORT" to "0",
             "SMTP_HOST" to "127.0.0.1", "SMTP_PORT" to "9", "SMTP_TLS" to "local-plaintext", "SMTP_FROM" to "e2e@atw.invalid",
             "RESET_BASE_URL" to "https://reset.atw.invalid", "RESET_MAIL_KEY_FILE" to resetKey.path,
-            "TEST_GAME_SECRET_FILE" to secret.path,
+            "TEST_GAME_SECRET_FILE" to secret.path, "WEB_PUSH_KEY_FILE" to webPushKey.path,
             // The card catalog of the invented test cards (tests/fixtures/card-catalog, :catalog:testCardsCatalog)
             "CATALOG_DIR" to requireNotNull(System.getProperty("atw.e2e.catalogDir")),
             // The web client's build (webApp's webDist), which WebSmokeTest loads in a real browser

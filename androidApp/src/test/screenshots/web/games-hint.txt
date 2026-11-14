@@ -1,0 +1,1 @@
+The Games list in a browser with notifications off: the hint card "Get notified when it's your move" with Turn on and ✕ above the games.

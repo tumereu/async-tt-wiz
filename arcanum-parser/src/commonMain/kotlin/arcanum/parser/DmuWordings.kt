@@ -62,6 +62,7 @@ internal object Dmu {
     val BECOMES_CREATURE_BASE_PT_MANA_VALUE = Regex("""Target (.+?) becomes a creature in addition to its other types and has base power and base toughness each equal to its mana value\.""")
     val SEARCH_DIFFERENT_OPPONENT_CHOOSES_SHUFFLE = Regex("""Search your library for up to (\w+) (.+?) cards with different (powers|names) and reveal them\. An opponent chooses (\w+) of those cards\. Shuffle the chosen cards into your library and put the rest into your hand\.""")
     val MAY_COPY_THAT_SPELL_COPY_TARGETS = Regex("""You may copy that spell\. The copy targets (.+)\.""")
+    val PLAYERS_CANT_PAY_LIFE_TO_CAST_OR_ACTIVATE = Regex("""Players can't pay life to cast spells or (?:to )?activate abilities( that aren't mana abilities)?\.""")
     val CREATE_COPY_OF_THAT_TARGET = Regex("""[Cc]reate a token that's a copy of that (.+?)(?:, except (.+))?\.""")
     val WHENEVER_CAST_IT_GAINS_QUOTED = Regex("""Whenever (you cast .+?), it gains "(.+)"""")
     val ONCE_PLAY_LAND_OR_CAST_FROM_GRAVEYARD_GAINS = Regex("""Once during each of your turns, you may play a land from your graveyard or cast an? (.+?) from your graveyard\. If you do, it gains "(.+)"""")

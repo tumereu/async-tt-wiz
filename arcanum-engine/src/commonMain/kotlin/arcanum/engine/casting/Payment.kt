@@ -129,7 +129,7 @@ internal object Payment {
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
-        if (!Mana.lifeSymbols(plan.snap, player, cost).containsAll(lifeFor)) {
+        if (!Mana.lifeSymbols(plan.snap, player, cost, plan.lifeBarred).containsAll(lifeFor)) {
             refuse("Life pays only Phyrexian mana (CR 107.4f) or what an effect lets life pay")
         }
         // CR 601.2g: mana abilities are activated before costs are paid
@@ -193,7 +193,7 @@ internal object Payment {
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
-        if (!Mana.lifeSymbols(recorder.snapshot(), player, cost).containsAll(lifeFor)) {
+        if (!Mana.lifeSymbols(recorder.snapshot(), player, cost, spell?.lifeBarred == true).containsAll(lifeFor)) {
             refuse("Life pays only Phyrexian mana (CR 107.4f) or what an effect lets life pay")
         }
         // CR 605.3a: every payment may use mana abilities, also one a spell or ability asks as it resolves
@@ -314,8 +314,11 @@ internal object Payment {
                 CostPart.UntapSelf -> recorder.record(Changes.tap(recorder.state, use.source, tapped = false))
                 is CostPart.Sacrifice -> Actions.move(act, Cause(player, use.source, key = "cost:${use.source}"),
                     listOf(PlannedMove(use.source, Zone.Graveyard, meanings = listOf(Meaning.Sacrificed))))
-                is CostPart.PayLife -> Actions.payLife(act, Cause(player, use.source, key = "cost:${use.source}"), player,
-                    snap.evaluator(player, self = use.source).value(part.amount))
+                is CostPart.PayLife -> snap.evaluator(player, self = use.source).value(part.amount).let { n ->
+                    // mh3, dmu fixes: not by a player who can't lose life or can't pay life to activate it (CR 119.8, 119.4)
+                    if (n > 0 && (Actions.cantLoseLife(act, player) || Mana.lifeBarred(snap.view, player, manaAbility = true))) refuse("Can't pay life (CR 119.4)")
+                    Actions.payLife(act, Cause(player, use.source, key = "cost:${use.source}"), player, n)
+                }
                 else -> refuse("Not a simple mana ability")
             }
         }
@@ -445,6 +448,7 @@ internal object Payment {
                 val n = eval.value(part.amount)
                 if (s.player(player).life < n) refuse("Not enough life to pay $n")
                 if (n > 0 && Actions.cantLoseLife(act, player)) refuse("Can't pay life (CR 119.8)") // mh3
+                if (n > 0 && plan.lifeBarred) refuse("Can't pay life to cast spells or activate this ability (CR 119.4)") // dmu fixes
                 if (n > 0) Actions.payLife(act, cause, player, n)
             }
             is CostPart.PayEnergy -> {

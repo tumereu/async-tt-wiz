@@ -19853,6 +19853,12 @@ internal class Sentences(
 
     /** dmu: whole lines, tried after the other sets' lines. */
     private fun dmuLine(line: String): Ability? {
+        // dmu fixes: Karn's Sylex, "Players can't pay life to cast spells or to activate abilities that aren't mana abilities." (CR 119.4, 601.2h,
+        // 602.2b; mana abilities excepted, CR 605.1a)
+        Dmu.PLAYERS_CANT_PAY_LIFE_TO_CAST_OR_ACTIVATE.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantPayLifeToCastOrActivate(exceptManaAbilities = m.groupValues[1].isNotEmpty())),
+                affects = Affected.Players(Players.Each(PlayerFilter.Any)))
+        }
         // dmu chunk 07: Thran Portal, "Mana abilities of this land cost an additional 1 life to activate." (CR 602.2b, 601.2f; its basic land
         // type's intrinsic mana ability too, CR 305.6)
         Dmu.MANA_ABILITIES_COST_ADDITIONAL_LIFE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -19923,13 +19929,15 @@ internal class Sentences(
                 Affected.Objects(target), arcanum.api.Duration.Indefinitely)))
         }
         // dmu chunk 07: Vesuvan Duplimancy, after "Whenever you cast a spell that targets only a single artifact or creature you control", "create a
-        // token that's a copy of that artifact or creature, except it's not legendary." (the spell's one target, CR 115.7, 707.9b)
+        // token that's a copy of that artifact or creature, except it's not legendary." (the spell's one target, CR 115.7, 707.9b; as it last
+        // existed if it has left the battlefield, CR 608.2h)
         Dmu.CREATE_COPY_OF_THAT_TARGET.matchEntire(sentence)?.let { m ->
             val cast = context.event as? EventPattern.Cast ?: return@let
             if (cast.spell !is ObjectFilter.SingleTarget && (cast.spell as? ObjectFilter.And)?.all?.any { it is ObjectFilter.SingleTarget } != true) return@let
-            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            Filters.noun(m.groupValues[1]) ?: return null
             val except = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { copyExceptions(it) ?: return null }.orEmpty()
-            val targeted = Objects.Each(Filters.all(noun, ObjectFilter.TargetedBy(Objects.EventObject(arcanum.api.EventRole.Object))))
+            // the single target the trigger's spell filter already requires to be one of these (no filter here, so one that has left still is)
+            val targeted = Objects.EventObject(arcanum.api.EventRole.Targeted)
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(targeted, except), count = Value.Fixed(1), controller = Players.You)))
         }
         // dmu chunk 06: Academy Loremaster, "that player may draw an additional card. If they do, spells they cast this turn cost {2} more to cast."

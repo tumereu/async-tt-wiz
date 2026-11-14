@@ -82,8 +82,11 @@ internal object EventMatcher {
             // fra backfill: an earlier cast this turn, counted for "your first … spell each turn" once that spell has
             // left the Stack, was a spell as it was cast (CR 601.2a)
             val spell = if (e.board.state.stackItems.containsKey(item.id)) pattern.spell else castAsSpell(pattern.spell)
+            // dmu fixes: and the objects it targeted as it was cast, read later as last known if they have left (CR 601.2c, 608.2h)
+            val targeted = item.targets.values.flatten().mapNotNull { (it as? TargetRef.Object)?.id }.distinct()
             if (e.matches(spell, item.id) && e.matches(pattern.by, item.controller) && (pattern.from == null || from == pattern.from))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(item.id))), listOf(item.controller))) else emptyList()
+                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(item.id))) +
+                    listOfNotNull(targeted.takeIf { it.isNotEmpty() }?.let { RoleObjects(EventRole.Targeted, it) }), listOf(item.controller))) else emptyList()
         } else emptyList()
         is EventPattern.Activate -> ((change as? Change.Happened)?.event as? GameEvent.Activated)?.let { a ->
             // fra: only loyalty abilities, and only those whose cost removed enough loyalty counters (CR 606.4)

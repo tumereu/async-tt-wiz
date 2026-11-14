@@ -71,6 +71,8 @@ object DefinitionChecks {
         "manifest-dread" to setOf("object", "rest"),
         // dft: tapped to crew or saddle: the Vehicle or Mount (CR 702.122b, 702.171c)
         "tap" to setOf("object", "source"),
+        // dmu fixes: the spell cast and the objects it targeted (CR 601.2c)
+        "cast" to setOf("object", "targeted"),
     )
     private val selfAffected = json.encodeToJsonElement(Affected.serializer(), Affected.Objects(Objects.Self))
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")

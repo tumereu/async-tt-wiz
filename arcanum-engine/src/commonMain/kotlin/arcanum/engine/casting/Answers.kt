@@ -175,7 +175,8 @@ internal object Answers {
         val you = plan.snap.state.player(plan.player)
         when (part) {
             is CostPart.PayLife -> plan.eval.value(part.amount).let { n -> you.life >= n && (n == 0 ||
-                plan.snap.view.players[plan.player]?.mechanics.orEmpty().none { it.mechanic == arcanum.api.Mechanic.CantLoseLife }) } // mh3: CR 119.8
+                plan.snap.view.players[plan.player]?.mechanics.orEmpty().none { it.mechanic == arcanum.api.Mechanic.CantLoseLife } &&
+                !plan.lifeBarred) } // mh3: CR 119.8; dmu fixes: CR 119.4
             is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
             is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
             // mkm fix: "Reveal the creature type you chose": only a choice the source keeps (CR 118.3)

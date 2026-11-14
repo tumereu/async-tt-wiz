@@ -124,6 +124,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val ability: Ability? = (c.what as? Announced.Ability)?.ability
     val origin: AbilityOrigin? = (c.what as? Announced.Ability)?.origin
     val isManaAbility = ability != null && Legality.isManaAbility(ability)
+    // dmu fixes
+    /** Whether life can't pay toward this cast's or activation's cost (CR 119.4, 601.2h, 602.2b; [Mana.lifeBarred]). */
+    val lifeBarred: Boolean by lazy { Mana.lifeBarred(snap.view, player, isManaAbility) }
     val isSpecialAction = ability is Ability.SpecialAction
     /** The ability's own cost change: "This ability costs {1} less to activate for each …"; mkm: a disguise cost's "This cost is reduced by
      * {1} for each …" on the special action (CR 118.7). */
@@ -961,7 +964,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     private fun targetQuestion(slot: SlotOf, forPlayer: PlayerId?): Question.Target? {
         val e = eval.with(eval.ctx.copy(slotPlayer = forPlayer))
         val min = e.value(slot.slot.min)
-        val max = slot.slot.max?.let { e.value(it) }
+        val max = arcanum.engine.action.Targeting.maxTargets(slot.slot, e)
         val options = Targets.options(snap, e, itemId, if (isSpell) null else sourceId, slot.slot).filterNot { ref ->
             slot.slot.distinctFrom.any { other -> choices.targets[other].orEmpty().contains(ref) }
         }
@@ -1062,11 +1065,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 cost = total.parts.firstOrNull { it.key == q.key }?.at)
         } ?: Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
-            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX)
-                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX))
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred)
+                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX))
+            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred))
     }
 
     /** eoe: the objects a [CostPart.Choose] of objects may choose, in the zones its filter names (the battlefield otherwise). */

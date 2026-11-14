@@ -541,6 +541,12 @@ sealed interface Mechanic {
      * life rather than pay that mana"): only the plain coloured symbol, not a hybrid one (CR 107.4e, 601.2h); unlike Phyrexian mana it
      * changes no cost (CR 107.4f). */
     @Serializable @SerialName("pay-life-for-mana") data class PayLifeForMana(val color: Color) : Mechanic
+    // dmu fixes
+    /** The affected players can't pay life toward the cost of a spell they cast or an ability they activate ("Players can't pay life to cast
+     * spells or to activate abilities that aren't mana abilities"): no Phyrexian or other mana symbol paid with life and no life in a cost
+     * (CR 119.4, 601.2h, 602.2b); with [exceptManaAbilities] a mana ability's cost still may be (CR 605.1a). Life paid otherwise ("unless
+     * that player pays 3 life") is unaffected. */
+    @Serializable @SerialName("cant-pay-life-to-cast-or-activate") data class CantPayLifeToCastOrActivate(val exceptManaAbilities: Boolean = false) : Mechanic
     /** The affected players can't untap more than [max] permanents matching [filter] during their untap steps ("Players can't untap more
      * than one nonbasic land during their untap steps"): the active player chooses which of those untap (CR 502.3). */
     @Serializable @SerialName("untap-limit") data class UntapLimit(val max: Int, val filter: ObjectFilter) : Mechanic {

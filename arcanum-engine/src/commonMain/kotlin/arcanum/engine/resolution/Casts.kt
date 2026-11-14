@@ -139,8 +139,8 @@ internal object Casts {
                     val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event, slotPlayer = p, pendingKind = pendingKind)
                     val pe = e.with(e.ctx.copy(slotPlayer = p))
                     val min = pe.value(slot.min)
-                    val max = slot.max?.let { pe.value(it) }
-                    if (!Targeting.possible(slot, options, min, pe) && required) return null
+                    val max = Targeting.maxTargets(slot, pe)
+                    if ((!Targeting.possible(slot, options, min, pe) || (max != null && min > max)) && required) return null
                     chosenAll += if (options.size <= min) options else Targeting.choose(act, controller, source, slot, options, min, max, pe)
                 }
                 if (chosenAll.isNotEmpty()) targets[slot.name] = chosenAll
@@ -148,9 +148,10 @@ internal object Casts {
             }
             val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event, pendingKind = pendingKind)
             val min = e.value(slot.min)
-            val max = slot.max?.let { e.value(it) }
-            // CR 603.3d: too few legal targets, or no group of them within the slot's limits on each other (CR 601.2c)
-            if (!Targeting.possible(slot, options, min, e) && required) return null
+            val max = Targeting.maxTargets(slot, e)
+            // CR 603.3d: too few legal targets, or no group of them within the slot's limits on each other (CR 601.2c), or a divided
+            // amount too small to give each of the fewest targets one (CR 601.2d)
+            if ((!Targeting.possible(slot, options, min, e) || (max != null && min > max)) && required) return null
             // P5: no decision when every legal target must be chosen
             val chosen = when {
                 options.size <= min -> options

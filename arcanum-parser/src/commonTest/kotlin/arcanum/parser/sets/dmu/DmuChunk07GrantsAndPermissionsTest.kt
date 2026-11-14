@@ -329,7 +329,8 @@ class DmuChunk07GrantsAndPermissionsTest {
             doing(Effect.SpellGets(Objects.EventObject(EventRole.Object), listOf(has(triggered(diesSelf, move(Objects.EventObject(EventRole.After), Zone.Exile, postBind = "exiled"))))))),
     )
 
-    // CR 115.7, 707.9b: the spell's one target is copied, except the token isn't legendary
+    // CR 115.7, 707.9b: the spell's one target is copied, except the token isn't legendary; CR 608.2h: the object it targeted as the spell was
+    // cast, as it last existed if it has left the battlefield
     @Test
     fun vesuvanMimicry() = card(
         name = "Vesuvan Mimicry",
@@ -338,7 +339,7 @@ class DmuChunk07GrantsAndPermissionsTest {
         text = "Whenever you cast a spell that targets only a single artifact or creature you control, create a token that's a copy of that artifact or creature, except it's not legendary.",
     ) parsesTo abilities(
         triggered(on(EventPattern.Cast(and(spellFilter, ObjectFilter.SingleTarget(and(or(artifact, creature), you))), PlayerFilter.You)),
-            doing(Effect.CreateToken(TokenSpec.CopyOf(Objects.Each(and(or(artifact, creature), ObjectFilter.TargetedBy(Objects.EventObject(EventRole.Object)))),
+            doing(Effect.CreateToken(TokenSpec.CopyOf(Objects.EventObject(EventRole.Targeted),
                 listOf(arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)))), n(1), Players.You))),
     )
 }

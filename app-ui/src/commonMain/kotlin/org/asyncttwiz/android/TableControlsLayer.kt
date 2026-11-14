@@ -19,11 +19,11 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
     connected: Boolean, runtime: TableRuntimeHooks, toolkit: TableToolkitController?, scene: TableScene) {
     val desktop = LocalDesktopGeometry.current
     // WEB-018: the desktop table's action area at the bottom right: the quick actions in a row, Undo and the main button under
-    // them
+    // them, drawn larger (owner, desktop playtest 2026-11-14: the quick action buttons' texts too small)
     if (desktop != null) {
         if (runtime.bottomPanel != null) runtime.bottomPanel.invoke {}
         else if (!runtime.reviewing) Box(Modifier.align(Alignment.BottomEnd).width(DesktopTable.ACTIONS.dp).height(desktop.band.dp)
-            .padding(8.dp).testTag("action-area")) {
+            .testTag("action-area")) { DesktopScaled(DesktopTable.UI_SCALE) { Box(Modifier.fillMaxSize().padding(DesktopTable.ACTIONS_PADDING.dp)) {
             if (toolkit != null) {
                 val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
                 QuickActionStrip(play, toolkitQuickContext(play, accountId)
@@ -43,7 +43,7 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
                         onClick = { undo() })
                 } }
             }
-        }
+        } } }
         FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
             { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
             Modifier.align(Alignment.BottomStart).width(desktop.tableRight.dp).padding(bottom = (desktop.band + DesktopTable.SEAT + 8f).dp))

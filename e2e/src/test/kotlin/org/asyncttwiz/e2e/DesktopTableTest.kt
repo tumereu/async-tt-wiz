@@ -145,7 +145,7 @@ class DesktopTableTest : E2e() {
         repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
         val mountain = alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow
         val cub = alice.handCard("Ember Cub").fetchSemanticsNode().boundsInWindow
-        assertEquals(56f, mountain.width, 1f, "the desktop's hand card at 2×: $mountain")
+        assertEquals(28f * 2.6f, mountain.width, 1f, "the desktop's hand card at 2.6×: $mountain")
         val picture = alice.picture()
         // The band's own colour at the same height, away from the cards
         val band = cyanAt(picture, 20f, mountain.top - mountain.width * .1f)

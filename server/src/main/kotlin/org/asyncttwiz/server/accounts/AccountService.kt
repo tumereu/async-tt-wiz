@@ -9,6 +9,7 @@ import org.asyncttwiz.protocol.SessionCreated
 import org.asyncttwiz.protocol.Avatar
 import org.asyncttwiz.protocol.DeckValidation
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.pods.PodPresetService
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountSession.ACCOUNT_SESSION
 import org.jooq.SQLDialect
@@ -27,10 +28,13 @@ class AccountService(private val runtime: ServiceRuntime, private val passwords:
         val phc = passwords.hash(AccountFields.password(password))
         val id = UUID.randomUUID()
         val inserted = runtime.transaction { connection ->
-            DSL.using(connection, SQLDialect.POSTGRES).insertInto(ACCOUNT)
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            (sql.insertInto(ACCOUNT)
                 .set(ACCOUNT.ID, id).set(ACCOUNT.USERNAME, name.display).set(ACCOUNT.USERNAME_KEY, name.key)
                 .set(ACCOUNT.EMAIL_DELIVERY, address.delivery).set(ACCOUNT.EMAIL_KEY, address.key)
-                .set(ACCOUNT.PASSWORD_PHC, phc).onConflictDoNothing().execute() == 1
+                .set(ACCOUNT.PASSWORD_PHC, phc).onConflictDoNothing().execute() == 1)
+                // DRF-031: every account starts with the Glimpse preset, an ordinary one of its own
+                .also { if (it) PodPresetService.addDefaults(sql, id) }
         }
         return if (inserted) AccountIdentity(id.toString(), name.display) else null
     }

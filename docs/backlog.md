@@ -47,7 +47,6 @@ Table and casting:
 
 Lobby, chat and accounts:
 - Game and pod chat messages show a small timestamp, with a date line between days.
-- The undeletable default Glimpse preset becomes a regular preset every account gets on creation (existing accounts get it as an ordinary copy), freely editable and deletable like other presets.
 - Rotisserie draft: separate settings for the pool size per player and the picks per player.
 - Avatar selection, phone and desktop: the choices get context (show names); the search results area that becomes scrollable looks it (borders/edges); the desktop layout uses its much larger space.
 

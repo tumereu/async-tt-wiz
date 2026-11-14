@@ -1,0 +1,1 @@
+mod: Glimpse is now an ordinary preset of your own: change it, rename it or delete it like any other.

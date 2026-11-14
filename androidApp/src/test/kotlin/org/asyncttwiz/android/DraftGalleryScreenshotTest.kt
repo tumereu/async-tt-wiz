@@ -166,6 +166,7 @@ class DraftGalleryScreenshotTest {
         val detail = detail(PodPhase.SETUP, DraftSettings.booster(), listOf(PodMember(alice), PodMember(bob)))
         pods.presets.seed(PodPresetState(open = true, loaded = true, presets = listOf(
             PodPreset("1", "Friday cube", DraftSettings.booster(), cubeId = "runes", cubeName = "Runes", updatedAt = "2026-11-01T00:00:00Z"),
+            PodPreset("0", "Glimpse", DraftSettings.glimpse(), updatedAt = "2026-11-01T00:00:00Z"),
             PodPreset("2", "Rotisserie with friends", DraftSettings.rotisserie(), cubeId = "runes", cubeName = "Runes",
                 updatedAt = "2026-11-01T00:00:00Z"),
             PodPreset("3", "Sealed league", DraftSettings.sealed(), setCode = "EMR", setName = "Ember Reaches",
@@ -174,8 +175,8 @@ class DraftGalleryScreenshotTest {
                 updatedAt = "2026-11-01T00:00:00Z"))))
         show(opened(detail))
         compose.onNodeWithText("Glimpse").assertIsDisplayed()
-        shot("presets", "Tapping Presets in the creator's pod setup opens the dialog: the built-in Glimpse preset " +
-            "first, then Alice's saved presets (Booster, Rotisserie, Sealed from a set, a grid whose cube is missing) with search.")
+        shot("presets", "Tapping Presets in the creator's pod setup opens the dialog: Alice's presets by name, Glimpse among them " +
+            "as an ordinary one with its rename and delete buttons (Booster, Glimpse, Rotisserie, Sealed from a set, a grid whose cube is missing).")
     }
 
     private val boosterMembers = listOf(PodMember(alice, packsWaiting = 2), PodMember(bob, packsWaiting = 1), PodMember(carol))
@@ -218,7 +219,7 @@ class DraftGalleryScreenshotTest {
         }
         settle()
         compose.onNodeWithText("Round 1/9 · Pick 2 · from Bob").assertIsDisplayed()
-        shot("glimpse-pick", "A Glimpse draft (Booster's built-in preset: 9 packs, keep 1, burn 2) on Alice's pick: Stormtide " +
+        shot("glimpse-pick", "A Glimpse draft (Booster as the Glimpse preset sets it: 9 packs, keep 1, burn 2) on Alice's pick: Stormtide " +
             "Pact marked keep and two cards marked burn with red borders and 🔥, the keep and burn trays side by side above Confirm.")
     }
 

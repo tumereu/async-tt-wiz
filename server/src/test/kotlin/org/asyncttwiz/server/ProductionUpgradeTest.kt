@@ -313,8 +313,9 @@ class ProductionUpgradeTest {
             for ((table, rows) in tables)
                 if (table in droppedWithRows) continue
                 else if (table in dropped) assertTrue(rows.all { wiped(table, it.jsonObject) }, "$table held only wiped rows")
-                else assertEquals(rows.count { !wiped(table, it.jsonObject) }, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(),
-                    "$table rows after upgrade")
+                // DRF-031: V88 adds a Glimpse preset to every account (none of the fixture's has one of that name)
+                else assertEquals(rows.count { !wiped(table, it.jsonObject) } + (if (table == "pod_preset") tables.getValue("account").size else 0),
+                    query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(), "$table rows after upgrade")
 
             val config = EphemeralPorts.settings(db.settings)
             lateinit var settings: ServiceSettings
@@ -348,7 +349,8 @@ class ProductionUpgradeTest {
                 assertEquals(e<List<String>>("decks"), json.decodeFromString<DeckList>(get("/v1/decks", ann)).decks.map { it.name }.sorted())
                 assertEquals(e<List<String>>("draftDecks"), json.decodeFromString<DeckList>(get("/v1/decks?drafts=true", ann)).decks.map { it.name }.sorted())
                 assertEquals(e<List<String>>("cubes"), json.decodeFromString<CubeList>(get("/v1/cubes", ann)).cubes.map { it.name })
-                assertEquals(e<Map<String, Int>>("presets"), json.decodeFromString<PodPresetList>(get("/v1/pod-presets", ann)).presets.associate { it.name to it.settings.cardsPerPack })
+                // DRF-031: V88 gives every account the Glimpse preset (9×15) beside its own
+                assertEquals(e<Map<String, Int>>("presets") + ("Glimpse" to 15), json.decodeFromString<PodPresetList>(get("/v1/pod-presets", ann)).presets.associate { it.name to it.settings.cardsPerPack })
                 get("/activity", ann); get("/activity", ben)
             }
 

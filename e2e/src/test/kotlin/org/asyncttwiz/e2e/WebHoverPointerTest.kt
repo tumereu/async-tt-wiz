@@ -23,6 +23,9 @@ class WebHoverPointerTest : E2e() {
                 assertTrue(web.shows("#phase-track"), "Alice's table in the desktop layout")
                 assertEquals("pointer", web.cursorOver(web.control("Keep")), "over Keep")
                 assertEquals("pointer", web.cursorOver("#dock-button"), "over the dock button")
+                // Resting on it opens its tooltip, a layer the page's mirror shows alone while it is open (WEB-059): the mouse
+                // moves off it, over the empty battlefield, so the tooltip closes and the table is mirrored again
+                web.cursorAt(560.0, 300.0)
                 assertEquals("pointer", web.cursorOver("div[role=button][aria-label^='Mountain, owner ']"), "over her hand's Mountain")
                 assertEquals("text", web.cursorOver("div[role=textbox][aria-label='Chat message draft']"), "over the chat's field")
                 assertNotEquals("pointer", web.cursorOver("div[aria-label*=' Battlefield, 0 cards']"),

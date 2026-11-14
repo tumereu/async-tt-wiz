@@ -258,3 +258,6 @@ number	item	screenshot	catalog	decisions	sequence
 257	Web: the Games list's hint to turn notifications on	web/games-hint.png	WEB-053		Browser notifications
 258	Desktop table at its default sizes in a 1920 × 1080 window, Mountain and Ember Cub out	desktop/table-1920.png	WEB-015 WEB-016 WEB-020 WEB-022		Desktop sizes
 259	Desktop table with battlefield cards twice the default (Card size 2×): the land rows open out of view at 1440 × 900	desktop/table-battlefield-4x.png	WEB-022 TBL-034 TBL-121		Desktop sizes
+260	Desktop: the Keep / Bottom overlay drawn as large as fits at 1440 × 900, its Bottom area and eye whole	desktop/keep-bottom-overlay.png	WEB-019 STK-043		Desktop panels fit
+261	Desktop: the Keep / Bottom overlay in a 1280 × 720 window, smaller to fit	desktop/keep-bottom-overlay-1280.png	WEB-019 STK-043		Desktop panels fit
+262	Desktop: a cast panel with modes in a 1280 × 720 window	desktop/prompt-overlay-1280.png	WEB-019 STK-023		Desktop panels fit

@@ -169,7 +169,7 @@ private const val OVERLAY_DIM = .45f
 fun DesktopPrompt(geometry: DesktopGeometry, place: PromptPlace, content: @Composable () -> Unit) {
     val docked = dockedPanelReporter()
     if (place == PromptPlace.Board) {
-        Layout(content = { DesktopScaled(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        Layout(content = { DesktopFittedScale(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
             val bottom = geometry.seatTop.dp.roundToPx().coerceIn(0, constraints.maxHeight)
             val tableRight = geometry.tableRight.dp.roundToPx().coerceAtMost(constraints.maxWidth)
             val width = minOf(DesktopTable.PROMPT_WIDTH.dp.roundToPx(), tableRight - 16.dp.roundToPx()).coerceAtLeast(0)
@@ -191,7 +191,7 @@ fun DesktopPrompt(geometry: DesktopGeometry, place: PromptPlace, content: @Compo
             awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
         } else Modifier))
     CompositionLocalProvider(LocalPromptDim provides dim) {
-        Layout(content = { DesktopScaled(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        Layout(content = { DesktopFittedScale(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
             val tableRight = geometry.tableRight.dp.roundToPx().coerceAtMost(constraints.maxWidth)
             val room = geometry.seatTop.dp.roundToPx().coerceIn(0, constraints.maxHeight)
             val width = minOf(DesktopTable.OVERLAY_WIDTH.dp.roundToPx(), tableRight - 32.dp.roundToPx()).coerceAtLeast(0)
@@ -268,15 +268,60 @@ fun DesktopScaled(scale: Float, content: @Composable () -> Unit) {
     Layout(content = {
         Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f) }) { content() }
     }) { measurables, constraints ->
-        fun shrink(value: Int) = if (value == Constraints.Infinity) value else (value / scale).toInt()
-        val inner = Constraints(shrink(constraints.minWidth), shrink(constraints.maxWidth), shrink(constraints.minHeight),
-            shrink(constraints.maxHeight))
-        val placeable = measurables.firstOrNull()?.measure(inner)
-        val width = ((placeable?.width ?: 0) * scale).roundToInt().coerceIn(constraints.minWidth, constraints.maxWidth)
-        val height = ((placeable?.height ?: 0) * scale).roundToInt().coerceIn(constraints.minHeight, constraints.maxHeight)
-        layout(width, height) { placeable?.place(0, 0) }
+        val placeable = measurables.firstOrNull()?.measure(constraints.divided(scale))
+        layout(placeable.scaledWidth(scale, constraints), placeable.scaledHeight(scale, constraints)) { placeable?.place(0, 0) }
     }
 }
+
+/**
+ * WEB-019 (coordinator, 2026-11-14: a desktop panel always fits the room it gets): [content] (a panel, strip or overlay)
+ * drawn as [DesktopScaled] does at up to [scale], but only as large as fits the height it is given: when it fills that height
+ * at the size it is drawn (its content would scroll), it is drawn a step smaller on the next frame, down to 1×, where its
+ * content scrolls as the phone's does. It grows back only when the room it is given changes, so it never swings between two
+ * sizes.
+ */
+@Composable
+fun DesktopFittedScale(scale: Float, content: @Composable () -> Unit) {
+    // The size it is drawn at, and the room it was found for
+    val shown = remember { mutableFloatStateOf(scale) }
+    val room = remember { mutableStateOf(Constraints()) }
+    Layout(content = {
+        Box(Modifier.graphicsLayer { val k = shown.floatValue; scaleX = k; scaleY = k; transformOrigin = TransformOrigin(0f, 0f) }) {
+            content()
+        }
+    }) { measurables, constraints ->
+        if (room.value != constraints) {
+            if (room.value != Constraints()) {
+                AppLog.info("panel", "Desktop panel: room ${constraints.maxWidth}×${constraints.maxHeight} px, trying ${scale}× again")
+                shown.floatValue = scale
+            }
+            room.value = constraints
+        }
+        val k = shown.floatValue.coerceIn(1f, scale)
+        val inner = constraints.divided(k)
+        val placeable = measurables.firstOrNull()?.measure(inner)
+        // Filling the height it was given: its content would scroll there; a step smaller next frame, down to 1×
+        if (placeable != null && inner.hasBoundedHeight && placeable.height >= inner.maxHeight && k > 1f) {
+            val next = maxOf(1f, k - FIT_STEP)
+            AppLog.info("panel", "Desktop panel: ${placeable.height} px fills its ${inner.maxHeight} at ${k}×, drawn at ${next}×")
+            shown.floatValue = next
+        }
+        layout(placeable.scaledWidth(k, constraints), placeable.scaledHeight(k, constraints)) { placeable?.place(0, 0) }
+    }
+}
+
+/** How much smaller a desktop panel is drawn each frame until it fits ([DesktopFittedScale]). */
+private const val FIT_STEP = .05f
+
+/** These constraints divided by [scale]: the room of content [scale] times magnified. */
+private fun Constraints.divided(scale: Float): Constraints {
+    fun shrink(value: Int) = if (value == Constraints.Infinity) value else (value / scale).toInt()
+    return Constraints(shrink(minWidth), shrink(maxWidth), shrink(minHeight), shrink(maxHeight))
+}
+private fun androidx.compose.ui.layout.Placeable?.scaledWidth(scale: Float, constraints: Constraints) =
+    ((this?.width ?: 0) * scale).roundToInt().coerceIn(constraints.minWidth, constraints.maxWidth)
+private fun androidx.compose.ui.layout.Placeable?.scaledHeight(scale: Float, constraints: Constraints) =
+    ((this?.height ?: 0) * scale).roundToInt().coerceIn(constraints.minHeight, constraints.maxHeight)
 
 /** The dock button's icon: a window with its right panel. */
 @Composable

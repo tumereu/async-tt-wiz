@@ -1,0 +1,1 @@
+mod: On a computer's large screen, the chat button and the chat key open the chat in the right-hand panel, ready to type, instead of a second chat over the table.

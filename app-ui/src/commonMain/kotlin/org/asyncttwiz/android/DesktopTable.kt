@@ -82,8 +82,6 @@ object DesktopTable {
     /** The seat header's avatar's side and the name's size (sp). */
     const val AVATAR = 36f
     const val NAME_TEXT = 17f
-    /** The narrowest the other player's hand gets in their seat header before their chips' room gives way. */
-    const val MIN_OPPONENT_HAND = 64f
     /** The bottom band's least height: the action area's quick actions over Undo and the main button, drawn [UI_SCALE]
      * larger, with its padding. */
     val MIN_BAND = (DESKTOP_ACTIONS_HEIGHT + 2 * ACTIONS_PADDING) * UI_SCALE
@@ -116,14 +114,15 @@ object DesktopTable {
     fun band(appearance: CardAppearance, timeline: Boolean): Float = band(40f * appearance.size(CardArea.HAND), timeline)
 
     /**
-     * The right end of a seat header's life square, [places] piles and round chips ([emblems]: the player has chips; [wanted]:
-     * the room their chips would like) on a table [tableWidth] wide. The other player's always keeps the chips' room, so their
-     * hand after it doesn't move; yours has it only with chips (your hand is in the bottom band).
+     * The right end of a seat header's life square, [places] piles, the other player's hand's fan ([fan] wide, ZON-001; 0 for
+     * yours) and round chips ([emblems]: the player has chips; [wanted]: the room their chips would like) on a table
+     * [tableWidth] wide. The other player's always keeps the chips' room; yours has it only with chips (your hand is in the
+     * bottom band).
      */
-    fun rowRight(tableWidth: Float, own: Boolean, places: Int, emblems: Boolean, wanted: Float): Float {
-        val piles = pilesRight(NAME, places)
+    fun rowRight(tableWidth: Float, own: Boolean, places: Int, emblems: Boolean, wanted: Float, fan: Float = 0f): Float {
+        val piles = pilesRight(NAME, places) + if (fan > 0f) TablePresentation.FAN_GAP + fan else 0f
         if (own && !emblems) return piles
-        val fit = (tableWidth - 10f - (if (own) 0f else MIN_OPPONENT_HAND + 10f) - piles - 4f)
+        val fit = tableWidth - 10f - piles - 4f
         return piles + 4f + maxOf(TablePresentation.Landscape.EMBLEMS, wanted).coerceAtMost(fit).coerceAtLeast(TablePresentation.Landscape.MIN_EMBLEMS)
     }
 }

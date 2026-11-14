@@ -87,7 +87,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var refreshPending = false
     /** The pending refresh was asked for by the player (Retry), so its failure is reported at once. */
     private var refreshRequested = false
-    private val quietFailures = QuietRefreshFailures(clock)
+    private val quietFailures = QuietRefreshFailures(clock, tag = "pods")
     /** Why the pending refresh is [watch]'s re-read, if it is: its result is logged when it changes something. */
     private var watchReason: String? = null
     /** [watch]'s re-reads since one was last logged, and why they last failed (logged once per stretch of failures). */

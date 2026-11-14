@@ -143,7 +143,7 @@ internal object CacheApiArtworkStore : ArtworkStore {
 /** The browser's fetch, as Android's HttpArtworkTransport: no credentials; a Retry-After (429) on [clock]'s time. */
 internal class BrowserArtworkTransport(private val clock: () -> Long) : AsyncArtworkTransport {
     override suspend fun get(url: String, maximum: Long): ArtworkResponse {
-        val response = fetchBytes(url, maximum.toDouble(), "application/json, image/png, image/jpeg, image/webp").await<JsAny>()
+        val response = fetchBytes(url, maximum.toDouble(), "application/json, image/png, image/jpeg, image/webp").awaitRequest<JsAny>()
         val status = responseStatus(response)
         val retry = if (status == 429) responseRetryAfter(response).trim().toLongOrNull()?.takeIf { it >= 0 }
             ?.let { clock() + it * 1000 } ?: (clock() + 60_000) else 0

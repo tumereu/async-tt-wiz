@@ -48,4 +48,21 @@ class ServiceRetryTest {
         failures.succeeded()
         now += 5_000; assertFalse(failures.failed())
     }
+
+    // SYS-020: a stretch of quiet failures is in the app log once as it starts, once as the note shows and once as it
+    // ends, not once per poll
+    @Test fun quietFailuresAreLoggedAtEachChangeOnly() {
+        var now = 1_000L
+        val failures = QuietRefreshFailures({ now }, tag = "quiet-test")
+        fun lines() = AppLog.text().lines().filter { "quiet-test:" in it }
+        val before = lines().size
+        failures.failed(); now += 10_000; failures.failed(); now += 10_000; failures.failed()
+        assertEquals(1, lines().size - before, lines().joinToString("\n"))
+        now += 10_000; failures.failed(); now += 10_000; failures.failed()
+        assertEquals(2, lines().size - before, lines().joinToString("\n"))
+        assertTrue("note shown" in lines().last(), lines().last())
+        failures.succeeded(); failures.succeeded()
+        assertEquals(3, lines().size - before, lines().joinToString("\n"))
+        assertTrue("5 quiet failures" in lines().last(), lines().last())
+    }
 }

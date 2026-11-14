@@ -18,7 +18,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.
 
-- Web: a failed server request in the draft pods code is reported as a crash (found 2026-11-14 in WebOptimizedCodeTest: a connection reset right after sign-in gave "Uncaught exception in pods: Fail to fetch"). On the web a failed fetch arrives as a kotlin.Error, which `PodController` (catching only Exception) lets through; find every such catch on the web paths and handle request failures as the quiet background refresh rule says (failures silent for 30 s, then a calm note), with an e2e test that drops a request and fails before the fix.
 - Problem report VXSGKH: undoing never needs the other player's approval because of their passes, whether automatic or tapped (owner: "undoing a pass should never need consent"): passes after the point no longer make Undo a request; a real input of theirs or something new shown to you still does (HIS-087, HIS-084, HIS-099). E2e test first, plus logging of why each Undo is free or a request.
 - Web: the page's hidden accessibility structure (the semantics mirror screen readers and the e2e tests read) keeps showing a dialog or menu after it closes, until a reload (found 2026-11-14 by the frame-rate worker). Reproduce with an e2e test, fix.
 - The Stack in the desktop dock is almost hidden while the chat under it is open (WEB-017): the Stack keeps the room its entries need, the chat gets the rest.

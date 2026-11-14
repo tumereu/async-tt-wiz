@@ -3395,7 +3395,18 @@ internal class Sentences(
                 val create = effect as? Effect.CreateToken ?: return null
                 listOf(Step.Do(create.copy(count = Value.Fixed(Numbers.count(t.groupValues[1]) ?: return null))))
             }
+            val before = context.targets.size
             val then = more ?: effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            // dmu chunk 08: "Exile target artifact or enchantment. If this spell was kicked, exile target nonland permanent instead.": a target
+            // only the kicked version names is chosen only when kicked, and the earlier sentence's only when not (CR 601.2c, 702.33d)
+            val targetsFrom = context.previous?.first
+            if (condition is arcanum.api.Condition.Paid && targetsFrom != null && before < context.targets.size) {
+                val notInThen = arcanum.api.DefinitionChecks.unusedTargetSlots(Ability.Spell(Instructions(targets = context.targets.subList(targetsFrom, before).toList(),
+                    steps = then))).toSet()
+                for (i in targetsFrom until before) if (context.targets[i].name in notInThen)
+                    context.targets[i] = context.targets[i].copy(onlyIf = arcanum.api.Condition.Not(condition))
+                for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = condition)
+            }
             return steps.dropLast(1) + Step.If(condition, then = then, otherwise = listOf(last))
         }
         return null
@@ -3452,6 +3463,15 @@ internal class Sentences(
                 val earlier = targets.lastOrNull { (it.what as? TargetKind.Objects)?.filter == rest }
                 if (earlier != null) {
                     targets += TargetSlot(name, TargetKind.Objects(rest), min = Value.Fixed(1), max = Value.Fixed(1), distinctFrom = listOf(earlier.name))
+                    return Objects.Target(name)
+                }
+                // dmu chunk 08: "return target creature card ... return another target permanent card from your graveyard": another card in
+                // the same zone than the earlier target, though its filter differs (CR 115.3)
+                val zone = rest.let { f -> (f as? ObjectFilter.And)?.all?.firstOrNull { it is ObjectFilter.InZone } }
+                val sameZone = if (zone == null) null else targets.lastOrNull { t -> (t.what as? TargetKind.Objects)?.filter.let { f ->
+                    (f as? ObjectFilter.And)?.all?.contains(zone) == true } }
+                if (sameZone != null) {
+                    targets += TargetSlot(name, TargetKind.Objects(rest), min = Value.Fixed(1), max = Value.Fixed(1), distinctFrom = listOf(sameZone.name))
                     return Objects.Target(name)
                 }
             }

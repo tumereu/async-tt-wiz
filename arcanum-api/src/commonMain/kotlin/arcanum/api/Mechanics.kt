@@ -305,6 +305,10 @@ sealed interface Mechanic {
         val costChange: arcanum.api.CostChange? = null,
         /** A land played with this permission enters tapped ("Each land played this way enters tapped", CR 614.1c). */
         val landsEnterTapped: Boolean = false,
+        // mh3
+        /** Only colorless mana may be spent as though it were mana of any colour for them ("you may spend colorless mana as
+         * though it were mana of any color to cast that spell", CR 609.4b); [manaAsAnyColor] is all mana. */
+        val colorlessAsAnyColor: Boolean = false,
         // mom chunk 11
         /** At most this many spells cast with this permission in all, over the whole duration of the effect that grants it
          * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a). */
@@ -327,6 +331,10 @@ sealed interface Mechanic {
         val duringYour: TurnStep? = null,
         // eoe
         val from: Zone? = null,
+        // mh3
+        /** A spell cast by paying it may be cast as though it had flash ("If you cast a spell this way, you may cast it as though it
+         * had flash", CR 601.3c). */
+        val flash: Boolean = false,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */
@@ -463,6 +471,10 @@ sealed interface Mechanic {
 
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
+    // mh3
+    /** The affected player can't lose life (CR 119.8): damage dealt to them doesn't reduce their life total, and they can't pay more than 0
+     * life (CR 119.4b). With [CantGainLife]: "your life total can't change". */
+    @Serializable @SerialName("cant-lose-life") data object CantLoseLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
     // one chunk 07
     /** The affected players can't get counters of [kind] ("you can't get additional poison counters this turn", CR 122.1, 101.2): putting
@@ -515,6 +527,16 @@ sealed interface Mechanic {
     @Serializable @SerialName("abilities-ignore-summoning-sickness") data object AbilitiesIgnoreSummoningSickness : Mechanic
     /** The affected permanents untap during each other player's untap step too (CR 502.3). */
     @Serializable @SerialName("untaps-during-other-untap-steps") data object UntapsDuringOtherUntapSteps : Mechanic
+    // mh3 fixes
+    /** The affected players may pay 2 life rather than pay each {[color]} mana symbol in a cost ("For each {B} in a cost, you may pay 2
+     * life rather than pay that mana"): only the plain coloured symbol, not a hybrid one (CR 107.4e, 601.2h); unlike Phyrexian mana it
+     * changes no cost (CR 107.4f). */
+    @Serializable @SerialName("pay-life-for-mana") data class PayLifeForMana(val color: Color) : Mechanic
+    /** The affected players can't untap more than [max] permanents matching [filter] during their untap steps ("Players can't untap more
+     * than one nonbasic land during their untap steps"): the active player chooses which of those untap (CR 502.3). */
+    @Serializable @SerialName("untap-limit") data class UntapLimit(val max: Int, val filter: ObjectFilter) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** The affected players don't lose the game for having 0 or less life (CR 704.5a doesn't apply to them). */
     @Serializable @SerialName("no-loss-for-zero-life") data object NoLossForZeroLife : Mechanic
     /** The affected players' maximum hand size is [value] (CR 402.2), instead of seven. */
@@ -524,6 +546,11 @@ sealed interface Mechanic {
     /** "If this card is in your opening hand, you may begin the game with it on the battlefield" (CR 103.6a): an
      * opening-hand action, taken after mulligans; works in the hand. */
     @Serializable @SerialName("may-begin-on-battlefield") data object MayBeginOnBattlefield : Mechanic
+    // mh3 fixes
+    /** "You may reveal this card from your opening hand. If you do, [instructions]" (CR 103.6b): an opening-hand action, taken after
+     * mulligans; its owner reveals the card and [instructions] happen (usually a delayed trigger "at the beginning of your first upkeep",
+     * CR 603.7); works in the hand. */
+    @Serializable @SerialName("opening-hand-reveal") data class OpeningHandReveal(val instructions: Instructions) : Mechanic
     /** "Any time you could mulligan and this card is in your hand, you may [instructions]" (CR 103.5b): an action its owner may
      * take where they would declare whether they take a mulligan, then they declare; works in the hand. */
     @Serializable @SerialName("when-you-could-mulligan") data class WhenYouCouldMulligan(val instructions: Instructions) : Mechanic
@@ -720,6 +747,10 @@ sealed interface Modification {
         // lci
         /** "enter tapped as a copy of": tapped only if it enters as a copy (CR 614.1c, 707.9). */
         val tapped: Boolean = false,
+        // mh3
+        /** How long the copy effect lasts ("As this artifact enters, you may have it become a copy of any creature on the battlefield until end
+         * of turn", CR 611.2a); null: for as long as it stays (CR 707.4). */
+        val duration: Duration? = null,
     ) : Modification
     /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times
      * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three

@@ -31,6 +31,8 @@ internal data class TotalCost(
     val waterbends: Boolean = false,
     /** isd: whether a part is based on the mana cost of an object with no mana cost: an unpayable cost (CR 118.6). */
     val unpayable: Boolean = false,
+    /** mh3 fixes: a part had an {X} before X got its value: "costs that contain {X}" (CR 106.6, 107.3a). */
+    val hasX: Boolean = false,
 ) {
     val manaValue: Int get() = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 1 }
     val hasMana: Boolean get() = mana.symbols.any { !(it is ManaSymbol.Generic && it.amount == 0) }
@@ -65,6 +67,11 @@ internal object Costs {
         var waterbend = 0
         var waterbends = false
         var at: arcanum.engine.decision.CostPartAt? = null
+        var hasX = false
+        fun withX(cost: ManaCost, x: Map<Char, Int>): ManaCost {
+            if (cost.symbols.any { it is ManaSymbol.Variable && it.name == 'X' }) hasX = true
+            return Costs.withX(cost, x)
+        }
         fun add(key: String, part: CostPart) {
             when (part) {
                 // tla: CR 701.67a: its mana is part of the total; its generic mana may be paid by tapping (701.67b)
@@ -110,7 +117,7 @@ internal object Costs {
         var mana = normalize(symbols)
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }
         val generic = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
-        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable)
+        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable, hasX = hasX)
     }
 
     /** A keyword action as a cost, as the cost part it is: collecting evidence N is exiling any number of cards from
@@ -209,6 +216,8 @@ internal object Costs {
         val options: List<ObjectId>, val min: Int, val max: Int?, val text: String, val total: arcanum.api.Total?,
         // rtr chunk 07: the chosen objects must all share this quality ("two nonland cards with the same name")
         val shared: arcanum.api.SharedQuality? = null,
+        // mh3 fixes: the chosen objects have at least this many different values of a quality ("four or more card types among them")
+        val distinct: arcanum.api.Distinct? = null,
     )
 
     fun objectChoice(snap: Snapshot, player: PlayerId, self: ObjectId?, part: CostPart, eval: Evaluator): ObjectChoice? {
@@ -263,9 +272,9 @@ internal object Costs {
         val text = describe(part)
         // rtr chunk 07: only objects with enough others sharing the quality can be among the chosen
         val sharing = choose.shared?.let { q -> options.filter { a -> options.count { b -> b != a && eval.shares(q, a, b) } >= (count ?: 1) - 1 } } ?: options
-        return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared)
+        return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared, choose.distinct)
             // lci: "one or more", "four or more" (craft, CR 702.167a)
-            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: choose.atLeast ?: 0, count, text, null, choose.shared)
+            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: choose.atLeast ?: 0, count, text, null, choose.shared, choose.distinct)
     }
 
     /** lci chunk 09: some of [options], at least [min] of them, whose [value]s add up to exactly [target] ("with total mana value X");

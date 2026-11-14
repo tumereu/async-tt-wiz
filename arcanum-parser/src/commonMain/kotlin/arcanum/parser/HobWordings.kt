@@ -102,7 +102,8 @@ internal object Hob {
     // hob chunk 09: white and blue
     val EAGLES_ARE_COMING = Regex("""Choose target (.+?) you own\. If this spell was kicked, instead choose any number of target (.+?) you own\. Return each chosen creature to your hand\. At the beginning of the next upkeep, create (.+?) for each creature returned to your hand this way\.""")
     // mkm chunk 01: also "… Forest cards and reveal them. Put one of them onto the battlefield tapped and the other into your hand, then shuffle."
-    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards(?:, reveal them, put one| and reveal them\. Put one of them) onto the battlefield tapped and the other into your hand, then shuffle\.""")
+    // mh3: "reveal those cards"
+    val SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND = Regex("""Search your library for up to (\w+) (.+?) cards(?:, reveal (?:them|those cards), put one| and reveal them\. Put one of them) onto the battlefield tapped and the other into your hand, then shuffle\.""")
     val EXILE_ALL_ATTACKING_TARGET_PLAYER = Regex("""Exile all attacking creatures target player controls\. That player may search their library for that many (.+?) cards, put those cards onto the battlefield tapped, then shuffle\.""")
     val BECOMES_TYPE_AND_GAINS = Regex("""Until end of turn, target (.+?) becomes an? (artifact|enchantment) in addition to its other types and gains (.+)\.""")
     val PLAYERS_CANT_CAST_THIS_TURN = Regex("""[Pp]layers can't cast spells this turn\.""")
@@ -129,7 +130,7 @@ internal object Hob {
     val SUPPER = Regex("""Put onto the battlefield under your control all (.+?) in your opponents' graveyards that were put there from the battlefield this turn\. They are (\w+) artifacts with "(.+)"""")
     val GETS_AND_DEALS = Regex("""(.+?) gets \+(\d+)/\+(\d+) until end of turn and deals (\d+) damage to each opponent\.""")
     val DEALS_DIVIDED_AMONG = Regex("""(?:He|She|It|(.+?)) deals (\d+) damage divided as you choose among one, two, or three targets\.""")
-    val DEALS_DAMAGE_EQUAL_NUMBER_ANY = Regex("""(?:He|She|It|(.+?)) deals damage equal to (the number of .+?) to any target\.""")
+    val DEALS_DAMAGE_EQUAL_NUMBER_ANY = Regex("""(?:He|She|It|(.+?)) deals damage equal to (the number of .+?|the sacrificed \w+'s (?:power|toughness|mana value)) to any target\.""")
     val REVEAL_TOP_RANDOM_ONTO = Regex("""Reveal the top (\w+) cards of your library\. Put a random (.+?) card from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\.""")
     val QUEST_COUNTER_SACRIFICE_SEARCH = Regex("""Put an? (\w+) counter on (.+?)\. If it has (\w+) or more \w+ counters on it, sacrifice it\. If you do, search your hand and/or library for an? (.+?) card and put it onto the battlefield\. If you search your library this way, shuffle\.""")
     val CREATE_NAMED_ARTIFACT_CREATURE_TOKEN = Regex("""[Cc]reate an? (\d+)/(\d+) colorless ([A-Z][a-z]+) artifact creature token with ([a-z]+) named ([A-Z][A-Za-z ]+)\.""")

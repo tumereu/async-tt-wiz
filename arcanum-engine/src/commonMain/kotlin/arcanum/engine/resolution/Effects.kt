@@ -166,8 +166,22 @@ internal object Effects {
             is Effect.RemoveCounters -> {
                 var removed = 0
                 scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
-                    // CR 608.2d: of no named kind, the effect's controller chooses which counters
+                    // CR 608.2d: of no named kind, the effect's controller chooses which counters (mh3 chunk 11, mom)
                     removed += Actions.removeChosenCounters(act, scope.you, scope.self, id, effect.kind, scope.value(effect.amount))
+                }
+                // mh3 chunk 12: a player's counters ("… from another target permanent or opponent"), of a kind the effect's controller chooses
+                // when they have several (CR 122.1, 608.2d)
+                effect.players?.let { scope.players(it) }.orEmpty().distinct().forEach { p ->
+                    repeat(scope.value(effect.amount)) {
+                        val have = act.state.player(p).counters.filter { it.count > 0 && (effect.kind == null || it.kind == effect.kind) }.map { it.kind }
+                        if (have.isEmpty()) return@forEach
+                        val kind = if (have.size == 1) have.single() else {
+                            val labels = have.map { counterLabel(it) }
+                            have[labels.indexOf(act.chooseOption(cause?.controller ?: act.state.turn.active, null, labels,
+                                text = "Choose the kind of counter to remove")).coerceAtLeast(0)]
+                        }
+                        removed += Actions.removeCounters(act, TargetRef.Player(p), kind, 1)
+                    }
                 }
                 // gtc: "Draw that many cards": the number actually removed
                 effect.bind?.let { scope.bind(it, NamedValue.Number(removed)) }
@@ -209,9 +223,15 @@ internal object Effects {
                     else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
             // CR 116.2b, j: every way a permanent or a conspiracy in the command zone is turned face up, special actions included (CR 702.37e, 702.106c)
-            is Effect.TurnFaceUp -> scope.objects(effect.objects).distinct().filter { act.state.obj(it)?.zone.let { z -> z == Zone.Battlefield || z == Zone.Command } }.forEach { id ->
+            is Effect.TurnFaceUp -> scope.objects(effect.objects).distinct().filter { act.state.obj(it)?.zone.let { z -> z == Zone.Battlefield || z == Zone.Command || z == Zone.Exile } }.forEach { id ->
                 val o = act.state.objOrThrow(id)
                 if (!o.faceDown) return@forEach
+                // mh3 chunk 12: "Turn the exiled card face up." a card exiled face down: everyone sees it (CR 406.3, 708.8)
+                if (o.zone == Zone.Exile) {
+                    act.show(o.owner, listOf(id), public = true)
+                    act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
+                    return@forEach
+                }
                 if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
                 // CR 708.8: turned face up, everyone sees it
                 act.show(o.controller ?: o.owner, listOf(id), public = true)
@@ -337,6 +357,18 @@ internal object Effects {
                                 moved += removed
                             }
                         }
+                    } else if (effect.kind == null && effect.inAll) {
+                        // mh3 chunk 11: "Move a counter from …": that many in all, each of a kind its controller chooses (CR 608.2d)
+                        repeat(scope.value(effect.amount)) {
+                            val have = act.state.objOrThrow(from).counters.filter { it.count > 0 && it.kind !in except }.map { it.kind }
+                            if (have.isEmpty()) return@repeat
+                            val labels = have.map { counterLabel(it) }
+                            val chosen = act.chooseOption(cause?.controller ?: act.state.turn.active, from, labels, text = "Choose the kind of counter to move")
+                            val k = have[labels.indexOf(chosen).coerceAtLeast(0)]
+                            val removed = Actions.removeCounters(act, TargetRef.Object(from), k, 1)
+                            Actions.putCounters(act, cause, TargetRef.Object(to), k, removed)
+                            moved += removed
+                        }
                     } else kinds.forEach { k ->
                         val n = Actions.removeCounters(act, TargetRef.Object(from), k, scope.value(effect.amount))
                         Actions.putCounters(act, cause, TargetRef.Object(to), k, n)
@@ -382,6 +414,8 @@ internal object Effects {
                         Duration.UntilStep(arcanum.api.TurnStep.PostcombatMain, arcanum.api.PlayerFilter.Any), null)
                 }
             }
+            // mh3: CR 500.8: an additional phase (a beginning phase: from its untap step) directly after this phase, before phases added earlier
+            is Effect.AdditionalPhase -> act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = listOf(effect.firstStep) + act.state.turn.extraPhases)))
             // fin: CR 500.9: an additional step right after this one, before those added earlier
             is Effect.AdditionalStep -> if (effect.afterPhase) {
                 // otj: CR 500.10: each one a phase of its own after this phase, holding only that step (Steps.afterPhase)
@@ -411,6 +445,9 @@ internal object Effects {
                 val b = scope.players(effect.second).firstOrNull() ?: return
                 val la = act.state.player(a).life
                 val lb = act.state.player(b).life
+                // mh3 sweep: a player who can't gain (or lose) life can't make an exchange that would raise (or lower) their life total: it
+                // doesn't happen for either player (CR 119.7, 119.8)
+                if (!canExchangeLife(act, a, lb - la) || !canExchangeLife(act, b, la - lb)) return
                 setLife(scope, a, lb)
                 setLife(scope, b, la)
             }
@@ -420,6 +457,7 @@ internal object Effects {
                 val id = onBattlefield(scope, effect.creature).firstOrNull() ?: return
                 val life = act.state.player(p).life
                 val stat = scope.value(Value.Of(effect.property, effect.creature, arcanum.api.Combine.Single))
+                if (!canExchangeLife(act, p, stat - life)) return // mh3 sweep: CR 119.7, 119.8
                 setLife(scope, p, stat)
                 val set = if (effect.property == arcanum.api.NumericProperty.Power) Mechanic.SetPowerToughness(Value.Fixed(life), null)
                     else Mechanic.SetPowerToughness(null, Value.Fixed(life))
@@ -573,8 +611,9 @@ internal object Effects {
         return won
     }
 
-    /** one: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil"); written out, as the options must match on every device (RuntimeNamesTest). */
-    private fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
+    /** one: a counter kind as a player reads it among options ("+1/+1", "loyalty", "oil", "flying"); written out, not the class's name,
+     * which a shrunk Android build renames, as the options must match on every device (RuntimeNamesTest). */
+    fun counterLabel(kind: arcanum.api.CounterKind): String = when (kind) {
         is arcanum.api.CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
         is arcanum.api.CounterKind.Named -> kind.name
         is arcanum.api.CounterKind.Keyword -> kind.keyword.id
@@ -627,6 +666,14 @@ internal object Effects {
         }
         val moved = Actions.move(scope.act, scope.cause, moves)
         scope.bind(postBind, NamedValue.Objects(moves.mapNotNull { moved[it.id] }))
+    }
+
+    /** mh3 sweep: whether [player]'s life total may change by [diff] in an exchange: not up when they can't gain life, not down when they
+     * can't lose life (CR 119.7, 119.8). */
+    private fun canExchangeLife(act: arcanum.engine.action.Act, player: PlayerId, diff: Int): Boolean = when {
+        diff > 0 -> act.view().players[player]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantGainLife }
+        diff < 0 -> !Actions.cantLoseLife(act, player)
+        else -> true
     }
 
     private fun setLife(scope: Scope, player: PlayerId, to: Int) {
@@ -732,7 +779,8 @@ internal object Effects {
         val controller = dest.controller?.let { e.players(it).firstOrNull() } ?: scope.actor
         val attachTo = dest.attachedTo?.let { recipients(scope, it).firstOrNull() }
         val counters = dest.counters.map { it.kind to e.value(it.amount) }
-        val attacking = dest.attacking?.let { attackTarget(scope, it) }
+        // CR 508.4: "attacking" chosen by each creature's controller as it enters (asked per creature, in the moves below)
+        val attacking = dest.attacking?.takeIf { it != arcanum.api.AttackTarget.Chosen }?.let { attackTarget(scope, it) }
         val blocking = dest.blocking?.let { e.objects(it).firstOrNull() }
         var ordered = ids
         if (dest.randomOrder && ids.size > 1) {
@@ -748,12 +796,15 @@ internal object Effects {
         val position = dest.libraryPosition?.let { Actions.libraryPosition(it) }
         val moves = ordered.map { id ->
             val from = act.state.obj(id)!!.zone
+            // ecl: "under their owners' control": each card under its own owner's (CR 110.2)
+            val mover = if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
+                ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller
+            val attacks = if (dest.attacking == arcanum.api.AttackTarget.Chosen && dest.zone == Zone.Battlefield && act.state.combat != null)
+                chosenAttackTarget(act, mover ?: controller, scope.self) else attacking
             PlannedMove(
-                // ecl: "under their owners' control": each card under its own owner's (CR 110.2)
-                id, dest.zone, position, if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
-                    ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller,
+                id, dest.zone, position, mover,
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
-                attachTo = attachTo, transformed = dest.transformed, attacking = attacking, blocking = blocking,
+                attachTo = attachTo, transformed = dest.transformed, attacking = attacks, blocking = blocking,
                 randomOrder = dest.randomOrder && dest.zone == Zone.Library && ids.size > 1,
                 entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
                 // lci: what the ability kept for the permanent ("the exiled cards used to craft it", CR 702.167c, 607.2a)
@@ -790,8 +841,18 @@ internal object Effects {
     private const val UNTIL_SOURCE = "\$until-source"
     private const val UNTIL_RETURNED = "\$until-returned"
 
+    /** CR 508.4: [player] chooses what a creature they control put onto the battlefield attacking attacks: a defending player, a
+     * planeswalker a defending player controls or a battle one protects (asked only when there is more than one, any number of players). */
+    private fun chosenAttackTarget(act: arcanum.engine.action.Act, player: PlayerId, source: ObjectId?): TargetRef? {
+        val options = arcanum.engine.combat.CombatRules.attackTargets(arcanum.engine.casting.Snapshot(act.state), player)
+        return if (options.size <= 1) options.firstOrNull() else act.chooseTargets(player, source, ATTACKING_SLOT, options, 1, 1).single()
+    }
+
+    /** The [arcanum.engine.decision.Decision.Targets] slot of [chosenAttackTarget]. */
+    const val ATTACKING_SLOT = "attacking"
+
     private fun attackTarget(scope: Scope, target: arcanum.api.AttackTarget): TargetRef? = when (target) {
-        arcanum.api.AttackTarget.Chosen -> scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
+        arcanum.api.AttackTarget.Chosen -> chosenAttackTarget(scope.act, scope.actor, scope.self)
         is arcanum.api.AttackTarget.SameAs -> {
             arcanum.engine.combat.Combat.lastTarget(scope.act.state, scope.objects(target.objects))
                 ?: scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
@@ -872,16 +933,34 @@ internal object Effects {
         scope.bind(onTop, NamedValue.Objects(ordered))
     }
 
+    /** mh3 fixes: "Search your library and/or graveyard": [searcher] chooses which of [zones] to search, one or more (CR 701.23a). */
+    private fun searchedZones(scope: Scope, searcher: PlayerId, zones: List<Zone>): List<Zone> {
+        if (zones.size < 2) return zones
+        val subsets = (1 until (1 shl zones.size)).map { bits -> zones.filterIndexed { i, _ -> bits and (1 shl i) != 0 } }.sortedBy { it.size }
+        val names = subsets.associateBy { subset -> subset.joinToString(" and ") { zoneWord(it) } }
+        val chosen = scope.act.chooseOption(searcher, scope.self, names.keys.toList(), text = "Search which?")
+        return names.getValue(chosen)
+    }
+
+    private fun zoneWord(zone: Zone): String = when (zone) {
+        Zone.Library -> "library"
+        Zone.Graveyard -> "graveyard"
+        Zone.Hand -> "hand"
+        Zone.Outside -> "outside the game"
+        else -> zone.toString().lowercase()
+    }
+
     /** CR 701.23: the searcher looks at the zones and finds up to N matching cards (finding none is allowed, 701.23b). */
     private fun search(scope: Scope, effect: Effect.Search) {
         val act = scope.act
         val searcher = scope.players(effect.searcher).firstOrNull() ?: scope.actor
         val found = mutableListOf<ObjectId>()
         scope.players(effect.library).forEach { owner ->
-            val cards = effect.zones.flatMap { act.state.zone(it, owner) }
+            val zones = if (effect.zonesChosen) searchedZones(scope, searcher, effect.zones) else effect.zones
+            val cards = zones.flatMap { act.state.zone(it, owner) }
             act.show(searcher, cards)
-            if (Zone.Library in effect.zones) act.record(Change.Happened(GameEvent.Searched(searcher, owner)))
-            effect.zones.forEach { z -> scope.bind(Evaluator.SEARCHED_PREFIX + (effect.bind ?: "") + ":" + z, NamedValue.Number(1)) }
+            if (Zone.Library in zones) act.record(Change.Happened(GameEvent.Searched(searcher, owner)))
+            zones.forEach { z -> scope.bind(Evaluator.SEARCHED_PREFIX + (effect.bind ?: "") + ":" + z, NamedValue.Number(1)) }
             val e = scope.eval()
             var options = cards.filter { e.matches(effect.filter, it) }
             val max = scope.value(effect.max)
@@ -996,22 +1075,29 @@ internal object Effects {
         if (effect.attachedTo != null && attachTo == null) { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
         // CR 608.2f: "each player creates …" creates every player's tokens at once, one event
         val requests = scope.players(effect.controller).map { p -> Actions.TokenRequest(values, count, p, effect.tapped, attachTo) }
-        val attacking = effect.attacking?.let { attackTarget(scope, it) }
+        // CR 508.4: with "attacking" alone each token's controller chooses what it attacks, as it is created
+        val chosen = effect.attacking == arcanum.api.AttackTarget.Chosen
+        val attacking = effect.attacking?.takeIf { !chosen }?.let { attackTarget(scope, it) }
         val batch = scope.batch
         if (batch != null) {
             // "for each …, create …": created with the other tokens of the loop, as one event; bound when they are
-            batch += Batched(scope, emptyList(), null, tokens = requests, tokenBind = effect.bind, attacking = attacking)
+            batch += Batched(scope, emptyList(), null, tokens = requests, tokenBind = effect.bind, attacking = attacking, attackChosen = chosen)
             return
         }
-        tokensCreated(scope, Actions.createTokensTogether(act, scope.cause, requests).flatten(), attacking, effect.bind)
+        tokensCreated(scope, Actions.createTokensTogether(act, scope.cause, requests).flatten(), attacking, effect.bind, chosen)
     }
 
-    /** After tokens [created] were created: those created attacking [attacking] attack it (CR 508.4); [bind] names them. */
-    internal fun tokensCreated(scope: Scope, created: List<ObjectId>, attacking: TargetRef?, bind: String?) {
+    /** After tokens [created] were created: those created attacking [attacking] attack it, or with [attackChosen] what their controller
+     * chooses (CR 508.4); [bind] names them. */
+    internal fun tokensCreated(scope: Scope, created: List<ObjectId>, attacking: TargetRef?, bind: String?, attackChosen: Boolean = false) {
         val act = scope.act
-        val combat = act.state.combat
-        if (attacking != null && combat != null) {
-            act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + created.map { arcanum.engine.state.Attacker(it, attacking) })))
+        if (act.state.combat != null && (attacking != null || attackChosen)) {
+            val attackers = created.mapNotNull { id ->
+                val to = attacking ?: chosenAttackTarget(act, act.controllerOf(id) ?: scope.actor, scope.self)
+                to?.let { arcanum.engine.state.Attacker(id, it) }
+            }
+            val combat = act.state.combat
+            if (combat != null && attackers.isNotEmpty()) act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + attackers)))
         }
         scope.bind(bind, NamedValue.Objects(created))
     }
@@ -1102,7 +1188,7 @@ internal object Effects {
                 // that player controls", CR 707.10c, 115.3, 601.2c)
                 val now = LinkedHashMap(targets)
                 for ((slot, chosen) in targets) {
-                    val s = slots.firstOrNull { it.name == slot } ?: continue
+                    val s = slots.firstOrNull { it.name == slot } ?: enchantSlotOf(act, id, slot) ?: continue
                     val names = now.entries.filter { it.key != slot }.fold(original.names) { b, (k, v) -> b.with(k, NamedValue.Targets(v)) }
                     val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
@@ -1116,6 +1202,17 @@ internal object Effects {
             copies += addCopy(scope, id, original, copyId, ts, controller, targets, effect)
         }
         scope.bind(effect.bind, NamedValue.Objects(copies))
+    }
+
+    // mh3 chunk 07
+    /** The target slot of an Aura spell [id]'s enchant keyword (CR 303.4a, bestowed 702.103b) when [slot] is it: a copy of the Aura spell
+     * may get a new object or player to enchant (CR 707.10c), and whose target is checked again as it resolves (CR 608.3b). */
+    internal fun enchantSlotOf(act: arcanum.engine.action.Act, id: ObjectId, slot: String): arcanum.api.TargetSlot? {
+        if (slot != arcanum.api.Keyword.Enchant.SLOT) return null
+        if (act.state.obj(id)?.bestowed == true)
+            return arcanum.api.TargetSlot(slot, arcanum.api.TargetKind.Objects(arcanum.api.ObjectFilter.Type(CardType.Creature)), Value.Fixed(1), Value.Fixed(1))
+        val enchant = act.view()[id]?.characteristics?.keywords?.filterIsInstance<arcanum.api.Keyword.Enchant>()?.firstOrNull() ?: return null
+        return arcanum.api.TargetSlot(slot, enchant.what, Value.Fixed(1), Value.Fixed(1))
     }
 
     /** Puts the copy [copyId] of [original] (the spell or ability [id]) with [targets] onto the Stack. */
@@ -1209,7 +1306,8 @@ internal object Effects {
         }
         if (colors.isEmpty()) return
         val units = colors.map { ManaUnit(it, scope.self, restriction = production.restriction, spellGets = production.spellGets,
-            keptUntil = production.keptUntil, whenSpent = production.whenSpent, spellGetsIf = production.spellGetsIf, spellGetsUntil = production.spellGetsUntil) }
+            keptUntil = production.keptUntil, whenSpent = production.whenSpent, spellGetsIf = production.spellGetsIf, spellGetsUntil = production.spellGetsUntil,
+            onlyCostsWithX = production.onlyCostsWithX) }
         act.record(Changes.manaPool(act.state, player, act.state.player(player).manaPool + units, listOf(Meaning.ManaAdded)))
     }
 
@@ -1809,8 +1907,9 @@ internal object Effects {
             }
             // CR 701.40a, c: the top card of the library onto the battlefield face down as a 2/2 creature, one card at a time;
             // CR 701.58a: cloaked, it also has ward {2}
-            is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
-            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(action.cards?.let { cloak(scope, scope.objects(it)) }
+            is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(action.cards?.let { faceDownCards(scope, scope.objects(it), ObjectMark.Manifested) }
+                ?: manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
+            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(action.cards?.let { faceDownCards(scope, scope.objects(it), ObjectMark.Cloaked) }
                 ?: manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
             // CR 701.56a: for each suspended card you own and each permanent you control with a time counter on it, you may add or
             // remove a time counter
@@ -1911,15 +2010,19 @@ internal object Effects {
         }
     }
 
-    /** CR 701.58a, e: [cards] onto the battlefield face down under the cloaking player's control, one at a time, from whatever zone
-     * they are in (a hand, any player's library, exile); a card that doesn't arrive isn't cloaked (701.58f). */
-    private fun cloak(scope: Scope, cards: List<ObjectId>): List<ObjectId> {
+    /** CR 701.40a, 701.58a, e, f: [cards] (from a hand, any player's library, exile: "each manifest two cards from their hands", "cloak the
+     * top card of that player's library") onto the battlefield face down, each [mark]ed, one at a time, under the control of the player
+     * doing it: the actor, or for cards from a hand their owner ("each manifest two cards from their hands"); a card that doesn't arrive
+     * isn't manifested or cloaked (701.40f, 701.58f). */
+    private fun faceDownCards(scope: Scope, cards: List<ObjectId>, mark: ObjectMark): List<ObjectId> {
         val act = scope.act
         return cards.distinct().mapNotNull { card ->
-            if (act.state.obj(card)?.zone.let { it == null || it == Zone.Battlefield || it == Zone.Stack }) return@mapNotNull null
-            val moved = Actions.move(act, scope.cause, listOf(PlannedMove(card, Zone.Battlefield, controller = scope.actor, faceDown = true)))[card]
+            val o = act.state.obj(card) ?: return@mapNotNull null
+            if (o.zone == Zone.Battlefield || o.zone == Zone.Stack) return@mapNotNull null
+            val controller = if (o.zone == Zone.Hand) o.owner else scope.actor
+            val moved = Actions.move(act, scope.cause, listOf(PlannedMove(card, Zone.Battlefield, controller = controller, faceDown = true)))[card]
                 ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
-            Actions.tapStatus(act, moved, StatusFlag.Marked(ObjectMark.Cloaked), true)
+            Actions.tapStatus(act, moved, StatusFlag.Marked(mark), true)
             moved
         }
     }

@@ -72,6 +72,8 @@ internal data class PlannedMove(
     /** Set by "as enters" steps and modifications (CR 614.12): card memory, copy, extra abilities. */
     val memory: Bindings = Bindings.EMPTY,
     val copyOf: Pair<ObjectId, List<CopyException>>? = null,
+    /** mh3: how long the copy effect of [copyOf] lasts (null: for good). */
+    val copyDuration: Duration? = null,
     val abilities: List<arcanum.api.Ability> = emptyList(),
     /** Put into a library in a random order together with the other moves so marked: their places are known as a group
      * only ([LibraryPlaces.group]). */
@@ -112,6 +114,18 @@ internal object Actions {
         }
         val replaced = planned.mapNotNull { pm ->
             val o = act.obj(pm.id) ?: return@mapNotNull null
+            // mh3 chunk 09: entering transformed, it is checked as it will exist, back face up (CR 614.12, 712.14a): the back face's own "enters
+            // with" replacements apply ("Ral enters with an additional loyalty counter …"), the front face's don't
+            val back = if (pm.to == Zone.Battlefield && pm.transformed && o.face == 0 && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld))
+                o.definition.faces.getOrNull(1) else null
+            val backOwn = back?.abilities.orEmpty().filterIsInstance<arcanum.api.Ability.Static>().flatMapIndexed { i, s ->
+                s.mechanics.filterIsInstance<Mechanic.Replacement>().filter { selfEntering(it.event) }.map { r ->
+                    Replacement(r, pm.controller ?: o.owner, pm.id, arcanum.engine.state.Bindings.EMPTY, null, own = false, key = "back:${pm.id}:$i/${r.hashCode()}")
+                }
+            }
+            // mh3 sweep: entering face down (manifested, cast face down) it has no abilities as it will exist: none of its own "enters with"
+            // replacements apply (CR 614.12, 708.2a, 701.40a)
+            val enteringFaceDown = pm.to == Zone.Battlefield && pm.faceDown
             Replacements.apply(
                 act, cause, pm, affected = act.controllerOf(pm.id) ?: o.owner, about = pm.id,
                 // rtr chunk 06: the proposed move names its cause, for "a spell or ability an opponent controls causes you to discard"
@@ -121,7 +135,11 @@ internal object Actions {
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
-                skip = { r, _ -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) },
+                skip = { r, m -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) ||
+                    (back != null || enteringFaceDown || m.copyOf != null) && r.source == pm.id && r.effect == null && !r.key.startsWith("back:") &&
+                    !r.key.startsWith("copy:") && selfEntering(r.mechanic.event) },
+                extra = backOwn,
+                more = { m -> copiedOwn(act, o, m) },
             )
         }
         // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
@@ -209,6 +227,25 @@ internal object Actions {
         if (r.enters) return if (r.host == m.attachTo) m else m.copy(attachTo = r.host)
         return if (o.zone == Zone.Stack) m.copy(to = Zone.Graveyard, attachTo = null, controller = null) else null
     }
+
+    /** mh3 sweep: entering as a copy, it is checked as it will exist (CR 614.12, 707.2): the copied object's own "enters with" replacements
+     * (with the copy's exceptions) apply to it ("This creature enters with two +1/+1 counters on it"); not another copy effect. */
+    private fun copiedOwn(act: Act, o: GameObject, m: PlannedMove): List<Replacement> {
+        val except = m.copyOf?.second ?: return emptyList()
+        val face = enteringFace(act, o, m)?.let { arcanum.engine.view.Copiable.exceptions(it, except) } ?: return emptyList()
+        return ownEntering(face).mapIndexed { i, r ->
+            Replacement(r, m.controller ?: o.owner, m.id, arcanum.engine.state.Bindings.EMPTY, null, own = false, key = "copy:${m.id}:$i/${r.hashCode()}")
+        }
+    }
+
+    /** mh3 sweep: [face]'s own unconditional replacements of its entering the battlefield (CR 614.1c, 614.12), other than copy effects. */
+    private fun ownEntering(face: arcanum.api.FaceDefinition): List<Mechanic.Replacement> =
+        face.abilities.filterIsInstance<arcanum.api.Ability.Static>().filter { it.condition == null }.flatMap { it.mechanics }
+            .filterIsInstance<Mechanic.Replacement>()
+            .filter { selfEntering(it.event) && it.instead == null && it.modify.none { mod -> mod is Modification.EntersAsCopy } }
+
+    private fun selfEntering(event: arcanum.api.EventPattern) =
+        event is arcanum.api.EventPattern.ZoneChange && event.objects == arcanum.api.ObjectFilter.Is(Objects.Self) && event.to == Zone.Battlefield
 
     /** Names a regeneration shield keeps its creature under (D26). */
     const val REGENERATED = "\$regenerated"
@@ -310,7 +347,7 @@ internal object Actions {
                 act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", listOf(Mechanic.CopyOf(Objects.Bound(COPIED), except)), next, m.controller, ts, act,
                     Bindings.EMPTY.with(COPIED, NamedValue.Objects(listOf(of))),
                     // CR 707.2, 730.2a: a merged permanent's copiable values include every component's abilities
-                    copied = arcanum.engine.view.Copiable(act.state).forCopyEffect(of)) })
+                    copied = arcanum.engine.view.Copiable(act.state).forCopyEffect(of), duration = m.copyDuration ?: Duration.Indefinitely) })
             }
             if (m.abilities.isNotEmpty()) act.record(Changes.effect(act.state) { ts ->
                 lockedEffect("E$ts", listOf(Mechanic.GainAbilities(m.abilities)), next, m.controller, ts, act)
@@ -447,8 +484,8 @@ internal object Actions {
 
     /** [m] entering as a copy of [of] by [mod], with the counters it enters with as a copy and tapped if it enters tapped as a copy (CR 614.1c, 707.9b). */
     fun asCopy(act: Act, m: PlannedMove, of: ObjectId, mod: Modification.EntersAsCopy, e: Evaluator, controller: PlayerId): PlannedMove {
-        // lci: "enter tapped as a copy of": tapped only as a copy
-        val copy = m.copy(copyOf = of to mod.except, tapped = m.tapped || mod.tapped)
+        // lci: "enter tapped as a copy of": tapped only as a copy; mh3: a copy effect that lasts until end of turn
+        val copy = m.copy(copyOf = of to mod.except, copyDuration = mod.duration, tapped = m.tapped || mod.tapped)
         val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) }.map { it.kind to e.value(it.amount) }
         return if (counters.isEmpty()) copy else copy.copy(counters = copy.counters + counters)
     }
@@ -466,11 +503,11 @@ internal object Actions {
 
     private fun lockedEffect(
         id: String, mechanics: List<Mechanic>, on: ObjectId, controller: PlayerId?, ts: Long, act: Act,
-        names: Bindings = Bindings.EMPTY, copied: arcanum.engine.state.CopiableValues? = null,
+        names: Bindings = Bindings.EMPTY, copied: arcanum.engine.state.CopiableValues? = null, duration: Duration = Duration.Indefinitely,
     ) = EffectObject(
         id = EffectId(id), mechanics = mechanics, affects = Affected.Objects(Objects.Self), locked = listOf(on), source = on,
         controller = controller ?: act.state.turn.active, timestamp = ts, createdTurn = act.state.turn.number,
-        duration = Duration.Indefinitely, names = names, copiedValues = copied,
+        duration = duration, names = names, copiedValues = copied,
     )
 
     /** Destroys [ids] (CR 701.8): indestructible permanents aren't (CR 702.12b); regeneration shields replace it (CR
@@ -615,7 +652,8 @@ internal object Actions {
                     // replacements and "can't get poison counters" apply to damage as to effects
                     if (Keyword.Infect in keywords) putCounters(act, giver, r, CounterKind.Poison, d.amount)
                     // CR 120.3a: damage dealt to a player causes that player to lose that much life, so life-loss replacements apply
-                    // (lci chunk 09: "If an opponent would lose life …, they lose twice that much life instead")
+                    // (lci chunk 09: "If an opponent would lose life …, they lose twice that much life instead"); mh3: a player who can't
+                    // lose life keeps their life total (CR 119.8, in loseLife)
                     else loseLife(act, cause, r.id, d.amount)
                     val toxic = source?.keywords.orEmpty().filterIsInstance<Keyword.Toxic>().sumOf { it.amount }
                     if (d.combat && toxic > 0) putCounters(act, giver, r, CounterKind.Poison, toxic)
@@ -826,6 +864,8 @@ internal object Actions {
     /** [player] loses [amount] life (CR 119.3); returns the life actually lost. */
     fun loseLife(act: Act, cause: Cause?, player: PlayerId, amount: Int, meanings: List<Meaning> = listOf(Meaning.LifeLost)): Int {
         if (amount <= 0 || act.state.player(player).lost) return 0
+        // mh3: CR 119.8
+        if (cantLoseLife(act, player)) return 0
         val linked = mutableListOf<WaitingTrigger>()
         val final = Replacements.apply(act, cause, amount, player, null,
             proposed = { n -> Changes.life(act.state, player, -n, meanings) },
@@ -835,6 +875,10 @@ internal object Actions {
         Replacements.addLinked(act, linked)
         return final.coerceAtLeast(0)
     }
+
+    /** mh3: [player] can't lose life (CR 119.8). */
+    fun cantLoseLife(act: Act, player: PlayerId): Boolean =
+        act.view().players[player]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantLoseLife }
 
     /** [player] pays [amount] life (CR 119.4): they lose that much life, so replacements of life loss and "whenever you
      * lose life" apply; the payment is made whatever the replacements do to the loss. Returns the life actually lost. */
@@ -903,29 +947,29 @@ internal object Actions {
     fun removeChosenCounters(act: Act, chooser: PlayerId, source: ObjectId?, id: ObjectId, kind: CounterKind?, amount: Int,
                              meanings: List<Meaning> = emptyList()): Int {
         if (kind != null) return removeCounters(act, TargetRef.Object(id), kind, amount, meanings)
-        val there = act.obj(id)?.counters?.filter { it.count > 0 }?.associate { it.kind to it.count }.orEmpty()
-        val total = there.values.sum()
-        val taken: Map<CounterKind, Int> = if (there.size <= 1 || amount >= total) there.mapValues { (_, c) -> minOf(c, amount) }
-        else {
-            val left = there.toMutableMap()
-            val chosen = mutableMapOf<CounterKind, Int>()
-            repeat(amount) {
-                val labels = left.filterValues { it > 0 }.keys.associateBy { counterLabel(it) }
-                val k = labels.getValue(act.chooseOption(chooser, source, labels.keys.toList(), text = "Choose a counter to remove"))
-                left[k] = left.getValue(k) - 1
-                chosen[k] = (chosen[k] ?: 0) + 1
-            }
-            chosen
-        }
-        return taken.entries.sumOf { (k, n) -> removeCounters(act, TargetRef.Object(id), k, n, meanings) }
+        val total = act.obj(id)?.counters?.sumOf { maxOf(it.count, 0) } ?: 0
+        return removeChosenCountersAmong(act, chooser, source, listOf(id), minOf(amount, total), distributed = false, meanings)
     }
 
-    /** A counter kind in a few words for a choice: "+1/+1", "stun", "flying". */
-    private fun counterLabel(kind: CounterKind): String = when (kind) {
-        is CounterKind.PowerToughness -> "${if (kind.power < 0) "${kind.power}" else "+${kind.power}"}/${if (kind.toughness < 0) "${kind.toughness}" else "+${kind.toughness}"}"
-        is CounterKind.Named -> kind.name
-        else -> (kotlinx.serialization.json.Json.encodeToJsonElement(CounterKind.serializer(), kind) as kotlinx.serialization.json.JsonObject)
-            .let { o -> (o["keyword"] ?: o["type"])?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content ?: it.toString() } ?: kind.toString() }
+    /**
+     * Removes exactly [amount] counters of any kinds from each of [ids] (or, [distributed], from among them), [chooser] picking each
+     * counter where there is a choice ([arcanum.engine.casting.CounterCosts], CR 118.3, 608.2d). Removes nothing when there aren't
+     * enough. Returns the number removed.
+     */
+    fun removeChosenCountersAmong(act: Act, chooser: PlayerId, source: ObjectId?, ids: List<ObjectId>, amount: Int, distributed: Boolean,
+                                  meanings: List<Meaning> = emptyList()): Int {
+        val picks = mutableListOf<String>()
+        while (true) {
+            when (val progress = arcanum.engine.casting.CounterCosts.progress(act.state, ids, amount, distributed, picks) { id ->
+                act.view()[id]?.characteristics?.name ?: id.toString()
+            }) {
+                is arcanum.engine.casting.CounterCosts.Progress.Ask ->
+                    picks += act.chooseOption(chooser, source, progress.labels, text = "Choose a counter to remove")
+                is arcanum.engine.casting.CounterCosts.Progress.Done ->
+                    return progress.removals.sumOf { (id, k, count) -> removeCounters(act, TargetRef.Object(id), k, count, meanings) }
+                arcanum.engine.casting.CounterCosts.Progress.Unpayable -> return 0
+            }
+        }
     }
 
     // ---- Tapping (CR 701.26)
@@ -1072,7 +1116,12 @@ internal object Actions {
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
             }
             var o = t.copy(counters = withCounters.filter { it.second > 0 }.map { (kind, n) -> CounterEntry(kind, n, t.timestamp) })
-            enters.forEach { r ->
+            // mh3 sweep: and the token's own "enters with" replacements, as it will exist (a copy of a creature with "This creature enters with
+            // two +1/+1 counters on it", CR 614.12, 111.10)
+            val own = t.definition.faces.getOrNull(t.face)?.let { ownEntering(it) }.orEmpty().filter { !it.optional }.map { r ->
+                Replacement(r, t.controller ?: controller, t.id, arcanum.engine.state.Bindings.EMPTY, null, own = true, key = "token:${t.id}/${r.hashCode()}")
+            }
+            (enters + own).forEach { r ->
                 // gtc: "this creature" of another permanent's replacement is that permanent (Master Biomancer's power)
                 val e = Evaluator(proposedBoard(), Context(you = r.controller, self = r.source ?: t.id, names = r.names))
                 r.mechanic.modify.forEach { mod ->

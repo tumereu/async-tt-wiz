@@ -22,7 +22,7 @@ internal object Gtc {
     val TAP_X_TARGETS = Regex("""Tap X target (.+)\.""")
     val DOESNT_UNTAP_NEXT = Regex("""(That creature|It|Those creatures|They) (?:doesn't|don't) untap during (?:its|their) controller's next untap step\.""")
     val CONTROLLER_CREATES = Regex("""(?:That creature's|Its) controller creates (.+)\.""")
-    val MOVE_COUNTER = Regex("""Move (a|an|one|two) (\S+) counters? from (.+) onto (.+)\.""")
+    val MOVE_COUNTER = Regex("""Move (a|an|one|two) (?:(\S+) )?counters? from (.+) onto (.+)\.""") // mh3 chunk 11: "a counter" (any kind)
     val PUT_ON_TOP = Regex("""Put (target .+) on top of its owner's library\.""")
     val REVEAL_UNTIL_INTO_GRAVEYARD = Regex("""(Target player|target player|Each opponent|each opponent|That player|that player) reveals cards from the top of their library until they reveal (a|an|X|two|three|four|five) (.+?) cards?, then puts (?:those cards|all cards revealed this way) into their graveyard\.""")
     val ITS_CONTROLLER_LOSES = Regex("""Its controller loses (\d+) life\.""")
@@ -90,7 +90,7 @@ internal object Gtc {
     val MAY_BECOME_COPY_EXCEPT = Regex("""You may have (.+?) become a copy of that card, except (.+)\.""")
     val BECOMES_COPY_OF_TARGET_EXCEPT = Regex("""(.+?) becomes a copy of target (.+?), except (.+)\.""")
     val CREATE_X_TOKEN_THAT_SPELL = Regex("""(Create an X/X .+? token), where X is that spell's mana value\.""")
-    val RETURN_TARGET_AND_AURAS = Regex("""Return target (.+?) and all (.+?) attached to it to their owner's hand\.""")
+    val RETURN_TARGET_AND_AURAS = Regex("""Return (another )?target (.+?) and all (.+?) attached to it to their owner's hand\.""") // mh3 chunk 12: another
     val DESTROY_AND_LOSE_LIFE_EQUAL = Regex("""Destroy target (.+?) and you lose life equal to its (power|toughness)\.""")
     val ITS_CONTROLLER_MILLS = Regex("""Its controller mills (\w+) cards\.""")
     val SEARCH_N_AND_REVEAL = Regex("""Search your library for (\w+) (.+?) cards and reveal them\.""")
@@ -149,17 +149,17 @@ internal object Gtc {
     val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""They put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
     val WOULD_DRAW_WHILE_NO_CARDS = Regex("""If you would draw a card while you have no cards in hand, instead (.+)\.""")
     val AS_LONG_AS_LIFE = Regex("""As long as you have (\d+) or more life and an opponent has (\d+) or less life, (.+?) ((?:gets|has) .+)\.""")
-    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name you cast cost (\{\d+\}) less to cast\.""")
+    /** "Spells with the chosen name you cast cost {2} less to cast.", "Spells with the chosen name cost {3} more to cast." (mh3: anyone's) */
+    val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name( you cast)? cost (\{\d+\}) (less|more) to cast\.""")
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
-    val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of any (.+?), except it has "(.+)"\.?""")
-    // inr chunk 09: madness; otj fixes: plot, "The top card of your library has plot."
-    val CARDS_HAVE_SCAVENGE = Regex("""(Each .+?|The top card of your library) has (scavenge|madness|plot)\. The \2 cost is equal to its mana cost\.""")
+    val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of (?:any|an?) (.+?), except it has "(.+)"\.?""")
+    // inr chunk 09: madness; otj fixes: plot, "The top card of your library has plot."; mh3 chunk 07: emerge
+    val CARDS_HAVE_SCAVENGE = Regex("""(Each .+?|The top card of your library) has (scavenge|madness|plot|emerge)\. The \2 cost is equal to its mana cost\.""")
     val ATTACKS_A_PLAYER_AND_ISNT_BLOCKED = Regex("""(.+) attacks a player and isn't blocked""")
     val A_CREATURE_BLOCKS = Regex("""an? (.+) blocks""")
     val PLAYER_CASTS_FROM_HAND = Regex("""a player casts a spell from their hand""")
     val YOU_CAST_FROM_YOUR_LIBRARY = Regex("""you cast an? (.+) spell from your library""")
-    val OPPONENT_CASTS_DURING_YOUR_TURN_AND_DIES = Regex("""Whenever an opponent casts a spell during your turn and when (.+) dies, (.+)""")
 
     val RETURN_SELF_TO_HAND_COST = Regex("""Return (.+) to its owner's hand""")
     val EXILE_SELF_COST = Regex("""Exile (.+)""")

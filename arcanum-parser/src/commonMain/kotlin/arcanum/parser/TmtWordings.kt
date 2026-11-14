@@ -19,7 +19,7 @@ internal object Tmt {
     val PLURAL_VERB = Regex("""\b(attack|deal|enter|get|gain|block|have)\b""")
     // tmt chunk 01: keywords whose cost isn't mana ("Equip—Sacrifice another nonland permanent. Activate only once each turn.")
     val EQUIP_COST = Regex("""Equip—(.+?)\.( Activate only once each turn\.)?""")
-    val KICKER_COST = Regex("""Kicker—(.+?)\.?""")
+    val KICKER_COST = Regex("""(Kicker|Replicate)—(.+?)\.?""") // mh3 chunk 09: "Replicate—Pay {E}{E}{E}."
 
     // tmt chunk 02: sneak (CR 702.190)
     val SNEAK_PAID = Regex("""(?:this spell's|his|her|its|their|(.+)'s) sneak cost was paid( this turn)?""")
@@ -82,7 +82,7 @@ internal object Tmt {
     val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
     // woe chunk 08: also "{X} less to activate, where X is …. This effect can't reduce the mana in that cost to less than one mana."; one chunk 09: "that target …"; mkm chunk 02: the floor of one mana
     val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}|\{X\}) less to activate(?:, where X is (.+?))?\.( This effect can't reduce the mana in that cost to less than one mana\.)?""")
-    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(any number of|\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // mom chunk 07: "for any number of Praetor cards"; fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
+    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(any number of|\w+) (.+?) cards, put them (?:onto the battlefield( tapped)?|(into your graveyard)), then shuffle\.""") // mom chunk 07: "for any number of Praetor cards"; fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped; mh3 chunk 12: into your graveyard
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     val EACH_PLAYER_CREATES = Regex("""[Ee]ach player creates (.+)\.""")
     val OPPONENTS_ARE_ATTACKED = Regex("""one or more of your opponents are attacked""")
@@ -90,7 +90,8 @@ internal object Tmt {
     val RETURN_IF_ARTIFACT_CREATURE_OTHERWISE = Regex("""Choose target (.+?)\. Return it to the battlefield if it's an artifact creature card\. Otherwise, return it to the battlefield and it's an? (\d+)/(\d+) ([A-Z]\w+) artifact creature with ([a-z ,]+)\.""")
     val THEN_IF_CONTROL_LOSES_HALF = Regex("""Then if you control (\w+) or more (.+?), that player loses half their life, rounded (up|down)\.""")
     val EXILE_TWO_THEN_RETURN_THEM = Regex("""[Ee]xile up to one target (.+?) and up to one target (.+?)\. Then return them to the battlefield under their owners' control\.""")
-    val NEXT_SPELL_HAS = Regex("""the next (.+?) spell you cast this turn has (.+?)\.""")
+    /** "the next noncreature spell you cast this turn has affinity for artifacts", "the next spell you cast this turn has improvise" (mh3) */
+    val NEXT_SPELL_HAS = Regex("""the next ((?:.+? )?spell) you cast this turn has (.+?)\.""")
     val EXILE_THEN_RETURN = Regex("""[Ee]xile (up to one )?target (.+?), then return it to the battlefield under (its owner's|your) control( tapped and attacking)\.""")
     val EXILE_UNTIL_NONLAND = Regex("""[Ee]ach opponent exiles cards from the top of their library until they exile a (\w+) card\.""")
     val MAY_CAST_EXILED_WITH_FREE = Regex("""[Yy]ou may cast a card exiled with (.+) without paying its mana cost\.""")
@@ -153,7 +154,10 @@ internal object TmtPhrases {
     fun noun(phrase: String): ObjectFilter? {
         // tmt chunk 02: "Dinosaurs you control other than this creature"
         Tmt.OTHER_THAN_SELF.matchEntire(phrase)?.takeIf { it.groupValues[2].startsWith("this ") }?.let { m ->
-            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+            // mh3 chunk 09: "blue permanent other than this planeswalker you control" (from "if you control a blue permanent other than …"): yours
+            val yours = m.groupValues[2].endsWith(" you control")
+            return Filters.all(*listOfNotNull(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You).takeIf { yours }).toTypedArray())
         }
         // tmt chunk 01: "creature you control with a counter on it" (of any kind)
         Tmt.WITH_A_COUNTER_ON_IT.matchEntire(phrase)?.let { m ->

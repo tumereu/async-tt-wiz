@@ -99,6 +99,12 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   you chose" is a cost, `CostPart.RevealChoice`, unpayable without a choice.
 - A battle (Siege) test card is built with `OracleCard(name, cost, type, text, defense = "5")`: `card()` has no defense.
   `OracleCard` takes power and toughness separately: a "4/4" passed as power leaves toughness 0 (`inventFaces` refuses it).
+- "you may pay {X}. If you do, ... X ..." keeps `Pay(Mana {X})` with X chosen as it is paid (CR 107.3f); "search your
+  library and/or graveyard" = `Effect.Search(zonesChosen = true)` (the engine asks `ChooseOption` first, shuffles only a
+  searched library). "When you do, if ..." puts the same If on the reflexive trigger (CR 603.4).
+- "If that creature/it was a <noun>" in a leaves-the-battlefield trigger, or after returning a target to hand or library,
+  reads last known information (`EventObject(Before)`, CR 603.10a, 608.2h); "If it was a <... card>" stays the card.
+- A token defined only by reminder text ("Create a X token. (It's a 2/2 ... with \"...\")") = `Sentences.reminderTokens`.
 
 ## Engine scenarios
 - All setup (`battlefield`, `hand`, `library`, `life`, `turn`, `attach`) comes before the first move; afterwards only
@@ -159,7 +165,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   leaves no priority holder, so in combat scenarios skip it. "One or more ... deal combat damage to a player or battle"
   batches, and counts "first time each turn", per player or per battle (`Triggers.batchKey`, CR 603.2c, 310.6).
 - Removing counters of no named kind asks the remover which, one `ChooseOption` per counter (`Actions.removeChosenCounters`,
-  CR 608.2d), for effects and costs alike.
+  CR 608.2d, 118.3), for effects and costs alike (a cast's cost: before paying, `Question.CounterPick`).
 - `paying = listOf("<source>:G")` picks a source and colour, granted mana abilities included; an ability on the Stack as a
   target: `state.stack.first { state.stackItems[it]?.source == card(name) }`.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
@@ -170,6 +176,11 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   opponent. Saga chapter II after I: `loreChapter(saga, n)`, then `advanceTo(PrecombatMain, turn = 5)`.
 - A `ForEach` whose only step is `DealDamage` is one damage event (CR 608.2f); a `ForEach` that casts copies asks the
   controller the order one at a time: answer with `alice.chooses(name)`.
+- Player names in `target(...)`/`defender =` are lowercase ("carol"); `card(x)` inside `expect {}` is a
+  CardRef. `battlefield(...)` doesn't apply "enters with N counters": pass `counters =`. Coin flips: `scenario(seed = n)`.
+- "Put onto the battlefield tapped and attacking" asks its controller `Decision.Targets` slot "attacking" when several
+  players, planeswalkers or battles could be attacked (CR 508.4). A mana ability's choice of objects counting its mana
+  is asked on activation.
 
 ## Test conventions
 - Tokens made by one effect (a `ForEach` of only `CreateToken`, a together batch, "each player creates") enter as one

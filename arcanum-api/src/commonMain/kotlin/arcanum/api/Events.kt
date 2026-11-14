@@ -109,6 +109,12 @@ sealed interface EventPattern {
     @Serializable @SerialName("player-counters") data class PlayerCountersPut(
         val players: PlayerFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
     ) : EventPattern
+    // mh3
+    /** Counters of [kind] are removed from a player matching [players], paid or lost ("you've paid or lost four or more {E} this turn",
+     * CR 107.14); the event's amount is how many. */
+    @Serializable @SerialName("player-counters-removed") data class PlayerCountersRemoved(
+        val players: PlayerFilter, val kind: CounterKind? = null,
+    ) : EventPattern
     /** An object matching [objects] becomes tapped; [forMana]: only (true) or never (false) for mana; [forCost]: only when
      * tapped to pay that keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a; dft: "whenever this creature saddles a Mount
      * or crews a Vehicle", CR 702.171c, 702.122b). Role object (the tapped one); with [forCost] of a crew or saddle ability, role source is the

@@ -152,8 +152,8 @@ internal object Eoe {
     val EXILED_WITH_TO_GRAVEYARD_CREATE_FOR_EACH = Regex("""Put each card exiled with (.+?) into its owner's graveyard, then create (an? .+? token) for each card put into a graveyard this way\. Sacrifice (.+?)\.""")
     val IF_YOU_DIDNT_PUT_INTO_HAND = Regex("""If you didn't put a card into your hand this way, (.+)""")
     val RETURN_UP_TO_TOTAL_MV_COUNTER_EACH = Regex("""Return up to (\w+) target (.+?) with total mana value (\d+) or less from your graveyard to the battlefield\. Put a \+1/\+1 counter on each of them\.""")
-    // woe chunk 08: also "… during your turn"
-    val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs (\{\d+\}) less to activate (?:if (.+?)|(during your turn))\.""")
+    // woe chunk 08: also "… during your turn"; mh3 chunk 10: "{4}{B}"
+    val COSTS_LESS_TO_ACTIVATE_IF = Regex("""This ability costs ((?:\{[^}]+\})+) less to activate (?:if (.+?)|(during your turn))\.""")
     // inr chunk 01: also an ability quoted inside it ("… have haste and '{T}: … any target.'")
     val EMBLEM_PERIOD_INSIDE = Regex("""You get an emblem with "(.+\.'?)"""")
     val ENTERS_WITH_COUNTER_FOR_EACH = Regex("""(.+) enters with (an?|two|three) (\S+) (counters?) on it for each (.+)\.""")

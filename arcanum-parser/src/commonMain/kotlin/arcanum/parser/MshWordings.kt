@@ -77,7 +77,7 @@ internal object Msh {
     val COUNTERS_PLUS_ONE = Regex("""If you would put one or more counters on (.+), put that many plus one of each of those kinds of counters on that permanent instead\.""")
     val COPY_TARGET_ABILITY = Regex("""Copy target activated or triggered ability you control from an? (\w+) source\. You may choose new targets for the copy\.""")
     val CAST_WITH_MANA_SYMBOLS_CREATE_THAT_MANY = Regex("""Whenever you cast an? (\w+) spell with one or more (white|blue|black|red|green) mana symbols in its mana cost, create that many (.+) tokens\.""")
-    val FOR_EACH_CREATE_COPY_NOT_LEGENDARY = Regex("""For each (.+), create a token that's a copy of that (creature|permanent)(, except it isn't legendary)?\.""") // inr chunk 09: permanent, no exception
+    val FOR_EACH_CREATE_COPY_NOT_LEGENDARY = Regex("""For each (.+), create a token that's a copy of (?:that (creature|permanent)|it)(?:, except (.+))?\.""") // mh3 chunk 09: "it", other exceptions // inr chunk 09: permanent, no exception
     val TARGET_BECOMES_COPY_OF_SECOND = Regex("""Target (.+) becomes a copy of a second target (.+) until end of turn, except it isn't legendary\.""")
     val MAY_PUT_FROM_HAND_IF_EQUIPMENT_ATTACH = Regex("""[Yy]ou may put an? (.+) from your hand onto the battlefield\. If it's an? (\w+), attach it to (.+)\.""")
     val UNTIL_EOT_TARGET_BECOMES_ARTIFACT_CREATURE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+) and gains (.+)\.""")
@@ -130,8 +130,9 @@ internal object Msh {
     val EXILE_RETURN_AT_NEXT_END_STEP = Regex("""[Ee]xile (another )?target (.+?)\. Return (?:that card|it) to the battlefield under (its owner's|your) control at the beginning of the next end step\.""")
     // woe chunk 07: also "… spells you cast that have an Adventure"
     val SPELLS_YOU_CAST_COST_LESS = Regex("""(.+ spells you cast(?: that [^.]+?)?) cost (\{\d+\}) less to cast\.""")
-    // woe chunk 08: also "Spells you cast this turn that are black and/or red cost {X} less to cast, where X is …"
-    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""((?:.+ )?[Ss]pells you cast) this turn(?: that are ([a-z]+(?: and/or [a-z]+)*))? cost (\{\d+\}|\{X\}) less to cast(?:, where X is (.+?))?\.""")
+    // woe chunk 08: also "Spells you cast this turn that are black and/or red cost {X} less to cast, where X is …"; mh3 chunk 09: "Until your
+    // next turn, … spells you cast cost …"
+    val SPELLS_YOU_CAST_THIS_TURN_COST_LESS = Regex("""(Until your next turn, )?((?:.+ )?[Ss]pells you cast)( this turn)?(?: that are ([a-z]+(?: and/or [a-z]+)*))? cost (\{\d+\}|\{X\}) less to cast(?:, where X is (.+?))?\.""")
     val TAKE_EXTRA_TURN = Regex("""Take an extra turn after this one\.""")
     val DURING_THAT_TURN_CANT_ACTIVATE = Regex("""During that turn, power-up abilities can't be activated\.""")
     val PUT_X_COUNTERS_ON = Regex("""Put X (\S+) counters on (.+)\.""")

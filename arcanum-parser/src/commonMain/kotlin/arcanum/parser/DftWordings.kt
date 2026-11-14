@@ -56,7 +56,7 @@ internal object Dft {
     val CANT_ATTACK_OR_BLOCK_UNLESS = Regex("""(.+) can't attack or block unless (.+)\.""")
     val THAT_TOKEN_ATTACKS_THIS_COMBAT = Regex("""That token (?:gains ([a-z ,]+) until end of turn and )?attacks this combat if able\.""")
     val DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED = Regex("""(.+?) deals (\d+) damage to each player who doesn't have max speed\.""")
-    val GET_X_WHERE = Regex("""(.+) get \+X/\+(\d+), where X is (.+)\.""")
+    val GET_X_WHERE = Regex("""(.+) gets? \+X/\+(\d+), where X is (.+)\.""") // mh3 chunk 08: "Equipped creature gets +X/+1"
     val COST_X_LESS_WHERE = Regex("""(.+) cost \{X\} less to cast, where X is (.+)\.""")
     val A_AND_B_YOU_CONTROL_GAIN_UNTIL_EOT = Regex("""(\w+) and (\w+) you control gain ([a-z ,]+) until end of turn\.""")
     // dft chunk 08
@@ -91,7 +91,7 @@ internal object Dft {
     // otj chunk 07: also "an outlaw was sacrificed this way" (the cost's sacrificed object)
     val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)|an? (\w+) was sacrificed this way""")
     // dft chunk 13
-    val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
+    val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose (target|two target) (.+?)\. (You may sacrifice|Sacrifice) an? (.+?)\. If you do, return the chosen cards? to the battlefield( tapped)?\.""") // mh3 chunk 11: two targets, a mandatory sacrifice, tapped
     // rvr chunk 03: also "there is an additional combat phase followed by an additional main phase"
     val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there (?:are (\w+) additional combat phases|is an additional combat phase followed by an additional main phase)\.""")
     val EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED = Regex("""At the beginning of each combat this turn, untap all (.+?) that attacked this turn\.""")

@@ -72,6 +72,11 @@ sealed interface Effect {
         /** The found cards' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("any number of creature cards with
          * total mana value 6 or less", CR 701.23a). */
         val totalAtMost: Choice.TotalLimit? = null,
+        // mh3 fixes
+        /** "and/or" ("Search your library and/or graveyard"): the searcher chooses which of [zones] to search, one or more; a zone not chosen
+         * isn't searched, so a library left alone isn't shuffled ("If you search your library this way, shuffle", [Condition.Searched]) and
+         * "whenever a player searches their library" doesn't trigger (CR 701.23a, 701.23f). False: every one of [zones] is searched. */
+        val zonesChosen: Boolean = false,
     ) : Effect
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */
@@ -94,11 +99,14 @@ sealed interface Effect {
         val objects: Objects, val kind: CounterKind, val amount: Value, val distributed: Boolean = false,
     ) : Effect
     /** Remove [amount] counters of [kind] (any kind when null) from each of [objects]; [bind] names the number removed ("Draw
-     * that many cards", dgm). */
+     * that many cards", dgm); mh3: also from each of [players] ("remove a counter from another target permanent or opponent": a player's
+     * counters, CR 122.1). */
     @Serializable @SerialName("remove-counters") data class RemoveCounters(
         val objects: Objects, val kind: CounterKind?, val amount: Value,
         // dgm
         val bind: String? = null,
+        // mh3
+        val players: Players? = null,
     ) : Effect
     @Serializable @SerialName("player-counters") data class GivePlayerCounters(val players: Players, val kind: CounterKind, val amount: Value) : Effect
 
@@ -229,6 +237,10 @@ sealed interface Effect {
         val chosen: Boolean = false,
         /** Names the number of counters moved ("If you do": at least one, CR 608.2c). */
         val bind: String? = null,
+        // mh3 chunk 11
+        /** With [kind] null: [amount] counters in all rather than [amount] of each kind, each of a kind on [from] the effect's controller
+         * chooses ("Move a counter from target permanent you control onto a second target permanent", CR 122.1, 608.2d). */
+        val inAll: Boolean = false,
     ) : Effect
     /** "Change the target of target spell or ability" / "you may choose new targets for it" (CR 115.7). */
     @Serializable @SerialName("change-targets") data class ChangeTargets(
@@ -272,6 +284,10 @@ sealed interface Effect {
         /** How many such steps; counted as the effect happens. */
         val count: Value = Value.Fixed(1),
     ) : Effect
+    // mh3
+    /** "There is an additional beginning phase after this phase" (CR 500.8): an additional phase, named by its first step ([TurnStep.Untap]:
+     * a beginning phase), right after the phase under way, before phases added earlier. */
+    @Serializable @SerialName("additional-phase") data class AdditionalPhase(val firstStep: TurnStep) : Effect
     /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
     @Serializable @SerialName("extra-combat") data class ExtraCombat(
         val untapAttackers: Boolean = false, val followedByMain: Boolean = false,
@@ -490,7 +506,9 @@ sealed interface KeywordAction {
     @Serializable @SerialName("venture") data object Venture : KeywordAction
     /** "Venture into [quality]" (CR 701.49d: "venture into Undercity"): a new dungeon is one of [dungeons]. */
     @Serializable @SerialName("venture-into") data class VentureInto(val dungeons: ObjectFilter) : KeywordAction
-    @Serializable @SerialName("manifest") data class Manifest(val count: Value) : KeywordAction
+    /** Manifest the top [count] cards of the acting player's library one at a time (CR 701.40a, e), or (mh3) the cards [cards]
+     * instead ("each manifest two cards from their hands"), each under its owner's control. */
+    @Serializable @SerialName("manifest") data class Manifest(val count: Value, val cards: Objects? = null) : KeywordAction
     /** "[Players] manifest(s) dread" (CR 701.62a): look at the top two cards of their library, manifest one of them
      * (CR 701.40a: onto the battlefield face down as a 2/2 creature, [ObjectMark.Manifested]) and put the other into
      * their graveyard. The bind of [Effect.Action] names the manifested permanent ("that creature"). Triggers "whenever

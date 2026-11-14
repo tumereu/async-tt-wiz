@@ -144,8 +144,16 @@ sealed interface CostObjects {
         // lci
         /** With [count] null, at least this many ("one or more Dinosaurs", "four or more nonlands", craft, CR 702.167a). */
         val atLeast: Int? = null,
+        // mh3 fixes
+        /** The chosen objects have at least [Distinct.atLeast] different values of [Distinct.quality] among them ("Exile any number of
+         * other cards from your graveyard with four or more card types among them", CR 205.2a, 601.2h). */
+        val distinct: Distinct? = null,
     ) : CostObjects
 }
+
+/** At least [atLeast] different values of [quality] among the chosen objects ("with four or more card types among them"). */
+@Serializable
+data class Distinct(val quality: SharedQuality, val atLeast: Int)
 
 /** Mana an ability or effect adds (CR 106). [restriction] limits what it may be spent on ("spend this mana only to
  * cast creature spells", CR 106.6). [spellGets] applies to a spell this mana is spent on ("that spell can't be
@@ -163,6 +171,11 @@ data class ManaProduction(
     val spellGetsIf: ObjectFilter? = null,
     /** How long [spellGets] lasts ("until end of turn"); null: as long as the spell and the permanent it becomes. */
     val spellGetsUntil: Duration? = null,
+    // mh3 fixes
+    /** "Spend this mana only on costs that contain {X}" (CR 106.6): only on a total cost that had an {X} before X was given its value
+     * (CR 107.3, 601.2f), a spell's or an ability's, also one paid as a spell or ability resolves; not on a spell with {X} in its mana
+     * cost cast for an alternative cost without {X} (CR 118.9). With [restriction], both must hold. */
+    val onlyCostsWithX: Boolean = false,
 )
 
 /** [property] of the chosen objects added up, at least [atLeast]; with [exactly], exactly [atLeast] ("Exile one or more other artifacts

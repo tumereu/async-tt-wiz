@@ -361,14 +361,15 @@ class MomChunk01TransformTest {
         ),
     )
 
-    // CR 510.1c: each such creature's controller may have it assign its damage as though it weren't blocked
+    // CR 510.1c: each such creature's controller may have it assign its damage as though it weren't blocked; CR 701.23a: "and/or",
+    // the searcher chooses which zones to search
     @Test
     fun invasionOfVarrok() = cardFaces(Layout.Transform,
         siege("Invasion of Varrok", "{X}{G}{G}",
             "When this Siege enters, search your library and/or graveyard for a non-Human creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle.",
             "6") to abilities(
             triggered(entersSelf,
-                search(and(not(sub("Human")), creature, ObjectFilter.ManaValue(Comparison.AtMost, Value.CastX(Objects.Self))), zones = listOf(Zone.Library, Zone.Graveyard)),
+                search(and(not(sub("Human")), creature, ObjectFilter.ManaValue(Comparison.AtMost, Value.CastX(Objects.Self))), zones = listOf(Zone.Library, Zone.Graveyard), zonesChosen = true),
                 move(Objects.Bound("found"), Zone.Battlefield),
                 ifThen(Condition.Searched("found", Zone.Library), shuffle)),
         ),
@@ -523,14 +524,15 @@ class MomChunk01TransformTest {
         ),
     )
 
-    // CR 400.11: cards outside the game (a sideboard) can be searched for; CR 701.23: shuffle only after searching the library
+    // CR 400.11: cards outside the game (a sideboard) can be searched for; CR 701.23: shuffle only after searching the library, and
+    // "and/or": the searcher chooses which of the zones to search
     @Test
     fun invasionOfMirrowyn() = cardFaces(Layout.Transform,
         siege("Invasion of Mirrowyn", "{3}{U}{U}",
             "When this Siege enters, search your library, graveyard, and/or outside the game for an instant or sorcery card you own, reveal it, and put it into your hand. If you search your library this way, shuffle.",
             "7") to abilities(
             triggered(entersSelf,
-                search(and(or(instant, sorcery), ObjectFilter.OwnedBy(PlayerFilter.You)), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard, Zone.Outside)),
+                search(and(or(instant, sorcery), ObjectFilter.OwnedBy(PlayerFilter.You)), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard, Zone.Outside), zonesChosen = true),
                 move(Objects.Bound("found"), Zone.Hand),
                 ifThen(Condition.Searched("found", Zone.Library), shuffle)),
         ),

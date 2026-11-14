@@ -511,7 +511,7 @@ internal object Triggers {
         var chosen: Pair<List<Int>, Map<String, List<TargetRef>>>? = null
         val choices = try {
             Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event,
-                watch = { modes, targets -> chosen = modes to targets })
+                watch = { modes, targets -> chosen = modes to targets }, pendingKind = arcanum.api.AbilityKind.Triggered)
         } catch (n: NeedDecision) {
             // CR 603.3d: a decision of its modes or targets: what was chosen before it, for the one choosing
             chosen?.let { (modes, targets) -> placing.current = announcing(arcanum.engine.decision.AnnounceStage.Targets, modes, targets.toMap()) }

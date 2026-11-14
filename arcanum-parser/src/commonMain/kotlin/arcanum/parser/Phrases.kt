@@ -155,6 +155,11 @@ internal object Filters {
         }
         // dsk chunk 07: "any card" (CR 701.23a: a search for any card)
         if (phrase == "any card") return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
+        // mh3 chunk 05: "noncreature spells you cast from exile": cast from that zone (CR 601.2a)
+        SPELLS_YOU_CAST_FROM.matchEntire(phrase)?.let { m ->
+            val zone = when (m.groupValues[2]) { "exile" -> Zone.Exile; "your hand" -> Zone.Hand; else -> Zone.Graveyard }
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.WasCast(from = zone))
+        }
         // dsk chunk 01: "creature spells you cast": spells a player cast are spells they control (CR 112.2)
         SPELLS_YOU_CAST.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)) }
         // blb gaps 2: "instant and sorcery spells you cast": each spell of either type
@@ -258,6 +263,9 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
+            // mh3 chunk 01: "with mana value 4, 5, or 6": any of those
+            if (m.groupValues[2].contains(", ")) return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(m.groupValues[2].split(", ", "or ")
+                .filter { it.isNotBlank() }.map { ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(it.trim().toInt())) }))
             val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             // blb gaps 2: "… or greater"
             val comparison = when (m.groupValues[3]) { "" -> arcanum.api.Comparison.Equal; " or greater" -> arcanum.api.Comparison.AtLeast; else -> arcanum.api.Comparison.AtMost }
@@ -411,7 +419,7 @@ internal object Filters {
                 ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()), role = arcanum.api.EventRole.Source))
         }
         // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
-        // one chunk 10: also "with mana value less than or equal to the mana value of the discarded card"
+        // one chunk 10: also "with mana value less than or equal to the mana value of the discarded card"; mh3 chunk 12: "… to your devotion to black"
         GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
             val value = Values.value(m.groupValues[3]) ?: return null
             return all(noun(m.groupValues[1]) ?: return null,
@@ -536,11 +544,12 @@ internal object Filters {
     private val WITHOUT_A_NAME = Regex("""(.+) that (?:don't|doesn't) have a name""")
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
     // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
+    private val SPELLS_YOU_CAST_FROM = Regex("""(.+ spells you cast) from (exile|your hand|your graveyard)""")
     private val SPELLS_YOU_CAST = Regex("""([\w-]+(?:(?:,| or|, or) [\w-]+)*) spells you cast""")
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
-    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less| or greater)?""")
+    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X|(?:\d+, )+or \d+)( or less| or greater)?""")
     // blb gaps 2
     private val SPELLS_OF_TYPES_YOU_CAST = Regex("""(\w+) and (\w+) spells you cast""")
     private val WITH_X_IN_MANA_COST = Regex("""(.+) with \{X\} in (?:its|their) mana costs?""")
@@ -641,6 +650,11 @@ internal object Events {
         EoePhrases.events(text, self)?.let { return it } // eoe
         EclPhrases.events(text, self)?.let { return it } // ecl
         FraPhrases.events(text, self)?.let { return it } // fra
+        // mh3 chunk 03: "you cast or cycle Drownyard Lurker": one ability, two events: the cast (it triggers from the stack, CR 603.6) and the
+        // cycling (from wherever the card ends up, CR 702.29c)
+        YOU_CAST_OR_CYCLE.matchEntire(text)?.takeIf { subject(it.groupValues[1], self) == ObjectFilter.Is(Objects.Self) }?.let {
+            return listOf(EventPattern.Cast(ObjectFilter.Is(Objects.Self), PlayerFilter.You), EventPattern.Cycle(ObjectFilter.Is(Objects.Self), PlayerFilter.You))
+        }
         // blb chunk 03: "this artifact enters and when you sacrifice it" (only its controller sacrifices it, CR 701.21a)
         ENTERS_AND_WHEN_YOU_SACRIFICE_IT.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
@@ -937,6 +951,7 @@ internal object Events {
         }
         // one chunk 02: "a creature you control becomes the target of a spell" (any player's spell, not an ability)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
+            // mh3 chunk 11: no controller, "this creature becomes the target of a spell or ability" (anyone's)
             val controller = when (m.groupValues[3]) {
                 "you control" -> ObjectFilter.ControlledBy(PlayerFilter.You)
                 "an opponent controls" -> ObjectFilter.ControlledBy(PlayerFilter.Opponent)
@@ -977,6 +992,12 @@ internal object Events {
         // fdn chunk 11c: "the beginning of each player's draw step" (every turn's step, CR 503.1)
         BEGINNING_OF_EACH_PLAYERS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
         BEGINNING_OF_EACH_OPPONENTS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Opponent) }
+        // mh3 chunk 07: "the beginning of enchanted player's upkeep", "… of each of enchanted player's postcombat main phases" (an Aura enchanting a
+        // player, CR 303.4; every postcombat main phase of their turns, additional ones included, CR 505.1a)
+        BEGINNING_OF_ENCHANTED_PLAYERS.matchEntire(text)?.let { m ->
+            val step = STEPS[m.groupValues[1]] ?: if (m.groupValues[1] == "postcombat main phases") arcanum.api.TurnStep.PostcombatMain else return null
+            return EventPattern.StepBegins(step, whose = PlayerFilter.Is(Players.AttachedTo(Objects.Self)))
+        }
         // chunk 52: "a creature is exiled from the battlefield"
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile)
@@ -1149,10 +1170,13 @@ internal object Events {
     // dsk chunk 02
     private val ATTACKS_ALONE = Regex("""(.+) attacks alone""")
     // blb chunk 04: "your second main phase"
-    private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step|first main phase|second main phase)""")
+    // mh3 chunk 09: "the beginning of each of your postcombat main phases" (every one of them, additional ones included, CR 505.1a)
+    private val BEGINNING_OF_YOUR = Regex("""the beginning of (?:each of )?your (upkeep|draw step|end step|first main phase|second main phase|precombat main phase|postcombat main phases?)""")
     private val STEPS = mapOf<String, arcanum.api.TurnStep>("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
         // dsk chunk 02: the first main phase is the precombat main phase (CR 505.1a)
-        "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain)
+        "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain,
+        "precombat main phase" to arcanum.api.TurnStep.PrecombatMain, "postcombat main phase" to arcanum.api.TurnStep.PostcombatMain,
+        "postcombat main phases" to arcanum.api.TurnStep.PostcombatMain)
     // mom chunk 10: "one or more artifacts and/or creatures you control are put into a graveyard from the battlefield" (a batch)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
@@ -1216,6 +1240,7 @@ internal object Events {
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a (spell or ability|spell)(?: (you control|an opponent controls))?""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
+    private val BEGINNING_OF_ENCHANTED_PLAYERS = Regex("""the beginning of (?:each of )?enchanted player's (upkeep|draw step|end step|postcombat main phases)""")
     private val BEGINNING_OF_EACH_PLAYERS = Regex("""the beginning of each player's (upkeep|draw step|end step)""")
     private val BECOMES_LEVEL = Regex("""(.+) becomes level (\d+)""")
     private val ONE_OR_MORE_DIE = Regex("""one or more (.+) die""")
@@ -1224,6 +1249,8 @@ internal object Events {
     private val ENTERS_AND_WHENEVER = Regex("""(.+) enters and whenever (.+)""")
     // blb chunk 03
     private val ENTERS_AND_WHEN_YOU_SACRIFICE_IT = Regex("""(.+) enters and when you sacrifice it""")
+    // mh3 chunk 03
+    private val YOU_CAST_OR_CYCLE = Regex("""you cast or cycle (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -1270,6 +1297,11 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        // mh3 chunk 10: "you've paid or lost four or more {E} this turn" (energy counters removed from you, CR 107.14)
+        Mh3.PAID_OR_LOST_ENERGY_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.PlayerCountersRemoved(PlayerFilter.You, arcanum.api.CounterKind.Energy),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = arcanum.api.Measure.Amount)
+        }
         MomPhrases.condition(text, self)?.let { return it } // mom
         OtjPhrases.condition(text)?.let { return it } // otj
         WoePhrases.condition(text, self)?.let { return it } // woe
@@ -1378,16 +1410,25 @@ internal object Conditions {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard))
         }
         // chunk 32: "{R}{R} was spent to cast it" (at least that much mana of that colour)
+        // mh3 chunk 01: "{C} was spent to cast it", "{C} wasn't spent to cast it" (colorless mana, CR 106.1b)
         MANA_WAS_SPENT.matchEntire(text)?.let { m ->
             val symbols = arcanum.api.ManaCost.parse(m.groupValues[1])?.symbols ?: return null
-            val colors = symbols.map { (it as? arcanum.api.ManaSymbol.Colored)?.color ?: return null }.distinct()
-            return Condition.Compare(Value.ManaSpent(color = colors.singleOrNull() ?: return null, of = Objects.Self), Comparison.AtLeast, Value.Fixed(symbols.size))
+            val spent = if (symbols.all { it == arcanum.api.ManaSymbol.Colorless }) Value.ManaSpent(colorless = true, of = Objects.Self) else {
+                val colors = symbols.map { (it as? arcanum.api.ManaSymbol.Colored)?.color ?: return null }.distinct()
+                Value.ManaSpent(color = colors.singleOrNull() ?: return null, of = Objects.Self)
+            }
+            val was = Condition.Compare(spent, Comparison.AtLeast, Value.Fixed(symbols.size))
+            return if (m.groupValues[2] == "wasn't") Condition.Not(was) else was
         }
         // chunk 32: "you've discarded a card this turn"
         if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
         // chunk 33: "it was kicked", "this creature was kicked" (CR 702.33d)
         WAS_KICKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
             return Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
+        }
+        // mh3 chunk 08: "it escaped", "Phlage escaped": cast with its escape cost (CR 702.138c)
+        ESCAPED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
+            return Condition.Paid(arcanum.api.Keyword.Escape.Kind, times = 1, of = Objects.Self)
         }
         // chunk 32: "it's attacking" (about this permanent)
         if (text == "it's attacking") return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
@@ -1443,6 +1484,8 @@ internal object Conditions {
         IS_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard))
         }
+        // mh3 chunk 12: "you have the city's blessing" (CR 702.131c)
+        if (text == "you have the city's blessing") return Condition.PlayerMatches(Players.You, PlayerFilter.Has(arcanum.api.Designation.CitysBlessing))
         // chunk 26: "Kaito entered this turn"
         ENTERED_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield, objects = ObjectFilter.Any)))
@@ -1517,6 +1560,10 @@ internal object Conditions {
             return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(most))
         }
         // blb chunk 05: "you control a creature with power 4 or greater"
+        // mh3 chunk 09: "you control a red permanent other than Ajani" (the card's own name, as "other than this planeswalker")
+        CONTROL_A_OTHER_THAN_NAME.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
+            Filters.noun(m.groupValues[1] + " other than this permanent you control")?.let { return Condition.Exists(it, atLeast = 1) }
+        }
         BLB_CONTROL_A_PHRASE.matchEntire(text)?.let { m -> Filters.noun(m.groupValues[1] + " you control")?.let { return Condition.Exists(it, atLeast = 1) } }
         // blb chunk 03: "A or if B"
         OR_IF.matchEntire(text)?.let { m ->
@@ -1624,9 +1671,10 @@ internal object Conditions {
     private val CONTROL_AT_LEAST = Regex("""you control at least (\w+) (other )?(.+)""")
     private val SELF_IN_YOUR_GRAVEYARD = Regex("""(.+) is in your graveyard""")
     // chunk 32
-    private val MANA_WAS_SPENT = Regex("""((?:\{[WUBRG]\})+) was spent to cast it""")
+    private val MANA_WAS_SPENT = Regex("""((?:\{[WUBRGC]\})+) (was|wasn't) spent to cast it""")
     // chunk 33
     private val WAS_KICKED = Regex("""(.+) was kicked""")
+    private val ESCAPED = Regex("""(.+) escaped""")
     // lci chunk 07: "permanent types" too (CR 110.4a)
     private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more (card|permanent) types among cards in your graveyard""")
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
@@ -1681,6 +1729,7 @@ internal object Conditions {
     // blb chunk 05
     private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (?:(\w+) or fewer|(no)) cards in hand""")
     private val BLB_CONTROL_A_PHRASE = Regex("""you control an? (.+)""")
+    private val CONTROL_A_OTHER_THAN_NAME = Regex("""you control an? (.+?) other than (.+)""")
     // blb chunk 03
     private val OR_IF = Regex("""(.+?) or if (.+)""")
     private val N_LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""(\w+) or more (.+) left your graveyard this turn""")
@@ -1815,7 +1864,7 @@ internal object Values {
         IsdPhrases.value(text)?.let { return it } // isd
         // inr chunk 08: "twice the number of Blood tokens you control"
         if (text.startsWith("twice ")) value(text.removePrefix("twice "), exiled, its)?.let { return Value.Times(it, 2) }
-        // isd chunk 06: "half the number of Zombies you control, rounded down" (CR 107.1a)
+        // mh3 chunk 06, isd chunk 06: "half the number of artifacts you control, rounded down" (CR 107.1a)
         HALF_ROUNDED.matchEntire(text)?.let { m -> value(m.groupValues[1], exiled, its)?.let { return Value.Half(it, roundUp = m.groupValues[2] == "up") } }
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
         if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
@@ -1832,6 +1881,10 @@ internal object Values {
         if (text == "its power") return Value.Of(arcanum.api.NumericProperty.Power, its, Combine.Single)
         // dsk chunk 03: "the number of counters on this creature" (every kind; as it last existed once it has left, CR 608.2h)
         if (text == "the number of counters on this creature") return Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, Combine.Single)
+        // mh3 chunk 04: "the number of counters on permanents you control": every counter of every kind on those permanents added up
+        Mh3.NUMBER_OF_COUNTERS_ON.matchEntire(text)?.let { m ->
+            return Value.Of(arcanum.api.NumericProperty.Counters(null), Filters.objects(m.groupValues[1]) ?: return null, Combine.Total)
+        }
         // dsk chunk 02: "the number of unlocked doors among Rooms you control" (CR 709.5c)
         UNLOCKED_DOORS_AMONG.matchEntire(text)?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.UnlockedDoors, Filters.objects(m.groupValues[1]) ?: return null, Combine.Total)
@@ -1845,8 +1898,8 @@ internal object Values {
         }
         DIED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
-            return Value.EventsThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)),
-                from = Zone.Battlefield, to = Zone.Graveyard), arcanum.api.Measure.Objects)
+            val died = if (m.groupValues[2].isEmpty()) filter else Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))
+            return Value.EventsThisTurn(EventPattern.ZoneChange(died, from = Zone.Battlefield, to = Zone.Graveyard), arcanum.api.Measure.Objects)
         }
         CARDS_IN_YOUR_ZONE.matchEntire(text)?.let { m ->
             val zone = when (m.groupValues[1]) { "library" -> Zone.Library; "hand" -> Zone.Hand; else -> Zone.Graveyard }
@@ -1882,10 +1935,11 @@ internal object Values {
 
     // blb gaps 2
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
-    private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
+    // mh3 chunk 07: also anyone's ("the number of creatures that died this turn")
+    private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died( under your control)? this turn""")
     // rtr chunk 06
-    // one chunk 09: any sacrificed noun ("the sacrificed artifact's mana value")
-    private val SACRIFICED_PROPERTY = Regex("""the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (power|toughness|mana value)""")
+    // one chunk 09, mh3 chunk 06: any sacrificed noun ("the sacrificed artifact's mana value")
+    private val SACRIFICED_PROPERTY = Regex("""the sacrificed \w+'s (power|toughness|mana value)""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

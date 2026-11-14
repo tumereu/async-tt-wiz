@@ -74,6 +74,12 @@ internal object Answers {
                 if (shares.sumOf { it.amount } != q.amount) refuse("Divide exactly ${q.amount}")
                 c.copy(divided = c.divided + shares.map { DividedShare(q.key, it.target, it.amount) })
             }
+            is Question.CounterPick -> {
+                val chosen = (answer as? Answer.Option)?.chosen ?: refuse("Expected an option")
+                if (chosen !in q.labels) refuse("Not an option: $chosen")
+                val before = (c.names[Plan.COUNTERS + q.key] as? NamedValue.Names)?.names.orEmpty()
+                c.copy(names = c.names.with(Plan.COUNTERS + q.key, NamedValue.Names(before + chosen)))
+            }
             is Question.OneOf -> {
                 val chosen = (answer as? Answer.Option)?.chosen ?: refuse("Expected an option")
                 val index = q.labels.indexOf(chosen).takeIf { it >= 0 } ?: refuse("Not an option: $chosen")
@@ -87,6 +93,10 @@ internal object Answers {
                 // rtr chunk 07: "with the same name": all of them share it
                 ch.shared?.let { quality ->
                     if (chosen.any { a -> chosen.any { b -> a != b && !plan.eval.shares(quality, a, b) } }) refuse("The chosen objects must share $quality")
+                }
+                // mh3 fixes: "with four or more card types among them" (CR 205.2a)
+                ch.distinct?.let { d ->
+                    if (plan.eval.distinct(d.quality, chosen) < d.atLeast) refuse("They must have ${d.atLeast} or more different ${d.quality} among them")
                 }
                 ch.total?.let { total ->
                     val sum = chosen.sumOf { plan.eval.property(total.property, it) }
@@ -149,7 +159,7 @@ internal object Answers {
         }
         is Question.Objects -> {
             val ch = q.choice
-            if (ch.total == null && ch.shared == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
+            if (ch.total == null && ch.shared == null && ch.distinct == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
         }
         is Question.Target -> if (q.options.isEmpty() && q.min == 0) Answer.Targets(emptyList()) else null
         // blb: the only opponent there is (CR 702.174a, two players)
@@ -164,7 +174,8 @@ internal object Answers {
     fun payable(plan: Plan, parts: List<CostPart>): Boolean = parts.all { part ->
         val you = plan.snap.state.player(plan.player)
         when (part) {
-            is CostPart.PayLife -> you.life >= plan.eval.value(part.amount)
+            is CostPart.PayLife -> plan.eval.value(part.amount).let { n -> you.life >= n && (n == 0 ||
+                plan.snap.view.players[plan.player]?.mechanics.orEmpty().none { it.mechanic == arcanum.api.Mechanic.CantLoseLife }) } // mh3: CR 119.8
             is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
             is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
             // mkm fix: "Reveal the creature type you chose": only a choice the source keeps (CR 118.3)
@@ -182,13 +193,13 @@ internal object Answers {
         }
     }
 
-    /** Whether each of [ids] has the counters [part] removes (of its kind, else of the kind it has first, as paid). */
+    /** Whether each of [ids] has the counters [part] removes (of its kind; mh3 sweep: else of any kinds, CR 118.3). */
     private fun enoughCounters(plan: Plan, part: CostPart.RemoveCounters, ids: List<arcanum.engine.state.ObjectId>): Boolean {
         val n = plan.eval.value(part.amount)
+        if (part.kind == null) return CounterCosts.progress(plan.snap.state, ids, n, part.distributed, emptyList()) { it.toString() } != CounterCosts.Progress.Unpayable
         return ids.all { id ->
             val o = plan.snap.state.obj(id) ?: return@all false
-            // of no named kind, counters of any kinds add up (CR 122.1)
-            (part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }) >= n
+            o.counters(part.kind!!) >= n
         }
     }
 }

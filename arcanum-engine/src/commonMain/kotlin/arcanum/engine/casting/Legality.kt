@@ -176,7 +176,8 @@ internal object Legality {
         val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash } || ownConditionalFlash(snap, player, card)
         // A permission a mark gives may hold it to sorcery timing (a plotted card, CR 702.170d)
         val asSorcery = arcanum.engine.foretell.MarkCasts.asSorcery(permission?.second?.origin)
-        val instant = !asSorcery && during != null || !asSorcery && !faceDown && instantSpeed(snap, player, card, types, flash)
+        val instant = !asSorcery && during != null || !asSorcery && !faceDown &&
+            instantSpeed(snap, player, card, types, flash, alternative(snap, card, way, player)?.second)
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         if (onlyAsSorcery(snap, player, card) && !sorceryTiming(snap, player)) return "$player can cast it only as a sorcery (CR 307.5)"
         legendarySpellWithoutLegend(snap, player, face, types)?.let { return it }
@@ -318,16 +319,20 @@ internal object Legality {
             val sorceryTime = st.turn.active == plan.player && st.stack.all { it == plan.itemId } &&
                 (st.turn.step == TurnStep.PrecombatMain || st.turn.step == TurnStep.PostcombatMain)
             val c = proposed.view[plan.itemId]?.characteristics
-            return !plan.byEffect && !sorceryTime && c != null && !instantSpeed(proposed, plan.player, plan.itemId, c.types, c.hasKeyword(Keyword.Flash))
+            return !plan.byEffect && !sorceryTime && c != null && !instantSpeed(proposed, plan.player, plan.itemId, c.types, c.hasKeyword(Keyword.Flash), plan.alternative?.second)
         }
         return plan.item.announced.isNotEmpty() && cantCastBy(plan.snap, plan.player, plan.itemId)
     }
 
     /** Whether [card] (of [types], [flash] when it has flash) may be cast any time [player] could cast an instant: an instant or with
-     * flash (CR 307.1, 702.8a), or an effect lets it be cast as though it had flash. */
-    private fun instantSpeed(snap: Snapshot, player: PlayerId, card: ObjectId, types: List<CardType>, flash: Boolean): Boolean =
+     * flash (CR 307.1, 702.8a), or an effect or the [alternative] cost it is cast for lets it be cast as though it had flash. */
+    private fun instantSpeed(
+        snap: Snapshot, player: PlayerId, card: ObjectId, types: List<CardType>, flash: Boolean, alternative: Mechanic.AlternativeCost?,
+    ): Boolean =
         CardType.Instant in types || flash ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) || nextSpellFlash(snap, player, card) ||
+            // mh3: an alternative cost that lets the spell cast by paying it be cast as though it had flash (CR 601.3c)
+            alternative?.flash == true ||
             // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
             snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
                 (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash }

@@ -60,6 +60,8 @@ data class ManaUnit(
     val whenSpent: Instructions? = null,
     val spellGetsIf: ObjectFilter? = null,
     val spellGetsUntil: Duration? = null,
+    /** mh3 fixes: spent only on a cost that contains {X} ([arcanum.api.ManaProduction.onlyCostsWithX], CR 106.6). */
+    val onlyCostsWithX: Boolean = false,
 )
 
 /**
@@ -84,6 +86,8 @@ data class TurnState(
     val extraPhases: List<TurnStep> = emptyList(),
     /** Where the turn's own order goes on once the additional phases are over (CR 500.8). */
     val resumeAt: TurnStep? = null,
+    /** The phase under way is an additional one holding only its upkeep or draw step (CR 500.10, 500.11): it ends with that step. */
+    val lonePhase: Boolean = false,
     // sos
     /** One entry for each turn a player will skip: their next turns that don't happen (CR 614.10, "skips their next X turns"). */
     val skippedTurns: List<PlayerId> = emptyList(),

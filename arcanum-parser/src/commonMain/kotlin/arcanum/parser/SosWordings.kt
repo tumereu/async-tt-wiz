@@ -90,7 +90,8 @@ internal object Sos {
 
     // sos chunk 09: counters
     val MOVE_X_COUNTERS_ONTO_ANOTHER = Regex("""At the beginning of combat on your turn, you may pay \{X\}\. When you do, move X (\S+) counters from (.+?) onto another target (.+)\.""")
-    val PUT_COUNTER_THEN_DOUBLE = Regex("""Put an? (\S+) counter on target (.+?), then double the number of (\S+) counters on that creature\.""")
+    // mh3 chunk 07: also "on each creature you control" (overloaded) and "on each creature that had a +1/+1 counter put on it this way"
+    val PUT_COUNTER_THEN_DOUBLE = Regex("""Put an? (\S+) counter on (target|each) (.+?), then double the number of (\S+) counters on (?:that creature|each creature that had an? \1 counter put on it this way)\.""")
     val CREATE_TOKEN_PUT_COUNTERS_OF_SELF = Regex("""[Cc]reate (.+?) token, then put (.+?)'s counters on that token\.""")
     val AS_LONG_AS_N_COUNTERS_GROUP_GETS = Regex("""As long as there are (\w+) or more (\S+) counters on (.+?), (.+?) get ([+-]\d+)/([+-]\d+)\.""")
     val CREATE_TOKEN_PUT_X_WHERE_DIFFERENT_NAMES = Regex("""Create (.+?) token\. Put X (\S+) counters on it\.""")

@@ -9,11 +9,13 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.scenario.scenario
 import arcanum.engine.sets.fin.backFaceUp
 import arcanum.engine.sets.rtr.resolveAll
+import arcanum.engine.sets.blb.targets
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertEquals
 import arcanum.engine.Engine
 import arcanum.engine.input.Input
+import arcanum.engine.state.TargetRef
 
 /** LCI chunk 02: craft (CR 702.167) played: materials from the battlefield and the graveyard, "one or more" and several kinds, only as a
  * sorcery, and the back faces reading "the exiled cards used to craft it"; and the cards around them. Invented names carry the oracle text. */
@@ -277,6 +279,8 @@ class LciChunk02CraftScenariosTest {
         alice.attacks("The Dread Admiral", defender = "bob")
         resolveAll()
         alice.chooses(stomper)
+        // CR 508.4: its controller chooses the player it attacks
+        targets("carol")
         resolveAll()
         expect {
             bob.graveyard has ogre
@@ -284,6 +288,7 @@ class LciChunk02CraftScenariosTest {
             stomper.zone shouldBe Zone.Battlefield
             stomper.tapped shouldBe true
         }
+        assertEquals(TargetRef.Player(carol.id), state.combat!!.attackers.single { it.id == card(stomper) }.target)
     }
 
     // layer 6 (CR 613.1f): the exiled cards' activated abilities, each once a turn (CR 602.5b); each non-mana activation is copied (CR 707.10)

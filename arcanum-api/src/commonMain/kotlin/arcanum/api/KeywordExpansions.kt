@@ -48,8 +48,11 @@ object KeywordExpansions {
                 Affected.Objects(Objects.Self), Duration.EndOfTurn))))
         is Keyword.Toxic -> static(Mechanic.Toxic(keyword.amount))
         is Keyword.Protection -> static(Mechanic.Protection(keyword.from))
-        is Keyword.HexproofFrom -> static(Mechanic.CantBeTargeted(
-            by = ObjectFilter.ControlledBy(PlayerFilter.Opponent), fromSource = keyword.from))
+        // CR 702.11d: a quality of abilities themselves ("hexproof from activated and triggered abilities") is matched against the
+        // ability, any other against the spell or the ability's source
+        is Keyword.HexproofFrom -> static(if (ofAbilities(keyword.from)) Mechanic.CantBeTargeted(
+            by = ObjectFilter.And(listOf(ObjectFilter.ControlledBy(PlayerFilter.Opponent), keyword.from)))
+            else Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent), fromSource = keyword.from))
         // CR 702.14c: can't be blocked as long as the defending player controls such a land
         is Keyword.Landwalk -> listOf(Ability.Static(listOf(Mechanic.CantBeBlocked),
             condition = Condition.Exists(ObjectFilter.And(listOf(keyword.land, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.DefendingPlayerOf(Objects.Self))))), atLeast = 1), affects = Affected.Objects(Objects.Self)))
@@ -529,13 +532,8 @@ object KeywordExpansions {
         is Keyword.Poisonous -> listOf(Ability.Triggered(Trigger.On(combatDamageToPlayer),
             steps(Effect.GivePlayerCounters(Players.EventPlayer, CounterKind.Poison, Value.Fixed(keyword.amount)))))
         // CR 702.86a: "Whenever this creature attacks, defending player sacrifices N permanents."
-        is Keyword.Annihilator -> {
-            val defending = Players.DefendingPlayerOf(Objects.Self)
-            listOf(Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
-                Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Battlefield), ObjectFilter.ControlledBy(PlayerFilter.Is(defending)))),
-                    Value.Fixed(keyword.amount), Value.Fixed(keyword.amount)), bind = "annihilated", chooser = defending),
-                Step.Do(Effect.Sacrifice(Objects.Bound("annihilated")))))))
-        }
+        is Keyword.Annihilator -> listOf(annihilator(Value.Fixed(keyword.amount)))
+        is Keyword.AnnihilatorX -> listOf(annihilator(keyword.amount)) // mh3
         // CR 702.112a: "When this creature deals combat damage to a player, if it isn't renowned, put N +1/+1 counters on
         // it and it becomes renowned."
         is Keyword.Renown -> listOf(Ability.Triggered(Trigger.On(combatDamageToPlayer),
@@ -736,6 +734,24 @@ object KeywordExpansions {
 
     // tla
     /** Firebending [amount] (CR 702.189a): an attack trigger adding [amount] {R} kept until end of combat. */
+    /** Whether [filter] describes abilities on the Stack (a quality of abilities, not of their sources). */
+    private fun ofAbilities(filter: ObjectFilter): Boolean = when (filter) {
+        is ObjectFilter.AbilityOf -> true
+        is ObjectFilter.Category -> filter.category == ObjectCategory.StackAbility
+        is ObjectFilter.And -> filter.all.any { ofAbilities(it) }
+        is ObjectFilter.Or -> filter.any.isNotEmpty() && filter.any.all { ofAbilities(it) }
+        else -> false
+    }
+
+    /** CR 702.86a: "Whenever this creature attacks, defending player sacrifices [amount] permanents of their choice." */
+    private fun annihilator(amount: Value): Ability {
+        val defending = Players.DefendingPlayerOf(Objects.Self)
+        return Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
+            Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Battlefield), ObjectFilter.ControlledBy(PlayerFilter.Is(defending)))),
+                amount, amount), bind = "annihilated", chooser = defending),
+            Step.Do(Effect.Sacrifice(Objects.Bound("annihilated"))))))
+    }
+
     private fun firebending(amount: Value) = Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), steps(Effect.AddMana(
         ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = amount), keptUntil = Duration.EndOfCombat), Players.You)))
 

@@ -158,7 +158,8 @@ internal object Options {
      */
     private fun tries(snap: Snapshot, pending: Pending): Sequence<Answer> = when (val d = pending.decision) {
         is Decision.Targets -> selections(d.options, d.min, d.max).map { Answer.Targets(it) }
-        is Decision.ChooseObjects -> (sharing(snap, pending).orEmpty().asSequence() + listOfNotNull(reachingTotal(snap, pending)) + selections(d.options, d.min, d.max))
+        is Decision.ChooseObjects -> (sharing(snap, pending).orEmpty().asSequence() + listOfNotNull(reachingTotal(snap, pending), reachingDistinct(snap, pending)) +
+            selections(d.options, d.min, d.max))
             .distinct().map { Answer.Objects(it) }
         is Decision.Modes -> {
             val available = d.options.filter { it.available }.map { it.index }
@@ -185,14 +186,14 @@ internal object Options {
      * is theirs, CR 702.132a), with its other ways to pay too (convoke, delve, CR 702.51, 702.66). */
     private fun manaFound(plan: Plan): Boolean =
         !plan.total.hasMana || plan.manaToPay.symbols.isEmpty() ||
-            Mana.mayPay(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)
+            Mana.mayPay(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX)
 
     /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]) by enough: a cost that doesn't pay even at the most it
      * can fall ([Plan.mostFall]) is proof without trying every choice. */
     private fun payableYet(plan: Plan): Boolean = manaFound(plan) || (plan.costMayFall && paysAtTheMostItCanFall(plan))
 
     private fun paysAtTheMostItCanFall(plan: Plan): Boolean = plan.mostFall.let { most ->
-        most == null || Mana.mayPay(plan.snap, plan.player, arcanum.engine.casting.Costs.reduce(plan.manaToPay, most), plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)
+        most == null || Mana.mayPay(plan.snap, plan.player, arcanum.engine.casting.Costs.reduce(plan.manaToPay, most), plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX)
     }
 
     /**
@@ -369,9 +370,10 @@ internal object Options {
         val pending = state.pending ?: return emptyList()
         val d = pending.decision as? Decision.ManaPayment ?: return emptyList()
         val c = pending.continuation as? Continuation.Announcing
-        if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed, exact = exact)
+        if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed, exact = exact, xCost = d.xCost)
         val plan = Plan(state, c)
-        return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed, exact)
+        return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed, exact,
+            xCost = plan.total.hasX)
     }
 
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {
@@ -420,7 +422,8 @@ internal object Options {
     private fun candidates(snap: Snapshot, pending: Pending): List<Answer> = when (val d = pending.decision) {
         is Decision.May -> listOfNotNull(Answer.YesNo(true).takeIf { d.payable }, Answer.YesNo(false))
         is Decision.Targets -> some(d.options, d.min, d.max).map { Answer.Targets(it) }
-        is Decision.ChooseObjects -> (sharing(snap, pending) ?: (some(d.options, d.min, d.max) + listOfNotNull(reachingTotal(snap, pending)))).map { Answer.Objects(it) }
+        is Decision.ChooseObjects -> (sharing(snap, pending) ?: (some(d.options, d.min, d.max) + listOfNotNull(reachingTotal(snap, pending),
+            reachingDistinct(snap, pending)))).map { Answer.Objects(it) }
         is Decision.Modes -> {
             val available = d.options.filter { it.available }.map { it.index }
             val repeated = if (d.repeatable && available.isNotEmpty() && available.size < d.min) listOf(List(d.min) { available.first() }) else emptyList()
@@ -474,6 +477,21 @@ internal object Options {
         val total = q.choice.total ?: return null
         if (total.exactly) return arcanum.engine.casting.Costs.exactSubset(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
         return largestFirst(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
+    }
+
+    /** mh3 fixes: for a cost that asks objects with enough different values of a quality among them ("with four or more card types among
+     * them"): each option that adds a new value, until there are enough. Null when the question asks no such thing. */
+    private fun reachingDistinct(snap: Snapshot, pending: Pending): List<ObjectId>? {
+        val c = pending.continuation as? Continuation.Announcing ?: return null
+        val plan = Plan(snap.state, c)
+        val q = plan.next() as? Question.Objects ?: return null
+        val d = q.choice.distinct ?: return null
+        val chosen = mutableListOf<ObjectId>()
+        for (id in q.choice.options) {
+            if (plan.eval.distinct(d.quality, chosen) >= d.atLeast) break
+            if (plan.eval.distinct(d.quality, chosen + id) > plan.eval.distinct(d.quality, chosen)) chosen += id
+        }
+        return chosen.takeIf { plan.eval.distinct(d.quality, it) >= d.atLeast }
     }
 
     /** [options], the largest [value] first, up to the first that reach [atLeast] and are at least [min]. */

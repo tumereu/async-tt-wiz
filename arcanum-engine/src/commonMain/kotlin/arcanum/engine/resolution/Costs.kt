@@ -82,7 +82,7 @@ internal object Costs {
         return when (part) {
             // CR 118.3, 608.2g: mana abilities may be activated while paying; a cost is payable when a payment is found
             // An X nothing defines may be chosen as 0 (CR 107.3f)
-            is CostPart.Mana -> mayPay(scope, payer, manaCost(scope, part, unknownX(part.cost, part.x).associateWith { 0 })!!)
+            is CostPart.Mana -> mayPay(scope, payer, manaCost(scope, part, unknownX(part.cost, part.x).associateWith { 0 })!!, hasX(part.cost))
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { mayPay(scope, payer, it) } ?: false
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { mayPay(scope, payer, arcanum.engine.casting.Costs.reduce(it, part.less)) } ?: false
             is CostPart.Manual -> false
@@ -97,7 +97,7 @@ internal object Costs {
             is CostPart.ReturnToHand -> candidates(scope, payer, part.what, Zone.Battlefield).size >= count(scope, part.what)
             is CostPart.Reveal -> candidates(scope, payer, part.what, Zone.Hand).size >= count(scope, part.what)
             // CR 119.4: a player can pay life only if their life total is at least that much
-            is CostPart.PayLife -> state.player(payer).life >= scope.value(part.amount)
+            is CostPart.PayLife -> scope.value(part.amount).let { n -> state.player(payer).life >= n && (n == 0 || !Actions.cantLoseLife(scope.act, payer)) } // mh3: CR 119.8
             is CostPart.PayEnergy -> state.player(payer).counters(CounterKind.Energy) >= scope.value(part.amount)
             is CostPart.RemoveCounters -> candidates(scope, payer, part.from, Zone.Battlefield).any { id ->
                 val o = state.obj(id)!!
@@ -130,8 +130,11 @@ internal object Costs {
         }
     }
 
-    private fun mayPay(scope: Scope, payer: PlayerId, cost: ManaCost): Boolean =
-        Mana.needs(cost).isEmpty() || Mana.mayPay(scope.act.recorder.snapshot(), payer, cost, null)
+    private fun mayPay(scope: Scope, payer: PlayerId, cost: ManaCost, xCost: Boolean = false): Boolean =
+        Mana.needs(cost).isEmpty() || Mana.mayPay(scope.act.recorder.snapshot(), payer, cost, null, xCost = xCost)
+
+    /** mh3 fixes: [cost] contains {X}, so mana spent "only on costs that contain {X}" may pay it (CR 106.6, 107.3). */
+    private fun hasX(cost: ManaCost): Boolean = cost.symbols.any { it is ManaSymbol.Variable && it.name == 'X' }
 
     /** The letters of [cost]'s variables ({X}, {Y}) nothing defines: [x] defines X when the text does ("where X is …"). */
     private fun unknownX(cost: ManaCost, x: arcanum.api.Value?): List<Char> =
@@ -205,7 +208,7 @@ internal object Costs {
         when (part) {
             is CostPart.Mana -> {
                 val chosen = chooseX(scope, payer, unknownX(part.cost, part.x), cost = { manaCost(scope, part, it)!! })
-                act.payMana(payer, scope.self, manaCost(scope, part, chosen)!!)
+                act.payMana(payer, scope.self, manaCost(scope, part, chosen)!!, xCost = hasX(part.cost))
             }
             CostPart.ItsManaCost -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, it) }
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(it, part.less)) }
@@ -254,9 +257,12 @@ internal object Costs {
                 if (amount > 0) Actions.payLife(act, cause, payer, amount)
             }
             is CostPart.PayEnergy -> Actions.removeCounters(act, TargetRef.Player(payer), CounterKind.Energy, scope.value(part.amount))
-            is CostPart.RemoveCounters -> choose(scope, payer, part.from, Zone.Battlefield, "remove counters from").forEach { id ->
-                // CR 601.2h, 608.2d: of no named kind, the payer chooses which counters
-                Actions.removeChosenCounters(act, payer, scope.self, id, part.kind, scope.value(part.amount))
+            is CostPart.RemoveCounters -> {
+                val ids = choose(scope, payer, part.from, Zone.Battlefield, "remove counters from")
+                val kind = part.kind
+                if (kind != null) ids.forEach { id -> Actions.removeCounters(act, TargetRef.Object(id), kind, scope.value(part.amount)) }
+                // of no named kind, the payer picks each counter where there is a choice (CR 118.3, 601.2h, 608.2d)
+                else Actions.removeChosenCountersAmong(act, payer, scope.self, ids, scope.value(part.amount), part.distributed)
             }
             // msh: "Get five poison counters" (ward, CR 122.1)
             is CostPart.GetCounters -> Actions.putCounters(act, cause, TargetRef.Player(payer), part.kind, scope.value(part.amount), listOf(Meaning.Paid))
@@ -302,7 +308,7 @@ internal object Costs {
                 val least = leastTaps(scope, payer, cost) ?: 0
                 val tapped = act.chooseObjects(payer, scope.self, tappers, least, minOf(generic, tappers.size), "Tap artifacts and creatures to pay the waterbend cost")
                 if (tapped.isNotEmpty()) Actions.tap(act, tapped, true, listOf(Meaning.Paid))
-                act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(cost, ManaCost(listOf(ManaSymbol.Generic(tapped.size)))))
+                act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(cost, ManaCost(listOf(ManaSymbol.Generic(tapped.size)))), xCost = hasX(part.cost))
                 act.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, payer)))
             }
         }

@@ -299,6 +299,10 @@ class ExampleCardsTest {
         assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.Tap(Objects.Bound("nowhere"))))).size)
         assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.Tap(Objects.Target("t"))))).size)
         assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.GainLife(Players.You, Value.Announced(name = "X"))))).size)
+        // CR 107.3f, 118.12: "you may pay {X}. If you do, you gain X life": the X nothing defines is chosen as it is paid, and read after
+        val payX = Step.Pay(Cost(listOf(CostPart.Mana(ManaCost.parse("{X}")!!))), payer = Players.You, bind = "paid")
+        val gainX = Step.If(Condition.Did("paid"), listOf(Step.Do(Effect.GainLife(Players.You, Value.Announced(name = "X")))))
+        assertEquals(emptyList(), DefinitionChecks.problems(spell(payX, gainX)))
         val dies = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard))
         fun onDeath(role: EventRole) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Last Rites", abilities = listOf(
             Ability.Triggered(dies, Instructions(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(role), Destination(Zone.Hand))))))))))

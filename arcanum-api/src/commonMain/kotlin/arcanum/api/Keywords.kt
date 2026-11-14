@@ -582,6 +582,13 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "annihilator"; override val text: String get() = "Annihilator"; override val rule: String get() = "702.86" }
     }
+    // mh3
+    /** "Annihilator X, where X is [amount]" (CR 702.86a): annihilator with a computed amount, read as the ability resolves. Its kind is
+     * annihilator's, so "has annihilator" finds it. */
+    @Serializable @SerialName("annihilator-x") data class AnnihilatorX(val amount: Value) : Keyword {
+        override val kind: KeywordKind get() = Annihilator.Kind
+        override val text: String get() = "Annihilator"; override val rule: String get() = "702.86"
+    }
     /** Tribute (CR 702.104) */
     @Serializable @SerialName("tribute") data class Tribute(override val amount: Int) : Keyword, HasAmount {
         init { requireAmount(amount) }
@@ -809,8 +816,8 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "surge"; override val text: String get() = "Surge"; override val rule: String get() = "702.117" }
     }
-    /** Emerge (CR 702.119) */
-    @Serializable @SerialName("emerge") data class Emerge(override val cost: Cost) : Keyword, HasCost {
+    /** Emerge (CR 702.119); [from]: "Emerge from [quality]" (CR 702.119b), the permanent sacrificed is one of that quality (null: a creature). */
+    @Serializable @SerialName("emerge") data class Emerge(override val cost: Cost, val from: ObjectFilter? = null) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "emerge"; override val text: String get() = "Emerge"; override val rule: String get() = "702.119" }
     }

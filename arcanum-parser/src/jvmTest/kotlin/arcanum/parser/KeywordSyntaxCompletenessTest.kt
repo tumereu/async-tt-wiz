@@ -16,6 +16,8 @@ class KeywordSyntaxCompletenessTest {
         "FirebendingX",
         // mh2: "Reinforce X—{X}{G}{G}" is read by its own rule
         "ReinforceX",
+        // mh3: "~ has annihilator X, where X is …" is read by its own rule
+        "AnnihilatorX",
         // lci: "Craft with [materials] [cost]" is read by its own rule
         "Craft")
 

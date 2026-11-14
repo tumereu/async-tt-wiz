@@ -7,7 +7,8 @@ internal object Fdn {
     val ADD_WHEN_THAT_MANA_SPENT = Regex("""(\{T\}: Add \{\w\}\.) When that mana is spent to cast an? (.+? spell), (.+)\.""")
     val YOU_PUT_COUNTERS_ON_SELF = Regex("""you put one or more (\S+) counters on (.+)""")
     val COUNTERS_ARE_PUT_ON = Regex("""one or more (\S+) counters are put on (.+)""")
-    val ADD_SPELL_GAINS_KEYWORD_UNTIL_EOT = Regex("""(\{T\}: Add \{\w\}\.) If that mana is spent on an? (.+? spell), it gains ([a-z ]+) until end of turn\.""")
+    // mh3 chunk 08: any cost ("{R}, {T}, Exert this land: Add {R}{R}. If any of that mana is spent on a creature spell, …")
+    val ADD_SPELL_GAINS_KEYWORD_UNTIL_EOT = Regex("""([^.:]+: Add (?:\{\w\})+\.) If (?:any of )?that mana is spent on an? (.+? spell), it gains ([a-z ]+) until end of turn\.""")
     val DEALT_DAMAGE_BY_DIES = Regex("""an? (\w+) dealt damage by (.+) this turn dies""")
     // fdn chunk 10b
     val LOSES_LIFE_EQUAL_TO_COUNTERS_ON_SELF = Regex("""(Each opponent|Each player) loses life equal to the number of (\w+) counters on (this \w+)\.""")
@@ -45,8 +46,9 @@ internal object Fdn {
     // chunk 05
     val TWO_AS_LONG_AS = Regex("""(As long as [^.]+\.) ([^.]+ as long as [^.]+\.)""")
     val ANY_PLAYER_CONTROLS = Regex("""any player controls an? (.+)""")
-    // otj chunk 01: also "this creature" and counters of several kinds ("two +1/+1 counters and a lifelink counter")
-    val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), (?:it|this [a-z]+) enters with (\S+ \S+ counters?(?: and \S+ \S+ counters?)?) on it\.""")
+    // otj chunk 01: also "this creature" and counters of several kinds ("two +1/+1 counters and a lifelink counter"); mh3 chunk 01: "and with
+    // [keywords]" ("… two +1/+1 counters and a trample counter on it and with haste")
+    val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), (?:it|this [a-z]+) enters with (\S+ \S+ counters?(?: and \S+ \S+ counters?)?) on it(?: and with (.+?))?\.""")
     val FOR_EACH_PUT_INTO_GRAVEYARD_CREATE = Regex("""For each (.+?) put into a graveyard this way, (?:you )?create (.+)\.""")
     val FIRST_TIME_DURING_EACH_OF_YOUR_TURNS = Regex("""(.+) for the first time during each of your turns""")
     // chunk 06

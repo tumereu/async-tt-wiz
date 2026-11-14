@@ -30,6 +30,7 @@ import arcanum.engine.view.Subtypes
 internal class Batched(
     val scope: Scope, val moves: List<PlannedMove>, val postBind: String?, val noRegeneration: Boolean = false,
     val tokens: List<Actions.TokenRequest> = emptyList(), val tokenBind: String? = null, val attacking: arcanum.engine.state.TargetRef? = null,
+    val attackChosen: Boolean = false,
 )
 
 /**
@@ -196,7 +197,7 @@ internal object Steps {
             creating.forEach { b ->
                 val ids = created.subList(at, at + b.tokens.size).flatten()
                 at += b.tokens.size
-                Effects.tokensCreated(b.scope, ids, b.attacking, b.tokenBind)
+                Effects.tokensCreated(b.scope, ids, b.attacking, b.tokenBind, b.attackChosen)
             }
         }
         val moving = batch.filter { it.tokens.isEmpty() }
@@ -477,6 +478,8 @@ internal object Steps {
                 else m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
             is Modification.EntersUnderControlOf -> m.copy(controller = e.players(modification.players).firstOrNull() ?: m.controller)
             is Modification.EntersWithAbilities -> m.copy(abilities = m.abilities + modification.abilities)
+            // mh3: what it enters as, chosen as it enters ("it becomes your choice of a 3/3 creature with flying, …", CR 614.12)
+            is Modification.EntersAs -> if (m.to == arcanum.api.Zone.Battlefield) m.copy(entersAs = m.entersAs + modification.mechanics) else m
             is Modification.EntersAsCopy -> {
                 val options = e.each(modification.of).filter { it != m.id }
                 scope.act.chooseObjects(scope.actor, m.id, options, if (modification.optional) 0 else 1, 1, "Enter as a copy of")

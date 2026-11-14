@@ -350,9 +350,10 @@ internal object KeywordExpansionsMore {
         // CR 702.119a, c: "You may cast this spell by paying [cost] and sacrificing a creature rather than paying its mana cost" and "If
         // you chose to pay this spell's emerge cost, its total cost is reduced by an amount of generic mana equal to the sacrificed
         // creature's mana value." (the spell's own reduction reads the creature chosen for the cost, CR 601.2f)
+        // mh3: CR 702.119b: "Emerge from [quality]": a permanent of that quality is sacrificed instead
         is Keyword.Emerge -> listOf(
             alternative(Keyword.Emerge.Kind, Cost(keyword.cost.parts + CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.And(listOf(
-                ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))), Value.Fixed(1)), preBind = EMERGED))),
+                keyword.from ?: ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))), Value.Fixed(1)), preBind = EMERGED))),
             Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), CostChange.Less(ManaCost(listOf(ManaSymbol.Generic(1))),
                 Value.Of(NumericProperty.ManaValue, Objects.Bound(EMERGED), Combine.Total)))), affects = self))
         // CR 702.180a, b: "You may cast this card from your graveyard by paying [cost] and tapping up to one untapped creature you control

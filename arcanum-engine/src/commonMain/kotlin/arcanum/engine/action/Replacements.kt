@@ -138,14 +138,16 @@ internal object Replacements {
         board: (T) -> Board = { act.board() },
         skip: (Replacement, T) -> Boolean = { _, _ -> false },
         extra: List<Replacement> = emptyList(),
+        more: (T) -> List<Replacement> = { emptyList() },
     ): T? {
         val all = candidates(act, cause) + extra
-        if (all.isEmpty()) return initial
+        if (all.isEmpty() && more(initial).isEmpty()) return initial
         val used = mutableSetOf<String>()
         var current = initial
         while (true) {
             val change = proposed(current) ?: return current
-            val matching = all.filter { it.key !in used && it.key !in act.replacing && !skip(it, current) }.mapNotNull { r ->
+            // mh3 sweep: and those the event as modified so far brings (an entering copy's own "enters with", CR 614.12)
+            val matching = (all + more(current)).filter { it.key !in used && it.key !in act.replacing && !skip(it, current) }.mapNotNull { r ->
                 matches(act, r, change, board(current)).firstOrNull()?.let { r to it }
             }
             if (matching.isEmpty()) return current

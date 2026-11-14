@@ -205,7 +205,9 @@ object DefinitionChecks {
                 }
                 if (type == "pay" && element.string("bind") == null)
                     found += "a Pay that nothing reads is a May; give it a bind for \"if you do\""
-                if (type == "discard" && element.typeOf("count") == "count")
+                // mh3 chunk 17: a count of cards bound earlier ("draw cards …, then discard that many") is a number, not the hand
+                if (type == "discard" && element.typeOf("count") == "count" &&
+                    ((element["count"] as? JsonObject)?.typeOf("objects") != "bound"))
                     found += "\"discard your hand\" is Discard(objects = the cards in that hand)"
                 if (type == "cast" && "objects" in element && element.boolean("withoutPaying") && element["cost"] != null)
                     found += "cast either without paying or for a cost, not both"
@@ -370,6 +372,11 @@ object DefinitionChecks {
                         (objectSlot ?: playerSlot)?.let { recipientUses += Triple(it, (objectSlot != null) to (playerSlot != null), false) }
                     }
                     (element["announced"] as? JsonArray)?.forEach { announced += it.jsonPrimitive.content }
+                    // An X nothing defines in a cost paid on resolution ("you may pay {X}. If you do, you gain X life") is chosen as it is
+                    // paid, and the rest of the resolution reads it as X (CR 107.3f, 118.12)
+                    if (element.typeName() == "pay") visitAll(element["cost"] ?: JsonArray(emptyList())) { part ->
+                        if (part.typeName() == "mana" && "x" !in part && part.string("cost")?.contains("{X}") == true) announced += "X"
+                    }
                     when (element.typeName()) {
                         "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose", "chosen", "chosen-name", "searched" ->
                             element.string("name")?.let { usedNames += it }

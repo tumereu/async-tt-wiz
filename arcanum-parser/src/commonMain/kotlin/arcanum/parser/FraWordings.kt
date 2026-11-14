@@ -90,7 +90,7 @@ internal object Fra {
     val OWNER_PUTS_TOP_OR_BOTTOM = Regex("""The owner of (up to one )?(other )?target (.+?) puts it on their choice of the top or bottom of their library\.""")
     val DISCARD_REFLEXIVE_TAP_STUN = Regex("""Draw (\w+) cards, then discard (\w+) cards\. When you discard one or more nonland cards this way, tap up to that many target creatures and put a stun counter on each of them\.""")
     val MAY_EXILE_SPELL_AND_NAMED = Regex("""You may exile this spell and (\w+) cards named (.+?) from your graveyard\. If you do, (.+)""")
-    val EACH_PLAYER_MAY_DISCARD_HAND_DRAW = Regex("""Each player may discard their hand and draw (\w+) cards\.""")
+    val EACH_PLAYER_MAY_DISCARD_HAND_DRAW = Regex("""Each player may (discard|exile) their hand and draw (?:(\w+) cards|a number of cards equal to (.+?))\.""") // mh3 chunk 02: exile, a number
     val FOR_EACH_CREATURE_COPY_EXCEPT = Regex("""For each creature target player controls, create a token that's a copy of that creature, except it has (\w+) and "(.+)"\.""")
     val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\.""")
     // otj chunk 11: "each of two other target creatures"; mom chunk 12: "another target creature, planeswalker, or battle"

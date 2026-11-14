@@ -230,7 +230,7 @@ internal object Casting {
             if (q == null) break
             if (q is Question.Pay) {
                 // CR 118.3: a cost that can't be paid isn't; the spell then can't be cast
-                if (!arcanum.engine.mana.Mana.mayPay(plan.snap, player, q.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)) return cannot()
+                if (!arcanum.engine.mana.Mana.mayPay(plan.snap, player, q.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX)) return cannot()
                 val uses = (act.ask { plan.decision(q, it) } as? Answer.ManaPayment)?.uses
                     ?: throw IllegalArgumentException("Expected a mana payment")
                 Payment.finish(act.recorder, c, uses, mark)

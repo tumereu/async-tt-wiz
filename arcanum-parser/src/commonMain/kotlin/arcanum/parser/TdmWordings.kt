@@ -121,7 +121,7 @@ internal object Tdm {
     val DRAW_MAY_DISCARD_WHEN_NONLAND_DAMAGE = Regex("""Draw a card(?:, then|\. Then) you may discard an? (?:(\w+) )?card\. When you discard an? (?:(\w+) )?card this way, (.+?) deals (\d+) damage to target (.+)\.""")
     // tdm chunk 09: "look at the top three cards of your library. You may put one of those cards back on top of your library. Put the rest into your
     // graveyard."
-    val LOOK_MAY_ONE_BACK_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put one of those cards back on top of your library\. Put the rest into your graveyard\.""")
+    val LOOK_MAY_ONE_BACK_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put one of those cards back on top of your library\. (Put the rest into your graveyard|Exile the rest)\.""")
     // tdm chunk 09: "Look at the top four cards of your library. Put two of them into your hand and the rest into your graveyard."
     val LOOK_PUT_N_HAND_REST_GRAVEYARD = Regex("""[Ll]ook at the top (\w+) cards of your library\. Put (\w+) of them into your hand and the rest into your graveyard\.""")
     // tdm chunk 10: "This creature has hexproof as long as it hasn't dealt damage yet."
@@ -131,7 +131,7 @@ internal object Tdm {
     val EXILE_TOP_X_OF_THEIR_CAST_ANY = Regex("""[Ee]xile the top X cards of their library, where X is the amount of damage dealt\. You may cast any number of spells with mana value X or less from among them without paying their mana costs\.""")
     // tdm chunk 10: "Return target creature card from your graveyard to your hand. Lie in Wait deals damage equal to that card's power to target
     // creature."
-    val RETURN_THEN_DEALS_ITS_POWER = Regex("""Return target (.+?) from your graveyard to your hand\. (.+?) deals damage equal to that card's power to target (.+)\.""")
+    val RETURN_THEN_DEALS_ITS_POWER = Regex("""Return target (.+?) from your graveyard to your hand\. (.+?) deals damage equal to that card's (power|mana value) to (up to one )?target (.+)\.""") // mh3 chunk 11: mana value, up to one
     // tdm chunk 10: "search your library for a black card, a green card, and a blue card. Put those cards into your graveyard, then shuffle."
     val SEARCH_COLORS_INTO_GRAVEYARD = Regex("""[Ss]earch your library for an? (\w+) card, an? (\w+) card, and an? (\w+) card\. Put those cards into your graveyard, then shuffle\.""")
     // tdm chunk 10: "When this creature enters, exile up to one other target creature you control until this creature leaves the battlefield."
@@ -248,7 +248,7 @@ internal object Tdm {
 internal object TdmPhrases {
     private val BASIC_TYPES_LIST = Regex("""basic ((?:[A-Z]\w+, )+)or ([A-Z]\w+)(?: cards?)?""")
     private val NAMED_OR_NAMED = Regex("""cards? named (.+?) or (.+)""")
-    private val SPELLS_CAST_THIS_TURN = Regex("""the number of (other )?(\w+ )?spells (you've|they've) cast this turn""")
+    private val SPELLS_CAST_THIS_TURN = Regex("""the number of (other )?((?:\w+ and )?\w+ )?spells (you've|they've) cast this turn""")
     private val OR_A_SPELL_YOU_CONTROL = Regex("""(.+? you control) or an? (\w+) spell you control""")
     // tdm chunk 13: "permanent that's one or more colors" (not colorless, CR 105.2c)
     private val ONE_OR_MORE_COLORS = Regex("""(.+?) that's one or more colors""")
@@ -279,6 +279,8 @@ internal object TdmPhrases {
                 Value.Sum(listOf(Value.Announced(name = "X"), Value.Fixed(m.groupValues[2].toInt())))))
         }
         // tdm chunk 13: "colorless spell", "colorless nonland cards" (CR 105.2c)
+        // mh3 chunk 05: "Spend this mana only to cast a colorless spell" names the quality alone
+        if (phrase == "colorless") return ObjectFilter.Colorless
         if (phrase.startsWith("colorless ")) return Filters.all(ObjectFilter.Colorless, Filters.noun(phrase.removePrefix("colorless ")) ?: return null)
         // tdm chunk 11: "spells you cast" (spells a player cast are spells they control, CR 112.2)
         if (phrase == "spells you cast") return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(PlayerFilter.You))
@@ -326,9 +328,9 @@ internal object TdmPhrases {
         if (text == "the number of counters on this creature") return Value.Of(NumericProperty.Counters(null), Objects.Self, Combine.Single)
         // tdm chunk 10: "the number of spells you've cast this turn" (CR 601.2i)
         // otj chunk 11: "the number of other spells you've cast this turn" (not this spell), "… noncreature spells they've cast this turn" (they: the
-        // event's player)
+        // event's player); mh3 chunk 09: "the number of instant and sorcery spells you've cast this turn" (a spell of either kind)
         SPELLS_CAST_THIS_TURN.matchEntire(text)?.let { m ->
-            val kind = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.trim()) ?: return null }
+            val kind = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.trim().replace(" and ", " or ")) ?: return null }
             val spells = listOfNotNull(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)).takeIf { m.groupValues[1].isNotEmpty() }, kind)
             val by = if (m.groupValues[3] == "you've") PlayerFilter.You else PlayerFilter.Is(arcanum.api.Players.EventPlayer)
             return Value.EventsThisTurn(EventPattern.Cast(spells.singleOrNull() ?: if (spells.isEmpty()) ObjectFilter.Any else Filters.all(*spells.toTypedArray()), by = by),

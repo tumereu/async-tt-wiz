@@ -266,15 +266,15 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     fun random(player: PlayerId, source: ObjectId?, what: RandomKind): Answer = ask { Decision.Random(it, player, source, what) }
 
     /** [player] pays mana [cost] while something resolves (CR 118.12, 608.2g): how is asked ([Decision.ManaPayment], with
-     * the engine's suggestion, §7.8), then it is paid. */
-    fun payMana(player: PlayerId, source: ObjectId?, cost: arcanum.api.ManaCost) {
+     * the engine's suggestion, §7.8), then it is paid. [xCost]: the cost contains {X} (mh3 fixes, CR 106.6). */
+    fun payMana(player: PlayerId, source: ObjectId?, cost: arcanum.api.ManaCost, xCost: Boolean = false) {
         if (arcanum.engine.mana.Mana.needs(cost).isEmpty()) return
         val snap = arcanum.engine.casting.Snapshot(state)
         val uses = (ask {
-            Decision.ManaPayment(it, player, source, cost, arcanum.engine.mana.Mana.options(snap, player, cost, null),
-                arcanum.engine.mana.Mana.suggest(snap, player, cost, null))
+            Decision.ManaPayment(it, player, source, cost, arcanum.engine.mana.Mana.options(snap, player, cost, null, xCost = xCost),
+                arcanum.engine.mana.Mana.suggest(snap, player, cost, null, xCost = xCost), xCost = xCost)
         } as Answer.ManaPayment).uses
-        arcanum.engine.casting.Payment.payOnResolution(this, player, cost, uses)
+        arcanum.engine.casting.Payment.payOnResolution(this, player, cost, uses, xCost = xCost)
     }
 
     /** [player] looks at [ids], or everyone sees them when [public]: a [Change.Shown] of those not public already (a

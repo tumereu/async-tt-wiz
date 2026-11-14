@@ -12,6 +12,7 @@ import arcanum.engine.sets.msh.may
 import arcanum.engine.sets.msh.payIfAsked
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 /**
  * The DMU cards of chunk 13, played: a defender-counting drain, a cast trigger with three players and a graveyard cast with a discard
@@ -144,7 +145,9 @@ class DmuChunk13LifeCountersSearchTapScenariosTest {
         alice.battlefield("Island", "Swamp", "Swamp", "Swamp")
         alice.graveyard(wyrd)
         alice.hand(bear)
-        runCatching { alice.casts(wyrd) }
+        // the two-card discard can't be paid with one card in hand: the cast is refused
+        val refused = assertFailsWith<IllegalArgumentException> { alice.casts(wyrd) }
+        assertTrue(refused.message!!.contains("Not enough to discard"))
         expect {
             wyrd.zone shouldBe Zone.Graveyard
             bear.zone shouldBe Zone.Hand
@@ -371,8 +374,11 @@ class DmuChunk13LifeCountersSearchTapScenariosTest {
         alice.battlefield(zephyr)
         bob.battlefield("Island")
         bob.hand(foePreen)
-        runCatching { bob.casts(foePreen) }
-        expect { foePreen.zone shouldBe Zone.Hand }
+        turn(active = bob)
+        bob.casts(foePreen)
+        // the full {1}{U} is due: one Island can't pay it
+        assertTrue(decision<Decision.ManaPayment>().suggestion.isEmpty())
+        expect { bob.battlefield has "Island" }
     }
 
     // CR 701.26a, 702.3: a defender may still tap target creature; the cost needs the Portcullis untapped

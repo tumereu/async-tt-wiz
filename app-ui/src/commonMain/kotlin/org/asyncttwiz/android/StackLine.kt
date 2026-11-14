@@ -4,6 +4,10 @@ import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -149,42 +153,94 @@ fun TableBounds.edgeToward(toward: TablePoint, gap: Float = 0f): TablePoint {
     return TablePoint(c.x + dx * s, c.y + dy * s)
 }
 
+/** STK-058, Stack animation step 5: the last arrows drawn of a top entry ([entry]), in dp: each target's bounds and the
+ * arrow's ends, the ringed Stack, and their colour; kept so they fade out as the entry resolves. */
+private class DrawnArrows(val entry: String, val color: Color) {
+    var targets: List<TableBounds> = emptyList()
+    var arrows: List<Pair<TablePoint, TablePoint>> = emptyList()
+    var ring: TableBounds? = null
+}
+
 /**
  * STK-058: the top Stack entry's target arrows, for both players: from the Stack to each target on the table, in the
  * entry's controller's colour, with a soft highlight round each target in the same colour (not the violet of picking
  * targets, STK-047); a target that is another Stack entry rings the Stack itself. Drawn only: taps reach the table.
+ * Stack animation (owner spec 2026-11-14): on the live table [animation] grows them (step 4: each from the entry to its
+ * target, several [StackSchedule.ARROW_STAGGER_MILLIS] apart, each target's highlight fading in as its arrow arrives; none
+ * before the step starts), and when the entry leaves the Stack they fade out as its effect plays (step 5); in timeline mode
+ * (no [animation]) they are simply drawn.
  */
 @Composable
 fun StackTargetArrows(play: TableBoard, scene: TableScene, viewer: String, names: Map<String, String>,
-    bounds: (TableItem) -> TableBounds) {
-    val marks = StackTargets.of(play, scene, viewer, names) ?: return
-    val stack = scene.stackRegion ?: scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds ?: return
+    animation: StackAnimation? = null, multiplier: Float = 1f, bounds: (TableItem) -> TableBounds) {
+    val marks = StackTargets.of(play, scene, viewer, names)
+    val stack = scene.stackRegion ?: scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
+    // Step 5: the arrows of an entry that left the Stack fade where they were drawn last
+    val last = remember { arrayOfNulls<DrawnArrows>(1) }
+    val fading = remember { mutableStateOf<DrawnArrows?>(null) }
+    val fade = remember { androidx.compose.animation.core.Animatable(1f) }
+    val previous = last[0]
+    if (animation != null && previous != null && previous.entry != marks?.entry &&
+        previous.entry !in CombatStackRules.stack(play.board).cards && fading.value !== previous) {
+        last[0] = null
+        fading.value = previous
+    }
+    fading.value?.let { gone -> LaunchedEffect(gone) {
+        // A take-back or a board jumped to leaves nothing of them on screen
+        if (animation?.takenAsIs == true) { if (fading.value === gone) fading.value = null; return@LaunchedEffect }
+        fade.snapTo(1f)
+        fade.animateTo(0f, androidx.compose.animation.core.tween(
+            (StackSchedule.ARROW_FADE_MILLIS / cardMoveMultiplier(multiplier)).toInt().coerceAtLeast(1)))
+        if (fading.value === gone) fading.value = null
+    } }
+    fading.value?.let { gone ->
+        Canvas(Modifier.fillMaxSize()) {
+            val d = density
+            val a = fade.value
+            for (b in gone.targets) highlight(b, gone.color, d, a)
+            for ((from, to) in gone.arrows) targetArrow(Offset(from.x * d, from.y * d), Offset(to.x * d, to.y * d), gone.color, d, a)
+            gone.ring?.let { highlight(it, gone.color, d, a) }
+        }
+    }
+    if (marks == null || stack == null) return
     val color = if (marks.own) OwnTableColor else OpponentTableColor
     val targets = marks.items.mapNotNull { id -> scene.items.firstOrNull { it.id == id } }
+    val drawn = remember(marks.entry, color) { DrawnArrows(marks.entry, color) }
+    SideEffect { last[0] = drawn }
     Canvas(Modifier.fillMaxSize().testTag("stack-target-arrows").semantics { contentDescription = marks.label }) {
         val d = density
-        // Where each target is drawn now (read while drawing, so a moving card redraws only the canvas)
-        for (b in targets.map(bounds)) {
-            highlight(b, color, d)
+        // Where each target is drawn now (read while drawing, so a moving card redraws only the canvas); step 4's growth too
+        val now = targets.map(bounds)
+        val arrows = ArrayList<Pair<TablePoint, TablePoint>>(now.size)
+        for ((i, b) in now.withIndex()) {
+            val grown = animation?.arrowProgress(marks.entry, i) ?: 1f
             val from = stack.edgeToward(b.center)
             val to = b.edgeToward(stack.center, 3f)
-            targetArrow(Offset(from.x * d, from.y * d), Offset(to.x * d, to.y * d), color, d)
+            arrows += from to to
+            if (grown <= 0f) continue
+            highlight(b, color, d, grown)
+            val tip = TablePoint(from.x + (to.x - from.x) * grown, from.y + (to.y - from.y) * grown)
+            targetArrow(Offset(from.x * d, from.y * d), Offset(tip.x * d, tip.y * d), color, d)
         }
-        if (marks.stack) highlight(stack, color, d)
+        val ringed = marks.stack && (animation?.arrowProgress(marks.entry, now.size) ?: 1f) > 0f
+        if (ringed) highlight(stack, color, d, animation?.arrowProgress(marks.entry, now.size) ?: 1f)
+        drawn.targets = now
+        drawn.arrows = arrows
+        drawn.ring = stack.takeIf { marks.stack }
     }
 }
 
-/** A soft highlight round [b] (dp) in [color]: a wide faint halo and a thin line. */
-private fun DrawScope.highlight(b: TableBounds, color: Color, d: Float) {
-    drawRoundRect(color.copy(alpha = .22f), Offset((b.x - 4f) * d, (b.y - 4f) * d), Size((b.width + 8f) * d, (b.height + 8f) * d),
+/** A soft highlight round [b] (dp) in [color]: a wide faint halo and a thin line; [alpha] fades it in or out. */
+private fun DrawScope.highlight(b: TableBounds, color: Color, d: Float, alpha: Float = 1f) {
+    drawRoundRect(color.copy(alpha = .22f * alpha), Offset((b.x - 4f) * d, (b.y - 4f) * d), Size((b.width + 8f) * d, (b.height + 8f) * d),
         CornerRadius(6f * d), style = Stroke(5f * d))
-    drawRoundRect(color.copy(alpha = .85f), Offset((b.x - 2f) * d, (b.y - 2f) * d), Size((b.width + 4f) * d, (b.height + 4f) * d),
+    drawRoundRect(color.copy(alpha = .85f * alpha), Offset((b.x - 2f) * d, (b.y - 2f) * d), Size((b.width + 4f) * d, (b.height + 4f) * d),
         CornerRadius(4f * d), style = Stroke(1.5f * d))
 }
 
 /** An arrow from [start] to [end] (px), its head at [end]: as a block's arrow (CMB-031), a little wider, with a white
- * edge so it reads over cards. */
-private fun DrawScope.targetArrow(start: Offset, end: Offset, color: Color, d: Float) {
+ * edge so it reads over cards; [alpha] fades it out. */
+private fun DrawScope.targetArrow(start: Offset, end: Offset, color: Color, d: Float, alpha: Float = 1f) {
     val dx = end.x - start.x; val dy = end.y - start.y
     val length = kotlin.math.sqrt(dx * dx + dy * dy).takeIf { it > 1f } ?: return
     val ux = dx / length; val uy = dy / length
@@ -196,10 +252,10 @@ private fun DrawScope.targetArrow(start: Offset, end: Offset, color: Color, d: F
         lineTo(base.x + uy * head * .6f, base.y - ux * head * .6f)
         close()
     }
-    drawLine(Color.White.copy(alpha = .8f), start, base, 4.5f * d, cap = StrokeCap.Round)
-    drawPath(tip, Color.White.copy(alpha = .8f), style = Stroke(2f * d))
-    drawLine(color.copy(alpha = .9f), start, base, 2.5f * d, cap = StrokeCap.Round)
-    drawPath(tip, color)
+    drawLine(Color.White.copy(alpha = .8f * alpha), start, base, 4.5f * d, cap = StrokeCap.Round)
+    drawPath(tip, Color.White.copy(alpha = .8f * alpha), style = Stroke(2f * d))
+    drawLine(color.copy(alpha = .9f * alpha), start, base, 2.5f * d, cap = StrokeCap.Round)
+    drawPath(tip, color.copy(alpha = color.alpha * alpha))
 }
 
 /** [standIn] for a Stack entry without a name: a hidden one by design, a visible one a fault (reported). */

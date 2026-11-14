@@ -120,9 +120,40 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     }
     // TBL-040 (owner playtest 2026-11-04): what a published board changed plays step by step, in event order
     val motion = remember(game.id, playId) { EngineMotionQueue() }
+    // Stack animation (owner spec 2026-11-14): an entry stays on the Stack only as long as its own animation; while its target
+    // arrows play (step 4) a newer board waits (never a take-back)
+    val stackAnimation = routes.stackAnimation
     // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks the attacker's lanes show the blocks placed to assume
-    val play = reviewPlay ?: motion.board(shown.version, shown.transition, live).let { b -> routes.assuming()?.board(b) ?: b }
-    SideEffect { routes.motionBusy = { motion.playing } }
+    val unhidden = reviewPlay ?: motion.board(shown.version, shown.transition, live, hold = stackAnimation.busy)
+        .let { b -> routes.assuming()?.board(b) ?: b }
+    // HIS-112 (owner playtest 2026-11-14: a play flew to the middle and at the same time straight to the Stack): until a play
+    // shown lands, its Stack entry isn't drawn anywhere (the Stack, its count, the dock's list) and nothing moves to the
+    // Stack for it; the board's steps stop where it went on the Stack meanwhile, so nothing after it plays under it
+    val hidden = if (reviewPlay != null) emptySet() else stackAnimation.hidden(shown.moments)
+    val play = if (reviewPlay != null) unhidden else stackAnimation.board(unhidden, shown.moments)
+    SideEffect {
+        routes.motionBusy = { motion.playing }
+        routes.showReady = { !stackAnimation.busy && motion.reachedEntries() }
+        motion.stopEntries = hidden
+        stackAnimation.prune(shown.moments)
+        if (reviewPlay == null) stackAnimation.drawn(play, instant = shown.transition?.let { it.jump || it.undone != null } ?: true)
+    }
+    // A take-back ends what plays at once; timeline mode ends it too (its board is looked at as it is)
+    LaunchedEffect(shown.transition?.serial, shown.transition?.undone != null) {
+        if (shown.transition?.undone != null) stackAnimation.end("taken back")
+    }
+    LaunchedEffect(reviewId != null) { if (reviewId != null) stackAnimation.end("timeline mode") }
+    val moveMultiplier by rememberCardMovePreferences(accountId).multiplierState()
+    // What the game waits for once an entry's arrows are drawn (the step 4 to step 5 log)
+    val gameWaits = { stackWaitText(engine.shown, routes.viewPause) }
+    // A step 4 whose board never settles (nothing moved on it) still plays
+    stackAnimation.pending?.let { entry -> LaunchedEffect(entry) {
+        delay((2 * MAX_CARD_MOVE_DURATION_MILLIS / cardMoveMultiplier(moveMultiplier)).toLong() + 100)
+        if (stackAnimation.pending == entry) {
+            AppLog.info("game", "Stack entry ${entry.take(24)} step 4 begins without its board settling")
+            stackAnimation.settled(play, moveMultiplier, routes.viewPause, gameWaits)
+        }
+    } }
     // HIS-113: a combat holds the view on the attackers and on the damage, each for the plays' time, once the table shows
     // it (owner playtest 2026-11-09: the damage right after it is dealt, before the creatures it destroys die); a held
     // finger pauses that time; a double tap on the table skips it; timeline mode ends it (EngineAsyncHost)
@@ -324,6 +355,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         }
     }
     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap,
+        LocalUnhiddenPlay provides unhidden,
         LocalDesktopFrame provides desktopFrame, LocalTableHotkeys provides hotkeys.takeIf { desktopLayout },
         LocalPanelOptions provides hotkeys.options.takeIf { desktopLayout }) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
@@ -349,9 +381,15 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             accept = { engine.answerSuggestion(true) { controller.engineSent() } }),
                         controlsConnected = interactive && !locked && reviewPlay == null,
                         reviewing = reviewing, liveView = !reviewing, changes = changes,
-                        onSceneSettled = if (reviewPlay != null) null else ({ _ ->
-                            if (rewindingBranch) scope.launch { delay(rewindPause); motion.settled() } else motion.settled()
-                        }),
+                        onSceneSettled = if (reviewPlay != null) null else if (rewindingBranch) ({ _ ->
+                            scope.launch { delay(rewindPause); motion.settled() }; Unit
+                        // Stack animation step 4: the top entry's arrows play before the board's next step
+                        }) else stackAnimation.settleHook(scope, play, moveMultiplier, routes.viewPause, gameWaits, motion::key,
+                            motion::settled),
+                        // Stack animation step 5: a repeat's resolution plays its effect's animations faster
+                        sceneTimeShare = if (reviewPlay != null) 1.0 else stackAnimation.resolutionShare(play),
+                        // HIS-112: a play shown's entry appears on the Stack where it landed, never flying there again
+                        landedEntries = stackAnimation.landed,
                         sceneVersion = if (reviewPlay != null) null else motion.key(),
                         waitingLine = routes.waitingLine(play).also { line -> if (waitLogged.getAndSet(line) != line) AppLog.info("game", "Wait: $line") },
                         timelinePlayback = when {
@@ -380,7 +418,11 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             else null,
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({
                             engine.pause(); controller.engineSent() }) else null,
-                        holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold, "double tap"); controller.engineSent() }) },
+                        holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold, "double tap"); controller.engineSent() }) }
+                            // Stack animation: a double tap or double click skips the arrows' step (WEB-030), while the move isn't
+                            // the player's (then their taps act on the table at once)
+                            ?: if (stackAnimation.targeting?.done == false && reviewPlay == null && status != GameDevice.Status.YourMove)
+                                ({ stackAnimation.skip(); Unit }) else null,
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
                         chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape || desktopLayout,
@@ -391,7 +433,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             send = controller::sendQuickChat, write = { controller.writeChat() }),
                         // WEB-017: the Stack list and the game chat docked at the right
                         desktopDock = if (!chatDocked) null else ({
-                            DesktopDock(play, accountId, names) { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
+                            DesktopDock(play, accountId, names, stackPlace = { stackAnimation.dockTop = it }) { modifier ->
+                                ChatPanel(controller, accountId, modifier, docked = true) }
                         })))
                 // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the
                 // battlefields' top, under the other player's seat header

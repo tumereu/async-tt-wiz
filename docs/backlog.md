@@ -31,7 +31,6 @@ Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 
 - Desktop action area (WEB-018): Undo becomes a real button lined up with the main button, Undo about a third of the row and the main button two thirds, no empty space between them.
 - The other player's hand on the desktop table shows as the phone's small fan of card backs with its count (ZON-001), not as it does now (WEB-016).
 - One chat on the desktop table (WEB-017, LOB-066): the top row's chat button opens or focuses the dock's chat (unfolding the dock); no second chat view.
-- Stack animation (spec `docs/specs/stack-animation.md`, owner 2026-11-14): source → middle → Stack with no second move, an entry on the Stack only as long as its own animation (target arrows pre-resolve, the effect post-resolve) (HIS-112, STK-058, TBL-125).
 
 Owner notes 2026-11-14 evening, agreed changes (after the desktop playtest batch and the Stack animation; two workers may run in parallel, one per group). Each is first checked on master.
 

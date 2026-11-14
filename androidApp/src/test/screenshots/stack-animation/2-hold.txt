@@ -1,0 +1,1 @@
+Bob cast Storm Spark at Alice's Ember Cub: it flew in from his hand and holds large in the middle of her board with "Bob cast Storm Spark · deals 3 damage to Ember Cub" under it, while her Stack at the right edge stays empty: its entry shows only once it lands there.

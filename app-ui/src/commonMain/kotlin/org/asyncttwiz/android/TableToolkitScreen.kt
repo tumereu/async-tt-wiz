@@ -66,7 +66,8 @@ fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: 
         }
     }
     }
-    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peekScroll, peekSwipe) }
+    // HIS-112: a play shown is inspected on the board with its entry (the table's has it off until it lands)
+    toolkit.peek?.let { GameplayCardInspection(LocalUnhiddenPlay.current ?: play, toolkit.viewer, it, { toolkit.peek(null) }, names, peekScroll, peekSwipe) }
     // TBL-104: the panels' Inspect is drawn here, outside their layout
     val inspectHost = remember { InspectHost() }
     CompositionLocalProvider(LocalInspectHost provides inspectHost, LocalMainSlot provides toolkit.mainSlot) {

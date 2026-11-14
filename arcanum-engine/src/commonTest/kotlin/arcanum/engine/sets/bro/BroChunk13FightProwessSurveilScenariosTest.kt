@@ -17,7 +17,7 @@ class BroChunk13FightProwessSurveilScenariosTest {
     """)
     private val press = Cards.invent("Hard Press", "{1}{G}", "Sorcery",
         "Target creature you control gets +1/+2 until end of turn. It fights target creature you don't control. (Each deals damage equal to its power to the other.)")
-    private val bargain = Cards.invent("Grim Bargain", "{1}{B}", "Sorcery", """
+    private val bargain = Cards.invent("Gloomhold Bargain", "{1}{B}", "Sorcery", """
         As an additional cost to cast this spell, sacrifice a creature.
         Search your library for a card, put that card into your hand, then shuffle.
     """)

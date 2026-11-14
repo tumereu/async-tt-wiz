@@ -2547,13 +2547,31 @@ internal class Sentences(
         // chunk 45: "Activate only if this card is suspended" states the zone it works in (CR 113.6b)
         // dft chunk 16: "Sacrifice one or more artifacts": X can't be 0 (CR 107.3)
         val minimumX = 1.takeIf { line.substring(0, colon).contains("Sacrifice one or more ") }
-        return Ability.Activated(named, instructions, arcanum.api.ActivationRules(timing = timing, perTurn = perTurn, costChange = costChange, condition = condition,
+        // bro fixes: "this card from your graveyard" after a cost that sacrifices it is the new object there (CR 400.7j, 701.21a)
+        val sacrificesSelf = cost.parts.any { it is CostPart.Sacrifice && it.what == CostObjects.Self }
+        val read = if (sacrificesSelf && text.contains("this card from your graveyard")) selfAfterInGraveyard(instructions) else instructions
+        return Ability.Activated(named, read, arcanum.api.ActivationRules(timing = timing, perTurn = perTurn, costChange = costChange, condition = condition,
             activatedBy = activatedBy, once = once, payManaBy = payManaBy, minimumX = minimumX),
             // hob chunk 11: "Return this card from your graveyard to your hand" states the zone it works in (CR 113.6m); the engine
             // works out only moves onto the battlefield by itself
-            functionsIn = zoneOf(condition) ?: Graveyard.takeIf { RETURN_SELF_FROM_GRAVEYARD_TO_HAND_TEXT.find(text)?.let { isSelf(it.groupValues[1]) } == true })
+            // bro fixes: not when its cost sacrifices it, which puts it there first (CR 113.6m, 701.21a)
+            functionsIn = zoneOf(condition) ?: Graveyard.takeIf { RETURN_SELF_FROM_GRAVEYARD_TO_HAND_TEXT.find(text)?.let { isSelf(it.groupValues[1]) } == true &&
+                !sacrificesSelf })
     }
     private val Graveyard = listOf(Zone.Graveyard)
+
+    /** bro fixes: whether [event], a trigger condition, puts this object into its owner's graveyard: dying (CR 700.4), "is put into your
+     * graveyard from anywhere", being discarded (CR 701.9a) or sacrificed (CR 701.21a). An ability that moves it out of the graveyard then
+     * isn't limited to the graveyard (CR 113.6m). */
+    private fun putsSelfIntoGraveyard(event: EventPattern): Boolean {
+        fun self(filter: ObjectFilter) = filter == ObjectFilter.Is(Objects.Self) || (filter as? ObjectFilter.And)?.all?.contains(ObjectFilter.Is(Objects.Self)) == true
+        return when (event) {
+            is EventPattern.ZoneChange -> event.to == Zone.Graveyard && self(event.objects)
+            is EventPattern.Discard -> self(event.cards)
+            is EventPattern.Sacrifice -> self(event.objects)
+            else -> false
+        }
+    }
 
     /** "Whenever [event], [if condition,] [effect]." (CR 603.1) */
     private fun triggered(line: String): Ability? {
@@ -2725,8 +2743,12 @@ internal class Sentences(
         // (inr sweep: not for an Aura whose trigger is the enchanted object leaving the battlefield, CR 113.6m)
         val zone = (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.InZone)?.zone
             ?: Zone.Graveyard.takeIf { rest.contains("this card from your graveyard") && trigger.events.none { e -> enchantedLeft(e) } &&
-                // bro chunk 08: not when its trigger puts it there ("When this creature dies, … exile this card from your graveyard", CR 113.6m)
-                trigger.events.none { e -> e is EventPattern.ZoneChange && e.objects == ObjectFilter.Is(Objects.Self) && e.to == Zone.Graveyard } }
+                // bro chunk 08, bro fixes: not when its trigger puts it there ("When this creature dies", "is put into your graveyard from
+                // anywhere", "When you discard this card", "When you sacrifice this creature", CR 113.6m)
+                trigger.events.none { e -> putsSelfIntoGraveyard(e) } }
+        // bro fixes: when it does, "this card from your graveyard" is the new object there (CR 400.7e)
+        if (rest.contains("this card from your graveyard") && trigger.events.any { e -> putsSelfIntoGraveyard(e) })
+            instructions = selfAfterInGraveyard(instructions)
         // inr chunk 09: eminence "if Edgar is in the command zone or on the battlefield": each of the zones (CR 113.6b)
         val zones = zone?.let { listOf(it) } ?: (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.Or)?.any
             ?.map { (it as? ObjectFilter.InZone)?.zone ?: return@map null }?.takeIf { z -> z.all { it != null } }?.filterNotNull()
@@ -5106,25 +5128,31 @@ internal class Sentences(
 
     /** A sentence's steps: the rules below, then the Reality Fracture rules for what none of them reads (fra). */
     private fun effect(sentence: String, context: Context): List<Step>? {
-        val targets = context.targets.size
-        effectRules(sentence, context)?.let { return it }
-        while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
-        fraEffect(sentence, context)?.let { return it }
-        while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
-        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) /* fin */ ?: oneLateEffect(sentence, context) // one
+        return attempt(context) { effectRules(sentence, context) }
+            ?: attempt(context) { fraEffect(sentence, context) }
+            ?: attempt(context) { sosLateEffect(sentence, context) } /* sos */
+            ?: attempt(context) { finLateEffect(sentence, context) } /* fin */
+            ?: attempt(context) { oneLateEffect(sentence, context) } // one
+    }
+
+    /** bro fixes: [rule], one group of sentence rules; when it can't read the sentence, the target slots it added are given back, so the
+     * next group's slot names don't count them and no phantom target is left (CR 115.1, 601.2c). */
+    private fun attempt(context: Context, rule: () -> List<Step>?): List<Step>? {
+        val from = context.targets.size
+        return rule() ?: null.also { while (context.targets.size > from) context.targets.removeAt(context.targets.lastIndex) }
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
-        broEffect(sentence, context)?.let { return it } // bro
-        otjEffect(sentence, context)?.let { return it } // otj
-        lciEffect(sentence, context)?.let { return it } // lci
-        woeEffect(sentence, context)?.let { return it } // woe
-        mkmEffect(sentence, context)?.let { return it } // mkm
-        oneEffect(sentence, context)?.let { return it } // one
-        isdEffect(sentence, context)?.let { return it } // isd
-        inrEffect(sentence, context)?.let { return it } // inr
-        mh3Effect(sentence, context)?.let { return it } // mh3
-        rvrEffect(sentence, context)?.let { return it } // rvr
+        attempt(context) { broEffect(sentence, context) }?.let { return it } // bro
+        attempt(context) { otjEffect(sentence, context) }?.let { return it } // otj
+        attempt(context) { lciEffect(sentence, context) }?.let { return it } // lci
+        attempt(context) { woeEffect(sentence, context) }?.let { return it } // woe
+        attempt(context) { mkmEffect(sentence, context) }?.let { return it } // mkm
+        attempt(context) { oneEffect(sentence, context) }?.let { return it } // one
+        attempt(context) { isdEffect(sentence, context) }?.let { return it } // isd
+        attempt(context) { inrEffect(sentence, context) }?.let { return it } // inr
+        attempt(context) { mh3Effect(sentence, context) }?.let { return it } // mh3
+        attempt(context) { rvrEffect(sentence, context) }?.let { return it } // rvr
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
         Fdn.EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return@let
@@ -5250,31 +5278,31 @@ internal class Sentences(
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
         MechanicWordings.effect(sentence)?.let { return it }
-        mechanicEffect(sentence, context)?.let { return it }
-        dungeonEffect(sentence, context)?.let { return it } // dungeons
-        ltrEffect(sentence, context)?.let { return it } // ltr
-        mh2Effect(sentence, context)?.let { return it } // mh2
-        dftEffect(sentence, context)?.let { return it } // dft
-        tdmEffect(sentence, context)?.let { return it } // tdm
-        eoeEffect(sentence, context)?.let { return it } // eoe
-        finEffect(sentence, context)?.let { return it } // fin
-        spmEffect(sentence, context)?.let { return it } // spm
-        tlaEffect(sentence, context)?.let { return it } // tla
-        eclEffect(sentence, context)?.let { return it } // ecl
-        sosEffect(sentence, context)?.let { return it } // sos
-        tmtEffect(sentence, context)?.let { return it } // tmt
-        mshEffect(sentence, context)?.let { return it } // msh
-        hobEffect(sentence, context)?.let { return it } // hob
-        momEffect(sentence, context)?.let { return it } // mom
+        attempt(context) { mechanicEffect(sentence, context) }?.let { return it }
+        attempt(context) { dungeonEffect(sentence, context) }?.let { return it } // dungeons
+        attempt(context) { ltrEffect(sentence, context) }?.let { return it } // ltr
+        attempt(context) { mh2Effect(sentence, context) }?.let { return it } // mh2
+        attempt(context) { dftEffect(sentence, context) }?.let { return it } // dft
+        attempt(context) { tdmEffect(sentence, context) }?.let { return it } // tdm
+        attempt(context) { eoeEffect(sentence, context) }?.let { return it } // eoe
+        attempt(context) { finEffect(sentence, context) }?.let { return it } // fin
+        attempt(context) { spmEffect(sentence, context) }?.let { return it } // spm
+        attempt(context) { tlaEffect(sentence, context) }?.let { return it } // tla
+        attempt(context) { eclEffect(sentence, context) }?.let { return it } // ecl
+        attempt(context) { sosEffect(sentence, context) }?.let { return it } // sos
+        attempt(context) { tmtEffect(sentence, context) }?.let { return it } // tmt
+        attempt(context) { mshEffect(sentence, context) }?.let { return it } // msh
+        attempt(context) { hobEffect(sentence, context) }?.let { return it } // hob
+        attempt(context) { momEffect(sentence, context) }?.let { return it } // mom
         // gtc: the Gatecrash and Dragon's Maze wordings, tried first; each falls through when it can't read the sentence
-        gtcEffect(sentence, context)?.let { return it }
+        attempt(context) { gtcEffect(sentence, context) }?.let { return it }
         // blb: the Bloomburrow wordings (blbEffect), tried first; each is specific and falls through when it can't read
-        blbEffect(sentence, context)?.let { return it }
-        blbGapsEffect(sentence, context)?.let { return it } // blb gaps
-        blbGaps2Effect(sentence, context)?.let { return it } // blb gaps 2
-        rtrEffect(sentence, context)?.let { return it } // rtr
+        attempt(context) { blbEffect(sentence, context) }?.let { return it }
+        attempt(context) { blbGapsEffect(sentence, context) }?.let { return it } // blb gaps
+        attempt(context) { blbGaps2Effect(sentence, context) }?.let { return it } // blb gaps 2
+        attempt(context) { rtrEffect(sentence, context) }?.let { return it } // rtr
         // dsk: the Duskmourn wordings, tried first (their own function keeps this one under the JVM's method size limit)
-        setWordings(sentence, context)?.let { return it }
+        attempt(context) { setWordings(sentence, context) }?.let { return it }
         // dsk chunk 01: "Destroy all creatures with power 3 or greater."
         DESTROY_ALL.matchEntire(sentence)?.let { m -> Filters.noun(m.groupValues[1])?.let { return listOf(Step.Do(Effect.Destroy(Objects.Each(it)))) } }
         // chunk 12
@@ -7264,10 +7292,10 @@ internal class Sentences(
     /** gtc: the Gatecrash and Dragon's Maze sentence rules, tried near the end of [effect]: null when none reads [sentence]. */
     private fun gtcEffect(sentence: String, context: Context): List<Step>? {
         // the specific wordings first, then the general "gains … until end of turn and … this turn"
-        gtcEffect2(sentence, context)?.let { return it }
-        gtcEffect3(sentence, context)?.let { return it }
-        gtcEffect4(sentence, context)?.let { return it }
-        dgmEffect(sentence, context)?.let { return it }
+        attempt(context) { gtcEffect2(sentence, context) }?.let { return it }
+        attempt(context) { gtcEffect3(sentence, context) }?.let { return it }
+        attempt(context) { gtcEffect4(sentence, context) }?.let { return it }
+        attempt(context) { dgmEffect(sentence, context) }?.let { return it }
         // gtc chunk 01: "creatures you control gain first strike and trample until end of turn and can't be blocked by
         // creature tokens this turn": one continuous effect with each rule, all ending with the turn (CR 611.2a)
         Gtc.TIMED_PREDICATES.matchEntire(sentence)?.let { m ->
@@ -7715,7 +7743,7 @@ internal class Sentences(
         }
         // gtc chunk 09: "you win the game." (CR 104.2b)
         if (sentence == "You win the game.") return listOf(Step.Do(Effect.WinGame(Players.You)))
-        gtcEffect5(sentence, context)?.let { return it }
+        attempt(context) { gtcEffect5(sentence, context) }?.let { return it }
         // gtc chunk 06: "Put a loyalty counter on Gideon for each creature target opponent controls."
         Gtc.PUT_COUNTER_FOR_EACH.matchEntire(sentence)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
@@ -11059,8 +11087,8 @@ internal class Sentences(
             val step = exile(Objects.Target("targets"))
             return if (m.groupValues[1] == "You may e") listOf(Step.May(step, player = Players.You)) else step
         }
-        rtrEffect2(sentence, context)?.let { return it }
-        rtrEffect3(sentence, context)?.let { return it }
+        attempt(context) { rtrEffect2(sentence, context) }?.let { return it }
+        attempt(context) { rtrEffect3(sentence, context) }?.let { return it }
         return null
     }
 
@@ -14966,8 +14994,8 @@ internal class Sentences(
 
     /** tla: effect sentences, tried first in [effectRules]. */
     private fun tlaEffect(sentence: String, context: Context): List<Step>? {
-        tlaEffect2(sentence, context)?.let { return it }
-        tlaEffect3(sentence, context)?.let { return it }
+        attempt(context) { tlaEffect2(sentence, context) }?.let { return it }
+        attempt(context) { tlaEffect3(sentence, context) }?.let { return it }
         // tla chunk 01: "Airbend up to one other target nonland permanent." (CR 701.65a)
         Tla.AIRBEND.matchEntire(sentence)?.let { m ->
             val objects = tlaTarget(m.groupValues[1], context) ?: return@let
@@ -17199,8 +17227,8 @@ internal class Sentences(
 
     /** msh: effect sentences, tried first in [effectRules]. */
     private fun mshEffect(sentence: String, context: Context): List<Step>? {
-        mshEffect2(sentence, context)?.let { return it }
-        mshEffect3(sentence, context)?.let { return it }
+        attempt(context) { mshEffect2(sentence, context) }?.let { return it }
+        attempt(context) { mshEffect3(sentence, context) }?.let { return it }
         // msh chunk 01: "Put a +1/+1 counter and an indestructible counter on Captain Marvel."
         Msh.PUT_COUNTER_AND_COUNTER_ON.matchEntire(sentence)?.let { m ->
             val objects = mshObjects(m.groupValues[3], context) ?: return null
@@ -22965,7 +22993,7 @@ internal class Sentences(
     }
 
     private fun mshEffect3(sentence: String, context: Context): List<Step>? {
-        mshEffect4(sentence, context)?.let { return it }
+        attempt(context) { mshEffect4(sentence, context) }?.let { return it }
         // msh chunk 10: "each opponent draws a card"
         LazyRegexes.EACH_OPPONENT_DRAWS.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.Draw(Players.Each(PlayerFilter.Opponent), Value.Fixed(mshN(m.groupValues[1]) ?: return null))))
@@ -25155,8 +25183,8 @@ internal class Sentences(
 
     /** ecl: effect sentences, tried first in [effect]. */
     private fun eclEffect(sentence: String, context: Context): List<Step>? {
-        eclEffect2(sentence, context)?.let { return it }
-        eclEffect3(sentence, context)?.let { return it }
+        attempt(context) { eclEffect2(sentence, context) }?.let { return it }
+        attempt(context) { eclEffect3(sentence, context) }?.let { return it }
         // ecl chunk 01: "Target opponent blights 2.", "each opponent blights 1." (CR 701.68a)
         Ecl.PLAYERS_BLIGHT.matchEntire(sentence)?.let { m ->
             val players = when (m.groupValues[1].lowercase()) {
@@ -28466,10 +28494,10 @@ internal class Sentences(
 
     /** eoe: one-shot effects, tried first in [effect]. */
     private fun eoeEffect(sentence: String, context: Context): List<Step>? {
-        eoeEffect2(sentence, context)?.let { return it }
-        eoeEffect3(sentence, context)?.let { return it }
-        eoeEffect4(sentence, context)?.let { return it }
-        eoeEffect5(sentence, context)?.let { return it }
+        attempt(context) { eoeEffect2(sentence, context) }?.let { return it }
+        attempt(context) { eoeEffect3(sentence, context) }?.let { return it }
+        attempt(context) { eoeEffect4(sentence, context) }?.let { return it }
+        attempt(context) { eoeEffect5(sentence, context) }?.let { return it }
         // eoe chunk 07: 'You get an emblem with "… a 0/0 Robot artifact creature."' (the quoted ability's own period, CR 114.2)
         Eoe.EMBLEM_PERIOD_INSIDE.matchEntire(sentence)?.let { m -> return emblem(m.groupValues[1]) }
 
@@ -31648,6 +31676,34 @@ internal fun followTargetsToBattlefield(steps: List<Step>): List<Step> {
         if (move.postBind == null) result[i] = Step.Do(move.copy(postBind = name))
     }
     return result
+}
+
+/** bro fixes: [instructions] of an ability whose trigger condition or cost puts this object into the graveyard, with "this card from your
+ * graveyard" (a move of this object, an exile cost of it from the graveyard, delayed ones included) the new object there (CR 400.7e, 400.7j). */
+internal fun selfAfterInGraveyard(instructions: Instructions): Instructions {
+    val json = kotlinx.serialization.json.Json
+    val self = json.encodeToJsonElement(Objects.serializer(), Objects.Self)
+    val after = json.encodeToJsonElement(Objects.serializer(), Objects.SelfAfter)
+    val selfCost = json.encodeToJsonElement(CostObjects.serializer(), CostObjects.Self)
+    val afterCost = json.encodeToJsonElement(CostObjects.serializer(), CostObjects.These(Objects.SelfAfter))
+    val graveyard = json.encodeToJsonElement(Zone.serializer(), Zone.Graveyard)
+    fun walk(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+        is kotlinx.serialization.json.JsonObject -> {
+            val type = (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            kotlinx.serialization.json.JsonObject(e.mapValues { (k, v) ->
+                when {
+                    type == "move" && k == "objects" && v == self -> after
+                    type == "exile" && k == "what" && v == selfCost && e["from"] == graveyard -> afterCost
+                    else -> walk(v)
+                }
+            })
+        }
+        is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { walk(it) })
+        else -> e
+    }
+    val before = json.encodeToJsonElement(Instructions.serializer(), instructions)
+    val walked = walk(before)
+    return if (walked == before) instructions else json.decodeFromJsonElement(Instructions.serializer(), walked)
 }
 
 /** [step] with every [from] in it replaced by [to] (the JSON form, as [renameTargetSlot] walks it). */

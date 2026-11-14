@@ -323,17 +323,25 @@ fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, enabled: B
 
 /** Shared by Games and inherited navigation rows; a recognized hold must consume Open. */
 @OptIn(ExperimentalFoundationApi::class)
-fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enabled: Boolean = true, open: () -> Unit): Modifier {
+fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enabled: Boolean = true,
+    /** WEB-047 (§5, D7): the desktop layout, where a right-click on the row does what holding it does. */
+    desktop: Boolean = false, open: () -> Unit): Modifier {
     val cancel = controller.offersSetupCancellation(game)
     val delete = controller.offersGameDeletion(game)
+    val hold: (() -> Unit)? = when {
+        cancel -> ({ controller.showGameContext(game) })
+        delete -> ({ controller.gameContext(game) })
+        else -> null
+    }
+    // Ahead of the row's click, so the right button never opens the game
+    val rightClick = if (!desktop) Modifier else Modifier.desktopControl(listOf(game, enabled, cancel, delete), onRight = {
+        AppLog.info("lobby", "Right-click on the game row ${game.id}: ${if (enabled && hold != null) if (cancel) "Cancel game" else "Delete game" else "no game actions"}")
+        if (enabled) hold?.invoke()
+    })
     // Section 3.6: opening a game reads card records; greyed while they install
-    return alpha(if (enabled) 1f else .38f).combinedClickable(enabled = enabled, onClick = open, role = Role.Button,
+    return then(rightClick).alpha(if (enabled) 1f else .38f).combinedClickable(enabled = enabled, onClick = open, role = Role.Button,
         onLongClickLabel = if (cancel || delete) "Game actions" else null,
-        onLongClick = when {
-            cancel -> ({ controller.showGameContext(game) })
-            delete -> ({ controller.gameContext(game) })
-            else -> null
-        })
+        onLongClick = hold)
         .semantics {
             if (cancel) customActions = listOf(CustomAccessibilityAction("Cancel game") {
                 controller.requestCancelSetup(game); true

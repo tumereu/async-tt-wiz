@@ -29,7 +29,7 @@ fun GameRows(games: List<GameSummary>, controller: LobbyController, accountId: S
                 val incoming = incomingInvitation(game, accountId)
                 val ready = cardRecordsReady()
                 GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
-                    .gameRowActions(controller, game, enabled = ready || incoming) { if (!incoming) controller.open(game.id) },
+                    .gameRowActions(controller, game, enabled = ready || incoming, desktop = desktopLayout()) { if (!incoming) controller.open(game.id) },
                     trailing = if (incoming) ({
                         val state = controller.state
                         MenuInvitationActions(game.id in state.connectedGames && game.id !in state.pendingGames,

@@ -251,3 +251,5 @@ number	item	screenshot	catalog	decisions	sequence
 250	Desktop: Hide search folds the search into the Search rail, the deck taking the width	desktop/deck-editor-search-hidden.png	WEB-040		Desktop screens
 251	Desktop: Stats graphs in two columns	desktop/stats-graphs.png	WEB-042 LOB-132		Desktop screens
 252	Desktop: Settings' groups as cards in two columns	desktop/settings.png	WEB-043 WEB-035		Desktop screens
+253	Desktop: the draft pick, click keeps and right-click burns, trays and Confirm at the bottom	desktop/draft-pick.png	WEB-044 WEB-036 DRF-056		Desktop screens
+254	Desktop: Build with a card's edge zones under the pointer, no review	desktop/build-edge-zones.png	WEB-045		Desktop screens

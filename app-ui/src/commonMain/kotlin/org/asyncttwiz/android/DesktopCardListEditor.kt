@@ -15,6 +15,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.lazy.LazyListState
+import org.asyncttwiz.storage.ArtworkReference
+import org.asyncttwiz.storage.CatalogCard
+import org.asyncttwiz.storage.CatalogMetadata
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -59,6 +71,10 @@ internal fun DesktopCardListEditor(title: String, navigation: (() -> Unit)?, edi
         }
         true
     }
+    // WEB-049: a search result dragged into the list's sections
+    val drop = remember(editor, search) { CardListDrop(editor) { search.state.metadata } }
+    val origin = remember { PlaceRef() }
+    Box(Modifier.fillMaxSize().onGloballyPositioned { origin.coordinates = it }) {
     Column(Modifier.fillMaxSize().testTag("desktop-card-list-editor")) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -89,7 +105,7 @@ internal fun DesktopCardListEditor(title: String, navigation: (() -> Unit)?, edi
                             openSearch = { section ->
                                 AppLog.info("editor", "Card list editor: + on ${section.name.lowercase()}, search shown there")
                                 showSearch(true)
-                            })
+                            }, drop = drop)
                         CardListTab.TEXT -> Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Column(Modifier.weight(1f).fillMaxWidth(), content = listField)
                             Column(Modifier.height(96.dp).fillMaxWidth().verticalScrollable(), verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
@@ -98,9 +114,11 @@ internal fun DesktopCardListEditor(title: String, navigation: (() -> Unit)?, edi
                     if (tab == CardListTab.CARDS && editor.entries != null) FloatingTransientError(error, dismissError, Modifier.align(Alignment.BottomCenter))
                 }
             }
-            if (searchShown) DesktopSearchPane(editor, search, hide = { showSearch(false) })
+            if (searchShown) DesktopSearchPane(editor, search, hide = { showSearch(false) }, drop = drop)
             else SearchRail { showSearch(true) }
         }
+    }
+    CardListDragGhost(drop, origin)
     }
 }
 
@@ -110,7 +128,7 @@ internal fun DesktopCardListEditor(title: String, navigation: (() -> Unit)?, edi
  * section (its square counts up, LOB-121), a click on a square takes one away, holding previews.
  */
 @Composable
-private fun DesktopSearchPane(editor: CardListEditor, search: CardListSearch, hide: () -> Unit) {
+private fun DesktopSearchPane(editor: CardListEditor, search: CardListSearch, hide: () -> Unit, drop: CardListDrop) {
     val state = search.state
     val entries = editor.entries.orEmpty()
     LaunchedEffect(search.query) { delay(350); search.search() }
@@ -159,7 +177,7 @@ private fun DesktopSearchPane(editor: CardListEditor, search: CardListSearch, hi
                                         previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                         held = card.key to InspectedCard.preview(CardListEdits.entry(card, DeckSection.MAINBOARD), state.metadata)
                                     } else if (held?.first == card.key) held = null
-                                }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
+                                }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) }, drop = drop)
                             }
                         }
                     }
@@ -198,3 +216,89 @@ private fun Modifier.downwards(): Modifier = layout { measurable, _ ->
 
 /** WEB-039: the search pane's results per row (wireframe D8). */
 private const val SEARCH_PANE_COLUMNS = 4
+
+/** A place in the layout, kept without recomposing anything when it moves. */
+internal class PlaceRef { var coordinates: LayoutCoordinates? = null }
+
+/**
+ * WEB-049 (§7.5): a search result dragged with the mouse over the editor's list: the [card] dragged and where the pointer is
+ * ([at], in the window), the section under it ([section]: the list item there, or the last section shown below the list's
+ * end); released over a section, one copy goes into it, as a click with that section in Add to would. Main thread.
+ */
+@Stable
+internal class CardListDrop(private val editor: CardListEditor, private val metadata: () -> CatalogMetadata?) {
+    var card by mutableStateOf<CatalogCard?>(null); private set
+    var at by mutableStateOf(Offset.Zero); private set
+    /** The list's place and scroll (CardListCardsTab sets them). */
+    var list: LayoutCoordinates? = null
+    var listState: LazyListState? = null
+
+    /** The section the dragged card would drop into now, null when none. */
+    val section: DeckSection? get() = if (card == null) null else sectionAt(at)
+
+    fun move(card: CatalogCard, at: Offset) {
+        if (this.card == null) AppLog.info("editor", "Card list editor: dragging the search result ${card.name}")
+        this.card = card
+        this.at = at
+    }
+
+    fun end(dropped: Boolean) {
+        val card = card ?: return
+        val section = if (dropped) sectionAt(at) else null
+        this.card = null
+        if (section == null) {
+            AppLog.info("editor", "Card list editor: ${card.name} ${if (dropped) "dropped outside the sections" else "drag cancelled"}: nothing added")
+            return
+        }
+        val entries = editor.entries ?: return
+        if (!editor.editable) return
+        val result = CardListEdits.add(editor.kind, entries, card.faces, section)
+        AppLog.info("editor", "Card list editor: ${card.name} dropped into ${section.saved().sectionLabel()}${result.refused?.let { ": refused, $it" } ?: ""}")
+        if (result.refused != null) editor.cardsMessage(result.refused) else editor.applyCards(result.entries, editor.listCatalog ?: metadata())
+    }
+
+    /** The section of the list item at [point] (in the window). */
+    private fun sectionAt(point: Offset): DeckSection? {
+        val place = list?.takeIf { it.isAttached } ?: return null
+        val state = listState ?: return null
+        val local = place.windowToLocal(point)
+        if (local.x < 0f || local.x > place.size.width || local.y < 0f || local.y > place.size.height) return null
+        val items = state.layoutInfo.visibleItemsInfo
+        val item = items.firstOrNull { local.y >= it.offset && local.y < it.offset + it.size }
+            ?: items.lastOrNull()?.takeIf { local.y >= it.offset + it.size }
+            ?: return null
+        val name = SECTION_ITEM.find(item.key.toString())?.groupValues?.get(1) ?: return null
+        return editor.kind.sections.firstOrNull { it.name == name }
+    }
+
+    private companion object {
+        /** The list's items of one section (visualDeckSection's keys): its gap, header, empty line and type groups. */
+        val SECTION_ITEM = Regex("^(?:gap|header|empty|group)-([A-Z]+)")
+    }
+}
+
+/** WEB-049: the dragged search result beside the pointer, saying where it goes ("Add to Sideboard") or "Drop on a section". */
+@Composable
+private fun CardListDragGhost(drop: CardListDrop, origin: PlaceRef) {
+    val card = drop.card ?: return
+    val at = drop.at - (origin.coordinates?.takeIf { it.isAttached }?.localToWindow(Offset.Zero) ?: Offset.Zero)
+    val section = drop.section
+    val density = LocalDensity.current
+    val reference = remember(card.key) { ArtworkReference.from(card.printing, "normal") }
+    Column(Modifier.offset { IntOffset(at.x.roundToInt() + 12, at.y.roundToInt() + 12) }.testTag("search-drag")
+        .semantics { contentDescription = section?.let { "${card.name}: add to ${it.saved().sectionLabel()}" } ?: "${card.name}: drop on a section" },
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.size(DRAG_GHOST_WIDTH, DRAG_GHOST_WIDTH * 1.4f).alpha(.85f)) {
+            CardArtwork(reference, card.name, with(density) { DRAG_GHOST_WIDTH.roundToPx() },
+                with(density) { (DRAG_GHOST_WIDTH * 1.4f).roundToPx() }, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(card.name) })
+        }
+        Surface(color = section?.saved()?.sectionColor() ?: MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = if (section != null) Color.White else MaterialTheme.colorScheme.onSurface, shape = MaterialTheme.shapes.small,
+            shadowElevation = 2.dp) {
+            Text(section?.let { "Add to ${it.saved().sectionLabel()}" } ?: "Drop on a section", Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    }
+}
+
+private val DRAG_GHOST_WIDTH = 96.dp

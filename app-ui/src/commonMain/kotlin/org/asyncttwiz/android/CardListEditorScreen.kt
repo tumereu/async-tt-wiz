@@ -9,6 +9,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -209,7 +212,9 @@ private fun rememberCardDefinitions(editor: CardListEditor): (ResolvedDeckEntry)
 /** The list as pictures by section: a swipe moves one copy to another section (LOB-105), tap opens the card menu, hold previews. */
 @Composable
 internal fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, lookupPending: Boolean, columns: PodBuildColumns,
-    summary: Boolean, feedback: @Composable ColumnScope.() -> Unit, openSearch: ((DeckSection) -> Unit)? = null) {
+    summary: Boolean, feedback: @Composable ColumnScope.() -> Unit, openSearch: ((DeckSection) -> Unit)? = null,
+    /** WEB-049 (desktop layout): where a search result dragged over the list drops. */
+    drop: CardListDrop? = null) {
     val entries = editor.entries
     val definitionOf = rememberCardDefinitions(editor)
     val menus = remember { PodCardMenuOwner() }
@@ -234,7 +239,9 @@ internal fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, lo
         } else {
             Column(Modifier.fillMaxSize()) {
                 if (summary) CardListSummary(editor, entries, columns, Modifier.fillMaxWidth())
-                LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("card-list-cards"), contentPadding = PaddingValues(bottom = 88.dp)) {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("card-list-cards")
+                    .then(if (drop == null) Modifier else Modifier.onGloballyPositioned { drop.list = it }),
+                    state = rememberLazyListState().also { drop?.listState = it }, contentPadding = PaddingValues(bottom = 88.dp)) {
                     item("card-list-filter") { CardListFilterBar(search, oneRow = !summary, (parsed as? CardSearchParse.Invalid)?.error?.message) }
                     for (section in editor.kind.sections) {
                         val saved = section.saved()
@@ -512,7 +519,9 @@ internal fun DestinationGroup(editor: CardListEditor, modifier: Modifier) {
  * section, whose square pulses; hold previews. */
 @Composable
 internal fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: CatalogMetadata?, entries: List<ResolvedDeckEntry>,
-    onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
+    onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit,
+    /** WEB-049 (desktop layout): a drag with the mouse drops the result into a section of the list. */
+    drop: CardListDrop? = null) {
     val destination = editor.destination
     val count = CardListEdits.count(entries, card.name, destination)
     val squares = editor.kind.sections.mapNotNull { section ->
@@ -539,11 +548,20 @@ internal fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: C
     }
     val reference = remember(card.key) { ArtworkReference.from(card.printing, "normal") }
     val saved = destination.saved()
+    // WEB-049, WEB-046 (desktop layout): a click adds a copy, a drag drops one into a section, Alt held previews
+    val hover = rememberEdgeZones("the search result ${card.name}", null, null, null) { currentHold(it) }
+    val place = remember { PlaceRef() }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("search-result-${card.name}")) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
-            .pointerInput(card.key) {
-                podPickGestures(onTap = { currentAdd() }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) })
+            .then(if (drop == null) Modifier else Modifier.onGloballyPositioned { place.coordinates = it })
+            .edgeZoneHover(hover)
+            .pointerInput(card.key, hover, drop) {
+                podPickGestures(onTap = { currentAdd() }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) },
+                    mouseClick = hover?.let { { _: Offset -> currentAdd() } },
+                    mouseDrag = drop?.let { target -> MouseDrag(
+                        move = { at -> place.coordinates?.takeIf { it.isAttached }?.let { target.move(card, it.localToWindow(at)) } },
+                        end = { dropped -> target.end(dropped) }) })
             }
             .clearAndSetSemantics {
                 contentDescription = "${card.name}, $count in ${saved.sectionLabel()}"

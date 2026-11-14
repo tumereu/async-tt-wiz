@@ -171,10 +171,23 @@ actual fun edgeToEdgeDialogProperties(): DialogProperties = DialogProperties(use
  * text here share it, so the fallback fonts preloaded into it at start draw in both.
  */
 internal val webFontResolver by lazy { createFontFamilyResolver() }
-private var measurer: Pair<Float, TextMeasurer>? = null
+/** The text measurers by density (measuring at density 1 and drawing at the screen's must not replace one another). */
+private val measurers = HashMap<Float, TextMeasurer>()
 
-private fun measurer(density: Float): TextMeasurer = measurer?.takeIf { it.first == density }?.second
-    ?: TextMeasurer(webFontResolver, Density(density), LayoutDirection.Ltr).also { measurer = density to it }
+private fun measurer(density: Float): TextMeasurer = measurers.getOrPut(density) {
+    if (measurers.size >= 4) measurers.clear()
+    TextMeasurer(webFontResolver, Density(density), LayoutDirection.Ltr)
+}
+
+/**
+ * The table's text layouts, by text, size, colour, weight and density: the table draws every card's title, values and
+ * counts again on each frame of an animation, pan or zoom, and Compose's text measurer remembered only its last 8 layouts,
+ * so every one was laid out (shaped) anew on every such frame (web frame rate, 2026-11-14). A hit here costs a lookup, not
+ * the measurer's own input building and comparing.
+ */
+private data class TableTextKey(val text: String, val size: Float, val color: Int, val bold: Boolean, val density: Float)
+private val tableTextLayouts = boundedLruMap<TableTextKey, TextLayoutResult>(TABLE_TEXT_LAYOUTS)
+internal const val TABLE_TEXT_LAYOUTS = 512
 
 private class BrowserTextPaint : NativeTextPaint {
     override var textSize: Float = 12f
@@ -185,9 +198,11 @@ private class BrowserTextPaint : NativeTextPaint {
     override var isFakeBoldText: Boolean = false
     override var textAlign: NativeTextPaint.TextAlign = NativeTextPaint.TextAlign.Left
 
-    fun layout(text: String, density: Float = 1f): TextLayoutResult = measurer(density).measure(text, TextStyle(
-        color = Color(color), fontSize = (textSize / density).sp,
-        fontWeight = if (isFakeBoldText) FontWeight.Bold else FontWeight.Normal))
+    fun layout(text: String, density: Float = 1f): TextLayoutResult =
+        tableTextLayouts.getOrPut(TableTextKey(text, textSize, color, isFakeBoldText, density)) {
+            measurer(density).measure(text, TextStyle(color = Color(color), fontSize = (textSize / density).sp,
+                fontWeight = if (isFakeBoldText) FontWeight.Bold else FontWeight.Normal))
+        }
 
     override fun measureText(text: String): Float = layout(text).size.width.toFloat()
 

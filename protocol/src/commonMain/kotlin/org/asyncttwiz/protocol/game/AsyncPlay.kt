@@ -79,43 +79,94 @@ object NextStop {
 }
 
 /**
- * Undo and rewinds (I-D56 §10): taking the main line back to a target is free when everything after it is the player's
- * own (real inputs, or assumptions not yet confirmed) or the other player's table-only events the undo rule lets stand,
- * and none of it showed the player something new; otherwise it needs the other player's approval (an undo request).
- * Every rewind deletes the events after the target and starts a new line (§9).
+ * Undo and rewinds (I-D56 §10): taking the main line back to a target is free unless something after it is another
+ * player's real input (anything but a pass: their passes never count, whether they tapped them, their device made them or
+ * they were assumed and confirmed; owner problem report VXSGKH) other than their table-only events the undo rule lets
+ * stand, or showed the player something new; otherwise it needs the other player's approval (an undo request). Every
+ * rewind deletes the events after the target and starts a new line (§9).
  */
 object Rewind {
+    /** Whether a rewind needs a request: [reason] (null: free), with [why], a compact account of the events after the
+     * target (whose, which counted and why) for the logs. */
+    data class Verdict(val reason: String?, val why: String)
+
     /**
      * Why rewinding to the point after [target] needs the other player's approval, or null when it is free: [model] is
      * the state at [target] (used up), [after] the main line's events after it, [others] the other players' local
      * heads.
      */
-    fun requestNeeded(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): String? {
+    fun requestNeeded(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): String? =
+        judge(model, target, after, player, others).reason
+
+    /** [requestNeeded] with its account ([Verdict.why]). */
+    fun judge(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): Verdict {
         // The index in [after] of the last event another player has seen (−1: none)
         val seen = others.maxOfOrNull { head -> if (head == target) -1 else after.indexOfFirst { it.id == head } } ?: -1
         val undone = mutableListOf<GameEvent>()
+        var own = 0
+        var assumedPasses = 0
+        var passes = 0
+        var kept = 0
+        fun counts() = "yours $own (your assumed passes for them $assumedPasses), others' passes $passes (never counted), others' table-only kept $kept"
+        fun request(reason: String, event: GameEvent, what: String) = Verdict(reason,
+            "request ($reason) at ${event.id.take(8)} by ${event.author.take(8)}: $what; ${after.size} event(s) after ${target.take(8)}, before it ${counts()}")
         for ((i, event) in after.withIndex()) {
-            if (event.author != player.value) {
-                if (event.engine != null) return "otherPlayersInput"
-                if (undone.any { Concerns.of(it).blockedBy(Concerns.of(event)) }) return "otherPlayersAction"
-                model.apply(event)
-                continue
-            }
-            if (event.assumed != null && i <= seen) return "confirmed"
             val engine = event.engine
+            if (event.author != player.value) {
+                if (engine == null) {
+                    if (undone.any { Concerns.of(it).blockedBy(Concerns.of(event)) })
+                        return request("otherPlayersAction", event, "their table-only event on what the undo takes back")
+                    model.apply(event)
+                    kept++
+                    continue
+                }
+                // Owner problem report VXSGKH: their passes (tapped, by their device, assumed and confirmed) never count
+                othersInput(model.engine, engine)?.let { return request("otherPlayersInput", event, "their ${it::class.simpleName}") }
+                passes++
+            } else {
+                // Your assumption of another player's real input (a block, a keep) is theirs once they have seen it
+                val assumed = engine?.steps?.firstNotNullOfOrNull { s -> s.input?.takeIf { s.assumedBy != null && it !is Input.PassPriority } }
+                if (assumed != null && i <= seen) return request("confirmed", event, "your assumed ${assumed::class.simpleName} for them, seen")
+                own++
+                if (event.assumed?.input is Input.PassPriority) assumedPasses++
+            }
             if (engine != null) {
-                // Your own library counts here: a draw, a look, a scry, a search are something new
-                if (Host.revealed(model.engine, engine.changes, player, model.keptView(), null).isNotEmpty()) return "shown"
+                // Your own library counts here: a draw, a look, a scry, a search are something new; so does what a
+                // resolution another player's pass let through shows you
+                if (Host.revealed(model.engine, engine.changes, player, model.keptView(), null).isNotEmpty())
+                    return request("shown", event, "it showed you a card")
                 // Also in an event that starts a line (a branch whose outcome flips a coin): every rewind starts a new
                 // line, so a free undo past a seen result would roll it again (§9, §10)
-                if (event.table.any { it is TableChange.LineMoved } && InformationRule.randomResult(event, model.engine)) return "random"
+                if (event.table.any { it is TableChange.LineMoved } && InformationRule.randomResult(event, model.engine))
+                    return request("random", event, "a random result")
             }
             model.apply(event)
             // A wait for the other player's decision whose source you can't see (§5's hidden-source tell)
             val d = model.engine.pending?.decision
             if (d != null && Host.decider(model.engine, d.player) != player && d.source != null &&
-                d.source !in model.visible(player)) return "hiddenSource"
+                d.source !in model.visible(player)) return request("hiddenSource", event, "a wait for a choice from a source you can't see")
             undone += event
+        }
+        return Verdict(null, "free: ${after.size} event(s) after ${target.take(8)}: ${counts()}")
+    }
+
+    /**
+     * The first input of another player's [engine] part, made on [before], that is neither a pass ([Input.PassPriority],
+     * whoever's) nor the host's answer to a random decision (no player's choice; [judge] takes its result as something
+     * shown), or null: the part is only passes.
+     */
+    private fun othersInput(before: GameState, engine: EnginePart): Input? {
+        val inputs = engine.steps.mapNotNull { it.input }
+        inputs.firstOrNull { it !is Input.PassPriority && it !is Input.Answer }?.let { return it }
+        if (inputs.none { it is Input.Answer }) return null
+        val state = before.deepCopy()
+        for (step in engine.steps) {
+            val input = step.input
+            if (input is Input.Answer) {
+                val d = state.pending?.decision
+                if (d !is arcanum.engine.decision.Decision.Random || d.id != input.decision) return input
+            }
+            step.changes.forEach { state.apply(it) }
         }
         return null
     }

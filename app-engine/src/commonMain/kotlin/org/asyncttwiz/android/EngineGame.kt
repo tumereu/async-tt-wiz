@@ -1578,6 +1578,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         }) {
             val before = lastShown
             (if (target == null) device.undoTap() else device.undo(target)).also { undo ->
+                // Owner rule 2026-11-09, problem report VXSGKH: why it is free or a request (which events, whose, which counted)
+                device.undoWhy?.let { AppLog.info("undo", "Undo ${if (target == null) "tapped" else "to $target"} judged: $it") }
                 // SYS-025 (owner, 2026-11-08): a free undo shows at once, animating as the server's rewind would (HIS-030)
                 if (undo is GameDevice.Undo.Free && before != null && device.session.tip == undo.target)
                     ownUndo = Rewinding(me, undo.target, if (before.line.any { e -> e.id == undo.target || e.parentId == undo.target })

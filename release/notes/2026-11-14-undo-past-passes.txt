@@ -1,0 +1,1 @@
+fix: Undo no longer asks the other player first just because they passed after your action; only a real move of theirs, or something new shown to you, still does.

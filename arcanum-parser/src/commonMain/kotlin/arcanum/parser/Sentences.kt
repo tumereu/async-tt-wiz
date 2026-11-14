@@ -3501,17 +3501,25 @@ internal class Sentences(
                     val targetsFrom = context.targets.size
                     val stepsFrom = steps.size
                     context.sentence = sentence
-                    val modified = modify(sentence, steps, context)
-                    if (modified != null) { steps.clear(); steps += modified; continue }
                     val itBefore = context.it
+                    val modified = modify(sentence, steps, context)
+                    if (modified != null) {
+                        steps.clear(); steps += modified
+                        // dmu sweep: a sentence read with those before it may put an object onto the battlefield too ("Mill three cards. You
+                        // may put a creature card from among them onto the battlefield.")
+                        if (context.it == itBefore && all.drop(index + 1).any { IT_WORD.containsMatchIn(it) })
+                            nameTargetPutOntoBattlefield(steps, context, targetsFrom, steps.size - 1)
+                        continue
+                    }
                     val parsed = effect(sentence, context)
                     if (parsed == null) {
                         // blb chunk 02: "that card", "this way" after a move or destruction: name what it moved (CR 400.7)
                         val rebound = afterMove(sentence, steps, context) ?: return null
                         steps.clear(); steps += rebound
                     } else steps += renameRepeatedTargets(parsed, context, targetsFrom) // rtr chunk 08
-                    if (parsed != null && context.it == itBefore && all.getOrNull(index + 1)?.let { IT_WORD.containsMatchIn(it) } == true)
-                        nameTargetPutOntoBattlefield(steps, context, targetsFrom)
+                    // dmu sweep: any later sentence's "it" ("Put the rest on the bottom of your library in a random order. It gains haste …")
+                    if (parsed != null && context.it == itBefore && all.drop(index + 1).any { IT_WORD.containsMatchIn(it) })
+                        nameTargetPutOntoBattlefield(steps, context, targetsFrom, stepsFrom)
                     context.previous = targetsFrom to stepsFrom
                     if (itNumber != null && itX == null && X_WORD.containsMatchIn(sentence))
                         itX = Value.Of(itNumber.second, itReferent(itNumber.first, steps, context)
@@ -3520,7 +3528,8 @@ internal class Sentences(
                 }
             }
         } finally { announcedX = outerX }
-        val base = Instructions(targets = context.targets, steps = localExileReturns(followTargetsToBattlefield(steps)), replacements = context.replacements)
+        val base = Instructions(targets = context.targets, steps = dropUnreadPutNames(localExileReturns(followTargetsToBattlefield(steps))),
+            replacements = context.replacements)
         val result = if (itNumber != null) base.withX(itX ?: return null) else if (x == null) base else base.withX(x)
         // one fixes: a spell or activated ability has no event player: "that player" (read without context as the event's player, as in "where X
         // is the number of artifacts that player controls") is the player the instructions named before ("Choose target opponent.", CR 608.2c)
@@ -3531,10 +3540,25 @@ internal class Sentences(
     /** mh3 sweep: after a sentence putting its one new target onto the battlefield ("When this creature enters, return target creature card
      * from your graveyard to the battlefield."), "it" in a trigger is that target, not the trigger's object ("Exile it at the beginning of the
      * next end step."); [followTargetsToBattlefield] then names the new permanent (CR 400.7, 608.2c). */
-    private fun nameTargetPutOntoBattlefield(steps: MutableList<Step>, context: Context, targetsFrom: Int) {
+    private fun nameTargetPutOntoBattlefield(steps: MutableList<Step>, context: Context, targetsFrom: Int, stepsFrom: Int) {
         if (context.it !is Objects.EventObject && context.it != Objects.Self) return
-        val slot = context.targets.drop(targetsFrom).singleOrNull() ?: return
+        // dmu sweep: likewise one card the sentence chose or found and put onto the battlefield ("You may put a creature card from among them
+        // onto the battlefield. Sacrifice it at the beginning of the next end step.", "search your library for a creature card, put it onto the
+        // battlefield, then shuffle"): "it" is that permanent, named as it enters (CR 400.7, 608.2c)
+        val at = (steps.lastIndex downTo maxOf(0, stepsFrom)).firstOrNull { k ->
+            ((steps[k] as? Step.Do)?.effect as? Effect.Move)?.to?.zone == Zone.Battlefield }
+        val put = at?.let { (steps[it] as Step.Do).effect as Effect.Move }
+        val chosen = (put?.objects as? Objects.Bound)?.name
+        if (at != null && put != null && chosen != null && steps.any { st ->
+                st is Step.Choose && st.bind == chosen && (st.choice as? arcanum.api.Choice.Objects)?.max == Value.Fixed(1) ||
+                    st is Step.Do && (st.effect as? Effect.Search)?.let { it.bind == chosen && it.max == Value.Fixed(1) } == true }) {
+            val name = put.postBind ?: "put $chosen"
+            if (put.postBind == null) steps[at] = Step.Do(put.copy(postBind = name))
+            context.it = Objects.Bound(name)
+            return
+        }
         val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return
+        val slot = context.targets.drop(targetsFrom).singleOrNull() ?: return
         if (move.objects != Objects.Target(slot.name) || move.to.zone != Zone.Battlefield || move.postBind != null) return
         if (slot.max != Value.Fixed(1)) return
         context.it = Objects.Target(slot.name)
@@ -3658,8 +3682,10 @@ internal class Sentences(
             val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
             if (move.to.zone != Zone.Battlefield || move.objects !is Objects.Bound) return@let
             val keywords = m.groupValues[1].split(LazyRegexes.AND_LIST).map { OracleParser.keyword(it) ?: return@let }
-            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), arcanum.api.Affected.Objects(move.objects),
-                arcanum.api.Duration.EndOfTurn))
+            // dmu sweep: the permanent it became, named as it enters (CR 400.7), not the card it was
+            val put = move.postBind ?: "put ${(move.objects as Objects.Bound).name}"
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = put)) + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)),
+                arcanum.api.Affected.Objects(Objects.Bound(put)), arcanum.api.Duration.EndOfTurn))
         }
         if (Gtc.STILL_A.matches(sentence)) {
             val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics
@@ -31632,6 +31658,25 @@ internal fun followTargetsToBattlefield(steps: List<Step>): List<Step> {
         if (move.postBind == null) result[i] = Step.Do(move.copy(postBind = name))
     }
     return result
+}
+
+/** dmu sweep: [steps] without the names [nameTargetPutOntoBattlefield] gave a permanent as it entered ("put chosen") when nothing reads them
+ * after all (a later "it" read another way). */
+internal fun dropUnreadPutNames(steps: List<Step>): List<Step> {
+    val json = kotlinx.serialization.json.Json
+    val serializer = kotlinx.serialization.builtins.ListSerializer(Step.serializer())
+    val tree = json.encodeToJsonElement(serializer, steps)
+    val text = tree.toString()
+    val unread = Regex(""""postBind":"(put [^"]+)"""").findAll(text).map { it.groupValues[1] }.toSet()
+        .filter { name -> !text.contains("""{"type":"bound","name":"$name"}""") }.toSet()
+    if (unread.isEmpty()) return steps
+    fun walk(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+        is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.filterNot { (k, v) ->
+            k == "postBind" && (v as? kotlinx.serialization.json.JsonPrimitive)?.content in unread }.mapValues { walk(it.value) })
+        is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { walk(it) })
+        else -> e
+    }
+    return json.decodeFromJsonElement(serializer, walk(tree))
 }
 
 /** [step] with every [from] in it replaced by [to] (the JSON form, as [renameTargetSlot] walks it). */

@@ -313,6 +313,19 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         }
     }.orEmpty()
 
+    /** dmu sweep: how [id] attacked this combat before it was removed from combat (left the battlefield, CR 506.4), from the log; null when it
+     * didn't attack this combat. */
+    private fun attackedBefore(id: ObjectId): arcanum.engine.state.Attacker? {
+        if (state.combat == null) return null
+        board.readingLog()
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? arcanum.engine.change.Change.Combat ?: continue
+            change.before?.attackers?.firstOrNull { it.id == id }?.let { return it }
+            if (change.before == null) return null
+        }
+        return null
+    }
+
     // ---- Players
 
     fun players(players: Players): List<PlayerId> = when (players) {
@@ -332,8 +345,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.OwnerOf -> objects(players.objects).mapNotNull { ownerOf(it) }.distinct()
         Players.Active -> listOf(state.turn.active)
         is Players.DefendingPlayerOf -> {
-            val attackers = objects(players.attackers).toSet()
-            state.combat?.attackers.orEmpty().filter { it.id in attackers }.mapNotNull { attack ->
+            val attackers = objects(players.attackers)
+            // dmu sweep: one no longer attacking names the player it attacked before it was removed from combat (CR 508.5)
+            attackers.mapNotNull { id -> state.combat?.attackers?.firstOrNull { it.id == id } ?: attackedBefore(id) }.mapNotNull { attack ->
                 when (val target = attack.target) {
                     is TargetRef.Player -> target.id
                     // The controller of the planeswalker, or the protector of the battle (CR 506.2, 310.9d)

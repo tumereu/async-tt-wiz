@@ -579,8 +579,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         return (assistable > 0 && choices.assist?.amount == null) ||
             ownCostChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
-            snap.view.game.rules.any { lower(it.mechanic) }
+            snap.view.game.rules.any { lower(it.mechanic) } ||
+            // dmu sweep: an optional additional cost not decided yet that, paid, reduces the coloured mana (the Defilers, CR 601.2b, 601.2f)
+            undecidedReductions().isNotEmpty()
     }
+
+    /** The coloured mana each optional additional cost still to be decided would take off, paid ("you may pay 2 life. Those spells cost {G}
+     * less", CR 601.2b, 601.2f); one decided is in [total] already. */
+    private fun undecidedReductions(): List<ManaCost> =
+        additionalCosts.mapNotNull { (inst, m) -> m.reducesBy?.takeIf { m.optional && optionalTimes(inst) == null } }
 
     /**
      * The most the cost's mana can still fall by with what is known (CR 601.2f): every reduction that may come to apply, at its amount, or null when
@@ -598,6 +605,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             return true
         }
         ownCostChange?.let { if (!add(it)) return null }
+        undecidedReductions().forEach { symbols += it.symbols }
         withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
         snap.view.game.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach

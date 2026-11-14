@@ -257,6 +257,16 @@ sealed interface Mechanic {
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */
     @Serializable @SerialName("instant-speed") data object InstantSpeed : Mechanic
+    // dmr
+    /** A static ability of a permanent spell that functions on the Stack: as the permanent the spell becomes is put onto the
+     * battlefield, if [condition] holds of the spell then, it creates a delayed triggered ability ([trigger], [instructions]; CR 608.3g,
+     * 603.7a), controlled by the spell's controller: it exists apart from the permanent, so it still triggers if the permanent loses
+     * its abilities. In it, [Objects.Self] is the spell and [Objects.SelfAfter] the permanent it becomes (CR 400.7). (Dash, blitz; "If
+     * you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning
+     * of the next cleanup step.") */
+    @Serializable @SerialName("delayed-trigger-as-enters") data class DelayedTriggerAsEnters(
+        val trigger: Trigger, val instructions: Instructions, val condition: Condition? = null,
+    ) : Mechanic
     /** The affected players may cast spells matching [spells] as though they had flash, from wherever they could cast
      * them (Aluren-style); a permission of players, not of objects. */
     @Serializable @SerialName("cast-as-though-flash") data class CastAsThoughFlash(val spells: ObjectFilter) : Mechanic
@@ -775,6 +785,11 @@ sealed interface Modification {
      * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three
      * times as much of that mana instead", CR 106.12b). */
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
+    // dmr
+    /** Of a permanent tapped for mana ([EventPattern.Tap] with forMana): it produces [mana] instead of any other type and amount
+     * (CR 106.12, 614.1a; "If a land is tapped for two or more mana, it produces {C} instead", the amount checked by the
+     * replacement's condition with [Value.EventAmount]). */
+    @Serializable @SerialName("produces-instead") data class ProducesInstead(val mana: ManaCost) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If
      * you don't, it enters tapped"), choose ("choose a creature type"). Effects on [Objects.Self] apply to it as it

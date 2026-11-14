@@ -52,7 +52,7 @@ internal object Msh {
     val OPPONENT_HAS_CAST_THIS_TURN = Regex("""an opponent has cast a spell this turn""")
     val POWER_AT_MOST = Regex("""(?:its|his|her|(.+)'s) power is (\d+) or (less|greater)""")
     val IS_ATTACKING = Regex("""(?:it's|he's|she's|(.+) is) attacking""")
-    val IS_EQUIPPED = Regex("""(?:it's|he's|she's|(.+) is) equipped""")
+    val IS_EQUIPPED = Regex("""(?:it's|he's|she's|(.+) is) (equipped|enchanted)""") // dmr chunk 05: enchanted
     val YOUVE_PUT_COUNTERS_ON_THIS_TURN = Regex("""you've put one or more (\S+) counters on (.+) this turn""")
     val FEWER_THAN_CARDS_IN_HAND = Regex("""you have fewer than (\w+) cards in hand""")
     val CANT_BE_BLOCKED_IF = Regex("""(.+) can't be blocked if (.+)\.""")
@@ -246,9 +246,10 @@ internal object MshPhrases {
         Msh.IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1].isEmpty() || isSelf(it.groupValues[1]) }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
         }
-        // msh chunk 04: "he's equipped" (CR 301.5)
+        // msh chunk 04: "he's equipped" (CR 301.5); dmr chunk 05: "this creature is enchanted" (CR 303.4)
         Msh.IS_EQUIPPED.matchEntire(text)?.takeIf { it.groupValues[1].isEmpty() || isSelf(it.groupValues[1]) }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
+            val by = if (it.groupValues[2] == "enchanted") "Aura" else "Equipment"
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype(by))))
         }
         // msh chunk 04: "you've put one or more +1/+1 counters on Beast this turn" (by your spells and abilities)
         Msh.YOUVE_PUT_COUNTERS_ON_THIS_TURN.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->

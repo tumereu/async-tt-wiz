@@ -166,7 +166,7 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
                 from = ObjectFilter.Category(ObjectCategory.Permanent),
             )),
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.Sacrifice(Objects.EventObject(EventRole.From)))),
+                steps = listOf(Step.Do(Effect.Sacrifice(Objects.EventObject(EventRole.From), by = Players.You))),
             ),
         ),
         equip("{0}"),

@@ -218,7 +218,7 @@ class FraChunk11MulticoloredATest {
             Keyword.Trample,
             Keyword.Haste,
             triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(players = PlayerFilter.Any), combat = true)), draw(2)),
-            triggered(stepBegins(TurnStep.End, PlayerFilter.Any), Step.Do(Effect.Sacrifice(Objects.Self))),
+            triggered(stepBegins(TurnStep.End, PlayerFilter.Any), Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))),
         )
 
     // CR 122.1h, 602.5b

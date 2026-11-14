@@ -167,7 +167,7 @@ class Mh2Chunk12MulticoloredTest {
         Keyword.Flying,
         Keyword.Lifelink,
         triggered(yourUpkeep, Step.Pay(manaCost("{R}{W}{B}"), payer = Players.You, bind = "paid"),
-            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))))),
         triggered(diesSelf, damage(7, toObjects(Objects.Each(and(not(ObjectFilter.Super(arcanum.api.Supertype.Legendary)), creature))))),
     )
 

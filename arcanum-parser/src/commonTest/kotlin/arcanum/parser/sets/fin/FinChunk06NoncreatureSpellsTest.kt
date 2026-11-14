@@ -121,7 +121,7 @@ class FinChunk06NoncreatureSpellsTest {
         text = "Whenever you cast a noncreature spell, create a 1/1 colorless Hero creature token. If four or more mana was spent to cast that spell, draw two cards. If eight or more mana was spent to cast that spell, sacrifice Telmar and it deals that much damage to each opponent.",
     ) parsesTo abilities(
         triggered(youCast(noncreature), create(heroToken), ifThen(manaSpentAtLeast(4), draw(2)),
-            ifThen(manaSpentAtLeast(8), doing(Effect.Sacrifice(Objects.Self)), damage(Value.ManaSpent(of = thatSpell), eachOpponent))),
+            ifThen(manaSpentAtLeast(8), doing(Effect.Sacrifice(Objects.Self, by = Players.You)), damage(Value.ManaSpent(of = thatSpell), eachOpponent))),
     )
 
     @Test

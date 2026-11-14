@@ -52,7 +52,7 @@ class TmtChunk14ArtifactsAndLandsTest {
         activated(manaCost("{5}"),
             doing(Effect.CreateToken(TokenSpec.CopyOf(target("artifact")), n(1), Players.You, bind = "token")),
             doing(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), arcanum.api.Affected.Objects(Objects.Bound("token")), Duration.Indefinitely)),
-            delayed(nextEndStep, doing(Effect.Sacrifice(Objects.Bound("token")))),
+            delayed(nextEndStep, doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You))),
             targets = listOf(slot("artifact", and(another, artifact, you)))),
     )
 

@@ -254,6 +254,10 @@ sealed interface Condition {
     /** [of] was cast from [zone], or cast at all (null): "if you cast it from your hand", "if you cast it from a
      * graveyard" about another creature. */
     @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects) : Condition
+    /** [of] was cast at a time a sorcery couldn't have been cast (CR 307.1: not in a main phase of its caster's turn with an
+     * empty Stack while they had priority, so also cast while something resolved): "If you cast it any time a sorcery
+     * couldn't have been cast, …". A permanent keeps it from the spell it was (CR 400.7d). */
+    @Serializable @SerialName("cast-outside-sorcery-timing") data class CastOutsideSorceryTiming(val of: Objects) : Condition
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(

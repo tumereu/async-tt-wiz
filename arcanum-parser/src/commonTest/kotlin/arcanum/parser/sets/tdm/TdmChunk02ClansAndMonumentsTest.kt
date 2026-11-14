@@ -215,7 +215,7 @@ class TdmChunk02ClansAndMonumentsTest {
                                             trigger = Trigger.On(
                                                 events = listOf(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.Any)),
                                             ),
-                                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("tokens"))))),
+                                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("tokens"), by = Players.You)))),
                                         ),
                                     ),
                                 ),
@@ -565,7 +565,7 @@ class TdmChunk02ClansAndMonumentsTest {
                     doing(
                         Effect.CreateDelayedTrigger(
                             trigger = Trigger.On(events = listOf(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.You))),
-                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("tokens"))))),
+                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("tokens"), by = Players.You)))),
                         ),
                     ),
                 ),

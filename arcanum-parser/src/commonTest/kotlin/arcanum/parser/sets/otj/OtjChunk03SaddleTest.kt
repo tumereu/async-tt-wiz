@@ -69,7 +69,7 @@ class OtjChunk03SaddleTest {
             Step.Choose(Choice.Objects(thatSaddledIt(and(not(legendary), creature)), n(1), n(1)), bind = "chosen", chooser = Players.You),
             Step.Do(Effect.CreateToken(TokenSpec.CopyOf(Objects.Bound("chosen")), n(1), Players.You, tapped = true, attacking = AttackTarget.Chosen,
                 bind = "tokens")),
-            delayed(on(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)), Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))),
+            delayed(on(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)), Step.Do(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))))),
         Keyword.Saddle(1),
     )
 

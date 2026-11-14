@@ -36,7 +36,12 @@ sealed interface Effect {
     @Serializable @SerialName("destroy") data class Destroy(
         val objects: Objects, val noRegeneration: Boolean = false, val preBind: String? = null, val postBind: String? = null,
     ) : Effect
-    @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: Objects, val preBind: String? = null, val postBind: String? = null) : Effect
+    /** [by] sacrifices [objects]: only those [by] controls (CR 701.21a: a player can't sacrifice a permanent they don't
+     * control), as for "Sacrifice it" (`by = You`) of an object that may have changed controllers since. Null: each
+     * permanent's controller sacrifices it (objects a player chose among their own, "its controller sacrifices it"). */
+    @Serializable @SerialName("sacrifice") data class Sacrifice(
+        val objects: Objects, val preBind: String? = null, val postBind: String? = null, val by: Players? = null,
+    ) : Effect
     /** Move [objects] to another zone (exile, return to hand, put onto the battlefield, put into a library, …).
      * [untilLeaves]: "exile … until ~ leaves the battlefield": when that object leaves, the moved cards return at once
      * without using the Stack, and if it has already left, nothing is moved (CR 610.3). */
@@ -217,6 +222,9 @@ sealed interface Effect {
         // eoe
         /** Triggers only in a later turn than the one it was created in ("at the beginning of the end step on your next turn"). */
         val laterTurn: Boolean = false,
+        // dmr
+        /** Triggers only during the extra turn an [ExtraTurn] named [inTurn] ("that turn's end step"), never if that turn isn't taken. */
+        val inTurn: String? = null,
     ) : Effect
     /** Unattach [objects] from what they are attached to (CR 701.3d). */
     @Serializable @SerialName("unattach") data class Unattach(val objects: Objects) : Effect
@@ -276,7 +284,9 @@ sealed interface Effect {
     /** Forget [objects] under [key], or everything kept there when null. */
     @Serializable @SerialName("forget") data class Forget(val key: String, val objects: Objects? = null) : Effect
 
-    @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players) : Effect
+    /** [players] each take an extra turn after this one (CR 500.7); [mark] (dmr) names that turn, so a delayed trigger can wait for it
+     * ("At the beginning of that turn's end step", [CreateDelayedTrigger.inTurn]). */
+    @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players, val mark: String? = null) : Effect
     // fin
     /** "End the turn" (CR 724.1): every spell and ability on the Stack is exiled (this one included), then the turn goes on from its cleanup
      * step (CR 514), with no other phases or steps in between. */

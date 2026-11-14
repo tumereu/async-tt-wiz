@@ -269,7 +269,7 @@ class GtcChunk12DimirTest {
         Ability.Static(listOf(Mechanic.ControlledBy(Players.You)), affects = Affected.Objects(Objects.AttachedTo(Objects.Self))),
         Ability.Activated(
             costOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card), count = n(2)))),
-            steps(Step.Do(Effect.Sacrifice(Objects.Self)), Step.Do(Effect.Draw(Players.ControllerOf(Objects.Self), n(2)))),
+            steps(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.ControllerOf(Objects.Self))), Step.Do(Effect.Draw(Players.ControllerOf(Objects.Self), n(2)))),
             rules = arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.Opponent),
         ),
     )

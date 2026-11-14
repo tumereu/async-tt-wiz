@@ -432,7 +432,7 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
                 )),
                 Step.Do(Effect.CreateDelayedTrigger(
                     trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.Any)),
-                    instructions = Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))),
+                    instructions = Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))),
                 )),
             ),
         )),

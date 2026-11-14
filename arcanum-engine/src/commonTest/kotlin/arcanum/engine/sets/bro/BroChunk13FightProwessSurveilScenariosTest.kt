@@ -82,12 +82,13 @@ class BroChunk13FightProwessSurveilScenariosTest {
         }
     }
 
-    // CR 118.8, 701.21a: the creature is sacrificed as the spell is cast, then the search happens
+    // CR 118.8, 701.21a: the creature is sacrificed as the spell is cast, then the search happens (two library cards: CR 701.23d,
+    // a search for just "a card" must find one, so a lone card would be found without a choice)
     @Test
     fun bargainSacrificesAndSearches() = scenario {
         alice.battlefield("Swamp", "Swamp", hare)
         alice.hand(bargain)
-        alice.library(ox)
+        alice.library(ox, gizmo)
         alice.casts(bargain, choosing = listOf(hare))
         resolveAll()
         alice.chooses(ox)

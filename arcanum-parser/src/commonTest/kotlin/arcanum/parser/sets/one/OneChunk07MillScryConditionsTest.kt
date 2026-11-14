@@ -271,7 +271,7 @@ class OneChunk07MillScryConditionsTest {
         static(has(Keyword.Hexproof), condition = Condition.Not(Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(oil, atLeast = 3))))),
         triggered(stepBegins(TurnStep.Upkeep, PlayerFilter.You),
             doing(Effect.RemoveCounters(Objects.Self, oil, n(1))),
-            Step.If(Condition.ObjectMatches(Objects.Self, not(ObjectFilter.HasCounter(oil, atLeast = 1))), then = listOf(doing(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.ObjectMatches(Objects.Self, not(ObjectFilter.HasCounter(oil, atLeast = 1))), then = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))))),
     )
 
     // CR 615.5: the prevention's additional effect; CR 603.12: a reflexive trigger, its target chosen as it is put on the stack

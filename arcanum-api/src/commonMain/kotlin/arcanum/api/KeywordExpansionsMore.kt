@@ -53,13 +53,14 @@ internal object KeywordExpansionsMore {
             self, Duration.EndOfTurn))))
         // CR 702.109a: "You may cast this card by paying [cost] rather than its mana cost," "If this spell's dash cost was paid, return
         // the permanent this spell becomes to its owner's hand at the beginning of the next end step," and "As long as this permanent's
-        // dash cost was paid, it has haste." (the return as an end step trigger of the permanent: the first end step after it entered)
+        // dash cost was paid, it has haste." (dmr sweep: the return is a delayed trigger the spell's static ability creates as the permanent
+        // enters, CR 608.3g, so it still happens if the permanent loses its abilities)
         is Keyword.Dash -> {
             val paid = paid(Keyword.Dash.Kind)
             listOf(
                 alternative(Keyword.Dash.Kind, keyword.cost),
                 Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), condition = paid, affects = self),
-                Ability.Triggered(nextEndStep, steps(Effect.Move(Objects.Self, Destination(Zone.Hand))), interveningIf = paid))
+                delayedAsEnters(steps(Effect.Move(Objects.SelfAfter, Destination(Zone.Hand))), paid))
         }
         // CR 702.152a: "You may cast this card by paying [cost] rather than its mana cost," "If this spell's blitz cost was paid, sacrifice
         // the permanent this spell becomes at the beginning of the next end step," and "As long as this permanent's blitz cost was paid, it
@@ -70,7 +71,9 @@ internal object KeywordExpansionsMore {
                 alternative(Keyword.Blitz.Kind, keyword.cost),
                 Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste,
                     Ability.Triggered(diesSelf, steps(Effect.Draw(Players.You, Value.Fixed(1))))))), condition = paid, affects = self),
-                Ability.Triggered(nextEndStep, steps(Effect.Sacrifice(Objects.Self)), interveningIf = paid))
+                // dmr sweep: a delayed trigger the spell's static ability creates as the permanent enters (CR 608.3g), its caster sacrificing
+                // the permanent if they still control it (CR 701.21a)
+                delayedAsEnters(steps(Effect.Sacrifice(Objects.SelfAfter, by = Players.You)), paid))
         }
         // CR 702.30a: "At the beginning of your upkeep, if this permanent came under your control since the beginning of your last
         // upkeep, sacrifice it unless you pay [cost]." (it enters marked as due; the upkeep that asks for the echo removes the mark)
@@ -79,7 +82,7 @@ internal object KeywordExpansionsMore {
             Ability.Triggered(yourUpkeep, Instructions(steps = listOf(
                 Step.Do(Effect.Mark(Objects.Self, ECHO_DUE, remove = true)),
                 Step.Pay(keyword.cost, payer = Players.You, bind = "echo"),
-                Step.If(Condition.Not(Condition.Did("echo")), listOf(Step.Do(Effect.Sacrifice(Objects.Self)))))),
+                Step.If(Condition.Not(Condition.Did("echo")), listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))))),
                 interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ECHO_DUE)))))
         // CR 702.24a: "At the beginning of your upkeep, if this permanent is on the battlefield, put an age counter on this permanent. Then
         // you may pay [cost] for each age counter on it. If you don't, sacrifice it."
@@ -88,7 +91,7 @@ internal object KeywordExpansionsMore {
             listOf(Ability.Triggered(yourUpkeep, Instructions(steps = listOf(
                 Step.Do(Effect.PutCounters(Objects.Self, AGE, Value.Fixed(1))),
                 Step.Pay(times(keyword.cost, ages), payer = Players.You, bind = "upkeep"),
-                Step.If(Condition.Not(Condition.Did("upkeep")), listOf(Step.Do(Effect.Sacrifice(Objects.Self))))))))
+                Step.If(Condition.Not(Condition.Did("upkeep")), listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))))))))
         }
         // CR 702.128a: "[Cost], Exile this card from your graveyard: Create a token that's a copy of this card, except it's white, it has
         // no mana cost, and it's a Zombie in addition to its other types. Activate only as a sorcery."
@@ -108,13 +111,13 @@ internal object KeywordExpansionsMore {
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MustAttack(Recipients(players = Players.Bound("encore-opponent")))),
                     Affected.Objects(Objects.Bound("encore")), Duration.EndOfTurn)))),
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(Objects.Bound("encore")), Duration.Indefinitely)),
-            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("encore"))))))))
+            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("encore"), by = Players.You)))))))
         // CR 702.181a: "Whenever this creature attacks, create N 1/1 red Warrior creature tokens. Those tokens enter tapped and attacking.
         // Sacrifice them at the beginning of the next end step."
         is Keyword.Mobilize -> listOf(Ability.Triggered(attacks, Instructions(steps = listOf(
             Step.Do(Effect.CreateToken(TokenSpec.Defined(WARRIOR), count = Value.Fixed(keyword.amount), controller = Players.You, tapped = true,
                 attacking = AttackTarget.Chosen, bind = "mobilized")),
-            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("mobilized")))))))))
+            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("mobilized"), by = Players.You))))))))
         // CR 702.116a: "Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a
         // copy of this creature that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created
         // this way, exile the tokens at end of combat." (attacking that player or a planeswalker they control, as its controller chooses)
@@ -413,13 +416,18 @@ internal object KeywordExpansionsMore {
     private val castSelf = Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any))
     private val attacks = Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self)))
     private val yourUpkeep = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You))
-    /** "At the beginning of the next end step", as a trigger of the permanent: its first end step after it entered. */
+    /** "At the beginning of the next end step", as the trigger of a delayed triggered ability (it triggers once, CR 603.7c). */
     private val nextEndStep = Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any))
     private val otherUntappedCreatureYouControl = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
         ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped))))
 
     /** The card a craft ability exiled from the battlefield as its cost (CR 702.167a). */
     private const val CRAFTED = "crafted"
+
+    /** "If this spell's … cost was paid, … at the beginning of the next end step": a static ability of the spell creating a delayed
+     * triggered ability as the permanent it becomes enters (CR 608.3g, 603.7a), [Objects.SelfAfter] in [instructions] being that permanent. */
+    private fun delayedAsEnters(instructions: Instructions, condition: Condition) = Ability.Static(listOf(Mechanic.DelayedTriggerAsEnters(
+        nextEndStep, instructions, condition)), affects = self)
 
     private fun paid(keyword: KeywordKind) = Condition.Paid(keyword, times = 1, of = Objects.Self)
     private fun steps(vararg effects: Effect) = Instructions(steps = effects.map { Step.Do(it) })
@@ -432,6 +440,29 @@ internal object KeywordExpansionsMore {
         Cost(cost.parts + CostPart.Exile(CostObjects.Self, Zone.Graveyard, postBind = bind)), Instructions(steps = steps),
         ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You), functionsIn = listOf(Zone.Graveyard))
 
-    /** [cost] paid [times] times (its mana parts; cumulative upkeep's "for each age counter"). */
-    private fun times(cost: Cost, times: Value) = Cost(cost.parts.map { if (it is CostPart.Mana && it.times == null) it.copy(times = times) else it })
+    /** [cost] paid [times] times (cumulative upkeep's "for each age counter", CR 702.24a): its mana parts [times] times, the
+     * counted parts ("Discard a card", "Pay 2 life", "Sacrifice a creature") [times] as many; a part that can't be scaled
+     * becomes [CostPart.Manual]. */
+    private fun times(cost: Cost, times: Value) = Cost(cost.parts.map { part ->
+        fun scaled(amount: Value): Value? = (amount as? Value.Fixed)?.value?.let { if (it == 1) times else Value.Times(times, it) }
+        fun scaledObjects(what: CostObjects): CostObjects? = when (what) {
+            is CostObjects.Choose -> what.count?.takeIf { what.total == null }?.let { scaled(it) }?.let { what.copy(count = it) }
+            else -> null
+        }
+        when (part) {
+            is CostPart.Mana -> if (part.times == null) part.copy(times = times) else null
+            is CostPart.PayLife -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.PayEnergy -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.Mill -> scaled(part.count)?.let { part.copy(count = it) }
+            is CostPart.GetCounters -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.PutCounters -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.RemoveCounters -> scaled(part.amount)?.let { part.copy(amount = it) }
+            is CostPart.Discard -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.Sacrifice -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.Exile -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.ReturnToHand -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            is CostPart.TapObjects -> scaledObjects(part.what)?.let { part.copy(what = it) }
+            else -> null
+        } ?: CostPart.Manual("$part for each age counter")
+    })
 }

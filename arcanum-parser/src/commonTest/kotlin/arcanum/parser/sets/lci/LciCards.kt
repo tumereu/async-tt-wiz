@@ -206,7 +206,7 @@ val villain2: TokenSpec = creatureToken("Villain", listOf(Color.Black), 2, 1, ab
 val soldier: TokenSpec = creatureToken("Soldier", listOf(Color.White), 1, 1)
 val clue: TokenSpec = TokenSpec.Predefined("Clue")
 val food: TokenSpec = TokenSpec.Predefined("Food")
-val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self))
+val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))
 /** "When you do, …" (CR 603.12) */
 fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step =
     Step.Do(Effect.ReflexiveTrigger(Instructions(targets = targets, steps = steps.toList())))

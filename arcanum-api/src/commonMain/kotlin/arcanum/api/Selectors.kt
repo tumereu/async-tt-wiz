@@ -143,14 +143,17 @@ sealed interface ObjectFilter {
     // mom
     /** Is exactly [count] of the five colours ("a spell that's exactly two colors", CR 105.2). */
     @Serializable @SerialName("color-count") data class ColorCount(val count: Int) : ObjectFilter
-    /** Shares a colour / card type / creature type with [objects]. */
-    @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects) : ObjectFilter
+    /** Shares a colour / card type / creature type with [objects] (with one of them; [each] (dmr): with each of them, "shares a
+     * creature type with each creature tapped this way", not necessarily the same one). */
+    @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects, val each: Boolean = false) : ObjectFilter
     /** mom chunk 09: a double-faced card or permanent: a nonmodal or modal double-faced card or a meld card (CR 712.1), also a double-faced
      * token (CR 111.13), whichever face is up ("If it's a land or double-faced card"). */
     @Serializable @SerialName("double-faced") data object DoubleFaced : ObjectFilter
 
     @Serializable @SerialName("controlled-by") data class ControlledBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("owned-by") data class OwnedBy(val players: PlayerFilter) : ObjectFilter
+    /** A battle whose protector matches [players] (CR 310.9): the defending player of a creature attacking it (CR 506.2). */
+    @Serializable @SerialName("protected-by") data class ProtectedBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("in-zone") data class InZone(val zone: Zone) : ObjectFilter
 
     @Serializable @SerialName("name") data class Named(val name: String) : ObjectFilter
@@ -446,4 +449,9 @@ sealed interface PlayerFilter {
     @Serializable @SerialName("designation") data class Has(val designation: Designation) : PlayerFilter
     @Serializable @SerialName("life") data class Life(val comparison: Comparison, val value: Value) : PlayerFilter
     @Serializable @SerialName("this-turn") data class ThisTurn(val event: EventPattern) : PlayerFilter
+    // dmr fixes
+    /** The player was a player of [event] during their last turn: the latest turn they began, this one while it is theirs (the
+     * reference moves on as their next turn begins, CR 800.4i); a player who hasn't had a turn yet passes none ("unless that
+     * player cast a spell or put a nontoken permanent onto the battlefield during their last turn"). */
+    @Serializable @SerialName("last-turn") data class LastTurn(val event: EventPattern) : PlayerFilter
 }

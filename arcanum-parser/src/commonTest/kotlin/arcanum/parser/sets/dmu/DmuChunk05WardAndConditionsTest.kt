@@ -141,7 +141,7 @@ class DmuChunk05WardAndConditionsTest {
         activated(manaCost("{R}"), pump(Objects.Self, 1, 0), Step.If(
             Condition.Compare(Value.AbilityUsesThisTurn(resolved = false), Comparison.AtLeast, n(4)),
             then = listOf(doing(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)),
-                arcanum.api.Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self))))))),
+                arcanum.api.Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))))))),
         )),
     )
 

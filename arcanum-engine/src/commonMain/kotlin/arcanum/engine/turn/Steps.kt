@@ -187,6 +187,7 @@ internal object Steps {
     private fun beginTurn(recorder: Recorder) {
         val s = recorder.state
         val extra = s.turn.extraTurns.firstOrNull { p -> !s.player(p).lost }
+        val extraAt = if (extra != null) s.turn.extraTurns.indexOf(extra) else -1
         var next = extra ?: Priority.nextPlayer(s, s.turn.active)
         // sos: skipped turns are passed over (CR 614.10); each skip is used up by the turn it replaces
         var skipped = s.turn.skippedTurns
@@ -205,7 +206,11 @@ internal object Steps {
             previousTurnStarted = s.turn.turnStarted[next]?.let { s.turn.previousTurnStarted + (next to it) } ?: s.turn.previousTurnStarted,
             // inr: "After that turn, that player takes an extra turn": one for each such control of this turn, directly after it (CR 500.7)
             extraTurns = taken.filter { it.thenExtraTurn }.map { next } +
-                if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
+                if (extra != null) s.turn.extraTurns.drop(extraAt + 1) else s.turn.extraTurns,
+            // dmr: the names of the extra turns still to come, and of this one
+            extraTurnKeys = if (s.turn.extraTurnKeys.isEmpty()) emptyList() else taken.filter { it.thenExtraTurn }.map { null } +
+                s.turn.extraTurns.indices.map { s.turn.extraTurnKeys.getOrNull(it) }.drop(if (extra != null) extraAt + 1 else 0),
+            extraTurnKey = if (extra != null) s.turn.extraTurnKeys.getOrNull(extraAt) else null,
             skippedTurns = skipped,
             controlNext = waiting, controlled = taken.lastOrNull(),
         )

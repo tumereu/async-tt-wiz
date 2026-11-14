@@ -347,13 +347,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.DefendingPlayerOf -> {
             val attackers = objects(players.attackers)
             // dmu sweep: one no longer attacking names the player it attacked before it was removed from combat (CR 508.5)
-            attackers.mapNotNull { id -> state.combat?.attackers?.firstOrNull { it.id == id } ?: attackedBefore(id) }.mapNotNull { attack ->
-                when (val target = attack.target) {
-                    is TargetRef.Player -> target.id
-                    // The controller of the planeswalker, or the protector of the battle (CR 506.2, 310.9d)
-                    is TargetRef.Object -> state.obj(target.id)?.protector ?: controllerOf(target.id)
-                }
-            }.distinct()
+            // The controller of the planeswalker, or the protector of the battle (CR 506.2, 310.9d)
+            attackers.mapNotNull { id -> state.combat?.attackers?.firstOrNull { it.id == id } ?: attackedBefore(id) }
+                .mapNotNull { arcanum.engine.combat.Battles.defender(state, ::controllerOf, it.target) }.distinct()
         }
         // mom: the player protecting each battle (CR 310.8)
         is Players.ProtectorOf -> objects(players.battles).mapNotNull { state.obj(it)?.protector }.distinct()
@@ -378,6 +374,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is PlayerFilter.Has -> filter.designation in state.player(player).designations
         is PlayerFilter.Life -> compare(state.player(player).life, filter.comparison, value(filter.value))
         is PlayerFilter.ThisTurn -> History.happened(this, filter.event, player = player)
+        // dmr fixes: the latest turn that player began (CR 800.4i); with 3+ players it can be older than last turn
+        is PlayerFilter.LastTurn -> state.turn.turnStarted[player]?.let { History.happened(this, filter.event, player = player, turn = it) } ?: false
     }
 
     // ---- Object filters
@@ -447,10 +445,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // mom chunk 09: CR 712.1: two faces of a nonmodal, modal or meld double-faced card (or token, CR 111.13)
             ObjectFilter.DoubleFaced -> o != null && o.definition.faces.size > 1 &&
                 (o.definition.layout == arcanum.api.Layout.Transform || o.definition.layout == arcanum.api.Layout.ModalDoubleFaced || o.definition.layout is arcanum.api.Layout.Meld)
-            is ObjectFilter.Shares -> objects(filter.objects).any { other -> other != id && shares(filter.quality, id, other) }
+            is ObjectFilter.Shares -> objects(filter.objects).filter { it != id }.let { others ->
+                if (filter.each) others.isNotEmpty() && others.all { shares(filter.quality, id, it) } else others.any { shares(filter.quality, id, it) } }
             // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
             is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false
+            is ObjectFilter.ProtectedBy -> state.obj(id)?.protector?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)
             // CR 708.2a: a face-down permanent has no name
@@ -1055,6 +1055,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
+        // dmr: "If you cast it any time a sorcery couldn't have been cast" (CR 307.1)
+        is Condition.CastOutsideSorceryTiming -> objects(condition.of).any { id -> facts(id)?.outsideSorceryTiming == true }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
         // mom: every turn after your last one ended, this one included (CR 500.1); turns a host dropped from the log count none
@@ -1182,7 +1184,9 @@ internal object History {
         evaluator: Evaluator, event: arcanum.api.EventPattern, objectId: ObjectId? = null, player: PlayerId? = null,
         // rtr chunk 05: only in this role of the event ("that dealt damage this turn": the source)
         role: arcanum.api.EventRole? = null,
-    ): Boolean = instances(evaluator, event).any { e ->
+        // dmr fixes: in that turn (this turn when null)
+        turn: Int? = null,
+    ): Boolean = instances(evaluator, event, turn).any { e ->
         (objectId == null || e.objects.any { (role == null || it.role == role) && objectId in it.ids }) && (player == null || player in e.players)
     }
 

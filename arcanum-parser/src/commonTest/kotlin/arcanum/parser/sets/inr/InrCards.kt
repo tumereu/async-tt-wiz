@@ -221,7 +221,7 @@ val plan: CounterKind = CounterKind.Named("plan")
 fun nthPlanCounter(nth: Int): Trigger = on(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), plan, reaching = nth))
 /** "… and put a plan counter on this enchantment" */
 val planCounter: Step = counters(Objects.Self, 1, plan)
-val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self))
+val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))
 /** "When you do, …" (CR 603.12) */
 fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step =
     Step.Do(Effect.ReflexiveTrigger(Instructions(targets = targets, steps = steps.toList())))

@@ -83,7 +83,7 @@ class EoeChunk12RedTest {
             doing(
                 Effect.CreateDelayedTrigger(
                     trigger = on(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.Any)),
-                    instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("tokens"))))),
+                    instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("tokens"), by = Players.You)))),
                 ),
             ),
             targets = listOf(slot("permanent", and(or(artifact, creature), you))),
@@ -188,7 +188,7 @@ class EoeChunk12RedTest {
                     doing(
                         Effect.CreateDelayedTrigger(
                             trigger = on(EventPattern.StepBegins(step = TurnStep.EndOfCombat, whose = PlayerFilter.Any)),
-                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("token"))))),
+                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("token"), by = Players.You)))),
                         ),
                     ),
                 ),
@@ -566,7 +566,7 @@ class EoeChunk12RedTest {
                             ),
                             triggered(
                                 on(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.You)),
-                                doing(Effect.Sacrifice(objects = Objects.Self)),
+                                doing(Effect.Sacrifice(objects = Objects.Self, by = Players.You)),
                             ),
                         ),
                     ),

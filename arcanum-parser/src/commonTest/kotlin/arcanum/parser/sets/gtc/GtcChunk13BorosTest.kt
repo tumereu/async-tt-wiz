@@ -191,7 +191,7 @@ class GtcChunk13BorosTest {
         """,
     ) parsesTo abilities(
         Keyword.Trample, Keyword.Lifelink, Keyword.Haste,
-        Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)), steps(Step.Do(Effect.Sacrifice(Objects.Self)))),
+        Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)), steps(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))),
     )
 
     @Test

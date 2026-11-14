@@ -110,6 +110,10 @@ internal object Filters {
                 noun("${m.groupValues[1]} ${m.groupValues[3]}${m.groupValues[4]}") ?: return null))
         }
         gtcNoun(phrase)?.let { return it }
+        // dmr chunk 06: "permanent of that color" (the color this ability's "choose a color" named)
+        OF_THAT_COLOR.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OfColor(arcanum.api.ColorRef.Chosen("color")))
+        }
         // fdn chunk 10a: "creatures you control of the chosen color" (the color chosen as this permanent entered, CR 105.1)
         OF_CHOSEN_COLOR.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OfColor(arcanum.api.ColorRef.Remembered("color")))
@@ -557,6 +561,8 @@ internal object Filters {
         "Each opponent", "each opponent", "each of your opponents" -> Players.Each(PlayerFilter.Opponent)
         "You", "you" -> Players.You
         "Each player", "each player" -> Players.Each(PlayerFilter.Any)
+        // dmr chunk 06: every player but you, opponents or not (CR 102.2, 102.3)
+        "Each other player", "each other player" -> Players.Each(PlayerFilter.Not(PlayerFilter.You))
         else -> OnePhrases.eachWho(phrase) // one chunk 03
     }
 
@@ -636,6 +642,7 @@ internal object Filters {
     // blb chunk 12
     private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
     private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
+    private val OF_THAT_COLOR = Regex("""(.+) of that color""")
     private val THAT_ARE_EQUIPPED = Regex("""(.+) that (?:are|is) equipped""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or (?:an? )?(\w+)""")
     // blb chunk 11
@@ -1081,10 +1088,29 @@ internal object Events {
         GTC_BECOMES_TAPPED.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null) }
         // fdn chunk 03: "equipped creature becomes untapped" (CR 701.26)
         Fdn.BECOMES_UNTAPPED.matchEntire(text)?.let { m -> return EventPattern.Untap(subject(m.groupValues[1], self) ?: return null) }
+        // dmr chunk 07: "a basic land is tapped for mana of the chosen color" (CR 106.12a)
+        DMR_IS_TAPPED_FOR_MANA_OF_CHOSEN.matchEntire(text)?.let { m ->
+            val what = subject(m.groupValues[1], self) ?: Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            return EventPattern.Tap(what, forMana = true, producingColor = arcanum.api.ColorRef.Remembered("color")) // Sentences.CHOSEN_COLOR
+        }
         GTC_IS_TAPPED_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null, forMana = true) }
-        // gtc chunk 07: "this creature deals combat damage" (to any player or permanent); rvr fixes: once for all it deals at once (CR 603.2c)
+        // gtc chunk 07: "this creature deals combat damage" (to any player or permanent); dmr chunk 02: "enchanted creature deals damage"
+        // (combat or not, CR 120.1); rvr fixes: once for all it deals at once (CR 603.2c)
         GTC_DEALS_COMBAT_DAMAGE.matchEntire(text)?.let { m ->
-            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(), combat = true, per = arcanum.api.DamageOccurrence.Source)
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(), combat = true.takeIf { m.groupValues[2].isNotEmpty() },
+                per = arcanum.api.DamageOccurrence.Source)
+        }
+        // dmr chunk 04: "this creature deals damage to a creature" (combat or not, CR 120.1; to any one creature)
+        DMR_DEALS_DAMAGE_TO_A.matchEntire(text)?.let { m ->
+            val to = when (m.groupValues[3]) {
+                "player" -> arcanum.api.RecipientFilter(players = PlayerFilter.Any)
+                "opponent" -> arcanum.api.RecipientFilter(players = PlayerFilter.Opponent)
+                else -> arcanum.api.RecipientFilter(objects = Filters.noun(m.groupValues[3]) ?: return null)
+            }.let { r ->
+                // dmr chunk 07: "a creature or opponent"
+                when (m.groupValues[4]) { "player" -> r.copy(players = PlayerFilter.Any); "opponent" -> r.copy(players = PlayerFilter.Opponent); else -> r }
+            }
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, to, combat = true.takeIf { m.groupValues[2].isNotEmpty() })
         }
         // dgm: "a creature deals combat damage to you"
         GTC_DEALS_COMBAT_DAMAGE_TO_YOU.matchEntire(text)?.let { m ->
@@ -1140,8 +1166,10 @@ internal object Events {
     private val GTC_YOU_TAP_FOR_MANA = Regex("""you tap (.+) for mana""")
     private val GTC_BECOMES_TAPPED = Regex("""(.+) becomes tapped""")
     private val GTC_IS_TAPPED_FOR_MANA = Regex("""(.+) is tapped for mana""")
+    private val DMR_IS_TAPPED_FOR_MANA_OF_CHOSEN = Regex("""(.+) is tapped for mana of the chosen colou?r""")
     private val ENCHANTED_SUBTYPE = Regex("""enchanted [A-Z][a-z]+""")
-    private val GTC_DEALS_COMBAT_DAMAGE = Regex("""(.+) deals combat damage""")
+    private val GTC_DEALS_COMBAT_DAMAGE = Regex("""(.+) deals (combat )?damage""")
+    private val DMR_DEALS_DAMAGE_TO_A = Regex("""(.+) deals (combat )?damage to an? (creature|player|opponent|planeswalker|permanent)(?: or (player|opponent))?""")
     private val GTC_DEALS_COMBAT_DAMAGE_TO_YOU = Regex("""(.+) deals combat damage to you""")
     private val GTC_PUT_INTO_OPPONENTS_GRAVEYARD = Regex("""(.+) is put into an opponent's graveyard from anywhere""")
     private val GTC_SPELL_DEALS_DAMAGE = Regex("""an? (.+ spell you control) deals damage""")
@@ -1360,6 +1388,10 @@ internal object Conditions {
         OnePhrases.condition(text, self)?.let { return it } // one
         IsdPhrases.condition(text, self)?.let { return it } // isd
         BroPhrases.condition(text, self)?.let { return it } // bro
+        // dmr chunk 01: "this permanent is an enchantment" (CR 205.2, 603.4): the permanent has the type right now
+        Dmr.SELF_IS_A.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            return Condition.ObjectMatches(Objects.Self, Filters.noun(m.groupValues[2]) ?: return@let)
+        }
         Dmu.condition(text)?.let { return it } // dmu
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
@@ -1375,6 +1407,9 @@ internal object Conditions {
         }
         if (text == "an opponent has more life than you")
             return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Life(Comparison.Greater, Value.LifeOf(Players.You)))), atLeast = 1)
+        // dmr chunk 01: "a player has more life than each other player" (CR 102.1): exactly one player has the greatest life total
+        if (text == "a player has more life than each other player") return Condition.Compare(
+            Value.CountPlayers(Dmr.playersWithMostLife), Comparison.Equal, Value.Fixed(1))
         if (text == "an opponent has more cards in hand than you")
             return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(Condition.Compare(
                 Value.HandSize(Players.Tested), Comparison.Greater, Value.HandSize(Players.You))))), atLeast = 1)
@@ -1404,6 +1439,10 @@ internal object Conditions {
         }
         // dsk chunk 13: "Kaiden has one or more loyalty counters on him" (this object)
         // fdn chunk 06: "this creature has three or more +1/+1 counters on it"
+        // dmr chunk 07: "Dark Depths has no ice counters on it" (this object)
+        HAS_NO_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1)))
+        }
         HAS_N_OR_MORE_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
             val kind = if (m.groupValues[3].isEmpty()) null else Counters.kind(m.groupValues[3]) ?: return null
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = Numbers.count(m.groupValues[2]) ?: return null))
@@ -1577,7 +1616,8 @@ internal object Conditions {
                 if (m.groupValues[2].isEmpty()) arcanum.api.Comparison.Equal else arcanum.api.Comparison.AtLeast, Value.Fixed(n))
         }
         // chunk 42: "there are three or more land cards in your graveyard"
-        THERE_ARE_N_OR_MORE.matchEntire(text)?.let { m ->
+        // dmr chunk 06: "you have four or more creature cards in your graveyard" (the same count of your graveyard's cards)
+        (THERE_ARE_N_OR_MORE.matchEntire(text) ?: YOU_HAVE_N_OR_MORE_IN_GRAVEYARD.matchEntire(text))?.let { m ->
             return Condition.Exists(Filters.noun(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null)
         }
         // chunk 36: "a card left your graveyard this turn"
@@ -1685,6 +1725,10 @@ internal object Conditions {
             val exists = Condition.Exists(if (m.groupValues[2] == "another") Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter) else filter, atLeast = 1)
             return if (m.groupValues[1].isEmpty()) exists else Condition.Not(exists)
         }
+        // dmr chunk 04: "this ability has been activated four or more times this turn" (counting this activation)
+        Dmr.ACTIVATED_N_OR_MORE_TIMES.matchEntire(text)?.let { m ->
+            return Condition.Compare(Value.AbilityUsesThisTurn(resolved = false), Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        }
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
         NTH_RESOLUTION.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.AbilityUsesThisTurn(resolved = true), Comparison.Equal, Value.Fixed(Numbers.ordinal(m.groupValues[1]) ?: return null))
@@ -1704,6 +1748,7 @@ internal object Conditions {
     // dsk chunk 13
     // lci chunk 07: "three or more counters" (of any kinds together)
     private val HAS_N_OR_MORE_COUNTERS_ON = Regex("""(.+) has (\w+) or more (?:(\S+) )?counters on (?:it|him|her)""")
+    private val HAS_NO_COUNTERS_ON = Regex("""(.+) has no (\S+) counters on (?:it|him|her)""")
     private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
     private val YOU_CONTROL_PRIME_NUMBER_OF = Regex("""you control a prime number of (.+)""")
     // dsk chunk 11
@@ -1755,6 +1800,7 @@ internal object Conditions {
     private val SELF_IS_ATTACKING = Regex("""(.+) is attacking""")
     // chunk 42
     private val THERE_ARE_N_OR_MORE = Regex("""there are (\w+) or more (.+)""")
+    private val YOU_HAVE_N_OR_MORE_IN_GRAVEYARD = Regex("""you have (\w+) or more (.+ in your graveyard)""")
     // dmu chunk 02
     private val BASIC_LAND_TYPES_AMONG = Regex("""there are (\w+)( or more)? basic land types among (.+)""")
     // chunk 45

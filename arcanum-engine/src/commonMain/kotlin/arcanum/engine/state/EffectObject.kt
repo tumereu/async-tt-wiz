@@ -70,4 +70,6 @@ data class DelayedTrigger(
     val oneShot: Boolean = false,
     /** eoe: triggers only in a later turn than [createdTurn] ("at the beginning of the end step on your next turn"). */
     val laterTurn: Boolean = false,
+    /** dmr: triggers only during the turn of this name (TurnState.extraTurnKey). */
+    val inTurn: String? = null,
 )

@@ -156,7 +156,7 @@ class WoeChunk05ScryTest {
     ) parsesTo abilities(
         triggered(entersSelf, create(creatureToken("Knight", listOf(Color.White), 2, 2, listOf(Keyword.Vigilance)))),
         triggered(diesFromBattlefield, scry(2)),
-        activated(cost(mana("{2}{W}")), doing(Effect.Sacrifice(Objects.Self))),
+        activated(cost(mana("{2}{W}")), doing(Effect.Sacrifice(Objects.Self, by = Players.You))),
     )
 
     // CR 700.4, 701.22a, 701.9a (discard), 119.3
@@ -173,7 +173,7 @@ class WoeChunk05ScryTest {
     ) parsesTo abilities(
         triggered(entersSelf, discard(1, eachOpp), loseLife(2, eachOpp)),
         triggered(diesFromBattlefield, scry(2)),
-        activated(cost(mana("{2}{B}")), doing(Effect.Sacrifice(Objects.Self))),
+        activated(cost(mana("{2}{B}")), doing(Effect.Sacrifice(Objects.Self, by = Players.You))),
     )
 
     // CR 613.4c, 702.7a, 701.22a

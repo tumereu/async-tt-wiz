@@ -112,7 +112,10 @@ internal object Effects {
                 }
             }
             is Effect.Sacrifice -> {
-                val ids = onBattlefield(scope, effect.objects)
+                // CR 701.21a: a player sacrifices only permanents they control (a delayed "sacrifice it" does nothing once
+                // another player has gained control of it)
+                val by = effect.by?.let { scope.players(it).toSet() }
+                val ids = onBattlefield(scope, effect.objects).filter { by == null || act.controllerOf(it) in by }
                 scope.bind(effect.preBind, NamedValue.Objects(ids))
                 moveOrBatch(scope, ids.filter { id -> !Actions.cantBeSacrificed(act, id, cause.controller) }
                     .map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.Sacrificed)) }, effect.postBind)
@@ -310,7 +313,8 @@ internal object Effects {
                 val o = act.state.objOrThrow(id)
                 if (o.damage > 0 || o.deathtouchDamage) act.record(Change.DamageMarked(id, o.damage, 0, o.deathtouchDamage, false))
             }
-            is Effect.CreateDelayedTrigger -> createDelayed(scope, effect.trigger, effect.instructions, effect.duration, effect.repeats, laterTurn = effect.laterTurn)
+            is Effect.CreateDelayedTrigger -> createDelayed(scope, effect.trigger, effect.instructions, effect.duration, effect.repeats, laterTurn = effect.laterTurn,
+                inTurn = effect.inTurn?.let { (scope.names.values[it] as? NamedValue.Name)?.name ?: return })
             is Effect.RollDie -> {
                 val player = scope.players(effect.players).firstOrNull() ?: scope.actor
                 val rolls = (act.random(player, scope.self, RandomKind.Die(effect.sides, effect.count)) as Answer.DieRolls).results
@@ -404,7 +408,13 @@ internal object Effects {
             is Effect.Forget -> forget(scope, effect.key, effect.objects?.let { scope.objects(it) })
             // CR 500.7: the most recently created extra turn is taken first
             is Effect.ExtraTurn -> scope.players(effect.players).forEach { p ->
-                act.record(Changes.step(act.state, act.state.turn.copy(extraTurns = listOf(p) + act.state.turn.extraTurns)))
+                val turn = act.state.turn
+                // dmr: a named extra turn ("that turn"), its name unique in this game
+                val key = effect.mark?.let { "turn ${act.state.nextTimestamp()}.${turn.extraTurns.size}" }
+                key?.let { scope.bind(effect.mark, NamedValue.Name(it)) }
+                val keys = if (key == null && turn.extraTurnKeys.isEmpty()) emptyList()
+                    else listOf(key) + turn.extraTurns.indices.map { turn.extraTurnKeys.getOrNull(it) }
+                act.record(Changes.step(act.state, turn.copy(extraTurns = listOf(p) + turn.extraTurns, extraTurnKeys = keys)))
             }
             // gtc: CR 500.8: added directly after this phase, before phases added earlier
             is Effect.ExtraCombat -> {
@@ -971,7 +981,8 @@ internal object Effects {
         else -> zone.toString().lowercase()
     }
 
-    /** CR 701.23: the searcher looks at the zones and finds up to N matching cards (finding none is allowed, 701.23b). */
+    /** CR 701.23: the searcher looks at the zones and finds up to N matching cards (finding none is allowed, 701.23b); a search of
+     * hidden zones simply for a quantity of cards ("three cards") must find that many, or as many as there are (701.23d). */
     private fun search(scope: Scope, effect: Effect.Search) {
         val act = scope.act
         val searcher = scope.players(effect.searcher).firstOrNull() ?: scope.actor
@@ -985,7 +996,9 @@ internal object Effects {
             val e = scope.eval()
             var options = cards.filter { e.matches(effect.filter, it) }
             val max = scope.value(effect.max)
-            val chosen = act.chooseObjects(searcher, scope.self, options, 0, max,
+            val quantityOnly = (effect.filter == ObjectFilter.Any || effect.filter == ObjectFilter.Category(arcanum.api.ObjectCategory.Card)) &&
+                effect.zones.all { it == Zone.Library || it == Zone.Hand }
+            val chosen = act.chooseObjects(searcher, scope.self, options, if (quantityOnly) minOf(max, options.size) else 0, max,
                 arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "search", "Search"))
             if (effect.differentNames) {
                 val names = chosen.map { e.characteristics(it)?.name }
@@ -1377,8 +1390,9 @@ internal object Effects {
             names = names.with(COPY_OF, NamedValue.Objects(listOf(of)))
             m.copy(objects = Objects.Bound(COPY_OF))
         }.map { m ->
-            // fin: "that player gains control of …": the player the event names, found now (CR 608.2h) and kept by name
-            if (m !is Mechanic.ControlledBy || !m.players.toString().contains("Event")) return@map m
+            // CR 608.2h, 611.2c: the new controller is found as the effect begins and kept by name ("that player gains control of …",
+            // "the player with the most life gains control of …": a later life change doesn't move it again)
+            if (m !is Mechanic.ControlledBy || m.players is arcanum.api.Players.Bound) return@map m
             names = names.with(NEW_CONTROLLER, NamedValue.Players(e.players(m.players)))
             m.copy(players = arcanum.api.Players.Bound(NEW_CONTROLLER))
         }
@@ -1465,6 +1479,16 @@ internal object Effects {
     /** "Prevent the next N damage" (CR 615.7, D26): a shield effect object whose amount goes down as it prevents. */
     private fun preventDamage(scope: Scope, effect: Effect.PreventDamage) {
         val targets = recipients(scope, effect.to)
+        // dmr: "Prevent the next 5 damage … to any number of targets, divided as you choose": each target its own shield of its share (CR 601.2d, 615.7)
+        val divided = scope.cause.item?.divided.orEmpty()
+        if (divided.isNotEmpty()) {
+            targets.forEach { r -> shield(scope, effect, listOf(r), scope.eval(dividedShare = divided.firstOrNull { it.target == r }?.amount).value(effect.amount)) }
+            return
+        }
+        shield(scope, effect, targets, scope.value(effect.amount))
+    }
+
+    private fun shield(scope: Scope, effect: Effect.PreventDamage, targets: List<TargetRef>, amount: Int) {
         val objects = targets.filterIsInstance<TargetRef.Object>().map { it.id }
         val players = targets.filterIsInstance<TargetRef.Player>().map { it.id }
         val saved = scope.names
@@ -1478,7 +1502,7 @@ internal object Effects {
                 .with(REDIRECT_TO_PLAYERS, NamedValue.Players(refs.filterIsInstance<TargetRef.Player>().map { it.id }))
             arcanum.api.Recipients(objects = Objects.Bound(REDIRECT_TO), players = Players.Bound(REDIRECT_TO_PLAYERS))
         }
-        applyMechanics(scope, listOf(Mechanic.Prevention(pattern, redirectTo = redirect)), null, effect.duration, null, amountLeft = scope.value(effect.amount))
+        applyMechanics(scope, listOf(Mechanic.Prevention(pattern, redirectTo = redirect)), null, effect.duration, null, amountLeft = amount)
         scope.names = saved
     }
 
@@ -1503,7 +1527,7 @@ internal object Effects {
 
     private fun createDelayed(
         scope: Scope, trigger: Trigger, instructions: Instructions, duration: Duration?, repeats: Boolean,
-        extra: Map<String, NamedValue> = emptyMap(), oneShot: Boolean = false, laterTurn: Boolean = false,
+        extra: Map<String, NamedValue> = emptyMap(), oneShot: Boolean = false, laterTurn: Boolean = false, inTurn: String? = null,
     ) {
         val act = scope.act
         val names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
@@ -1524,7 +1548,7 @@ internal object Effects {
             // An object that already left (a countered spell) is kept as it last existed (CR 608.2h), not read later from
             // a log the host may have trimmed
             snapshots = refs.mapNotNull { act.snapshot(it) ?: arcanum.engine.query.Lki.find(act.state, it) },
-            oneShot = oneShot, laterTurn = laterTurn,
+            oneShot = oneShot, laterTurn = laterTurn, inTurn = inTurn,
         )))
     }
 

@@ -258,7 +258,7 @@ class DmuChunk11EnchantEquipTokensTest {
         triggered(beginningOfCombatOnYourTurn,
             create(creatureToken("Elemental", listOf(Color.Red), 2, 1, listOf(Keyword.Trample, Keyword.Haste)), bind = "token"),
             doing(Effect.CreateDelayedTrigger(stepBegins(TurnStep.End, PlayerFilter.Any),
-                Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("token")))))))),
+                Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You))))))),
         activated(cost(tap), search(cardFilter, bind = "found"), move(Objects.Bound("found"), Zone.Hand), shuffle,
             rules = anyTime.copy(condition = Condition.HappenedThisTurn(
                 EventPattern.ZoneChange(creature, from = Zone.Battlefield, to = Zone.Graveyard), atLeast = 5, measure = Measure.Objects))),

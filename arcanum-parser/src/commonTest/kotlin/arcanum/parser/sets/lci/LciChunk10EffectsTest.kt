@@ -181,7 +181,7 @@ class LciChunk10EffectsTest {
             doing(Effect.CreateToken(TokenSpec.CopyOf(target("permanent"), listOf(CopyException.Types(add = listOf(CardType.Artifact)))), n(1),
                 Players.You, bind = "token")),
             doing(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(Objects.Bound("token")), Duration.Indefinitely)),
-            delayed(nextEndStep, doing(Effect.Sacrifice(Objects.Bound("token")))),
+            delayed(nextEndStep, doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You))),
             targets = listOf(slot("permanent", and(another, or(creature, artifact), you)))),
     )
 

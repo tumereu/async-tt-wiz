@@ -81,6 +81,12 @@ sealed interface CostPart {
          * CR 702.167a). Several exile parts remembering under one key add up there. */
         val alsoFrom: List<Zone> = emptyList(),
     ) : CostPart
+    // dmr
+    /** Put [what] from [from] on the bottom of its owner's library as a cost ("Put three cards from your graveyard on the bottom of your
+     * library", CR 401.4: several at once are arranged by their owner). */
+    @Serializable @SerialName("put-on-bottom-of-library") data class PutOnBottomOfLibrary(
+        val what: CostObjects, val from: Zone, val preBind: String? = null, val postBind: String? = null,
+    ) : CostPart
     /** Pay one of [options] ("discard a card or pay {5}"). */
     @Serializable @SerialName("one-of") data class OneOf(val options: List<Cost>) : CostPart
     /** A keyword action as a cost: behold, collect evidence, forage, exert; [bind] names what it used ("the beheld card"). [remember]: the

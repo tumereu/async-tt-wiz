@@ -372,7 +372,7 @@ class EoeChunk11BlackTest {
         ),
         triggered(
             on(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.You)),
-            doing(Effect.Sacrifice(objects = Objects.Self)),
+            doing(Effect.Sacrifice(objects = Objects.Self, by = Players.You)),
             Step.Choose(
                 choice = Choice.Objects(filter = creature, min = n(1), max = n(1), from = Objects.Remembered(key = "exiled")),
                 bind = "chosen",

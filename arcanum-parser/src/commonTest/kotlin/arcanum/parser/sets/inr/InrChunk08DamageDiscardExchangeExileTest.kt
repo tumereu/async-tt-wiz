@@ -268,7 +268,7 @@ class InrChunk08DamageDiscardExchangeExileTest {
                 chooser = Players.You),
             move(Objects.Bound("chosen"), Zone.Battlefield, postBind = "put"),
             doing(Effect.ApplyMechanics(listOf(has(Keyword.Haste)), Affected.Objects(Objects.Bound("put")), Duration.Indefinitely)),
-            delayed(on(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)), Step.Do(Effect.Sacrifice(Objects.Bound("put")))),
+            delayed(on(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)), Step.Do(Effect.Sacrifice(Objects.Bound("put"), by = Players.You))),
         ),
         Keyword.Splice(onto = sub("Arcane"), cost = manaCost("{2}{R}{R}")),
     )

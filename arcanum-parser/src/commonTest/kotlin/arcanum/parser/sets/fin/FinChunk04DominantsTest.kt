@@ -266,7 +266,7 @@ class FinChunk04DominantsTest {
                 ifThen(Condition.ObjectMatches(Objects.Bound("tokens"), saga),
                     Step.Choose(arcanum.api.Choice.Number(n(0), n(3)), bind = "lore", chooser = Players.You),
                     doing(Effect.PutCounters(Objects.Bound("tokens"), lore, Value.Bound("lore")))),
-                delayed(stepBegins(TurnStep.End, arcanum.api.PlayerFilter.You), doing(Effect.Sacrifice(Objects.Bound("tokens")))),
+                delayed(stepBegins(TurnStep.End, arcanum.api.PlayerFilter.You), doing(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You))),
                 targets = listOf(slot("enchantment", and(not(legendary), enchantment, you)))),
             chapter(4, doing(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}")!!)), Players.You)), *returnFrontFaceUp),
             Keyword.Flying,

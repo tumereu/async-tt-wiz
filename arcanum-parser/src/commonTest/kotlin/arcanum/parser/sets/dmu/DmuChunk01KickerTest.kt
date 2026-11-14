@@ -90,7 +90,7 @@ class DmuChunk01KickerTest {
             entersSelf,
             move(target("card"), Zone.Battlefield, postBind = "returned"),
             Step.Do(Effect.ApplyMechanics(listOf(has(Keyword.Haste)), Affected.Objects(Objects.Bound("returned")), Duration.Indefinitely)),
-            atNextEndStep(Step.Do(Effect.Sacrifice(Objects.Bound("returned")))),
+            atNextEndStep(Step.Do(Effect.Sacrifice(Objects.Bound("returned"), by = Players.You))),
             targets = listOf(slot("card", inYourGraveyard(creature, manaValue(Comparison.AtMost, 3)))),
             interveningIf = kicked,
         ),
@@ -130,7 +130,7 @@ class DmuChunk01KickerTest {
             untilEndOfTurn(target("creature"), Mechanic.ControlledBy(Players.You)),
             untapIt(target("creature")),
             gains(target("creature"), Keyword.Haste),
-            Step.If(kicked, then = listOf(atNextEndStep(Step.Do(Effect.Sacrifice(target("creature")))))),
+            Step.If(kicked, then = listOf(atNextEndStep(Step.Do(Effect.Sacrifice(target("creature"), by = Players.You))))),
             targets = listOf(slot("creature", creature)),
         ),
     )

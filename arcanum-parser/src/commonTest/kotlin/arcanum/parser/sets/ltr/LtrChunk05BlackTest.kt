@@ -359,7 +359,7 @@ class LtrChunk05BlackTest {
         triggered(Trigger.On(listOf(EventPattern.Attack(and(goblinOrOrc, you))), oneOrMore = true),
             Step.Do(Effect.CreateToken(boulder, n(1), Players.You, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, bind = "token")),
             doing(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.EndOfCombat, PlayerFilter.Any)),
-                Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("token")))))))),
+                Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You))))))),
     )
 
     private val dealtDamageThisTurn = ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, RecipientFilter()), role = EventRole.Object)

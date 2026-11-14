@@ -106,7 +106,7 @@ class EoeChunk15ArtifactsAndLandsTest {
             ),
             Step.If(
                 condition = Condition.Not(condition = Condition.Did(name = "paid")),
-                then = listOf(doing(Effect.Sacrifice(objects = Objects.Self))),
+                then = listOf(doing(Effect.Sacrifice(objects = Objects.Self, by = Players.You))),
             ),
         ),
         activated(cost(tap), doing(Effect.AddMana(mana = ManaProduction(kind = ManaKind.Choose(amount = n(1))), players = Players.You))),

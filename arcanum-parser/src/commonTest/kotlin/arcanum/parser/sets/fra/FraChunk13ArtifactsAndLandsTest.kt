@@ -100,7 +100,7 @@ class FraChunk13ArtifactsAndLandsTest {
         type = "Artifact",
         text = "At the beginning of your upkeep, surveil 1. Then if there are seven or more cards in your graveyard, sacrifice this artifact, it deals 2 damage to each opponent, and you gain 2 life. (To surveil 1, look at the top card of your library. You may put it into your graveyard.)",
     ) parsesTo abilities(triggered(stepBegins(TurnStep.Upkeep, PlayerFilter.You), surveil(1),
-            Step.If(threshold, then = listOf(Step.Do(Effect.Sacrifice(Objects.Self)), damage(2, eachOpponent), gainLife(2)))))
+            Step.If(threshold, then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)), damage(2, eachOpponent), gainLife(2)))))
 
     // CR 701.24a
     @Test

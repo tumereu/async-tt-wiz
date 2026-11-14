@@ -198,7 +198,7 @@ object KeywordExpansions {
                 // "When the last time counter is removed": no intervening if, so it is sacrificed even if a counter
                 // was put on in response
                 Ability.Triggered(Trigger.On(EventPattern.CountersRemoved(ObjectFilter.Is(Objects.Self), time, last = true)),
-                    steps(Effect.Sacrifice(Objects.Self))),
+                    steps(Effect.Sacrifice(Objects.Self, by = Players.You))),
             )
         }
         // CR 702.79a: "When this permanent is put into a graveyard from the battlefield, if it had no -1/-1 counters on it,
@@ -241,7 +241,7 @@ object KeywordExpansions {
             Ability.Static(listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any)), affects = Affected.Objects(Objects.Self)),
             Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))),
                 steps(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.EndOfCombat, whose = PlayerFilter.Any)),
-                    steps(Effect.Sacrifice(Objects.Self))))))
+                    steps(Effect.Sacrifice(Objects.Self, by = Players.You))))))
         // CR 702.124a: deck construction in Commander only
         Keyword.Partner -> emptyList()
         // CR 702.28b: can't be blocked by creatures without shadow, and can block only creatures with shadow
@@ -337,7 +337,7 @@ object KeywordExpansions {
         // sacrifices it."
         is Keyword.Evoke -> listOf(
             Ability.Static(listOf(Mechanic.AlternativeCost(Keyword.Evoke.Kind, keyword.cost)), affects = Affected.Objects(Objects.Self)),
-            Ability.Triggered(entersSelf, steps(Effect.Sacrifice(Objects.Self)), interveningIf = Condition.Paid(Keyword.Evoke.Kind, times = 1, of = Objects.Self)))
+            Ability.Triggered(entersSelf, steps(Effect.Sacrifice(Objects.Self, by = Players.You)), interveningIf = Condition.Paid(Keyword.Evoke.Kind, times = 1, of = Objects.Self)))
         // CR 702.35a: discarded into exile instead of the graveyard; "When this card is exiled this way, its owner may
         // cast it by paying [cost] rather than paying its mana cost. If that player doesn't, they put this card into
         // their graveyard."
@@ -519,7 +519,7 @@ object KeywordExpansions {
             Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)), Instructions(steps = listOf(
                 Step.If(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(FADE, atLeast = 1)),
                     then = listOf(Step.Do(Effect.RemoveCounters(Objects.Self, FADE, Value.Fixed(1)))),
-                    otherwise = listOf(Step.Do(Effect.Sacrifice(Objects.Self))))))))
+                    otherwise = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))))))))
         // CR 702.45a: "Whenever this creature blocks or becomes blocked, it gets +N/+N until end of turn."
         is Keyword.Bushido -> listOf(Ability.Triggered(Trigger.On(listOf(EventPattern.Block(ObjectFilter.Is(Objects.Self), ObjectFilter.Any),
             EventPattern.BecomesBlocked(ObjectFilter.Is(Objects.Self), ObjectFilter.Any))), pump(keyword.amount, keyword.amount)))

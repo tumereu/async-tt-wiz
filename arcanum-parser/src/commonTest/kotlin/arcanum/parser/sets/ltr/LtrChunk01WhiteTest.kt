@@ -124,7 +124,7 @@ class LtrChunk01WhiteTest {
             Step.Pay(arcanum.api.Cost(listOf(CostPart.RemoveCounters(hope, n(1), arcanum.api.CostObjects.Self))), payer = Players.You, mandatory = true, bind = "paid"),
             Step.If(Condition.Did("paid"), then = listOf(draw(1))),
             Step.If(Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(hope, atLeast = 1))),
-                then = listOf(doing(Effect.Sacrifice(Objects.Self)), gainLife(4)))),
+                then = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You)), gainLife(4)))),
     )
 
     // CR 702.6a: an equip ability that targets only a Human

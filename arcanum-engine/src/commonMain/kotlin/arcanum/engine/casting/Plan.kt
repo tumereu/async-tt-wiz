@@ -174,6 +174,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 is CostPart.Sacrifice -> if (part.what == arcanum.api.CostObjects.Self) leaving += sourceId else leaving += chosen
                 is CostPart.ReturnToHand -> if (part.what == arcanum.api.CostObjects.Self) leaving += sourceId else leaving += chosen
                 is CostPart.Exile -> if (part.what == arcanum.api.CostObjects.Self) leaving += sourceId else leaving += chosen
+                is CostPart.PutOnBottomOfLibrary -> if (part.what == arcanum.api.CostObjects.Self) leaving += sourceId else leaving += chosen
                 is CostPart.PayLife -> life += eval.value(part.amount)
                 else -> Unit
             }
@@ -670,6 +671,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                     val ids = choices.names[OBJECTS + "${c.key}.$t.$j"] ?: return@forEachIndexed
                     val bindNames = when (part) {
                         is CostPart.Exile -> listOf(part.preBind, part.postBind)
+                        is CostPart.PutOnBottomOfLibrary -> listOf(part.preBind, part.postBind)
                         is CostPart.Sacrifice -> listOf(part.preBind, part.postBind)
                         is CostPart.Discard -> listOf(part.preBind, part.postBind)
                         is CostPart.ReturnToHand -> listOf(part.preBind, part.postBind)
@@ -1022,6 +1024,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             is CostPart.Sacrifice -> part.preBind
             is CostPart.Discard -> part.preBind
             is CostPart.Exile -> part.preBind
+            is CostPart.PutOnBottomOfLibrary -> part.preBind
             is CostPart.ReturnToHand -> part.preBind
             else -> null
         }

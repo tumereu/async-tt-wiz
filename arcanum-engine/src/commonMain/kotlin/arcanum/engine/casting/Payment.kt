@@ -239,7 +239,7 @@ internal object Payment {
         val ability = Legality.instance(snap, use.source, use.ability)?.ability as? Ability.Activated ?: return 1
         val parts = ability.cost.parts
         return when {
-            parts.any { it is CostPart.Sacrifice || it is CostPart.Exile || it is CostPart.ReturnToHand || it is CostPart.Discard } -> 4
+            parts.any { it is CostPart.Sacrifice || it is CostPart.Exile || it is CostPart.PutOnBottomOfLibrary || it is CostPart.ReturnToHand || it is CostPart.Discard } -> 4
             parts.any { it is CostPart.Mana } -> 3
             !Mana.isSimple(ability) && ability.instructions.steps.any { (it as? Step.Do)?.effect.let { e -> e is Effect.DealDamage || e is Effect.LoseLife } } -> 2
             parts.any { it is CostPart.PayLife } -> 0
@@ -360,11 +360,11 @@ internal object Payment {
             val o = s.obj(id) ?: refuse("$id is gone")
             if (zone != null && o.zone != zone) refuse("$id isn't in $zone")
         }
-        fun move(ids: List<ObjectId>, to: Zone, meanings: List<Meaning>, preBind: String?, postBind: String?): List<ObjectId> {
+        fun move(ids: List<ObjectId>, to: Zone, meanings: List<Meaning>, preBind: String?, postBind: String?, position: Changes.Position? = null): List<ObjectId> {
             ids.forEach { snap.snapshot(it)?.let { lki -> snapshots += lki } }
             // One event through the pipeline (CR 614): where each goes may be replaced (unearth's exile, madness); each
             // keeps what was seen of it as it left (CR 608.2h)
-            val moved = Actions.move(act, cause, ids.map { PlannedMove(it, to, meanings = meanings) })
+            val moved = Actions.move(act, cause, ids.map { PlannedMove(it, to, position, meanings = meanings) })
             preBind?.let { bound[it] = NamedValue.Objects(ids) }
             val after = ids.mapNotNull { moved[it] }
             postBind?.let { bound[it] = NamedValue.Objects(after) }
@@ -438,6 +438,13 @@ internal object Payment {
                         if (linked != before) recorder.record(Change.Memory(plan.sourceId, it, before, linked))
                     }
                 }
+            }
+            is CostPart.PutOnBottomOfLibrary -> {
+                val ids = objects(part.what)
+                check(ids, part.from)
+                // CR 401.4: cards put on the bottom at once are arranged by their owner (first: topmost of them)
+                val ordered = if (ids.size > 1) act.order(player, plan.sourceId, ids, "Order, first on top") else ids
+                move(ordered, Zone.Library, emptyList(), part.preBind, part.postBind, Changes.Position.Bottom)
             }
             is CostPart.ReturnToHand -> {
                 val ids = objects(part.what)

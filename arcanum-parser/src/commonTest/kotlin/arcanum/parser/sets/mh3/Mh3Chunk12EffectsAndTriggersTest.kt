@@ -165,7 +165,7 @@ class Mh3Chunk12EffectsAndTriggersTest {
         triggered(on(EventPattern.Cast(not(creature), PlayerFilter.Any)),
             counters(Objects.Self, 1, CounterKind.Named("collection")),
             Step.If(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(CounterKind.Named("collection"), atLeast = 3)), then = listOf(
-                Step.Do(Effect.Sacrifice(Objects.Self, postBind = "sacrificed")),
+                Step.Do(Effect.Sacrifice(Objects.Self, postBind = "sacrificed", by = Players.You)),
                 Step.If(Condition.NonEmpty("sacrificed"), then = listOf(
                     draw(1),
                     Step.May(listOf(search(sub("Plains")), move(found, Zone.Battlefield, tapped = true), shuffle), Players.You),

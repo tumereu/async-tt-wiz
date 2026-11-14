@@ -346,7 +346,7 @@ class WoeChunk08ConditionsAndCostsTest {
         Ability.Activated(cost(mana("{2}"), tap), Instructions(modes = Modes(listOf(
             Mode(Instructions(targets = listOf(slot("creature", creature)), steps = listOf(damage(2, toObjects(target("creature")))))),
             Mode(Instructions(targets = listOf(slot("creature", creature)), steps = listOf(tapIt(target("creature"))))),
-            Mode(Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self)), gainLife(3)))),
+            Mode(Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You)), gainLife(3)))),
         ), min = 1, max = 1, onlyUnchosen = true, chooser = Players.You)), anyTime),
     )
 

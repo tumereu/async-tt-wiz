@@ -148,7 +148,7 @@ class RtrChunk07BlueTest {
         Keyword.Flying,
         triggered(thisEnters,
             Step.Pay(Cost(listOf(CostPart.ReturnToHand(CostObjects.Choose(all(another, creature, you), count = n(1))))), payer = Players.You, bind = "paid"),
-            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))))),
     )
 
     @Test

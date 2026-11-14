@@ -70,7 +70,7 @@ data class GameState internal constructor(
     /** The states of the game the engine codes by hand ([GameStatus]: day and night), in key order. */
     val statuses: List<GameStatus> get() = _statuses
     /** Tagged events (D33): every applied event change with its turn number. Questions about "this turn" and "last
-     * turn" read it; the host may drop entries older than last turn ([forgetOlderTurns]). A host reads them with
+     * turn" read it; the host may drop entries older than [logNeededFrom] ([forgetOlderTurns]). A host reads them with
      * [arcanum.engine.Inspect.events]. */
     internal val log: List<LoggedChange> get() = _log
     /** Card-defined ledgers (D22, "a spell with that name resolved earlier this game"): per player, counts by name. */
@@ -200,11 +200,17 @@ data class GameState internal constructor(
     /** Tagged events of turn [turnNumber] (D33). */
     fun eventsOf(turnNumber: Int): List<Change> = log.filter { it.turn == turnNumber }.map { it.change }
 
-    /** Drops logged events older than last turn and returns them: housekeeping for hosts, not a change (D33 keeps this and last turn).
+    /** The oldest turn whose logged events the rules may still ask about (D33): last turn and the latest turn each player still in
+     * the game began ("during their last turn", "since your last turn", CR 800.4i: with 3+ players it can be older than last
+     * turn); every turn while a player hasn't had one yet. With two players it is always last turn. */
+    val logNeededFrom: Int
+        get() = players.filter { !it.lost }.minOfOrNull { turn.turnStarted[it.id] ?: 0 }?.coerceAtMost(turn.number - 1) ?: (turn.number - 1)
+
+    /** Drops logged events older than [logNeededFrom] and returns them: housekeeping for hosts, not a change (D33).
      * Undo still reaches the turns dropped ([revert]), but "this turn" questions there see none of their events: a host
      * that lets players undo that far keeps the log. */
     fun forgetOlderTurns(): List<LoggedChange> {
-        val keepFrom = turn.number - 1
+        val keepFrom = logNeededFrom
         val dropped = _log.takeWhile { it.turn < keepFrom }
         if (dropped.isNotEmpty()) _log = _log.filter { it.turn >= keepFrom }.toMutableList()
         return dropped

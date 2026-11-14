@@ -23,8 +23,8 @@ import arcanum.engine.view.View
  * by reverting and applying), because new objects' timestamps and ids read the engine's timestamp counter and the
  * rules' "this turn" questions read its log (decision ids read neither: what is asked, of whom, after how many inputs):
  * - reverting an event puts the timestamp counter back ([EnginePart.timestampBefore]);
- * - after each event, logged changes older than last turn are dropped ([GameState.forgetOlderTurns]: the rules ask only
- *   about this and last turn, D33), which keeps checkpoints and the engine's log lookups small in long games. Reverting
+ * - after each event, logged changes older than the rules may ask about are dropped ([GameState.forgetOlderTurns]: this
+ *   turn, last turn and each player's last turn, D33), which keeps checkpoints and the engine's log lookups small in long games. Reverting
  *   an event that began a turn puts back what its drop dropped, while this model still holds it ([kept] drops); a model
  *   that no longer does (decoded from a checkpoint, or more than [KEPT_DROPS] turns back) becomes [stale], and its
  *   caller gets the state from a checkpoint instead ([GameHistory]).
@@ -46,7 +46,7 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         private set
 
     /** The lowest turn whose logged changes are all in the log: the log is complete for turns from here on. */
-    private var floor: Int = (engine.turn.number - 1).coerceAtLeast(0)
+    private var floor: Int = engine.logNeededFrom.coerceAtLeast(0)
 
     private class Drop(val turn: Int, val floor: Int, val dropped: List<LoggedChange>)
     private val kept = ArrayDeque<Drop>()
@@ -176,17 +176,17 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         }
         for (change in changes.asReversed()) engine.revert(change)
         engine.rewindTimestampCounter(part.timestampBefore)
-        if ((engine.turn.number - 1).coerceAtLeast(0) < floor) stale = true
+        if (engine.logNeededFrom.coerceAtLeast(0) < floor) stale = true
     }
 
     /** The turn number before [changes], as their first step change says (the turn now, if none changes it). */
     private fun turnBefore(changes: List<Change>): Int =
         changes.firstOrNull { it is Change.Step }?.let { (it as Change.Step).before.number } ?: engine.turn.number
 
-    /** What every event ends with: logged changes older than last turn are dropped. */
+    /** What every event ends with: logged changes older than the rules may ask about are dropped ([GameState.logNeededFrom]). */
     internal fun afterEvent() {
         val turn = engine.turn.number
-        val keepFrom = turn - 1
+        val keepFrom = engine.logNeededFrom
         if (keepFrom <= floor) return
         // Turns only go up and entries are logged in order, so the dropped entries are the log's first ones
         val dropped = arcanum.engine.Inspect.events(engine).takeWhile { it.turn < keepFrom }

@@ -64,7 +64,7 @@ class DmuChunk07GrantsAndPermissionsTest {
         Keyword.Flying, Keyword.Trample,
         asEntersChooseAnother,
         static(pt(3, 3), has(Keyword.Flying), affects = Objects.Remembered("chosen")),
-        triggered(on(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield)), doing(Effect.Sacrifice(Objects.Remembered("chosen")))),
+        triggered(on(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield)), doing(Effect.Sacrifice(Objects.Remembered("chosen"), by = Players.You))),
     )
 
     // CR 602.2b, 601.2f: its mana abilities, the chosen basic land type's included (CR 305.6), cost 1 life more

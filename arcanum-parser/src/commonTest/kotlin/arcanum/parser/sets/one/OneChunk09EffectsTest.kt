@@ -217,7 +217,7 @@ class OneChunk09EffectsTest {
             doing(Effect.CreateToken(TokenSpec.Defined(FaceDefinition("Phyrexian Horror Token", colorIndicator = listOf(Color.Red), types = listOf(CardType.Creature),
                 subtypes = listOf(Subtype("Phyrexian"), Subtype("Horror")), power = PrintedNumber.X, toughness = PrintedNumber.Fixed(1),
                 abilities = listOf(Keyword.Trample, Keyword.Haste)), power = oilOnSelf), n(1), Players.You, bind = "tokens")),
-            doing(Effect.CreateDelayedTrigger(nextEndStep, Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("tokens")))))))),
+            doing(Effect.CreateDelayedTrigger(nextEndStep, Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You))))))),
     )
 
     // CR 111.4: tokens with a keyword and a quoted ability; CR 107.3: X of the spell; "other": all creatures but those tokens

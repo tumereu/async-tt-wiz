@@ -282,6 +282,6 @@ val selfOnly: Affected = Affected.Objects(Objects.Self)
 /** "Whenever a creature you control attacks alone" (CR 506.5) */
 fun attacksAlone(filter: ObjectFilter): Trigger = on(EventPattern.Attack(filter, alone = true))
 /** "sacrifice this token/creature" */
-val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self))
+val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))
 /** "the beginning of the end step" (each player's) */
 val eachEndStep: Trigger = stepBegins(TurnStep.End, PlayerFilter.Any)

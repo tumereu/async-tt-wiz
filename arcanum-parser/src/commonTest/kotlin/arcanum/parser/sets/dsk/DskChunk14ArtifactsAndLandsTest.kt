@@ -79,7 +79,7 @@ class DskChunk14ArtifactsAndLandsTest {
             Step.Pay(steps = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(4), Value.Fixed(0))),
                 Affected.Objects(Objects.Self), Duration.EndOfTurn))), payer = Players.You, bind = "paid"),
             Step.If(Condition.Did("paid"), then = listOf(Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.Any)),
-                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Self)))))))),
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))))))),
         ))),
     )
 

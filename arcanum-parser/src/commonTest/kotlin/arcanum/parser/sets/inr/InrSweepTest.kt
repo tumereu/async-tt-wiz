@@ -18,7 +18,7 @@ class InrSweepTest {
     ) parsesTo abilities(
         triggered(enters(and(another, not(token), creature, you)),
             Step.Bind(Objects.EventObject(EventRole.After), "event object"),
-            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("event object"))))),
+            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("event object"), by = Players.You)))),
     )
 
     // CR 603.7c: the same for another effect and another event: the attacking creature, named now

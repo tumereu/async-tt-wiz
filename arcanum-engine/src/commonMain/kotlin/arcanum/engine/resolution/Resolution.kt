@@ -282,6 +282,22 @@ internal object Resolution {
         }
     }
 
+    /** dmr sweep: the delayed triggered abilities the resolving permanent spell's static abilities create as the permanent it becomes
+     * enters ([Mechanic.DelayedTriggerAsEnters], CR 608.3g: dash, blitz), read from the spell, controlled by its controller; "this" in
+     * them is the spell, [arcanum.api.Objects.SelfAfter] the permanent. Each is made with its timestamp once the permanent has entered. */
+    private fun delayedAsEnters(act: Act, item: StackItem): List<(Long) -> Change> {
+        val wanted = act.view()[item.id]?.characteristics?.abilities.orEmpty().mapNotNull { it.ability as? Ability.Static }
+            .flatMap { it.mechanics.filterIsInstance<Mechanic.DelayedTriggerAsEnters>() }
+        if (wanted.isEmpty()) return emptyList()
+        val e = act.evaluator(Context(item.controller, item.id))
+        val snapshot = act.snapshot(item.id)
+        return wanted.filter { m -> m.condition?.let { e.holds(it) } ?: true }.map { m -> { ts: Long ->
+            Change.DelayedTriggerAdded(arcanum.engine.state.DelayedTrigger(
+                id = arcanum.engine.state.EffectId("D$ts"), trigger = m.trigger, instructions = m.instructions, source = item.id,
+                controller = item.controller, timestamp = ts, createdTurn = act.state.turn.number, snapshots = listOfNotNull(snapshot)))
+        } }
+    }
+
     private fun finishLeaving(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
         // CR 702.50a: epic's spell abilities, the last of the spell's instructions
@@ -333,8 +349,10 @@ internal object Resolution {
                 .mapKeys { it.key.removePrefix(arcanum.engine.casting.Payment.REMEMBERED) } +
                 // spm: the names a keyword's cost made ("the returned creature" of web-slinging) stay with the permanent
                 item.names.values.filterKeys { it in arcanum.api.KeywordExpansions.COST_NAMES })
-            Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Battlefield, controller = item.controller,
-                meanings = listOf(Meaning.Resolved), attachTo = attachTo, faceDown = card.faceDown, tapped = sneaked, attacking = attacking, memory = memory)))
+            val delayed = delayedAsEnters(act, item)
+            val entered = Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Battlefield, controller = item.controller,
+                meanings = listOf(Meaning.Resolved), attachTo = attachTo, faceDown = card.faceDown, tapped = sneaked, attacking = attacking, memory = memory)))[item.id]
+            if (entered != null && act.state.obj(entered)?.zone == Zone.Battlefield) delayed.forEach { act.record(it(act.state.nextTimestamp())) }
             return
         }
         // CR 715.3d: a resolving Adventure is exiled instead, and its controller may play the card from exile later (fin: a land card, a Town,

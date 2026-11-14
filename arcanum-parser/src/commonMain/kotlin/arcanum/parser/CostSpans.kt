@@ -102,6 +102,7 @@ internal object CostSpans {
             is CostPart.TapObjects -> objects(window, from, "tap", part.what)
             is CostPart.Discard -> objects(window, from, "discard", part.what)
             is CostPart.Exile -> objects(window, from, "exile", part.what)
+            is CostPart.PutOnBottomOfLibrary -> objects(window, from, "put", part.what)
             is CostPart.ReturnToHand -> objects(window, from, "return", part.what)
             is CostPart.Reveal -> objects(window, from, "reveal", part.what)
             is CostPart.RemoveCounters -> objects(window, from, "remove", part.from, after = " from ")

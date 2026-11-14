@@ -105,6 +105,9 @@ internal object Actions {
      */
     fun move(act: Act, cause: Cause?, planned: List<PlannedMove>, noRegeneration: Boolean = false): Map<ObjectId, ObjectId> {
         val linked = mutableListOf<WaitingTrigger>()
+        // CR 614.6: an "instead" replacing one object's move replaces only that part of the event: its instructions run after the
+        // other objects have moved (a shuffle among them would otherwise make the library cards still to be milled new objects)
+        val insteads = mutableListOf<Pair<Replacement, TriggerEvent>>()
         // CR 707.10a: a copy of a spell put into another zone ceases to exist (no card moves)
         planned.forEach { pm ->
             val copy = act.state.stackItems[pm.id]?.takeIf { it.kind is arcanum.engine.state.StackItemKind.SpellCopy && act.obj(pm.id) == null }
@@ -132,7 +135,7 @@ internal object Actions {
                 proposed = { m -> Changes.move(act.state, listOf(m.id), m.to, meanings = m.meanings).let { c ->
                     if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
                 modify = { m, r, _ -> modifyMove(act, m, r, linked) },
-                instead = { r, instance -> runInstead(act, r, instance) },
+                instead = { r, instance -> insteads += r to instance },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
                 skip = { r, m -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) ||
@@ -147,6 +150,7 @@ internal object Actions {
         val final = replaced.filterNot { it.to == Zone.Battlefield && act.view()[it.id]?.has { m -> m == Mechanic.CantEnterBattlefield } == true }
             .mapNotNull { auraEntering(act, it) }
         val result = commitMoves(act, cause, final, linked)
+        insteads.forEach { (r, instance) -> runInstead(act, r, instance) }
         final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
             .takeIf { it.size > 1 }?.let { LibraryPlaces.group(act.recorder, it) }
         // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
@@ -298,7 +302,7 @@ internal object Actions {
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
                 is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage,
-                is Modification.RaiseAmountTo -> move
+                is Modification.RaiseAmountTo, is Modification.ProducesInstead -> move
                 // fin: "Lands you control enter untapped": applied after the others ([untapped])
                 Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
                 // fin: transforming and coin flips aren't zone changes
@@ -571,6 +575,7 @@ internal object Actions {
         val linked = mutableListOf<WaitingTrigger>()
         // dsk gaps: prevention effects' additional effects, done immediately after the damage event (CR 615.5)
         val afterwards = mutableListOf<() -> Unit>()
+        val prevented = mutableMapOf<String, Int>()
         // rvr fixes: damage a redirection shield moved to another recipient, its replacements applied in turn (CR 614.9, 616.1)
         val redirected = mutableListOf<DamageDealt>()
         fun replaced(list: List<DamageDealt>) = list.filter { it.amount > 0 }.mapNotNull { part ->
@@ -583,7 +588,7 @@ internal object Actions {
                 proposed = { d -> Change.Damage(listOf(d)) },
                 modify = { d, r, instance ->
                     if (r.prevention == null) modifyDamage(act, d, r)
-                    else prevent(act, d, r, r.prevention, cantBePrevented || unpreventable(act, d), instance, afterwards, redirected)
+                    else prevent(act, d, r, r.prevention, cantBePrevented || unpreventable(act, d), instance, afterwards, prevented, redirected)
                 },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
@@ -804,10 +809,13 @@ internal object Actions {
     }
 
     /** Applies prevention effect [r] to [d] (CR 615): what is left of the damage, or null when none is. Damage that
-     * [cantBePrevented] is left as it is (CR 615.12). An additional effect is queued in [afterwards] (CR 615.5). */
+     * [cantBePrevented] is left as it is (CR 615.12). An additional effect is queued in [afterwards] (CR 615.5): once for all the
+     * simultaneous damage the same effect applies to ([prevented] adds up its amount by effect), unless it reads the damage event's own
+     * objects, which differ part by part (dmr chunk 04: "prevent that damage. Remove a +1/+1 counter" blocked by two creatures removes one;
+     * CR 615.13: a prevention effect is applied to one or more simultaneous damage events). */
     private fun prevent(
         act: Act, d: DamageDealt, r: Replacement, p: Prevention, cantBePrevented: Boolean, instance: TriggerEvent,
-        afterwards: MutableList<() -> Unit>, redirected: MutableList<DamageDealt>,
+        afterwards: MutableList<() -> Unit>, prevented: MutableMap<String, Int>, redirected: MutableList<DamageDealt>,
     ): DamageDealt? {
         // rvr fixes, CR 614.9: a redirection shield moves up to its amount left to its new recipient, even damage that can't be prevented;
         // it does nothing while either recipient can't be dealt damage that way
@@ -824,9 +832,13 @@ internal object Actions {
         }
         if (p is Prevention.Amount && p.additional != null) {
             val steps = p.additional.steps
-            afterwards += {
+            val once = "EventObject(" !in steps.toString()
+            val first = !once || r.key !in prevented
+            prevented[r.key] = (prevented[r.key] ?: 0) + d.amount
+            if (first) afterwards += {
                 val c = Cause(r.controller, r.source, key = "prevented:${act.state.nextTimestamp()}")
-                arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, c, r.names, instance.copy(amount = d.amount)), steps)
+                val amount = if (once) prevented[r.key] ?: d.amount else d.amount
+                arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, c, r.names, instance.copy(amount = amount)), steps)
             }
         }
         if (cantBePrevented) return d

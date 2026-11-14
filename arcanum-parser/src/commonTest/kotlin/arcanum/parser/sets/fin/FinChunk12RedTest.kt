@@ -79,7 +79,7 @@ class FinChunk12RedTest {
             doing(Effect.CreateToken(TokenSpec.CopyOf(enteredOne, except = listOf(CopyException.AddAbilities(listOf(static(Mechanic.CostChange(
                 ObjectFilter.AbilityOf(keyword = Keyword.Equip.Kind, source = ObjectFilter.Is(Objects.Self)), CostChange.Less(ManaCost.parse("{2}")!!, n(1)))))))),
                 n(1), Players.You, bind = "tokens")),
-            delayed(stepBegins(TurnStep.Upkeep, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("tokens"))))),
+            delayed(stepBegins(TurnStep.Upkeep, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))),
     )
 
     // CR 106.6

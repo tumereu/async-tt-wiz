@@ -148,7 +148,7 @@ class DskChunk13MulticolorTest {
                         CopyException.Types(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Balloon")))),
                         CopyException.AddAbilities(listOf(Keyword.Flying, Keyword.Haste)),
                     )), count = Value.Fixed(1), controller = Players.You, bind = "tokens")),
-                    Step.Do(Effect.CreateDelayedTrigger(atNextEndStep, Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))),
+                    Step.Do(Effect.CreateDelayedTrigger(atNextEndStep, Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))))),
                 ),
             ),
             rules = sorcery,

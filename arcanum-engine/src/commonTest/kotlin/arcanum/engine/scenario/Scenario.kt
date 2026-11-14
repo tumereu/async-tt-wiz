@@ -267,7 +267,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     /** Performs [input] and applies its changes (D58); answers random results and named cards at once (D25). */
     fun perform(input: Input): Outcome {
-        if (driving && input is Input.Answer) return driveAnswer(input)
+        if (input is Input.Answer && input.decision == drivenDecision) return driveAnswer(input)
         startMoves()
         val before = state.deepCopy()
         val outcome = Engine.perform(state, input, prefs)
@@ -346,8 +346,11 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     // ---- Driving resolution without priority
 
-    /** Set once a scenario resolves through [drive]: answers then go on without giving priority. */
-    private var driving = false
+    /** The open decision a [drive] stopped at: its answer goes on without giving priority. A decision the engine opened (a
+     * resolution after all players passed) is answered through the engine, which then gives priority (CR 117.3b; dmr fixes:
+     * once set, this used to hold for every later answer, so an "as enters" choice after a real resolution left nobody with
+     * priority). */
+    private var drivenDecision: arcanum.engine.decision.DecisionId? = null
 
     /**
      * Runs an engine flow on a copy of the game as [Engine.perform] does (D56), then state-based actions and triggered
@@ -356,7 +359,6 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
      */
     internal fun drive(block: (arcanum.engine.change.Recorder) -> arcanum.engine.Progress): Outcome {
         startMoves()
-        driving = true
         val before = state.deepCopy()
         val recorder = arcanum.engine.change.Recorder(state.deepCopy(), prefs = prefs)
         var progress = block(recorder)
@@ -367,6 +369,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         recorder.changes.forEach { apply(it) }
         val outcome = Outcome(recorder.changes.toList(), waiting?.pending)
         val decision = state.pending?.decision
+        drivenDecision = decision?.id
         return when {
             decision is Decision.Random -> driveAnswer(Input.Answer(decision.id, randomAnswer(decision.what)))
             decision is Decision.NamedCard -> driveAnswer(Input.Answer(decision.id, namedCard(decision)))

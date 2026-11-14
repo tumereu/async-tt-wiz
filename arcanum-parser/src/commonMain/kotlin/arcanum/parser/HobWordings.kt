@@ -60,7 +60,7 @@ internal object Hob {
     // hob chunk 05: adventures
     val MILL_THEN_PUT_FROM_AMONG = Regex("""Mill (\w+) cards, then put (an|all|up to (?:one|two|three)) (.+?) cards? from among them into your hand\.""")
     // (the dsk chunk 12 wording "untapped creatures you control" with "They each …" after it is read by its own rule)
-    val TAP_ONE_OR_TWO = Regex("""Tap one or two target (creatures)\.""")
+    val TAP_ONE_OR_TWO = Regex("""Tap (one or two|two) target (creatures)\.""")
     // otj chunk 02: also without "that share a card type" (Shifting Grift)
     val EXCHANGE_CONTROL_SHARING = Regex("""Exchange control of two target (.+?)( that share a card type)?\.""")
     val EXILE_TWO_RETURN = Regex("""Exile two target (.+?), then return them to the battlefield under their owner's control\.""")

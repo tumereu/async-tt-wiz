@@ -231,7 +231,7 @@ class BroChunk08EffectsTest {
         )))),
     )
 
-    // CR 603.7: the sacrifice is a delayed trigger at the next end step; the haste has no end
+    // CR 603.7: the sacrifice is a delayed trigger at the next end step; the haste has no end; CR 701.21a: only its controller, you, sacrifices it
     @Test
     fun armoryRush() = card(
         name = "Armory Rush",
@@ -244,7 +244,7 @@ class BroChunk08EffectsTest {
             move(Objects.Bound("chosen"), Zone.Battlefield, postBind = "put"),
             doing(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(Objects.Bound("put")), Duration.Indefinitely)),
             doing(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)),
-                Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("put")))))))),
+                Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("put"), by = Players.You))))))),
     )
 
     // CR 120.3: the life gained is the damage actually dealt

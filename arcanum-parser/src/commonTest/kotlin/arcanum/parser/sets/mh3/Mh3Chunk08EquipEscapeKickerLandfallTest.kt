@@ -153,7 +153,7 @@ class Mh3Chunk08EquipEscapeKickerLandfallTest {
         """,
     ) parsesTo abilities(
         triggered(entersSelf, ifThen(Condition.Not(Condition.Paid(Keyword.Escape.Kind, times = 1, of = Objects.Self)),
-            Step.Do(Effect.Sacrifice(Objects.Self)))),
+            Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))),
         triggered(entersOrAttacksSelf, damage(3, toAny), gainLife(3), targets = listOf(anyTarget)),
         Keyword.Escape(Cost(listOf(mana("{R}{R}{W}{W}"), CostPart.Exile(CostObjects.Choose(and(another, cardFilter), count = n(5)), from = Zone.Graveyard)))),
     )
@@ -199,7 +199,7 @@ class Mh3Chunk08EquipEscapeKickerLandfallTest {
             ifThen(Condition.ObjectMatches(target("creature"), you),
                 getEnergy(4),
                 Step.Pay(cost(CostPart.PayEnergy(Value.Of(NumericProperty.ManaValue, target("creature"), Combine.Single))), payer = Players.You, bind = "paid"),
-                ifThen(Condition.Not(Condition.Did("paid")), Step.Do(Effect.Sacrifice(target("creature"))))),
+                ifThen(Condition.Not(Condition.Did("paid")), Step.Do(Effect.Sacrifice(target("creature"), by = Players.You)))),
             targets = listOf(slot("creature", creatureOpponentControls))),
     )
 

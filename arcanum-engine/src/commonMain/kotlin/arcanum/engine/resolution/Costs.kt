@@ -95,6 +95,7 @@ internal object Costs {
             is CostPart.Discard -> candidates(scope, payer, part.what, Zone.Hand).size >= count(scope, part.what)
             is CostPart.Exile -> candidates(scope, payer, part.what, part.from).size >= count(scope, part.what)
             is CostPart.ReturnToHand -> candidates(scope, payer, part.what, Zone.Battlefield).size >= count(scope, part.what)
+            is CostPart.PutOnBottomOfLibrary -> candidates(scope, payer, part.what, part.from).size >= count(scope, part.what)
             is CostPart.Reveal -> candidates(scope, payer, part.what, Zone.Hand).size >= count(scope, part.what)
             // CR 119.4: a player can pay life only if their life total is at least that much
             is CostPart.PayLife -> scope.value(part.amount).let { n -> state.player(payer).life >= n && (n == 0 || !Actions.cantLoseLife(scope.act, payer)) } // mh3: CR 119.8
@@ -240,6 +241,13 @@ internal object Costs {
                 scope.bind(part.postBind, NamedValue.Objects(moved.values.toList()))
                 // mh2: "as this enters, exile a card": kept as the permanent's memory (CR 607.2a), as a remembered choice is
                 part.remember?.let { key -> keep(scope, key, moved.values.toList()) }
+            }
+            is CostPart.PutOnBottomOfLibrary -> {
+                val chosen = choose(scope, payer, part.what, part.from, "put on the bottom of your library")
+                scope.bind(part.preBind, NamedValue.Objects(chosen))
+                // CR 401.4: cards put on the bottom at once are arranged by their owner (first: topmost of them)
+                val ordered = if (chosen.size > 1) act.order(payer, scope.self, chosen, "Order, first on top") else chosen
+                scope.bind(part.postBind, NamedValue.Objects(Actions.moveTo(act, cause, ordered, Zone.Library, position = Changes.Position.Bottom).values.toList()))
             }
             is CostPart.ReturnToHand -> {
                 val chosen = choose(scope, payer, part.what, Zone.Battlefield, "return")

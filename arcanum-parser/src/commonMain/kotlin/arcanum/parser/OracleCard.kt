@@ -64,13 +64,15 @@ object TypeLine {
         "Conspiracy" to CardType.Conspiracy)
 }
 
-/** Reads a printed P/T, loyalty or defense ("2", "*", "1+*", "X"). */
+/** Reads a printed P/T, loyalty or defense ("2", "*", "1+*" or "*+1", "X"). */
 object PrintedNumbers {
     fun parse(text: String?): PrintedNumber? = when {
         text == null -> null
         text == "*" -> PrintedNumber.Star()
         text == "X" -> PrintedNumber.X
         text.endsWith("+*") -> text.dropLast(2).toIntOrNull()?.let { PrintedNumber.Star(it) }
+        // lci chunk 07: "*+1" is "1+*" (Souls of the Lost's toughness)
+        text.startsWith("*+") -> text.drop(2).toIntOrNull()?.let { PrintedNumber.Star(it) }
         else -> text.toIntOrNull()?.let { PrintedNumber.Fixed(it) }
     }
 

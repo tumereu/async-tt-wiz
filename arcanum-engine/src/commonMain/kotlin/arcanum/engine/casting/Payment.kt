@@ -405,18 +405,24 @@ internal object Payment {
             }
             is CostPart.Exile -> {
                 val ids = objects(part.what)
-                check(ids, part.from)
-                val after = move(ids, Zone.Exile, emptyList(), part.preBind, part.postBind)
+                // lci: craft's materials come from the battlefield and/or the graveyard (CR 702.167a)
+                if (part.alsoFrom.isEmpty()) check(ids, part.from)
+                else ids.forEach { id -> if ((s.obj(id) ?: refuse("$id is gone")).zone !in part.alsoFrom + part.from) refuse("$id isn't in ${part.from}") }
+                // lci: exiled to pay a craft ability's cost ("exiled … while you're activating a craft ability", CR 702.167a)
+                val paidFor = listOfNotNull(plan.keyword()?.takeIf { it is Keyword.Craft }?.let { Meaning.PaidFor(it.kind, source = plan.sourceId) })
+                val after = move(ids, Zone.Exile, paidFor, part.preBind, part.postBind)
                 part.remember?.let {
-                    bound[it] = NamedValue.Objects(after)
+                    // lci: several exile parts kept under one key add up ("a Dinosaur, a Merfolk, …" of craft)
+                    val kept = NamedValue.Objects((bound[it] as? NamedValue.Objects)?.ids.orEmpty() + after)
+                    bound[it] = kept
                     // ecl: kept by the permanent the spell becomes (CR 607.2a, 400.7d)
-                    bound[REMEMBERED + it] = NamedValue.Objects(after)
+                    bound[REMEMBERED + it] = kept
                     // mkm: an activated ability's cost exiles cards "exiled with" its source: kept as the source's memory as the cost is paid
                     // (CR 607.2a; "Collect evidence 6: …" then "cast a spell from among cards exiled with it")
                     if (!plan.isSpell) recorder.state.obj(plan.sourceId)?.let { source ->
                         val before = source.linked[it]
-                        val kept = NamedValue.Objects(((before as? NamedValue.Objects)?.ids.orEmpty() + after).distinct())
-                        if (kept != before) recorder.record(Change.Memory(plan.sourceId, it, before, kept))
+                        val linked = NamedValue.Objects(((before as? NamedValue.Objects)?.ids.orEmpty() + after).distinct())
+                        if (linked != before) recorder.record(Change.Memory(plan.sourceId, it, before, linked))
                     }
                 }
             }

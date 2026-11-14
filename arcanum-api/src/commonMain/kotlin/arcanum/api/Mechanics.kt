@@ -359,6 +359,10 @@ sealed interface Mechanic {
         // rvr chunk 05
         /** Only their loyalty abilities ("has all loyalty abilities of all other planeswalkers on the battlefield", CR 606.2). */
         val onlyLoyalty: Boolean = false,
+        // lci
+        /** Each of those abilities may be activated only this many times each turn ("You may activate each of those abilities only once each
+         * turn", CR 602.5b). */
+        val perTurn: Int? = null,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
@@ -709,6 +713,9 @@ sealed interface Modification {
         /** Counters it enters with only when it enters as a copy ("except it enters with an additional +1/+1 counter on it if it's a
          * creature"): not copiable values, but part of the same replacement (CR 614.1c, 707.9b). */
         val withCounters: List<EntersWithCounters> = emptyList(),
+        // lci
+        /** "enter tapped as a copy of": tapped only if it enters as a copy (CR 614.1c, 707.9). */
+        val tapped: Boolean = false,
     ) : Modification
     /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times
      * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three
@@ -761,4 +768,9 @@ sealed interface Modification {
     /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that
      * damage is dealt, but all other damage already dealt to him is healed", CR 701.69a). */
     @Serializable @SerialName("heals-other-damage") data object HealsOtherDamage : Modification
+    // lci
+    /** An amount less than [amount] is [amount] instead ("would deal an amount of noncombat damage less than Ojer's power …, that source
+     * deals damage equal to Ojer's power instead", CR 614.1a): the replacement applies only to an event whose amount is less, checked again
+     * after each other replacement (616.1f). */
+    @Serializable @SerialName("raise-amount-to") data class RaiseAmountTo(val amount: Value) : Modification
 }

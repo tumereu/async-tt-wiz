@@ -466,11 +466,13 @@ internal object Options {
         val c = pending.continuation as? Continuation.Announcing ?: return (pending.decision as? Decision.ChooseObjects)?.let { d ->
             val total = d.total ?: return null
             val e = snap.evaluator(d.player)
+            if (total.exactly) return arcanum.engine.casting.Costs.exactSubset(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
             largestFirst(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
         }
         val plan = Plan(snap.state, c)
         val q = plan.next() as? Question.Objects ?: return null
         val total = q.choice.total ?: return null
+        if (total.exactly) return arcanum.engine.casting.Costs.exactSubset(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
         return largestFirst(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
     }
 

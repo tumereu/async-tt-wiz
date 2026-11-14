@@ -265,7 +265,9 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
     /** What holding it shows when no hold command is assigned (its [name] otherwise). */
     tooltip: String? = null,
     /** Greyed with a reason ([tooltip]): it reads as disabled to accessibility, while a tap still reaches [onClick] (which shakes it). */
-    refused: Boolean = false, onClick: () -> Unit) {
+    refused: Boolean = false,
+    /** WEB-031: the hotkeys that press it (the desktop table's main button and Undo): a key's tap is a tap, its hold the hold. */
+    keys: ControlKeys? = null, onClick: () -> Unit) {
     val click by rememberUpdatedState(onClick)
     val haptic = LocalHapticFeedback.current
     val performHold: (() -> Unit)? = onHold?.let { action -> { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); action() } }
@@ -275,6 +277,13 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
     // WEB-028 (§5): on the desktop layout a right-click does the hold action, and resting the pointer shows the tooltip
     val desktop = LocalAppLayout.current == AppLayout.Desktop
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
+    ControlKeysTarget(keys, tap = {
+        if (enabled) { AppLog.info("game", "A hotkey pressed $name"); click() }
+        else AppLog.info("game", "A hotkey pressed $name: greyed, nothing done")
+    }, hold = {
+        if (enabled && currentPerformHold != null) { AppLog.info("game", "A hotkey held $name"); currentPerformHold?.invoke() }
+        else AppLog.info("game", "A hotkey held $name: no hold action now")
+    })
     Box(modifier.then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).graphicsLayer {
         scaleX = if (pressed) .92f else 1f; scaleY = scaleX
     }.background(fill).drawWithContent {

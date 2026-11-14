@@ -79,7 +79,9 @@ fun StackEntries(state: TableBoard, viewer: String, modifier: Modifier, targets:
                         else if (targeter != null) Modifier.background(targeter.copy(alpha = .08f), shape)
                             .border(1.5.dp, targeter.copy(alpha = .7f), shape).padding(4.dp) else Modifier)
                         .contentsCardGestures(id, PlayZone.STACK, actions = { if (legal) pick(id) }, double = null,
-                        peek = { held -> if (held) inspect(id) else inspection = null }),
+                        peek = { held -> if (held) inspect(id) else inspection = null })
+                        // WEB-024: on the desktop table the finger key over an entry inspects it (the table's Inspect)
+                        .fingerTarget(id),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val definition = state.definitions.find { it.digest == card?.definition }?.definition
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1

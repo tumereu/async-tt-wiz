@@ -11,7 +11,7 @@ import arcanum.api.PlayerFilter
  * [EventPattern.GotMark]): a new one is one line in these tables. Text is matched by plain words, with no regex per verb:
  * - "you proliferate", "an opponent scries": who does what a player does;
  * - "you exert a creature", "you foretell a card": what a player does to an object;
- * - "a creature you control explores": what a permanent does;
+ * - "a creature you control explores" (lci: "explores a land card", what it revealed): what a permanent does;
  * - "this creature becomes monstrous", "this card becomes plotted".
  */
 internal object ActionWordings {
@@ -42,6 +42,9 @@ internal object ActionWordings {
         Verb("explore", "explores", KeywordActionKind.Explore), // CR 701.44b
     )
 
+    /** What permanents do that reveals a card: "a creature you control explores a land card" (CR 701.44a). */
+    private val REVEALING = listOf(KeywordActionKind.Explore)
+
     /** The marks a permanent, or a card in exile, can become. */
     private val MARKS = mapOf<String, ObjectMark>(
         "monstrous" to ObjectMark.Monstrous, // CR 701.37b
@@ -67,6 +70,10 @@ internal object ActionWordings {
     fun event(text: String, subject: (String) -> ObjectFilter?): EventPattern? {
         MARKS.entries.firstOrNull { text.endsWith(" becomes ${it.key}") }?.let { (word, mark) ->
             return EventPattern.GotMark(mark, subject(text.removeSuffix(" becomes $word")) ?: return null)
+        }
+        BY_PERMANENTS.filter { it.kind in REVEALING }.firstOrNull { " ${it.third} a" in text }?.let { verb ->
+            val (who, card) = text.split(" ${verb.third} ", limit = 2)
+            return EventPattern.KeywordActionDone(verb.kind, objects = subject(who) ?: return null, revealed = subject(card) ?: return null)
         }
         BY_PERMANENTS.firstOrNull { text.endsWith(" ${it.third}") }?.let { verb ->
             return EventPattern.KeywordActionDone(verb.kind, objects = subject(text.removeSuffix(" ${verb.third}")) ?: return null)

@@ -34,7 +34,7 @@ class DmrChunk12DamageDelayedDestroyDiscardDrawScenariosTest {
     private val mindrender = Cards.invent("Mindrender", "{2}{B}{B}", "Creature — Horror", "When this creature dies, each player discards their hand.", "4/3")
     private val dreadMark = Cards.invent("Dread Mark", "{1}{B}", "Instant", "Destroy target nonartifact, nonblack creature. It can't be regenerated.")
     private val regenerator = Cards.invent("Reknit Boar", "{2}{G}", "Creature — Boar", "{G}: Regenerate this creature.", "2/2")
-    private val golem = Cards.invent("Tin Golem", "{3}", "Artifact Creature — Golem", "", "2/2")
+    private val golem = Cards.invent("Brass Hulk", "{3}", "Artifact Creature — Golem", "", "2/2")
     private val ghoul = Cards.invent("Dusk Ghoul", "{1}{B}", "Creature — Zombie", "", "2/2")
     private val paleGhoul = Cards.invent("Pale Ghoul", "{1}{B}", "Creature — Zombie", "", "2/2")
     private val reader = Cards.invent("Phyrexian Reader", "{2}{B}", "Creature — Phyrexian Horror",

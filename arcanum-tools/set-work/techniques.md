@@ -26,6 +26,18 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   control of target X" it is that target; "sacrifice/exile it (that token) at the next end step" after creating a token is
   the token; in an attach trigger it is the creature attached to (`EventRole.To`), not whatever is attached at resolution.
   An intervening "if it has ..." after "another creature enters/attacks" is the event object, not this object.
+- Number readers in `Sentences` take the ability's context (`context.value(text)`, not `Values.value`). In a trigger about
+  another object whose text never names this object, "its power/toughness/mana value" (where X and intervening ifs too)
+  and "it deals damage" are the trigger's object, as it last existed if it left (`Sentences.itsOfTheTriggerObject`,
+  `otherEventObject`; CR 608.2c, 603.10a); after "put a +1/+1 counter on this creature" a later "it" is this creature
+  (`context.it = Self`). Right after a move or destroy of a target, "its <number>" is the target as it last existed
+  (CR 608.2h). In a self-enters/leaves trigger "that creature"/"its controller" after a target is the target
+  (`Context.targetInSelfZoneChange`); a self-dies trigger's "X is its power" is `EventObject(Before)` and its "you may exile
+  this card" the graveyard card (`SelfAfter`, CR 400.7), so a later "When you do" can happen.
+- A reflexive "When you do" after an "any number" or "up to N" choice is `If(NonEmpty(bind))`: choosing nothing is no
+  event (CR 603.12). "You may X. If you do, Y. If you don't, Z." is one `If(Did, then = Y, otherwise = Z)`.
+- An exile on a card that refers to cards "exiled with" it remembers them (`Sentences.remembersExile`, CR 607.2a); "target
+  card exiled with <self>" needs `InZone(Exile)` or the engine looks only on the battlefield.
 - "that creature"/"it" in a damage trigger goes through `Sentences.damageThatRole` (the damaged one when this object dealt
   it); in a block trigger it is `EventRole.OtherCombatant`. "Blocks a Y" triggers are `perAttacker`, "becomes blocked by a
   Y" `perBlocker` (CR 509.3b-c). "That player" of a permanent entering is its controller, of a card put into a graveyard
@@ -33,9 +45,9 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
-- Number readers in `Sentences` take the ability's context (`context.value(text)`, not `Values.value`): "its power" in a
-  trigger on another object's event is that object, as it last existed if it left (CR 603.10a); "its <number>" right after
-  a move or destroy of a target is the target as it last existed (CR 608.2h), not the card in its new zone.
+- "Copy that spell." keeps the copy's targets; only "you may choose new targets" sets `newTargets` (CR 707.10c).
+- "If ... would ... this turn, ... instead." or "Until end of turn, if ... instead." inside an effect is a replacement
+  lasting until end of turn; an amount in it ("plus X") is fixed as the effect resolves (CR 608.2h).
 - "permanent spell" and "permanent card" (in a graveyard, hand, library) mean permanent types (CR 110.4a-b), never
   `Category(Permanent)`, which matches only the battlefield: go through `Filters.noun`/`Filters.spellKind`.
 - Ability-word patterns accept digits ("Descend 4 — ..."); "<player> <keyword action>s" = `ForEach` over that player.
@@ -86,6 +98,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - "secretly choose A, B, or C" = `Step.Choose(..., secret = true)` (the engine keeps who knows it); "Reveal the <choice>
   you chose" is a cost, `CostPart.RevealChoice`, unpayable without a choice.
 - A battle (Siege) test card is built with `OracleCard(name, cost, type, text, defense = "5")`: `card()` has no defense.
+  `OracleCard` takes power and toughness separately: a "4/4" passed as power leaves toughness 0 (`inventFaces` refuses it).
 
 ## Engine scenarios
 - All setup (`battlefield`, `hand`, `library`, `life`, `turn`, `attach`) comes before the first move; afterwards only
@@ -142,6 +155,11 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   triggered abilities, copies and changed targets; a trigger with no legal group is removed (CR 603.3d). Test them on a
   trigger too. A mark is read with `state.obj(card(x))?.marks?.contains(ObjectMark.Suspected)`.
 - A step that runs without priority (untap-step choices, end-step triggers): loop `resolve()` while `pending == null`.
+- Battles: with 3 players a Siege asks `ChoosePlayer` (its protector) on cast or at the first `passPriority()`; `settle()`
+  leaves no priority holder, so in combat scenarios skip it. "One or more ... deal combat damage to a player or battle"
+  batches, and counts "first time each turn", per player or per battle (`Triggers.batchKey`, CR 603.2c, 310.6).
+- Removing counters of no named kind asks the remover which, one `ChooseOption` per counter (`Actions.removeChosenCounters`,
+  CR 608.2d), for effects and costs alike.
 - `paying = listOf("<source>:G")` picks a source and colour, granted mana abilities included; an ability on the Stack as a
   target: `state.stack.first { state.stackItems[it]?.source == card(name) }`.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
@@ -154,6 +172,12 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   controller the order one at a time: answer with `alice.chooses(name)`.
 
 ## Test conventions
+- Tokens made by one effect (a `ForEach` of only `CreateToken`, a together batch, "each player creates") enter as one
+  event, so "one or more tokens enter" triggers once (CR 608.2f). `DefinitionChecks` demands `together = true` on every
+  `ForEach` over players.
+- A card drawn or returned while a decision of the same resolution is open is a new id the scenario's names don't show:
+  pick it by `(id as ObjectId.Card).card` or answer `Answer.Objects((pending as Decision.ChooseObjects).options)`. After
+  `castsWithoutCosts` whose trigger needs targets, drive with the shared `playOut(picks)`, not `resolveAll`.
 - Invented names are global across the whole engine suite: grep `invent("<Name>"` and `all-card-names.txt` first.
 - Invented lands take cost `null`; invented planeswalker text needs "[+1]: ..." loyalty prefixes; change cost and
   subtypes only where it doesn't affect play.
@@ -163,3 +187,5 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - One cycle of near-identical cards (e.g. lands that enter tapped unless a condition holds): one private helper in the
   chunk's test file, one test per card.
 - In one Gradle call, `--tests` applies to the task just before it; `bin/set-tests.sh` handles this.
+- Sibling misreads: `<plan>/parser-base.snapshot` holds every card's model JSON (fifth tab column); a `python3 -I`
+  scan of it finds every card with the same wrong shape in seconds.

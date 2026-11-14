@@ -53,8 +53,8 @@ internal object Gtc {
     val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:[A-Z]\w+ )?(?:land|planeswalker|artifact)\.""")
     val CHOOSE_KEYWORD = Regex("""Choose ([a-z ]+(?:, [a-z ]+)*,? or [a-z ]+)\.""")
     val GAIN_THAT_ABILITY = Regex("""(.+) gain that ability until end of turn\.""")
-    // rvr chunk 03: also "Until your next turn, "
-    val BECOMES = Regex("""(Until end of turn, |Until your next turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn)?( and can't be blocked this turn)?\.""")
+    // rvr chunk 03: also "Until your next turn, "; mom chunk 07: also "… until your next turn" (Wrenn and Realmbreaker)
+    val BECOMES = Regex("""(Until end of turn, |Until your next turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn| until your next turn)?( and can't be blocked this turn)?\.""")
     val BECOMES_DESCRIPTION = Regex("""an? (?:(\d+)/(\d+) )?(?:((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) )?((?:[A-Z][a-z]+ )*)(artifact creature|creature)(?: with (.+))?""")
     val PT_EACH_EQUAL = Regex("""power and toughness each equal to (.+)""")
     val COUNTERS_ON_SELF = Regex("""the number of (\S+) counters on (?:him|her|it|this creature|this permanent)""")
@@ -69,7 +69,7 @@ internal object Gtc {
     val PRIMORDIAL_DESTROY = Regex("""destroy target (.+?) that player controls\.""")
     val SEARCH_UP_TO_X_DESTROYED = Regex("""Search your library for up to X (.+?) cards?, where X is the number of permanents destroyed this way, put those cards onto the battlefield tapped, then shuffle\.""")
 
-    val YOUR_NTH_SPELL_EACH_TURN = Regex("""you cast your (\w+) spell each turn""")
+    val YOUR_NTH_SPELL_EACH_TURN = Regex("""you cast your (\w+) (?:(.+?) )?spell each turn""")
     val GETS_FOR_EACH_BLOCKED = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each creature it's blocking\.""")
 
     val SHUFFLE_SELF_AND_TARGETS = Regex("""Shuffle (.+?) and up to (\w+) target (.+?) from a single graveyard into their owners' libraries\.""")
@@ -153,7 +153,8 @@ internal object Gtc {
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
     val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of any (.+?), except it has "(.+)"\.?""")
-    val CARDS_HAVE_SCAVENGE = Regex("""Each (.+?) has (scavenge|madness)\. The \2 cost is equal to its mana cost\.""") // inr chunk 09: madness
+    // inr chunk 09: madness; otj fixes: plot, "The top card of your library has plot."
+    val CARDS_HAVE_SCAVENGE = Regex("""(Each .+?|The top card of your library) has (scavenge|madness|plot)\. The \2 cost is equal to its mana cost\.""")
     val ATTACKS_A_PLAYER_AND_ISNT_BLOCKED = Regex("""(.+) attacks a player and isn't blocked""")
     val A_CREATURE_BLOCKS = Regex("""an? (.+) blocks""")
     val PLAYER_CASTS_FROM_HAND = Regex("""a player casts a spell from their hand""")

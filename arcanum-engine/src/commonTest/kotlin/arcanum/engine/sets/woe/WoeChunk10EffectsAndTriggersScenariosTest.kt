@@ -77,7 +77,7 @@ class WoeChunk10EffectsAndTriggersScenariosTest {
 
     private val jolt = Cards.invent("Twinbane Jolt", "{R}", "Instant", "Twinbane Jolt deals 3 damage to target creature.")
     private val hex = Cards.invent("Sparkspit Hex", "{R}", "Instant", "Sparkspit Hex deals 2 damage to any target.")
-    private val flick = Cards.invent("Cinder Flick", "{R}", "Instant", "Cinder Flick deals 1 damage to any target.")
+    private val flick = Cards.invent("Cinder Nip", "{R}", "Instant", "Cinder Nip deals 1 damage to any target.")
     private val ox = Cards.invent("Meadow Ox", "{2}{G}", "Creature — Ox", "", "3/3")
     private val hare = Cards.invent("Glade Hare", "{G}", "Creature — Rabbit", "", "1/1")
     private val squire = Cards.invent("Hedge Squire", "{1}{W}", "Creature — Human Knight", "", "2/2")

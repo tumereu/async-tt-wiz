@@ -454,19 +454,18 @@ internal object Payment {
                     var left = n
                     objects(part.from).forEach { id ->
                         val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                        val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@forEach
-                        val taken = minOf(left, o.counters(kind))
-                        if (taken > 0) recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -taken, listOf(Meaning.Paid)))
-                        left -= taken
+                        val has = part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }
+                        // CR 601.2h, 608.2d: of no named kind, the payer chooses which counters
+                        if (has > 0 && left > 0) left -= Actions.removeChosenCounters(act, player, plan.sourceId, id, part.kind, minOf(left, has), listOf(Meaning.Paid))
                     }
                     if (left > 0) refuse("Not enough counters among them")
                     return
                 }
                 objects(part.from).forEach { id ->
                     val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                    val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: refuse("No counters on $id")
-                    if (o.counters(kind) < n) refuse("Not enough counters on $id")
-                    recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -n, listOf(Meaning.Paid)))
+                    // CR 601.2h, 608.2d: of no named kind, any counters count and the payer chooses which
+                    if ((part.kind?.let { o.counters(it) } ?: o.counters.sumOf { it.count }) < n) refuse("Not enough counters on $id")
+                    Actions.removeChosenCounters(act, player, plan.sourceId, id, part.kind, n, listOf(Meaning.Paid))
                 }
             }
             // msh: "Get five poison counters" (ward, CR 122.1)
@@ -536,7 +535,7 @@ internal object Payment {
 
     // ---- Finishing
 
-    /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested. */
+    /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested (woe, otj). */
     private fun asCastConditions(instructions: arcanum.api.Instructions): List<arcanum.api.Condition> {
         fun of(c: arcanum.api.Condition): List<arcanum.api.Condition> = when (c) {
             is arcanum.api.Condition.AsCast -> listOf(c.condition)
@@ -552,6 +551,8 @@ internal object Payment {
                 is arcanum.api.Step.ForEach -> of(step.steps)
                 is arcanum.api.Step.Repeat -> of(step.steps)
                 is arcanum.api.Step.RepeatWhile -> of(step.condition) + of(step.steps)
+                is arcanum.api.Step.Simultaneously -> of(step.steps)
+                is arcanum.api.Step.Pay -> of(step.steps)
                 else -> emptyList()
             }
         }
@@ -565,9 +566,11 @@ internal object Payment {
         val s = recorder.state
         val id = plan.itemId
         val o = s.objOrThrow(id)
-        // woe: CR 601.2i: "if you controlled a Faerie as you cast this spell" is answered now, once
+        // woe, otj: CR 601.2i: "if you controlled a Faerie as you cast this spell", "if you controlled a Mount as you cast this spell" are
+        // answered now, once, with the spell's choices
         val asCast = asCastConditions(plan.instructions).distinct().let { conditions ->
-            if (conditions.isEmpty()) emptyList() else recorder.snapshot().evaluator(plan.player, self = id).let { e -> conditions.filter { e.holds(it) } }
+            if (conditions.isEmpty()) emptyList()
+            else recorder.snapshot().evaluator(plan.player, self = id, names = names, stackItem = plan.item).let { e -> conditions.filter { e.holds(it) } }
         }
         val facts = o.castOrNone.copy(
             castFrom = plan.castFrom,
@@ -599,6 +602,7 @@ internal object Payment {
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
+            permission.total?.let { total -> usePermission(recorder, plan, total) }
             // blb: what the permission gives a spell cast with it ("that creature enters with a finality counter", CR 400.7d)
             if (permission.spellGets.isNotEmpty()) recorder.record(Changes.effect(recorder.state) { t ->
                 val next = (id as? ObjectId.Card)?.next()
@@ -699,6 +703,13 @@ internal object Payment {
     private fun recorderKeyword(plan: Plan, root: AbilityOrigin) =
         plan.snap.view[plan.itemId]?.characteristics?.abilities?.firstOrNull { it.origin == root }?.let { (it.ability as? Keyword)?.kind }
 
+    /** mom: a spell cast with a permission limited to [total] spells in all uses one up; the effect that grants it keeps the count (and its
+     * other mechanics). */
+    private fun usePermission(recorder: Recorder, plan: Plan, total: Int) {
+        val effect = plan.way.permission?.effect?.let { recorder.state.effects[it] } ?: return
+        recorder.record(Change.EffectUpdated(effect, effect.copy(usesLeft = (effect.usesLeft ?: total) - 1)))
+    }
+
     private fun countPermission(recorder: Recorder, plan: Plan) {
         val p = plan.way.permission ?: return
         val source = p.source?.let { recorder.state.obj(it)?.id } ?: return
@@ -714,8 +725,6 @@ internal object Payment {
         val loyaltyCost = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.Loyalty>().firstOrNull()?.let { part ->
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
-        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
-            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
@@ -725,6 +734,10 @@ internal object Payment {
                 arcanum.engine.change.Changes.cast(recorder.state, o.id, o.castOrNone.copy(modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct()))
                     ?.let { recorder.record(it) }
             }
+        // otj chunk 06: the ability is on the Stack with its targets when it becomes activated (CR 602.2i), so "an ability that
+        // targets a creature or player" reads them
+        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
+            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val loyalty = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is CostPart.Loyalty }
         countActivation(recorder, plan.sourceId, origin, loyalty)
         Casting.keepPriority(recorder, plan.player)

@@ -135,8 +135,9 @@ internal object RvrPhrases {
             val filter = if (among.size == 1) among.single() else ObjectFilter.Or(among)
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(filter))))
         }
-        // rvr chunk 01: addendum, "If you cast this spell during your main phase" (CR 207.2c, 505.1)
-        if (text == "you cast this spell during your main phase") return Condition.CastDuringMainPhase(Objects.Self)
+        // rvr chunk 01: addendum, "If you cast this spell during your main phase" (CR 207.2c, 505.1): your main phase as it was cast
+        // (CR 601.2i); a copy wasn't cast (CR 707.10)
+        if (text == "you cast this spell during your main phase") return Condition.AsCast(Conditions.condition("it's your main phase", self) ?: return null)
         // rvr chunk 03: Fblthp, the Lost: "If it entered from your library or was cast from your library" (from its owner's library: yours,
         // CR 108.3; entering from the Stack after a cast from the library counts as cast from it, CR 601.2a)
         Rvr.ENTERED_OR_CAST_FROM.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let { m ->

@@ -66,7 +66,7 @@ internal object Fra {
     val COSTS_X_LESS_WHERE = Regex("""(.+?) costs \{X\} less to cast, where X is (.+)\.""")
     val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast (if .+?)\.""")
     val GETS_FOR_EVERY = Regex("""(.+?) gets \+(\d+)/\+(\d+) for every (\w+) (cards in your graveyard)\.""")
-    val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on it instead\.""")
+    val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on (?:it|that permanent|that creature) instead\.""") // mom: "that permanent"
     val TOKENS_CREATED_INSTEAD = Regex("""If one or more (.+?) tokens would be created under your control, that many (.+? creature) tokens(?: with (.+))? are created instead\.""")
     val ENCHANTED_IS_CREATURE_WITH_BASE = Regex("""Enchanted permanent is an? ([A-Z][a-z]+(?: [A-Z][a-z]+)*) creature with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""Equipped creature gets \+(\d+)/\+(\d+) and has (?:([a-z ,]+?) and )?"(.+)"""")
@@ -81,8 +81,8 @@ internal object Fra {
 
     // effects
     val HE_SHE = Regex("""(?:He|She) ((?:gains|gets|has) .+)""")
-    val CREATE_NAMED_NONCREATURE_TOKEN = Regex("""Create an? (colorless|\w+(?: and \w+)?) ([a-z]+(?: [a-z]+)?) token named ([A-Z][A-Za-z' ]+) with "(.+)"\.""")
-    val CREATE_NAMED_LEGEND_TOKEN = Regex("""Create ([A-Z][a-z]+), a legendary ((?:\d+/\d+) \w+(?: and \w+)? [A-Z][A-Za-z ]+? creature) token\.""")
+    // otj chunk 06: "a tapped …", several quoted abilities ("… with "A" and "B".")
+    val CREATE_NAMED_NONCREATURE_TOKEN = Regex("""Create an? (tapped )?(colorless|\w+(?: and \w+)?) ([a-z]+(?: [a-z]+)?) token named ([A-Z][A-Za-z' ]+) with "(.+)"\.""")
     val THEY_CREATE = Regex("""They create (.+? tokens?)\.""")
     val COUNTER_ON_EACH_OF_TARGETS = Regex("""Put an? (\S+) counter on each of (\w+) or (\w+) target (.+)\.""")
     val PUT_COUNTER_ON_IT_IF = Regex("""Put an? (\S+) counter on it if it's an? (.+)\.""")
@@ -93,7 +93,8 @@ internal object Fra {
     val EACH_PLAYER_MAY_DISCARD_HAND_DRAW = Regex("""Each player may discard their hand and draw (\w+) cards\.""")
     val FOR_EACH_CREATURE_COPY_EXCEPT = Regex("""For each creature target player controls, create a token that's a copy of that creature, except it has (\w+) and "(.+)"\.""")
     val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\.""")
-    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|target .+?)\.""")
+    // otj chunk 11: "each of two other target creatures"; mom chunk 12: "another target creature, planeswalker, or battle"
+    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|(?:another )?target .+?|each of (\w+) other target (.+?))\.""")
     val TARGET_LOSES_ALL_ABILITIES = Regex("""Target (.+?) loses all abilities until end of turn\.""")
     val SEARCH_UP_TO_THAT_MANY = Regex("""(You may )?[Ss]earch your library for up to that many (.+?), put them onto the battlefield( tapped)?, then shuffle\.""")
     val GAINS_YOUR_CHOICE_OF = Regex("""(It|.+?) gains your choice of (.+?) until end of turn\.""")
@@ -123,7 +124,9 @@ internal object Fra {
     val EXILE_EACH_TYPE_COPY_CAST = Regex("""When (.+?) enters, if you cast (?:him|her|it), exile up to one target (.+?) card of each card type from your graveyard\. Copy those cards\. You may cast any number of spells with total mana value (\d+) or less from among the copies without paying their mana costs\.""")
     val PUT_ITS_COUNTERS_ON = Regex("""Put its counters on (up to one )?target (.+)\.""")
     val PUT_N_COUNTERS_ON_EACH = Regex("""Put (X|two|three|four) (\S+) counters on each (.+)\.""")
-    val BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""(.+?) becomes a copy of target (.+?) until end of turn\.""")
+    // otj chunk 10: "it becomes a copy of up to one other target creature until end of turn"
+    // otj chunk 11: ", except he has hexproof"
+    val BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""(.+?) becomes a copy of (up to one )?(other |another )?target (.+?) until end of turn(?:, except (?:it|he|she|they) (has .+))?\.""")
     val PUT_COUNTERS_ON_IT = Regex("""Put (a|an|X|two|three) (\S+) counters? on (?:it|that creature)\.""")
     val PUT_COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures( you don't control| you control)?\.""")
     val IT_FIGHTS_TARGET = Regex("""It fights target (.+)\.""")

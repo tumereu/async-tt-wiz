@@ -106,7 +106,9 @@ internal object Steps {
     private fun afterPhase(recorder: Recorder): TurnStep? {
         val s = recorder.state
         val step = s.turn.step
-        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain) return null
+        // otj: CR 500.10, 500.11: an additional upkeep or draw step made after a phase is the only step of its phase
+        val lone = s.turn.resumeAt != null && (step == TurnStep.Upkeep || step == TurnStep.Draw)
+        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain && !lone) return null
         val extra = s.turn.extraPhases.firstOrNull()
         if (extra != null) {
             val resume = s.turn.resumeAt ?: nextStep(s)
@@ -194,6 +196,7 @@ internal object Steps {
         val turn = TurnState(
             number = number, active = next, step = TurnStep.Untap,
             turnStarted = s.turn.turnStarted + (next to number),
+            previousTurnStarted = s.turn.turnStarted[next]?.let { s.turn.previousTurnStarted + (next to it) } ?: s.turn.previousTurnStarted,
             // inr: "After that turn, that player takes an extra turn": one for each such control of this turn, directly after it (CR 500.7)
             extraTurns = taken.filter { it.thenExtraTurn }.map { next } +
                 if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,

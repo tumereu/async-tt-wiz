@@ -76,6 +76,9 @@ object Cards {
      * Room); found by its full "A // B" name or its first face's name. Its text must parse fully. Returns the full name.
      */
     fun inventFaces(layout: String, vararg faces: OracleCard): String {
+        faces.forEach { f ->
+            require(f.power?.contains('/') != true) { "\"${f.name}\": OracleCard takes power and toughness separately (\"${f.power}\")" }
+        }
         val card = CubeCardText(layout, faces.map { if (it.text.startsWith("\n")) it.copy(text = it.text.trimIndent()) else it })
         val existing = invented[card.name]
         require(existing == null || existing.faces == card.faces) { "Invented card \"${card.name}\" defined twice differently" }

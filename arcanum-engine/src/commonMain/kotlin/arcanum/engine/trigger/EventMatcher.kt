@@ -76,7 +76,9 @@ internal object EventMatcher {
         }
         is EventPattern.Cast -> if (isCast(change)) {
             val item = (change as Change.StackItemAdded).item
-            val from = e.board.state.obj(item.id)?.castOrNone?.castFrom
+            // otj: as it was cast, also for a cast this turn whose spell has left the Stack ("if you haven't cast a spell from your hand
+            // this turn", CR 601.2a)
+            val from = e.castFrom(item.id)
             // fra backfill: an earlier cast this turn, counted for "your first … spell each turn" once that spell has
             // left the Stack, was a spell as it was cast (CR 601.2a)
             val spell = if (e.board.state.stackItems.containsKey(item.id)) pattern.spell else castAsSpell(pattern.spell)
@@ -93,7 +95,9 @@ internal object EventMatcher {
             } && (pattern.removedLoyaltyAtLeast == null || (a.loyalty ?: 0) <= -pattern.removedLoyaltyAtLeast!!)
             // dft: only abilities with the label ("an exhaust ability", CR 702.177a)
             val labelMatches = pattern.label == null || pattern.label == a.label
-            if (kindMatches && labelMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
+            // otj: "an ability that targets a creature or player": the ability on the Stack, its targets chosen (CR 602.2b)
+            val abilityMatches = pattern.ability?.let { f -> a.item?.let { e.matches(f, it) } == true } ?: true
+            if (kindMatches && labelMatches && abilityMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
                 // gtc backfill: the activated ability is the event's object ("copy that ability", like the spell of a cast
                 // event); its source is the source (CR 113.7)
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.item ?: a.source)), RoleObjects(EventRole.Source, listOf(a.source))),
@@ -238,22 +242,24 @@ internal object EventMatcher {
             ?.takeIf { e.matches(pattern.by, it.player) && e.matches(pattern.spell, it.copy) }
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.copy))), listOf(it.player))) }.orEmpty()
         // CR 701.22d, 701.25d
-        // CR 700.13: targeting an opponent, or a spell, ability or permanent an opponent controls
-        is EventPattern.CommitCrime -> targeted(change).mapNotNull { (item, refs) ->
-            val player = e.controllerOf(item) ?: return@mapNotNull null
-            val crime = refs.any { ref ->
-                when (ref) {
-                    is TargetRef.Player -> ref.id != player
-                    is TargetRef.Object -> (e.controllerOf(ref.id) ?: e.ownerOf(ref.id)).let { it != null && it != player }
-                }
+        // CR 700.13: casting a spell, activating an ability or putting a triggered ability on the Stack that targets an opponent, a
+        // permanent, spell or ability an opponent controls, or a card in an opponent's graveyard; not a copy put on the Stack (it isn't
+        // cast, CR 707.10) nor new targets chosen later (CR 115.7)
+        is EventPattern.CommitCrime -> (change as? Change.StackItemAdded)
+            ?.takeIf { it.meanings.any { m -> m == Meaning.Cast || m == Meaning.Activated || m == Meaning.Triggered } }
+            ?.takeIf { c -> c.item.targets.values.flatten().any { crimeAgainst(e, it, c.item.controller) } && e.matches(pattern.players, c.item.controller) }
+            ?.let { listOf(TriggerEvent(players = listOf(it.item.controller))) }.orEmpty()
+        is EventPattern.Attach -> {
+            fun attached(id: ObjectId, onto: TargetRef): TriggerEvent? {
+                val to = (onto as? TargetRef.Object)?.id
+                return if (e.matches(pattern.objects, id) && (to == null || e.matches(pattern.to, to)))
+                    TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(id))) + listOfNotNull(to?.let { RoleObjects(EventRole.To, listOf(it)) })) else null
             }
-            if (crime && e.matches(pattern.players, player)) TriggerEvent(players = listOf(player)) else null
+            (change as? Change.Attached)?.takeIf { it.after != null && it.after != it.before }?.let { c -> listOfNotNull(attached(c.id, c.after!!)) }
+                // otj chunk 12r: an Aura or Equipment that enters attached to something becomes attached to it as it enters (CR 303.4a, 303.4f,
+                // 603.2e)
+                ?: moves(change).filter { it.to == Zone.Battlefield && it.after.attachedTo != null }.mapNotNull { attached(it.after.id, it.after.attachedTo!!) }
         }
-        is EventPattern.Attach -> (change as? Change.Attached)?.takeIf { it.after != null && it.after != it.before }?.let { c ->
-            val to = (c.after as? TargetRef.Object)?.id
-            if (e.matches(pattern.objects, c.id) && (to == null || e.matches(pattern.to, to)))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(to?.let { RoleObjects(EventRole.To, listOf(it)) }))) else null
-        }.orEmpty()
         is EventPattern.Unattach -> unattached(e, change, pattern)
         is EventPattern.RollDie -> ((change as? Change.Happened)?.event as? GameEvent.DieRolled)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player), amount = it.results.sum())) }.orEmpty()
@@ -462,7 +468,10 @@ internal object EventMatcher {
         if (pattern.alone && all.size != 1) return emptyList()
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared together (CR 508.1a)
         if (declared.size < 1 + pattern.withOthers) return emptyList()
-        return declared.filter { a -> e.matches(pattern.attacker, a.id) && (pattern.target == null || recipient(e, pattern.target!!, a.target)) }
+        // mom: "at least one other creature token": the others counted must match too
+        fun withOthers(a: arcanum.engine.state.Attacker) = pattern.others == null ||
+            declared.count { it.id != a.id && e.matches(pattern.others!!, it.id) } >= pattern.withOthers
+        return declared.filter { a -> e.matches(pattern.attacker, a.id) && (pattern.target == null || recipient(e, pattern.target!!, a.target)) && withOthers(a) }
             .map { a ->
                 TriggerEvent(
                     objects = listOf(RoleObjects(EventRole.Object, listOf(a.id))) +
@@ -507,6 +516,20 @@ internal object EventMatcher {
     }
 
     /** Spells and abilities put on the Stack (or changing targets) and what they target (CR 115.1). */
+    /** Whether targeting [ref] is a crime of [player] (CR 700.13): another player, a permanent, spell or ability another player controls,
+     * or a card in another player's graveyard (not a card in exile or another zone). */
+    private fun crimeAgainst(e: Evaluator, ref: TargetRef, player: PlayerId): Boolean = when (ref) {
+        is TargetRef.Player -> ref.id != player
+        is TargetRef.Object -> {
+            val state = e.board.state
+            when (state.obj(ref.id)?.zone ?: if (ref.id in state.stackItems) Zone.Stack else null) {
+                Zone.Battlefield, Zone.Stack -> e.controllerOf(ref.id)
+                Zone.Graveyard -> e.ownerOf(ref.id)
+                else -> null
+            }.let { it != null && it != player }
+        }
+    }
+
     private fun targeted(change: Change): List<Pair<ObjectId, List<TargetRef>>> = when (change) {
         is Change.StackItemAdded -> listOf(change.item.id to change.item.targets.values.flatten())
         is Change.StackItemUpdated -> {

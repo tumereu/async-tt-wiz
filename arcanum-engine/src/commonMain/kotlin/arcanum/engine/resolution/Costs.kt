@@ -255,8 +255,8 @@ internal object Costs {
             }
             is CostPart.PayEnergy -> Actions.removeCounters(act, TargetRef.Player(payer), CounterKind.Energy, scope.value(part.amount))
             is CostPart.RemoveCounters -> choose(scope, payer, part.from, Zone.Battlefield, "remove counters from").forEach { id ->
-                val kind = part.kind ?: act.state.obj(id)?.counters?.firstOrNull()?.kind ?: return@forEach
-                Actions.removeCounters(act, TargetRef.Object(id), kind, scope.value(part.amount))
+                // CR 601.2h, 608.2d: of no named kind, the payer chooses which counters
+                Actions.removeChosenCounters(act, payer, scope.self, id, part.kind, scope.value(part.amount))
             }
             // msh: "Get five poison counters" (ward, CR 122.1)
             is CostPart.GetCounters -> Actions.putCounters(act, cause, TargetRef.Player(payer), part.kind, scope.value(part.amount), listOf(Meaning.Paid))

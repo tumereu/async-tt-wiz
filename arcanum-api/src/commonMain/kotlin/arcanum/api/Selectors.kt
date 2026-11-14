@@ -97,9 +97,9 @@ sealed interface EventRole {
     @Serializable @SerialName("from") data object From : EventRole
     /** In a manifest-dread event: the cards put into the graveyard (CR 701.62a). */
     @Serializable @SerialName("rest") data object Rest : EventRole
-    // one
-    /** In an attach event: the object or player it became attached to ("for as long as this Equipment remains attached to it",
-     * CR 701.3a, 608.2h). */
+    // otj, one
+    /** In an attach event: the object or player it became attached to ("that creature" of "whenever this Equipment becomes
+     * attached to a creature", "for as long as this Equipment remains attached to it", CR 701.3a, 608.2h). */
     @Serializable @SerialName("to") data object To : EventRole
 }
 
@@ -135,8 +135,14 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("colorless") data object Colorless : ObjectFilter
     @Serializable @SerialName("multicolored") data object Multicolored : ObjectFilter
     @Serializable @SerialName("monocolored") data object Monocolored : ObjectFilter
+    // mom
+    /** Is exactly [count] of the five colours ("a spell that's exactly two colors", CR 105.2). */
+    @Serializable @SerialName("color-count") data class ColorCount(val count: Int) : ObjectFilter
     /** Shares a colour / card type / creature type with [objects]. */
     @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects) : ObjectFilter
+    /** mom chunk 09: a double-faced card or permanent: a nonmodal or modal double-faced card or a meld card (CR 712.1), also a double-faced
+     * token (CR 111.13), whichever face is up ("If it's a land or double-faced card"). */
+    @Serializable @SerialName("double-faced") data object DoubleFaced : ObjectFilter
 
     @Serializable @SerialName("controlled-by") data class ControlledBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("owned-by") data class OwnedBy(val players: PlayerFilter) : ObjectFilter
@@ -263,6 +269,13 @@ sealed interface ObjectFilter {
     /** A Vehicle that [crew] crewed this turn (one of the creatures tapped to pay its crew cost, CR 702.122b; "a Vehicle crewed by Balthier
      * and Fran this turn"). */
     @Serializable @SerialName("crewed-by") data class CrewedBy(val crew: Objects) : ObjectFilter
+    // otj
+    /** It saddled one of [mounts] this turn: it was tapped to pay the cost of that Mount's saddle ability (CR 702.171c; "target
+     * creature that saddled it this turn"). */
+    @Serializable @SerialName("saddled-this-turn") data class SaddledThisTurn(val mounts: Objects) : ObjectFilter
+    /** A modal spell or card (CR 700.2): its spell ability has modes ("Choose one —", spree's "+ {1} —" modes; a permanent spell
+     * with a modal triggered ability isn't one). A card of several faces is judged by the face it has now (cast, CR 709.3). */
+    @Serializable @SerialName("modal") data object Modal : ObjectFilter
     // spm
     /** A modified permanent (CR 700.9): it has a counter on it, is equipped, or is enchanted by an Aura its controller
      * controls ("a modified creature you control"). */
@@ -390,6 +403,9 @@ sealed interface Players {
      * the battle they attack (CR 506.2, 802.2a). In an attack trigger, "defending player" is
      * `DefendingPlayerOf(EventObject())`; [EventPlayer] is only for "the player it's attacking". */
     @Serializable @SerialName("defending-player-of") data class DefendingPlayerOf(val attackers: Objects) : Players
+    // mom chunk 10
+    /** The protector of each battle in [battles] ("If an opponent protects it", CR 310.8, 310.9). */
+    @Serializable @SerialName("protector-of") data class ProtectorOf(val battles: Objects) : Players
     /** In a permission ([Mechanic.MayPlay]): the player using it ("Any player may cast creature spells … from their
      * hand": cards owned by the holder). */
     @Serializable @SerialName("holder") data object Holder : Players

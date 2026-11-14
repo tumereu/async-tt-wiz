@@ -305,6 +305,10 @@ sealed interface Mechanic {
         val costChange: arcanum.api.CostChange? = null,
         /** A land played with this permission enters tapped ("Each land played this way enters tapped", CR 614.1c). */
         val landsEnterTapped: Boolean = false,
+        // mom chunk 11
+        /** At most this many spells cast with this permission in all, over the whole duration of the effect that grants it
+         * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a). */
+        val total: Int? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.
@@ -386,6 +390,12 @@ sealed interface Mechanic {
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
+    // otj
+    /** Spells matching [what] cost an additional [cost] to cast ("Spells your opponents cast that target this creature cost an additional
+     * 3 life to cast"): a cost increase that isn't mana, part of the total cost (CR 601.2f); a rule like [CostChange]. */
+    @Serializable @SerialName("additional-cost-of") data class AdditionalCostOf(val what: ObjectFilter, val cost: Cost) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     @Serializable @SerialName("cant-be-countered") data object CantBeCountered : Mechanic
     // sos
     /** The affected spells can't be copied ("This spell can't be copied."): an effect that would copy one creates no copy (CR 707.10). */
@@ -441,6 +451,13 @@ sealed interface Mechanic {
     /** May look at [objects] ("you may look at the top card of your library any time"); [reveal]: it's revealed to all
      * instead ("play with the top card of your library revealed"). */
     @Serializable @SerialName("may-look-at") data class MayLookAt(val objects: Objects, val reveal: Boolean = false) : Mechanic
+    // otj
+    /** The affected cards' [keyword] abilities function in [zone] too, not only where that keyword works ("You may plot nonland cards
+     * from the top of your library", CR 702.170f, 113.6): its special action is taken from there, the card moving from that zone as
+     * it is. [topOnly]: only the top card of a library. */
+    @Serializable @SerialName("keyword-functions-in") data class KeywordFunctionsIn(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val zone: Zone, val topOnly: Boolean = false,
+    ) : Mechanic
     /** Damage matching [event] can't be prevented (CR 615.12); replacement effects still apply. */
     @Serializable @SerialName("damage-cant-be-prevented") data class DamageCantBePrevented(val event: EventPattern) : Mechanic
 
@@ -744,7 +761,9 @@ sealed interface Modification {
     @Serializable @SerialName("skip") data object Skip : Modification
     // fra
     /** The entering permanent enters with [mark] ("This creature enters prepared", CR 722.3a): it has the designation as it
-     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). */
+     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). otj: a moved card gets it wherever
+     * [MarkRules] lets it live ("exile that spell instead of putting it into your graveyard as it resolves. If you do, it becomes
+     * plotted", CR 702.170c); where it can't, nothing. */
     @Serializable @SerialName("enters-marked") data class EntersMarked(val mark: ObjectMark) : Modification
     /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
      * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */

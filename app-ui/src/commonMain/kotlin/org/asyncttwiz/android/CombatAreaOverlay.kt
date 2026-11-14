@@ -180,8 +180,11 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
         }
         if (placing && blocks.isEmpty()) ChooseBlockersLabel(scene)
     }
-    val damage = preview?.damage.orEmpty()
-    val dies = preview?.dies.orEmpty().toSet()
+    // CMB-050 (owner notes 2026-11-14 evening): after combat damage, until the combat ends (the damage's hold included), each
+    // creature it was dealt to carries the preview's badge with what it was dealt: the splash, or the skull while it lies dying
+    val result = scene.combatDealt?.takeIf { area != null && preview == null }
+    val damage = preview?.damage ?: result?.creatures.orEmpty()
+    val dies = (preview?.dies ?: result?.dying.orEmpty()).toSet()
     val inCombat = copies.mapNotNull { it.sourceId }.toSet()
     val computed = LocalComputedBoard.current
     fun label(target: MtgRef) = when (target) {
@@ -256,7 +259,8 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             // CMB-029 (owner playtest 2026-11-06): one badge over the card's middle, clear of its name (combat review #12), sized
             // to the card so it fits at any zoom
             if (dealt != null || dying) DamageBadge(dealt, dying, (b.width * .6f).coerceIn(12f, 26f),
-                Modifier.align(Alignment.Center).wrapContentSize(unbounded = true))
+                Modifier.align(Alignment.Center).wrapContentSize(unbounded = true),
+                description = if (result == null) null else if (dying) "Took $dealt combat damage and dies" else "Took $dealt combat damage")
         }
     }
     for ((player, change) in preview?.life.orEmpty()) {
@@ -275,7 +279,9 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     val attacking = CombatStackRules.attackingPlayer(play.board)
     if (dealt != null && !leaving) LaunchedEffect(dealt) {
         AppLog.info("combat", "Combat damage shown: targets ${dealt.targets.entries.joinToString { (lane, n) -> "${lane ?: "player"} $n" }}; " +
-            "gained ${dealt.gained}; attacking ${attacking?.take(8)}, gain on the band's edge at ${scene.combatGainEdge}")
+            "gained ${dealt.gained}; attacking ${attacking?.take(8)}, gain on the band's edge at ${scene.combatGainEdge}; creatures " +
+            "${dealt.creatures.entries.joinToString { (card, n) -> "${card.take(8)} $n" }}, dying ${dealt.dying.map { it.take(8) }}" +
+            if (preview != null) " (the preview's badges shown instead)" else "")
     }
     dealt?.gained?.get(attacking)?.takeIf { it > 0 }?.let { gain ->
         scene.items.firstOrNull { it.id == "life/$attacking" }?.let { item ->

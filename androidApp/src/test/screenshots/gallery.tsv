@@ -259,3 +259,4 @@ number	item	screenshot	catalog	decisions	sequence
 258	Pod Games tab: Challenge accepts the member's open challenge, New challenge in its choices	draft/pod-challenge-choices.png	DRF-181
 259	Games list: a game row's menu offers its chat with the unread count	chat/games-list-row-menu.png	LOB-148 LOB-026		Chat from the games list
 260	Games list: the game's chat open over the list, the game not opened	chat/games-list-chat.png	LOB-148		Chat from the games list
+261	Draft: Rotisserie setup with the pool and the picks per player apart	draft/setup-rotisserie.png	DRF-182 DRF-152

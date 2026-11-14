@@ -133,6 +133,17 @@ class DraftGalleryScreenshotTest {
             "\"Start when everyone accepts\".")
     }
 
+    // DRF-182, DRF-152, DRF-022
+    @Test fun rotisserieSetup() {
+        val detail = detail(PodPhase.SETUP, DraftSettings.rotisserie().copy(cardsPerPlayer = 30, poolPerPlayer = 60),
+            listOf(PodMember(alice), PodMember(bob)), name = "Rotisserie night")
+        show(opened(detail))
+        compose.onNodeWithText("Pool each").assertIsDisplayed()
+        compose.onNodeWithText("Picks each").assertIsDisplayed()
+        shot("setup-rotisserie", "The creator's setup of a Rotisserie pod from the Runes cube: a pool of 60 cards per player and " +
+            "30 picks per player as two tiles, then the sideboard limit.")
+    }
+
     // DRF-021, DRF-024, DRF-151
     @Test fun sealedSetSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings.sealed(), listOf(PodMember(alice), PodMember(bob), PodMember(carol)),

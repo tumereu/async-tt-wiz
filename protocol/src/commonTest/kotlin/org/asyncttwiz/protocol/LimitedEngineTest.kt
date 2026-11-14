@@ -32,6 +32,12 @@ class LimitedEngineTest {
         assertEquals(listOf(DraftSettingsIssue.PACKS_OPEN_AT_ONCE), issues(rochester.copy(tablePacksOpen = 0)))
         assertEquals(listOf(DraftSettingsIssue.CARDS_PER_PLAYER), issues(DraftSettings.rotisserie().copy(cardsPerPlayer = 226)))
         assertTrue(issues(DraftSettings.rotisserie().copy(cardsPerPlayer = 5)).isEmpty())
+        // DRF-182: the pool per player, when set, is 5–225 and at least the picks per player
+        assertTrue(issues(DraftSettings.rotisserie().copy(cardsPerPlayer = 5, poolPerPlayer = 5)).isEmpty())
+        assertTrue(issues(DraftSettings.rotisserie().copy(cardsPerPlayer = 45, poolPerPlayer = 225)).isEmpty())
+        assertEquals(listOf(DraftSettingsIssue.POOL_PER_PLAYER), issues(DraftSettings.rotisserie().copy(cardsPerPlayer = 10, poolPerPlayer = 9)))
+        assertEquals(listOf(DraftSettingsIssue.POOL_PER_PLAYER), issues(DraftSettings.rotisserie().copy(cardsPerPlayer = 10, poolPerPlayer = 226)))
+        assertEquals(45, DraftSettings.rotisserie().rotisseriePool)
         assertEquals(listOf(DraftSettingsIssue.PILES), issues(DraftSettings.winston().copy(piles = 7)))
         assertTrue(issues(DraftSettings.winchester().copy(piles = 8)).isEmpty())
         assertEquals(listOf(DraftSettingsIssue.PILES), issues(DraftSettings.winchester().copy(piles = 1)))
@@ -116,6 +122,24 @@ class LimitedEngineTest {
         val view = LimitedEngine.view(state, y)
         assertTrue(view.board.all { it.pickedBy != null })
         assertEquals(state.pools.getValue(y).toSet(), view.board.filter { it.pickedBy == y }.map { it.copy.id }.toSet())
+    }
+
+    // DRF-152, DRF-182: a pool per player apart from the picks: the pool lays out players × pool cards, the draft ends once
+    // everyone has made their picks, and the cards nobody picked stay on the board
+    @Test fun rotisserieWithALargerPoolEndsWithItsCardsUntaken() {
+        val two = players.take(2)
+        val settings = DraftSettings.rotisserie().copy(cardsPerPlayer = 5, poolPerPlayer = 8)
+        assertEquals(16L, LimitedEngine.needed(settings, 2))
+        var state = LimitedEngine.startFromCube(two, cube(30), settings, seed)
+        assertEquals(16, state.board.size)
+        assertEquals(10, LimitedEngine.view(state, two[0]).turns)
+        while (!state.finished) {
+            val player = state.queues.entries.single { it.value.isNotEmpty() }.key
+            state = ok(move(state, player, LimitedAction.TAKE_CARD, LimitedEngine.view(state, player).board.first { it.pickedBy == null }.copy.id))
+        }
+        assertEquals(10, state.turn)
+        assertTrue(state.pools.values.all { it.size == 5 })
+        assertEquals(6, LimitedEngine.view(state, two[0]).board.count { it.pickedBy == null })
     }
 
     // DRF-164: a private pick queue; when your turn comes its first card is taken for you at once (also for picks in a row),

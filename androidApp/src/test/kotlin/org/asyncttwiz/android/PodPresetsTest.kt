@@ -28,6 +28,9 @@ class PodPresetsTest {
         assertEquals("Booster · No source · 9×15", podPresetSummary(preset("Glimpse", DraftSettings.glimpse())))
         // Each engine's size in its own terms.
         assertEquals("Rotisserie · Cube · 45 cards each", podPresetSummary(DraftSettings.rotisserie(), "Cube", set = false))
+        // DRF-032, DRF-182: a pool larger than the picks
+        assertEquals("Rotisserie · Cube · 45 of 60 cards each",
+            podPresetSummary(DraftSettings.rotisserie().copy(poolPerPlayer = 60), "Cube", set = false))
         assertEquals("Sealed · Cube · 45 cards each", podPresetSummary(DraftSettings.sealed(), "Cube", set = false))
         assertEquals("Sealed · DMU · 6 boosters", podPresetSummary(DraftSettings.sealed(), "DMU", set = true))
         assertEquals("Winston · Cube · 3×15", podPresetSummary(DraftSettings.winston(), "Cube", set = false))

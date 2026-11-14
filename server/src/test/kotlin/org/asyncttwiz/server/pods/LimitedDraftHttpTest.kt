@@ -230,6 +230,27 @@ class LimitedDraftHttpTest {
         assertEquals("wrong_draft_mode", f.code(f.turn(f.a, booster, PodTurn(id(), draft.draftAttemptId!!, LimitedAction.TAKE_CARD, 0, "x"), 409)))
     }
 
+    // DRF-152, DRF-182: the pool per player apart from the picks: the server refuses a pool smaller than the picks; a pool of
+    // 6 each with 5 picks each lays out 12 cards and ends after 10 picks with 2 left on the board
+    @Test fun `Rotisserie HTTP pool per player apart from the picks`() = fixture { f ->
+        val pod = f.create(DraftSettings.rotisserie().copy(cardsPerPlayer = 5, poolPerPlayer = 6))
+        f.configure(pod, DraftSettings.rotisserie().copy(cardsPerPlayer = 7, poolPerPlayer = 6), 400)
+        assertEquals(6, f.get(f.a, pod).settings.poolPerPlayer)
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        assertEquals(12, started.limited!!.board.size)
+        assertEquals(10, started.limited!!.turns)
+        val attempt = started.draftAttemptId!!
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            val current = f.session(f.get(f.a, pod).limited!!.currentPlayer!!)
+            val view = f.get(current, pod).limited!!
+            f.turn(current, pod, PodTurn(id(), attempt, LimitedAction.TAKE_CARD, view.turn, view.board.first { it.pickedBy == null }.copy.id))
+        }
+        val done = f.get(f.a, pod).limited!!
+        assertEquals(2, done.board.count { it.pickedBy == null })
+        assertEquals(5, done.pool.size)
+    }
+
     // DRF-164, DRF-136: a private pick queue kept on the server: when the turn comes its first card is taken at once
     // (no "Your pick"), a queued card taken by another clears the queue with a note, and a turn that comes back after
     // queued picks notifies again.

@@ -152,7 +152,8 @@ object LimitedEngine {
 
     /** Cards the source must hold (a set has unlimited supply). */
     fun needed(settings: DraftSettings, players: Int): Long = when (settings.mode) {
-        DraftMode.ROTISSERIE, DraftMode.SEALED -> players.toLong() * settings.cardsPerPlayer
+        DraftMode.ROTISSERIE -> players.toLong() * settings.rotisseriePool
+        DraftMode.SEALED -> players.toLong() * settings.cardsPerPlayer
         else -> players.toLong() * settings.packsPerPlayer * settings.cardsPerPack
     }
 

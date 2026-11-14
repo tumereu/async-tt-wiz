@@ -62,6 +62,8 @@ fun podPresetSummary(preset: PodPreset): String {
 fun podPresetSummary(settings: DraftSettings, source: String, set: Boolean): String {
     val size = when {
         settings.mode == DraftMode.GRID -> "${settings.grids} grids"
+        settings.mode == DraftMode.ROTISSERIE && settings.rotisseriePool > settings.cardsPerPlayer ->
+            "${settings.cardsPerPlayer} of ${settings.rotisseriePool} cards each"
         settings.mode == DraftMode.ROTISSERIE || settings.mode == DraftMode.SEALED && !set -> "${settings.cardsPerPlayer} cards each"
         settings.mode == DraftMode.SEALED -> "${settings.packsPerPlayer} ${if (settings.packsPerPlayer == 1) "booster" else "boosters"}"
         set -> podPackCount(settings.packsPerPlayer)

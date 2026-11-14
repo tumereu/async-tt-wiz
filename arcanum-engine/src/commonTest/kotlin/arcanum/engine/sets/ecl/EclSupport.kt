@@ -23,7 +23,7 @@ internal object Ecl {
     val faerie = Cards.invent("Bramble Sprite", "{U}", "Creature — Faerie", "Flying", "1/1")
     val elemental = Cards.invent("Cinder Wisp", "{1}{R}", "Creature — Elemental", "", "2/2")
     val bigElemental = Cards.invent("Ashen Colossus", "{4}{R}", "Creature — Elemental", "", "5/5")
-    val jolt = Cards.invent("Spark Jolt", "{R}", "Instant", "Spark Jolt deals 2 damage to any target.")
+    val jolt = Cards.invent("Crackle Jolt", "{R}", "Instant", "Crackle Jolt deals 2 damage to any target.")
     val bolt = Cards.invent("Searing Bolt", "{R}", "Instant", "Searing Bolt deals 3 damage to any target.")
     val unmake = Cards.invent("Unmake Ward", "{W}{W}", "Instant", "Exile target creature.")
     val growth = Cards.invent("Sudden Vigor", "{G}", "Instant", "Target creature gets +3/+3 until end of turn.")

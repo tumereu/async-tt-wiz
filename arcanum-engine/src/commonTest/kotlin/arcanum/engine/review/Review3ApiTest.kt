@@ -53,16 +53,16 @@ class Review3ApiTest {
         expect { stack.names shouldBe listOf("Storm Spark") }
     }
 
-    /** Cancelling Bone Splinters at its mana payment, after the sacrifice was paid and Havoc Imp's trigger waits: the
+    /** Cancelling Ossein Shards at its mana payment, after the sacrifice was paid and Havoc Imp's trigger waits: the
      * creature is back, nothing waits, the state is as before the cast (D58, CR 601.2). */
     // CR 601.2, D58
     @Test
     fun cancelAfterASacrificeCostLeavesNoTrace() = scenario {
         alice.battlefield("Swamp", "Havoc Imp", "Tinkered Mite")
-        alice.hand("Bone Splinters")
+        alice.hand("Ossein Shards")
         bob.battlefield("Elvish Seer")
         val before = state.deepCopy()
-        perform(Input.Cast(alice.id, card("Bone Splinters")))
+        perform(Input.Cast(alice.id, card("Ossein Shards")))
         var guard = 10
         while (pending !is Decision.ManaPayment && guard-- > 0) {
             when (val d = pending) {

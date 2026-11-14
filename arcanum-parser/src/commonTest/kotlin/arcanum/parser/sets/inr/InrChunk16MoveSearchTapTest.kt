@@ -15,7 +15,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 603.12: a reflexive trigger after the payment; CR 702.35 discard trigger from the graveyard
     @Test
     fun edgarsAwakening() = card(
-        name = "Edgar's Awakening", cost = "{3}{B}{B}", type = "Sorcery",
+        name = "Count Merrin's Rising", cost = "{3}{B}{B}", type = "Sorcery",
         text = """
             Return target creature card from your graveyard to the battlefield.
             When you discard this card, you may pay {B}. When you do, return target creature card from your graveyard to your hand.
@@ -31,7 +31,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 400.7: the card returns as a new object; CR 611.2a: "it's a Spirit" is checked as the ability resolves
     @Test
     fun essenceFlux() = card(
-        name = "Essence Flux", cost = "{U}", type = "Instant",
+        name = "Spirit Drift", cost = "{U}", type = "Instant",
         text = "Exile target creature you control, then return that card to the battlefield under its owner's control. If it's a Spirit, put a +1/+1 counter on it.",
     ) parsesTo abilities(
         spell(
@@ -45,7 +45,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 602.1: an activated ability of a creature on the battlefield
     @Test
     fun groundskeeper() = card(
-        name = "Groundskeeper", cost = "{G}", type = "Creature — Human Druid", pt = "1/1",
+        name = "Lawnwarden", cost = "{G}", type = "Creature — Human Druid", pt = "1/1",
         text = "{1}{G}: Return target basic land card from your graveyard to your hand.",
     ) parsesTo abilities(
         activated(cost(mana("{1}{G}")), move(target("card"), Zone.Hand), targets = listOf(slot("card", inYourGraveyard(ObjectFilter.Super(Supertype.Basic), land)))),
@@ -55,7 +55,7 @@ class InrChunk16MoveSearchTapTest {
     @Test
     fun midnightScavengers() = cardFaces(Layout.Meld("Graf Rats"),
         card(
-            name = "Midnight Scavengers", cost = "{4}{B}", type = "Creature — Human Rogue", pt = "3/3",
+            name = "Witching Hour Scavengers", cost = "{4}{B}", type = "Creature — Human Rogue", pt = "3/3",
             text = """
                 When this creature enters, you may return target creature card with mana value 3 or less from your graveyard to your hand.
                 (Melds with Graf Rats.)
@@ -65,7 +65,7 @@ class InrChunk16MoveSearchTapTest {
                 targets = listOf(slot("card", inYourGraveyard(creature, manaValue(Comparison.AtMost, 3))))),
         ),
         card(
-            name = "Chittering Host", cost = null, type = "Creature — Eldrazi Horror", pt = "5/6",
+            name = "Skittering Swarmhost", cost = null, type = "Creature — Eldrazi Horror", pt = "5/6",
             text = """
                 Haste
                 Menace (This creature can't be blocked except by two or more creatures.)
@@ -81,7 +81,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 400.3: a permanent returns to its owner's hand
     @Test
     fun mistRaven() = card(
-        name = "Mist Raven", cost = "{2}{U}{U}", type = "Creature — Bird", pt = "2/2",
+        name = "Fogwing Raven", cost = "{2}{U}{U}", type = "Creature — Bird", pt = "2/2",
         text = """
             Flying
             When this creature enters, return target creature to its owner's hand.
@@ -93,7 +93,7 @@ class InrChunk16MoveSearchTapTest {
 
     @Test
     fun spectralShepherd() = card(
-        name = "Spectral Shepherd", cost = "{2}{W}", type = "Creature — Spirit", pt = "2/2",
+        name = "Phantom Herder", cost = "{2}{W}", type = "Creature — Spirit", pt = "2/2",
         text = """
             Flying
             {1}{U}: Return target Spirit you control to its owner's hand.
@@ -106,7 +106,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 608.2b? exiled spell; CR 603.10a leaves-the-battlefield trigger
     @Test
     fun spellQueller() = card(
-        name = "Spell Queller", cost = "{1}{W}{U}", type = "Creature — Spirit", pt = "2/3",
+        name = "Spell Hushkeeper", cost = "{1}{W}{U}", type = "Creature — Spirit", pt = "2/3",
         text = """
             Flash
             Flying
@@ -128,7 +128,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 508.1d: attacks each combat if able; CR 502.3: doesn't untap; CR 701.26b untap
     @Test
     fun galvanicJuggernaut() = card(
-        name = "Galvanic Juggernaut", cost = "{4}", type = "Artifact Creature — Juggernaut", pt = "5/5",
+        name = "Voltaic Behemoth", cost = "{4}", type = "Artifact Creature — Juggernaut", pt = "5/5",
         text = """
             This creature attacks each combat if able.
             This creature doesn't untap during your untap step.
@@ -143,7 +143,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 122.1: a counter on each creature you control
     @Test
     fun catharsCrusade() = card(
-        name = "Cathars' Crusade", cost = "{3}{W}{W}", type = "Enchantment",
+        name = "Wardens' Campaign", cost = "{3}{W}{W}", type = "Enchantment",
         text = "Whenever a creature you control enters, put a +1/+1 counter on each creature you control.",
     ) parsesTo abilities(
         triggered(enters(creatureYouControl), counters(Objects.Each(creatureYouControl))),
@@ -152,7 +152,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 602.1, 118.1: sacrifice as a cost
     @Test
     fun indulgentAristocrat() = card(
-        name = "Indulgent Aristocrat", cost = "{B}", type = "Creature — Vampire Noble", pt = "1/1",
+        name = "Decadent Noble", cost = "{B}", type = "Creature — Vampire Noble", pt = "1/1",
         text = """
             Lifelink
             {2}, Sacrifice a creature: Put a +1/+1 counter on each Vampire you control.
@@ -165,7 +165,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 700.4: dies; any creature including this one and opponents'
     @Test
     fun lumberknot() = card(
-        name = "Lumberknot", cost = "{2}{G}{G}", type = "Creature — Treefolk", pt = "1/1",
+        name = "Timbergnarl", cost = "{2}{G}{G}", type = "Creature — Treefolk", pt = "1/1",
         text = """
             Hexproof (This creature can't be the target of spells or abilities your opponents control.)
             Whenever a creature dies, put a +1/+1 counter on this creature.
@@ -178,7 +178,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 613.1f, 122.1: a condition on the counters of this creature
     @Test
     fun voiceOfTheBlessed() = card(
-        name = "Voice of the Blessed", cost = "{W}{W}", type = "Creature — Spirit Cleric", pt = "2/2",
+        name = "Voice of the Hallowed", cost = "{W}{W}", type = "Creature — Spirit Cleric", pt = "2/2",
         text = """
             Whenever you gain life, put a +1/+1 counter on this creature.
             As long as this creature has four or more +1/+1 counters on it, it has flying and vigilance.
@@ -193,7 +193,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 701.21a: the controller chooses a creature other than this one
     @Test
     fun demonicTaskmaster() = card(
-        name = "Demonic Taskmaster", cost = "{2}{B}", type = "Creature — Demon", pt = "4/3",
+        name = "Fiendish Overseer", cost = "{2}{B}", type = "Creature — Demon", pt = "4/3",
         text = """
             Flying
             At the beginning of your upkeep, sacrifice a creature other than this creature.
@@ -208,10 +208,10 @@ class InrChunk16MoveSearchTapTest {
     // CR 305.2: additional land play; CR 701.21a sacrifice unless
     @Test
     fun theGitrogMonster() = card(
-        name = "The Gitrog Monster", cost = "{3}{B}{G}", type = "Legendary Creature — Frog Horror", pt = "6/6",
+        name = "The Bogmaw Devourer", cost = "{3}{B}{G}", type = "Legendary Creature — Frog Horror", pt = "6/6",
         text = """
             Deathtouch
-            At the beginning of your upkeep, sacrifice The Gitrog Monster unless you sacrifice a land.
+            At the beginning of your upkeep, sacrifice The Bogmaw Devourer unless you sacrifice a land.
             You may play an additional land on each of your turns.
             Whenever one or more land cards are put into your graveyard from anywhere, draw a card.
         """,
@@ -228,7 +228,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 701.23a: search, reveal, put into hand, then shuffle (CR 701.24)
     @Test
     fun travelersAmulet() = card(
-        name = "Traveler's Amulet", cost = "{1}", type = "Artifact",
+        name = "Wayfarer's Talisman", cost = "{1}", type = "Artifact",
         text = "{1}, Sacrifice this artifact: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
     ) parsesTo abilities(
         activated(cost(mana("{1}"), sacrificeSelf), search(basicLand(), reveal = true), move(Objects.Bound("found"), Zone.Hand), shuffle),
@@ -236,7 +236,7 @@ class InrChunk16MoveSearchTapTest {
 
     @Test
     fun traverseTheUlvenwald() = card(
-        name = "Traverse the Ulvenwald", cost = "{G}", type = "Sorcery",
+        name = "Cross the Wildwood", cost = "{G}", type = "Sorcery",
         text = """
             Search your library for a basic land card, reveal it, put it into your hand, then shuffle.
             Delirium — If there are four or more card types among cards in your graveyard, instead search your library for a creature or land card, reveal it, put it into your hand, then shuffle.
@@ -252,7 +252,7 @@ class InrChunk16MoveSearchTapTest {
 
     @Test
     fun wildFieldScarecrow() = card(
-        name = "Wild-Field Scarecrow", cost = "{3}", type = "Artifact Creature — Scarecrow", pt = "1/4",
+        name = "Openfield Scarecrow", cost = "{3}", type = "Artifact Creature — Scarecrow", pt = "1/4",
         text = """
             Defender
             {2}, Sacrifice this creature: Search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.
@@ -264,17 +264,17 @@ class InrChunk16MoveSearchTapTest {
 
     @Test
     fun wretchedThrong() = card(
-        name = "Wretched Throng", cost = "{1}{U}", type = "Creature — Zombie Horror", pt = "2/1",
-        text = "When this creature dies, you may search your library for a card named Wretched Throng, reveal it, put it into your hand, then shuffle.",
+        name = "Miserable Horde", cost = "{1}{U}", type = "Creature — Zombie Horror", pt = "2/1",
+        text = "When this creature dies, you may search your library for a card named Miserable Horde, reveal it, put it into your hand, then shuffle.",
     ) parsesTo abilities(
-        triggered(diesSelf, Step.May(listOf(search(ObjectFilter.Named("Wretched Throng"), reveal = true), move(Objects.Bound("found"), Zone.Hand), shuffle), player = Players.You)),
+        triggered(diesSelf, Step.May(listOf(search(ObjectFilter.Named("Miserable Horde"), reveal = true), move(Objects.Bound("found"), Zone.Hand), shuffle), player = Players.You)),
     )
 
     // CR 604.3: a characteristic-defining ability sets power and toughness
     @Test
     fun crusaderOfOdric() = card(
-        name = "Crusader of Odric", cost = "{2}{W}", type = "Creature — Human Soldier", pt = "*/*",
-        text = "Crusader of Odric's power and toughness are each equal to the number of creatures you control.",
+        name = "Crusader of Ostrand", cost = "{2}{W}", type = "Creature — Human Soldier", pt = "*/*",
+        text = "Crusader of Ostrand's power and toughness are each equal to the number of creatures you control.",
     ) parsesTo abilities(
         static(Mechanic.SetPowerToughness(count(creatureYouControl), count(creatureYouControl)), characteristicDefining = true),
     )
@@ -282,7 +282,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 701.26a: tap target creature that isn't a Human
     @Test
     fun avacynianPriest() = card(
-        name = "Avacynian Priest", cost = "{1}{W}", type = "Creature — Human Cleric", pt = "1/2",
+        name = "Covenant Priest", cost = "{1}{W}", type = "Creature — Human Cleric", pt = "1/2",
         text = "{1}, {T}: Tap target non-Human creature.",
     ) parsesTo abilities(
         activated(cost(mana("{1}"), tap), tapIt(target("creature")), targets = listOf(slot("creature", and(not(sub("Human")), creature)))),
@@ -291,7 +291,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 603.2: this creature or another Spirit you control entering
     @Test
     fun nebelgastHerald() = card(
-        name = "Nebelgast Herald", cost = "{2}{U}", type = "Creature — Spirit", pt = "2/1",
+        name = "Fogwraith Herald", cost = "{2}{U}", type = "Creature — Spirit", pt = "2/1",
         text = """
             Flash
             Flying
@@ -307,7 +307,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 508.1: an attack trigger; the controller may tap
     @Test
     fun niblisOfTheUrn() = card(
-        name = "Niblis of the Urn", cost = "{1}{W}", type = "Creature — Spirit", pt = "1/1",
+        name = "Wisp of the Reliquary", cost = "{1}{W}", type = "Creature — Spirit", pt = "1/1",
         text = """
             Flying
             Whenever this creature attacks, you may tap target creature.
@@ -320,7 +320,7 @@ class InrChunk16MoveSearchTapTest {
     // CR 701.26b, 613.4c: untap, then +2/+2 and reach until end of turn
     @Test
     fun aimHigh() = card(
-        name = "Aim High", cost = "{1}{G}", type = "Instant",
+        name = "Reach Skyward", cost = "{1}{G}", type = "Instant",
         text = "Untap target creature. It gets +2/+2 and gains reach until end of turn.",
     ) parsesTo abilities(
         spell(untapIt(target("creature")), pump(target("creature"), 2, 2, Mechanic.GainAbilities(listOf(Keyword.Reach))), targets = listOf(slot("creature", creature))),

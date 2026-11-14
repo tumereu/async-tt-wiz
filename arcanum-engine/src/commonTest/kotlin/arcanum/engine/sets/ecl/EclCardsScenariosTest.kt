@@ -71,7 +71,7 @@ class EclCardsScenariosTest {
     private val bear = Cards.invent("Plaza Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val goblin = Cards.invent("Bog Goblin", "{B}", "Creature — Goblin", "", "1/1")
     private val elf = Cards.invent("Grove Elf", "{G}", "Creature — Elf", "", "1/1")
-    private val jolt = Cards.invent("Spark Jolt", "{R}", "Instant", "Spark Jolt deals 2 damage to any target.")
+    private val jolt = Cards.invent("Crackle Jolt", "{R}", "Instant", "Crackle Jolt deals 2 damage to any target.")
     private val blightRot = Cards.invent("Canker Decay", "{2}{B}", "Instant", "Put four -1/-1 counters on target creature.")
     private val ogre = Cards.invent("Plaza Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
     private val giant = Cards.invent("Hill Giant Kin", "{3}{R}", "Creature — Giant", "", "3/3")

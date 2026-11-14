@@ -82,10 +82,10 @@ class InrChunk13UndyingAdditionalCostCostChangeTest {
     // CR 601.2b, 601.2f: a discard or a mana payment
     @Test
     fun forkedBolt() = card(
-        name = "Forked Bolt", cost = "{R}", type = "Instant",
+        name = "Split Sparkbolt", cost = "{R}", type = "Instant",
         text = """
             As an additional cost to cast this spell, discard a card or pay {5}.
-            Forked Bolt deals 5 damage to target creature.
+            Split Sparkbolt deals 5 damage to target creature.
         """,
     ) parsesTo abilities(
         static(Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.OneOf(listOf(Cost(listOf(discardACard)), manaCost("{5}"))))))),

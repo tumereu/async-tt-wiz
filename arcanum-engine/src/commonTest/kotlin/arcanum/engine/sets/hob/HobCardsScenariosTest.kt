@@ -63,7 +63,7 @@ class HobCardsScenariosTest {
     private val lethalCut = Cards.invent("Tobbo's Lethal Cut", "{1}{B}{B}", "Instant", "Destroy target creature.")
     private val opt = Cards.invent("Peek of Fortune", "{U}", "Instant", "Draw a card.")
     private val divination = Cards.invent("Ponder the Signs", "{2}{U}", "Sorcery", "Draw two cards.")
-    private val hunt = Cards.invent("Treasure Hunt", "{1}{R}", "Sorcery", "Create a Treasure token.")
+    private val hunt = Cards.invent("Hoard Seeking", "{1}{R}", "Sorcery", "Create a Treasure token.")
     private val soldiers = Cards.invent("Call the Pikemen", "{1}{W}", "Sorcery", "Create a 1/1 white Soldier creature token.")
     private val fireform = Cards.inventFaces("Adventure",
         arcanum.parser.OracleCard("Grimbald, Orcs' Bane", "{2}{R}", "Legendary Creature — Avatar Wizard",

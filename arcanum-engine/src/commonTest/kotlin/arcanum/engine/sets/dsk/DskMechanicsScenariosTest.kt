@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 
 /** Duskmourn's keyword actions and ability words in play: manifest dread, impending, survival and delirium. */
 class DskMechanicsScenariosTest {
-    private val dread = Cards.invent("Creeping Dread", "{1}{G}", "Sorcery", "Manifest dread.")
+    private val dread = Cards.invent("Crawling Unease", "{1}{G}", "Sorcery", "Manifest dread.")
     private val overlord = Cards.invent("Overlord of the Dim Halls", "{4}{G}{G}", "Enchantment Creature — Avatar Horror", """
         Impending 4—{1}{G}{G} (If you cast this spell for its impending cost, it enters with four time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)
         Whenever this permanent enters or attacks, you gain 2 life.

@@ -89,18 +89,18 @@ class DecisionTextsTest {
         assertNotNull(life.by?.item)
     }
 
-    /** Bone Splinters destroying Elvish Seer: the move is tagged destroyed and made by Bone Splinters; Bone Splinters'
+    /** Ossein Shards destroying Elvish Seer: the move is tagged destroyed and made by Ossein Shards; Ossein Shards'
      * own way to the graveyard after it resolves is the rules', with no maker. */
     // D33, CR 608.2n
     @Test
     fun aDestroyedCreatureSaysWhatDestroyedIt() = scenario {
-        alice.hand("Bone Splinters")
+        alice.hand("Ossein Shards")
         bob.battlefield("Elvish Seer")
-        alice.castsWithoutCosts("Bone Splinters", target = "Elvish Seer")
+        alice.castsWithoutCosts("Ossein Shards", target = "Elvish Seer")
         resolve()
         val moves = applied.filterIsInstance<Change.ZoneChange>()
         val destroyed = moves.single { z -> z.moves.any { Meaning.Destroyed in it.meanings } }
-        assertEquals("Bone Splinters", destroyed.by?.name)
+        assertEquals("Ossein Shards", destroyed.by?.name)
         val resolved = moves.single { z -> z.moves.any { Meaning.Resolved in it.meanings } }
         assertNull(resolved.by)
     }

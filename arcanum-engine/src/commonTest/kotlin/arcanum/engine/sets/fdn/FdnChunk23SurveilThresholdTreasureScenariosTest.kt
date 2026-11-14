@@ -95,7 +95,7 @@ class FdnChunk23SurveilThresholdTreasureScenariosTest {
     private val blocker = Cards.invent("Stonewall Guard", "{1}{W}", "Creature — Human Soldier", "", "1/4")
     private val pirate = Cards.invent("Dockside Pirate", "{1}{U}", "Creature — Human Pirate", "", "2/1")
     private val bolt = Cards.invent("Sunder Bolt", "{R}", "Instant", "Sunder Bolt deals 3 damage to target creature.")
-    private val aid = Cards.invent("Soothing Balm", "{W}", "Instant", "You gain 3 life.")
+    private val aid = Cards.invent("Calming Salve", "{W}", "Instant", "You gain 3 life.")
 
     private fun Scenario.resolveAll() {
         var guard = 40

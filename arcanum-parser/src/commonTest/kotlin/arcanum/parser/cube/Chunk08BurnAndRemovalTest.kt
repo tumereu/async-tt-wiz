@@ -333,7 +333,7 @@ class Chunk08BurnAndRemovalTest {
 
     @Test
     fun boneSplinters() = card(
-        name = "Bone Splinters",
+        name = "Ossein Shards",
         cost = "{B}",
         type = "Sorcery",
         text = """
@@ -526,7 +526,7 @@ class Chunk08BurnAndRemovalTest {
 
     @Test
     fun rescind() = card(
-        name = "Rescind",
+        name = "Revoke Writ",
         cost = "{X}{U}",
         type = "Instant",
         text = """

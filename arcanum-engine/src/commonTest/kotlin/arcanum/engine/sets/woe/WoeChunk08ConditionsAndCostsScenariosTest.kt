@@ -29,7 +29,7 @@ class WoeChunk08ConditionsAndCostsScenariosTest {
     private val bear = Cards.invent("Hollow Bruin", "{1}{G}", "Creature — Bear", "", "2/2")
     private val ogre = Cards.invent("Craghorn Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
     private val rat = Cards.invent("Gutter Ratling", "{B}", "Creature — Rat", "", "1/1")
-    private val charm = Cards.invent("Hearth Charm", "{1}{W}", "Enchantment", "")
+    private val charm = Cards.invent("Kindling Charm", "{1}{W}", "Enchantment", "")
     private val crowning = Cards.invent("Crowning Rite", "{W}", "Sorcery",
         "Create a Royal Role token attached to target creature you control. (Enchanted creature gets +1/+1 and has ward {1}.)")
     private val bauble = Cards.invent("Brass Bauble", "{1}", "Artifact", "")

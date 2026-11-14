@@ -54,9 +54,9 @@ class Review1MultiplayerTest {
     @Test
     fun sacrificedAsACostTriggerResolvesFirst() = scenario {
         alice.battlefield("Swamp", "Crimson Mourner")
-        alice.hand("Bone Splinters")
+        alice.hand("Ossein Shards")
         bob.battlefield("Thicketwood Elves")
-        alice.casts("Bone Splinters", target = "Thicketwood Elves", option = "Sacrifice", choosing = listOf("Crimson Mourner"))
+        alice.casts("Ossein Shards", target = "Thicketwood Elves", option = "Sacrifice", choosing = listOf("Crimson Mourner"))
         var guard = 3
         while (pending is Decision.Targets && guard-- > 0) answer(Answer.Targets(listOf(target("bob"))))
         expect {

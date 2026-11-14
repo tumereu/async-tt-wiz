@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Takes a set's starting point: the parser's model of every local card (parserDiff snapshot), written to
 # ~/projects/atw-cache/set-plans/<CODE>/parser-base.snapshot, which `set-tests.sh <code> --full` compares against. A previous
-# one is kept as parser-base.previous.snapshot.
+# one is kept as parser-base.previous.snapshot. A --from snapshot's commit goes to parser-base.ref (sync-master.sh reads it).
 #   base-snapshot.sh <CODE>                 snapshot of the current worktree's parser
 #   base-snapshot.sh <CODE> --from <ref>    snapshot of <ref>'s parser (e.g. master), in a temporary detached worktree
 # Run from the repository (or worktree) root.
@@ -26,11 +26,11 @@ cleanup() {
 trap cleanup EXIT
 dir=$PWD
 if [ -n "$ref" ]; then
-  git rev-parse --verify --quiet "$ref^{commit}" >/dev/null || { echo "base-snapshot.sh: no commit '$ref'" >&2; exit 2; }
+  commit=$(git rev-parse --verify --quiet "$ref^{commit}") || { echo "base-snapshot.sh: no commit '$ref'" >&2; exit 2; }
   wt=$(mktemp -d "$C/snapshot-worktree.XXXXXX") && rmdir "$wt"
-  git worktree add --detach --quiet "$wt" "$ref" || { wt=; echo "base-snapshot.sh: can't make a worktree of $ref" >&2; exit 1; }
+  git worktree add --detach --quiet "$wt" "$commit" || { wt=; echo "base-snapshot.sh: can't make a worktree of $ref" >&2; exit 1; }
   dir=$wt
-  echo "Snapshot of $ref ($(git rev-parse --short "$ref")) in a temporary worktree"
+  echo "Snapshot of $ref ($(git rev-parse --short "$commit")) in a temporary worktree"
 fi
 log=$tmp/gradle.log
 (cd "$dir" && "$T/gradle-slot.sh" :arcanum-tools:parserDiff --args=snapshot -PparserOutputs="$tmp" >"$log" 2>&1)
@@ -43,4 +43,5 @@ fi
 grep -E "^Parsed " "$log"
 [ -f "$plan/parser-base.snapshot" ] && mv -f -- "$plan/parser-base.snapshot" "$plan/parser-base.previous.snapshot"
 mv -- "$tmp/parser-models.snapshot" "$plan/parser-base.snapshot"
+if [ -n "$ref" ]; then echo "$commit" >"$plan/parser-base.ref"; else rm -f -- "$plan/parser-base.ref"; fi
 echo "Wrote $plan/parser-base.snapshot"

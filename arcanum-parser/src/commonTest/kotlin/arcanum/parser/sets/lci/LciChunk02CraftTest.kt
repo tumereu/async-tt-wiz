@@ -612,7 +612,7 @@ class LciChunk02CraftTest {
     // CR 702.167a: "one or more" of a subtype; "one or more" of anything (other permanents you control and/or cards in your graveyard)
     @Test
     fun craftMaterialCounts() = card(
-        name = "Dawnbird Banner",
+        name = "Dawnbird Standard",
         cost = "{3}",
         type = "Artifact",
         text = """

@@ -2,12 +2,15 @@
 # Runs a set's parser and engine tests in one Gradle call (through gradle-slot.sh) and prints only counts and failures.
 #   set-tests.sh <code> [extra --tests patterns...]   e.g. set-tests.sh inr '*MechanicWordingsTest*'
 #   set-tests.sh <code> --full                        the whole parser and engine suites (invented card names are global) and parserDiff,
-#                                                     without the engine's long random-game and fuzz classes
+#                                                     without the engine's long random-game and fuzz classes; also compiles automatum
+#                                                     and the parser and engine for Wasm and runs InventedNamesTest
 #   set-tests.sh <code> --full --long                 the same with the long classes (the fix, sweep and close steps)
 # Before the set's own parser test folder exists, a quick run runs the whole parser suite (about a minute).
 # Extra test patterns apply to the engine only once the set's engine test folder exists.
 # Run from the worktree root. The base snapshot is ~/projects/atw-cache/set-plans/<CODE>/parser-base.snapshot (base-snapshot.sh
-# writes it when the set starts); a --full run's parserDiff output goes to <plan>/full-run/ (replaced each run).
+# writes it when the set starts); a --full run's parserDiff output goes to <plan>/full-run/ (replaced each run). Its summary
+# also names held-out cards read differently that belong to another running set (a plan without DONE whose
+# coordinator-log.md changed in the last 3 days), so a rule change touching another set's cards is seen.
 set -u
 [ $# -ge 1 ] || { echo "Usage: set-tests.sh <code> [--full] ['<test pattern>' ...]" >&2; exit 2; }
 code=$(echo "$1" | tr 'A-Z' 'a-z'); CODE=$(echo "$1" | tr 'a-z' 'A-Z'); shift
@@ -21,34 +24,34 @@ if [ $full = 1 ]; then
   [ -f "$plan/parser-base.snapshot" ] || { echo "No $plan/parser-base.snapshot: take it first with $T/base-snapshot.sh $CODE" >&2; exit 2; }
   rm -rf "$out"; mkdir -p "$out"
 fi
-rm -rf arcanum-parser/build/test-results/jvmTest arcanum-engine/build/test-results/jvmTest
+rm -rf arcanum-parser/build/test-results/jvmTest arcanum-engine/build/test-results/jvmTest arcanum-tools/build/test-results/test/TEST-arcanum.tools.InventedNamesTest.xml
 # a --tests filter that matches nothing fails Gradle, so a set's filter is added only once its test folder exists
 pt=(); et=()
 [ -d "arcanum-parser/src/commonTest/kotlin/arcanum/parser/sets/$code" ] && pt=(--tests "arcanum.parser.sets.$code.*")
 [ -d "arcanum-engine/src/commonTest/kotlin/arcanum/engine/sets/$code" ] && et=(:arcanum-engine:jvmTest --tests "arcanum.engine.sets.$code.*" "${extra[@]}")
 if [ $full = 1 ]; then
   cp "$plan/parser-base.snapshot" "$out/base.snapshot"
-  "$T/gradle-slot.sh" "${skip[@]}" :arcanum-parser:jvmTest :arcanum-engine:jvmTest "${extra[@]}" \
-    :arcanum-tools:parserDiff --args="compare $out/base.snapshot" -PparserOutputs="$out" --continue >"$log" 2>&1
+  # automatum switches exhaustively on engine types, Wasm rejects some code the JVM takes, and invented names are global:
+  # each has broken master after a set merged, so every full run checks them
+  tasks=("${skip[@]}" :arcanum-parser:jvmTest :arcanum-engine:jvmTest "${extra[@]}"
+    :automatum:compileKotlinJvm :arcanum-parser:compileKotlinWasmJs :arcanum-engine:compileKotlinWasmJs
+    :arcanum-tools:test --tests arcanum.tools.InventedNamesTest
+    :arcanum-tools:parserDiff --args="compare $out/base.snapshot" -PparserOutputs="$out" --continue)
 else
-  "$T/gradle-slot.sh" :arcanum-parser:jvmTest "${pt[@]}" "${extra[@]}" "${et[@]}" --continue >"$log" 2>&1
+  tasks=(:arcanum-parser:jvmTest "${pt[@]}" "${extra[@]}" "${et[@]}" --continue)
 fi
+"$T/gradle-slot.sh" "${tasks[@]}" >"$log" 2>&1
 rc=$?
 # Kotlin's incremental caches sometimes fail with "FqNames can't be derived": rerun once without incremental compilation
 if grep -q "FqNames can't be derived\|Could not perform incremental compilation" "$log"; then
   echo "(incremental compile glitch: rerunning once with kotlin.incremental=false)"
-  if [ $full = 1 ]; then
-    "$T/gradle-slot.sh" "${skip[@]}" -Pkotlin.incremental=false -Pkotlin.incremental.multiplatform=false :arcanum-parser:jvmTest :arcanum-engine:jvmTest "${extra[@]}" \
-      :arcanum-tools:parserDiff --args="compare $out/base.snapshot" -PparserOutputs="$out" --continue >"$log" 2>&1
-  else
-    "$T/gradle-slot.sh" -Pkotlin.incremental=false -Pkotlin.incremental.multiplatform=false :arcanum-parser:jvmTest "${pt[@]}" "${extra[@]}" "${et[@]}" --continue >"$log" 2>&1
-  fi
+  "$T/gradle-slot.sh" -Pkotlin.incremental=false -Pkotlin.incremental.multiplatform=false "${tasks[@]}" >"$log" 2>&1
   rc=$?
 fi
-grep -E "^e: |error:|Compilation error|BUILD (SUCCESSFUL|FAILED)|No tests found|What went wrong" "$log" | head -20
+grep -E "^e: |error:|Compilation error|BUILD (SUCCESSFUL|FAILED)|No tests found|Execution failed for task" "$log" | head -20
 [ $full = 1 ] && python3 -I "$T/set-cards.py" "$CODE" --names >/dev/null
 python3 -I - "$CODE" "$out" "$full" <<'EOF'
-import glob,sys,re,os,gzip,json
+import glob,sys,re,os,gzip,json,time
 import xml.etree.ElementTree as ET
 code,out,full=sys.argv[1],sys.argv[2],sys.argv[3]=='1'
 for mod in ('arcanum-parser','arcanum-engine'):
@@ -64,6 +67,11 @@ for mod in ('arcanum-parser','arcanum-engine'):
     print(f'{mod}: {n} tests, {f} failed')
     if fails: print('\n'.join(fails[:25]))
 if full:
+    x='arcanum-tools/build/test-results/test/TEST-arcanum.tools.InventedNamesTest.xml'
+    if not os.path.exists(x): print('InventedNamesTest: no result (see Gradle errors above)')
+    else:
+        bad=[(tc.find('failure').get('message') or '')[:600] for tc in ET.parse(x).getroot().iter('testcase') if tc.find('failure') is not None]
+        print('InventedNamesTest:', 'ok' if not bad else '\n  '.join(['FAILED']+bad))
     p=os.path.join(out,'parser-diff.txt')
     if not os.path.exists(p): print('parserDiff: no output (see Gradle errors above)'); sys.exit()
     secs={};cur=None
@@ -79,6 +87,16 @@ if full:
             print(f'parserDiff {s.split(":")[0]}: {len(names)}', ', '.join(names[:30]))
         elif s.startswith('Held out, read differently'):
             print(f'parserDiff held-out read differently: {len(names)} (review these):', ', '.join(names[:40]))
+            plans=os.path.expanduser('~/projects/atw-cache/set-plans'); now=time.time(); watched={}
+            for d in sorted(glob.glob(f'{plans}/*/')):
+                other=os.path.basename(d.rstrip('/')); log=os.path.join(d,'coordinator-log.md')
+                if other==code or os.path.exists(os.path.join(d,'DONE')) or not os.path.exists(os.path.join(d,'cards.json')): continue
+                if not os.path.exists(log) or now-os.path.getmtime(log)>3*86400: continue
+                theirs={c['name'] for c in json.load(open(os.path.join(d,'cards.json'),encoding='utf8'))}
+                hit=[x for x in names if x in theirs]
+                if hit: watched[other]=hit
+            n=sum(len(v) for v in watched.values())
+            print(f'parserDiff cards of other running sets read differently: {n}', ' '.join(f'({o}: {", ".join(v[:15])})' for o,v in watched.items()))
     print('full diff:',p)
 EOF
 exit $rc

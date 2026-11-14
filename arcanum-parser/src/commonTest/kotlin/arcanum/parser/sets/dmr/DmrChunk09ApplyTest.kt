@@ -58,10 +58,10 @@ class DmrChunk09ApplyTest {
     @Test
     fun nightDay() = cardFaces(
         Layout.Split,
-        card(name = "Dusk", cost = "{B}", type = "Instant", text = "Target creature gets -1/-1 until end of turn.") to abilities(
+        card(name = "Eventide Fall", cost = "{B}", type = "Instant", text = "Target creature gets -1/-1 until end of turn.") to abilities(
             spell(pump(target("creature"), -1, -1), targets = creatureSlot),
         ),
-        card(name = "Dawn", cost = "{2}{W}", type = "Instant", text = "Creatures target player controls get +1/+1 until end of turn.") to abilities(
+        card(name = "Morningrise", cost = "{2}{W}", type = "Instant", text = "Creatures target player controls get +1/+1 until end of turn.") to abilities(
             spell(pump(Objects.Each(and(creature, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Target("player"))))), 1, 1), targets = listOf(targetPlayer)),
         ),
     )

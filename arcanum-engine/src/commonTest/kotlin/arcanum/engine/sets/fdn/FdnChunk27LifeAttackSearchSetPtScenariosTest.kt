@@ -75,7 +75,7 @@ class FdnChunk27LifeAttackSearchSetPtScenariosTest {
         Flying
         When this creature enters, search your library for a card, put it into your hand, then shuffle.
     """, "6/6")
-    private val golem = Cards.invent("Pewter Golem", "{4}", "Artifact Creature — Golem", """
+    private val golem = Cards.invent("Tinplate Golem", "{4}", "Artifact Creature — Golem", """
         When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.
         When this creature dies, you may draw a card.
     """, "2/2")

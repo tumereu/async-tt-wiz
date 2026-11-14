@@ -225,7 +225,7 @@ class FdnChunk27LifeAttackSearchSetPtTest {
     // CR 701.23a, 614.1 (put tapped); CR 700.4 dies, 603.10a: the second trigger is a separate "may"
     @Test
     fun brassGolem() = card(
-        name = "Pewter Golem", cost = "{4}", type = "Artifact Creature — Golem", pt = "2/2", text = """
+        name = "Tinplate Golem", cost = "{4}", type = "Artifact Creature — Golem", pt = "2/2", text = """
             When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.
             When this creature dies, you may draw a card.
         """,

@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 class SplitCardNamesTest {
     private val split = Cards.inventFaces("Split",
         face("Mirth", "{1}{R}", "Instant", "You gain 1 life.", null, null, null),
-        face("Malice", "{W}", "Instant", "You gain 2 life.", null, null, null),
+        face("Grudgework", "{W}", "Instant", "You gain 2 life.", null, null, null),
     )
 
     // CR 709.4a: "An object has the chosen name if one of its names is the chosen name."
@@ -26,7 +26,7 @@ class SplitCardNamesTest {
         fun chosen(name: String) = Snapshot(state).evaluator(alice.id, names = Bindings(mapOf("chosen" to NamedValue.Name(name))))
             .matches(ObjectFilter.ChosenName("chosen"), id)
         assertTrue(chosen("Mirth"))
-        assertTrue(chosen("Malice"))
+        assertTrue(chosen("Grudgework"))
         assertFalse(chosen("Sorrow"))
     }
 
@@ -43,7 +43,7 @@ class SplitCardNamesTest {
             return Snapshot(state).evaluator(alice.id, self = self).matches(ObjectFilter.RememberedName("word"), id)
         }
         assertTrue(remembered("Mirth"))
-        assertTrue(remembered("Malice"))
+        assertTrue(remembered("Grudgework"))
         assertFalse(remembered("Sorrow"))
     }
 

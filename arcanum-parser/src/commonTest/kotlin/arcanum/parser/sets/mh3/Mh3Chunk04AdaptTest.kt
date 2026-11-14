@@ -46,7 +46,7 @@ class Mh3Chunk04AdaptTest {
     // CR 701.46a, 122.6: the trigger fires once for the counters put on it, and a May ("you may create")
     @Test
     fun baskingBroodscale() = card(
-        name = "Basking Broodscale",
+        name = "Sunning Broodling",
         cost = "{1}{G}",
         type = "Creature — Eldrazi Lizard",
         pt = "2/2",
@@ -64,7 +64,7 @@ class Mh3Chunk04AdaptTest {
     // CR 122.6, 702.12 (menace until end of turn)
     @Test
     fun dreamdrinkerVampire() = card(
-        name = "Dreamdrinker Vampire",
+        name = "Sleepsipper Vampire",
         cost = "{1}{B}",
         type = "Creature — Vampire",
         pt = "2/1",
@@ -82,7 +82,7 @@ class Mh3Chunk04AdaptTest {
     // CR 702.9b-style restriction "can block only" (CR 509.1b); CR 601.2f cost reduction for each other artifact you control
     @Test
     fun etheriumPteramander() = card(
-        name = "Etherium Pteramander",
+        name = "Aetherglass Skywing",
         cost = "{B}",
         type = "Artifact Creature — Salamander Drake",
         pt = "1/1",
@@ -101,7 +101,7 @@ class Mh3Chunk04AdaptTest {
     // CR 122.6; return a permanent card from the graveyard to hand (CR 400.7)
     @Test
     fun evolutionWitness() = card(
-        name = "Evolution Witness",
+        name = "Growth Observer",
         cost = "{2}{G}",
         type = "Creature — Elf Shaman Mutant",
         pt = "2/1",
@@ -118,7 +118,7 @@ class Mh3Chunk04AdaptTest {
     // CR 700.9: modified = has a counter, is equipped, or is enchanted by your Aura
     @Test
     fun expandingOoze() = card(
-        name = "Expanding Ooze",
+        name = "Bloating Ooze",
         cost = "{1}{B}{G}",
         type = "Creature — Ooze",
         pt = "3/3",
@@ -134,7 +134,7 @@ class Mh3Chunk04AdaptTest {
     // CR 122.6; "If you do" after a May (CR 608.2c)
     @Test
     fun fetidGargantua() = card(
-        name = "Fetid Gargantua",
+        name = "Rancid Colossus",
         cost = "{4}{B}",
         type = "Creature — Horror",
         pt = "4/4",
@@ -152,7 +152,7 @@ class Mh3Chunk04AdaptTest {
     // CR 700.9, 613.1f (ability-adding static over modified creatures you control)
     @Test
     fun temperamentalOozewagg() = card(
-        name = "Temperamental Oozewagg",
+        name = "Moody Oozewaddle",
         cost = "{3}{G}",
         type = "Creature — Ooze Brushwagg",
         pt = "4/4",
@@ -168,7 +168,7 @@ class Mh3Chunk04AdaptTest {
     // CR 701.43d, 603.12: exert as it attacks, then a reflexive trigger with a target; X counts every counter on your permanents (CR 122.1)
     @Test
     fun hydraTrainer() = card(
-        name = "Hydra Trainer",
+        name = "Hydra Tamer",
         cost = "{1}{G}",
         type = "Creature — Human Warrior",
         pt = "1/1",
@@ -188,7 +188,7 @@ class Mh3Chunk04AdaptTest {
     // CR 122.6 (extra counters), 603.2 and 603.2c via "once each turn"; a permanent's own granted trigger (CR 113.10)
     @Test
     fun cursedWombat() = card(
-        name = "Cursed Wombat",
+        name = "Hexed Badgerkin",
         cost = "{B}{G}",
         type = "Creature — Nightmare Wombat",
         pt = "2/3",
@@ -205,7 +205,7 @@ class Mh3Chunk04AdaptTest {
     // CR 607.2a (cards exiled with this), 122.6 (finality), 603.7 (delayed sacrifice), 611.2a
     @Test
     fun emperorOfBones() = card(
-        name = "Emperor of Bones",
+        name = "Sovereign of Ossuaries",
         cost = "{1}{B}",
         type = "Creature — Skeleton Noble",
         pt = "2/2",

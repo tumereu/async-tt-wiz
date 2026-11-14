@@ -37,7 +37,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
     @Test
     fun covetousCastaway() = cardFaces(Layout.Transform,
         card(
-            name = "Covetous Castaway",
+            name = "Grasping Outcast",
             cost = "{1}{U}",
             type = "Creature — Human",
             pt = "1/3",
@@ -50,7 +50,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
             Keyword.Disturb(manaCost("{3}{U}{U}")),
         ),
         card(
-            name = "Ghostly Castigator",
+            name = "Spectral Chastiser",
             cost = null,
             type = "Creature — Spirit",
             pt = "3/4",
@@ -58,7 +58,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
             text = """
                 Flying
                 When this creature enters, you may shuffle up to three target cards from your graveyard into your library.
-                If Ghostly Castigator would be put into a graveyard from anywhere, exile it instead.
+                If Spectral Chastiser would be put into a graveyard from anywhere, exile it instead.
             """,
         ) to abilities(
             Keyword.Flying,
@@ -77,7 +77,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
     @Test
     fun lanternBearer() = cardFaces(Layout.Transform,
         card(
-            name = "Lantern Bearer",
+            name = "Lamp Carrier",
             cost = "{U}",
             type = "Creature — Spirit",
             pt = "1/1",
@@ -87,14 +87,14 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
             """,
         ) to abilities(Keyword.Flying, Keyword.Disturb(manaCost("{2}{U}"))),
         card(
-            name = "Lanterns' Lift",
+            name = "Lamplighters' Rise",
             cost = null,
             type = "Enchantment — Aura",
             colorIndicator = "U",
             text = """
                 Enchant creature
                 Enchanted creature gets +1/+1 and has flying.
-                If Lanterns' Lift would be put into a graveyard from anywhere, exile it instead.
+                If Lamplighters' Rise would be put into a graveyard from anywhere, exile it instead.
             """,
         ) to abilities(
             Keyword.Enchant(TargetKind.Objects(creature)),
@@ -107,7 +107,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
     @Test
     fun lunarchVeteran() = cardFaces(Layout.Transform,
         card(
-            name = "Lunarch Veteran",
+            name = "Moonward Veteran",
             cost = "{W}",
             type = "Creature — Human Cleric",
             pt = "1/1",
@@ -120,7 +120,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
             Keyword.Disturb(manaCost("{1}{W}")),
         ),
         card(
-            name = "Luminous Phantom",
+            name = "Gleaming Apparition",
             cost = null,
             type = "Creature — Spirit Cleric",
             pt = "1/1",
@@ -128,7 +128,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
             text = """
                 Flying
                 Whenever another creature you control leaves the battlefield, you gain 1 life.
-                If Luminous Phantom would be put into a graveyard from anywhere, exile it instead.
+                If Gleaming Apparition would be put into a graveyard from anywhere, exile it instead.
             """,
         ) to abilities(
             Keyword.Flying,
@@ -141,7 +141,7 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
     @Test
     fun twinbladeGeist() = cardFaces(Layout.Transform,
         card(
-            name = "Twinblade Geist",
+            name = "Pairblade Shade",
             cost = "{1}{W}",
             type = "Creature — Spirit Warrior",
             pt = "1/1",
@@ -151,14 +151,14 @@ class InrChunk12DisturbInvestigateMiracleMorbidTrainingTest {
             """,
         ) to abilities(Keyword.DoubleStrike, Keyword.Disturb(manaCost("{2}{W}"))),
         card(
-            name = "Twinblade Invocation",
+            name = "Pairblade Calling",
             cost = null,
             type = "Enchantment — Aura",
             colorIndicator = "W",
             text = """
                 Enchant creature
                 Enchanted creature has double strike.
-                If Twinblade Invocation would be put into a graveyard from anywhere, exile it instead.
+                If Pairblade Calling would be put into a graveyard from anywhere, exile it instead.
             """,
         ) to abilities(
             Keyword.Enchant(TargetKind.Objects(creature)),

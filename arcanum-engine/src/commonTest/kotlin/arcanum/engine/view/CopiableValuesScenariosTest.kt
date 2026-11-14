@@ -167,7 +167,7 @@ class CopiableValuesScenariosTest {
     // CR 709.5f, g: effects that unlock and lock doors work on a copy of a Room, and choose among its copied halves
     @Test
     fun effectsLockAndUnlockTheDoorsOfACopyOfARoom() = scenario {
-        val key = Cards.invent("Skeleton Key", "{0}", "Artifact", "{0}: Lock or unlock a door of target Room you control.")
+        val key = Cards.invent("Bonecraft Key", "{0}", "Artifact", "{0}: Lock or unlock a door of target Room you control.")
         alice.battlefield(room, blank, key)
         effect(alice, copyMechanic, on = listOf(blank), names = mapOf("original" to room))
         val copy = card(blank)

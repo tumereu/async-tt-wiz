@@ -345,14 +345,14 @@ class Chunk08BurnAndRemovalScenariosTest {
         }
     }
 
-    /** Bone Splinters: sacrifice a creature as it's cast; destroy target creature. */
+    /** Ossein Shards: sacrifice a creature as it's cast; destroy target creature. */
     @Test
     fun boneSplinters() = scenario {
         alice.battlefield("Swamp", "Elvish Seer")
-        alice.hand("Bone Splinters")
+        alice.hand("Ossein Shards")
         bob.battlefield("Elvish Hierophant")
 
-        alice.casts("Bone Splinters", target = "Elvish Hierophant", option = "Sacrifice", choosing = listOf("Elvish Seer"))
+        alice.casts("Ossein Shards", target = "Elvish Hierophant", option = "Sacrifice", choosing = listOf("Elvish Seer"))
         allPass()
 
         expect {
@@ -532,15 +532,15 @@ class Chunk08BurnAndRemovalScenariosTest {
         }
     }
 
-    /** Rescind: return target nonland permanent with mana value X; draw a card. */
+    /** Revoke Writ: return target nonland permanent with mana value X; draw a card. */
     @Test
     fun rescind() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island")
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         alice.library("Forest")
         bob.battlefield("Elvish Hierophant", "Wall of Portents")
 
-        alice.casts("Rescind", x = 3, target = "Elvish Hierophant")
+        alice.casts("Revoke Writ", x = 3, target = "Elvish Hierophant")
         allPass()
 
         expect {
@@ -553,10 +553,10 @@ class Chunk08BurnAndRemovalScenariosTest {
     @Test
     fun rescindNeedsTheRightManaValue() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island")
-        alice.hand("Rescind")
+        alice.hand("Revoke Writ")
         bob.battlefield("Wall of Portents")
 
-        kotlin.test.assertFailsWith<IllegalArgumentException> { alice.casts("Rescind", x = 3, target = "Wall of Portents") }
+        kotlin.test.assertFailsWith<IllegalArgumentException> { alice.casts("Revoke Writ", x = 3, target = "Wall of Portents") }
     }
 
     /** Click Back: return target creature to its owner's hand; untap up to two lands. */

@@ -264,11 +264,11 @@ class Review1ZonesTest {
         alice.battlefield("Plains", "Thicketwood Elves")
         alice.hand("Rapid Retrofit")
         bob.battlefield("Island", "Island")
-        bob.hand("Rescind")
+        bob.hand("Revoke Writ")
         alice.casts("Rapid Retrofit", target = "Thicketwood Elves")
         resolveAll()
         alice.passes()
-        bob.casts("Rescind", target = "Thicketwood Elves", x = 1)
+        bob.casts("Revoke Writ", target = "Thicketwood Elves", x = 1)
         resolveAll()
         expect {
             alice.graveyard has "Rapid Retrofit"

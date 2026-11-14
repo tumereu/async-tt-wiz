@@ -590,7 +590,7 @@ internal object CubeCardTexts {
         ),
         CubeCardText(
             "Normal",
-            face("Bone Splinters", "{B}", "Sorcery", "As an additional cost to cast this spell, sacrifice a creature or discard a card.\nDestroy target creature or planeswalker.", null, null, null),
+            face("Ossein Shards", "{B}", "Sorcery", "As an additional cost to cast this spell, sacrifice a creature or discard a card.\nDestroy target creature or planeswalker.", null, null, null),
         ),
         CubeCardText(
             "Normal",
@@ -618,7 +618,7 @@ internal object CubeCardTexts {
         ),
         CubeCardText(
             "Normal",
-            face("Rescind", "{X}{U}", "Instant", "Return target nonland permanent with mana value X to its owner's hand.\nDraw a card.", null, null, null),
+            face("Revoke Writ", "{X}{U}", "Instant", "Return target nonland permanent with mana value X to its owner's hand.\nDraw a card.", null, null, null),
         ),
         CubeCardText(
             "Normal",

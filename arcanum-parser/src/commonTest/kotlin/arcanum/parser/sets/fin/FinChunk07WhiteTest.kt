@@ -114,7 +114,7 @@ class FinChunk07WhiteTest {
         Keyword.Flying,
         triggered(entersSelf,
             doing(Effect.Search(Players.You, and(artifact, manaValue(arcanum.api.Comparison.AtMost, 2)), max = n(1), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard),
-                bind = "found", searcher = Players.You)),
+                bind = "found", searcher = Players.You, zonesChosen = true)),
             move(Objects.Bound("found"), Zone.Hand),
             ifThen(Condition.Searched("found", Zone.Library), shuffle)),
     )

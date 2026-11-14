@@ -14,6 +14,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -27,8 +31,21 @@ import org.asyncttwiz.protocol.*
 fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, targets: List<String>? = null,
     pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap()) {
     val order = CombatStackRules.stack(state.board).cards
-    val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
+    InlinePopupPanel(dismiss, title = "Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
+        StackEntries(state, viewer, Modifier.fillMaxWidth().heightIn(max = 440.dp), targets, pick, names)
+    }
+}
+
+/** The Stack's entries, top first, as the Stack list (STK-018) shows them: in its sheet ([ManageStackDialog]) and in the
+ * desktop table's dock (WEB-017). Holding an entry inspects it; [targets] and [pick] as in [ManageStackDialog]. */
+@Composable
+fun StackEntries(state: TableBoard, viewer: String, modifier: Modifier, targets: List<String>? = null,
+    pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap(),
+    /** WEB-017: a card without its picture yet names itself small inside its frame (the desktop dock's list). */
+    nameInCard: Boolean = false) {
+    val order = CombatStackRules.stack(state.board).cards
+    val size = rememberCardAppearance().size(CardArea.STACK)
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
     fun place(index: Int) = if (index == 0) "Top" else "${index + 1}"
     // STK-018 (owner playtest 2026-11-07): what was chosen for each entry, and which entries target which
@@ -43,8 +60,8 @@ fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, ta
             ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
-    InlinePopupPanel(dismiss, title = "Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Box(modifier) {
+        LazyColumn(Modifier.fillMaxWidth().ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
                 val card = CombatStackRules.inspection(state.board, id)
@@ -62,7 +79,9 @@ fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, ta
                         else if (targeter != null) Modifier.background(targeter.copy(alpha = .08f), shape)
                             .border(1.5.dp, targeter.copy(alpha = .7f), shape).padding(4.dp) else Modifier)
                         .contentsCardGestures(id, PlayZone.STACK, actions = { if (legal) pick(id) }, double = null,
-                        peek = { held -> if (held) inspect(id) else inspection = null }),
+                        peek = { held -> if (held) inspect(id) else inspection = null })
+                        // WEB-024: on the desktop table the finger key over an entry inspects it (the table's Inspect)
+                        .fingerTarget(id),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val definition = state.definitions.find { it.digest == card?.definition }?.definition
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
@@ -75,7 +94,12 @@ fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, ta
                             Modifier.size(32.dp * size, 44.dp * size).then(described))
                         else Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
                             .then(described), contentAlignment = Alignment.Center) {
-                            if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())
+                            val small: (@Composable () -> Unit)? = if (!nameInCard) null else { {
+                                Text(entry.name, Modifier.padding(2.dp), fontSize = 9.sp, lineHeight = 10.sp, maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                            } }
+                            if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize().then(if (nameInCard) Modifier.clip(RoundedCornerShape(4.dp)) else Modifier),
+                                placeholder = small)
                             else MenuIcon("Inspect")
                         }
                         Column(Modifier.weight(1f)) {

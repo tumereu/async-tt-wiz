@@ -95,7 +95,8 @@ class TmtChunk13MulticoloredTest {
             mode(Step.If(Condition.ObjectMatches(target("card"), and(artifact, creature)),
                     then = listOf(move(target("card"), Zone.Battlefield)),
                     otherwise = listOf(doing(Effect.Move(target("card"), Destination(Zone.Battlefield, entersAs = listOf(
-                        Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Robot")))),
+                        Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Robot"))),
+                            replaceSubtypes = true), // CR 205.1b: a "[creature type] artifact creature" replaces creature types
                         Mechanic.SetPowerToughness(n(3), n(3)), Mechanic.GainAbilities(listOf(Keyword.Flying)))))))),
                 targets = listOf(slot("card", inYourGraveyard(artifact)))),
             min = 1, max = 2))),

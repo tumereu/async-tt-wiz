@@ -63,7 +63,8 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
     // WEB-004: in the browser Esc leaves the draft as Back does, once nothing is open over it
     LeaveScreenBackHandler(pickTab) { controller.back() }
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
+        // WEB-038: on the desktop layout the pods list keeps a readable width
+        Column((if (state.selected == null && state.creating == null) Modifier.desktopReadable() else Modifier).fillMaxSize()) {
             if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
                 if (state.selected == null && state.creating == null) {
                     ScreenCreateAction("New pod", "add", { controller.newPod() }, Modifier.testTag("new-pod"))
@@ -407,6 +408,20 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val buildSideBySide = rememberPodBuildSideBySide()
     val historyColumns = rememberPodHistoryColumns(podHistoryPackSize(detail))
     val waiting = podWaitingText(detail, accountId)
+    // WEB-031 (decision 29): Tab / Shift+Tab move between the pod's tabs on the desktop layout
+    val bindings = currentKeyBindings()
+    DesktopKeyboard.Listen(LocalAppLayout.current == AppLayout.Desktop) { key ->
+        val step = when (hotkeyOf(key, bindings)) {
+            HotkeyAction.NextTab -> 1
+            HotkeyAction.PreviousTab -> -1
+            else -> return@Listen false
+        }
+        if (key.repeat) return@Listen true
+        val next = tabs[(tabs.indexOf(selected) + step).mod(tabs.size)]
+        AppLog.info("keys", "Hotkey ${key.key}${if (key.shift) " with Shift" else ""}: pod tab ${selected.name.lowercase()} -> ${next.name.lowercase()}")
+        controller.tab(next)
+        true
+    }
     Column(Modifier.fillMaxSize()) {
         PodPlayHeader(detail, navigation) {
             // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included.

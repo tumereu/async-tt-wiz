@@ -1,5 +1,6 @@
 package arcanum.parser.sets.fin
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.Choice
@@ -221,7 +222,7 @@ class FinChunk05SidequestsAndTransformsTest {
             """,
         ) to abilities(
             Keyword.Deathtouch,
-            triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter())),
+            triggered(on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), per = DamageOccurrence.Source)),
                 doing(Effect.LoseLife(Players.You, Value.EventAmount)),
                 ifThen(Condition.Compare(Value.LifeOf(Players.You), Comparison.AtMost, Value.Half(Value.StartingLife(Players.You), roundUp = false)),
                     untapIt(Objects.Self), transformSelf),

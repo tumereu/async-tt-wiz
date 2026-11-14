@@ -284,7 +284,7 @@ class InrConditionsCopiesCountersScenariosTest {
         }
     }
 
-    // CR 614.1c, 707.9b: it enters as a copy with X +1/+1 counters; without a copy it is a 0/0 with them (CR 107.3m)
+    // CR 614.1c, 707.9b: it enters as a copy with X +1/+1 counters (CR 107.3m)
     @Test
     fun mirroredSelfCopiesWithXCounters() = scenario {
         alice.battlefield(grunt, "Forest", "Forest", "Island", "Island", "Island", "Island")
@@ -297,18 +297,16 @@ class InrConditionsCopiesCountersScenariosTest {
         assertEquals(listOf(4, 6), powersOf("Mossback Grunt"))
     }
 
+    // CR 707.9e, 614.1c: the X counters are an exception of the copy effect; entering as itself it is a 0/0 without them and dies (CR 704.5f)
     @Test
-    fun mirroredSelfWithoutACopyIsAZeroZeroWithXCounters() = scenario {
+    fun mirroredSelfWithoutACopyIsAZeroZeroAndDies() = scenario {
         alice.battlefield(grunt, "Forest", "Forest", "Island", "Island", "Island", "Island")
         alice.hand(mirrored)
         alice.casts(mirrored, x = 2)
         resolveAll()
         alice.chooses()
         resolveAll()
-        expect {
-            mirrored.power shouldBe 2
-            mirrored.toughness shouldBe 2
-        }
+        expect { alice.graveyard has mirrored }
     }
 
     private fun Scenario.powersOf(name: String) = state.battlefield.mapNotNull { id -> view()[id]?.characteristics?.takeIf { it.name == name }?.power }.sorted()

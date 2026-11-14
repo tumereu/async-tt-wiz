@@ -1,5 +1,6 @@
 package arcanum.parser.sets.gtc
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.ActivationRules
 import arcanum.api.Affected
@@ -198,7 +199,7 @@ class GtcChunk07BlueTest {
         text = "When this creature deals combat damage, return it to its owner's hand. (Return it only if it survived combat.)",
     ) parsesTo abilities(
         Ability.Triggered(
-            Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), combat = true)),
+            Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(), combat = true, per = DamageOccurrence.Source)),
             steps(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand)))),
         ),
     )

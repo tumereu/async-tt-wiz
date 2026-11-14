@@ -515,6 +515,7 @@ fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
         gestureKey = action.label to action.refusal, tooltip = action.refusal ?: action.tooltip,
         // TRN-017: a greyed one only says why
         holdName = action.holdName.takeIf { !refused && action.hold != null }, onHold = action.hold.takeIf { !refused },
+        keys = LocalTableHotkeys.current?.main,
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
             label = action.label) }, onClick = { if (refused) shakes++ else action.run() })
 }
@@ -733,6 +734,17 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
     }
 }
 
+/** WEB-031 (M): the next response mode (Control, Normal, Quick), as a tap on the quick actions' mode cell does; false without
+ * a game shown. */
+fun EngineTableRoutes.nextResponseMode(): Boolean {
+    val game = engine ?: return false
+    val settings = game.shown?.settings ?: return false
+    val next = MODES[(MODES.indexOf(settings.mode) + 1) % MODES.size]
+    AppLog.info("game", "Response mode by its hotkey: ${settings.mode.label()} -> ${next.label()}")
+    game.settings(settings.copy(mode = next)); pump()
+    return true
+}
+
 /** TRN-059: what holding the greyed Assume resolves cell says in catch-up playback, where the device assumes nothing. */
 fun assumeIdleReason(assume: AssumeResolves): String = "Assume resolves: ${assume.label()}. Not used while you catch up on " +
     "moves already made; it works again once you're caught up."
@@ -760,7 +772,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     // HIS-110: a reveal, the other player's or your own, stops the view until dismissed, before anything else docked above the hand
     // (owner, 2026-11-12) OK closes it at once on this phone, before the engine thread has published the dismissal
     val reveal = routes.openReveal().takeIf { !reviewing }
-    if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
+    if (reveal != null) AboveHand(handRow(scene, routes.viewer), PromptPlace.Choice) {
         // HIS-110: named by who revealed (Bob, when Alice's spell makes him reveal his hand), as the card's text has it
         RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent,
             reveal.left?.owner?.let { names[it.value] } ?: opponent) {

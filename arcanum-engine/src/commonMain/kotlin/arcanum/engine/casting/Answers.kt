@@ -57,37 +57,8 @@ internal object Answers {
                 if (chosen.size < q.min || (q.max != null && chosen.size > q.max)) refuse("Choose ${q.min} to ${q.max ?: "any number of"} targets")
                 if (chosen.distinct().size != chosen.size) refuse("The same target twice in one slot")
                 if (chosen.any { it !in q.options }) refuse("Not a legal target: ${chosen.filter { it !in q.options }}")
-                // "target creatures controlled by the same opponent" (CR 601.2c)
-                if (q.slot.slot.sameController &&
-                    chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.board.controller(id) } }.distinct().size > 1)
-                    refuse("The targets must have the same controller")
-                // ecl: "two target creature cards that share a creature type" (CR 601.2c)
-                q.slot.slot.sharing?.let { quality ->
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    val e = plan.snap.evaluator(plan.player)
-                    if (ids.any { a -> ids.any { b -> a != b && !e.shares(quality, a, b) } }) refuse("The targets must share $quality")
-                }
-                // spm: "up to six target creature cards with different names" (CR 601.2c)
-                q.slot.slot.distinct?.let { quality ->
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    val e = plan.snap.evaluator(plan.player)
-                    if (ids.any { a -> ids.any { b -> a != b && e.shares(quality, a, b) } }) refuse("The targets must differ in $quality")
-                }
-                // gtc chunk 10: "from a single graveyard": one owner (CR 601.2c)
-                if (q.slot.slot.sameOwner &&
-                    chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.state.obj(id)?.owner } }.distinct().size > 1)
-                    refuse("The targets must have the same owner")
-                // fra: "up to one target … of each card type": each target stands for a value of its own
-                q.slot.slot.onePer?.let { quality ->
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    if (!plan.snap.evaluator(plan.player).eachStandsForOne(quality, ids)) refuse("Each target must stand for a different $quality")
-                }
-                // msh: "with total mana value 6 or less" (CR 601.2c)
-                q.slot.slot.totalAtMost?.let { limit ->
-                    val e = plan.snap.evaluator(plan.player)
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    if (ids.sumOf { e.property(limit.property, it) } > e.value(limit.atMost)) refuse("The targets' total is more than allowed")
-                }
+                // One controller or owner, shared or different qualities, one for each value, a total (CR 601.2c)
+                arcanum.engine.action.Targeting.groupRefusal(q.slot.slot, chosen, plan.snap.evaluator(plan.player))?.let(::refuse)
                 val key = q.slot.key
                 if (q.forPlayer == null) c.copy(targets = c.targets + (key to chosen))
                 else c.copy(
@@ -103,6 +74,12 @@ internal object Answers {
                 if (shares.sumOf { it.amount } != q.amount) refuse("Divide exactly ${q.amount}")
                 c.copy(divided = c.divided + shares.map { DividedShare(q.key, it.target, it.amount) })
             }
+            is Question.CounterPick -> {
+                val chosen = (answer as? Answer.Option)?.chosen ?: refuse("Expected an option")
+                if (chosen !in q.labels) refuse("Not an option: $chosen")
+                val before = (c.names[Plan.COUNTERS + q.key] as? NamedValue.Names)?.names.orEmpty()
+                c.copy(names = c.names.with(Plan.COUNTERS + q.key, NamedValue.Names(before + chosen)))
+            }
             is Question.OneOf -> {
                 val chosen = (answer as? Answer.Option)?.chosen ?: refuse("Expected an option")
                 val index = q.labels.indexOf(chosen).takeIf { it >= 0 } ?: refuse("Not an option: $chosen")
@@ -117,9 +94,14 @@ internal object Answers {
                 ch.shared?.let { quality ->
                     if (chosen.any { a -> chosen.any { b -> a != b && !plan.eval.shares(quality, a, b) } }) refuse("The chosen objects must share $quality")
                 }
+                // mh3 fixes: "with four or more card types among them" (CR 205.2a)
+                ch.distinct?.let { d ->
+                    if (plan.eval.distinct(d.quality, chosen) < d.atLeast) refuse("They must have ${d.atLeast} or more different ${d.quality} among them")
+                }
                 ch.total?.let { total ->
                     val sum = chosen.sumOf { plan.eval.property(total.property, it) }
                     if (sum < plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be at least ${plan.eval.value(total.atLeast)}")
+                    if (total.exactly && sum != plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be exactly ${plan.eval.value(total.atLeast)}")
                 }
                 c.copy(names = c.names.with(Plan.OBJECTS + q.key, NamedValue.Objects(chosen)))
             }
@@ -177,7 +159,7 @@ internal object Answers {
         }
         is Question.Objects -> {
             val ch = q.choice
-            if (ch.total == null && ch.shared == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
+            if (ch.total == null && ch.shared == null && ch.distinct == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
         }
         is Question.Target -> if (q.options.isEmpty() && q.min == 0) Answer.Targets(emptyList()) else null
         // blb: the only opponent there is (CR 702.174a, two players)
@@ -192,9 +174,12 @@ internal object Answers {
     fun payable(plan: Plan, parts: List<CostPart>): Boolean = parts.all { part ->
         val you = plan.snap.state.player(plan.player)
         when (part) {
-            is CostPart.PayLife -> you.life >= plan.eval.value(part.amount)
+            is CostPart.PayLife -> plan.eval.value(part.amount).let { n -> you.life >= n && (n == 0 ||
+                plan.snap.view.players[plan.player]?.mechanics.orEmpty().none { it.mechanic == arcanum.api.Mechanic.CantLoseLife }) } // mh3: CR 119.8
             is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
             is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
+            // mkm fix: "Reveal the creature type you chose": only a choice the source keeps (CR 118.3)
+            is CostPart.RevealChoice -> plan.snap.state.obj(plan.sourceId)?.linked?.get(part.key) != null
             is CostPart.RemoveCounters -> when (val from = part.from) {
                 is arcanum.api.CostObjects.Choose -> Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
                     .let { choice -> choice == null || choice.options.size >= choice.min }
@@ -208,13 +193,13 @@ internal object Answers {
         }
     }
 
-    /** Whether each of [ids] has the counters [part] removes (of its kind, else of the kind it has first, as paid). */
+    /** Whether each of [ids] has the counters [part] removes (of its kind; mh3 sweep: else of any kinds, CR 118.3). */
     private fun enoughCounters(plan: Plan, part: CostPart.RemoveCounters, ids: List<arcanum.engine.state.ObjectId>): Boolean {
         val n = plan.eval.value(part.amount)
+        if (part.kind == null) return CounterCosts.progress(plan.snap.state, ids, n, part.distributed, emptyList()) { it.toString() } != CounterCosts.Progress.Unpayable
         return ids.all { id ->
             val o = plan.snap.state.obj(id) ?: return@all false
-            val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@all n <= 0
-            o.counters(kind) >= n
+            o.counters(part.kind!!) >= n
         }
     }
 }

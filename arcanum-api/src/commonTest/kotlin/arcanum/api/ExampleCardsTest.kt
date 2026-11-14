@@ -299,11 +299,34 @@ class ExampleCardsTest {
         assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.Tap(Objects.Bound("nowhere"))))).size)
         assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.Tap(Objects.Target("t"))))).size)
         assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.GainLife(Players.You, Value.Announced(name = "X"))))).size)
+        // CR 107.3f, 118.12: "you may pay {X}. If you do, you gain X life": the X nothing defines is chosen as it is paid, and read after
+        val payX = Step.Pay(Cost(listOf(CostPart.Mana(ManaCost.parse("{X}")!!))), payer = Players.You, bind = "paid")
+        val gainX = Step.If(Condition.Did("paid"), listOf(Step.Do(Effect.GainLife(Players.You, Value.Announced(name = "X")))))
+        assertEquals(emptyList(), DefinitionChecks.problems(spell(payX, gainX)))
         val dies = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard))
         fun onDeath(role: EventRole) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Last Rites", abilities = listOf(
             Ability.Triggered(dies, Instructions(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(role), Destination(Zone.Hand))))))))))
         assertEquals(emptyList(), DefinitionChecks.problems(onDeath(EventRole.After)))
         assertEquals(1, DefinitionChecks.problems(onDeath(EventRole.OtherCombatant)).size)
+    }
+
+    // CR 115.1a, c, d: a target identifies something the spell or ability affects: a declared slot nothing reads is reported
+    @Test
+    fun targetSlotsNothingReadsAreReported() {
+        fun slot(name: String) = TargetSlot(name, TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))
+        val tapsIt = Step.Do(Effect.Tap(Objects.Target("creature")))
+        val used = Instructions(targets = listOf(slot("creature")), steps = listOf(tapsIt))
+        val stray = Instructions(targets = listOf(slot("creature"), slot("second creature")), steps = listOf(tapsIt))
+        assertEquals(emptyList(), DefinitionChecks.unusedTargetSlots(Ability.Spell(used)))
+        assertEquals(listOf("second creature"), DefinitionChecks.unusedTargetSlots(Ability.Spell(stray)))
+        fun spell(instructions: Instructions) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Idle Aim", abilities = listOf(Ability.Spell(instructions)))))
+        assertEquals(emptyList(), DefinitionChecks.problems(spell(used)))
+        assertEquals(1, DefinitionChecks.problems(spell(stray)).size)
+        // a player slot read through Recipients, and a delayed trigger's own slot read inside it, are reads
+        val player = TargetSlot("player", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
+        val reflexive = Instructions(targets = listOf(player), steps = listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Target("player")), n(2), Objects.Self)),
+            Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.Draw(PlayerFilter.You)), Instructions(targets = listOf(slot("creature")), steps = listOf(tapsIt))))))
+        assertEquals(emptyList(), DefinitionChecks.unusedTargetSlots(Ability.Spell(reflexive)))
     }
 
     // CR 614.12, 110.5b: "as enters" steps only pay, choose, check or modify how it enters; CR 714: chapters are Sagas'.

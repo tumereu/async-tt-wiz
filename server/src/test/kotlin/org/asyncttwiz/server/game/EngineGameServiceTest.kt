@@ -137,7 +137,7 @@ class EngineGameServiceTest {
         assertTrue(f.games.executeOne()); assertTrue(f.games.executeOne())
         assertEquals("accepted", f.recipient.result(bobs).outcome)
         val refused = f.owner.result(alices)
-        assertEquals("rejected", refused.outcome); assertEquals("stale", refused.reason)
+        assertEquals("rejected", refused.outcome); assertEquals("stale", refused.reason); assertNull(refused.detail)
         // The broadcast event is Bob's own; Alice's device drops hers and updates
         val broadcast = f.revisions(f.a, revision).mapNotNull { it.engineEvent }.map(codec::decodeEvent)
         assertEquals(1, broadcast.size)
@@ -157,7 +157,10 @@ class EngineGameServiceTest {
         assertEquals(warm, GameService(runtime).head(f.a, f.game.id).engine!!)
         // Conceding is an engine input: only for oneself; it ends the play at once (I-D56 §11)
         val concede = { by: PlayerId -> Submission(id(), warm.headId, listOf(Act.Perform(Input.Concede(by)))) }
-        assertEquals("refusedByEngine", f.owner.execute(GameAction.Submit(concede(bob.me))).reason)
+        // Problem report JVPJ8Y: a plain "refusedByEngine" carries what the engine said, for the sender's log
+        val notHers = f.owner.execute(GameAction.Submit(concede(bob.me)))
+        assertEquals("refusedByEngine", notHers.reason)
+        assertTrue(notHers.detail.orEmpty().contains("CR 104.3a"), "${notHers.detail}")
         val start = f.games.head(f.a, f.game.id).summary.revision
         assertEquals("accepted", f.recipient.execute(GameAction.Submit(concede(bob.me))).outcome)
         val ended = f.games.head(f.a, f.game.id).summary

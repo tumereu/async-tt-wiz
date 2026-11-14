@@ -90,7 +90,7 @@ class LtrChunk12MulticoloredTest {
         pt = "3/2",
     ) parsesTo abilities(
         static(has(Keyword.Indestructible), condition = Condition.HappenedThisTurn(EventPattern.ZoneChange(creatureYouControl, from = Zone.Battlefield, to = Zone.Graveyard),
-            atLeast = 2, measure = arcanum.api.Measure.Events)),
+            atLeast = 2, measure = arcanum.api.Measure.Objects)),
         triggered(on(EventPattern.ZoneChange(and(another, creature, you), from = Zone.Battlefield, to = Zone.Graveyard)), counters(Objects.Self),
             Step.If(Condition.Compare(Value.AbilityUsesThisTurn(resolved = true), Comparison.Equal, n(3)), then = listOf(doing(Effect.ReflexiveTrigger(Instructions(
                 targets = listOf(slot("creature", and(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You))), min = 0)),

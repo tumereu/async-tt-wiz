@@ -274,7 +274,7 @@ class Mh2Chunk07RedTest {
         triggered(entersSelf, damage(powerOf(Objects.Self), toObjects(target("creature"))), targets = listOf(slot("creature", creature))),
     )
 
-    // CR 601.2d: 4 damage divided, at least 1 to each target
+    // CR 601.2d: 4 damage divided, at least 1 to each chosen target; "any number" may be none
     @Test
     fun choler() = card(
         name = "Choler",
@@ -289,7 +289,7 @@ class Mh2Chunk07RedTest {
     ) parsesTo abilities(
         Keyword.DoubleStrike,
         triggered(entersSelf, damage(Value.DividedShare, toObjects(target("planeswalkers"))),
-            targets = listOf(TargetSlot("planeswalkers", TargetKind.Objects(or(creature, planeswalker)), min = n(1), max = null, divided = n(4)))),
+            targets = listOf(TargetSlot("planeswalkers", TargetKind.Objects(or(creature, planeswalker)), min = n(0), max = null, divided = n(4)))),
         Keyword.Evoke(Cost(listOf(CostPart.Exile(CostObjects.Choose(ObjectFilter.OfColor(arcanum.api.Color.Red), count = n(1)), from = Zone.Hand)))),
     )
 

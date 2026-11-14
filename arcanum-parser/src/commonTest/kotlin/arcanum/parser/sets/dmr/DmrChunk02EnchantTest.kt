@@ -1,5 +1,6 @@
 package arcanum.parser.sets.dmr
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.CardType
 import arcanum.api.Color
 import arcanum.api.Condition
@@ -87,7 +88,7 @@ class DmrChunk02EnchantTest {
         static(Mechanic.MustBlock(ObjectFilter.Is(enchanted)), affects = Objects.Each(creature), condition = threshold).copy(abilityWord = "Threshold"),
     )
 
-    // CR 120.1, 603.2: any damage it deals, combat or not; "that much" is the damage dealt
+    // CR 120.1, 603.2: any damage it deals, combat or not; "that much" is the damage dealt; CR 603.2c: once for all it deals at once
     @Test
     fun kindredLifebond() = card(
         name = "Kindred Lifebond",
@@ -99,7 +100,7 @@ class DmrChunk02EnchantTest {
         """,
     ) parsesTo abilities(
         enchant(creature),
-        triggered(on(EventPattern.Damage(ObjectFilter.Is(enchanted), RecipientFilter())), doing(Effect.GainLife(Players.You, Value.EventAmount))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Is(enchanted), RecipientFilter(), per = DamageOccurrence.Source)), doing(Effect.GainLife(Players.You, Value.EventAmount))),
     )
 
     // CR 602.1: an Aura's activated ability returns the creature it enchants

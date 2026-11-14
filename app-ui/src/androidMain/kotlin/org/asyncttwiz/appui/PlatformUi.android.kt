@@ -32,6 +32,10 @@ import androidx.compose.ui.window.PopupProperties
 
 actual val secondBackLeavesTable: Boolean = true
 
+actual val desktopLayoutOffered: Boolean = false
+
+@Composable actual fun pointerHovers(): Boolean = false
+
 @Composable actual fun screenWidthDp(): Int = LocalConfiguration.current.screenWidthDp
 
 @Composable actual fun screenHeightDp(): Int = LocalConfiguration.current.screenHeightDp

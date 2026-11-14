@@ -191,7 +191,8 @@ internal object Resolution {
             anyTargets = true
             // Repeated modes keep their slots as "name@position" (casting's targetKey): bound under the name too
             val baseName = slotName.substringBefore('@')
-            val slot = keyed[slotName] ?: slots.firstOrNull { it.name == baseName }
+            // mh3 fixes: an Aura spell's enchant target is checked for legality too, not only that it still exists (CR 608.3b, 303.4a)
+            val slot = keyed[slotName] ?: slots.firstOrNull { it.name == baseName } ?: Effects.enchantSlotOf(act, item.id, baseName)
             val legal = chosen.filter { ref ->
                 if (slot == null) when (ref) {
                     is TargetRef.Object -> act.state.obj(ref.id) != null || ref.id in act.state.stackItems

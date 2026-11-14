@@ -199,7 +199,7 @@ fun AutomatumStepFace(step: AutomatumStep, words: String, enabled: Boolean, modi
         fill = Color.White, ink = ink, compactContent = true,
         holdName = if (endTurn) "End turn" else if (chain != null) RESOLVE_CHAIN else null,
         onHold = if (endTurn) onHold else chain, tooltip = blocked ?: resolveTip.takeIf { step == AutomatumStep.Resolve },
-        gestureKey = words to blocked,
+        gestureKey = words to blocked, keys = LocalTableHotkeys.current?.main,
         icon = { MainButtonContent(icon = {
             if (step.swords) Icon(AppPlatform.current.swordsOutlined(), null, Modifier.size(20.dp), tint = LocalContentColor.current)
             else Icon(step.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
@@ -255,7 +255,7 @@ fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier,
     ActionSquare(action.label, "", enabled, modifier.testTag("main-button").shaken(shakes).shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
         fill = Color.White, ink = ink, compactContent = true, tooltip = action.refusal ?: action.tooltip, refused = action.refusal != null,
-        gestureKey = action.label to action.refusal,
+        gestureKey = action.label to action.refusal, keys = LocalTableHotkeys.current?.main,
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
             label = action.label) }, onClick = { if (guard?.invoke(action.label) != false) { if (action.refusal != null) shakes++ else action.run() } })
 }

@@ -136,8 +136,9 @@ class FinChunk17MoreTest {
         triggered(landfall, Step.Pay(cost(CostPart.Discard(arcanum.api.CostObjects.Choose(cardFilter, n(1)))), payer = Players.You, bind = "paid"),
             ifThen(Condition.Did("paid"), draw(1)), abilityWord = "Landfall"),
         activated(cost(mana("{X}"), tap),
-            doing(Effect.Move(target("card"), Destination(Zone.Battlefield, counters = listOf(CountersToPut(finality, n(1)))))),
-            gains(target("card"), Keyword.Haste),
+            // woe sweep: "It" is the permanent the card became (CR 400.7)
+            doing(Effect.Move(target("card"), Destination(Zone.Battlefield, counters = listOf(CountersToPut(finality, n(1)))), postBind = "moved-card")),
+            gains(Objects.Bound("moved-card"), Keyword.Haste),
             targets = listOf(slot("card", inYourGraveyard(saga, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, x)))), rules = asSorcery)
             .let { it.copy(abilityWord = "Summon", instructions = it.instructions.copy(announced = listOf("X"))) },
     )

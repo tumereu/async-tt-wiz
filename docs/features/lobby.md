@@ -111,7 +111,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Game chat
 
-- **LOB-066** A chat button on the table's top bar opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145); a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r62)
+- **LOB-066** A chat button on the table's top bar (on the desktop table only while its dock is folded away; the chat is docked otherwise, WEB-017) opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145); a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r62)
 - **LOB-067** Messages show author and text, your own tinted; the newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r13)
 - **LOB-068** The keyboard's Send key sends like the Send button. A message being sent says "Checking delivery…", a failed one "Not delivered". (r24)
 - **LOB-069** Unread counts and what each player has read are kept on the server per player and game, so they match on every device: a bubble read on one of your devices is gone on the other. (r58)
@@ -155,6 +155,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-082** Timeline playback → History playback pause (default 1 s, 0.1–10 s), Rewind pause (default 0.1 s) and "Show plays and combat" (default 1.2 s, 0–3 s in 0.1 s steps, "<n> s each"; 0 reads "Off": no play shows and no combat holds, HIS-112, HIS-113). (r61)
 - **LOB-113** Automatum → "Response mode in new games" (Control, Normal or Quick, the default, each with what it means), "Assume resolves in new games" (Never, Normal, When they have no mana, the default for every account, or Always, each with what it means, HIS-096) and "Autotap mana sources" (on by default, STK-024): kept on the server for your account (every device shows the same) and given to each new game; each game's own are changed from its quick actions (TRN-059). (r60)
 - **LOB-146** Games → "Your move sound": Off, Plip (the default: on for every account), Drop, Chime or Tock, short soft sounds of the app's own, each row with a play button to listen to it; kept on the server for your account (every device plays the same). It is the sound of the Your move cue (TRN-075) while a game's table is open. (r64)
+- **LOB-147** In a browser, Settings has a Keyboard group after Table: "Keyboard shortcuts" (WEB-035), kept on the server for your account, so every browser you sign in to has the same keys; the Android app has no such group. (r73)
 - **LOB-083** About & account → What's new, Report a problem, Send error reports (LOB-104), the version line "Version <name> (<code>) <type> · commit <hash>" (selectable), and Log out. (r35)
 
 ### App updates

@@ -8,6 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
@@ -36,6 +39,8 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -50,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.BackHandler
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.asyncttwiz.appui.AppPlatform
@@ -85,6 +91,8 @@ fun PodPickView(
     val marks = ((if (onMarks != null) savedMarks else localMarks[pack]) ?: PodPickMarks()).forPack(pack)
     val setMarks: (PodPickMarks) -> Unit = { next -> if (onMarks != null) onMarks(next) else if (pack != null) localMarks[pack] = next }
     var inspected by remember(pack?.id) { mutableStateOf<DraftCopy?>(null) }
+    // WEB-024: the pack card under the mouse (desktop layout)
+    var hovered by remember(pack?.id) { mutableStateOf<String?>(null) }
     // One card menu for the whole screen: the latest tap wins over simultaneous ones.
     var menuFor by remember(pack?.id) { mutableStateOf<String?>(null) }
     var tileSize by remember { mutableStateOf(IntSize.Zero) }
@@ -115,6 +123,59 @@ fun PodPickView(
             inspected = copy
         } else if (inspected == copy) inspected = null
     }
+    // WEB-024, WEB-031 (desktop layout): the card under the pointer: holding Alt (Shift too) inspects it, a tap of Alt pins it
+    // (Alt again or Esc closes it); K / B / U keep, burn or unmark it
+    val desktop = LocalAppLayout.current == AppLayout.Desktop
+    val fingerKey = remember { DesktopFingerKey() }
+    var pinned by remember(pack.id) { mutableStateOf(false) }
+    if (inspected == null && pinned) pinned = false
+    BackHandler(enabled = desktop && pinned) { AppLog.info("pod", "Pinned Inspect closed by Esc"); inspected = null }
+    val bindings = currentKeyBindings()
+    val confirm: () -> Unit = {
+        if (rules.canConfirm(marks, busy)) {
+            if (onConfirmLibrarians != null) onConfirmLibrarians(marks.keeps.toList(), rules.burnIds(marks).toList(), marks.librarians.toList())
+            else onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
+        }
+    }
+    DesktopKeyboard.Listen(desktop) { key ->
+        // WEB-044 (D9): Enter is Confirm, when it can be pressed; not while a text field has the keyboard
+        if (key.key == "Enter") {
+            if (!key.down || key.textField) return@Listen false
+            if (!key.repeat) {
+                AppLog.info("pod", "Hotkey Enter on the pick: ${if (rules.canConfirm(marks, busy)) "Confirm (keeps ${marks.keeps}, burns ${rules.burnIds(marks)})" else "Confirm not ready"}")
+                confirm()
+            }
+            return@Listen true
+        }
+        fun apply(effects: List<DesktopFingerKey.Effect>) {
+            if (effects.isNotEmpty()) AppLog.info("pod", "Finger key ${key.key} ${if (key.down) "down" else "up"}${hovered?.let { " over $it" }.orEmpty()}: ${effects.joinToString()}")
+            for (effect in effects) when (effect) {
+                is DesktopFingerKey.Effect.Inspect -> copies[effect.cardId]?.let { inspect(it, true) }
+                DesktopFingerKey.Effect.Pin -> pinned = true
+                DesktopFingerKey.Effect.Close -> inspected = null
+                is DesktopFingerKey.Effect.Pause -> Unit
+            }
+        }
+        if (key.key == "Alt" || key.key == "Shift") {
+            if (key.repeat) return@Listen fingerKey.held
+            if (key.down && key.textField) return@Listen false
+            val effects = if (key.down) fingerKey.press(key.key, key.time, hovered, inspected != null) else fingerKey.release(key.key, key.time)
+            apply(effects)
+            return@Listen effects.isNotEmpty() || fingerKey.held
+        }
+        if (key.down && !key.repeat) apply(fingerKey.chord())
+        val action = hotkeyOf(key, bindings)
+        val id = hovered?.takeIf { it in copies }
+        if (action == null || id == null || key.repeat) return@Listen false
+        when (action) {
+            HotkeyAction.Keep -> mark(id, PodPickMark.KEEP)
+            HotkeyAction.Burn -> if (rules.manualBurns > 0) mark(id, PodPickMark.BURN)
+            HotkeyAction.Unmark -> unmark(id)
+            else -> return@Listen false
+        }
+        AppLog.info("pod", "Hotkey ${key.key} on $id: ${action.id}")
+        true
+    }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         key(pack.id) {
@@ -139,7 +200,9 @@ fun PodPickView(
                         },
                         // The first column's size is stable while scrolling; prefetch decodes at it.
                         onSize = { if (copy == shown.cards.first()) tileSize = it },
-                        onRefund = if (copy.id in marks.librarians) { { refund(copy.id) } } else null)
+                        onRefund = if (copy.id in marks.librarians) { { refund(copy.id) } } else null,
+                        onHover = { over -> if (over) hovered = copy.id else if (hovered == copy.id) hovered = null },
+                        desktop = desktop, hovered = desktop && hovered == copy.id)
                 }
             }
         }
@@ -148,11 +211,8 @@ fun PodPickView(
             librarianSlots = settings.librarians > 0,
             spent = marks.librarians, librarians = librarians,
             spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },
-            refund = refund)
-        Button(onClick = { if (rules.canConfirm(marks, busy)) {
-            if (onConfirmLibrarians != null) onConfirmLibrarians(marks.keeps.toList(), rules.burnIds(marks).toList(), marks.librarians.toList())
-            else onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
-        } }, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
+            refund = refund, desktop = desktop)
+        Button(onClick = confirm, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
             ButtonLabel("ready", if (marks.librarians.isEmpty()) "Confirm" else
                 "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
         }
@@ -178,8 +238,10 @@ class PodPickColumns constructor(private val preferences: Preferences, private v
 fun rememberPodPickColumns(): PodPickColumns {
     val landscape = screenOrientation() == ScreenOrientation.LANDSCAPE
     val preferences = rememberPodPickPreferences()
-    val key = if (landscape) "columns-landscape" else "columns-portrait"
-    return remember(preferences, key) { PodPickColumns(preferences, key, if (landscape) 5 else 3) }
+    // WEB-044 (§7.6): the desktop layout keeps its own choice, more cards per row by default (wireframe D9)
+    val desktop = desktopLayout()
+    val key = if (desktop) "columns-desktop" else if (landscape) "columns-landscape" else "columns-portrait"
+    return remember(preferences, key) { PodPickColumns(preferences, key, if (desktop) 8 else if (landscape) 5 else 3) }
 }
 
 const val PodHoldMillis = 150L
@@ -197,9 +259,36 @@ suspend fun PointerInputScope.podPickGestures(
     onDrag: ((Float) -> Unit)? = null,
     onDragEnd: (Float) -> Unit = {},
     onEnd: () -> Unit = {},
+    /** The desktop layout's mouse (§5): a left click does this, however long it is held, at its place on the card; the
+     * mouse never holds, swipes or inspects (Alt does, WEB-024). Null: the mouse works as a finger (the phone layout). */
+    mouseClick: ((Offset) -> Unit)? = null,
+    /** With [mouseClick]: a left-button drag past the slop drags the card ([MouseDrag]) instead of clicking. */
+    mouseDrag: MouseDrag? = null,
 ) = awaitEachGesture {
     val down = awaitFirstDown(requireUnconsumed = false)
     val slop = viewConfiguration.touchSlop
+    if (mouseClick != null && down.type == PointerType.Mouse) {
+        // Another button (the right one's burn, its own handler's), or a press something else took: nothing here
+        if (down.isConsumed || !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
+        down.consume()
+        var dragging = false
+        var ended = false
+        try {
+            while (true) {
+                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                change.consume()
+                if (!dragging && mouseDrag != null && (change.position - down.position).getDistance() > slop) dragging = true
+                if (dragging) mouseDrag?.move?.invoke(change.position)
+                if (!change.pressed) {
+                    if (dragging) { ended = true; mouseDrag?.end?.invoke(true) }
+                    else if ((change.position - down.position).getDistance() <= slop) mouseClick(change.position)
+                    return@awaitEachGesture
+                }
+            }
+        } finally {
+            if (dragging && !ended) mouseDrag?.end?.invoke(false)
+        }
+    }
     var dragging = false
     var held = false
     var settled = false
@@ -253,6 +342,10 @@ suspend fun PointerInputScope.podPickGestures(
     }
 }
 
+/** A card dragged with the mouse's left button (desktop layout): [move] with the pointer's place on the card as it goes,
+ * [end] when the button is released ([dropped]) or the drag is cancelled. */
+class MouseDrag(val move: (Offset) -> Unit, val end: (dropped: Boolean) -> Unit)
+
 @Composable
 fun PodPickWaiting(text: String = "Waiting for other players", onMainMenu: (() -> Unit)? = null) {
     Column(Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -268,7 +361,7 @@ private fun PodPickTrays(
     copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
     onUnmark: (String) -> Unit, onInspect: (DraftCopy, Boolean) -> Unit,
     onInspectScroll: (Float) -> Unit, librarianSlots: Boolean,
-    spent: List<String>, librarians: List<DraftCopy>, spend: () -> Unit, refund: (String) -> Unit,
+    spent: List<String>, librarians: List<DraftCopy>, spend: () -> Unit, refund: (String) -> Unit, desktop: Boolean = false,
 ) {
     // Freeze geometry for the pack. Extra slots and the chip pan within the original keep tray.
     val keepSlots = podPickKeepSlots(baseRules.requiredKeeps, librarianSlots)
@@ -276,11 +369,11 @@ private fun PodPickTrays(
         val layout = podPickTrayLayout(maxWidth, keepSlots, baseRules.requiredBurns)
         val keep: @Composable () -> Unit = {
             PodPickTray("Keep", keeps, rules.requiredKeeps, copies, definitions, PodPickGreen,
-                false, Modifier.width(layout.keepWidth), onUnmark, onInspect, onInspectScroll,
+                false, Modifier.width(layout.keepWidth), onUnmark, onInspect, onInspectScroll, desktop = desktop,
                 visibleIds = keeps.take(baseRules.requiredKeeps)) {
                 spent.forEachIndexed { index, id ->
                     val copy = keeps.getOrNull(baseRules.requiredKeeps + index)?.let(copies::get)
-                    PodLibrarianSlot(id, copy, copy?.let { definitions[it.definition] }, { refund(id) }, onInspect)
+                    PodLibrarianSlot(id, copy, copy?.let { definitions[it.definition] }, { refund(id) }, onInspect, desktop)
                 }
                 librarians.firstOrNull()?.let { librarian ->
                     val left = librarians.size - spent.size
@@ -293,8 +386,9 @@ private fun PodPickTrays(
                                 contentDescription = "Librarian, $left left"
                                 onClick { if (left > 0) currentSpend(); true }
                             }
-                            .pointerInput(left) { podPickGestures(onTap = { if (left > 0) currentSpend() },
-                                onInspect = { currentInspect(librarian, it) }, onInspectScroll = onInspectScroll) }) {
+                            .pointerInput(left, desktop) { podPickGestures(onTap = { if (left > 0) currentSpend() },
+                                onInspect = { currentInspect(librarian, it) }, onInspectScroll = onInspectScroll,
+                                mouseClick = if (desktop) ({ _ -> if (left > 0) currentSpend() }) else null) }) {
                         Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Icon(Icons.Default.MenuBook, null, Modifier.size(16.dp))
@@ -306,7 +400,7 @@ private fun PodPickTrays(
         }
         val burn: @Composable () -> Unit = {
             if (baseRules.requiredBurns > 0) PodPickTray("Burn", burns, rules.requiredBurns, copies, definitions, PodPickRed,
-                rules.automaticBurns, Modifier.width(layout.burnWidth), onUnmark, onInspect, onInspectScroll)
+                rules.automaticBurns, Modifier.width(layout.burnWidth), onUnmark, onInspect, onInspectScroll, desktop = desktop)
         }
         if (layout.singleRow) {
             Row(horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
@@ -318,7 +412,7 @@ private fun PodPickTrays(
 
 @Composable
 private fun PodLibrarianSlot(id: String, copy: DraftCopy?, definition: CardDefinition?, refund: () -> Unit,
-    inspect: (DraftCopy, Boolean) -> Unit) {
+    inspect: (DraftCopy, Boolean) -> Unit, desktop: Boolean = false) {
     val color = PodPickGreen
     val currentRefund by rememberUpdatedState(refund)
     val currentInspect by rememberUpdatedState(inspect)
@@ -328,8 +422,9 @@ private fun PodLibrarianSlot(id: String, copy: DraftCopy?, definition: CardDefin
             contentDescription = "Refund Librarian"
             onClick { currentRefund(); true }
         }
-        .pointerInput(copy) { podPickGestures(onTap = { currentRefund() },
-            onInspect = { open -> copy?.let { currentInspect(it, open) } }) }) {
+        .pointerInput(copy, desktop) { podPickGestures(onTap = { currentRefund() },
+            onInspect = { open -> copy?.let { currentInspect(it, open) } },
+            mouseClick = if (desktop) ({ _ -> currentRefund() }) else null) }) {
         Box {
             if (copy != null) PodPickArtwork(copy, definition, Modifier.fillMaxSize())
             Canvas(Modifier.matchParentSize()) {
@@ -356,6 +451,11 @@ private fun PodPickCard(
     onSize: (IntSize) -> Unit,
     /** Present for a spent Librarian shown in the pack: takes it back out (refund). */
     onRefund: (() -> Unit)? = null,
+    /** WEB-024: the mouse came onto the card (true) or left it (desktop layout). */
+    onHover: (Boolean) -> Unit = {},
+    /** The desktop layout (§5, WEB-044): a click keeps, the ⋯ of the [hovered] card opens its menu. */
+    desktop: Boolean = false,
+    hovered: Boolean = false,
 ) {
     val currentOnMenu by rememberUpdatedState(onMenu)
     var swipe by remember { mutableStateOf(PodPickSwipeState()) }
@@ -388,7 +488,8 @@ private fun PodPickCard(
             flashAlpha.animateTo(0f, tween(200))
         }
     }
-    Box {
+    // WEB-024: hovering the card or its ⋯ is hovering the card
+    Box(if (desktop) Modifier.mouseHover(copy.id, onHover) else Modifier) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { width = it.width; onSize(it) }
             .testTag("pod-pick-card-${copy.id}").semantics {
                 contentDescription = definition?.name ?: "Card data unavailable"
@@ -399,8 +500,25 @@ private fun PodPickCard(
                 }
                 onClick { currentOnMenu(true); true }
             }
-            .pointerInput(burnEnabled) {
+            // WEB-028 (owner, §5): on the desktop layout a right-click burns the card (again: unmarks it), as a swipe left does
+            .then(if (!desktop) Modifier else Modifier.desktopControl(listOf(copy.id, burnEnabled), onRight = {
+                if (currentMark == PodPickMark.BURN && !automaticBurn) { AppLog.info("pod", "Right-click unmarked ${copy.id}"); onUnmark() }
+                else if (burnEnabled && currentMark != PodPickMark.BURN) {
+                    AppLog.info("pod", "Right-click burned ${copy.id}")
+                    flashMark = PodPickMark.BURN
+                    flashSequence++
+                    currentOnMark(PodPickMark.BURN)
+                }
+            }))
+            .pointerInput(burnEnabled, desktop) {
                 podPickGestures(onTap = { currentOnMenu(true) }, onInspect = { currentOnInspect(it) }, onInspectScroll = onInspectScroll,
+                    // WEB-044 (owner, §5): on the desktop layout a click keeps the card (again: unmarks it; a burned one switches
+                    // to keep), as a swipe to the right does
+                    mouseClick = if (!desktop) null else ({ _ ->
+                        AppLog.info("pod", "Click ${if (currentMark == PodPickMark.KEEP) "unmarked" else "kept"} ${copy.id}")
+                        if (currentMark != PodPickMark.KEEP) { flashMark = PodPickMark.KEEP; flashSequence++ }
+                        currentOnMark(PodPickMark.KEEP)
+                    }),
                     onDrag = {
                         if (swipe.phase != PodPickSwipePhase.DRAGGING) liftedMark = currentMark
                         swipe = swipe.drag(it)
@@ -420,6 +538,13 @@ private fun PodPickCard(
                 (if (flashMark == PodPickMark.KEEP) PodPickGreen else PodPickRed).copy(alpha = flashAlpha.value))
             if (onRefund != null) Icon(Icons.Default.MenuBook, "Spent Librarian", Modifier.align(Alignment.TopStart)
                 .background(PodPickGreen, RoundedCornerShape(4.dp)).padding(2.dp).size(16.dp), tint = Color.White)
+        }
+        // WEB-044 (§12 item 8): the hovered card's ⋯ opens its menu (Unmark, Refund Librarian)
+        if (hovered) Surface(Modifier.align(Alignment.TopEnd).padding(top = 32.dp, end = 4.dp).size(28.dp)
+            .testTag("pod-pick-more-${copy.id}").clickable(onClickLabel = "Card menu", role = Role.Button) {
+                AppLog.info("pod", "⋯ opened the menu of ${copy.id}"); currentOnMenu(true)
+            }, shape = CircleShape, color = Color.White, border = BorderStroke(1.dp, ScreenBorder), shadowElevation = 2.dp) {
+            Box(contentAlignment = Alignment.Center) { Text("⋯", color = Color(0xff222222), fontWeight = FontWeight.Bold) }
         }
         if (swipe.phase != PodPickSwipePhase.IDLE && width > 0) {
             PodPickSwipeCopy(copy, definition, width, swipe, liftedMark,
@@ -504,6 +629,7 @@ private fun PodPickTray(
     modifier: Modifier,
     onUnmark: (String) -> Unit, onInspect: (DraftCopy, Boolean) -> Unit,
     onInspectScroll: (Float) -> Unit,
+    desktop: Boolean = false,
     visibleIds: List<String> = ids,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
@@ -520,9 +646,10 @@ private fun PodPickTray(
                         .testTag("pod-pick-tray-$id").semantics {
                             contentDescription = "${definitions[copy.definition]?.name ?: "Card"}, ${if (automatic) "automatic burn" else label.lowercase()} tray"
                             if (!automatic) onClick { currentOnUnmark(id); true }
-                        }.pointerInput(id, automatic) {
+                        }.pointerInput(id, automatic, desktop) {
                             podPickGestures(onTap = { if (!automatic) currentOnUnmark(id) },
-                                 onInspect = { currentOnInspect(copy, it) }, onInspectScroll = onInspectScroll)
+                                 onInspect = { currentOnInspect(copy, it) }, onInspectScroll = onInspectScroll,
+                                 mouseClick = if (desktop) ({ _ -> if (!automatic) currentOnUnmark(id) }) else null)
                         })
                 }
             } }

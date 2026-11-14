@@ -1,0 +1,1 @@
+add: On a computer, the web version's other screens use the wide window too: the side menu stays open, lists are wider, the deck and cube editor shows the card search beside the list (Hide search folds it away), Stats and Settings spread over columns, and Ctrl+S saves a deck.

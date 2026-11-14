@@ -1,0 +1,1 @@
+Alice opened Table actions → Timeline on the desktop table: the seat headers turn grey and the board dims, the timeline strip runs along the bottom band under her hand, Previous / Auto / Next take the action area, and Return to current sits in the top row.

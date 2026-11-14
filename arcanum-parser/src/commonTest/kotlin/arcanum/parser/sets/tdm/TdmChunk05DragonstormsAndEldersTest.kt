@@ -549,7 +549,7 @@ class TdmChunk05DragonstormsAndEldersTest {
                     TargetSlot(
                         name = "planeswalkers",
                         what = TargetKind.Objects(filter = and(or(creature, planeswalker), opponents)),
-                        min = n(1),
+                        min = n(0),
                         max = null,
                         divided = Value.Count(objects = Objects.Each(filter = and(land, you))),
                     ),

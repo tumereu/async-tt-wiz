@@ -52,6 +52,8 @@ class CombatController(
     private val fail: (String?) -> Unit = {},
     /** The board shown now (also while the viewer can't act), which the viewer's selection belongs to. */
     private val board: () -> TableBoard? = current,
+    /** Web client step 4e: the game played (its device in the browser's engine worker: combat's engine work is asked of it). */
+    private val game: () -> EngineGame? = { null },
 ) {
     private var shownBoard: BoardState? = null
     /** What the table shows of combat on the board last worked out ([show]). */
@@ -59,8 +61,19 @@ class CombatController(
 
     /** [value] is what the table shows of combat on [play]'s board. */
     fun show(play: TableBoard, value: CombatShown) {
+        loads++
         shownBoard = play.board; view = value
         noteDivisions(play, value)
+    }
+
+    /** Bumped by each board's combat shown or asked for: an older answer isn't shown. */
+    private var loads = 0
+
+    /** Web client step 4e: what the table shows of combat on [play]'s board, asked of the device in the browser's engine
+     * worker ([AutomatumBoards.askCombat]) and shown once it answers, unless another board's was shown or asked meanwhile. */
+    fun load(play: TableBoard) {
+        val run = ++loads
+        AutomatumBoards.askCombat(play) { value -> if (run == loads) show(play, value) }
     }
 
     // ---- The viewer's own state of the combat area (I-D32): nothing of it is shared
@@ -220,6 +233,8 @@ class CombatController(
         ready(play)?.let { return it }
         val last = shownBoard
         if (last != null && sameDeclaration(last, play.board)) return view
+        // Web client step 4e: a board whose combat the worker's device works out waits for its answer
+        if (AutomatumBoards.remoteCombat(play)) return WORKING
         return if (work === AutomatumWork.Inline) shown(play) else WORKING
     }
 
@@ -289,9 +304,8 @@ class CombatController(
             val target = pair?.attackTarget ?: attackTarget
             for (source in sources) {
                 if (target in choices.attacks[source].orEmpty()) continue
-                return refused(play, "${name(source)} can't attack ${if (target == null) "the player" else name(target)} now.") {
-                    CombatFlow.attackRefusal(it, listOf(LaneAttack(source, target)))
-                }
+                return refused(play, "${name(source)} can't attack ${if (target == null) "the player" else name(target)} now.",
+                    attacks = listOf(LaneAttack(source, target)))
             }
             return null
         }
@@ -300,29 +314,34 @@ class CombatController(
         if (attackers.isEmpty()) return "Put a blocker into the pair of the attacker it blocks."
         for (source in sources) {
             if (attackers.all { it in choices.blocks[source].orEmpty() }) continue
-            return refused(play, "${name(source)} can't block ${attackers.joinToString(" and ") { name(it) }}.") { call ->
-                CombatFlow.blockRefusal(call, attackers.map { LaneBlock(source, it) })
-            }
+            return refused(play, "${name(source)} can't block ${attackers.joinToString(" and ") { name(it) }}.",
+                blocks = attackers.map { LaneBlock(source, it) })
         }
         return null
     }
 
     /**
-     * A refusal with the engine's reason ([refusal]) when it gives one, else [fallback]. The reason is worked out on [work]
-     * (#12, SYS-025): meanwhile [fallback] is shown, replaced by the reason once it is ready unless another message
-     * replaced it.
+     * A refusal with the engine's reason for refusing [attacks] (or [blocks]) when it gives one, else [fallback]. The reason
+     * is worked out on [work] (#12, SYS-025; web client step 4e: in the browser's engine worker when the game's device is
+     * there): meanwhile [fallback] is shown, replaced by the reason once it is ready unless another message replaced it.
      */
-    private fun refused(play: TableBoard, fallback: String, refusal: (EngineRun) -> String?): String {
-        if (work === AutomatumWork.Inline) return reason(play, refusal) ?: fallback
-        work.run({ reason(play, refusal) }) { why -> if (why != null && error() == fallback) fail(why) }
+    private fun refused(play: TableBoard, fallback: String, attacks: List<LaneAttack>? = null, blocks: List<LaneBlock>? = null): String {
+        val remote = game()?.takeIf { it.inWorker && play.values?.workerBoard == true }
+        if (remote != null) {
+            remote.combatRefusal(play, attacks, blocks) { why -> if (why != null && error() == fallback) fail(why) }
+            return fallback
+        }
+        if (work === AutomatumWork.Inline) return reason(play, attacks, blocks) ?: fallback
+        work.run({ reason(play, attacks, blocks) }) { why -> if (why != null && error() == fallback) fail(why) }
         return fallback
     }
 
-    /** The engine's reason for a refusal on [play] (blocking: one engine call); null when it gives none. */
-    private fun reason(play: TableBoard, refusal: (EngineRun) -> String?): String? = try {
+    /** The engine's reason for refusing [attacks] (or [blocks]) on [play] (blocking: one engine call); null when it gives none. */
+    private fun reason(play: TableBoard, attacks: List<LaneAttack>?, blocks: List<LaneBlock>?): String? = try {
         // R4a: on the game's own engine state
         val engine = play.engine ?: return null
-        refusal(EngineRun.of(engine.state, play.board, play.gameId) { error("No randomness") })
+        val call = EngineRun.of(engine.state, play.board, play.gameId) { error("No randomness") }
+        attacks?.let { CombatFlow.attackRefusal(call, it) } ?: blocks?.let { CombatFlow.blockRefusal(call, it) }
     } catch (problem: Exception) { null }
 
     companion object {
@@ -340,6 +359,8 @@ class CombatController(
 @Composable
 fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoard) {
     LaunchedEffect(IdentityKey(play.board)) {
+        // Web client step 4e: in the browser asked of the engine worker beside the game's device, shown when it answers
+        if (AutomatumBoards.remoteCombat(play) && AutomatumBoards.cachedCombat(play) == null) { toolkit.combat.load(play); return@LaunchedEffect }
         val shown = AutomatumBoards.cachedCombat(play)
             ?: toolkit.boardWork(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play) }
         toolkit.combat.show(play, shown)

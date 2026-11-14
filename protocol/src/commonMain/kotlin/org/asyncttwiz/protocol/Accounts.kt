@@ -54,11 +54,23 @@ enum class DeckVisibility { VISIBLE, HIDDEN, AFTER_FIRST_GAME }
 
 /** Server-side account preferences (`GET`/`PUT /account/settings`). Defaults are omitted on the wire. [playDefaults]: the
  * response mode, Assume resolves and Autotap mana a new game on engine state starts with (LOB-113, I-D56 §7).
- * [moveSound]: the sound the move passing to you makes at an open table (TRN-075, LOB-146). */
+ * [moveSound]: the sound the move passing to you makes at an open table (TRN-075, LOB-146). [keyBindings]: the desktop
+ * layout's hotkeys that differ from the defaults (WEB-033), by hotkey id: the key as "Shift+Space", "Ctrl+Z", "T", or "" for
+ * none; at most [MAX_KEY_BINDINGS] entries, each id and key at most [MAX_KEY_TEXT] characters. */
 @Serializable
 data class AccountSettings(val deckVisibility: DeckVisibility = DeckVisibility.AFTER_FIRST_GAME,
     val playDefaults: org.asyncttwiz.protocol.game.PlaySettings = org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES,
-    val moveSound: MoveSound = MoveSound.DEFAULT)
+    val moveSound: MoveSound = MoveSound.DEFAULT,
+    val keyBindings: Map<String, String> = emptyMap()) {
+    /** Whether [keyBindings] is within the bounds the server keeps. */
+    val keyBindingsValid: Boolean get() = keyBindings.size <= MAX_KEY_BINDINGS &&
+        keyBindings.all { (id, key) -> id.isNotEmpty() && id.length <= MAX_KEY_TEXT && key.length <= MAX_KEY_TEXT }
+
+    companion object {
+        const val MAX_KEY_BINDINGS = 64
+        const val MAX_KEY_TEXT = 40
+    }
+}
 
 /**
  * TRN-075, LOB-146 (owner, 2026-11-11): the "Your move" sound: Off or one of the app's own short soft sounds, [Plip] by

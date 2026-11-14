@@ -1,5 +1,6 @@
 package arcanum.parser.sets.dsk
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.ActivationRules
 import arcanum.api.Affected
@@ -312,7 +313,7 @@ class DskChunk11RedTest {
     ) parsesTo abilities(
         Keyword.Haste,
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+            trigger = Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             instructions = Instructions(
                 targets = listOf(TargetSlot("any", TargetKind.Either(
                     ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),

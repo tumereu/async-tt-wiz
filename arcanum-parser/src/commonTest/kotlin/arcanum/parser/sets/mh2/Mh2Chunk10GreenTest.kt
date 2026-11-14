@@ -1,5 +1,6 @@
 package arcanum.parser.sets.mh2
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Choice
 import arcanum.api.Color
@@ -253,7 +254,7 @@ class Mh2Chunk10GreenTest {
         pt = "4/3",
     ) parsesTo abilities(
         Keyword.Vigilance,
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = isSelf))), doing(Effect.Action(KeywordAction.Proliferate)), abilityWord = "Enrage"),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = isSelf), per = DamageOccurrence.Recipient)), doing(Effect.Action(KeywordAction.Proliferate)), abilityWord = "Enrage"),
     )
 
     // CR 700.2: two different modes (each mode keeps its own "target player"); CR 606: a loyalty ability on the Stack

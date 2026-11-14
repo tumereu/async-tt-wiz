@@ -432,7 +432,9 @@ object TablePresentation {
          * the next one. */
         attackerSlots: Boolean = false,
         /** ZON-079 (owner, 2026-11-12): the cards from other zones the viewer's hand row shows at its right end ([HandRow.cards]). */
-        handRow: List<HandRowCard> = emptyList()): TableScene {
+        handRow: List<HandRowCard> = emptyList(),
+        /** WEB-015 to WEB-019: the desktop table's frame (with [landscape] true); null in the phone layout. */
+        desktop: DesktopFrame? = null): TableScene {
         require(play.gameId == game.id && play.playId == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
@@ -460,6 +462,11 @@ object TablePresentation {
         val columnPitch = COLUMN_PITCH * battlefieldScale
         val handWidth = hudWidth * appearance.size(CardArea.HAND)
         val handHeight = hudHeight * appearance.size(CardArea.HAND)
+        // WEB-015: on the desktop table the battlefields end at the dock (the window's right edge with it folded away), your
+        // hand's band at the action area; each player's seat header lies on their battlefield, the bottom band holds your hand
+        val tableRight = if (desktop == null) width else (width - desktop.dockWidth).coerceAtLeast(1f)
+        val handRight = if (desktop == null) width else (width - DesktopTable.ACTIONS).coerceAtLeast(1f)
+        val desktopBand = desktop?.let { DesktopTable.band(handHeight, timeline) } ?: 0f
         // TBL-009: in landscape the piles fit their bar row
         val pileScale = appearance.size(CardArea.PILES).let { if (landscape) minOf(it, Landscape.PILE_HEIGHT / hudHeight) else it }
         val pileWidth = hudWidth * pileScale
@@ -476,7 +483,7 @@ object TablePresentation {
         }
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
         // HIS-001, HIS-007: play mode's bottom bar has only the controls; timeline mode's panel adds its strip in portrait
-        val controlsHeight = tableBottomHeight(landscape, timeline)
+        val controlsHeight = if (desktop != null) desktopBand else tableBottomHeight(landscape, timeline)
         val dockRow = maxOf(64f, 68f + pileHeight - hudHeight)
         // (owner, 2026-11-11) in portrait your life and pile row has no margin above the life square and no room under it
         val ownDockRow = if (landscape) dockRow else maxOf(OWN_ROW, OWN_PILE_TOP + pileHeight + 4f)
@@ -485,16 +492,17 @@ object TablePresentation {
         val fanWidth = handFanWidth(fanCardWidth, fanCardHeight)
         val dockSpacing = if (landscape) Landscape.PILE_PITCH else pileWidth + 12f
         val gridWidth = minOf(132f, width * .34f)
-        val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
+        val boardTop = if (desktop != null) DesktopTable.SEAT + 4f else HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar (taller cards reach above it)
         val ownHandHeight = maxOf(HEADER, railHeight)
-        val boardBottom = if (landscape) minOf(height - controlsHeight, height - 4f - ownHandHeight) - 4f else height - controlsHeight - 4f
+        val boardBottom = if (desktop != null) height - desktopBand - DesktopTable.SEAT - 4f
+            else if (landscape) minOf(height - controlsHeight, height - 4f - ownHandHeight) - 4f else height - controlsHeight - 4f
         val ownDockY = height - controlsHeight - ownDockRow
         // ZON-001: the other player's hand has no row of its own in portrait: their battlefield starts under their row
         val worldTop = if (landscape) boardTop else HEADER + dockRow
         val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
         // TBL-009: the battlefields take the table's whole width in both orientations
-        val worldViewport = TableBounds(6f, worldTop, (width - 12f).coerceAtLeast(1f),
+        val worldViewport = TableBounds(6f, worldTop, (tableRight - 12f).coerceAtLeast(1f),
             (worldBottom - worldTop).coerceAtLeast(1f))
         // TBL-009: in landscape the Stack (over the battlefields' right end, STK-007) fits between the hands
         val stackScale = appearance.size(CardArea.STACK).let { size -> if (!landscape) size
@@ -502,7 +510,9 @@ object TablePresentation {
         val stackWidth = hudWidth * stackScale
         val stackPadding = 12f
         val stackHeight = hudHeight * stackScale
-        val panelArea = worldViewport.copy(x = 0f, width = width)
+        val panelArea = worldViewport.copy(x = 0f, width = tableRight)
+        // WEB-017: with the desktop dock open the Stack is its list there, not on the table
+        val stackOnTable = desktop?.dockOpen != true
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
         // TBL-004, TBL-053 (Arena style): each battlefield lays itself out from the game state: its groups (stacks, cards with
         // what is attached to them) in its land row and upper band; the group the viewer opened lies with its members side by side
@@ -510,7 +520,8 @@ object TablePresentation {
         val expanded = ui.expandedGroup?.takeIf { key -> groups.any { it.key == key && it.members.size > 1 } }
         // TBL-004: the upper band's right end at 1×: the battlefield's own width on the screen left of the Stack pinned at its
         // right edge (STK-007), so the non-creatures lying from there leftwards aren't under it in the opening view
-        val rowWidth = ((worldViewport.width - stackWidth - 2 * stackPadding) / battlefieldScale - 32f).coerceAtLeast(BattlefieldLayout.SLOT)
+        val rowWidth = ((worldViewport.width - if (stackOnTable) stackWidth + 2 * stackPadding else 0f) / battlefieldScale - 32f)
+            .coerceAtLeast(BattlefieldLayout.SLOT)
         val spots = players.associate { player -> container(player.accountId, PlayZone.BATTLEFIELD).id.let { id ->
             id to BattlefieldLayout.place(groups.filter { it.field == id }, rowWidth, expanded) } }
         val logicalRight = spots.values.flatMap { it.values }.maxOfOrNull { it.x + BattlefieldLayout.SLOT } ?: (4 * BattlefieldLayout.SLOT)
@@ -623,8 +634,12 @@ object TablePresentation {
         }
         // Opponent block on top, own block at the bottom; in landscape (TBL-009) the opponent's in the top bar, yours in the
         // bottom bar, left of the controls
-        val dockRowY = if (landscape) listOf(0f, height - controlsHeight) else listOf(HEADER, ownDockY)
-        val dockRowHeights = if (landscape) listOf(HEADER, controlsHeight) else listOf(dockRow, ownDockRow)
+        // WEB-016: on the desktop table each player's seat header lies on their own battlefield: the opponent's above theirs,
+        // yours between your battlefield and your hand
+        val dockRowY = if (desktop != null) listOf(0f, height - desktopBand - DesktopTable.SEAT)
+            else if (landscape) listOf(0f, height - controlsHeight) else listOf(HEADER, ownDockY)
+        val dockRowHeights = if (desktop != null) listOf(DesktopTable.SEAT, DesktopTable.SEAT)
+            else if (landscape) listOf(HEADER, controlsHeight) else listOf(dockRow, ownDockRow)
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
             // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles
@@ -644,7 +659,16 @@ object TablePresentation {
             }
             // ZON-001 (owner, 2026-11-11): in portrait the other player's hand is a fan in their row, placed with it below
             val fan = !ownSide && !landscape
-            val normalHandBounds = if (!ownSide) {
+            // WEB-016: on the desktop table the other player's hand is a row of small cards in their seat header, after their
+            // piles and chips; yours is centred in the bottom band, left of the action area (WEB-018), larger
+            val sideHandWidth = if (desktop != null && !ownSide) pileWidth else handWidth
+            val sideHandHeight = if (desktop != null && !ownSide) pileHeight else handHeight
+            val normalHandBounds = if (desktop != null) {
+                if (!ownSide) DesktopTable.rowRight(tableRight, own = false, places, emblems, stateRow).let { left ->
+                    TableBounds(left + 6f, dockRowY[0] + 2f, (tableRight - 8f - left - 6f).coerceAtLeast(sideHandWidth), DesktopTable.SEAT - 4f) }
+                else TableBounds(8f, height - desktopBand + DesktopTable.handRoom(handHeight), (handRight - 16f).coerceAtLeast(handWidth),
+                    handHeight + 8f)
+            } else if (!ownSide) {
                 // TBL-009: in landscape in the top bar, after the opponent's life square, piles and emblems
                 if (landscape) Landscape.rowRight(width, own = false, places, wanted = stateRow).let { left -> TableBounds(left + 10f, 2f,
                     (width - toolbarWidth - 10f - left - 10f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight)) }
@@ -662,19 +686,19 @@ object TablePresentation {
                 else handRow.filter { it.cardId in byId && it.cardId !in hand.cards && it.cardId !in castFromHand }
             val handCount = hand.cards.size + extras.size
             val dividerGap = if (extras.isNotEmpty() && hand.cards.isNotEmpty()) HAND_ROW_DIVIDER - 4f else 0f
-            val handContent = if (handCount == 0) 0f else (handCount - 1) * (handWidth + 4f) + handWidth + dividerGap
+            val handContent = if (handCount == 0) 0f else (handCount - 1) * (sideHandWidth + 4f) + sideHandWidth + dividerGap
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             // ZON-081: a hand pulled past its end (Automatum on) is drawn that far off, springing back on release
             val pulled = ui.overscroll[hp.id] ?: 0f
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll - pulled
             items += TableItem(hand.id, handBounds, handLabel, hand.cards.size.toString(),
                 player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id,
-                handDivider = if (dividerGap > 0f) start + hand.cards.size * (handWidth + 4f) - 4f + HAND_ROW_DIVIDER / 2 else null)
+                handDivider = if (dividerGap > 0f) start + hand.cards.size * (sideHandWidth + 4f) - 4f + HAND_ROW_DIVIDER / 2 else null)
             hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
                 // ZON-079: the raised card sits a quarter of its height higher
                 val raised = ownSide && !reviewing && id == ui.raised
-                val b = TableBounds(start + n * (handWidth + 4f), handBounds.y + (handBounds.height - handHeight) / 2 -
-                    if (raised) handHeight * RAISE else 0f, handWidth, handHeight)
+                val b = TableBounds(start + n * (sideHandWidth + 4f), handBounds.y + (handBounds.height - sideHandHeight) / 2 -
+                    if (raised) sideHandHeight * RAISE else 0f, sideHandWidth, sideHandHeight)
                 card(c, b, b, player.accountId, PlayZone.HAND, hp.id)
                 if (raised) items[items.lastIndex] = items.last().copy(raised = true)
             } }
@@ -718,9 +742,11 @@ object TablePresentation {
             val portraitCounters = (width - portraitDock).coerceAtLeast(0f)
             val shrink = portraitCounters >= MIN_SHRUNK_COUNTER_GRID
             // TBL-009: in landscape the row starts after the turn header in the top bar, or at the bottom bar's left end
-            val dockX = if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
+            // WEB-016: on the desktop table after the seat header's avatar and name
+            val dockX = if (desktop != null) DesktopTable.NAME else if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
             // TRN-053, TRN-072: chips always have their room in the row: where the piles don't leave it they scroll under it
-            val dockWidth = if (landscape) Landscape.rowRight(width, ownSide, places, emblems, stateRow) - dockX
+            val dockWidth = if (desktop != null) DesktopTable.rowRight(tableRight, ownSide, places, emblems, stateRow) - dockX
+                else if (landscape) Landscape.rowRight(width, ownSide, places, emblems, stateRow) - dockX
                 else (if (portraitCounters >= gridWidth) width - gridWidth
                 else if (shrink) portraitDock
                 else maxOf(width - gridWidth, minOf(portraitDock, width))).let { full ->
@@ -817,8 +843,11 @@ object TablePresentation {
         val portraitStackY = if (worldViewport.height >= 2 * stackHalfHeight)
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)
             else worldViewport.center.y
-        // STK-007: pinned at the right edge, vertically mid-screen (in landscape too, TBL-009)
-        val stackCenter = TablePoint(width - stackWidth / 2 - stackPadding, portraitStackY)
+        // STK-007: pinned at the right edge, vertically mid-screen (in landscape too, TBL-009); WEB-017: with the desktop dock
+        // open just inside its left edge, under it (the dock shows the Stack as its list; what flies to the Stack and the top
+        // entry's arrows go there)
+        val stackCenter = TablePoint(if (stackOnTable) tableRight - stackWidth / 2 - stackPadding else tableRight + stackWidth / 2 + stackPadding,
+            portraitStackY)
         val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
@@ -907,7 +936,9 @@ object TablePresentation {
         }.toMap()
         return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = stackRegion, world = world, appearance = appearance,
-            dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it, stackRegion) },
+            // TRN-073; WEB-017: with the desktop dock open, at the battlefields' top right end
+            dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it,
+                if (stackOnTable) stackRegion else TableBounds(tableRight - 6f, worldViewport.y + EmblemChips.SIZE + 14f, 0f, 0f)) },
             combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel,
             combatSlots = combat.slots.map { it.copy(bounds = translated(it.bounds)) },
             combatDealt = dealt, combatGainEdge = gainEdge,

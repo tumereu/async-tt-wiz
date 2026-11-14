@@ -60,7 +60,7 @@ internal class Snapshot(
             id = id, owner = o.owner, controller = board.controller(id), zone = o.zone,
             characteristics = view[id]?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
             token = o.token, attachedTo = o.attachedTo, cast = o.cast, linked = o.linked, statuses = arcanum.engine.state.snapshotStatuses(o),
-            attacking = state.combat?.attackers.orEmpty().any { it.id == id },
+            attacking = state.combat?.attackers.orEmpty().any { it.id == id }, marks = o.marks,
         )
     }
 }

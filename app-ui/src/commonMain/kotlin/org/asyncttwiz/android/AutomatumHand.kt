@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -63,6 +64,8 @@ class HandController(
     private val shake: (String) -> Unit,
     /** Whether [cardId] is known to have no cast or play Automatum allows now (null: not worked out yet). */
     private val unplayable: (TableBoard, String) -> Boolean?,
+    /** Web client step 4e: the game played, whose device in the browser's engine worker works the chips out there. */
+    private val game: () -> EngineGame? = { null },
 ) {
     /** The raised card, null when none. */
     val raised: String? get() = layout.value.raised
@@ -70,6 +73,13 @@ class HandController(
     var chips by mutableStateOf<HandCastChips?>(null); private set
     /** The chip held (its details shown, its sources outlined): an index of [HandCastChips.chips], or [MORE]. */
     var held by mutableStateOf<Int?>(null)
+    /** WEB-027: the hand card the mouse hovers on the desktop table (not raised), whose chips show faded; null when none. */
+    var hovered by mutableStateOf<String?>(null); private set
+    /** WEB-027: the hovered card's chips once worked out, null meanwhile or when it has none. */
+    var hoverChips by mutableStateOf<HandCastChips?>(null); private set
+    /** WEB-027: the hovered card's chip the mouse is on (solid, its sources outlined): an index, or [MORE]. */
+    var hoverChip by mutableStateOf<Int?>(null)
+    private var hoverGeneration = 0
     /** Bumped when a tap on the raised card opens the cast panel while its chips show: they flash (ZON-080). */
     var flash by mutableIntStateOf(0); private set
     private var generation = 0
@@ -161,12 +171,49 @@ class HandController(
         return panel(card, known)
     }
 
+    /**
+     * WEB-027 (owner, §5): the mouse hovers [cardId] in the viewer's hand row on the desktop table (null: no card): a card
+     * Automatum lets them use now shows its chips faded, worked out as a raised card's are; the raised card keeps its own.
+     */
+    fun hover(cardId: String?) {
+        if (cardId == hovered) return
+        val run = ++hoverGeneration
+        hovered = cardId; hoverChips = null; hoverChip = null
+        if (cardId == null || cardId == raised) return
+        val play = current() ?: return
+        if (CastController.inHandRow(play, cardId, viewer) != true || unplayable(play, cardId) == true) return
+        chipsOf(play, cardId) { result ->
+            if (run != hoverGeneration || hovered != cardId) return@chipsOf
+            AppLog.info("automatum", "Hover chips of $cardId: " + (result?.let { r -> r.chips.joinToString { "${it.name} ${it.cost ?: ""}" +
+                if (it.affordable) "" else " (greyed)" }.ifEmpty { "${r.count} ways, one Cast… chip" } } ?: "none"))
+            hoverChips = result
+        }
+    }
+
+    /** WEB-027: a click on the hovered card's chip [index] ([MORE]: its "Cast…" chip) casts it that way at once, as a raised
+     * card's chip does (ZON-080); one the player can't pay for does nothing. */
+    fun hoverChipTap(index: Int): Boolean {
+        val card = hovered ?: return false
+        val known = hoverChips?.takeIf { it.cardId == card } ?: return false
+        if (index == MORE) {
+            if (!known.more || !known.affordable) return false
+            hover(null); lower()
+            return panel(card, known)
+        }
+        val chip = known.chips.getOrNull(index)?.takeIf { it.affordable } ?: return false
+        AppLog.info("automatum", "Hover chip $index of $card clicked: ${chip.name}")
+        hover(null); lower()
+        return cast(card, chip)
+    }
+
     /** ZON-079: the sources Autotap would tap for the raised card on [play] (outlined on the table): for the held chip
-     * while one is held, else for the regular way. */
+     * while one is held, else for the regular way. WEB-027: with no card raised, the hovered card's (its chip the mouse is
+     * on, else the regular way). */
     fun sources(play: TableBoard): Set<String> {
-        val o = chips ?: return emptySet()
-        if (o.cardId != raised) return emptySet()
-        val sources = held?.let { o.chips.getOrNull(it)?.sources } ?: o.sources
+        val raisedChips = chips?.takeIf { it.cardId == raised }
+        val o = raisedChips ?: hoverChips?.takeIf { it.cardId == hovered && raised == null } ?: return emptySet()
+        val index = if (raisedChips != null) held else hoverChip
+        val sources = index?.let { o.chips.getOrNull(it)?.sources } ?: o.sources
         // TBL-130 (owner playtest 2026-11-07): in a stack of identical sources the topmost ones, as Autotap takes them
         return TopmostSources.cards(sources, BattlefieldLayout.groups(play, viewer)) { id -> play.board.cards.firstOrNull { it.id == id }?.tapped == true }
     }
@@ -175,30 +222,26 @@ class HandController(
         val card = raised ?: return
         val run = ++generation
         board = play.board
-        work.run({
-            try {
-                val definitions = AutomatumBoards.definitions(play)
-                val offered = AutomatumBoards.handPlays(play, viewer).of(card)
-                val seeds = org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() }
-                // R4a: the chips are worked out on the game's own engine state
-                val engine = requireNotNull(play.engine) { "No board to cast on" }
-                HandCasts.chips(org.asyncttwiz.automatum.CastFlow.Source.engine(engine.state, play.board, play.gameId),
-                    definitions, viewer, card, offered, seeds)
-            } catch (problem: Exception) {
-                AppLog.warn("automatum", "Couldn't work the cost chips out: ${simpleClassName(problem)}")
-                null
-            }
-        }) { result ->
-            if (run != generation || raised != card) return@run
+        val done: (HandCastChips?) -> Unit = done@{ result ->
+            if (run != generation || raised != card) return@done
             // A card raised before Automatum knew it can't be cast or paid for now goes back down with a shake
             val tapped = answering
             answering = false
             current()?.let { offZone(it, card) }?.let { zone -> AppLog.info("automatum", "Hand row chips of $card from $zone: " +
                 (result?.let { r -> r.chips.joinToString { "${it.name} ${it.cost ?: ""}${if (it.affordable) "" else " (greyed)"}" }
                     .ifEmpty { "${r.count} ways, one Cast… chip" } } ?: "none")) }
-            if (tapped && (result == null || !result.affordable)) { lower(); shake(card); return@run }
+            if (tapped && (result == null || !result.affordable)) { lower(); shake(card); return@done }
             chips = result
         }
+        chipsOf(play, card, done)
+    }
+
+    private fun chipsOf(play: TableBoard, card: String, done: (HandCastChips?) -> Unit) {
+        // R4a: the chips are worked out on the game's own engine state, where the engine is (web client step 4e: the browser's
+        // engine worker when the game's device is there)
+        val remote = game()?.takeIf { it.inWorker && play.values?.workerBoard == true }
+        if (remote != null) remote.handChips(play, card, done)
+        else work.run({ HandChips.of(play, viewer, card) }, done)
     }
 
     companion object {
@@ -297,6 +340,58 @@ fun RaisedCardChips(toolkit: TableToolkitController, play: TableBoard, scene: Ta
 
 /** How long the chips' flash lasts (ZON-080). */
 const val CHIP_FLASH_MILLIS = 450
+
+/** WEB-027: how opaque hover chips are while the mouse isn't on them. */
+const val HOVER_CHIP_ALPHA = .55f
+
+/** The test tag of a hovered card's chips (WEB-027). */
+const val HOVER_CHIPS_TAG = "hover-chips"
+
+/**
+ * WEB-027 (owner, §5): on the desktop table the hand card the mouse hovers ([HandController.hovered]) shows its chips faded
+ * in a row just above it, as a raised card's (ZON-080), while the table outlines in amber what Autotap would tap for its
+ * regular way; the chip the mouse is on turns solid and its own sources are outlined. A click on a chip casts that way at
+ * once; a click on the card raises it as a tap does (its chips then the raised card's). Only in the desktop layout.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun HoveredCardChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
+    val hover = LocalDesktopHover.current ?: return
+    val hand = toolkit.hand
+    val id = hand.hovered ?: return
+    val options = hand.hoverChips?.takeIf { it.cardId == id } ?: return
+    if (hand.raised != null || toolkit.cast.open) return
+    val card = scene?.items?.firstOrNull { it.cardId == id && it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD } ?: return
+    val on = hand.hoverChip
+    @Composable fun faded(index: Int, chip: @Composable () -> Unit) {
+        Box(Modifier.alpha(if (on == index) 1f else HOVER_CHIP_ALPHA)
+            .mouseHover(index) { over -> if (over) hand.hoverChip = index else if (hand.hoverChip == index) hand.hoverChip = null }) { chip() }
+    }
+    Layout(content = {
+        FlowRow(Modifier.testTag(HOVER_CHIPS_TAG).mouseHover(id) { over -> hover.chips(over) },
+            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (options.more) faded(HandController.MORE) {
+                MoreChip(options.cheapest, options.affordable, { hand.hoverChipTap(HandController.MORE) }, {}, 0f)
+            } else options.chips.forEachIndexed { index, chip ->
+                faded(index) {
+                    WayChip(CastWayChip(chip.input, chip.name, chip.shownCost, chip.text, chip.affordable), false,
+                        { hand.hoverChipTap(index) }, {})
+                }
+            }
+        }
+    }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        val margin = 8.dp.roundToPx()
+        val placeable = measurables.first().measure(Constraints(maxWidth = (constraints.maxWidth - 2 * margin).coerceAtLeast(0),
+            maxHeight = constraints.maxHeight))
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            val x = (card.bounds.center.x.dp.roundToPx() - placeable.width / 2)
+                .coerceIn(margin, (constraints.maxWidth - placeable.width - margin).coerceAtLeast(margin))
+            val y = (card.bounds.y.dp.roundToPx() - 6.dp.roundToPx() - placeable.height).coerceAtLeast(0)
+            placeable.place(x, y)
+        }
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

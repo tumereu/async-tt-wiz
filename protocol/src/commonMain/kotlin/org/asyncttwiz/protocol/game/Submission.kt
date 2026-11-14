@@ -102,7 +102,10 @@ object Authority {
                     when (kind) {
                         is WhoActs.Kind.Assumed -> if (performed > 0) throw Refusal("An assumed input begins its own event (I-D56 §13)")
                             else assumed = true
-                        WhoActs.Kind.Own -> if (assumed) throw Refusal("Assumed and real inputs never share an event (I-D56 §13)")
+                        // Problem report JVPJ8Y: the author's engine-automatic answer (an order-free division of their
+                        // attacker's damage after their assumption of the defender's pass) decides nothing: it folds in
+                        WhoActs.Kind.Own -> if (assumed && !WhoActs.isAutomaticAnswer(model, act.input))
+                            throw Refusal("Assumed and real inputs never share an event (I-D56 §13)")
                         WhoActs.Kind.Automatic, WhoActs.Kind.Random -> {}
                     }
                     if (kind == WhoActs.Kind.Random) {
@@ -244,6 +247,18 @@ object WhoActs {
      * one creature, or enough for lethal damage to each). Any device running the step makes it.
      */
     fun automaticAnswer(model: GameModel, decision: Decision): Input.Answer? = earlyAnswer(model, decision) ?: orderFree(decision)
+
+    /**
+     * Whether [input] is the engine-automatic answer ([automaticAnswer]) to the decision open on [model], whoever decides it.
+     * It decides nothing, so it folds into an event that began with an assumed input even when the author is its decider
+     * (problem report JVPJ8Y: the attacker's order-free division of combat damage among two blockers, CR 510.1c, right
+     * after their assumption of the defender's pass), as the device folds it ([GameDevice]'s fold).
+     */
+    fun isAutomaticAnswer(model: GameModel, input: Input): Boolean {
+        val answer = input as? Input.Answer ?: return false
+        val decision = model.engine.pending?.decision?.takeIf { it.id == answer.decision } ?: return false
+        return decision !is Decision.Random && automaticAnswer(model, decision) == answer
+    }
 
     private fun earlyAnswer(model: GameModel, decision: Decision): Input.Answer? {
         val key = EarlyAnswer.keyOf(decision)

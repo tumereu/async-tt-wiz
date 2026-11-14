@@ -39,7 +39,7 @@ fun OpeningKeepHost(toolkit: TableToolkitController, play: TableBoard, scene: Ta
     val inspector = remember(hand) { ChoiceInspector() }
     var hidden by remember { mutableStateOf(false) }
     val cards = hand.associateWith { choiceCard(play, viewer, it, it, shown = true, fallback = "Card") }
-    AboveHand(handRow(scene, viewer)) {
+    AboveHand(handRow(scene, viewer), PromptPlace.Choice) {
         // TRN-063 (owner playtest 2026-11-09): its OK is the main button
         val ready = state.second.size == owed && toolkit.enabled()
         val onMain = MainButtonAction(MainAction("OK", Icons.Outlined.Check, refusal = AutomatumOpening.hint(owed).takeIf { !ready },

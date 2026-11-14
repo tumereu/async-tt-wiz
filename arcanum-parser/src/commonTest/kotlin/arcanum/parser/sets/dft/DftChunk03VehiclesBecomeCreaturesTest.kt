@@ -127,6 +127,7 @@ class DftChunk03VehiclesBecomeCreaturesTest {
     )
 
     // CR 603.4: checked as it triggers and as it resolves
+    // CR 506.4: "attacked this combat" counts creatures declared as attackers even after removal from combat
     @Test
     fun fearlessCorsair() = card(
         name = "Fearless Corsair",
@@ -142,7 +143,7 @@ class DftChunk03VehiclesBecomeCreaturesTest {
         Keyword.Haste,
         static(has(Keyword.Haste), affects = Objects.Each(and(vehicle, you))),
         triggered(youAttack, draw(3), discard(2), interveningIf = Condition.And(listOf(
-            Condition.Exists(and(sub("Pirate"), attacking), atLeast = 1), Condition.Exists(and(vehicle, attacking), atLeast = 1)))),
+            Condition.Exists(and(sub("Pirate"), ObjectFilter.AttackedThisCombat), atLeast = 1), Condition.Exists(and(vehicle, ObjectFilter.AttackedThisCombat), atLeast = 1)))),
     )
 
     @Test

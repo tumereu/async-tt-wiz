@@ -1,5 +1,6 @@
 package arcanum.parser.sets.gtc
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardType
@@ -251,7 +252,7 @@ class GtcChunk13BorosTest {
         """,
     ) parsesTo abilities(
         Ability.Triggered(
-            Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+            Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             Instructions(targets = listOf(anyTarget), steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), Value.EventAmount, source = Objects.Self)))),
         ),
         Ability.Activated(mana("{R/W}"), steps(gains(Objects.Self, Keyword.FirstStrike)), rules = anyTime),

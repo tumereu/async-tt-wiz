@@ -1,5 +1,6 @@
 package arcanum.parser.sets.msh
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Combine
 import arcanum.api.Condition
@@ -177,7 +178,7 @@ class MshChunk14RedTest {
     ) parsesTo abilities(
         Keyword.Reach,
         Keyword.Trample,
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             counters(Objects.EventObject(EventRole.Object)),
             reflexive(damage(Value.Of(NumericProperty.Counters(p1p1), Objects.Self, Combine.Single), toAny), targets = listOf(anyOtherTarget)),
             abilityWord = "Enrage"),

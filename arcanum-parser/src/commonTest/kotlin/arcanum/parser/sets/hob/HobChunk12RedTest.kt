@@ -155,7 +155,8 @@ class HobChunk12RedTest {
             Step.If(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(CounterKind.Named("quest"), atLeast = 6)), then = listOf(
                 Step.Pay(cost(sacrificeSelf), payer = Players.You, mandatory = true, bind = "sacrificed"),
                 Step.If(Condition.Did("sacrificed"), then = listOf(
-                    search(sub("Dragon"), zones = listOf(Zone.Hand, Zone.Library)),
+                    Step.Do(Effect.Search(Players.You, sub("Dragon"), max = Value.Fixed(1), zones = listOf(Zone.Hand, Zone.Library), bind = "found",
+                        searcher = Players.You, zonesChosen = true)),
                     move(Objects.Bound("found"), Zone.Battlefield),
                     Step.If(Condition.Searched("found", Zone.Library), then = listOf(shuffle))))))),
         Keyword.Typecycling(sub("Mountain"), "Mountaincycling", manaCost("{2}")),

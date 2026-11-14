@@ -294,6 +294,18 @@ fun DialogCancelButton(label: String, onClick: () -> Unit, modifier: Modifier = 
 @Composable
 fun DialogMainButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     danger: Boolean = false, icon: String = if (danger) "delete" else "ready") {
+    // WEB-048 (§6): on the desktop layout Enter presses the dialog's main button, the newest dialog's first; one that destroys or
+    // removes something ([danger]) wants its click, so Enter does nothing there. Never while a text field has the keyboard.
+    val currentClick by rememberUpdatedState(onClick)
+    val currentEnabled by rememberUpdatedState(enabled)
+    DesktopKeyboard.Listen(desktopLayout()) { key ->
+        if (key.key != "Enter" || !key.down || key.textField) return@Listen false
+        if (!key.repeat) {
+            AppLog.info("keys", "Enter on the dialog's $label: ${when { danger -> "not for a removal, a click wants it"; !currentEnabled -> "greyed"; else -> "pressed" }}")
+            if (currentEnabled && !danger) currentClick()
+        }
+        true
+    }
     ScreenButton(onClick, modifier, enabled, colors = if (danger) ButtonDefaults.buttonColors(
         containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White) else ButtonDefaults.buttonColors()) { ButtonLabel(icon, label) }
 }

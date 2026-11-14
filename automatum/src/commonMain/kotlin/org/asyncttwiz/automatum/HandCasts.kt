@@ -21,6 +21,7 @@ import arcanum.engine.view.AbilityInstance
  * (or a land's play) first, then the other ways the engine offers (another face or an Adventure, flashback, evoke,
  * other alternative costs, both halves fused). One way is chosen at a time.
  */
+@kotlinx.serialization.Serializable
 data class CastWayChip(
     /** The engine's [Input.Cast] or [Input.PlayLand]. */
     val input: Input,
@@ -39,6 +40,7 @@ data class CastWayChip(
  * offspring, gift, teamwork and the others the rules call optional additional costs (CR 601.2b, 702.33). Extras add to any
  * way; each is on or off, a [repeatable] one (multikicker) counts how often it is paid.
  */
+@kotlinx.serialization.Serializable
 data class CastExtraChip(
     /** "Kicker", "Buyback", "Offspring", "Gift", or "Optional cost". */
     val name: String,
@@ -55,6 +57,7 @@ data class CastExtraChip(
  * The cost chips of a raised hand card (I-D50) for one choice ([way], [times]): the ways, the chosen way's extras, and
  * what Autotap would tap for it ([sources], ATW card ids; mana in the pool is spent first and taps nothing).
  */
+@kotlinx.serialization.Serializable
 data class HandCastOptions(
     val cardId: String,
     val ways: List<CastWayChip>,
@@ -77,6 +80,7 @@ data class HandCastOptions(
  * [HandCastOptions.ways] with every optional extra decided ("Cast {1}{G}", "Cast with offspring {3}{G}"). A tap casts it at
  * once.
  */
+@kotlinx.serialization.Serializable
 data class CastChip(
     /** The way, an index of the card's ways ([HandCastOptions.ways]). */
     val way: Int,
@@ -108,6 +112,7 @@ data class CastChip(
  * [HandCasts.MAX_CHIPS]; with more, [chips] is empty and the hand shows a single "Cast…" chip with the [cheapest] cost
  * that opens the cast panel.
  */
+@kotlinx.serialization.Serializable
 data class HandCastChips(
     val cardId: String,
     /** Every complete way, in the ways' order, each way's extras off first; empty when there are more than [HandCasts.MAX_CHIPS]. */

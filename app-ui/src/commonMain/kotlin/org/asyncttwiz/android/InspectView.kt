@@ -138,7 +138,12 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
     val pinned = swipe?.pinned == true
     val progress by animateFloatAsState(swipe?.let { if (it.pinned) 1f else it.progress } ?: 0f,
         if (pinned) tween(200) else snap(), label = "inspect pin")
+    // WEB-024: on the desktop layout a click on a pinned Inspect closes it (a click outside the card)
+    val clickCloses = swipe != null && pinned && LocalAppLayout.current == AppLayout.Desktop
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f + .2f * progress)).testTag("card-inspection")
+        .then(if (clickCloses) Modifier.pointerInput(swipe) {
+            detectTapGestures { AppLog.info("table", "Pinned Inspect closed by a click"); swipe?.close() }
+        } else Modifier)
         .semantics { paneTitle = "Card inspection" }, contentAlignment = Alignment.Center) {
         val landscape = maxWidth > maxHeight
         val room = DpSize(maxWidth - 16.dp, maxHeight - 16.dp)
@@ -179,7 +184,7 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
             PinHint("‹‹", hint.align(Alignment.CenterStart).padding(start = 6.dp))
             PinHint("››", hint.align(Alignment.CenterEnd).padding(end = 6.dp))
         }
-        if (swipe != null && progress > 0f) InspectCloseButton(swipe::close, Modifier.align(Alignment.TopEnd).padding(12.dp)
+        if (swipe != null && progress > 0f && !swipe.keyHeld) InspectCloseButton(swipe::close, Modifier.align(Alignment.TopEnd).padding(12.dp)
             .graphicsLayer { alpha = progress; scaleX = .6f + .4f * progress; scaleY = .6f + .4f * progress })
     }
 }
@@ -376,7 +381,7 @@ fun inspectTileSize(tile: InspectTile, room: DpSize): DpSize =
     else minOf(room.width, room.height / 1.4f).let { DpSize(it, it * 1.4f) }
 
 @Composable
-private fun InspectTileView(tile: InspectTile, room: DpSize, fit: Boolean = false, modifier: Modifier = Modifier) {
+internal fun InspectTileView(tile: InspectTile, room: DpSize, fit: Boolean = false, modifier: Modifier = Modifier) {
     val size = inspectTileSize(tile, room)
     when (tile) {
         is InspectTile.Face -> InspectFaceView(tile, size, modifier)

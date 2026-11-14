@@ -104,7 +104,8 @@ class TmtChunk03TechniquesTest {
         """,
     ) parsesTo abilities(
         sneak("{B}"),
-        spell(doing(Effect.Destroy(target("permanent"), postBind = "destroyed")),
+        // CR 608.2h: "an enchantment was destroyed this way" is the permanent as it last existed
+        spell(doing(Effect.Destroy(target("permanent"), preBind = "destroyed")),
             Step.If(Condition.Compare(Value.Count(Objects.Where(Objects.Bound("destroyed"), enchantment)), Comparison.AtLeast, n(1)), then = listOf(loseLife(2))),
             targets = listOf(slot("permanent", or(creature, enchantment)))),
     )
@@ -219,7 +220,7 @@ class TmtChunk03TechniquesTest {
     ) parsesTo abilities(
         spell(
             doing(Effect.Search(Players.You, and(legendary, creature, ObjectFilter.OwnedBy(PlayerFilter.You)), max = n(4), reveal = true,
-                zones = listOf(Zone.Library, Zone.Outside), differentNames = true, bind = "found", searcher = Players.You)),
+                zones = listOf(Zone.Library, Zone.Outside), differentNames = true, bind = "found", searcher = Players.You, zonesChosen = true)),
             Step.Choose(Choice.Objects(ObjectFilter.Any, n(2), n(2), from = Objects.Bound("found")), bind = "chosen", chooser = Players.Each(PlayerFilter.Opponent)),
             move(Objects.Bound("chosen"), Zone.Hand),
             move(Objects.Except(Objects.Bound("found"), Objects.Bound("chosen")), Zone.Library),

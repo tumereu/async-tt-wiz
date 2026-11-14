@@ -1,5 +1,6 @@
 package arcanum.parser.sets.tmt
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Choice
 import arcanum.api.Condition
 import arcanum.api.CostChange
@@ -238,7 +239,7 @@ class TmtChunk12GreenTest {
         """,
         pt = "5/5",
     ) parsesTo abilities(
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             counters(Objects.EventObject(arcanum.api.EventRole.Object), Value.EventAmount)),
         triggered(on(EventPattern.Damage(and(creature, you, ObjectFilter.HasCounter(null, atLeast = 1)), RecipientFilter(players = arcanum.api.PlayerFilter.Any), combat = true)),
             Step.Pay(manaCost("{U}"), payer = Players.You, bind = "paid"), Step.If(Condition.Did("paid"), then = listOf(draw(1)))),

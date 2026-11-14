@@ -620,7 +620,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   it enters by its controller (a Siege's among their opponents, 310.12a; one with no battle type is its controller's, 310.9a) and
   by the state-based actions when it has none or one who can't be (704.5x, y; none possible: the graveyard). Battles are attack
   targets of players their protector defends against, a Siege of its own controller's too, never of the protector (310.9b, 508.1b);
-  the protector is the defending player of those attacks and the only one who blocks them (310.9c, d, `Players.DefendingPlayerOf`).
+  the protector is the defending player of those attacks and the only one who blocks them (310.9c, d, `Players.DefendingPlayerOf`); effects name it with `Players.ProtectorOf` (310.8).
   A Siege has the intrinsic trigger of 310.12b (`AbilityOrigin.Rule("siege")`: exiled, then it may be cast transformed without
   paying its mana cost, `Effect.Cast.transformed`) and waits for it at 0 defense (704.5v).
   `Trigger.On.during` (scenarios in `trigger/NthDuringStepTest`): "the nth … during each of your draw steps" counts only the events

@@ -1,5 +1,6 @@
 package arcanum.parser.sets.dsk
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.ActivationRules
 import arcanum.api.Affected
@@ -77,7 +78,7 @@ class DskChunk10BlackTest {
     private val half = { players: Players -> Value.Half(Value.LifeOf(players), roundUp = true) }
     /** "When enchanted creature is dealt damage, destroy it." */
     private val destroyWhenDealtDamage = Ability.Triggered(
-        trigger = Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(enchanted)))),
+        trigger = Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(enchanted)), per = DamageOccurrence.Recipient)),
         instructions = Instructions(steps = listOf(Step.Do(Effect.Destroy(Objects.EventObject(EventRole.Object))))),
     )
 
@@ -255,7 +256,7 @@ class DskChunk10BlackTest {
         Keyword.Enchant(TargetKind.Players(PlayerFilter.Any)),
         Ability.Static(listOf(Mechanic.CantGainLife), affects = Affected.Players(Players.AttachedTo(Objects.Self))),
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Is(Players.AttachedTo(Objects.Self))))),
+            trigger = Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.Is(Players.AttachedTo(Objects.Self))), per = DamageOccurrence.Recipient)),
             instructions = Instructions(steps = listOf(Step.Do(Effect.LoseLife(Players.EventPlayer, half(Players.EventPlayer))))),
         ),
     )

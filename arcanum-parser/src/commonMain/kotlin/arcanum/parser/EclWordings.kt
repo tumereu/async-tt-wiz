@@ -18,6 +18,7 @@ import arcanum.api.Zone
 
 /** Regular expressions of Lorwyn Eclipsed (ecl) wordings read in [Sentences]. */
 internal object Ecl {
+    val UNTIL_NEXT_END_STEP_PLAY_THOSE = Regex("""Until your next end step, you may play those cards(, and mana of any type can be spent to cast those spells)?\.""") // otj chunk 12
     // ecl chunk 01: blight (CR 701.68)
     val BLIGHT = Regex("""[Bb]light (\d+|X)""")
     val PLAYERS_BLIGHT = Regex("""(Target opponent|target opponent|Each opponent|each opponent|Each player|each player) blights (\d+)\.""")
@@ -47,9 +48,9 @@ internal object Ecl {
     // ecl chunk 10
     val AS_LONG_AS_EQUIPPED_TOUGHNESS_GREATER = Regex("""As long as equipped creature's toughness is greater than its power, it assigns combat damage equal to its toughness rather than its power\.""")
     val EACH_CREATURE_TARGET_OPPONENT_LOSES = Regex("""[Ee]ach creature target opponent controls loses all abilities, becomes an? ([A-Z]\w+) in addition to its other types, and has base power and toughness (\d+)/(\d+)\.""")
-    val EXILE_UP_TO_N_TARGET_CARDS_FROM_GRAVEYARDS = Regex("""[Ee]xile up to (one|two|three) target cards from graveyards\.""")
+    val EXILE_UP_TO_N_TARGET_CARDS_FROM_GRAVEYARDS = Regex("""[Ee]xile up to (one|two|three|X) target cards from graveyards\.""") // mh3 chunk 09: X
     val LOOK_TOP_X_PUT_ANY_NUMBER = Regex("""Look at the top X cards of your library\. You may put any number of (.+?) from among them onto the battlefield\. Then shuffle\.""")
-    val MAY_PUT_FROM_HAND_TAPPED_ATTACKING = Regex("""[Yy]ou may put an? (.+?) from your hand onto the battlefield tapped and attacking\.""")
+    val MAY_PUT_FROM_HAND_TAPPED_ATTACKING = Regex("""[Yy]ou may put an? (.+?) from your hand onto the battlefield tapped and attacking( that (?:opponent|player))?\.""") // mh3 chunk 12: that opponent
     val EXILE_ANY_NUMBER_RETURN_NEXT_END = Regex("""Exile any number of target (creatures)\. At the beginning of the next end step, return those cards to the battlefield tapped under their owners' control\.""")
     val UNTIL_YOUR_NEXT_TURN_PREVENT_TO_YOU = Regex("""Until your next turn, prevent all damage that would be dealt to you\.""")
     val EXILE_SELF = Regex("""Exile (.+?)\.""")
@@ -97,7 +98,7 @@ internal object Ecl {
     // isd chunk 01: also "Choose a permanent type." / "Choose a card type." (CR 205.2a, 110.4a)
     val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a (creature|permanent|card) type\. (.+)""")
     val ADD_N_ANY_ONE_COLOR_SPEND_ONLY = Regex("""[Aa]dd (\w+) mana of any one color\. Spend this mana only to (.+)\.""")
-    val IT_DEALS_INSTEAD_IF =Regex("""It deals (\d+) damage to that creature instead if (.+)\.""")
+    val IT_DEALS_INSTEAD_IF =Regex("""(It|.+?) deals (\d+) damage to that creature instead if (.+)\.""") // otj chunk 11: its name
     val GET_X_X_WHERE = Regex("""(.+?) get \+X/\+X, where X is (.+)\.""")
     val GETS_FOR_EACH_AND_EACH = Regex("""(.+?) gets \+1/\+1 for each (.+?) and each (.+)\.""")
     val SPELLS_OF_CHOSEN_TYPE_COST_LESS = Regex("""Spells you cast of the chosen type cost (\{\d+\}) less to cast\.""")
@@ -110,7 +111,8 @@ internal object Ecl {
     val ONCE_EACH_TURN_CAST_EXILED_WITH = Regex("""Once each turn, you may cast a spell with mana value less than or equal to the number of (.+?) you control from among cards exiled with (.+?) this turn without paying its mana cost\.""")
     val EXILE_UP_TO_ONE_UNTIL_LEAVES = Regex("""[Ee]xile up to one target (.+?) until (.+?) leaves the battlefield\.""")
     val DEALS_TO_ANY_AND_ANY_OTHER = Regex("""(.+?) deals (\d+) damage to any target and (\d+) damage to (?:any other target|each of up to (\w+) other targets)\.""")
-    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals X damage to each opponent and each creature they control\.""")
+    // mom chunk 02: also "3 damage to target opponent and each creature they control" (Urabrask // The Great Work)
+    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals (X|\d+) damage to (each opponent|target opponent|target player) and each creature they control\.""")
     val IT_DEALS_POWER_TO_UP_TO_ONE = Regex("""It deals damage equal to its power to up to one target (.+?)\.""")
     val GAIN_LIFE_EQUAL_TO = Regex("""[Yy]ou gain life equal to (.+)\.""")
     val ENCHANTED_FIGHTS_UP_TO_ONE = Regex("""[Ee]nchanted creature fights up to one target (.+?)\.""")
@@ -123,7 +125,7 @@ internal object Ecl {
     val MILLS_THEN_PUTS_EACH_INTO_HAND = Regex("""Target player mills (\w+) cards, then puts each (.+?) milled this way into their hand\.""")
     val RETURN_ONE_OR_TWO_FROM_GRAVEYARD = Regex("""Return one or two target (.+?) from your graveyard to your hand\.""")
     val CREATE_FOR_EACH = Regex("""[Cc]reate (an? .+? token(?: with [a-z ]+)?) for each (.+)\.""")
-    val EXILE_TOP_OF_TARGET_OPPONENTS_LIBRARY = Regex("""[Ee]xile the top (\w+) cards of target opponent's library\.""")
+    val EXILE_TOP_OF_TARGET_OPPONENTS_LIBRARY = Regex("""[Ee]xile the top (\w+) cards of target opponent's library\.""") // otj chunk 11: X
     val BECOMES_ALL_COLORS = Regex("""Target (.+?) becomes all colors until end of turn\.""")
     val BECOMES_THE_CHOSEN_COLOR = Regex("""(.+?) becomes the chosen color\.""")
     val ADD_X_OR_X = Regex("""Add X \{([WUBRG])\} or X \{([WUBRG])\}\.""")
@@ -144,9 +146,11 @@ internal object Ecl {
     val GETS_X_AND_UP_TO_ONE_GETS = Regex("""[Tt]arget (.+?) gets \+X/\+0 until end of turn and up to one target (.+?) gets -0/-X until end of turn\.""")
     val ATTACKS_OR_BLOCKS_DIFFERENCE = Regex("""Whenever (.+?) attacks or blocks, it gets \+X/\+X until end of turn, where X is the difference between its power and toughness\.""")
     val EXILE_UNTIL_NONLAND_CAST_IF_LIFE = Regex("""Exile cards from the top of your library until you exile a nonland card\. You may cast that card without paying its mana cost if the spell's mana value is less than or equal to the amount of life you gained this turn\. Otherwise, put it into your hand\.""")
-    val BECOMES_SUBTYPES_BASE_PT = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)( and protection from each of your opponents)?\.""")
+    val BECOMES_SUBTYPES_BASE_PT = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)( and protection from each of your opponents| and gains [a-z, ]+)?\.""") // mkm chunk 03: "… and gains vigilance."
     val ADD_ANY_COLOR_BECOMES_THAT_COLOR = Regex("""Add one mana of any color\. (.+?) becomes that color until end of turn\.""")
-    val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex("""[Ee]xile that card with an? (\w+) counter on it instead of putting it into your graveyard as it resolves\.""")
+    // otj chunk 01: also "exile that spell instead of … as it resolves. If you do, it becomes plotted." (Lilah)
+    val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex(
+        """[Ee]xile that (?:card|spell)(?: with an? (\w+) counter on it)? instead of putting it into your graveyard as it resolves\.(?: If you do, it becomes (plotted)\.)?$""")
     val MAY_CAST_FROM_EXILE_WITH_COUNTERS = Regex("""[Yy]ou may cast a spell from among cards you own in exile with (\w+) counters on them without paying its mana cost\.""")
     val OPPONENTS_EXILE_UNTIL_TOTAL_MV = Regex("""Each opponent exiles cards from the top of their library until they have exiled cards with total mana value (\d+) or greater this way\. Until end of turn, you may cast cards exiled this way without paying their mana costs\.""")
     val REVEAL_UNTIL_X_NONLAND_EXILE_EACH_COLOR = Regex("""Reveal cards from the top of your library until you reveal X nonland cards\. For each of those colors, you may exile a card of that color from among the revealed cards\. Then shuffle\. You may cast the exiled cards this turn\.""")
@@ -273,10 +277,11 @@ internal object EclPhrases {
                 manaValue(m.groupValues[1]) ?: return null)
             return EventPattern.Cast(spell, PlayerFilter.You)
         }
-        // ecl chunk 07: "this creature deals combat damage to a player or planeswalker" (CR 510.2)
+        // ecl chunk 07: "this creature deals combat damage to a player or planeswalker" (CR 510.2); mom chunk 01: "… or battle" (CR 310.6)
         DEALS_COMBAT_DAMAGE_TO_PLAYER_OR_PLANESWALKER.matchEntire(text)?.let { m ->
             val subject = Events.subjectOf(m.groupValues[1], self) ?: return null
-            return EventPattern.Damage(subject, arcanum.api.RecipientFilter(objects = ObjectFilter.Type(CardType.Planeswalker), players = PlayerFilter.Any), combat = true)
+            val kind = if (m.groupValues[2] == "battle") CardType.Battle else CardType.Planeswalker
+            return EventPattern.Damage(subject, arcanum.api.RecipientFilter(objects = ObjectFilter.Type(kind), players = PlayerFilter.Any), combat = true)
         }
         // ecl chunk 16: "you cast a spell of the chosen type"
         if (text == "you cast a spell of the chosen type")
@@ -309,7 +314,7 @@ internal object EclPhrases {
     private val YOU_CAST_FROM_YOUR_HAND = Regex("""you cast an? (.+?) spell from your hand""")
     private val YOU_CAST_WITH_SINGLE_TARGET = Regex("""you cast an? (.+?) spell with a single target""")
     private val YOU_CAST_SPELL_WITH = Regex("""you cast a spell with (mana value \d+ or (?:greater|less))""")
-    private val DEALS_COMBAT_DAMAGE_TO_PLAYER_OR_PLANESWALKER = Regex("""(.+?) deals combat damage to a player or planeswalker""")
+    private val DEALS_COMBAT_DAMAGE_TO_PLAYER_OR_PLANESWALKER = Regex("""(.+?) deals combat damage to a player or (planeswalker|battle)""")
     private val WITH_COUNTERS_DIES =Regex("""(.+?) with one or more counters on it dies""")
     private val MANA_VALUE_N = Regex("""mana value (\d+) or (greater|less)""")
 }

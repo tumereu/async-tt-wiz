@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.appui.FormatLocale
 import org.asyncttwiz.appui.formatIn
@@ -69,7 +70,9 @@ fun StatsContent(history: HistoryController, me: String, openDeck: ((String) -> 
         if (!choice.graphs) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (records.isEmpty()) Text("No matches yet. Finished matches show here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            records.forEach { record -> MatchRow(record, me) { details = record } }
+            // WEB-042: on the desktop layout the records fill the width in columns
+            if (desktopLayout()) StatsColumns(records.map { record -> { MatchRow(record, me) { details = record } } }, 8.dp)
+            else records.forEach { record -> MatchRow(record, me) { details = record } }
         } else StatsGraphs(records, me, opponent, Modifier.weight(1f))
     }
     details?.let { MatchDetailsDialog(it, me, openDeck) { details = null } }
@@ -93,15 +96,17 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
             "Longest streak" to (if (summary.longestWins == 0) "—" else "${summary.longestWins} W"),
             "Average turns" to (summary.averageTurns?.let { formatIn(FormatLocale.Root, "%.1f", it) } ?: "—")))
         val running = remember(records) { MatchStats.running(records, me) }
+        val (play, draw) = remember(records) { MatchStats.playDraw(records, me) }
+        val cards = listOfNotNull<@Composable () -> Unit>({
         GraphCard("Record over time") {
             RunningChart(running, if (opponent == null) "Your wins" to "Your losses" else "You" to opponent.username)
         }
-        val (play, draw) = remember(records) { MatchStats.playDraw(records, me) }
+        }, {
         GraphCard("Win % on the play vs on the draw") {
             PercentBars(listOf("On the play" to play, "On the draw" to draw))
         }
-        GraphCard("How matches end") { CountBars(MatchStats.endings(records, me)) }
-        GraphCard("Match length in turns") { CountBars(MatchStats.lengths(records, me), vertical = true) }
+        }, { GraphCard("How matches end") { CountBars(MatchStats.endings(records, me)) } },
+        { GraphCard("Match length in turns") { CountBars(MatchStats.lengths(records, me), vertical = true) } }, {
         GraphCard("Your decks") {
             val decks = remember(records) { MatchStats.decks(records, me) }
             decks.forEach { deck ->
@@ -113,7 +118,7 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
                 }
             }
         }
-        if (opponent != null) GraphCard("Your decks vs theirs") { DeckGrid(remember(records) { MatchStats.grid(records, me) }) }
+        }, if (opponent != null) ({ GraphCard("Your decks vs theirs") { DeckGrid(remember(records) { MatchStats.grid(records, me) }) } }) else null, {
         GraphCard("Win % by your deck's colours") {
             for ((colors, rate) in MatchStats.colors(records, me)) BarRow((rate.percent ?: 0) / 100f, rate.barText()) {
                 if (colors == MatchStats.COLOURLESS) BarLabel(colors)
@@ -121,6 +126,7 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
                     style = MaterialTheme.typography.titleMedium, maxLines = 1)
             }
         }
+        }, {
         GraphCard("Extras") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatTile("Win % after a mulligan", MatchStats.afterMulligan(records, me).text)
@@ -131,6 +137,22 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
             val clock = AppClock.clock()
             val weeks = remember(records) { matchesPerWeek(records, me, clock) }
             CountBars(weeks.map { (week, n) -> weekLabel(week) to n }, vertical = true)
+        }
+        })
+        // WEB-042: on the desktop layout the graphs fill the width in columns
+        if (desktopLayout()) StatsColumns(cards, 16.dp) else cards.forEach { it() }
+    }
+}
+
+/** WEB-042: [items] in as many columns of at least [DesktopScreens.StatsColumnMinWidth] as fit, taken in turn, [gap] apart. */
+@Composable
+private fun StatsColumns(items: List<@Composable () -> Unit>, gap: Dp) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("stats-columns")) {
+        val count = desktopColumns(maxWidth, DesktopScreens.StatsColumnMinWidth)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            for (column in 0 until count) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(gap)) {
+                items.filterIndexed { index, _ -> index % count == column }.forEach { it() }
+            }
         }
     }
 }

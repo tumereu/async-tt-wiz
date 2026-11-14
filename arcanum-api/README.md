@@ -224,7 +224,8 @@ JSON. Decisions from the API reviews (D19–D49) are built here where they conce
 definitions; the runtime types they describe (object ids, Stack items and
 sequences, effect objects, ledgers, tagged events, timestamps) belong to the engine
 API and are not built yet. `DefinitionChecks.problems` reports definitions the
-types allow but the model forbids.
+types allow but the model forbids; `DefinitionChecks.unusedTargetSlots` lists an ability's
+target slots nothing in it reads (the parser leaves such a reading unread, CR 115.1a).
 Types are sealed hierarchies rather than enums with values (owner preference).
 A field has a default only when the default is empty or absent (`null`, `false`, an empty list, `0` meaning none):
 who, how many and which objects are always written out (D51).

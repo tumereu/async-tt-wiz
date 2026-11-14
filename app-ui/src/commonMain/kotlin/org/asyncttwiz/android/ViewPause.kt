@@ -24,10 +24,12 @@ private const val VIEW_PAUSE_SLICE_MILLIS = 20L
 class ViewPause {
     /** A finger held still on the table (not a pan or a drag), or on a shown play. */
     var finger by mutableStateOf(false)
+    /** WEB-024 (owner, decision 31): the desktop's finger key (Alt) held, anywhere: the desktop's finger down. */
+    var key by mutableStateOf(false)
     /** Whether an Inspect is open, held or pinned (TBL-104, TBL-131); read as snapshot state. */
     var inspecting: () -> Boolean = { false }
 
-    val paused: Boolean get() = finger || inspecting()
+    val paused: Boolean get() = finger || key || inspecting()
 
     private var showTap: Job? = null
 

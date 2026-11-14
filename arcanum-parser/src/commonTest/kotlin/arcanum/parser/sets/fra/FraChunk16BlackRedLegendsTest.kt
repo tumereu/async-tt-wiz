@@ -1,5 +1,6 @@
 package arcanum.parser.sets.fra
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.AbilityLabel
 import arcanum.api.ActivationRules
@@ -149,7 +150,7 @@ class FraChunk16BlackRedLegendsTest {
     ) parsesTo abilities(
             triggered(on(EventPattern.ZoneChange(and(anotherObject, creatureOrPlaneswalker, you), from = Zone.Battlefield, to = Zone.Graveyard)),
                 damage(1, Recipients(players = Players.Target("opponent"))), gainLife(1), targets = listOf(targetOpponent)),
-            triggered(on(opponentDealtNoncombatDamage), counters(Objects.Self)),
+            triggered(on((opponentDealtNoncombatDamage as EventPattern.Damage).copy(per = DamageOccurrence.Recipient)), counters(Objects.Self)),
         )
 
     // CR 601.3

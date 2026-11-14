@@ -232,7 +232,15 @@ internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = 
     internal var by: CausedBy? = null
 
     fun record(made: Change) {
-        val change = by?.let { made.causedBy(it) } ?: made
+        val change = (by?.let { made.causedBy(it) } ?: made).let { c ->
+            // the holder's controller then (CR 608.2h), for "a counter was removed from a permanent you controlled this turn"
+            val counters = c as? Change.Counters
+            val holder = counters?.holder as? TargetRef.Object
+            if (counters == null || holder == null || counters.controller != null) c
+            else counters.copy(controller = state.obj(holder.id)?.let { o ->
+                (if (o.zone == arcanum.api.Zone.Battlefield) arcanum.engine.view.Layers.view(state)[holder.id]?.controller else null) ?: o.controller ?: o.owner
+            })
+        }
         val lookBack = change.isEvent && arcanum.engine.trigger.Triggers.looksBack(change)
         val before = if (lookBack) state.deepCopy() else null
         val viewBefore = if (lookBack) state.viewCache?.view else null

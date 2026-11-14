@@ -23,7 +23,7 @@ class DmrChunk13GainLifeKeywordsLookCountersTest {
         )))),
     )
 
-    // CR 120.3, 603.2, 119.3: "that much" is the damage this creature dealt, combat or not
+    // CR 120.3, 603.2, 119.3: "that much" is the damage this creature dealt, combat or not; CR 603.2c: once for all it deals at once
     @Test
     fun hollowGargoyle() = card(
         name = "Hollow Gargoyle", cost = "{5}{W}", type = "Creature — Gargoyle", pt = "3/3",
@@ -34,7 +34,7 @@ class DmrChunk13GainLifeKeywordsLookCountersTest {
     ) parsesTo abilities(
         Keyword.Flying, Keyword.FirstStrike,
         triggered(
-            on(EventPattern.Damage(isSelf, RecipientFilter())),
+            on(EventPattern.Damage(isSelf, RecipientFilter(), per = DamageOccurrence.Source)),
             Step.Do(Effect.GainLife(Players.You, Value.EventAmount)),
         ),
     )

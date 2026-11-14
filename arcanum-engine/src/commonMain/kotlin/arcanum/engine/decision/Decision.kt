@@ -97,6 +97,9 @@ sealed interface Decision {
     data class ManaPayment(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val cost: ManaCost, val options: List<ManaUse>, val suggestion: List<ManaUse>,
+        /** mh3 fixes: a cost paid while something resolves contains {X}, so mana spent "only on costs that contain {X}" may pay it
+         * (CR 106.6, 107.3); a cast or activation reads it from its total cost. */
+        val xCost: Boolean = false,
     ) : Decision
 
     /** Yes or no: "you may …" (CR 608.2d), or pay [cost] on resolution (CR 118.12, D40) when given. Not [payable]: the

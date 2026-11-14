@@ -27,10 +27,12 @@ internal object MechanicWordings {
         ObjectFilter.ControlledBy(PlayerFilter.You)))
 
     private val IS_YOUR_RING_BEARER = Regex("""(.+) is your Ring-bearer""")
-    private val WAS_BARGAINED = Regex("""(.+) was bargained""")
+    private val WAS_BARGAINED = Regex("""(.+?)(?: was|'s) bargained""") // woe chunk 04: "if it's bargained"
     /** "from anywhere": the ability says it functions in every zone it could be put into a graveyard from (CR 113.6b). */
     private val FROM_ANYWHERE = listOf<arcanum.api.Zone>(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Hand, arcanum.api.Zone.Library, arcanum.api.Zone.Exile,
         arcanum.api.Zone.Stack, arcanum.api.Zone.Command)
+    private val SELF_LEAVES_EXILE_INSTEAD = Regex("""If (.+) would leave the battlefield, exile it instead of putting it anywhere else\.""")
+    private val SELF_DIES_EXILE_INSTEAD = Regex("""If (.+) would die, exile it instead\.""")
     private val SELF_TO_GRAVEYARD_EXILE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, exile it instead\.""")
     // fdn chunk 07: "If Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead."
     private val SELF_TO_GRAVEYARD_SHUFFLE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, reveal (.+) and shuffle it into its owner's library instead\.""")
@@ -91,7 +93,8 @@ internal object MechanicWordings {
         CHOSE_OTHER_RING_BEARER.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) }?.let {
             return Condition.ObjectMatches(Objects.EventObject(EventRole.Object), ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
         }
-        // CR 702.166b: "if this spell was bargained", "if it was bargained" (a permanent's enters trigger)
+        // CR 702.166b: "if this spell was bargained", "if it was bargained" (a permanent's enters trigger), "if it's bargained" (a cost
+        // reduction, CR 601.2f)
         WAS_BARGAINED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] == "this spell" || isSelf(it.groupValues[1], self) }?.let {
             return Condition.Paid(Keyword.Bargain, times = 1, of = Objects.Self)
         }
@@ -103,9 +106,11 @@ internal object MechanicWordings {
         if (text == "you've completed a dungeon") return Condition.Compare(Value.DungeonsCompleted(arcanum.api.Players.You),
             arcanum.api.Comparison.AtLeast, Value.Fixed(1))
         if (text == "you control a Ring-bearer") return Condition.Exists(yourRingBearer, 1)
-        // CR 701.37b: "As long as this creature is monstrous, …"
+        // CR 701.37b: "As long as this creature is monstrous, …"; otj chunk 03: "if this creature is saddled" / "isn't saddled" (CR 702.171b)
         IS_MONSTROUS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) || it.groupValues[1] == "it" }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Monstrous)))
+            val mark = if (it.groupValues[3] == "monstrous") ObjectMark.Monstrous else ObjectMark.Saddled
+            val matches = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(mark)))
+            return if (it.groupValues[2] == "is") matches else Condition.Not(matches)
         }
         return null
     }
@@ -193,6 +198,19 @@ internal object MechanicWordings {
                 modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))), affects = Affected.Objects(Objects.Self),
                 functionsIn = FROM_ANYWHERE)
         }
+        // mom chunk 07: "If this land would leave the battlefield, exile it instead of putting it anywhere else." (CR 614.1a); a move to exile
+        // isn't replaced
+        SELF_LEAVES_EXILE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = arcanum.api.Zone.Battlefield,
+                notTo = arcanum.api.Zone.Exile), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // mom chunk 11: "If this creature would die, exile it instead." (dies = battlefield to graveyard, CR 700.4, 614.1a)
+        SELF_DIES_EXILE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = arcanum.api.Zone.Battlefield,
+                to = arcanum.api.Zone.Graveyard), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))),
+                affects = Affected.Objects(Objects.Self))
+        }
         // fdn chunk 07: the card goes into its owner's library and that library is shuffled in place of the graveyard (CR 614.1a, 701.24)
         SELF_TO_GRAVEYARD_SHUFFLE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[2]) }?.let {
             val self = Objects.Self
@@ -220,8 +238,8 @@ internal object MechanicWordings {
 
     // ---- Mechanics the engine plays since its lanes 1–4 (read by the `mechanic*` functions of `Sentences`)
 
-    /** "this creature is monstrous" (CR 701.37b). */
-    val IS_MONSTROUS = Regex("""(.+) is monstrous""")
+    /** "this creature is monstrous" (CR 701.37b); "this creature is saddled", "isn't saddled" (CR 702.171b). */
+    val IS_MONSTROUS = Regex("""(.+) (is|isn't) (monstrous|saddled)""")
 
     /** "You may exert this creature as it attacks. When you do, [effect]" (CR 701.43d, 508.1g). */
     val MAY_EXERT_AS_ATTACKS = Regex("""You may exert (.+?) as (?:it|he|she|they) attacks?\.(?: When you do, (.+))?""")
@@ -253,13 +271,17 @@ internal object MechanicWordings {
     val IS_A_COPY_OF = Regex("""(.+?) (?:is a copy|are copies) of (.+)\.""")
 
     /** Keyword actions (CR 701). */
-    val EXPLORES = Regex("""(.+?) explores\.""")
+    // lci chunk 03: "it explores X times", "That creature explores, then it explores again." (each a separate explore, CR 701.44b)
+    val EXPLORES = Regex("""(.+?) explores(?:, then it explores (again)| (X|\w+) times)?\.""")
     val MONSTROSITY = Regex("""Monstrosity (\d+|X)\.""")
     val ADAPT = Regex("""Adapt (\d+|X)\.""")
     val SUPPORT = Regex("""Support (\d+|X)\.""")
-    val DISCOVER = Regex("""(?:You )?[Dd]iscover (\d+|X)\.""")
+    // lci chunk 01: "Then that player discovers X." (another player discovers, CR 701.57a)
+    val DISCOVER = Regex("""(?:You |(?:Then )?([Tt]hat player|[Tt]arget player) )?[Dd]iscovers? (\d+|X)\.""")
+    /** mom chunk 03: "Incubate 3.", "you incubate 2", "Incubate 2 twice.", "Incubate 2 five times"; mom chunk 04: "incubate 3 X times" (CR 701.53a) */
+    val INCUBATE = Regex("""(?:[Yy]ou )?[Ii]ncubate (\d+|X)(?: (twice|\w+ times))?\.""")
     val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
-    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of your library\.""")
+    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of (your|that player's) library\.""") // mkm chunk 07: that player's
     /** "all creatures your opponents control", "each Merfolk creature you control" */
     val ALL_NOUN = Regex("""(?:[Aa]ll|[Ee]ach) (.+)""")
     val GOAD = Regex("""Goad (.+)\.""")

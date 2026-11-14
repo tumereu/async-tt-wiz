@@ -1,5 +1,6 @@
 package arcanum.parser.sets.fin
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.CostPart
 import arcanum.api.Destination
@@ -192,7 +193,7 @@ class FinChunk10BlueMoreTest {
         Keyword.Enchant(TargetKind.Objects(creature)),
         triggered(entersSelf, tapIt(equipped)),
         static(Mechanic.DoesntUntap, affects = equipped),
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(equipped)))), doing(Effect.Sacrifice(Objects.Self))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(equipped)), per = DamageOccurrence.Recipient)), doing(Effect.Sacrifice(Objects.Self))),
     )
 
     // CR 118.12a, 701.6a

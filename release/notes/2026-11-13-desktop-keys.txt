@@ -1,0 +1,1 @@
+add: On the web version's desktop table, keyboard shortcuts: Space presses the main button, Ctrl+Z undoes and more; press ? to see them all, and change them in Settings. Holding Alt over a card shows it large.

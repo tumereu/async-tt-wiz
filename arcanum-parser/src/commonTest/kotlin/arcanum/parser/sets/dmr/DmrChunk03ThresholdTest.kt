@@ -144,7 +144,8 @@ class DmrChunk03ThresholdTest {
         text = "Threshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has flying.",
     ) parsesTo abilities(static(pt(1, 1), has(Keyword.Flying), condition = sevenOrMore).copy(abilityWord = "Threshold"))
 
-    // CR 205.1, 613.1d: the land stays a land and gains the creature type, colours and first strike until end of turn
+    // CR 205.1, 613.1d: the land stays a land and gains the creature type, colours and first strike until end of turn; CR 205.1b:
+    // "still a land" keeps all its prior subtypes
     @Test
     fun cloisterOfTheMoss() = card(
         name = "Cloister of the Moss",
@@ -158,7 +159,7 @@ class DmrChunk03ThresholdTest {
         addMana("{C}"),
         Ability.Activated(cost(mana("{G}{W}")), arcanum.api.Instructions(steps = listOf(untilEndOfTurn(Objects.Self,
             Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Insect")),
-                arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Monk"))), replaceSubtypes = true),
+                arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Monk")))),
             Mechanic.SetColors(listOf(ColorRef.Literal(Color.Green), ColorRef.Literal(Color.White))),
             Mechanic.SetPowerToughness(n(4), n(4)), has(Keyword.FirstStrike)))),
             ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You, condition = sevenOrMore), abilityWord = "Threshold"),

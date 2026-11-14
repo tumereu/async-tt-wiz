@@ -73,7 +73,7 @@ class AccountHttpTest {
             }
         }
     }
-    // LOB-080
+    // LOB-080, WEB-033
     @Test fun `account settings default to show after first game and are authenticated account scoped and shared by devices`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -114,6 +114,20 @@ class AccountHttpTest {
                 assertEquals(MoveSound.Tock, json.decodeFromString<AccountSettings>(get(token).body()).moveSound)
                 assertEquals(MoveSound.Plip, json.decodeFromString<AccountSettings>(get(other).body()).moveSound)
                 assertTrue(""""moveSound":"off"""" in put(token, json.encodeToString(AccountSettings(moveSound = MoveSound.Off))).body(), "by its id on the wire")
+                // WEB-033: the desktop hotkeys that differ from the defaults, kept for the account's every device; none by default;
+                // too many or too long refused, the saved ones kept
+                assertEquals(emptyMap<String, String>(), json.decodeFromString<AccountSettings>(get(token).body()).keyBindings)
+                val keys = mapOf("timeline" to "C", "chat" to "", "main-hold" to "Ctrl+Shift+Space")
+                val saved = put(token, json.encodeToString(AccountSettings(keyBindings = keys)))
+                assertEquals(200, saved.statusCode())
+                assertEquals(keys, json.decodeFromString<AccountSettings>(saved.body()).keyBindings)
+                assertEquals(keys, json.decodeFromString<AccountSettings>(get(secondDevice).body()).keyBindings)
+                assertEquals(emptyMap<String, String>(), json.decodeFromString<AccountSettings>(get(other).body()).keyBindings)
+                assertEquals(400, put(token, json.encodeToString(AccountSettings(keyBindings = (1..65).associate { "a$it" to "K" }))).statusCode())
+                assertEquals(400, put(token, json.encodeToString(AccountSettings(keyBindings = mapOf("chat" to "K".repeat(41))))).statusCode())
+                assertEquals(keys, json.decodeFromString<AccountSettings>(get(token).body()).keyBindings)
+                assertEquals(emptyMap<String, String>(), json.decodeFromString<AccountSettings>(put(token, json.encodeToString(AccountSettings())).body()).keyBindings,
+                    "back to the defaults")
             }
         }
     }

@@ -1,0 +1,1 @@
+add: On a computer, the web version has a desktop table: the phases along the top, each player's life and piles on their own battlefield, the Stack and the chat at the right, bigger cards, and a Layout setting to choose phone or desktop.

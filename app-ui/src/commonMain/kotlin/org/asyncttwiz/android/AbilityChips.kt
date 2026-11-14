@@ -10,6 +10,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
@@ -80,6 +82,49 @@ fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, sce
 
 /** An ability's printed text split into what it does and its cost ("{2}{G}, {T}: Draw a card." → "Draw a card", "{2}{G},
  * {T}"); text without a cost (a special action's) is all effect. A chip shows the cost first ([AbilityChipText]). */
+/**
+ * WEB-027 (owner, §5): on the desktop table the battlefield card the mouse hovers ([TableToolkitController.hoveredAbilities])
+ * shows its chips faded where a tap would open them (TBL-124), when one of its abilities is usable now; a card with one usable
+ * ability shows that one chip too, so hover tells what a click does (§12 item 6). The chip the mouse is on turns solid; a
+ * click on it activates that ability at once, a click on the card does what a tap does. Only in the desktop layout.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun HoveredAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String> = emptyMap()) {
+    val hover = LocalDesktopHover.current ?: return
+    val cardId = toolkit.hoveredAbilities ?: return
+    if (toolkit.abilityCard != null || toolkit.cast.open || toolkit.cast.targeting || toolkit.flows.targeting) return
+    val offered = toolkit.abilities(play, cardId) ?: return
+    if (offered.none { it.legal }) return
+    val item = scene?.items?.firstOrNull { it.cardId == cardId && it.battlefieldCard } ?: return
+    val name = CastController.cardName(play, cardId)
+    val on = toolkit.hoveredAbility
+    Layout(content = {
+        ChipRowsLayout(4.dp, Modifier.testTag(HOVER_CHIPS_TAG).mouseHover(cardId) { over -> hover.chips(over) }) {
+            offered.forEachIndexed { index, ability ->
+                Box(Modifier.alpha(if (on == index) 1f else HOVER_CHIP_ALPHA).mouseHover(index) { over ->
+                    if (over) toolkit.hoveredAbility = index else if (toolkit.hoveredAbility == index) toolkit.hoveredAbility = null
+                }) {
+                    AbilityChip(ability.text, { toolkit.activateChip(index, cardId) }, {},
+                        refusal = ability.refusal?.takeIf { !ability.legal }?.let { chipRefusal(it, ability.kind, name, names) })
+                }
+            }
+        }
+    }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        val margin = 8.dp.roundToPx()
+        val gap = 6.dp.roundToPx()
+        val placeable = measurables.first().measure(Constraints(maxWidth = (constraints.maxWidth - 2 * margin).coerceAtLeast(0),
+            maxHeight = constraints.maxHeight))
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            val x = (item.bounds.center.x.dp.roundToPx() - placeable.width / 2)
+                .coerceIn(margin, (constraints.maxWidth - placeable.width - margin).coerceAtLeast(margin))
+            val above = item.bounds.y.dp.roundToPx() - gap - placeable.height
+            val y = if (above >= margin) above else item.bounds.bottom.dp.roundToPx() + gap
+            placeable.place(x, y.coerceIn(0, (constraints.maxHeight - placeable.height).coerceAtLeast(0)))
+        }
+    }
+}
+
 fun abilityParts(text: String): Pair<String, String?> {
     val colon = text.indexOf(": ")
     val effect = (if (colon > 0) text.substring(colon + 2) else text).trim().removeSuffix(".")

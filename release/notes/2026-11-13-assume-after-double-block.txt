@@ -1,0 +1,1 @@
+fix: "Assume no response" now goes on to combat damage when your attacker was blocked by more than one creature; before, the damage was shown and then taken back.

@@ -168,6 +168,7 @@ class EoeChunk09BlueTest {
                     EventPattern.Damage(
                         source = ObjectFilter.Any,
                         to = RecipientFilter(objects = ObjectFilter.Is(objects = Objects.AttachedTo(of = Objects.Self))),
+                        per = DamageOccurrence.Recipient,
                     ),
                 ),
             ),

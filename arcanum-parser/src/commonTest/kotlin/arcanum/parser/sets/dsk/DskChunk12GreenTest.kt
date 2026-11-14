@@ -297,7 +297,7 @@ class DskChunk12GreenTest {
             )),
             instructions = Instructions(steps = listOf(
                 Step.Do(Effect.Search(Players.You, ObjectFilter.Named("Altanor, the Thrice-Summoned"), max = Value.Fixed(1),
-                    zones = listOf(Zone.Graveyard, Zone.Hand, Zone.Library), bind = "found", searcher = Players.You)),
+                    zones = listOf(Zone.Graveyard, Zone.Hand, Zone.Library), bind = "found", searcher = Players.You, zonesChosen = true)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))),
                 Step.If(Condition.Searched("found", Zone.Library), then = listOf(Step.Do(Effect.Shuffle(Players.You)))),
             )),

@@ -198,6 +198,8 @@ object TestCards {
     val pup = card("Ash Pup", "Creature — Elemental Dog", "{0}", power = "1", toughness = "1")
     /** A free creature with trample (CMB-033: its damage divides among its blockers and the defender). */
     val brute = card("Cinder Brute", "Creature — Elemental Ox", "{0}", "Trample", "2", "2")
+    /** Problem report JVPJ8Y: a free 4/3 without trample: blocked by two Ash Pups, its damage divides order-free (STK-033). */
+    val hauler = card("Zinc Hauler", "Artifact Creature — Construct", "{0}", power = "4", toughness = "3")
     /** Free Equipment with a free equip. */
     val blade = card("Ember Blade", "Artifact — Equipment", "{0}", "Equipped creature gets +1/+0.\nEquip {0}")
     /** A sorcery too dear for one Mountain that cycles for {R} (ZON-080: its Cycling chip). */

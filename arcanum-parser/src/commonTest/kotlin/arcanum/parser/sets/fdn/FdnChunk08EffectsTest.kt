@@ -1,5 +1,6 @@
 package arcanum.parser.sets.fdn
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.AbilityKind
 import arcanum.api.Affected
@@ -138,7 +139,7 @@ class FdnChunk08EffectsTest {
         """,
     ) parsesTo abilities(
         Keyword.Trample,
-        Ability.Triggered(Trigger.On(EventPattern.Damage(creatureYouControl, arcanum.api.RecipientFilter(), combat = true)),
+        Ability.Triggered(Trigger.On(EventPattern.Damage(creatureYouControl, arcanum.api.RecipientFilter(), combat = true, per = DamageOccurrence.Source)),
             Instructions(steps = listOf(counters(Objects.EventObject(EventRole.Source), Value.EventAmount))), triggersOnlyIf = Condition.YourTurn),
         static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, holder = PlayerFilter.You, additionalCost = cost(
             CostPart.RemoveCounters(null, n(6), CostObjects.Choose(creatureYouControl, count = null), distributed = true)))),
@@ -210,7 +211,7 @@ class FdnChunk08EffectsTest {
         ),
         loyalty(-4,
             damage(Value.DividedShare, toObjects(target("planeswalkers"))),
-            targets = listOf(slot("planeswalkers", or(creature, ObjectFilter.Type(arcanum.api.CardType.Planeswalker)), max = null).copy(divided = n(8))),
+            targets = listOf(slot("planeswalkers", or(creature, ObjectFilter.Type(arcanum.api.CardType.Planeswalker)), min = 0, max = null).copy(divided = n(8))),
         ),
     )
 

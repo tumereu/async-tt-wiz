@@ -252,6 +252,21 @@ class LtrMulticoloredScenariosTest {
         }
     }
 
+    /** Two creatures destroyed by one spell are two creatures that died (mkm chunk 06: it counted the event once). */
+    // CR 700.4, 603.10a
+    @Test
+    fun thrainCountsTwoCreaturesDyingAtOnce() = scenario {
+        val doubleDoom = Cards.invent("Shirefolk Double Doom", "{1}{B}{B}", "Sorcery", "Destroy two target creatures.")
+        alice.battlefield(s.thrainMournfulAvenger, wizard, p.bear, "Swamp", "Swamp", "Swamp")
+        alice.hand(doubleDoom)
+        alice.casts(doubleDoom, targets = listOf(wizard, p.bear))
+        playOut()
+        expect {
+            alice.graveyard has p.bear
+            s.thrainMournfulAvenger hasKeyword Keyword.Indestructible
+        }
+    }
+
     /** The third death this turn: a fight. */
     // CR 113.7
     @Test

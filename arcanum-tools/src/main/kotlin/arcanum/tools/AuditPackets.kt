@@ -147,7 +147,9 @@ internal fun renderDefinition(json: JsonElement): String {
             (face["supertypes"] as? JsonArray)?.joinToString(" ", transform = ::renderModel),
             (face["types"] as? JsonArray)?.joinToString(" ", transform = ::renderModel),
             (face["subtypes"] as? JsonArray)?.joinToString(" ", transform = ::renderModel),
-            if ("power" in face) "${renderModel(face.getValue("power"))}/${renderModel(face.getValue("toughness"))}" else null,
+            if ("power" in face || "toughness" in face) {
+                "${face["power"]?.let(::renderModel) ?: "none"}/${face["toughness"]?.let(::renderModel) ?: "none"}"
+            } else null,
             face["loyalty"]?.let { "loyalty ${renderModel(it)}" },
             face["defense"]?.let { "defense ${renderModel(it)}" },
         ).joinToString(" | ")

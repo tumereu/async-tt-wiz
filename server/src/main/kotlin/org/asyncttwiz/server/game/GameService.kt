@@ -24,6 +24,9 @@ import org.jooq.impl.DSL
 
 class GameProtocolFailure(val code: String, val retryable: Boolean = false) : RuntimeException(code)
 
+/** The longest reason of an engine refusal the server's log and the sender's [GameResult.detail] carry (problem report JVPJ8Y). */
+private const val MAX_REFUSAL_DETAIL = 300
+
 /** One durable request/execution domain per persistent game: preparation, and the play on engine state. */
 class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private val clock: java.time.Clock = java.time.Clock.systemUTC()) {
@@ -276,6 +279,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val before = game.revision!!
         var insertedChat: ChatMessage? = null
         var engineAccepted: EngineGames.Outcome? = null
+        var engineDetail: String? = null
         val rejection = if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) "lifecycleEnded"
             else if (lobbyWaitsForResult(game, command.action)) "resultNotSeen".also {
                 org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Lobby action refused before both OKs game={} account={} action={}",
@@ -285,7 +289,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             GameAction.DeleteGame -> applyDeletion(sql, game, command)
             is GameAction.Submit, is GameAction.EngineSeen, is GameAction.EngineRewind, is GameAction.EngineRequestRewind,
             is GameAction.EngineAnswerRewind, GameAction.EngineCancelRewind, is GameAction.EngineSettings ->
-                applyEngine(sql, game, inbox.accountId!!, command).let { (reason, accepted) -> engineAccepted = accepted; reason }
+                applyEngine(sql, game, inbox.accountId!!, command) { engineDetail = it }.let { (reason, accepted) -> engineAccepted = accepted; reason }
             is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command).also { insertedChat = it.message }.reason
             is GameAction.SetAssumeReveals -> applyAssumeReveals(sql, game, inbox.accountId!!, command.action as GameAction.SetAssumeReveals)
             GameAction.AcknowledgeResult -> applyAcknowledgement(sql, game, inbox.accountId!!)
@@ -388,7 +392,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         }
         if (revision != null) committedEngine = engineAccepted
         val result = GameResult(command.requestId, command.scope, if (rejection == null) "accepted" else "rejected",
-            rejection, inbox.ingressOrdinal.toString(), revision?.toString(), created)
+            rejection, inbox.ingressOrdinal.toString(), revision?.toString(), created, detail = engineDetail.takeIf { rejection != null })
         val encoded = json.encodeToString(result)
         sql.update(GAME_INBOX).set(GAME_INBOX.RESULT, encoded).where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
         sql.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game.id).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
@@ -434,7 +438,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
      * undo requests, private settings): the reason it is refused, or what it did. A result that became final ends the
      * play as an accepted result does (I-D56 §11: concession at once, else confirmed once both players saw it).
      */
-    private fun applyEngine(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): Pair<String?, EngineGames.Outcome?> {
+    private fun applyEngine(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand,
+        refusedFor: (String) -> Unit = {}): Pair<String?, EngineGames.Outcome?> {
         if (game.lifecycle != "ACTIVE") return "lifecycleEnded" to null
         val play = game.currentPlay ?: return "lifecycleEnded" to null
         val now = java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)
@@ -453,7 +458,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 else -> error("Not an engine action")
             } ?: return "notEngineState" to null
         } catch (refusal: org.asyncttwiz.protocol.game.Refusal) {
-            return (if (refusal.reason in ENGINE_REASONS) refusal.reason else "refusedByEngine") to null
+            val code = if (refusal.reason in ENGINE_REASONS) refusal.reason else "refusedByEngine"
+            // Problem report JVPJ8Y: the reason in the server's log (and, for "refusedByEngine", in the sender's), with what the
+            // submission held: its acts (the inputs, assumed or not) on the event it was made on
+            val detail = refusal.reason.take(MAX_REFUSAL_DETAIL)
+            if (code == "refusedByEngine") refusedFor(detail)
+            // A seen report with nothing new is routine (a device reports its local head throttled): not logged
+            if (command.action !is GameAction.EngineSeen || code != "noChange") org.slf4j.LoggerFactory.getLogger(GameService::class.java).info(
+                "Engine action refused game={} account={} action={} code={} reason={}{}", game.id, account,
+                command.action.latencyType(), code, detail, (command.action as? GameAction.Submit)?.submission?.let(::described).orEmpty())
+            return code to null
         }
         if (outcome.ended) {
             val summary = lobby.summary(sql, game.id!!)
@@ -474,6 +488,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         }
         return null to outcome
     }
+
+    /** A refused submission as the server's log tells it (problem report JVPJ8Y): its event, the event it was made on, and
+     * its acts (each input, marked when assumed; a new line's start) and table changes, cut short when long. */
+    private fun described(submission: org.asyncttwiz.protocol.game.Submission): String =
+        (" submission=${submission.id} on=${submission.parentId} acts=" + submission.acts.joinToString(prefix = "[", postfix = "]") { act ->
+            when (act) {
+                is org.asyncttwiz.protocol.game.Act.Perform -> (if (act.assumed) "assumed " else "") + act.input
+                is org.asyncttwiz.protocol.game.Act.NewLine -> "new line ${act.number}"
+            }
+        } + if (submission.table.isEmpty()) "" else " table=${submission.table.map { it::class.simpleName }}").take(MAX_REFUSAL_DETAIL * 4)
 
     /** Whether [action] is a change by a player that counts as the game's activity (game history §4.4): anything but a
      * device reporting what its player has seen, or a player's private play settings. */

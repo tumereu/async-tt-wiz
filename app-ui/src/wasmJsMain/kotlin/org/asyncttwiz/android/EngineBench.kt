@@ -320,6 +320,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
 
     private var flowSteps = 0
     private var landTurn = -1
+    private var castFailedTurn = -1
     private var attackedTurn = -1
     private var attacked = false
     private var endedAfterAttack = false
@@ -363,18 +364,10 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
             landTurn = s.turn.number
             return timed("Land", { done -> game.act(land) { done(it::class.simpleName.orEmpty()) } }, next)
         }
-        if (main) options.filterIsInstance<Input.Cast>().firstOrNull()?.let { cast ->
-            val at = jsNow()
-            val play = game.play()
-            val inputs = try {
-                val flow = org.asyncttwiz.automatum.CastFlow.start(org.asyncttwiz.automatum.CastFlow.Source.engine(s, play.board, play.gameId),
-                    game.me, cast, org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() })
-                val payment = flow.pending as? arcanum.engine.decision.Decision.ManaPayment
-                flow.sending(payment?.suggestion).cast.inputs.toList()
-            } catch (problem: Exception) { null }
-            val onPage = jsNow() - at
-            if (inputs != null) return timed("Cast with its payment (worked out on the page in ${onPage.f()} ms)",
-                { done -> game.send(inputs) { done(it::class.simpleName.orEmpty()) } }, next)
+        if (main && castFailedTurn != s.turn.number) options.filterIsInstance<Input.Cast>().firstOrNull()?.let { cast ->
+            val turn = s.turn.number
+            return timed("Cast through its flow session (${if (game.inWorker) "in the worker" else "on the page"})",
+                { done -> castByPanel(cast) { result -> if ("sent after" !in result || result.startsWith("Refused")) castFailedTurn = turn; done(result) } }, next)
         }
         options.filterIsInstance<Input.DeclareAttackers>().firstOrNull()?.let {
             val ready = s.battlefield.filter { id -> s.obj(id)?.controller == me && Engine.view(s)[id]?.let { v -> v.power != null && !v.summoningSick } == true &&
@@ -392,9 +385,13 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
             val target = arcanum.engine.state.TargetRef.Player(PlayerId(if (game.me == "alice") "bob" else "alice"))
             return timed("Stage an attacker", { done -> game.stageOwn(game.play(), draft.actions, draft.requestId) { done(it.toString()) } }) {
                 attacked = true
-                timed("Declare attackers", { done ->
-                    game.send(listOf(Input.DeclareAttackers(me, listOf(arcanum.engine.input.Attack(ready.first(), target))))) { done(it::class.simpleName.orEmpty()) }
-                }, next)
+                // Web client step 4e: what the table shows of combat on the staged board, asked of the worker's device, then
+                // the step arrow's declaration worked out in the worker's shared-flow session and sent
+                timed("Combat of the staged board (asked of the worker)", { done ->
+                    AutomatumBoards.askCombat(game.play()) { shown -> done("${shown.choices.attacks.size} may attack, preview ${shown.preview != null}") }
+                }) {
+                    timed("Declare attackers through the shared-flow session", { done -> sharedStep(done) { shared.step() } }, next)
+                }
             }
         }
         if (s.turn.active == me && attacked && s.turn.step == arcanum.api.TurnStep.PostcombatMain) endedAfterAttack = true
@@ -402,9 +399,78 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         val canAttack = s.battlefield.any { id -> s.obj(id)?.controller == me && s.obj(id)?.tapped == false &&
             Engine.view(s)[id]?.let { v -> v.power != null && !v.summoningSick } == true }
         if (s.turn.active == me && s.turn.step == arcanum.api.TurnStep.PrecombatMain && canAttack && attackedTurn != s.turn.number && s.priority.holder == me)
-            return timed("Pass to combat", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }, next)
+            // Web client step 4e: the shared flow's panel value asked of the worker, then the step arrow's pass worked out in
+            // its session and sent
+            return timed("Shared flow's panel (asked of the worker)", { done ->
+                val play = game.play()
+                shared.load(play)
+                waitFor({ shared.view?.board === play.board }) { done("holder ${shared.view?.holder}, decision ${shared.view?.decision?.kind}") }
+            }) { timed("Pass to combat through the shared-flow session", { done -> sharedStep(done) { shared.step() } }, next) }
         if (s.turn.active == me || s.priority.holder != me) return timed("End turn", { done -> game.endTurn { done("") } }, next)
         timed("Pass", { done -> game.pass { done(it::class.simpleName.orEmpty()) } }, next)
+    }
+
+    /**
+     * Web client step 4e: [cast] made as the table's cast panel makes it ([CastController], its flow session where the device
+     * is): begun, each step the panel would need taken (the first legal target, Cast at the payment), sent with its payment.
+     * Each session step's round trip and the time to the send are told; [done] gets the send's result first.
+     */
+    private fun castByPanel(cast: Input.Cast, done: (String) -> Unit) {
+        val cardId = (cast.card as ObjectId.Card).card.value
+        val at = jsNow()
+        val rounds = ArrayList<Double>()
+        var stepAt = at
+        var sentAfter = -1.0
+        var finished = false
+        fun finish(result: String) { if (!finished) { finished = true; done(result) } }
+        fun steps() = rounds.joinToString { it.f() }
+        val panel = CastController(game.me, { game.play() }, { message -> if (message != null) line("Cast panel: $message") },
+            engineSend = { inputs ->
+                rounds += jsNow() - stepAt
+                sentAfter = jsNow() - at
+                game.send(inputs) { acted -> finish("${acted::class.simpleName}: session steps ${steps()} ms, sent after ${sentAfter.f()} ms") }
+                null
+            },
+            port = TableCastPort(LocalCastPort(game.me) { w, d -> d(w()) }) { game })
+        fun drive() {
+            if (finished || sentAfter >= 0) return
+            if (panel.busy) { jsLater(1) { drive() }; return }
+            rounds += jsNow() - stepAt
+            stepAt = jsNow()
+            if (!panel.open) { finish("dropped: session steps ${steps()} ms"); return }
+            if (rounds.size > 8) { panel.cancel("bench"); finish("too many steps"); return }
+            val pick = panel.pick
+            val taken = if (pick != null) pick.options.firstOrNull()?.let { panel.answer(pick.answer(listOf(it))) } ?: false else panel.cast()
+            if (!taken && !panel.busy && panel.open) { val why = panel.notice; panel.cancel("bench"); finish("refused: $why"); return }
+            jsLater(1) { drive() }
+        }
+        if (!panel.begin(cardId, cast)) { finish("not begun"); return }
+        jsLater(1) { drive() }
+    }
+
+    /** Web client step 4e: what waits for the shared flow's step's send, and when the step was asked. */
+    private var sharedSent: ((String) -> Unit)? = null
+    private var sharedAt = 0.0
+
+    /** The table's shared flows ([SharedFlowController]), their sessions in the worker beside the device. */
+    private val shared by lazy {
+        SharedFlowController(game.me, { game.play() }, { message -> if (message != null) line("Shared flow: $message") },
+            engineSend = { inputs ->
+                val worked = jsNow() - sharedAt
+                val done = sharedSent
+                sharedSent = null
+                game.send(inputs) { acted -> done?.invoke("${acted::class.simpleName}: worked out in the session in ${worked.f()} ms") }
+                null
+            },
+            port = TableSharedPort(LocalSharedPort(game.me) { w, d -> d(w()) }) { game })
+    }
+
+    /** A shared flow's step ([step]) whose send's result goes to [done]; one refused or with nothing to send says so. */
+    private fun sharedStep(done: (String) -> Unit, step: () -> Boolean) {
+        sharedSent = done
+        sharedAt = jsNow()
+        if (!step()) { sharedSent = null; done("not taken") }
+        else waitFor({ !shared.busy }) { if (sharedSent != null) { sharedSent = null; done("nothing sent") } }
     }
 
     private fun summary(then: () -> Unit) {

@@ -52,7 +52,9 @@ import org.asyncttwiz.appui.screenHeightDp
  * its damage preview in the middle of the wide table stay visible (CMB-029).
  */
 @Composable
-fun AboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+fun AboveHand(hand: TableBounds?, place: PromptPlace = PromptPlace.Board, content: @Composable () -> Unit) {
+    // WEB-019: on the desktop table a strip bottom-centre or a centred overlay, by [place]
+    LocalDesktopGeometry.current?.let { DesktopPrompt(it, place, content); return }
     val docked = dockedPanelReporter()
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
@@ -102,6 +104,9 @@ fun handRow(scene: TableScene?, viewer: String): TableBounds? =
 fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidden: () -> Unit, what: String,
     buttons: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
     val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = description)
+    // WEB-019: hidden, a centred overlay's dimming goes with it
+    val dim = LocalPromptDim.current
+    if (dim != null) SideEffect { dim.shown = shown }
     Column(Modifier.fillMaxWidth()
         .then(if (hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = description })
         .drawBehind {
@@ -152,6 +157,8 @@ fun AutomatumDockBar(description: String, eye: Boolean = false, content: @Compos
     }
     var hidden by remember(description) { mutableStateOf(false) }
     val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = description)
+    val dim = LocalPromptDim.current
+    if (dim != null) SideEffect { dim.shown = shown }
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp)
         .then(if (hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = description })
         .drawBehind {

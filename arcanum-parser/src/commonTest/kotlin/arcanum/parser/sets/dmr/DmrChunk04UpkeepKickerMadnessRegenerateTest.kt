@@ -1,5 +1,6 @@
 package arcanum.parser.sets.dmr
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Choice
 import arcanum.api.Color
@@ -289,7 +290,7 @@ class DmrChunk04UpkeepKickerMadnessRegenerateTest {
         phantomShield,
     )
 
-    // CR 615.5; CR 120.3: the damage it deals, of any kind, is what you gain
+    // CR 615.5; CR 120.3: the damage it deals, of any kind, is what you gain; CR 603.2c: once for all it deals at once
     @Test
     fun phantomNightcat() = card(
         name = "Phantom Nightcat",
@@ -305,7 +306,7 @@ class DmrChunk04UpkeepKickerMadnessRegenerateTest {
     ) parsesTo abilities(
         Keyword.Trample,
         entersWith(p1p1, 7),
-        triggered(on(EventPattern.Damage(isSelf, RecipientFilter())), doing(Effect.GainLife(Players.You, Value.EventAmount))),
+        triggered(on(EventPattern.Damage(isSelf, RecipientFilter(), per = DamageOccurrence.Source)), doing(Effect.GainLife(Players.You, Value.EventAmount))),
         phantomShield,
     )
 }

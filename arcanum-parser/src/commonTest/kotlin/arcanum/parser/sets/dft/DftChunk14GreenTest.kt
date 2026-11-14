@@ -119,7 +119,7 @@ class DftChunk14GreenTest {
         Keyword.Reach,
         triggered(entersSelf, Step.May(listOf(
             doing(Effect.Search(Players.You, and(creature, ObjectFilter.NoAbilities), max = n(1), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard),
-                bind = "found", searcher = Players.You)),
+                bind = "found", searcher = Players.You, zonesChosen = true)),
             move(Objects.Bound("found"), Zone.Hand),
             Step.If(Condition.Searched("found", Zone.Library), then = listOf(shuffle)),
         ), player = Players.You)),

@@ -120,6 +120,7 @@ fun PodBuildView(
     onCover: (String) -> Unit = {},
 ) {
     val columns = columnPreference.count
+    val desktop = desktopLayout()
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
     var confirmSubmit by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf(false) }
@@ -176,8 +177,8 @@ fun PodBuildView(
                 val count = podBuildCount(build, category)
                 val buckets = podBuildColumns(build, category, copies, definitions, columns)
                 val sectionColor = category.podBuildColor()
-                // DRF-107: every section has a review, Maybe too
-                val feedable = editable
+                // DRF-107: every section has a review, Maybe too; WEB-045: none on the desktop layout (§5)
+                val feedable = editable && !desktop
                 item(key = "header-$category") {
                     Surface(color = sectionColor.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer),
                         modifier = Modifier.fillMaxWidth().then(if (sliding) Modifier.animateItem(fadeInSpec = null,
@@ -481,6 +482,11 @@ fun PodBuildCard(
         }
         latestMove(key, destination)
     }
+    // WEB-045, WEB-046 (desktop layout): the edge zones are the swipes' destinations (DRF-099)
+    val zones = rememberEdgeZones("$name (${category.podBuildLabel()})",
+        left = EdgeTarget(left.podBuildLabel(), left.podBuildColor()) { confirm(left) }.takeIf { editable },
+        right = EdgeTarget(right.podBuildLabel(), right.podBuildColor()) { confirm(right) }.takeIf { editable },
+        menu = { menus.open = key }, hold = { latestInspect(it) })
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("pod-build-card-$key")) {
         val density = LocalDensity.current
         val width = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
@@ -489,10 +495,12 @@ fun PodBuildCard(
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .onGloballyPositioned { anchor.coordinates = it }
             .graphicsLayer { alpha = appear.value }
+            .edgeZoneHover(zones)
             // Same recognizer as the pick screen: tap menu, horizontal swipe, release-to-close hold.
-            .pointerInput(key, category, threshold, editable) {
+            .pointerInput(key, category, threshold, editable, zones) {
                 podPickGestures(onTap = { menus.open = key },
                     onInspect = { latestInspect(it) }, onInspectScroll = { latestInspectScroll(it) },
+                    mouseClick = zones?.let { edges -> { at -> edges.click(at.x / size.width.coerceAtLeast(1)) } },
                     onDrag = if (editable) { x -> snapBack?.cancel(); drag = x } else null,
                     onDragEnd = { x ->
                         podBuildSwipeTarget(category, x)?.takeIf { abs(x) >= threshold }?.let {
@@ -515,6 +523,7 @@ fun PodBuildCard(
             if (tile.copyIds.size > 1) Surface(Modifier.align(Alignment.TopEnd), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Text("×${tile.copyIds.size}", Modifier.padding(2.dp), fontSize = 11.sp)
             }
+            EdgeZoneOverlay(zones)
         }
         podBuildSwipeTarget(category, drag)?.let { target ->
             PodBuildSwipeCopy(key, reference, name, width, drag, (abs(drag) / threshold).coerceIn(0f, 1f), target)

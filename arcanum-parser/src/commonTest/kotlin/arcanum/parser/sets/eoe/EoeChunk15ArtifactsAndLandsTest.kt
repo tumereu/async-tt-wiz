@@ -343,6 +343,7 @@ class EoeChunk15ArtifactsAndLandsTest {
                                                 Mechanic.SetTypes(
                                                     add = listOf(CardType.Artifact, CardType.Creature),
                                                     addSubtypes = listOf(SubtypeRef.Literal(subtype = Subtype("Robot"))),
+                                                    replaceSubtypes = true, // CR 205.1b: a "[creature type] artifact creature" replaces creature types
                                                 ),
                                                 Mechanic.SetPowerToughness(power = n(0), toughness = n(0)),
                                             ),

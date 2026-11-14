@@ -89,15 +89,21 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     /** LOB-145: shows the Game or Pod tab of a pod game's chat. */
     fun chatTab(tab: ChatTab) {
-        if (state.chatOpen && tab != state.chatTab) {
+        if ((state.chatOpen || chatDocked) && tab != state.chatTab) {
             AppLog.info("chat", "Chat tab ${tab.name.lowercase()}")
             state.detail?.id?.let { lastChatTabs[it] = tab }
             state = state.copy(chatTab = tab, chatFocus = null)
         }
     }
     /** LOB-139: Write in the Life panel: the chat open with its input focused and the soft keyboard up. */
-    fun writeChat() { openChat(); if (state.chatOpen) state = state.copy(chatWrite = true) }
+    fun writeChat() { openChat(); if (state.chatOpen) { state = state.copy(chatWrite = true); chatWrites++ } }
+    /** LOB-139, WEB-031: how often Write (or the desktop's chat key) asked for the input: each time takes the keyboard again. */
+    var chatWrites by androidx.compose.runtime.mutableIntStateOf(0); private set
     fun closeChat() { state = state.copy(chatOpen = false, chatFocus = null, chatWrite = false) }
+    /** WEB-017: the game's chat is docked on the desktop table (always shown), so its messages are read as they show and its
+     * tabs switch, as in the open chat (LOB-138, LOB-145). Personal UI, set by the table. */
+    var chatDocked: Boolean = false
+        set(value) { if (field != value) { field = value; AppLog.info("chat", "Chat ${if (value) "docked" else "not docked"}") } }
     var gameInput: (() -> Unit)? = null
     fun composeChat(text: String) { gameInput?.invoke(); state.detail?.let { personalChat.compose(it, text); connectionState() } }
     fun sendChat() {
@@ -127,7 +133,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     val chatViewEpoch get() = epoch
     fun presentedChat(gameId: String, viewEpoch: Long, ids: Set<String>) {
         // Fence stale layout callbacks after navigation/Logout or a changed account's panel.
-        if (!closed && viewEpoch == epoch && state.chatOpen && state.chatTab == ChatTab.GAME && state.selected == gameId) {
+        if (!closed && viewEpoch == epoch && (state.chatOpen || chatDocked) && state.chatTab == ChatTab.GAME && state.selected == gameId) {
             session?.presentedChat(gameId, ids); connectionState()
         }
     }

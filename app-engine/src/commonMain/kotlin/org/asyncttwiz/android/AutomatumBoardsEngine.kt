@@ -57,6 +57,12 @@ object AutomatumBoards {
      * engine thread, R4a). */
     fun sharedFlow(play: TableBoard): SharedFlow? = play.values?.sharedFlow()
 
+    /** Web client step 4e: the plain data of [play]'s shared flow already worked out, if any (the engine thread's). */
+    fun cachedSharedValue(play: TableBoard): org.asyncttwiz.automatum.boundary.SharedFlowValue? = play.values?.sharedValue
+
+    /** [play]'s shared flow's plain data, worked out now when not yet (blocking, on the engine thread). */
+    fun sharedValue(play: TableBoard): org.asyncttwiz.automatum.boundary.SharedFlowValue? = play.values?.sharedValue()
+
     /** What the table shows of combat on [play]'s board already worked out, if any (the engine thread's). */
     fun cachedCombat(play: TableBoard): CombatShown? = play.values?.combat
 
@@ -65,6 +71,18 @@ object AutomatumBoards {
     fun combat(play: TableBoard): CombatShown {
         if (TurnPosition.of(play.board.turn) !in COMBAT_STEPS) return CombatShown.NONE
         return play.values?.combat() ?: CombatShown.NONE
+    }
+
+    /** Web client step 4e: whether [play]'s combat is asked of the device in the browser's worker ([askCombat]), never worked
+     * out on the page. */
+    fun remoteCombat(play: TableBoard): Boolean = play.values?.workerBoard == true
+
+    /** What the table shows of combat on [play]'s board, given to [done]: [CombatShown.NONE] outside combat; in-process worked
+     * out now when not yet (blocking, on the engine thread); a board the worker's device published asks it, [done] later. */
+    fun askCombat(play: TableBoard, done: (CombatShown) -> Unit) {
+        if (TurnPosition.of(play.board.turn) !in COMBAT_STEPS) return done(CombatShown.NONE)
+        val values = play.values ?: return done(CombatShown.NONE)
+        values.askCombat(done)
     }
 
     /** Parses (or reads from the device cache) the definitions of the given card data. Blocking. */

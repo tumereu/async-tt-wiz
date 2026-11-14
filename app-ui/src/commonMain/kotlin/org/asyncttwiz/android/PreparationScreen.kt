@@ -326,12 +326,21 @@ fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String
     LaunchedEffect(enabled) { if (!enabled) { snapBack?.cancel(); drag = 0f } }
     val threshold = with(LocalDensity.current) { PreparationSwipeThreshold.toPx() }
     val name = tile.name
+    // WEB-045, WEB-046 (desktop layout): the right zone is a swipe right's section, the left a swipe left's when it differs
+    // (two sections: only the right zone, §5)
+    fun edge(right: Boolean) = target(right).let { section ->
+        EdgeTarget(section.shortLabel(), section.sectionColor()) { currentCapture(right)?.invoke() }
+    }
+    val zones = rememberEdgeZones("$name ($title)", left = edge(false).takeIf { enabled && target(false) != target(true) },
+        right = edge(true).takeIf { enabled }, menu = { menus.open = key }, hold = { currentHold(it) })
     BoxWithConstraints(Modifier.fillMaxWidth().testTag(tag)) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
         val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
-            .pointerInput(key, enabled, threshold) {
+            .edgeZoneHover(zones)
+            .pointerInput(key, enabled, threshold, zones) {
                 podPickGestures(onTap = { menus.open = key }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) },
+                    mouseClick = zones?.let { edges -> { at -> edges.click(at.x / size.width.coerceAtLeast(1)) } },
                     onDrag = if (enabled) { x ->
                         snapBack?.cancel()
                         if (!swipe.tried) { swipe.tried = true; swipe.commits = listOf(true, false).associateWith { currentCapture(it) } }
@@ -351,7 +360,7 @@ fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String
                 contentDescription = "$name, ${tile.quantity} copies, $title"
                 onClick("Actions for $name") { menus.open = key; true }
                 if (actions.isNotEmpty()) customActions = actions
-            }) { PreparationTileFace(tile, width, reference) }
+            }) { PreparationTileFace(tile, width, reference); EdgeZoneOverlay(zones) }
         if (drag != 0f) target(drag > 0f).let { to ->
             PodBuildSwipeCopy(key, reference, name, width, drag, preparationSwipeProgress(drag, threshold), to.category(),
                 tint = to.sectionFill(), label = to.shortLabel())

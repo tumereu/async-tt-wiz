@@ -34,14 +34,17 @@ import org.asyncttwiz.protocol.TurnPosition
  * (its lane), or the defending player when null (as `CombatPair.attackTarget`); with the choices made with it
  * ([AttackChoice], CMB-036–CMB-038): the creatures it [enlisted] (CR 702.154a), the optional costs to attack it is
  * [paying] (CR 508.1g, ability origin keys) and its [band] (CR 702.22c). */
+@kotlinx.serialization.Serializable
 data class LaneAttack(val cardId: String, val target: String? = null, val enlisted: List<String> = emptyList(),
     val paying: List<String> = emptyList(), val band: Int? = null)
 
 /** A cost of combat as the table shows it on a creature (CMB-037): [label] short ("Exert", "{2}", "2 life"), [text]
  * the printed ability it comes from (held chip), [key] the ability origin's key of an optional cost. */
+@kotlinx.serialization.Serializable
 data class CombatCostShown(val label: String, val text: String?, val key: String = "")
 
 /** A block as ATW's lanes hold it: [blockerId] in the pair of [attackerId] (CMB-007). */
+@kotlinx.serialization.Serializable
 data class LaneBlock(val blockerId: String, val attackerId: String)
 
 /** A declaration of attackers or blockers the engine refuses (CR 508.1, 509.1), with the reason for people. */
@@ -57,6 +60,7 @@ class CombatRefused(val reason: String) : IllegalArgumentException(reason)
  * - [blocks]: each creature that may block, with the attackers it may block (on its own; one with menace needs company,
  *   CR 702.111b); [requiredBlocks] as for attacks (CR 509.1c).
  */
+@kotlinx.serialization.Serializable
 data class CombatChoices(
     val declaring: String?,
     val attackers: Boolean,
@@ -90,13 +94,14 @@ data class CombatChoices(
  * [lethal] is lethal damage for each creature, [suggested] the engine's suggestion (lethal damage to each in turn, the
  * rest to the defender with trample).
  */
+@kotlinx.serialization.Serializable
 data class DamageDivision(
     val player: String,
     val source: String,
     val amount: Int,
     val among: List<MtgRef>,
-    val lethal: Map<MtgRef, Int>,
-    val suggested: Map<MtgRef, Int>,
+    val lethal: @kotlinx.serialization.Serializable(with = RefAmounts::class) Map<MtgRef, Int>,
+    val suggested: @kotlinx.serialization.Serializable(with = RefAmounts::class) Map<MtgRef, Int>,
     /** Whether the defender can get damage with trample (CR 702.19b): once each blocker has lethal damage. */
     val trampleTo: MtgRef?,
     /** It is asked in the first-strike combat damage step (CR 510.4), else in the regular one. */
@@ -105,6 +110,7 @@ data class DamageDivision(
 
 /** One damage dealt in a [DamagePreview]: [source] (an ATW card) deals [amount] to [target]; [firstStrike] in the
  * first-strike damage step (CR 510.4). */
+@kotlinx.serialization.Serializable
 data class PreviewDamage(val source: String, val target: MtgRef, val amount: Int, val firstStrike: Boolean)
 
 /**
@@ -118,11 +124,12 @@ data class PreviewDamage(val source: String, val target: MtgRef, val amount: Int
  *   a payment), taken here as the engine's suggestion or first listed answer (finalreview-combat #4): the damage
  *   depends on how it is answered.
  */
+@kotlinx.serialization.Serializable
 data class DamagePreview(
     val dealt: List<PreviewDamage>,
     val life: Map<String, Int>,
     val dies: List<String>,
-    val divisions: List<Pair<DamageDivision, Map<MtgRef, Int>>>,
+    val divisions: List<Pair<DamageDivision, @kotlinx.serialization.Serializable(with = RefAmounts::class) Map<MtgRef, Int>>>,
     val assumed: Boolean = false,
 ) {
     /** Damage per card id or account id. */
@@ -167,6 +174,7 @@ data class CombatDamageDealt(val targets: Map<String?, Int>, val attackers: Map<
  *   the first-strike damage step): their pass goes on to the (next) combat damage; null otherwise;
  * - [firstStrikeStep]: the combat damage step now is the first-strike one (CR 510.4).
  */
+@kotlinx.serialization.Serializable
 data class CombatShown(
     val choices: CombatChoices,
     val preview: DamagePreview? = null,

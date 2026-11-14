@@ -1,5 +1,6 @@
 package arcanum.parser.sets.fra
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardType
@@ -158,7 +159,7 @@ class FraChunk10GreenTest {
             Vigilance
             Whenever this creature is dealt damage, you may search your library for up to that many land cards, put them onto the battlefield tapped, then shuffle.
         """,
-    ) parsesTo abilities(Keyword.Vigilance, triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))), Step.May(listOf(
+    ) parsesTo abilities(Keyword.Vigilance, triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)), Step.May(listOf(
             Step.Do(Effect.Search(Players.You, land, Value.EventAmount, zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
             move(Objects.Bound("found"), Zone.Battlefield, tapped = true),
             Step.Do(Effect.Shuffle(Players.You))), player = Players.You)))

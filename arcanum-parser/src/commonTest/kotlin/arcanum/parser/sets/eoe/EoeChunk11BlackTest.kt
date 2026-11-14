@@ -319,7 +319,7 @@ class EoeChunk11BlackTest {
                 target("creature"),
                 has(
                     triggered(
-                        on(EventPattern.Damage(source = ObjectFilter.Any, to = RecipientFilter(objects = isSelf))),
+                        on(EventPattern.Damage(source = ObjectFilter.Any, to = RecipientFilter(objects = isSelf), per = DamageOccurrence.Recipient)),
                         doing(Effect.Draw(players = Players.You, count = Value.EventAmount)),
                         doing(Effect.LoseLife(players = Players.You, amount = Value.EventAmount)),
                     ),

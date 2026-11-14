@@ -1,5 +1,6 @@
 package arcanum.parser.sets.gtc
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.CardType
@@ -136,7 +137,7 @@ class GtcChunk11OrzhovTest {
         text = "Whenever this creature is dealt damage, you may destroy target nonland permanent.",
     ) parsesTo abilities(
         Ability.Triggered(
-            Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+            Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             Instructions(targets = listOf(slot("permanent", nonlandPermanent)), steps = listOf(Step.May(listOf(Step.Do(Effect.Destroy(Objects.Target("permanent")))), Players.You))),
         ),
     )

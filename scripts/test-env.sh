@@ -90,12 +90,14 @@ atw_fcm_args "$ATW_FIREBASE/google-services-test.json" org.asyncttwiz.android.te
 # Firebase identifiers add the "fcm" flavor, which renames the task and output directory.
 variant=personalTest apk_dir=personalTest
 if (( ${#fcm_args[@]} )); then variant=fcmPersonalTest apk_dir=fcm/personalTest; fi
-./scripts/gradle.sh :server:installDist ":androidApp:assemble${variant^}" "-PatwTestVersionCode=$test_code" "${fcm_args[@]}"
+./scripts/gradle.sh :server:installDist :webApp:webDist ":androidApp:assemble${variant^}" "-PatwTestVersionCode=$test_code" "${fcm_args[@]}"
 APK=$(echo "$ROOT/androidApp/build/outputs/apk/$apk_dir/"*.apk)
 [[ -f $APK ]]
 version=$(date -u +%Y%m%dT%H%M%S)-$(git rev-parse --short=12 HEAD)
 snapshot=$(mktemp -d "$STATE/server/$version-XXXXXX")
 cp -a server/build/install/server/. "$snapshot/"
+# The web client, served by the server on the same origin; the snapshot keeps it unchanged by later builds
+cp -a webApp/build/web "$snapshot/web"
 
 [[ -s $STATE/db-password ]] || openssl rand -hex 24 > "$STATE/db-password"
 [[ -s $STATE/reset-mail-key ]] || openssl rand -base64 32 > "$STATE/reset-mail-key"
@@ -105,6 +107,7 @@ export DB_PASSWORD_FILE="$STATE/db-password" RESET_MAIL_KEY_FILE="$STATE/reset-m
 export PUBLIC_BASE_URL=$ORIGIN RESET_BASE_URL=$ORIGIN
 export SERVER_ADDRESS=127.0.0.1 SERVER_PORT=18090 HEALTH_ADDRESS=127.0.0.1 HEALTH_PORT=18091
 export APP_RELEASE_DIR="$STATE/app-release"
+export WEB_APP_DIR="$snapshot/web"
 # The card catalog from the local pinned MTGJSON file (docs/specs/web-client.md section 3), as this checkout builds it
 export CATALOG_DIR="$STATE/catalog"
 ./scripts/gradle.sh -q :catalog:catalogCommand --args="build --no-pin --out $CATALOG_DIR"
@@ -184,6 +187,7 @@ mapfile -t versions < <(find "$STATE/server" -mindepth 1 -maxdepth 1 -type d -na
 for old in "${versions[@]:1}"; do
     rm -r -- "$old"
 done
+echo "Web client: $ORIGIN/"
 echo "Test API: $ORIGIN | Health: http://127.0.0.1:18091/health/ready"
 echo "Mailpit: http://127.0.0.1:18026 | PostgreSQL: 127.0.0.1:55433/atw_test"
 echo "APK: $APK"

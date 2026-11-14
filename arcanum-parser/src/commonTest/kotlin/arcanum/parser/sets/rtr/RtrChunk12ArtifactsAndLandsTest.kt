@@ -1,5 +1,6 @@
 package arcanum.parser.sets.rtr
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Choice
@@ -77,7 +78,7 @@ class RtrChunk12ArtifactsAndLandsTest {
     /** "[This] becomes a P/T [colours] [type] artifact creature [with keywords] until end of turn" (CR 205.1b). */
     private fun becomes(power: Int, toughness: Int, colors: List<Color>, subtype: String, vararg keywords: Ability) = Step.Do(Effect.ApplyMechanics(
         listOfNotNull(
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true), // CR 205.1b: a "[creature type] artifact creature" replaces creature types
             Mechanic.SetColors(colors.map { ColorRef.Literal(it) }),
             Mechanic.SetPowerToughness(n(power), n(toughness)),
             keywords.takeIf { it.isNotEmpty() }?.let { Mechanic.GainAbilities(it.toList()) },
@@ -269,7 +270,7 @@ class RtrChunk12ArtifactsAndLandsTest {
     ) parsesTo abilities(
         Keyword.Trample,
         static(Objects.Self, Mechanic.MustAttack()),
-        triggered(Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+        triggered(Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             Step.Do(Effect.FlipCoin(Players.You, bind = "flip")),
             Step.If(Condition.Not(Condition.WonFlip("flip")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self))))),
         triggered(thisDies,

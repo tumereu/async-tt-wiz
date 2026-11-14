@@ -30,6 +30,13 @@ import androidx.compose.ui.window.PopupProperties
 /** Whether leaving a game's table takes a second Back (SYS-050): Android. The web leaves at once (WEB-002). */
 expect val secondBackLeavesTable: Boolean
 
+/** Whether the app offers the desktop layout and its Layout setting (WEB-013, WEB-014): the web. Android draws the phone
+ * layout only (docs/specs/web-client.md §4.3). */
+expect val desktopLayoutOffered: Boolean
+
+/** Whether the main pointer can hover (a mouse or trackpad; WEB-013), following changes while composed. Android: false. */
+@Composable expect fun pointerHovers(): Boolean
+
 /** The screen's width in dp (Android: the configuration's screenWidthDp). */
 @Composable expect fun screenWidthDp(): Int
 

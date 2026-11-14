@@ -262,6 +262,11 @@ internal object Combat {
         data class Fixed(val assignments: List<Assignment>) : Plan
         data class Choice(
             val amount: Int, val among: List<TargetRef>, val lethal: List<Share>, val trampleTo: TargetRef?, val suggested: List<Share>,
+            // mom
+            /** "As though it weren't blocked": all the damage to this one is also legal (CR 510.1c). */
+            val allTo: TargetRef? = null,
+            /** The only other legal division, when the creature's own assignment would be fixed. */
+            val only: List<Share>? = null,
         ) : Plan
     }
 
@@ -288,6 +293,23 @@ internal object Combat {
 
     /** How [id] assigns its combat damage, given what others have assigned in this step so far ([assigned]). */
     private fun assignmentOf(snap: Snapshot, id: ObjectId, assigned: List<Assignment>): Plan {
+        val plan = ownAssignmentOf(snap, id, assigned)
+        // mom: "you may have it assign its combat damage as though it weren't blocked": a blocked attacker may instead give all of it to what
+        // it attacks (CR 510.1c)
+        val attack = snap.state.combat!!.attackers.firstOrNull { it.id == id }?.takeIf { it.blocked && has(snap, id, Mechanic.AssignsDamageAsThoughUnblocked) }
+            ?: return plan
+        val target = attack.target.takeIf { !attack.targetRemoved && stillAttackable(snap, it) } ?: return plan
+        val n = amount(snap, id)
+        return when (plan) {
+            is Plan.Choice -> plan.copy(among = (plan.among + target).distinct(), allTo = target)
+            is Plan.Fixed -> {
+                val own = plan.assignments.map { Share(it.target, it.amount) }
+                Plan.Choice(n, (own.map { it.target } + target).distinct(), emptyList(), null, own.ifEmpty { listOf(Share(target, n)) }, allTo = target, only = own)
+            }
+        }
+    }
+
+    private fun ownAssignmentOf(snap: Snapshot, id: ObjectId, assigned: List<Assignment>): Plan {
         val s = snap.state
         val combat = s.combat!!
         val n = amount(snap, id)
@@ -378,6 +400,13 @@ internal object Combat {
         require(shares.all { it.target in plan.among && it.amount >= 0 }) { "Damage goes only to ${plan.among}" }
         require(shares.map { it.target }.distinct().size == shares.size) { "Each one once" }
         require(shares.sumOf { it.amount } == plan.amount) { "Assign all ${plan.amount} damage" }
+        val given = shares.filter { it.amount > 0 }
+        // mom: all of it to what it attacks, as though it weren't blocked (CR 510.1c); else its own assignment
+        if (plan.allTo != null && given == listOf(Share(plan.allTo, plan.amount))) {
+            return continueAssigning(recorder, action.copy(assigned = action.assigned + Assignment(source, plan.allTo, plan.amount), attackers = action.attackers.drop(1)))
+        }
+        plan.only?.let { only -> require(given.toSet() == only.filter { it.amount > 0 }.toSet()) { "Damage as assigned: $only, or all to ${plan.allTo}" } }
+        if (plan.allTo != null && plan.allTo != plan.trampleTo) require(given.none { it.target == plan.allTo }) { "All the damage or none to ${plan.allTo}" }
         plan.trampleTo?.let { defender ->
             val toDefender = shares.filter { it.target == defender }.sumOf { it.amount }
             val allLethal = plan.lethal.all { l -> shares.filter { it.target == l.target }.sumOf { it.amount } >= l.amount }

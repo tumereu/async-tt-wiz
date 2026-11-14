@@ -231,7 +231,7 @@ class DftChunk15MulticoloredTest {
             Step.Modify(Modification.EntersWithCounters(p1p1, Value.Times(Value.Count(Objects.Bound("exiled")), 3)))))))),
         activated(cost(mana("{2}")), doing(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target("card"), except = listOf(CopyException.PowerToughness(0, 0),
             CopyException.ThisAbility))), Affected.Objects(Objects.Self), Duration.Indefinitely)),
-            targets = listOf(slot("card", and(creature, ObjectFilter.Is(Objects.Remembered("exiled")))))),
+            targets = listOf(slot("card", and(creature, ObjectFilter.InZone(Zone.Exile), ObjectFilter.Is(Objects.Remembered("exiled")))))),
     )
 
     @Test

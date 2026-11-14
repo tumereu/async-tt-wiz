@@ -246,7 +246,7 @@ class InrChunk02TransformTest {
         ) to abilities(),
     )
 
-    // CR 701.27a, 310.11b (a Siege is cast transformed when defeated), 712.8 (the back face is an enchantment)
+    // CR 701.27a, 310.12b (a Siege is cast transformed when defeated), 712.8 (the back face is an enchantment)
     @Test
     fun invasionOfTheMoors() = cardFaces(Layout.Transform,
         OracleCard(

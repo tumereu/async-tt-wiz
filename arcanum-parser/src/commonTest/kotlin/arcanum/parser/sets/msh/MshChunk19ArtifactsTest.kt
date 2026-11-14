@@ -160,7 +160,8 @@ class MshChunk19ArtifactsTest {
         triggered(entersSelf, Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = target("creature")))), targets = listOf(slot("creature", creatureYouControl))),
         static(pt(2, 1), has(Keyword.Flying), affects = Objects.AttachedTo(Objects.Self)),
         activated(manaCost("{2}"), Step.If(Condition.Not(Condition.ObjectMatches(Objects.Self, creature)), then = listOf(untilEndOfTurn(Objects.Self,
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Construct")), SubtypeRef.Literal(Subtype("Hero")))),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Construct")), SubtypeRef.Literal(Subtype("Hero"))),
+                replaceSubtypes = true), // CR 205.1b: a "[creature types] artifact creature" replaces creature types
             Mechanic.SetPowerToughness(n(0), n(0)),
             has(Keyword.Flying, static(Mechanic.ModifyPowerToughness(count(and(artifact, you)), count(and(artifact, you))))))))),
         Keyword.Equip(manaCost("{2}")),

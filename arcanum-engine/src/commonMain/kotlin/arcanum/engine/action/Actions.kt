@@ -1093,9 +1093,10 @@ internal object Actions {
                         // CR 614.1a)
                         is Modification.MultiplyAmount -> result?.map { (f, k) -> if (matches(f)) f to k * mod.factor else f to k }
                         is Modification.AddAmount -> result?.map { (f, k) -> f to k + e.value(mod.amount) }
-                        is Modification.AlsoCreate -> result?.plus(tokenValues(act, e, mod.token) to e.value(mod.count))
-                        // fra: the matching tokens are created as another token instead, as many (CR 614.1a)
-                        is Modification.CreateInstead -> result?.map { (f, k) -> if (matches(f)) tokenValues(act, e, mod.token) to k else f to k }
+                        // a copy of nothing adds no token (CR 609.3)
+                        is Modification.AlsoCreate -> tokenValues(act, e, mod.token)?.let { v -> result?.plus(v to e.value(mod.count)) } ?: result
+                        // fra: the matching tokens are created as another token instead, as many (CR 614.1a); as a copy of nothing, none (CR 609.3)
+                        is Modification.CreateInstead -> result?.mapNotNull { (f, k) -> if (matches(f)) tokenValues(act, e, mod.token)?.let { it to k } else f to k }
                         is Modification.EntersTapped -> result
                         else -> result
                     }
@@ -1178,8 +1179,10 @@ internal object Actions {
         return copiable.forToken(id)
     }
 
-    /** The copiable values of a token spec (CR 111.4, 111.10, 707.2): a copy's are its layout and all its faces (CR 707.8a, 709.5b). */
-    fun tokenValues(act: Act, e: Evaluator, spec: arcanum.api.TokenSpec): arcanum.engine.state.CopiableValues = when (spec) {
+    /** The copiable values of a token spec (CR 111.4, 111.10, 707.2): a copy's are its layout and all its faces (CR 707.8a, 709.5b).
+     * Null for a copy of nothing: the object it refers to is undefined (an illegal target, nothing exiled) and has no last known
+     * information, so no token is created (CR 608.2b, 609.3). */
+    fun tokenValues(act: Act, e: Evaluator, spec: arcanum.api.TokenSpec): arcanum.engine.state.CopiableValues? = when (spec) {
         is arcanum.api.TokenSpec.Defined -> arcanum.engine.state.CopiableValues.of(spec.face.copy(
             power = spec.power?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.power,
             toughness = spec.toughness?.let { arcanum.api.PrintedNumber.Fixed(e.value(it)) } ?: spec.face.toughness,
@@ -1193,10 +1196,9 @@ internal object Actions {
         is arcanum.api.TokenSpec.CopyOf -> {
             val of = e.objects(spec.objects).firstOrNull()
             val values = of?.let { copiedForToken(act, it)?.takeIf { v -> v.faces.isNotEmpty() } }
-                ?: arcanum.engine.state.CopiableValues.of(of?.let { e.characteristics(it) }?.let { c -> FaceDefinition(c.name ?: "Copy", c.manaCost, c.colors, c.supertypes, c.types,
-                    c.subtypes, c.power?.let { arcanum.api.PrintedNumber.Fixed(it) }, c.toughness?.let { arcanum.api.PrintedNumber.Fixed(it) }) }
-                    ?: FaceDefinition("Copy"))
-            arcanum.engine.view.Copiable.exceptions(values, spec.except)
+                ?: of?.let { e.characteristics(it) }?.let { c -> arcanum.engine.state.CopiableValues.of(FaceDefinition(c.name ?: "Copy", c.manaCost, c.colors,
+                    c.supertypes, c.types, c.subtypes, c.power?.let { arcanum.api.PrintedNumber.Fixed(it) }, c.toughness?.let { arcanum.api.PrintedNumber.Fixed(it) })) }
+            values?.let { arcanum.engine.view.Copiable.exceptions(it, spec.except) }
         }
     }
 

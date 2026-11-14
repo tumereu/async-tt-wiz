@@ -1078,7 +1078,8 @@ internal object Effects {
     private fun createToken(scope: Scope, effect: Effect.CreateToken) {
         val act = scope.act
         val e = scope.eval()
-        val values = Actions.tokenValues(act, e, effect.token)
+        // CR 608.2b, 609.3: a copy of an object that's undefined (an illegal target, nothing exiled) with no last known information: no token
+        val values = Actions.tokenValues(act, e, effect.token) ?: run { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
         // woe chunk 01: an Aura token to be created attached to an object or player that is undefined (no target chosen, or the target
@@ -1815,7 +1816,7 @@ internal object Effects {
                     e.characteristics(it)?.isType(CardType.Creature) == true }
                 val chosen = act.chooseObjects(scope.actor, scope.self, tokens, 1, 1, "Populate").firstOrNull() ?: return
                 scope.bind(POPULATED, NamedValue.Objects(listOf(chosen)))
-                val values = Actions.tokenValues(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED)))
+                val values = Actions.tokenValues(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED))) ?: return
                 scope.bind(bind, NamedValue.Objects(Actions.createTokens(act, cause, values, 1, scope.actor)))
             }
             // CR 701.44c: one no longer on the battlefield explores too, as it last existed. CR 701.44d: several at once: the first player in APNAP
@@ -1855,7 +1856,7 @@ internal object Effects {
             // mom chunk 03: CR 701.53a: create an Incubator token (CR 111.10i) that enters with N +1/+1 counters on it
             is KeywordAction.Incubate -> {
                 val e = scope.eval()
-                val token = Actions.createTokens(act, cause, Actions.tokenValues(act, e, arcanum.api.TokenSpec.Predefined("Incubator")), 1, scope.actor,
+                val token = Actions.createTokens(act, cause, Actions.tokenValues(act, e, arcanum.api.TokenSpec.Predefined("Incubator"))!!, 1, scope.actor,
                     withCounters = listOf(CounterKind.PowerToughness(1, 1) to e.value(action.count).coerceAtLeast(0)))
                 scope.bind(bind, NamedValue.Objects(token))
             }

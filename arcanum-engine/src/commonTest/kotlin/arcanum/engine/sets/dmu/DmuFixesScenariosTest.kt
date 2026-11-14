@@ -196,4 +196,26 @@ class DmuFixesScenariosTest {
         assertEquals("Chunk Fix Test Paladin", tokens.single().characteristics!!.name)
         assertTrue(arcanum.api.Supertype.Legendary !in tokens.single().characteristics!!.supertypes)
     }
+
+    // ---- A copy token with nothing to copy
+
+    private val gambit = Cards.invent("Mirrored Gambit", "{1}{U}", "Instant",
+        "Target creature gets +2/+2 until end of turn. Create a token that's a copy of target artifact you control.")
+    private val bauble = Cards.invent("Chunk Fix Test Bauble", "{1}", "Artifact", "")
+    private val shatter = Cards.invent("Chunk Fix Test Shatter", "{1}{R}", "Instant", "Destroy target artifact.")
+
+    // CR 608.2b, 707.2: the artifact target became illegal, so the spell resolves for the creature alone and creates no token, nor a nameless one
+    @Test
+    fun aCopyOfAnIllegalTargetCreatesNoToken() = scenario(players = 3) {
+        alice.battlefield(bear, bauble, "Island", "Island")
+        alice.hand(gambit)
+        carol.hand(shatter)
+        alice.casts(gambit, targets = listOf(bear, bauble))
+        carol.castsWithoutCosts(shatter, target = bauble)
+        resolve()
+        expect { alice.graveyard has bauble }
+        resolveAll()
+        assertEquals(4, view()[card(bear)]?.characteristics?.power)
+        assertEquals(emptyList(), view().objects.values.filter { it.zone == Zone.Battlefield && it.obj?.isToken == true }.map { it.characteristics?.name })
+    }
 }

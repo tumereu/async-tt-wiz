@@ -1,6 +1,7 @@
 # Sets the Arcanum parser and engine support fully: every card of each must pass :arcanum-tools:setSupport.
 # One MTGJSON set code per line, then its name. A set is added here when its set work is merged.
 BLB Bloomburrow
+BRO The Brothers' War
 DFT Aetherdrift
 DGM Dragon's Maze
 DSK Duskmourn: House of Horror

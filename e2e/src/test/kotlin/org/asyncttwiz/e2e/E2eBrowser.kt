@@ -13,11 +13,13 @@ import java.util.concurrent.CopyOnWriteArrayList
  * A player in a real browser (docs/specs/web-client.md §10): the installed Chrome, headless through Playwright, on the
  * web build the server serves beside its API ([E2eStack.origin], WEB_APP_DIR), in a phone-sized window. Controls are found
  * by the screens' semantics, which the page mirrors into its document (test tags are element ids, labels and texts are
- * the elements'), and tapped on the page's canvas where they are, as a player's finger would.
+ * the elements'), and tapped on the page's canvas where they are, as a player's finger would. [chromeArgs]: more of
+ * Chrome's command-line switches.
  */
-internal class E2eBrowser : AutoCloseable {
+internal class E2eBrowser(chromeArgs: List<String> = emptyList()) : AutoCloseable {
     private val playwright = Playwright.create()
-    private val browser = playwright.chromium().launch(BrowserType.LaunchOptions().setChannel("chrome").setHeadless(true))
+    private val browser = playwright.chromium().launch(BrowserType.LaunchOptions().setChannel("chrome").setHeadless(true)
+        .setArgs(chromeArgs))
     private val context = browser.newContext(Browser.NewContextOptions().setViewportSize(412, 860))
     val page: Page = context.newPage()
     /** The page's console lines and errors. */
@@ -26,6 +28,8 @@ internal class E2eBrowser : AutoCloseable {
     init {
         page.onConsoleMessage { console += "${it.type()}: ${it.text()}" }
         page.onPageError { console += "pageerror: $it" }
+        // WEB-056: Chrome ended the page (its "Aw, Snap!": a crash or out of memory)
+        page.onCrash { console += "pageerror: the page crashed (Chrome ended it)" }
     }
 
     /** Opens the web app at [path] and signs in as [account] (a first sign-in's avatar offer skipped): on the menu or

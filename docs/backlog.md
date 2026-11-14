@@ -18,7 +18,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.
 
-- Chrome on the owner's Windows PC shows an "out of memory" error and the web client doesn't start (Firefox starts it; headless Chrome in WSL does too). Find the cause and fix it, with logging so a failed start explains itself.
 - Typing never acts as a hotkey (WEB-031, WEB-034, WEB-036, WEB-041, WEB-046): while a text field has the keyboard (chat, problem report, search, deck name, any field), every key, "?" included, goes only to it. An e2e test that types "?" and other hotkeys into the chat and the problem report and fails before the fix comes first (owner).
 - Problem report VXSGKH: undoing never needs the other player's approval because of their passes, whether automatic or tapped (owner: "undoing a pass should never need consent"): passes after the point no longer make Undo a request; a real input of theirs or something new shown to you still does (HIS-087, HIS-084, HIS-099). E2e test first, plus logging of why each Undo is free or a request.
 - The Stack in the desktop dock is almost hidden while the chat under it is open (WEB-017): the Stack keeps the room its entries need, the chat gets the rest.

@@ -27,9 +27,14 @@ object AppLog {
      * the message with its failure's summary), so problem reports carry the worker's lines; null elsewhere. */
     @Volatile var forward: ((priority: Int, tag: String, message: String) -> Unit)? = null
 
+    /** WEB-056: on the web page, every line as kept (its time, level and tag in front) also goes to the visit journal, which
+     * keeps the last ones in the browser's storage so a visit the browser ends is explained by the next one; null elsewhere. */
+    @Volatile var observer: ((priority: Int, line: String) -> Unit)? = null
+
     private fun write(priority: Int, tag: String, message: String, failure: Throwable?) {
         val line = buffer.add(priority, tag, message, failure)
         forward?.let { f -> try { f(priority, tag, line.substringAfter(": ")) } catch (_: RuntimeException) {} }
+        observer?.let { o -> try { o(priority, line) } catch (_: RuntimeException) {} }
         // Plain JVM unit tests have no logcat.
         try { platformLog(priority, "ATW/$tag", line.substringAfter(": ")) } catch (_: RuntimeException) {}
     }

@@ -36,6 +36,21 @@
         // The server replaces these with the build's folder and name (webApp's webDist); a development server leaves them.
         globalThis.atwBase = '%ATW_BASE%'.charAt(0) === '%' ? '/' : '%ATW_BASE%';
         globalThis.atwBuild = '%ATW_BUILD%'.charAt(0) === '%' ? '' : '%ATW_BUILD%';
+        // WEB-056: a failure before the app runs (its code can't load, compile or start) is kept for the next visit's app
+        // log, and so its problem reports (the app reads and removes it as it starts, and sets atwStarted)
+        globalThis.atwStartFailed = function (text) {
+            if (globalThis.atwStarted) return;
+            try {
+                localStorage.setItem('atw.start-failure', new Date().toISOString() + ' (build ' + (globalThis.atwBuild || 'unknown') +
+                    '; ' + navigator.userAgent + '): ' + String(text).slice(0, 2000));
+            } catch (e) {}
+        };
+        window.addEventListener('error', function (event) {
+            globalThis.atwStartFailed((event.error && event.error.stack) ? event.error.stack : event.message);
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+            globalThis.atwStartFailed((event.reason && event.reason.stack) ? event.reason.stack : event.reason);
+        });
         // WEB-054: the browser's install prompt, kept for Settings -> Install app (the site never shows it by itself)
         globalThis.atwInstallPrompt = null;
         window.addEventListener('beforeinstallprompt', function (event) {
@@ -74,6 +89,7 @@
         var script = document.createElement('script');
         script.src = globalThis.atwBase + 'atw.js';
         script.onerror = function () {
+            globalThis.atwStartFailed(script.src + " couldn't be loaded");
             var text = document.getElementById('atw-loading-text');
             if (text) text.textContent = "ATW couldn't load. Check your connection and reload the page.";
         };

@@ -109,10 +109,18 @@ object AutomatumBoards {
         val missing = submitted.filter { !parsed.containsKey(it.digest) && it.digest !in unreadable }
         val source = definitionSource
         if (missing.isNotEmpty() && source != null) {
+            // WEB-056: the parsing that made Chrome's optimizing compiler end the web page (owner report 2026-11-14) is named
+            // before it starts, so a page that never finishes it shows where it stopped
+            AppLog.info("automatum", "Card definitions: parsing ${missing.size} new: " +
+                missing.map { it.definition.name }.distinct().sorted().joinToString(", ").take(1_500))
+            val started = org.asyncttwiz.appui.nanoTime()
             val read = try { source(missing) } catch (problem: Exception) {
                 AppLog.warn("automatum", "Card definitions unavailable: ${simpleClassName(problem)}")
                 emptyMap()
             }
+            AppLog.info("automatum", "Card definitions: ${read.size} of ${missing.size} in " +
+                "${(org.asyncttwiz.appui.nanoTime() - started) / 1_000_000} ms, " +
+                "${read.values.count { it is ParsedCard.Unreadable }} unreadable")
             for ((digest, card) in read) when (card) {
                 is ParsedCard.Read -> parsed[digest] = card.definition
                 // I-D21: such a card plays with its printed values

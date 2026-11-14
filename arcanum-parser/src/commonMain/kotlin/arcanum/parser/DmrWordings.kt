@@ -83,6 +83,22 @@ internal object Dmr {
         arcanum.api.TurnStep.DeclareBlockers, arcanum.api.TurnStep.CombatDamage, arcanum.api.TurnStep.EndOfCombat).map { arcanum.api.Condition.StepIs(it) })
 
     /** "The player with the most life": each player whose life total equals the greatest life total (CR 119.1). */
+    // dmr fixes: Arboria
+    val CANT_ATTACK_A_PLAYER_UNLESS_LAST_TURN = Regex("""(.+?) can't attack a player unless that player (.+) during their last turn\.""")
+    private val CAST_A_SPELL = Regex("""cast an? (?:(.+?) )?spell""")
+    private val PUT_ONTO_BATTLEFIELD = Regex("""put (an? .+?) onto the battlefield""")
+
+    /** "that player cast a spell or put a nontoken permanent onto the battlefield during their last turn": each past action an
+     * event of the player's last turn (CR 800.4i); a permanent entering is the player's it enters under the control of. */
+    fun didDuringLastTurn(actions: String): arcanum.api.PlayerFilter? = actions.split(" or ").map { action ->
+        CAST_A_SPELL.matchEntire(action)?.let { m ->
+            val spell = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun("$it spell") ?: return null } ?: arcanum.api.ObjectFilter.Any
+            arcanum.api.EventPattern.Cast(spell, arcanum.api.PlayerFilter.Any)
+        } ?: PUT_ONTO_BATTLEFIELD.matchEntire(action)?.let { m ->
+            arcanum.api.EventPattern.ZoneChange(Filters.noun(m.groupValues[1].substringAfter(" ")) ?: return null, to = arcanum.api.Zone.Battlefield)
+        } ?: return null
+    }.map { arcanum.api.PlayerFilter.LastTurn(it) }.let { if (it.size == 1) it[0] else arcanum.api.PlayerFilter.Or(it) }
+
     val playersWithMostLife: arcanum.api.Players = arcanum.api.Players.Each(arcanum.api.PlayerFilter.Where(arcanum.api.Condition.Compare(
         arcanum.api.Value.LifeOf(arcanum.api.Players.Tested), arcanum.api.Comparison.Equal,
         arcanum.api.Value.GreatestFor(arcanum.api.Players.Each(arcanum.api.PlayerFilter.Any), arcanum.api.Value.LifeOf(arcanum.api.Players.Tested)))))

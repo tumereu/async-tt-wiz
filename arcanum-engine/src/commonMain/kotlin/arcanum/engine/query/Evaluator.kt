@@ -363,6 +363,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is PlayerFilter.Has -> filter.designation in state.player(player).designations
         is PlayerFilter.Life -> compare(state.player(player).life, filter.comparison, value(filter.value))
         is PlayerFilter.ThisTurn -> History.happened(this, filter.event, player = player)
+        // dmr fixes: the latest turn that player began (CR 800.4i); with 3+ players it can be older than last turn
+        is PlayerFilter.LastTurn -> state.turn.turnStarted[player]?.let { History.happened(this, filter.event, player = player, turn = it) } ?: false
     }
 
     // ---- Object filters
@@ -1170,7 +1172,9 @@ internal object History {
         evaluator: Evaluator, event: arcanum.api.EventPattern, objectId: ObjectId? = null, player: PlayerId? = null,
         // rtr chunk 05: only in this role of the event ("that dealt damage this turn": the source)
         role: arcanum.api.EventRole? = null,
-    ): Boolean = instances(evaluator, event).any { e ->
+        // dmr fixes: in that turn (this turn when null)
+        turn: Int? = null,
+    ): Boolean = instances(evaluator, event, turn).any { e ->
         (objectId == null || e.objects.any { (role == null || it.role == role) && objectId in it.ids }) && (player == null || player in e.players)
     }
 

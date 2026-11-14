@@ -221,4 +221,52 @@ class DmrFixesScenariosTest {
             card("Mountain", 2).tapped shouldBe true
         }
     }
+
+    private val accord = Cards.invent("Bramblecourt Accord", "{2}{G}{G}", "World Enchantment",
+        "Creatures can't attack a player unless that player cast a spell or put a nontoken permanent onto the battlefield during their last turn.")
+    private val elk = Cards.invent("Mossdrift Elk", "{G}", "Creature — Elk", "", "2/2")
+    private val stag = Cards.invent("Glenwatch Stag", "{G}", "Creature — Elk", "", "2/2")
+    private val hart = Cards.invent("Fernstep Hart", "{G}", "Creature — Elk", "", "2/2")
+
+    private fun arcanum.engine.scenario.Scenario.accordTable() {
+        alice.battlefield(accord, elk)
+        bob.battlefield(stag, "Mountain")
+        carol.battlefield(hart)
+        bob.hand("Storm Spark")
+        alice.library("Island", "Island", "Island")
+        bob.library("Island", "Island", "Island")
+        carol.library("Island", "Island", "Island")
+    }
+
+    // CR 508.1c, 800.4i: each player's own last turn, the latest turn they began: on turn 4 bob's last turn is turn 2, older than the
+    // game's last turn (3 players), and a player who hasn't had a turn yet did nothing during it. The host's log trim keeps bob's turn.
+    @Test
+    fun attackingAPlayerNeedsASpellOrPermanentDuringTheirOwnLastTurn() = scenario(players = 3) {
+        accordTable()
+        turn(step = TurnStep.DeclareAttackers)
+        assertFails { alice.attacks(elk, defender = "bob") }
+        assertFails { alice.attacks(elk, defender = "carol") }
+        advanceTo(TurnStep.PrecombatMain, turn = 2)
+        bob.casts("Storm Spark", target = "alice")
+        allPass()
+        advanceTo(TurnStep.DeclareAttackers, turn = 3)
+        assertFails { carol.attacks(hart, defender = "alice") }
+        carol.attacks(hart, defender = "bob")
+        advanceTo(TurnStep.DeclareAttackers, turn = 4)
+        state.forgetOlderTurns()
+        assertFails { alice.attacks(elk, defender = "carol") }
+        alice.attacks(elk, defender = "bob")
+    }
+
+    // CR 305.1, 800.4i: playing a land puts a nontoken permanent onto the battlefield; a turn with neither leaves its player unattackable
+    @Test
+    fun aLandPlayedDuringTheirLastTurnLetsCreaturesAttackThem() = scenario(players = 3) {
+        accordTable()
+        bob.hand("Forest")
+        advanceTo(TurnStep.PrecombatMain, turn = 2)
+        bob.plays("Forest")
+        advanceTo(TurnStep.DeclareAttackers, turn = 4)
+        assertFails { alice.attacks(elk, defender = "carol") }
+        alice.attacks(elk, defender = "bob")
+    }
 }

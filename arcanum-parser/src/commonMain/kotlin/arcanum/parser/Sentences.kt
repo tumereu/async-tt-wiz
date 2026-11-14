@@ -18946,6 +18946,14 @@ internal class Sentences(
         // dmr chunk 05: "Cast this spell only during combat." (CR 601.3: the combat phase's steps, CR 506.1)
         if (line == "Cast this spell only during combat.")
             return Ability.Static(listOf(Mechanic.CastRestriction(condition = Dmr.duringCombat)), affects = Affected.Objects(Objects.Self))
+        // dmr fixes: "Creatures can't attack a player unless that player cast a spell or put a nontoken permanent onto the battlefield during
+        // their last turn." (CR 508.1c, 800.4i): only players; planeswalkers and battles stay attackable
+        Dmr.CANT_ATTACK_A_PLAYER_UNLESS_LAST_TURN.matchEntire(line)?.let { m ->
+            val attackers = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let
+            val did = Dmr.didDuringLastTurn(m.groupValues[2]) ?: return@let
+            return Ability.Static(listOf(Mechanic.CantAttack(Recipients(players = Players.Each(PlayerFilter.Not(did))))),
+                affects = Affected.Objects(Objects.Each(attackers)))
+        }
         // dmr chunk 01: "This creature can't attack unless defending player controls an Island." (CR 508.1c): it can't attack a player who controls no
         // such permanent, nor a planeswalker such a player controls (their defending player, CR 506.2)
         Dmr.CANT_ATTACK_UNLESS_DEFENDER_CONTROLS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->

@@ -444,4 +444,9 @@ sealed interface PlayerFilter {
     @Serializable @SerialName("designation") data class Has(val designation: Designation) : PlayerFilter
     @Serializable @SerialName("life") data class Life(val comparison: Comparison, val value: Value) : PlayerFilter
     @Serializable @SerialName("this-turn") data class ThisTurn(val event: EventPattern) : PlayerFilter
+    // dmr fixes
+    /** The player was a player of [event] during their last turn: the latest turn they began, this one while it is theirs (the
+     * reference moves on as their next turn begins, CR 800.4i); a player who hasn't had a turn yet passes none ("unless that
+     * player cast a spell or put a nontoken permanent onto the battlefield during their last turn"). */
+    @Serializable @SerialName("last-turn") data class LastTurn(val event: EventPattern) : PlayerFilter
 }

@@ -35,4 +35,67 @@ class WebHoverPointerTest : E2e() {
             }
         }
     }
+
+    // WEB-018, WEB-019, WEB-020, WEB-058 (found 2026-11-14: the mirror put the 1.3× top row, action area and panels where they
+    // would be at 1×, Table actions at x ≈ 1052 instead of about 1399): on Alice's desktop table in her browser the mirror
+    // places a top-row control, an action-area button and a panel's card where they are drawn; the hand shows over them and
+    // taps through the mirror hit them: the dock folds away and back, two mulligans open the Keep / Bottom overlay, a card
+    // tapped there goes to Bottom and the main button's OK closes it
+    @Test fun theMirrorPlacesTheLargerControlsWhereTheyAreDrawn() {
+        startGame(alicePhone = false)
+        bob.openGame(game, this)
+        bob.tap("Keep")
+        E2eBrowser(width = 1440, height = 900).use { web ->
+            try {
+                web.signIn(aliceAccount, "/games/${game.id}")
+                waitUntil("Keep among Alice's quick actions in her browser", timeoutSeconds = 180) { web.showsControl("Keep") }
+                // The top row (WEB-020), 1.3× its 56 tall: Table actions at its right end
+                val actions = web.box(web.control("Table actions"))
+                assertTrue(actions.x + actions.width >= 1440 - 16 && actions.x + actions.width <= 1440.5, "Table actions at the right end: ${show(actions)}")
+                assertEquals(48 * 1.3, actions.height, 2.0, "its 48 square 1.3× as large: ${show(actions)}")
+                assertEquals(56 * 1.3 / 2, actions.y + actions.height / 2, 2.0, "in the middle of the 1.3× top row: ${show(actions)}")
+                assertEquals("pointer", web.cursorOver("#dock-button"), "the hand over the dock button")
+                web.tap("#dock-button")
+                waitUntil("the dock folded away") { !web.shows("#desktop-dock") }
+                web.tap("#dock-button")
+                waitUntil("the dock back") { web.shows("#desktop-dock") }
+                // The action area (WEB-018): its quick actions inside its 320 wide corner
+                val mulligan = web.box(web.control("Mulligan"))
+                assertTrue(mulligan.x >= 1440 - 320 && mulligan.x + mulligan.width <= 1440.5 && mulligan.y >= 900 - 200 &&
+                    mulligan.y + mulligan.height <= 900.5, "Mulligan in the action area: ${show(mulligan)}")
+                assertEquals("pointer", web.cursorOver(web.control("Mulligan")), "the hand over Mulligan")
+                val panel = "div[aria-label='Keep or bottom']"
+                for (round in 1..2) {
+                    val before = ServerSetup.head(aliceAccount, game.id).engine?.localHeads?.get(aliceAccount.id)
+                    web.tap(web.control("Mulligan"))
+                    waitUntil("Alice's mulligan $round on the server", timeoutSeconds = 60) {
+                        ServerSetup.head(aliceAccount, game.id).engine?.localHeads?.get(aliceAccount.id) != before
+                    }
+                }
+                waitUntil("the Keep / Bottom overlay", timeoutSeconds = 60) { web.shows(panel) }
+                // A panel (WEB-019): the centred overlay, 560 wide, over the battlefields left of the dock
+                val overlay = web.box(panel)
+                assertEquals((1440 - 320) / 2.0, overlay.x + overlay.width / 2, 4.0, "the overlay centred on the battlefields: ${show(overlay)}")
+                assertEquals(560.0, overlay.width, 3.0, "the overlay's width: ${show(overlay)}")
+                // A card of her hand (the test deck's Mountains, Storm Sparks and Ember Cubs) in the overlay's Keep area
+                val named = ":is([aria-label='Mountain'], [aria-label='Storm Spark'], [aria-label='Ember Cub'])"
+                val card = "div[aria-label='Keep area'] $named"
+                val cardBox = web.box(card)
+                assertTrue(cardBox.x >= overlay.x && cardBox.x + cardBox.width <= overlay.x + overlay.width + .5 &&
+                    cardBox.y >= overlay.y && cardBox.y + cardBox.height <= overlay.y + overlay.height + .5, "the card in the overlay: ${show(cardBox)}, ${show(overlay)}")
+                assertEquals("pointer", web.cursorOver(card), "the hand over the panel's card")
+                web.tap(card)
+                waitUntil("the card in Bottom") { web.shows("div[aria-label='Bottom area'] $named") }
+                web.tap("#main-button")
+                waitUntil("the overlay closed by OK") { !web.shows(panel) }
+                val faults = web.faults()
+                assertTrue(faults.isEmpty(), "The page reported faults:\n${faults.joinToString("\n")}")
+            } catch (failure: Throwable) {
+                web.evidence("WebHoverPointerTest")
+                throw failure
+            }
+        }
+    }
+
+    private fun show(box: com.microsoft.playwright.options.BoundingBox) = "(${box.x}, ${box.y}) ${box.width} × ${box.height}"
 }

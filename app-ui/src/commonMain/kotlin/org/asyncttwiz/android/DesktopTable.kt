@@ -15,9 +15,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.Density
+import kotlin.math.roundToInt
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
@@ -257,11 +258,24 @@ fun DesktopTopRow(game: GameSummary, play: TableBoard, viewer: String, toolkit: 
 /**
  * WEB-018, WEB-020 (owner, desktop playtest 2026-11-14: the top bar's and the quick action buttons' texts too small): [content]
  * drawn [scale] times larger, its sizes and texts alike, so the desktop table's controls grow without the phone's changing.
+ * It is laid out in the room given divided by [scale] and then magnified by a layer, taking the room it fills: its layout
+ * nodes keep the window's density, so the page's semantics mirror (which places each node by its own density) and the hover
+ * pointer find its controls where they are drawn (WEB-058; a density override for the subtree put them where they would be
+ * at 1×).
  */
 @Composable
 fun DesktopScaled(scale: Float, content: @Composable () -> Unit) {
-    val density = LocalDensity.current
-    CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale), content = content)
+    Layout(content = {
+        Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f) }) { content() }
+    }) { measurables, constraints ->
+        fun shrink(value: Int) = if (value == Constraints.Infinity) value else (value / scale).toInt()
+        val inner = Constraints(shrink(constraints.minWidth), shrink(constraints.maxWidth), shrink(constraints.minHeight),
+            shrink(constraints.maxHeight))
+        val placeable = measurables.firstOrNull()?.measure(inner)
+        val width = ((placeable?.width ?: 0) * scale).roundToInt().coerceIn(constraints.minWidth, constraints.maxWidth)
+        val height = ((placeable?.height ?: 0) * scale).roundToInt().coerceIn(constraints.minHeight, constraints.maxHeight)
+        layout(width, height) { placeable?.place(0, 0) }
+    }
 }
 
 /** The dock button's icon: a window with its right panel. */

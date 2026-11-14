@@ -139,7 +139,7 @@ internal object EventMatcher {
                 listOf(TriggerEvent(players = listOf(holder.id), amount = delta)) else null
         }.orEmpty()
         // fin: "tap a land for {C}": seen as the mana its ability added goes to the pool ([tappedProducing])
-        is EventPattern.Tap -> if (pattern.producing != null) tappedProducing(e, change, pattern, pattern.producing!!)
+        is EventPattern.Tap -> if (pattern.producing != null || pattern.producingColor != null) tappedProducing(e, change, pattern, pattern.producing)
             else (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->
             val forMana = Meaning.ManaAdded in c.meanings
             // msh: tapped to pay a keyword's cost (CR 702.194a)
@@ -353,11 +353,12 @@ internal object EventMatcher {
 
     /** fin: a permanent tapped for mana of [cost]'s kind (CR 106.12): mana a tapped [EventPattern.Tap.objects] permanent's ability adds to the
      * pool ([arcanum.engine.state.ManaUnit.source]); {C}: colorless mana, a colour symbol: mana of that colour. */
-    private fun tappedProducing(e: Evaluator, change: Change, pattern: EventPattern.Tap, cost: arcanum.api.ManaCost): List<TriggerEvent> {
+    private fun tappedProducing(e: Evaluator, change: Change, pattern: EventPattern.Tap, cost: arcanum.api.ManaCost?): List<TriggerEvent> {
         val c = change as? Change.ManaPool ?: return emptyList()
         if (Meaning.ManaAdded !in c.meanings || c.after.size <= c.before.size) return emptyList()
-        val wanted = cost.symbols.mapNotNull { (it as? arcanum.api.ManaSymbol.Colored)?.color }
-        return c.after.drop(c.before.size).filter { u -> if (wanted.isEmpty()) u.color == null else u.color in wanted }
+        // dmr: "of the chosen color" (CR 106.12a)
+        val wanted = cost?.symbols?.mapNotNull { (it as? arcanum.api.ManaSymbol.Colored)?.color } ?: e.colors(pattern.producingColor!!)
+        return c.after.drop(c.before.size).filter { u -> if (wanted.isEmpty()) cost != null && u.color == null else u.color in wanted }
             .mapNotNull { it.source }.distinct()
             .filter { id -> e.board.state.obj(id)?.tapped == true && e.matches(pattern.objects, id) }
             .map { id -> TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(id))), listOfNotNull(e.controllerOf(id))) }

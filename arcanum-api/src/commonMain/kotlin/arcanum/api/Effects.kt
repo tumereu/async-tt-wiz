@@ -191,6 +191,9 @@ sealed interface Effect {
         // eoe
         /** Triggers only in a later turn than the one it was created in ("at the beginning of the end step on your next turn"). */
         val laterTurn: Boolean = false,
+        // dmr
+        /** Triggers only during the extra turn an [ExtraTurn] named [inTurn] ("that turn's end step"), never if that turn isn't taken. */
+        val inTurn: String? = null,
     ) : Effect
     /** Unattach [objects] from what they are attached to (CR 701.3d). */
     @Serializable @SerialName("unattach") data class Unattach(val objects: Objects) : Effect
@@ -246,7 +249,9 @@ sealed interface Effect {
     /** Forget [objects] under [key], or everything kept there when null. */
     @Serializable @SerialName("forget") data class Forget(val key: String, val objects: Objects? = null) : Effect
 
-    @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players) : Effect
+    /** [players] each take an extra turn after this one (CR 500.7); [mark] (dmr) names that turn, so a delayed trigger can wait for it
+     * ("At the beginning of that turn's end step", [CreateDelayedTrigger.inTurn]). */
+    @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players, val mark: String? = null) : Effect
     // fin
     /** "End the turn" (CR 724.1): every spell and ability on the Stack is exiled (this one included), then the turn goes on from its cleanup
      * step (CR 514), with no other phases or steps in between. */

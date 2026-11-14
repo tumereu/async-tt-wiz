@@ -98,6 +98,7 @@ internal object Triggers {
         val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
         state.delayedTriggers.values.toList().forEach { dt ->
             if (dt.laterTurn && state.turn.number <= dt.createdTurn) return@forEach
+            if (dt.inTurn != null && state.turn.extraTurnKey != dt.inTurn) return@forEach
             val e = Evaluator(ViewBoard(state, now), Context(dt.controller, dt.source, dt.names))
             val instances = instancesOf(e, state, dt.trigger, change)
             if (instances.isNotEmpty()) {

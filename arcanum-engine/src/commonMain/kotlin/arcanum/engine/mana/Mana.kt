@@ -427,6 +427,10 @@ internal object Mana {
             val want = wanted.symbols.map { (it as? ManaSymbol.Colored)?.color }
             if (yields.none { y -> y.colors.any { it in want } }) return@flatMap emptyList()
         }
+        t.pattern.producingColor?.let { ref ->
+            val want = t.eval.colors(ref)
+            if (yields.none { y -> y.colors.any { it in want } }) return@flatMap emptyList()
+        }
         t.productions.flatMap { production ->
             when (val kind = production.kind) {
                 is ManaKind.SameAsProduced -> {

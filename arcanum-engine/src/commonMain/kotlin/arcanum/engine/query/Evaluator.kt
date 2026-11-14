@@ -361,7 +361,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.Colorless -> c != null && c.colors.isEmpty()
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
-            is ObjectFilter.Shares -> objects(filter.objects).any { other -> other != id && shares(filter.quality, id, other) }
+            is ObjectFilter.Shares -> objects(filter.objects).filter { it != id }.let { others ->
+                if (filter.each) others.isNotEmpty() && others.all { shares(filter.quality, id, it) } else others.any { shares(filter.quality, id, it) } }
             // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
             is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false

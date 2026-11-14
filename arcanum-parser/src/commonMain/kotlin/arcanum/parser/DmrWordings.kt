@@ -60,6 +60,15 @@ internal object Dmr {
     // dmr chunk 06: Sylvan Library
     val MAY_DRAW_ADDITIONAL_CHOOSE_DRAWN_PAY_LIFE_OR_TOP = Regex("""You may draw (\w+) additional cards?\. If you do, choose (\w+) cards in your hand drawn this turn\. """ +
         """For each of those cards, pay (\d+) life or put the card on top of your library\.""")
+    // dmr chunk 07: a cycling trigger of any player's card (CR 702.29a)
+    val CYCLES_A_CARD = Regex("""(you|a player|an opponent) cycles? (a|another) card""")
+    // dmr chunk 07
+    val PREVENT_COMBAT_TO_AND_BY_THIS_TURN = Regex("""Prevent all combat damage that would be dealt to and dealt by (that creature|it|target creature) this turn\.""")
+    val TAKES_EXTRA_TURNS = Regex("""(Target player|Target opponent) takes (an|\w+) extra turns? after this one\.""")
+    val OTHER_THAN_SELF = Regex("""(\w+) an? (.+?) other than (this \w+)""")
+    val SEARCH_TARGET_PLAYERS_LIBRARY_EXILE = Regex("""Search target (player|opponent)'s library for (\w+) cards? and exile (?:them|it)\.""")
+    val MAY_PUT_FROM_HAND_SHARING_WITH_EACH_TAPPED = Regex("""You may put an? (.+?) from your hand that shares an? (creature type|color|card type) with each (?:creature|permanent) tapped this way onto the battlefield\.""")
+    val EXTRA_TURN_THEN_AT_THAT_TURNS_END_STEP = Regex("""Take an extra turn after this one\. At the beginning of that turn's end step, (.+)""")
     fun property(word: String): arcanum.api.NumericProperty = when (word) {
         "mana value" -> arcanum.api.NumericProperty.ManaValue
         "power" -> arcanum.api.NumericProperty.Power

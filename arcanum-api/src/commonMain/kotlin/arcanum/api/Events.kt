@@ -104,6 +104,10 @@ sealed interface EventPattern {
         // fin
         /** With [forMana]: only when the mana produced includes this ("Whenever you tap a land for {C}", CR 106.12). */
         val producing: ManaCost? = null,
+        // dmr
+        /** With [forMana]: only when the mana produced includes mana of this colour ("is tapped for mana of the chosen color",
+         * CR 106.12a). */
+        val producingColor: ColorRef? = null,
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     // ltr chunk 13

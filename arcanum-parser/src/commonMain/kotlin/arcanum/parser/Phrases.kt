@@ -814,6 +814,11 @@ internal object Events {
         GTC_BECOMES_TAPPED.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null) }
         // fdn chunk 03: "equipped creature becomes untapped" (CR 701.26)
         Fdn.BECOMES_UNTAPPED.matchEntire(text)?.let { m -> return EventPattern.Untap(subject(m.groupValues[1], self) ?: return null) }
+        // dmr chunk 07: "a basic land is tapped for mana of the chosen color" (CR 106.12a)
+        DMR_IS_TAPPED_FOR_MANA_OF_CHOSEN.matchEntire(text)?.let { m ->
+            val what = subject(m.groupValues[1], self) ?: Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            return EventPattern.Tap(what, forMana = true, producingColor = arcanum.api.ColorRef.Remembered("color")) // Sentences.CHOSEN_COLOR
+        }
         GTC_IS_TAPPED_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(subject(m.groupValues[1], self) ?: return null, forMana = true) }
         // gtc chunk 07: "this creature deals combat damage" (to any player or permanent); dmr chunk 02: "enchanted creature deals damage"
         // (combat or not, CR 120.1)
@@ -826,6 +831,9 @@ internal object Events {
                 "player" -> arcanum.api.RecipientFilter(players = PlayerFilter.Any)
                 "opponent" -> arcanum.api.RecipientFilter(players = PlayerFilter.Opponent)
                 else -> arcanum.api.RecipientFilter(objects = Filters.noun(m.groupValues[3]) ?: return null)
+            }.let { r ->
+                // dmr chunk 07: "a creature or opponent"
+                when (m.groupValues[4]) { "player" -> r.copy(players = PlayerFilter.Any); "opponent" -> r.copy(players = PlayerFilter.Opponent); else -> r }
             }
             return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, to, combat = true.takeIf { m.groupValues[2].isNotEmpty() })
         }
@@ -882,8 +890,9 @@ internal object Events {
     private val GTC_YOU_TAP_FOR_MANA = Regex("""you tap (.+) for mana""")
     private val GTC_BECOMES_TAPPED = Regex("""(.+) becomes tapped""")
     private val GTC_IS_TAPPED_FOR_MANA = Regex("""(.+) is tapped for mana""")
+    private val DMR_IS_TAPPED_FOR_MANA_OF_CHOSEN = Regex("""(.+) is tapped for mana of the chosen colou?r""")
     private val GTC_DEALS_COMBAT_DAMAGE = Regex("""(.+) deals (combat )?damage""")
-    private val DMR_DEALS_DAMAGE_TO_A = Regex("""(.+) deals (combat )?damage to an? (creature|player|opponent|planeswalker|permanent)""")
+    private val DMR_DEALS_DAMAGE_TO_A = Regex("""(.+) deals (combat )?damage to an? (creature|player|opponent|planeswalker|permanent)(?: or (player|opponent))?""")
     private val GTC_DEALS_COMBAT_DAMAGE_TO_YOU = Regex("""(.+) deals combat damage to you""")
     private val GTC_PUT_INTO_OPPONENTS_GRAVEYARD = Regex("""(.+) is put into an opponent's graveyard from anywhere""")
     private val GTC_SPELL_DEALS_DAMAGE = Regex("""an? (.+ spell you control) deals damage""")
@@ -1085,6 +1094,10 @@ internal object Conditions {
         }
         // dsk chunk 13: "Kaiden has one or more loyalty counters on him" (this object)
         // fdn chunk 06: "this creature has three or more +1/+1 counters on it"
+        // dmr chunk 07: "Dark Depths has no ice counters on it" (this object)
+        HAS_NO_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1)))
+        }
         HAS_N_OR_MORE_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[3]) ?: return null, atLeast = Numbers.count(m.groupValues[2]) ?: return null))
         }
@@ -1354,6 +1367,7 @@ internal object Conditions {
     private val A_PLAYER_HAS_LIFE_OR_LESS = Regex("""a player has (\d+) or less life""")
     // dsk chunk 13
     private val HAS_N_OR_MORE_COUNTERS_ON = Regex("""(.+) has (\w+) or more (\S+) counters on (?:it|him|her)""")
+    private val HAS_NO_COUNTERS_ON = Regex("""(.+) has no (\S+) counters on (?:it|him|her)""")
     private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
     private val YOU_CONTROL_PRIME_NUMBER_OF = Regex("""you control a prime number of (.+)""")
     // dsk chunk 11

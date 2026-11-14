@@ -19,7 +19,8 @@ internal object Fdn {
     val YOU_LOSE_LIFE_EQUAL_TO_THAT = Regex("""You lose life equal to that (permanent|creature|card)'s (mana value|power|toughness)\.""")
     // fdn chunk 01: a state trigger's condition (CR 603.8)
     // inr chunk 01: also "When Garruk has two or fewer loyalty counters on him, transform him."
-    val WHEN_THERE_ARE = Regex("""When (there are .+?|.+? has \w+ or (?:fewer|more) \S+ counters on (?:it|him|her)), (.+)""")
+    // dmr chunk 07: also "When this land has no ice counters on it, …", "When this creature has flying, …"
+    val WHEN_THERE_ARE = Regex("""When (there are .+?|.+? has (?:\w+ or (?:fewer|more)|no) \S+ counters on (?:it|him|her)|this \w+ has [a-z]+), (.+)""")
     // fdn chunk 01: "If you do" after a mandatory exile (CR 118.12)
     val EXILE_IT_IF_YOU_DO = Regex("""Exile it\. If you do, ([^.]+\.)""")
     // fdn chunk 02: the counter and the count on the same object, named by the ability

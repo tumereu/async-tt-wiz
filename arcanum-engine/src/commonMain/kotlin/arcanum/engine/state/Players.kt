@@ -76,6 +76,11 @@ data class TurnState(
     val turnStarted: Map<PlayerId, Int> = emptyMap(),
     /** Players taking extra turns after this one, in order (CR 500.7). */
     val extraTurns: List<PlayerId> = emptyList(),
+    // dmr
+    /** The names of the [extraTurns] at the same positions, for those a delayed trigger waits for (null or missing: unnamed). */
+    val extraTurnKeys: List<String?> = emptyList(),
+    /** The name of this turn when it is a named extra turn (see [extraTurnKeys]). */
+    val extraTurnKey: String? = null,
     // gtc
     /** Additional phases still to come, by their first step, in order (CR 500.8): each begins as the phase under way ends. */
     val extraPhases: List<TurnStep> = emptyList(),

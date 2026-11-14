@@ -127,8 +127,9 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("colorless") data object Colorless : ObjectFilter
     @Serializable @SerialName("multicolored") data object Multicolored : ObjectFilter
     @Serializable @SerialName("monocolored") data object Monocolored : ObjectFilter
-    /** Shares a colour / card type / creature type with [objects]. */
-    @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects) : ObjectFilter
+    /** Shares a colour / card type / creature type with [objects] (with one of them; [each] (dmr): with each of them, "shares a
+     * creature type with each creature tapped this way", not necessarily the same one). */
+    @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects, val each: Boolean = false) : ObjectFilter
 
     @Serializable @SerialName("controlled-by") data class ControlledBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("owned-by") data class OwnedBy(val players: PlayerFilter) : ObjectFilter

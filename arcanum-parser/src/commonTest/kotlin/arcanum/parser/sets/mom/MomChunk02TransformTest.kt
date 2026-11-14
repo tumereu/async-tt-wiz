@@ -330,7 +330,7 @@ class MomChunk02TransformTest {
             triggered(attacksSelf,
                 doing(Effect.CreateToken(TokenSpec.CopyOf(Objects.Self), n(1), Players.You, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, bind = "token")),
                 counters(Objects.Bound("token"), Value.Of(NumericProperty.Counters(p1p1), Objects.Self, Combine.Single)),
-                delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("token"))))),
+                delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You)))),
         ),
     )
 

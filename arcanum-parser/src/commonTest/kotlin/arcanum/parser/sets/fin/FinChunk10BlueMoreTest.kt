@@ -193,7 +193,7 @@ class FinChunk10BlueMoreTest {
         Keyword.Enchant(TargetKind.Objects(creature)),
         triggered(entersSelf, tapIt(equipped)),
         static(Mechanic.DoesntUntap, affects = equipped),
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(equipped)), per = DamageOccurrence.Recipient)), doing(Effect.Sacrifice(Objects.Self))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(equipped)), per = DamageOccurrence.Recipient)), doing(Effect.Sacrifice(Objects.Self, by = Players.You))),
     )
 
     // CR 118.12a, 701.6a

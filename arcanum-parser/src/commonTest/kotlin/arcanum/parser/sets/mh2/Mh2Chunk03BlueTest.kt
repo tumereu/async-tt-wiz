@@ -83,7 +83,7 @@ class Mh2Chunk03BlueTest {
         Keyword.Flash,
         triggered(entersSelf, draw(1)),
         static(Mechanic.LoseAbilities(), affects = Objects.Each(creature)),
-        triggered(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Self))),
+        triggered(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Self, by = Players.You))),
     )
 
     @Test
@@ -323,6 +323,6 @@ class Mh2Chunk03BlueTest {
         pt = "6/6",
     ) parsesTo abilities(
         Keyword.Trample,
-        triggered(on(EventPattern.BecomesTarget(isSelf, by = ObjectFilter.Any)), doing(Effect.Sacrifice(Objects.Self))),
+        triggered(on(EventPattern.BecomesTarget(isSelf, by = ObjectFilter.Any)), doing(Effect.Sacrifice(Objects.Self, by = Players.You))),
     )
 }

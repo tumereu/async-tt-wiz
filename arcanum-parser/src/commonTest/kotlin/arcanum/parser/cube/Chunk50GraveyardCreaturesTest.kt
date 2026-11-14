@@ -330,7 +330,7 @@ class Chunk50GraveyardCreaturesTest {
                     ),
                     Step.If(
                         condition = Condition.Not(Condition.Did("paid")),
-                        then = listOf(Step.Do(Effect.Sacrifice(Objects.Self))),
+                        then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))),
                     ),
                 ),
             ),

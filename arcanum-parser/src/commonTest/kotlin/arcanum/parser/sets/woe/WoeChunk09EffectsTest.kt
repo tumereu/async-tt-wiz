@@ -29,7 +29,7 @@ class WoeChunk09EffectsTest {
         ) to abilities(
             spell(
                 damage(power(target("creature")), toAny, source = target("creature")),
-                doing(Effect.Sacrifice(target("creature"))),
+                doing(Effect.Sacrifice(target("creature"), by = Players.You)),
                 targets = listOf(slot("creature", creatureYouControl), anyTarget.copy(distinctFrom = listOf("creature"))),
             ),
         ),

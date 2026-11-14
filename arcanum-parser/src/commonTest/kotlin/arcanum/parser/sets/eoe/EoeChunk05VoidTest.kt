@@ -73,7 +73,7 @@ class EoeChunk05VoidTest {
         ),
         triggered(
             on(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.You)),
-            Step.If(condition = Condition.Not(condition = void), then = listOf(doing(Effect.Sacrifice(objects = Objects.Self)))),
+            Step.If(condition = Condition.Not(condition = void), then = listOf(doing(Effect.Sacrifice(objects = Objects.Self, by = Players.You)))),
             abilityWord = "Void",
         ),
     )

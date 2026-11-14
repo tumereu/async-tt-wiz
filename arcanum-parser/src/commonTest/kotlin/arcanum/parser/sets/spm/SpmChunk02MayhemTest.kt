@@ -204,7 +204,7 @@ class SpmChunk02MayhemTest {
                             static(Mechanic.MustAttack()),
                             triggered(
                                 on(EventPattern.Damage(source = ObjectFilter.Is(Objects.Self), to = RecipientFilter(players = PlayerFilter.Any), combat = true)),
-                                doing(Effect.Sacrifice(Objects.Self)),
+                                doing(Effect.Sacrifice(Objects.Self, by = Players.You)),
                             ),
                         ),
                     ),

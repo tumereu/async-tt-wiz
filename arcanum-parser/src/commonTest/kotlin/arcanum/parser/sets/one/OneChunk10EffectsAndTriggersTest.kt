@@ -398,7 +398,7 @@ class OneChunk10EffectsAndTriggersTest {
         Keyword.FirstStrike, Keyword.Protection(ObjectFilter.Multicolored),
         triggered(stepBegins(TurnStep.Upkeep, PlayerFilter.You),
             Step.Pay(cost(CostPart.Discard(CostObjects.Choose(cardFilter, count = n(1)), preBind = "discarded")), payer = Players.You, bind = "paid"),
-            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self)))),
+            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You)))),
             Step.If(Condition.Did("paid"), then = listOf(doing(Effect.ReflexiveTrigger(Instructions(
                 targets = listOf(slot("permanent", and(nonland, permanentFilter, opponents, ObjectFilter.ManaValue(Comparison.AtMost,
                     Value.Of(NumericProperty.ManaValue, Objects.Bound("discarded"), Combine.Single))))),

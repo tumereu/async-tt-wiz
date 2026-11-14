@@ -1,5 +1,6 @@
 package arcanum.parser.sets.dmr
 
+import arcanum.api.Instructions
 import arcanum.api.DamageOccurrence
 import arcanum.api.CardType
 import arcanum.api.Color
@@ -52,7 +53,8 @@ class DmrChunk02EnchantTest {
     )
 
     // CR 702.8a, 307.1, 514.3a, 400.7d: cast any time a sorcery couldn't have been, the permanent it became is sacrificed at the next
-    // cleanup step by its controller then
+    // cleanup step by its controller then; CR 603.7a, 601.2i: by a delayed trigger the static ability creates as the spell is cast (dmr
+    // fixes: was the permanent's own trigger, lost with its abilities)
     @Test
     fun sparkstepInstinct() = card(
         name = "Sparkstep Instinct",
@@ -65,8 +67,9 @@ class DmrChunk02EnchantTest {
         """,
     ) parsesTo abilities(
         static(Mechanic.InstantSpeed),
-        triggered(stepBegins(TurnStep.Cleanup, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Self)),
-            interveningIf = Condition.CastOutsideSorceryTiming(Objects.Self)).copy(once = true),
+        static(Mechanic.DelayedTriggerWhenCast(stepBegins(TurnStep.Cleanup, PlayerFilter.Any),
+            Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.SelfAfter, by = Players.ControllerOf(Objects.SelfAfter))))),
+            condition = Condition.CastOutsideSorceryTiming(Objects.Self))),
         enchant(creature),
         static(pt(1, 0), has(Keyword.FirstStrike), affects = enchanted),
     )

@@ -286,7 +286,7 @@ class MkmChunk16MovesCountersAndSacrificesTest {
         entersTapped,
         triggered(entersSelf,
             Step.Pay(cost(CostPart.TapObjects(CostObjects.Choose(or(artifact, land), count = n(1)))), payer = Players.You, bind = "paid"),
-            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))))),
         anyColorMana,
     )
 

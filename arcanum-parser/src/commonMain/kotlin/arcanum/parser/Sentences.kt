@@ -826,7 +826,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Move(Objects.Each(dftInYourGraveyard(if (kinds.size == 1) kinds.single() else ObjectFilter.Or(kinds))), Destination(Zone.Battlefield),
                     postBind = "returned")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(returned)))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(returned, by = Players.You)))))))
         }
         // dft chunk 05: "Create X 1/1 colorless Pilot creature tokens. The tokens have "…"" (X defined by "where X is", CR 107.3c; CR 111.4)
         Dft.CREATE_X_TOKENS_THEY_HAVE.matchEntire(text)?.let { m ->
@@ -3755,7 +3755,7 @@ internal class Sentences(
         if (sentence == "Sacrifice it at the beginning of your next end step.") {
             val iff = (steps.lastOrNull() as? Step.If)?.takeIf { s -> ((s.then.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.postBind == "returned" } ?: return null
             val delayed = Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
-                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned")))))))
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned"), by = Players.You))))))
             return steps.dropLast(1) + iff.copy(then = iff.then + delayed)
         }
         // isd chunk 02: "If a creature card is discarded this way, untap this creature, then transform it." after "Draw a card, then discard a card."
@@ -3810,7 +3810,7 @@ internal class Sentences(
             // CR 603.7: a delayed trigger, triggering once at the next end step
             return bound + Step.Do(Effect.CreateDelayedTrigger(
                 arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
-                Instructions(steps = listOf(Step.Do(if (m.groupValues[1] == "Sacrifice") Effect.Sacrifice(tokens) else Effect.Move(tokens, Destination(Zone.Exile)))))))
+                Instructions(steps = listOf(Step.Do(if (m.groupValues[1] == "Sacrifice") Effect.Sacrifice(tokens, by = Players.You) else Effect.Move(tokens, Destination(Zone.Exile)))))))
         }
         // chunk 36: "You may put a land card from among them into your hand." after milling: zero or one of the milled cards
         MAY_PUT_FROM_AMONG_THEM_INTO_HAND.matchEntire(sentence)?.let { m ->
@@ -4388,7 +4388,7 @@ internal class Sentences(
             val named = if (it is Objects.EventObject) listOf(Step.Bind(it, EVENT_OBJECT)) else emptyList()
             val whose = if (sentence.contains("your next")) PlayerFilter.You else PlayerFilter.Any
             return named + Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = whose)),
-                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(if (it is Objects.EventObject) Objects.Bound(EVENT_OBJECT) else it))))))
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(if (it is Objects.EventObject) Objects.Bound(EVENT_OBJECT) else it, by = Players.You))))))
         }
         // dsk chunk 14: "Put target card from a graveyard on the bottom of its owner's library."
         PUT_TARGET_ON_BOTTOM.matchEntire(sentence)?.let { m ->
@@ -6243,7 +6243,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.Attach(moved, arcanum.api.Recipients(objects = that))))
         }
         // chunk 20: "Sacrifice that permanent."
-        SACRIFICE_THAT.matchEntire(sentence)?.let { context.that?.let { that -> return listOf(Step.Do(Effect.Sacrifice(that))) } }
+        SACRIFICE_THAT.matchEntire(sentence)?.let { context.that?.let { that -> return listOf(Step.Do(Effect.Sacrifice(that, by = Players.You))) } }
         // chunk 20: "Return this card from your graveyard to the battlefield"
         RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             // dsk chunk 07: "… with a finality counter on it" (CR 122.6)
@@ -6753,7 +6753,7 @@ internal class Sentences(
         // fdn chunk 07: "When this creature deals combat damage, sacrifice it." ("it" is the creature that dealt it: this one)
         SACRIFICE_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) ||
             it.groupValues[1] == "it" && (context.event as? EventPattern.Damage)?.source == ObjectFilter.Is(Objects.Self) }?.let {
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)))
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))
         }
         // chunk 50: "[Do X] unless you [pay a cost]." (CR 118.12a)
         UNLESS_YOU.matchEntire(sentence)?.let { m ->
@@ -7811,7 +7811,7 @@ internal class Sentences(
         // gtc chunk 11: "This Aura's controller sacrifices it, then draws two cards." (the activating opponent isn't "you")
         Gtc.AURAS_CONTROLLER_SACRIFICES_DRAWS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val controller = Players.ControllerOf(Objects.Self)
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
         }
         // gtc chunk 14: "Shuffle your library, then reveal the top card. If it's a nonland card, you may cast it without paying its
         // mana cost. If it's a land card, you may put it onto the battlefield and return Unexpected Results to its owner's hand."
@@ -10803,7 +10803,7 @@ internal class Sentences(
                 ?.let { o -> "${o.groupValues[1]} another ${o.groupValues[2]}" } ?: m.groupValues[2]
             val parts = (costPart(text.replaceFirstChar { c -> c.uppercase() }) ?: costPart(text) ?: return null).map { p ->
                 if (p is CostPart.Exile && exiledCard == Objects.Remembered(EXILED_WITH) && p.remember == null) p.copy(remember = EXILED_WITH) else p }
-            return unlessPays(Players.You, Cost(parts), listOf(Step.Do(Effect.Sacrifice(it))))
+            return unlessPays(Players.You, Cost(parts), listOf(Step.Do(Effect.Sacrifice(it, by = Players.You))))
         }
         // rtr chunk 01: "You may exchange control of this enchantment and target permanent you neither own nor control." (CR 701.12)
         Rtr.EXCHANGE_CONTROL_OF_SELF_AND_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -12361,7 +12361,7 @@ internal class Sentences(
         // you gain 2 life."
         Fra.IF_SACRIFICE_DEALS_GAIN.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val condition = Conditions.condition(m.groupValues[1], self) ?: return null
-            return listOf(Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(Objects.Self)),
+            return listOf(Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)),
                 Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)), Value.Fixed(m.groupValues[3].toInt()), source = Objects.Self)),
                 Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[4].toInt()))))))
         }
@@ -15335,7 +15335,7 @@ internal class Sentences(
             val named = token.copy(face = token.face.copy(name = m.groupValues[3], abilities = keywords))
             return listOf(Step.Do(Effect.CreateToken(named, Value.Fixed(1), Players.You, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, bind = "token")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"), by = Players.You)))))))
         }
         // "Exile X target creature cards from graveyards. For each creature card exiled this way, create a token that's a copy of it. At the
         // beginning of your next end step, sacrifice those tokens."
@@ -15347,7 +15347,7 @@ internal class Sentences(
                 Step.ForEach(arcanum.api.Each.Objects(Objects.Where(Objects.Bound("exiled"), each)), bind = "card", steps = listOf(
                     Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Bound("card")), Value.Fixed(1), Players.You, bind = "tokens")))),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))))))
         }
         // "Choose a creature card exiled with Koh." (linked abilities, CR 607.2a; the last chosen card is kept)
         Tla.PAY_CHOOSE_EXILED_WITH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -16061,7 +16061,7 @@ internal class Sentences(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))), Affected.Objects(Objects.Bound("token")),
                     arcanum.api.Duration.Indefinitely)),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"), by = Players.You)))))))
         }
         // tmt chunk 08: "Return a creature card exiled with this land to the battlefield under your control. Return each other card exiled
         // with this land to its owner's hand." (CR 607.2a)
@@ -16132,7 +16132,7 @@ internal class Sentences(
         }
         Tmt.ACT_ON_IT_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
             val (before, token) = tmtCreatedToken(steps) ?: return@let
-            val effect = if (m.groupValues[1] == "Destroy") Effect.Destroy(token) else Effect.Sacrifice(token)
+            val effect = if (m.groupValues[1] == "Destroy") Effect.Destroy(token) else Effect.Sacrifice(token, by = Players.You)
             // mkm chunk 10: "your next end step" (CR 603.7: your turn's end step, this turn's if it hasn't begun)
             val whose = if (m.groupValues[2] == "your") PlayerFilter.You else PlayerFilter.Any
             return before + Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose)),
@@ -17103,12 +17103,12 @@ internal class Sentences(
                 ?: rest.split(", and ").takeIf { it.size == 2 }?.let { parts ->
                     parts[0].split(", ").map { effect(mshSentence(it), context) ?: return null }.flatten() + (effect(mshSentence(parts[1]), context) ?: return null)
                 } ?: return null
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self))) + then
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))) + then
         }
         // (mh3 chunk 04: unless an earlier sentence made "it" another object, e.g. a card this put onto the battlefield, CR 400.7)
         if (sentence == "Sacrifice it." && (context.event as? EventPattern.CountersPut)?.objects == ObjectFilter.Is(Objects.Self) &&
             (context.it == null || context.it is Objects.EventObject))
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)))
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))
         // msh chunk 03: "[effect] and put a plan counter on this enchantment", "put a +1/+1 counter on target creature you control and a plan
         // counter on this enchantment"
         Msh.AND_COUNTER_ON_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
@@ -18625,7 +18625,7 @@ internal class Sentences(
             val objects = (if (m.groupValues[1] == "it") (condition as? arcanum.api.Condition.ObjectMatches)?.objects
                 else fraObjects(m.groupValues[1], context)) ?: return@let
             val reflexive = instructions(m.groupValues[3]) ?: return@let
-            return listOf(Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(objects)), Step.Do(Effect.ReflexiveTrigger(reflexive)))))
+            return listOf(Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(objects, by = Players.You)), Step.Do(Effect.ReflexiveTrigger(reflexive)))))
         }
         // mkm chunk 06: "Creature cards in your graveyard gain "You may cast this card from your graveyard" until end of turn." (the cards there as it
         // resolves, CR 611.2c; the ability works in the graveyard, CR 113.6f)
@@ -18934,7 +18934,9 @@ internal class Sentences(
             val noun = Filters.noun(m.groupValues[2]) ?: m.groupValues[2].takeIf { it in RulesWords.subtypes }?.let { ObjectFilter.Sub(Subtype(it)) } ?: return@let
             val without = PlayerFilter.Where(arcanum.api.Condition.Not(arcanum.api.Condition.Exists(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Tested))), atLeast = 1)))
             return Ability.Static(listOf(Mechanic.CantAttack(arcanum.api.Recipients(
-                objects = Objects.Each(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(without))),
+                // CR 506.2, 508.1b: the defending player of a creature attacking a battle is its protector
+                objects = Objects.Each(ObjectFilter.Or(listOf(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(without)),
+                    Filters.all(ObjectFilter.Type(CardType.Battle), ObjectFilter.ProtectedBy(without))))),
                 players = Players.Each(without)))), affects = Affected.Objects(Objects.Self))
         }
         return null
@@ -18979,13 +18981,13 @@ internal class Sentences(
     private fun dmrMulti(line: String): List<Ability>? {
         // dmr chunk 02: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the
         // controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step." (CR 702.8a, 307.1, 514.3a): the
-        // permission, and the permanent's own once-only trigger at the next cleanup step, while it is the permanent that spell became
-        // (CR 400.7d); its controller then sacrifices it
+        // permission, and a delayed trigger the static ability creates as the spell is cast (dmr fixes: CR 603.7a, 601.2i; it isn't the
+        // permanent's, so it still happens if the permanent loses its abilities); the permanent's controller sacrifices it (CR 400.7)
         if (line == Dmr.FLASH_SACRIFICE_AT_NEXT_CLEANUP) return listOf(
             Ability.Static(listOf(Mechanic.InstantSpeed), affects = Affected.Objects(Objects.Self)),
-            Ability.Triggered(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Cleanup, PlayerFilter.Any)),
-                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Self)))),
-                interveningIf = arcanum.api.Condition.CastOutsideSorceryTiming(Objects.Self), once = true))
+            Ability.Static(listOf(Mechanic.DelayedTriggerWhenCast(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Cleanup, PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.SelfAfter, by = Players.ControllerOf(Objects.SelfAfter))))),
+                condition = arcanum.api.Condition.CastOutsideSorceryTiming(Objects.Self))), affects = Affected.Objects(Objects.Self)))
         return null
     }
 
@@ -19130,7 +19132,7 @@ internal class Sentences(
             context.it = it
             return first + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), Affected.Objects(it), arcanum.api.Duration.Indefinitely))
         }
-        if (sentence == "Sacrifice it.") context.it?.let { return listOf(Step.Do(Effect.Sacrifice(it))) }
+        if (sentence == "Sacrifice it.") context.it?.let { return listOf(Step.Do(Effect.Sacrifice(it, by = Players.You))) }
         // dmr chunk 05: "For each Aura and Equipment attached to Valduk, create a 3/1 red Elemental creature token …" (that many tokens, CR 111.1)
         Dmr.FOR_EACH_ATTACHED_CREATE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
             val count = Value.Count(Objects.AttachmentsOf(Objects.Self, ObjectFilter.Or(listOf(
@@ -19179,7 +19181,7 @@ internal class Sentences(
         Dmr.IF_NO_COUNTERS_SACRIFICE_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
             return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1))),
-                then = listOf(Step.Do(Effect.Sacrifice(Objects.Self)))))
+                then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))))
         }
         // dmr chunk 04: "This creature becomes the color of your choice until end of turn." (layer 5, CR 105.3, 613.1e)
         // dmr chunk 07: also "Target spell or permanent …" (CR 115.1: a spell on the stack or a permanent)
@@ -19815,7 +19817,7 @@ internal class Sentences(
             val create = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
             val bind = create.bind ?: "tokens"
             val token = Objects.Bound(bind)
-            val action = if (m.groupValues[1] == "Exile") Effect.Move(token, Destination(Zone.Exile)) else Effect.Sacrifice(token)
+            val action = if (m.groupValues[1] == "Exile") Effect.Move(token, Destination(Zone.Exile)) else Effect.Sacrifice(token, by = Players.You)
             return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) + Step.Do(Effect.CreateDelayedTrigger(
                 arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)), Instructions(steps = listOf(Step.Do(action)))))
         }
@@ -20274,7 +20276,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.DealDamage(Recipients(target = "opponent or permanent"), amount, source = Objects.Self)))
         }
         // one chunk 07: "Sacrifice it." where "it" is this object ("remove an oil counter from this creature. Then if it has no oil counters on it, …")
-        if (sentence == "Sacrifice it." && context.it == Objects.Self) return listOf(Step.Do(Effect.Sacrifice(Objects.Self)))
+        if (sentence == "Sacrifice it." && context.it == Objects.Self) return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))
         // one chunk 07: "You can't cast additional spells this turn." (CR 101.2)
         if (One.CANT_CAST_ADDITIONAL_SPELLS_THIS_TURN.matches(sentence))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantCast(ObjectFilter.Any)), Affected.Players(Players.You), arcanum.api.Duration.EndOfTurn)))
@@ -20873,7 +20875,7 @@ internal class Sentences(
                 Step.Do(Effect.PutCounters(token, arcanum.api.CounterKind.PowerToughness(1, 1),
                     Value.Of(arcanum.api.NumericProperty.Counters(arcanum.api.CounterKind.PowerToughness(1, 1)), Objects.Self, arcanum.api.Combine.Single))),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(token)))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(token, by = Players.You)))))))
         }
         // mom chunk 05: Knight-Errant of Eos: X counted as the ability resolves (CR 608.2h); the cards not revealed stay in the library, which is
         // then shuffled (CR 701.24a)
@@ -21365,7 +21367,7 @@ internal class Sentences(
             return listOf(Step.If(condition, then = steps))
         }
         // woe chunk 09: "Then sacrifice it." after an effect of a target creature you control (CR 701.21a)
-        if (sentence == "Sacrifice it.") (context.it as? Objects.Target)?.let { return listOf(Step.Do(Effect.Sacrifice(it))) }
+        if (sentence == "Sacrifice it.") (context.it as? Objects.Target)?.let { return listOf(Step.Do(Effect.Sacrifice(it, by = Players.You))) }
         // woe chunk 09: "Sacrifice all Reflections you control." (CR 701.21a)
         Woe.SACRIFICE_ALL_YOU_CONTROL.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.Sacrifice(Objects.Each(Filters.noun("${m.groupValues[1]} you control") ?: return null))))
@@ -21861,10 +21863,10 @@ internal class Sentences(
         Mh3.SACRIFICE_UNLESS_PAY_ENERGY_EQUAL.matchEntire(sentence)?.let { m ->
             val it = context.it ?: return@let
             val property = if (m.groupValues[1] == "mana value") arcanum.api.NumericProperty.ManaValue else arcanum.api.NumericProperty.Power
-            return unlessPays(Players.You, Cost(listOf(CostPart.PayEnergy(Value.Of(property, it, arcanum.api.Combine.Single)))), listOf(Step.Do(Effect.Sacrifice(it))))
+            return unlessPays(Players.You, Cost(listOf(CostPart.PayEnergy(Value.Of(property, it, arcanum.api.Combine.Single)))), listOf(Step.Do(Effect.Sacrifice(it, by = Players.You))))
         }
         // mh3 chunk 08: "When Phlage enters, sacrifice it unless it escaped." ("it" is the object of the trigger's event)
-        if (sentence == "Sacrifice it." && triggerIt?.first == Objects.Self) return listOf(Step.Do(Effect.Sacrifice(Objects.Self)))
+        if (sentence == "Sacrifice it." && triggerIt?.first == Objects.Self) return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))
         // mh3 chunk 08: "Target player can't cast spells this turn." (CR 101.2)
         if (sentence == "Target player can't cast spells this turn.")
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantCast(ObjectFilter.Any)), Affected.Players(context.targetPlayer()), arcanum.api.Duration.EndOfTurn)))
@@ -22188,7 +22190,7 @@ internal class Sentences(
             val parts = rest.split(", then ", limit = 2)
             val then = effect(rest, context) ?: if (parts.size < 2) return@let else
                 (effect("${parts[0]}.", context) ?: return@let) + (effect(parts[1].replaceFirstChar { it.uppercase() }, context) ?: return@let)
-            return put + Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, postBind = "sacrificed")),
+            return put + Step.If(condition, then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, postBind = "sacrificed", by = Players.You)),
                 Step.If(arcanum.api.Condition.NonEmpty("sacrificed"), then = then)))
         }
         // mh3 chunk 12: "Look at the top four cards of your library. You may put a land card from among them onto the battlefield tapped. If you don't,
@@ -25800,7 +25802,7 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield), postBind = "put")),
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))), Affected.Objects(Objects.Bound("put")), arcanum.api.Duration.Indefinitely)),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("put"))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("put"), by = Players.You)))))))
         }
         // ecl chunk 13: "Exile the top two cards of your library. If this spell's additional cost was paid, exile the top three cards instead. Until the
         // end of your next turn, you may play those cards."
@@ -26544,7 +26546,7 @@ internal class Sentences(
         }
         // fin chunk 06: "Sacrifice Tellah and it deals that much damage to each opponent." in a cast trigger: the mana spent to cast that spell
         Fin.SACRIFICE_SELF_AND_DEALS_THAT_MUCH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && context.event is EventPattern.Cast }?.let {
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)), Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)),
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)), Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)),
                 Value.ManaSpent(of = Objects.EventObject(EventRole.Object)), Objects.Self)))
         }
         // fin chunk 06: "Add X mana in any combination of {U} and/or {R}." (CR 106.1b)
@@ -26732,7 +26734,7 @@ internal class Sentences(
                     Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0), Value.Fixed(3)), bind = "lore", chooser = Players.You),
                     Step.Do(Effect.PutCounters(tokens, arcanum.api.CounterKind.Lore, Value.Bound("lore"))))),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(tokens)))))),
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(tokens, by = Players.You)))))),
             )
         }
         // fin chunk 05: "Each player discards a card. Then you draw a card for each card type among cards discarded this way." (CR 205.2a)
@@ -26880,7 +26882,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(it, except = listOf(arcanum.api.CopyException.AddAbilities(listOf(ability)))),
                 Value.Fixed(1), Players.You, bind = "tokens")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(whenStep, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))))))
         }
         // fin chunk 12: Gilgamesh: "Look at the top six cards of your library. You may put any number of Equipment cards from among them onto the
         // battlefield. Put the rest on the bottom of your library in a random order. When you put one or more Equipment onto the battlefield this
@@ -27077,7 +27079,7 @@ internal class Sentences(
                 Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.EventObject(EventRole.After), except = listOf(arcanum.api.CopyException.AddAbilities(listOf(ability)))),
                     Value.Fixed(1), Players.You, bind = "tokens")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(whenStep, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))))))))
         }
         // fin chunk 13: "Landfall — Whenever a land you control enters, double Tifa's power until end of turn." (CR 701.10a: +X/+0)
         Fin.DOUBLE_SELF_POWER_EOT.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
@@ -27808,7 +27810,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target), Value.Announced(name = "X"), Players.You, bind = "tokens")),
                 eoeUntilEndOfTurn(tokens, Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(tokens)))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(tokens, by = Players.You)))))))
         }
         // "Target creature you control gets +3/+2 until end of turn. If that creature was cast for its warp cost, it also gains trample and haste
         // until end of turn." (CR 702.185a: its warp cost was paid for the spell it was)
@@ -27832,7 +27834,7 @@ internal class Sentences(
             val (one, token) = Tokens.spec(m.groupValues[1]) ?: return null
             return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(one), Players.You, bind = "token")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"))))), laterTurn = true)))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"), by = Players.You)))), laterTurn = true)))
         }
         // "you may pay {2}. If you do, create a 2/2 colorless Robot artifact creature token that's tapped and attacking. Sacrifice that token at
         // end of combat." (CR 508.4: its controller chooses what it attacks)
@@ -27842,7 +27844,7 @@ internal class Sentences(
                 Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
                     Step.Do(Effect.CreateToken(token, Value.Fixed(one), Players.You, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, bind = "token")),
                     Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.EndOfCombat, PlayerFilter.Any)),
-                        Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"))))))))))
+                        Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("token"), by = Players.You)))))))))
         }
         // "Orbital Plunge deals 6 damage to target creature. If excess damage was dealt this way, create a Lander token." (CR 120.4a)
         Eoe.DEALS_IF_EXCESS_CREATE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -28171,7 +28173,7 @@ internal class Sentences(
         // "sacrifice Sothera, then put a creature card exiled with it onto the battlefield under your control with two additional +1/+1 counters on it."
         Eoe.SACRIFICE_SELF_PUT_EXILED_WITH_COUNTERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val filter = Filters.noun(m.groupValues[2]) ?: return null
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)),
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)),
                 Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1), from = Objects.Remembered(EXILED_WITH)), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You,
                     counters = listOf(arcanum.api.CountersToPut(eoeP1P1, amount = Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null)))))))
@@ -28271,7 +28273,7 @@ internal class Sentences(
             if (one != 1) return null
             return listOf(Step.Do(Effect.Move(Objects.Remembered(EXILED_WITH), Destination(Zone.Graveyard), postBind = "put")),
                 Step.Do(Effect.CreateToken(token, Value.Count(Objects.Where(Objects.Bound("put"), ObjectFilter.InZone(Zone.Graveyard))), Players.You)),
-                Step.Do(Effect.Sacrifice(Objects.Self)))
+                Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))
         }
         // eoe chunk 07: "Return up to three target creature cards with total mana value 3 or less from your graveyard to the battlefield. Put a
         // +1/+1 counter on each of them." (the returned permanents, CR 400.7)
@@ -28355,7 +28357,7 @@ internal class Sentences(
             val x = Values.value(m.groupValues[1]) ?: return null
             return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
                 Step.Do(Effect.CreateToken(tdmWarrior, count = x, controller = Players.You, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, bind = "mobilized")),
-                Step.Do(Effect.CreateDelayedTrigger(tdmNextEndStep, Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("mobilized"))))))))))
+                Step.Do(Effect.CreateDelayedTrigger(tdmNextEndStep, Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("mobilized"), by = Players.You)))))))))
         }
         // tdm chunk 12: "Equip {4}. This ability costs {1} less to activate for each color of the creature it targets." (CR 702.6, 601.2f)
         Tdm.EQUIP_LESS_FOR_EACH_COLOR.matchEntire(line)?.let { m ->
@@ -28767,7 +28769,7 @@ internal class Sentences(
                 Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(exiled), Value.Fixed(1), Players.You, tapped = true,
                     attacking = arcanum.api.AttackTarget.These(Recipients(players = Players.Bound("opponent"))), bind = "tokens"))), together = true),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
-                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))))
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You)))))))
         }
         // tdm chunk 12: "you may search your library for a basic land card, reveal it, then shuffle and put that card on top. If you control a Dragon,
         // put that card onto the battlefield tapped instead."
@@ -29972,7 +29974,7 @@ internal class Sentences(
         }
         // mh2 chunk 03: "sacrifice it." when this permanent becomes the target of a spell or ability: this permanent
         if (sentence == "Sacrifice it." && (context.event as? EventPattern.BecomesTarget)?.objects == ObjectFilter.Is(Objects.Self))
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)))
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))
         // mh2 chunk 03: "Switch this creature's power and toughness until end of turn." (layer 7d, CR 613.4d)
         Mh2.SWITCH_PT_UNTIL_EOT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return listOf(mh2UntilEndOfTurn(Objects.Self, Mechanic.SwitchPowerToughness))
@@ -30793,7 +30795,7 @@ internal class Sentences(
             val create = (effect("Create ${m.groupValues[1]}.", context)?.singleOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
             val spec = create.token.let { t -> if (m.groupValues[2].isNotEmpty() && t is arcanum.api.TokenSpec.Defined) t.copy(face = t.face.copy(name = m.groupValues[2])) else t }
             // isd chunk 07: "Exile that token at end of combat."
-            val end = if (m.groupValues[3] == "Exile") Effect.Move(Objects.Bound("token"), Destination(Zone.Exile)) else Effect.Sacrifice(Objects.Bound("token"))
+            val end = if (m.groupValues[3] == "Exile") Effect.Move(Objects.Bound("token"), Destination(Zone.Exile)) else Effect.Sacrifice(Objects.Bound("token"), by = Players.You)
             return listOf(Step.Do(create.copy(token = spec, tapped = true, attacking = arcanum.api.AttackTarget.Chosen, bind = "token")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.EndOfCombat, PlayerFilter.Any)),
                     Instructions(steps = listOf(Step.Do(end))))))

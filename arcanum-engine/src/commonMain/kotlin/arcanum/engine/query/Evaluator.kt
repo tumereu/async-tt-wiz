@@ -437,6 +437,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
             is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false
+            is ObjectFilter.ProtectedBy -> state.obj(id)?.protector?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)
             // CR 708.2a: a face-down permanent has no name

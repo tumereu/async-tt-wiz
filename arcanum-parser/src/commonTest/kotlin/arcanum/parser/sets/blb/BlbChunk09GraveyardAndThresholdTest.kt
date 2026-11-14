@@ -396,7 +396,7 @@ class BlbChunk09GraveyardAndThresholdTest {
             )),
             affects = Affected.Objects(Objects.Self),
         ),
-        Ability.Activated(Cost(listOf(mana("{1}{R}"))), steps(Step.Do(Effect.Sacrifice(Objects.Self))), any),
+        Ability.Activated(Cost(listOf(mana("{1}{R}"))), steps(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))), any),
     )
 
     // CR 607.2a: cards exiled with it, counted by card type

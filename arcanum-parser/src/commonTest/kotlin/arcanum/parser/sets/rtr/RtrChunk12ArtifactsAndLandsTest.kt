@@ -272,7 +272,7 @@ class RtrChunk12ArtifactsAndLandsTest {
         static(Objects.Self, Mechanic.MustAttack()),
         triggered(Trigger.On(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             Step.Do(Effect.FlipCoin(Players.You, bind = "flip")),
-            Step.If(Condition.Not(Condition.WonFlip("flip")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.Not(Condition.WonFlip("flip")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))))),
         triggered(thisDies,
             Step.Do(Effect.FlipCoin(Players.You, bind = "flip")),
             Step.If(Condition.Not(Condition.WonFlip("flip")), then = listOf(
@@ -438,7 +438,7 @@ class RtrChunk12ArtifactsAndLandsTest {
         entersTapped,
         triggered(thisEnters,
             Step.Pay(Cost.mana(mana("{1}")), payer = Players.You, bind = "paid"),
-            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))))),
         anyColorMana,
     )
 }

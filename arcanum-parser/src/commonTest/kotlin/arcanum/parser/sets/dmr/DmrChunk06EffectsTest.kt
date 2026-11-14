@@ -129,7 +129,7 @@ class DmrChunk06EffectsTest {
             move(Objects.Bound("chosen"), Zone.Battlefield, postBind = "put"),
             doing(Effect.ApplyMechanics(listOf(has(Keyword.Haste)), Affected.Objects(Objects.Bound("put")), Duration.Indefinitely)),
             doing(Effect.CreateDelayedTrigger(on(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)),
-                arcanum.api.Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("put"))))))),
+                arcanum.api.Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("put"), by = Players.You)))))),
         ),
     )
 

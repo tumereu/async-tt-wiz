@@ -251,7 +251,7 @@ class MomChunk12DamageLookAndPermissionsTest {
     private fun copiesWithHaste(count: Int) = listOf(
         doing(Effect.CreateToken(TokenSpec.CopyOf(target("creature")), n(count), Players.You, bind = "token")),
         doing(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(Objects.Bound("token")), Duration.Indefinitely)),
-        delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("token")))),
+        delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You))),
     )
 
     // CR 707.2 (a token copy), 603.7 (a delayed trigger), 602.5d (as a sorcery), 115.3

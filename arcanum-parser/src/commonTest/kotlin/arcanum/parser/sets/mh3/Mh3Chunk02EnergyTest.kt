@@ -356,7 +356,7 @@ class Mh3Chunk02EnergyTest {
             doing(Effect.Move(target("permanent"), Destination(Zone.Exile), untilLeaves = Objects.Self)),
             getEnergy(2),
             targets = listOf(slot("permanent", and(nonland, permanentFilter, opponents)))),
-        triggered(stepBegins(TurnStep.PrecombatMain, PlayerFilter.You), *unlessYouPayEnergy(1, doing(Effect.Sacrifice(Objects.Self))).toTypedArray()),
+        triggered(stepBegins(TurnStep.PrecombatMain, PlayerFilter.You), *unlessYouPayEnergy(1, doing(Effect.Sacrifice(Objects.Self, by = Players.You))).toTypedArray()),
     )
 
     @Test

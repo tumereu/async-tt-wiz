@@ -53,7 +53,7 @@ class SosChunk11CastingAndCopyingTest {
     private val page = arcanum.api.CounterKind.Named("page")
     private val copyInstantOrSorcery = Mode(Instructions(targets = listOf(slot("spell", and(instantOrSorcery, spellFilter, you))),
         steps = listOf(doing(Effect.CopySpell(target("spell"), Players.You, newTargets = true)))))
-    private val sacrificeAtEndStep = triggered(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Self)))
+    private val sacrificeAtEndStep = triggered(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Self, by = Players.You)))
     private val copyCreature = Mode(Instructions(targets = listOf(slot("spell", and(spellFilter, creature, you))), steps = listOf(
         doing(Effect.CopySpell(target("spell"), Players.You, newTargets = false, bind = "copy")),
         doing(Effect.SpellGets(Objects.Bound("copy"), listOf(Mechanic.GainAbilities(listOf(Keyword.Haste, sacrificeAtEndStep))))))))

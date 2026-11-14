@@ -225,6 +225,6 @@ class Mh3Chunk04AdaptTest {
                 counters = listOf(CountersToPut(CounterKind.Finality, n(1)))), postBind = "returned")),
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(Objects.Bound("returned")), Duration.Indefinitely)),
             Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)),
-                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned")))))))),
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned"), by = Players.You))))))),
     )
 }

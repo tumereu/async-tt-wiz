@@ -170,7 +170,7 @@ class RvrChunk03ReplicateSurveilAndConditionsTest {
             Step.Choose(Choice.Objects(and(creature, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Active))), n(1), n(1)),
                 bind = "sacrificed", chooser = Players.Active),
             doing(Effect.Sacrifice(Objects.Bound("sacrificed"))),
-            ifThen(Condition.Not(Condition.NonEmpty("sacrificed")), doing(Effect.Sacrifice(Objects.Self))),
+            ifThen(Condition.Not(Condition.NonEmpty("sacrificed")), doing(Effect.Sacrifice(Objects.Self, by = Players.You))),
         ),
     )
 

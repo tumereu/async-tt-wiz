@@ -115,7 +115,7 @@ class SpmChunk07WhiteTest {
             Step.If(
                 condition = Condition.Did("paid"),
                 then = listOf(doing(Effect.Draw(players = Players.You, count = n(1)))),
-                otherwise = listOf(doing(Effect.Sacrifice(Objects.Self))),
+                otherwise = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))),
             ),
         ),
     )

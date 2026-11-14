@@ -246,7 +246,7 @@ class FinChunk16BlackRedGreenTest {
         static(Mechanic.CostChange(and(ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.Red)), spellFilter, you), arcanum.api.CostChange.Less(ManaCost.parse("{1}")!!, n(1)))),
         static(has(Keyword.Haste), affects = Objects.Each(creatureYouControl)),
         activated(cost(mana("{4}{R}{R}"), tap), doing(Effect.CreateToken(TokenSpec.CopyOf(target("creature")), n(1), Players.You, bind = "tokens")),
-            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("tokens")))), targets = listOf(slot("creature", creatureYouControl))),
+            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You))), targets = listOf(slot("creature", creatureYouControl))),
     )
 
     @Test

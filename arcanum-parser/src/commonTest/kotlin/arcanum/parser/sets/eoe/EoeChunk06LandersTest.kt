@@ -209,7 +209,7 @@ class EoeChunk06LandersTest {
             doing(
                 Effect.CreateDelayedTrigger(
                     trigger = on(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.You)),
-                    instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("token"))))),
+                    instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("token"), by = Players.You)))),
                     laterTurn = true,
                 ),
             ),

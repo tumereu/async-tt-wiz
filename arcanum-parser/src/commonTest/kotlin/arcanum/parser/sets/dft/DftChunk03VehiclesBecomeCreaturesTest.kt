@@ -120,7 +120,7 @@ class DftChunk03VehiclesBecomeCreaturesTest {
     ) parsesTo abilities(
         spell(
             move(Objects.Each(inYourGraveyard(mountOrVehicle)), Zone.Battlefield, postBind = "returned"),
-            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("returned")))),
+            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("returned"), by = Players.You))),
             becomesArtifactCreature(Objects.Each(and(vehicle, you))),
             gains(Objects.Each(creatureYouControl), Keyword.Haste),
         ),

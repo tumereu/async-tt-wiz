@@ -111,7 +111,7 @@ class DmrChunk05ConditionsAndRestrictionsTest {
     ) parsesTo abilities(
         Keyword.Flying,
         triggered(yourUpkeep, Step.Pay(manaCost("{G}{W}{U}"), payer = Players.You, bind = "paid"),
-            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))))),
         static(pt(0, 2), affects = Objects.Each(and(not(attacking), not(tapped), creature, you))),
         activated(cost(mana("{W}")), pump(Objects.Self, 0, 1)),
     )
@@ -201,7 +201,7 @@ class DmrChunk05ConditionsAndRestrictionsTest {
             doing(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), Affected.Objects(target("creature")), Duration.Indefinitely)),
             gains(target("creature"), Keyword.Haste),
             doing(Effect.CreateDelayedTrigger(endStep, Instructions(steps = listOf(
-                Step.Do(Effect.Sacrifice(target("creature"), postBind = "sacrificed")),
+                Step.Do(Effect.Sacrifice(target("creature"), postBind = "sacrificed", by = Players.You)),
                 Step.If(Condition.NonEmpty("sacrificed"), then = listOf(
                     Step.Do(Effect.GainLife(Players.You, toughness(Objects.Bound("sacrificed")))))))))),
             targets = listOf(slot("creature", and(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You)))))),

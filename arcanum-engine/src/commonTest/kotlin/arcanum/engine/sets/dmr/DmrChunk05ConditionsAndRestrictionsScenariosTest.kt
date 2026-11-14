@@ -71,13 +71,13 @@ class DmrChunk05ConditionsAndRestrictionsScenariosTest {
 
     private val rot = Cards.invent("Cerebral Rot", "{2}{B}", "Sorcery", "Target player discards two cards.")
     private val jolt = Cards.invent("Scorchbolt Jolt", "{R}", "Instant", "Scorchbolt Jolt deals 3 damage to any target.")
-    private val lash = Cards.invent("Cinder Lash", "{1}{R}", "Sorcery", "Cinder Lash deals 2 damage to any target.")
+    private val lash = Cards.invent("Ember Lash", "{1}{R}", "Sorcery", "Ember Lash deals 2 damage to any target.")
     private val draught = Cards.invent("Mellow Draught", "{1}{W}", "Instant", "Each player gains 4 life.")
     private val quash = Cards.invent("Quash the Notion", "{U}{U}", "Instant", "Counter target spell.")
     private val grazer = Cards.invent("Thornback Grazer", "{1}{G}", "Creature — Beast", "", "2/2")
     private val picket = Cards.invent("Watchful Picket", "{1}{W}", "Creature — Soldier", "Vigilance", "2/2")
     private val blessing = Cards.invent("Minor Blessing", "{W}", "Enchantment — Aura", "Enchant creature")
-    private val spur = Cards.invent("Iron Spur", "{1}", "Artifact — Equipment", "Equip {1}")
+    private val spur = Cards.invent("Tarnished Spur", "{1}", "Artifact — Equipment", "Equip {1}")
 
     // CR 614.1a, 122.6: an opponent's spell makes alice discard it: it enters with two +1/+1 counters instead
     @Test

@@ -201,7 +201,7 @@ val food: TokenSpec = TokenSpec.Predefined("Food")
 
 // ---- Generic shapes
 
-val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self))
+val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))
 /** "When you do, …" (CR 603.12) */
 fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step =
     Step.Do(Effect.ReflexiveTrigger(Instructions(targets = targets, steps = steps.toList())))

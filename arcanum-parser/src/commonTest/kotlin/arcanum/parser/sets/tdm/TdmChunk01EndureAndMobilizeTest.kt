@@ -77,7 +77,7 @@ class TdmChunk01EndureAndMobilizeTest {
                     doing(
                         Effect.CreateDelayedTrigger(
                             trigger = Trigger.On(events = listOf(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.Any))),
-                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("mobilized"))))),
+                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("mobilized"), by = Players.You)))),
                         ),
                     ),
                 ),
@@ -470,7 +470,7 @@ class TdmChunk01EndureAndMobilizeTest {
                     doing(
                         Effect.CreateDelayedTrigger(
                             trigger = Trigger.On(events = listOf(EventPattern.StepBegins(step = TurnStep.End, whose = PlayerFilter.Any))),
-                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("token"))))),
+                            instructions = Instructions(steps = listOf(doing(Effect.Sacrifice(objects = bound("token"), by = Players.You)))),
                         ),
                     ),
                 ),

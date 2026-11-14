@@ -92,7 +92,7 @@ class Mh2Chunk15TimeshiftedTest {
         """,
     ) parsesTo abilities(
         triggered(yourUpkeep, Step.Pay(Cost(listOf(discardACard)), payer = Players.You, bind = "paid"),
-            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self))))),
+            Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))))),
         playerStatic(Mechanic.SkipStep(TurnStep.Draw)),
         playerStatic(Mechanic.CantBeTargeted(by = ObjectFilter.Any)),
         static(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(players = PlayerFilter.You)))),

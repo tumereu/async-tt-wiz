@@ -195,7 +195,7 @@ class InrChunk05EquipEscalateMadnessTest {
             doing(Effect.ApplyMechanics(listOf(Mechanic.DoesntUntap), Affected.Objects(Objects.EventObject(EventRole.Object)),
                 Duration.ThroughNextStep(TurnStep.Untap, Players.ControllerOf(Objects.EventObject(EventRole.Object)))))),
         triggered(on(EventPattern.Unattach(objects = ObjectFilter.Is(Objects.Self), from = ObjectFilter.Category(ObjectCategory.Permanent))),
-            doing(Effect.Sacrifice(Objects.EventObject(EventRole.From)))),
+            doing(Effect.Sacrifice(Objects.EventObject(EventRole.From), by = Players.You))),
         equip("{2}"),
     )
 

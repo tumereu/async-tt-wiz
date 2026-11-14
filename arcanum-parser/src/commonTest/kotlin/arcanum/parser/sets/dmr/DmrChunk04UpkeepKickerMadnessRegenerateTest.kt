@@ -251,7 +251,7 @@ class DmrChunk04UpkeepKickerMadnessRegenerateTest {
         activated(manaCost("{R}"), pump(Objects.Self, 1, 0),
             ifThen(Condition.Compare(Value.AbilityUsesThisTurn(resolved = false), Comparison.AtLeast, n(4)),
                 doing(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)),
-                    Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self)))))))),
+                    Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You)))))))),
     )
 
     // CR 605.1a (a mana ability), 122.1: the land is sacrificed once its last counter is gone
@@ -269,7 +269,7 @@ class DmrChunk04UpkeepKickerMadnessRegenerateTest {
         activated(cost(tap, CostPart.RemoveCounters(CounterKind.Named("mining"), n(1), CostObjects.Self)),
             doing(Effect.AddMana(ManaProduction(anyOneColor(1)), Players.You)),
             ifThen(Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(CounterKind.Named("mining"), atLeast = 1))),
-                doing(Effect.Sacrifice(Objects.Self)))),
+                doing(Effect.Sacrifice(Objects.Self, by = Players.You)))),
     )
 
     // CR 615.5: the damage is prevented, then a counter removed

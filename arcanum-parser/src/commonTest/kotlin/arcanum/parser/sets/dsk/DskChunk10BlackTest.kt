@@ -117,7 +117,7 @@ class DskChunk10BlackTest {
                 then = listOf(
                     Step.Do(Effect.Move(Objects.Bound("destroyed"), Destination(Zone.Battlefield, controller = Players.You), postBind = "returned")),
                     Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.You)),
-                        Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned"))))))),
+                        Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned"), by = Players.You)))))),
                 ),
             ),
             targets = listOf(slot("creature", creature)),

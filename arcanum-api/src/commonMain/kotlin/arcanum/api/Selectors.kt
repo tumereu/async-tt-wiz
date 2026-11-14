@@ -147,6 +147,8 @@ sealed interface ObjectFilter {
 
     @Serializable @SerialName("controlled-by") data class ControlledBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("owned-by") data class OwnedBy(val players: PlayerFilter) : ObjectFilter
+    /** A battle whose protector matches [players] (CR 310.9): the defending player of a creature attacking it (CR 506.2). */
+    @Serializable @SerialName("protected-by") data class ProtectedBy(val players: PlayerFilter) : ObjectFilter
     @Serializable @SerialName("in-zone") data class InZone(val zone: Zone) : ObjectFilter
 
     @Serializable @SerialName("name") data class Named(val name: String) : ObjectFilter

@@ -43,7 +43,7 @@ class WoeChunk16CountersTapUntapTest {
         Keyword.Menace,
         triggered(combatDamageToAPlayer,
             counters(Objects.Self, 1, CounterKind.Named("skewer")),
-            Step.Pay(null, steps = listOf(doing(Effect.Sacrifice(Objects.Self))), payer = Players.You, mandatory = false, bind = "paid"),
+            Step.Pay(null, steps = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))), payer = Players.You, mandatory = false, bind = "paid"),
             ifThen(Condition.Did("paid"),
                 move(Objects.LibraryCards(Players.You, Value.Of(NumericProperty.Counters(CounterKind.Named("skewer")), Objects.Self, Combine.Single), fromTop = true),
                     Zone.Exile, postBind = "exiled")),

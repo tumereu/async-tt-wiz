@@ -103,7 +103,9 @@ class DmrChunk01CyclingTest {
                 Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Serpent"))), replaceTypes = true, replaceSubtypes = true),
                 Mechanic.SetPowerToughness(n(4), n(4)),
                 has(static(Mechanic.CantAttack(Recipients(
-                    objects = Objects.Each(and(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(withoutIsland))),
+                    // CR 506.2, 508.1b: a battle's defending player is its protector (fix: battles were left out)
+                    objects = Objects.Each(ObjectFilter.Or(listOf(and(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(withoutIsland)),
+                        and(ObjectFilter.Type(CardType.Battle), ObjectFilter.ProtectedBy(withoutIsland))))),
                     players = Players.Each(withoutIsland)))))),
                 Affected.Objects(Objects.Self), Duration.Indefinitely)),
             interveningIf = Condition.ObjectMatches(Objects.Self, enchantment)),

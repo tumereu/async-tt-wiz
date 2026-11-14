@@ -331,7 +331,7 @@ class EclChunk13RedTest {
                 Comparison.AtMost, n(5))), inZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), n(0), n(1)), bind = "chosen", chooser = Players.You),
             move(Objects.Bound("chosen"), Zone.Battlefield, postBind = "put"),
             doing(Effect.ApplyMechanics(listOf(has(Keyword.Haste)), arcanum.api.Affected.Objects(Objects.Bound("put")), Duration.Indefinitely)),
-            doing(Effect.CreateDelayedTrigger(eachEndStep, Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("put")))))))),
+            doing(Effect.CreateDelayedTrigger(eachEndStep, Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Bound("put"), by = Players.You))))))),
     )
 
     @Test

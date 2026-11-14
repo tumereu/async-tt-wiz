@@ -70,7 +70,7 @@ internal object KeywordExpansionsMore {
                 alternative(Keyword.Blitz.Kind, keyword.cost),
                 Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste,
                     Ability.Triggered(diesSelf, steps(Effect.Draw(Players.You, Value.Fixed(1))))))), condition = paid, affects = self),
-                Ability.Triggered(nextEndStep, steps(Effect.Sacrifice(Objects.Self)), interveningIf = paid))
+                Ability.Triggered(nextEndStep, steps(Effect.Sacrifice(Objects.Self, by = Players.You)), interveningIf = paid))
         }
         // CR 702.30a: "At the beginning of your upkeep, if this permanent came under your control since the beginning of your last
         // upkeep, sacrifice it unless you pay [cost]." (it enters marked as due; the upkeep that asks for the echo removes the mark)
@@ -79,7 +79,7 @@ internal object KeywordExpansionsMore {
             Ability.Triggered(yourUpkeep, Instructions(steps = listOf(
                 Step.Do(Effect.Mark(Objects.Self, ECHO_DUE, remove = true)),
                 Step.Pay(keyword.cost, payer = Players.You, bind = "echo"),
-                Step.If(Condition.Not(Condition.Did("echo")), listOf(Step.Do(Effect.Sacrifice(Objects.Self)))))),
+                Step.If(Condition.Not(Condition.Did("echo")), listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))))),
                 interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ECHO_DUE)))))
         // CR 702.24a: "At the beginning of your upkeep, if this permanent is on the battlefield, put an age counter on this permanent. Then
         // you may pay [cost] for each age counter on it. If you don't, sacrifice it."
@@ -88,7 +88,7 @@ internal object KeywordExpansionsMore {
             listOf(Ability.Triggered(yourUpkeep, Instructions(steps = listOf(
                 Step.Do(Effect.PutCounters(Objects.Self, AGE, Value.Fixed(1))),
                 Step.Pay(times(keyword.cost, ages), payer = Players.You, bind = "upkeep"),
-                Step.If(Condition.Not(Condition.Did("upkeep")), listOf(Step.Do(Effect.Sacrifice(Objects.Self))))))))
+                Step.If(Condition.Not(Condition.Did("upkeep")), listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You))))))))
         }
         // CR 702.128a: "[Cost], Exile this card from your graveyard: Create a token that's a copy of this card, except it's white, it has
         // no mana cost, and it's a Zombie in addition to its other types. Activate only as a sorcery."
@@ -108,13 +108,13 @@ internal object KeywordExpansionsMore {
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MustAttack(Recipients(players = Players.Bound("encore-opponent")))),
                     Affected.Objects(Objects.Bound("encore")), Duration.EndOfTurn)))),
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(Objects.Bound("encore")), Duration.Indefinitely)),
-            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("encore"))))))))
+            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("encore"), by = Players.You)))))))
         // CR 702.181a: "Whenever this creature attacks, create N 1/1 red Warrior creature tokens. Those tokens enter tapped and attacking.
         // Sacrifice them at the beginning of the next end step."
         is Keyword.Mobilize -> listOf(Ability.Triggered(attacks, Instructions(steps = listOf(
             Step.Do(Effect.CreateToken(TokenSpec.Defined(WARRIOR), count = Value.Fixed(keyword.amount), controller = Players.You, tapped = true,
                 attacking = AttackTarget.Chosen, bind = "mobilized")),
-            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("mobilized")))))))))
+            Step.Do(Effect.CreateDelayedTrigger(nextEndStep, steps(Effect.Sacrifice(Objects.Bound("mobilized"), by = Players.You))))))))
         // CR 702.116a: "Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a
         // copy of this creature that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created
         // this way, exile the tokens at end of combat." (attacking that player)

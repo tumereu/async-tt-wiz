@@ -146,7 +146,7 @@ class TlaChunk05WaterbendMoreTest {
             move(target("cards"), Zone.Exile, postBind = "exiled"),
             Step.ForEach(Each.Objects(Objects.Where(Objects.Bound("exiled"), creature)), bind = "card", steps = listOf(
                 doing(Effect.CreateToken(TokenSpec.CopyOf(Objects.Bound("card")), n(1), Players.You, bind = "tokens")))),
-            delayed(yourEndStep, doing(Effect.Sacrifice(Objects.Bound("tokens")))),
+            delayed(yourEndStep, doing(Effect.Sacrifice(Objects.Bound("tokens"), by = Players.You))),
             targets = listOf(TargetSlot("cards", TargetKind.Objects(and(creature, inZone(Zone.Graveyard))), min = x, max = x)),
             announced = listOf("X")),
     )

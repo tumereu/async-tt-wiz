@@ -124,7 +124,7 @@ class EoeChunk08WhiteMoreTest {
                     controller = Players.You,
                 ),
             ),
-            doing(Effect.Sacrifice(objects = Objects.Self)),
+            doing(Effect.Sacrifice(objects = Objects.Self, by = Players.You)),
         ),
     )
 

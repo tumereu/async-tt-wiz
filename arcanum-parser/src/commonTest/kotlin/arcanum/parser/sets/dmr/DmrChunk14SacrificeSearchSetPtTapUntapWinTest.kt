@@ -15,7 +15,7 @@ class DmrChunk14SacrificeSearchSetPtTapUntapWinTest {
     /** "sacrifice it unless you return [filter] you control to its owner's hand" (CR 603.2, 118.12) */
     private fun sacrificeUnlessReturn(filter: ObjectFilter, count: Int) = whenThisEnters(
         Step.Pay(Cost(listOf(CostPart.ReturnToHand(CostObjects.Choose(filter, count = n(count))))), payer = Players.You, bind = "paid"),
-        Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self)))),
+        Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)))),
     )
 
     private val nonLairLand = and(not(sub("Lair")), land, you)

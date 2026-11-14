@@ -222,7 +222,7 @@ class TlaChunk14BlackTest {
         triggered(youAttack,
             create(creatureToken("Construct", emptyList(), 2, 1, abilities = listOf(Keyword.Flying), types = listOf(CardType.Artifact, CardType.Creature),
                 name = "Ballistic Boulder"), bind = "token", tapped = true, attacking = AttackTarget.Chosen),
-            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("token"))))),
+            delayed(stepBegins(TurnStep.End, PlayerFilter.Any), doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You)))),
     )
 
     @Test

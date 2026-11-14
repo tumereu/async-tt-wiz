@@ -160,7 +160,7 @@ class DmrChunk07EffectsAndTriggersTest {
         triggered(entersSelf,
             Step.Pay(cost(CostPart.Exile(CostObjects.Choose(and(another, creature, you), count = n(1)), from = Zone.Battlefield, remember = "exiled")),
                 payer = Players.You, bind = "paid"),
-            ifThen(Condition.Not(Condition.Did("paid")), doing(Effect.Sacrifice(Objects.Self)))),
+            ifThen(Condition.Not(Condition.Did("paid")), doing(Effect.Sacrifice(Objects.Self, by = Players.You)))),
         triggered(on(EventPattern.ZoneChange(isSelf, from = Zone.Battlefield)),
             move(Objects.Remembered("exiled"), Zone.Battlefield, controller = Players.OwnerOf(Objects.Remembered("exiled")))),
     )
@@ -298,7 +298,7 @@ class DmrChunk07EffectsAndTriggersTest {
         static(Mechanic.Replacement(EventPattern.ZoneChange(isSelf, to = Zone.Battlefield), modify = listOf(Modification.EntersWithCounters(ice, n(10))))),
         activated(cost(mana("{3}")), doing(Effect.RemoveCounters(Objects.Self, ice, n(1)))),
         arcanum.api.Ability.Triggered(Trigger.State(Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(ice, atLeast = 1)))), Instructions(steps = listOf(
-            doing(Effect.Sacrifice(Objects.Self, postBind = "sacrificed")),
+            doing(Effect.Sacrifice(Objects.Self, postBind = "sacrificed", by = Players.You)),
             ifThen(Condition.NonEmpty("sacrificed"), create(creatureToken("Avatar", listOf(Color.Black), 20, 20,
                 abilities = listOf(Keyword.Flying, Keyword.Indestructible), name = "Vorn Hollow").let { t ->
                 (t as arcanum.api.TokenSpec.Defined).copy(face = t.face.copy(supertypes = listOf(Supertype.Legendary))) }))))),
@@ -357,7 +357,7 @@ class DmrChunk07EffectsAndTriggersTest {
     ) parsesTo abilities(
         Keyword.Defender,
         arcanum.api.Ability.Triggered(Trigger.State(Condition.ObjectMatches(Objects.Self, kw(Keyword.Flying.kind))),
-            Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self))))),
+            Instructions(steps = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))))),
         triggered(on(EventPattern.ZoneChange(isSelf, from = Zone.Battlefield)),
             damage(Value.Half(count(and(sub("Island"), you)), roundUp = false),
                 toObjects(Objects.Each(and(not(ObjectFilter.OfColor(ColorRef.Literal(Color.Blue))), creature, not(kw(Keyword.Flying.kind))))),

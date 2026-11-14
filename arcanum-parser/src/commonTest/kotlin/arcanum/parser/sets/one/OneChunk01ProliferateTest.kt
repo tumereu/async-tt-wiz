@@ -225,7 +225,7 @@ class OneChunk01ProliferateTest {
     ) parsesTo abilities(
         triggered(
             combatDamageToAPlayer,
-            Step.Pay(steps = listOf(doing(Effect.Sacrifice(Objects.Self))), payer = Players.You, bind = "paid"),
+            Step.Pay(steps = listOf(doing(Effect.Sacrifice(Objects.Self, by = Players.You))), payer = Players.You, bind = "paid"),
             Step.If(Condition.Did("paid"), then = listOf(proliferate)),
         ),
         triggered(diesSelf, damage(power, toAny), targets = listOf(anyTarget)),

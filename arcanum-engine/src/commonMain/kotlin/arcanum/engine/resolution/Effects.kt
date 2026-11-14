@@ -112,7 +112,10 @@ internal object Effects {
                 }
             }
             is Effect.Sacrifice -> {
-                val ids = onBattlefield(scope, effect.objects)
+                // CR 701.21a: a player sacrifices only permanents they control (a delayed "sacrifice it" does nothing once
+                // another player has gained control of it)
+                val by = effect.by?.let { scope.players(it).toSet() }
+                val ids = onBattlefield(scope, effect.objects).filter { by == null || act.controllerOf(it) in by }
                 scope.bind(effect.preBind, NamedValue.Objects(ids))
                 moveOrBatch(scope, ids.filter { id -> !Actions.cantBeSacrificed(act, id, cause.controller) }
                     .map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.Sacrificed)) }, effect.postBind)
@@ -1357,8 +1360,9 @@ internal object Effects {
             names = names.with(COPY_OF, NamedValue.Objects(listOf(of)))
             m.copy(objects = Objects.Bound(COPY_OF))
         }.map { m ->
-            // fin: "that player gains control of …": the player the event names, found now (CR 608.2h) and kept by name
-            if (m !is Mechanic.ControlledBy || !m.players.toString().contains("Event")) return@map m
+            // CR 608.2h, 611.2c: the new controller is found as the effect begins and kept by name ("that player gains control of …",
+            // "the player with the most life gains control of …": a later life change doesn't move it again)
+            if (m !is Mechanic.ControlledBy || m.players is arcanum.api.Players.Bound) return@map m
             names = names.with(NEW_CONTROLLER, NamedValue.Players(e.players(m.players)))
             m.copy(players = arcanum.api.Players.Bound(NEW_CONTROLLER))
         }

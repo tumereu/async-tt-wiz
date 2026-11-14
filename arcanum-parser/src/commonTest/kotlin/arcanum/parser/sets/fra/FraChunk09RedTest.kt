@@ -222,7 +222,7 @@ class FraChunk09RedTest {
     ) parsesTo abilities(spell(Step.ForEach(Each.Objects(Objects.Each(and(creature, controlledBy(PlayerFilter.Is(Players.Target("player")))))), "creature", listOf(
             Step.Do(Effect.CreateToken(TokenSpec.CopyOf(Objects.Bound("creature"), except = listOf(CopyException.AddAbilities(listOf(
                 Keyword.Haste,
-                triggered(stepBegins(TurnStep.End, PlayerFilter.Any), Step.Do(Effect.Sacrifice(Objects.Self)),
+                triggered(stepBegins(TurnStep.End, PlayerFilter.Any), Step.Do(Effect.Sacrifice(Objects.Self, by = Players.You)),
                     interveningIf = Condition.Not(Condition.Exists(and(planeswalker, you), 1))),
             )))), n(1), Players.You)))), targets = listOf(targetPlayer)))
 

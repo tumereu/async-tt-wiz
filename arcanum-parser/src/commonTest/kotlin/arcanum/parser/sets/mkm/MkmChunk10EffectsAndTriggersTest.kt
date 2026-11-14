@@ -94,7 +94,7 @@ class MkmChunk10EffectsAndTriggersTest {
             spell(
                 move(target("cards"), Zone.Battlefield, controller = Players.You, postBind = "returned"),
                 untilEndOfTurn(Objects.Bound("returned"), haste),
-                delayed(nextEndStep, doing(Effect.Sacrifice(Objects.Bound("returned")))),
+                delayed(nextEndStep, doing(Effect.Sacrifice(Objects.Bound("returned"), by = Players.You))),
                 targets = listOf(TargetSlot("cards", TargetKind.Objects(and(creature, inZone(Zone.Graveyard))), min = n(0), max = n(2), sameOwner = true)),
             ),
         ),
@@ -280,7 +280,7 @@ class MkmChunk10EffectsAndTriggersTest {
             beginningOfCombatOnYourTurn,
             create(thopter, bind = "token"),
             untilEndOfTurn(Objects.Bound("token"), haste),
-            delayed(Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.You)), doing(Effect.Sacrifice(Objects.Bound("token")))),
+            delayed(Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.You)), doing(Effect.Sacrifice(Objects.Bound("token"), by = Players.You))),
         ),
     )
 

@@ -105,6 +105,9 @@ internal object Actions {
      */
     fun move(act: Act, cause: Cause?, planned: List<PlannedMove>, noRegeneration: Boolean = false): Map<ObjectId, ObjectId> {
         val linked = mutableListOf<WaitingTrigger>()
+        // CR 614.6: an "instead" replacing one object's move replaces only that part of the event: its instructions run after the
+        // other objects have moved (a shuffle among them would otherwise make the library cards still to be milled new objects)
+        val insteads = mutableListOf<Pair<Replacement, TriggerEvent>>()
         // CR 707.10a: a copy of a spell put into another zone ceases to exist (no card moves)
         planned.forEach { pm ->
             val copy = act.state.stackItems[pm.id]?.takeIf { it.kind is arcanum.engine.state.StackItemKind.SpellCopy && act.obj(pm.id) == null }
@@ -132,7 +135,7 @@ internal object Actions {
                 proposed = { m -> Changes.move(act.state, listOf(m.id), m.to, meanings = m.meanings).let { c ->
                     if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
                 modify = { m, r, _ -> modifyMove(act, m, r, linked) },
-                instead = { r, instance -> runInstead(act, r, instance) },
+                instead = { r, instance -> insteads += r to instance },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
                 skip = { r, m -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) ||
@@ -147,6 +150,7 @@ internal object Actions {
         val final = replaced.filterNot { it.to == Zone.Battlefield && act.view()[it.id]?.has { m -> m == Mechanic.CantEnterBattlefield } == true }
             .mapNotNull { auraEntering(act, it) }
         val result = commitMoves(act, cause, final, linked)
+        insteads.forEach { (r, instance) -> runInstead(act, r, instance) }
         final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
             .takeIf { it.size > 1 }?.let { LibraryPlaces.group(act.recorder, it) }
         // CR 714.3a: as a Saga enters, its controller puts a lore counter on it

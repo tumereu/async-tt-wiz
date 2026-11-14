@@ -36,7 +36,12 @@ sealed interface Effect {
     @Serializable @SerialName("destroy") data class Destroy(
         val objects: Objects, val noRegeneration: Boolean = false, val preBind: String? = null, val postBind: String? = null,
     ) : Effect
-    @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: Objects, val preBind: String? = null, val postBind: String? = null) : Effect
+    /** [by] sacrifices [objects]: only those [by] controls (CR 701.21a: a player can't sacrifice a permanent they don't
+     * control), as for "Sacrifice it" (`by = You`) of an object that may have changed controllers since. Null: each
+     * permanent's controller sacrifices it (objects a player chose among their own, "its controller sacrifices it"). */
+    @Serializable @SerialName("sacrifice") data class Sacrifice(
+        val objects: Objects, val preBind: String? = null, val postBind: String? = null, val by: Players? = null,
+    ) : Effect
     /** Move [objects] to another zone (exile, return to hand, put onto the battlefield, put into a library, …).
      * [untilLeaves]: "exile … until ~ leaves the battlefield": when that object leaves, the moved cards return at once
      * without using the Stack, and if it has already left, nothing is moved (CR 610.3). */

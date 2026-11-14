@@ -57,37 +57,8 @@ internal object Answers {
                 if (chosen.size < q.min || (q.max != null && chosen.size > q.max)) refuse("Choose ${q.min} to ${q.max ?: "any number of"} targets")
                 if (chosen.distinct().size != chosen.size) refuse("The same target twice in one slot")
                 if (chosen.any { it !in q.options }) refuse("Not a legal target: ${chosen.filter { it !in q.options }}")
-                // "target creatures controlled by the same opponent" (CR 601.2c)
-                if (q.slot.slot.sameController &&
-                    chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.board.controller(id) } }.distinct().size > 1)
-                    refuse("The targets must have the same controller")
-                // ecl: "two target creature cards that share a creature type" (CR 601.2c)
-                q.slot.slot.sharing?.let { quality ->
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    val e = plan.snap.evaluator(plan.player)
-                    if (ids.any { a -> ids.any { b -> a != b && !e.shares(quality, a, b) } }) refuse("The targets must share $quality")
-                }
-                // spm: "up to six target creature cards with different names" (CR 601.2c)
-                q.slot.slot.distinct?.let { quality ->
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    val e = plan.snap.evaluator(plan.player)
-                    if (ids.any { a -> ids.any { b -> a != b && e.shares(quality, a, b) } }) refuse("The targets must differ in $quality")
-                }
-                // gtc chunk 10: "from a single graveyard": one owner (CR 601.2c)
-                if (q.slot.slot.sameOwner &&
-                    chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.state.obj(id)?.owner } }.distinct().size > 1)
-                    refuse("The targets must have the same owner")
-                // fra: "up to one target … of each card type": each target stands for a value of its own
-                q.slot.slot.onePer?.let { quality ->
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    if (!plan.snap.evaluator(plan.player).eachStandsForOne(quality, ids)) refuse("Each target must stand for a different $quality")
-                }
-                // msh: "with total mana value 6 or less" (CR 601.2c)
-                q.slot.slot.totalAtMost?.let { limit ->
-                    val e = plan.snap.evaluator(plan.player)
-                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
-                    if (ids.sumOf { e.property(limit.property, it) } > e.value(limit.atMost)) refuse("The targets' total is more than allowed")
-                }
+                // One controller or owner, shared or different qualities, one for each value, a total (CR 601.2c)
+                arcanum.engine.action.Targeting.groupRefusal(q.slot.slot, chosen, plan.snap.evaluator(plan.player))?.let(::refuse)
                 val key = q.slot.key
                 if (q.forPlayer == null) c.copy(targets = c.targets + (key to chosen))
                 else c.copy(
@@ -130,6 +101,7 @@ internal object Answers {
                 ch.total?.let { total ->
                     val sum = chosen.sumOf { plan.eval.property(total.property, it) }
                     if (sum < plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be at least ${plan.eval.value(total.atLeast)}")
+                    if (total.exactly && sum != plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be exactly ${plan.eval.value(total.atLeast)}")
                 }
                 c.copy(names = c.names.with(Plan.OBJECTS + q.key, NamedValue.Objects(chosen)))
             }
@@ -206,6 +178,8 @@ internal object Answers {
                 plan.snap.view.players[plan.player]?.mechanics.orEmpty().none { it.mechanic == arcanum.api.Mechanic.CantLoseLife }) } // mh3: CR 119.8
             is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
             is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
+            // mkm fix: "Reveal the creature type you chose": only a choice the source keeps (CR 118.3)
+            is CostPart.RevealChoice -> plan.snap.state.obj(plan.sourceId)?.linked?.get(part.key) != null
             is CostPart.RemoveCounters -> when (val from = part.from) {
                 is arcanum.api.CostObjects.Choose -> Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
                     .let { choice -> choice == null || choice.options.size >= choice.min }

@@ -65,7 +65,8 @@ object DefinitionChecks {
         // inr chunk 06: the permanent sacrificed and the card it became in the graveyard (CR 701.21a, 400.7)
         "sacrifice" to setOf("object", "before", "after"),
         "unattach" to setOf("object", "from"),
-        "attach" to setOf("object", "to"), // one
+        // otj, one: the attachment and what it became attached to (CR 701.3a)
+        "attach" to setOf("object", "to"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),
         // dft: tapped to crew or saddle: the Vehicle or Mount (CR 702.122b, 702.171c)
@@ -75,7 +76,7 @@ object DefinitionChecks {
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
     private val asEntersSteps = setOf("pay", "choose", "if", "modify")
-    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind") // inr chunk 08: payerBind
+    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind", "onTop") // inr chunk 08: payerBind; lci chunk 04: onTop (surveil)
 
     /** Problems in [card], one readable line each; empty when it is fine. [keywordTable]: [card] holds abilities from
      * [KeywordExpansions], where keyword costs and keyword-only mechanics belong. */

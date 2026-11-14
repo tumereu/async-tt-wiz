@@ -18,6 +18,7 @@ import arcanum.api.Zone
 
 /** Regular expressions of Lorwyn Eclipsed (ecl) wordings read in [Sentences]. */
 internal object Ecl {
+    val UNTIL_NEXT_END_STEP_PLAY_THOSE = Regex("""Until your next end step, you may play those cards(, and mana of any type can be spent to cast those spells)?\.""") // otj chunk 12
     // ecl chunk 01: blight (CR 701.68)
     val BLIGHT = Regex("""[Bb]light (\d+|X)""")
     val PLAYERS_BLIGHT = Regex("""(Target opponent|target opponent|Each opponent|each opponent|Each player|each player) blights (\d+)\.""")
@@ -97,7 +98,7 @@ internal object Ecl {
     // isd chunk 01: also "Choose a permanent type." / "Choose a card type." (CR 205.2a, 110.4a)
     val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a (creature|permanent|card) type\. (.+)""")
     val ADD_N_ANY_ONE_COLOR_SPEND_ONLY = Regex("""[Aa]dd (\w+) mana of any one color\. Spend this mana only to (.+)\.""")
-    val IT_DEALS_INSTEAD_IF =Regex("""It deals (\d+) damage to that creature instead if (.+)\.""")
+    val IT_DEALS_INSTEAD_IF =Regex("""(It|.+?) deals (\d+) damage to that creature instead if (.+)\.""") // otj chunk 11: its name
     val GET_X_X_WHERE = Regex("""(.+?) get \+X/\+X, where X is (.+)\.""")
     val GETS_FOR_EACH_AND_EACH = Regex("""(.+?) gets \+1/\+1 for each (.+?) and each (.+)\.""")
     val SPELLS_OF_CHOSEN_TYPE_COST_LESS = Regex("""Spells you cast of the chosen type cost (\{\d+\}) less to cast\.""")
@@ -123,7 +124,7 @@ internal object Ecl {
     val MILLS_THEN_PUTS_EACH_INTO_HAND = Regex("""Target player mills (\w+) cards, then puts each (.+?) milled this way into their hand\.""")
     val RETURN_ONE_OR_TWO_FROM_GRAVEYARD = Regex("""Return one or two target (.+?) from your graveyard to your hand\.""")
     val CREATE_FOR_EACH = Regex("""[Cc]reate (an? .+? token(?: with [a-z ]+)?) for each (.+)\.""")
-    val EXILE_TOP_OF_TARGET_OPPONENTS_LIBRARY = Regex("""[Ee]xile the top (\w+) cards of target opponent's library\.""")
+    val EXILE_TOP_OF_TARGET_OPPONENTS_LIBRARY = Regex("""[Ee]xile the top (\w+) cards of target opponent's library\.""") // otj chunk 11: X
     val BECOMES_ALL_COLORS = Regex("""Target (.+?) becomes all colors until end of turn\.""")
     val BECOMES_THE_CHOSEN_COLOR = Regex("""(.+?) becomes the chosen color\.""")
     val ADD_X_OR_X = Regex("""Add X \{([WUBRG])\} or X \{([WUBRG])\}\.""")
@@ -144,9 +145,11 @@ internal object Ecl {
     val GETS_X_AND_UP_TO_ONE_GETS = Regex("""[Tt]arget (.+?) gets \+X/\+0 until end of turn and up to one target (.+?) gets -0/-X until end of turn\.""")
     val ATTACKS_OR_BLOCKS_DIFFERENCE = Regex("""Whenever (.+?) attacks or blocks, it gets \+X/\+X until end of turn, where X is the difference between its power and toughness\.""")
     val EXILE_UNTIL_NONLAND_CAST_IF_LIFE = Regex("""Exile cards from the top of your library until you exile a nonland card\. You may cast that card without paying its mana cost if the spell's mana value is less than or equal to the amount of life you gained this turn\. Otherwise, put it into your hand\.""")
-    val BECOMES_SUBTYPES_BASE_PT = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)( and protection from each of your opponents)?\.""")
+    val BECOMES_SUBTYPES_BASE_PT = Regex("""(?:If (.+?) is an? ([A-Z]\w+), )?(.+?) becomes an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)( and protection from each of your opponents| and gains [a-z, ]+)?\.""") // mkm chunk 03: "… and gains vigilance."
     val ADD_ANY_COLOR_BECOMES_THAT_COLOR = Regex("""Add one mana of any color\. (.+?) becomes that color until end of turn\.""")
-    val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex("""[Ee]xile that card with an? (\w+) counter on it instead of putting it into your graveyard as it resolves\.""")
+    // otj chunk 01: also "exile that spell instead of … as it resolves. If you do, it becomes plotted." (Lilah)
+    val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex(
+        """[Ee]xile that (?:card|spell)(?: with an? (\w+) counter on it)? instead of putting it into your graveyard as it resolves\.(?: If you do, it becomes (plotted)\.)?$""")
     val MAY_CAST_FROM_EXILE_WITH_COUNTERS = Regex("""[Yy]ou may cast a spell from among cards you own in exile with (\w+) counters on them without paying its mana cost\.""")
     val OPPONENTS_EXILE_UNTIL_TOTAL_MV = Regex("""Each opponent exiles cards from the top of their library until they have exiled cards with total mana value (\d+) or greater this way\. Until end of turn, you may cast cards exiled this way without paying their mana costs\.""")
     val REVEAL_UNTIL_X_NONLAND_EXILE_EACH_COLOR = Regex("""Reveal cards from the top of your library until you reveal X nonland cards\. For each of those colors, you may exile a card of that color from among the revealed cards\. Then shuffle\. You may cast the exiled cards this turn\.""")

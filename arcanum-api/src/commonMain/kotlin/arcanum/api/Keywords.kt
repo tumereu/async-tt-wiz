@@ -602,7 +602,12 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "renown"; override val text: String get() = "Renown"; override val rule: String get() = "702.112" }
     }
     /** Crew (CR 702.122) */
-    @Serializable @SerialName("crew") data class Crew(override val amount: Int) : Keyword, HasAmount {
+    @Serializable @SerialName("crew") data class Crew(
+        override val amount: Int,
+        // otj
+        /** "Activate only once each turn" written after crew: its activations each turn (CR 602.5b). */
+        val perTurn: Int? = null,
+    ) : Keyword, HasAmount {
         init { requireAmount(amount) }
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "crew"; override val text: String get() = "Crew"; override val rule: String get() = "702.122" }
@@ -881,8 +886,9 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "squad"; override val text: String get() = "Squad"; override val rule: String get() = "702.157" }
     }
-    /** Disguise (CR 702.168) */
-    @Serializable @SerialName("disguise") data class Disguise(override val cost: Cost) : Keyword, HasCost {
+    /** Disguise (CR 702.168). [costChange] (mkm): "Disguise {5}{R}. This cost is reduced by {1} for each …" changes the cost of turning it
+     * face up (CR 118.7). */
+    @Serializable @SerialName("disguise") data class Disguise(override val cost: Cost, val costChange: CostChange? = null) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "disguise"; override val text: String get() = "Disguise"; override val rule: String get() = "702.168" }
     }
@@ -1056,6 +1062,17 @@ sealed interface Keyword : Ability {
     @Serializable @SerialName("class-level") data class ClassLevel(override val cost: Cost, val level: Int, val abilities: List<Ability>) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "class-level"; override val text: String get() = "Level"; override val rule: String get() = "716.2" }
+    }
+    // lci
+    /** "Craft with [materials] [cost]" (CR 702.167a): "[Cost], Exile this permanent, Exile [materials] from among permanents you
+     * control and/or cards in your graveyard: Return this card to the battlefield transformed under its owner's control. Activate
+     * only as a sorcery." Each of [materials] is exiled as its own part ("a Dinosaur, a Merfolk, …"); a type or subtype without
+     * "card" means a permanent or a card in a graveyard (702.167b). The exiled cards are kept by the returned permanent under this
+     * keyword's id ([Objects.LinkedTo], "the exiled cards used to craft it", 702.167c). [printed] is the materials as printed. */
+    @Serializable @SerialName("craft") data class Craft(val materials: List<CostObjects.Choose>, override val cost: Cost, val printed: String) : Keyword, HasCost {
+        override val kind: KeywordKind get() = Kind
+        override val text: String get() = "Craft with $printed"
+        companion object Kind : KeywordKind { override val id: String get() = "craft"; override val text: String get() = "Craft"; override val rule: String get() = "702.167" }
     }
 }
 
@@ -1273,6 +1290,7 @@ interface KeywordKind {
                 Keyword.Prototype.Kind,
                 Keyword.Gift.Kind,
                 Keyword.ClassLevel.Kind,
+                Keyword.Craft.Kind,
             )
         }
         fun byId(id: String): KeywordKind? = all.firstOrNull { it.id == id }

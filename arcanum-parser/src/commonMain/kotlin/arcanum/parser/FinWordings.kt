@@ -53,8 +53,9 @@ internal object FinPhrases {
         }
         SPELL_OR_ABILITIES.matchEntire(phrase)?.let { m ->
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
-            val spell = Filters.noun(m.groupValues[1]) ?: return null
-            return ObjectFilter.Or(listOf(spell, ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
+            // otj chunk 02: "instant spell, sorcery spell, activated ability, or triggered ability": each spell noun is an alternative (CR 113.1)
+            val spells = m.groupValues[1].split(", ").map { Filters.noun(it) ?: return null }
+            return ObjectFilter.Or(spells + listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered)))
         }
         // fin chunk 12: "attacking equipped creature" (CR 301.5c)
         if (phrase == "attacking equipped creature")
@@ -138,7 +139,8 @@ internal object Fin {
     val ATTACHED_CLAUSES = Regex("""(Equipped creature|Enchanted creature) ((?:gets|has|is) .+?)\.?""")
     val HAS_QUOTE = Regex("""has "(.+)"""")
     val IS_A_IN_ADDITION = Regex("""is an? ([A-Z][a-z]+(?: [A-Z][a-z]+)*) in addition to its other types""")
-    val CLAUSE_SEPARATOR = Regex(""",? and (?=(?:is|has|gets) )|, (?:and )?""")
+    // lci chunk 01: also ' and "' before a quoted ability ('has reach, "…," and "…"')
+    val CLAUSE_SEPARATOR = Regex(""",? and (?=(?:is|has|gets) |")|, (?:and )?""")
     // fin chunk 01: "Whenever you cast a noncreature spell and whenever you draw your third card each turn, put …"
     val WHENEVER_AND_WHENEVER = Regex("""Whenever (.+?) and whenever (.+?), (.+)""")
     val IF_THAT_CARD_ENTERS_TAPPED_ATTACKING = Regex("""If that card is an? (.+?), it enters tapped and attacking\.""")
@@ -146,7 +148,7 @@ internal object Fin {
     val TARGETS_OWNER_SHUFFLES = Regex("""Target (.+?)'s owner shuffles it into their library\.""")
     val REMOVE_COUNTER_FROM_TARGET = Regex("""Remove (a|an|one|two|three) (\S+) counters? from target (.+)\.""")
     val TRIPLE_TARGET_PT = Regex("""Triple target (.+?)'s power and toughness until end of turn\.""")
-    val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile) up to (\w+) target (.+?) from a single graveyard\.""")
+    val UP_TO_FROM_SINGLE_GRAVEYARD = Regex("""(Exile|Put) up to (\w+) target (.+?) from a single graveyard( onto the battlefield under your control)?\.""")
     val GAINS_QUOTE_AND_BASE_PT = Regex("""Until end of turn, target (.+?) gains "(.+?)" and has base power and toughness (\d+)/(\d+)\.""")
     val COUNTER_ON_ONE_OF_THEM = Regex("""Put an? (\S+) counter on one of them\.""")
     // fin chunk 03
@@ -240,13 +242,14 @@ internal object Fin {
     val PREVENT_COMBAT_DAMAGE_TO_SELF = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
     val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many (\S+) counters are put on that creature instead\.""")
     val TOKENS_PLUS_ONE = Regex("""If one or more tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
-    val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast ([A-Z][a-z]+) spells from the top of your library\.""")
+    val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast (.+?) spells from the top of your library\.""")
     val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     val WHEN_YOU_SEARCH_THIS_WAY = Regex("""When you search your library this way, (.+)""")
     val SEARCH_UP_TO_DIFFERENT_NAMES = Regex("""Search your library for up to (\w+) (.+?) with different names, put them onto the battlefield tapped, then shuffle\.""")
-    val SELF_BECOMES_CREATURE = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z][a-z]+) creature in addition to its other types\.""")
+    // otj chunk 09: also "with flying"
+    val SELF_BECOMES_CREATURE = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z][a-z]+) creature(?: with ([a-z ,]+))? in addition to its other types\.""")
     val UNTIL_EOT_GETS_AND_GAINS_QUOTE = Regex("""Until end of turn, target (.+?) gets \+(\d+)/\+(\d+) and gains "(.+)"\.?""")
-    val COUNTERS_EQUAL_ITS_POWER_ON_UP_TO_ONE = Regex("""Put a number of (\S+) counters equal to its power on up to one target (.+)\.""")
+    val COUNTERS_EQUAL_ITS_POWER_ON_UP_TO_ONE = Regex("""Put a number of (\S+) counters equal to its power on (?:up to one target (.+)|each (.+))\.""")
     val UNTIL_EOT_SELF_GETS_FOR_EACH = Regex("""Until end of turn, (.+?) gets \+1/\+1 for each (.+)\.""")
     val MILL_MAY_PUT_IF_TOWN_GAIN = Regex("""Mill (\w+) cards\. You may put an? (.+?) from among them into your hand\. If you put an? (.+?) into your hand this way, you gain (\d+) life\.""")
     val EXILE_IT_AND = Regex("""Exile it and (create .+)\.""")
@@ -256,7 +259,7 @@ internal object Fin {
     val BIRDS_ATTACK_LOOK_THAT_MANY = Regex("""Whenever one or more (.+?) attack, look at that many cards from the top of your library\. You may put one of them into your hand\. Then put any number of land cards from among them onto the battlefield tapped and the rest into your graveyard\.""")
     val REMOVE_LORE_FROM_ANY_NUMBER = Regex("""Whenever (.+?) attacks, you may remove a lore counter from each of any number of Sagas you control\. Put a \+1/\+1 counter on (.+?) for each lore counter removed this way\.""")
     val END_STEP_ARTIFACTS_RETURN_THEN_LOSE = Regex("""At the beginning of your end step, if you control (\w+) or more artifacts, return target creature card from your graveyard to your hand\. Then if you control (\w+) or more artifacts, each opponent loses life equal to that card's power\.""")
-    val ENTERS_LOOK_PUT_LAND = Regex("""When (.+?) enters, look at the top (\w+) cards of your library\. You may put a land card from among them onto the battlefield tapped\. Put the rest on the bottom of your library in a random order\.""")
+    val ENTERS_LOOK_PUT_LAND = Regex("""When (.+?) enters, look at the top (\w+) cards of your library\. You may put a land card from among them onto the battlefield tapped\. Put the rest on the bottom(?: of your library)? in a random order\.""")
     val EXILE_CARD_IF_CREATURE_FOOD = Regex("""(.+?): Exile target card from a graveyard\. If a creature card was exiled this way, create a Food token\.""")
     val COUNTERS_EQUAL_POWER_BECOMES_TYPE = Regex("""At the beginning of combat on your turn, put a number of \+1/\+1 counters equal to (.+?)'s power on up to one other target creature\. That creature becomes an? ([A-Z][a-z]+) in addition to its other types\.""")
     val DIES_DURING_YOUR_TURN_DRAW_POWER = Regex("""Whenever an? ([A-Z][a-z]+) you control dies during your turn, you draw cards equal to its power\.""")

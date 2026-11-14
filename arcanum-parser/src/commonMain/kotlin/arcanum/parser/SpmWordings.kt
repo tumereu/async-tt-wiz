@@ -17,7 +17,9 @@ internal object Spm {
     val SPELLS_HAVE_WEB_SLINGING = Regex("""Each (legendary) spell you cast that's one or more colors has web-slinging ((?:\{[^}]+\})+)\.""")
     val ENTERS_WITH_X_IF_WEB_SLINGING = Regex("""If (.+?) was cast using web-slinging, (?:he|she|it|they) enters? with X \+1/\+1 counters on (?:him|her|it|them), where X is the mana value of the returned creature\.""")
     val CARDS_IN_GRAVEYARD_HAVE_MAYHEM = Regex("""Each (.+?) in your graveyard has mayhem\. The mayhem cost is equal to its mana cost\.""")
-    val SPELLS_CAST_FROM_COST_LESS = Regex("""Spells you cast from your (graveyard|hand|exile) cost ((?:\{[^}]+\})+) less to cast\.""")
+    // otj chunk 01: also "Spells your opponents cast from graveyards or from exile cost {2} more to cast."
+    val SPELLS_CAST_FROM_COST_LESS = Regex(
+        """Spells (you|your opponents) cast from (your graveyard|graveyards|your hand|exile)(?: or from (your graveyard|graveyards|your hand|exile))? cost ((?:\{[^}]+\})+) (less|more) to cast\.""")
     val IF_COST_PAID_INSTEAD = Regex("""If this spell's ([a-z-]+) cost was paid, (.+) instead\.""")
 
     // spm chunk 02: modified (CR 700.9)
@@ -48,7 +50,8 @@ internal object Spm {
 
     // spm chunk 05: cards from libraries and graveyards
     val LOOK_TOP_N_MAY_REVEAL_UP_TO_PUT_HAND = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may reveal up to (\w+) (.+?) from among them and put them into your hand\. Put the rest on the bottom of your library in a random order\.""")
-    val LOOK_TOP_N_MAY_PUT_ONTO_BATTLEFIELD = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may put an? (.+?) from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\.""")
+    // lci chunk 05: also "reveal that many cards from the top", "a creature card and/or a land card", "on the bottom in a random order"; otj chunk 04: "tapped"
+    val LOOK_TOP_N_MAY_PUT_ONTO_BATTLEFIELD = Regex("""([Ll]ook at|[Rr]eveal) (?:the top (\w+) cards|(that many) cards from the top) of your library\. You may put an? (.+?)(?: and/or an? (.+?))? from among them onto the battlefield( tapped)?\. Put the rest on the bottom(?: of your library)? in a random order\.""")
     val LOOK_THAT_MANY_ONE_HAND_REST_GRAVEYARD = Regex("""[Ll]ook at that many cards from the top of your library\. Put one of them into your hand and the rest into your graveyard\.""")
     val BLACK_CAT = Regex("""[Ll]ook at the top (\w+) cards of target opponent's library, exile (\w+) of them face down, then put the rest on the bottom of their library in a random order\. You may play the exiled cards for as long as they remain exiled\. Mana of any type can be spent to cast spells this way\.""")
     val RETURN_SELF_AND_TARGET_FROM_GRAVEYARD = Regex("""Return (.+?) and target (.+?) from your graveyard to the battlefield( tapped)?\.""")
@@ -78,9 +81,10 @@ internal object Spm {
 
     // spm chunk 07: heroes and their tricks
     val UP_TO_ONE_TARGET_GAINS = Regex("""[Uu]p to one target (.+?) gains (.+) until end of turn\.""")
-    val ONE_OR_TWO_EACH_GET_AND_GAIN = Regex("""(One or two) target (.+?) each get ([+-]\d+)/([+-]\d+) and gain (.+) until end of turn\.""")
+    // woe chunk 01: also without the bonus ("One or two target creatures each gain haste until end of turn.")
+    val ONE_OR_TWO_EACH_GET_AND_GAIN = Regex("""(One or two) target (.+?) each (?:get ([+-]\d+)/([+-]\d+) and )?gain (.+) until end of turn\.""")
     val IF_ITS_A = Regex("""If it's an? ([A-Z]\w+|white|blue|black|red|green)(?: card)?, (.+)""") // fdn: "If it's a Zombie card, draw a card."; mh3 chunk 08: "If it's a green card, …"
-    val SUSPECT = Regex("""[Ss]uspect (up to one )?target (.+?)\.""")
+    val SUSPECT = Regex("""[Ss]uspect (up to one )?(other )?target (.+?)\.""")
     val WHEN_EXCESS_DAMAGE_THIS_WAY_DESTROY = Regex("""When excess damage is dealt to the (.+?) this way, destroy up to one target (.+)\.""")
     val CREATE_THEN_YOU = Regex("""[Cc]reate (.+?), then you (.+)""")
     val LEGEND_RULE_DOESNT_APPLY_TO = Regex("""The "legend rule" doesn't apply to (.+?) you control\.""")
@@ -150,6 +154,7 @@ internal object SpmPhrases {
             return Condition.ObjectMatches(Objects.Self, Filters.noun(m.groupValues[2]) ?: return null)
         }
         // spm chunk 07: "two or more creatures entered the battlefield under your control this turn"
+        // woe chunk 06: Celebration (an ability word, CR 207.2c), "two or more nonland permanents entered ..."
         ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val noun = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return null
@@ -189,6 +194,6 @@ internal object SpmPhrases {
     private val WAS_CAST_USING = Regex("""(.+?) (?:was|were) cast using ([a-z-]+)""")
     private val WAS_CAST_FROM = Regex("""(.+?) was cast from your (graveyard|hand)""")
     private val IS_A_TYPE = Regex("""(.+?) is an? (creature|land|artifact)""")
-    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(\w+) or more (\w+) entered the battlefield under your control this turn""")
+    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(\w+) or more (.+?) entered the battlefield under your control this turn""")
     private val CAST_SPELL_THIS_TURN = Regex("""you've cast an? (spell with mana value \d+ or greater) this turn""")
 }

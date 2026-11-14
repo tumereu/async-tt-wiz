@@ -40,7 +40,9 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     /** Told whether the game table is shown, which keeps the navigation bar hidden (SYS-079). */
     tableShown: (Boolean) -> Unit = {},
     /** Told whether the table is shown edge to edge (SYS-085): drawn into the camera's strip of the screen. */
-    tableEdgeToEdge: (Boolean) -> Unit = {}) {
+    tableEdgeToEdge: (Boolean) -> Unit = {},
+    /** WEB-013: the layout to draw in (the phone layout on Android; in a browser by the window and the Layout setting). */
+    layout: AppLayout = rememberAppLayout()) {
     val state = controller.state
     val platform = AppPlatform.current
     val avatarMemory = remember { AvatarPromptMemory(platform) }
@@ -57,6 +59,10 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     val theme: @Composable (@Composable () -> Unit) -> Unit = { content ->
         if (tabletop) MaterialTheme(content = content) else ScreenTheme(content)
     }
+    // WEB-033: the account's hotkeys, read only where there is a keyboard layout to use them (never on Android)
+    val keyBindings = state.account?.accountId?.takeIf { layout == AppLayout.Desktop || org.asyncttwiz.appui.desktopLayoutOffered }
+        ?.let { key(it) { rememberKeyBindings(it, controller, lobby?.accountOrigin ?: org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN) } }
+    CompositionLocalProvider(LocalAppLayout provides layout, LocalKeyBindings provides keyBindings) {
     theme {
         ScreenBackHandler(enabled = reset.state != null) { reset.dismiss() }
         ScreenBackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
@@ -126,7 +132,10 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                 state.busy -> state.message ?: if (state.page == AuthPage.REGISTER) "Creating account…" else "Signing in…"
                 else -> null
             }, modifier = Modifier.align(Alignment.BottomCenter))
+            // WEB-034: "?" shows the list of keys over any screen of the desktop layout
+            HotkeySheetHost(layout == AppLayout.Desktop && state.account != null) { controller.push(ShellDestination.SETTINGS) }
         }
+    }
     }
 }
 

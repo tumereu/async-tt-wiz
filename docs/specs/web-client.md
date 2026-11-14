@@ -230,7 +230,7 @@ server and both phones all read one pinned file.
 | Double tap (400 ms, 32 dp, TBL-042) | Double click (same timing) |
 | Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Hold Alt** with the pointer over a card (owner, D4): Inspect while Alt is held; a tap of Alt pins it, closed by Alt again, ✕, Esc or a click outside. The table dims behind it; the card's images with its changes beside them (as pinned Inspect shows them), a long list scrolling inside the layer, and a close button when pinned. The same on the table, the draft and every card screen. Shift is the fallback if a browser's Alt menu gets in the way (D4). Right-click never inspects; no press-and-hold on desktop |
 | A finger held still on the table pauses playback, a play shown and a combat hold (HIS-021, HIS-112, HIS-113); on a card it also inspects | **Holding Alt is the finger down** (owner): over a card it inspects and pauses, elsewhere it pauses; the left mouse button held still on the table pauses too |
-| Double tap a play shown or the table during a combat hold ends it (HIS-112, HIS-113) | Double click on it (the play, or the battlefields, combat band and their cards during a hold); a single click does nothing (D1, D11). Where the play overlaps board cards: open, §12 item 11 |
+| Double tap a play shown or the table during a combat hold ends it (HIS-112, HIS-113) | Double click on it (the play, or the battlefields, combat band and their cards during a hold); a single click does nothing (D1, D11). Where the play overlaps board cards it takes the clicks there (Claude's choice, §12 item 11) |
 | — | **Hover** a card ~250 ms for a quick look (owner): the large picture only, no dimming, gone when the pointer leaves |
 | A tap raises a hand card with its chips and amber Autotap outlines (ZON-079, ZON-080); a tap on a card with several abilities opens its chips (TBL-124) | **Hovering a usable card shows its chips faded** (owner), with the amber outlines of what Autotap would tap for the first chip; hovering a chip makes it solid and outlines that chip's sources. A click on a chip uses it at once; a click on the card does what a tap does. A battlefield card with one usable ability shows that one chip, so hover tells what a click will do (proposal) |
 | Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (the main button's hold, Undo = the Undo dialog; a games-list row its hold menu, D7); Shift+Space = the main button's hold; tooltips show on hover after 0.5 s |
@@ -548,6 +548,33 @@ Two batches come first, in this order:
   action area, prompt placement, phase track.
 - Tests: screenshot tests of the desktop table at 1440×900 (D1–D6 states), e2e flows in the desktop layout with mouse
   and key input (the JVM harness renders it at desktop size).
+- Built in 5a (2026-11-13): the layout choice and the Layout setting (WEB-013, WEB-014: `AppLayout`, `LocalAppLayout`,
+  `AccountEntry`'s `layout` parameter, which a test or harness can set); the desktop table's structure (WEB-015 to WEB-022:
+  `DesktopFrame` / `LocalDesktopFrame` from `EngineTableScreen`, `TablePresentation.scene`'s `desktop`, `DesktopTopRow`
+  with the phase track, seat headers, `DesktopDock` with `StackEntries` and the docked `ChatPanel`, the action area in
+  `TableControlsLayer`, `DesktopPrompt` placing panels by `PromptPlace`, the timeline's strip and transport, card sizes per
+  layout). Tests: `DesktopTableScreenshotTest` (D1, D2, D3, D3b, D5 and the table at rest), `AppLayoutTest`. Left for 5b:
+  the mouse (section 5); for 5c: hotkeys, the "?" sheet (D6), rebinding, e2e flows in the desktop layout. The desktop
+  Inspect (D4) is 5b's.
+- Built in 5b (2026-11-13): the mouse on the desktop table (WEB-023 to WEB-030): `DesktopMouse.kt` (`MouseButton`,
+  `DesktopFingerKey`, `DesktopTableMouse` and `Modifier.desktopTableMouse` ahead of the table's `TableGestureCoordinator`, whose
+  `holdInspects` is off on desktop; `DesktopHover` for the hover chips; `Modifier.desktopControl` for right-click and hover
+  tooltips on `ActionSquare` and the draft pick's burn; `DesktopQuickLook`), `DesktopKeyboard`, the page's keys
+  (`jsListenKeys`, which 5c's hotkeys listen to as well), `ViewPause.key`, `InspectSwipe.holdByKey` / `pinByKey`,
+  `HandController.hover` with `HoveredCardChips` and `HoveredAbilityChips`; the phase track's "Main" labels, the dock's Stack
+  card naming itself inside its frame, the desktop battlefield at 2×. Tests: `DesktopMouseTest`, D4 and hover chips in
+  `DesktopTableScreenshotTest`. Left for 5c besides its own: Alt over the play shown, the dock's Stack list and the draft's
+  cards (it only pauses there now).
+- Built in 5c (2026-11-13): hotkeys, the "?" sheet and rebinding (WEB-031 to WEB-036, LOB-147): `DesktopHotkeys.kt`
+  (`KeyChord`, `HotkeyAction`, `KeyBindings` with one key per action, `ControlKeys` that `ActionSquare` fills for the main
+  button and Undo, `PanelOptions` / `NumberedOptions` for 1–9, `FingerTargets` for Alt over the play shown and the dock's
+  Stack entries), `DesktopHotkeysUi.kt` (`HotkeySheet` / `HotkeySheetHost`, `KeyboardShortcutsSetting`), the table's listener
+  in `EngineTableScreen`, Tab in `PodDraftScreen`, Alt and K / B / U in `PodPickView`; Shift with another key is a chord
+  (`DesktopFingerKey.chord`); the server keeps `AccountSettings.keyBindings` (V86, `account.key_bindings`). Esc keeps
+  WEB-004 (the catalog wins over this section's "never leaves the table"); "?" is fixed like Esc, Enter and 1–9 (Claude's
+  choice). Tests: `DesktopHotkeysTest`, `DesktopHotkeysScreenshotTest` (D6, the Settings rows), `AccountHttpTest`, e2e
+  `DesktopTableTest`. Left for step 6: Ctrl+S and ← / → / ↓ in Build, Prepare and the editors (no edge zones yet), Enter
+  in dialogs and the draft's Confirm.
 
 ### Step 6: desktop lobby, decks, drafts
 
@@ -557,6 +584,15 @@ Two batches come first, in this order:
   settings rows (D10). Hotkeys K/B/U, ←/→/↓, Tab / Shift+Tab, Ctrl+S.
 - Tests: screenshots per screen at desktop size; e2e: build a deck in the two-pane editor, hiding and reopening the
   search; draft a pick with clicks and keys; move a Build card by its edge zone.
+- Built in 6a (2026-11-14): the permanent side menu shell (WEB-037: `AuthenticatedShell` draws its landscape shell, 280 wide,
+  whenever the layout is desktop; the table and a started pod keep the menu button), wide lists (WEB-038: `desktopReadable`
+  in `DesktopScreens.kt` for Games, Contacts and Pods, `GameRow`'s one-line desktop row, the decks and cubes grids), the
+  two-pane editor with Hide search and its rail (WEB-039, WEB-040: `DesktopCardListEditor.kt`, reached from
+  `CardListEditorScaffold`; `CardListCardsTab`'s `openSearch`), Ctrl+S (WEB-041: `HotkeyAction.Save`, `HotkeyPlace.Editor`),
+  Stats in columns (WEB-042: `StatsColumns`) and Settings in two columns (WEB-043: `DesktopSettings`). Tests:
+  `DesktopScreensScreenshotTest`, e2e `DesktopDeckEditorTest`. Left for 6b: the draft pick (D9), edge zones in Build,
+  Prepare and the Cards tab (the editor's list cards still move by swipe and menu; ← / → / ↓ there), no Build review on
+  desktop, dragging a search result into a section (§7.5), a right-click on a games-list row (§5, D7).
 
 ### Step 7: notifications, install, tab title
 
@@ -589,7 +625,7 @@ Two batches come first, in this order:
 
 ## 12. Open questions for the owner
 
-All design questions are answered (2026-11-07, round 3 the same day; wireframes 2026-11-13) but item 11. Claude's choices to confirm in review:
+All design questions are answered (2026-11-07, round 3 the same day; wireframes 2026-11-13). Claude's choices to confirm in review:
 
 1. Catalog file format: gzip-compressed JSON lines (1a).
 2. Steps 1a + 1b may go to prod before any web work (1b).
@@ -607,4 +643,8 @@ All design questions are answered (2026-11-07, round 3 the same day; wireframes 
 
 10. Decided (owner, 2026-11-13): no right-click Inspect anywhere. Holding Alt is the desktop finger down (decision 31,
     section 5); right-click stays the burn in the draft and the hold action on controls.
-11. **Open, for step 5:** where does the desktop "double click ends a play" go when the play overlaps board cards?
+11. Claude's choice in 5b (2026-11-13), awaiting the owner: where the desktop "double click ends a play" goes when the play
+    overlaps board cards. As on the phone: the play shown (its card and its line) takes every click where it lies while it
+    shows, so a double click there ends it, and the board cards under it take no clicks until it is gone; board cards
+    elsewhere work as usual. During a combat hold a double click anywhere on the battlefields, the combat band and their
+    cards ends the hold (HIS-113); a single click does nothing to either (WEB-030).

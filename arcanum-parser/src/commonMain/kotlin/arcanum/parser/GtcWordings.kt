@@ -7,12 +7,14 @@ internal object Gtc {
     val PREDICATE_AND = Regex(""",? and (?=(?:gains?|gets?|can't|can|loses?) )""")
     val TIMING = Regex("""(.+?) (?:until end of turn|this turn)( as though it didn't have defender)?""")
     val GAIN_KEYWORDS = Regex("""gains? (.+)""")
-    val GET_PT = Regex("""gets? ([+-](?:\d+|X))/([+-](?:\d+|X))""")
+    val LOSE_KEYWORD = Regex("""loses? ([a-z]+(?: [a-z]+)?)""") // mkm chunk 09
+    // lci chunk 04: also "gets an additional +2/+2" (one more modification of its own, CR 613.4c)
+    val GET_PT = Regex("""gets? (?:an additional )?([+-](?:\d+|X))/([+-](?:\d+|X))""")
     val CANT_BE_BLOCKED_BY = Regex("""can't be blocked by (.+)""")
 
     // one-shot effects
     val REGENERATE = Regex("""Regenerate (.+)\.""")
-    val PREVENT_ALL_DAMAGE_TO = Regex("""Prevent all (combat )?damage that would be dealt to (.+) this turn\.""")
+    val PREVENT_ALL_DAMAGE_TO = Regex("""Prevent all (combat )?damage that would be dealt to (.+?) this turn(?: by (.+))?\.""")
     val PREVENT_ALL_COMBAT_DAMAGE_BY = Regex("""Prevent all combat damage that would be dealt this turn by (.+)\.""")
     val RETURN_ALL_TO_HAND = Regex("""Return all (.+) to their owners?'s? hands?\.""")
     val EXILE_ALL = Regex("""Exile all (.+)\.""")
@@ -35,9 +37,9 @@ internal object Gtc {
     val DEALS_DAMAGE_TO_EQUAL = Regex("""(.+?) deals damage to (.+?) equal to (.+)\.""")
     val DEALS_DAMAGE_SAME_NAME = Regex("""(.+?) deals (\d+) damage to target (.+?) and each other (.+?) with the same name as that \w+\.""")
     val GAIN_CONTROL_OF_ALL = Regex("""Gain control of all (.+)\.""")
-    val BLOCKS_IF_ABLE = Regex("""(Target .+?) blocks this turn if able\.""")
+    val BLOCKS_IF_ABLE = Regex("""(Target .+?) (blocks|attacks or blocks)( that \w+)? this (turn|combat) if able\.""")
     val PUT_COUNTER_AND_UNTAP = Regex("""Put an? (\S+) counter on (target .+?) and untap it\.""")
-    val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on enchanted creature\.""")
+    val PUT_COUNTER_ON_ATTACHED = Regex("""Put an? (\S+) counter on (?:enchanted|equipped) creature\.""")
     val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
     val GAIN_LIFE_POWER_PLUS_TOUGHNESS = Regex("""You gain life equal to that creature's power plus its toughness\.""")
 
@@ -48,7 +50,7 @@ internal object Gtc {
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
 
-    val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:land|planeswalker|artifact)\.""")
+    val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:[A-Z]\w+ )?(?:land|planeswalker|artifact)\.""")
     val CHOOSE_KEYWORD = Regex("""Choose ([a-z ]+(?:, [a-z ]+)*,? or [a-z ]+)\.""")
     val GAIN_THAT_ABILITY = Regex("""(.+) gain that ability until end of turn\.""")
     // rvr chunk 03: also "Until your next turn, "
@@ -58,7 +60,8 @@ internal object Gtc {
     val COUNTERS_ON_SELF = Regex("""the number of (\S+) counters on (?:him|her|it|this creature|this permanent)""")
     val PUT_COUNTER_FOR_EACH = Regex("""Put an? (\S+) counter on (.+?) for each (.+)\.""")
     val TARGET_OPPONENT_CONTROLS = Regex("""(.+) target opponent controls""")
-    val FOR_EACH_OPPONENT = Regex("""For each opponent, (.+)""")
+    // mkm fix: "For each other player" is every player but you, not only opponents (a teammate is another player, CR 102.3, 810)
+    val FOR_EACH_OPPONENT = Regex("""For each (opponent|other player), (.+)""")
     val PRIMORDIAL_EXILE_GAIN_LIFE = Regex("""exile up to one target (.+?) that player controls and that player gains life equal to its power\.""")
     val PRIMORDIAL_CAST = Regex("""you may cast up to one target (.+?) from that player's graveyard without paying its mana cost\.""")
     val PRIMORDIAL_PUT_ONTO_BATTLEFIELD = Regex("""you may put up to one target (.+?) from that player's graveyard onto the battlefield under your control\.""")
@@ -81,7 +84,8 @@ internal object Gtc {
     val RETURN_THEN_THAT_PLAYER_DISCARDS = Regex("""Return target (.+?) to its owner's hand, then that player discards a card\.""")
     val IF_ITS_A_MAY_REVEAL_INTO_HAND = Regex("""If it's an? (.+?), you may reveal it and put it into your hand\.""")
     val FIGHTS_ANOTHER_TARGET = Regex("""Target (.+?) fights another target (.+)\.""")
-    val THAT_CREATURE_FIGHTS_TARGET = Regex("""That creature fights target (.+)\.""")
+    // woe chunk 07: also "up to one target …"
+    val THAT_CREATURE_FIGHTS_TARGET = Regex("""That creature fights (up to one )?target (.+)\.""")
     val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+)""")
     val MAY_BECOME_COPY_EXCEPT = Regex("""You may have (.+?) become a copy of that card, except (.+)\.""")
     val BECOMES_COPY_OF_TARGET_EXCEPT = Regex("""(.+?) becomes a copy of target (.+?), except (.+)\.""")
@@ -135,7 +139,7 @@ internal object Gtc {
     val ALL_ABLE_TO_BLOCK_DO_SO = Regex("""All creatures able to block target (.+?) this turn do so\.""")
     val EACH_PLAYER_SACRIFICES_LIST = Regex("""Each player sacrifices (.+?) of their choice\.""")
     val PUT_X_COUNTERS_POWER_OF_EXILED = Regex("""Put X (\S+) counters on target (.+?), where X is the power of the card you exiled\.""")
-    val TARGET_DEALS_DAMAGE_EQUAL_POWER = Regex("""Target (.+?) deals damage equal to its power to (any target)\.""")
+    val TARGET_DEALS_DAMAGE_EQUAL_POWER = Regex("""Target (.+?) deals damage equal to its power to (any (?:other )?target)\.""")
     val REMOVE_ALL_COUNTERS_FROM_TARGET = Regex("""Remove all (\S+) counters from target (.+)\.""")
     val UNTAP_EACH = Regex("""Untap each (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_LOSES = Regex("""Target player draws (\w+) cards and loses (\d+) life\.""")
@@ -150,7 +154,8 @@ internal object Gtc {
     val PREVENT_ALL_DAMAGE_TO_STATIC = Regex("""Prevent all damage that would be dealt to (.+)\.""")
     val CAN_ONLY_ATTACK_ALONE = Regex("""(.+) can only attack alone\.""")
     val ENTER_AS_COPY_EXCEPT_HAS_QUOTED = Regex("""You may have (.+?) enter as a copy of (?:any|an?) (.+?), except it has "(.+)"\.?""")
-    val CARDS_HAVE_SCAVENGE = Regex("""Each (.+?) has (scavenge|madness|emerge)\. The \2 cost is equal to its mana cost\.""") // inr chunk 09: madness; mh3: emerge
+    // inr chunk 09: madness; otj fixes: plot, "The top card of your library has plot."; mh3 chunk 07: emerge
+    val CARDS_HAVE_SCAVENGE = Regex("""(Each .+?|The top card of your library) has (scavenge|madness|plot|emerge)\. The \2 cost is equal to its mana cost\.""")
     val ATTACKS_A_PLAYER_AND_ISNT_BLOCKED = Regex("""(.+) attacks a player and isn't blocked""")
     val A_CREATURE_BLOCKS = Regex("""an? (.+) blocks""")
     val PLAYER_CASTS_FROM_HAND = Regex("""a player casts a spell from their hand""")
@@ -160,13 +165,15 @@ internal object Gtc {
     val EXILE_SELF_COST = Regex("""Exile (.+)""")
     val MILL_COST = Regex("""Mill (\w+) cards?""")
 
-    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal (?:up to (\w+)|any number of) (.+?) cards from among them and put the revealed cards into your hand\.""")
+    // woe chunk 04: the end optional; one chunk 02: also "any number of"
+    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal (?:up to (\w+)|any number of) (.+?) cards from among them( and put the revealed cards into your hand)?\.""")
     // rvr chunk 05: also "You may pay 2 life." (Savra, Queen of the Golgari)
     val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+|\d+ life)\. If you do, (.+)""")
     val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
     val DETAIN_EACH = Regex("""Detain each (.+)\.""")
     val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")
-    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""[Cc]reate an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) creature token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
+    // lci chunk 05: also several subtypes and "artifact creature" ("a white Gnome Soldier artifact creature token")
+    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""[Cc]reate an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+(?: [A-Z]\w+)*) ((?:artifact )?creature) token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
     val OPPONENT_CASTS = Regex("""an opponent casts an? ((?:[a-z]+ )*)spell""")
 
     val RETURN_SELF_TO_YOUR_HAND = Regex("""Return (.+) to your hand\.""")

@@ -107,6 +107,8 @@ internal object Costs {
             is CostPart.Loyalty -> scope.value(part.amount) >= 0 ||
                 (scope.self?.let { state.obj(it)?.counters(CounterKind.Loyalty) } ?: 0) >= -scope.value(part.amount)
             is CostPart.Mill -> state.player(payer).library.size >= scope.value(part.count)
+            // mkm fix: only a choice the source keeps can be revealed (CR 118.3)
+            is CostPart.RevealChoice -> scope.self?.let { state.obj(it) }?.linked?.get(part.key) != null
             is CostPart.OneOf -> part.options.any { canPay(scope, payer, it) }
             // blb: forage can be paid when one of its two ways can (CR 701.61a)
             is CostPart.Action -> when (val action = part.action) {
@@ -212,11 +214,11 @@ internal object Costs {
             is CostPart.ItsManaCostLess -> itsManaCost(scope)?.let { act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(it, part.less)) }
             // Can't be paid (canPay), so never chosen
             is CostPart.Manual, is CostPart.ManaCostOf -> Unit
-            CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid)) }
+            CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid), cause) }
             CostPart.UntapSelf -> scope.self?.let { Actions.tap(act, listOf(it), false, listOf(Meaning.Paid)) }
             is CostPart.TapObjects -> {
                 val chosen = choose(scope, payer, part.what, Zone.Battlefield, "tap") { !(act.state.obj(it)?.tapped ?: true) }
-                Actions.tap(act, chosen, true, listOf(Meaning.Paid))
+                Actions.tap(act, chosen, true, listOf(Meaning.Paid), cause)
                 scope.bind(part.bind, NamedValue.Objects(chosen))
             }
             is CostPart.Sacrifice -> {
@@ -237,12 +239,7 @@ internal object Costs {
                 val moved = Actions.moveTo(act, cause, chosen, Zone.Exile, listOf(Meaning.Paid))
                 scope.bind(part.postBind, NamedValue.Objects(moved.values.toList()))
                 // mh2: "as this enters, exile a card": kept as the permanent's memory (CR 607.2a), as a remembered choice is
-                part.remember?.let { key ->
-                    val value = NamedValue.Objects(moved.values.toList())
-                    val entering = scope.entering
-                    if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(key, value))
-                    else scope.self?.let { id -> act.state.obj(id)?.let { o -> act.record(arcanum.engine.change.Change.Memory(id, key, o.linked[key], value)) } }
-                }
+                part.remember?.let { key -> keep(scope, key, moved.values.toList()) }
             }
             is CostPart.ReturnToHand -> {
                 val chosen = choose(scope, payer, part.what, Zone.Battlefield, "return")
@@ -294,6 +291,11 @@ internal object Costs {
                 else Actions.removeCounters(act, TargetRef.Object(id), CounterKind.Loyalty, -n)
             }
             is CostPart.Mill -> Actions.mill(act, cause, payer, scope.value(part.count))
+            // mkm fix: the secret choice is revealed: no longer marked secret
+            is CostPart.RevealChoice -> scope.self?.let { act.state.obj(it) }?.let { o ->
+                val key = arcanum.engine.state.Secrets.markerKey(part.key)
+                o.linked[key]?.let { act.record(Change.Memory(o.id, key, it, null)) }
+            }
             is CostPart.OneOf -> {
                 val payable = part.options.filter { canPay(scope, payer, it) }
                 // blb: the question says what foraging is (CR 701.61a), so its two ways read as a choice of how to forage
@@ -301,7 +303,13 @@ internal object Costs {
                 val chosen = act.chooseOption(payer, scope.self, payable.map { describe(it) }, text = text)
                 payable.firstOrNull { describe(it) == chosen }?.let { pay(scope, payer, it) }
             }
-            is CostPart.Action -> Effects.perform(scope, arcanum.api.Effect.Action(part.action, part.bind))
+            is CostPart.Action -> {
+                // mkm sweep: what a keyword action as a cost exiles is kept as this object's memory too, as the casting path keeps it
+                // (CR 607.2a: "you may collect evidence 1" in a triggered ability, then "each card exiled with it")
+                val bind = part.bind ?: part.remember?.let { "remembered:$it" }
+                Effects.perform(scope, arcanum.api.Effect.Action(part.action, bind))
+                part.remember?.let { key -> keep(scope, key, (bind?.let { scope.names[it] } as? NamedValue.Objects)?.ids.orEmpty()) }
+            }
             // Only a casting cost (gift, CR 702.174a)
             is CostPart.ChoosePlayer -> Unit
             // ecl: a choice made while paying (as a step of the same name)
@@ -380,5 +388,21 @@ internal object Costs {
         val hand = scope.act.state.player(payer).hand
         if (hand.size <= n) return hand
         return (scope.act.random(payer, scope.self, RandomKind.Objects(hand, n)) as Answer.RandomObjects).chosen
+    }
+    /** Cards a cost exiled, kept as the memory [key] of the permanent entering or of this object (CR 607.2a): added to those an
+     * earlier payment kept ("cards exiled with it" are every payment's, mkm sweep), as the casting path keeps them. */
+    private fun keep(scope: Scope, key: String, ids: List<arcanum.engine.state.ObjectId>) {
+        val act = scope.act
+        val entering = scope.entering
+        if (entering != null) {
+            val before = (entering.memory[key] as? NamedValue.Objects)?.ids.orEmpty()
+            scope.entering = entering.copy(memory = entering.memory.with(key, NamedValue.Objects((before + ids).distinct())))
+            return
+        }
+        val id = scope.self ?: return
+        val o = act.state.obj(id) ?: return
+        val before = o.linked[key]
+        val kept = NamedValue.Objects(((before as? NamedValue.Objects)?.ids.orEmpty() + ids).distinct())
+        if (kept != before) act.record(arcanum.engine.change.Change.Memory(id, key, before, kept))
     }
 }

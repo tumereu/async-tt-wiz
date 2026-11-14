@@ -39,10 +39,11 @@ internal object Casts {
         val caster = scope.players(effect.caster).firstOrNull() ?: scope.actor
         val cast = mutableListOf<ObjectId>()
         for (id in scope.objects(effect.objects).filter { act.state.obj(it) != null }) {
+            // woe chunk 04: a card that can't be cast this way isn't shown (a face-down card goes on hidden; showing it would also count as
+            // something done for "if you don't cast it", CR 608.2c)
+            if (effect.resultingSpell != null && !resultingSpellMatches(scope, effect.resultingSpell!!, id)) continue
             act.show(caster, listOf(id), public = true)
-            val e = scope.eval()
             val c = act.view()[id]?.characteristics ?: continue
-            if (effect.resultingSpell != null && !e.matches(effect.resultingSpell!!, id)) continue
             if (c.isType(CardType.Land)) {
                 // CR 305.1: a land is played, not cast
                 if (effect.how == PlayKind.Play) Actions.move(act, scope.cause, listOf(PlannedMove(id, Zone.Battlefield, controller = caster,
@@ -51,6 +52,7 @@ internal object Casts {
             }
             // mh3 chunk 02: the cost's amounts are the resolving ability's ("an amount of {E} equal to its mana value": the exiled card's), fixed
             // now, as the casting plan doesn't know the ability's names (CR 608.2h)
+            val e = scope.eval()
             val cost = effect.cost?.let { c -> c.copy(parts = c.parts.map { p -> when (p) {
                 is arcanum.api.CostPart.PayEnergy -> p.copy(amount = arcanum.api.Value.Fixed(e.value(p.amount)))
                 is arcanum.api.CostPart.PayLife -> p.copy(amount = arcanum.api.Value.Fixed(e.value(p.amount)))
@@ -59,6 +61,16 @@ internal object Casts {
             arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, cost, effect.transformed, effect.manaAsAnyType)?.let { cast += it }
         }
         scope.bind(effect.bind, NamedValue.Objects(cast))
+    }
+
+    /** Whether casting [id] would make a spell matching [filter] ("if that spell's mana value is 4 or less"): a card exiled face down is cast
+     * face up (CR 601.2a, 708.2: face down it has no mana cost), so it is judged face up. */
+    private fun resultingSpellMatches(scope: Scope, filter: arcanum.api.ObjectFilter, id: ObjectId): Boolean {
+        val act = scope.act
+        val e = scope.eval()
+        if (act.state.obj(id)?.faceDown != true) return e.matches(filter, id)
+        val faceUp = act.state.deepCopy().also { it.apply(Change.Status(id, arcanum.engine.state.StatusFlag.FaceDown, before = true, after = false)) }
+        return arcanum.engine.query.Evaluator(arcanum.engine.query.ViewBoard(faceUp, arcanum.engine.Engine.view(faceUp)), e.ctx).matches(filter, id)
     }
 
     /**
@@ -86,7 +98,8 @@ internal object Casts {
             // CR 700.2b: a mode that couldn't choose its targets can't be chosen; with too few left, the ability is removed from the Stack
             val illegal = if (!required) emptySet() else m.options.indices.filterTo(mutableSetOf()) { i ->
                 m.options[i].instructions.targets.any { slot ->
-                    slot.perPlayer == null && Targeting.options(act, slot, controller, source, names, emptyMap(), self, event = event, pendingKind = pendingKind).size < ev.value(slot.min)
+                    slot.perPlayer == null && !Targeting.possible(slot, Targeting.options(act, slot, controller, source, names, emptyMap(), self, event = event,
+                        pendingKind = pendingKind), ev.value(slot.min), ev)
                 }
             }
             if (m.options.size - (used + illegal).size < m.min) return null
@@ -127,8 +140,8 @@ internal object Casts {
                     val pe = e.with(e.ctx.copy(slotPlayer = p))
                     val min = pe.value(slot.min)
                     val max = slot.max?.let { pe.value(it) }
-                    if (options.size < min && required) return null
-                    chosenAll += if (options.size <= min) options else act.chooseTargets(controller, source, slot.name, options, min, max)
+                    if (!Targeting.possible(slot, options, min, pe) && required) return null
+                    chosenAll += if (options.size <= min) options else Targeting.choose(act, controller, source, slot, options, min, max, pe)
                 }
                 if (chosenAll.isNotEmpty()) targets[slot.name] = chosenAll
                 continue
@@ -136,7 +149,8 @@ internal object Casts {
             val options = Targeting.options(act, slot, controller, source, named(), targets, self, event = event, pendingKind = pendingKind)
             val min = e.value(slot.min)
             val max = slot.max?.let { e.value(it) }
-            if (options.size < min && required) return null
+            // CR 603.3d: too few legal targets, or no group of them within the slot's limits on each other (CR 601.2c)
+            if (!Targeting.possible(slot, options, min, e) && required) return null
             // P5: no decision when every legal target must be chosen
             val chosen = when {
                 options.size <= min -> options
@@ -148,11 +162,8 @@ internal object Casts {
                     ?: controller, source, slot.name, options, min, max)
                 else -> act.chooseTargets(controller, source, slot.name, options, min, max)
             }
-            // msh: "up to two target creatures with total mana value 6 or less" (CR 601.2c)
-            slot.totalAtMost?.let { limit ->
-                val ids = chosen.mapNotNull { (it as? TargetRef.Object)?.id }
-                require(ids.sumOf { e.property(limit.property, it) } <= e.value(limit.atMost)) { "The targets' total is more than allowed" }
-            }
+            // mkm fixes: one controller or owner, shared or different qualities, a total: as for a spell (CR 603.3d, 601.2c)
+            Targeting.groupRefusal(slot, chosen, e)?.let { throw IllegalArgumentException(it) }
             if (chosen.isNotEmpty()) targets[slot.name] = chosen
         }
         return modes to targets

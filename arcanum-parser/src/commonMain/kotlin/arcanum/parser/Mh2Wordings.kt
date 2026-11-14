@@ -43,7 +43,7 @@ internal object Mh2 {
     val PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP = Regex("""Put (.+?) into its owner's library (\w+) from the top\.""")
     val RETURN_N_TARGETS_TO_OWNERS_HANDS = Regex("""[Rr]eturn (two|three) target (.+?) to their (?:owners' hands|owner's hand)\.""")
     val EXILE_TARGET_PUT_TIME_COUNTERS_GAINS_SUSPEND = Regex("""Exile target (.+?) and put (\w+) time counters on it\. If it doesn't have suspend, it gains suspend\.""")
-    val CREATE_FOR_EACH_COLOR_SPENT = Regex("""Create (an? .+? token(?: with .+?)?) for each color of mana spent to cast this spell\.""")
+    val CREATE_FOR_EACH_COLOR_SPENT = Regex("""Create (an? .+? token(?: with .+?)?) for each (color of mana|mana from an? (.+?)) spent to cast (this spell|it)\.""")
     val THOSE_DONT_UNTAP_DURING_NEXT = Regex("""(?:Those [\w ]+?|They) don't untap during their controller's next untap step\.""")
     val TARGET_BECOMES_LAND_TYPE_AS_LONG_AS_REMAINS = Regex("""[Tt]arget (\w+) becomes an? (\w+) for as long as (.+?) remains on the battlefield\.""")
     val AN_OPPONENT_CONTROLS_A = Regex("""an opponent controls an? (.+)""")
@@ -64,7 +64,7 @@ internal object Mh2 {
     val CREATE_NUMBER_EQUAL_TO_DEVOTION = Regex("""[Cc]reate a number of (.+? tokens?(?: with .+?)?) equal to your devotion to (\w+)\.""")
     val ESCAPES_WITH_CHOICE_OF_COUNTERS = Regex("""(.+) escapes with your choice of an? (\S+) counter or an? (\S+) counter on it\.""")
     // mh2 chunk 07
-    val SPELL_OTHER_THAN_FIRST_EACH_TURN = Regex("""you cast a spell other than your first spell each turn""")
+    val SPELL_OTHER_THAN_FIRST_EACH_TURN = Regex("""you cast a spell( during your turn)? other than your first spell (?:each|that) turn""") // otj chunk 12: during your turn
     val EXILE_TOP_DURING_YOUR_NEXT_TURN_MAY_PLAY = Regex("""Exile the top card of your library\. During your next turn, you may play that card\.""")
     val ENTERS_WITH_COUNTER_FOR_EACH_TIME_KICKED = Regex("""(.+) enters with an? (\S+) counter on it for each time it was kicked\.""")
     val GAIN_CONTROL_OF_SPELL_COPY_RESELECT_AT_RANDOM = Regex("""Gain control of target (.+?)\. Copy it, then reselect the targets at random for the spell and the copy\. The new targets can't be you or a permanent you control\.""")
@@ -106,7 +106,7 @@ internal object Mh2 {
     val PT_EACH_EQUAL_TO = Regex("""(.+)'s power and toughness are each equal to (.+)\.""")
     val CHOOSE_ONE_IF_CHOOSE_BOTH_INSTEAD = Regex("""choose one\. If (.+), choose both instead\.""")
     val INVESTIGATE_TWICE = Regex("""[Ii]nvestigate twice\.""")
-    val CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN = Regex("""You can't cast more than one spell each turn\.""")
+    val CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN = Regex("""(You|Each player) can't cast more than one spell each turn\.""")
     val AS_LONG_AS_NOT_ON_BATTLEFIELD_ITS_A_CREATURE = Regex("""As long as (.+?) isn't on the battlefield, it's an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")
     val CREATE_THEN_MILL_IF_MILLED_COUNTER_REPEAT = Regex("""Create (.+? token), then mill a card\. If an? (\w+) card was milled this way, put an? (\S+) counter on (.+?) and repeat this process\.""")
     val EACH_OPPONENT_LOSES_LIFE_EQUAL_TO = Regex("""Each opponent loses life equal to (.+)\.""")
@@ -144,8 +144,9 @@ internal object Mh2 {
     val YOU_DIDNT_CAST_IT_FROM_YOUR_HAND = Regex("""you didn't cast it from your hand""")
     val IT_GAINS_UNTIL_YOUR_NEXT_TURN = Regex("""[Ii]t gains ([a-z ]+) until your next turn\.""")
     val DESTROY_ALL_THREE_KINDS = Regex("""Destroy all (\w+)s, (\w+)s, and (\w+)s\.""")
-    val ADD_ONE_MANA_OF_ANY_TYPE_THAT_LAND_PRODUCED = Regex("""[Aa]dd one mana of any type that land produced\.""")
-    val AS_ENTERS_CHOOSE_A_NUMBER = Regex("""As (.+) enters, choose a number\.""")
+    val ADD_ONE_MANA_OF_ANY_TYPE_THAT_LAND_PRODUCED = Regex("""[Aa]dd one mana of any type that (?:land|artifact token) produced\.""") // otj chunk 06: "that artifact token"
+    // woe chunk 08: also "… between 1 and 10"
+    val AS_ENTERS_CHOOSE_A_NUMBER = Regex("""As (.+) enters, choose a number(?: between (\d+) and (\d+))?\.""")
     val SPELLS_WITH_MV_EQUAL_TO_CHOSEN_NUMBER_CANT_BE_CAST = Regex("""(\w+) spells with mana value equal to the chosen number can't be cast\.""")
     // mh2 engine: "This spell has cascade as long as …"
     val THIS_SPELL_HAS_CASCADE_AS_LONG_AS = Regex("""This spell has cascade as long as (.+)\.""")

@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 12
+const val GAME_PROTOCOL_MINOR = 13
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -98,7 +98,10 @@ const val GAME_PROTOCOL_MINOR = 12
     val ingressOrdinal: String) : GameServerMessage
 @Serializable @SerialName("result") data class GameResult(val requestId: String, val scope: GameScope,
     val outcome: String, val reason: String? = null, val ingressOrdinal: String,
-    val commitRevision: String? = null, val createdIds: List<String> = emptyList()) : GameServerMessage
+    val commitRevision: String? = null, val createdIds: List<String> = emptyList(),
+    /** What the engine said when it refused an engine action whose [reason] is the plain "refusedByEngine" (problem report
+     * JVPJ8Y): for the sender's log only, never shown. */
+    val detail: String? = null) : GameServerMessage
 @Serializable @SerialName("admissionError") data class GameAdmissionError(val code: String,
     val retryable: Boolean, val requestId: String? = null, val gameId: String? = null) : GameServerMessage
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)

@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.appui.BackHandler
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.asyncttwiz.appui.AppPlatform
@@ -85,6 +86,8 @@ fun PodPickView(
     val marks = ((if (onMarks != null) savedMarks else localMarks[pack]) ?: PodPickMarks()).forPack(pack)
     val setMarks: (PodPickMarks) -> Unit = { next -> if (onMarks != null) onMarks(next) else if (pack != null) localMarks[pack] = next }
     var inspected by remember(pack?.id) { mutableStateOf<DraftCopy?>(null) }
+    // WEB-024: the pack card under the mouse (desktop layout)
+    var hovered by remember(pack?.id) { mutableStateOf<String?>(null) }
     // One card menu for the whole screen: the latest tap wins over simultaneous ones.
     var menuFor by remember(pack?.id) { mutableStateOf<String?>(null) }
     var tileSize by remember { mutableStateOf(IntSize.Zero) }
@@ -115,6 +118,44 @@ fun PodPickView(
             inspected = copy
         } else if (inspected == copy) inspected = null
     }
+    // WEB-024, WEB-031 (desktop layout): the card under the pointer: holding Alt (Shift too) inspects it, a tap of Alt pins it
+    // (Alt again or Esc closes it); K / B / U keep, burn or unmark it
+    val desktop = LocalAppLayout.current == AppLayout.Desktop
+    val fingerKey = remember { DesktopFingerKey() }
+    var pinned by remember(pack.id) { mutableStateOf(false) }
+    if (inspected == null && pinned) pinned = false
+    BackHandler(enabled = desktop && pinned) { AppLog.info("pod", "Pinned Inspect closed by Esc"); inspected = null }
+    val bindings = currentKeyBindings()
+    DesktopKeyboard.Listen(desktop) { key ->
+        fun apply(effects: List<DesktopFingerKey.Effect>) {
+            if (effects.isNotEmpty()) AppLog.info("pod", "Finger key ${key.key} ${if (key.down) "down" else "up"}${hovered?.let { " over $it" }.orEmpty()}: ${effects.joinToString()}")
+            for (effect in effects) when (effect) {
+                is DesktopFingerKey.Effect.Inspect -> copies[effect.cardId]?.let { inspect(it, true) }
+                DesktopFingerKey.Effect.Pin -> pinned = true
+                DesktopFingerKey.Effect.Close -> inspected = null
+                is DesktopFingerKey.Effect.Pause -> Unit
+            }
+        }
+        if (key.key == "Alt" || key.key == "Shift") {
+            if (key.repeat) return@Listen fingerKey.held
+            if (key.down && key.textField) return@Listen false
+            val effects = if (key.down) fingerKey.press(key.key, key.time, hovered, inspected != null) else fingerKey.release(key.key, key.time)
+            apply(effects)
+            return@Listen effects.isNotEmpty() || fingerKey.held
+        }
+        if (key.down && !key.repeat) apply(fingerKey.chord())
+        val action = hotkeyOf(key, bindings)
+        val id = hovered?.takeIf { it in copies }
+        if (action == null || id == null || key.repeat) return@Listen false
+        when (action) {
+            HotkeyAction.Keep -> mark(id, PodPickMark.KEEP)
+            HotkeyAction.Burn -> if (rules.manualBurns > 0) mark(id, PodPickMark.BURN)
+            HotkeyAction.Unmark -> unmark(id)
+            else -> return@Listen false
+        }
+        AppLog.info("pod", "Hotkey ${key.key} on $id: ${action.id}")
+        true
+    }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         key(pack.id) {
@@ -139,7 +180,8 @@ fun PodPickView(
                         },
                         // The first column's size is stable while scrolling; prefetch decodes at it.
                         onSize = { if (copy == shown.cards.first()) tileSize = it },
-                        onRefund = if (copy.id in marks.librarians) { { refund(copy.id) } } else null)
+                        onRefund = if (copy.id in marks.librarians) { { refund(copy.id) } } else null,
+                        onHover = { over -> if (over) hovered = copy.id else if (hovered == copy.id) hovered = null })
                 }
             }
         }
@@ -356,6 +398,8 @@ private fun PodPickCard(
     onSize: (IntSize) -> Unit,
     /** Present for a spent Librarian shown in the pack: takes it back out (refund). */
     onRefund: (() -> Unit)? = null,
+    /** WEB-024: the mouse came onto the card (true) or left it (desktop layout). */
+    onHover: (Boolean) -> Unit = {},
 ) {
     val currentOnMenu by rememberUpdatedState(onMenu)
     var swipe by remember { mutableStateOf(PodPickSwipeState()) }
@@ -399,6 +443,17 @@ private fun PodPickCard(
                 }
                 onClick { currentOnMenu(true); true }
             }
+            .then(if (LocalAppLayout.current != AppLayout.Desktop) Modifier else Modifier.mouseHover(copy.id, onHover))
+            // WEB-028 (owner, §5): on the desktop layout a right-click burns the card (again: unmarks it), as a swipe left does
+            .then(if (LocalAppLayout.current != AppLayout.Desktop) Modifier else Modifier.desktopControl(listOf(copy.id, burnEnabled), onRight = {
+                if (currentMark == PodPickMark.BURN && !automaticBurn) { AppLog.info("pod", "Right-click unmarked ${copy.id}"); onUnmark() }
+                else if (burnEnabled && currentMark != PodPickMark.BURN) {
+                    AppLog.info("pod", "Right-click burned ${copy.id}")
+                    flashMark = PodPickMark.BURN
+                    flashSequence++
+                    currentOnMark(PodPickMark.BURN)
+                }
+            }))
             .pointerInput(burnEnabled) {
                 podPickGestures(onTap = { currentOnMenu(true) }, onInspect = { currentOnInspect(it) }, onInspectScroll = onInspectScroll,
                     onDrag = {

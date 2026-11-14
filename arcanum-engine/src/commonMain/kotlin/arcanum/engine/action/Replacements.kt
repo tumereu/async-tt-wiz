@@ -114,8 +114,11 @@ internal object Replacements {
         // blb: in an effect on locked objects (a spell and the permanent it becomes, CR 400.7d), "the affected object" is
         // each of them ("that creature enters with a finality counter on it")
         val locked = r.effect?.let { act.state.effects[it]?.locked }.orEmpty()
-        if (locked.isNotEmpty()) return locked.flatMap { id -> EventMatcher.instances(e.with(e.ctx.copy(affected = id)), r.mechanic.event, change, proposed = true) }
-        return EventMatcher.instances(e, r.mechanic.event, change, proposed = true)
+        val instances = if (locked.isNotEmpty()) locked.flatMap { id -> EventMatcher.instances(e.with(e.ctx.copy(affected = id)), r.mechanic.event, change, proposed = true) }
+            else EventMatcher.instances(e, r.mechanic.event, change, proposed = true)
+        // woe: "while your library has at least that many cards in it": only events for which its condition holds (CR 614.1a)
+        val condition = r.mechanic.condition ?: return instances
+        return instances.filter { instance -> e.with(e.ctx.copy(event = instance)).holds(condition) }
     }
 
     /**
@@ -172,7 +175,8 @@ internal object Replacements {
     fun replaceEmptyDraw(act: Act, cause: Cause?, player: PlayerId, instead: (Replacement, TriggerEvent) -> Unit): Boolean {
         val matching = candidates(act, cause).filter { r ->
             val pattern = r.mechanic.event as? arcanum.api.EventPattern.Draw ?: return@filter false
-            r.key !in act.replacing && r.mechanic.instead != null &&
+            // mkm: "skip that draw instead" applies with no card to draw too (CR 614.11)
+            r.key !in act.replacing && (r.mechanic.instead != null || arcanum.api.Modification.Skip in r.mechanic.modify) &&
                 (pattern.exceptFirstIn?.let { step -> !arcanum.engine.trigger.EventMatcher.firstDrawIn(act.state, step, player) } ?: true) &&
                 Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.players, player)
         }.map { it to TriggerEvent(players = listOf(player)) }
@@ -180,7 +184,7 @@ internal object Replacements {
         val (r, instance) = pick(act, matching, player, null)
         if (r.mechanic.optional && !act.yesNo(r.controller, r.source, "Apply ${describe(r)}?")) return false
         useUp(act, r)
-        instead(r, instance)
+        if (r.mechanic.instead != null) instead(r, instance)
         return true
     }
 

@@ -56,7 +56,7 @@ internal object Isd {
     // isd chunk 05: Undead Alchemist
     val WOULD_DEAL_DAMAGE_TO_PLAYER_INSTEAD = Regex("""If (.+?) would deal (combat |noncombat |)damage to (a player|an opponent), instead (.+)\.""")
     // isd chunk 05: Caravan Vigil
-    val MAY_PUT_ONTO_BATTLEFIELD_INSTEAD_OF_HAND_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?You may put (?:that card|it) onto the battlefield instead of putting it into your hand if (.+)\.""")
+    val MAY_PUT_ONTO_BATTLEFIELD_INSTEAD_OF_HAND_IF = Regex("""(?:([A-Z][A-Za-z0-9 ]+) — )?You may put (?:that card|it) onto the battlefield instead of putting it into your hand if (.+)\.""")
     // isd chunk 05: Heretic's Punishment, Mindshrieker: "the milled card's mana value", "the greatest mana value among the milled cards"
     val AN_X = Regex("""\bX\b""")
     val MILLED_CARDS_VALUE = Regex("""the milled card's (mana value|power|toughness)|the greatest (mana value|power|toughness) among the milled cards""")

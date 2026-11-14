@@ -52,9 +52,9 @@ class AccountSettingsStore(platform: AppPlatform, account: String,
 }
 
 @Composable
-fun rememberAccountSettingsSource(accountId: String, auth: AuthController?): AccountSettingsSource? {
+fun rememberAccountSettingsSource(accountId: String, auth: AuthController?, origin: String = AppBuild.ACCOUNT_ORIGIN): AccountSettingsSource? {
     val platform = AppPlatform.current
-    return remember(platform, accountId, auth) { auth?.let { AccountSettingsStore(platform, accountId, it::sessionToken) } }
+    return remember(platform, accountId, auth, origin) { auth?.let { AccountSettingsStore(platform, accountId, it::sessionToken, origin) } }
 }
 
 val DeckVisibility.label get() = when (this) {
@@ -111,5 +111,34 @@ class AccountSettingsState(private val source: AccountSettingsSource, private va
             }
         }
     }
+    /** WEB-033: the desktop hotkeys, kept on the server for every browser of the account; [applied] tells the screens at once. */
+    fun setKeyBindings(bindings: KeyBindings, applied: KeyBindingsState?) {
+        applied?.set(bindings)
+        val next = (settings ?: AccountSettings()).copy(keyBindings = bindings.overrides)
+        if (next == settings) return
+        settings = next
+        scope.launch {
+            runCatching { source.set(next) }.onFailure {
+                error = "Couldn't save your keyboard shortcuts to the server. They are kept on this device and sent later."
+            }
+        }
+    }
     fun dismissError() { error = null }
+}
+
+/**
+ * WEB-033: the account's hotkeys for the desktop layout while signed in: the device's copy of the account settings at once,
+ * then the server's (a failure keeps the device's, silently).
+ */
+@Composable
+fun rememberKeyBindings(accountId: String, auth: AuthController?, origin: String = AppBuild.ACCOUNT_ORIGIN): KeyBindingsState {
+    val source = rememberAccountSettingsSource(accountId, auth, origin)
+    val state = remember(accountId) { KeyBindingsState() }
+    LaunchedEffect(source) {
+        if (source == null) return@LaunchedEffect
+        state.set(KeyBindings(source.cached().keyBindings))
+        runCatching { source.refresh() }.onSuccess { state.set(KeyBindings(it.keyBindings)) }
+            .onFailure { AppLog.info("keys", "Hotkeys: the server not read (${(it as? AccountFailure)?.code ?: it::class.simpleName}), this device's kept") }
+    }
+    return state
 }

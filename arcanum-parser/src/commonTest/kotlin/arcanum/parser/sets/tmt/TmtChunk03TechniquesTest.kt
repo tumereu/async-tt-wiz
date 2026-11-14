@@ -104,7 +104,8 @@ class TmtChunk03TechniquesTest {
         """,
     ) parsesTo abilities(
         sneak("{B}"),
-        spell(doing(Effect.Destroy(target("permanent"), postBind = "destroyed")),
+        // CR 608.2h: "an enchantment was destroyed this way" is the permanent as it last existed
+        spell(doing(Effect.Destroy(target("permanent"), preBind = "destroyed")),
             Step.If(Condition.Compare(Value.Count(Objects.Where(Objects.Bound("destroyed"), enchantment)), Comparison.AtLeast, n(1)), then = listOf(loseLife(2))),
             targets = listOf(slot("permanent", or(creature, enchantment)))),
     )

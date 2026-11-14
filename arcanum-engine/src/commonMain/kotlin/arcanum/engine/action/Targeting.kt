@@ -39,6 +39,61 @@ internal object Targeting {
         return (objects + players).filter { it !in taken && targetable(act, it, controller, source, item?.id ?: self, pendingKind) }
     }
 
+    /** Whether [slot]'s targets limit each other: one controller or owner, a shared or a different quality, one for each
+     * value, a total (CR 601.2c). */
+    fun limitsEachOther(slot: TargetSlot): Boolean = slot.sameController || slot.sameOwner || slot.sharing != null ||
+        slot.distinct != null || slot.onePer != null || slot.totalAtMost != null
+
+    /**
+     * Why [chosen] breaks the limits [slot]'s targets put on each other, or null when it doesn't: the one check for spells,
+     * activated and triggered abilities (CR 601.2c, 602.2b, 603.3d) and new targets of a copy or a change (CR 707.10c,
+     * 115.7). Each limit holds for any part of a group that keeps it (a smaller group is never refused where a larger is
+     * accepted), which [possible] relies on.
+     */
+    fun groupRefusal(slot: TargetSlot, chosen: List<TargetRef>, e: Evaluator): String? {
+        if (!limitsEachOther(slot)) return null
+        val ids = chosen.mapNotNull { (it as? TargetRef.Object)?.id }
+        // "target creatures controlled by the same opponent"
+        if (slot.sameController && ids.mapNotNull { e.controllerOf(it) }.distinct().size > 1) return "The targets must have the same controller"
+        // gtc chunk 10: "from a single graveyard": one owner
+        if (slot.sameOwner && ids.mapNotNull { e.ownerOf(it) }.distinct().size > 1) return "The targets must have the same owner"
+        // ecl: "two target creature cards that share a creature type"
+        slot.sharing?.let { q -> if (ids.any { a -> ids.any { b -> a != b && !e.shares(q, a, b) } }) return "The targets must share $q" }
+        // spm: "up to six target creature cards with different names"
+        slot.distinct?.let { q -> if (ids.any { a -> ids.any { b -> a != b && e.shares(q, a, b) } }) return "The targets must differ in $q" }
+        // fra: "up to one target … of each card type": each target stands for a value of its own
+        slot.onePer?.let { q -> if (!e.eachStandsForOne(q, ids)) return "Each target must stand for a different $q" }
+        // msh: "with total mana value 6 or less"
+        slot.totalAtMost?.let { limit -> if (ids.sumOf { e.property(limit.property, it) } > e.value(limit.atMost)) return "The targets' total is more than allowed" }
+        return null
+    }
+
+    /** Whether [min] of [options] can be chosen together within [slot]'s limits on each other (CR 603.3d, 700.2b: a
+     * triggered ability or mode without such a group can't be put on the Stack or chosen). A search too long to finish
+     * takes it as possible (the choice is checked exactly). */
+    fun possible(slot: TargetSlot, options: List<TargetRef>, min: Int, e: Evaluator): Boolean {
+        if (options.size < min) return false
+        if (min < 1 || !limitsEachOther(slot)) return true
+        var budget = SEARCH
+        fun extend(from: Int, group: List<TargetRef>): Boolean {
+            if (group.size == min) return true
+            for (i in from..options.size - (min - group.size)) {
+                if (budget-- <= 0) return true
+                val next = group + options[i]
+                if (groupRefusal(slot, next, e) == null && extend(i + 1, next)) return true
+            }
+            return false
+        }
+        return extend(0, emptyList())
+    }
+
+    /** [chooser] chooses [min] to [max] of [options] for [slot] while a spell or ability is put on the Stack or copied, the
+     * group refused when it breaks the slot's limits on each other ([groupRefusal]). */
+    fun choose(act: Act, chooser: PlayerId, source: ObjectId?, slot: TargetSlot, options: List<TargetRef>, min: Int, max: Int?, e: Evaluator): List<TargetRef> =
+        act.chooseTargets(chooser, source, slot.name, options, min, max).also { chosen -> groupRefusal(slot, chosen, e)?.let { throw IllegalArgumentException(it) } }
+
+    private const val SEARCH = 10_000
+
     /** CR 608.2b: [ref] is still a legal target of [slot]. */
     fun legal(
         act: Act, slot: TargetSlot, ref: TargetRef, controller: PlayerId, source: ObjectId?, names: Bindings,

@@ -91,7 +91,8 @@ internal object Tdm {
     val DRAW_IF_ELSE_COUNTER = Regex("""[Dd]raw a card if (.+?)\. If you don't draw a card this way, put an? (\S+) counter on (.+)\.""")
     // tdm chunk 08: "look at the top card of your library. If it's a land card, you may reveal it and put it into your hand. If you don't put
     // the card into your hand, you may put it into your graveyard."
-    val LOOK_TOP_LAND_HAND_ELSE_GRAVEYARD = Regex("""[Ll]ook at the top card of your library\. If it's an? (.+?) card, you may reveal it and put it into your hand\. If you don't put the card into your hand, you may put it into your graveyard\.""")
+    // otj chunk 10: "If you don't put it into your hand, you may put it on the bottom of your library." (CR 401.4: bottom)
+    val LOOK_TOP_LAND_HAND_ELSE_GRAVEYARD = Regex("""[Ll]ook at the top card of your library\. If it's an? (.+?) card, you may reveal it and put it into your hand\. If you don't put (?:the card|it) into your hand, you may put it (into your graveyard|on the bottom of your library)\.""")
     // tdm chunk 08: "Return up to two target permanent cards from your graveyard to your hand. Target player shuffles up to four target cards
     // from their graveyard into their library. Exile Rite of Renewal."
     val RETURN_AND_PLAYER_SHUFFLES = Regex("""Return up to (\w+) target (.+?) from your graveyard to your hand\. Target player shuffles up to (\w+) target cards from their graveyard into their library\. Exile (.+)\.""")
@@ -101,11 +102,11 @@ internal object Tdm {
     // next attack this turn, untap each creature you control."
     val ADDITIONAL_COMBAT_THEN_WHEN_NEXT_ATTACK_UNTAP = Regex("""[Tt]here is an additional combat phase after this phase followed by an additional main phase\. When you next attack this turn, untap each creature you control\.""")
     // tdm chunk 09: "distribute three +1/+1 counters among one, two, or three target creatures you control"
-    val DISTRIBUTE_COUNTERS_AMONG = Regex("""[Dd]istribute (\w+) (\S+) counters among (one, two, or three) target (.+?)\.""")
+    val DISTRIBUTE_COUNTERS_AMONG = Regex("""[Dd]istribute (\w+) (\S+) counters among (one, two, or three|any number of) target (.+?)\.""")
     // tdm chunk 09: "Destroy all creatures and enchantments. Draw a card for each permanent destroyed this way."
     val DESTROY_ALL_DRAW_FOR_EACH = Regex("""Destroy all (.+?)\. Draw a card for each permanent destroyed this way\.""")
     // tdm chunk 09: "it deals 3 damage to each creature and each planeswalker"
-    val DEALS_DAMAGE_TO_EACH_AND_EACH = Regex("""(.+?) deals (\d+) damage to each (\w+) and each (\w+)\.""")
+    val DEALS_DAMAGE_TO_EACH_AND_EACH = Regex("""(.+?) deals (X|\d+) damage to each (\w+) and each (\w+)\.""")
     // tdm chunk 09: "Double the power and toughness of target creature you control until end of turn. Then it fights up to one target creature an
     // opponent controls."
     val DOUBLE_PT_THEN_FIGHTS = Regex("""Double the power and toughness of target (.+?) until end of turn\. Then it fights up to one target (.+)\.""")
@@ -237,8 +238,8 @@ internal object Tdm {
     val MAY_ATTACH_SELF_TO_IT = Regex("""You may attach (.+) to it\.""")
     // tdm chunk 09: "Put a +1/+1 counter on each of those creatures."
     val COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures\.""")
-    // tdm chunk 09: "If it was a token, draw a card."
-    val IF_IT_WAS_A_TOKEN = Regex("""If it was a token, (.+)\.""")
+    // tdm chunk 09: "If it was a token, draw a card."; lci chunk 03: "If it was tapped, create a Map token."
+    val IF_IT_WAS_A_TOKEN = Regex("""If it was (a token|tapped), (.+)\.""")
     val DESTROY_ITS_CONTROLLER_SEARCHES = Regex("""[Dd]estroy target (.+?)\. Its controller searches their library for an? (.+?) card, puts it onto the battlefield tapped with an? (\S+) counter on it, then shuffles\.""")
 }
 
@@ -246,6 +247,7 @@ internal object Tdm {
 internal object TdmPhrases {
     private val BASIC_TYPES_LIST = Regex("""basic ((?:[A-Z]\w+, )+)or ([A-Z]\w+)(?: cards?)?""")
     private val NAMED_OR_NAMED = Regex("""cards? named (.+?) or (.+)""")
+    private val SPELLS_CAST_THIS_TURN = Regex("""the number of (other )?((?:\w+ and )?\w+ )?spells (you've|they've) cast this turn""")
     private val OR_A_SPELL_YOU_CONTROL = Regex("""(.+? you control) or an? (\w+) spell you control""")
     // tdm chunk 13: "permanent that's one or more colors" (not colorless, CR 105.2c)
     private val ONE_OR_MORE_COLORS = Regex("""(.+?) that's one or more colors""")
@@ -316,15 +318,18 @@ internal object TdmPhrases {
         return null
     }
 
-    private val SPELLS_YOU_VE_CAST_THIS_TURN = Regex("""the number of (?:(.+) )?spells you've cast this turn""")
     fun value(text: String): Value? {
         // tdm chunk 08: "the number of counters on this creature" (every kind)
         if (text == "the number of counters on this creature") return Value.Of(NumericProperty.Counters(null), Objects.Self, Combine.Single)
         // tdm chunk 10: "the number of spells you've cast this turn" (CR 601.2i)
-        // mh3 chunk 09: also of some kinds ("the number of instant and sorcery spells you've cast this turn": a spell of either kind)
-        SPELLS_YOU_VE_CAST_THIS_TURN.matchEntire(text)?.let { m ->
-            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.replace(" and ", " or ")) ?: return null } ?: ObjectFilter.Any
-            return Value.EventsThisTurn(EventPattern.Cast(kind, by = PlayerFilter.You), Measure.Events)
+        // otj chunk 11: "the number of other spells you've cast this turn" (not this spell), "… noncreature spells they've cast this turn" (they: the
+        // event's player); mh3 chunk 09: "the number of instant and sorcery spells you've cast this turn" (a spell of either kind)
+        SPELLS_CAST_THIS_TURN.matchEntire(text)?.let { m ->
+            val kind = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.trim().replace(" and ", " or ")) ?: return null }
+            val spells = listOfNotNull(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)).takeIf { m.groupValues[1].isNotEmpty() }, kind)
+            val by = if (m.groupValues[3] == "you've") PlayerFilter.You else PlayerFilter.Is(arcanum.api.Players.EventPlayer)
+            return Value.EventsThisTurn(EventPattern.Cast(spells.singleOrNull() ?: if (spells.isEmpty()) ObjectFilter.Any else Filters.all(*spells.toTypedArray()), by = by),
+                Measure.Events)
         }
         return null
     }

@@ -228,9 +228,27 @@ internal object Mana {
     fun yields(snap: Snapshot, player: PlayerId, id: ObjectId, ability: Ability.Activated, names: Bindings = Bindings.EMPTY): List<Yield> {
         val eval = snap.evaluator(player, self = id, names = names)
         val snow = snap.view[id]?.characteristics?.supertypes?.contains(Supertype.Snow) == true
+        val factor = tappedForManaFactor(snap, player, id, ability)
         return ability.instructions.steps.mapNotNull { (it as? Step.Do)?.effect as? Effect.AddMana }.flatMap { add ->
-            yieldsOf(snap, eval, add.mana, snow, depth = 0)
+            yieldsOf(snap, eval, add.mana, snow, depth = 0).map { if (factor == 1) it else it.copy(amount = it.amount * factor) }
         }
+    }
+
+    /** woe: "If you tap a basic land for mana, it produces three times as much of that mana instead": replacements of tapping [id] for mana
+     * with [ability] (one with {T} in its cost, CR 106.12) that multiply the mana it produces (CR 106.12b, 614.1a); their order doesn't
+     * matter. */
+    private fun tappedForManaFactor(snap: Snapshot, player: PlayerId, id: ObjectId, ability: Ability.Activated): Int {
+        if (CostPart.TapSelf !in ability.cost.parts) return 1
+        var factor = 1
+        snap.view.game.rules.forEach { applied ->
+            val r = applied.mechanic as? Mechanic.Replacement ?: return@forEach
+            val tap = r.event as? arcanum.api.EventPattern.Tap ?: return@forEach
+            if (tap.forMana != true || r.optional || r.instead != null || r.modify.isEmpty() || r.modify.any { it !is arcanum.api.Modification.MultiplyAmount }) return@forEach
+            val e = snap.evaluator(applied.controller, self = applied.source, names = applied.names)
+            if (!e.matches(tap.objects, id) || (tap.by != null && !e.matches(tap.by!!, player))) return@forEach
+            r.modify.forEach { factor *= (it as arcanum.api.Modification.MultiplyAmount).factor }
+        }
+        return factor
     }
 
     private fun yieldsOf(snap: Snapshot, eval: Evaluator, production: ManaProduction, snow: Boolean, depth: Int): List<Yield> =

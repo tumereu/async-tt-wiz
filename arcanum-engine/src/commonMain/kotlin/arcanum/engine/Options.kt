@@ -390,6 +390,11 @@ internal object Options {
             tries(snap, pending).filter { a -> hidden.isEmpty() || objectsOf(d, a).none { it in hidden } }.take(LOOKAHEAD).firstOrNull { goesOnAfter(snap, pending, it) }?.let { listOf(it) }
                 // A failed sample proves nothing: what it accepts stays on offer
                 ?: if (everyTried(d, pending)) emptyList() else candidates(snap, pending).distinct().filter { accepted(snap, Input.Answer(d.id, it)) }
+            // mkm fixes: a triggered ability's targets that limit each other ("two target cards from a single graveyard", CR 603.3d,
+            // 601.2c): the sample may all break the limit where another group keeps it
+            else if (!announcing && found.isEmpty() && d is Decision.Targets)
+                tries(snap, pending).filter { a -> hidden.isEmpty() || objectsOf(d, a).none { it in hidden } }.take(LOOKAHEAD)
+                    .firstOrNull { accepted(snap, Input.Answer(d.id, it)) }?.let { listOf(it) }.orEmpty()
             else found
         val cancel = (pending.continuation as? Continuation.Announcing)?.takeIf { it.player == player }?.let { Input.Cancel(player) }
         return working.map { Input.Answer(d.id, it) } + listOfNotNull(cancel)
@@ -464,11 +469,13 @@ internal object Options {
         val c = pending.continuation as? Continuation.Announcing ?: return (pending.decision as? Decision.ChooseObjects)?.let { d ->
             val total = d.total ?: return null
             val e = snap.evaluator(d.player)
+            if (total.exactly) return arcanum.engine.casting.Costs.exactSubset(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
             largestFirst(d.options, d.min, e.value(total.atLeast)) { e.property(total.property, it) }
         }
         val plan = Plan(snap.state, c)
         val q = plan.next() as? Question.Objects ?: return null
         val total = q.choice.total ?: return null
+        if (total.exactly) return arcanum.engine.casting.Costs.exactSubset(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
         return largestFirst(q.choice.options, q.choice.min, plan.eval.value(total.atLeast)) { plan.eval.property(total.property, it) }
     }
 

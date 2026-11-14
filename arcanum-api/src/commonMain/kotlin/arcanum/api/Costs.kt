@@ -76,13 +76,23 @@ sealed interface CostPart {
      * becomes can still find them ("return the exiled card", CR 607.2q). */
     @Serializable @SerialName("exile") data class Exile(
         val what: CostObjects, val from: Zone, val preBind: String? = null, val postBind: String? = null, val remember: String? = null,
+        // lci
+        /** Zones it may also come from, the payer's own ("from among permanents you control and/or cards in your graveyard", craft,
+         * CR 702.167a). Several exile parts remembering under one key add up there. */
+        val alsoFrom: List<Zone> = emptyList(),
     ) : CostPart
     /** Pay one of [options] ("discard a card or pay {5}"). */
     @Serializable @SerialName("one-of") data class OneOf(val options: List<Cost>) : CostPart
-    /** A keyword action as a cost: behold, collect evidence, forage, exert; [bind] names what it used ("the beheld card"). */
-    @Serializable @SerialName("action") data class Action(val action: KeywordAction, val bind: String? = null) : CostPart
+    /** A keyword action as a cost: behold, collect evidence, forage, exert; [bind] names what it used ("the beheld card"). [remember]: the
+     * cards it exiles are kept as card memory under that key, for another ability that refers to the cards "exiled with" this object
+     * (collecting evidence, CR 607.2a). */
+    @Serializable @SerialName("action") data class Action(val action: KeywordAction, val bind: String? = null, val remember: String? = null) : CostPart
     @Serializable @SerialName("return-to-hand") data class ReturnToHand(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
     @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
+    // mkm fix
+    /** "Reveal the creature type you chose": reveals the secret choice the source keeps as card memory under [key] (a
+     * [Step.Choose] with secret, CR 607.2d); it can't be paid when the source keeps no such choice (CR 118.3). */
+    @Serializable @SerialName("reveal-choice") data class RevealChoice(val key: String) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
     @Serializable @SerialName("pay-energy") data class PayEnergy(val amount: Value) : CostPart
     /** Remove [amount] counters of [kind] from each of [from]'s objects, or ([distributed]) [amount] in total from among
@@ -131,6 +141,9 @@ sealed interface CostObjects {
         val shared: SharedQuality? = null,
         /** [count] is the most chosen, none being enough ("tapping up to one untapped creature you control", harmonize). */
         val upTo: Boolean = false,
+        // lci
+        /** With [count] null, at least this many ("one or more Dinosaurs", "four or more nonlands", craft, CR 702.167a). */
+        val atLeast: Int? = null,
         // mh3 fixes
         /** The chosen objects have at least [Distinct.atLeast] different values of [Distinct.quality] among them ("Exile any number of
          * other cards from your graveyard with four or more card types among them", CR 205.2a, 601.2h). */
@@ -165,9 +178,10 @@ data class ManaProduction(
     val onlyCostsWithX: Boolean = false,
 )
 
-/** [property] of the chosen objects added up, at least [atLeast]. */
+/** [property] of the chosen objects added up, at least [atLeast]; with [exactly], exactly [atLeast] ("Exile one or more other artifacts
+ * you control with total mana value X", a cost paid as stated, CR 601.2h). */
 @Serializable
-data class Total(val property: NumericProperty, val atLeast: Value)
+data class Total(val property: NumericProperty, val atLeast: Value, val exactly: Boolean = false)
 
 @Serializable
 sealed interface ManaKind {

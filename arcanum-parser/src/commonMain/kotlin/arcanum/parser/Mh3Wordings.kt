@@ -7,9 +7,6 @@ internal object Mh3 {
     val LIST_CONTINUES = Regex("""((?:\w+, )*(?:or|and) \w+), (.+)""")
     /** "When you cast this spell and when this creature dies, …": two trigger conditions of one effect (CR 603.1). */
     val AND_WHEN = Regex("""((?:When|Whenever) .+?) and when (.+? (?:dies|leaves the battlefield|enters)), (.+)""")
-    /** "If this creature was kicked, it enters with two +1/+1 counters and a trample counter on it and with haste." */
-    val IF_IT_ENTERS_WITH_COUNTERS_AND_WITH = Regex("""If (.+), it enters with (.+?) on it(?: and with (.+?))?\.""")
-    val COUNTER_IN_LIST = Regex("""(a|an|one|two|three|four|five) (\S+) counters?""")
     /** "Exile up to one target …. If you do, …", "Exile target …. You may cast that card …": then a sentence about the exiled card. */
     val EXILE_THEN = Regex("""(Exile (?:up to one )?target [^.]+\.) ((?:If you do, |You may cast that card ).+)""")
     /** "As this creature enters, it becomes your choice of a 3/3 creature with flying, a 2/5 creature with vigilance, or …" (CR 614.12) */
@@ -143,8 +140,6 @@ internal object Mh3 {
     val YOU_SACRIFICED_THIS_WAY = Regex("""\byou sacrificed an? .+? this way\b""")
     /** "If the modified creature was sacrificed, draw a card." after "sacrifice a creature or sacrifice a modified creature" (CR 700.9, 608.2h) */
     val IF_THE_X_WAS_SACRIFICED = Regex("""If the (.+?) was sacrificed, (.+)""")
-    /** "…, where X is that creature's power." after a sacrifice (CR 608.2h) */
-    val WHERE_X_IS_THAT_CREATURES = Regex(""", where X is that creature's (power|toughness|mana value)\.$""")
     /** "Gain control of that spell and you may choose new targets for it." (CR 115.7) */
     val GAIN_CONTROL_OF_THAT_SPELL = Regex("""[Gg]ain control of that spell( and you may choose new targets for it)?\.""")
     /** "You may cast that card without paying its mana cost if the two spells have the same mana value." (CR 601.3, 608.2g) */

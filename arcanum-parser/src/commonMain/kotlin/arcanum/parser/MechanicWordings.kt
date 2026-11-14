@@ -27,7 +27,7 @@ internal object MechanicWordings {
         ObjectFilter.ControlledBy(PlayerFilter.You)))
 
     private val IS_YOUR_RING_BEARER = Regex("""(.+) is your Ring-bearer""")
-    private val WAS_BARGAINED = Regex("""(.+) was bargained""")
+    private val WAS_BARGAINED = Regex("""(.+?)(?: was|'s) bargained""") // woe chunk 04: "if it's bargained"
     /** "from anywhere": the ability says it functions in every zone it could be put into a graveyard from (CR 113.6b). */
     private val FROM_ANYWHERE = listOf<arcanum.api.Zone>(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Hand, arcanum.api.Zone.Library, arcanum.api.Zone.Exile,
         arcanum.api.Zone.Stack, arcanum.api.Zone.Command)
@@ -91,7 +91,8 @@ internal object MechanicWordings {
         CHOSE_OTHER_RING_BEARER.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) }?.let {
             return Condition.ObjectMatches(Objects.EventObject(EventRole.Object), ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
         }
-        // CR 702.166b: "if this spell was bargained", "if it was bargained" (a permanent's enters trigger)
+        // CR 702.166b: "if this spell was bargained", "if it was bargained" (a permanent's enters trigger), "if it's bargained" (a cost
+        // reduction, CR 601.2f)
         WAS_BARGAINED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] == "this spell" || isSelf(it.groupValues[1], self) }?.let {
             return Condition.Paid(Keyword.Bargain, times = 1, of = Objects.Self)
         }
@@ -103,9 +104,11 @@ internal object MechanicWordings {
         if (text == "you've completed a dungeon") return Condition.Compare(Value.DungeonsCompleted(arcanum.api.Players.You),
             arcanum.api.Comparison.AtLeast, Value.Fixed(1))
         if (text == "you control a Ring-bearer") return Condition.Exists(yourRingBearer, 1)
-        // CR 701.37b: "As long as this creature is monstrous, …"
+        // CR 701.37b: "As long as this creature is monstrous, …"; otj chunk 03: "if this creature is saddled" / "isn't saddled" (CR 702.171b)
         IS_MONSTROUS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) || it.groupValues[1] == "it" }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Monstrous)))
+            val mark = if (it.groupValues[3] == "monstrous") ObjectMark.Monstrous else ObjectMark.Saddled
+            val matches = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(mark)))
+            return if (it.groupValues[2] == "is") matches else Condition.Not(matches)
         }
         return null
     }
@@ -220,8 +223,8 @@ internal object MechanicWordings {
 
     // ---- Mechanics the engine plays since its lanes 1–4 (read by the `mechanic*` functions of `Sentences`)
 
-    /** "this creature is monstrous" (CR 701.37b). */
-    val IS_MONSTROUS = Regex("""(.+) is monstrous""")
+    /** "this creature is monstrous" (CR 701.37b); "this creature is saddled", "isn't saddled" (CR 702.171b). */
+    val IS_MONSTROUS = Regex("""(.+) (is|isn't) (monstrous|saddled)""")
 
     /** "You may exert this creature as it attacks. When you do, [effect]" (CR 701.43d, 508.1g). */
     val MAY_EXERT_AS_ATTACKS = Regex("""You may exert (.+?) as (?:it|he|she|they) attacks?\.(?: When you do, (.+))?""")
@@ -253,13 +256,15 @@ internal object MechanicWordings {
     val IS_A_COPY_OF = Regex("""(.+?) (?:is a copy|are copies) of (.+)\.""")
 
     /** Keyword actions (CR 701). */
-    val EXPLORES = Regex("""(.+?) explores\.""")
+    // lci chunk 03: "it explores X times", "That creature explores, then it explores again." (each a separate explore, CR 701.44b)
+    val EXPLORES = Regex("""(.+?) explores(?:, then it explores (again)| (X|\w+) times)?\.""")
     val MONSTROSITY = Regex("""Monstrosity (\d+|X)\.""")
     val ADAPT = Regex("""Adapt (\d+|X)\.""")
     val SUPPORT = Regex("""Support (\d+|X)\.""")
-    val DISCOVER = Regex("""(?:You )?[Dd]iscover (\d+|X)\.""")
+    // lci chunk 01: "Then that player discovers X." (another player discovers, CR 701.57a)
+    val DISCOVER = Regex("""(?:You |(?:Then )?([Tt]hat player|[Tt]arget player) )?[Dd]iscovers? (\d+|X)\.""")
     val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
-    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of your library\.""")
+    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of (your|that player's) library\.""") // mkm chunk 07: that player's
     /** "all creatures your opponents control", "each Merfolk creature you control" */
     val ALL_NOUN = Regex("""(?:[Aa]ll|[Ee]ach) (.+)""")
     val GOAD = Regex("""Goad (.+)\.""")

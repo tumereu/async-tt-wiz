@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.SavedDeckSection
+import org.asyncttwiz.protocol.CubeSummary
 import org.asyncttwiz.storage.DeckSection
 
 @Composable
@@ -72,24 +73,33 @@ private fun CubeCollection(controller: CubeController) {
     LaunchedEffect(controller) { controller.refresh() }
     Box(Modifier.fillMaxSize()) {
         InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
-            LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
-                    Text("CUBES (${state.cubes.size})", style = MaterialTheme.typography.labelMedium)
-                    if (state.cubes.isEmpty()) Text("No saved cubes yet.")
-                }
-                items(state.cubes, key = { it.id }) { cube ->
-                    OutlinedCard(onClick = { controller.open(cube.id) }, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(cube.name, fontWeight = FontWeight.Bold)
-                                Text("${cube.totalCopies} copies", style = MaterialTheme.typography.bodySmall)
-                            }
-                            // DRF-161
-                            AutomatumSupportIcon(cube.automatum, onTap = { controller.open(cube.id) })
-                            EntryIcon(null, "chevron")
+            val heading: @Composable () -> Unit = {
+                Text("CUBES (${state.cubes.size})", style = MaterialTheme.typography.labelMedium)
+                if (state.cubes.isEmpty()) Text("No saved cubes yet.")
+            }
+            val row: @Composable (CubeSummary) -> Unit = { cube ->
+                OutlinedCard(onClick = { controller.open(cube.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(cube.name, fontWeight = FontWeight.Bold)
+                            Text("${cube.totalCopies} copies", style = MaterialTheme.typography.bodySmall)
                         }
+                        // DRF-161
+                        AutomatumSupportIcon(cube.automatum, onTap = { controller.open(cube.id) })
+                        EntryIcon(null, "chevron")
                     }
                 }
+            }
+            // WEB-038: on the desktop layout the cubes fill the width in columns
+            if (desktopLayout()) androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                androidx.compose.foundation.lazy.grid.GridCells.Adaptive(DesktopScreens.TileMinWidth),
+                Modifier.fillMaxSize().padding(vertical = 16.dp, horizontal = DesktopScreens.Gutter).testTag("cube-grid"),
+                verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { Column { heading() } }
+                items(state.cubes.size, key = { state.cubes[it].id }) { row(state.cubes[it]) }
+            } else LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { heading() }
+                items(state.cubes, key = { it.id }) { cube -> row(cube) }
             }
         }
         FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))

@@ -220,7 +220,8 @@ fun youControl(filter: ObjectFilter, atLeast: Int): Condition = Condition.Exists
 
 // ---- rvr chunk 01: addendum, Auras and Equipment
 /** "If you cast this spell during your main phase" (addendum, CR 207.2c, 505.1) */
-val addendum: Condition = Condition.CastDuringMainPhase(Objects.Self)
+val addendum: Condition = Condition.AsCast(Condition.And(listOf(Condition.YourTurn,
+    Condition.Or(listOf(Condition.StepIs(TurnStep.PrecombatMain), Condition.StepIs(TurnStep.PostcombatMain))))))
 /** The permanent an Aura or Equipment is attached to (CR 301.5, 303.4). */
 val attached: Objects = Objects.AttachedTo(Objects.Self)
 fun enchant(filter: ObjectFilter): Keyword = Keyword.Enchant(TargetKind.Objects(filter))

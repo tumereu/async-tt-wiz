@@ -92,8 +92,7 @@ internal object Casting {
         // dsk gaps: from here on it is a spell being cast from where it was (CR 601.2a), so "a spell you cast from exile"
         // is known as its costs are determined (CR 601.2b, f)
         recorder.state.objOrThrow(onStack).let { moved ->
-            arcanum.engine.change.Changes.cast(recorder.state, onStack, moved.castOrNone.copy(castFrom = o.zone, fused = way.fused,
-                duringOwnMainPhase = ownMainPhase(recorder.state, input.player)))?.let(recorder::record)
+            arcanum.engine.change.Changes.cast(recorder.state, onStack, moved.castOrNone.copy(castFrom = o.zone, fused = way.fused))?.let(recorder::record)
         }
         var names = Bindings.EMPTY
         if (faceDown) names = names.with(FACE_DOWN, NamedValue.Option(alternative!!.second.keyword?.id ?: "morph"))
@@ -214,7 +213,7 @@ internal object Casting {
         if (face != now.face) act.record(Change.Face(onStack, now.face, face))
         // As for a cast with priority: from here on it is a spell cast from where its card was (CR 601.2a), so an
         // alternative cost for "a spell you cast from exile" still applies as its costs are determined (CR 601.2b, f)
-        arcanum.engine.change.Changes.cast(act.state, onStack, now.castOrNone.copy(castFrom = o.zone, duringOwnMainPhase = ownMainPhase(act.state, player)))?.let(act::record)
+        arcanum.engine.change.Changes.cast(act.state, onStack, now.castOrNone.copy(castFrom = o.zone))?.let(act::record)
         // fin: "mana of any type can be spent to cast that spell" (CR 609.4b)
         val terms = arcanum.api.Mechanic.MayPlay(o.zone, PlayKind.Cast, cost = cost, withoutPaying = withoutPaying && cost == null,
             holder = arcanum.api.PlayerFilter.You, manaAsAnyColor = manaAsAnyType)
@@ -276,10 +275,6 @@ internal object Casting {
         q is Question.Target && q.options.isNotEmpty() && q.options.size <= q.min -> Answer.Targets(q.options)
         else -> null
     }
-
-    /** rvr: [player] is casting during their own main phase (CR 505.1; addendum, CR 207.2c). */
-    private fun ownMainPhase(state: arcanum.engine.state.GameState, player: arcanum.engine.state.PlayerId): Boolean =
-        state.turn.active == player && (state.turn.step == arcanum.api.TurnStep.PrecombatMain || state.turn.step == arcanum.api.TurnStep.PostcombatMain)
 
     /** CR 117.3c: a player who casts, activates or takes a special action receives priority afterwards. */
     internal fun keepPriority(recorder: Recorder, player: arcanum.engine.state.PlayerId) {

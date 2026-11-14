@@ -385,7 +385,11 @@ internal object Effects {
                 }
             }
             // fin: CR 500.9: an additional step right after this one, before those added earlier
-            is Effect.AdditionalStep -> act.record(Changes.step(act.state, act.state.turn.copy(extraSteps = listOf(effect.step) + act.state.turn.extraSteps)))
+            is Effect.AdditionalStep -> if (effect.afterPhase) {
+                // otj: CR 500.10: each one a phase of its own after this phase, holding only that step (Steps.afterPhase)
+                val n = scope.value(effect.count).coerceAtLeast(0)
+                act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = List(n) { effect.step } + act.state.turn.extraPhases)))
+            } else act.record(Changes.step(act.state, act.state.turn.copy(extraSteps = listOf(effect.step) + act.state.turn.extraSteps)))
             // fin: CR 724.1a, b: waiting triggers cease to exist and every other object on the Stack is exiled; the resolving one is exiled as it
             // leaves ([Resolution.finish]) and the turn goes on from its cleanup step ([arcanum.engine.turn.Steps.endTheTurn])
             Effect.EndTurn -> {
@@ -983,17 +987,26 @@ internal object Effects {
         // woe chunk 01: an Aura token to be created attached to an object or player that is undefined (no target chosen, or the target
         // became illegal) isn't created (CR 303.4i)
         if (effect.attachedTo != null && attachTo == null) { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
-        val created = scope.players(effect.controller).flatMap { p ->
-            Actions.createTokens(act, scope.cause, values, count, p, effect.tapped, attachTo)
+        // CR 608.2f: "each player creates …" creates every player's tokens at once, one event
+        val requests = scope.players(effect.controller).map { p -> Actions.TokenRequest(values, count, p, effect.tapped, attachTo) }
+        val attacking = effect.attacking?.let { attackTarget(scope, it) }
+        val batch = scope.batch
+        if (batch != null) {
+            // "for each …, create …": created with the other tokens of the loop, as one event; bound when they are
+            batch += Batched(scope, emptyList(), null, tokens = requests, tokenBind = effect.bind, attacking = attacking)
+            return
         }
-        effect.attacking?.let { target ->
-            val to = attackTarget(scope, target)
-            val combat = act.state.combat
-            if (to != null && combat != null) {
-                act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + created.map { arcanum.engine.state.Attacker(it, to) })))
-            }
+        tokensCreated(scope, Actions.createTokensTogether(act, scope.cause, requests).flatten(), attacking, effect.bind)
+    }
+
+    /** After tokens [created] were created: those created attacking [attacking] attack it (CR 508.4); [bind] names them. */
+    internal fun tokensCreated(scope: Scope, created: List<ObjectId>, attacking: TargetRef?, bind: String?) {
+        val act = scope.act
+        val combat = act.state.combat
+        if (attacking != null && combat != null) {
+            act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + created.map { arcanum.engine.state.Attacker(it, attacking) })))
         }
-        scope.bind(effect.bind, NamedValue.Objects(created))
+        scope.bind(bind, NamedValue.Objects(created))
     }
 
     /** CR 707.10: a copy of a spell or ability is put on the Stack (not cast); it may get new targets. */
@@ -1275,7 +1288,11 @@ internal object Effects {
         // sos: "that creature enters with X additional +1/+1 counters, where X is the number of colors of mana spent to cast it": X fixed as
         // the effect is created (CR 608.2h)
         is Mechanic.Replacement -> mechanic.copy(modify = mechanic.modify.map { m ->
-            if (m is arcanum.api.Modification.EntersWithCounters) m.copy(amount = fixValue(e, m.amount)) else m
+            if (m is arcanum.api.Modification.EntersWithCounters) m.copy(amount = fixValue(e, m.amount))
+            // otj: "it deals that much damage plus X instead" made by an ability: X as it resolved (CR 608.2h); the replaced event's
+            // own amount is read as it happens
+            else if (m is arcanum.api.Modification.AddAmount && !mentionsEvent(m.amount)) m.copy(amount = fixValue(e, m.amount))
+            else m
         })
         // woe chunk 08: "Spells you cast this turn … cost {X} less to cast, where X is the amount of life you lost this turn": X found as the
         // ability resolves (CR 608.2h), unless it is about the spell being cast
@@ -1306,6 +1323,9 @@ internal object Effects {
         if (value is Value.Fixed || mentionsAffected(value)) value else Value.Fixed(e.value(value))
 
     private fun mentionsAffected(value: Value): Boolean = value.toString().contains("Affected")
+
+    /** The value reads the replaced or triggering event ("that much damage"): worked out as that event happens, not fixed now. */
+    private fun mentionsEvent(value: Value): Boolean = value.toString().contains("Event")
 
     /** "Prevent the next N damage" (CR 615.7, D26): a shield effect object whose amount goes down as it prevents. */
     private fun preventDamage(scope: Scope, effect: Effect.PreventDamage) {

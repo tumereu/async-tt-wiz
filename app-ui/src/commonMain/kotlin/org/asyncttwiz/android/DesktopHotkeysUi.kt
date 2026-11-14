@@ -92,6 +92,7 @@ fun HotkeySheet(bindings: KeyBindings, settings: () -> Unit, close: () -> Unit) 
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         SheetGroup(HotkeyPlace.Draft.title, rows(HotkeyPlace.Draft))
+                        SheetGroup(HotkeyPlace.Editor.title, rows(HotkeyPlace.Editor))
                         SheetGroup("Mouse", others, extra = MOUSE_ROWS)
                     }
                 }

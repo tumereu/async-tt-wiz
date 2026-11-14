@@ -146,8 +146,6 @@ data class CastFacts(
     val heldAsCast: List<arcanum.api.Condition> = emptyList(),
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
-    /** rvr: it was cast during a main phase of the player who cast it (addendum, CR 505.1, 207.2c). */
-    val duringOwnMainPhase: Boolean = false,
 ) {
     companion object {
         /** No facts: what an object that wasn't cast has. */

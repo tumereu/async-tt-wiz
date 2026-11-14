@@ -536,7 +536,7 @@ internal object Payment {
 
     // ---- Finishing
 
-    /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested. */
+    /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested (woe, otj). */
     private fun asCastConditions(instructions: arcanum.api.Instructions): List<arcanum.api.Condition> {
         fun of(c: arcanum.api.Condition): List<arcanum.api.Condition> = when (c) {
             is arcanum.api.Condition.AsCast -> listOf(c.condition)
@@ -552,6 +552,8 @@ internal object Payment {
                 is arcanum.api.Step.ForEach -> of(step.steps)
                 is arcanum.api.Step.Repeat -> of(step.steps)
                 is arcanum.api.Step.RepeatWhile -> of(step.condition) + of(step.steps)
+                is arcanum.api.Step.Simultaneously -> of(step.steps)
+                is arcanum.api.Step.Pay -> of(step.steps)
                 else -> emptyList()
             }
         }
@@ -565,9 +567,11 @@ internal object Payment {
         val s = recorder.state
         val id = plan.itemId
         val o = s.objOrThrow(id)
-        // woe: CR 601.2i: "if you controlled a Faerie as you cast this spell" is answered now, once
+        // woe, otj: CR 601.2i: "if you controlled a Faerie as you cast this spell", "if you controlled a Mount as you cast this spell" are
+        // answered now, once, with the spell's choices
         val asCast = asCastConditions(plan.instructions).distinct().let { conditions ->
-            if (conditions.isEmpty()) emptyList() else recorder.snapshot().evaluator(plan.player, self = id).let { e -> conditions.filter { e.holds(it) } }
+            if (conditions.isEmpty()) emptyList()
+            else recorder.snapshot().evaluator(plan.player, self = id, names = names, stackItem = plan.item).let { e -> conditions.filter { e.holds(it) } }
         }
         val facts = o.castOrNone.copy(
             castFrom = plan.castFrom,
@@ -714,8 +718,6 @@ internal object Payment {
         val loyaltyCost = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.Loyalty>().firstOrNull()?.let { part ->
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
-        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
-            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
@@ -725,6 +727,10 @@ internal object Payment {
                 arcanum.engine.change.Changes.cast(recorder.state, o.id, o.castOrNone.copy(modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct()))
                     ?.let { recorder.record(it) }
             }
+        // otj chunk 06: the ability is on the Stack with its targets when it becomes activated (CR 602.2i), so "an ability that
+        // targets a creature or player" reads them
+        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
+            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val loyalty = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is CostPart.Loyalty }
         countActivation(recorder, plan.sourceId, origin, loyalty)
         Casting.keepPriority(recorder, plan.player)

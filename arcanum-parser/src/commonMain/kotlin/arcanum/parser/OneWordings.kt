@@ -41,7 +41,6 @@ internal object One {
     val CHOOSE_COLOR_GAINS_HEXPROOF_FROM_UNBLOCKABLE_BY = Regex(
         """Choose a color\. (Another target|Target) (.+?) gains (?:(.+?) and )?hexproof from that color until end of turn\. (?:It|That creature) can't be blocked by (\w+) of that color this turn\.""")
     // one chunk 04: Blade of Shared Souls
-    val BECOMES_ATTACHED_TO = Regex("""(?:[Ww]henever )?(.+?) becomes attached to an? (\w+)""")
     val WHILE_ATTACHED_MAY_BECOME_COPY = Regex("""[Ff]or as long as (.+?) remains attached to (?:it|that creature), you may have that creature become a copy of another target (\w+ you control)\.""")
     // one chunk 08: Compleat Devotion, Hexgold Slash, Porcelain Zealot
     val IT_HAS_KEYWORD = Regex("""(?:that creature|it) has ([a-z]+)""")

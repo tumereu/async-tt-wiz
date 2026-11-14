@@ -54,6 +54,11 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                 }
                 HorizontalDivider()
             }
+            // WEB-050, WEB-054: this browser's notifications and install (in a browser only)
+            LocalWebNotifications.current?.let { web ->
+                SettingsSection("This browser") { BrowserSettings(web) }
+                HorizontalDivider()
+            }
             SettingsSection("Table") {
                 // WEB-014: the browser's Layout (none on Android)
                 LayoutSetting()
@@ -93,7 +98,7 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
 
 /**
  * WEB-043 (wireframe D10): Settings on the desktop layout, the same groups as the phone's as cards in two columns: Profile,
- * Games, Table, Timeline playback and Automatum on the left; About & account, Card records and Keyboard on the right (one
+ * Games, This browser, Table, Timeline playback and Automatum on the left; About & account, Card records and Keyboard on the right (one
  * column where two don't fit).
  */
 @Composable
@@ -105,6 +110,7 @@ private fun DesktopSettings(catalog: CatalogViewModel?, accountId: String, logou
             DeckVisibilitySetting(account)
             MoveSoundSetting(account)
         }
+        LocalWebNotifications.current?.let { web -> SettingsGroup("This browser") { BrowserSettings(web) } }
         SettingsGroup("Table") {
             LayoutSetting()
             CardMoveSpeedSetting(accountId)

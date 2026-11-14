@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#244c46">
     <title>ATW</title>
+    <!-- WEB-054: installable as an app (the manifest, icons and service worker sit at the top of the site) -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="ATW">
     <style>
         /* No pull-to-refresh or long-press callouts over the app (docs/specs/web-client.md §8.5) */
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f7f8f9;
@@ -30,6 +36,22 @@
         // The server replaces these with the build's folder and name (webApp's webDist); a development server leaves them.
         globalThis.atwBase = '%ATW_BASE%'.charAt(0) === '%' ? '/' : '%ATW_BASE%';
         globalThis.atwBuild = '%ATW_BUILD%'.charAt(0) === '%' ? '' : '%ATW_BUILD%';
+        // WEB-054: the browser's install prompt, kept for Settings -> Install app (the site never shows it by itself)
+        globalThis.atwInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', function (event) {
+            event.preventDefault();
+            globalThis.atwInstallPrompt = event;
+            window.dispatchEvent(new Event('atw-install'));
+        });
+        window.addEventListener('appinstalled', function () {
+            globalThis.atwInstallPrompt = null;
+            globalThis.atwInstalled = true;
+            window.dispatchEvent(new Event('atw-install'));
+        });
+        // WEB-052, WEB-054: the service worker, for notifications and installing (it caches nothing)
+        if ('serviceWorker' in navigator && window.isSecureContext && globalThis.atwBuild !== '') {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function (e) { console.warn('ATW service worker: ' + e); });
+        }
     </script>
 </head>
 <body>

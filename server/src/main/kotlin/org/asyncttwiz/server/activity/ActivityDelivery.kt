@@ -11,8 +11,11 @@ import java.time.ZoneOffset
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.*
+import org.asyncttwiz.protocol.ActivityKind
 import org.asyncttwiz.protocol.ActivityPushHint
 import org.asyncttwiz.protocol.ActivityWire
+import org.asyncttwiz.protocol.WebPushNotice
+import org.asyncttwiz.protocol.WebPushSubscription
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountSession.ACCOUNT_SESSION as SESSION
@@ -71,8 +74,8 @@ class FcmActivityAdapter @JvmOverloads constructor(private val project: String, 
 }
 
 /** Independently scheduled optional hint delivery. Network I/O never owns a game/DB transaction. */
-class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter: ActivityPushAdapter? = null,
-    private val clock: Clock = Clock.systemUTC()) : AutoCloseable {
+class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRuntime, private val adapter: ActivityPushAdapter? = null,
+    private val clock: Clock = Clock.systemUTC(), private val webPush: WebPushAdapter? = null) : AutoCloseable {
     private val worker = Executors.newSingleThreadScheduledExecutor { Thread(it, "activity-hints").apply { isDaemon = true } }
     fun start() { worker.scheduleWithFixedDelay({ if (runtime.admitting()) runCatching { deliverDue() } }, 0, 1, TimeUnit.SECONDS) }
     fun deliverDue() {
@@ -110,7 +113,9 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                 }
             }
         }
-        val adapter = adapter ?: return // Non-FCM maintenance is a normal supported service configuration.
+        // Non-FCM maintenance is a normal supported service configuration; so is one without browser notifications (WEB-052)
+        if (adapter == null && webPush == null) return
+        val reachable = DSL.or(listOfNotNull(adapter?.let { INSTALL.PUSH_TOKEN.isNotNull }, webPush?.let { INSTALL.WEB_PUSH.isNotNull }))
         repeat(32) {
             val time = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
             val work = runtime.transaction { connection ->
@@ -118,11 +123,11 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                 // Recheck expiry on every iteration: earlier network calls may
                 // have consumed the remaining TTL of another queued hint.
                 sql.deleteFrom(PUSH).where(PUSH.EXPIRES_AT.le(time)).execute()
-                val row = sql.select(PUSH.fields().toList() + INSTALL.PUSH_TOKEN + INSTALL.ACCOUNT_ID).from(PUSH)
+                val row = sql.select(PUSH.fields().toList() + INSTALL.PUSH_TOKEN + INSTALL.WEB_PUSH + INSTALL.ACCOUNT_ID).from(PUSH)
                     .join(INSTALL).on(INSTALL.GENERATION.eq(PUSH.GENERATION)).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
                     .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).leftJoin(GAME).on(GAME.ID.eq(PUSH.GAME_ID))
                     .leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
-                    .where(PUSH.DUE_AT.le(time)).and(INSTALL.PUSH_TOKEN.isNotNull).and(SESSION.REVOKED_AT.isNull)
+                    .where(PUSH.DUE_AT.le(time)).and(reachable).and(SESSION.REVOKED_AT.isNull)
                     .and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
                     .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE").and(PUSH.KIND.`in`("INVITATION", "GAME", "GAME_REMOVAL"))
                         .and(PUSH.KIND.ne("INVITATION").or(INVITATION.STATE.eq("PENDING").and(GAME.CURRENT_INVITATION.eq(PUSH.IDENTITY))))
@@ -130,21 +135,36 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                     .orderBy(PUSH.DUE_AT).limit(1).forUpdate().of(PUSH).skipLocked().fetchOne() ?: return@transaction null
                 val attempt = row[PUSH.ATTEMPTS]!!
                 val seconds = retrySeconds(attempt)
-                sql.update(PUSH).set(PUSH.ATTEMPTS, attempt + 1).set(PUSH.DUE_AT, time.plusSeconds(seconds))
-                    .where(PUSH.GENERATION.eq(row[PUSH.GENERATION])).and(PUSH.GAME_ID.eq(row[PUSH.GAME_ID])).and(PUSH.KIND.eq(row[PUSH.KIND])).execute()
+                val exact = PUSH.GENERATION.eq(row[PUSH.GENERATION]).and(PUSH.GAME_ID.eq(row[PUSH.GAME_ID])).and(PUSH.KIND.eq(row[PUSH.KIND]))
+                sql.update(PUSH).set(PUSH.ATTEMPTS, attempt + 1).set(PUSH.DUE_AT, time.plusSeconds(seconds)).where(exact).execute()
                 // The pushed activity was due now; the woken poll must show it even if the actor's next
                 // (late-reported) input arrives before that poll and makes it look not-yet-due again.
                 if (row[PUSH.KIND] == "GAME") sql.update(SUMMARY)
                     .set(SUMMARY.PUSHED_THROUGH, DSL.greatest(SUMMARY.PUSHED_THROUGH, DSL.`val`(row[PUSH.ACTIVITY_ID])))
                     .where(SUMMARY.ACCOUNT_ID.eq(row[INSTALL.ACCOUNT_ID])).and(SUMMARY.GAME_ID.eq(row[PUSH.GAME_ID]))
                     .and(SUMMARY.KIND.eq("GAME")).execute()
-                Triple(row, ActivityPushHint(row[PUSH.GENERATION].toString(), row[PUSH.GAME_ID].toString(),
-                    row[PUSH.ACTIVITY_ID].toString(), row[PUSH.IDENTITY].toString()), row[INSTALL.PUSH_TOKEN]!!)
+                val browser = row[INSTALL.WEB_PUSH]?.takeIf { webPush != null }
+                if (browser == null) return@transaction Delivery.Android(row, ActivityPushHint(row[PUSH.GENERATION].toString(),
+                    row[PUSH.GAME_ID].toString(), row[PUSH.ACTIVITY_ID].toString(), row[PUSH.IDENTITY].toString()), row[INSTALL.PUSH_TOKEN]!!)
+                // WEB-051, WEB-052: a browser is sent the notice itself, in the feed's words, if its switches let the kind through
+                val subscription = ActivityWire.json.decodeFromString(WebPushSubscription.serializer(), browser)
+                val kind = ActivityKind.valueOf(row[PUSH.KIND]!!)
+                val notice = if (!WebPushNotices.wanted(subscription, kind)) null else ActivityService(runtime, clock)
+                    .pushHint(sql, row[INSTALL.ACCOUNT_ID]!!, kind, row[PUSH.GAME_ID]!!, row[PUSH.ACTIVITY_ID]!!)?.let(WebPushNotices::of)
+                if (notice == null) {
+                    sql.deleteFrom(PUSH).where(exact).and(PUSH.ACTIVITY_ID.eq(row[PUSH.ACTIVITY_ID])).execute()
+                    return@transaction Delivery.Nothing
+                }
+                Delivery.Browser(row, subscription, browser, notice)
             } ?: return
-            val result = adapter.send(work.third, work.second)
+            if (work !is Delivery.Push) return@repeat
+            val result = when (work) {
+                is Delivery.Android -> adapter!!.send(work.token, work.hint)
+                is Delivery.Browser -> webPush!!.send(work.subscription, work.notice)
+            }
             runtime.transaction { connection ->
                 val sql = DSL.using(connection, SQLDialect.POSTGRES)
-                val row = work.first
+                val row = work.row
                 val exact = PUSH.GENERATION.eq(row[PUSH.GENERATION]).and(PUSH.GAME_ID.eq(row[PUSH.GAME_ID]))
                     .and(PUSH.KIND.eq(row[PUSH.KIND])).and(PUSH.ACTIVITY_ID.eq(row[PUSH.ACTIVITY_ID]))
                 when (result.status) {
@@ -153,9 +173,14 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                             retrySeconds(row[PUSH.ATTEMPTS]!!), result.retryAfterSeconds.coerceAtMost(86400)))))
                         .where(exact).execute()
                     PushStatus.INVALID_REGISTRATION -> {
-                        sql.update(INSTALL).set(INSTALL.PUSH_TOKEN, null as String?)
-                            .set(INSTALL.INVALID_TOKEN_HASH, ActivityService.tokenHash(work.third)).where(INSTALL.GENERATION.eq(row[PUSH.GENERATION]))
-                            .and(INSTALL.PUSH_TOKEN.eq(work.third)).execute()
+                        when (work) {
+                            is Delivery.Android -> sql.update(INSTALL).set(INSTALL.PUSH_TOKEN, null as String?)
+                                .set(INSTALL.INVALID_TOKEN_HASH, ActivityService.tokenHash(work.token)).where(INSTALL.GENERATION.eq(row[PUSH.GENERATION]))
+                                .and(INSTALL.PUSH_TOKEN.eq(work.token)).execute()
+                            // The browser's subscription is gone (it unsubscribed, or it expired): it gets no more until it subscribes again
+                            is Delivery.Browser -> sql.update(INSTALL).set(INSTALL.WEB_PUSH, null as String?)
+                                .where(INSTALL.GENERATION.eq(row[PUSH.GENERATION])).and(INSTALL.WEB_PUSH.eq(work.stored)).execute()
+                        }
                         sql.deleteFrom(PUSH).where(exact).execute()
                     }
                     else -> sql.deleteFrom(PUSH).where(exact).execute()
@@ -163,6 +188,15 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
             }
         }
     }
+
+    /** One pending push's sending: to an Android installation's FCM token, to a browser, or nothing (already dropped). */
+    private sealed interface Delivery {
+        data object Nothing : Delivery
+        sealed class Push(val row: org.jooq.Record) : Delivery
+        class Android(row: org.jooq.Record, val hint: ActivityPushHint, val token: String) : Push(row)
+        class Browser(row: org.jooq.Record, val subscription: WebPushSubscription, val stored: String, val notice: WebPushNotice) : Push(row)
+    }
+
     override fun close() { worker.shutdownNow(); check(worker.awaitTermination(25, TimeUnit.SECONDS)) }
     companion object { fun retrySeconds(attempt: Int) = when (attempt) { 0 -> 60L; 1 -> 300L; 2 -> 900L; else -> 3600L } }
 }

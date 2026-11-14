@@ -69,7 +69,8 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         // The card records and the session need the page's own storage before anything reads them
         val storage = BrowserStorage.open(pageScope)
         val catalog = BrowserCatalogController(storage, build.accountOrigin, build.catalogChecksum.ifEmpty { null }, pageScope)
-        AppServices.install(BrowserAppServices(storage, catalog))
+        val services = BrowserAppServices(storage, catalog, build.accountOrigin)
+        AppServices.install(services)
         startBrowserDiagnostics()
         // The table's plays are worked out in the engine's Web Worker; requests wait until it has loaded
         val worker = startEngineWorkers(assetBase)
@@ -84,7 +85,9 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         }
         unlockSound()
         val auth = AuthViewModel(AppServices.current)
-        val shell = WebShell(auth)
+        val shell = WebShell(auth, services.activityDelivery.notifications, build.accountOrigin)
+        // WEB-052: a notification's click in a tab already open opens its game or pod here
+        jsOnNotificationOpen(shell::openFromNotification)
         jsOnInput { auth.heartbeat.input() }
         jsOnVisibility(visible = shell::foreground, hidden = shell::background)
         shell.foreground()
@@ -101,13 +104,18 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
 }
 
 /** The page's app: the shared controllers ([auth]) and what the browser adds around them. */
-internal class WebShell(private val auth: AuthViewModel) {
+internal class WebShell(private val auth: AuthViewModel, private val notifications: WebNotifications, private val origin: String) {
     /** Manage decks' Cubes tab, kept here so addresses can read and set it (WEB-001: /cubes/<id>). */
     private val collectionTab: MutableState<Boolean> = mutableStateOf(false)
     private val router = WebRouter(auth, collectionTab)
     private val stale = StaleBuild()
 
+    /** WEB-055: while the page is hidden, the games list read every minute for the tab's title. */
+    private var hiddenPoll: kotlinx.coroutines.Job? = null
+
     fun foreground() {
+        hiddenPoll?.cancel(); hiddenPoll = null
+        jsSetTitle(webTabTitle(auth.lobby.state.games, auth.controller.state.account?.accountId))
         auth.catalog.foreground()
         auth.controller.foreground()
         auth.lobby.foreground()
@@ -116,9 +124,42 @@ internal class WebShell(private val auth: AuthViewModel) {
     }
 
     fun background() {
+        hiddenPoll?.cancel()
+        hiddenPoll = pageScope.launch { while (true) { delay(60_000); hiddenTitle() } }
         auth.lobby.background()
         auth.heartbeat.display(null, null)
         DebugLatency.appBackgrounded()
+    }
+
+    /** WEB-055: the hidden page's title from the games list read now (the lobby doesn't refresh while hidden). */
+    private suspend fun hiddenTitle() {
+        val token = auth.controller.sessionToken() ?: return
+        val account = auth.controller.state.account?.accountId ?: return
+        try {
+            val games = mutableListOf<org.asyncttwiz.protocol.GameSummary>()
+            LobbyApi(origin).use { api ->
+                var after: String? = null
+                repeat(5) {
+                    val page = api.games(token, false, after)
+                    games += page.games
+                    after = page.next ?: return@use
+                }
+            }
+            jsSetTitle(webTabTitle(games, account))
+        } catch (failure: Exception) {
+            AppLog.info("web-page", "Tab title: the games list couldn't be read (${failure.message})")
+        }
+    }
+
+    /** WEB-052: a notification clicked while this tab is open opens its game or pod ([path], an app address). */
+    fun openFromNotification(path: String) {
+        val route = WebRoute.parse(path)
+        if (route == null || auth.controller.state.account == null) {
+            AppLog.info(WebNotifications.TAG, "Notification click for $path: ${if (route == null) "not an app address" else "signed out"}")
+            return
+        }
+        AppLog.info(WebNotifications.TAG, "Notification click: opening $path")
+        router.open(route)
     }
 
     @Composable fun Content() {
@@ -138,6 +179,9 @@ internal class WebShell(private val auth: AuthViewModel) {
             }
             router.Sync()
             stale.Watch(router)
+            // WEB-055: "(N) ATW", the games waiting for your move
+            val title by remember { derivedStateOf { webTabTitle(auth.lobby.state.games, auth.controller.state.account?.accountId) } }
+            LaunchedEffect(title) { jsSetTitle(title) }
             val catalogBlocked = !auth.catalog.state.ready && !auth.catalog.state.failed
             val releaseNotes = remember { ReleaseNotePreferences(AppPlatform.current) }
             var whatsNew by remember { mutableStateOf(releaseNotes.unseen()) }
@@ -160,7 +204,7 @@ internal class WebShell(private val auth: AuthViewModel) {
             Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalCardListSupport provides auth.cardListSupport, LocalCardMarks provides auth.cardMarks,
                     LocalCollectionTab provides collectionTab, LocalScreenBack provides router.screenBack(),
-                    LocalHapticFeedback provides BrowserHaptics) {
+                    LocalHapticFeedback provides BrowserHaptics, LocalWebNotifications provides notifications) {
                     AccountEntry(auth.controller, auth.reset, auth.catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes,
                         pods = auth.pods)
                 }

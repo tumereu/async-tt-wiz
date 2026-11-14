@@ -47,31 +47,8 @@ fun ActivityHint.notificationKey(): String = when {
     else -> "pod:$gameId"
 }
 
-/**
- * DRF-137, LOB-072: an invitation's notification: "<name> invited you · <game>"; a pod challenge "<pod>: <name> challenged
- * you", while it waits for your deck with " · submit your deck to accept"; a pod invitation "<name> invited you to <pod>"
- * ([podName]: the pod's name when the hint has none). Without the inviter's name, "New invitation" or "New pod invitation".
- */
-fun invitationText(hint: ActivityHint, podName: String? = null): String {
-    val name = hint.opponentName
-    return when {
-        hint.kind == ActivityKind.POD_INVITATION -> name?.let { who -> (hint.resourceName ?: podName)?.let { "$who invited you to $it" } }
-            ?: podActivityText(ActivityKind.POD_INVITATION)
-        name == null -> "New invitation"
-        hint.podId != null -> "${hint.resourceName ?: "Pod"}: $name challenged you" + if (hint.held) " · submit your deck to accept" else ""
-        else -> "$name invited you" + hint.resourceName?.let { " · $it" }.orEmpty()
-    }
-}
+/** DRF-137, LOB-072: an invitation's notification ([ActivityTexts.invitation]). */
+fun invitationText(hint: ActivityHint, podName: String? = null): String = ActivityTexts.invitation(hint, podName)
 
-fun podActivityText(kind: ActivityKind, name: String? = null): String = when (kind) {
-    ActivityKind.POD_INVITATION -> "New pod invitation"
-    ActivityKind.POD_YOUR_PICK -> name?.let { "Your pick — $it" } ?: "Your pick"
-    ActivityKind.POD_DECKS_READY -> name?.let { "Decks ready — $it" } ?: "Decks ready"
-    ActivityKind.POD_DRAFT_COMPLETE -> "Draft complete: build your deck"
-    ActivityKind.POD_DRAFT_CANCELLED -> "Draft cancelled"
-    ActivityKind.POD_DESTROYED -> "Pod destroyed"
-    ActivityKind.POD_AUTO_START_OFF -> name?.let { "Auto-start off — $it" } ?: "Auto-start off"
-    // Game history §4.5: the cleanup's warning 3 days before a stalled pod is deleted
-    ActivityKind.POD_REMOVAL -> "${name ?: "Pod"}: Removed in 3 days if nobody picks or plays"
-    else -> "Game activity"
-}
+/** A pod notification's title ([ActivityTexts.podActivity]). */
+fun podActivityText(kind: ActivityKind, name: String? = null): String = ActivityTexts.podActivity(kind, name)

@@ -14,13 +14,16 @@ import org.asyncttwiz.server.database.OwnershipFailure
 
 /** Explicit route adapter for the public listener; no cookies, redirects or game mutation. */
 class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
+    /** WEB-050: the public VAPID key browsers subscribe with; null when the server sends no browser notifications. */
+    private val webPushKey: String? = null,
     private val presence: PresenceListener = PresenceListener {}) {
     private val accounts = AccountService(runtime)
     private val activity = ActivityService(runtime)
     private val limits = AccountRateLimits()
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
-        if (path !in listOf("/activity", "/activity/installations", "/activity/target", "/activity/presence", "/activity/waiting")) return false
+        if (path !in listOf("/activity", "/activity/installations", "/activity/target", "/activity/presence", "/activity/waiting",
+                "/activity/web-push")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         fun reply(status: Int, body: String = "") {
@@ -42,6 +45,9 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
                     reply(200, ActivityWire.json.encodeToString(activity.target(principal, kind,
                         request.getParameter("game").orEmpty(), request.getParameter("identity").orEmpty())))
                 }
+                // WEB-050: the key a browser's push subscription is made for
+                "GET" to "/activity/web-push" -> if (webPushKey == null) error(404, "unavailable")
+                    else reply(200, ActivityWire.json.encodeToString(WebPushKey(webPushKey)))
                 "GET" to "/activity/waiting" -> reply(200, ActivityWire.json.encodeToString(activity.waiting(principal)))
                 "GET" to "/activity" -> reply(200, ActivityWire.json.encodeToString(activity.page(principal, request.getParameter("after"))))
                 "PUT" to "/activity/presence", "PUT" to "/activity/installations" -> {

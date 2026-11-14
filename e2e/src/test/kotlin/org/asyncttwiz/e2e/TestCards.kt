@@ -188,6 +188,14 @@ object TestCards {
     val brood = card("Ember Brood", "Creature — Elemental", "{0}", "Offspring {2}", "1", "1")
     /** A free mana rock: identical ones lie in one stack (TBL-053). */
     val shard = card("Ember Shard", "Artifact", "{0}", "{T}: Add {R}.")
+    /** Problem report JN5UQN: a free creature that connives as it enters (CR 701.50a: draw a card, then discard a card). */
+    val conniver = card("Ember Schemer", "Creature — Human Rogue", "{0}",
+        "When this creature enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)",
+        "1", "1")
+    /** A free creature with start your engines! (CR 702.179): its controller gets speed, which a sourceless trigger raises. */
+    val racer = card("Ember Racer", "Creature — Goblin Pilot", "{0}",
+        "Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)",
+        "1", "1")
     /** A free creature with offspring {R} (ZON-080: its "Cast" and "Cast with offspring {R}" chips). */
     val kit = card("Ember Kit", "Creature — Elemental Fox", "{0}",
         "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)",
@@ -424,6 +432,12 @@ data class TestDeck(val name: String, val entries: List<Pair<TestCard, Int>>,
 
         /** 40 cards: Mountains, Ember Shards (a free mana rock) and Ember Kits (offspring {R}). */
         fun kits() = TestDeck("Kits", listOf(TestCards.mountain to 14, TestCards.shard to 13, TestCards.kit to 13))
+
+        /** 40 cards: Mountains and Ember Schemers (connive as they enter). */
+        fun schemers() = TestDeck("Schemers", listOf(TestCards.mountain to 20, TestCards.conniver to 20))
+
+        /** 40 cards: Mountains, Ember Racers (start your engines!) and Storm Sparks. */
+        fun racers() = TestDeck("Racers", listOf(TestCards.mountain to 14, TestCards.racer to 13, TestCards.spark to 13))
 
         /** 40 cards: Mountains, Cinder Trails (a fetch-style land) and Storm Sparks. */
         fun trails() = TestDeck("Trails", listOf(TestCards.mountain to 14, TestCards.cinderTrail to 13, TestCards.spark to 13))

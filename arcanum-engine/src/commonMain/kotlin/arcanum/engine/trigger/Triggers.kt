@@ -95,6 +95,8 @@ internal object Triggers {
         found += additional(state, now, change, found)
         // CR 726.2: the initiative's inherent triggered abilities
         found += arcanum.engine.dungeon.Dungeons.inherent(state, now, change)
+        // CR 702.179d: speed's inherent triggered ability
+        found += arcanum.engine.turn.Speed.inherent(state, now, change)
         val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
         state.delayedTriggers.values.toList().forEach { dt ->
             if (dt.laterTurn && state.turn.number <= dt.createdTurn) return@forEach

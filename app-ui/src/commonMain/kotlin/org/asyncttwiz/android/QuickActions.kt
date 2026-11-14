@@ -203,8 +203,11 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 if (unconfirmed && engine != null) EngineUnconfirmedMark(engine.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             } }
         if (stacked) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp), content = cells)
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { mainButton(Modifier.width(DesktopMainButtonWidth)) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(DesktopTable.ACTION_GAP.dp), content = cells)
+            // WEB-018: the right two thirds of the bottom row, Undo (the action area's) in the first third
+            BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                mainButton(Modifier.width(DesktopTable.mainWidth(maxWidth.value).dp))
+            }
         } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp), content = cells)
             mainButton(Modifier.width(MainButtonWidth))
@@ -214,9 +217,6 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
 
 /** TRN-017: the main button's one width, whatever quick actions show beside it. */
 val MainButtonWidth = 112.dp
-
-/** WEB-018: the main button's width in the desktop table's action area, under the quick actions. */
-val DesktopMainButtonWidth = 176.dp
 
 val AdvanceArrowShape = GenericShape { size, _ ->
     val tip = size.height / 4f

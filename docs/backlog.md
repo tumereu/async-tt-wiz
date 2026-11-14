@@ -16,21 +16,9 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Owner notes 2026-11-14 evening (tested on prod 0.2.x, so each is first checked on master): clear bugs, one worker beside the desktop batch.
-
-- Speed (Start your engines!): the speed increase triggers when the player is already at max speed (it has an intervening "if your speed is less than 4": CR check), and its Stack entry/log text reads "ability's ability" (placeholder-like text is an error). Owner also asks whether it should use the Stack at all: per the rules it is a triggered ability, so it does.
-- Changing X while casting doesn't update the tap prediction (the outline of the sources that will pay).
-- The end-of-combat damage result pause no longer shows the creatures' damage splashes and skulls (regression?).
-- A requested rewind to an earlier step didn't clear combat staging: after the other player rewound and the game came back to declare attackers, the attacker's earlier staged declarations were still there.
-- Desktop: the "Updating card records" loading bar at the top pushes the views down and makes them jump when it finishes; make it an overlay.
-
 Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.
 
-- Web: the page's hidden accessibility structure (the semantics mirror screen readers and the e2e tests read) keeps showing a dialog or menu after it closes, until a reload (found 2026-11-14 by the frame-rate worker). Reproduce with an e2e test, fix.
-- Desktop layout default sizes (TBL-034's sliders stay, on top of the new defaults): battlefield cards and decks and their texts at least twice today's size, hand cards about 30% bigger, the top row's and the quick actions' texts and the rest about 30% bigger where it reads better (the worker proposes, the owner reviews in the gallery) (WEB-015, WEB-018, WEB-020).
-- Desktop action area (WEB-018): Undo becomes a real button lined up with the main button, Undo about a third of the row and the main button two thirds, no empty space between them.
-- The other player's hand on the desktop table shows as the phone's small fan of card backs with its count (ZON-001), not as it does now (WEB-016).
-- One chat on the desktop table (WEB-017, LOB-066): the top row's chat button opens or focuses the dock's chat (unfolding the dock); no second chat view.
+- Desktop battlefield cards at least twice today's size (the rest of the desktop default sizes is built, 2026-11-14): waits for the owner's choice, since at 4× the six battlefield rows don't fit a 1440 × 900 or 1920 × 1080 window even at the opening's 0.65× (TBL-121), so the table opens with both land rows out of view (gallery: desktop/table-battlefield-4x.png). Meanwhile, with the taller seat headers, hand band and top row, the 2× battlefield cards open smaller at 1440 × 900 than before (the rows fit: about 56 px tall, 72 before; at 1920 × 1080 about 78, 80 before). Options: the desktop opening shows your own battlefield whole (the other player's land row out of view); a lower least zoom on the desktop so the rows fit (cards then only as large as fit); fewer rows on the desktop; or the battlefield stays 2× (the Card size slider gives 4×) (WEB-022, TBL-121, TBL-010).
 - Stack animation (spec `docs/specs/stack-animation.md`, owner 2026-11-14): source → middle → Stack with no second move, an entry on the Stack only as long as its own animation (target arrows pre-resolve, the effect post-resolve) (HIS-112, STK-058, TBL-125).
 
 Owner notes 2026-11-14 evening, agreed changes (after the desktop playtest batch and the Stack animation; two workers may run in parallel, one per group). Each is first checked on master.

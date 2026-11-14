@@ -29,8 +29,8 @@ fun CardSettings(preferences: CardAppearancePreferences = rememberCardAppearance
         CardScaleSlider("Card size", "card-size", appearance.cardSize, { preferences.setSize(it) })
         CardCustomizeToggle("Customize per area", appearance.customizeAreas, preferences::customizeAreas)
         if (appearance.customizeAreas) for (area in CardArea.entries) {
-            CardScaleSlider(area.label, "card-size-${area.name}", appearance.size(area), { preferences.setSize(it, area) },
-                appearance, appearance.size(area))
+            CardScaleSlider(area.label, "card-size-${area.name}", appearance.slider(area), { preferences.setSize(it, area) },
+                appearance, appearance.slider(area))
         }
         CardScaleSlider("Card text size", "card-text-size", appearance.textSize, { preferences.setText(it) })
         CardCustomizeToggle("Customize per text", appearance.customizeText, preferences::customizeText)

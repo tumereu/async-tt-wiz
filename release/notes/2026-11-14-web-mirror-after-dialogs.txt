@@ -1,0 +1,1 @@
+fix: In the web version, after a menu or dialog closes, the mouse pointer again shows the hand over what can be clicked, and screen readers follow the screen again.

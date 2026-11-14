@@ -229,8 +229,17 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val chatDocked = desktopLayout && dockOpen
     SideEffect { controller.chatDocked = chatDocked }
     DisposableEffect(controller) { onDispose { controller.chatDocked = false } }
-    // The chat as a layer over the table (a side panel): not while it is docked
-    val chatLayer = state.chatOpen && !chatDocked
+    // The chat as a layer over the table (a side panel): never on the desktop table, whose one chat is the dock's (WEB-017,
+    // owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?")
+    val chatLayer = state.chatOpen && !desktopLayout
+    // WEB-017, LOB-066: whatever opens the chat there (the top row's chat button, C, Write, a bubble) unfolds the dock to it
+    LaunchedEffect(desktopLayout, state.chatOpen, dockOpen) {
+        if (desktopLayout && state.chatOpen && !dockOpen) {
+            AppLog.info("chat", "Desktop dock shown for the chat (on ${controller.state.chatTab.name.lowercase()}" +
+                (if (controller.state.chatWrite) ", ready to type" else "") + ")")
+            dockOpen = true
+        }
+    }
     // LOB-145: a pod game's chat has the pod's beside it; its unread messages light the chat button (no bubbles)
     val podChat = LocalPodChat.current
     val podId = game.podId
@@ -335,7 +344,10 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                     // The docked chat doesn't turn into the side panel
                     if (dockOpen) controller.closeChat()
                     dockOpen = !dockOpen
-                }, chat = chatOpener, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread))
+                }, chat = {
+                    // WEB-017, LOB-066: the dock's chat, unfolded and ready to type, on the tab with unread messages
+                    controller.writeChat(ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id)))
+                }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread))
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 TableSurface(game, play, accountId, landscape || desktopLayout, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                     onIntent = toolkit::handle, toolkit = toolkit,
@@ -463,7 +475,8 @@ fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEve
         if (desktop != null) {
             Box(Modifier.align(Alignment.BottomStart).width((desktop.width - DesktopTable.ACTIONS).coerceAtLeast(0f).dp)
                 .height(TableTimelineHeight.dp).padding(horizontal = 8.dp)) { strip() }
-            Box(Modifier.align(Alignment.BottomEnd).width(DesktopTable.ACTIONS.dp).height(desktop.band.dp)) { transport() }
+            Box(Modifier.align(Alignment.BottomEnd).width(DesktopTable.ACTIONS.dp).height(desktop.band.dp)) {
+                DesktopScaled(DesktopTable.UI_SCALE) { transport() } }
         }
         // TBL-009: in landscape your life square, piles and emblems keep the bar's left end (the table's own grey bar
         // lies under them); the strip and Previous / Auto / Next share the rest

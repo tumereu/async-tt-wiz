@@ -110,7 +110,8 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
         }
         if (tab == ChatTab.GAME || podView == null || podChat == null) GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f), visible)
         else PodChatBody(podChat, podView, accountId,
-            if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, visible, Modifier.weight(1f))
+            if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, visible, Modifier.weight(1f),
+            write = controller.chatWrites.takeIf { state.chatWrite })
     }
     }
     val gameTab = tab == ChatTab.GAME
@@ -211,8 +212,13 @@ fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: Stri
 /** DRF-170, LOB-145: a pod's chat: its messages with their authors' names, sends on their way and the composer; no "Read" marks. */
 @Composable
 fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: String, ownName: String, visible: Boolean,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier,
+    /** LOB-139, WEB-017: opened by Write (or the desktop's chat button or key) on the Pod tab: its input takes the focus, again
+     * each time this changes; null: not asked. */
+    write: Int? = null) {
     val podId = view.podId
+    val input = remember { FocusRequester() }
+    LaunchedEffect(podId, write) { if (write != null) input.requestFocus() }
     val list = rememberLazyListState()
     FollowLatest(list, podId, view.outgoing.lastOrNull()?.requestId ?: view.messages.lastOrNull()?.id)
     val current by rememberUpdatedState(view)
@@ -241,7 +247,7 @@ fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: String, o
         ChatComposer(view.draft, { chat.compose(podId, it) }, {
             chat.send(podId)
             list.requestScrollToItem(0)
-        }, view.canSend(), stale = false, clear = {}, description = "Pod chat message draft")
+        }, view.canSend(), stale = false, clear = {}, Modifier.focusRequester(input), description = "Pod chat message draft")
     }
 }
 

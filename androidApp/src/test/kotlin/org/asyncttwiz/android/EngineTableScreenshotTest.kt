@@ -619,20 +619,32 @@ class EngineTableScreenshotTest {
         return points to points.last { it.target == game.shown!!.undoTarget }
     }
 
-    // HIS-083, HIS-099 (owner 2026-11-06): holding Undo opens the Undo dialog at the point before her latest action: the
-    // board there on top, under it the timeline's strip of the points (both players' events, with the turn and step
-    // lines) with the chosen one in the centre and its text; Bob has acted since, so Undo asks him
+    // HIS-083, HIS-087, HIS-099 (owner 2026-11-06): holding Undo opens the Undo dialog at the point before her latest action:
+    // the board there on top, under it the timeline's strip of the points (both players' events, with the turn and step
+    // lines) with the chosen one in the centre and its text. Bob has only passed since her latest action, so Undo there is
+    // free; tapping the chip of Bob's latest real input (his own cast) chooses the point before it, which takes it
+    // back, so Undo asks him
     private fun undoDialog(landscape: Boolean, file: String) {
         val game = aliceFewTurnsIn(landscape) { it.holdUndo() }
-        val (points, chosen) = undoDialogPoints(game)
+        val (points, opened) = undoDialogPoints(game)
         assertTrue(points.any { it.shown.author == f.b } && points.any { it.shown.author == f.a }, "both players' events")
+        compose.onNodeWithTag("undo-point").assertTextEquals(opened.shown.description)
+        compose.onNodeWithText("Ask Bob").assertDoesNotExist()
+        val chosen = points.last { it.shown.author == f.b && !EngineEventText.pass(it.event) }
+        assertTrue(points.indexOf(chosen) < points.indexOf(opened), "Bob's real input is before Alice's latest action")
+        // (chips are drawn in event order: the last chip with its text is Bob's latest real input)
+        compose.onAllNodes(hasContentDescription(chosen.shown.description) and hasClickAction(), useUnmergedTree = true).onLast().performClick()
         compose.onNodeWithTag("undo-point").assertTextEquals(chosen.shown.description)
+        // The board there and whether Bob is asked follow once the choice rests
+        compose.mainClock.advanceTimeBy(UNDO_PREVIEW_DELAY_MS + 100)
+        compose.waitUntil { compose.onAllNodesWithText("Ask Bob").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("undo-board").assertExists()
         compose.onNodeWithTag("undo-scroller").assertExists()
         assertTrue(compose.onAllNodesWithTag(TimelineSeparatorTag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty(), "turn and step lines")
         compose.onNodeWithText("Ask Bob").assertExists()
+        compose.onNodeWithTag("rewind-message").assertExists()
         captureShot("$SCREENSHOTS/engine/$file.png",
-            "Alice, a few turns in, holds Undo: the Undo dialog opens at the point just before her latest action (\"${chosen.shown.description}\"), with the board there on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, and Ask Bob with a message field, as Bob has acted since.")
+            "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, and Ask Bob with a message field, as going back there takes his action back.")
     }
 
     // HIS-083, HIS-099

@@ -106,9 +106,9 @@ class AvatarPromptMemory(platform: AppPlatform) {
 
 /** LOB-091: before sign-in, how far the card records' installation is (sign-in works meanwhile). */
 @Composable
-fun CatalogDownloadStatus(catalog: CatalogViewModel) {
+fun CatalogDownloadStatus(catalog: CatalogViewModel, modifier: Modifier = Modifier) {
     val state = catalog.state
-    if (!state.ready) Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+    if (!state.ready) Surface(modifier.testTag("catalog-download-status"), color = MaterialTheme.colorScheme.surfaceVariant) {
         CompositionLocalProvider(LocalCardRecords provides state.records, LocalCardRecordsRetry provides catalog::retry) {
             Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 CardRecordsNote(Modifier.fillMaxWidth())

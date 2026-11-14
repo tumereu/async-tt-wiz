@@ -1789,6 +1789,12 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         lastTakeBack = "$reason; tip $tip → ${after.tip}"
         takeBacks++
         AppLog.info("engine", "Shown board taken back: $reason; tip $tip → ${after.tip}, local head $local → ${after.localHead}")
+        // CMB-043 (owner notes 2026-11-14 evening): the player's own staging made behind the head belongs to the point it was
+        // made at; taken back past it, it goes (else it showed again when the game came back to the same step)
+        staging?.let { s ->
+            staging = null
+            AppLog.info("combat", "Own combat staging made behind the head dropped with the take-back: ${s.combat?.pairs?.size ?: 0} pair(s) at ${s.key}")
+        }
     }
 
     /** STK-025, HIS-099 (owner problem report RC3J4K): how many times a board already shown was taken back ([takenBack]):

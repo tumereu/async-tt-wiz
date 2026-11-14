@@ -105,8 +105,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     /** The game the open chat writes in: the open game's, or the one opened from the games list (LOB-148). */
     private val chatGame: GameSummary? get() = state.detail ?: state.listChat?.let { id -> state.games.firstOrNull { it.id == id } }
-    /** LOB-139: Write in the Life panel: the chat open with its input focused and the soft keyboard up. */
-    fun writeChat() { openChat(); if (state.chatOpen) { state = state.copy(chatWrite = true); chatWrites++ } }
+    /** LOB-139: Write in the Life panel: the chat open with its input focused and the soft keyboard up; [tab]: on that tab
+     * in a pod game (WEB-017: the desktop's chat button, on the tab with unread messages). */
+    fun writeChat(tab: ChatTab = ChatTab.GAME) { openChat(tab = tab); if (state.chatOpen) { state = state.copy(chatWrite = true); chatWrites++ } }
     /** LOB-139, WEB-031: how often Write (or the desktop's chat key) asked for the input: each time takes the keyboard again. */
     var chatWrites by androidx.compose.runtime.mutableIntStateOf(0); private set
     fun closeChat() {

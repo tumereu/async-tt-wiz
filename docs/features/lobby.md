@@ -112,7 +112,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Game chat
 
-- **LOB-066** A chat button on the table's top bar (on the desktop table only while its dock is folded away; the chat is docked otherwise, WEB-017) opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145); a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r62)
+- **LOB-066** A chat button on the table's top bar (on the desktop table only while its dock is folded away, and there it unfolds the dock to its chat, ready to type, on the tab with unread messages: the desktop table has no chat panel, WEB-017) opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145); a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r62)
 - **LOB-067** Messages show author and text, your own tinted; the newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r13)
 - **LOB-068** The keyboard's Send key sends like the Send button. A message being sent says "Checking delivery…", a failed one "Not delivered". (r24)
 - **LOB-069** Unread counts and what each player has read are kept on the server per player and game, so they match on every device: a bubble read on one of your devices is gone on the other. (r58)
@@ -179,7 +179,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Card records
 
-- **LOB-091** Card records come from the ATW server: the card catalog the app was built for (SYS-081). On start, when the installed records aren't that catalog (a first launch, a new app), the app downloads and installs it without asking, before or after sign-in; sign-in works meanwhile, with "Card records updating · 43%" and a bar at the top. A failed download is tried once more by itself, then the line says "Card records couldn't be downloaded" with Retry. (r50)
+- **LOB-091** Card records come from the ATW server: the card catalog the app was built for (SYS-081). On start, when the installed records aren't that catalog (a first launch, a new app), the app downloads and installs it without asking, before or after sign-in; sign-in works meanwhile, with "Card records updating · 43%" and a bar at the top (in the desktop layout lying over the top of the page, so nothing under it moves when it comes or goes). A failed download is tried once more by itself, then the line says "Card records couldn't be downloaded" with Retry. (r50)
 - **LOB-093** Settings → Card records shows the installed date and record count; while card records install, "Card records updating · 43%" with a bar; after a failed download, that line with Retry. (r9)
 - **LOB-094** How far an installation is reads as one share of the whole: the download is its first fifth, adding the records takes it to 60%, and preparing card search goes on from there to 99%. (r55)
 - **LOB-095** The card records are always the catalog the app was built for: installed records of another catalog or format are replaced with it at startup. (r17)

@@ -364,7 +364,10 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         // A new line (§9), kept as the line counter: no event of the rewind's own (owner's rule 2026-11-04)
         val line = row.lines + 1
         sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, line).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
-        val events = Rewind.again(model, target, after, me, line, { UUID.randomUUID().toString() }) { event ->
+        val events = Rewind.again(model, target, after, me, line, { UUID.randomUUID().toString() }, dropped = { event, why ->
+            org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info("Rewind of play {} to {} by {}: {}'s table-only event {} doesn't stand: {}",
+                play, target, account, event.author, event.id, why)
+        }) { event ->
             store.append(history, event, UUID.fromString(event.author), model)
         }
         val gone = after.map { it.id }.toSet() + target

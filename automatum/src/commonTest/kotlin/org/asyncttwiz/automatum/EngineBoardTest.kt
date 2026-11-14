@@ -268,4 +268,35 @@ class EngineBoardTest {
         assertEquals(listOf(entry.id), board.containers.single { it.zone == PlayZone.STACK }.cards)
         assertTrue(spark in board.cards.map { it.id })
     }
+
+    // STK-022, CR 702.179d: speed's increase is a triggered ability with no source: an entry of its own named after the rule
+    // ("Speed"), with the ability's text, never a stand-in name (owner 2026-11-14: it read "Ability's ability")
+    @Test fun theSpeedIncreaseIsAnEntryNamedSpeed() {
+        val kart = Cards.invent("Auto3 Racing Kart", "{1}{R}", "Creature — Goblin Pilot", "Start your engines!", "2/2")
+        table.put(alice, Zone.Battlefield, "Mountain")
+        table.put(alice, Zone.Battlefield, kart)
+        val (spark) = table.put(alice, Zone.Hand, "Storm Spark")
+        table.put(alice, Zone.Library, "Island")
+        table.put(bob, Zone.Library, "Island")
+        val faults = mutableListOf<org.asyncttwiz.protocol.Fault>()
+        val sink = org.asyncttwiz.protocol.Faults.sink
+        org.asyncttwiz.protocol.Faults.sink = { faults += it }
+        try {
+            val triggered = passUntil(cast(table.state(), alice, spark, TargetRef.Player(PlayerId(bob)))) { s ->
+                s.stack.any { s.stackItems[it]?.kind is arcanum.engine.state.StackItemKind.Triggered }
+            }
+            val projected = EngineProjection.project(table.base(), org.asyncttwiz.protocol.game.GameModel(triggered.deepCopy(),
+                org.asyncttwiz.protocol.game.TableState()), alice, "node")
+            val entry = projected.board.stackEffects.single()
+            val own = assertNotNull(entry.frozen, "an entry of its own")
+            assertEquals(alice, entry.controller)
+            val face = projected.definitions.single { it.digest == own.definition }.definition.faces.single()
+            assertEquals("Speed", face.name)
+            assertEquals("Whenever one or more opponents lose life during your turn, if your speed is less than 4, your speed increases by 1. " +
+                "This ability triggers only once each turn.", face.rulesText)
+            assertEquals(emptyList(), faults)
+        } finally {
+            org.asyncttwiz.protocol.Faults.sink = sink
+        }
+    }
 }

@@ -45,7 +45,8 @@ internal object Fdn {
     // chunk 05
     val TWO_AS_LONG_AS = Regex("""(As long as [^.]+\.) ([^.]+ as long as [^.]+\.)""")
     val ANY_PLAYER_CONTROLS = Regex("""any player controls an? (.+)""")
-    val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), it enters with (\S+ \S+) counters? on it\.""")
+    // otj chunk 01: also "this creature" and counters of several kinds ("two +1/+1 counters and a lifelink counter")
+    val IF_IT_ENTERS_WITH_COUNTER = Regex("""If (.+), (?:it|this [a-z]+) enters with (\S+ \S+ counters?(?: and \S+ \S+ counters?)?) on it\.""")
     val FOR_EACH_PUT_INTO_GRAVEYARD_CREATE = Regex("""For each (.+?) put into a graveyard this way, (?:you )?create (.+)\.""")
     val FIRST_TIME_DURING_EACH_OF_YOUR_TURNS = Regex("""(.+) for the first time during each of your turns""")
     // chunk 06

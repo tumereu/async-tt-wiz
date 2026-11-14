@@ -64,7 +64,7 @@ internal object Dft {
     val THOSE_CREATURES_GET_UNTIL_EOT = Regex("""Those creatures get ([+-]\d+)/([+-]\d+) until end of turn\.""")
     val DEALS_DAMAGE_TO_THEM = Regex("""(.+?) deals (\d+) damage to them\.""")
     val NEXT_EXHAUST_COPY_IT = Regex("""When you next activate an exhaust ability that isn't a mana ability this turn, copy it\. You may choose new targets for the copy\.""")
-    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL = Regex("""Any number of target players each mill (\w+) cards\.""")
+    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL = Regex("""[Aa]ny number of target players each mill (a|\w+) cards?(?: and lose (\w+) life)?\.""")
     val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL_GRAVEYARD = Regex("""Any number of target players each mill cards equal to the number of cards in their graveyard\.""")
     val AS_THOUGH_NOT_ACTIVATED = Regex("""During your turn, as long as you haven't activated an? (\w+) ability this turn, you may activate (\w+) abilities as though they haven't been activated\.""")
     val LABEL_ABILITIES_OF_COST_LESS = Regex("""(\w+) abilities of (.+) cost (\{\d+\}) less to activate\.""")
@@ -75,7 +75,8 @@ internal object Dft {
     val COSTS_LESS_IF_TARGETS_MV = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (\w+) with mana value (\d+)\.""")
     // dft chunk 10
     val EXCHANGE_CONTROL_OF_TARGETS = Regex("""Exchange control of target (.+?) and target (.+)\.""")
-    val MAY_ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of an? (.+)\.""")
+    // otj chunk 01: also ", except it's a Shapeshifter Rogue in addition to its other types"
+    val MAY_ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of an? (.+?)(?:, except (.+))?\.""")
     val ALL_LOSE_THEN_DESTROY_ALL = Regex("""All (.+?) lose (\w+) until end of turn, then destroy all (.+)\.""")
     val CREATE_X_TOKENS_WITH_QUOTED = Regex("""[Cc]reate X (\d+/\d+ .+? creature) tokens with "(.+)"\.?""")
     val WITH_MANA_VALUE_X = Regex("""(.+) with mana value X""")
@@ -87,7 +88,8 @@ internal object Dft {
     val THAT_PLAYER_CREATES = Regex("""That player creates (.+)\.""")
     val LOOKS_AT_TOP_EXILES_FACE_DOWN_MAY_PLAY = Regex("""Its controller looks at the top card of that opponent's library and exiles it face down\. They may play that card for as long as it remains exiled\. Mana of any type can be spent to cast a spell this way\.""")
     val CHOOSE_TARGET_MILL_DESTROY_IF_MV = Regex("""Choose target (.+?)\. Mill (\w+) cards, then destroy the chosen permanent if its mana value is less than or equal to the number of cards in your graveyard\.""")
-    val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)""")
+    // otj chunk 07: also "an outlaw was sacrificed this way" (the cost's sacrificed object)
+    val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)|an? (\w+) was sacrificed this way""")
     // dft chunk 13
     val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
     // rvr chunk 03: also "there is an additional combat phase followed by an additional main phase"
@@ -159,7 +161,7 @@ internal object DftPhrases {
                 atLeast = Numbers.count(m.groupValues[1]) ?: return null)
         }
         // dft chunk 12: "the sacrificed permanent was a Vehicle" (the cost's permanent as it last existed, CR 608.2h)
-        Dft.SACRIFICED_WAS.matchEntire(text)?.let { m -> return Condition.ObjectMatches(Objects.Bound(SACRIFICED), Filters.noun(m.groupValues[1]) ?: return null) }
+        Dft.SACRIFICED_WAS.matchEntire(text)?.let { m -> return Condition.ObjectMatches(Objects.Bound(SACRIFICED), Filters.noun(m.groupValues[1].ifEmpty { m.groupValues[2] }) ?: return null) }
         // dft chunk 08: "it's not their turn" (the player of the event isn't the active player)
         if (text == "it's not their turn") return Condition.PlayerMatches(Players.EventPlayer, arcanum.api.PlayerFilter.Not(arcanum.api.PlayerFilter.Is(Players.Active)))
         // dft chunk 03: "a Pirate and a Vehicle attacked this combat" (declared as attackers, even if since removed from combat: mkm chunk 10, CR 506.4)

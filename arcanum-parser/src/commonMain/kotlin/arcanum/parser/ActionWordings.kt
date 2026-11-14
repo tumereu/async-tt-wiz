@@ -12,7 +12,7 @@ import arcanum.api.PlayerFilter
  * - "you proliferate", "an opponent scries": who does what a player does;
  * - "you exert a creature", "you foretell a card": what a player does to an object;
  * - "a creature you control explores" (lci: "explores a land card", what it revealed): what a permanent does;
- * - "this creature becomes monstrous".
+ * - "this creature becomes monstrous", "this card becomes plotted".
  */
 internal object ActionWordings {
     /** A verb in the two forms cards print it. */
@@ -45,9 +45,10 @@ internal object ActionWordings {
     /** What permanents do that reveals a card: "a creature you control explores a land card" (CR 701.44a). */
     private val REVEALING = listOf(KeywordActionKind.Explore)
 
-    /** The marks a permanent can become. */
+    /** The marks a permanent, or a card in exile, can become. */
     private val MARKS = mapOf<String, ObjectMark>(
         "monstrous" to ObjectMark.Monstrous, // CR 701.37b
+        "plotted" to ObjectMark.Plotted, // CR 702.170a, c: a card in exile
         "prepared" to ObjectMark.Prepared, // CR 722.3a
         "renowned" to ObjectMark.Renowned, // CR 702.112b
         "saddled" to ObjectMark.Saddled, // CR 702.171b

@@ -595,7 +595,12 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "renown"; override val text: String get() = "Renown"; override val rule: String get() = "702.112" }
     }
     /** Crew (CR 702.122) */
-    @Serializable @SerialName("crew") data class Crew(override val amount: Int) : Keyword, HasAmount {
+    @Serializable @SerialName("crew") data class Crew(
+        override val amount: Int,
+        // otj
+        /** "Activate only once each turn" written after crew: its activations each turn (CR 602.5b). */
+        val perTurn: Int? = null,
+    ) : Keyword, HasAmount {
         init { requireAmount(amount) }
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "crew"; override val text: String get() = "Crew"; override val rule: String get() = "702.122" }

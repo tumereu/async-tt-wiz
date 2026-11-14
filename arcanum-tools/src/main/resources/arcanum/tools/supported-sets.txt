@@ -19,6 +19,7 @@ MH2 Modern Horizons 2
 MKM Murders at Karlov Manor
 MSH Marvel Super Heroes
 ONE Phyrexia: All Will Be One
+OTJ Outlaws of Thunder Junction
 RTR Return to Ravnica
 RVR Ravnica Remastered
 SOS Secrets of Strixhaven

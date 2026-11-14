@@ -104,9 +104,11 @@ internal object MechanicWordings {
         if (text == "you've completed a dungeon") return Condition.Compare(Value.DungeonsCompleted(arcanum.api.Players.You),
             arcanum.api.Comparison.AtLeast, Value.Fixed(1))
         if (text == "you control a Ring-bearer") return Condition.Exists(yourRingBearer, 1)
-        // CR 701.37b: "As long as this creature is monstrous, …"
+        // CR 701.37b: "As long as this creature is monstrous, …"; otj chunk 03: "if this creature is saddled" / "isn't saddled" (CR 702.171b)
         IS_MONSTROUS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) || it.groupValues[1] == "it" }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Monstrous)))
+            val mark = if (it.groupValues[3] == "monstrous") ObjectMark.Monstrous else ObjectMark.Saddled
+            val matches = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(mark)))
+            return if (it.groupValues[2] == "is") matches else Condition.Not(matches)
         }
         return null
     }
@@ -221,8 +223,8 @@ internal object MechanicWordings {
 
     // ---- Mechanics the engine plays since its lanes 1–4 (read by the `mechanic*` functions of `Sentences`)
 
-    /** "this creature is monstrous" (CR 701.37b). */
-    val IS_MONSTROUS = Regex("""(.+) is monstrous""")
+    /** "this creature is monstrous" (CR 701.37b); "this creature is saddled", "isn't saddled" (CR 702.171b). */
+    val IS_MONSTROUS = Regex("""(.+) (is|isn't) (monstrous|saddled)""")
 
     /** "You may exert this creature as it attacks. When you do, [effect]" (CR 701.43d, 508.1g). */
     val MAY_EXERT_AS_ATTACKS = Regex("""You may exert (.+?) as (?:it|he|she|they) attacks?\.(?: When you do, (.+))?""")

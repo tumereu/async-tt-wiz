@@ -105,13 +105,15 @@ internal object Tmt {
     val TARGET_PLAYER_GAINS_AND_DRAWS = Regex("""Target player gains (\d+) life and draws (\w+) cards?\.""")
     val EACH_OF_YOUR_OPPONENTS = Regex("""Each of your opponents (.+)""")
     val TOKEN_FOR_EACH_COUNTER_ON_IT = Regex("""[Cc]reate an? (\w+) token for each (\+1/\+1) counter on it\.""")
-    val CREATURE_THAT_CREWED_IT = Regex("""(.+) that crewed it this turn""")
+    // otj chunk 03: also "that saddled it this turn" (CR 702.171c)
+    val CREATURE_THAT_CREWED_IT = Regex("""(.+) that (crewed|saddled) it this turn""")
     val THEN_IF_DOUBLE_COUNTERS = Regex("""Then if that creature is (?:an? )?(.+?), double the number of (\+1/\+1) counters on it\.""")
     val RETURN_EXILED_WITH_CREATURE_AND_OTHERS = Regex("""Return a (.+?) exiled with (.+?) to the battlefield under your control\. Return each other card exiled with (.+?) to its owner's hand\.""")
     val CARD_TYPES_AMONG_SPELLS_CAST = Regex("""[Dd]raw a card for each card type among spells you've cast this turn\.""")
     val EXCHANGE_CONTROL_DIFFERENT_PLAYERS = Regex("""[Yy]ou may exchange control of two other target (.+?) controlled by different players\.""")
     val SEARCH_AND_OR_OUTSIDE = Regex("""Search your library and/or outside the game for exactly (\w+) (.+?) you own with different names, then reveal those cards\. An opponent chooses (\w+) of them\. Put the chosen cards into your hand and shuffle the rest into your library\.""")
-    val SHUFFLE_HAND_AND_GRAVEYARD_DRAW = Regex("""Each player may shuffle their hand and graveyard into their library, then each player who does draws (\w+) cards\.""")
+    // otj chunk 01: also "… into their library. Each player who does draws seven cards."
+    val SHUFFLE_HAND_AND_GRAVEYARD_DRAW = Regex("""Each player may shuffle their hand and graveyard into their library(?:, then each|\. Each) player who does draws (\w+) cards\.""")
     val PAY_LIFE_EQUAL_TO_POWER_COUNTERS = Regex("""[Yy]ou may pay life equal to its power\. If you do, put that many \+1/\+1 counters on it\.""")
     val CARDS_HAVE_SNEAK = Regex("""Creature cards in your graveyard have sneak (\{.+\})\.""")
     val CAST_USING_SNEAK = Regex("""You may cast creature spells from your graveyard using their sneak abilities\.""")
@@ -166,7 +168,8 @@ internal object TmtPhrases {
             return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.Targets(objects = Objects.Each(targeted)))
         }
         Tmt.CREATURE_THAT_CREWED_IT.matchEntire(phrase)?.let { m ->
-            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.CrewedThisTurn(Objects.Self))
+            val tapped = if (m.groupValues[2] == "crewed") ObjectFilter.CrewedThisTurn(Objects.Self) else ObjectFilter.SaddledThisTurn(Objects.Self)
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, tapped)
         }
         return null
     }

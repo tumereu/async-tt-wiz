@@ -443,6 +443,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                     hasChosenName(c, selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME)))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
+            // otj: a spell ability with modes (CR 700.2)
+            ObjectFilter.Modal -> c?.abilities.orEmpty().any { (it.ability as? arcanum.api.Ability.Spell)?.instructions?.modes != null }
             ObjectFilter.HasTapAbility -> c?.abilities.orEmpty().any { a -> (a.ability as? Ability.Activated)?.cost?.parts?.any { it == CostPart.TapSelf } == true } // rvr
             is ObjectFilter.AttachableBy -> objects(filter.attachment).any { attachable(it, id) } // rvr
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
@@ -500,6 +502,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.CrewedThisTurn -> History.crewed(this, id, objects(filter.vehicles).toSet())
             // fin: a Vehicle one of [crew] crewed this turn (CR 702.122b)
             is ObjectFilter.CrewedBy -> objects(filter.crew).any { History.crewed(this, it, setOf(id)) }
+            // otj: tapped this turn to pay a saddle cost of one of the Mounts (CR 702.171c)
+            is ObjectFilter.SaddledThisTurn -> History.saddled(this, id, objects(filter.mounts).toSet())
             // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
@@ -624,6 +628,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     /** What happened to [id] as an object: a card's facts, a copy of a spell's own (CR 707.10), or as it last existed. */
     private fun facts(id: ObjectId) = state.obj(id)?.cast ?: copyFacts(id) ?: lki(id)?.cast
+
+    /** otj: the zone [id] was cast from, also once the spell has left the Stack (its last known information, CR 608.2h). */
+    fun castFrom(id: ObjectId): arcanum.api.Zone? = facts(id)?.castFrom
 
     private fun copyFacts(id: ObjectId) = (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.cast
 
@@ -763,6 +770,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         } ?: 0
         is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of), value.spells, value.caster)
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
+        // otj: that spell's modes, each time chosen (CR 700.2)
+        is Value.ModesChosenFor -> objects(value.of).firstNotNullOfOrNull { id -> (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.modes?.size } ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
         is Value.Quotient -> if (value.divisor <= 0) 0 else value(value.value) / value.divisor
         // sos: "2ˣ" (2⁰ = 1), held to an Int (a game never needs more)
@@ -1010,13 +1019,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 .filter { it.keyword == condition.keyword && (condition.costIndex == null || it.costIndex == condition.costIndex) }
             paid.sumOf { it.times } >= condition.times
         }
-        // woe: CR 601.2i: recorded as its casting finished
+        // woe, otj: held as the spell became cast (CR 601.2i); a copy wasn't cast (CR 707.10)
         is Condition.AsCast -> ctx.self?.let { facts(it) }?.heldAsCast?.contains(condition.condition) == true
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
-        // rvr: addendum (CR 207.2c, 505.1)
-        is Condition.CastDuringMainPhase -> objects(condition.of).any { id -> facts(id)?.duringOwnMainPhase == true }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()
@@ -1177,6 +1184,17 @@ internal object History {
         return state.eventsOf(state.turn.number).any { change ->
             change is arcanum.engine.change.Change.Status && change.id == id &&
                 change.meanings.any { it is arcanum.engine.change.Meaning.Crewed && it.vehicle in vehicles }
+        }
+    }
+
+    /** otj: whether [id] was tapped this turn to pay the saddle cost of one of [mounts] (CR 702.171c). */
+    fun saddled(evaluator: Evaluator, id: ObjectId, mounts: Set<ObjectId>): Boolean {
+        evaluator.board.readingLog()
+        val state = evaluator.board.state
+        return state.eventsOf(state.turn.number).any { change ->
+            change is arcanum.engine.change.Change.Status && change.id == id && change.meanings.any {
+                it is arcanum.engine.change.Meaning.PaidFor && it.keyword == arcanum.api.Keyword.Saddle.Kind && it.source in mounts
+            }
         }
     }
 

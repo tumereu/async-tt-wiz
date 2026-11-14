@@ -256,7 +256,8 @@ internal object Actions {
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
                 // fra: "enters prepared" (CR 722.3a)
-                is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
+                // otj: a resolving spell exiled instead "becomes plotted" there (CR 702.170c): wherever the mark can live
+                is Modification.EntersMarked -> if (move.to in arcanum.api.MarkRules.of(mod.mark).zones) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
                 is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage,
@@ -926,14 +927,58 @@ internal object Actions {
     fun createTokens(
         act: Act, cause: Cause, values: arcanum.engine.state.CopiableValues, count: Int, controller: PlayerId, tapped: Boolean = false,
         attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.CastFacts? = null,
-    ): List<ObjectId> {
-        if (count <= 0) return emptyList()
+    ): List<ObjectId> = createTokensTogether(act, cause, listOf(TokenRequest(values, count, controller, tapped, attachTo)), fromSpellCopy).single()
+
+    /** One creation of [count] tokens with [values] under [controller]'s control, for [createTokensTogether]. */
+    class TokenRequest(
+        val values: arcanum.engine.state.CopiableValues, val count: Int, val controller: PlayerId, val tapped: Boolean = false,
+        val attachTo: TargetRef? = null,
+    )
+
+    /** The tokens of one [TokenRequest] as they will be created, replacements applied. */
+    private class PreparedTokens(val tokens: List<GameObject>, val entersAs: Map<ObjectId, List<Mechanic>>, val linked: List<WaitingTrigger>)
+
+    /**
+     * Creates the tokens of every one of [requests] as one event (CR 608.2f: "for each of them, create a token", "each player
+     * creates …" are processed simultaneously; CR 111.2), each request's replacements applied as in [createTokens]. Returns
+     * the new ids per request, in order.
+     */
+    fun createTokensTogether(
+        act: Act, cause: Cause, requests: List<TokenRequest>, fromSpellCopy: arcanum.engine.state.CastFacts? = null,
+    ): List<List<ObjectId>> {
+        var skip = 0
+        val prepared = requests.map { r ->
+            prepareTokens(act, cause, r.values, r.count, r.controller, r.tapped, r.attachTo, fromSpellCopy, skip)
+                ?.also { p -> skip = (p.tokens.maxOf { it.timestamp } - act.state.nextTimestamp() + 1).toInt() }
+        }
+        val all = prepared.flatMap { it?.tokens.orEmpty() }
+        if (all.isEmpty()) return requests.map { emptyList() }
+        val start = act.state.battlefield.size
+        act.record(Change.Created(all.mapIndexed { i, o -> Placed(o, start + i) },
+            if (fromSpellCopy != null) listOf(Meaning.Resolved, Meaning.Entered) else listOf(Meaning.TokenCreated, Meaning.Entered)))
+        prepared.forEach { p ->
+            p ?: return@forEach
+            p.tokens.forEach { t ->
+                val mechanics = p.entersAs[t.id] ?: return@forEach
+                act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", mechanics, t.id, t.controller ?: t.owner, ts, act) })
+            }
+            Replacements.addLinked(act, p.linked)
+        }
+        return prepared.map { p -> p?.tokens.orEmpty().map { it.id } }
+    }
+
+    /** [createTokens] up to recording the event; [skip] timestamps are left for tokens prepared before these in the same event. */
+    private fun prepareTokens(
+        act: Act, cause: Cause, values: arcanum.engine.state.CopiableValues, count: Int, controller: PlayerId, tapped: Boolean,
+        attachTo: TargetRef?, fromSpellCopy: arcanum.engine.state.CastFacts?, skip: Int,
+    ): PreparedTokens? {
+        if (count <= 0) return null
         val linked = mutableListOf<WaitingTrigger>()
         // D35: from the timestamp, not the cause's key
-        val creator = TokenIds.created("token", act.state.nextTimestamp())
+        val creator = TokenIds.created("token", act.state.nextTimestamp() + skip)
         fun planned(specs: List<Pair<arcanum.engine.state.CopiableValues, Int>>): List<GameObject> {
             var n = 0
-            val first = act.state.nextTimestamp()
+            val first = act.state.nextTimestamp() + skip
             return specs.flatMap { (f, k) -> List(k) { f } }.map { f ->
                 val i = n++
                 GameObject(
@@ -980,7 +1025,7 @@ internal object Actions {
             instead = { r, instance -> runInstead(act, r, instance) },
             linked = linked,
             board = { s -> ProposedBoard(act.board(), planned(s).associateBy { it.id }) },
-        ) ?: return emptyList()
+        ) ?: return null
         var tokens = planned(specs)
         // Replacements on entering (CR 614.12): "enters tapped", "with counters", tested on the tokens as they would be
         val proposedBoard = { ProposedBoard(act.board(), tokens.associateBy { it.id }) }
@@ -1014,16 +1059,8 @@ internal object Actions {
             val r = entering(act, t.id, t.controller ?: t.owner, face, t.attachedTo, proposedBoard())
             if (!r.enters) null else if (r.host == t.attachedTo) t else t.copy(attachedTo = r.host)
         }
-        if (tokens.isEmpty()) return emptyList()
-        val start = act.state.battlefield.size
-        act.record(Change.Created(tokens.mapIndexed { i, o -> Placed(o, start + i) },
-            if (fromSpellCopy != null) listOf(Meaning.Resolved, Meaning.Entered) else listOf(Meaning.TokenCreated, Meaning.Entered)))
-        tokens.forEach { t ->
-            val mechanics = entersAs[t.id] ?: return@forEach
-            act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", mechanics, t.id, t.controller ?: t.owner, ts, act) })
-        }
-        Replacements.addLinked(act, linked)
-        return tokens.map { it.id }
+        if (tokens.isEmpty()) return null
+        return PreparedTokens(tokens, entersAs, linked)
     }
 
     /** The values a token that's a copy of [id] gets (CR 707.2): as it is, or as it last existed if it has left its zone or the

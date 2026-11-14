@@ -139,11 +139,13 @@ abstract class E2e {
      * pod: [ServerSetup.draftingPod]). [aliceSets]: the draft sets on Alice's phone (none without card records). */
     /** [aliceCatalog]: Alice's phone installs the server's card catalog on start, as the app does (docs/specs/web-client.md
      * section 3.5); without it the phones have no card records and nothing waits for them. */
-    internal fun launchPlayers(aliceSets: org.asyncttwiz.android.PodSetRepository? = null, aliceCatalog: Boolean = false) {
+    internal fun launchPlayers(aliceSets: org.asyncttwiz.android.PodSetRepository? = null, aliceCatalog: Boolean = false,
+        /** WEB-013: Alice's app in the desktop layout at the test's window size. */
+        aliceDesktop: Boolean = false) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
         aliceAccount = a
-        alice = E2ePlayer(a, compose, setRepository = aliceSets, withCatalog = aliceCatalog).also(players::add)
+        alice = E2ePlayer(a, compose, setRepository = aliceSets, withCatalog = aliceCatalog, desktop = aliceDesktop).also(players::add)
         bob = E2ePlayer(b, compose).also(players::add)
         alice.launch(); bob.launch()
     }

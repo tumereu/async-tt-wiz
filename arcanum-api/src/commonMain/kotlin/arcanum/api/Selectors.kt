@@ -97,9 +97,9 @@ sealed interface EventRole {
     @Serializable @SerialName("from") data object From : EventRole
     /** In a manifest-dread event: the cards put into the graveyard (CR 701.62a). */
     @Serializable @SerialName("rest") data object Rest : EventRole
-    // one
-    /** In an attach event: the object or player it became attached to ("for as long as this Equipment remains attached to it",
-     * CR 701.3a, 608.2h). */
+    // otj, one
+    /** In an attach event: the object or player it became attached to ("that creature" of "whenever this Equipment becomes
+     * attached to a creature", "for as long as this Equipment remains attached to it", CR 701.3a, 608.2h). */
     @Serializable @SerialName("to") data object To : EventRole
 }
 
@@ -269,6 +269,13 @@ sealed interface ObjectFilter {
     /** A Vehicle that [crew] crewed this turn (one of the creatures tapped to pay its crew cost, CR 702.122b; "a Vehicle crewed by Balthier
      * and Fran this turn"). */
     @Serializable @SerialName("crewed-by") data class CrewedBy(val crew: Objects) : ObjectFilter
+    // otj
+    /** It saddled one of [mounts] this turn: it was tapped to pay the cost of that Mount's saddle ability (CR 702.171c; "target
+     * creature that saddled it this turn"). */
+    @Serializable @SerialName("saddled-this-turn") data class SaddledThisTurn(val mounts: Objects) : ObjectFilter
+    /** A modal spell or card (CR 700.2): its spell ability has modes ("Choose one —", spree's "+ {1} —" modes; a permanent spell
+     * with a modal triggered ability isn't one). A card of several faces is judged by the face it has now (cast, CR 709.3). */
+    @Serializable @SerialName("modal") data object Modal : ObjectFilter
     // spm
     /** A modified permanent (CR 700.9): it has a counter on it, is equipped, or is enchanted by an Aura its controller
      * controls ("a modified creature you control"). */

@@ -106,7 +106,9 @@ internal object Steps {
     private fun afterPhase(recorder: Recorder): TurnStep? {
         val s = recorder.state
         val step = s.turn.step
-        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain) return null
+        // otj: CR 500.10, 500.11: an additional upkeep or draw step made after a phase is the only step of its phase
+        val lone = s.turn.resumeAt != null && (step == TurnStep.Upkeep || step == TurnStep.Draw)
+        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain && !lone) return null
         val extra = s.turn.extraPhases.firstOrNull()
         if (extra != null) {
             val resume = s.turn.resumeAt ?: nextStep(s)

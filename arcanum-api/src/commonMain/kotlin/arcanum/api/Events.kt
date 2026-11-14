@@ -44,6 +44,10 @@ sealed interface EventPattern {
         // dft
         /** Only abilities with this label ("whenever you activate an exhaust ability", CR 702.177a). */
         val label: AbilityLabel? = null,
+        // otj
+        /** Only abilities that, on the Stack, match this ("an ability that targets a creature or player": the ability itself,
+         * with the targets chosen as it was activated, CR 602.2b, 115.1b); a mana ability, never on the Stack, never matches. */
+        val ability: ObjectFilter? = null,
     ) : EventPattern
     /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any; [excess]:
      * only damage over lethal (CR 120.4a). Roles source, object (the recipient); amount = the damage. */
@@ -199,7 +203,7 @@ sealed interface EventPattern {
         val from: Zone? = null, val notFrom: Zone? = null,
     ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes attached to something matching [to]. Role object
-     * (the attachment). */
+     * (the attachment); role [EventRole.To] the object it became attached to. */
     @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter, val to: ObjectFilter) : EventPattern
     @Serializable @SerialName("roll-die") data class RollDie(val players: PlayerFilter) : EventPattern
     /** A player matching [players] flips a coin (CR 705); mh2: [won], only a flip that player wins ("whenever you win a coin flip", CR 705.2). */

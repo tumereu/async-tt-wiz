@@ -20,6 +20,7 @@ MKM Murders at Karlov Manor
 MOM March of the Machine
 MSH Marvel Super Heroes
 ONE Phyrexia: All Will Be One
+OTJ Outlaws of Thunder Junction
 RTR Return to Ravnica
 RVR Ravnica Remastered
 SOS Secrets of Strixhaven

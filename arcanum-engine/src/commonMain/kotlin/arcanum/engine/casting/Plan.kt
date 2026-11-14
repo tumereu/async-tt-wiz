@@ -372,9 +372,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             .filter { (_, m) -> m.keyword == condition.keyword }.sumOf { (inst, _) -> optionalTimes(inst) ?: 0 } >= condition.times ||
             // CR 702.113b: the alternative cost chosen (awaken)
             (condition.keyword != null && alternative?.second?.keyword == condition.keyword && condition.times <= 1))
-        // rvr fixes: "if you cast this spell during your main phase" is known as it is cast (CR 601.2a, 601.2c), before the cast is recorded
-        is arcanum.api.Condition.CastDuringMainPhase -> if (condition.of == arcanum.api.Objects.Self) base.turn.active == player &&
-            (base.turn.step == arcanum.api.TurnStep.PrecombatMain || base.turn.step == arcanum.api.TurnStep.PostcombatMain) else eval.holds(condition)
+        // rvr fixes: "if you cast this spell during your main phase" (any "as you cast this spell" condition) is known as it is cast
+        // (CR 601.2a, 601.2c, 601.2i), before the cast is recorded
+        is arcanum.api.Condition.AsCast -> holdsAsCast(condition.condition)
         is arcanum.api.Condition.Not -> !holdsAsCast(condition.condition)
         is arcanum.api.Condition.And -> condition.all.all { holdsAsCast(it) }
         is arcanum.api.Condition.Or -> condition.any.any { holdsAsCast(it) }
@@ -438,6 +438,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             // CR 702.47a: each splice cost is an additional cost
             spliced.forEach { add(Costs.Contribution(spliceKey(it.card), it.mechanic.cost)) }
             permission?.first?.additionalCost?.let { add(Costs.Contribution("perm", it)) }
+            // otj: a cost increase other objects give it that isn't mana ("cost an additional 3 life", CR 601.2f)
+            snap.view.game.rules.forEachIndexed { i, applied ->
+                val m = applied.mechanic as? Mechanic.AdditionalCostOf ?: return@forEachIndexed
+                if (snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId))
+                    add(Costs.Contribution("rule:$i", m.cost))
+            }
         } else {
             when (val a = ability) {
                 // hob: "you may pay {0} rather than pay the equip cost" (CR 118.9, 602.2b): a free alternative is never worse, so it is used
@@ -621,7 +627,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      * Without any, every way through has the same cost and the first one says it.
      */
     val costMayVary: Boolean get() {
-        fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null)
+        fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null) || m is Mechanic.AdditionalCostOf
         val any = assistable > 0 || ownCostChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
             snap.view.game.rules.any { change(it.mechanic) } ||

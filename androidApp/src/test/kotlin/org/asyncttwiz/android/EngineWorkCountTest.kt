@@ -101,7 +101,7 @@ class EngineWorkCountTest {
             assertEquals(listOf("Storm Spark"), s.player(a).graveyard.map { s.obj(it)?.definition?.faces?.first()?.name }, "Storm Spark resolved")
             assertTrue(s.stack.isEmpty(), "the Stack is empty")
         }
-        assertWork(Work(layers = 747, copies = 1_008, searches = 12, eventBytes = 26_959, checkpointBytes = 172_665), work)
+        assertWork(Work(layers = 747, copies = 1_008, searches = 12, eventBytes = 26_647, checkpointBytes = 172_535), work)
     }
 
     // MassDeathTriggersScenariosTest's 30-creature board wipe: Alice with four Plains, a Ledger of Debts and 15 creatures,
@@ -136,6 +136,6 @@ class EngineWorkCountTest {
             assertEquals(10, s.player(PlayerId(board.b)).life)
             assertEquals(70, s.player(a).life)
         }
-        assertWork(Work(layers = 599, copies = 728, searches = 67, eventBytes = 362_426, checkpointBytes = 298_481), work)
+        assertWork(Work(layers = 599, copies = 728, searches = 67, eventBytes = 362_244, checkpointBytes = 298_429), work)
     }
 }

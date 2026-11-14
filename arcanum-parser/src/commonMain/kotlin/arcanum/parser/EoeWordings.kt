@@ -195,7 +195,8 @@ internal object Eoe {
     val UNTIL_EOT_X_AND_MINUS_X = Regex("""[Uu]ntil end of turn, target (.+?) gets \+X/\+0 and target (.+?) gets -0/-X\.""")
     // woe chunk 02: the "gets +N/+N and" part is optional ('Until end of turn, target creature you control gains "When this creature dies, …"')
     // mkm chunk 08: 'gets +1/+0, gains "…," and can attack as though it didn't have defender'
-    val UNTIL_EOT_GETS_AND_GAINS_QUOTED = Regex("""[Uu]ntil end of turn, (another target .+?|target .+?)(?: gets ([+-]\d+)/([+-]\d+)(?: and|,))? gains "(.+)"(?: and (.+?))?\.?""")
+    // otj chunk 10: any subject ("each creature you control"), keywords before the quote ("gains trample and "…"")
+    val UNTIL_EOT_GETS_AND_GAINS_QUOTED = Regex("""[Uu]ntil end of turn, (.+?)(?: gets? ([+-]\d+)/([+-]\d+)(?: and|,))? gains? (?:([a-z ,]+?) and )?"(.+)"(?: and (.+?))?\.?""")
     val UNTIL_EOT_GAINS_QUOTED_CONTROLLER_MAY_DAMAGE = Regex("""Until end of turn, target (.+?) gains "(.+?)" That creature's controller may have (.+?) deal (\d+) damage to it\.""")
     val EACH_OPPONENT_CHOOSES_AND_EXILES = Regex("""[Ee]ach opponent chooses an? (.+?) they control and exiles it\.""")
     val SACRIFICE_SELF_PUT_EXILED_WITH_COUNTERS = Regex("""[Ss]acrifice (.+?), then put an? (.+?) exiled with it onto the battlefield under your control with (\w+) additional \+1/\+1 counters on it\.""")

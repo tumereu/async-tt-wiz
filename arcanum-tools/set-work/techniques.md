@@ -12,7 +12,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   card" or "If it's a X" reads the new object (CR 400.7); a return to the battlefield binds `Bound("returned")`. In "When
   this enters", "it" is `EventObject(After)`. After a Move of a target, event object or this card to the battlefield
   without a bind, `Sentences.followTargetsToBattlefield` points later steps at the new permanent (CR 400.7j): such a rule
-  needs no own `postBind`.
+  needs no own `postBind`. After a sentence puts one chosen or found card onto the battlefield, "it" is that permanent
+  (`Sentences.nameTargetPutOntoBattlefield`), never the card it was.
 - "that many" binds the nearest amount an earlier part of the same ability defines (`context.thatMuch`, e.g. "sacrifice
   any number of ..., then draw that many") before the trigger event's amount.
 - "If you do" after a step that can fail (a mandatory exile, move or sacrifice): bind the moved objects (`postBind`) and
@@ -87,11 +88,13 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - "you may look ... If you do, ..." is one `Step.May`: a `Step.Pay(steps = [LookAt])` never counts as done.
 - A delayed "return the exiled card" made by the ability that exiled it reads `Bound("exiled")` (the source may be gone).
 - "If [condition settled at cast: main phase, kicked, paid], [targeted effect]": those target slots
-  are `onlyIf` (CR 601.2c).
+  are `onlyIf` (CR 601.2c). In "If kicked, ... instead", a slot only one version names is `onlyIf` that version (kicked or
+  not); one both name stays unconditional. "Kicker {A} and/or {B}" is two kicker costs, "kicked twice" `Paid(times = 2)`.
 - Type-setting (CR 205.1a-b): "becomes a ... creature" replaces card types; "artifact creature", "still a <type>" and "in
   addition to its other types" keep all prior types and subtypes; "[creature type] artifact creature" replaces creature
   types only (`replaceSubtypes` is per kind), also beside "still a land"; a copy exception "it's a ... creature" sets types.
-- "other target" after an earlier target is `distinctFrom` that slot (CR 115.3), not `Not(Is(Self))`. A condition judged
+- "other target"/"another target X card" after an earlier target in the same zone is `distinctFrom` that slot, even with
+  a different filter (CR 115.3), not `Not(Is(Self))`. A condition judged
   "as you cast" is `Condition.AsCast` (copies aren't cast); a spell's own cost reduction may read its cast choices.
 - Replacements: "dealt damage this way would die this turn, exile it instead" covers only objects actually dealt damage
   (prevented damage isn't dealt, CR 615.1a); "if you would pay life" is `EventPattern.PayLife` with a
@@ -112,6 +115,9 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   searched library). "When you do, if ..." puts the same If on the reflexive trigger (CR 603.4).
 - "If that creature/it was a <noun>" in a leaves-the-battlefield trigger, or after returning a target to hand or library,
   reads last known information (`EventObject(Before)`, CR 603.10a, 608.2h); "If it was a <... card>" stays the card.
+- "of the chosen type" is a card type when the card says "choose a card type", else a creature type. "If it doesn't, ..."
+  after an If is its otherwise; "If ..., sacrifice it at the next end step" checks the condition on resolution, outside
+  the delayed trigger.
 - A token defined only by reminder text ("Create a X token. (It's a 2/2 ... with \"...\")") = `Sentences.reminderTokens`.
 
 ## Engine scenarios
@@ -124,6 +130,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - `casts(...)` answers targets in slot order, `modes`, `x`, `kicked` (0 declines; without it a kicker card stops at a May
   and later expectations can pass vacuously: assert the spell resolved), `option` ("A or B" costs), `choosing` (cost
   objects), `paying` ("name#1" = the second land of that name). Leftover decisions stay open for `answer(...)`.
+  `kicked = 2` answers both Mays of a two-kicker card; to kick only one, answer the Mays by hand. Several "up to one"
+  slots: `while (pending is Decision.Targets) answer(Answer.Targets(emptyList()))`, then pay.
 - Casting never throws for missing mana: test "can't pay" with `decision<Decision.ManaPayment>().suggestion` empty. A spell
   with no legal target throws `IllegalArgumentException`, as does casting without permission or a failed activation
   condition. Test a target limit through `decision<Decision.Targets>().max`, not by over-supplying targets.
@@ -160,7 +168,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   second. A spell's divided amount has no suggestion: `answer(Answer.Division(listOf(Share(target(a), 2), ...)))`.
 - Objects that left are judged by last known information: a token "copy of it" copies the last known copiable values
   (a clone copies what it copied, CR 707.2); events and this-turn history read a gone object as it last was, controller
-  and marks included, and an entered object as it entered (face down stays face down, CR 608.2h, 603.4). "For as long
+  and marks included, and an entered object as it entered (face down stays face down, CR 608.2h, 603.4); a copy of
+  nothing (no object, no last known information) creates no token (CR 609.3). "For as long
   as" durations never read it: they end when the object leaves (CR 611.2b). Test with 3 players and a control change.
 - Damage results (life loss, infect/toxic poison, wither and infect -1/-1 counters) go through `Actions.loseLife` and
   `Actions.putCounters` with the source's controller as giver, so replacements apply (CR 120.3, 614.1a); a replacement
@@ -168,7 +177,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Costs: each object pays one sacrifice/exile/discard/return part and one tap part only, and an activation with no
   distinct assignment isn't offered (CR 601.2h, 602.2b): test multi-material costs with a creature of two types.
 - Target-group limits (single graveyard, same controller, sharing, different) are one check for spells, activated and
-  triggered abilities, copies and changed targets; a trigger with no legal group is removed (CR 603.3d). Test them on a
+  triggered abilities, copies and changed targets; a trigger with no legal group is removed (CR 603.3d). A divided
+  amount caps its slot's targets at the amount (CR 601.2d); zero targets for "up to" stays legal (CR 115.6). Test them on a
   trigger too. A mark is read with `state.obj(card(x))?.marks?.contains(ObjectMark.Suspected)`.
 - A step that runs without priority (untap-step choices, end-step triggers): loop `resolve()` while `pending == null`.
 - Battles: with 3 players a Siege asks `ChoosePlayer` (its protector) on cast or at the first `passPriority()`; `settle()`
@@ -183,7 +193,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A scry or optional payment inside a resolving spell can leave a decision open before triggers (scry: `Answer.Objects(
   emptyList())`); a mana ability with a colour choice asks colour and payment in either order: answer what is pending.
 - An Adventure face: `casts("Face", way = CastWay(face = 1))`; a player target needs `target = "bob"` even with one
-  opponent. Saga chapter II after I: `loreChapter(saga, n)`, then `advanceTo(PrecombatMain, turn = 5)`.
+  opponent. Saga chapter II after I: `loreChapter(saga, n)`, then `advanceTo(PrecombatMain, turn = 5)`. A read ahead
+  Saga's chapter is `answers(Answer.Number(n))` after the first `allPass()`.
 - A `ForEach` whose only step is `DealDamage` is one damage event (CR 608.2f); a `ForEach` that casts copies asks the
   controller the order one at a time: answer with `alice.chooses(name)`.
 - Player names in `target(...)`/`defender =` are lowercase ("carol"); `card(x)` inside `expect {}` is a

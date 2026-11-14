@@ -13,12 +13,13 @@ import java.util.concurrent.CopyOnWriteArrayList
  * A player in a real browser (docs/specs/web-client.md §10): the installed Chrome, headless through Playwright, on the
  * web build the server serves beside its API ([E2eStack.origin], WEB_APP_DIR), in a phone-sized window. Controls are found
  * by the screens' semantics, which the page mirrors into its document (test tags are element ids, labels and texts are
- * the elements'), and tapped on the page's canvas where they are, as a player's finger would.
+ * the elements'), and tapped on the page's canvas where they are, as a player's finger would. [width] × [height]: the
+ * window's size in CSS px (at least 1024 × 600 for the desktop layout, WEB-013: the headless page's pointer hovers).
  */
-internal class E2eBrowser : AutoCloseable {
+internal class E2eBrowser(width: Int = 412, height: Int = 860) : AutoCloseable {
     private val playwright = Playwright.create()
     private val browser = playwright.chromium().launch(BrowserType.LaunchOptions().setChannel("chrome").setHeadless(true))
-    private val context = browser.newContext(Browser.NewContextOptions().setViewportSize(412, 860))
+    private val context = browser.newContext(Browser.NewContextOptions().setViewportSize(width, height))
     val page: Page = context.newPage()
     /** The page's console lines and errors. */
     val console = CopyOnWriteArrayList<String>()
@@ -69,6 +70,22 @@ internal class E2eBrowser : AutoCloseable {
         page.mouse().click(box.x + box.width / 2, box.y + box.height / 2)
     }
 
+    /** The mouse moved to the middle of what [selector] finds (no button pressed), then the cursor the page shows there
+     * ([cursorAt]). */
+    fun cursorOver(selector: String): String {
+        val box = checkNotNull(page.locator(selector).first().boundingBox()) { "$selector has no place on the page" }
+        return cursorAt(box.x + box.width / 2, box.y + box.height / 2)
+    }
+
+    /** The mouse moved to ([x], [y]) (no button pressed); the cursor the page shows there once the app has had a frame to
+     * set it, as CSS names it ("pointer", "text", "default"): the computed cursor of the element under the mouse. */
+    fun cursorAt(x: Double, y: Double): String {
+        page.mouse().move(x - 3, y - 3)
+        page.mouse().move(x, y, com.microsoft.playwright.Mouse.MoveOptions().setSteps(3))
+        page.evaluate("() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))")
+        return page.evaluate(CURSOR, listOf(x, y)).toString()
+    }
+
     /** The control (a button) whose label is [label] (alone, or merged with its own words: "Keep, Keep"), as the Android
      * tests' `showsControl` finds it by its description: a quick-action cell such as the opening's Keep (TRN-062). */
     fun control(label: String): String = "div[role=button][aria-label='$label'], div[role=button][aria-label^='$label, ']"
@@ -98,6 +115,12 @@ internal class E2eBrowser : AutoCloseable {
     }
 
     private companion object {
+        /** The computed cursor of the element at the point ([x, y]), looking into shadow roots. */
+        const val CURSOR = """([x, y]) => {
+            let e = document.elementFromPoint(x, y);
+            while (e && e.shadowRoot) { const inner = e.shadowRoot.elementFromPoint(x, y); if (!inner || inner === e) break; e = inner; }
+            return e ? getComputedStyle(e).cursor : 'none';
+        }"""
         /** The page's semantics mirror (inside the app's shadow root) as lines: each element's tag, id, role, label, text,
          * place. */
         const val SEMANTICS = """() => {

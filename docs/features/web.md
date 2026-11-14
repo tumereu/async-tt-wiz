@@ -27,6 +27,7 @@ browser; the desktop layout arranges the same parts for a large window, a mouse 
 
 - **WEB-011** On a game's table and the draft the browser's own gestures stay off: the page doesn't scroll, bounce or pull to refresh, a pinch, double tap, Ctrl+wheel or Ctrl with + or - doesn't zoom the page, and a long press or right-click shows no browser menu, callout or text selection; the table's own pan, pinch, hold and double tap get every touch. Other screens keep the browser's usual behaviour. (r72)
 - **WEB-012** The table's haptic ticks (the move passing to you, TRN-075; a held quick action) vibrate the phone where the browser can (Android's Chrome), once the page has had a tap; elsewhere (iOS, desktops) there is none, and nothing fails. (r72)
+- **WEB-056** With a mouse, in either layout, the pointer turns into the hand over everything that can be clicked (every control, every card, the table's cards drawn on its canvas too) and into the text cursor over a text field, as web pages show them; elsewhere it stays the plain arrow. (r73)
 
 ### Layouts
 

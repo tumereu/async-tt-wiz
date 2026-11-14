@@ -79,6 +79,9 @@ internal interface Board {
     /** dft: the rules that apply to [id] in the finished view (none part-way through the layers). */
     fun mechanicsOf(id: ObjectId): List<arcanum.api.Mechanic> = emptyList()
 
+    /** lci: its base power (CR 208.4b), its power after layer 7b; null when not worked out (then its power is read). */
+    fun basePower(id: ObjectId): Int? = null
+
     /** isd: the object whose ability created the token [id], from its copiable values (a copy of a token has the original's, CR 201.5a). */
     fun createdBy(id: ObjectId): ObjectId? = state.obj(id)?.let { o -> o.statuses.filterIsInstance<arcanum.engine.state.ObjectStatus.CreatedBy>().firstOrNull()?.source }
 }
@@ -110,6 +113,10 @@ internal data class Context(
      * (CR 601.2a): [ObjectFilter.WasCast] from their zone, a spell, controlled by [you]. For alternative costs given to
      * spells cast from a zone and to the next spells cast. */
     val prospectiveCast: Boolean = false,
+    /** mkm fix: the object an event of the history is read as, as it was at that event (CR 603.4: "if a face-down creature entered
+     * … this turn" is about the creature as it entered, not as it is now): its statuses and, when it was face down then and isn't
+     * now, its face-down characteristics (CR 708.2a). */
+    val asOf: GameObject? = null,
 )
 
 /**
@@ -123,7 +130,42 @@ internal data class Context(
 internal class Evaluator(val board: Board, val ctx: Context) {
     private val state: GameState get() = board.state
 
+    /** rvr fixes: whether [attachment] could legally be attached to the permanent [host] as both are (CR 701.3b): an Aura as its enchant
+     * abilities allow (CR 303.4d), an Equipment to a creature or as its abilities allow (CR 301.5c), a Fortification to a land (CR 301.6),
+     * not to itself or to a permanent with protection from it (CR 702.16c, d). Anything else may be attached wherever an effect puts it. */
+    private fun attachable(attachment: ObjectId, host: ObjectId): Boolean {
+        if (attachment == host || state.obj(host)?.zone != Zone.Battlefield) return false
+        val a = board.characteristics(attachment) ?: return false
+        val h = board.characteristics(host) ?: return false
+        val owner = board.controller(attachment) ?: return false
+        val e = Evaluator(board, Context(owner, attachment))
+        val mechanics = board.mechanicsOf(attachment)
+        val legal = when {
+            a.isType(CardType.Creature) -> true
+            a.hasSubtype(Subtype("Aura")) -> mechanics.filterIsInstance<arcanum.api.Mechanic.CanEnchant>().all { m ->
+                when (val what = m.what) {
+                    is arcanum.api.TargetKind.Objects -> e.matches(what.filter, host)
+                    is arcanum.api.TargetKind.Either -> e.matches(what.objects, host)
+                    is arcanum.api.TargetKind.Players -> false
+                }
+            }
+            a.hasSubtype(Subtype("Equipment")) -> h.isType(CardType.Creature) ||
+                mechanics.filterIsInstance<arcanum.api.Mechanic.CanAttachTo>().any { e.matches(it.what, host) }
+            a.hasSubtype(Subtype("Fortification")) -> h.isType(CardType.Land)
+            else -> true
+        }
+        val hostController = board.controller(host) ?: return legal
+        return legal && board.mechanicsOf(host).filterIsInstance<arcanum.api.Mechanic.Protection>().none {
+            Evaluator(board, Context(hostController, host)).matches(it.from, attachment)
+        }
+    }
+
     fun with(ctx: Context) = Evaluator(board, ctx)
+
+    /** [value] with [Objects.Tested] as [id]; a value that doesn't name it is read as it is. */
+    private fun valueTesting(id: ObjectId, value: arcanum.api.Value): Int =
+        if (ctx.tested == id || !namesTested(value)) value(value) else with(ctx.copy(tested = id)).value(value)
+    private fun namesTested(value: arcanum.api.Value): Boolean = value is arcanum.api.Value.Of && value.objects == arcanum.api.Objects.Tested
 
     // ---- Objects
 
@@ -177,6 +219,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Union -> objects.parts.flatMap { objects(it) }.distinct()
         Objects.Affected -> listOfNotNull(ctx.affected)
         // CR 702.95b
+        // lci: the source of an ability on the Stack (CR 113.7)
+        is Objects.SourceOf -> objects(objects.of).mapNotNull { id -> state.stackItems[id]?.takeIf {
+            it.kind == StackItemKind.Activated || it.kind == StackItemKind.Triggered }?.source }.distinct()
         is Objects.PairedWith -> objects(objects.of).mapNotNull { arcanum.engine.soulbond.Soulbond.partner(state, it) }.distinct()
         is Objects.LinkedTo -> boundObjects(selfMemory(objects.keyword.id))
         is Objects.PaidWith -> objects(objects.of).flatMap { id ->
@@ -198,7 +243,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** The objects [each] looks at for [filter]: everything in the zones it names (the battlefield, or the Stack, when
      * it names none; both for "spell or creature", ecl). */
     fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
-        val zones = zonesIn(filter).ifEmpty { defaultZones(filter) } + prospectiveZones(filter)
+        // rvr: "a card from their hand or a permanent they control": each alternative looks where it names, or where it would alone
+        val mixed = filter is ObjectFilter.Or && filter.any.any { zonesIn(it).isEmpty() } && filter.any.any { zonesIn(it).isNotEmpty() }
+        val own = if (mixed) (filter as ObjectFilter.Or).any.flatMap { zonesIn(it).ifEmpty { defaultZones(it) } }.toSet()
+            else zonesIn(filter).ifEmpty { defaultZones(filter) }
+        val zones = own + prospectiveZones(filter)
         return zones.flatMap { zone ->
             when (zone) {
                 Zone.Stack -> state.stack
@@ -268,7 +317,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun players(players: Players): List<PlayerId> = when (players) {
         Players.You -> listOf(ctx.you)
-        is Players.Target -> boundPlayers(ctx.names[players.slot])
+        // mkm chunk 02: as for objects, a spell's own static ability reads the players it targets ("costs {W}{U} more for each target beyond the
+        // first", CR 601.2f)
+        is Players.Target -> ctx.names[players.slot]?.let { boundPlayers(it) }
+            ?: ctx.self?.let { s -> state.stackItems[s]?.targets?.get(players.slot)?.filterIsInstance<TargetRef.Player>()?.map { it.id } }.orEmpty()
         is Players.Bound -> boundPlayers(ctx.names[players.name])
         is Players.Remembered -> boundPlayers(selfMemory(players.key))
         // blb: the opponent chosen for a gift, kept by the permanent the spell became (CR 702.174a, 400.7d)
@@ -288,6 +340,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 }
             }.distinct()
         }
+        // mom: the player protecting each battle (CR 310.8)
+        is Players.ProtectorOf -> objects(players.battles).mapNotNull { state.obj(it)?.protector }.distinct()
         Players.Holder -> listOfNotNull(ctx.holder)
         Players.Tested -> listOfNotNull(ctx.testedPlayer)
         Players.SlotPlayer -> listOfNotNull(ctx.slotPlayer)
@@ -319,9 +373,19 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun characteristics(id: ObjectId): Characteristics? = board.characteristics(id)
 
+    /** [then]'s characteristics as of an event when its face-down status has changed since: face down then, the face-down
+     * values (CR 708.2a); null to read them as they are now. */
+    private fun asOfCharacteristics(then: GameObject): Characteristics? {
+        val now = state.obj(then.id) ?: return null
+        if (now.faceDown == then.faceDown || !then.faceDown) return null
+        val face = arcanum.engine.view.Copiable.faceDown(then)
+        return arcanum.engine.view.Copiable.initial(then, listOf(arcanum.engine.view.IndexedFace(0, face)), null)
+    }
+
     fun matches(filter: ObjectFilter, id: ObjectId): Boolean {
-        val o = state.obj(id)
-        val c = characteristics(id)
+        val then = ctx.asOf?.takeIf { it.id == id }
+        val o = then ?: state.obj(id)
+        val c = then?.let { asOfCharacteristics(it) } ?: characteristics(id)
         return when (filter) {
             ObjectFilter.Any -> true
             is ObjectFilter.And -> filter.all.all { matches(it, id) }
@@ -332,8 +396,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 // dsk gaps: a copy of a card isn't a card (CR 109.1)
                 ObjectCategory.Card -> (o != null && !o.isToken && !o.copyOfCard) || (o == null && lki(id)?.token == false)
                 ObjectCategory.Token -> o?.isToken ?: lki(id)?.token ?: false
-                // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
-                ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
+                // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"; an object of the history
+                // read as of its event ([Context.asOf]) as it was then, so one that entered and has left since still entered as a permanent
+                ObjectCategory.Permanent -> (then?.zone ?: zoneOf(id)) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
                 // msh: a card tested as the spell it would be or is becoming as it is cast (CR 601.2a)
                 ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy } ||
                     ctx.prospectiveCast && (prospectiveCastFrom(id) != null || state.obj(id)?.zone == Zone.Stack)
@@ -351,6 +416,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.HasDealtCombatDamage -> o?.dealtCombatDamage == true
             ObjectFilter.HasDealtDamage -> o?.dealtDamage == true // tdm
             // msh: the only creature declared as an attacker in this combat (CR 506.5)
+            // mkm: declared as an attacker this combat, still attacking or not (CR 506.4)
+            ObjectFilter.AttackedThisCombat -> state.combat != null && state.turn.step != arcanum.api.TurnStep.BeginningOfCombat && declaredThisCombat(id)
             ObjectFilter.AttackingAlone -> state.combat?.attackers.orEmpty().any { it.id == id } && attackedAlone(id)
             // msh: a target of one of these spells or abilities (CR 115.1)
             is ObjectFilter.TargetedBy -> objects(filter.objects).any { item ->
@@ -361,14 +428,20 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.Colorless -> c != null && c.colors.isEmpty()
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
+            is ObjectFilter.ColorCount -> c != null && c.colors.size == filter.count
+            // mom chunk 09: CR 712.1: two faces of a nonmodal, modal or meld double-faced card (or token, CR 111.13)
+            ObjectFilter.DoubleFaced -> o != null && o.definition.faces.size > 1 &&
+                (o.definition.layout == arcanum.api.Layout.Transform || o.definition.layout == arcanum.api.Layout.ModalDoubleFaced || o.definition.layout is arcanum.api.Layout.Meld)
             is ObjectFilter.Shares -> objects(filter.objects).any { other -> other != id && shares(filter.quality, id, other) }
             // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
             is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)
+            // CR 708.2a: a face-down permanent has no name
+            ObjectFilter.HasName -> names(c).isNotEmpty()
             // CR 709.4a: a split card has each of its halves' names
-            is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
+            is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> !(filter.other && other == id) && names(characteristics(other)).any { it in mine } } }
             is ObjectFilter.ChosenName -> hasChosenName(c, ctx.names[filter.name])
             // CR 702.106f: double agenda's second name counts as the chosen name too
             is ObjectFilter.RememberedName -> hasChosenName(c, selfMemory(filter.key)) ||
@@ -376,6 +449,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                     hasChosenName(c, selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME)))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
+            // otj: a spell ability with modes (CR 700.2)
+            ObjectFilter.Modal -> c?.abilities.orEmpty().any { (it.ability as? arcanum.api.Ability.Spell)?.instructions?.modes != null }
+            ObjectFilter.HasTapAbility -> c?.abilities.orEmpty().any { a -> (a.ability as? Ability.Activated)?.cost?.parts?.any { it == CostPart.TapSelf } == true } // rvr
+            is ObjectFilter.AttachableBy -> objects(filter.attachment).any { attachable(it, id) } // rvr
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)
@@ -390,15 +467,17 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
                 (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
             } ?: false
+            // lci: a number about "its" own characteristics ("with power greater than its base power", "toughness greater than its power")
+            // reads [Objects.Tested] as the object this filter tests, wherever the filter is matched (a trigger's event, a cost)
             is ObjectFilter.Power -> {
                 board.readingPowerToughness()
-                c?.power?.let { compare(it, filter.comparison, testedValue(id, filter.value)) } ?: false
+                c?.power?.let { compare(it, filter.comparison, valueTesting(id, filter.value)) } ?: false
             }
             is ObjectFilter.Toughness -> {
                 board.readingPowerToughness()
-                c?.toughness?.let { compare(it, filter.comparison, testedValue(id, filter.value)) } ?: false
+                c?.toughness?.let { compare(it, filter.comparison, valueTesting(id, filter.value)) } ?: false
             }
-            is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, value(filter.value))
+            is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, valueTesting(id, filter.value))
             is ObjectFilter.Targets -> {
                 val item = state.stackItems[id]
                 val targets = item?.targets?.values?.flatten().orEmpty()
@@ -429,12 +508,16 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.CrewedThisTurn -> History.crewed(this, id, objects(filter.vehicles).toSet())
             // fin: a Vehicle one of [crew] crewed this turn (CR 702.122b)
             is ObjectFilter.CrewedBy -> objects(filter.crew).any { History.crewed(this, it, setOf(id)) }
+            // otj: tapped this turn to pay a saddle cost of one of the Mounts (CR 702.171c)
+            is ObjectFilter.SaddledThisTurn -> History.saddled(this, id, objects(filter.mounts).toSet())
             // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
             // CR 115.7: one target in all ("with a single target"), of [target] when given
             // dft: no abilities at all (CR 113.1)
             ObjectFilter.NoAbilities -> c?.abilities.orEmpty().isEmpty()
+            // woe: an Adventure in its copiable values, used or not (CR 715.2a, b)
+            ObjectFilter.HasAdventure -> arcanum.engine.view.Copiable(state).values(id)?.let { it.layout == arcanum.api.Layout.Adventure && it.faces.size > 1 } == true
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
             ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
                 val a = state.obj(other)?.attachedTo
@@ -454,10 +537,6 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasManaCost -> c?.manaCost == filter.cost
         }
     }
-
-    /** bro: a filter's own number read with [id] as the tested object, so "with power equal to its toughness" compares the object with
-     * itself wherever the filter is matched (a trigger's event, a static's affected objects), not only where a caller binds it. */
-    private fun testedValue(id: ObjectId, v: Value): Int = if (v is Value.Fixed) v.value else with(ctx.copy(tested = id)).value(v)
 
     private fun matchesAbility(filter: ObjectFilter.AbilityOf, id: ObjectId): Boolean {
         val item = state.stackItems[id] ?: return false
@@ -508,7 +587,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         // CR 509.1h, 508.4d: unblocked once blockers are declared
         Status.Unblocked -> state.combat?.let { c -> c.blocksDecided && c.attackers.any { it.id == id && !it.blocked } } == true
         Status.Goaded -> o?.goadedBy?.isNotEmpty() == true
-        is Status.Marked -> o?.marks?.contains(status.mark) == true
+        // mkm: one that left is read as it last existed ("if the sacrificed creature was suspected", CR 608.2h)
+        is Status.Marked -> (o?.marks ?: lki(id)?.marks)?.contains(status.mark) == true
     }
 
     /** CR 302.6: [controller] hasn't controlled [o] continuously since their most recent turn began. */
@@ -522,12 +602,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** Where [id] is now. An object that left its zone is in none (CR 400.7): "if this card is in your graveyard" is false
      * for it, whatever its last known information says (CR 603.4); an object about to exist is where it would be. */
     // dsk gaps
-    /** With [Context.prospectiveCast]: the zones spells matching [filter]'s [ObjectFilter.WasCast] are being or could be
-     * cast from, and the Stack. */
+    /** With [Context.prospectiveCast]: the zones spells matching [filter]'s [ObjectFilter.WasCast] (or, without one, any spell:
+     * "creature spells you cast") are being or could be cast from, and the Stack. */
     private fun prospectiveZones(filter: ObjectFilter): Set<Zone> {
         if (!ctx.prospectiveCast) return emptySet()
         fun froms(f: ObjectFilter): List<Zone?> = when (f) {
             is ObjectFilter.WasCast -> listOf(f.from)
+            // mh3 chunk 07: "Each creature spell you cast has emerge": a spell, cast from wherever (CR 601.2a)
+            is ObjectFilter.Category -> if (f.category == arcanum.api.ObjectCategory.Spell) listOf(null) else emptyList()
             is ObjectFilter.And -> f.all.flatMap { froms(it) }
             is ObjectFilter.Or -> f.any.flatMap { froms(it) }
             else -> emptyList()
@@ -555,6 +637,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** What happened to [id] as an object: a card's facts, a copy of a spell's own (CR 707.10), or as it last existed. */
     private fun facts(id: ObjectId) = state.obj(id)?.cast ?: copyFacts(id) ?: lki(id)?.cast
 
+    /** otj: the zone [id] was cast from, also once the spell has left the Stack (its last known information, CR 608.2h). */
+    fun castFrom(id: ObjectId): arcanum.api.Zone? = facts(id)?.castFrom
+
     private fun copyFacts(id: ObjectId) = (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.cast
 
     private fun counterList(id: ObjectId) = state.obj(id)?.counters ?: lki(id)?.counters
@@ -580,6 +665,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
             SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
+            SharedQuality.ColorPair -> colorPair(ca) != null && colorPair(ca) == colorPair(cb) // mkm
+            SharedQuality.PermanentType -> permanentTypes(ca).any { it in cb.types } // rvr, lci
         }
     }
 
@@ -600,6 +687,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.PlaneswalkerType -> planeswalkerTypes(c)
                 is SharedQuality.Number -> listOf(property(quality.property, id))
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
+                SharedQuality.ColorPair -> listOfNotNull(colorPair(c)) // mkm
+                SharedQuality.PermanentType -> permanentTypes(c) // rvr, lci
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -609,7 +698,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return values.indices.all { place(it, mutableSetOf()) }
     }
 
-    private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
+    /** Its names; none for a face-down permanent (CR 708.2a), so two face-down permanents never share a name (CR 201.2). */
+    private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ")?.filter { it.isNotEmpty() }.orEmpty()
 
     /** CR 709.4a: an object has the chosen name if one of its names is it. */
     private fun hasChosenName(c: Characteristics?, chosen: NamedValue?): Boolean {
@@ -688,6 +778,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         } ?: 0
         is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of), value.spells, value.caster)
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
+        // otj: that spell's modes, each time chosen (CR 700.2)
+        is Value.ModesChosenFor -> objects(value.of).firstNotNullOfOrNull { id -> (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.modes?.size } ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
         is Value.Quotient -> if (value.divisor <= 0) 0 else value(value.value) / value.divisor
         // sos: "2ˣ" (2⁰ = 1), held to an Int (a game never needs more)
@@ -730,6 +822,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             when {
                 // hob: only mana from sources matching (as they last existed, CR 106.3)
                 value.source != null -> facts(id)?.manaSources.orEmpty().count { matches(value.source!!, it) }
+                // mh3: only colorless mana (CR 106.1b)
+                value.colorless -> spent.filter { it.color == null }.sumOf { it.amount }
                 value.distinctColors -> spent.filter { it.color != null && it.amount > 0 }.map { it.color }.distinct().size
                 value.color != null -> spent.filter { it.color == value.color }.sumOf { it.amount }
                 else -> spent.sumOf { it.amount }
@@ -752,6 +846,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             objects(value.objects).flatMap { characteristics(it)?.colors.orEmpty() }.distinct().count { it in among }
         }
         is Value.Min -> value.parts.minOfOrNull { value(it) } ?: 0
+        is Value.If -> if (holds(value.condition)) value(value.then) else value(value.otherwise)
         // gtc chunk 05: the greatest of a value for each player ("the greatest number of cards a player discarded this way")
         is Value.GreatestFor -> players(value.players).maxOfOrNull { p -> with(ctx.copy(testedPlayer = p)).value(value.value) } ?: 0
     }
@@ -773,6 +868,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 (if (property == NumericProperty.Power) c?.power else c?.toughness) ?: 0
             }
             NumericProperty.ManaValue -> c?.let { manaValue(id, it) } ?: 0
+            // lci: CR 208.4b, its power before effects and counters that modify it
+            NumericProperty.BasePower -> {
+                board.readingPowerToughness()
+                board.basePower(id) ?: c?.power ?: 0
+            }
             NumericProperty.Loyalty -> c?.loyalty ?: 0
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }
@@ -787,10 +887,17 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 property(if (toughness) NumericProperty.Toughness else NumericProperty.Power, id) +
                     rules.filterIsInstance<arcanum.api.Mechanic.PowerGreaterFor>().filter { it.keyword == property.keyword }.sumOf { it.amount }
             }
+            // one: "its total toxic value", the sum of its toxic abilities' N (CR 702.164c)
+            is NumericProperty.KeywordTotal -> c?.keywords.orEmpty().filter { it.kind == property.keyword }.sumOf { (it as? arcanum.api.HasAmount)?.amount ?: 0 }
             // tla: how many creature types it has (every one for a changeling, CR 702.73a)
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c
             NumericProperty.UnlockedDoors -> o?.marks.orEmpty().count { it is arcanum.api.ObjectMark.Unlocked }
+            // mom: coloured mana symbols in its mana cost, each counted once (CR 107.4, 202.1)
+            NumericProperty.ColoredManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
+                s is arcanum.api.ManaSymbol.Colored || s is arcanum.api.ManaSymbol.Hybrid || s is arcanum.api.ManaSymbol.GenericHybrid ||
+                    s is arcanum.api.ManaSymbol.ColorlessHybrid || s is arcanum.api.ManaSymbol.Phyrexian || s is arcanum.api.ManaSymbol.PhyrexianHybrid
+            }
             // msh: mana symbols of a colour in its mana cost, hybrid ones included (CR 107.4, 202.1)
             is NumericProperty.ManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
                 when (s) {
@@ -808,6 +915,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     /** msh: whether [id] was the only creature declared as an attacker in the latest declaration of attackers this turn
      * (CR 506.5: a creature put onto the battlefield attacking doesn't change that). */
+    private fun declaredThisCombat(id: ObjectId): Boolean {
+        val declared = state.eventsOf(state.turn.number).lastOrNull { c ->
+            c is arcanum.engine.change.Change.Combat && arcanum.engine.change.Meaning.AttackersDeclared in c.meanings
+        } as? arcanum.engine.change.Change.Combat ?: return false
+        return declared.after?.attackers.orEmpty().any { it.id == id }
+    }
+
     private fun attackedAlone(id: ObjectId): Boolean {
         val declared = state.eventsOf(state.turn.number).lastOrNull { c ->
             c is arcanum.engine.change.Change.Combat && arcanum.engine.change.Meaning.AttackersDeclared in c.meanings
@@ -865,6 +979,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.map { planeswalkerTypes(it) }
             is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
+            SharedQuality.ColorPair -> cs.map { listOfNotNull(colorPair(it)) } // mkm
+            SharedQuality.PermanentType -> cs.map { permanentTypes(it) } // rvr, lci
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -881,8 +997,18 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
+            SharedQuality.ColorPair -> cs.mapNotNull { colorPair(it) }.distinct().size // mkm
+            SharedQuality.PermanentType -> cs.flatMap { permanentTypes(it) }.distinct().size // rvr, lci
         }
     }
+
+    /** rvr, lci: its permanent types (CR 110.4a), its card types without instant, sorcery, kindred and the others. */
+    private fun permanentTypes(c: Characteristics): List<CardType> = c.types.filter { it in PERMANENT_TYPES }
+    private val PERMANENT_TYPES = setOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land,
+        CardType.Planeswalker)
+
+    /** mkm: the pair of colours of an object that is exactly two colours (CR 105.2), else null. */
+    private fun colorPair(c: arcanum.engine.view.Characteristics): Set<arcanum.api.Color>? = c.colors.toSet().takeIf { it.size == 2 }
 
     // ---- Conditions
 
@@ -902,15 +1028,24 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.WonFlip -> (ctx.names[condition.name] as? NamedValue.Flip)?.won == true || ((ctx.names[condition.name] as? NamedValue.Flips)?.won ?: 0) > 0
         is Condition.Paid -> objects(condition.of).any { id ->
             val facts = facts(id) ?: return@any false
-            val paid = (facts.paid + listOfNotNull(facts.alternative))
+            // mkm chunk 03: no keyword is the spell's own additional cost ("if evidence was collected", CR 701.59c, 607.2), never an
+            // alternative cost without a keyword ("you may collect evidence 10 rather than pay the mana cost")
+            val paid = (facts.paid + listOfNotNull(facts.alternative?.takeIf { condition.keyword != null }))
                 .filter { it.keyword == condition.keyword && (condition.costIndex == null || it.costIndex == condition.costIndex) }
             paid.sumOf { it.times } >= condition.times
         }
+        // woe, otj: held as the spell became cast (CR 601.2i); a copy wasn't cast (CR 707.10)
+        is Condition.AsCast -> ctx.self?.let { facts(it) }?.heldAsCast?.contains(condition.condition) == true
         is Condition.CastFrom -> objects(condition.of).any { id ->
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
+        // mom: every turn after your last one ended, this one included (CR 500.1); turns a host dropped from the log count none
+        is Condition.HappenedSinceYourLastTurn -> {
+            val last = (if (state.turn.active == ctx.you) state.turn.previousTurnStarted[ctx.you] else state.turn.turnStarted[ctx.you]) ?: 0
+            (last + 1..state.turn.number).sumOf { History.count(this, condition.event, condition.measure, turn = it) } >= condition.atLeast
+        }
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()
         // sos: paradigm (CR 702.192a): a spell with that name controlled by such a player resolved earlier this game
         is Condition.ResolvedEarlierThisGame -> objects(condition.of).flatMap { names(characteristics(it)) }.any { name ->
@@ -1041,14 +1176,19 @@ internal object History {
         val state = evaluator.board.state
         val number = turn ?: state.turn.number
         return when (measure) {
-            arcanum.api.Measure.Events -> state.eventsOf(number).count { change ->
-                arcanum.engine.trigger.EventMatcher.instances(evaluator, event, change).isNotEmpty()
+            arcanum.api.Measure.Events -> lastKnown(evaluator).let { back ->
+                state.eventsOf(number).count { change -> arcanum.engine.trigger.EventMatcher.instances(back, event, change, history = true).isNotEmpty() }
             }
+            // mkm chunk 06: each object once ("three or more creatures attacked": a creature attacking in two combats is one creature)
             arcanum.api.Measure.Objects -> instances(evaluator, event, number).flatMap { e ->
                 (e.objects.firstOrNull { it.role == arcanum.api.EventRole.Object || it.role == arcanum.api.EventRole.Before }
                     ?: e.objects.firstOrNull())?.ids.orEmpty()
-            }.size
+            }.distinct().size
             arcanum.api.Measure.Amount -> instances(evaluator, event, number).sumOf { it.amount ?: 0 }
+            // mkm: each source once, however often it dealt damage
+            arcanum.api.Measure.Sources -> instances(evaluator, event, number).flatMap { e ->
+                e.objects.filter { it.role == arcanum.api.EventRole.Source }.flatMap { it.ids }
+            }.distinct().size
             // tmt: the qualities among the events' objects, each as it was then ("card types among spells you've cast this turn")
             is arcanum.api.Measure.Distinct -> evaluator.distinct(measure.quality, instances(evaluator, event, number).flatMap { e ->
                 (e.objects.firstOrNull { it.role == arcanum.api.EventRole.Object || it.role == arcanum.api.EventRole.Before }
@@ -1064,6 +1204,17 @@ internal object History {
         return state.eventsOf(state.turn.number).any { change ->
             change is arcanum.engine.change.Change.Status && change.id == id &&
                 change.meanings.any { it is arcanum.engine.change.Meaning.Crewed && it.vehicle in vehicles }
+        }
+    }
+
+    /** otj: whether [id] was tapped this turn to pay the saddle cost of one of [mounts] (CR 702.171c). */
+    fun saddled(evaluator: Evaluator, id: ObjectId, mounts: Set<ObjectId>): Boolean {
+        evaluator.board.readingLog()
+        val state = evaluator.board.state
+        return state.eventsOf(state.turn.number).any { change ->
+            change is arcanum.engine.change.Change.Status && change.id == id && change.meanings.any {
+                it is arcanum.engine.change.Meaning.PaidFor && it.keyword == arcanum.api.Keyword.Saddle.Kind && it.source in mounts
+            }
         }
     }
 
@@ -1107,8 +1258,14 @@ internal object History {
     private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern, turn: Int? = null): List<TriggerEvent> {
         evaluator.board.readingLog()
         val state = evaluator.board.state
-        return state.eventsOf(turn ?: state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it) }
+        val back = lastKnown(evaluator)
+        return state.eventsOf(turn ?: state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(back, event, it, history = true) }
     }
+
+    /** mkm sweep: the history's objects are read as they last existed when they have left since, their controller too (CR 608.2h,
+     * 603.10a), whichever board asks: "if you attacked this turn" in a static ability counts an attacker that died since, as
+     * chunk 14's sacrificed artifact does. */
+    private fun lastKnown(evaluator: Evaluator): Evaluator = Evaluator(arcanum.engine.trigger.LastKnownBoard(evaluator.board), evaluator.ctx)
 }
 
 /** Counter kinds that modify power and toughness (CR 122.1a, 613.4c). */

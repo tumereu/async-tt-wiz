@@ -47,6 +47,12 @@ internal object Texts {
      * The prompt of the "you may" [step] of [ability] (CR 608.2d): its sentence of the ability's text when the text has
      * one "may" sentence for each optional step, else the whole text; plain words for what it does when there is no text.
      */
+    /** Whether [step] is one of [ability]'s own optional steps, not one a keyword action expands into (discover's cast, CR 701.57a). */
+    fun printedMay(ability: Ability?, step: Step): Boolean {
+        val optional = instructionsOf(ability)?.let { optionalSteps(it) }.orEmpty()
+        return optional.any { it === step } || step in optional
+    }
+
     fun may(ability: Ability?, step: Step): String {
         val text = of(ability) ?: return "You may: ${describe(maySteps(step))}"
         val mays = sentences(text).filter { MAY.containsMatchIn(it) }
@@ -68,14 +74,19 @@ internal object Texts {
      * The prompt of a cost paid on resolution (CR 118.12): the sentence of [ability]'s text that says "pay", else its
      * "may" sentence ("you may forage"), a triggered ability's trigger condition left out, followed by the sentences
      * that say what paying does ("If you do, put two +1/+1 counters on it."): "You may forage. If you do, put two +1/+1
-     * counters on it." [otherwise] when the text has neither.
+     * counters on it." [otherwise] when the text has neither. Every sentence after the first "If you do" up to the next
+     * choice belongs to what paying does ("If you do, create a 1/1 red Goblin creature token. It gains haste until end of turn.").
      */
     fun pay(ability: Ability?, otherwise: String): String {
         val all = sentences(of(ability) ?: return otherwise)
         val at = all.indexOfFirst { PAY.containsMatchIn(it) }.takeIf { it >= 0 }
             ?: all.indexOfFirst { MAY.containsMatchIn(it) }.takeIf { it >= 0 } ?: return otherwise
         val first = all[at].let { if (ability is Ability.Triggered) it.replace(CONDITION, "").replaceFirstChar(Char::uppercaseChar) else it }
-        return (listOf(first) + all.drop(at + 1).takeWhile { FOLLOW.containsMatchIn(it) }).joinToString(" ")
+        val rest = all.drop(at + 1)
+        val follows = if (rest.firstOrNull()?.let { FOLLOW.containsMatchIn(it) } == true)
+            listOf(rest.first()) + rest.drop(1).takeWhile { FOLLOW.containsMatchIn(it) || !(PAY.containsMatchIn(it) || MAY.containsMatchIn(it)) }
+        else emptyList()
+        return (listOf(first) + follows).joinToString(" ")
     }
 
     /** The sentence of [ability]'s text that says [verb] ("search", "choose"), else [otherwise]. */
@@ -167,6 +178,7 @@ internal object Texts {
         is CostPart.GetCounters -> "GetCounters"
         is CostPart.Waterbend -> "Waterbend"
         is CostPart.Manual -> "Manual"
+        is CostPart.RevealChoice -> "RevealChoice"
     }
 
     /** "CopySpell" → "copy spell". */

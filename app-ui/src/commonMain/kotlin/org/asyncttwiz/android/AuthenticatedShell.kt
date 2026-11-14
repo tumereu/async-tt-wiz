@@ -30,10 +30,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
+fun AuthenticatedShell(controller: AuthController, landscapeWindow: Boolean, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
     cubes: CubeController? = null, pods: PodController? = null) {
     val state = controller.state
+    // WEB-037: the desktop layout draws the landscape shell (its permanent side menu) whatever the window's shape
+    val desktop = desktopLayout()
+    val landscape = landscapeWindow || desktop
     // Shown only while signed in.
     val account = state.account ?: run {
         Faults.report("AuthenticatedShell", "shown without an account", mapOf("destination" to state.destination.toString()))
@@ -108,7 +111,7 @@ fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: 
         .semantics { contentDescription = "Signed in as ${account.username}" }) {
         if (landscape && !tabletop && !podPlay) {
             Row(Modifier.fillMaxSize()) {
-                Surface(Modifier.width(220.dp).fillMaxHeight(), color = Color.White,
+                Surface(Modifier.width(if (desktop) DesktopScreens.SideMenuWidth else 220.dp).fillMaxHeight(), color = Color.White,
                     border = BorderStroke(1.dp, Color(0xffd0d6dd))) {
                     Navigation(controller, close = false, lobby, pods)
                 }
@@ -174,7 +177,7 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
                 // One combined handler owns tap/hold; nesting another clickable drawer item would
                 // allow a recognized context hold to also open the game on release.
                 Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp).testTag("navigation-game-${game.id}")
-                    .gameRowActions(lobby, game) {
+                    .gameRowActions(lobby, game, desktop = desktopLayout()) {
                         // Like the Menu list: an invitation is answered on the Games screen, not opened as a lobby.
                         if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
                         else { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
@@ -284,7 +287,13 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
     logout: () -> Unit = {}, auth: AuthController? = null, pods: PodController? = null,
     push: (ShellDestination) -> Unit = navigate) {
-    Column(Modifier.fillMaxSize()) {
+    // WEB-038, WEB-043: on the desktop layout lists and Settings keep a readable width at the left of their room
+    val readable = when (destination) {
+        ShellDestination.GAMES, ShellDestination.CONTACTS -> Modifier.desktopReadable()
+        ShellDestination.SETTINGS -> Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth)
+        else -> Modifier
+    }
+    Column(readable.fillMaxSize()) {
         if (destination == ShellDestination.MENU) {
             if (hamburger) ScreenHeader("", open) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }
         } else ScreenHeader(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title,
@@ -301,7 +310,9 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
             else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks)
-            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout, auth)
+            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout, auth,
+                // The account's server: the lobby's (the same as the build's in the app)
+                accountSettings = rememberAccountSettingsSource(accountId, auth, lobby?.accountOrigin ?: org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN))
             else if (destination == ShellDestination.STATS && lobby != null) StatsContent(lobby.history, accountId,
                 decks?.let { library -> { id: String -> navigate(ShellDestination.DECKS); library.open(id) } })
             else InitialLoadArea(destination != ShellDestination.MENU || lobby == null || lobby.state.loaded,
@@ -336,7 +347,7 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
                                      val incoming = incomingInvitation(game, accountId)
                                      val ready = cardRecordsReady()
                                      GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
-                                         .gameRowActions(lobby, game, enabled = ready || incoming) {
+                                         .gameRowActions(lobby, game, enabled = ready || incoming, desktop = desktopLayout()) {
                                              navigate(ShellDestination.GAMES)
                                              if (!incoming) lobby.open(game.id)
                                          }, trailing = if (incoming) ({

@@ -27,7 +27,7 @@ import kotlin.test.Test
  * a keyword with its own mana cost; the spell part reads as it does without flashback.
  */
 class IsdChunk01FlashbackTest {
-    private val permanentTypes = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
+    private val permanentTypes: List<CardType> = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
 
     // CR 111.1 (tokens created tapped), 702.34a
     @Test

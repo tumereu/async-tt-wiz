@@ -767,6 +767,18 @@ class GameSession(private val connection: GameConnection, private val credential
         // I-D56 step C: the engine game hears of its refused actions (a stale submission, a refused rewind)
         engineGames[original.scope.gameId]?.let { engine ->
             if (result.outcome != "accepted" && (original.action is GameAction.Submit || original.action.isEngine)) {
+                // Problem report JVPJ8Y: what was refused and why, in the engine's words when the server gave them, and for a
+                // submission what it held (each input, marked when assumed)
+                // (a stale race and a seen report with nothing new are routine: the take-back line tells the first)
+                if (result.reason != "stale" && result.reason != "noChange") AppLog.info("engine", "Server refused ${original.action::class.simpleName}: ${result.reason}" +
+                    (result.detail?.let { " ($it)" } ?: "") + ((original.action as? GameAction.Submit)?.submission?.let { s ->
+                        " ${s.id} on ${s.parentId}, acts " + s.acts.joinToString(prefix = "[", postfix = "]") { act ->
+                            when (act) {
+                                is org.asyncttwiz.protocol.game.Act.Perform -> (if (act.assumed) "assumed " else "") + act.input
+                                is org.asyncttwiz.protocol.game.Act.NewLine -> "new line ${act.number}"
+                            }
+                        }.take(1200)
+                    } ?: ""))
                 engine.refused(original.action, result.reason)
                 post { pumpEngine(original.scope.gameId) }
             }

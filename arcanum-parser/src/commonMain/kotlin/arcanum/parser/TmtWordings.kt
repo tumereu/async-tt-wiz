@@ -19,7 +19,7 @@ internal object Tmt {
     val PLURAL_VERB = Regex("""\b(attack|deal|enter|get|gain|block|have)\b""")
     // tmt chunk 01: keywords whose cost isn't mana ("Equip—Sacrifice another nonland permanent. Activate only once each turn.")
     val EQUIP_COST = Regex("""Equip—(.+?)\.( Activate only once each turn\.)?""")
-    val KICKER_COST = Regex("""Kicker—(.+?)\.?""")
+    val KICKER_COST = Regex("""(Kicker|Replicate)—(.+?)\.?""") // mh3 chunk 09: "Replicate—Pay {E}{E}{E}."
 
     // tmt chunk 02: sneak (CR 702.190)
     val SNEAK_PAID = Regex("""(?:this spell's|his|her|its|their|(.+)'s) sneak cost was paid( this turn)?""")
@@ -42,14 +42,15 @@ internal object Tmt {
     val MILLS_HALF_LIBRARY = Regex("""(Target opponent|Target player|Each opponent|[Dd]efending player) mills half their library, rounded (up|down)\.""")
     val DRAW_EQUAL_TO_DIFFERENCE = Regex("""[Dd]raw cards equal to the difference\.""")
     val FEWER_THAN_IN_HAND = Regex("""you have fewer than (\w+) cards in hand""")
-    val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an artifact creature with base power and toughness (\d+)/(\d+)\.""")
+    val BECOMES_ARTIFACT_CREATURE_BASE = Regex("""Until end of turn, target (.+) becomes an? ((?:[A-Z]\w+ )*)artifact creature with base power and toughness (\d+)/(\d+)( in addition to its other types)?\.""") // lci: subtypes
     val BECOMES_COLOR_OF_CHOICE_HEXPROOF = Regex("""Until end of turn, (.+) becomes the color of your choice and gains hexproof from that color\.""")
     val ENCHANTED_IS_SUBTYPE_BASE_PT = Regex("""Enchanted creature is an? ([A-Z]\w+) with base power and toughness (\d+)/(\d+)\. It can't attack and loses all abilities\.""")
-    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, (another )?target (.+?) gains ([a-z ,]+?) and "(.+)"\.?""") // fdn: another
+    val UNTIL_EOT_GAINS_AND_QUOTED = Regex("""Until end of turn, (another )?target (.+?) (?:gets ([+-]\d+)/([+-]\d+) and )?gains ([a-z ,]+?) and "(.+)"\.?""") // fdn: another; lci: gets
     val RETURN_TARGET_AND_SAME_NAME = Regex("""Return target (.+?) and all other cards with the same name as that card from your graveyard to the battlefield( tapped)?\.""")
     val NUMBER_OF_COUNTERS_ON = Regex("""the number of counters on (.+)""")
     val PUT_FROM_THAT_PLAYERS_GRAVEYARD = Regex("""[Pp]ut up to one target (.+?) from that player's graveyard onto the battlefield under your control\. It enters tapped and attacking that player\.""")
-    val DESTROY_IF_TYPE_DESTROYED = Regex("""Destroy target (.+?)\. If an? (\w+) was destroyed this way, (.+)""")
+    // woe chunk 08: "If a permanent you controlled or a token was destroyed this way, …"
+    val DESTROY_IF_TYPE_DESTROYED = Regex("""Destroy target (.+?)\. If an? (\w+|.+? you controlled or an? \w+) was destroyed this way, (.+)""")
     val GAIN_LIFE_EQUAL_TO_ITS = Regex("""[Yy]ou gain life equal to its (power|toughness)\.""")
     val KICKED_INSTEAD = Regex("""If this spell was kicked, that creature gets ([+-]\d+)/([+-]\d+) until end of turn instead\.""")
     val GAIN_CONTROL_OF_ALL_UNTIL_EOT = Regex("""Gain control of all (.+?) until end of turn\. Untap them\. They gain (\w+) until end of turn\.""")
@@ -71,7 +72,7 @@ internal object Tmt {
     val MAY_PUT_AND_OR_FROM_HAND = Regex("""[Yy]ou may put an? (\w+) card and/or an? (\w+) card from your hand onto the battlefield\.""")
     val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+\. .+)""")
     val IT_GAINS_UNTIL_EOT = Regex("""It gains ([a-z ,]+) until end of turn\.""")
-    val ACT_ON_IT_NEXT_END_STEP = Regex("""(Destroy|Sacrifice) it at the beginning of the next end step\.""")
+    val ACT_ON_IT_NEXT_END_STEP = Regex("""(Destroy|Sacrifice) it at the beginning of (the|your) next end step\.""") // mkm chunk 10: your
     val EXILE_TARGET_YOU_OWN = Regex("""Exile target (.+?) you own\.""")
     val ADD_THAT_MUCH = Regex("""[Aa]dd that much (\{[WUBRGC]\})\.""")
     val ENTERS_OR_DEALS_COMBAT_DAMAGE = Regex("""(.+) enters or deals combat damage to a player""")
@@ -80,8 +81,9 @@ internal object Tmt {
     val MAY_SEARCH_IF_YOU_DONT_PUT = Regex("""[Yy]ou may search your library for an? (.+?) card, reveal it, put it into your hand, then shuffle\. If you don't put a card into your hand this way, (.+)""")
     val MAY_REMOVE_COUNTER_WHEN_YOU_DO = Regex("""[Yy]ou may remove a counter from (.+?)\. When you do, (.+)""")
     val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
-    val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?) cost (\{\d+\}) less to activate\.""")
-    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(\w+) (.+?) cards, put them onto the battlefield( tapped)?, then shuffle\.""") // fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped
+    // woe chunk 08: also "{X} less to activate, where X is …. This effect can't reduce the mana in that cost to less than one mana."; one chunk 09: "that target …"; mkm chunk 02: the floor of one mana
+    val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}|\{X\}) less to activate(?:, where X is (.+?))?\.( This effect can't reduce the mana in that cost to less than one mana\.)?""")
+    val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(any number of|\w+) (.+?) cards, put them (?:onto the battlefield( tapped)?|(into your graveyard)), then shuffle\.""") // mom chunk 07: "for any number of Praetor cards"; fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped; mh3 chunk 12: into your graveyard
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     // bro chunk 01: "Each player who controls an artifact or enchantment creates ..."
     val EACH_PLAYER_CREATES = Regex("""[Ee]ach player(?: who controls (.+?))? creates (.+)\.""")
@@ -90,7 +92,8 @@ internal object Tmt {
     val RETURN_IF_ARTIFACT_CREATURE_OTHERWISE = Regex("""Choose target (.+?)\. Return it to the battlefield if it's an artifact creature card\. Otherwise, return it to the battlefield and it's an? (\d+)/(\d+) ([A-Z]\w+) artifact creature with ([a-z ,]+)\.""")
     val THEN_IF_CONTROL_LOSES_HALF = Regex("""Then if you control (\w+) or more (.+?), that player loses half their life, rounded (up|down)\.""")
     val EXILE_TWO_THEN_RETURN_THEM = Regex("""[Ee]xile up to one target (.+?) and up to one target (.+?)\. Then return them to the battlefield under their owners' control\.""")
-    val NEXT_SPELL_HAS = Regex("""the next (.+?) spell you cast this turn has (.+?)\.""")
+    /** "the next noncreature spell you cast this turn has affinity for artifacts", "the next spell you cast this turn has improvise" (mh3) */
+    val NEXT_SPELL_HAS = Regex("""the next ((?:.+? )?spell) you cast this turn has (.+?)\.""")
     val EXILE_THEN_RETURN = Regex("""[Ee]xile (up to one )?target (.+?), then return it to the battlefield under (its owner's|your) control( tapped and attacking)\.""")
     val EXILE_UNTIL_NONLAND = Regex("""[Ee]ach opponent exiles cards from the top of their library until they exile a (\w+) card\.""")
     val MAY_CAST_EXILED_WITH_FREE = Regex("""[Yy]ou may cast a card exiled with (.+) without paying its mana cost\.""")
@@ -100,24 +103,26 @@ internal object Tmt {
     val FIRST_COMBAT_PHASE = Regex("""it's the first combat phase of the turn""")
     val UNTAP_ONE_OR_TWO_ADDITIONAL_COMBAT = Regex("""[Uu]ntap one or two target (.+?)\. After this phase, there is an additional combat phase\.""")
     val REVEAL_UNTIL_TAPPED_ATTACKING = Regex("""[Rr]eveal cards from the top of your library until you reveal an? (.+?) card\. Put that card onto the battlefield tapped and attacking and the rest on the bottom of your library in a random order\.""")
-    val IF_ITS_MANA_VALUE_WAS = Regex("""If its mana value was (\d+) or (less|greater), (.+)""")
     val MANA_SPENT_LESS_THAN_MANA_VALUE = Regex("""the amount of mana spent to cast it was less than its mana value""")
-    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create a token that's a copy of (.+?)\. That token gains haste\. Sacrifice it at the beginning of the next end step\.""")
+    // mom chunk 12: also "It gains haste." and "Create five tokens that are copies of … They gain haste. Sacrifice them …"; lci chunk 10: ", except …"
+    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:That token|It) gains haste\. Sacrifice it at the beginning of the next end step\.|Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:They|Those tokens) gain haste\. Sacrifice them at the beginning of the next end step\.""")
     val TARGET_PLAYER_GAINS_AND_DRAWS = Regex("""Target player gains (\d+) life and draws (\w+) cards?\.""")
     val EACH_OF_YOUR_OPPONENTS = Regex("""Each of your opponents (.+)""")
     val TOKEN_FOR_EACH_COUNTER_ON_IT = Regex("""[Cc]reate an? (\w+) token for each (\+1/\+1) counter on it\.""")
-    val CREATURE_THAT_CREWED_IT = Regex("""(.+) that crewed it this turn""")
+    // otj chunk 03: also "that saddled it this turn" (CR 702.171c)
+    val CREATURE_THAT_CREWED_IT = Regex("""(.+) that (crewed|saddled) it this turn""")
     val THEN_IF_DOUBLE_COUNTERS = Regex("""Then if that creature is (?:an? )?(.+?), double the number of (\+1/\+1) counters on it\.""")
     val RETURN_EXILED_WITH_CREATURE_AND_OTHERS = Regex("""Return a (.+?) exiled with (.+?) to the battlefield under your control\. Return each other card exiled with (.+?) to its owner's hand\.""")
     val CARD_TYPES_AMONG_SPELLS_CAST = Regex("""[Dd]raw a card for each card type among spells you've cast this turn\.""")
     val EXCHANGE_CONTROL_DIFFERENT_PLAYERS = Regex("""[Yy]ou may exchange control of two other target (.+?) controlled by different players\.""")
     val SEARCH_AND_OR_OUTSIDE = Regex("""Search your library and/or outside the game for exactly (\w+) (.+?) you own with different names, then reveal those cards\. An opponent chooses (\w+) of them\. Put the chosen cards into your hand and shuffle the rest into your library\.""")
-    val SHUFFLE_HAND_AND_GRAVEYARD_DRAW = Regex("""Each player may shuffle their hand and graveyard into their library, then each player who does draws (\w+) cards\.""")
+    // otj chunk 01: also "… into their library. Each player who does draws seven cards."
+    val SHUFFLE_HAND_AND_GRAVEYARD_DRAW = Regex("""Each player may shuffle their hand and graveyard into their library(?:, then each|\. Each) player who does draws (\w+) cards\.""")
     val PAY_LIFE_EQUAL_TO_POWER_COUNTERS = Regex("""[Yy]ou may pay life equal to its power\. If you do, put that many \+1/\+1 counters on it\.""")
     val CARDS_HAVE_SNEAK = Regex("""Creature cards in your graveyard have sneak (\{.+\})\.""")
     val CAST_USING_SNEAK = Regex("""You may cast creature spells from your graveyard using their sneak abilities\.""")
     val DURING_YOUR_TURN_CAST_FROM_GRAVEYARD_FINALITY = Regex("""During your turn, you may cast (.+?) spells with power or toughness (\d+) or less from your graveyard\. If you cast a spell this way, that creature enters with a finality counter on it\.""")
-    val CLONING_COPY_EXCEPT = Regex("""Create a token that's a copy of (it|a card exiled with this Saga), except it isn't legendary and is an? ([A-Z]\w+) in addition to its other types\.""")
+    val CLONING_COPY_EXCEPT = Regex("""Create a token that's a copy of (it|a card exiled with this Saga), except it isn't legendary(?:,| and) is an? ([A-Z]\w+) in addition to its other types(?:, and has ([a-z ,]+?))?\.""")
 }
 
 /** Phrases of Teenage Mutant Ninja Turtles (tmt) wordings: conditions and nouns. */
@@ -151,7 +156,10 @@ internal object TmtPhrases {
     fun noun(phrase: String): ObjectFilter? {
         // tmt chunk 02: "Dinosaurs you control other than this creature"
         Tmt.OTHER_THAN_SELF.matchEntire(phrase)?.takeIf { it.groupValues[2].startsWith("this ") }?.let { m ->
-            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+            // mh3 chunk 09: "blue permanent other than this planeswalker you control" (from "if you control a blue permanent other than …"): yours
+            val yours = m.groupValues[2].endsWith(" you control")
+            return Filters.all(*listOfNotNull(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You).takeIf { yours }).toTypedArray())
         }
         // tmt chunk 01: "creature you control with a counter on it" (of any kind)
         Tmt.WITH_A_COUNTER_ON_IT.matchEntire(phrase)?.let { m ->
@@ -167,7 +175,8 @@ internal object TmtPhrases {
             return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.Targets(objects = Objects.Each(targeted)))
         }
         Tmt.CREATURE_THAT_CREWED_IT.matchEntire(phrase)?.let { m ->
-            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.CrewedThisTurn(Objects.Self))
+            val tapped = if (m.groupValues[2] == "crewed") ObjectFilter.CrewedThisTurn(Objects.Self) else ObjectFilter.SaddledThisTurn(Objects.Self)
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, tapped)
         }
         return null
     }

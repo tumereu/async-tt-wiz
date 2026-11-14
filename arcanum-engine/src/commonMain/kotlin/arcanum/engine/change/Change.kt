@@ -80,11 +80,13 @@ sealed interface Change {
         override fun inverse() = copy(before = after, after = before)
     }
 
-    /** Counters of [kind] on an object or player change from [before] to [after] (null: none; CR 122). */
+    /** Counters of [kind] on an object or player change from [before] to [after] (null: none; CR 122). [controller]: an object
+     * holder's controller after layers as they changed, filled in as the change is recorded, so "a counter was removed from a
+     * permanent you controlled this turn" judges the permanent as it was then (CR 608.2h). */
     @Serializable @SerialName("counters")
     data class Counters(
         val holder: TargetRef, val kind: CounterKind, val before: CounterEntry?, val after: CounterEntry?,
-        val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null,
+        val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null, val controller: PlayerId? = null,
     ) : Change {
         override fun inverse() = copy(before = after, after = before)
     }
@@ -528,6 +530,8 @@ sealed interface GameEvent {
      * action counts as done (CR 701.22d, 701.44b, 701.57b, 702.143c, ...). */
     @Serializable @SerialName("keyword-action-done") data class KeywordActionDone(
         val action: arcanum.api.KeywordActionKind, val player: PlayerId, val objects: List<ObjectId> = emptyList(), val amount: Int? = null,
+        /** The card the action revealed, where it went (explore, CR 701.44a). */
+        val revealed: ObjectId? = null,
     ) : GameEvent
     // bro
     /** [player] scried and put [count] (one or more) of the cards on the bottom of their library (CR 701.22a): what

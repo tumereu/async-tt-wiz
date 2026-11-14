@@ -58,6 +58,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 ## Specified, not started
 
+- Booster randomness check (owner 2026-11-13; lowest priority, after all other queued work, for peace of mind): a sealed DFT pod in prod ("Vroom vroooomm!", 9 packs) gave one pool Lifecraft Engine ×3, Demonic Junker ×2, Full Throttle ×2. The recipe and sheet weights were checked (MTGJSON play booster, rares weight 8, mythics 4, seed from SecureRandom through RandomV1's SHA-256 stream), and the pattern is about 1 in 230 for a pool of 12 rares, so nothing points at a bug. Check the real generator statistically anyway: generate about 100,000 DFT sealed pools (9 packs) with `SetBoosters.generate` from the pinned catalog's DFT recipe, test each sheet's card frequencies against its weights (chi-squared per sheet, rare-or-mythic split, wildcard and foil slot rarities), test independence between packs and slots (no correlation between consecutive draws), and report where the observed pool falls in the distribution of repeats. A JVM tool or test reading the local pinned MTGJSON file (no real card data committed); report the numbers to the owner in plain words. No code change unless the check finds a fault.
+
 ## Needs discussion
 
 - Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and settled in the engine API rework (merged 2026-11-12). Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.

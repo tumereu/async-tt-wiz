@@ -149,6 +149,10 @@ internal object Casting {
             val plan = Plan(recorder.state, c)
             // CR 118.6: attempting to pay an unpayable cost is illegal: the input (or the answer that made it so) is refused
             plan.unpayable?.let { throw IllegalArgumentException(it) }
+            // rvr fixes, CR 601.2e, 601.3a: the spell as proposed so far (its X announced, CR 202.3e) must not be one the player is
+            // prohibited from casting; beginning to cast it was allowed only because the choices could make it legal
+            if (Legality.prohibitedAsProposed(plan))
+                throw IllegalArgumentException("Can't cast that: a rule prohibits casting it as proposed")
             val q = plan.next() ?: return Payment.finish(recorder, c, emptyList(), from)
             // CR 601.2c, 601.2h: without enough legal targets or objects to pay with, it can't be cast or activated:
             // the input (or answer) is refused; an open cast can still be cancelled. Everything known so far is checked,
@@ -226,7 +230,7 @@ internal object Casting {
             if (q == null) break
             if (q is Question.Pay) {
                 // CR 118.3: a cost that can't be paid isn't; the spell then can't be cast
-                if (!arcanum.engine.mana.Mana.mayPay(plan.snap, player, q.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)) return cannot()
+                if (!arcanum.engine.mana.Mana.mayPay(plan.snap, player, q.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX)) return cannot()
                 val uses = (act.ask { plan.decision(q, it) } as? Answer.ManaPayment)?.uses
                     ?: throw IllegalArgumentException("Expected a mana payment")
                 Payment.finish(act.recorder, c, uses, mark)

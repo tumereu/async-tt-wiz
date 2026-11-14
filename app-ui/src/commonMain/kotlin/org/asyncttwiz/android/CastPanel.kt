@@ -92,7 +92,8 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
     var panelHeight by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
-    DockedAboveHand(handRow) {
+    // WEB-019: on the desktop table paying with permanents needs the board (a strip); ways, extras, X and modes don't (an overlay)
+    DockedAboveHand(handRow, if (flow.pending is Decision.ManaPayment) PromptPlace.Board else PromptPlace.Choice) {
         Box(Modifier.onSizeChanged { panelHeight = with(density) { it.height.toDp().value } }) {
             CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) {
                 CastPanel(cast, flow, play, names, source) { card -> scene == null || handRow == null || scene.inView(card, handRow.y - panelHeight) }
@@ -103,7 +104,7 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
 
 /** The source of a cast (STK-044): the card cast, or for an activation ([abilityText] its text) the ability as its
  * Stack token would show it (STK-046), the source's art with the marker. */
-fun castSource(play: TableBoard, viewer: String, flow: CastFlow, abilityText: String?): ChoiceCardData {
+fun castSource(play: TableBoard, viewer: String, flow: CastShown, abilityText: String?): ChoiceCardData {
     val card = choiceCard(play, viewer, "source/${flow.cardId}", flow.cardId, shown = true, fallback = CastController.cardName(play, flow.cardId))
     return if (abilityText == null) card else card.copy(ability = StackAbilityShown(triggered = false, source = card.name, text = abilityText))
 }
@@ -111,7 +112,8 @@ fun castSource(play: TableBoard, viewer: String, flow: CastFlow, abilityText: St
 /** I-D47: the table's full width, its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom
  * without one), at most up to the table's top. */
 @Composable
-private fun DockedAboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+private fun DockedAboveHand(hand: TableBounds?, place: PromptPlace, content: @Composable () -> Unit) {
+    LocalDesktopGeometry.current?.let { DesktopPrompt(it, place, content); return }
     val docked = dockedPanelReporter()
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
@@ -241,7 +243,7 @@ fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? =
 }
 
 @Composable
-private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, source: ChoiceCardData, viewer: String, names: Map<String, String>) {
+private fun TargetBar(cast: CastController, flow: CastShown, play: TableBoard, source: ChoiceCardData, viewer: String, names: Map<String, String>) {
     val pick = cast.pick ?: return
     val decision = pick.decision
     val inspector = remember { ChoiceInspector() }
@@ -297,11 +299,14 @@ fun IconText(icon: ImageVector, text: String) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>, source: ChoiceCardData, inView: (String) -> Boolean) {
+private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, names: Map<String, String>, source: ChoiceCardData, inView: (String) -> Boolean) {
     val inspector = remember { ChoiceInspector() }
     // STK-023: a choice built up in place is answered by Cast (no OK of its own)
     val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
     val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
+    // WEB-019: hidden, a centred overlay's dimming goes with it
+    val dim = LocalPromptDim.current
+    if (dim != null) SideEffect { dim.shown = shown }
     // STK-023, STK-052 (owner playtest 2026-11-05 evening): no Cancel (Undo and Back drop the cast); Cast also answers a choice built
     // up in place (X) and goes on. TRN-063 (owner playtest 2026-11-09): it is the main button, the panel has no button of its own
     val answering = ok.answer.takeIf { ok.decision != null && ok.decision == flow.pending?.id }
@@ -342,6 +347,8 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                 ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
                 // ZON-080, ZON-082 (owner 2026-11-07): a hand card's ways and extras, as chips (its way filled violet)
                 cast.hand?.let { hand ->
+                    // WEB-032: 1–9 choose a way, unless an open choice below has options of its own
+                    if (hand.ways.size > 1) NumberedOptions(hand.ways.indices.map { index -> { cast.handWay(index) } })
                     if (hand.ways.size > 1) Section("Cast as") {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             hand.ways.forEachIndexed { index, chip -> WayChip(chip, index == hand.way, { cast.handWay(index) }, {}) }
@@ -355,6 +362,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                         }
                     }
                 }
+                if (cast.hand == null && cast.ways.size > 1) NumberedOptions(cast.ways.map { way -> { if (way != flow.begin) cast.way(way) } })
                 if (cast.hand == null && cast.ways.size > 1) Section("Cast as") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
@@ -425,7 +433,7 @@ fun Section(title: String, hint: String? = null, content: @Composable ColumnScop
  * table. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>,
+private fun AnsweredSection(cast: CastController, flow: CastShown, play: TableBoard, names: Map<String, String>,
     index: Int, decision: Decision, answer: Answer) {
     when {
         decision is Decision.May && answer is Answer.YesNo -> Section(mayTitle(decision)) {
@@ -494,6 +502,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
         }
         is Decision.Modes -> ModesSection(cast, decision)
         is Decision.ChooseOption -> Section(choiceWhat(decision), choiceHint(decision)) {
+            NumberedOptions(decision.options.map { option -> { cast.answer(Answer.Option(option)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (option in decision.options) ChoiceButton(option.replaceFirstChar { it.uppercase() }, Icons.Outlined.RadioButtonUnchecked) {
                     cast.answer(Answer.Option(option))
@@ -501,6 +510,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
             }
         }
         is Decision.ChooseColor -> Section(choiceWhat(decision), choiceHint(decision)) {
+            NumberedOptions(decision.among.map { color -> { cast.answer(Answer.ColorChoice(color)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (color in decision.among) OutlinedButton({ cast.answer(Answer.ColorChoice(color)) },
                     contentPadding = PaddingValues(start = 10.dp, end = 14.dp)) {
@@ -542,6 +552,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
         is Decision.ChooseReplacement -> ReplacementOrderSection(cast, flow, play, decision)
         // Owner gallery review (2026-11-06, bug): each player as their avatar beside their name, as on their life square
         is Decision.ChoosePlayer -> Section(choiceWhat(decision), choiceHint(decision)) {
+            NumberedOptions(decision.options.map { player -> { cast.answer(Answer.Player(player)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (player in decision.options) PlayerChoiceButton(player.value, names[player.value] ?: "A player") {
                     cast.answer(Answer.Player(player))
@@ -570,6 +581,7 @@ fun OkRow(decision: Decision, enabled: Boolean, label: String = "OK", answer: ()
 @Composable
 private fun ListedSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision) {
     Section(choiceWhat(decision), choiceHint(decision)) {
+        NumberedOptions(flow.listedAnswers().map { answer -> { cast.answer(answer) } })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (answer in flow.listedAnswers()) ChoiceButton(answerLabel(flow, play, names, decision, answer), Icons.Outlined.RadioButtonUnchecked) {
                 cast.answer(answer)
@@ -591,6 +603,13 @@ private fun ModesSection(cast: FlowQuestions, decision: Decision.Modes) {
     val pawprints = chosen.sumOf { i -> decision.options.firstOrNull { it.index == i }?.pawprints ?: 0 }
     val overLimit = decision.pawprintLimit?.let { pawprints > it } == true
     // I-D48: every mode chip carries a mark (chosen or not), "−" is an icon with its tooltip on hold
+    // WEB-032: 1–9 tap the Nth mode, as a tap on its chip does
+    NumberedOptions(decision.options.map { mode -> {
+        if (!mode.available) Unit
+        else if (decision.repeatable) { if (chosen.size < decision.max) chosen = chosen + mode.index }
+        else if (decision.max == 1) cast.answer(Answer.Modes(listOf(mode.index)))
+        else chosen = if (mode.index in chosen) chosen - mode.index else chosen + mode.index
+    } })
     Section(choiceWhat(decision), choiceHint(decision)) {
         if (decision.repeatable) {
             for (mode in decision.options) {
@@ -768,14 +787,14 @@ fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast panel") 
 
 /** The cast panel's title (STK-023, STK-044): what is done and the card it is done with, [name] ("Cast Storm Spark",
  * "Play Mountain", "Activate Ember Herald": an ability by its source's name), the card also at the panel's right. */
-fun castTitle(flow: CastFlow, name: String) = when {
+fun castTitle(flow: CastShown, name: String) = when {
     flow.begin is Input.PlayLand -> "Play $name"
     flow.activation -> "Activate $name"
     else -> "Cast $name"
 }
 
 /** The panel's main button: Play for a land, Activate for an ability or special action (§3 I4), else Cast. */
-private fun actionLabel(flow: CastFlow) = when {
+private fun actionLabel(flow: CastShown) = when {
     flow.begin is Input.PlayLand -> "Play"
     flow.activation -> "Activate"
     else -> "Cast"
@@ -787,7 +806,7 @@ fun cardText(play: TableBoard, cardId: String): String? {
     return faces.joinToString("\n") { it.rulesText }.trim().ifEmpty { null }
 }
 
-private fun wayLabel(play: TableBoard, flow: CastFlow, way: Input): String = when (way) {
+private fun wayLabel(play: TableBoard, flow: CastShown, way: Input): String = when (way) {
     is Input.Cast -> CastFlow.wayLabel(flow.state.objects.values.firstOrNull { (it.id as? ObjectId.Card)?.card ==
         (way.card as ObjectId.Card).card }?.definition, way) ?: "Cast"
     is Input.PlayLand -> if (way.face == 0) "Play" else "Play back face"

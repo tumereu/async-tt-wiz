@@ -4,6 +4,7 @@ import arcanum.api.CardType
 import arcanum.api.Choice
 import arcanum.api.Color
 import arcanum.api.Each
+import arcanum.api.Effect
 import arcanum.api.Modification
 import arcanum.api.Step
 import arcanum.engine.CardSupport
@@ -23,8 +24,14 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TriggerEvent
 import arcanum.engine.view.Subtypes
 
-/** Zone changes collected to happen as one event (CR 608.2c, 608.2e): [moves], binding [postBind] in [scope]. */
-internal class Batched(val scope: Scope, val moves: List<PlannedMove>, val postBind: String?, val noRegeneration: Boolean = false)
+/** Zone changes collected to happen as one event (CR 608.2c, 608.2e): [moves], binding [postBind] in [scope]. Token creations
+ * ([tokens], CR 608.2f) collected likewise are created as one event, then bound to [tokenBind] and put onto the battlefield
+ * attacking [attacking] when that is set. */
+internal class Batched(
+    val scope: Scope, val moves: List<PlannedMove>, val postBind: String?, val noRegeneration: Boolean = false,
+    val tokens: List<Actions.TokenRequest> = emptyList(), val tokenBind: String? = null, val attacking: arcanum.engine.state.TargetRef? = null,
+    val attackChosen: Boolean = false,
+)
 
 /**
  * Where a resolution (or a replacement's instructions, or "as enters" steps) is: [cause] says who "you" and "this"
@@ -150,7 +157,20 @@ internal object Steps {
     private const val REPEAT_LIMIT = 1000
 
     /** The prompt of an optional step (API review 3): its sentence of the resolving ability's printed text. */
-    private fun mayText(scope: Scope, step: Step): String = arcanum.engine.decision.Texts.may(scope.cause.item?.ability, step)
+    private fun mayText(scope: Scope, step: Step): String {
+        val ability = scope.cause.item?.ability
+        if (!arcanum.engine.decision.Texts.printedMay(ability, step)) castText(scope, step)?.let { return it }
+        return arcanum.engine.decision.Texts.may(ability, step)
+    }
+
+    /** The question of a cast a keyword action offers (discover, CR 701.57a: "you may cast it without paying its mana cost"),
+     * naming the card: the ability's own "you may" sentence asks something else. */
+    private fun castText(scope: Scope, step: Step): String? {
+        val cast = ((step as? Step.Pay)?.steps?.singleOrNull() as? Step.Do)?.effect as? arcanum.api.Effect.Cast ?: return null
+        val e = scope.eval()
+        val names = scope.objects(cast.objects).mapNotNull { e.characteristics(it)?.name }.ifEmpty { return null }
+        return "Cast ${names.joinToString(" and ")}${if (cast.withoutPaying) " without paying its mana cost" else ""}?"
+    }
 
     private fun withActor(scope: Scope, player: PlayerId, block: () -> Unit) {
         val saved = scope.actor
@@ -169,8 +189,21 @@ internal object Steps {
 
     fun flush(act: Act, cause: Cause, batch: List<Batched>) {
         if (batch.isEmpty()) return
-        val moved = Actions.move(act, cause, batch.flatMap { it.moves }, noRegeneration = batch.any { it.noRegeneration })
-        batch.forEach { b ->
+        // CR 608.2f: the tokens "for each" creates are created at once, one event ("one or more tokens enter" triggers once)
+        val creating = batch.filter { it.tokens.isNotEmpty() }
+        if (creating.isNotEmpty()) {
+            val created = Actions.createTokensTogether(act, cause, creating.flatMap { it.tokens })
+            var at = 0
+            creating.forEach { b ->
+                val ids = created.subList(at, at + b.tokens.size).flatten()
+                at += b.tokens.size
+                Effects.tokensCreated(b.scope, ids, b.attacking, b.tokenBind, b.attackChosen)
+            }
+        }
+        val moving = batch.filter { it.tokens.isEmpty() }
+        if (moving.isEmpty()) return
+        val moved = Actions.move(act, cause, moving.flatMap { it.moves }, noRegeneration = moving.any { it.noRegeneration })
+        moving.forEach { b ->
             b.scope.bind(b.postBind, NamedValue.Objects(b.moves.mapNotNull { moved[it.id] }))
         }
     }
@@ -200,8 +233,27 @@ internal object Steps {
         val scopes = values.map { v ->
             Scope(scope.act, scope.cause, outer.with(step.bind, v), scope.event, actorOf(scope, v), scope.batch, scope.entering)
         }
-        if (step.together) {
+        val damage = ((step.steps.singleOrNull() as? Step.Do)?.effect as? Effect.DealDamage)?.takeIf { it.bind == null }
+        if (damage != null) {
+            // rvr fixes, CR 608.2f: "each of them deals damage …" (or damage to each player, an amount each) is one action on several
+            // objects or players, processed simultaneously: one damage event
+            Effects.dealDamageTogether(scopes, damage)
+        } else if (step.together) {
             step.steps.forEach { s -> stepTogether(scope, scopes, s) }
+        } else if (step.each is Each.Objects && scopes.size > 1 && step.steps.any(::casts)) {
+            // rvr fixes, CR 608.2f: casting each of several objects ("for each card exiled this way, copy it, and you may cast the copy")
+            // can't be done simultaneously: the resolving spell's controller chooses the order, one object at a time
+            val left = values.indices.toMutableList()
+            while (left.isNotEmpty()) {
+                val ids = left.map { (values[it] as NamedValue.Objects).ids.single() }
+                val next = if (left.size == 1) left.single()
+                    else left[ids.indexOf(scope.act.chooseObjects(scope.you, scope.self, ids, 1, 1, "Choose the next card (they're cast in the order you choose)").single())]
+                left -= next
+                run(scopes[next], step.steps)
+            }
+        } else if (step.steps.all { (it as? Step.Do)?.effect is arcanum.api.Effect.CreateToken }) {
+            // CR 608.2f: "for each of them, create a token …": the tokens are created simultaneously, as one event
+            together(scope) { scopes.forEach { it.batch = scope.batch; run(it, step.steps); it.batch = null } }
         } else {
             scopes.forEach { run(it, step.steps) }
         }
@@ -229,6 +281,13 @@ internal object Steps {
             return
         }
         together(scope) { scopes.forEach { it.batch = scope.batch; run(it, s); it.batch = null } }
+    }
+
+    /** Whether [step] casts something (a spell cast while another resolves, CR 608.2g). */
+    private fun casts(step: Step): Boolean = when (step) {
+        is Step.Do -> step.effect is Effect.Cast
+        is Step.May -> step.steps.any(::casts)
+        else -> false
     }
 
     private fun actorOf(scope: Scope, value: NamedValue): PlayerId =
@@ -332,9 +391,16 @@ internal object Steps {
         }
         scope.bind(step.bind, value)
         if (step.remember) {
+            // mkm fix: a secret choice is marked known only to its chooser until revealed (Secrets)
+            val marker = if (step.secret) NamedValue.Players(listOf(chooser)) else null
             val entering = scope.entering
-            if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(step.bind, value))
-            else source?.let { id -> act.state.obj(id)?.let { o -> act.record(Change.Memory(id, step.bind, o.linked[step.bind], value)) } }
+            if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(step.bind, value)
+                .let { m -> if (marker != null) m.with(arcanum.engine.state.Secrets.markerKey(step.bind), marker) else m })
+            else source?.let { id -> act.state.obj(id)?.let { o ->
+                act.record(Change.Memory(id, step.bind, o.linked[step.bind], value))
+                val key = arcanum.engine.state.Secrets.markerKey(step.bind)
+                if (marker != null) act.record(Change.Memory(id, key, o.linked[key], marker))
+            } }
         }
     }
 
@@ -408,13 +474,16 @@ internal object Steps {
         val e = scope.eval()
         scope.entering = when (modification) {
             Modification.EntersTapped -> m.copy(tapped = true)
-            is Modification.EntersWithCounters -> m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
+            is Modification.EntersWithCounters -> if (!arcanum.engine.action.Actions.entersAs(scope.act, m, modification.ifEntersAs, scope.actor)) m
+                else m.copy(counters = m.counters + (modification.kind to e.value(modification.amount)))
             is Modification.EntersUnderControlOf -> m.copy(controller = e.players(modification.players).firstOrNull() ?: m.controller)
             is Modification.EntersWithAbilities -> m.copy(abilities = m.abilities + modification.abilities)
+            // mh3: what it enters as, chosen as it enters ("it becomes your choice of a 3/3 creature with flying, …", CR 614.12)
+            is Modification.EntersAs -> if (m.to == arcanum.api.Zone.Battlefield) m.copy(entersAs = m.entersAs + modification.mechanics) else m
             is Modification.EntersAsCopy -> {
                 val options = e.each(modification.of).filter { it != m.id }
                 scope.act.chooseObjects(scope.actor, m.id, options, if (modification.optional) 0 else 1, 1, "Enter as a copy of")
-                    .firstOrNull()?.let { m.copy(copyOf = it to arcanum.engine.view.Copiable.ownPowerToughness(modification.except, e.characteristics(m.id))) } ?: m
+                    .firstOrNull()?.let { arcanum.engine.action.Actions.asCopy(scope.act, m, it, modification, e, scope.actor) } ?: m
             }
             is Modification.ChangeDestination -> m.copy(to = modification.to.zone)
             Modification.Skip -> null

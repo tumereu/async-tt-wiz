@@ -1,0 +1,294 @@
+package arcanum.parser.sets.mkm
+
+import arcanum.api.Ability
+import arcanum.api.ActivationRules
+import arcanum.api.Affected
+import arcanum.api.AbilityLabel
+import arcanum.api.CardType
+import arcanum.api.Color
+import arcanum.api.ColorRef
+import arcanum.api.Comparison
+import arcanum.api.Combine
+import arcanum.api.Condition
+import arcanum.api.Cost
+import arcanum.api.CostObjects
+import arcanum.api.CostPart
+import arcanum.api.CounterKind
+import arcanum.api.Designation
+import arcanum.api.Destination
+import arcanum.api.Duration
+import arcanum.api.Effect
+import arcanum.api.EventPattern
+import arcanum.api.FaceDefinition
+import arcanum.api.Instructions
+import arcanum.api.Keyword
+import arcanum.api.KeywordAction
+import arcanum.api.ManaCost
+import arcanum.api.Measure
+import arcanum.api.Mechanic
+import arcanum.api.Mode
+import arcanum.api.Modes
+import arcanum.api.NumericProperty
+import arcanum.api.SharedQuality
+import arcanum.api.ObjectCategory
+import arcanum.api.ObjectFilter
+import arcanum.api.Objects
+import arcanum.api.PlayerFilter
+import arcanum.api.Players
+import arcanum.api.PrintedNumber
+import arcanum.api.RecipientFilter
+import arcanum.api.Recipients
+import arcanum.api.Step
+import arcanum.api.Subtype
+import arcanum.api.Supertype
+import arcanum.api.SubtypeRef
+import arcanum.api.TargetKind
+import arcanum.api.TargetSlot
+import arcanum.api.Timing
+import arcanum.api.TokenSpec
+import arcanum.api.Trigger
+import arcanum.api.TurnStep
+import arcanum.api.Value
+import arcanum.api.Zone
+
+
+/*
+ * Shared shapes of the Murders at Karlov Manor (MKM) parser tests, copied from INR. The test cards are invented (D15): new names, the real
+ * cards' exact oracle text with the new name.
+ */
+
+// ---- Filters
+
+val creature: ObjectFilter = ObjectFilter.Type(CardType.Creature)
+val land: ObjectFilter = ObjectFilter.Type(CardType.Land)
+val artifact: ObjectFilter = ObjectFilter.Type(CardType.Artifact)
+val enchantment: ObjectFilter = ObjectFilter.Type(CardType.Enchantment)
+val instant: ObjectFilter = ObjectFilter.Type(CardType.Instant)
+val sorcery: ObjectFilter = ObjectFilter.Type(CardType.Sorcery)
+val nonland: ObjectFilter = ObjectFilter.Not(land)
+val legendary: ObjectFilter = ObjectFilter.Super(Supertype.Legendary)
+val permanentCard: ObjectFilter = ObjectFilter.Or(listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment,
+    CardType.Land, CardType.Planeswalker).map { ObjectFilter.Type(it) })
+val spellFilter: ObjectFilter = ObjectFilter.Category(ObjectCategory.Spell)
+val cardFilter: ObjectFilter = ObjectFilter.Category(ObjectCategory.Card)
+val token: ObjectFilter = ObjectFilter.Category(ObjectCategory.Token)
+val permanentFilter: ObjectFilter = ObjectFilter.Category(ObjectCategory.Permanent)
+val you: ObjectFilter = ObjectFilter.ControlledBy(PlayerFilter.You)
+val opponents: ObjectFilter = ObjectFilter.ControlledBy(PlayerFilter.Opponent)
+val another: ObjectFilter = ObjectFilter.Not(ObjectFilter.Is(Objects.Self))
+val attacking: ObjectFilter = ObjectFilter.HasStatus(arcanum.api.Status.Attacking)
+val tapped: ObjectFilter = ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
+/** All of [filters], nested "and"s flattened (the parser's one canonical form). */
+fun and(vararg filters: ObjectFilter): ObjectFilter = ObjectFilter.And(filters.flatMap { if (it is ObjectFilter.And) it.all else listOf(it) })
+fun or(vararg filters: ObjectFilter): ObjectFilter = ObjectFilter.Or(filters.toList())
+fun not(filter: ObjectFilter): ObjectFilter = ObjectFilter.Not(filter)
+fun sub(name: String): ObjectFilter = ObjectFilter.Sub(Subtype(name))
+fun kw(kind: arcanum.api.KeywordKind): ObjectFilter = ObjectFilter.HasKeyword(kind)
+val creatureYouControl: ObjectFilter = and(creature, you)
+val creatureOpponentControls: ObjectFilter = and(creature, opponents)
+val equipment: ObjectFilter = sub("Equipment")
+fun inZone(zone: Zone): ObjectFilter = ObjectFilter.InZone(zone)
+val yourGraveyard: List<ObjectFilter> = listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+fun inYourGraveyard(vararg filters: ObjectFilter): ObjectFilter = ObjectFilter.And(filters.toList() + yourGraveyard)
+fun manaValue(comparison: arcanum.api.Comparison, n: Int): ObjectFilter = ObjectFilter.ManaValue(comparison, Value.Fixed(n))
+fun power(comparison: arcanum.api.Comparison, n: Int): ObjectFilter = ObjectFilter.Power(comparison, Value.Fixed(n))
+
+// ---- Targets
+
+fun target(name: String): Objects = Objects.Target(name)
+/** A target slot of objects [min]..[max] (null: any number). */
+fun slot(name: String, filter: ObjectFilter, min: Int = 1, max: Int? = 1) =
+    TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(min), max = max?.let { Value.Fixed(it) })
+val targetPlayer = TargetSlot("player", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
+val targetOpponent = TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent), min = Value.Fixed(1), max = Value.Fixed(1))
+val anyTarget = TargetSlot("any", TargetKind.Either(or(creature, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle)),
+    PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
+val toAny = Recipients(target = "any")
+fun toObjects(objects: Objects) = Recipients(objects = objects)
+val eachOpponent: Recipients = Recipients(players = Players.Each(PlayerFilter.Opponent))
+
+// ---- Abilities
+
+fun spell(vararg steps: Step, targets: List<TargetSlot> = emptyList(), replacements: List<Mechanic.Replacement> = emptyList(), announced: List<String> = emptyList()) =
+    Ability.Spell(Instructions(targets = targets, steps = steps.toList(), replacements = replacements, announced = announced))
+fun triggered(trigger: Trigger, vararg steps: Step, targets: List<TargetSlot> = emptyList(), interveningIf: Condition? = null, perTurn: Int? = null,
+              abilityWord: String? = null, triggersOnlyIf: Condition? = null, functionsIn: List<Zone>? = null) =
+    Ability.Triggered(trigger, Instructions(targets = targets, steps = steps.toList()), interveningIf = interveningIf, perTurn = perTurn,
+        abilityWord = abilityWord, triggersOnlyIf = triggersOnlyIf, functionsIn = functionsIn)
+fun activated(cost: Cost, vararg steps: Step, targets: List<TargetSlot> = emptyList(), rules: ActivationRules = anyTime, functionsIn: List<Zone>? = null) =
+    Ability.Activated(cost, Instructions(targets = targets, steps = steps.toList()), rules, functionsIn = functionsIn)
+fun static(vararg mechanics: Mechanic, affects: Objects = Objects.Self, condition: Condition? = null, characteristicDefining: Boolean = false) =
+    Ability.Static(mechanics.toList(), affects = Affected.Objects(affects), condition = condition, characteristicDefining = characteristicDefining)
+fun playerStatic(vararg mechanics: Mechanic, players: Players = Players.You, condition: Condition? = null) =
+    Ability.Static(mechanics.toList(), affects = Affected.Players(players), condition = condition)
+fun modes(vararg options: Mode, min: Int = 1, max: Int = 1, onlyUnchosen: Boolean = false) =
+    Modes(options.toList(), min = min, max = max, onlyUnchosen = onlyUnchosen, chooser = Players.You)
+fun mode(vararg steps: Step, targets: List<TargetSlot> = emptyList()) = Mode(Instructions(targets = targets, steps = steps.toList()))
+
+val anyTime = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)
+val asSorcery = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)
+fun cost(vararg parts: CostPart): Cost = Cost(parts.toList())
+fun mana(text: String): CostPart = CostPart.Mana(ManaCost.parse(text)!!)
+fun manaCost(text: String): Cost = Cost.mana(ManaCost.parse(text)!!)
+val tap: CostPart = CostPart.TapSelf
+val sacrificeSelf: CostPart = CostPart.Sacrifice(CostObjects.Self)
+fun sacrificeA(filter: ObjectFilter, preBind: String? = null): CostPart = CostPart.Sacrifice(CostObjects.Choose(filter, count = Value.Fixed(1)), preBind = preBind)
+val discardACard: CostPart = CostPart.Discard(CostObjects.Choose(cardFilter, count = Value.Fixed(1)))
+
+// ---- Triggers
+
+fun on(event: EventPattern): Trigger = Trigger.On(event)
+val entersSelf: Trigger = on(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield))
+val diesSelf: Trigger = on(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard))
+val attacksSelf: Trigger = on(EventPattern.Attack(ObjectFilter.Is(Objects.Self)))
+/** "Whenever this creature enters or attacks" (one ability with two events). */
+val entersOrAttacksSelf: Trigger = Trigger.On(listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+    EventPattern.Attack(ObjectFilter.Is(Objects.Self))))
+/** "Whenever you attack" (CR 508.3d: once per declaration). */
+val youAttack: Trigger = Trigger.On(EventPattern.Attack(you), oneOrMore = true)
+fun enters(filter: ObjectFilter): Trigger = on(EventPattern.ZoneChange(filter, to = Zone.Battlefield))
+fun stepBegins(step: TurnStep, whose: PlayerFilter): Trigger = on(EventPattern.StepBegins(step, whose))
+val beginningOfCombatOnYourTurn: Trigger = stepBegins(TurnStep.BeginningOfCombat, PlayerFilter.You)
+/** "Landfall — Whenever a land you control enters" (an ability word, CR 207.2c). */
+val landfall: Trigger = enters(and(land, you))
+fun youCast(spells: ObjectFilter): Trigger = on(EventPattern.Cast(spells, PlayerFilter.You))
+val noncreatureSpell: ObjectFilter = not(creature)
+val combatDamageToAPlayer: Trigger = on(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(players = PlayerFilter.Any), combat = true))
+/** "Whenever you draw your second card each turn" */
+val drawSecondCard: Trigger = Trigger.On(listOf(EventPattern.Draw(PlayerFilter.You)), nthThisTurn = 2)
+
+// ---- Effects
+
+fun n(value: Int): Value = Value.Fixed(value)
+fun doing(effect: Effect): Step = Step.Do(effect)
+fun draw(count: Int, players: Players = Players.You): Step = Step.Do(Effect.Draw(players, n(count)))
+fun discard(count: Int, players: Players = Players.You): Step = Step.Do(Effect.Discard(players, n(count), ObjectFilter.Any))
+fun gainLife(amount: Int, players: Players = Players.You): Step = Step.Do(Effect.GainLife(players, n(amount)))
+fun loseLife(amount: Int, players: Players = Players.You): Step = Step.Do(Effect.LoseLife(players, n(amount)))
+fun mill(count: Int, players: Players = Players.You, postBind: String? = null): Step = Step.Do(Effect.Mill(players, n(count), postBind = postBind))
+fun scry(count: Int): Step = Step.Do(Effect.Scry(Players.You, n(count)))
+fun damage(amount: Value, to: Recipients, source: Objects = Objects.Self): Step = Step.Do(Effect.DealDamage(to, amount, source))
+fun damage(amount: Int, to: Recipients, source: Objects = Objects.Self): Step = damage(n(amount), to, source)
+val p1p1: CounterKind = CounterKind.PowerToughness(1, 1)
+fun counters(objects: Objects, amount: Value, kind: CounterKind = p1p1): Step = Step.Do(Effect.PutCounters(objects, kind, amount))
+fun counters(objects: Objects, amount: Int = 1, kind: CounterKind = p1p1): Step = counters(objects, n(amount), kind)
+fun untilEndOfTurn(objects: Objects, vararg mechanics: Mechanic): Step =
+    Step.Do(Effect.ApplyMechanics(mechanics.toList(), Affected.Objects(objects), Duration.EndOfTurn))
+fun pt(p: Int, t: Int): Mechanic = Mechanic.ModifyPowerToughness(n(p), n(t))
+fun pump(objects: Objects, p: Int, t: Int, vararg also: Mechanic): Step = untilEndOfTurn(objects, pt(p, t), *also)
+fun gains(objects: Objects, vararg keywords: Ability): Step = untilEndOfTurn(objects, Mechanic.GainAbilities(keywords.toList()))
+fun has(vararg keywords: Ability): Mechanic = Mechanic.GainAbilities(keywords.toList())
+fun move(objects: Objects, zone: Zone, tapped: Boolean = false, position: Int? = null, postBind: String? = null, controller: Players? = null): Step =
+    Step.Do(Effect.Move(objects, Destination(zone, libraryPosition = position, tapped = tapped, controller = controller), postBind = postBind))
+fun destroy(objects: Objects): Step = Step.Do(Effect.Destroy(objects))
+fun tapIt(objects: Objects): Step = Step.Do(Effect.Tap(objects))
+fun untapIt(objects: Objects): Step = Step.Do(Effect.Untap(objects))
+fun power(of: Objects): Value = Value.Of(NumericProperty.Power, of, Combine.Single)
+fun toughness(of: Objects): Value = Value.Of(NumericProperty.Toughness, of, Combine.Single)
+fun count(filter: ObjectFilter): Value = Value.Count(Objects.Each(filter))
+fun search(filter: ObjectFilter, max: Int = 1, reveal: Boolean = false, bind: String = "found", zones: List<Zone> = listOf(Zone.Library)): Step =
+    Step.Do(Effect.Search(Players.You, filter, max = n(max), reveal = reveal, zones = zones, bind = bind, searcher = Players.You))
+val shuffle: Step = Step.Do(Effect.Shuffle(Players.You))
+fun basicLand(): ObjectFilter = and(ObjectFilter.Super(Supertype.Basic), land)
+
+// ---- Tokens
+
+val treasure: TokenSpec = TokenSpec.Predefined("Treasure")
+fun createTreasure(count: Value = n(1), tapped: Boolean = false): Step = Step.Do(Effect.CreateToken(treasure, count, Players.You, tapped = tapped))
+fun creatureToken(subtypes: String, colors: List<Color>, power: Int, toughness: Int, abilities: List<Ability> = emptyList(),
+                  types: List<CardType> = listOf(CardType.Creature), name: String = "$subtypes Token") =
+    TokenSpec.Defined(FaceDefinition(name, colorIndicator = colors, types = types, subtypes = subtypes.split(' ').map(::Subtype),
+        power = PrintedNumber.Fixed(power), toughness = PrintedNumber.Fixed(toughness), abilities = abilities))
+fun create(token: TokenSpec, count: Value = n(1), bind: String? = null): Step = Step.Do(Effect.CreateToken(token, count, Players.You, bind = bind))
+val soldier: TokenSpec = creatureToken("Soldier", listOf(Color.White), 1, 1)
+val clue: TokenSpec = TokenSpec.Predefined("Clue")
+val food: TokenSpec = TokenSpec.Predefined("Food")
+
+// ---- Generic shapes (copied from INR)
+val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self))
+/** "When you do, …" (CR 603.12) */
+fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step =
+    Step.Do(Effect.ReflexiveTrigger(Instructions(targets = targets, steps = steps.toList())))
+/** "This land enters tapped." */
+val entersTapped: Ability = Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+    modify = listOf(arcanum.api.Modification.EntersTapped))), affects = Affected.Objects(Objects.Self))
+/** A loyalty ability (CR 606.4) */
+fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)
+fun dies(filter: ObjectFilter): Trigger = on(EventPattern.ZoneChange(filter, from = Zone.Battlefield, to = Zone.Graveyard))
+fun delayed(trigger: Trigger, vararg steps: Step): Step = Step.Do(Effect.CreateDelayedTrigger(trigger, Instructions(steps = steps.toList())))
+fun ifThen(condition: Condition, vararg then: Step, otherwise: List<Step> = emptyList()): Step = Step.If(condition, then.toList(), otherwise)
+val yourEndStep: Trigger = stepBegins(TurnStep.End, PlayerFilter.You)
+/** "if you control N or more [filter]" */
+fun youControl(filter: ObjectFilter, atLeast: Int): Condition = Condition.Exists(and(filter, you), atLeast = atLeast)
+
+// ---- Disguise and turning face up (mkm chunk 01)
+/** "Disguise [cost]" (CR 702.168) */
+fun disguise(cost: String): Keyword = Keyword.Disguise(manaCost(cost))
+/** "When this creature is turned face up" (CR 708.8) */
+val turnedFaceUpSelf: Trigger = on(EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self)))
+/** "When this creature enters or is turned face up" (one ability with two events; CR 702.168d: turning it face up isn't entering) */
+val entersOrTurnedFaceUpSelf: Trigger = Trigger.On(listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+    EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self))))
+/** "As this creature is turned face up, [steps]" (CR 614.1e) */
+fun asTurnedFaceUp(vararg steps: Step): Mechanic.Replacement = Mechanic.Replacement(EventPattern.TurnedFaceUp(ObjectFilter.Is(Objects.Self)),
+    modify = listOf(arcanum.api.Modification.AsTurnedFaceUp(steps.toList())))
+/** "When this creature leaves the battlefield" */
+val leavesSelf: Trigger = on(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield))
+val thopter: TokenSpec = creatureToken("Thopter", emptyList(), 1, 1, abilities = listOf(Keyword.Flying), types = listOf(CardType.Artifact, CardType.Creature))
+
+// ---- Investigate and Cases (mkm chunk 02)
+/** "Investigate", [count] times (CR 701.16a) */
+fun investigate(count: Value = n(1)): Step = Step.Do(Effect.Action(KeywordAction.Investigate(count)))
+/** This Case has the solved designation (CR 719.3b) */
+val isSolved: Condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Solved)))
+/** "To solve — [condition]": "At the beginning of your end step, if [condition] and this Case is not solved, this Case becomes solved." (CR 719.3a) */
+fun toSolve(condition: Condition): Ability = Ability.Triggered(yourEndStep, Instructions(steps = listOf(doing(Effect.Mark(Objects.Self, arcanum.api.ObjectMark.Solved)))),
+    interveningIf = Condition.And(listOf(condition, Condition.Not(isSolved))))
+/** "a creature died this turn" (CR 700.4) */
+val creatureDiedThisTurn: Condition = Condition.HappenedThisTurn(EventPattern.ZoneChange(creature, from = Zone.Battlefield, to = Zone.Graveyard), atLeast = 1,
+    measure = Measure.Events)
+/** "Whenever you sacrifice a Clue" */
+val youSacrificeAClue: Trigger = on(EventPattern.Sacrifice(and(sub("Clue"), you)))
+
+// ---- chunk 03: collect evidence (CR 701.59)
+
+fun collectEvidence(amount: Int): CostPart = CostPart.Action(KeywordAction.CollectEvidence(n(amount)))
+/** "As an additional cost to cast this spell, you may collect evidence N." */
+fun mayCollectEvidenceAsAdditionalCost(amount: Int): Ability =
+    Ability.Static(listOf(Mechanic.AdditionalCost(cost = Cost(listOf(collectEvidence(amount))), optional = true)), affects = Affected.Objects(Objects.Self))
+/** "if evidence was collected" (CR 701.59c) */
+val evidenceCollected: Condition = Condition.Paid(null, times = 1, of = Objects.Self)
+fun collectEvidenceStep(amount: Int): Step = Step.Do(Effect.Action(KeywordAction.CollectEvidence(n(amount))))
+val youCollectEvidence: Trigger = on(EventPattern.KeywordActionDone(arcanum.api.KeywordActionKind.CollectEvidence, arcanum.api.PlayerFilter.You))
+
+// ---- chunk 05: suspect (CR 701.60)
+
+/** A suspected object (CR 701.60a) */
+val suspected: ObjectFilter = ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Suspected))
+/** "Suspect [objects]" (CR 701.60a) */
+fun suspect(objects: Objects): Step = doing(Effect.Mark(objects, arcanum.api.ObjectMark.Suspected))
+/** "[objects] is no longer suspected" (CR 701.60a) */
+fun noLongerSuspected(objects: Objects): Step = doing(Effect.Mark(objects, arcanum.api.ObjectMark.Suspected, remove = true))
+/** "[objects] is suspected" */
+fun isSuspected(objects: Objects = Objects.Self): Condition = Condition.ObjectMatches(objects, suspected)
+/** "Counter target spell unless its controller pays [cost]." (CR 118.12) */
+fun counterUnless(cost: String, slotName: String = "spell"): List<Step> = listOf(
+    Step.Pay(manaCost(cost), payer = Players.ControllerOf(target(slotName)), bind = "paid"),
+    Step.If(Condition.Not(Condition.Did("paid")), then = listOf(doing(Effect.Counter(target(slotName))))))
+
+// ---- chunk 12
+/** "{T}: Add {C}." */
+val addColorless: Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse("{C}")!!)), Players.You)))
+
+// ---- chunk 14: Equipment
+/** "equipped creature" (CR 301.5) */
+val equipped: Objects = Objects.AttachedTo(Objects.Self)
+fun equip(text: String): Keyword = Keyword.Equip(manaCost(text))
+val isSelf: ObjectFilter = ObjectFilter.Is(Objects.Self)
+/** "As an additional cost to cast this spell, [parts]" (CR 601.2f). */
+fun additionalCost(vararg parts: CostPart, optional: Boolean = false): Ability =
+    Ability.Static(listOf(Mechanic.AdditionalCost(cost = cost(*parts), optional = optional)), affects = Affected.Objects(Objects.Self))
+/** "As an additional cost to cast this spell, [a] or [b]". */
+fun additionalCostOneOf(vararg options: Cost): Ability =
+    Ability.Static(listOf(Mechanic.AdditionalCost(cost = cost(CostPart.OneOf(options.toList())))), affects = Affected.Objects(Objects.Self))

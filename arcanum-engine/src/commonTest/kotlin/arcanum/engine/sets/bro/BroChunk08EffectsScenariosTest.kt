@@ -412,7 +412,7 @@ class BroChunk08EffectsScenariosTest {
         alice.hand(staticPrick, "Mountain")
         bob.library("Forest", grizzly, "Island")
         alice.activates(vashk, x = 2, target = "bob")
-        playOut()
+        playOut("Forest", "Burrow Grizzly") // the order the exiled cards are played and cast in
         expect {
             alice.graveyard has staticPrick
             alice.graveyard has "Mountain"
@@ -431,7 +431,7 @@ class BroChunk08EffectsScenariosTest {
         bob.library("Forest", grizzly, "Island")
         alice.plays("Plains")
         alice.activates(vashk, x = 2, target = "bob")
-        playOut()
+        playOut("Forest", "Burrow Grizzly") // the order the exiled cards are played and cast in
         expect {
             alice.battlefield has grizzly
             alice.battlefield lacks "Forest"

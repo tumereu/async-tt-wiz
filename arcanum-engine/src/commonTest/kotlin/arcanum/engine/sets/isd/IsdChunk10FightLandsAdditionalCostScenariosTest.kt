@@ -78,9 +78,9 @@ class IsdChunk10FightLandsAdditionalCostScenariosTest {
     """.trimIndent(), "3/4")
     private val bat = Cards.invent("Moorland Bat", "{1}{B}", "Creature — Bat", "Flying", "2/2")
     private val bear = Cards.invent("Moorland Bear", "{1}{G}", "Creature — Bear", "", "2/2")
-    private val ox = Cards.invent("Moorland Ox", "{3}", "Creature — Ox", "", "4/4")
+    private val ox = Cards.invent("Fenland Ox", "{3}", "Creature — Ox", "", "4/4")
     private val hare = Cards.invent("Moorland Hare", "{G}", "Creature — Rabbit", "", "1/1")
-    private val glance = Cards.invent("Quick Glance", "{U}", "Instant", "Draw a card.")
+    private val glance = Cards.invent("Quick Peek", "{U}", "Instant", "Draw a card.")
     private val p1p1 = CounterKind.PowerToughness(1, 1)
 
     private fun Scenario.face(name: String): Int? = state.obj(card(name))?.face

@@ -31,6 +31,8 @@ internal data class TotalCost(
     val waterbends: Boolean = false,
     /** isd: whether a part is based on the mana cost of an object with no mana cost: an unpayable cost (CR 118.6). */
     val unpayable: Boolean = false,
+    /** mh3 fixes: a part had an {X} before X got its value: "costs that contain {X}" (CR 106.6, 107.3a). */
+    val hasX: Boolean = false,
 ) {
     val manaValue: Int get() = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 1 }
     val hasMana: Boolean get() = mana.symbols.any { !(it is ManaSymbol.Generic && it.amount == 0) }
@@ -65,6 +67,11 @@ internal object Costs {
         var waterbend = 0
         var waterbends = false
         var at: arcanum.engine.decision.CostPartAt? = null
+        var hasX = false
+        fun withX(cost: ManaCost, x: Map<Char, Int>): ManaCost {
+            if (cost.symbols.any { it is ManaSymbol.Variable && it.name == 'X' }) hasX = true
+            return Costs.withX(cost, x)
+        }
         fun add(key: String, part: CostPart) {
             when (part) {
                 // tla: CR 701.67a: its mana is part of the total; its generic mana may be paid by tapping (701.67b)
@@ -110,7 +117,7 @@ internal object Costs {
         var mana = normalize(symbols)
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }
         val generic = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
-        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable)
+        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable, hasX = hasX)
     }
 
     /** A keyword action as a cost, as the cost part it is: collecting evidence N is exiling any number of cards from
@@ -118,7 +125,7 @@ internal object Costs {
     fun asCostPart(part: CostPart.Action): CostPart = when (val action = part.action) {
         is arcanum.api.KeywordAction.CollectEvidence -> CostPart.Exile(
             CostObjects.Choose(arcanum.api.ObjectFilter.Any, count = null, total = arcanum.api.Total(arcanum.api.NumericProperty.ManaValue, action.amount)),
-            Zone.Graveyard, postBind = part.bind)
+            Zone.Graveyard, postBind = part.bind, remember = part.remember)
         // blb: CR 701.61a: "Exile three cards from your graveyard or sacrifice a Food."
         arcanum.api.KeywordAction.Forage -> forage
         else -> part
@@ -151,7 +158,8 @@ internal object Costs {
     /**
      * CR 118.7: a reduction by generic mana reduces only generic mana (118.7a); by coloured or colourless mana, the
      * matching symbols, and generic mana for what the cost doesn't have (118.7b–d); Phyrexian by one mana of its colour
-     * (118.7f); snow by generic (118.7g). Generic mana never goes below [minimum].
+     * (118.7f); snow by generic (118.7g). The cost's mana, every symbol counted, never goes below [minimum] by taking off generic mana
+     * ("This effect can't reduce the mana in that cost to less than one mana": {1}{U} reduced by {1} is {U}, {1} stays {1}).
      */
     fun reduce(cost: ManaCost, reduction: ManaCost, minimum: Int = 0): ManaCost {
         val symbols = cost.symbols.toMutableList()
@@ -177,8 +185,9 @@ internal object Costs {
             }
         }
         val generic = symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
-        val left = maxOf(minOf(generic, minimum), generic - genericOff)
         val rest = symbols.filterNot { it is ManaSymbol.Generic }
+        // woe chunk 08: "can't reduce the mana in that cost to less than one mana": the other symbols count toward the minimum
+        val left = maxOf(minOf(generic, (minimum - rest.size).coerceAtLeast(0)), generic - genericOff)
         return ManaCost((if (left > 0) listOf(ManaSymbol.Generic(left)) else emptyList()) + rest)
     }
 
@@ -207,6 +216,8 @@ internal object Costs {
         val options: List<ObjectId>, val min: Int, val max: Int?, val text: String, val total: arcanum.api.Total?,
         // rtr chunk 07: the chosen objects must all share this quality ("two nonland cards with the same name")
         val shared: arcanum.api.SharedQuality? = null,
+        // mh3 fixes: the chosen objects have at least this many different values of a quality ("four or more card types among them")
+        val distinct: arcanum.api.Distinct? = null,
     )
 
     fun objectChoice(snap: Snapshot, player: PlayerId, self: ObjectId?, part: CostPart, eval: Evaluator): ObjectChoice? {
@@ -237,12 +248,15 @@ internal object Costs {
             is CostPart.Discard, is CostPart.Reveal -> s.player(player).hand
             is CostPart.Action -> (if (part.action is arcanum.api.KeywordAction.Blight) emptyList() else s.player(player).hand) +
                 s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
-            is CostPart.Exile -> when (part.from) {
-                Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
-                // rtr chunk 11: spells the payer controls ("Exile an instant or sorcery spell you control")
-                Zone.Stack -> s.stack.filter { s.stackItems[it]?.controller == player }
-                Zone.Exile, Zone.Command -> emptyList()
-                else -> s.zone(part.from, player)
+            // lci: craft exiles from among permanents you control and/or cards in your graveyard (CR 702.167a)
+            is CostPart.Exile -> (listOf(part.from) + part.alsoFrom).flatMap { from ->
+                when (from) {
+                    Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
+                    // rtr chunk 11: spells the payer controls ("Exile an instant or sorcery spell you control")
+                    Zone.Stack -> s.stack.filter { s.stackItems[it]?.controller == player }
+                    Zone.Exile, Zone.Command -> emptyList()
+                    else -> s.zone(from, player)
+                }
             }
             else -> emptyList()
         }
@@ -258,8 +272,24 @@ internal object Costs {
         val text = describe(part)
         // rtr chunk 07: only objects with enough others sharing the quality can be among the chosen
         val sharing = choose.shared?.let { q -> options.filter { a -> options.count { b -> b != a && eval.shares(q, a, b) } >= (count ?: 1) - 1 } } ?: options
-        return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared)
-            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: 0, count, text, null, choose.shared)
+        return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared, choose.distinct)
+            // lci: "one or more", "four or more" (craft, CR 702.167a)
+            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: choose.atLeast ?: 0, count, text, null, choose.shared, choose.distinct)
+    }
+
+    /** lci chunk 09: some of [options], at least [min] of them, whose [value]s add up to exactly [target] ("with total mana value X");
+     * null when none do. Values below 0 count as 0 (CR 107.1b). */
+    fun exactSubset(options: List<ObjectId>, min: Int, target: Int, value: (ObjectId) -> Int): List<ObjectId>? {
+        // for each sum reachable so far, the most objects reaching it (more objects only help reach [min]); each option used once
+        val most = HashMap<Int, List<ObjectId>>().apply { put(0, emptyList()) }
+        for (id in options) {
+            val v = value(id).coerceAtLeast(0)
+            for ((sum, chosen) in most.toList()) { // pairs, not live entries: Wasm entries refuse reads once the map changes
+                val s = sum + v
+                if (s <= target && (most[s]?.size ?: -1) < chosen.size + 1) most[s] = chosen + id
+            }
+        }
+        return most[target]?.takeIf { it.size >= min && it.isNotEmpty() }
     }
 
     /** A plain description of a cost part, for decisions ("Sacrifice a creature"). */
@@ -287,6 +317,7 @@ internal object Costs {
         is CostPart.ChoosePlayer -> "Choose a player"
         // ecl
         is CostPart.Choose -> "Choose"
+        is CostPart.RevealChoice -> "Reveal the chosen ${part.key}"
         else -> arcanum.engine.decision.Texts.costName(part)
     }
 

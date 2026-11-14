@@ -72,10 +72,14 @@ fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: 
     CompositionLocalProvider(LocalInspectHost provides inspectHost, LocalMainSlot provides toolkit.mainSlot) {
     // TBL-124: a battlefield card's ability chips when it has two or more abilities, one usable now
     PermanentAbilityChips(toolkit, play, scene, names)
+    // WEB-027: on the desktop table, the hovered battlefield card's chips, faded
+    HoveredAbilityChips(toolkit, play, scene, names)
     // Automatum (I2a): the open cast's panel by the Stack, over the table
     CastPanelHost(toolkit, play, scene, names)
     // I-D50: the raised hand card's chips, over the cast panel while they flash as it opens (ZON-080)
     RaisedCardChips(toolkit, play, scene)
+    // WEB-027: on the desktop table, the hovered hand card's chips, faded
+    HoveredCardChips(toolkit, play, scene)
     // Automatum (I2b): priority, resolution and trigger choices by the Stack
     SharedFlowHost(toolkit, play, scene, names, reviewing)
     val engine = LocalEngineRoutes.current

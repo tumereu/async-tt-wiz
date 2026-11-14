@@ -72,7 +72,10 @@ fun PodChatRefresh(chat: PodChatController, podId: String, open: Boolean, where:
 
 @Composable
 fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier = Modifier,
-    contentInsets: WindowInsets = WindowInsets.safeDrawing) {
+    contentInsets: WindowInsets = WindowInsets.safeDrawing,
+    /** WEB-017: docked in the desktop table's dock: always shown, so no close button or Back of its own, its messages read as
+     * they show; the table says connection problems. */
+    docked: Boolean = false) {
     val state = controller.state
     val game = state.detail ?: return
     // LOB-145: a pod game's chat has the pod's beside it, while the viewer is still in that pod
@@ -84,13 +87,17 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
     var deliveryDismissed by remember(deliveryFailure) { mutableStateOf(false) }
     val staleDraft = chat.draft != null && chat.draft.playId != game.playId
     var staleDismissed by remember(chat.draft?.playId, game.playId) { mutableStateOf(false) }
-    BackHandler { controller.closeChat() }
+    BackHandler(enabled = !docked) { controller.closeChat() }
+    // LOB-138: messages showing in the chat are read; docked, it always shows
+    val visible = state.chatOpen || docked
     ScreenTheme {
     // safeDrawing includes IME, system bars and cutouts. In the edge-to-edge chat dialog
     // this shrinks the bounded panel, rather than panning the window or scrolling the composer.
-    Box(modifier.fillMaxHeight().windowInsetsPadding(contentInsets), contentAlignment = Alignment.CenterEnd) {
-    Surface(Modifier.widthIn(max = 356.dp).fillMaxWidth().fillMaxHeight().padding(vertical = 8.dp),
-        shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, ScreenBorder)) {
+    Box(modifier.fillMaxHeight().then(if (docked) Modifier else Modifier.windowInsetsPadding(contentInsets)), contentAlignment = Alignment.CenterEnd) {
+    Surface(if (docked) Modifier.fillMaxSize() else Modifier.widthIn(max = 356.dp).fillMaxWidth().fillMaxHeight().padding(vertical = 8.dp),
+        shape = if (docked) androidx.compose.ui.graphics.RectangleShape else MaterialTheme.shapes.medium,
+        color = if (docked) Color.Transparent else MaterialTheme.colorScheme.surface,
+        border = if (docked) null else BorderStroke(1.dp, ScreenBorder)) {
     Column(Modifier.fillMaxSize()
         .semantics { paneTitle = "Game chat" }) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -99,18 +106,18 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
                 val podUnread = podView.unread(accountId)
                 ChatTabRow(tab, state.chat.unread, podUnread, controller::chatTab, Modifier.weight(1f))
             }
-            IconButton(onClick = controller::closeChat) { EntryIcon("Close chat", "close") }
+            if (!docked) IconButton(onClick = controller::closeChat) { EntryIcon("Close chat", "close") }
         }
-        if (tab == ChatTab.GAME || podView == null || podChat == null) GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f))
+        if (tab == ChatTab.GAME || podView == null || podChat == null) GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f), visible)
         else PodChatBody(podChat, podView, accountId,
-            if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, state.chatOpen, Modifier.weight(1f))
+            if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, visible, Modifier.weight(1f))
     }
     }
     val gameTab = tab == ChatTab.GAME
-    FloatingTransientError(state.connectionMessage ?: deliveryFailure?.takeUnless { deliveryDismissed || !gameTab }
+    FloatingTransientError(state.connectionMessage?.takeIf { !docked } ?: deliveryFailure?.takeUnless { deliveryDismissed || !gameTab }
         ?: "This draft belongs to an earlier play. Clear it to write a new message.".takeIf { staleDraft && !staleDismissed && gameTab },
         {
-            if (state.connectionMessage != null) controller.dismissSessionError()
+            if (state.connectionMessage != null && !docked) controller.dismissSessionError()
             else if (deliveryFailure != null && !deliveryDismissed) deliveryDismissed = true
             else staleDismissed = true
         },
@@ -139,7 +146,8 @@ private fun ChatTabRow(selected: ChatTab, gameUnread: Int, podUnread: Int, selec
 
 /** The game's own chat: its messages (with "Read" marks, LOB-138), outgoing sends and the composer. */
 @Composable
-private fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, staleDraft: Boolean, modifier: Modifier) {
+private fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, staleDraft: Boolean, modifier: Modifier,
+    visible: Boolean) {
     val state = controller.state
     val chat = state.chat
     val list = rememberLazyListState()
@@ -156,16 +164,18 @@ private fun GameChatBody(controller: LobbyController, game: GameSummary, account
     val input = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val window = LocalWindowInfo.current
-    LaunchedEffect(game.id, state.chatWrite) {
+    LaunchedEffect(game.id, state.chatWrite, controller.chatWrites) {
         if (!state.chatWrite) return@LaunchedEffect
         withTimeoutOrNull(WRITE_FOCUS_WAIT_MS) { snapshotFlow { window.isWindowFocused }.first { it } }
         input.requestFocus()
         keyboard?.show()
     }
+    // WEB-017: docked, the chat always shows
+    val shownNow by rememberUpdatedState(visible)
     val viewEpoch = controller.chatViewEpoch
     LaunchedEffect(game.id, viewEpoch, list) {
         snapshotFlow {
-            presentedChatIds(controller.state.chat.messages, list.visibleKeys(), controller.state.chatOpen)
+            presentedChatIds(controller.state.chat.messages, list.visibleKeys(), controller.state.chatOpen || shownNow)
         }.collect { controller.presentedChat(game.id, viewEpoch, it) }
     }
     Column(modifier) {

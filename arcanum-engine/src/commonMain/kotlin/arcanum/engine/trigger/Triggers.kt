@@ -238,7 +238,9 @@ internal object Triggers {
         state: GameState, board: ViewBoard, now: View, change: Change, s: Source, lookBack: Boolean, whole: Change = change,
     ): List<WaitingTrigger> {
         val e = Evaluator(board, Context(s.controller, s.id))
-        val instances = instancesOf(e, board.state, s.ability.trigger, change, whole, door = (s.origin.root as? AbilityOrigin.Printed)?.face)
+        val seen = withoutMutedFor(state, board, now, change, s) ?: return emptyList()
+        val seenWhole = withoutMutedFor(state, board, now, whole, s) ?: return emptyList()
+        val instances = instancesOf(e, board.state, s.ability.trigger, seen, seenWhole, door = (s.origin.root as? AbilityOrigin.Printed)?.face)
         if (instances.isEmpty()) return emptyList()
         val nowBoard = ViewBoard(state, now)
         val sourceSeen = if (lookBack) snapshot(board, s.id) else null
@@ -292,6 +294,13 @@ internal object Triggers {
     /** The key under which a taken "Do this only once each turn" action is counted. */
     fun actionKey(origin: AbilityOrigin, player: PlayerId): String = "\$action:${origin.key}@$player"
 
+    /** The object a damage event of [trigger] was dealt to, when it was dealt to an object rather than a player. */
+    private fun damagedObject(trigger: Trigger.On, unit: TriggerEvent): Any? =
+        if (trigger.events.all { it is arcanum.api.EventPattern.Damage }) unit.objects.firstOrNull { it.role == EventRole.Object }?.ids else null
+
+    /** What a [Trigger.On.batchPerPlayer] batch is about: its player, or the object (battle) it was dealt damage to (CR 310.6). */
+    private fun batchKey(trigger: Trigger.On, unit: TriggerEvent): Any? = unit.players.firstOrNull() ?: damagedObject(trigger, unit)
+
     /** The instances of [trigger] in [change] (CR 603.2): one per event, or one per batch ([Trigger.On.oneOrMore], CR
      * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,
      * or earlier batches, so "one or more cards for the first time each turn" keeps the whole batch); chapter abilities
@@ -308,7 +317,8 @@ internal object Triggers {
                 val batches = when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()
-                    trigger.batchPerPlayer -> all.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
+                    // mom: damage to a battle has no player: one batch per battle dealt damage ("to a player or battle", CR 310.6)
+                    trigger.batchPerPlayer -> all.groupBy { u -> batchKey(trigger, u) }.values.map { batch(it) }
                     else -> listOf(batch(all))
                 }
                 // hob: "with creatures with total power 12 or greater": only a batch whose objects add up to it (CR 603.2c)
@@ -336,8 +346,9 @@ internal object Triggers {
                 // spm: "your first or second card each turn" ([Trigger.On.throughNth]): any of the first n
                 fun nth(k: Int) = if (trigger.throughNth) k <= n else k == n
                 if (!trigger.oneOrMore) now.filterIndexed { i, unit -> nth(earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1) }
+                // mom: counted per batch key, so each battle dealt damage has its own first time ("to a player or battle", CR 603.2c, 310.6)
                 else now.filter { unit ->
-                    nth(earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1)
+                    nth(earlier.count { !trigger.batchPerPlayer || batchKey(trigger, it) == batchKey(trigger, unit) } + 1)
                 }
             } ?: now
             counted.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
@@ -367,8 +378,20 @@ internal object Triggers {
 
     /** fra: [change] without the parts [Mechanic.EventDoesntTrigger] mutes ("Artifacts and creatures entering the battlefield
      * don't cause abilities to trigger"); null when nothing of it is left. */
-    private fun withoutMuted(state: GameState, view: View, change: Change): Change? {
-        val muting = view.game.rules.filter { it.mechanic is Mechanic.EventDoesntTrigger }
+    private fun withoutMuted(state: GameState, view: View, change: Change): Change? =
+        withoutMuted(state, view, change, view.game.rules.filter { val m = it.mechanic; m is Mechanic.EventDoesntTrigger && m.sources == null })
+
+    /** one chunk 08: [change] without the parts muted for [s]'s abilities alone ("Permanents entering don't cause abilities of permanents your
+     * opponents control to trigger", CR 603.2), [s] as it is on [board]; null when nothing of it is left. */
+    private fun withoutMutedFor(state: GameState, board: ViewBoard, view: View, change: Change, s: Source): Change? {
+        val scoped = view.game.rules.filter { applied ->
+            val sources = (applied.mechanic as? Mechanic.EventDoesntTrigger)?.sources ?: return@filter false
+            Evaluator(board, Context(applied.controller, applied.source, applied.names)).matches(sources, s.id)
+        }
+        return withoutMuted(state, view, change, scoped)
+    }
+
+    private fun withoutMuted(state: GameState, view: View, change: Change, muting: List<arcanum.engine.view.AppliedMechanic>): Change? {
         if (muting.isEmpty() || change !is Change.ZoneChange) return change
         val kept = change.moves.filter { mv ->
             muting.none { applied ->
@@ -488,7 +511,7 @@ internal object Triggers {
         var chosen: Pair<List<Int>, Map<String, List<TargetRef>>>? = null
         val choices = try {
             Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event,
-                watch = { modes, targets -> chosen = modes to targets })
+                watch = { modes, targets -> chosen = modes to targets }, pendingKind = arcanum.api.AbilityKind.Triggered)
         } catch (n: NeedDecision) {
             // CR 603.3d: a decision of its modes or targets: what was chosen before it, for the one choosing
             chosen?.let { (modes, targets) -> placing.current = announcing(arcanum.engine.decision.AnnounceStage.Targets, modes, targets.toMap()) }

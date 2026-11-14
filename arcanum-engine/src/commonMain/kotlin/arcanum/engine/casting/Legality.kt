@@ -17,6 +17,7 @@ import arcanum.engine.input.CastWay
 import arcanum.engine.input.Permission
 import arcanum.engine.mana.Mana
 import arcanum.engine.state.GameObject
+import arcanum.engine.state.castOrNone
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TurnCount
@@ -45,11 +46,14 @@ internal object Legality {
     fun cantPlayLand(snap: Snapshot, player: PlayerId, card: ObjectId, face: Int = 0): String? {
         val o = snap.state.obj(card) ?: return "no such card"
         if (face != 0 && (o.definition.layout != Layout.ModalDoubleFaced || face !in o.definition.faces.indices)) return "no face $face to play"
-        val types = if (face == 0) snap.view[card]?.characteristics?.types.orEmpty() else o.definition.faces[face].types
+        // woe: a card exiled face down has no characteristics, but it's turned face up as it's played (CR 406.3a): its card's types
+        val types = if (face == 0 && !(o.faceDown && o.zone == Zone.Exile)) snap.view[card]?.characteristics?.types.orEmpty() else o.definition.faces[face].types
         if (CardType.Land !in types) return "not a land"
         if (o.zone != Zone.Hand || o.owner != player) {
             if (permissions(snap, player, card, PlayKind.Play).isEmpty()) return "no permission to play it from ${o.zone}"
         }
+        // rvr: "Your opponents can't play land cards from graveyards" (CR 101.2)
+        if (cantPlayLandBy(snap, player, card)) return "an effect says this player can't play that land (CR 101.2)"
         if (!sorceryTiming(snap, player)) return "lands are played in your main phase with an empty Stack (CR 305.1)"
         if (snap.state.turn.landsPlayed[player] ?: 0 >= landPlays(snap, player)) return "no land plays left this turn (CR 305.2)"
         return null
@@ -92,6 +96,8 @@ internal object Legality {
             if (m.condition != null && !eval.holds(m.condition!!)) return@mapNotNull null
             if (m.topOnly && snap.state.player(o.owner).library.firstOrNull() != card) return@mapNotNull null
             if (m.perTurn != null && usedThisTurn(snap, applied) >= m.perTurn!!) return@mapNotNull null
+            // mom: "you may cast an instant or sorcery spell from among those exiled cards": the granting effect counts the spells left
+            if (m.total != null && (applied.effect?.let { snap.state.effects[it] }?.usesLeft ?: m.total!!) <= 0) return@mapNotNull null
             Permission(source = applied.source, ability = applied.origin, effect = applied.effect) to applied
         }
     }
@@ -167,17 +173,18 @@ internal object Legality {
         if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         // A card cast from face down in exile (foretold, CR 406.3a) has its card's abilities
-        val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
+        val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash } || ownConditionalFlash(snap, player, card)
         // A permission a mark gives may hold it to sorcery timing (a plotted card, CR 702.170d)
         val asSorcery = arcanum.engine.foretell.MarkCasts.asSorcery(permission?.second?.origin)
-        val instant = !asSorcery && during != null || !asSorcery && !faceDown && (CardType.Instant in types || flash ||
-            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) ||
-            // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
-            chars?.abilities.orEmpty().any { inst -> (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash } })
+        val instant = !asSorcery && during != null || !asSorcery && !faceDown &&
+            instantSpeed(snap, player, card, types, flash, alternative(snap, card, way, player)?.second)
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
+        if (onlyAsSorcery(snap, player, card) && !sorceryTiming(snap, player)) return "$player can cast it only as a sorcery (CR 307.5)"
         legendarySpellWithoutLegend(snap, player, face, types)?.let { return it }
         restriction(snap, player, card)?.let { return it }
-        if (cantCastBy(snap, player, card)) return "$player can't cast it"
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed the spell has other characteristics (CR 718.3b, 702.103b): the
+        // prohibition is tested on the spell as proposed ([prohibitedAsProposed]), not on the card as it is now
+        if (!changesCharacteristics(alternative(snap, card, way, player)?.second?.keyword) && cantCastBy(snap, player, card)) return "$player can't cast it"
         return null
     }
 
@@ -192,7 +199,28 @@ internal object Legality {
         if (CardType.Land in f.types) return "lands are played, not cast (CR 305.9)"
         restriction(snap, player, card, timing = false)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"
+        // rvr chunk 04: "can cast spells only any time they could cast a sorcery" needs priority, so not while resolving (CR 307.5)
+        if (onlyAsSorcery(snap, player, card)) return "$player can cast it only as a sorcery (CR 307.5)"
         return null
+    }
+
+    /** rvr chunk 04: [Mechanic.CastOnlyAsSorcery] on [player] for this spell (CR 307.5). */
+    private fun onlyAsSorcery(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+            val m = applied.mechanic as? Mechanic.CastOnlyAsSorcery ?: return@any false
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->
+                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(asSpell(m.spells), card)
+            }
+        }
+
+    /** rvr chunk 04: "The next sorcery spell you cast this turn can be cast as though it had flash": [Mechanic.InstantSpeed] of an effect
+     * on [player]'s next spells, tested on the card as the spell it would be (CR 601.3a, 611.2f); casting it uses the effect up. */
+    private fun nextSpellFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean = snap.view.game.rules.any { applied ->
+        if (applied.mechanic != Mechanic.InstantSpeed || applied.controller != player) return@any false
+        val id = applied.effect ?: return@any false
+        val effect = snap.state.effects[id]?.takeIf { it.affects is arcanum.api.Affected.NextSpells } ?: return@any false
+        val e = snap.evaluator(player, self = effect.source, names = effect.names)
+        NextSpells.appliesTo(snap.state, id, e.with(e.ctx.copy(prospectiveCast = true)), card)
     }
 
     /** Whether the printed [face] matches a type filter, or null when the filter asks more than types and subtypes. */
@@ -231,6 +259,16 @@ internal object Legality {
             keywordOk && sourceOk
         }
 
+    /** otj chunk 10: "This spell has flash as long as …": a spell that would have flash only if conditions are met may be begun to be
+     * cast as though it had flash while they are (CR 601.3d, 702.8a). */
+    private fun ownConditionalFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
+            val static = inst.ability as? Ability.Static ?: return@any false
+            static.affects == arcanum.api.Affected.Objects(arcanum.api.Objects.Self) &&
+                static.mechanics.any { m -> m is Mechanic.GainAbilities && m.abilities.any { it == Keyword.Flash } } &&
+                static.condition?.let { snap.evaluator(player, self = card).holds(it) } ?: true
+        }
+
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CastAsThoughFlash ?: return@any false
@@ -253,6 +291,56 @@ internal object Legality {
         }
         return null
     }
+
+    /** rvr: [Mechanic.CantPlayLands] on [player] for this land (CR 101.2). */
+    private fun cantPlayLandBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+            val m = applied.mechanic as? Mechanic.CantPlayLands ?: return@any false
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->
+                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(m.lands, card)
+            }
+        }
+
+    /** rvr fixes, CR 601.2e: whether [Mechanic.CantCast] prohibits the player from casting the spell [plan] proposes, with what has been
+     * chosen for it so far (its announced X counting in its mana value, CR 202.3e), on the board with its provisional item. */
+    fun prohibitedAsProposed(plan: Plan): Boolean {
+        if (!plan.isSpell) return false
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed, it is tested with those characteristics (CR 718.3b, 702.103b)
+        val keyword = plan.alternative?.second?.keyword
+        if (changesCharacteristics(keyword)) {
+            val s = plan.snap.state.deepCopy()
+            val o = s.obj(plan.itemId) ?: return false
+            if (o.castOrNone.alternative?.keyword != keyword) s._objects[plan.itemId] = o.copy(cast = o.castOrNone.copy(alternative = arcanum.engine.state.PaidCost(keyword, 1)))
+            val proposed = Snapshot(s)
+            if (cantCastBy(proposed, plan.player, plan.itemId)) return true
+            // CR 601.3b: begun outside sorcery timing because an effect let it be cast as though it had flash, that effect must still
+            // apply to the spell as proposed ("creature spells" don't include a bestowed Aura spell)
+            val st = plan.snap.state
+            val sorceryTime = st.turn.active == plan.player && st.stack.all { it == plan.itemId } &&
+                (st.turn.step == TurnStep.PrecombatMain || st.turn.step == TurnStep.PostcombatMain)
+            val c = proposed.view[plan.itemId]?.characteristics
+            return !plan.byEffect && !sorceryTime && c != null && !instantSpeed(proposed, plan.player, plan.itemId, c.types, c.hasKeyword(Keyword.Flash), plan.alternative?.second)
+        }
+        return plan.item.announced.isNotEmpty() && cantCastBy(plan.snap, plan.player, plan.itemId)
+    }
+
+    /** Whether [card] (of [types], [flash] when it has flash) may be cast any time [player] could cast an instant: an instant or with
+     * flash (CR 307.1, 702.8a), or an effect or the [alternative] cost it is cast for lets it be cast as though it had flash. */
+    private fun instantSpeed(
+        snap: Snapshot, player: PlayerId, card: ObjectId, types: List<CardType>, flash: Boolean, alternative: Mechanic.AlternativeCost?,
+    ): Boolean =
+        CardType.Instant in types || flash ||
+            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) || nextSpellFlash(snap, player, card) ||
+            // mh3: an alternative cost that lets the spell cast by paying it be cast as though it had flash (CR 601.3c)
+            alternative?.flash == true ||
+            // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
+            snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
+                (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash }
+            }
+
+    /** An alternative cost that gives the spell other characteristics: prototype (CR 718.3b), bestow (CR 702.103b). */
+    private fun changesCharacteristics(keyword: arcanum.api.KeywordKind?): Boolean =
+        keyword == Keyword.Prototype.Kind || keyword == Keyword.Bestow.Kind
 
     /** [Mechanic.CantCast] on [player] for this spell (CR 101.2). */
     private fun cantCastBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
@@ -336,7 +424,7 @@ internal object Legality {
         // CR 606.3: loyalty abilities as a sorcery, once each turn per permanent
         // fra: "you may activate loyalty abilities of … any time you could cast an instant" (still once each turn)
         val instantLoyalty = snap.view[source]?.has { it == arcanum.api.Mechanic.LoyaltyAtInstantSpeed } == true
-        // bro: "You may activate the loyalty abilities of Urza twice each turn rather than only once"
+        // one: "you may activate loyalty abilities of Kaito twice this turn rather than only once"
         val loyaltyUses = snap.view[source]?.mechanics.orEmpty().maxOfOrNull { (it.mechanic as? arcanum.api.Mechanic.LoyaltyActivationsPerTurn)?.count ?: 1 } ?: 1
         if (loyalty && (!(sorceryTiming(snap, player) || instantLoyalty) || activationsThisTurn(snap, source, LOYALTY_KEY) >= loyaltyUses)) {
             return "a loyalty ability: once each turn, as a sorcery (CR 606.3)"
@@ -366,6 +454,18 @@ internal object Legality {
     fun cantUse(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): String? =
         notTheirs(snap, player, source, instance) ?: usedUp(snap, source, instance)
 
+    /** otj: [instance], an ability of a keyword of [o], functions where [o] is by a [Mechanic.KeywordFunctionsIn] applied to it ("You may
+     * plot nonland cards from the top of your library", CR 702.170f, 113.6). */
+    private fun keywordFunctionsHere(snap: Snapshot, o: GameObject, instance: AbilityInstance): Boolean {
+        val origin = instance.origin as? AbilityOrigin.Expansion ?: return false
+        val view = snap.view[o.id] ?: return false
+        val keyword = view.characteristics?.abilities.orEmpty().firstOrNull { it.origin == origin.keyword }?.ability as? Keyword ?: return false
+        return view.mechanics.any { applied ->
+            val m = applied.mechanic as? Mechanic.KeywordFunctionsIn ?: return@any false
+            m.keyword == keyword.kind && m.zone == o.zone && (!m.topOnly || snap.state.player(o.owner).library.firstOrNull() == o.id)
+        }
+    }
+
     /** [cantUse] without the uses: it doesn't function where [source] is, or [player] may not activate or take it there. */
     private fun notTheirs(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): String? =
         when (val ability = instance.ability) {
@@ -375,7 +475,7 @@ internal object Legality {
                 val o = snap.state.obj(source) ?: return "no such object"
                 val you = snap.board.controller(source) ?: o.owner
                 when {
-                    o.zone !in Functioning.zones(ability, false) -> "it doesn't work from ${o.zone}"
+                    o.zone !in Functioning.zones(ability, false) && !keywordFunctionsHere(snap, o, instance) -> "it doesn't work from ${o.zone}"
                     you != player -> "only its controller may take it"
                     ability.condition != null && !snap.evaluator(you, self = source).holds(ability.condition!!) -> "its condition isn't met"
                     else -> null
@@ -390,7 +490,7 @@ internal object Legality {
         val key = instance.origin.key
         return when (val ability = instance.ability) {
             is Ability.Activated -> {
-                ability.rules.perTurn?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
+                perTurn(snap, source, ability)?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
                 if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability) && !asThoughNotActivated(snap, source, ability))
                     "only once" else null
             }
@@ -401,11 +501,13 @@ internal object Legality {
 
     /**
      * The objects whose activated abilities and special actions [player] may activate (CR 602.2, 116.2): the battlefield, their
-     * hand and graveyard, exile, the command zone and their cards outside the game (a revealed companion, CR 702.139a), in that
-     * order. What [arcanum.engine.Engine.options] tries, and where a host's status looks outside a hand.
+     * hand and graveyard, exile, the command zone, their cards outside the game (a revealed companion, CR 702.139a) and the top card
+     * of their library (otj: plotted from there, CR 702.170f), in that order. What [arcanum.engine.Engine.options] tries, and where a
+     * host's status looks outside a hand.
      */
     fun abilitySources(state: arcanum.engine.state.GameState, player: PlayerId): List<ObjectId> =
-        state.battlefield + state.player(player).hand + state.player(player).graveyard + state.exile + state.command + state.player(player).outside
+        state.battlefield + state.player(player).hand + state.player(player).graveyard + state.exile + state.command + state.player(player).outside +
+            state.player(player).library.take(1)
 
     /** [id]'s activated abilities and special actions, those it shows and those the rules give it ([SpecialActions]). */
     fun activatable(snap: Snapshot, id: ObjectId): List<AbilityInstance> =
@@ -417,7 +519,7 @@ internal object Legality {
     fun manaUsesLeft(snap: Snapshot, source: ObjectId, instance: AbilityInstance): Int {
         val ability = instance.ability as? Ability.Activated ?: return 0
         var left = Int.MAX_VALUE
-        ability.rules.perTurn?.let { left = minOf(left, it - activationsThisTurn(snap, source, instance.origin.key)) }
+        perTurn(snap, source, ability)?.let { left = minOf(left, it - activationsThisTurn(snap, source, instance.origin.key)) }
         if (ability.rules.once && activationsEver(snap, source, instance.origin.key) >= 1) left = 0
         return left
     }
@@ -441,6 +543,15 @@ internal object Legality {
         if (action.instructions.steps.any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp } &&
             snap.view[source]?.has { it == arcanum.api.Mechanic.CantBeTurnedFaceUp } == true) return "it can't be turned face up"
         return null
+    }
+
+    /** How many times each turn [ability] of [source] may be activated: its own limit, or more where a rule lets its kind be
+     * ("Creatures you control can boast twice during each of your turns rather than once", CR 702.142a). */
+    private fun perTurn(snap: Snapshot, source: ObjectId, ability: Ability.Activated): Int? {
+        val own = ability.rules.perTurn ?: return null
+        val label = ability.label ?: return own
+        return snap.view[source]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? arcanum.api.Mechanic.LabelUsesPerTurn)?.takeIf { m -> m.label == label }?.count }
+            .fold(own, ::maxOf)
     }
 
     /** msh: "Each power-up ability of permanents you control can be activated an additional time" (CR 702.193a). */

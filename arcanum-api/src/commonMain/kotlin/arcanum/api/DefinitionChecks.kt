@@ -35,7 +35,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * - a chapter trigger on a face that isn't a Saga; a characteristic-defining ability with a condition or other scope;
  * - event-scoped mechanics (replacement, prevention, cost change, extra triggers) given an `affects`, in static
  *   abilities and in effects;
- * - the "affected object/player" reference outside a static ability's or effect's mechanics.
+ * - the "affected object/player" reference outside a static ability's or effect's mechanics;
+ * - a target slot declared in an ability that nothing in it reads ([unusedTargetSlots]).
  *
  * The checks walk the definition's JSON form, so they see every nested part without a visitor per type.
  */
@@ -64,6 +65,8 @@ object DefinitionChecks {
         // inr chunk 06: the permanent sacrificed and the card it became in the graveyard (CR 701.21a, 400.7)
         "sacrifice" to setOf("object", "before", "after"),
         "unattach" to setOf("object", "from"),
+        // otj, one: the attachment and what it became attached to (CR 701.3a)
+        "attach" to setOf("object", "to"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),
         // dft: tapped to crew or saddle: the Vehicle or Mount (CR 702.122b, 702.171c)
@@ -73,7 +76,7 @@ object DefinitionChecks {
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
     private val asEntersSteps = setOf("pay", "choose", "if", "modify")
-    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind") // inr chunk 08: payerBind
+    private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind", "payerBind", "onTop") // inr chunk 08: payerBind; lci chunk 04: onTop (surveil)
 
     /** Problems in [card], one readable line each; empty when it is fine. [keywordTable]: [card] holds abilities from
      * [KeywordExpansions], where keyword costs and keyword-only mechanics belong. */
@@ -84,6 +87,24 @@ object DefinitionChecks {
         if (keywordTable) found.removeAll { it.startsWith("keyword-only mechanic") || it.startsWith("a keyword's cost") }
         tree.jsonObject.getValue("faces").jsonArray.forEach { checkFace(it.jsonObject, found) }
         return found
+    }
+
+    /** The target slots declared in [ability] (in its instructions, modes and the instructions nested in them) that nothing in it reads: a slot
+     * a reading declared and then didn't use. A target identifies something the spell or ability will affect (CR 115.1a, c, d); an unused slot would still have to be chosen and could make the spell or ability fail to resolve (CR 608.2b).
+     * Reads are [Objects.Target], [Players.Target], [Recipients.target], [Condition.TargetsLegal] and a keyword action's slot. */
+    fun unusedTargetSlots(ability: Ability): List<String> =
+        unusedSlots(json.encodeToJsonElement(Ability.serializer(), ability))
+
+    private fun unusedSlots(tree: JsonElement): List<String> {
+        val declared = mutableListOf<String>()
+        val used = mutableSetOf<String>()
+        visitAll(tree) { o ->
+            if (o.typeName() == null && "what" in o) o.string("name")?.let { declared += it }
+            o.string("slot")?.let { used += it }
+            if (o.typeName() == null) o.string("target")?.let { used += it } // Recipients(target = …)
+            (o["slots"] as? JsonArray)?.forEach { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.let { p -> used += p.content } }
+        }
+        return declared.filter { it !in used }.distinct()
     }
 
     /** [affected]: the affects of the nearest effect (ApplyMechanics) around [element], when there is one (fra). */
@@ -177,13 +198,17 @@ object DefinitionChecks {
                 if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")
                     found += "objects narrowed from a reference are Objects.Where (Each looks at the battlefield)"
                 if (type == "may") (element["steps"] as? JsonArray)?.firstOrNull()?.let { first ->
-                    val choice = (first as? JsonObject)?.takeIf { it.typeName() == "choose" }?.get("choice") as? JsonObject
-                    if (choice?.typeName() == "objects" && choice.fixed("min") == 1 && choice.fixed("max") == 1)
+                    val choose = (first as? JsonObject)?.takeIf { it.typeName() == "choose" }
+                    val choice = choose?.get("choice") as? JsonObject
+                    // only when the one who may is the one who chooses: "you may have target opponent sacrifice a creature" is May (CR 608.2d)
+                    if (choice?.typeName() == "objects" && choice.fixed("min") == 1 && choice.fixed("max") == 1 && choose["chooser"] == element["player"])
                         found += "\"you may choose one\" is a choice of zero or one, not May"
                 }
                 if (type == "pay" && element.string("bind") == null)
                     found += "a Pay that nothing reads is a May; give it a bind for \"if you do\""
-                if (type == "discard" && element.typeOf("count") == "count")
+                // mh3 chunk 17: a count of cards bound earlier ("draw cards …, then discard that many") is a number, not the hand
+                if (type == "discard" && element.typeOf("count") == "count" &&
+                    ((element["count"] as? JsonObject)?.typeOf("objects") != "bound"))
                     found += "\"discard your hand\" is Discard(objects = the cards in that hand)"
                 if (type == "cast" && "objects" in element && element.boolean("withoutPaying") && element["cost"] != null)
                     found += "cast either without paying or for a cost, not both"
@@ -277,6 +302,8 @@ object DefinitionChecks {
             if (scope.usesDividedShare && scope.dividedSlots.isEmpty()) found += "$name: a divided share is read without a divided target slot"
             if (scope.usesCastX && ability.typeName() == "spell") found += "$name: inside the spell's own instructions X is Announced"
             if (scope.usesAffected && ability.typeName() != "static") found += "$name: \"the affected object/player\" outside a static ability or effect"
+            // one fixes: a declared target nothing reads (CR 115.1a, c, d)
+            unusedSlots(ability).forEach { found += "$name: target slot \"$it\" is declared but nothing in its ability reads it" }
             scope.recipientUses.forEach { (slot, halves, byTarget) ->
                 val either = slot in scope.eitherSlots
                 if (byTarget && !either) found += "$name: Recipients(target = \"$slot\") is for \"any target\" slots; name the objects or players"
@@ -346,6 +373,11 @@ object DefinitionChecks {
                         (objectSlot ?: playerSlot)?.let { recipientUses += Triple(it, (objectSlot != null) to (playerSlot != null), false) }
                     }
                     (element["announced"] as? JsonArray)?.forEach { announced += it.jsonPrimitive.content }
+                    // An X nothing defines in a cost paid on resolution ("you may pay {X}. If you do, you gain X life") is chosen as it is
+                    // paid, and the rest of the resolution reads it as X (CR 107.3f, 118.12)
+                    if (element.typeName() == "pay") visitAll(element["cost"] ?: JsonArray(emptyList())) { part ->
+                        if (part.typeName() == "mana" && "x" !in part && part.string("cost")?.contains("{X}") == true) announced += "X"
+                    }
                     when (element.typeName()) {
                         "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose", "chosen", "chosen-name", "searched" ->
                             element.string("name")?.let { usedNames += it }

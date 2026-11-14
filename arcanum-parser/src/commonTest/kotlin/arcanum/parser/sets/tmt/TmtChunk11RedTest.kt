@@ -1,5 +1,6 @@
 package arcanum.parser.sets.tmt
 
+import arcanum.api.DamageOccurrence
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.Choice
@@ -227,7 +228,7 @@ class TmtChunk11RedTest {
         pt = "4/4",
     ) parsesTo abilities(
         static(Mechanic.MustBeBlocked),
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self)))),
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), per = DamageOccurrence.Recipient)),
             doing(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = Value.EventAmount), keptUntil = Duration.EndOfTurn), Players.You)),
             abilityWord = "Enrage"),
     )

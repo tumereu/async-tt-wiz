@@ -60,6 +60,8 @@ data class ManaUnit(
     val whenSpent: Instructions? = null,
     val spellGetsIf: ObjectFilter? = null,
     val spellGetsUntil: Duration? = null,
+    /** mh3 fixes: spent only on a cost that contains {X} ([arcanum.api.ManaProduction.onlyCostsWithX], CR 106.6). */
+    val onlyCostsWithX: Boolean = false,
 )
 
 /**
@@ -74,6 +76,9 @@ data class TurnState(
     /** Lands each player played this turn (CR 305.2). */
     val landsPlayed: Map<PlayerId, Int> = emptyMap(),
     val turnStarted: Map<PlayerId, Int> = emptyMap(),
+    // mom
+    /** For each player, the number of the turn they began before their latest one ("since your last turn" while it is their turn). */
+    val previousTurnStarted: Map<PlayerId, Int> = emptyMap(),
     /** Players taking extra turns after this one, in order (CR 500.7). */
     val extraTurns: List<PlayerId> = emptyList(),
     // gtc
@@ -81,6 +86,8 @@ data class TurnState(
     val extraPhases: List<TurnStep> = emptyList(),
     /** Where the turn's own order goes on once the additional phases are over (CR 500.8). */
     val resumeAt: TurnStep? = null,
+    /** The phase under way is an additional one holding only its upkeep or draw step (CR 500.10, 500.11): it ends with that step. */
+    val lonePhase: Boolean = false,
     // sos
     /** One entry for each turn a player will skip: their next turns that don't happen (CR 614.10, "skips their next X turns"). */
     val skippedTurns: List<PlayerId> = emptyList(),

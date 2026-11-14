@@ -137,9 +137,9 @@ class BroChunk08EffectsTest {
     ) parsesTo abilities(
         Keyword.Flying,
         triggered(entersSelf,
-            move(target("graveyard"), Zone.Exile),
-            ifThen(Condition.ObjectMatches(target("graveyard"), creature), loseLife(1, Players.OwnerOf(target("graveyard")))),
-            targets = listOf(slot("graveyard", and(cardCategory, inZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Opponent))))),
+            move(target("card"), Zone.Exile),
+            ifThen(Condition.ObjectMatches(target("card"), creature), loseLife(1, Players.OwnerOf(target("card")))),
+            targets = listOf(slot("card", and(cardCategory, inZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Opponent))))),
     )
 
     // CR 120.3: "that many" is the damage dealt; CR 611.2: until the end of your next turn
@@ -157,7 +157,8 @@ class BroChunk08EffectsTest {
     ) parsesTo abilities(
         Keyword.Haste,
         static(Mechanic.CantBlock(ObjectFilter.Any)),
-        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = isSelf))),
+        // CR 120.3, 603.2c: one trigger for all the damage dealt to it at once, "that many" its total
+        triggered(on(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = isSelf), per = arcanum.api.DamageOccurrence.Recipient)),
             move(Objects.LibraryCards(Players.You, Value.EventAmount, fromTop = true), Zone.Exile, postBind = "exiled"),
             Step.Choose(Choice.Objects(ObjectFilter.Any, n(1), n(1), from = Objects.Bound("exiled")), bind = "chosen", chooser = Players.You),
             doing(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)), Affected.Objects(Objects.Bound("chosen")),

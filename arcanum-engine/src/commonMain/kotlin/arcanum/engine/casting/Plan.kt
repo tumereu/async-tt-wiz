@@ -64,6 +64,7 @@ internal sealed interface Question {
         is ManaColor -> "ManaColor"
         is Player -> "Player"
         is CostChoice -> "CostChoice"
+        is CounterPick -> "CounterPick"
         is Pay -> "Pay"
         is Assist -> "Assist"
         is AssistAmount -> "AssistAmount"
@@ -75,7 +76,9 @@ internal sealed interface Question {
     /** Whether to splice [splice] onto the spell (CR 702.47a). */
     data class Splice(val key: String, val splice: Plan.Spliceable) : Question { override val stage get() = AnnounceStage.Modes }
     data class Announce(val name: String, val min: Int) : Question { override val stage get() = AnnounceStage.Announce }
-    data class Target(val slot: SlotOf, val forPlayer: PlayerId?, val options: List<TargetRef>, val min: Int, val max: Int?) : Question {
+    /** [chooser]: the player who chooses these targets when not the controller ([arcanum.api.TargetSlot.chosenBy], CR 601.2c). */
+    data class Target(val slot: SlotOf, val forPlayer: PlayerId?, val options: List<TargetRef>, val min: Int, val max: Int?,
+                      val chooser: PlayerId? = null) : Question {
         override val stage get() = AnnounceStage.Targets
     }
     data class Divide(val key: String, val amount: Int, val among: List<TargetRef>) : Question { override val stage get() = AnnounceStage.Divide }
@@ -83,9 +86,12 @@ internal sealed interface Question {
     data class Objects(val key: String, val choice: Costs.ObjectChoice) : Question { override val stage get() = AnnounceStage.Costs }
     data class ManaColor(val key: String, val among: List<Color>) : Question { override val stage get() = AnnounceStage.Costs }
     /** blb: a player chosen as a cost ("you may choose an opponent", gift, CR 702.174a). */
-    data class Player(val key: String, val among: List<PlayerId>) : Question { override val stage get() = AnnounceStage.Costs }
+    /** rvr: also the player who chooses a target of an opponent's choice ([stage] Targets, CR 601.2c). */
+    data class Player(val key: String, val among: List<PlayerId>, override val stage: AnnounceStage = AnnounceStage.Costs) : Question
     /** ecl: a creature type chosen as part of the cost ("you may choose a creature type and behold two creatures of that type", CR 601.2f). */
     data class CostChoice(val key: String, val part: CostPart.Choose) : Question { override val stage get() = AnnounceStage.Costs }
+    /** mh3 sweep: the next counter a "remove N counters" cost of no one kind takes, among [labels] ([CounterCosts], CR 118.3). */
+    data class CounterPick(val key: String, val labels: List<String>) : Question { override val stage get() = AnnounceStage.Costs }
     data class Pay(val cost: ManaCost) : Question { override val stage get() = AnnounceStage.Mana }
     /** Assist (CR 702.132a): the caster may choose another player among [among] to help pay. */
     data class Assist(val among: List<PlayerId>) : Question { override val stage get() = AnnounceStage.Costs }
@@ -119,6 +125,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val origin: AbilityOrigin? = (c.what as? Announced.Ability)?.origin
     val isManaAbility = ability != null && Legality.isManaAbility(ability)
     val isSpecialAction = ability is Ability.SpecialAction
+    /** The ability's own cost change: "This ability costs {1} less to activate for each …"; mkm: a disguise cost's "This cost is reduced by
+     * {1} for each …" on the special action (CR 118.7). */
+    private val ownCostChange: CostChange? get() = (ability as? Ability.Activated)?.rules?.costChange ?: (ability as? Ability.SpecialAction)?.costChange
 
     /** Before any provisional item: what the card and the board are now. */
     private val plain = Snapshot(base)
@@ -243,10 +252,25 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
      * (plans made one after another for the same choices, [arcanum.engine.view.ViewCache.provisional]). */
-    val snap: Snapshot = base.deepCopy().also { s ->
-        s._stackItems[itemId] = item
-        if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
-    }.let { s -> Snapshot(s) { base.viewCache?.provisional(item) { Layers.view(s) } ?: Layers.view(s) } }
+    val snap: Snapshot = run {
+        val paid = provisionalPaid()
+        base.deepCopy().also { s ->
+            s._stackItems[itemId] = item
+            if (!isSpell && itemId !in s.stack) s._stack.add(itemId)
+            // mkm: the card's optional costs chosen so far count as paid while its total cost is determined ("This spell costs {2} less to
+            // cast if evidence was collected", CR 601.2f, 701.59c)
+            if (paid.isNotEmpty()) s._objects[itemId]?.let { o -> s._objects[itemId] = o.copy(cast = (o.cast ?: arcanum.engine.state.CastFacts()).copy(paid = paid)) }
+        }.let { s -> Snapshot(s) { (if (paid.isEmpty()) base.viewCache?.provisional(item) { Layers.view(s) } else null) ?: Layers.view(s) } }
+    }
+
+    /** mkm: the card's own optional additional costs chosen so far, as they will be recorded once paid. */
+    private fun provisionalPaid(): List<arcanum.engine.state.PaidCost> = if (!isSpell) emptyList() else snap0Abilities().flatMap { inst ->
+        (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.AdditionalCost>().filter { it.optional }.mapNotNull { m ->
+            optionalTimes(inst)?.takeIf { it > 0 }?.let { times ->
+                arcanum.engine.state.PaidCost(m.keyword, times, costIndex = if (m.keyword == Keyword.Kicker.Kind) (inst.origin as? AbilityOrigin.Expansion)?.index else null)
+            }
+        }
+    }
 
     /** Names filters and values see: choices so far, announced values and targets by slot. */
     val names: Bindings = run {
@@ -351,10 +375,22 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             .filter { (_, m) -> m.keyword == condition.keyword }.sumOf { (inst, _) -> optionalTimes(inst) ?: 0 } >= condition.times ||
             // CR 702.113b: the alternative cost chosen (awaken)
             (condition.keyword != null && alternative?.second?.keyword == condition.keyword && condition.times <= 1))
+        // rvr fixes: "if you cast this spell during your main phase" (any "as you cast this spell" condition) is known as it is cast
+        // (CR 601.2a, 601.2c, 601.2i), before the cast is recorded
+        is arcanum.api.Condition.AsCast -> holdsAsCast(condition.condition)
         is arcanum.api.Condition.Not -> !holdsAsCast(condition.condition)
         is arcanum.api.Condition.And -> condition.all.all { holdsAsCast(it) }
         is arcanum.api.Condition.Or -> condition.any.any { holdsAsCast(it) }
         else -> eval.holds(condition)
+    }
+
+    /** woe chunk 04: whether [condition] reads the spell's own optional costs ([holdsAsCast] reads them from the choices). */
+    private fun readsCastChoices(condition: arcanum.api.Condition): Boolean = when (condition) {
+        is arcanum.api.Condition.Paid -> condition.of == arcanum.api.Objects.Self
+        is arcanum.api.Condition.Not -> readsCastChoices(condition.condition)
+        is arcanum.api.Condition.And -> condition.all.any(::readsCastChoices)
+        is arcanum.api.Condition.Or -> condition.any.any(::readsCastChoices)
+        else -> false
     }
 
     /** How often the optional cost of [inst] was chosen; null while not asked. */
@@ -405,6 +441,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             // CR 702.47a: each splice cost is an additional cost
             spliced.forEach { add(Costs.Contribution(spliceKey(it.card), it.mechanic.cost)) }
             permission?.first?.additionalCost?.let { add(Costs.Contribution("perm", it)) }
+            // otj: a cost increase other objects give it that isn't mana ("cost an additional 3 life", CR 601.2f)
+            snap.view.game.rules.forEachIndexed { i, applied ->
+                val m = applied.mechanic as? Mechanic.AdditionalCostOf ?: return@forEachIndexed
+                if (snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId))
+                    add(Costs.Contribution("rule:$i", m.cost))
+            }
         } else {
             when (val a = ability) {
                 // hob: "you may pay {0} rather than pay the equip cost" (CR 118.9, 602.2b): a free alternative is never worse, so it is used
@@ -452,39 +494,47 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val increases = mutableListOf<ManaCost>()
         val reductions = mutableListOf<Pair<ManaCost, Int>>()
         val chosen = chosenCostObjects()
+        // woe chunk 04: the spell's own reductions on a condition about its optional costs ("This spell costs {2} less to cast if it's bargained"),
+        // read from the choices made (CR 601.2b comes before 601.2f); the game's view can't know them before the spell is cast
+        val ownOnChoices = if (!isSpell) emptyList() else withGrantedAsSpell().filter { inst ->
+            (inst.ability as? Ability.Static)?.condition?.let(::readsCastChoices) == true }
+        ownOnChoices.forEach { inst ->
+            val static = inst.ability as Ability.Static
+            if (!holdsAsCast(static.condition!!)) return@forEach
+            val e = snap.evaluator(player, self = itemId, names = chosen)
+            static.mechanics.filterIsInstance<Mechanic.CostChange>().filter { e.matches(it.what, itemId) }.forEach { m ->
+                val mana = Costs.expand(m.change, e)
+                if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
+            }
+        }
         snap.view.game.rules.forEach { applied: AppliedMechanic ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
+            if (applied.source == itemId && ownOnChoices.any { it.origin == applied.origin }) return@forEach
             // The spell's own reduction may count what its additional cost will use ("for each card exiled this way")
             val names = if (applied.source == itemId) applied.names.with(chosen) else applied.names
             val e = snap.evaluator(applied.controller, self = applied.source, names = names)
             if (!e.matches(m.what, itemId)) return@forEach
             // "The next spell …" (CR 611.2f): only a spell it is still waiting for
             if (!NextSpells.appliesTo(snap.state, applied.effect, e, itemId)) return@forEach
-            val mana = Costs.expand(m.change, e)
+            // rvr chunk 04: the count may be about the spell itself ("for each of the chosen colors it is")
+            val mana = Costs.expand(m.change, e.with(e.ctx.copy(tested = itemId)))
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
         }
         // tmt backfill: "the next noncreature spell you cast this turn has affinity for artifacts": a keyword an effect
         // grants the next spells whose meaning changes the spell's cost applies as that spell is cast (CR 601.2f, 611.2f)
-        snap.state.effects.values.filter { it.affects is arcanum.api.Affected.NextSpells }.forEach { effect ->
-            val granted = effect.mechanics.filterIsInstance<Mechanic.GainAbilities>().flatMap { it.abilities }
-            if (granted.isEmpty()) return@forEach
-            val e = snap.evaluator(effect.controller, self = effect.source, names = effect.names)
-            if (!NextSpells.appliesTo(snap.state, effect.id, e, itemId)) return@forEach
-            val own = snap.evaluator(player, self = itemId)
-            granted.flatMap { a -> (a as? Keyword)?.let { arcanum.api.KeywordExpansions.expand(it) } ?: listOf(a) }
-                .filterIsInstance<Ability.Static>().flatMap { it.mechanics }.filterIsInstance<Mechanic.CostChange>()
-                .filter { own.matches(it.what, itemId) }
-                .forEach { cc ->
-                    val mana = Costs.expand(cc.change, own)
-                    if (cc.change is CostChange.More) increases += mana else reductions += mana to cc.minimum
-                }
-        }
+        val own = snap.evaluator(player, self = itemId)
+        grantedByNextSpells().filterIsInstance<Ability.Static>().flatMap { it.mechanics }.filterIsInstance<Mechanic.CostChange>()
+            .filter { own.matches(it.what, itemId) }
+            .forEach { cc ->
+                val mana = Costs.expand(cc.change, own)
+                if (cc.change is CostChange.More) increases += mana else reductions += mana to cc.minimum
+            }
         // eoe: "Each spell cast this way costs {1} more to cast" (the permission it is cast with, CR 601.2f)
         permission?.first?.costChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { ch ->
+        ownCostChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
@@ -517,7 +567,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val anyReduction: Boolean get() {
         fun lower(m: Mechanic) = m is Mechanic.CostChange && m.change !is CostChange.More
         return (assistable > 0 && choices.assist?.amount == null) ||
-            (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
+            ownCostChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
             snap.view.game.rules.any { lower(it.mechanic) }
     }
@@ -537,7 +587,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             repeat(times.coerceAtLeast(0)) { symbols += change.mana.symbols }
             return true
         }
-        (ability as? Ability.Activated)?.rules?.costChange?.let { if (!add(it)) return null }
+        ownCostChange?.let { if (!add(it)) return null }
         withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
         snap.view.game.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
@@ -551,7 +601,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Whether a filter on the spell can't change with what is chosen while casting (an allow-list: its mana value can, with X, CR 202.3e; a term not
      * known here may). */
     private fun fixedBeforeChoices(f: ObjectFilter): Boolean = when (f) {
-        ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost -> true
+        ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost, ObjectFilter.HasAdventure -> true
+        is ObjectFilter.ColorCount -> true
         is ObjectFilter.And -> f.all.all(::fixedBeforeChoices)
         is ObjectFilter.Or -> f.any.all(::fixedBeforeChoices)
         is ObjectFilter.Not -> fixedBeforeChoices(f.filter)
@@ -572,8 +623,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      * Without any, every way through has the same cost and the first one says it.
      */
     val costMayVary: Boolean get() {
-        fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null)
-        val any = assistable > 0 || (ability as? Ability.Activated)?.rules?.costChange != null ||
+        fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null) || m is Mechanic.AdditionalCostOf
+        val any = assistable > 0 || ownCostChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
             snap.view.game.rules.any { change(it.mechanic) } ||
             instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||
@@ -588,7 +639,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** Whether the open slot's targets limit each other (CR 601.2c): the same controller or owner, a shared or differing quality, a
      * total, one for each: some candidates then stop being legal with others picked. */
     fun targetsLimitEachOther(key: String): Boolean = instructions.let { Targets.slots(it, choices.modes) }.any { s ->
-        s.key == key.substringBefore(":") && (s.slot.sameController || s.slot.sameOwner || s.slot.sharing != null || s.slot.distinct != null || s.slot.onePer != null || s.slot.totalAtMost != null)
+        s.key == key.substringBefore(":") && arcanum.engine.action.Targeting.limitsEachOther(s.slot)
     }
 
     /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the
@@ -627,17 +678,36 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             })
     }
 
+    /** The abilities effects give the next spells ("the next spell you cast this turn has improvise") still waiting for this
+     * spell, keywords expanded: they apply as it is cast (CR 601.2f, 611.2f). */
+    private fun grantedByNextSpells(): List<Ability> = snap.state.effects.values.filter { it.affects is arcanum.api.Affected.NextSpells }.flatMap { effect ->
+        val granted = effect.mechanics.filterIsInstance<Mechanic.GainAbilities>().flatMap { it.abilities }
+        if (granted.isEmpty()) return@flatMap emptyList()
+        val e = snap.evaluator(effect.controller, self = effect.source, names = effect.names)
+        if (!NextSpells.appliesTo(snap.state, effect.id, e, itemId)) return@flatMap emptyList()
+        granted.flatMap { a -> (a as? Keyword)?.let { arcanum.api.KeywordExpansions.expand(it) } ?: listOf(a) }
+    }
+
     /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2); ecl: also those
-     * other objects give the spell ("Creature spells you cast have convoke", CR 601.2a). */
+     * other objects give the spell ("Creature spells you cast have convoke", CR 601.2a); mh3: and those an effect gives the
+     * next spell ("The next spell you cast this turn has improvise"). */
     val manaWays: List<ManaPaymentWay> by lazy {
         (if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
-            withGrantedAsSpell().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
+            (withGrantedAsSpell().map { it.ability } + grantedByNextSpells())
+                .flatMap { (it as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
             // tla: one Waterbend for each generic mana of its waterbend costs (CR 701.67b; Mana.specialPayers)
             List(total.waterbend) { ManaPaymentWay.Waterbend }
     }
 
-    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b). */
-    val manaAsAnyColor: Boolean get() = permission?.first?.manaAsAnyColor == true
+    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b); mh3: or only
+     * colorless mana as though it were mana of any colour. */
+    val manaAsAnyColor: Mana.AsAnyColor get() = permission?.first.let { p ->
+        when {
+            p?.manaAsAnyColor == true -> Mana.AsAnyColor.All
+            p?.colorlessAsAnyColor == true -> Mana.AsAnyColor.Colorless
+            else -> Mana.AsAnyColor.None
+        }
+    }
 
     /** "You can't spend mana to cast this spell": only its other ways pay (convoke, delve). */
     val cantSpendMana: Boolean = isSpell &&
@@ -668,6 +738,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         targetSlots().forEach { slot ->
             val forPlayers = slot.slot.perPlayer?.let { f -> snap.state.playersFrom(player).filter { eval.matches(f, it) } }
             if (forPlayers == null) {
+                // rvr fixes: a target of an opponent's choice: the controller first picks which opponent chooses it (CR 601.2c; 801.5a's example)
+                val chosenBy = slot.slot.chosenBy
+                if (chosenBy != null && slot.key !in choices.targets && choices.names[PLAYER + CHOOSER + slot.key] == null) {
+                    val among = snap.state.playersFrom(player).filter { eval.matches(chosenBy, it) }
+                    if (among.isNotEmpty()) return Question.Player(CHOOSER + slot.key, among, AnnounceStage.Targets)
+                }
                 if (slot.key !in choices.targets) targetQuestion(slot, null)?.let { return it }
             } else forPlayers.forEach { p ->
                 if (choices.names[PER_PLAYER + slot.key + ":" + p.value] == null) targetQuestion(slot, p)?.let { return it }
@@ -694,9 +770,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 if (choices.names[PLAYER + kp.key] == null) return Question.Player(kp.key, snap.state.playersFrom(player).filter { eval.matches(part.filter, it) })
                 return@forEach
             }
-            val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval) ?: return@forEach
+            // mh3 sweep: which counters a "remove N counters" cost of no one kind takes, once its objects are known (CR 118.3)
+            if (part is CostPart.RemoveCounters && part.kind == null)
+                (counterProgress(kp.key, part) as? CounterCosts.Progress.Ask)?.let { return Question.CounterPick(kp.key, it.labels) }
+            val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { notUsedByOthers(kp, it) } ?: return@forEach
             if (choices.names[OBJECTS + kp.key] == null) return Question.Objects(kp.key, choice)
         }
+        if (isManaAbility) manaChoiceQuestion()?.let { return it }
         if (isManaAbility) colorQuestion()?.let { return it }
         // CR 702.132a: before mana abilities are activated, another player may be chosen to pay part of the generic mana
         if (assistable > 0) {
@@ -707,6 +787,20 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         }
         if (total.hasMana && manaToPay.symbols.isNotEmpty()) return Question.Pay(manaToPay)
         return null
+    }
+
+    /** mh3 sweep: where choosing the counters of [part] (a "remove N counters" cost of no one kind, keyed [key]) stands; null before its
+     * objects are chosen. */
+    fun counterProgress(key: String, part: CostPart.RemoveCounters): CounterCosts.Progress? {
+        val ids = when (val from = part.from) {
+            arcanum.api.CostObjects.Self -> listOf(sourceId)
+            is arcanum.api.CostObjects.These -> eval.objects(from.objects)
+            is arcanum.api.CostObjects.Choose -> (choices.names[OBJECTS + key] as? NamedValue.Objects)?.ids ?: return null
+        }
+        val picks = (choices.names[COUNTERS + key] as? NamedValue.Names)?.names.orEmpty()
+        return CounterCosts.progress(snap.state, ids, eval.value(part.amount), part.distributed, picks) { id ->
+            snap.view[id]?.characteristics?.name ?: id.toString()
+        }
     }
 
     /** Assist (CR 702.132a): the generic mana of the total cost another player may pay; 0 without assist. */
@@ -760,19 +854,65 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val unannounced = instructions.announced.any { it !in choices.announced } &&
                 kotlinx.serialization.json.Json.encodeToString(CostPart.serializer(), part).contains("\"announced\"")
             if (choices.names[OBJECTS + kp.key] == null && !unannounced) {
-                Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { choice ->
+                Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { notUsedByOthers(kp, it) }?.let { choice ->
                     if (choice.options.size < choice.min) {
                         return "Not enough to ${choice.text.lowercase()}: ${choice.options.size} of ${choice.min}"
+                    }
+                    // mh3 fixes: "with four or more card types among them": all the options together must have them
+                    choice.distinct?.let { d ->
+                        if (eval.distinct(d.quality, choice.options) < d.atLeast) return "Not ${d.atLeast} different ${d.quality} among them"
                     }
                     choice.total?.let { t ->
                         val most = choice.options.sumOf { eval.property(t.property, it).coerceAtLeast(0) }
                         if (most < eval.value(t.atLeast)) return "Their total ${t.property} can't reach ${eval.value(t.atLeast)}"
+                        // lci chunk 09: "with total mana value X": some of them must add up to exactly X
+                        if (t.exactly && Costs.exactSubset(choice.options, choice.min, eval.value(t.atLeast)) { eval.property(t.property, it) } == null)
+                            return "No choice adds up to a total ${t.property} of exactly ${eval.value(t.atLeast)}"
                     }
                 }
             }
             if (!unannounced && !Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
         }
+        if (!distinctObjectsSuffice()) return "No object can pay two parts of the cost (CR 601.2h)"
         return null
+    }
+
+    /**
+     * lci: CR 601.2h: each object pays one part of the cost: one sacrificed, exiled, discarded or returned for a part is gone for
+     * the others, and one tapped for a part can't be tapped for another ("Craft with a Dinosaur, a Merfolk, …": a Dinosaur
+     * Merfolk is one of them). The group of [part] whose objects must differ, or null.
+     */
+    private fun distinctGroup(part: CostPart): Int? = when (part) {
+        is CostPart.Sacrifice, is CostPart.Exile, is CostPart.Discard, is CostPart.ReturnToHand -> 0
+        is CostPart.TapObjects -> 1
+        else -> null
+    }
+
+    /** [choice] for [kp] without the objects already chosen for another part of its [distinctGroup]. */
+    private fun notUsedByOthers(kp: KeyedPart, choice: Costs.ObjectChoice): Costs.ObjectChoice {
+        val group = distinctGroup(kp.part) ?: return choice
+        val used = total.parts.filter { it.key != kp.key && distinctGroup(it.part) == group }
+            .flatMap { (choices.names[OBJECTS + it.key] as? NamedValue.Objects)?.ids.orEmpty() }.toSet()
+        return if (used.isEmpty()) choice else choice.copy(options = choice.options.filter { it !in used })
+    }
+
+    /** CR 601.2h: whether the parts still to choose objects for can each have their least number of different objects (a
+     * matching of their places to objects, each object used once within its [distinctGroup]). */
+    private fun distinctObjectsSuffice(): Boolean {
+        val open = total.parts.filter { kp -> distinctGroup(kp.part) != null && choices.names[OBJECTS + kp.key] == null }
+        return open.groupBy { distinctGroup(it.part) }.values.all { parts ->
+            if (parts.size < 2) return@all true
+            val places = parts.flatMap { kp ->
+                val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, kp.part, eval)?.let { notUsedByOthers(kp, it) }
+                    ?: return@flatMap emptyList()
+                List(choice.min) { choice.options }
+            }
+            val holder = mutableMapOf<ObjectId, Int>()
+            fun place(i: Int, seen: MutableSet<ObjectId>): Boolean = places[i].any { o ->
+                seen.add(o) && (holder[o]?.let { place(it, seen) } ?: true).also { if (it) holder[o] = i }
+            }
+            places.indices.all { place(it, mutableSetOf()) }
+        }
     }
 
     /**
@@ -814,7 +954,25 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val options = Targets.options(snap, e, itemId, if (isSpell) null else sourceId, slot.slot).filterNot { ref ->
             slot.slot.distinctFrom.any { other -> choices.targets[other].orEmpty().contains(ref) }
         }
-        return Question.Target(slot, forPlayer, options, min, max)
+        val chooser = (choices.names[PLAYER + CHOOSER + slot.key] as? NamedValue.Players)?.ids?.firstOrNull()
+        return Question.Target(slot, forPlayer, options, min, max, chooser)
+    }
+
+    /**
+     * mh3 fixes: a mana ability's choice of objects its mana is counted from ("Reveal any number of cards with {X} in their mana cost in
+     * your hand. Add {C}{C} for each card revealed this way"): asked with the activation, the choice its key under [OBJECTS], as the ability
+     * resolves at once (CR 605.3b) and its mana is added from it ([Payment] binds it before adding the mana).
+     */
+    private fun manaChoiceQuestion(): Question.Objects? {
+        val a = ability as? Ability.Activated ?: return null
+        manaChoices(a).forEach { (i, step) ->
+            val key = "$MANA_CHOICE$i"
+            if (choices.names[OBJECTS + key] != null) return@forEach
+            val choice = step.choice as arcanum.api.Choice.Objects
+            val options = eval.inZonesOf(choice.filter).filter { snap.state.obj(it) != null && eval.matches(choice.filter, it) }
+            return Question.Objects(key, Costs.ObjectChoice(options, eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose", null))
+        }
+        return null
     }
 
     private fun colorQuestion(): Question.ManaColor? {
@@ -873,30 +1031,31 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Announce -> Decision.Announce(id, player, sourceId, q.name, q.min)
         // dgm: "any target chosen at random": the host picks one of the legal targets (a die with a side for each)
         is Question.Target -> if (q.slot.slot.atRandom) Decision.Random(id, player, sourceId, arcanum.engine.decision.RandomKind.Die(q.options.size, 1))
-            else Decision.Targets(id, player, sourceId, q.slot.key + (q.forPlayer?.let { ":$it" } ?: ""), q.options, q.min, q.max)
+            else Decision.Targets(id, q.chooser ?: player, sourceId, q.slot.key + (q.forPlayer?.let { ":$it" } ?: ""), q.options, q.min, q.max)
         is Question.Divide -> Decision.Divide(id, player, sourceId, q.amount, q.among, minEach = 1)
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
+        is Question.CounterPick -> Decision.ChooseOption(id, player, sourceId, q.labels, "Choose a counter to remove")
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text,
-            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast))) },
+            q.choice.total?.let { arcanum.api.Total(it.property, arcanum.api.Value.Fixed(eval.value(it.atLeast)), it.exactly) },
             cost = total.parts.firstOrNull { it.key == q.key }?.at)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
         is Question.Assist -> Decision.ChooseOption(id, player, sourceId, listOf(NOBODY) + q.among.map { it.value }, "Choose a player to assist")
         is Question.AssistAmount -> Decision.ChooseNumber(id, q.player, sourceId, 0, q.max)
         // CR 702.132a, 106.6: the assisting player spends mana to cast this spell: mana restricted to such spells may pay
-        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList(), false),
-            Mana.suggest(snap, q.player, q.cost, itemId, emptyList()))
+        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX),
+            Mana.suggest(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX))
         // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
         is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->
             Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose",
                 cost = total.parts.firstOrNull { it.key == q.key }?.at)
         } ?: Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
-            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved)
-                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved))
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX)
+                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved))
+            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX))
     }
 
     /** eoe: the objects a [CostPart.Choose] of objects may choose, in the zones its filter names (the battlefield otherwise). */
@@ -915,8 +1074,26 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         /** blb: the player chosen for a [CostPart.ChoosePlayer] cost, by its key. */
         const val PLAYER = "\$player:"
         const val OBJECTS = "\$objects:"
+        /** mh3 sweep: under this + a cost part's key, the labels of the counters picked for it so far ([Question.CounterPick]). */
+        const val COUNTERS = "\$counters:"
         const val PER_PLAYER = "\$per-player:"
+        /** rvr: under [PLAYER] + this + a slot's key, the player who chooses that slot's targets ([arcanum.api.TargetSlot.chosenBy]). */
+        const val CHOOSER = "\$chooser:"
         const val COLOR = "\$color:"
+        /** mh3 fixes: under [OBJECTS] + this + a step's index, the objects a mana ability's choice step chose ([manaChoices]). */
+        const val MANA_CHOICE = "\$mana-choice:"
+
+        /** mh3 fixes: the steps of mana ability [a] that choose objects its mana is counted from, by index: chosen by its controller
+         * from the zones its filter names (not from other objects) before a step adding mana that reads the choice (CR 605.3b). */
+        fun manaChoices(a: Ability.Activated): List<Pair<Int, Step.Choose>> = a.instructions.steps.withIndex().mapNotNull { (i, step) ->
+            val choose = step as? Step.Choose ?: return@mapNotNull null
+            val choice = choose.choice as? arcanum.api.Choice.Objects ?: return@mapNotNull null
+            if (choice.from != null || choice.distinct != null || choice.onePer != null || choice.totalAtMost != null) return@mapNotNull null
+            if (choose.chooser != arcanum.api.Players.You) return@mapNotNull null
+            val bound = "Bound(name=${choose.bind})"
+            val read = a.instructions.steps.drop(i + 1).any { ((it as? Step.Do)?.effect as? Effect.AddMana)?.toString()?.contains(bound) == true }
+            if (read) i to choose else null
+        }
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })
 

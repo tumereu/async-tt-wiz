@@ -201,19 +201,29 @@ fun SavedDeckCollection(controller: DeckLibraryController) {
     Box(Modifier.fillMaxSize()) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
     PullToRefreshBox(isRefreshing = state.busy, onRefresh = { if (!state.busy) controller.refresh() }, modifier = Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Text("SAVED LISTS (${state.decks.size})", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (state.loaded && state.decks.isEmpty()) Text("No saved decks yet.")
-        }
+    val savedHeading: @Composable () -> Unit = {
+        Text("SAVED LISTS (${state.decks.size})", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (state.loaded && state.decks.isEmpty()) Text("No saved decks yet.")
+    }
+    val draftHeading: @Composable () -> Unit = {
+        Text(draftDecksHeading(state.draftDecks.size), Modifier.padding(top = 20.dp, bottom = 4.dp),
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(DRAFT_DECKS_EXPLANATION, Modifier.padding(bottom = 8.dp), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    // WEB-038: on the desktop layout the decks fill the width in columns
+    if (desktopLayout()) LazyVerticalGrid(GridCells.Adaptive(DesktopScreens.TileMinWidth),
+        Modifier.fillMaxSize().padding(horizontal = DesktopScreens.Gutter).testTag("deck-grid"),
+        verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { Column { savedHeading() } }
         items(state.decks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
-        if (state.draftDecks.isNotEmpty()) item {
-            Text(draftDecksHeading(state.draftDecks.size), Modifier.padding(top = 20.dp, bottom = 4.dp),
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(DRAFT_DECKS_EXPLANATION, Modifier.padding(bottom = 8.dp), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        if (state.draftDecks.isNotEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { Column { draftHeading() } }
+        items(state.draftDecks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
+    } else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { savedHeading() }
+        items(state.decks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
+        if (state.draftDecks.isNotEmpty()) item { draftHeading() }
         items(state.draftDecks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
     }
     }

@@ -46,6 +46,9 @@ internal object Steps {
         TurnStep.PostcombatMain, TurnStep.End, TurnStep.Cleanup,
     )
 
+    /** The steps of the beginning phase (CR 501.1). */
+    private val BEGINNING: Set<TurnStep> = setOf(TurnStep.Untap, TurnStep.Upkeep, TurnStep.Draw)
+
     /** What a step's turn-based actions lead to. */
     private sealed interface Next {
         data object Priority : Next
@@ -87,7 +90,7 @@ internal object Steps {
      */
     fun endTheTurn(recorder: Recorder): Progress {
         val s = recorder.state
-        recorder.record(Changes.step(s, s.turn.copy(endingTurn = false, extraSteps = emptyList(), extraPhases = emptyList(), resumeAt = null)))
+        recorder.record(Changes.step(s, s.turn.copy(endingTurn = false, extraSteps = emptyList(), extraPhases = emptyList(), resumeAt = null, lonePhase = false)))
         recorder.state.combat?.let { recorder.record(Change.Combat(it, null, listOf(Meaning.CombatEnded))) }
         leave(recorder)
         begin(recorder, TurnStep.Cleanup)
@@ -100,21 +103,25 @@ internal object Steps {
 
     // gtc
     /**
-     * CR 500.8: as a phase ends (the end of combat step, a main phase), an additional phase begins: the first still to
-     * come; once they are all over, the turn's own order goes on where it was left. Null: no additional phase now.
+     * CR 500.8: as a phase ends (the end of combat step, a main phase, the beginning phase's last step), an additional phase begins: the
+     * first still to come; once they are all over, the turn's own order goes on where it was left. Null: no additional phase now.
      */
     private fun afterPhase(recorder: Recorder): TurnStep? {
         val s = recorder.state
         val step = s.turn.step
-        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain) return null
+        // mh3: the beginning phase ends after its draw step, or after its last step when the next is skipped (CR 501.1); otj: CR 500.10,
+        // 500.11: an additional upkeep or draw step made after a phase is the only step of its phase
+        val beginningEnds = step in BEGINNING && nextStep(s) !in BEGINNING
+        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain && !beginningEnds && !s.turn.lonePhase) return null
         val extra = s.turn.extraPhases.firstOrNull()
         if (extra != null) {
             val resume = s.turn.resumeAt ?: nextStep(s)
-            recorder.record(Changes.step(s, s.turn.copy(extraPhases = s.turn.extraPhases.drop(1), resumeAt = resume)))
+            val lone = extra == TurnStep.Upkeep || extra == TurnStep.Draw
+            recorder.record(Changes.step(s, s.turn.copy(extraPhases = s.turn.extraPhases.drop(1), resumeAt = resume, lonePhase = lone)))
             return extra
         }
         val resume = s.turn.resumeAt ?: return null
-        recorder.record(Changes.step(s, s.turn.copy(resumeAt = null)))
+        recorder.record(Changes.step(s, s.turn.copy(resumeAt = null, lonePhase = false)))
         return resume
     }
 
@@ -194,6 +201,7 @@ internal object Steps {
         val turn = TurnState(
             number = number, active = next, step = TurnStep.Untap,
             turnStarted = s.turn.turnStarted + (next to number),
+            previousTurnStarted = s.turn.turnStarted[next]?.let { s.turn.previousTurnStarted + (next to it) } ?: s.turn.previousTurnStarted,
             // inr: "After that turn, that player takes an extra turn": one for each such control of this turn, directly after it (CR 500.7)
             extraTurns = taken.filter { it.thenExtraTurn }.map { next } +
                 if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
@@ -236,7 +244,10 @@ internal object Steps {
     private fun turnBasedActions(recorder: Recorder): Next {
         val s = recorder.state
         return when (s.turn.step) {
-            TurnStep.Untap -> { untap(recorder); Next.GoOn }
+            TurnStep.Untap -> when (val p = untap(recorder, emptyList())) {
+                is Progress.Waiting -> Next.Wait(p)
+                Progress.Done -> Next.GoOn
+            }
             TurnStep.Draw -> {
                 // CR 103.8a: the starting player skips the draw of their first turn in a two-player game
                 if (s.turn.number == 1 && s.skipFirstDraw) Next.Priority
@@ -271,10 +282,13 @@ internal object Steps {
     }
 
     /** CR 502.1, 502.3: phasing, then the active player's permanents untap, except those that don't (a stun counter is
-     * removed instead, CR 122.1d). */
-    private fun untap(recorder: Recorder) {
+     * removed instead, CR 122.1d), those the active player chooses not to untap ([Mechanic.MayChooseNotToUntap]) and, under an untap
+     * limit ([Mechanic.UntapLimit]), those the active player doesn't choose to untap. A decision stops it, and it is redone from its start
+     * with the [answers] so far (D29). */
+    private fun untap(recorder: Recorder, answers: List<Answer>): Progress {
         val s = recorder.state
         val active = s.turn.active
+        val mark = recorder.changes.size
         val snap = Snapshot(s)
         // CR 502.1, 702.26: phasing
         s.battlefield.toList().forEach { id ->
@@ -287,12 +301,26 @@ internal object Steps {
             }
         }
         val after = Snapshot(recorder.state)
-        recorder.state.battlefield.toList().forEach { id ->
-            val o = recorder.state.obj(id) ?: return@forEach
+        val untapping = recorder.state.battlefield.toList().filter { id ->
+            val o = recorder.state.obj(id) ?: return@filter false
             // CR 502.3: "untaps during each other player's untap step"
-            if (!o.tapped || o.phasedOut) return@forEach
-            if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@forEach
-            if (after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } == true) return@forEach
+            if (!o.tapped || o.phasedOut) return@filter false
+            if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@filter false
+            after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } != true
+        }
+        val allowed = try {
+            val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker(answers, decisionId(s, active, "untap-choice").value))
+            // mkm: CR 502.3: the active player determines which permanents untap: "you may choose not to untap this creature"
+            val optional = untapping.filter { id -> after.view[id]?.has { it == Mechanic.MayChooseNotToUntap } == true }
+            val kept = if (optional.isEmpty()) emptyList()
+                else act.chooseObjects(active, null, optional, 0, optional.size, "Choose the permanents not to untap (CR 502.3)")
+            untapLimits(act, after, active, untapping.filter { it !in kept })
+        } catch (n: arcanum.engine.action.NeedDecision) {
+            recorder.rollback(mark)
+            return Progress.Waiting(Pending(n.decision, Continuation.TurnBased(TurnAction.Untap(answers))))
+        }
+        allowed.forEach { id ->
+            val o = recorder.state.obj(id) ?: return@forEach
             // ltr chunk 03: "remove a +1/+1 counter from it instead. If you do, untap it." (CR 614.1a; without one it stays tapped)
             val instead = after.view[id]?.mechanics.orEmpty().firstNotNullOfOrNull { it.mechanic as? Mechanic.UntapReplacedByRemovingCounter }
             if (instead != null) {
@@ -305,6 +333,33 @@ internal object Steps {
                 recorder.record(Changes.tap(recorder.state, id, tapped = false))
             }
         }
+        return Progress.Done
+    }
+
+    // mh3 fixes
+    /** CR 502.3: of [untapping], those the active player may untap under each untap limit affecting them ("Players can't untap more than one
+     * nonbasic land during their untap steps"): where more match a limit than it allows, they choose which, one limit after another. */
+    private fun untapLimits(act: arcanum.engine.action.Act, snap: Snapshot, active: PlayerId, untapping: List<arcanum.engine.state.ObjectId>):
+        List<arcanum.engine.state.ObjectId> {
+        val limits = snap.view.players[active]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.UntapLimit }
+        var left = untapping
+        limits.forEach { applied ->
+            val limit = applied.mechanic as Mechanic.UntapLimit
+            val e = snap.evaluator(applied.controller, self = applied.source, names = applied.names)
+            val matching = left.filter { e.matches(limit.filter, it) }
+            if (matching.size <= limit.max) return@forEach
+            val chosen = act.chooseObjects(active, applied.source, matching, limit.max, limit.max, "Choose which untap (CR 502.3)")
+            require(chosen.size == limit.max && chosen.all { it in matching }) { "Choose ${limit.max} of them to untap" }
+            left = left.filter { it !in matching || it in chosen }
+        }
+        return left
+    }
+
+    /** An answer to the untap step's choice of what untaps (CR 502.3): the untap step is redone with it, then the turn goes on. */
+    fun resumeUntap(recorder: Recorder, action: TurnAction.Untap, answer: Answer): Progress {
+        require(answer is Answer.Objects) { "Choose the permanents that untap or don't" }
+        (untap(recorder, action.answers + answer) as? Progress.Waiting)?.let { return it }
+        return endStep(recorder, afterPriority = false)
     }
 
     /** CR 702.26a: phasing, the keyword or its meaning. */

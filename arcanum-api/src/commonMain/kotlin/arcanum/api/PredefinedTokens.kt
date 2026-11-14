@@ -2,7 +2,8 @@ package arcanum.api
 
 /**
  * The predefined tokens of CR 111.10, which [TokenSpec.Predefined] names: their full definitions, written in the
- * model. Tokens the rules don't define yet return null.
+ * model. Tokens the rules don't define yet return null. A Role token is named by its kind and "Role" ("Monster Role", CR 111.10k);
+ * its face is named by the kind alone ("Monster").
  */
 object PredefinedTokens {
     fun face(name: String): FaceDefinition? = when (name) {
@@ -44,6 +45,13 @@ object PredefinedTokens {
             Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))),
             rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+        // lci chunk 03: CR 111.10s: a Map artifact token with "{1}, {T}, Sacrifice this token: Target creature you control explores.
+        // Activate only as a sorcery."
+        "Map" -> artifact("Map", Ability.Activated(Cost(listOf(mana("{1}"), CostPart.TapSelf, sacrificeSelf)),
+            Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
+                ObjectFilter.ControlledBy(PlayerFilter.You)))), min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.Action(KeywordAction.Explore(Objects.Target("creature")))))),
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
         // eoe: CR 111.10u: a Lander artifact token with "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put
         // it onto the battlefield tapped, then shuffle."
         "Lander" -> artifact("Lander", Ability.Activated(Cost(listOf(mana("{2}"), CostPart.TapSelf, sacrificeSelf)), Instructions(steps = listOf(
@@ -51,11 +59,48 @@ object PredefinedTokens {
                 max = Value.Fixed(1), bind = "found", zones = listOf(Zone.Library), searcher = Players.You)),
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
             Step.Do(Effect.Shuffle(Players.You)))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        // mom chunk 03: CR 111.10i: the front face of the double-faced Incubator token, a colorless Incubator artifact with
+        // "{2}: Transform this token." (its back face is [back])
+        "Incubator" -> artifact("Incubator", Ability.Activated(Cost(listOf(mana("{2}"))), steps(Effect.Transform(Objects.Self)),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        // woe chunk 01: the Role tokens, CR 111.10j–r: colorless Aura Role enchantment tokens named for their kind, with enchant creature;
+        // CR 303.7a, 704.5z keeps only the newest Role a player controls on one permanent
+        "Cursed Role" -> role("Cursed", Mechanic.SetPowerToughness(Value.Fixed(1), Value.Fixed(1)))
+        "Monster Role" -> role("Monster", plusOne, Mechanic.GainAbilities(listOf(Keyword.Trample)))
+        "Royal Role" -> role("Royal", plusOne, Mechanic.GainAbilities(listOf(Keyword.Ward(Cost(listOf(mana("{1}")))))))
+        "Sorcerer Role" -> role("Sorcerer", plusOne, Mechanic.GainAbilities(listOf(Ability.Triggered(attacks, steps(Effect.Scry(Players.You, Value.Fixed(1)))))))
+        "Virtuous Role" -> Value.Count(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Enchantment), ObjectFilter.ControlledBy(PlayerFilter.You)))))
+            .let { n -> role("Virtuous", Mechanic.ModifyPowerToughness(n, n)) }
+        // "When this token is put into a graveyard from the battlefield, each opponent loses 1 life." (looks back in time, CR 603.10a)
+        "Wicked Role" -> role("Wicked", plusOne).let { f -> f.copy(abilities = f.abilities + Ability.Triggered(
+            Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)),
+            steps(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), Value.Fixed(1))))) }
+        // 'Enchanted creature has "Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it."' (CR 603.4)
+        "Young Hero Role" -> role("Young Hero", Mechanic.GainAbilities(listOf(Ability.Triggered(attacks,
+            steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
+            interveningIf = Condition.Compare(Value.Of(NumericProperty.Toughness, Objects.Self, Combine.Single), Comparison.AtMost, Value.Fixed(3))))))
+        else -> null
+    }
+
+    /** The back face of a double-faced predefined token (CR 111.10i), null for a single-faced one: the token's layout is then
+     * [Layout.Transform] with [face] as its front face. */
+    fun back(name: String): FaceDefinition? = when (name) {
+        // CR 111.10i: a 0/0 colorless Phyrexian artifact creature named Phyrexian Token
+        "Incubator" -> FaceDefinition("Phyrexian Token", colorIndicator = emptyList(), types = listOf(CardType.Artifact, CardType.Creature),
+            subtypes = listOf(Subtype("Phyrexian")), power = PrintedNumber.Fixed(0), toughness = PrintedNumber.Fixed(0))
         else -> null
     }
 
     /** Every name [face] knows. */
-    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander", "Powerstone")
+    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander", "Incubator", "Map", "Powerstone",
+        "Cursed Role", "Monster Role", "Royal Role", "Sorcerer Role", "Virtuous Role", "Wicked Role", "Young Hero Role")
+
+    private val plusOne = Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1))
+    private val attacks = Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self)))
+    /** A Role token named [name] (CR 111.10j–r): enchant creature and one static ability giving the enchanted creature [mechanics]. */
+    private fun role(name: String, vararg mechanics: Mechanic) = FaceDefinition(name, colorIndicator = emptyList(), types = listOf(CardType.Enchantment),
+        subtypes = listOf(Subtype("Aura"), Subtype("Role")), abilities = listOf(Keyword.Enchant(TargetKind.Objects(ObjectFilter.Type(CardType.Creature))),
+            Ability.Static(mechanics.toList(), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))))
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)

@@ -90,6 +90,10 @@ sealed interface DeviceRequest {
         val actions: List<org.asyncttwiz.protocol.PlayAction>, val requestId: String? = null) : Own
     @Serializable @SerialName("stage") data class Stage(override val id: Long, val board: BoardState) : DeviceRequest
     @Serializable @SerialName("unstage") data class Unstage(override val id: Long) : DeviceRequest
+    /** Web client step 4e: a step of a cast flow session where the device is ([CastRequest]): [DeviceResult.Cast]. */
+    @Serializable @SerialName("cast") data class Cast(override val id: Long, val request: CastRequest) : DeviceRequest
+    /** Web client step 4e: a step of a board's shared-flow session where the device is ([SharedRequest]): [DeviceResult.Shared]. */
+    @Serializable @SerialName("shared") data class Shared(override val id: Long, val request: SharedRequest) : DeviceRequest
 
     // ---- Playback and the view's holds
     @Serializable @SerialName("start-playback") data class StartPlayback(override val id: Long) : DeviceRequest
@@ -124,6 +128,19 @@ sealed interface DeviceRequest {
     /** Web client step 4d: the hand plays and card menus' plays of the published board numbered [board] (its
      * app-engine's EngineBoardValues number), worked out on the engine side where the board is: [DeviceResult.Plays]. */
     @Serializable @SerialName("plays") data class Plays(override val id: Long, val board: Long) : DeviceRequest
+    /** Web client step 4e: what the table shows of combat on the published board numbered [board] ([org.asyncttwiz.automatum.CombatShown]),
+     * worked out where the board is; with [lanes] the board with those lanes drawn on it instead (the blocks the attacker
+     * assumes, CMB-040): [DeviceResult.Combat]. */
+    @Serializable @SerialName("combat") data class Combat(override val id: Long, val board: Long,
+        val lanes: org.asyncttwiz.protocol.CombatArea? = null, val drawn: Boolean = false) : DeviceRequest
+    /** Web client step 4e (I-D36): why the engine refuses [attacks] (or [blocks]) as the declaration on the published board
+     * numbered [board] with the lanes [lanes]: [DeviceResult.Text] (null: it takes it, or no reason). */
+    @Serializable @SerialName("combat-refusal") data class CombatRefusal(override val id: Long, val board: Long,
+        val lanes: org.asyncttwiz.protocol.CombatArea?, val attacks: List<org.asyncttwiz.automatum.LaneAttack>? = null,
+        val blocks: List<org.asyncttwiz.automatum.LaneBlock>? = null) : DeviceRequest
+    /** Web client step 4e (ZON-080, I-D50): the cost chips of the hand card [cardId] on the published board numbered [board]:
+     * [DeviceResult.Chips]. */
+    @Serializable @SerialName("chips") data class Chips(override val id: Long, val board: Long, val cardId: String) : DeviceRequest
     /** The device's reproduction bundle: [DeviceResult.Repro]. */
     @Serializable @SerialName("repro") data class Repro(override val id: Long) : DeviceRequest
     /** The board shown and the player's options into the log (a problem report follows). */
@@ -162,6 +179,14 @@ sealed interface DeviceResult {
     @Serializable @SerialName("plays") data class Plays(
         @Serializable(with = HandPlaysSerializer::class) val hand: org.asyncttwiz.automatum.HandPlays? = null,
         @Serializable(with = CardPlaysSerializer::class) val card: org.asyncttwiz.automatum.CardPlays? = null) : DeviceResult
+    /** A cast flow session's step's answer ([DeviceRequest.Cast]). */
+    @Serializable @SerialName("cast") data class Cast(val answer: CastAnswer) : DeviceResult
+    /** A shared-flow session's step's answer ([DeviceRequest.Shared]). */
+    @Serializable @SerialName("shared") data class Shared(val answer: SharedAnswer) : DeviceResult
+    /** What the table shows of combat on a board ([DeviceRequest.Combat]); null where the engine side no longer holds it. */
+    @Serializable @SerialName("combat") data class Combat(val shown: org.asyncttwiz.automatum.CombatShown?) : DeviceResult
+    /** A hand card's cost chips ([DeviceRequest.Chips]); [held] false where the engine side no longer holds the board. */
+    @Serializable @SerialName("chips") data class Chips(val chips: org.asyncttwiz.automatum.HandCastChips?, val held: Boolean = true) : DeviceResult
 }
 
 /** A board sent outside a [ShownWire] (its own engine state, sent whole), with what the page lacks to read it. */

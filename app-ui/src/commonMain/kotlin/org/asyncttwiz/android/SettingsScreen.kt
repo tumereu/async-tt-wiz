@@ -37,7 +37,9 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
     val account = remember(accountSettings) { accountSettings?.let { AccountSettingsState(it, scope) } }
     LaunchedEffect(account) { account?.load() }
     Box(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+    // WEB-043 (D10): the desktop layout's Settings, its groups in two columns
+    if (desktopLayout()) DesktopSettings(catalog, accountId, logout, auth, account, preferences, versionText)
+    else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
         // Wide landscape screens keep sliders and rows at a readable width.
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth()) {
@@ -53,12 +55,19 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                 HorizontalDivider()
             }
             SettingsSection("Table") {
+                // WEB-014: the browser's Layout (none on Android)
+                LayoutSetting()
                 CardMoveSpeedSetting(accountId)
                 EventTextSetting(accountId)
                 EdgeToEdgeSetting()
                 CardSettings()
             }
             HorizontalDivider()
+            // WEB-035: the desktop layout's hotkeys, in a browser only (none on Android)
+            if (account != null && (org.asyncttwiz.appui.desktopLayoutOffered || LocalAppLayout.current == AppLayout.Desktop)) {
+                SettingsSection("Keyboard") { KeyboardShortcutsSetting(account, LocalKeyBindings.current) }
+                HorizontalDivider()
+            }
             SettingsSection("Timeline playback") { PlaybackSettings(preferences, accountId, heading = false, moveSpeed = false, plays = true) }
             HorizontalDivider()
             SettingsSection("Automatum") { AutomatumPauseSettings(accountId, account) }
@@ -79,6 +88,65 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
     }
     val accountError = account?.error
     if (accountError != null) FloatingTransientError(accountError, account::dismissError, Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+/**
+ * WEB-043 (wireframe D10): Settings on the desktop layout, the same groups as the phone's as cards in two columns: Profile,
+ * Games, Table, Timeline playback and Automatum on the left; About & account, Card records and Keyboard on the right (one
+ * column where two don't fit).
+ */
+@Composable
+private fun DesktopSettings(catalog: CatalogViewModel?, accountId: String, logout: () -> Unit, auth: AuthController?,
+    account: AccountSettingsState?, preferences: HistoryPlaybackPreferences, versionText: String) {
+    val left: @Composable ColumnScope.() -> Unit = {
+        if (auth?.state?.account != null) SettingsGroup("Profile") { ProfileSettings(auth, catalog) }
+        if (account != null) SettingsGroup("Games") {
+            DeckVisibilitySetting(account)
+            MoveSoundSetting(account)
+        }
+        SettingsGroup("Table") {
+            LayoutSetting()
+            CardMoveSpeedSetting(accountId)
+            EventTextSetting(accountId)
+            EdgeToEdgeSetting()
+            CardSettings()
+        }
+        SettingsGroup("Timeline playback") { PlaybackSettings(preferences, accountId, heading = false, moveSpeed = false, plays = true) }
+        SettingsGroup("Automatum") { AutomatumPauseSettings(accountId, account) }
+    }
+    val right: @Composable ColumnScope.() -> Unit = {
+        SettingsGroup("About & account") {
+            WhatsNewEntry()
+            ProblemReportEntry { auth?.sessionToken() }
+            ReportsSetting()
+            SelectionContainer { Text(versionText, Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("app-version"),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            SettingsActionRow("Log out", "logout", logout, Modifier.testTag("logout"), color = MaterialTheme.colorScheme.error)
+        }
+        if (catalog != null) SettingsGroup(null) { CatalogControls(catalog.state, catalog::retry) }
+        if (account != null) SettingsGroup("Keyboard") { KeyboardShortcutsSetting(account, LocalKeyBindings.current) }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().testTag("desktop-settings")) {
+        val gap = 16.dp
+        if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(gap), content = left)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(gap), content = right)
+        } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(gap)) { left(); right() }
+    }
+}
+
+/** WEB-043: one Settings group as a card, its heading ([title], none for a group that heads itself) over its rows. */
+@Composable
+private fun SettingsGroup(title: String?, content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, ScreenBorder)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
+            if (title != null) SettingsSectionHeader(title) else Spacer(Modifier.height(8.dp))
+            content()
+        }
     }
 }
 

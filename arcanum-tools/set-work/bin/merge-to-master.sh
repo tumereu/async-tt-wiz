@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The close step's merge: under the machine-wide merge lock (~/projects/atw-cache/locks/master-merge.lock), brings master
 # into set/<code> once more if it moved since the close checks (then reruns the parser and engine suites with the long
-# classes, setSupport, the tools tests and the automatum compile; not parserDiff), and merges set/<code> into master in
+# classes, setSupport, the tools tests and the automatum check; not parserDiff), and merges set/<code> into master in
 # the main checkout. Sets closing in parallel take turns.
 # Run from the set's worktree root. Exit 0 merged; 3 main checkout not ready; 4 conflict with master (resolve it by
 # merging master yourself, rerun the close checks, then run this again); 5 checks failed after bringing master in.
@@ -14,10 +14,15 @@ T=$(cd "$(dirname "$0")" && pwd)
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "Commit first: the worktree has changes" >&2; exit 2; }
 main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
 # The app's Arcanum integration switches exhaustively on engine types (statuses and other sealed members): a new member
-# breaks the app build, which no set test compiles. Checked before the lock and again after bringing master in.
+# breaks the app build, which no set test compiles. Its tests also hold the architecture checks over the shared code
+# (no Java 21 list calls, no runtime class names outside logs and texts), and the parser and engine must compile and
+# pass their tests on Wasm (the web client), where type inference, library calls and collections can differ from the
+# JVM and every test class shares one process (about 10 minutes). Checked before the lock and again after bringing
+# master in.
 automatum() {
-  "$T/gradle-slot.sh" :automatum:compileKotlinJvm && return
-  echo "automatum doesn't compile: a new engine type or sealed member it must handle? Fix it in automatum on this branch" >&2
+  "$T/gradle-slot.sh" :automatum:jvmTest :arcanum-parser:compileKotlinWasmJs :arcanum-engine:compileKotlinWasmJs \
+    :arcanum-parser:wasmJsNodeTest :arcanum-engine:wasmJsNodeTest && return
+  echo "automatum tests (architecture checks included) or the parser/engine Wasm compile or tests failed: a new engine type or sealed member automatum must handle, a check over shared code, or a Wasm-only failure (types, JVM-only calls, invented test cards defined twice differently)? Fix it on this branch" >&2
   exit 5
 }
 automatum

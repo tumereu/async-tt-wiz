@@ -293,6 +293,7 @@ object RulesGlossary {
         Triple("encore", "Encore", "Pay its encore cost and exile it from your graveyard (only when you could cast a sorcery): for each opponent you get a token copy with haste that attacks that opponent this turn and is sacrificed at the end step."),
         Triple("foretell", "Foretell", "During your turn pay {2} to exile it from your hand face down; on a later turn you may cast it for its foretell cost."),
         Triple("disturb", "Disturb", "You can cast it from your graveyard transformed, its back face up, for its disturb cost."),
+        Triple("craft", "Craft", "Pay its craft cost and exile it with the listed materials from your permanents and graveyard (only when you could cast a sorcery): it returns transformed."),
         Triple("cleave", "Cleave", "You may cast it for its cleave cost instead; then the words in square brackets in its text don't count."),
         Triple("reconfigure", "Reconfigure", "Pay its reconfigure cost (only when you could cast a sorcery) to attach it to a creature of yours or unattach it; while attached it isn't a creature."),
         Triple("blitz", "Blitz", "You may cast it for its blitz cost instead; it gains haste and \"when it dies, draw a card\", and is sacrificed at the next end step."),

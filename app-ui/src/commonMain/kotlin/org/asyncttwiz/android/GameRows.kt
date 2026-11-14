@@ -29,7 +29,7 @@ fun GameRows(games: List<GameSummary>, controller: LobbyController, accountId: S
                 val incoming = incomingInvitation(game, accountId)
                 val ready = cardRecordsReady()
                 GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
-                    .gameRowActions(controller, game, enabled = ready || incoming) { if (!incoming) controller.open(game.id) },
+                    .gameRowActions(controller, game, enabled = ready || incoming, desktop = desktopLayout()) { if (!incoming) controller.open(game.id) },
                     trailing = if (incoming) ({
                         val state = controller.state
                         MenuInvitationActions(game.id in state.connectedGames && game.id !in state.pendingGames,
@@ -44,27 +44,42 @@ fun GameRows(games: List<GameSummary>, controller: LobbyController, accountId: S
 fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
     trailing: (@Composable () -> Unit)? = null) {
     val move = gameRowMove(game, accountId)
-    Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Avatar(game.opponent(accountId))
-            Text(game.gameName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (trailing != null) trailing() else {
-                Surface(color = if (move.highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                    contentColor = if (move.highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    shape = RoundedCornerShape(8.dp)) {
-                    Box(Modifier.width(100.dp).height(28.dp), contentAlignment = Alignment.Center) {
-                        Text(move.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+    val chip: @Composable () -> Unit = {
+        if (trailing != null) trailing() else {
+            Surface(color = if (move.highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                contentColor = if (move.highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = RoundedCornerShape(8.dp)) {
+                Box(Modifier.width(100.dp).height(28.dp), contentAlignment = Alignment.Center) {
+                    Text(move.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                EntryIcon(null, "chevron")
             }
+            EntryIcon(null, "chevron")
         }
+    }
+    val lines: @Composable () -> Unit = {
         game.podName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis) }
         Text("vs ${game.opponent(accountId).username} · ${gameStatus(game, accountId)} · ${gameLastActivity(game)}",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (game.invitationHeld) 2 else 1, overflow = TextOverflow.Ellipsis)
+    }
+    // WEB-038 (D7): on the desktop layout one line of columns: avatar, the name over its lines, the move chip, the chevron
+    if (desktopLayout()) Row(modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Avatar(game.opponent(accountId))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(game.gameName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            lines()
+        }
+        chip()
+    } else Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Avatar(game.opponent(accountId))
+            Text(game.gameName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            chip()
+        }
+        lines()
     }
 }
 

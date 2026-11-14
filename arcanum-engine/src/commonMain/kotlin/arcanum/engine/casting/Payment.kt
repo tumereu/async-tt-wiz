@@ -100,7 +100,8 @@ internal object Payment {
             spent = paid.first
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
-        total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
+        // mkm fix: a secret choice is revealed first, while its source is still there to keep it (costs are paid in any order, CR 601.2h)
+        total.parts.sortedBy { it.part !is CostPart.RevealChoice }.forEach { payPart(act, plan, it, bound, snapshots) }
         // tla: paying a waterbend cost is waterbending, however it was paid (CR 701.67c)
         if (total.waterbends) recorder.record(Change.Happened(GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.Waterbend, plan.player)))
         // blb: each forage paid (its parts' keys carry it, Costs.total) is a forage (CR 701.61a)
@@ -128,8 +129,8 @@ internal object Payment {
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
-        if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
-            refuse("Life pays only Phyrexian mana (CR 107.4f)")
+        if (!Mana.lifeSymbols(plan.snap, player, cost).containsAll(lifeFor)) {
+            refuse("Life pays only Phyrexian mana (CR 107.4f) or what an effect lets life pay")
         }
         // CR 601.2g: mana abilities are activated before costs are paid
         val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))
@@ -146,17 +147,19 @@ internal object Payment {
                     ?: refuse("$id can't pay that way")
             }
         }
-        val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor) + specialPayers
-        if (Mana.leastMana(cost) > payers.size) refuse("That doesn't pay $cost")
+        val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX) + specialPayers
+        if (Mana.leastMana(cost, lifeFor) > payers.size) refuse("That doesn't pay $cost")
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         // CR 107.4f, 119.4: 2 life for each Phyrexian symbol paid with life, only with that much life
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
             if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
+            if (Actions.cantLoseLife(act, player)) refuse("Can't pay life (CR 119.8)") // mh3
             Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
             // CR 702.150a: compleated reads how many Phyrexian symbols of a spell were paid with life
             if (plan.isSpell) recorder.state.obj(plan.itemId)?.let { o ->
-                arcanum.engine.change.Changes.cast(recorder.state, plan.itemId, o.castOrNone.copy(phyrexianPaidWithLife = lifeFor.size))?.let(recorder::record)
+                arcanum.engine.change.Changes.cast(recorder.state, plan.itemId, o.castOrNone.copy(phyrexianPaidWithLife = lifeFor.count { i ->
+                    cost.symbols.getOrNull(i).let { it is arcanum.api.ManaSymbol.Phyrexian || it is arcanum.api.ManaSymbol.PhyrexianHybrid } }))?.let(recorder::record)
             }
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
@@ -181,27 +184,28 @@ internal object Payment {
      * Pays mana [cost] for [player] while a spell or ability resolves (CR 118.12, 608.2g): the mana abilities and pool
      * mana [uses] names, life for Phyrexian symbols (CR 107.4f); refused unless it pays the whole cost (CR 118.3). The
      * mana pays for no spell, so restricted mana can't be spent; [spell]: the cast it is spent on instead (assist, CR 702.132a),
-     * restrictions read against that spell, provisionally on the Stack (CR 106.6).
+     * restrictions read against that spell, provisionally on the Stack (CR 106.6). [xCost]: the cost contains {X} (CR 107.3).
      */
-    fun payOnResolution(act: Act, player: PlayerId, cost: ManaCost, uses: List<ManaUse>, spell: Plan? = null) {
+    fun payOnResolution(act: Act, player: PlayerId, cost: ManaCost, uses: List<ManaUse>, spell: Plan? = null, xCost: Boolean = spell?.total?.hasX == true) {
         val recorder = act.recorder
         if (uses.any { it is ManaUse.Special }) refuse("Only mana and life pay a cost while resolving")
         val poolBefore = recorder.state.player(player).manaPool
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
-        if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
-            refuse("Life pays only Phyrexian mana (CR 107.4f)")
+        if (!Mana.lifeSymbols(recorder.snapshot(), player, cost).containsAll(lifeFor)) {
+            refuse("Life pays only Phyrexian mana (CR 107.4f) or what an effect lets life pay")
         }
         // CR 605.3a: every payment may use mana abilities, also one a spell or ability asks as it resolves
         val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))
         val poolNow = recorder.state.player(player).manaPool
         val board = spell?.let { Plan(recorder.state, it.c).snap } ?: recorder.snapshot()
-        val payers = Mana.poolPayers(board, player, spell?.itemId, funds)
+        val payers = Mana.poolPayers(board, player, spell?.itemId, funds, xCost = xCost)
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
             if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
+            if (Actions.cantLoseLife(act, player)) refuse("Can't pay life (CR 119.8)") // mh3
             Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
@@ -263,7 +267,7 @@ internal object Payment {
             val plan = Plan(recorder.state, c)
             val q = plan.next() ?: return Readied(c, null)
             plan.blocker(q)?.let { refuse(it) }
-            if (q is Question.Pay) return if (Mana.assign(Mana.needs(q.cost), Mana.poolPayers(plan.snap, player, plan.itemId, funds, plan.manaAsAnyColor)) != null) Readied(c, q.cost) else null
+            if (q is Question.Pay) return if (Mana.assign(Mana.needs(q.cost), Mana.poolPayers(plan.snap, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX)) != null) Readied(c, q.cost) else null
             val answer = next(queue, q) ?: Answers.automatic(plan, q) ?: (q as? Question.ManaColor)?.let { _ -> use.color?.let { Answer.ColorChoice(it) } }
                 ?: refuse("Say what ${use.source}'s mana ability asks: ${q.kind}")
             c = c.copy(choices = Answers.apply(plan, q, answer))
@@ -279,6 +283,7 @@ internal object Payment {
             is Question.ManaColor -> head is Answer.ColorChoice
             is Question.Modes -> head is Answer.Modes
             is Question.OneOf -> head is Answer.Option
+            is Question.CounterPick -> head is Answer.Option
             is Question.Player -> head is Answer.Player
             is Question.CostChoice -> head is Answer.SubtypeChoice || head is Answer.Objects
             else -> false
@@ -293,7 +298,7 @@ internal object Payment {
         val c = ready.continuation
         if (c != null) {
             val plan = Plan(recorder.state, c)
-            val spent = ready.own?.let { Mana.spendFor(plan.snap, player, it, plan.itemId, funds, later, needs) } ?: emptyList()
+            val spent = ready.own?.let { Mana.spendFor(plan.snap, player, it, plan.itemId, funds, later, needs, xCost = plan.total.hasX) } ?: emptyList()
             pay(act, c, spent.map { ManaUse.Pool(it) }, nested = true, triggered = use.triggered)
             val kept = funds.filter { it !in spent }.map { i -> i - spent.count { it < i } }
             return kept + ((before - spent.size) until recorder.state.player(player).manaPool.size)
@@ -404,12 +409,25 @@ internal object Payment {
             }
             is CostPart.Exile -> {
                 val ids = objects(part.what)
-                check(ids, part.from)
-                val after = move(ids, Zone.Exile, emptyList(), part.preBind, part.postBind)
+                // lci: craft's materials come from the battlefield and/or the graveyard (CR 702.167a)
+                if (part.alsoFrom.isEmpty()) check(ids, part.from)
+                else ids.forEach { id -> if ((s.obj(id) ?: refuse("$id is gone")).zone !in part.alsoFrom + part.from) refuse("$id isn't in ${part.from}") }
+                // lci: exiled to pay a craft ability's cost ("exiled … while you're activating a craft ability", CR 702.167a)
+                val paidFor = listOfNotNull(plan.keyword()?.takeIf { it is Keyword.Craft }?.let { Meaning.PaidFor(it.kind, source = plan.sourceId) })
+                val after = move(ids, Zone.Exile, paidFor, part.preBind, part.postBind)
                 part.remember?.let {
-                    bound[it] = NamedValue.Objects(after)
+                    // lci: several exile parts kept under one key add up ("a Dinosaur, a Merfolk, …" of craft)
+                    val kept = NamedValue.Objects((bound[it] as? NamedValue.Objects)?.ids.orEmpty() + after)
+                    bound[it] = kept
                     // ecl: kept by the permanent the spell becomes (CR 607.2a, 400.7d)
-                    bound[REMEMBERED + it] = NamedValue.Objects(after)
+                    bound[REMEMBERED + it] = kept
+                    // mkm: an activated ability's cost exiles cards "exiled with" its source: kept as the source's memory as the cost is paid
+                    // (CR 607.2a; "Collect evidence 6: …" then "cast a spell from among cards exiled with it")
+                    if (!plan.isSpell) recorder.state.obj(plan.sourceId)?.let { source ->
+                        val before = source.linked[it]
+                        val linked = NamedValue.Objects(((before as? NamedValue.Objects)?.ids.orEmpty() + after).distinct())
+                        if (linked != before) recorder.record(Change.Memory(plan.sourceId, it, before, linked))
+                    }
                 }
             }
             is CostPart.ReturnToHand -> {
@@ -426,6 +444,7 @@ internal object Payment {
                 // CR 119.4: a player can pay life only up to their life total
                 val n = eval.value(part.amount)
                 if (s.player(player).life < n) refuse("Not enough life to pay $n")
+                if (n > 0 && Actions.cantLoseLife(act, player)) refuse("Can't pay life (CR 119.8)") // mh3
                 if (n > 0) Actions.payLife(act, cause, player, n)
             }
             is CostPart.PayEnergy -> {
@@ -435,12 +454,20 @@ internal object Payment {
             }
             is CostPart.RemoveCounters -> {
                 val n = eval.value(part.amount)
+                // mh3 sweep: of no one kind, the counters the payer picked, of any kinds (CR 118.3)
+                if (part.kind == null) {
+                    val done = plan.counterProgress(kp.key, part) as? CounterCosts.Progress.Done ?: refuse("Choose the counters to remove")
+                    done.removals.forEach { (id, kind, count) ->
+                        recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -count, listOf(Meaning.Paid)))
+                    }
+                    return
+                }
                 // gtc: "remove N counters from among …": taken from the chosen objects in the order chosen
                 if (part.distributed) {
                     var left = n
                     objects(part.from).forEach { id ->
                         val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                        val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@forEach
+                        val kind = part.kind!!
                         val taken = minOf(left, o.counters(kind))
                         if (taken > 0) recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -taken, listOf(Meaning.Paid)))
                         left -= taken
@@ -450,7 +477,7 @@ internal object Payment {
                 }
                 objects(part.from).forEach { id ->
                     val o = recorder.state.obj(id) ?: refuse("$id is gone")
-                    val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: refuse("No counters on $id")
+                    val kind = part.kind!!
                     if (o.counters(kind) < n) refuse("Not enough counters on $id")
                     recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -n, listOf(Meaning.Paid)))
                 }
@@ -480,6 +507,13 @@ internal object Payment {
             }
             // Reminder text the definition can't express: left to the players (P4)
             is CostPart.Manual -> Unit
+            // mkm fix: the secret choice the source keeps is revealed: no longer marked secret
+            is CostPart.RevealChoice -> {
+                val o = recorder.state.obj(plan.sourceId) ?: refuse("It's gone")
+                if (o.linked[part.key] == null) refuse("Nothing was chosen")
+                val key = arcanum.engine.state.Secrets.markerKey(part.key)
+                o.linked[key]?.let { recorder.record(Change.Memory(o.id, key, it, null)) }
+            }
             // blb: the chosen player is recorded with the spell's facts as it becomes cast (CR 702.174a)
             is CostPart.ChoosePlayer -> Unit
             // ecl: CR 701.68a: N -1/-1 counters on the chosen creature you control; it is "the blighted creature" (701.68c)
@@ -515,6 +549,30 @@ internal object Payment {
 
     // ---- Finishing
 
+    /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested (woe, otj). */
+    private fun asCastConditions(instructions: arcanum.api.Instructions): List<arcanum.api.Condition> {
+        fun of(c: arcanum.api.Condition): List<arcanum.api.Condition> = when (c) {
+            is arcanum.api.Condition.AsCast -> listOf(c.condition)
+            is arcanum.api.Condition.And -> c.all.flatMap(::of)
+            is arcanum.api.Condition.Or -> c.any.flatMap(::of)
+            is arcanum.api.Condition.Not -> of(c.condition)
+            else -> emptyList()
+        }
+        fun of(steps: List<arcanum.api.Step>): List<arcanum.api.Condition> = steps.flatMap { step ->
+            when (step) {
+                is arcanum.api.Step.If -> of(step.condition) + of(step.then) + of(step.otherwise)
+                is arcanum.api.Step.May -> of(step.steps)
+                is arcanum.api.Step.ForEach -> of(step.steps)
+                is arcanum.api.Step.Repeat -> of(step.steps)
+                is arcanum.api.Step.RepeatWhile -> of(step.condition) + of(step.steps)
+                is arcanum.api.Step.Simultaneously -> of(step.steps)
+                is arcanum.api.Step.Pay -> of(step.steps)
+                else -> emptyList()
+            }
+        }
+        return of(instructions.steps) + instructions.modes?.options.orEmpty().flatMap { asCastConditions(it.instructions) }
+    }
+
     private fun finishSpell(
         recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>, spent: List<ManaUnit>,
         paidWith: Map<ManaPaymentWay, List<ObjectId>>,
@@ -522,8 +580,15 @@ internal object Payment {
         val s = recorder.state
         val id = plan.itemId
         val o = s.objOrThrow(id)
+        // woe, otj: CR 601.2i: "if you controlled a Faerie as you cast this spell", "if you controlled a Mount as you cast this spell" are
+        // answered now, once, with the spell's choices
+        val asCast = asCastConditions(plan.instructions).distinct().let { conditions ->
+            if (conditions.isEmpty()) emptyList()
+            else recorder.snapshot().evaluator(plan.player, self = id, names = names, stackItem = plan.item).let { e -> conditions.filter { e.holds(it) } }
+        }
         val facts = o.castOrNone.copy(
             castFrom = plan.castFrom,
+            heldAsCast = asCast,
             x = plan.choices.announced["X"],
             manaSpent = (Color.all + listOf<Color?>(null)).mapNotNull { c ->
                 spent.count { it.color == c }.takeIf { it > 0 }?.let { ManaSpent(c, it) }
@@ -551,6 +616,7 @@ internal object Payment {
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
+            permission.total?.let { total -> usePermission(recorder, plan, total) }
             // blb: what the permission gives a spell cast with it ("that creature enters with a finality counter", CR 400.7d)
             if (permission.spellGets.isNotEmpty()) recorder.record(Changes.effect(recorder.state) { t ->
                 val next = (id as? ObjectId.Card)?.next()
@@ -651,6 +717,13 @@ internal object Payment {
     private fun recorderKeyword(plan: Plan, root: AbilityOrigin) =
         plan.snap.view[plan.itemId]?.characteristics?.abilities?.firstOrNull { it.origin == root }?.let { (it.ability as? Keyword)?.kind }
 
+    /** mom: a spell cast with a permission limited to [total] spells in all uses one up; the effect that grants it keeps the count (and its
+     * other mechanics). */
+    private fun usePermission(recorder: Recorder, plan: Plan, total: Int) {
+        val effect = plan.way.permission?.effect?.let { recorder.state.effects[it] } ?: return
+        recorder.record(Change.EffectUpdated(effect, effect.copy(usesLeft = (effect.usesLeft ?: total) - 1)))
+    }
+
     private fun countPermission(recorder: Recorder, plan: Plan) {
         val p = plan.way.permission ?: return
         val source = p.source?.let { recorder.state.obj(it)?.id } ?: return
@@ -666,11 +739,19 @@ internal object Payment {
         val loyaltyCost = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.Loyalty>().firstOrNull()?.let { part ->
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
-        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
-            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
+        // woe chunk 08: "{2}, {T}: Choose one that hasn't been chosen —": the modes this object has chosen (CR 700.2)
+        if ((plan.ability as? Ability.Activated)?.instructions?.modes?.onlyUnchosen == true && plan.choices.modes.isNotEmpty())
+            recorder.state.obj(plan.sourceId)?.let { o ->
+                arcanum.engine.change.Changes.cast(recorder.state, o.id, o.castOrNone.copy(modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct()))
+                    ?.let { recorder.record(it) }
+            }
+        // otj chunk 06: the ability is on the Stack with its targets when it becomes activated (CR 602.2i), so "an ability that
+        // targets a creature or player" reads them
+        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
+            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val loyalty = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is CostPart.Loyalty }
         countActivation(recorder, plan.sourceId, origin, loyalty)
         Casting.keepPriority(recorder, plan.player)
@@ -691,17 +772,24 @@ internal object Payment {
      * if something holds) happens right after its mana is added, as resolution steps would (CR 608.2c); what that asks stops the
      * activation, which is redone with the answers so far (D29).
      */
-    private fun finishManaAbility(outer: Act, plan: Plan, bound: Bindings, nested: Boolean, triggered: List<Color>): Progress {
+    private fun finishManaAbility(outer: Act, plan: Plan, costBound: Bindings, nested: Boolean, triggered: List<Color>): Progress {
         val recorder = outer.recorder
         val ability = plan.ability as Ability.Activated
         val snap = recorder.snapshot()
+        // mh3 fixes: the objects its choice steps chose with the activation, bound before the mana is counted from them (CR 605.3b)
+        val choiceSteps = Plan.manaChoices(ability)
+        val bound = choiceSteps.fold(costBound) { b, (i, step) ->
+            val chosen = plan.choices.names[Plan.OBJECTS + Plan.MANA_CHOICE + i] as? NamedValue.Objects ?: return@fold b
+            b.with(step.bind, chosen)
+        }
         ability.instructions.steps.forEachIndexed { i, step ->
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
             val colors = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors.orEmpty()
             val one = ability.copy(instructions = ability.instructions.copy(steps = listOf(Mana.withChosenColors(ability, step))))
             // CR 608.2h: what a sacrificed or discarded object could produce is read as it last existed, before paying
             val yields = if (add.mana.kind is arcanum.api.ManaKind.AsCouldProduce) Mana.yields(plan.snap, plan.player, plan.sourceId, one, plan.manaNames())
-                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names)
+                // one chunk 09: with the objects the cost bound ("an amount of {R} equal to the sacrificed artifact's mana value", CR 608.2h)
+                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names.with(bound))
             val combination = (add.mana.kind as? arcanum.api.ManaKind.Choose)?.combination == true
             // In any combination of colours: one mana of each colour chosen
             val units = if (combination && colors.size > 1) yields.flatMap { y -> colors.take(y.amount).flatMap { Mana.units(y.copy(amount = 1), it, plan.sourceId) } }
@@ -726,8 +814,10 @@ internal object Payment {
                 answered += ref.name
             }
         }
+        val chosenSteps = choiceSteps.map { it.second }.toSet()
         val rest = ability.instructions.steps.filterNot {
-            (it is Step.Do && it.effect is Effect.AddMana) || (it is Step.Choose && it.choice is arcanum.api.Choice.Color && it.bind in answered)
+            (it is Step.Do && it.effect is Effect.AddMana) || (it is Step.Choose && it.choice is arcanum.api.Choice.Color && it.bind in answered) ||
+                (it is Step.Choose && it in chosenSteps)
         }
         if (rest.isEmpty()) return Progress.Done
         // What it asks is asked of its player (inside a payment, the payment's), the activation (or the payment) redone with the answer (D29)

@@ -173,7 +173,7 @@ internal object Fin {
     val RETURN_ANY_NUMBER_TOTAL = Regex("""Return any number of target (.+?) with total mana value (\d+) or less from your graveyard to the battlefield\.""")
     val PUT_UP_TO_ONE_MILLED = Regex("""Put up to one (.+?) milled this way into your hand\.""")
     val DURING_YOUR_TURN_SELF_AND_OTHERS_HAVE = Regex("""During your turn, (.+?) and other (.+?) have (.+)\.""")
-    val PUT_IT_ON_LIBRARY = Regex("""Put it on the (top|bottom) of its owner's library\.""")
+    val PUT_IT_ON_LIBRARY = Regex("""Put (it|that permanent|that creature) on the (top|bottom) of its owner's library\.""")
     val UNTIL_NEXT_TURN_IT_GAINS = Regex("""Until your next turn, it gains (.+)\.""")
     val IF_THAT_CREATURE_IS = Regex("""If that creature is (\w+), (.+)\.""")
     val ADD_MANA_LIST = Regex("""Add ((?:\{[WUBRGC]\})+(?:, (?:and )?(?:\{[WUBRGC]\})+)+)\.""")
@@ -250,7 +250,8 @@ internal object Fin {
     val DAMAGE_NOT_REMOVED = Regex("""Damage isn't removed from (.+?) during cleanup steps\.""")
     val PREVENT_COMBAT_DAMAGE_TO_SELF = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
     val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many (\S+) counters are put on that creature instead\.""")
-    val TOKENS_PLUS_ONE = Regex("""If one or more tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
+    // dmu chunk 05: also of a kind ("If one or more creature tokens would be created under your control")
+    val TOKENS_PLUS_ONE = Regex("""If one or more (?:(\w+) )?tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
     // mkm chunk 06: any spell noun; bro chunk 09: no noun, any spells
     val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast (?:(.+?) )?spells from the top of your library\.""")
     val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering(?: the battlefield)? causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
@@ -263,7 +264,8 @@ internal object Fin {
     val UNTIL_EOT_SELF_GETS_FOR_EACH = Regex("""Until end of turn, (.+?) gets \+1/\+1 for each (.+)\.""")
     val MILL_MAY_PUT_IF_TOWN_GAIN = Regex("""Mill (\w+) cards\. You may put an? (.+?) from among them into your hand\. If you put an? (.+?) into your hand this way, you gain (\d+) life\.""")
     val EXILE_IT_AND = Regex("""Exile it and (create .+)\.""")
-    val CREATE_N_TAPPED_PREDEFINED = Regex("""Create (\w+) tapped (Treasure|Food|Clue) tokens?\.""")
+    // dmu chunk 06: any predefined token ("Create a tapped Powerstone token.")
+    val CREATE_N_TAPPED_PREDEFINED = Regex("""Create (\w+) tapped ([A-Z][a-z]+) tokens?\.""")
     // fin chunk 14
     val VEHICLE_CREWED_BY_ATTACKS_EXTRA_COMBAT = Regex("""Whenever a Vehicle crewed by (.+?) this turn attacks, if it's the first combat phase of the turn, you may pay ((?:\{[^}]+\})+)\. If you do, after this phase, there is an additional combat phase\.""")
     val BIRDS_ATTACK_LOOK_THAT_MANY = Regex("""Whenever one or more (.+?) attack, look at that many cards from the top of your library\. You may put one of them into your hand\. Then put any number of land cards from among them onto the battlefield tapped and the rest into your graveyard\.""")

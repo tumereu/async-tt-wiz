@@ -345,9 +345,18 @@ sealed interface Mechanic {
         /** Paying it lets the spell be cast as though it had flash (CR 702.8a): cast when only an instant could be, the cost must be paid
          * ("You may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it"). */
         val flash: Boolean = false,
+        // dmu
+        /** Paid, the spell costs this much less, and only of these colours: a symbol the cost lacks reduces nothing, not generic mana
+         * (the Defilers: "Those spells cost {W} less to cast if you paid life this way. This effect reduces only the amount of white mana
+         * you pay", overriding CR 118.7b, c; reduced as the total cost is determined, CR 601.2f). */
+        val reducesBy: ManaCost? = null,
     ) : Mechanic
     /** Some of the spell's mana may be paid another [way] (delve, convoke, improvise; CR 702.66a, 702.51a). */
     @Serializable @SerialName("pay-mana-by") data class PayManaBy(val way: ManaPaymentWay) : Mechanic
+    // dmu
+    /** Activated abilities of the affected objects ([manaAbilitiesOnly]: only their mana abilities) cost [cost] more to activate, paid in addition
+     * to their other costs ("Mana abilities of this land cost an additional 1 life to activate", CR 602.2b, 601.2f). */
+    @Serializable @SerialName("additional-activation-cost") data class AdditionalActivationCost(val cost: Cost, val manaAbilitiesOnly: Boolean = false) : Mechanic
     /** "You can't spend mana to cast this spell." */
     @Serializable @SerialName("cant-spend-mana") data object CantSpendMana : Mechanic
     /** "X can't be [lessThan − 1]" ("X can't be 0"). */
@@ -532,6 +541,12 @@ sealed interface Mechanic {
      * life rather than pay that mana"): only the plain coloured symbol, not a hybrid one (CR 107.4e, 601.2h); unlike Phyrexian mana it
      * changes no cost (CR 107.4f). */
     @Serializable @SerialName("pay-life-for-mana") data class PayLifeForMana(val color: Color) : Mechanic
+    // dmu fixes
+    /** The affected players can't pay life toward the cost of a spell they cast or an ability they activate ("Players can't pay life to cast
+     * spells or to activate abilities that aren't mana abilities"): no Phyrexian or other mana symbol paid with life and no life in a cost
+     * (CR 119.4, 601.2h, 602.2b); with [exceptManaAbilities] a mana ability's cost still may be (CR 605.1a). Life paid otherwise ("unless
+     * that player pays 3 life") is unaffected. */
+    @Serializable @SerialName("cant-pay-life-to-cast-or-activate") data class CantPayLifeToCastOrActivate(val exceptManaAbilities: Boolean = false) : Mechanic
     /** The affected players can't untap more than [max] permanents matching [filter] during their untap steps ("Players can't untap more
      * than one nonbasic land during their untap steps"): the active player chooses which of those untap (CR 502.3). */
     @Serializable @SerialName("untap-limit") data class UntapLimit(val max: Int, val filter: ObjectFilter) : Mechanic {

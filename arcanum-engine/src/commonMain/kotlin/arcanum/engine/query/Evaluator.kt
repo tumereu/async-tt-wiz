@@ -313,6 +313,19 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         }
     }.orEmpty()
 
+    /** dmu sweep: how [id] attacked this combat before it was removed from combat (left the battlefield, CR 506.4), from the log; null when it
+     * didn't attack this combat. */
+    private fun attackedBefore(id: ObjectId): arcanum.engine.state.Attacker? {
+        if (state.combat == null) return null
+        board.readingLog()
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? arcanum.engine.change.Change.Combat ?: continue
+            change.before?.attackers?.firstOrNull { it.id == id }?.let { return it }
+            if (change.before == null) return null
+        }
+        return null
+    }
+
     // ---- Players
 
     fun players(players: Players): List<PlayerId> = when (players) {
@@ -327,12 +340,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.ChosenAsCost -> objects(players.of).mapNotNull { facts(it)?.chosenPlayer }.distinct()
         // fin: in an effect a triggered ability created, "that player" is its event's player, kept as the effect began (CR 608.2h)
         Players.EventPlayer -> ctx.event?.players ?: (ctx.names[EVENT_PLAYERS] as? arcanum.engine.state.NamedValue.Players)?.ids.orEmpty()
-        is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) }.distinct()
+        // dmu chunk 04: "its controller" of an object that has left its zone is its last known controller (CR 608.2h)
+        is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) ?: lki(it)?.controller }.distinct()
         is Players.OwnerOf -> objects(players.objects).mapNotNull { ownerOf(it) }.distinct()
         Players.Active -> listOf(state.turn.active)
         is Players.DefendingPlayerOf -> {
-            val attackers = objects(players.attackers).toSet()
-            state.combat?.attackers.orEmpty().filter { it.id in attackers }.mapNotNull { attack ->
+            val attackers = objects(players.attackers)
+            // dmu sweep: one no longer attacking names the player it attacked before it was removed from combat (CR 508.5)
+            attackers.mapNotNull { id -> state.combat?.attackers?.firstOrNull { it.id == id } ?: attackedBefore(id) }.mapNotNull { attack ->
                 when (val target = attack.target) {
                     is TargetRef.Player -> target.id
                     // The controller of the planeswalker, or the protector of the battle (CR 506.2, 310.9d)
@@ -456,7 +471,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)
-            is ObjectFilter.WasPaid -> facts(id).let { f -> (f?.paid.orEmpty() + listOfNotNull(f?.alternative)) }
+            // dmu chunk 05: a spell being paid for, its optional costs chosen so far (on its provisional item)
+            is ObjectFilter.WasPaid -> facts(id).let { f -> (f?.paid.orEmpty().ifEmpty { state.stackItems[id]?.cast?.paid.orEmpty() } + listOfNotNull(f?.alternative)) }
                 .filter { it.keyword == filter.keyword }.sumOf { it.times } >= filter.times
             is ObjectFilter.HasStatus -> hasStatus(id, o, filter.status)
             // gtc chunk 07: the blocking relation of this combat (CR 509.1a, 509.1h)

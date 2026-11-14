@@ -778,6 +778,18 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     /** fin: abilities players gain ("you have protection from …"): players have no layers, the keywords apply to them as rules. */
     private fun forPlayers(e: ContinuousEffect, mechanic: Mechanic): Boolean = e.affects is Affected.Players && mechanic is Mechanic.GainAbilities
 
+    /** dmu: activated abilities that cost more to activate in addition to their other costs (CR 602.2b, 601.2f): the parts join each such
+     * ability's cost, so every way of activating it, mana payment included, pays them. */
+    private fun withAdditionalCosts(chars: Characteristics, mechanics: List<AppliedMechanic>?): Characteristics {
+        val adds = mechanics.orEmpty().mapNotNull { it.mechanic as? Mechanic.AdditionalActivationCost }
+        if (adds.isEmpty()) return chars
+        return chars.copy(abilities = chars.abilities.map { inst ->
+            val a = inst.ability as? Ability.Activated ?: return@map inst
+            val parts = adds.filter { !it.manaAbilitiesOnly || a.isManaAbility() }.flatMap { it.cost.parts }
+            if (parts.isEmpty()) inst else inst.copy(ability = a.copy(cost = a.cost.copy(parts = a.cost.parts + parts)))
+        })
+    }
+
     private fun collect(board: WorkBoard): View {
         val objectMechanics = LinkedHashMap<ObjectId, MutableList<AppliedMechanic>>()
         val playerMechanics = LinkedHashMap<PlayerId, MutableList<AppliedMechanic>>()
@@ -843,7 +855,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             val controller = board.work[o.id]?.controller
             objects[o.id] = ObjectView(
                 id = o.id, owner = o.owner, controller = controller, zone = o.zone,
-                characteristics = board.work[o.id]?.chars, mechanics = objectMechanics[o.id].orEmpty(),
+                characteristics = board.work[o.id]?.chars?.let { withAdditionalCosts(it, objectMechanics[o.id]) }, mechanics = objectMechanics[o.id].orEmpty(),
                 summoningSick = evaluator.summoningSick(o, controller), obj = o, base = initial[o.id], copiable = copiable.values(o.id),
                 basePower = board.basePowers[o.id], statuses = viewStatuses(o),
             )

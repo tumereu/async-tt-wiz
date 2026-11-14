@@ -181,7 +181,8 @@ internal object Mana {
                 (o.zone == Zone.Battlefield && ov?.has { it is Mechanic.CantBeSacrificed } != true)
             // mh3 sweep: and not by a player who can't lose life (CR 119.8)
             is CostPart.PayLife -> snap.evaluator(player, self = id).value(part.amount).let { n ->
-                n <= 0 || snap.state.player(player).life >= n && snap.view.players[player]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantLoseLife }
+                n <= 0 || snap.state.player(player).life >= n && snap.view.players[player]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantLoseLife } &&
+                    !lifeBarred(snap.view, player, manaAbility = true) // dmu fixes
             }
             else -> true
         }
@@ -526,13 +527,24 @@ internal object Mana {
         }
     }
 
+    // dmu fixes
+    /** Whether [player] can't pay life toward the cost of a spell they cast or an ability they activate ([manaAbility]: a mana ability) by an
+     * effect like "Players can't pay life to cast spells or to activate abilities that aren't mana abilities"
+     * ([Mechanic.CantPayLifeToCastOrActivate], CR 119.4, 601.2h, 602.2b). */
+    fun lifeBarred(view: arcanum.engine.view.View, player: PlayerId, manaAbility: Boolean): Boolean =
+        view.players[player]?.mechanics.orEmpty().any { m ->
+            (m.mechanic as? Mechanic.CantPayLifeToCastOrActivate)?.let { !manaAbility || !it.exceptManaAbilities } == true
+        }
+
     // mh3 fixes
     /** The symbols of [cost] [player] may pay with 2 life: Phyrexian ones (CR 107.4f) and, while an effect lets them pay life rather
      * than {B} (or another colour, [Mechanic.PayLifeForMana]), each symbol that can be announced as that colour: a plain one and a hybrid
      * one with that colour as a half ({B/G}, {2/B}, {C/B}), which is announced as its nonhybrid equivalent before it's paid (CR 601.2b). */
-    fun lifeSymbols(snap: Snapshot, player: PlayerId, cost: ManaCost): List<Int> {
+    fun lifeSymbols(snap: Snapshot, player: PlayerId, cost: ManaCost, lifeBarred: Boolean = false): List<Int> {
         // mh3 sweep: none for a player who can't lose life: they can't pay life (CR 119.8)
         if (snap.view.players[player]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantLoseLife }) return emptyList()
+        // dmu fixes: none while they can't pay life to cast or activate this ([lifeBarred], CR 119.4, 601.2h)
+        if (lifeBarred) return emptyList()
         val colors = snap.view.players[player]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.PayLifeForMana)?.color }.toSet()
         return cost.symbols.withIndex().filter { (_, s) ->
             when (s) {
@@ -678,7 +690,7 @@ internal object Mana {
      * each set of objects its cost could use, life for Phyrexian symbols, and the spell's other ways. */
     fun options(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?, ways: List<ManaPaymentWay> = emptyList(), anyColor: AsAnyColor = AsAnyColor.None,
-        reserved: Reserved = Reserved.NONE, xCost: Boolean = false,
+        reserved: Reserved = Reserved.NONE, xCost: Boolean = false, lifeBarred: Boolean = false,
     ): List<ManaUse> =
         buildList {
             poolPayers(snap, player, paysFor, anyColor = anyColor, xCost = xCost).forEach { add(it.use) }
@@ -688,7 +700,7 @@ internal object Mana {
                     (1..MAX_ANNOUNCED).forEach { n -> picks(s).forEach { p -> add(use(p).let { u -> u.copy(answers = listOf<Answer>(Answer.Number(n)) + u.answers) }) } }
                 } else picks(s).forEach { add(use(it)) }
             }
-            lifeSymbols(snap, player, cost).forEach { add(ManaUse.Life(it)) }
+            lifeSymbols(snap, player, cost, lifeBarred).forEach { add(ManaUse.Life(it)) }
             specialPayers(snap, player, ways, reserved.tapped).forEach { add(it.use) }
         }
 
@@ -707,11 +719,11 @@ internal object Mana {
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None,
         reserved: Reserved = Reserved.NONE, pinned: List<ManaUse> = emptyList(), removed: List<ManaUse> = emptyList(),
-        exact: List<ManaUse> = emptyList(), xCost: Boolean = false,
+        exact: List<ManaUse> = emptyList(), xCost: Boolean = false, lifeBarred: Boolean = false,
     ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
         val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, pinned + exact, removed,
-            exact.filterIsInstance<ManaUse.Ability>().toSet(), xCost)
+            exact.filterIsInstance<ManaUse.Ability>().toSet(), xCost, lifeBarred)
         if (payment.impossible()) return emptyList()
         // Without other ways, then with them; each from the fewest side effects up, never a lethal source; then lethal ones
         val wayRounds = if (!canSpendMana) listOf(true) else if (ways.isEmpty()) listOf(false) else listOf(false, true)
@@ -729,10 +741,11 @@ internal object Mana {
     fun verdict(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None, reserved: Reserved = Reserved.NONE,
-        xCost: Boolean = false,
+        xCost: Boolean = false, lifeBarred: Boolean = false,
     ): Verdict {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return Verdict.Found(emptyList())
-        val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, emptyList(), emptyList(), xCost = xCost)
+        val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, emptyList(), emptyList(), xCost = xCost,
+            lifeBarred = lifeBarred)
         if (payment.impossible()) return if (payment.cantTell) Verdict.Maybe else Verdict.None
         payment.search(2, withWays = ways.isNotEmpty() || !canSpendMana, keepAlive = false)?.let { return Verdict.Found(it) }
         return if (payment.cantTell) Verdict.Maybe else Verdict.None
@@ -742,8 +755,8 @@ internal object Mana {
     fun mayPay(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None, reserved: Reserved = Reserved.NONE,
-        xCost: Boolean = false,
-    ): Boolean = verdict(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, xCost) != Verdict.None
+        xCost: Boolean = false, lifeBarred: Boolean = false,
+    ): Boolean = verdict(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, xCost, lifeBarred) != Verdict.None
 
     /** One activation of a source as a search tries it, with the colours it makes. */
     private class Pick(val source: Source, val color: Color?, val combination: List<Color> = emptyList(), val triggered: List<Color> = emptyList())
@@ -797,6 +810,8 @@ internal object Mana {
         val exact: Set<ManaUse.Ability> = emptySet(),
         /** mh3 fixes: the cost contains {X} (CR 106.6, 107.3). */
         val xCost: Boolean = false,
+        /** dmu fixes: life can't pay any of it ([lifeBarred]). */
+        val lifeBarred: Boolean = false,
     ) {
         val life = snap.state.player(player).life
         val any = if (spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
@@ -807,7 +822,7 @@ internal object Mana {
         private val removedSources = removed.filterIsInstance<ManaUse.Ability>()
         private val all: List<Source> = if (!canSpendMana) emptyList() else sources(snap, player, reserved).filter { s -> removedSources.none { sameSource(it, s) } }
         private val searched = all.filter { !it.unknown }
-        private val phyrexian = lifeSymbols(snap, player, cost)
+        private val phyrexian = lifeSymbols(snap, player, cost, lifeBarred)
         private val mustLife = pinned.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         private val noLife = removed.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         private val specials: List<Payer> = capped(specialPayers(snap, player, ways, reserved.tapped).filter { p -> removed.none { it == p.use } }, ways)

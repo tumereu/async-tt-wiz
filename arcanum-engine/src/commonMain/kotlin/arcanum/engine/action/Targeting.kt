@@ -68,6 +68,14 @@ internal object Targeting {
         return null
     }
 
+    /** The most targets [slot] may have: its printed maximum, and no more than an amount divided among them, since each
+     * target of a division gets at least one of it (CR 601.2d). Null for any number. */
+    fun maxTargets(slot: TargetSlot, e: Evaluator): Int? {
+        val printed = slot.max?.let { e.value(it) }
+        val amount = slot.divided?.let { maxOf(0, e.value(it)) } ?: return printed
+        return printed?.let { minOf(it, amount) } ?: amount
+    }
+
     /** Whether [min] of [options] can be chosen together within [slot]'s limits on each other (CR 603.3d, 700.2b: a
      * triggered ability or mode without such a group can't be put on the Stack or chosen). A search too long to finish
      * takes it as possible (the choice is checked exactly). */

@@ -60,6 +60,7 @@ internal object Costs {
         contributions: List<Contribution>, eval: Evaluator, x: Map<Char, Int>, itsManaCost: ManaCost?,
         oneOf: (String) -> Int?, increases: List<ManaCost> = emptyList(), reductions: List<Pair<ManaCost, Int>> = emptyList(),
         manaCostOf: (arcanum.api.Objects) -> List<ManaCost?>? = { null },
+        coloredOnly: List<ManaCost> = emptyList(),
     ): TotalCost {
         var unpayable = false
         val symbols = mutableListOf<ManaSymbol>()
@@ -115,6 +116,8 @@ internal object Costs {
         } } }
         increases.forEach { symbols += it.symbols }
         var mana = normalize(symbols)
+        // dmu: reductions of coloured mana only, taken first (the player orders reductions, CR 601.2f; these can't touch generic mana)
+        coloredOnly.forEach { mana = reduceColoredOnly(mana, it) }
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }
         val generic = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
         return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends, unpayable = unpayable, hasX = hasX)
@@ -189,6 +192,19 @@ internal object Costs {
         // woe chunk 08: "can't reduce the mana in that cost to less than one mana": the other symbols count toward the minimum
         val left = maxOf(minOf(generic, (minimum - rest.size).coerceAtLeast(0)), generic - genericOff)
         return ManaCost((if (left > 0) listOf(ManaSymbol.Generic(left)) else emptyList()) + rest)
+    }
+
+    /** dmu: a reduction that "reduces only the amount of [colour] mana you pay": each coloured symbol takes off one mana of its colour (a
+     * symbol of that colour, else a Phyrexian or hybrid symbol with it, CR 107.4e, f), never generic mana (unlike CR 118.7b, c). */
+    fun reduceColoredOnly(cost: ManaCost, reduction: ManaCost): ManaCost {
+        val symbols = cost.symbols.toMutableList()
+        reduction.symbols.filterIsInstance<ManaSymbol.Colored>().forEach { r ->
+            val i = symbols.indexOf(r).takeIf { it >= 0 }
+                ?: symbols.indexOfFirst { it is ManaSymbol.Phyrexian && it.color == r.color }.takeIf { it >= 0 }
+                ?: symbols.indexOfFirst { it is ManaSymbol.Hybrid && (it.first == r.color || it.second == r.color) }.takeIf { it >= 0 }
+            if (i != null) symbols.removeAt(i)
+        }
+        return ManaCost(symbols)
     }
 
     /** A [CostChange] as mana and a count (CR 601.2f). */

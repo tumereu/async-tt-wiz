@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 106
+    const val VERSION: Int = 107
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -127,7 +127,8 @@ object OracleParser {
     private val EMERGE_FROM = Regex("""Emerge from (\w+) ((?:\{[^}]+\})+)""")
     private val ADDITIONAL_COST_X = Regex("""As an additional cost to cast this spell, (?![^.\n]*\bwhere X is\b)[^.\n]*\bX\b""")
     private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
-    private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
+    private val REGNAL_NUMBER = Regex("""(.+) [IVXLC]+""")
+    private val NAMED_PARTNER =Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
@@ -138,6 +139,8 @@ object OracleParser {
             listOfNotNull(name.substringBefore(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != "The" }) +
             // set check (LTR): a legendary card's name before " of " ("Rosie Cotton" of "Rosie Cotton of South Lane", CR 201.5c)
             listOfNotNull(name.substringBefore(" of ").takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != name }) +
+            // dmu chunk 07: a legendary name without its regnal number ("King Darien" of "King Darien XLVIII", CR 201.5c)
+            listOfNotNull(REGNAL_NUMBER.matchEntire(name)?.groupValues?.get(1)?.takeIf { arcanum.api.Supertype.Legendary in face.supertypes }) +
             // chunk 20
             face.subtypes.map { "this " + it.name }).let { names ->
             // msh: dotless aliases ("MODOK" for "M.O.D.O.K.", "Ms Marvel"), which [dotless] writes the lines with
@@ -160,7 +163,8 @@ object OracleParser {
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         // chunks 21, 26: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
         // dsk chunk 09: "each card exiled with it"
-        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it ") || text.contains("exiled with it."))
+        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it ") || text.contains("exiled with it."),
+            chosenCardType = text.contains("choose a card type")) // dmu chunk 06
         // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
         // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost
@@ -786,6 +790,10 @@ object OracleParser {
                 else -> if (type in RulesWords.subtypes) arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(type)) else return null
             }
             return Keyword.Typecycling(cards, part.substringBefore(' ' + m.groupValues[2]), Cost.mana(cost))
+        }
+        // dmu chunk 01: "Kicker {B} and/or {R}": two kicker costs (CR 702.33b, d)
+        Dmu.KICKER_AND_OR.matchEntire(part)?.let { m ->
+            return Keyword.Kicker(m.groupValues.drop(1).map { Cost.mana(ManaCost.parse(it) ?: return null) })
         }
         // chunk 40: "Forestwalk", "Islandwalk" (CR 702.14a): a land type, then "walk"
         LANDWALK.matchEntire(part)?.let { m ->

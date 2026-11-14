@@ -17,7 +17,7 @@ internal object Fdn {
     val VERB_PHRASE = Regex("""^(?:loses|gains|draws|discards|mills|sacrifices|exiles|gets) .+""") // one chunk 05: "gets a poison counter"
     val CANT_LOSE_AND_OPPONENTS_CANT_WIN = Regex("""You can't lose the game and your opponents can't win the game\.""")
     val PREVENT_COMBAT_TO_AND_BY_SELF = Regex("""Prevent all combat damage that would be dealt to and dealt by (this \w+|enchanted creature|equipped creature)\.""")
-    val YOU_LOSE_LIFE_EQUAL_TO_THAT = Regex("""You lose life equal to that (permanent|creature|card)'s (mana value|power|toughness)\.""")
+    val YOU_LOSE_LIFE_EQUAL_TO_THAT = Regex("""You (lose|gain) life equal to that (permanent|creature|card)'s (mana value|power|toughness)\.""")
     // fdn chunk 01: a state trigger's condition (CR 603.8)
     // inr chunk 01: also "When Garruk has two or fewer loyalty counters on him, transform him."
     val WHEN_THERE_ARE = Regex("""When (there are .+?|.+? has \w+ or (?:fewer|more) \S+ counters on (?:it|him|her)), (.+)""")

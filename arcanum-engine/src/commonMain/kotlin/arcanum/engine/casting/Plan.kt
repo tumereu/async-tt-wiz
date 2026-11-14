@@ -124,6 +124,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val ability: Ability? = (c.what as? Announced.Ability)?.ability
     val origin: AbilityOrigin? = (c.what as? Announced.Ability)?.origin
     val isManaAbility = ability != null && Legality.isManaAbility(ability)
+    // dmu fixes
+    /** Whether life can't pay toward this cast's or activation's cost (CR 119.4, 601.2h, 602.2b; [Mana.lifeBarred]). */
+    val lifeBarred: Boolean by lazy { Mana.lifeBarred(snap.view, player, isManaAbility) }
     val isSpecialAction = ability is Ability.SpecialAction
     /** The ability's own cost change: "This ability costs {1} less to activate for each …"; mkm: a disguise cost's "This cost is reduced by
      * {1} for each …" on the special action (CR 118.7). */
@@ -248,6 +251,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         names = publicNames(choices.names),
         snapshots = choices.snapshots,
         timestamp = base.nextTimestamp(),
+        // dmu chunk 05: the optional costs chosen so far (CR 601.2b) are the spell's as it is paid for: mana restricted to "a kicked spell"
+        // reads them (CR 601.2h, 106.6); only on this provisional item (a spell's card holds its cast facts once cast)
+        cast = if (!isSpell) null else plain.view[itemId]?.characteristics?.abilities.orEmpty().flatMap { inst ->
+            (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.AdditionalCost>().filter { it.optional }.mapNotNull { m ->
+                optionalTimes(inst)?.takeIf { it > 0 }?.let { arcanum.engine.state.PaidCost(m.keyword, it) }
+            }
+        }.takeIf { it.isNotEmpty() }?.let { arcanum.engine.state.CastFacts(paid = it) },
     )
 
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
@@ -569,8 +579,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         return (assistable > 0 && choices.assist?.amount == null) ||
             ownCostChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
-            snap.view.game.rules.any { lower(it.mechanic) }
+            snap.view.game.rules.any { lower(it.mechanic) } ||
+            // dmu sweep: an optional additional cost not decided yet that, paid, reduces the coloured mana (the Defilers, CR 601.2b, 601.2f)
+            undecidedReductions().isNotEmpty()
     }
+
+    /** The coloured mana each optional additional cost still to be decided would take off, paid ("you may pay 2 life. Those spells cost {G}
+     * less", CR 601.2b, 601.2f); one decided is in [total] already. */
+    private fun undecidedReductions(): List<ManaCost> =
+        additionalCosts.mapNotNull { (inst, m) -> m.reducesBy?.takeIf { m.optional && optionalTimes(inst) == null } }
 
     /**
      * The most the cost's mana can still fall by with what is known (CR 601.2f): every reduction that may come to apply, at its amount, or null when
@@ -588,6 +605,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             return true
         }
         ownCostChange?.let { if (!add(it)) return null }
+        undecidedReductions().forEach { symbols += it.symbols }
         withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
         snap.view.game.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
@@ -627,7 +645,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val any = assistable > 0 || ownCostChange != null ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
             snap.view.game.rules.any { change(it.mechanic) } ||
-            instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||
+            instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null || it.second.reducesBy != null } ||
             contributions.any { c -> c.cost.parts.any { it is CostPart.OneOf } } ||
             // Mana that rises with what is chosen ("{B}{B} for each creature type among them" read by a value)
             contributions.any { c -> c.cost.parts.any { it is CostPart.Mana && (it.times != null || it.x != null) } }
@@ -675,6 +693,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         Costs.total(contributions, eval, x, its, { key -> (choices.names[ONE_OF + key] as? NamedValue.Number)?.value },
             increases, reductions, manaCostOf = { objects ->
                 chosen.objects(objects).takeIf { it.isNotEmpty() }?.map { id -> plain.view[id]?.characteristics?.manaCost }
+            }, coloredOnly = additionalCosts.flatMap { (inst, m) ->
+                // dmu: an optional additional cost that, paid, reduces the spell's coloured mana (the Defilers, CR 601.2f)
+                val r = m.reducesBy ?: return@flatMap emptyList()
+                List((if (m.optional) optionalTimes(inst) else 1) ?: 0) { r }
             })
     }
 
@@ -950,7 +972,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     private fun targetQuestion(slot: SlotOf, forPlayer: PlayerId?): Question.Target? {
         val e = eval.with(eval.ctx.copy(slotPlayer = forPlayer))
         val min = e.value(slot.slot.min)
-        val max = slot.slot.max?.let { e.value(it) }
+        val max = arcanum.engine.action.Targeting.maxTargets(slot.slot, e)
         val options = Targets.options(snap, e, itemId, if (isSpell) null else sourceId, slot.slot).filterNot { ref ->
             slot.slot.distinctFrom.any { other -> choices.targets[other].orEmpty().contains(ref) }
         }
@@ -1051,11 +1073,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 cost = total.parts.firstOrNull { it.key == q.key }?.at)
         } ?: Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
-            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX)
-                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX))
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred)
+                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX))
+            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred))
     }
 
     /** eoe: the objects a [CostPart.Choose] of objects may choose, in the zones its filter names (the battlefield otherwise). */

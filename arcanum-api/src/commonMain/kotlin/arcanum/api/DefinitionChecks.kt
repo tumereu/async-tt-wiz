@@ -71,6 +71,8 @@ object DefinitionChecks {
         "manifest-dread" to setOf("object", "rest"),
         // dft: tapped to crew or saddle: the Vehicle or Mount (CR 702.122b, 702.171c)
         "tap" to setOf("object", "source"),
+        // dmu fixes: the spell cast and the objects it targeted (CR 601.2c)
+        "cast" to setOf("object", "targeted"),
     )
     private val selfAffected = json.encodeToJsonElement(Affected.serializer(), Affected.Objects(Objects.Self))
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
@@ -125,15 +127,18 @@ object DefinitionChecks {
                     // Deep: steps nested in an If are steps of the entering too.
                     visitAll(element["steps"] ?: JsonArray(emptyList())) { step ->
                         // spm: looking at cards changes nothing ("As this creature enters, look at an opponent's hand, then choose …"); bro:
-                        // nor does revealing them ("As this land enters, you may reveal a Soldier card from your hand", CR 614.12)
-                        if (step.typeName() == "do" && ((step["effect"] as? JsonObject)?.typeName() !in setOf("look", "reveal")))
+                        // nor does revealing them ("As this land enters, you may reveal a Soldier card from your hand", CR 614.12); dmu:
+                        // milling as it enters is part of the replacement ("As this creature enters, mill three cards for each time it was
+                        // kicked.", CR 614.1c)
+                        if (step.typeName() == "do" && ((step["effect"] as? JsonObject)?.typeName() !in setOf("look", "reveal", "mill")))
                             found += "\"as enters\" may only pay, choose, check or modify how it enters, not do effects (CR 614.12)"
                     }
                     visitShallow(element["steps"]) { step ->
                         if (step.typeName() !in asEntersSteps && step.typeName() != "do") found += "\"as enters\" may only pay, choose, check or modify how it enters, not \"${step.typeName()}\" (CR 614.12)"
                     }
                     var decides = false
-                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() in setOf("pay", "choose")) decides = true }
+                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() in setOf("pay", "choose") ||
+                        it.typeName() == "do" && (it["effect"] as? JsonObject)?.typeName() == "mill") decides = true }
                     if (!decides) found += "\"as enters\" without a payment or choice: write the modification directly, with the static ability's condition"
                 }
                 if (type == "pay" && ((element["cost"] != null) == ((element["steps"] as? JsonArray)?.isNotEmpty() == true)))

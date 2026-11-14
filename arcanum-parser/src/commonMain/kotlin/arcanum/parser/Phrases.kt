@@ -207,6 +207,9 @@ internal object Filters {
             return all(ObjectFilter.Or(PERMANENT_TYPES.filter { it != CardType.Land }.map { ObjectFilter.Type(it) }), ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
+        // dmu chunk 05: "permanent spell", "white permanent spell": a spell of a permanent type (CR 110.4b), not a permanent (one on the battlefield)
+        if (phrase == "permanent spell" || phrase == "permanent spells") return all(noun("permanent card")!!, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
+        QUALIFIED_PERMANENT_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent spell")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
 
         // blb chunk 08: "creature you control without flying", "… that entered the battlefield this turn"
@@ -268,9 +271,16 @@ internal object Filters {
             val test = if (m.groupValues[2] == "power") ObjectFilter.Power(comparison, n) else ObjectFilter.Toughness(comparison, n)
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
+        // dmu chunk 06: "creature with total power and toughness 5 or less" (its power plus its toughness)
+        WITH_TOTAL_POWER_AND_TOUGHNESS.matchEntire(phrase)?.let { m ->
+            val total = Value.Sum(listOf(Value.Of(arcanum.api.NumericProperty.Power, Objects.Tested, arcanum.api.Combine.Single),
+                Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Tested, arcanum.api.Combine.Single)))
+            val comparison = if (m.groupValues[3] == "greater") Comparison.AtLeast else Comparison.AtMost
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Where(Condition.Compare(total, comparison, Value.Fixed(m.groupValues[2].toInt()))))
+        }
         WITH_MANA_VALUE.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
-            // mh3 chunk 01: "with mana value 4, 5, or 6": any of those
-            if (m.groupValues[2].contains(", ")) return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(m.groupValues[2].split(", ", "or ")
+            // mh3 chunk 01: "with mana value 4, 5, or 6": any of those; dmu chunk 04: "with mana value 1 or 2"
+            if (m.groupValues[2].contains(" or ")) return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(m.groupValues[2].split(", ", "or ")
                 .filter { it.isNotBlank() }.map { ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(it.trim().toInt())) }))
             val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             // blb gaps 2: "… or greater"
@@ -429,9 +439,13 @@ internal object Filters {
         // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
         // one chunk 10: also "with mana value less than or equal to the mana value of the discarded card"; mh3 chunk 12: "… to your devotion to black"
         GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
-            val value = Values.value(m.groupValues[3]) ?: return null
-            return all(noun(m.groupValues[1]) ?: return null,
-                if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtMost, value) else ObjectFilter.ManaValue(Comparison.AtMost, value))
+            val value = Values.value(m.groupValues[4]) ?: return null
+            val comparison = if (m.groupValues[3].isEmpty()) Comparison.Less else Comparison.AtMost
+            return all(noun(m.groupValues[1]) ?: return null, when (m.groupValues[2]) {
+                "power" -> ObjectFilter.Power(comparison, value)
+                "toughness" -> ObjectFilter.Toughness(comparison, value)
+                else -> ObjectFilter.ManaValue(comparison, value)
+            })
         }
         // dgm: "creatures named Biovisionary" (CR 201.2)
         GTC_NAMED.matchEntire(phrase)?.let { m ->
@@ -448,7 +462,8 @@ internal object Filters {
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
-    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with (power|mana value) less than or equal to (.+)""")
+    // dmu chunk 02: also "with toughness less than the number of basic land types among lands you control"
+    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with (power|toughness|mana value) less than (or equal to )?(.+)""")
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
     private val GTC_NAMED = Regex("""((?:other )?(?:creatures?|permanents?)(?: you control)?) named (.+?)( you control)?""")
 
@@ -559,7 +574,8 @@ internal object Filters {
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
-    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X|(?:\d+, )+or \d+)( or less| or greater)?""")
+    // mh3 chunk 01: "4, 5, or 6"; dmu chunk 04: "1 or 2"
+    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X|(?:\d+, )+or \d+|\d+ or \d+)( or less| or greater)?""")
     // blb gaps 2
     private val SPELLS_OF_TYPES_YOU_CAST = Regex("""(\w+) and (\w+) spells you cast""")
     private val WITH_X_IN_MANA_COST = Regex("""(.+) with \{X\} in (?:its|their) mana costs?""")
@@ -571,7 +587,8 @@ internal object Filters {
     // dsk chunk 09
     private val OWNED = Regex("""(.+) you own""")
     private val CONTROLLED_NOT_OWNED = Regex("""(.+) you control but don't own""")
-    private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
+    // dmu chunk 02: also "land cards that each have a basic land type"
+    private val WITH_BASIC_LAND_TYPE = Regex("""(.+?) (?:with a|that (?:each )?ha(?:s|ve) a) basic land type""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
     /** Plural creature types as printed ("Elves you control"); regular plurals are only read where the text needs them. */
@@ -594,6 +611,8 @@ internal object Filters {
     private val IN_GRAVEYARDS = Regex("""(.+) in graveyards""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) (?:from|in) a graveyard""") // mkm chunk 09: "nonland card in a graveyard"
     // chunk 32
+    // dmu chunk 06
+    private val WITH_TOTAL_POWER_AND_TOUGHNESS = Regex("""(.+) with total power and toughness (\d+) or (less|greater)""")
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
         "permanent", "spell", "token", "outlaw")
@@ -640,6 +659,7 @@ internal object Filters {
     private val OTHER_THAN_ATTACHED = Regex("""(.+) other than (?:enchanted|equipped) creature""")
     // chunk 42
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
+    private val QUALIFIED_PERMANENT_SPELL = Regex("""(.+) permanent spells?""")
     // chunk 36
     private val OR_AN_ALTERNATIVE = Regex(" or an? ")
     private val OR_LIST_NOT_COMPARISON = Regex(""",? or (?!less\b|greater\b|more\b|fewer\b)|, """)
@@ -744,6 +764,7 @@ internal object Events {
         MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
+        Dmu.event(text, self)?.let { return it } // dmu
         LciPhrases.event(text, self)?.let { return it } // lci
         // bro chunk 05: "you choose to put one or more cards on the bottom of your library while scrying" (CR 701.22a)
         Bro.SCRIED_TO_BOTTOM.matchEntire(text)?.let { m -> return EventPattern.ScriedToBottom(when (m.groupValues[1]) {
@@ -1037,6 +1058,8 @@ internal object Events {
 
     /** gtc: the Gatecrash and Dragon's Maze trigger events. */
     private fun gtcEvent(text: String, self: Set<String>): EventPattern? {
+        // dmu chunk 03: "this creature enlists a creature" (CR 702.154c)
+        DMU_ENLISTS.matchEntire(text)?.let { m -> return EventPattern.Enlists(subject(m.groupValues[1], self) ?: return null) }
         // gtc chunk 06: "this creature blocks" (once per combat, CR 509.3a); "a creature blocks"
         GTC_BLOCKS.matchEntire(text)?.let { m -> return EventPattern.Block(subject(m.groupValues[1], self) ?: return null, attacker = ObjectFilter.Any) }
         // gtc chunk 04: "a +1/+1 counter is put on this creature" (one event per counter put, CR 122.6); "this creature evolves"
@@ -1110,6 +1133,7 @@ internal object Events {
     }
 
     // gtc
+    private val DMU_ENLISTS = Regex("""(.+) enlists an? creature""")
     private val GTC_BLOCKS = Regex("""(.+) blocks""")
     private val GTC_COUNTER_PUT_ON = Regex("""an? (\S+) counter is put on (.+)""")
     private val GTC_EVOLVES = Regex("""(.+) evolves""")
@@ -1336,6 +1360,7 @@ internal object Conditions {
         OnePhrases.condition(text, self)?.let { return it } // one
         IsdPhrases.condition(text, self)?.let { return it } // isd
         BroPhrases.condition(text, self)?.let { return it } // bro
+        Dmu.condition(text)?.let { return it } // dmu
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
@@ -1443,9 +1468,11 @@ internal object Conditions {
         }
         // chunk 32: "you've discarded a card this turn"
         if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
-        // chunk 33: "it was kicked", "this creature was kicked" (CR 702.33d)
+        // dmu chunk 06: "a player discarded a card this turn" (any player)
+        if (text == "a player discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.Any, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
+        // chunk 33: "it was kicked", "this creature was kicked" (CR 702.33d); dmu chunk 01: "it was kicked twice" (both of two kicker costs, CR 702.33b, d)
         WAS_KICKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
-            return Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
+            return Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = if (it.groupValues[2].isEmpty()) 1 else 2, of = Objects.Self)
         }
         // mh3 chunk 08: "it escaped", "Phlage escaped": cast with its escape cost (CR 702.138c)
         ESCAPED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
@@ -1542,6 +1569,12 @@ internal object Conditions {
         // chunk 41: "this creature is attacking"
         SELF_IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
+        }
+        // dmu chunk 02: "there are five basic land types among lands you control" (domain, CR 305.6); exactly that many, or "or more"
+        BASIC_LAND_TYPES_AMONG.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Compare(Value.CountDistinct(Filters.objects(m.groupValues[3], self) ?: return null, arcanum.api.SharedQuality.BasicLandType),
+                if (m.groupValues[2].isEmpty()) arcanum.api.Comparison.Equal else arcanum.api.Comparison.AtLeast, Value.Fixed(n))
         }
         // chunk 42: "there are three or more land cards in your graveyard"
         THERE_ARE_N_OR_MORE.matchEntire(text)?.let { m ->
@@ -1694,7 +1727,7 @@ internal object Conditions {
     // chunk 32
     private val MANA_WAS_SPENT = Regex("""((?:\{[WUBRGC]\})+) (was|wasn't) spent to cast it""")
     // chunk 33
-    private val WAS_KICKED = Regex("""(.+) was kicked""")
+    private val WAS_KICKED = Regex("""(.+) was kicked( twice)?""")
     private val ESCAPED = Regex("""(.+) escaped""")
     // lci chunk 07: "permanent types" too (CR 110.4a)
     private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more (card|permanent) types among cards in your graveyard""")
@@ -1722,6 +1755,8 @@ internal object Conditions {
     private val SELF_IS_ATTACKING = Regex("""(.+) is attacking""")
     // chunk 42
     private val THERE_ARE_N_OR_MORE = Regex("""there are (\w+) or more (.+)""")
+    // dmu chunk 02
+    private val BASIC_LAND_TYPES_AMONG = Regex("""there are (\w+)( or more)? basic land types among (.+)""")
     // chunk 45
     private val IS_SUSPENDED = Regex("""(.+) is suspended""")
     private val DIED_THIS_TURN = Regex("""(\w+) or more (.+) died this turn""")

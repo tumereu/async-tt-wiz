@@ -72,6 +72,9 @@ sealed interface Effect {
         /** The found cards' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("any number of creature cards with
          * total mana value 6 or less", CR 701.23a). */
         val totalAtMost: Choice.TotalLimit? = null,
+        // dmu
+        /** The found cards each have a different value of this property ("up to four creature cards with different powers", CR 701.23a). */
+        val differentIn: NumericProperty? = null,
         // mh3 fixes
         /** "and/or" ("Search your library and/or graveyard"): the searcher chooses which of [zones] to search, one or more; a zone not chosen
          * isn't searched, so a library left alone isn't shuffled ("If you search your library this way, shuffle", [Condition.Searched]) and
@@ -128,8 +131,12 @@ sealed interface Effect {
     @Serializable @SerialName("turn-face-down") data class TurnFaceDown(val objects: Objects) : Effect
     /** [objects] phase out (CR 702.26); mh2: [untilLeaves], "phase out until this enchantment leaves the battlefield": they don't phase in
      * during untap steps but when that object leaves the battlefield, and if it has already left, nothing phases out (CR 610.3,
-     * 702.26b); [bind] names those that phased out ("for each creature that phased out this way"). */
-    @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects, val untilLeaves: Objects? = null, val bind: String? = null) : Effect
+     * 702.26b); [bind] names those that phased out ("for each creature that phased out this way"); dmu: [whileYouControl], "It can't
+     * phase in for as long as you control this Saga": they don't phase in during untap steps while the effect's controller controls that
+     * object, then phase in during their controller's next untap step as usual (CR 502.1, 611.2b, 702.26b). */
+    @Serializable @SerialName("phase-out") data class PhaseOut(
+        val objects: Objects, val untilLeaves: Objects? = null, val bind: String? = null, val whileYouControl: Objects? = null,
+    ) : Effect
     /** mh2: [objects] phase in (CR 702.26c): those [PhaseOut.untilLeaves] holds out, as the object they wait for leaves. */
     @Serializable @SerialName("phase-in") data class PhaseIn(val objects: Objects) : Effect
     /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"): only on those where it can live ([MarkRules]): a

@@ -270,6 +270,11 @@ internal object Effects {
                     Actions.tapStatus(act, it, StatusFlag.PhasedOut, true, listOf(Meaning.PhasedOut))
                     if (until != null) arcanum.engine.change.Changes.status(act.state, it, arcanum.engine.state.ObjectStatus.HeldPhasedOut.key, arcanum.engine.state.ObjectStatus.HeldPhasedOut)?.let(act::record)
                 }
+                // dmu: "It can't phase in for as long as you control this Saga" (CR 611.2b: if you no longer control it, the hold does nothing)
+                effect.whileYouControl?.let { scope.objects(it).firstOrNull() }?.let { source ->
+                    val held = arcanum.engine.state.ObjectStatus.HeldPhasedOutWhile(source, scope.you)
+                    phased.forEach { arcanum.engine.change.Changes.status(act.state, it, held.key, held)?.let(act::record) }
+                }
                 scope.bind(effect.bind, NamedValue.Objects(phased))
                 if (until != null && phased.isNotEmpty()) createDelayed(scope,
                     Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound(UNTIL_SOURCE)), from = Zone.Battlefield)),
@@ -281,6 +286,7 @@ internal object Effects {
             is Effect.PhaseIn -> scope.objects(effect.objects).filter { act.state.obj(it)?.phasedOut == true }.forEach {
                 Actions.tapStatus(act, it, StatusFlag.PhasedOut, false, listOf(Meaning.PhasedIn))
                 arcanum.engine.change.Changes.status(act.state, it, arcanum.engine.state.ObjectStatus.HeldPhasedOut.key, null)?.let(act::record)
+                arcanum.engine.change.Changes.status(act.state, it, "held-phased-out-while", null)?.let(act::record)
             }
             // A mark goes only where it can live (a warped or plotted card in exile, CR 702.185b, 702.170c; a suspected permanent, 701.60b)
             is Effect.Mark -> {
@@ -985,6 +991,11 @@ internal object Effects {
                 val names = chosen.map { e.characteristics(it)?.name }
                 require(names.distinct().size == names.size) { "The cards must have different names" }
             }
+            // dmu: "with different powers" (D32: a rule-breaking answer is refused)
+            effect.differentIn?.let { property ->
+                val values = chosen.map { e.property(property, it) }
+                require(values.distinct().size == values.size) { "The cards must differ in that number" }
+            }
             // rvr: "with total mana value 6 or less" (D32: a rule-breaking answer is refused)
             effect.totalAtMost?.let { limit ->
                 require(chosen.sumOf { e.property(limit.property, it) } <= scope.value(limit.atMost)) { "The found cards' total is more than allowed" }
@@ -1082,7 +1093,8 @@ internal object Effects {
     private fun createToken(scope: Scope, effect: Effect.CreateToken) {
         val act = scope.act
         val e = scope.eval()
-        val values = Actions.tokenValues(act, e, effect.token)
+        // CR 608.2b, 609.3: a copy of an object that's undefined (an illegal target, nothing exiled) with no last known information: no token
+        val values = Actions.tokenValues(act, e, effect.token) ?: run { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
         val count = e.value(effect.count)
         val attachTo = effect.attachedTo?.let { recipients(scope, it).firstOrNull() }
         // woe chunk 01: an Aura token to be created attached to an object or player that is undefined (no target chosen, or the target
@@ -1822,7 +1834,7 @@ internal object Effects {
                     e.characteristics(it)?.isType(CardType.Creature) == true }
                 val chosen = act.chooseObjects(scope.actor, scope.self, tokens, 1, 1, "Populate").firstOrNull() ?: return
                 scope.bind(POPULATED, NamedValue.Objects(listOf(chosen)))
-                val values = Actions.tokenValues(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED)))
+                val values = Actions.tokenValues(act, scope.eval(), arcanum.api.TokenSpec.CopyOf(Objects.Bound(POPULATED))) ?: return
                 scope.bind(bind, NamedValue.Objects(Actions.createTokens(act, cause, values, 1, scope.actor)))
             }
             // CR 701.44c: one no longer on the battlefield explores too, as it last existed. CR 701.44d: several at once: the first player in APNAP
@@ -1862,7 +1874,7 @@ internal object Effects {
             // mom chunk 03: CR 701.53a: create an Incubator token (CR 111.10i) that enters with N +1/+1 counters on it
             is KeywordAction.Incubate -> {
                 val e = scope.eval()
-                val token = Actions.createTokens(act, cause, Actions.tokenValues(act, e, arcanum.api.TokenSpec.Predefined("Incubator")), 1, scope.actor,
+                val token = Actions.createTokens(act, cause, Actions.tokenValues(act, e, arcanum.api.TokenSpec.Predefined("Incubator"))!!, 1, scope.actor,
                     withCounters = listOf(CounterKind.PowerToughness(1, 1) to e.value(action.count).coerceAtLeast(0)))
                 scope.bind(bind, NamedValue.Objects(token))
             }

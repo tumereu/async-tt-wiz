@@ -24,7 +24,8 @@ internal object Mh2 {
     val UNTAP_ALL_THEN_PHASE_OUT_COUNTER_EACH = Regex("""Untap all (\w+), then those \1 phase out until (.+?) leaves the battlefield\. Put an? (\S+) counter on (.+?) for each (.+?) that phased out this way\.""")
     val EXILE_ALL_CARDS_OF_TWO_COLORS_FROM_ALL_GRAVEYARDS = Regex("""[Ee]xile all cards that are (\w+) or (\w+) from all graveyards\.""")
     val TWO_COLORS_WOULD_BE_PUT_INTO_GRAVEYARD_EXILE = Regex("""If an? (\w+) or (\w+) permanent, spell, or card not on the battlefield would be put into a graveyard, exile it instead\.""")
-    val AS_ENTERS_CHOOSE_CARD_TYPE = Regex("""As (.+) enters, choose a card type\.""")
+    // dmu chunk 06: Stenn, "choose a card type other than creature or land"
+    val AS_ENTERS_CHOOSE_CARD_TYPE = Regex("""As (.+) enters, choose a card type(?: other than (\w+)(?: or (\w+))?)?\.""")
     val YOU_AND_HAVE_PROTECTION_FROM_CHOSEN_CARD_TYPE = Regex("""You and (.+) have protection from the chosen card type\.""")
     val IS_ON_BATTLEFIELD_OR_IN_YOUR_GRAVEYARD = Regex("""(.+) is on the battlefield or in your graveyard""")
     val EXILE_TARGET_FROM_YOUR_GRAVEYARD = Regex("""Exile target (.+? card) from your graveyard\.""")
@@ -66,7 +67,7 @@ internal object Mh2 {
     // mh2 chunk 07
     val SPELL_OTHER_THAN_FIRST_EACH_TURN = Regex("""you cast a spell( during your turn)? other than your first spell (?:each|that) turn""") // otj chunk 12: during your turn
     val EXILE_TOP_DURING_YOUR_NEXT_TURN_MAY_PLAY = Regex("""Exile the top card of your library\. During your next turn, you may play that card\.""")
-    val ENTERS_WITH_COUNTER_FOR_EACH_TIME_KICKED = Regex("""(.+) enters with an? (\S+) counter on it for each time it was kicked\.""")
+    val ENTERS_WITH_COUNTER_FOR_EACH_TIME_KICKED = Regex("""(.+) enters with (an?|\w+) (\S+) counters? on it for each time it was kicked\.""")
     val GAIN_CONTROL_OF_SPELL_COPY_RESELECT_AT_RANDOM = Regex("""Gain control of target (.+?)\. Copy it, then reselect the targets at random for the spell and the copy\. The new targets can't be you or a permanent you control\.""")
     val SPELL_THAT_TARGETS_ONLY_SINGLE_PERMANENT_OR_PLAYER = Regex("""spell that targets only a single permanent or player""")
     val REVEAL_UNTIL_NONLAND_BOTTOM_WHEN_YOU_REVEAL_DEALS_MV = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\. Put the revealed cards on the bottom of your library in a random order\. When you reveal an? \1 card this way, (.+?) deals damage equal to that card's mana value to any target\.""")

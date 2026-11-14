@@ -186,14 +186,14 @@ internal object Options {
      * is theirs, CR 702.132a), with its other ways to pay too (convoke, delve, CR 702.51, 702.66). */
     private fun manaFound(plan: Plan): Boolean =
         !plan.total.hasMana || plan.manaToPay.symbols.isEmpty() ||
-            Mana.mayPay(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX)
+            Mana.mayPay(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX, lifeBarred = plan.lifeBarred)
 
     /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]) by enough: a cost that doesn't pay even at the most it
      * can fall ([Plan.mostFall]) is proof without trying every choice. */
     private fun payableYet(plan: Plan): Boolean = manaFound(plan) || (plan.costMayFall && paysAtTheMostItCanFall(plan))
 
     private fun paysAtTheMostItCanFall(plan: Plan): Boolean = plan.mostFall.let { most ->
-        most == null || Mana.mayPay(plan.snap, plan.player, arcanum.engine.casting.Costs.reduce(plan.manaToPay, most), plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX)
+        most == null || Mana.mayPay(plan.snap, plan.player, arcanum.engine.casting.Costs.reduce(plan.manaToPay, most), plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, xCost = plan.total.hasX, lifeBarred = plan.lifeBarred)
     }
 
     /**
@@ -373,7 +373,7 @@ internal object Options {
         if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed, exact = exact, xCost = d.xCost)
         val plan = Plan(state, c)
         return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed, exact,
-            xCost = plan.total.hasX)
+            xCost = plan.total.hasX, lifeBarred = plan.lifeBarred)
     }
 
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {

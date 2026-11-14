@@ -57,7 +57,7 @@ internal object One {
     val RETURN_A_FROM_YOUR_GRAVEYARD = Regex("""[Rr]eturn an? (.+?) from your graveyard to the battlefield( tapped)?\.""")
     val NO_MORE_THAN_CAN_ATTACK = Regex("""No more than (\w+) creatures? can attack (.+?) each combat\.""")
     val FOR_EACH_PLAYER_CHOOSE_SACRIFICE_REST = Regex("""For each player, choose an? (\w+) that player controls\. Each player sacrifices all (\w+) they control not chosen this way\.""")
-    val ACTIVATE_LOYALTY_TWICE = Regex("""You may activate loyalty abilities of (.+?) twice this turn rather than only once\.""")
+    val ACTIVATE_LOYALTY_TWICE = Regex("""You may activate (?:the )?loyalty abilities of (.+?) twice this turn rather than only once\.""") // dmu chunk 04: "the"
     val RETURN_ONE_OF_THEM = Regex("""Return one of them to its owner's hand\.""")
     val CANT_ENTER_THE_BATTLEFIELD = Regex("""([A-Z].+? cards in .+?) can't enter the battlefield\.""")
     val PLAYERS_CANT_CAST_FROM = Regex("""(Players|Your opponents) can't cast (.+?) from (graveyards|exile|graveyards or exile)\.""")

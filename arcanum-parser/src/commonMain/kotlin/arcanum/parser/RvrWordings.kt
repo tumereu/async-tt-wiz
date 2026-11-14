@@ -62,7 +62,8 @@ internal object Rvr {
     // rvr chunk 05: Rakdos Guildmage
     val TOKEN_AT_NEXT_END_STEP = Regex("""(Exile|Sacrifice) (it|them|that token|those tokens) at the beginning of the next end step\.""")
     // rvr chunk 05: Ghostway
-    val EXILE_EACH_RETURN_AT_NEXT_END = Regex("""Exile (each|all) (.+?)\. Return those cards to the battlefield under their owners?'s? control at the beginning of the next end step\.""")
+    // dmu chunk 06: Golden Argosy, "Return them to the battlefield tapped …"
+    val EXILE_EACH_RETURN_AT_NEXT_END = Regex("""Exile (each|all) (.+?)\. Return (?:those cards|them) to the battlefield( tapped)? under their owners?'s? control at the beginning of the next end step\.""")
     // rvr chunk 05: Loaming Shaman
     val TARGET_PLAYER_SHUFFLES_TARGET_CARDS = Regex("""[Tt]arget player shuffles (any number of|up to (\w+)) target cards from their graveyard into their library\.""")
     // rvr chunk 05: Crackling Drake

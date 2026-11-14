@@ -38,7 +38,7 @@ class DmrChunk12DamageDelayedDestroyDiscardDrawTest {
     @Test
     fun scorchFrost() = cardFaces(
         Layout.Split,
-        card(name = "Scorch", cost = "{1}{R}", type = "Instant", text = "Scorch deals 2 damage divided as you choose among one or two targets.") to abilities(
+        card(name = "Twinflame Scorch", cost = "{1}{R}", type = "Instant", text = "Twinflame Scorch deals 2 damage divided as you choose among one or two targets.") to abilities(
             spell(
                 doing(Effect.DealDamage(to = Recipients(target = "any"), amount = Value.DividedShare, source = Objects.Self)),
                 targets = listOf(TargetSlot("any", anyTarget.what, min = n(1), max = n(2), divided = n(2))),

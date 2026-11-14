@@ -247,7 +247,7 @@ class FdnChunk14ReplacementTest {
     // CR 614.1c (enters tapped), 603.6a, 119.1, 605.1a
     @Test
     fun mossyHollow() = card(
-        name = "Mossy Hollow",
+        name = "Mossy Fenhollow",
         cost = null,
         type = "Land",
         text = """

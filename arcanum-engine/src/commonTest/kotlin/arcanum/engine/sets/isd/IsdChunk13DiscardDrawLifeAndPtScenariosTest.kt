@@ -24,7 +24,7 @@ class IsdChunk13DiscardDrawLifeAndPtScenariosTest {
         First strike
         Whenever a creature dealt damage by this creature this turn dies, you gain life equal to that creature's toughness.
     """, "3/2")
-    private val geist = Cards.invent("Hollow Spirit Guard", "{4}{U}", "Creature — Spirit", """
+    private val geist = Cards.invent("Hollow Spirit Captain", "{4}{U}", "Creature — Spirit", """
         Flying
         Other Spirit creatures you control get +1/+0.
     """, "3/3")

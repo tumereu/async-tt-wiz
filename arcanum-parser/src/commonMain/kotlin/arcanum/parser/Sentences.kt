@@ -2723,8 +2723,6 @@ internal class Sentences(
                 val matches = arcanum.api.Condition.ObjectMatches(that(trigger), Filters.noun(w.groupValues[2]) ?: return null)
                 if (w.groupValues[1] == "was") matches else arcanum.api.Condition.Not(matches)
             }
-            // mom sweep: "if its power is 3 or greater" in a trigger about another object: the event's object, not this one (CR 603.4, 608.2h)
-            else if (Mom.ITS_POWER_IS.matches(it.groupValues[1]) && aboutAnother(trigger)) itsStat(Mom.ITS_POWER_IS.matchEntire(it.groupValues[1])!!, that(trigger))
             // dsk chunk 13: "if a land entered … this turn and you control a prime number of lands"
             else conditionWithAnd(it.groupValues[1]) ?: return null
         }
@@ -2800,7 +2798,8 @@ internal class Sentences(
         // inr chunk 09: eminence "if Edgar is in the command zone or on the battlefield": each of the zones (CR 113.6b)
         val zones = zone?.let { listOf(it) } ?: (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.Or)?.any
             ?.map { (it as? ObjectFilter.InZone)?.zone ?: return@map null }?.takeIf { z -> z.all { it != null } }?.filterNotNull()
-        // otj sweep: "Whenever another creature you control enters, if its power is 3 or greater, …": the creature that entered
+        // otj sweep: "Whenever another creature you control enters, if its power is 3 or greater, …": the creature that entered (mom sweep's
+        // intervening-if reading of the same, CR 603.4, 608.2h, merged into this one)
         val ifCondition = interveningIf?.let { c -> conditional?.groupValues?.get(1)?.let { itsOfTheTriggerObject(arcanum.api.Condition.serializer(), c, trigger, it) } ?: c }
         return Ability.Triggered(trigger.copy(oneOrMore = oneOrMore), instructions, interveningIf = ifCondition,
             functionsIn = zones, perTurn = perTurn, triggersOnlyIf = onlyIf, once = once, actionOncePerTurn = actionOnce)
@@ -3032,12 +3031,14 @@ internal class Sentences(
             if (m.groupValues[1] == "power") ObjectFilter.Power(comparison, n) else ObjectFilter.Toughness(comparison, n))
     }
 
-    /** mom sweep: whether [trigger] is about an object other than this one entering, leaving or attacking ("Whenever a creature you control
-     * attacks"), so "it" and "its" in it mean that object. */
-    private fun aboutAnother(trigger: arcanum.api.Trigger.On): Boolean = when (val e = trigger.events.singleOrNull()) {
-        is EventPattern.ZoneChange -> e.objects != ObjectFilter.Is(Objects.Self)
-        is EventPattern.Attack -> e.attacker != ObjectFilter.Is(Objects.Self)
-        else -> false
+    /** burn sweep: "If [paid / promised], instead [effect]." after the sentence it replaces: each version's targets are chosen only when that
+     * version happens: the replaced sentence's targets ([from] until [before]) that [then] doesn't name only when [condition] doesn't hold, the
+     * new ones only when it does (CR 601.2c, 702.33d, 702.174m). One rule for gift, kicker and evidence (blb, fdn, mkm, dmu). */
+    private fun insteadTargets(context: Context, from: Int, before: Int, then: List<Step>, condition: arcanum.api.Condition) {
+        val notInThen = arcanum.api.DefinitionChecks.unusedTargetSlots(Ability.Spell(Instructions(targets = context.targets.subList(from, before).toList(),
+            steps = then))).toSet()
+        for (i in from until before) if (context.targets[i].name in notInThen) context.targets[i] = context.targets[i].copy(onlyIf = arcanum.api.Condition.Not(condition))
+        for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = condition)
     }
 
     private fun that(trigger: arcanum.api.Trigger.On): Objects = when (val event = trigger.events.first()) {
@@ -3847,7 +3848,9 @@ internal class Sentences(
         }
         if (Gtc.STILL_A.matches(sentence)) {
             val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics
-            // woe fixes: the ability keeps all prior types and subtypes for it ([OracleParser], CR 205.1b)
+            // woe fixes: the ability keeps all prior types and subtypes for it ([OracleParser], CR 205.1b); burn sweep: one reading for bro chunk 04
+            // ("It becomes a 0/0 Elemental creature with haste. It's still a land.") and lci chunk 09 ("… a 0/0 Fungus creature …"), whose own
+            // sentence rules did the same
             if (apply != null && apply.mechanics.any { it is Mechanic.SetTypes && CardType.Creature in it.add }) return steps.toList()
         }
         // dsk gaps: "It's an enchantment." after returning it to the battlefield: it isn't a creature as it enters (layer 4,
@@ -3901,11 +3904,7 @@ internal class Sentences(
             val then = try { effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) } finally { context.promisedNames = false } ?: return null
             // dmu chunk 01: "Target creature gets +3/+3 until end of turn. If this spell was kicked, instead that creature gets +4/+4 …": a target the
             // other version still names is chosen either way (CR 601.2c)
-            val notInThen = arcanum.api.DefinitionChecks.unusedTargetSlots(Ability.Spell(Instructions(targets = context.targets.subList(targetsFrom, before).toList(),
-                steps = then))).toSet()
-            for (i in targetsFrom until before) if (context.targets[i].name in notInThen)
-                context.targets[i] = context.targets[i].copy(onlyIf = arcanum.api.Condition.Not(promised))
-            for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = promised)
+            insteadTargets(context, targetsFrom, before, then, promised)
             return steps.take(stepsFrom) + Step.If(promised, then = then, otherwise = steps.drop(stepsFrom))
         }
         // dsk chunk 13: "Shards you control become copies of it until the next end step." after exiling a target (layer 1; the
@@ -4168,13 +4167,8 @@ internal class Sentences(
             // dmu chunk 08: "Exile target artifact or enchantment. If this spell was kicked, exile target nonland permanent instead.": a target
             // only the kicked version names is chosen only when kicked, and the earlier sentence's only when not (CR 601.2c, 702.33d)
             val targetsFrom = context.previous?.first
-            if (condition is arcanum.api.Condition.Paid && targetsFrom != null && before < context.targets.size) {
-                val notInThen = arcanum.api.DefinitionChecks.unusedTargetSlots(Ability.Spell(Instructions(targets = context.targets.subList(targetsFrom, before).toList(),
-                    steps = then))).toSet()
-                for (i in targetsFrom until before) if (context.targets[i].name in notInThen)
-                    context.targets[i] = context.targets[i].copy(onlyIf = arcanum.api.Condition.Not(condition))
-                for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = condition)
-            }
+            if (condition is arcanum.api.Condition.Paid && targetsFrom != null && before < context.targets.size)
+                insteadTargets(context, targetsFrom, before, then, condition)
             return steps.dropLast(1) + Step.If(condition, then = then, otherwise = listOf(last))
         }
         // otj chunk 12: "It gets -4/-0 until end of turn instead if you control an outlaw.", "Put a +1/+1 counter on it instead if it's a Mount.",
@@ -18299,13 +18293,6 @@ internal class Sentences(
             return steps.dropLast(1) + last.copy(then = last.then.dropLast(1) +
                 Step.Do(Effect.Action(meld.copy(tapped = true, attacking = arcanum.api.AttackTarget.Chosen))))
         }
-        // bro chunk 04: "It becomes a 0/0 Elemental creature with haste. It's still a land.": it keeps its other types (CR 205.1b)
-        if (sentence == "It's still a land." && last is Step.Do) {
-            val apply = last.effect as? Effect.ApplyMechanics ?: return null
-            val types = apply.mechanics.filterIsInstance<Mechanic.SetTypes>().singleOrNull()?.takeIf { it.replaceTypes } ?: return null
-            return steps.dropLast(1) + Step.Do(apply.copy(mechanics = apply.mechanics.map {
-                if (it === types) types.copy(replaceTypes = false, replaceSubtypes = false) else it }))
-        }
         return null
     }
 
@@ -18704,13 +18691,6 @@ internal class Sentences(
             val cast = Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("discarded"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You)
             val condition = if (m.groupValues[1].isEmpty()) null else conditionWithAnd(m.groupValues[1]) ?: return null
             return steps.dropLast(1) + Step.Do(discard.copy(postBind = "discarded")) + (if (condition == null) cast else Step.If(condition, then = listOf(cast)))
-        }
-        // lci chunk 09: "It's still a land." after "It becomes a 0/0 Fungus creature with haste.": it keeps its card types and subtypes (CR 205.1b)
-        if (Gtc.STILL_A.matches(sentence)) {
-            val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics ?: return null
-            val types = apply.mechanics.firstOrNull() as? Mechanic.SetTypes ?: return null
-            if (!types.replaceTypes || CardType.Creature !in types.add) return null
-            return steps.dropLast(1) + Step.Do(apply.copy(mechanics = listOf(types.copy(replaceTypes = false, replaceSubtypes = false)) + apply.mechanics.drop(1)))
         }
         // lci chunk 04: "Surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life." (the cards the
         // surveil kept on top, counted once, CR 701.25a)
@@ -30793,9 +30773,12 @@ internal class Sentences(
             )
         }
         // mh2 chunk 16: "This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land." (layer 4, 7b)
+        // burn sweep: a "[creature type] artifact creature" keeps its other types and subtypes but replaces its creature types, "still a land"
+        // or not (CR 205.1b's last sentence; as [OracleParser]'s still-a reading and the Keyrunes)
         Mh2.BECOMES_PT_SUBTYPE_ARTIFACT_CREATURE_STILL_LAND.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val subtypes = m.groupValues[4].split(' ').map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return null }
-            return listOf(mh2UntilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = subtypes),
+            return listOf(mh2UntilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = subtypes,
+                replaceSubtypes = true),
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))))
         }
         // mh2 chunk 15: "Each player chooses a creature type. Each player returns all creature cards of a type chosen this way from their graveyard to

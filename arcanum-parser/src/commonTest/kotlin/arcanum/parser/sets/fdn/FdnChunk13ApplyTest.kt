@@ -66,7 +66,7 @@ class FdnChunk13ApplyTest {
     // CR 613.4c, 119.1
     @Test
     fun hourOfTriumph() = card(
-        name = "Hour of Triumph",
+        name = "Hour of Rallied Triumph",
         cost = "{W}",
         type = "Instant",
         text = "Target creature gets +2/+2 until end of turn. You gain 2 life.",

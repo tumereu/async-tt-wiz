@@ -40,7 +40,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 class BroChunk05MillAndScryTest {
-    private val artifactCreature = listOf(arcanum.api.CardType.Artifact, arcanum.api.CardType.Creature)
+    private val artifactCreature: List<arcanum.api.CardType> = listOf(arcanum.api.CardType.Artifact, arcanum.api.CardType.Creature)
 
     /** "mill three cards. You may put a [filter] from among the cards milled this way into your hand. If you don't, put a +1/+1 counter on
      * this creature." (CR 701.17a; "if you don't", CR 608.2c) */

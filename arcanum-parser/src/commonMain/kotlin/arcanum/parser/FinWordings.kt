@@ -249,7 +249,8 @@ internal object Fin {
     val UNTIL_EOT_SELF_GETS_FOR_EACH = Regex("""Until end of turn, (.+?) gets \+1/\+1 for each (.+)\.""")
     val MILL_MAY_PUT_IF_TOWN_GAIN = Regex("""Mill (\w+) cards\. You may put an? (.+?) from among them into your hand\. If you put an? (.+?) into your hand this way, you gain (\d+) life\.""")
     val EXILE_IT_AND = Regex("""Exile it and (create .+)\.""")
-    val CREATE_N_TAPPED_PREDEFINED = Regex("""Create (\w+) tapped (Treasure|Food|Clue) tokens?\.""")
+    // dmu chunk 06: any predefined token ("Create a tapped Powerstone token.")
+    val CREATE_N_TAPPED_PREDEFINED = Regex("""Create (\w+) tapped ([A-Z][a-z]+) tokens?\.""")
     // fin chunk 14
     val VEHICLE_CREWED_BY_ATTACKS_EXTRA_COMBAT = Regex("""Whenever a Vehicle crewed by (.+?) this turn attacks, if it's the first combat phase of the turn, you may pay ((?:\{[^}]+\})+)\. If you do, after this phase, there is an additional combat phase\.""")
     val BIRDS_ATTACK_LOOK_THAT_MANY = Regex("""Whenever one or more (.+?) attack, look at that many cards from the top of your library\. You may put one of them into your hand\. Then put any number of land cards from among them onto the battlefield tapped and the rest into your graveyard\.""")

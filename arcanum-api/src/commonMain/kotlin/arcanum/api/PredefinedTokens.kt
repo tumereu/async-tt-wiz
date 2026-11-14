@@ -46,11 +46,16 @@ object PredefinedTokens {
                 max = Value.Fixed(1), bind = "found", zones = listOf(Zone.Library), searcher = Players.You)),
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
             Step.Do(Effect.Shuffle(Players.You)))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        // dmu chunk 06: CR 111.10h: "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell." (CR 106.6)
+        "Powerstone" -> artifact("Powerstone", Ability.Activated(Cost(listOf(CostPart.TapSelf)),
+            steps(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!), restriction = ObjectFilter.Not(ObjectFilter.And(listOf(
+                ObjectFilter.Category(ObjectCategory.Spell), ObjectFilter.Not(ObjectFilter.Type(CardType.Artifact)))))), players = Players.You)),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
         else -> null
     }
 
     /** Every name [face] knows. */
-    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander")
+    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander", "Powerstone")
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)

@@ -211,6 +211,13 @@ internal object Filters {
             val test = if (m.groupValues[2] == "power") ObjectFilter.Power(comparison, n) else ObjectFilter.Toughness(comparison, n)
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
+        // dmu chunk 06: "creature with total power and toughness 5 or less" (its power plus its toughness)
+        WITH_TOTAL_POWER_AND_TOUGHNESS.matchEntire(phrase)?.let { m ->
+            val total = Value.Sum(listOf(Value.Of(arcanum.api.NumericProperty.Power, Objects.Tested, arcanum.api.Combine.Single),
+                Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Tested, arcanum.api.Combine.Single)))
+            val comparison = if (m.groupValues[3] == "greater") Comparison.AtLeast else Comparison.AtMost
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Where(Condition.Compare(total, comparison, Value.Fixed(m.groupValues[2].toInt()))))
+        }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
             val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             // dmu chunk 04: "with mana value 1 or 2" (either value)
@@ -500,6 +507,8 @@ internal object Filters {
     private val IN_GRAVEYARDS = Regex("""(.+) in graveyards""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
     // chunk 32
+    // dmu chunk 06
+    private val WITH_TOTAL_POWER_AND_TOUGHNESS = Regex("""(.+) with total power and toughness (\d+) or (less|greater)""")
     private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
         "permanent", "spell", "token")
@@ -1201,6 +1210,8 @@ internal object Conditions {
         }
         // chunk 32: "you've discarded a card this turn"
         if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
+        // dmu chunk 06: "a player discarded a card this turn" (any player)
+        if (text == "a player discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.Any, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
         // chunk 33: "it was kicked", "this creature was kicked" (CR 702.33d); dmu chunk 01: "it was kicked twice" (both of two kicker costs, CR 702.33b, d)
         WAS_KICKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
             return Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = if (it.groupValues[2].isEmpty()) 1 else 2, of = Objects.Self)

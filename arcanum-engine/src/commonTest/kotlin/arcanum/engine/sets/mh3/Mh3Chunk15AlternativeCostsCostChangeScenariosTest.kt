@@ -8,6 +8,7 @@ import arcanum.engine.sets.blb.resolveAll
 import arcanum.engine.sets.rtr.ownAlternative
 import kotlin.test.Test
 import kotlin.test.assertFails
+import kotlin.test.assertTrue
 
 /**
  * The MH3 cards of chunk 15, played: sacrificing a nontoken creature of the card's color instead of paying its cost,
@@ -134,7 +135,7 @@ class Mh3Chunk15AlternativeCostsCostChangeScenariosTest {
             alice.battlefield(medallion, offLand)
             alice.hand(offColor)
             alice.casts(offColor)
-            assert(decision<Decision.ManaPayment>().suggestion.isEmpty())
+            assertTrue(decision<Decision.ManaPayment>().suggestion.isEmpty())
         }
     }
 
@@ -153,6 +154,6 @@ class Mh3Chunk15AlternativeCostsCostChangeScenariosTest {
         bob.hand(greenSpell)
         turn(number = 2, active = bob)
         bob.casts(greenSpell)
-        assert(decision<Decision.ManaPayment>().suggestion.isEmpty())
+        assertTrue(decision<Decision.ManaPayment>().suggestion.isEmpty())
     }
 }

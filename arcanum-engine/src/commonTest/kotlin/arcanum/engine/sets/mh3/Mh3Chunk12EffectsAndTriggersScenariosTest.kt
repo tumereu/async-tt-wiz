@@ -85,7 +85,7 @@ class Mh3Chunk12EffectsAndTriggersScenariosTest {
     private val dragon = Cards.invent("Cinderwing Wyrm", "{4}{R}{R}", "Creature — Dragon", "Flying", "5/5")
     private val anthem = Cards.invent("Glowing Anthem", "{2}{W}", "Enchantment", "Creatures you control get +1/+1.")
     private val cinder = Cards.invent("Stray Cinder", "{R}", "Instant", "Stray Cinder deals 2 damage to any target.")
-    private val spark = Cards.invent("Charged Spark", "{R}", "Instant", "You get {E}{E}{E}.")
+    private val spark = Cards.invent("Surging Spark", "{R}", "Instant", "You get {E}{E}{E}.")
     private val shade = Cards.invent("Gloomhollow Shade", "{B}{B}", "Creature — Shade", "", "2/2")
 
     // CR 406.3, 607.2a, 708.8: chapter I exiles the found card face down; chapter II turns it face up and costs its mana value in life;

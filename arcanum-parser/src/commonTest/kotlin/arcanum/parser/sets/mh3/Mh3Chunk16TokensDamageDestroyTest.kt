@@ -12,7 +12,7 @@ import kotlin.test.Test
  * cards (CR 712).
  */
 class Mh3Chunk16TokensDamageDestroyTest {
-    private val artifactCreature = listOf(CardType.Artifact, CardType.Creature)
+    private val artifactCreature: List<CardType> = listOf(CardType.Artifact, CardType.Creature)
     private val planeswalker = ObjectFilter.Type(CardType.Planeswalker)
     private val basic = ObjectFilter.Super(Supertype.Basic)
     private val creatureOrPlaneswalkerYouDontControl = and(or(creature, planeswalker), ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You)))

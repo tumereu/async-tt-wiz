@@ -113,7 +113,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 ### Game chat
 
 - **LOB-066** A chat button on the table's top bar (on the desktop table only while its dock is folded away, and there it unfolds the dock to its chat, ready to type, on the tab with unread messages: the desktop table has no chat panel, WEB-017) opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145); a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r62)
-- **LOB-067** Messages show author and text, your own tinted; the newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r13)
+- **LOB-067** Messages show author and text, your own tinted, and a small time at the row's bottom right ("14:05", the device's time zone; none while a message is on its way); above the first message of each day lies a centred date line, "Today", "Yesterday" or "Sat 14 Nov" ("Wed 31 Dec 2025" in an earlier year). The newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r74)
 - **LOB-068** The keyboard's Send key sends like the Send button. A message being sent says "Checking delivery…", a failed one "Not delivered". (r24)
 - **LOB-069** Unread counts and what each player has read are kept on the server per player and game, so they match on every device: a bubble read on one of your devices is gone on the other. (r58)
 - **LOB-070** A typed but unsent message is kept per game; a draft from an earlier play must be cleared before writing a new one. (r16)

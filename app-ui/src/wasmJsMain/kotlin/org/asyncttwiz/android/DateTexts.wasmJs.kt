@@ -94,3 +94,19 @@ actual fun secondsUntilHttpDate(now: Instant, value: String?): Long {
     val millis = parseInstant(iso).epochMillis - offsetMinutes * 60_000L
     return ((millis - now.epochMillis) / 1000).coerceAtLeast(0)
 }
+
+private val englishDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+actual fun chatTime(createdAt: String, clock: Clock): String = runCatching {
+    zoned(parseInstant(createdAt)).let { "${two(it.hour)}:${two(it.minute)}" }
+}.getOrDefault("")
+
+actual fun chatDay(createdAt: String, clock: Clock): String = runCatching {
+    val day = zoned(parseInstant(createdAt)).date
+    val today = zonedNow(clock).date
+    when (day) {
+        today -> "Today"
+        today.plusDays(-1) -> "Yesterday"
+        else -> "${englishDays[day.dayOfWeek - 1]} ${day.day} ${englishMonths[day.month - 1]}" + if (day.year == today.year) "" else " ${day.year}"
+    }
+}.getOrDefault("")

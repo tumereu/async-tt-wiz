@@ -260,7 +260,7 @@ number	item	screenshot	catalog	decisions	sequence
 259	Desktop table with battlefield cards twice the default (Card size 2×): the land rows open out of view at 1440 × 900	desktop/table-battlefield-4x.png	WEB-022 TBL-034 TBL-121		Desktop sizes
 260	Pod Games tab: Challenge accepts the member's open challenge, New challenge in its choices	draft/pod-challenge-choices.png	DRF-181
 261	Games list: a game row's menu offers its chat with the unread count	chat/games-list-row-menu.png	LOB-148 LOB-026		Chat from the games list
-262	Games list: the game's chat open over the list, the game not opened	chat/games-list-chat.png	LOB-148		Chat from the games list
+262	Games list: the game's chat open over the list, the game not opened; messages with their times under day lines	chat/games-list-chat.png	LOB-148 LOB-067		Chat from the games list
 263	Draft: Rotisserie setup with the pool and the picks per player apart	draft/setup-rotisserie.png	DRF-182 DRF-152
 264	Avatar choices on a phone: search results named under their art in a framed, shaded area	settings/avatar-search-phone.png	LOB-149 LOB-013		Avatar choices
 265	Desktop: avatar search results, larger and seven to a row	desktop/avatar-search.png	LOB-149		Avatar choices

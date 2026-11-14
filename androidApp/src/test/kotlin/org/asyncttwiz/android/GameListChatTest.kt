@@ -25,9 +25,9 @@ class GameListChatTest {
     private val game = GameSummary("game", "Azure Spark", "2026-10-27T00:00:00Z", self, other, "round", "invite",
         InvitationState.ACCEPTED, GameLifecycle.ACTIVE, revision = "4", playId = "play", updatedAt = "2026-10-27T10:00:00Z")
     private val messages = listOf(
-        ChatMessage("m1", game.id, "play", self.accountId, "Your move?", "2", "2026-10-27T10:00:00Z"),
-        ChatMessage("m2", game.id, "play", other.accountId, "Thinking, one sec", "3", "2026-10-27T10:01:00Z"),
-        ChatMessage("m3", game.id, "play", other.accountId, "Ok, done. Your turn", "4", "2026-10-27T10:02:00Z"))
+        ChatMessage("m1", game.id, "play", self.accountId, "Your move?", "2", "2026-10-30T18:00:00Z"),
+        ChatMessage("m2", game.id, "play", other.accountId, "Thinking, one sec", "3", "2026-10-31T09:01:00Z"),
+        ChatMessage("m3", game.id, "play", other.accountId, "Ok, done. Your turn", "4", "2026-10-31T09:12:00Z"))
 
     private inner class Fixture : AutoCloseable {
         val worker = Worker(); val wire = Wire()
@@ -48,7 +48,7 @@ class GameListChatTest {
         override fun close() { lobby.close(); worker.drain() }
     }
 
-    // LOB-148, LOB-026: a game not open asks no read state until its row's menu opens; then the menu counts the other player's
+    // LOB-148, LOB-026, LOB-067: a game not open asks no read state until its row's menu opens; then the menu counts the other player's
     // unread messages, and its Chat opens the game's chat without opening the game, reading what shows
     @Test fun theRowMenusChatCountsUnreadAndOpensTheChatWithoutTheGame() = Fixture().use { f ->
         assertTrue(f.wire.reads.isEmpty(), "a game not open asks nothing")
@@ -73,8 +73,12 @@ class GameListChatTest {
         compose.onNodeWithText("Ok, done. Your turn").assertIsDisplayed()
         assertEquals(ReadChat("m3"), f.wire.reads.last().second, "the messages showing are read")
         assertNull(f.lobby.state.chatUnread[game.id])
+        // LOB-067: each message's time, and a date line above the first of each day (the tests' clock: 31 Oct, noon UTC)
+        compose.onNodeWithText("Yesterday").assertIsDisplayed()
+        compose.onNodeWithText("Today").assertIsDisplayed()
+        compose.onNodeWithText(chatTime("2026-10-31T09:12:00Z")).assertIsDisplayed()
         captureShot("$SCREENSHOTS/chat/games-list-chat.png",
-            "alex opened Azure Spark's chat from its row menu on the games list: the game chat with riley shows over the list, the game itself not opened.")
+            "alex opened Azure Spark's chat from its row menu on the games list: the game chat with riley shows over the list, the game itself not opened; each message has its small time, under a Yesterday and a Today line.")
 
         // Sending from it goes to that game
         f.lobby.composeChat("Thanks!")

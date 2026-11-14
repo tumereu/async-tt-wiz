@@ -34,7 +34,6 @@ Table and casting:
 - Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
 
 Lobby, chat and accounts:
-- Game and pod chat messages show a small timestamp, with a date line between days.
 
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 

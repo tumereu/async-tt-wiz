@@ -80,6 +80,7 @@ class ProblemReportSender(private val scope: CoroutineScope,
         if (state == ProblemReportState.Sending) return
         state = ProblemReportState.Sending
         AppLog.info("report", "Sending problem report")
+        DebugJank.flushFrames()
         scope.launch {
             state = try {
                 val report = withContext(ioDispatcher) {

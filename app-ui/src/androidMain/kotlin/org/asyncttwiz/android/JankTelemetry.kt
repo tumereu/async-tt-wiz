@@ -29,6 +29,8 @@ actual object DebugJank {
         "dragging" to "false", "popup" to "none", "history_nodes" to "0", "visible_cards" to "0")
     private val animations = mutableSetOf<String>()
     private val catchUps = mutableSetOf<String>()
+    actual val labelling: Boolean get() = Diagnostics.enabled
+    actual fun flushFrames() {}
     @Synchronized actual fun catchUp(game: String, running: Boolean) {
         if (!Diagnostics.enabled) return
         if (running) catchUps.add(game) else catchUps.remove(game)

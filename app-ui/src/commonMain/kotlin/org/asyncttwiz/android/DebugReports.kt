@@ -9,8 +9,14 @@ import org.asyncttwiz.protocol.ReconnectEpisode
 /** A screen's frame tracking (Android: JankStats on an activity's window): [stop] ends it, [state] labels its frames. */
 class JankTracking(val stop: () -> Unit, val state: (String, String) -> Unit)
 
-/** Stutter reports: what the app was doing when frames were slow (Android: JankTelemetry.kt). */
+/** Stutter reports: what the app was doing when frames were slow (Android: JankTelemetry.kt; the web: the app log's frame
+ * times, BrowserFrameTimes.kt, WEB-057). */
 expect object DebugJank {
+    /** Whether the screens label their frames now ([state], [animation]): Android while reports are on, the web always. */
+    val labelling: Boolean
+    /** The frame times so far into the app log, as a problem report is about to read it (the web; nothing on Android,
+     * whose stutters are reported apart). */
+    fun flushFrames()
     fun catchUp(game: String, running: Boolean)
     fun catchingUp(): Boolean
     fun treeInFlight(): Boolean

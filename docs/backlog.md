@@ -26,7 +26,9 @@ Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 
 - Every clickable control and card in the web client shows the hand pointer on hover (text fields the text cursor), as web buttons do.
 - Desktop layout default sizes (TBL-034's sliders stay, on top of the new defaults): battlefield cards and decks and their texts at least twice today's size, hand cards about 30% bigger, the top row's and the quick actions' texts and the rest about 30% bigger where it reads better (the worker proposes, the owner reviews in the gallery) (WEB-015, WEB-018, WEB-020).
 - Desktop action area (WEB-018): Undo becomes a real button lined up with the main button, Undo about a third of the row and the main button two thirds, no empty space between them.
+- The other player's hand on the desktop table shows as the phone's small fan of card backs with its count (ZON-001), not as it does now (WEB-016).
 - One chat on the desktop table (WEB-017, LOB-066): the top row's chat button opens or focuses the dock's chat (unfolding the dock); no second chat view.
+- Stack animation (spec `docs/specs/stack-animation.md`, owner 2026-11-14): source → middle → Stack with no second move, an entry on the Stack only as long as its own animation (target arrows pre-resolve, the effect post-resolve) (HIS-112, STK-058, TBL-125).
 - Firefox frame rate: the desktop table is laggy in Firefox. Problem reports log frame times first (slow frames, what was on screen); then profile and fix the Firefox path.
 
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.

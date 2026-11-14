@@ -243,3 +243,11 @@ number	item	screenshot	catalog	decisions	sequence
 242	Desktop table: a hovered hand card's chips, faded, the one under the pointer solid with its Autotap source outlined	desktop/hover-chips.png	WEB-027 ZON-080		Desktop table
 243	Desktop table: ? shows the list of keyboard shortcuts over the table	desktop/hotkey-sheet.png	WEB-034 WEB-031 WEB-032 WEB-036		Desktop table
 244	Settings on the desktop layout: rebinding a key, the hotkey that lost it saying so	desktop/hotkey-settings.png	WEB-035 WEB-033 LOB-147		Desktop table
+245	Desktop: the side menu always open and the Games list at a readable width, each row one line	desktop/games.png	WEB-037 WEB-038 LOB-018 LOB-024		Desktop screens
+246	Desktop: Contacts at the list's readable width	desktop/contacts.png	WEB-038 LOB-028		Desktop screens
+247	Desktop: the Pods list at the list's readable width	desktop/pods.png	WEB-038 DRF-012		Desktop screens
+248	Desktop: Manage decks, the saved decks as tiles in columns	desktop/decks.png	WEB-038		Desktop screens
+249	Desktop: the deck editor's two panes, the list left and the search right	desktop/deck-editor.png	WEB-039 LOB-105 LOB-121		Desktop screens
+250	Desktop: Hide search folds the search into the Search rail, the deck taking the width	desktop/deck-editor-search-hidden.png	WEB-040		Desktop screens
+251	Desktop: Stats graphs in two columns	desktop/stats-graphs.png	WEB-042 LOB-132		Desktop screens
+252	Desktop: Settings' groups as cards in two columns	desktop/settings.png	WEB-043 WEB-035		Desktop screens

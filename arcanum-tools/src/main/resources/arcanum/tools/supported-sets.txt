@@ -32,4 +32,5 @@ SPM Marvel's Spider-Man
 TDM Tarkir: Dragonstorm
 TLA Avatar: The Last Airbender
 TMT Teenage Mutant Ninja Turtles
+TRK Star Trek
 WOE Wilds of Eldraine

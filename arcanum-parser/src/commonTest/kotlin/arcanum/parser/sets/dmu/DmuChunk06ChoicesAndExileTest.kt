@@ -359,7 +359,7 @@ class DmuChunk06ChoicesAndExileTest {
         abilities(
             static(Mechanic.ModifyPowerToughness(count(legendaryCreatures), count(legendaryCreatures)), affects = Objects.Each(legendaryCreatures)),
             triggered(on(EventPattern.Cast(and(legendary, spellFilter), by = PlayerFilter.You, from = Zone.Hand)),
-                doing(Effect.RevealUntil(and(legendary, nonland, lesser), Players.You, n(1), reveal = true, into = Zone.Exile, foundBind = "found",
+                doing(Effect.RevealUntil(and(legendary, nonland, lesser), Players.You, n(1), reveal = false, into = Zone.Exile, foundBind = "found",
                     restBind = "rest")),
                 Step.May(listOf(doing(Effect.Cast(Objects.Bound("found"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), Players.You),
                 doing(Effect.Move(Objects.Where(Objects.Union(listOf(Objects.Bound("found"), Objects.Bound("rest"))), ObjectFilter.InZone(Zone.Exile)), bottomRandom)),

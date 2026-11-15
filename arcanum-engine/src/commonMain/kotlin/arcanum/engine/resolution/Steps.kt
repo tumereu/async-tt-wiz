@@ -78,15 +78,26 @@ internal class Scope(
  * committed step ([arcanum.engine.action.NeedDecision]); it is redone from its start with the answers so far (D29).
  */
 internal object Steps {
-    fun run(scope: Scope, steps: List<Step>) = steps.forEach { run(scope, it) }
+    fun run(scope: Scope, steps: List<Step>) = steps.forEachIndexed { i, step -> run(scope, step, sacrificedNext(steps, i)) }
 
-    fun run(scope: Scope, step: Step) {
+    /** trk sweep: whether [steps]' step [i] chooses objects a later step sacrifices ("each opponent sacrifices a creature"): one that
+     * can't be sacrificed can't be chosen (CR 701.21a). */
+    private fun sacrificedNext(steps: List<Step>, i: Int): Boolean {
+        val step = steps[i] as? Step.Choose ?: return false
+        return step.choice is Choice.Objects && steps.drop(i + 1).any { later ->
+            ((later as? Step.Do)?.effect as? Effect.Sacrifice)?.objects == arcanum.api.Objects.Bound(step.bind)
+        }
+    }
+
+    fun run(scope: Scope, step: Step) = run(scope, step, sacrificing = false)
+
+    private fun run(scope: Scope, step: Step, sacrificing: Boolean) {
         // What the step's changes are made by, for history (D33): this scope's source and Stack item
         val recorder = scope.act.recorder
         val outer = recorder.by
         recorder.by = causedBy(scope, outer)
         try {
-            runStep(scope, step)
+            if (sacrificing && step is Step.Choose) choose(scope, step, sacrificing = true) else runStep(scope, step)
         } finally {
             recorder.by = outer
         }
@@ -239,7 +250,7 @@ internal object Steps {
             // objects or players, processed simultaneously: one damage event
             Effects.dealDamageTogether(scopes, damage)
         } else if (step.together) {
-            step.steps.forEach { s -> stepTogether(scope, scopes, s) }
+            step.steps.forEachIndexed { i, s -> stepTogether(scope, scopes, s, sacrificedNext(step.steps, i)) }
         } else if (step.each is Each.Objects && scopes.size > 1 && step.steps.any(::casts)) {
             // rvr fixes, CR 608.2f: casting each of several objects ("for each card exiled this way, copy it, and you may cast the copy")
             // can't be done simultaneously: the resolving spell's controller chooses the order, one object at a time
@@ -269,7 +280,7 @@ internal object Steps {
     /** One step of a "together" loop for every player's [scopes]. "Each player may search …, put them onto the
      * battlefield, then shuffle": each decides in turn order (CR 101.4), then those who do take the inner steps one by
      * one together, so the cards are put onto the battlefield before anyone shuffles. */
-    private fun stepTogether(scope: Scope, scopes: List<Scope>, s: Step) {
+    private fun stepTogether(scope: Scope, scopes: List<Scope>, s: Step, sacrificing: Boolean = false) {
         // ecl: "each opponent exiles cards … until …": a process each player repeats on their own, its moves done one by one (CR 608.2c)
         if (s is Step.RepeatWhile) { scopes.forEach { run(it, listOf(s)) }; return }
         if (s is Step.May) {
@@ -280,7 +291,7 @@ internal object Steps {
             s.steps.forEach { inner -> stepTogether(scope, doing, inner) }
             return
         }
-        together(scope) { scopes.forEach { it.batch = scope.batch; run(it, s); it.batch = null } }
+        together(scope) { scopes.forEach { it.batch = scope.batch; run(it, s, sacrificing); it.batch = null } }
     }
 
     /** Whether [step] casts something (a spell cast while another resolves, CR 608.2g). */
@@ -310,7 +321,8 @@ internal object Steps {
     }
 
     /** A choice made during resolution (CR 608.2d): bound as [Step.Choose.bind], kept as card memory when [Step.Choose.remember]. */
-    private fun choose(scope: Scope, step: Step.Choose) {
+    /** [sacrificing]: the chosen objects are sacrificed next, so one that can't be sacrificed isn't offered (CR 701.21a). */
+    private fun choose(scope: Scope, step: Step.Choose, sacrificing: Boolean = false) {
         val act = scope.act
         // inr sweep: "an opponent chooses" with several opponents: the controller picks which one chooses (CR 102.3), not the first
         val chooser = scope.players(step.chooser).let { all -> act.choosePlayer(scope.you, scope.self, all) } ?: return
@@ -355,7 +367,8 @@ internal object Steps {
                 val pool = (from ?: e.inZonesOf(choice.filter)).filter { act.state.obj(it) != null }
                 val hidden = act.hiddenDecides(chooser, pool) { e.identityDecides(choice.filter, it) }
                 val e2 = scope.eval()
-                val options = pool.filter { act.state.obj(it) != null && e2.matches(choice.filter, it) }
+                val options = pool.filter { act.state.obj(it) != null && e2.matches(choice.filter, it) &&
+                    !(sacrificing && arcanum.engine.action.Actions.cantBeSacrificed(act, it, scope.cause.controller)) }
                 val chosen = act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },
                     arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose"), hidden)
                 // "with different powers": no two chosen share the quality (D32: a rule-breaking answer is refused)

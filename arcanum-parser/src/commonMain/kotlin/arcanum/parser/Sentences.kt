@@ -1514,7 +1514,8 @@ internal class Sentences(
 
     /** hob backfill: in a spell with one object target, "put a counter on each other creature you control" is other than
      * that target ("Put a +1/+1 counter on target creature you control. If …, also put a +1/+1 counter on each other
-     * creature you control."); "other" can't mean other than the spell, which is never on the battlefield. */
+     * creature you control."); "other" can't mean other than the spell, which is never on the battlefield. trk sweep: any effect
+     * ([otherThanTarget]). */
     private fun otherThanTheTarget(instructions: Instructions): Instructions {
         val slot = instructions.targets.singleOrNull()?.takeIf { it.what is arcanum.api.TargetKind.Objects } ?: return instructions
         fun read(step: Step): Step = when (step) {
@@ -4955,9 +4956,12 @@ internal class Sentences(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)), arcanum.api.Affected.Objects(Objects.Except(slot, Objects.Bound("chosen"))),
                     arcanum.api.Duration.EndOfTurn)))
         }
-        // dsk chunk 10: "They lose half their life, rounded up." (the event's player, CR 107.1a)
-        if (sentence == "They lose half their life, rounded up.")
-            return listOf(Step.Do(Effect.LoseLife(Players.EventPlayer, Value.Half(Value.LifeOf(Players.EventPlayer), roundUp = true))))
+        // dsk chunk 10: "They lose half their life, rounded up." (the event's player, CR 107.1a); trk sweep: the player named before when there
+        // is one ("target opponent may have you draw a card. If they don't, they lose half their life", CR 608.2c)
+        if (sentence == "They lose half their life, rounded up.") {
+            val they = context.lastPlayer ?: Players.EventPlayer
+            return listOf(Step.Do(Effect.LoseLife(they, Value.Half(Value.LifeOf(they), roundUp = true))))
+        }
         // dsk chunk 10: "Destroy it." (the event's object), "Tap it." (in an activated ability: this object)
         if (sentence == "Destroy it.") return listOf(Step.Do(Effect.Destroy(context.it ?: return null)))
         if (sentence == "Tap it.") return listOf(Step.Do(Effect.Tap(context.it ?: Objects.Self.takeIf { context.event == null && context.targets.isEmpty() } ?: return null)))
@@ -14491,15 +14495,27 @@ internal class Sentences(
         return null
     }
 
-    /** [step] putting counters on "each other …" with "other" read as other than [target] rather than this object. */
+    /** [step] putting counters on "each other …" with "other" read as other than [target] rather than this object. trk sweep: the same
+     * for any effect on "each other …" ("Each other creature gets -1/-1 until end of turn", destroy, damage, tap, untap, move). */
     private fun otherThanTarget(step: Step, target: Objects): Step {
-        val effect = (step as? Step.Do)?.effect as? Effect.PutCounters ?: return step
-        val each = effect.objects as? Objects.Each ?: return step
-        val and = each.filter as? ObjectFilter.And ?: return step
+        val effect = (step as? Step.Do)?.effect ?: return step
         val self = ObjectFilter.Not(ObjectFilter.Is(Objects.Self))
-        if (self !in and.all) return step
-        val filter = ObjectFilter.And(and.all.map { if (it == self) ObjectFilter.Not(ObjectFilter.Is(target)) else it })
-        return Step.Do(effect.copy(objects = Objects.Each(filter)))
+        fun other(objects: Objects?): Objects? {
+            val and = (objects as? Objects.Each)?.filter as? ObjectFilter.And ?: return null
+            if (self !in and.all) return null
+            return Objects.Each(ObjectFilter.And(and.all.map { if (it == self) ObjectFilter.Not(ObjectFilter.Is(target)) else it }))
+        }
+        val read: Effect = when (effect) {
+            is Effect.PutCounters -> other(effect.objects)?.let { effect.copy(objects = it) }
+            is Effect.ApplyMechanics -> other((effect.affects as? arcanum.api.Affected.Objects)?.objects)?.let { effect.copy(affects = arcanum.api.Affected.Objects(it)) }
+            is Effect.Destroy -> other(effect.objects)?.let { effect.copy(objects = it) }
+            is Effect.DealDamage -> other(effect.to.objects)?.let { effect.copy(to = effect.to.copy(objects = it)) }
+            is Effect.Tap -> other(effect.objects)?.let { effect.copy(objects = it) }
+            is Effect.Untap -> other(effect.objects)?.let { effect.copy(objects = it) }
+            is Effect.Move -> other(effect.objects)?.let { effect.copy(objects = it) }
+            else -> null
+        } ?: return step
+        return Step.Do(read)
     }
 
     /** hob: sentences that change the steps before them, tried first in [modify]. */
@@ -16049,7 +16065,7 @@ internal class Sentences(
         Tla.EXILE_UNTIL_NONLAND_CAST_IF.matchEntire(sentence)?.let { m ->
             val kind = Filters.noun(m.groupValues[1] + " card") ?: return null
             val limit = context.value(m.groupValues[2]) ?: return null
-            return listOf(Step.Do(Effect.RevealUntil(kind, Players.You, Value.Fixed(1), reveal = true, into = Zone.Exile, foundBind = "found")),
+            return listOf(Step.Do(Effect.RevealUntil(kind, Players.You, Value.Fixed(1), reveal = false, into = Zone.Exile, foundBind = "found")),
                 Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("found"), PlayKind.Cast, withoutPaying = true, caster = Players.You,
                     resultingSpell = ObjectFilter.ManaValue(arcanum.api.Comparison.Less, limit)))), payer = Players.You, bind = "cast"),
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("cast")), then = listOf(Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))))))
@@ -17770,7 +17786,7 @@ internal class Sentences(
             val filter = Filters.noun(m.groupValues[2].removeArticle()) ?: return null
             val player = if (m.groupValues[1] == "opponent") context.targetOpponent() else context.targetPlayer()
             context.it = Objects.Bound(FOUND)
-            return listOf(Step.Do(Effect.RevealUntil(filter, library = player, count = Value.Fixed(1), reveal = true, into = Zone.Exile, foundBind = FOUND)))
+            return listOf(Step.Do(Effect.RevealUntil(filter, library = player, count = Value.Fixed(1), reveal = false, into = Zone.Exile, foundBind = FOUND)))
         }
         // trk chunk 06: "target opponent may have you draw a card." (the opponent decides; "If they don't, …" reads [Condition.Did] of it)
         Trk.TARGET_OPPONENT_MAY_HAVE_YOU.matchEntire(sentence)?.let { m ->
@@ -19253,9 +19269,11 @@ internal class Sentences(
         }
         // lci fixes: "they can't attack you or planeswalkers you control this turn." (the event's player: every creature they control, including
         // ones they gain control of later, CR 508.1c, 611.2c)
-        Lci.PLAYER_CANT_ATTACK_YOU_THIS_TURN.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
+        // trk sweep: the player named before when there is one ("target opponent may have you draw a card. If they don't, they can't attack
+        // you this turn", CR 608.2c)
+        Lci.PLAYER_CANT_ATTACK_YOU_THIS_TURN.matchEntire(sentence)?.takeIf { context.event != null || context.lastPlayer != null }?.let { m ->
             val walkers = if (m.groupValues[3].isEmpty()) null else Objects.Each(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(PlayerFilter.You)))
-            val theirs = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.Is(Players.EventPlayer)))
+            val theirs = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.Is(context.lastPlayer ?: Players.EventPlayer)))
             val target = if (m.groupValues[2].isEmpty()) null else arcanum.api.Recipients(objects = walkers, players = Players.You)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantAttack(target)),
                 Affected.Objects(Objects.Each(theirs)), arcanum.api.Duration.EndOfTurn)))
@@ -21689,7 +21707,7 @@ internal class Sentences(
         Dmu.EXILE_UNTIL_LESSER_MAY_CAST_REST_BOTTOM.matchEntire(text)?.takeIf { context.event is EventPattern.Cast }?.let { m ->
             val lesser = ObjectFilter.ManaValue(arcanum.api.Comparison.Less, Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single))
             val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, lesser)
-            return listOf(Step.Do(Effect.RevealUntil(filter, Players.You, Value.Fixed(1), reveal = true, into = Zone.Exile, foundBind = "found", restBind = "rest")),
+            return listOf(Step.Do(Effect.RevealUntil(filter, Players.You, Value.Fixed(1), reveal = false, into = Zone.Exile, foundBind = "found", restBind = "rest")),
                 Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("found"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), Players.You),
                 Step.Do(Effect.Move(Objects.Where(Objects.Union(listOf(Objects.Bound("found"), Objects.Bound("rest"))), ObjectFilter.InZone(Zone.Exile)),
                     Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
@@ -22380,7 +22398,7 @@ internal class Sentences(
             val kind = Filters.noun(m.groupValues[2]) ?: return null
             val found = Objects.Bound("found")
             val stillExiled = ObjectFilter.InZone(Zone.Exile)
-            return listOf(Step.Do(Effect.RevealUntil(kind, Players.You, Value.Fixed(count), reveal = true, into = Zone.Exile, foundBind = "found", restBind = "rest")),
+            return listOf(Step.Do(Effect.RevealUntil(kind, Players.You, Value.Fixed(count), reveal = false, into = Zone.Exile, foundBind = "found", restBind = "rest")),
                 Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(0), Value.Fixed(1), from = found), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Cast(Objects.Bound("chosen"), PlayKind.Cast, withoutPaying = true, caster = Players.You)),
                 Step.Choose(arcanum.api.Choice.Objects(stillExiled, Value.Fixed(1), Value.Fixed(1), from = found), bind = "kept", chooser = Players.You),
@@ -22520,7 +22538,7 @@ internal class Sentences(
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             val found = Objects.Bound(FOUND)
             return listOf(
-                Step.Do(Effect.RevealUntil(filter, library = Players.Each(PlayerFilter.Any), count = Value.Fixed(1), reveal = true, into = Zone.Exile,
+                Step.Do(Effect.RevealUntil(filter, library = Players.Each(PlayerFilter.Any), count = Value.Fixed(1), reveal = false, into = Zone.Exile,
                     foundBind = FOUND, restBind = REST)),
                 Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(0), Value.Count(found), from = found), bind = "chosen", chooser = Players.You),
                 Step.ForEach(arcanum.api.Each.Objects(Objects.Bound("chosen")), bind = "card", steps = listOf(
@@ -24421,7 +24439,7 @@ internal class Sentences(
         Msh.EXILES_UNTIL_NONLAND_MAY_COUNTER_OR_CAST.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
             val found = Objects.Bound("found")
             return listOf(
-                Step.Do(Effect.RevealUntil(Filters.noun(m.groupValues[1]) ?: return null, Players.EventPlayer, Value.Fixed(1), reveal = true, into = Zone.Exile, foundBind = "found")),
+                Step.Do(Effect.RevealUntil(Filters.noun(m.groupValues[1]) ?: return null, Players.EventPlayer, Value.Fixed(1), reveal = false, into = Zone.Exile, foundBind = "found")),
                 Step.Pay(steps = listOf(Step.Do(Effect.PutCounters(Objects.Self, Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(1)))), payer = Players.You, bind = "paid"),
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("paid")), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile,
                     PlayKind.Cast, holder = PlayerFilter.You, manaAsAnyColor = true)), Affected.Objects(found), arcanum.api.Duration.EndOfTurn)))))
@@ -25024,7 +25042,7 @@ internal class Sentences(
         // number of spells from among them without paying their mana costs."
         Sos.EXILE_UNTIL_TOTAL_MANA_VALUE_CAST_ANY.matchEntire(text)?.let { m ->
             return listOf(
-                Step.Do(Effect.RevealUntil(ObjectFilter.Any, Players.You, count = Value.Fixed(0), reveal = true, into = Zone.Exile, foundBind = "exiled",
+                Step.Do(Effect.RevealUntil(ObjectFilter.Any, Players.You, count = Value.Fixed(0), reveal = false, into = Zone.Exile, foundBind = "exiled",
                     totalAtLeast = arcanum.api.Total(arcanum.api.NumericProperty.ManaValue, Value.Fixed(m.groupValues[1].toInt())))),
                 Step.ForEach(arcanum.api.Each.Objects(Objects.Bound("exiled")), "card", listOf(Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("card"),
                     PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You))))
@@ -27026,7 +27044,7 @@ internal class Sentences(
         if (Ecl.EXILE_UNTIL_NONLAND_CAST_IF_LIFE.matches(text)) {
             val found = Objects.Bound("found")
             val gained = Value.EventsThisTurn(EventPattern.GainLife(PlayerFilter.You), arcanum.api.Measure.Amount)
-            return listOf(Step.Do(Effect.RevealUntil(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), Players.You, Value.Fixed(1), reveal = true, into = Zone.Exile,
+            return listOf(Step.Do(Effect.RevealUntil(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), Players.You, Value.Fixed(1), reveal = false, into = Zone.Exile,
                     foundBind = "found")),
                 Step.Pay(steps = listOf(Step.Do(Effect.Cast(found, PlayKind.Cast, withoutPaying = true, caster = Players.You,
                     resultingSpell = ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, gained)))), payer = Players.You, bind = "cast"),

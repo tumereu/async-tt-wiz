@@ -109,7 +109,7 @@ class EclChunk15MulticoloredTest {
     ) parsesTo abilities(
         activated(cost(mana("{1}{W}"), tap), gains(target("creature"), Keyword.Flying, Keyword.Lifelink), targets = listOf(slot("creature", and(another, creature, you)))),
         triggered(stepBegins(TurnStep.End, PlayerFilter.You),
-            doing(Effect.RevealUntil(nonland, Players.You, n(1), reveal = true, into = Zone.Exile, foundBind = "found")),
+            doing(Effect.RevealUntil(nonland, Players.You, n(1), reveal = false, into = Zone.Exile, foundBind = "found")),
             Step.Pay(steps = listOf(doing(Effect.Cast(Objects.Bound("found"), PlayKind.Cast, withoutPaying = true, caster = Players.You,
                 resultingSpell = ObjectFilter.ManaValue(Comparison.AtMost, Value.EventsThisTurn(EventPattern.GainLife(PlayerFilter.You), Measure.Amount))))),
                 payer = Players.You, bind = "cast"),

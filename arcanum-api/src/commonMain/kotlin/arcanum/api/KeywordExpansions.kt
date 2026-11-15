@@ -254,10 +254,10 @@ object KeywordExpansions {
                 power = PrintedNumber.Fixed(0), toughness = PrintedNumber.Fixed(0))), bind = "germ", count = Value.Fixed(1), controller = Players.You)),
             Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Bound("germ"))))))))
         // CR 702.85a: exile cards from the top until a nonland card with lower mana value; you may cast it without paying
-        // its mana cost if the resulting spell's mana value is lower; the rest go to the bottom in a random order
+        // its mana cost if the resulting spell's mana value is lower; the rest go to the bottom in a random order; exiled face up, not revealed (CR 406.3, 701.20a)
         Keyword.Cascade -> listOf(Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any)), Instructions(steps = listOf(
             Step.Do(Effect.RevealUntil(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), lowerManaValue)),
-                into = Zone.Exile, foundBind = "hit", restBind = "missed", library = Players.You, count = Value.Fixed(1), reveal = true)),
+                into = Zone.Exile, foundBind = "hit", restBind = "missed", library = Players.You, count = Value.Fixed(1), reveal = false)),
             Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("hit"), withoutPaying = true, bind = "cast", resultingSpell = lowerManaValue, how = PlayKind.Cast, caster = Players.You))), player = Players.You),
             Step.Do(Effect.Move(Objects.Except(Objects.Union(listOf(Objects.Bound("hit"), Objects.Bound("missed"))), Objects.Bound("cast")),
                 Destination(Zone.Library, libraryPosition = -1, randomOrder = true)))))))
@@ -704,12 +704,12 @@ object KeywordExpansions {
         // CR 701.39a, b: a +1/+1 counter on each of the targets
         is KeywordAction.Support -> listOf(Step.Do(Effect.PutCounters(Objects.Target(action.slot), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))
         // CR 701.57a: exile cards from the top until a nonland card with mana value N or less; you may cast it without paying its mana
-        // cost if the resulting spell's mana value is N or less, else put it into your hand; the rest on the bottom in a random order
+        // cost if the resulting spell's mana value is N or less, else put it into your hand; the rest on the bottom in a random order; exiled face up, not revealed (CR 406.3, 701.20a)
         is KeywordAction.Discover -> {
             val upTo = ObjectFilter.ManaValue(Comparison.AtMost, action.count)
             listOf(
                 Step.Do(Effect.RevealUntil(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), upTo)), library = Players.You,
-                    count = Value.Fixed(1), reveal = true, into = Zone.Exile, foundBind = "discovered", restBind = "discover-rest")),
+                    count = Value.Fixed(1), reveal = false, into = Zone.Exile, foundBind = "discovered", restBind = "discover-rest")),
                 Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("discovered"), PlayKind.Cast, withoutPaying = true, resultingSpell = upTo,
                     caster = Players.You))), payer = Players.You, bind = "discover-cast"),
                 Step.If(Condition.Not(Condition.Did("discover-cast")), listOf(Step.Do(Effect.Move(Objects.Bound("discovered"), Destination(Zone.Hand))))),

@@ -303,8 +303,8 @@ class TrkChunk06AssimilateEquipDilemmaTest {
         triggered(youFaceADilemma, Step.May(listOf(move(Objects.Self, Zone.Hand)), Players.You)),
     )
 
-    // CR 700.17 ("faced a dilemma this turn"), 603.4 (intervening if), 701.20-like exile until a nonland card, 601.2a + 118.9 (cast
-    // without paying its mana cost while the ability resolves, CR 608.2g); 702.21a (ward)
+    // CR 700.17 ("faced a dilemma this turn"), 603.4 (intervening if), exile until a nonland card (exiled face up, not revealed, CR 406.3,
+    // 701.20a), 601.2a + 118.9 (cast without paying its mana cost while the ability resolves, CR 608.2g); 702.21a (ward)
     @Test
     fun theArrayKeeper() = card(
         name = "The Array Keeper",
@@ -319,7 +319,7 @@ class TrkChunk06AssimilateEquipDilemmaTest {
         Keyword.Vigilance,
         Keyword.Ward(manaCost("{2}")),
         triggered(stepBegins(TurnStep.End, PlayerFilter.Any),
-            doing(Effect.RevealUntil(nonland, Players.Target("opponent"), n(1), reveal = true, into = Zone.Exile, foundBind = "found")),
+            doing(Effect.RevealUntil(nonland, Players.Target("opponent"), n(1), reveal = false, into = Zone.Exile, foundBind = "found")),
             Step.May(listOf(doing(Effect.Cast(found, PlayKind.Cast, withoutPaying = true, caster = Players.You))), Players.You),
             targets = listOf(targetOpponent), interveningIf = facedADilemmaThisTurn),
     )

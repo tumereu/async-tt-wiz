@@ -53,7 +53,7 @@ class MomFixesTest {
             "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.",
             defense = "7") to abilities(
             triggered(entersSelf,
-                Step.Do(Effect.RevealUntil(and(nonland, manaValue(Comparison.AtMost, 4)), Players.You, n(2), reveal = true, into = Zone.Exile,
+                Step.Do(Effect.RevealUntil(and(nonland, manaValue(Comparison.AtMost, 4)), Players.You, n(2), reveal = false, into = Zone.Exile,
                     foundBind = "found", restBind = "rest")),
                 Step.Choose(Choice.Objects(ObjectFilter.Any, n(0), n(1), from = Objects.Bound("found")), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Cast(Objects.Bound("chosen"), PlayKind.Cast, withoutPaying = true, caster = Players.You)),

@@ -232,6 +232,42 @@ class DesktopTableTest : E2e() {
         assertTrue(cub - cubField <= 3, "the Cub doesn't glow: $cub over $cubField")
     }
 
+    // WEB-024, TBL-132, TBL-133 (owner 2026-11-15): on the desktop table nothing clicks a change, so Inspect by Alt held shows a
+    // change line's explanation at once with its source: Alice casts her Ash Pup, then Ember Beckoning has the Ring tempt her;
+    // Alt held over the Pup shows its Ring-bearer line, "From The Ring" and what a Ring-bearer is, without any click
+    @Test fun altInspectExplainsAChangeWithoutAClick() {
+        startGame(TestDeck("Ring", listOf(TestCards.mountain to 14, TestCards.pup to 13, TestCards.beckoning to 13)), aliceDesktop = true,
+            aliceSettings = PlaySettings(assume = AssumeResolves.Always),
+            deal = { a, _ -> listOf("Ash Pup", "Ember Beckoning").all { it in hand(a) } })
+        bothOpen()
+        keep()
+        clickFromHand("Ash Pup")
+        waitUntil("the Pup on Alice's battlefield", along = listOf(bob)) { alice.field("Ash Pup").isNotEmpty() && alice.inOwnMain() }
+        val pup = alice.field("Ash Pup").single()
+        // The fan's next Ash Pup comes to lie under the mouse, and its quick look would cover the fan: the mouse goes up first
+        alice.tagged("phase-track").performMouseInput { moveTo(center) }
+        run()
+        clickFromHand("Ember Beckoning")
+        waitUntil("the Ring's temptation", along = listOf(bob)) {
+            if (alice.stepArrow() == "Resolve") alice.once { alice.tap("Resolve") }
+            arcanum.api.ObjectMark.RingBearer in alice.state.obj(pup)?.marks.orEmpty() && alice.state.stack.isEmpty() && alice.inOwnMain()
+        }
+        waitUntil("the Ring-bearer's word on Alice's table") {
+            alice.settled(this) && alice.shows(hasContentDescription(", Ring-bearer", substring = true))
+        }
+        alice.battlefieldCard("Ash Pup").performMouseInput { moveTo(center) }
+        run()
+        assertTrue(alice.key("Alt", true), "the finger key taken")
+        waitUntil("the Pup inspected") { alice.shows(hasTestTag("card-inspection")) }
+        val bearer = arcanum.api.RulesGlossary.state("ring-bearer")!!.text
+        assertTrue(alice.showsText("Ring-bearer: legendary, can't be blocked by creatures with greater power") &&
+            alice.showsText("From The Ring") && alice.shows(hasContentDescription("Rule explanation")) && alice.showsText(bearer),
+            "the line with its source and explanation, no click: ${alice.screen()}")
+        alice.key("Alt", false)
+        waitUntil("the Inspect closed with Alt let go") { !alice.shows(hasTestTag("card-inspection")) }
+        assertTrue(!alice.refusalSeen, "nothing refused")
+    }
+
     // WEB-015, WEB-016, WEB-018, WEB-019, WEB-024, WEB-031 (owner playtest 2026-11-15): Alice's hand is a fan at the bottom of her
     // desktop table, its cards partly below the window's bottom: the mouse on a Mountain raises it whole into view, a click
     // keeps it up and a second plays it from the fan. Her Ember Burst's cast panel has its Cast in its bottom right corner as on

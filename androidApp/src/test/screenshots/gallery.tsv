@@ -283,3 +283,4 @@ number	item	screenshot	catalog	decisions	sequence
 282	Desktop table: the hand a fan at the bottom, partly below the window; the card under the mouse risen whole into view over the others	desktop/hand-fan.png	WEB-015 WEB-016 WEB-018 WEB-022 WEB-027		
 283	Desktop table: a centred panel with its go-on (Cast) in its bottom right corner as well as on the main button	desktop/panel-go-on.png	WEB-019 TRN-063		
 284	Desktop table: Alt over two stacked Mountains lists them one under the other, the wheel scrolling the list while Alt is held	desktop/inspect-list.png	WEB-024 TBL-111		
+285	Desktop Inspect by Alt held: a keyword change shows its source and what the keyword means under it, without a click	desktop/inspect-explained.png	WEB-024 TBL-132		

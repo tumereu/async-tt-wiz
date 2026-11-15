@@ -156,8 +156,18 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // HIS-110: the reveal panel's own OK is the main button while it is open (other panels wait behind it)
             val main = panelMain
             val control = engine?.control() == true
-            RecordShown(bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).words(play) else wait?.label, if (toggles) null else actions.map { it.name },
-                quiet))
+            val record = bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).words(play) else wait?.label, if (toggles) null else actions.map { it.name },
+                quiet)
+            RecordShown(record)
+            // TRN-063, STK-029, TRN-004: each change of what the main button says reaches the app log, with what decided it
+            LaunchedEffect(record) {
+                val shown = engine?.engine?.shown
+                AppLog.info("game", "Main button (seat ${context.viewer?.take(8)}): ${record.removePrefix(BOTTOM_BAR)} (panel ${panelMain?.label ?: "none"}, " +
+                    "status ${shown?.status?.let { it::class.simpleName } ?: "?"}, own step held $ownStepHeld, " +
+                    "show ${shown?.show?.kind?.let { it::class.simpleName } ?: "none"}, own action shown ${shown?.ownActionShown}, " +
+                    "board drawn ${play.nodeId.take(8)}${if (shown != null && shown.board.nodeId != play.nodeId) " (live ${shown.board.nodeId.take(8)})" else ""}, " +
+                    "stack ${play.engine?.state?.stack?.size ?: 0})")
+            }
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }

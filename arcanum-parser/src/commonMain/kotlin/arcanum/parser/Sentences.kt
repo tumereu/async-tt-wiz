@@ -5338,6 +5338,9 @@ internal class Sentences(
             ?: attempt(context) { oneLateEffect(sentence, context) } // one
             ?: attempt(context) { dmrEffect(sentence, context) } // dmr
             ?: attempt(context) { dmuLateEffect(sentence, context) } // dmu
+            // trk chunk 12: "you put a peace counter on this enchantment" after another player's part of the sentence: the imperative it names
+            // (an instruction without a subject is the controller's, CR 608.2c)
+            ?: Trk.YOU_IMPERATIVE.matchEntire(sentence)?.let { attempt(context) { effect(it.groupValues[1].replaceFirstChar { c -> c.uppercase() }, context) } }
     }
 
     /** bro fixes: [rule], one group of sentence rules; when it can't read the sentence, the target slots it added are given back, so the
@@ -17273,10 +17276,12 @@ internal class Sentences(
         // msh chunk 05: "If you would put one or more counters on a permanent you control, put that many plus one of each of those kinds of
         // counters on that permanent instead." (CR 614.1a)
         Msh.COUNTERS_PLUS_ONE.matchEntire(line)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            // trk chunk 12: the passive form is about counters any player or object puts (CR 614.1a)
+            val byYou = m.groupValues[1].isNotEmpty()
+            val filter = Filters.noun((if (byYou) m.groupValues[1] else m.groupValues[3]).removeArticle()) ?: return null
             // trk chunk 09: "twice that many" doubles each kind (CR 614.1a)
-            val modify = if (m.groupValues[2] == "twice that many") Modification.MultiplyAmount(2) else Modification.AddAmount(Value.Fixed(1))
-            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CountersPut(filter, null, causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)),
+            val modify = if ((if (byYou) m.groupValues[2] else m.groupValues[4]) == "twice that many") Modification.MultiplyAmount(2) else Modification.AddAmount(Value.Fixed(1))
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CountersPut(filter, null, causedBy = if (byYou) ObjectFilter.ControlledBy(PlayerFilter.You) else null),
                 modify = listOf(modify))), affects = mshSelfOnly)
         }
         // msh chunk 08: "You may activate abilities of creatures you control as though those creatures had haste." (CR 302.6)
@@ -17506,6 +17511,16 @@ internal class Sentences(
     /** msh: wordings of several sentences, read as a whole first. */
     /** trk: wordings of several sentences read as one. */
     private fun trkWhole(text: String, context: Context): List<Step>? {
+        // trk chunk 12: "This Saga deals 4 damage to target creature an opponent controls. At the beginning of the next combat this turn, gain control
+        // of that creature until end of turn. Untap it. It gains haste until end of turn." (a delayed trigger, CR 603.7; the target is named now,
+        // as the delayed trigger has no targets of its own, CR 603.7c)
+        Trk.THEN_AT_NEXT_COMBAT_THIS_TURN.matchEntire(text)?.let { m ->
+            val first = tmtRead(m.groupValues[1], context) ?: return null
+            val slot = context.targets.singleOrNull { it.what is TargetKind.Objects }?.name ?: return null
+            val inner = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }, it = Objects.Bound(slot))?.takeIf { it.targets.isEmpty() } ?: return null
+            return first + Step.Bind(Objects.Target(slot), slot) + Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(
+                EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.Any)), inner, duration = arcanum.api.Duration.EndOfTurn))
+        }
         // trk chunk 11: "Target opponent looks at the top card of your library, then exiles it face down. You look at the top two cards of their
         // library, then exile them face down. For each card exiled this way, the player who exiled it may play it for as long as it remains exiled.
         // Mana of any type can be spent to cast spells this way." (the exiler may look at a face-down card they may play, CR 406.3; the permission
@@ -19224,9 +19239,10 @@ internal class Sentences(
         // lci fixes: "they can't attack you or planeswalkers you control this turn." (the event's player: every creature they control, including
         // ones they gain control of later, CR 508.1c, 611.2c)
         Lci.PLAYER_CANT_ATTACK_YOU_THIS_TURN.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
-            val walkers = if (m.groupValues[2].isEmpty()) null else Objects.Each(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(PlayerFilter.You)))
+            val walkers = if (m.groupValues[3].isEmpty()) null else Objects.Each(Filters.all(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.ControlledBy(PlayerFilter.You)))
             val theirs = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.Is(Players.EventPlayer)))
-            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantAttack(arcanum.api.Recipients(objects = walkers, players = Players.You))),
+            val target = if (m.groupValues[2].isEmpty()) null else arcanum.api.Recipients(objects = walkers, players = Players.You)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantAttack(target)),
                 Affected.Objects(Objects.Each(theirs)), arcanum.api.Duration.EndOfTurn)))
         }
         // lci chunk 08: "for each player, choose up to one other target artifact or creature that player controls." (one target for each
@@ -20296,6 +20312,9 @@ internal class Sentences(
         // dmr chunk 05: "Gain control of it." (for as long as it stays, CR 611.2a); "sacrifice it" (CR 701.21a)
         if (sentence == "Gain control of it.") context.it?.let { return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)),
             Affected.Objects(it), arcanum.api.Duration.Indefinitely))) }
+        // trk chunk 12: "gain control of that creature until end of turn." (the creature an earlier part named, CR 611.2a)
+        if (sentence == "Gain control of that creature until end of turn." || sentence == "Gain control of it until end of turn.") context.it?.let {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), Affected.Objects(it), arcanum.api.Duration.EndOfTurn))) }
         // dmr chunk 05: "Untap target creature you don't control and gain control of it." ("it" is that target)
         Dmr.AND_GAIN_CONTROL_OF_IT.matchEntire(sentence)?.let { m ->
             val targets = context.targets.size
@@ -30894,16 +30913,18 @@ internal class Sentences(
         return null
     }
 
-    /** mh2 chunk 12: "When this creature enters, choose one. If [condition], choose both instead." with its modes (CR 700.2). */
+    /** mh2 chunk 12: "When this creature enters, choose one. If [condition], choose both instead." with its modes (CR 700.2); trk chunk 12:
+     * "choose one or more instead" (CR 700.2d). */
     private fun mh2ModalTrigger(header: String, modeLines: List<String>): Ability? {
         val m = WHENEVER.matchEntire(header) ?: return null
         val choose = Mh2.CHOOSE_ONE_IF_CHOOSE_BOTH_INSTEAD.matchEntire(m.groupValues[3]) ?: return null
         val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
         val condition = Conditions.condition(choose.groupValues[1], self) ?: return null
         val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it), that = that(trigger)) ?: return null, text = it) }
-        if (options.size != 2) return null
-        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = 1, max = 1, maxIf = condition, maxIfCount = 2,
-            chooser = Players.You)), triggersOnlyIf = onlyIf)
+        val oneOrMore = choose.groupValues[2] == "one or more"
+        if (if (oneOrMore) options.size < 2 else options.size != 2) return null
+        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = 1, max = 1, maxIf = condition, maxIfCount = options.size,
+            upToMaxIf = oneOrMore, chooser = Players.You)), triggersOnlyIf = onlyIf)
     }
 
     /** mh2: lines of more than one ability. */

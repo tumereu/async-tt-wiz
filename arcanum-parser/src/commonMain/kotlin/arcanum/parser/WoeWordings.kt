@@ -118,7 +118,8 @@ internal object Woe {
 internal object WoePhrases {
     // woe chunk 07: "permanent spells you cast that have an Adventure", "cards that have an Adventure" (CR 716.2a)
     private val THAT_ARE_TYPES_OR_ADVENTURE = Regex("""(.+?) that are ((?:[a-z]+ cards, )+)and/or have an Adventure""")
-    private val WITH_MV_POWER_OR_TOUGHNESS_EQUAL_TO_CHOSEN = Regex("""(.+?) with mana value, power, or toughness equal to the chosen number""")
+    // trk chunk 12: also "with mana value equal to the chosen number" alone
+    private val WITH_MV_POWER_OR_TOUGHNESS_EQUAL_TO_CHOSEN = Regex("""(.+?) with (mana value, power, or toughness|mana value|power|toughness) equal to the chosen number""")
     private val OWN_IN_EXILE = Regex("""(cards?) you (own|don't own) in exile""")
     private val THAT_HAS_AN_ADVENTURE = Regex("""(.+?) that (?:has|have) an Adventure""")
     private val THAT_ARE_ENCHANTED_BY = Regex("""(.+?) that(?: are| is|'s) enchanted by (?:an? )?(.+)""")
@@ -144,8 +145,13 @@ internal object WoePhrases {
             val base = Filters.noun(m.groupValues[1]) ?: return null
             val n = arcanum.api.Value.Remembered("number")
             val eq = arcanum.api.Comparison.Equal
-            return Filters.all(base, arcanum.api.ObjectFilter.Or(listOf(arcanum.api.ObjectFilter.ManaValue(eq, n), arcanum.api.ObjectFilter.Power(eq, n),
-                arcanum.api.ObjectFilter.Toughness(eq, n))))
+            return Filters.all(base, when (m.groupValues[2]) {
+                "mana value" -> arcanum.api.ObjectFilter.ManaValue(eq, n)
+                "power" -> arcanum.api.ObjectFilter.Power(eq, n)
+                "toughness" -> arcanum.api.ObjectFilter.Toughness(eq, n)
+                else -> arcanum.api.ObjectFilter.Or(listOf(arcanum.api.ObjectFilter.ManaValue(eq, n), arcanum.api.ObjectFilter.Power(eq, n),
+                    arcanum.api.ObjectFilter.Toughness(eq, n)))
+            })
         }
         // woe chunk 09: "other creatures you control that are enchanted by Auras you control" (an Aura of that kind attached, CR 303.4)
         THAT_ARE_ENCHANTED_BY.matchEntire(phrase)?.let { m ->

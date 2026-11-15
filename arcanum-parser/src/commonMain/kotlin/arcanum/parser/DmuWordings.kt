@@ -57,7 +57,8 @@ internal object Dmu {
     val EXILE_UP_TO_ONE_EACH_REVEAL_SHARING = Regex("""Exile ((?:up to one target \w+, )+(?:and/or )?up to one target \w+)\. For each permanent exiled this way, its controller reveals cards from the top of their library until they reveal a card that shares a card type with it, puts that card onto the battlefield, then shuffles\.""")
     val EXILE_UNTIL_LESSER_MAY_CAST_REST_BOTTOM = Regex("""Exile cards from the top of your library until you exile an? (.+?) with lesser mana value\. You may cast that card without paying its mana cost\. Put the rest on the bottom of your library in a random order\.""")
     val EXILE_THEN_RETURN_UNDER = Regex("""Exile (.+?), then return it to the battlefield under (your|its owner's|an opponent's) control\.""")
-    val THAT_PLAYER_MAY_DRAW_ADDITIONAL = Regex("""That player may draw an additional card\.""")
+    // trk chunk 12: also "That player may draw a card."
+    val THAT_PLAYER_MAY_DRAW_ADDITIONAL = Regex("""That player may draw (?:an additional|a) card\.""")
     val MAY_PAY_IF_YOU_DO_WHEN_NEXT = Regex("""You may pay ((?:\{[^}]+\})+)\. If you do, (when you next cast .+)""")
     val MAY_PAY_X_IF_YOU_DO_X_AT_MOST = Regex("""You may pay \{X\}\. If you do, (.+?\.) X can't be greater than (.+)\.""")
     val BECOMES_CREATURE_BASE_PT_MANA_VALUE = Regex("""Target (.+?) becomes a creature in addition to its other types and has base power and base toughness each equal to its mana value\.""")

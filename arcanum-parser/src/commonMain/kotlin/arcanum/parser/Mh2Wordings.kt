@@ -106,7 +106,8 @@ internal object Mh2 {
     // mh2 chunk 12
     val ECHO_COST = Regex("""Echo—(.+?)\.?""")
     val PT_EACH_EQUAL_TO = Regex("""(.+)'s power and toughness are each equal to (.+)\.""")
-    val CHOOSE_ONE_IF_CHOOSE_BOTH_INSTEAD = Regex("""choose one\. If (.+), choose both instead\.""")
+    // trk chunk 12: also "choose one or more instead" (any number of the modes, CR 700.2d)
+    val CHOOSE_ONE_IF_CHOOSE_BOTH_INSTEAD = Regex("""choose one\. If (.+), choose (both|one or more) instead\.""")
     val INVESTIGATE_TWICE = Regex("""[Ii]nvestigate twice\.""")
     val CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN = Regex("""(You|Each player) can't cast more than one (?:(.+?) )?spell each turn\.""")
     val AS_LONG_AS_NOT_ON_BATTLEFIELD_ITS_A_CREATURE = Regex("""As long as (.+?) isn't on the battlefield, it's an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")

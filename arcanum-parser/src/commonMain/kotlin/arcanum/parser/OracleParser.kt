@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 122
+    const val VERSION: Int = 123
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -146,9 +146,10 @@ object OracleParser {
             listOfNotNull(REGNAL_NUMBER.matchEntire(name)?.groupValues?.get(1)?.takeIf { arcanum.api.Supertype.Legendary in face.supertypes }) +
             // trk chunk 07: a legendary three-word name's first and last words ("Captain Archer" of "Captain Jonathan Archer", CR 201.5c)
             // trk chunk 10: also with a nickname in quotes left out ("Dr. McCoy" of "Dr. Leonard "Bones" McCoy")
+            // trk chunk 12: also of a longer name ("Captain Kirk" of "Captain James T. Kirk")
             name.replace(NICKNAME, " ").let { plain ->
-                listOfNotNull(plain.split(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in plain && it.size == 3 }
-                    ?.let { "${it[0]} ${it[2]}" }) } +
+                listOfNotNull(plain.split(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in plain && it.size >= 3 }
+                    ?.let { "${it.first()} ${it.last()}" }) } +
             // chunk 20
             face.subtypes.map { "this " + it.name }).let { names ->
             // msh: dotless aliases ("MODOK" for "M.O.D.O.K.", "Ms Marvel"), which [dotless] writes the lines with
@@ -361,7 +362,7 @@ object OracleParser {
             }
             // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
             // tmt chunk 02: "…, choose one that hasn't been chosen this turn." with a period before the modes
-            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.") || line.endsWith(", choose both instead.") /* mh2 chunk 12 */ || Mh3.CHOOSE_CREATE_WITH_THOSE_CHARACTERISTICS.matches(line) /* mh3 chunk 11 */ ||
+            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.") || line.endsWith(", choose both instead.") /* mh2 chunk 12 */ || line.endsWith(", choose one or more instead.") /* trk chunk 12 */ || Mh3.CHOOSE_CREATE_WITH_THOSE_CHARACTERISTICS.matches(line) /* mh3 chunk 11 */ ||
                     Ltr.CHOOSE_ONE_AND_GETS.matches(line) /* ltr chunk 09 */) &&
                 i < lines.size && lines[i].startsWith("• ")) {
                 val modeLines = mutableListOf<String>()

@@ -635,6 +635,7 @@ internal object RulesWords {
         "repair the timeline", "rewrite the past", "sensors", "shaka, when the walls fell", "shoot to kill", "stun",
         "cloaking device", "surgical separation", "temba, his arms wide", "transport", "use the relic",
         "transfer symbiont",
+        "hailing frequencies", "open a channel", "reckless behavior",
         // one: ONE's ability word, not in the pinned CR 207.2c list
         "corrupted",
     )

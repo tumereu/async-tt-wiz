@@ -122,6 +122,12 @@ internal object Filters {
         OF_CHOSEN_TYPE.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")))
         }
+        // trk chunk 12: "a spell with the chosen name", "a source with the chosen name" (the name chosen as this permanent entered, CR 607.2d)
+        WITH_CHOSEN_NAME.matchEntire(phrase)?.let { m ->
+            val head = m.groupValues[1].removeArticle()
+            val name = ObjectFilter.RememberedName("name")
+            return if (head == "source") name else all(noun(head) ?: return null, name)
+        }
         // trk chunk 06: "another creature with a Communicator attached to it" (an attachment of that kind, CR 301.5, 303.4)
         WITH_ATTACHED.matchEntire(phrase)?.let { m ->
             val attachment = noun(m.groupValues[2]) ?: return@let
@@ -647,6 +653,7 @@ internal object Filters {
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
     // blb chunk 12
     private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
+    private val WITH_CHOSEN_NAME = Regex("""(.+?) with the chosen name""")
     private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
     private val OF_THAT_COLOR = Regex("""(.+) of that color""")
     private val THAT_ARE_EQUIPPED = Regex("""(.+) that (?:are|is) equipped""")
@@ -705,6 +712,12 @@ internal object Events {
         ENTERS_AND_WHEN_YOU_SACRIFICE_IT.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Sacrifice(subject))
+        }
+        // trk chunk 12: "an opponent casts a spell with the chosen name or activates an ability of a source with the chosen name" (one ability,
+        // two events; mana abilities are activated abilities too, CR 602.1, 605)
+        CASTS_OR_ACTIVATES_ABILITY_OF.matchEntire(text)?.let { m ->
+            val cast = event("${m.groupValues[1]} casts ${m.groupValues[2]}", self) as? EventPattern.Cast ?: return null
+            return listOf(cast, EventPattern.Activate(Filters.noun(m.groupValues[3]) ?: return null, cast.by, manaAbilities = true))
         }
         // blb chunk 07: "you gain or lose life" (one ability, two events)
         if (text == "you gain or lose life") return listOf(EventPattern.GainLife(PlayerFilter.You), EventPattern.LoseLife(PlayerFilter.You))
@@ -888,6 +901,10 @@ internal object Events {
         DIES.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
         }
+        // trk chunk 12: a plural name of this object ("When The Duras Sisters die", CR 700.4)
+        SELF_DIE.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)
+        }
         // otj chunk 08, one chunk 04: "this Equipment becomes attached to a creature" (CR 701.3a; the attachment is the event's object)
         BECOMES_ATTACHED.matchEntire(text)?.let { m ->
             val to = Filters.noun(m.groupValues[2]) ?: return null
@@ -909,6 +926,8 @@ internal object Events {
         }
         // chunks 45, 46: "at the beginning of combat on your turn"
         if (text == "the beginning of combat on your turn") return EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.You)
+        // trk chunk 12: "at the beginning of combat on each player's turn" (CR 507.1)
+        if (text == "the beginning of combat on each player's turn") return EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.Any)
         // chunk 47: "a player sacrifices a permanent"
         // mkm chunk 10: "an opponent sacrifices an artifact" (only a permanent's controller sacrifices it, CR 701.21a)
         PLAYER_SACRIFICES.matchEntire(text)?.let { m ->
@@ -1270,6 +1289,8 @@ internal object Events {
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into (a graveyard|exile) from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
+    private val SELF_DIE = Regex("""(.+) die""")
+    private val CASTS_OR_ACTIVATES_ABILITY_OF = Regex("""(an opponent|a player) casts (an? .+?) or activates an ability of (an? .+)""")
     // chunk 12
     private val YOU_CAST_OF_CHOSEN = Regex("""you cast an? (spell of the chosen \w+)""")
     private val YOU_CAST = Regex("""you cast an? (?:(.+) )?spell""")

@@ -28,14 +28,14 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Final Fantasy chunk 07: white cards: ending the turn (CR 724.1), counters spread as a creature dies (its counters as it last existed),
+ * Final Fantasy chunk 07: white cards: ending the turn (CR 725.1), counters spread as a creature dies (its counters as it last existed),
  * returning another permanent you control, triggers of Equipment and their creature triggering twice (CR 603.2d), searching the library
  * and/or graveyard (shuffle only if the library was searched), a cost reduction for a tapped target (CR 601.2f), a card put onto the
  * battlefield instead when the spell was cast from a graveyard, giving an opponent control of a permanent, doubled life gain (CR 614.1a),
  * a sacrificed creature's counters and Equipment moved to another creature, Equipment attached at the beginning of combat.
  */
 class FinChunk07WhiteTest {
-    // CR 724.1
+    // CR 725.1
     @Test
     fun finalOblivion() = card(
         name = "Final Oblivion",

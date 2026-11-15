@@ -15,7 +15,7 @@ import arcanum.engine.sets.ltr.playOut
 import kotlin.test.Test
 
 /**
- * The Brothers' War chunk 03 in play: prototype creatures cast prototyped (CR 702.160, 718) and the abilities that read their size:
+ * The Brothers' War chunk 03 in play: prototype creatures cast prototyped (CR 702.160, 719) and the abilities that read their size:
  * token copies of a prototyped permanent, entering as a copy with its own power and toughness, a land becoming a creature of its size,
  * an X/X token three times its power, and a graveyard target limited by its power.
  */
@@ -54,7 +54,7 @@ class BroChunk03PrototypeScenariosTest {
     private fun Scenario.prototyped(name: String): CastWay =
         Engine.options(state, alice.id).filterIsInstance<Input.Cast>().first { it.card == card(name) && it.way.alternative != null }.way
 
-    // CR 718.3b: cast prototyped it is a red 2/2; CR 718.3d: the token copies of it are prototyped too (red 2/2s with mana value 5)
+    // CR 719.3b: cast prototyped it is a red 2/2; CR 719.3d: the token copies of it are prototyped too (red 2/2s with mana value 5)
     @Test
     fun scuttlelightBattalionPrototypedMakesTwoPrototypedCopies() = scenario {
         alice.battlefield(*Array(5) { "Mountain" })
@@ -73,7 +73,7 @@ class BroChunk03PrototypeScenariosTest {
         }
     }
 
-    // CR 707.9b, 718.3b: cast prototyped, it enters as a copy of the Boar that is also an artifact and is 3/3; the copy is green, not blue
+    // CR 707.9b, 719.3b: cast prototyped, it enters as a copy of the Boar that is also an artifact and is 3/3; the copy is green, not blue
     @Test
     fun bulkyShapecasterPrototypedCopiesAtThreeThree() = scenario {
         alice.battlefield(*Array(4) { "Island" }, bogBoar)
@@ -90,7 +90,7 @@ class BroChunk03PrototypeScenariosTest {
         }
     }
 
-    // CR 707.9b, 718.4: cast normally, the copy is 7/7
+    // CR 707.9b, 719.4: cast normally, the copy is 7/7
     @Test
     fun bulkyShapecasterCastNormallyCopiesAtSevenSeven() = scenario {
         alice.battlefield(*Array(9) { "Island" }, bogBoar)
@@ -143,7 +143,7 @@ class BroChunk03PrototypeScenariosTest {
         }
     }
 
-    // CR 718.3b, 115.1: cast prototyped it is a 2/1, so only a card with mana value 2 or less can be its target (the lone legal target is
+    // CR 719.3b, 115.1: cast prototyped it is a 2/1, so only a card with mana value 2 or less can be its target (the lone legal target is
     // chosen without asking); CR 707.12: the copy is cast without paying its mana cost
     @Test
     fun spellmirrorAutomatonPrototypedTargetsUpToItsPower() = scenario {
@@ -160,7 +160,7 @@ class BroChunk03PrototypeScenariosTest {
         }
     }
 
-    // CR 718.3b: prototyped it gains 3 life; CR 718.4: back in the hand it is again a {7} 6/5 card
+    // CR 719.3b: prototyped it gains 3 life; CR 719.4: back in the hand it is again a {7} 6/5 card
     @Test
     fun mossrockGolemPrototypedGainsThreeAndIsWholeAgainInTheHand() = scenario {
         alice.battlefield(*Array(4) { "Forest" })

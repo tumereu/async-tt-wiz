@@ -10,7 +10,7 @@ sealed interface MarkClear {
     data object TurnedFaceUp : MarkClear
     /** When a spell or ability takes it off ("no longer suspected", "becomes unprepared", locking a door). */
     data object ByEffect : MarkClear
-    /** When the spell it lets its controller cast becomes cast (prepared, CR 722.3c). */
+    /** When the spell it lets its controller cast becomes cast (prepared, CR 723.3c). */
     data object ItsCopyCast : MarkClear
     /** When another object gets it from the same player (a Ring-bearer, CR 701.54a). */
     data object ReplacedByAnother : MarkClear
@@ -35,7 +35,7 @@ sealed interface MarkPermission {
     data class CastCard(val cost: MarkCost, val timing: Timing? = null) : MarkPermission
     /**
      * As the permanent gains the mark, its controller gets a copy of its prepare spell in exile, and may cast the copy for as long as
-     * the permanent stays marked and on the battlefield (prepared, CR 722.3c).
+     * the permanent stays marked and on the battlefield (prepared, CR 723.3c).
      */
     data object CastCopy : MarkPermission
 }
@@ -83,13 +83,13 @@ object MarkRules {
         clears = setOf(MarkClear.ByEffect))
     // CR 702.171b
     private val SADDLED = MarkRule("saddled", PERMANENT, clears = setOf(MarkClear.EndOfTurn))
-    // CR 719.3b
+    // CR 720.3b
     private val SOLVED = MarkRule("solved", PERMANENT)
     // CR 709.5c, g
     private val UNLOCKED = MarkRule("unlocked", PERMANENT, clears = setOf(MarkClear.ByEffect))
     // CR 701.40a
     private val MANIFESTED = MarkRule("manifested", PERMANENT, clears = setOf(MarkClear.TurnedFaceUp))
-    // CR 722.3a–c
+    // CR 723.3a–c
     private val PREPARED = MarkRule("prepared", PERMANENT, clears = setOf(MarkClear.ByEffect, MarkClear.ItsCopyCast), permission = MarkPermission.CastCopy)
     // CR 701.64b
     private val HARNESSED = MarkRule("harnessed", PERMANENT)

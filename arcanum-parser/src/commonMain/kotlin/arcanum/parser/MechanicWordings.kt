@@ -133,7 +133,7 @@ internal object MechanicWordings {
         // CR 701.49a–d
         "Venture into the dungeon." -> listOf(Step.Do(Effect.Action(KeywordAction.Venture)))
         "Venture into Undercity." -> listOf(Step.Do(Effect.Action(KeywordAction.VentureInto(undercity))))
-        // CR 726.1, 726.3
+        // CR 727.1, 727.3
         "You take the initiative." -> listOf(Step.Do(Effect.GiveDesignation(arcanum.api.Players.You, arcanum.api.Designation.Initiative)))
         else -> null
     }

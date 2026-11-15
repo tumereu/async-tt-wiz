@@ -239,7 +239,7 @@ fun incubate(count: Int): Step = incubate(n(count))
 /** "Incubate N twice", "Incubate N five times": the action again each time */
 fun incubateTimes(times: Int, count: Value): Step = Step.Repeat(n(times), listOf(incubate(count)))
 val incubatorToken: ObjectFilter = and(sub("Incubator"), token, you)
-/** "transform all Incubator tokens you control": every such permanent (CR 701.27a, 701.27c) */
+/** "transform all Incubator tokens you control": every such permanent (CR 701.27a, 701.27d) */
 val transformAllIncubators: Step = Step.Do(Effect.Transform(Objects.Each(and(sub("Incubator"), token, you, permanentFilter))))
 /** The incubate reminder of N ("two", "X"). */
 fun incubateReminder(n: String) = "(Create an Incubator token with $n +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)"

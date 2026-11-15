@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 
 /**
  * Edge of Eternities mechanics in play: warp (CR 702.185: the alternative cost from the hand, the permanent exiled at the next end step,
- * the card cast from exile on a later turn, warped cards in exile), station (CR 702.184, 721: charge counters by power or toughness, the
+ * the card cast from exile on a later turn, warped cards in exile), station (CR 702.184, 722: charge counters by power or toughness, the
  * striations' abilities and P/T box), Lander tokens (CR 111.10u) and void.
  */
 class EoeMechanicsScenariosTest {
@@ -159,7 +159,7 @@ class EoeMechanicsScenariosTest {
     // ---- station
 
     /** Station: tap another creature, charge counters equal to its power; at 3+ it is an artifact creature 2/2 with flying. */
-    // CR 702.184a, 721.2b
+    // CR 702.184a, 722.2b
     @Test
     fun stationBecomesACreature() = scenario {
         alice.battlefield(shuttle, bear, ogre)
@@ -213,7 +213,7 @@ class EoeMechanicsScenariosTest {
     }
 
     /** A Spacecraft that is a creature only from its counters can attack once it has enough; it stops being one when they're gone. */
-    // CR 721.2b, 721.4
+    // CR 722.2b, 722.4
     @Test
     fun stationedSpacecraftAttacks() = scenario {
         libraries()

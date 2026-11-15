@@ -82,7 +82,7 @@ class MomChunk17DamageDestroyDrawAndMoreTest {
                 source = ObjectFilter.Any, to = RecipientFilter()), EventRole.Object))))),
     )
 
-    // CR 603.2 (counters put by any source), 603.2i
+    // CR 603.2 (counters put by any source), 603.2h
     @Test
     fun duskLegionDuelist() = card(
         name = "Scarred Duelist", cost = "{1}{W}", type = "Creature — Vampire Soldier", pt = "2/2",

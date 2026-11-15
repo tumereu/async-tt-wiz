@@ -217,7 +217,7 @@ class TlaEarthbendScenariosTest {
     }
 
     /** Chapter III earthbends 3. */
-    // CR 714.2b
+    // CR 715.2b
     @Test
     fun grottoChapterThree() = scenario {
         turn(step = TurnStep.Upkeep)

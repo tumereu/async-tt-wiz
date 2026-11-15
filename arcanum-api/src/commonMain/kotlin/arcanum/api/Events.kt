@@ -93,7 +93,7 @@ sealed interface EventPattern {
         val reaching: Int? = null,
         // fdn
         /** Only counters an effect puts ("If an effect would put one or more counters"), not those put as a cost (a loyalty ability's
-         * "+1", CR 118.3, 606.4) or by a turn-based action (a Saga's lore counter, CR 714.3b). */
+         * "+1", CR 118.3, 606.4) or by a turn-based action (a Saga's lore counter, CR 715.3b). */
         val byEffect: Boolean = false,
     ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes unattached from something matching [from]
@@ -137,7 +137,7 @@ sealed interface EventPattern {
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     // ltr chunk 13
-    /** The final chapter ability of a Saga matching [sagas] resolves (CR 714.2c, the chapter ability with the highest number). Role object:
+    /** The final chapter ability of a Saga matching [sagas] resolves (CR 715.2e, the chapter ability with the highest number). Role object:
      * the Saga. */
     @Serializable @SerialName("final-chapter-resolves") data class FinalChapterResolves(val sagas: ObjectFilter) : EventPattern
     // ltr chunk 12
@@ -222,7 +222,7 @@ sealed interface EventPattern {
     @Serializable @SerialName("crewed") data class Crewed(val objects: ObjectFilter) : EventPattern
     /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
     @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter) : EventPattern
-    /** A Class matching [objects] becomes level [level] (CR 716.2a, "When this Class becomes level 2"). */
+    /** A Class matching [objects] becomes level [level] (CR 717.2a, "When this Class becomes level 2"). */
     @Serializable @SerialName("class-level") data class BecomesLevel(val objects: ObjectFilter, val level: Int) : EventPattern
     /** A creature matching [objects] mutates (CR 702.140d): a mutating creature spell merged with it as it resolved. Role object: the
      * merged permanent. */
@@ -283,7 +283,7 @@ sealed interface EventPattern {
      * 701.22d); [Players.EventPlayer] is who scried and the event's amount is how many cards they put on the bottom ("that many"). */
     @Serializable @SerialName("scried-to-bottom") data class ScriedToBottom(val players: PlayerFilter) : EventPattern
     /** An object matching [objects] gains the designation [mark], which it didn't have: "Whenever a creature you control becomes monstrous"
-     * (CR 701.37b, 702.112b, 701.60a, 722.3a, 702.171b). One that already has it can't gain it again (CR 701.60d, 722.3a). One pattern for
+     * (CR 701.37b, 702.112b, 701.60a, 723.3a, 702.171b). One that already has it can't gain it again (CR 701.60d, 723.3a). One pattern for
      * every mark, so a new mark needs no new event type. Role object (the marked object); [Players.EventPlayer] is its controller. */
     @Serializable @SerialName("got-mark") data class GotMark(val mark: ObjectMark, val objects: ObjectFilter) : EventPattern
 }
@@ -425,7 +425,7 @@ sealed interface Trigger {
     }
     /** A state trigger (CR 603.8): triggers whenever [condition] becomes true, once until it resolves. */
     @Serializable @SerialName("state") data class State(val condition: Condition) : Trigger
-    /** Saga chapter abilities (CR 714.2): lore counters reach one of [chapters]. "I, II —" is written once but is one
-     * chapter ability per listed chapter (CR 714.2c). */
+    /** Saga chapter abilities (CR 715.2): lore counters reach one of [chapters]. "I, II —" is written once but is one
+     * chapter ability per listed chapter (CR 715.2c). */
     @Serializable @SerialName("chapter") data class Chapter(val chapters: List<Int>) : Trigger
 }

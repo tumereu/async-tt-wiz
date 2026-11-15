@@ -518,7 +518,7 @@ class LtrMulticoloredScenariosTest {
     }
 
     /** A Saga's final chapter resolving reveals the next Saga onto the battlefield. */
-    // CR 714.2c
+    // CR 715.2c
     @Test
     fun iarwainChainsSagas() = scenario {
         alice.battlefield(s.iarwainBenAdar, s.bookOfTheDeepRecords, counters = listOf(CounterKind.Lore to 2))

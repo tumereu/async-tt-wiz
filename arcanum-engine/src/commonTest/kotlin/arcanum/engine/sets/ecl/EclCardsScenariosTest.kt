@@ -244,7 +244,7 @@ class EclCardsScenariosTest {
         }
     }
 
-    // CR 701.27e: "transforms into" this face triggers again
+    // CR 701.27f: "transforms into" this face triggers again
     @Test
     fun aLegendTransformsAtTheFirstMainPhase() = scenario {
         alice.library(bear, bear)

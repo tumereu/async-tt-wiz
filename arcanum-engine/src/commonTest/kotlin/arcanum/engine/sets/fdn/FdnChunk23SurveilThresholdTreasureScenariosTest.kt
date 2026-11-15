@@ -450,7 +450,7 @@ class FdnChunk23SurveilThresholdTreasureScenariosTest {
         assertFailsWith<Throwable> { bob.blocks(blocker to bear) }
     }
 
-    // CR 106.4, 106.4c: the six mana stays in the pool through the combat steps
+    // CR 106.4: the six mana stays in the pool through the combat steps
     @Test
     fun ventwingKeepsItsManaThroughTheTurn() = scenario {
         alice.battlefield(ventwing)

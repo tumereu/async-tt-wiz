@@ -226,7 +226,7 @@ class MomChunk13PutRepeatRevealAndTriggersTest {
         triggered(on(EventPattern.Attack(ObjectFilter.Is(Objects.Self), target = RecipientFilter(objects = battle))), pump(Objects.Self, 1, 1)),
     )
 
-    // CR 702.165a (backup's triggered ability), 707.10 (copying an ability), 603.2i (only once each turn)
+    // CR 702.165a (backup's triggered ability), 707.10 (copying an ability), 603.2h (only once each turn)
     @Test
     fun glassguardPhalanx() = card(
         name = "Glassguard Phalanx",

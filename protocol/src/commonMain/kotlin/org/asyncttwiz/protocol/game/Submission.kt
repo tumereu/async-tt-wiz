@@ -167,7 +167,7 @@ object Authority {
 
 /**
  * Who may submit which input (I-D56 §6), the same rules on the server and the device: a player's own real inputs where
- * they are the decider ([Host.decider], CR 723.5); engine-automatic answers any device may make because they decide
+ * they are the decider ([Host.decider], CR 724.5); engine-automatic answers any device may make because they decide
  * nothing for anyone; random answers (the host's, D25); and the other player's input assumed by the author, of the
  * assumable kinds only (§3). Nothing else: no passing, choosing, dividing or declaring for the other player.
  */

@@ -30,7 +30,7 @@ import kotlin.test.Test
 /**
  * Avatar: The Last Airbender chunk 04: waterbend costs (CR 701.67a: for each generic mana, an untapped artifact or creature may be tapped
  * instead): of activated abilities (with {T}, exhaust), as an additional cost of a spell, mandatory or optional (CR 601.2b, 701.67b), with X;
- * what the spells do when it was paid; extra turns and control of another player's combat phase (CR 723.2).
+ * what the spells do when it was paid; extra turns and control of another player's combat phase (CR 724.2).
  */
 class TlaChunk04WaterbendCostsTest {
     private fun additionalWaterbend(cost: String, optional: Boolean = false) = static(Mechanic.AdditionalCost(cost = cost(waterbend(cost)), optional = optional))
@@ -173,7 +173,7 @@ class TlaChunk04WaterbendCostsTest {
         activated(cost(waterbend("{6}")), draw(1)),
     )
 
-    // CR 714.2c, 500.7 (extra turn), 702.177a
+    // CR 715.2c, 500.7 (extra turn), 702.177a
     @Test
     fun theTaleOfOsric() = cardFaces(Layout.Transform,
         card(
@@ -219,7 +219,7 @@ class TlaChunk04WaterbendCostsTest {
         activated(cost(waterbend("{3}"), tap), tapIt(target("creature")), targets = listOf(slot("creature", creatureOpponentControls))),
     )
 
-    // CR 601.2b (an optional additional cost), 723.1, 723.2
+    // CR 601.2b (an optional additional cost), 724.1, 724.2
     @Test
     fun secretOfVeinshaping() = card(
         name = "Secret of Veinshaping",

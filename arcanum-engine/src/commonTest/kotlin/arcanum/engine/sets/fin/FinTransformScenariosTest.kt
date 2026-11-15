@@ -20,7 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Final Fantasy chunk 04 in play: legends that exile themselves and return transformed into Saga creatures (CR 712.14, 714.3a: a Saga
+ * Final Fantasy chunk 04 in play: legends that exile themselves and return transformed into Saga creatures (CR 712.11, 715.3a: a Saga
  * entering gets its first lore counter), and the Sagas that exile themselves and return with their front face up (CR 400.7: a new object).
  */
 class FinTransformScenariosTest {
@@ -85,7 +85,7 @@ class FinTransformScenariosTest {
         expect { FinSet.maraFrostboundNoble.counters(lore) shouldBe 1 }
     }
 
-    // CR 714.4: the last chapter exiles it and returns it (front face up, a new object)
+    // CR 715.4: the last chapter exiles it and returns it (front face up, a new object)
     @Test
     fun rimeheartColdSnapTapsLandsAndReturnsMara() = scenario {
         libraries()
@@ -139,7 +139,7 @@ class FinTransformScenariosTest {
         expect { giant.zone shouldBe Zone.Graveyard }
     }
 
-    // CR 702.34a flashback; CR 712.14 put onto the battlefield transformed
+    // CR 702.34a flashback; CR 712.11 put onto the battlefield transformed
     @Test
     fun espersAwakeningFromTheGraveyardBecomesASaga() = scenario {
         alice.library(ogre, notes, notes, notes)

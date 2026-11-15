@@ -26,7 +26,7 @@ import kotlin.test.Test
  * ability labelled power-up: activated only once, and costing less by the permanent's mana cost in the turn it entered (the label's
  * rules, `KeywordExpansions.withLabelRules`, and the engine). Two counters of different kinds (a keyword counter, CR 122.1b); an
  * extra turn with power-up abilities forbidden during it (CR 500.7); X in the cost (CR 107.3a); a look at the top cards with a
- * double-faced card transformed (CR 701.27c).
+ * double-faced card transformed (CR 701.27d).
  */
 class MshChunk01PowerUpTest {
     @Test
@@ -65,7 +65,7 @@ class MshChunk01PowerUpTest {
             counters(Objects.Self, 1, CounterKind.Keyword(Keyword.Indestructible.kind))),
     )
 
-    // CR 701.27c: transforming a card that isn't double-faced does nothing, so the choice is offered for the card put onto the battlefield
+    // CR 701.27d: transforming a card that isn't double-faced does nothing, so the choice is offered for the card put onto the battlefield
     @Test
     fun directorGrimmSpymaster() = card(
         name = "Director Grimm, Spymaster",

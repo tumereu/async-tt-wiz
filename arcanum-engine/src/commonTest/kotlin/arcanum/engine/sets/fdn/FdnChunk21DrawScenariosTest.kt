@@ -168,7 +168,7 @@ class FdnChunk21DrawScenariosTest {
         expect { alice.hand.size shouldBe 0 }
     }
 
-    // CR 117.12, 118.1: the optional payment, then the draw
+    // CR 118.12, 118.1: the optional payment, then the draw
     @Test
     fun menderDrawsWhenYouPayForASmallCreature() = scenario {
         stock()
@@ -185,7 +185,7 @@ class FdnChunk21DrawScenariosTest {
         }
     }
 
-    // CR 117.12: declining the payment draws nothing
+    // CR 118.12: declining the payment draws nothing
     @Test
     fun menderDrawsNothingWhenYouDecline() = scenario {
         stock()
@@ -313,7 +313,7 @@ class FdnChunk21DrawScenariosTest {
         }
     }
 
-    // CR 117.12, 701.21a, 509.1b: sacrifice, then draw and become unblockable
+    // CR 118.12, 701.21a, 509.1b: sacrifice, then draw and become unblockable
     @Test
     fun gluttonSacrificesToDrawAndBecomeUnblockable() = scenario {
         stock()
@@ -332,7 +332,7 @@ class FdnChunk21DrawScenariosTest {
         }
     }
 
-    // CR 117.12: declining keeps the creature and the cards
+    // CR 118.12: declining keeps the creature and the cards
     @Test
     fun gluttonDecliningDrawsNothing() = scenario {
         stock()

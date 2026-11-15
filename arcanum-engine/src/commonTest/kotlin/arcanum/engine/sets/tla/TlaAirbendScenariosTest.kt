@@ -144,7 +144,7 @@ class TlaAirbendScenariosTest {
     }
 
     /** Chapter I: starting with you, each player picks an opponent's permanent with mana value 3 or more, and they're exiled. */
-    // CR 714.2b, 101.4
+    // CR 715.2b, 101.4
     @Test
     fun taleOfWynneChapterOne() = scenario {
         alice.battlefield("Plains", "Plains", "Plains", "Plains", "Plains")
@@ -162,7 +162,7 @@ class TlaAirbendScenariosTest {
     }
 
     /** Chapter III transforms it into the Avatar; the second spell each turn airbends. */
-    // CR 714.2b, 701.27, 603.2
+    // CR 715.2b, 701.27, 603.2
     @Test
     fun taleOfWynneBecomesTheAvatar() = scenario {
         turn(step = TurnStep.Upkeep)

@@ -53,7 +53,7 @@ class WoeChunk01RoleTokensTest {
             targets = listOf(slot("creatures", creature, max = 2))),
     )
 
-    // CR 715 (Adventure); CR 111.10m: Royal Role
+    // CR 716 (Adventure); CR 111.10m: Royal Role
     @Test
     fun smittenSquire() = cardFaces(Layout.Adventure,
         card(name = "Smitten Squire", cost = "{3}{W}", type = "Creature — Human Knight", pt = "3/3") to none,
@@ -101,7 +101,7 @@ class WoeChunk01RoleTokensTest {
         ))),
     )
 
-    // CR 715; CR 111.10q
+    // CR 716; CR 111.10q
     @Test
     fun vainHexer() = cardFaces(Layout.Adventure,
         card(name = "Vain Hexer", cost = "{2}{B}", type = "Creature — Human Warlock", pt = "2/3",
@@ -166,7 +166,7 @@ class WoeChunk01RoleTokensTest {
             targets = listOf(targetOpponent, slot("creature", creatureYouControl, min = 0))),
     )
 
-    // CR 715; CR 111.10k
+    // CR 716; CR 111.10k
     @Test
     fun savageWerebadger() = cardFaces(Layout.Adventure,
         card(name = "Savage Werebadger", cost = "{3}{G}", type = "Creature — Elf Fox Warrior", pt = "4/3", text = "Trample") to abilities(Keyword.Trample),
@@ -175,7 +175,7 @@ class WoeChunk01RoleTokensTest {
         ) to abilities(spell(createRole("Monster", target("creature")), targets = listOf(creatureSlot))),
     )
 
-    // CR 714.2b (chapters); CR 111.10j; CR 603.7 (the delayed trigger of chapter III, for this turn)
+    // CR 715.2b (chapters); CR 111.10j; CR 603.7 (the delayed trigger of chapter III, for this turn)
     @Test
     fun tomlinsFirstBout() = card(
         name = "Tomlin's First Bout",

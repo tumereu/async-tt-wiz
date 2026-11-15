@@ -118,7 +118,7 @@ class InrChunk07ConditionsCopiesCountersTest {
             PlayerFilter.Where(Condition.Compare(Value.HandSize(Players.Tested), Comparison.Equal, n(0))), atLeast = 1))),
     )
 
-    // CR 603.2, 601.2i (a cast trigger), 712 (meld pair), 101.2 (the back face's restriction)
+    // CR 603.2, 601.2i (a cast trigger), 713 (meld pair), 101.2 (the back face's restriction)
     @Test
     fun brunhildTheDimmingLight() = cardFaces(Layout.Meld("Gilda, the Shattered Edge"),
         card(
@@ -285,7 +285,7 @@ class InrChunk07ConditionsCopiesCountersTest {
             targets = listOf(slot("card", inYourGraveyard(creature)))),
     )
 
-    // CR 601.2f (a reduction for each card type, CR 205.2a), 603.2 / 601.2i (a cast trigger), 723.1 (controlling another player's turn),
+    // CR 601.2f (a reduction for each card type, CR 205.2a), 603.2 / 601.2i (a cast trigger), 724.1 (controlling another player's turn),
     // 500.7 (the extra turn comes after that turn)
     @Test
     fun vorthakTheForetoldEnd() = card(

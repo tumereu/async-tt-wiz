@@ -136,7 +136,7 @@ val drone: TokenSpec = TokenSpec.Defined(FaceDefinition("Drone Token", colorIndi
 fun warp(manaCost: String): Keyword = Keyword.Warp(Cost.mana(ManaCost.parse(manaCost)!!))
 /** Charge counters (CR 122.1), what station puts (CR 702.184a). */
 val charge: CounterKind = KeywordExpansions.CHARGE
-/** A station symbol "N+ | [abilities]" (CR 721.2a), with its P/T box "[P/T]" when it has one (CR 721.2b): "As long as this permanent has N or more
+/** A station symbol "N+ | [abilities]" (CR 722.2a), with its P/T box "[P/T]" when it has one (CR 722.2b): "As long as this permanent has N or more
  * charge counters on it, it has [abilities] and is a creature with base power and toughness [P/T] in addition to its other types." */
 fun station(threshold: Int, vararg abilities: Ability, pt: String? = null): Ability.Static {
     val creature = pt?.split('/')?.let { (p, t) -> listOf(Mechanic.SetTypes(add = listOf(CardType.Creature)), Mechanic.SetPowerToughness(n(p.toInt()), n(t.toInt()))) }

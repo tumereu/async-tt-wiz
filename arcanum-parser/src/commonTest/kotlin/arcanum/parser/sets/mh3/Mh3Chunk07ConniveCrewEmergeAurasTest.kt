@@ -355,7 +355,7 @@ class Mh3Chunk07ConniveCrewEmergeAurasTest {
         ),
     )
 
-    // CR 712.8b: a modal double-faced card's front face is an Aura
+    // CR 712.6: a modal double-faced card's front face is an Aura
     @Test
     fun crystalwingFavor() = cardFaces(
         Layout.ModalDoubleFaced,

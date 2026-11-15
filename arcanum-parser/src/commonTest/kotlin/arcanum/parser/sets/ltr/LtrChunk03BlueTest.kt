@@ -32,7 +32,7 @@ import kotlin.test.Test
 
 /**
  * The Lord of the Rings chunk 03: blue cards, first part. A cost reduction for two legendary creatures (CR 601.2f), shuffling
- * target cards into a library and adding mana in a chapter (CR 714.2b), an untap replaced by removing a counter (CR 614.1a,
+ * target cards into a library and adding mana in a chapter (CR 715.2b), an untap replaced by removing a counter (CR 614.1a,
  * 502.3), a modal trigger on becoming blocked giving control of a Horse (CR 700.2, 509.3c), flash for every spell this turn,
  * "whenever you scry" working from the graveyard (CR 701.22), base power and toughness until end of turn (CR 613.4b), the n-th
  * resolution of an ability this turn (CR 113.7), countering a legendary spell, moving counters (CR 122.5), untapping
@@ -55,7 +55,7 @@ class LtrChunk03BlueTest {
         spell(scry(2), draw(2)),
     )
 
-    // CR 714.2b, 701.24: shuffled in; mana added by a chapter ability
+    // CR 715.2b, 701.24: shuffled in; mana added by a chapter ability
     @Test
     fun theWashingSong() = card(
         name = "The Washing Song",

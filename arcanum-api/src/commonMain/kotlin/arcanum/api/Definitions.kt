@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CardDefinition(val layout: Layout, val faces: List<FaceDefinition>)
 
-/** How a card's faces are arranged (CR 709–712, 715). */
+/** How a card's faces are arranged (CR 709–713, 716). */
 @Serializable
 sealed interface Layout {
     @Serializable @SerialName("normal") data object Normal : Layout
@@ -32,17 +32,17 @@ sealed interface Layout {
     @Serializable @SerialName("transform") data object Transform : Layout
     /** Modal double-faced card: either face can be played (CR 712). */
     @Serializable @SerialName("modal-dfc") data object ModalDoubleFaced : Layout
-    /** Meld card: melds with [partner] into a combined back face (CR 712, 701.42). */
+    /** Meld card: melds with [partner] into a combined back face (CR 713, 701.42); not a double-faced card (CR 713.1). */
     @Serializable @SerialName("meld") data class Meld(val partner: String) : Layout
-    /** Adventurer card: the second face is the Adventure spell (CR 715). */
+    /** Adventurer card: the second face is the Adventure spell (CR 716). */
     @Serializable @SerialName("adventure") data object Adventure : Layout
     /** Omen card: the inset face is an Omen spell; cast that way it is shuffled into its owner's library as it resolves
-     * (CR 720). */
+     * (CR 721). */
     @Serializable @SerialName("omen") data object Omen : Layout
     // fra
-    /** Preparation card (CR 722): the second face is the prepare spell, alternative characteristics never cast from the card
-     * itself (722.3) but by a copy its permanent's controller may cast while the permanent is prepared ([ObjectMark.Prepared],
-     * 722.3c). In every zone the card has only its first face's characteristics (722.4). */
+    /** Preparation card (CR 723): the second face is the prepare spell, alternative characteristics never cast from the card
+     * itself (723.3) but by a copy its permanent's controller may cast while the permanent is prepared ([ObjectMark.Prepared],
+     * 723.3c). In every zone the card has only its first face's characteristics (723.4). */
     @Serializable @SerialName("prepare") data object Prepare : Layout
 }
 

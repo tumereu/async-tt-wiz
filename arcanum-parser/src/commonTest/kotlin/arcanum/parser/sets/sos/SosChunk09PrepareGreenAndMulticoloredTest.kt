@@ -29,8 +29,8 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Secrets of Strixhaven chunk 09: preparation cards (CR 722) in green and two colours, and effects that make creatures prepared or
- * unprepared (CR 722.3a, b: only creatures with prepare spells can be): becoming prepared by an intervening if on attacking, by casting a
+ * Secrets of Strixhaven chunk 09: preparation cards (CR 723) in green and two colours, and effects that make creatures prepared or
+ * unprepared (CR 723.3a, b: only creatures with prepare spells can be): becoming prepared by an intervening if on attacking, by casting a
  * creature spell, by cards leaving your graveyard, by landfall, by an activated ability exiling a card from the graveyard; the spells:
  * regrowth, X life, Rampant Growth, milling and reanimating from among the milled cards, a tutor for an instant or sorcery card.
  */
@@ -263,7 +263,7 @@ class SosChunk09PrepareGreenAndMulticoloredTest {
         ),
     )
 
-    // CR 700.2, 603.3c: up to one mode; CR 722.3a, b
+    // CR 700.2, 603.3c: up to one mode; CR 723.3a, b
     @Test
     fun athenaeumBookwarden() = card(
         name = "Athenaeum Bookwarden",
@@ -282,7 +282,7 @@ class SosChunk09PrepareGreenAndMulticoloredTest {
         ), min = 0, max = 1, chooser = Players.You))),
     )
 
-    // CR 722.3a: only a creature with a prepare spell becomes prepared
+    // CR 723.3a: only a creature with a prepare spell becomes prepared
     @Test
     fun aircoachLanding() = card(
         name = "Aircoach Landing",

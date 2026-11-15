@@ -182,7 +182,7 @@ class TlaChunk01AirbendTest {
         Keyword.Equip(manaCost("{2}")),
     )
 
-    // CR 714.2b, 101.4 (starting with you), 701.27; the second spell each turn
+    // CR 715.2b, 101.4 (starting with you), 701.27; the second spell each turn
     @Test
     fun theTaleOfWynne() = cardFaces(Layout.Transform,
         card(

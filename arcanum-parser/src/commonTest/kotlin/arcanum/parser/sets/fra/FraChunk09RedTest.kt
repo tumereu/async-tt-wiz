@@ -218,7 +218,7 @@ class FraChunk09RedTest {
         name = "Confront Thyself",
         cost = "{5}{R}{R}",
         type = "Sorcery",
-        text = "For each creature target player controls, create a token that's a copy of that creature, except it has haste and \"At the beginning of the end step, if you don't control a planeswalker, sacrifice this creature.\"",
+        text = "For each creature target player controls, create a token that's a copy of that creature, except it has haste and \"At the beginning of the end step, if you don't control a planeswalker, sacrifice this token.\"",
     ) parsesTo abilities(spell(Step.ForEach(Each.Objects(Objects.Each(and(creature, controlledBy(PlayerFilter.Is(Players.Target("player")))))), "creature", listOf(
             Step.Do(Effect.CreateToken(TokenSpec.CopyOf(Objects.Bound("creature"), except = listOf(CopyException.AddAbilities(listOf(
                 Keyword.Haste,

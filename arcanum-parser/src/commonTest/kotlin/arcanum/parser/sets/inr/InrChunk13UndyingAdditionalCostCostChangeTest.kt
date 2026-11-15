@@ -133,7 +133,7 @@ class InrChunk13UndyingAdditionalCostCostChangeTest {
         ))),
     )
 
-    // CR 509.1b, 112.6 (a card that works from the graveyard), 601.2a
+    // CR 509.1b, 113.6 (a card that works from the graveyard), 601.2a
     @Test
     fun gravewalker() = card(
         name = "Gravewalker", cost = "{B}", type = "Creature — Zombie", pt = "2/1",

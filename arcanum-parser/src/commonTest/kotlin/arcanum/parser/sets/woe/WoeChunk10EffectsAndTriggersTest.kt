@@ -63,7 +63,7 @@ class WoeChunk10EffectsAndTriggersTest {
             RecipientFilter(objects = creatureYouControl, players = PlayerFilter.You)))), null, Duration.EndOfTurn))),
     )
 
-    // CR 115.1 (a target card in any graveyard), 110.2a (under your control); CR 715 (Adventure)
+    // CR 115.1 (a target card in any graveyard), 110.2a (under your control); CR 716 (Adventure)
     @Test
     fun virtueOfPersistence() = cardFaces(Layout.Adventure,
         card(name = "Creed of Tenacity", cost = "{5}{B}{B}", type = "Enchantment",
@@ -79,7 +79,7 @@ class WoeChunk10EffectsAndTriggersTest {
         ),
     )
 
-    // CR 715.2a (a card that has an Adventure), 305.6
+    // CR 716.2a (a card that has an Adventure), 305.6
     @Test
     fun edgewallInn() = card(
         name = "Hollowbrook Tavern",

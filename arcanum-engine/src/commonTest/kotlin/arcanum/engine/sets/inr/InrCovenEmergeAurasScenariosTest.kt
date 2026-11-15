@@ -110,7 +110,7 @@ class InrCovenEmergeAurasScenariosTest {
         }
     }
 
-    // CR 701.27, 701.28f: the creature can't transform by its own ability (control: without the Aura it does)
+    // CR 701.27, 701.28g: the creature can't transform by its own ability (control: without the Aura it does)
     @Test
     fun withoutTheAuraTheShifterTransforms() = scenario {
         alice.battlefield("Plains", shifter)

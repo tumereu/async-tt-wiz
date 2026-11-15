@@ -283,7 +283,7 @@ class BroChunk05MillAndScryTest {
         activated(cost(mana("{1}{W}"), CostPart.Exile(CostObjects.Self, from = Zone.Graveyard)), scry(2)),
     )
 
-    // CR 614.1c (enters tapped unless); CR 602.5d (as a sorcery); CR 712.4a: the melded back face as chunk 04's Sylvara
+    // CR 614.1c (enters tapped unless); CR 602.5d (as a sorcery); CR 713.1a: the melded back face as chunk 04's Sylvara
     @Test
     fun thornmereSanctumOfMoss() {
         val lands = count(and(land, you))

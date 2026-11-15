@@ -435,7 +435,7 @@ sealed interface Mechanic {
     /** The affected face-down permanents can't be turned face up: neither by a special action (CR 116.2b, 701.40b) nor by an
      * effect. */
     @Serializable @SerialName("cant-be-turned-face-up") data object CantBeTurnedFaceUp : Mechanic
-    /** The affected permanents can't transform (and so can't convert) by any effect or by day and night (CR 701.27, 701.28f, 101.2). */
+    /** The affected permanents can't transform (and so can't convert) by any effect or by day and night (CR 701.27, 701.28g, 101.2). */
     @Serializable @SerialName("cant-transform") data object CantTransform : Mechanic
     /** When the card itself may be cast ("Cast this spell only during combat", "only if …"); prohibitions on other spells
      * are [CantCast]. */
@@ -712,7 +712,7 @@ sealed interface CopyException {
     @Serializable @SerialName("this-ability") data object ThisAbility : CopyException
     // bro chunk 03
     /** "… and its power and toughness are equal to this creature's power and toughness": the entering object's own power and
-     * toughness (its prototype's when cast prototyped, CR 718.3b), fixed as it enters as a copy (CR 707.9b, 614.12). */
+     * toughness (its prototype's when cast prototyped, CR 719.3b), fixed as it enters as a copy (CR 707.9b, 614.12). */
     @Serializable @SerialName("own-pt") data object OwnPowerToughness : CopyException
 }
 
@@ -796,7 +796,7 @@ sealed interface Modification {
      * enters. */
     @Serializable @SerialName("as-enters") data class AsEnters(val steps: List<Step>) : Modification
     // fin
-    /** "As this creature transforms into [face], …" (CR 712.20): [steps] happen while the permanent transforms, not afterward and not on the
+    /** "As this creature transforms into [face], …" (CR 701.27i): [steps] happen while the permanent transforms, not afterward and not on the
      * Stack, with the permanent already its new face; used on a [Mechanic.Replacement] of [EventPattern.Transform]. Unlike [AsEnters], the
      * steps may do anything ("you get an emblem", "choose an opponent"). */
     @Serializable @SerialName("as-transforms") data class AsTransforms(val steps: List<Step>) : Modification
@@ -825,8 +825,8 @@ sealed interface Modification {
      * [Mechanic.SkipStep]; preventing damage is [Mechanic.Prevention] or [Effect.PreventDamage] (CR 615, not 614). */
     @Serializable @SerialName("skip") data object Skip : Modification
     // fra
-    /** The entering permanent enters with [mark] ("This creature enters prepared", CR 722.3a): it has the designation as it
-     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). otj: a moved card gets it wherever
+    /** The entering permanent enters with [mark] ("This creature enters prepared", CR 723.3a): it has the designation as it
+     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 723.3c). otj: a moved card gets it wherever
      * [MarkRules] lets it live ("exile that spell instead of putting it into your graveyard as it resolves. If you do, it becomes
      * plotted", CR 702.170c); where it can't, nothing. */
     @Serializable @SerialName("enters-marked") data class EntersMarked(val mark: ObjectMark) : Modification

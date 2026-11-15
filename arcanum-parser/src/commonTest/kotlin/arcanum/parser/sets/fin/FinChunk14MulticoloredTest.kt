@@ -92,7 +92,7 @@ class FinChunk14MulticoloredTest {
         triggered(landfall, pump(Objects.Self, 1, 0), abilityWord = "Landfall"),
     )
 
-    // CR 714.3b (removing lore counters)
+    // CR 715.3b (removing lore counters)
     @Test
     fun garnaPrincessOfTheMist() = card(
         name = "Garna, Princess of the Mist",

@@ -13,7 +13,7 @@ internal object Mkm {
     val OWNED_NOT_CONTROLLED = Regex("""(.+) you own but don't control""")
     // mkm chunk 01: "Draw a card for each one they gained control of this way." after giving control of targets
     val DRAW_FOR_EACH_THEY_GAINED_CONTROL = Regex("""Draw a card for each one they gained control of this way\.""")
-    // mkm chunk 02: "To solve — You control three or more artifacts." (a Case, CR 719.3a)
+    // mkm chunk 02: "To solve — You control three or more artifacts." (a Case, CR 720.3a)
     val TO_SOLVE = Regex("""To solve — (.+)\.""")
     // mkm chunk 02: "you may have Lazav become a copy of a creature card exiled with it until end of turn" (CR 607.2a, 707.2)
     val MAY_HAVE_BECOME_COPY_OF_EXILED_WITH = Regex("""[Yy]ou may have (.+?) become a copy of an? (.+?) exiled with (.+?) until end of turn\.""")

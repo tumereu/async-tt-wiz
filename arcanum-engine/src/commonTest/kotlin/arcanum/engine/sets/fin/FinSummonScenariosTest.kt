@@ -17,13 +17,13 @@ import arcanum.engine.sets.fin.FinExtras.zap
 import kotlin.test.Test
 
 /**
- * Final Fantasy chunk 03 in play: Saga creatures (summons, CR 714): a lore counter as each one enters and in each of its controller's
- * precombat main phases (CR 714.3a, b) triggers that chapter; after the last chapter resolves it is sacrificed (CR 714.4). Conjure Featherfoot
+ * Final Fantasy chunk 03 in play: Saga creatures (summons, CR 715): a lore counter as each one enters and in each of its controller's
+ * precombat main phases (CR 715.3a, b) triggers that chapter; after the last chapter resolves it is sacrificed (CR 715.4). Conjure Featherfoot
  * Stampede's chapters repeat the tested "other creatures you control get" anthem chapter of Conjure Roundtable Paladins.
  */
 class FinSummonScenariosTest {
     /** [name] on the battlefield with the lore counters of the chapters before [chapter]; its precombat main phase begins, adding the
-     * counter of [chapter] (CR 714.3b). */
+     * counter of [chapter] (CR 715.3b). */
     private fun Scenario.reachChapter(name: String, chapter: Int) {
         libraries()
         alice.battlefield(name, counters = if (chapter > 1) listOf(lore to chapter - 1) else emptyList())

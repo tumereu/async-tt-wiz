@@ -88,7 +88,7 @@ object Cards {
     }
 
     private fun parse(text: CubeCardText): CardDefinition {
-        // fin: a meld card names its partner ("Meld:<partner>", CR 712.4)
+        // fin: a meld card names its partner ("Meld:<partner>", CR 713.1)
         val layout = LAYOUTS[text.layout] ?: text.layout.removePrefix("Meld:").takeIf { it != text.layout }?.let { Layout.Meld(it) }
             ?: error("Unknown layout ${text.layout}")
         val definition = if (layout == Layout.Normal) CardDefinition(Layout.Normal, listOf(OracleParser.parse(text.faces.single())))

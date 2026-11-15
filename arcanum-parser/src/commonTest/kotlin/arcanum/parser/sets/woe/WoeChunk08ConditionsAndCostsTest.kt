@@ -29,7 +29,7 @@ class WoeChunk08ConditionsAndCostsTest {
         ),
     )
 
-    // CR 603.2d (a permanent entering, not only "the battlefield" in the wording); CR 707.10 (copy of an ability); CR 715.3
+    // CR 603.2d (a permanent entering, not only "the battlefield" in the wording); CR 707.10 (copy of an ability); CR 716.3
     @Test
     fun virtueOfKnowledge() = cardFaces(Layout.Adventure,
         card(name = "Virtue of Insight", cost = "{4}{U}", type = "Enchantment",
@@ -61,7 +61,7 @@ class WoeChunk08ConditionsAndCostsTest {
         ),
     )
 
-    // CR 106.12b: a replacement of the mana a basic land produces when tapped for mana; CR 715.3
+    // CR 106.12b: a replacement of the mana a basic land produces when tapped for mana; CR 716.3
     @Test
     fun virtueOfStrength() = cardFaces(Layout.Adventure,
         card(name = "Virtue of Might", cost = "{5}{G}{G}", type = "Enchantment",
@@ -135,7 +135,7 @@ class WoeChunk08ConditionsAndCostsTest {
         activated(manaCost("{4}{R}{G}"), untilEndOfTurn(Objects.Each(and(another, creature, you)), pt(1, 1), has(Keyword.Trample, Keyword.Haste))),
     )
 
-    // CR 601.2f; CR 715.2a (a card that has an Adventure); CR 715.3
+    // CR 601.2f; CR 716.2a (a card that has an Adventure); CR 716.3
     @Test
     fun hearthElemental() = cardFaces(Layout.Adventure,
         card(name = "Hearthfire Spirit", cost = "{5}{R}", type = "Creature — Elemental", pt = "4/5",
@@ -152,7 +152,7 @@ class WoeChunk08ConditionsAndCostsTest {
         ),
     )
 
-    // CR 715.3 (cast as an Adventure: only that half), CR 400.7 (the card in the graveyard); CR 611.2a
+    // CR 716.3 (cast as an Adventure: only that half), CR 400.7 (the card in the graveyard); CR 611.2a
     @Test
     fun mosswoodDreadknight() = cardFaces(Layout.Adventure,
         card(name = "Mossgrove Darkknight", cost = "{1}{G}", type = "Creature — Human Knight", pt = "3/2",
@@ -285,7 +285,7 @@ class WoeChunk08ConditionsAndCostsTest {
         ),
     )
 
-    // CR 700.2d (choose one or more: each mode at most once); CR 715.2a; CR 108.3 (owner of a card in exile); CR 406
+    // CR 700.2d (choose one or more: each mode at most once); CR 716.2a; CR 108.3 (owner of a card in exile); CR 406
     @Test
     fun sentinelOfLostLore() = card(
         name = "Warden of Lost Tales",

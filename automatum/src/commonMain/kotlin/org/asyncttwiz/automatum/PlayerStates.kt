@@ -97,7 +97,7 @@ object PlayerStates {
         return chips
     }
 
-    /** TRN-073: "Day" or "Night" (CR 731), null while it is neither. */
+    /** TRN-073: "Day" or "Night" (CR 732), null while it is neither. */
     fun dayOrNight(state: GameState): StateChip? {
         var chip: StateChip? = null
         for (status in state.statuses) when (status) {

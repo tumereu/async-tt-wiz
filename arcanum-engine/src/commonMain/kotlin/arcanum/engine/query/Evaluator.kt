@@ -424,7 +424,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Super -> c?.supertypes.orEmpty().contains(filter.supertype)
             is ObjectFilter.Sub -> subtypes(filter.subtype).any { c?.hasSubtype(it) == true }
             is ObjectFilter.OfColor -> colors(filter.color).any { c?.colors.orEmpty().contains(it) }
-            // fra: a prepare spell (CR 722.3c, d)
+            // fra: a prepare spell (CR 723.3c, d)
             ObjectFilter.PrepareSpell -> o?.prepareSpellOf != null
             ObjectFilter.HasDealtCombatDamage -> o?.dealtCombatDamage == true
             ObjectFilter.HasDealtDamage -> o?.dealtDamage == true // tdm
@@ -442,9 +442,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
             is ObjectFilter.ColorCount -> c != null && c.colors.size == filter.count
-            // mom chunk 09: CR 712.1: two faces of a nonmodal, modal or meld double-faced card (or token, CR 111.13)
+            // mom chunk 09: CR 712.1: two faces of a nonmodal or modal double-faced card (or token, CR 111.13); a meld card isn't one (CR 713.1)
             ObjectFilter.DoubleFaced -> o != null && o.definition.faces.size > 1 &&
-                (o.definition.layout == arcanum.api.Layout.Transform || o.definition.layout == arcanum.api.Layout.ModalDoubleFaced || o.definition.layout is arcanum.api.Layout.Meld)
+                (o.definition.layout == arcanum.api.Layout.Transform || o.definition.layout == arcanum.api.Layout.ModalDoubleFaced)
             is ObjectFilter.Shares -> objects(filter.objects).filter { it != id }.let { others ->
                 if (filter.each) others.isNotEmpty() && others.all { shares(filter.quality, id, it) } else others.any { shares(filter.quality, id, it) } }
             // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
@@ -532,7 +532,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // CR 115.7: one target in all ("with a single target"), of [target] when given
             // dft: no abilities at all (CR 113.1)
             ObjectFilter.NoAbilities -> c?.abilities.orEmpty().isEmpty()
-            // woe: an Adventure in its copiable values, used or not (CR 715.2a, b)
+            // woe: an Adventure in its copiable values, used or not (CR 716.2a, b)
             ObjectFilter.HasAdventure -> arcanum.engine.view.Copiable(state).values(id)?.let { it.layout == arcanum.api.Layout.Adventure && it.faces.size > 1 } == true
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
             ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
@@ -957,12 +957,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return (frontFaceCost(id)?.let { c.copy(manaCost = it) } ?: c).manaValue(x)
     }
 
-    /** CR 712.8c, e: a nonmodal double-faced permanent or spell with its back face up has its front face's mana value;
+    /** CR 712.6b, d: a nonmodal double-faced permanent or spell with its back face up has its front face's mana value;
      * one copying something (a back face included) has the copy's (0 for a back face, which has no mana cost). */
     private fun frontFaceCost(id: ObjectId): arcanum.api.ManaCost? {
         val o = state.obj(id) ?: return null
         val definition = o.definition
-        // fin: CR 202.3c, 712.8g: a melded permanent's mana value is the total of its two front faces'
+        // fin: CR 202.3c, 713.5c: a melded permanent's mana value is the total of its two front faces'
         if (definition.layout is arcanum.api.Layout.Meld && o.face == 1 && o.zone == Zone.Battlefield)
             return arcanum.api.ManaCost(((definition.faces.first().manaCost?.symbols ?: emptyList()) +
                 o.mergedBelow.flatMap { it.definition.faces.firstOrNull()?.manaCost?.symbols.orEmpty() }))
@@ -1079,7 +1079,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.TargetsLegal ->
             (ctx.names[TARGETS_LEGAL_PREFIX + condition.slots.joinToString(",")] as? NamedValue.Number)?.value != 0
         is Condition.Searched -> ctx.names[SEARCHED_PREFIX + condition.name + ":" + condition.zone] != null
-        // A Class's level is its status (CR 716); a leveler's is its level counters (CR 711.2)
+        // A Class's level is its status (CR 717); a leveler's is its level counters (CR 711.2)
         is Condition.ClassLevelAtLeast -> {
             val o = ctx.self?.let { state.obj(it) }
             val isClass = o?.definition?.faces?.getOrNull(o.face)?.subtypes?.contains(Subtype("Class")) == true

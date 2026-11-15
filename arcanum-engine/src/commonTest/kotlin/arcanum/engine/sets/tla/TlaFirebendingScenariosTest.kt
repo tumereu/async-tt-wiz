@@ -170,7 +170,7 @@ class TlaFirebendingScenariosTest {
     }
 
     /** Chapter I: the top three exiled, playable until the end of the next turn. */
-    // CR 714.2b
+    // CR 715.2b
     @Test
     fun taleOfArdanChapterOne() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain")

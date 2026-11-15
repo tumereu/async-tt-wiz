@@ -245,7 +245,7 @@ class MomChunk07MillScenariosTest {
         }
     }
 
-    // CR 712.11a, 707.9b: the transformed Siege enters as a copy of Bob's graveyard creature that is also a 4/4 black Zombie; CR 614.1c: the card stays in the graveyard
+    // CR 712.8a, 707.9b: the transformed Siege enters as a copy of Bob's graveyard creature that is also a 4/4 black Zombie; CR 614.1c: the card stays in the graveyard
     @Test
     fun mimicEntersAsACopyOfAGraveyardCreatureCard() = scenario {
         alice.battlefield(mimic, counters = listOf(CounterKind.Defense to 2))

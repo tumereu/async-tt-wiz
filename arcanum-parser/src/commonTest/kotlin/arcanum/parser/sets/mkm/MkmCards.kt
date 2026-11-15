@@ -240,9 +240,9 @@ val thopter: TokenSpec = creatureToken("Thopter", emptyList(), 1, 1, abilities =
 // ---- Investigate and Cases (mkm chunk 02)
 /** "Investigate", [count] times (CR 701.16a) */
 fun investigate(count: Value = n(1)): Step = Step.Do(Effect.Action(KeywordAction.Investigate(count)))
-/** This Case has the solved designation (CR 719.3b) */
+/** This Case has the solved designation (CR 720.3b) */
 val isSolved: Condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Solved)))
-/** "To solve — [condition]": "At the beginning of your end step, if [condition] and this Case is not solved, this Case becomes solved." (CR 719.3a) */
+/** "To solve — [condition]": "At the beginning of your end step, if [condition] and this Case is not solved, this Case becomes solved." (CR 720.3a) */
 fun toSolve(condition: Condition): Ability = Ability.Triggered(yourEndStep, Instructions(steps = listOf(doing(Effect.Mark(Objects.Self, arcanum.api.ObjectMark.Solved)))),
     interveningIf = Condition.And(listOf(condition, Condition.Not(isSolved))))
 /** "a creature died this turn" (CR 700.4) */

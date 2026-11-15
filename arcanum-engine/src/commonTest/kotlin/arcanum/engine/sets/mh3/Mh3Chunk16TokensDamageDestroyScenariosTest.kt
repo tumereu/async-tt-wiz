@@ -291,7 +291,7 @@ class Mh3Chunk16TokensDamageDestroyScenariosTest {
         assertFailsWith<Throwable> { bob.blocks(ogre to bear) }
     }
 
-    // CR 712.4, 614.1c: playing the land face, paying 3 life it enters untapped
+    // CR 712.9, 614.1c: playing the land face, paying 3 life it enters untapped
     @Test
     fun landFacePaidEntersUntapped() = scenario {
         alice.hand(blast)

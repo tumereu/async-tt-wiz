@@ -44,7 +44,7 @@ import kotlin.test.Test
  * milled with a copy of an exiled card cast free (CR 707.12), piles separated by an opponent (CR 700.3), a creature card with lesser power
  * put onto the battlefield attacking, Equipment attached by a trigger and counted, opponents' lands' activated abilities stopped and
  * gained (CR 113.6, 605), a copy token that's a Food artifact (CR 707.9b), revealing until a land put under your control, lore counters
- * among Sagas and a final chapter ability resolving (CR 714.2), and a creature's dying subtypes as it last existed.
+ * among Sagas and a final chapter ability resolving (CR 715.2), and a creature's dying subtypes as it last existed.
  */
 class LtrChunk13MulticoloredTest {
     // CR 707.12: a copy of an exiled card cast without paying its mana cost
@@ -233,7 +233,7 @@ class LtrChunk13MulticoloredTest {
             targets = listOf(slot("creature", creature))),
     )
 
-    // CR 714.2: lore counters among Sagas; the final chapter ability resolving; once each turn
+    // CR 715.2: lore counters among Sagas; the final chapter ability resolving; once each turn
     @Test
     fun iarwainBenAdar() = card(
         name = "Iarwain Ben-adar",

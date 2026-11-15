@@ -23,8 +23,8 @@ sealed interface SubtypeKind {
 object Subtypes {
     /** CR 205.3g */
     private val ARTIFACT = setOf(
-        "Attraction", "Blood", "Bobblehead", "Book", "Clue", "Contraption", "Equipment", "Food", "Fortification", "Gold",
-        "Heartwood", "Incubator", "Infinity", "Junk", "Lander", "Map", "Mutagen", "Powerstone", "Spacecraft", "Stone",
+        "Attraction", "Blood", "Bobblehead", "Book", "Clue", "Communicator", "Contraption", "Equipment", "Food", "Fortification",
+        "Gold", "Heartwood", "Incubator", "Infinity", "Junk", "Lander", "Map", "Mutagen", "Powerstone", "Spacecraft", "Stone",
         "Treasure", "Vehicle", "Vibranium",
     )
     /** CR 205.3h */
@@ -40,13 +40,14 @@ object Subtypes {
     private val SPELL = setOf("Adventure", "Arcane", "Lesson", "Omen", "Trap")
     /** CR 205.3j */
     private val PLANESWALKER = setOf(
-        "Ajani", "Aminatou", "Angrath", "Arlinn", "Ashiok", "Bahamut", "Basri", "Bolas", "Calix", "Chandra", "Comet", "Dack",
-        "Dakkon", "Daretti", "Davriel", "Dellian", "Dihada", "Domri", "Dovin", "Ellywick", "Elminster", "Elspeth", "Estrid",
-        "Freyalise", "Garruk", "Gideon", "Grist", "Guff", "Huatli", "Jace", "Jared", "Jaya", "Jeska", "Kaito", "Karn",
-        "Kasmina", "Kaya", "Kiora", "Koth", "Liliana", "Lolth", "Lukka", "Minsc", "Mordenkainen", "Nahiri", "Narset", "Niko",
-        "Nissa", "Nixilis", "Oko", "Quintorius", "Ral", "Rowan", "Saheeli", "Samut", "Sarkhan", "Serra", "Sivitri", "Sorin",
-        "Szat", "Tamiyo", "Tasha", "Teferi", "Teyo", "Tezzeret", "Tibalt", "Tyvar", "Ugin", "Urza", "Venser", "Vivien",
-        "Vraska", "Vronos", "Will", "Windgrace", "Wrenn", "Xenagos", "Yanggu", "Yanling", "Zariel",
+        "Ajani", "Aminatou", "Angrath", "Arlinn", "Arzakon", "Ashiok", "Bahamut", "Basri", "Bolas", "Calix", "Chandra",
+        "Comet", "Dack", "Dakkon", "Daretti", "Davriel", "Dellian", "Dihada", "Domri", "Dovin", "Dyfed", "Ellywick",
+        "Elminster", "Elspeth", "Estrid", "Feroz", "Freyalise", "Garruk", "Gideon", "Greensleeves", "Grist", "Guff",
+        "Huatli", "Jace", "Jared", "Jaya", "Jeska", "Kaito", "Karn", "Kasmina", "Kaya", "Kiora", "Koth", "Liliana", "Lolth",
+        "Lukka", "Minsc", "Mordenkainen", "Nahiri", "Narset", "Niko", "Nissa", "Nixilis", "Oko", "Quintorius", "Ral",
+        "Rowan", "Saheeli", "Samut", "Sarkhan", "Serra", "Sifa", "Sivitri", "Sorin", "Szat", "Tamiyo", "Tasha", "Teferi",
+        "Teyo", "Tezzeret", "Thomil", "Tibalt", "Tyvar", "Ugin", "Urza", "Venser", "Vivien", "Vraska", "Vronos", "Will",
+        "Windgrace", "Worzel", "Wrenn", "Xenagos", "Yanggu", "Yanling", "Zariel",
     )
     /** Battle types (CR 205.3q). */
     private val BATTLE = setOf("Siege")

@@ -50,7 +50,7 @@ internal object Inr {
     val GAIN_IF_ONE_HAS_SAME_FOR = Regex("""(Creatures you control) gain ([a-z ]+) until end of turn if (an? .+?) has \2\. The same is true for (.+)\.""")
     // inr chunk 07: Tamiyo, Field Researcher (CR 603.7c)
     val CHOOSE_TARGETS_UNTIL_NEXT_TURN_WHENEVER_DEALS = Regex("""Choose up to (one|two|three) target (creatures?)\. Until your next turn, whenever (?:either of those creatures|any of those creatures|that creature) deals (combat damage(?: to a player)?), (.+)""")
-    // inr chunk 07: Emrakul, the Promised End (CR 723.1, 500.7)
+    // inr chunk 07: Emrakul, the Promised End (CR 724.1, 500.7)
     val CONTROL_NEXT_TURN_THEN_EXTRA_TURN = Regex("""[Yy]ou gain control of target (opponent|player) during that player's next turn\. After that turn, that player takes an extra turn\.""")
     // inr chunk 06: Briseis: "Your opponents can't cast spells with mana value 3 or less." (CR 101.2)
     val OPPONENTS_CANT_CAST_SPELLS_WITH = Regex("""Your opponents can't cast (spells with .+)\.""")

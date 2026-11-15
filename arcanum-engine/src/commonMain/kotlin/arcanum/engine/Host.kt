@@ -7,7 +7,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.view.View
 
 /**
- * For a host running games: passing priority for players (I-D3, I-D18), who decides for a controlled player (CR 723),
+ * For a host running games: passing priority for players (I-D3, I-D18), who decides for a controlled player (CR 724),
  * finding loops (CR 104.4b), hidden information (what a player may know and what changes reveal to them, for display:
  * the state itself always has full information) and the host's randomness for the library's unknown order (D25). Stateless, like [Engine]: it reads the
  * [GameState] it is given and changes nothing.
@@ -20,7 +20,7 @@ object Host {
      * only they may see (an empty hand and no face-down permanent: an instant they can't afford is theirs to pass with).
      * The engine never
      * passes for anyone by itself; a host performs [Input.PassPriority] for each player this says, one at a time. While
-     * another player controls [player] (CR 723), the controller's setting counts ([decider]).
+     * another player controls [player] (CR 724), the controller's setting counts ([decider]).
      */
     fun shouldPassFor(state: GameState, player: PlayerId, prefs: Preferences = Preferences()): Boolean =
         arcanum.engine.turn.AutoPass.shouldPass(state, player, prefs = prefs)
@@ -43,17 +43,17 @@ object Host {
         arcanum.engine.turn.AutoPass.check(state, player, view, prefs)
 
     /**
-     * Who makes [player]'s choices and decisions now (CR 723.5): the player controlling them during this turn (723.1) or
-     * its combat phase (723.2), else [player]. Decisions, options and inputs stay [player]'s own (they use only that
-     * player's resources, 723.5a, and stay the active player, 723.3); a host lets the decider answer [player]'s decisions
-     * and make their inputs, shows the decider what [visible] gives (723.4), and still lets only [player] concede (723.6)
-     * and make the choices no rule or object calls for (723.5b). The controller goes on making their own decisions
-     * (723.8).
+     * Who makes [player]'s choices and decisions now (CR 724.5): the player controlling them during this turn (724.1) or
+     * its combat phase (724.2), else [player]. Decisions, options and inputs stay [player]'s own (they use only that
+     * player's resources, 724.5a, and stay the active player, 724.3); a host lets the decider answer [player]'s decisions
+     * and make their inputs, shows the decider what [visible] gives (724.4), and still lets only [player] concede (724.6)
+     * and make the choices no rule or object calls for (724.5b). The controller goes on making their own decisions
+     * (724.8).
      */
     fun decider(state: GameState, player: PlayerId): PlayerId = arcanum.engine.turn.Control.decider(state, player)
 
     /**
-     * A key for finding loops of mandatory actions (CR 104.4b, 732.4): equal for two states that differ only in object
+     * A key for finding loops of mandatory actions (CR 104.4b, 733.4): equal for two states that differ only in object
      * ids, timestamps and what is recorded about the past (the event log, ledgers, "this turn" counts of uses), so the
      * same position reached again in a loop has the same key though its objects are new ones. A host that passes for
      * players ([shouldPassFor]) keeps the keys of the states it passed in; meeting one again with only such passes in
@@ -67,7 +67,7 @@ object Host {
      * ("you may look at the top card of your library any time", CR 401.5). A host shows a player what [state] knows
      * of these and nothing of the rest: of the others' cards, of [GameState.pending] decisions of other players over
      * cards not among these, and of [arcanum.engine.change.Change.Shown]s to other players. While [player] controls
-     * another player ([decider]), also what that player may see of objects in the game (CR 723.4).
+     * another player ([decider]), also what that player may see of objects in the game (CR 724.4).
      */
     fun visible(state: GameState, player: PlayerId): Set<arcanum.engine.state.ObjectId> =
         arcanum.engine.action.Knowledge.visible(state, Engine.view(state), player)

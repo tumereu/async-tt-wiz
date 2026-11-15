@@ -189,7 +189,7 @@ internal object EventMatcher {
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(paid?.source?.let { RoleObjects(EventRole.Source, listOf(it)) }),
                     listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()
-        // ltr chunk 13: CR 714.2c
+        // ltr chunk 13: CR 715.2c
         is EventPattern.FinalChapterResolves -> ((change as? Change.Happened)?.event as? GameEvent.FinalChapterResolved)
             ?.takeIf { e.matches(pattern.sagas, it.saga) }?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.saga))), listOfNotNull(e.controllerOf(it.saga)))) }.orEmpty()
         // ltr chunk 12: a permanent phasing in (CR 702.26c)
@@ -294,10 +294,10 @@ internal object EventMatcher {
         is EventPattern.Expend -> ((change as? Change.Happened)?.event as? GameEvent.SpentOnSpells)
             ?.takeIf { it.before < pattern.amount && it.after >= pattern.amount && e.matches(pattern.players, it.player) }
             ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
-        // CR 731.1a: day becomes night, or night becomes day
+        // CR 732.1a: day becomes night, or night becomes day
         is EventPattern.DayNightChanges -> ((change as? Change.Happened)?.event as? GameEvent.DayNightChanged)
             ?.takeIf { pattern.toNight == null || pattern.toNight == it.night }?.let { listOf(TriggerEvent()) }.orEmpty()
-        // blb: CR 702.174c, 701.61a, 716.2a
+        // blb: CR 702.174c, 701.61a, 717.2a
         // tla: CR 701.65b, 701.66b, 702.189b, 701.67c
         // tla: CR 603.2: a triggered ability of a matching source triggered on that source attacking
         is EventPattern.AbilityTriggers -> ((change as? Change.Happened)?.event as? GameEvent.AbilityTriggered)
@@ -452,7 +452,7 @@ internal object EventMatcher {
         return e.matches(exploiter, source) || e.board.state.obj(source) == null && exploiter == arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self) && source == e.ctx.self
     }
 
-    /** fdn: counters put by an effect: not paid as a cost (CR 118.3) and not by a turn-based action, which has no source (CR 714.3b). */
+    /** fdn: counters put by an effect: not paid as a cost (CR 118.3) and not by a turn-based action, which has no source (CR 715.3b). */
     private fun byEffect(change: Change): Boolean =
         change is Change.Counters && arcanum.engine.change.Meaning.Paid !in change.meanings && change.by?.source != null
 

@@ -102,7 +102,7 @@ class LtrChunk06BlackTest {
         static(Mechanic.UpToInDeck(9)),
     )
 
-    // CR 714.2b: you and the target opponent each create a Food
+    // CR 715.2b: you and the target opponent each create a Food
     @Test
     fun oathOfTheSilentHost() = card(
         name = "Oath of the Silent Host",
@@ -120,7 +120,7 @@ class LtrChunk06BlackTest {
         chapter(3, doing(Effect.CreateToken(spiritFlyer, n(3), Players.You, tapped = true))),
     )
 
-    // CR 701.54e: your Ring-bearer's power; CR 714.2b
+    // CR 701.54e: your Ring-bearer's power; CR 715.2b
     @Test
     fun oneRingToBindThemAll() = card(
         name = "One Ring to Bind Them All",

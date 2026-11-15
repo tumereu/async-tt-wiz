@@ -212,7 +212,7 @@ assignment order was removed from combat). Oracle wording changes too (errata,
 "enters the battlefield" → "enters").
 
 - The libraries name **one pinned CR version** (its effective date) in one place:
-  `ComprehensiveRules.EFFECTIVE_DATE` in arcanum-api, currently **2026-09-25**.
+  `ComprehensiveRules.EFFECTIVE_DATE` in arcanum-api, currently **2026-11-06**.
   Code and tests cite rule numbers of that version (`// CR 613.4c`).
 - **Updating the pin** is a deliberate task: download the old and new CR text
   locally (not committed), let a small developer script list the rule numbers that

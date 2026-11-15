@@ -33,13 +33,13 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * The Hobbit chunk 04: Sagas (CR 714): chapter abilities, one per listed chapter (714.2b, c); cards exiled with the Saga as its
+ * The Hobbit chunk 04: Sagas (CR 715): chapter abilities, one per listed chapter (715.2b, c); cards exiled with the Saga as its
  * card memory (CR 607.2a); a delayed trigger for the rest of the turn (CR 603.7b); effects lasting for as long as the Saga stays
  * (CR 611.2b); a return at the next end step (CR 603.7); sacrificing the Saga on resolution (CR 118.12); an ability gained for
  * good (CR 611.2a).
  */
 class HobChunk04SagasTest {
-    // CR 714.2b, 701.70a
+    // CR 715.2b, 701.70a
     @Test
     fun theHillLordComesHome() = card(
         name = "The Hill-Lord Comes Home",
@@ -59,7 +59,7 @@ class HobChunk04SagasTest {
 
     /** The exiled lands are this Saga's memory for its later chapters (CR 607.2a); chapter IV makes a trigger for the rest of the
      * turn (CR 603.7b, 508.3d). */
-    // CR 714.2c
+    // CR 715.2c
     @Test
     fun pathsWindOnAndOn() = card(
         name = "Paths Wind On and On",
@@ -144,7 +144,7 @@ class HobChunk04SagasTest {
         chapters(listOf(3, 4), loseLife(1, Players.Target("opponent")), gainLife(1), targets = listOf(targetOpponent)),
     )
 
-    // CR 714.2b: the Saga is the source
+    // CR 715.2b: the Saga is the source
     @Test
     fun blazeBlazePineAndMoss() = card(
         name = "Blaze, Blaze, Pine and Moss",

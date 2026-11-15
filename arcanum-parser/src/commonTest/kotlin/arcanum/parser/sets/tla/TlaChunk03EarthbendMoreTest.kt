@@ -96,7 +96,7 @@ class TlaChunk03EarthbendMoreTest {
             duration = Duration.EndOfTurn)), targets = listOf(slot("creature", creature))),
     )
 
-    // CR 714.2b, 701.66a
+    // CR 715.2b, 701.66a
     @Test
     fun theGrottoOfTwoSweethearts() = card(
         name = "The Grotto of Two Sweethearts",

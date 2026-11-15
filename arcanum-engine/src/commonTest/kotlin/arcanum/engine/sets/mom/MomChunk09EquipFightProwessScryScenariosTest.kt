@@ -249,6 +249,21 @@ class MomChunk09EquipFightProwessScryScenariosTest {
         expect { alice.hand has lancer }
     }
 
+    private val quarrygateBack = face("Quarrygate Colossus", null, "Legendary Artifact Creature — Golem", "Trample", "9/9", null, null)
+    private val quarrygate = Cards.inventFaces("Meld:Quarrygate Sentinel",
+        face("Quarrygate Hauler", "{3}", "Artifact Creature — Golem", "(Melds with Quarrygate Sentinel.)", "3/3", null, null), quarrygateBack)
+
+    // CR 713.1, 712.1: a meld card isn't a double-faced card, so a revealed one isn't drawn
+    @Test
+    fun mireholtDoesNotDrawARevealedMeldCard() = scenario {
+        alice.battlefield("Forest", "Island")
+        alice.hand(mireholt)
+        alice.library(quarrygate)
+        alice.casts(mireholt)
+        keepOnTop()
+        expect { alice.hand lacks quarrygate }
+    }
+
     // CR 701.22a: a revealed single-faced nonland card isn't drawn; a land is
     @Test
     fun mireholtDrawsOnlyALandOrDoubleFacedCard() {

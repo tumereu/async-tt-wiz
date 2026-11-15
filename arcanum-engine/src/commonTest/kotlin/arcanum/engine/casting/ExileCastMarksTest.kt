@@ -220,7 +220,7 @@ class ExileCastMarksTest {
         assertEquals(1, castsOf(id).size)
     }
 
-    // CR 701.60b, 701.37b, 702.171b, 722.3a: a mark for permanents isn't put on a card in another zone
+    // CR 701.60b, 701.37b, 702.171b, 723.3a: a mark for permanents isn't put on a card in another zone
     @Test
     fun aPermanentsMarkIsntPutOnACardInExile() = scenario {
         val suspecting = exilingAndMarking("Accusing Word", ObjectMark.Suspected)

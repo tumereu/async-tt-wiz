@@ -92,7 +92,7 @@ class FdnChunk26EndTurnGainAbilitiesLifeLookScenariosTest {
         bob.library("Island", "Forest", "Plains", "Swamp", "Mountain", "Island", "Forest", "Plains")
     }
 
-    // CR 723.1, 723.1a: the spell itself is exiled and the turn ends: the other player's turn follows (CR 500.1)
+    // CR 724.1, 724.1a: the spell itself is exiled and the turn ends: the other player's turn follows (CR 500.1)
     @Test
     fun timeStopEndsTheTurn() = scenario {
         stock()

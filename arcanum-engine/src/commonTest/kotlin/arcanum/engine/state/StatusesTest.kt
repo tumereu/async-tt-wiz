@@ -38,7 +38,7 @@ class StatusesTest {
         assertFailsWith<IllegalStateException> { state.apply(Change.PlayerStatusChanged(alice.id, arcanum.engine.state.PlayerStatus.Speed(1), null)) }
     }
 
-    // CR 724–726: gaining or losing a designation is an event; a player's other statuses and the game's are not
+    // CR 725–726: gaining or losing a designation is an event; a player's other statuses and the game's are not
     @Test
     fun aDesignationIsAnEvent() {
         assertTrue(Change.PlayerStatusChanged(PlayerId("a"), null, PlayerStatus.Designated(Designation.Monarch)).isEvent)

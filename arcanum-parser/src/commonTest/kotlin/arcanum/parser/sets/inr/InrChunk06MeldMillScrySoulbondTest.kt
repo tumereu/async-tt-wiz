@@ -31,7 +31,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /*
- * INR chunk 06: Meld (CR 701.42, 712.4), Mill (CR 701.17), Scry (CR 701.22), Soulbond (CR 702.95).
+ * INR chunk 06: Meld (CR 701.42, 713.1), Mill (CR 701.17), Scry (CR 701.22), Soulbond (CR 702.95).
  */
 class InrChunk06MeldMillScrySoulbondTest {
     private fun partner(name: String) = and(creature, ObjectFilter.Named(name), you, ObjectFilter.OwnedBy(PlayerFilter.You))
@@ -39,7 +39,7 @@ class InrChunk06MeldMillScrySoulbondTest {
     private fun ownsBoth(partner: ObjectFilter) = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, and(you, ObjectFilter.OwnedBy(PlayerFilter.You))),
         Condition.Exists(partner, atLeast = 1)))
 
-    /** "exile them, then meld them into [into]": the partner is chosen as the ability resolves (CR 712.4a) */
+    /** "exile them, then meld them into [into]": the partner is chosen as the ability resolves (CR 713.1a) */
     private fun meldSteps(partner: ObjectFilter, into: String) = listOf(
         Step.Choose(Choice.Objects(partner, n(1), n(1)), bind = "partner", chooser = Players.You),
         move(Objects.Union(listOf(Objects.Self, Objects.Bound("partner"))), Zone.Exile, postBind = "exiled"),
@@ -47,7 +47,7 @@ class InrChunk06MeldMillScrySoulbondTest {
 
     // ---- Meld
 
-    // CR 701.42a, 712.4a: no payment, at the beginning of your end step; CR 603.4 (intervening if); CR 101.2 (the back face's restriction)
+    // CR 701.42a, 713.1a: no payment, at the beginning of your end step; CR 603.4 (intervening if); CR 101.2 (the back face's restriction)
     @Test
     fun gildaTheShatteredEdge() {
         val bruna = partner("Brunhild, the Dimming Light")
@@ -78,7 +78,7 @@ class InrChunk06MeldMillScrySoulbondTest {
         )
     }
 
-    // CR 701.42a, 712.4a: at the beginning of combat on your turn
+    // CR 701.42a, 713.1a: at the beginning of combat on your turn
     @Test
     fun gauntMice() {
         val gleaners = partner("Midnight Gleaners")
@@ -143,7 +143,7 @@ class InrChunk06MeldMillScrySoulbondTest {
 
     // ---- Mill
 
-    // CR 701.17a, 712.9 (transform): the milled card is checked as it is in the graveyard
+    // CR 701.17a, 712.6a (transform): the milled card is checked as it is in the graveyard
     @Test
     fun aberrantScholar() = cardFaces(Layout.Transform,
         card(

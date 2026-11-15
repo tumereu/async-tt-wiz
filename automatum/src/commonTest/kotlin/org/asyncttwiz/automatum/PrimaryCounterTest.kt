@@ -44,7 +44,7 @@ class PrimaryCounterTest {
         assertEquals(emptyList(), card.marks, "no counter words on the chip")
     }
 
-    // TBL-021, CR 714.2b: a Saga's corner is its lore counters, 0 when it has none
+    // TBL-021, CR 715.2b: a Saga's corner is its lore counters, 0 when it has none
     @Test fun aSagasCornerIsItsLore() {
         val saga = table.put(table.alice, Zone.Battlefield, "Ember Chronicle").single()
         assertEquals("2", computed(saga, CounterEntry(CounterKind.Lore, 2, 1)).corner)

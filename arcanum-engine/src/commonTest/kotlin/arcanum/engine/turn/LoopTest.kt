@@ -26,7 +26,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Loops: the safety cap of one `perform` call, and loops of mandatory actions a host reports (CR 104.4b, 732.4). */
+/** Loops: the safety cap of one `perform` call, and loops of mandatory actions a host reports (CR 104.4b, 733.4). */
 class LoopTest {
     /**
      * "Whenever this creature becomes the target of a spell or ability, tap another target creature." (written by hand:
@@ -105,7 +105,7 @@ class LoopTest {
         return passes
     }
 
-    // CR 104.4b, 732.4: a loop of mandatory actions (the Revenant enters, is sacrificed, dies and returns, each lap the
+    // CR 104.4b, 733.4: a loop of mandatory actions (the Revenant enters, is sacrificed, dies and returns, each lap the
     // same state with new objects) is a draw
     @Test
     fun aMandatoryLoopIsADraw() = scenario {

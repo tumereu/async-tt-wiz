@@ -49,7 +49,7 @@ import kotlin.test.Test
 
 /** Murders at Karlov Manor chunk 10: putting cards onto the battlefield and returning them (CR 400.7, 303.4f, 708), revealing and piles
  * (CR 701.20), sacrifices and searches (CR 701.21, 701.23), "attacked this combat" and must-block (CR 506.4, 509.1c), last known toughness
- * (CR 603.10a), draws this turn, attack batches (CR 508.1), reflexive triggers (CR 603.12) and Case solving as an event (CR 719.3). */
+ * (CR 603.10a), draws this turn, attack batches (CR 508.1), reflexive triggers (CR 603.12) and Case solving as an event (CR 720.3). */
 class MkmChunk10EffectsAndTriggersTest {
     private val x = Value.Announced("X")
     private val haste = Mechanic.GainAbilities(listOf(Keyword.Haste))
@@ -458,7 +458,7 @@ class MkmChunk10EffectsAndTriggersTest {
         ),
     )
 
-    // CR 719.3a, 719.3b: solving a Case is its becoming solved; CR 609.4b: mana of any colour for Case spells
+    // CR 720.3a, 720.3b: solving a Case is its becoming solved; CR 609.4b: mana of any colour for Case spells
     @Test
     fun dossierExaminer() = card(
         name = "Dossier Examiner",

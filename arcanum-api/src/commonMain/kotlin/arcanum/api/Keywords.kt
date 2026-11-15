@@ -1056,12 +1056,12 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "gift"; override val text: String get() = "Gift"; override val rule: String get() = "702.174" }
     }
-    /** A class level bar, "[cost]: Level [level]" with the [abilities] printed in its section (CR 716.2a): "[Cost]: This
+    /** A class level bar, "[cost]: Level [level]" with the [abilities] printed in its section (CR 717.2a): "[Cost]: This
      * Class's level becomes N. Activate only if this Class is level N-1 and only as a sorcery" and "As long as this Class
      * is level N or greater, it has [abilities]". */
     @Serializable @SerialName("class-level") data class ClassLevel(override val cost: Cost, val level: Int, val abilities: List<Ability>) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
-        companion object Kind : KeywordKind { override val id: String get() = "class-level"; override val text: String get() = "Level"; override val rule: String get() = "716.2" }
+        companion object Kind : KeywordKind { override val id: String get() = "class-level"; override val text: String get() = "Level"; override val rule: String get() = "717.2" }
     }
     // lci
     /** "Craft with [materials] [cost]" (CR 702.167a): "[Cost], Exile this permanent, Exile [materials] from among permanents you

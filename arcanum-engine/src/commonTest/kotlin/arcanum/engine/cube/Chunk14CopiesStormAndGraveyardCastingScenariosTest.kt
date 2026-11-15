@@ -348,7 +348,8 @@ class Chunk14CopiesStormAndGraveyardCastingScenariosTest {
 
         alice.casts("Finale of Vows", x = 1, targets = listOf("Storm Spark", "Cinder Bolt"))
         allPass()
-        // Cast both, each at bob
+        // Cast both, each at bob, in the order Alice chooses (CR 608.2g)
+        alice.chooses("Storm Spark", "Cinder Bolt")
         alice.chooses("Storm Spark", "Cinder Bolt")
         while (pending is Decision.Targets) answer(Answer.Targets(listOf(target("bob"))))
         expect { stack.size shouldBe 2 }
@@ -360,6 +361,29 @@ class Chunk14CopiesStormAndGraveyardCastingScenariosTest {
             alice.exile has "Cinder Bolt"
             alice.graveyard.names shouldBe listOf("Finale of Vows")
         }
+    }
+
+    // CR 608.2g: spells cast during a resolution go on the Stack in the order their caster chooses
+    @Test
+    fun finaleOfVowsCastsInTheOrderChosen() {
+        fun stackAfterCasting(vararg order: String): List<String?> {
+            var names: List<String?> = emptyList()
+            scenario {
+                alice.battlefield("Mountain", "Mountain", "Mountain")
+                alice.hand("Finale of Vows")
+                alice.graveyard("Storm Spark", "Cinder Bolt")
+                alice.casts("Finale of Vows", x = 1, targets = listOf("Storm Spark", "Cinder Bolt"))
+                allPass()
+                alice.chooses("Storm Spark", "Cinder Bolt")
+                alice.chooses(*order)
+                while (pending is Decision.Targets) answer(Answer.Targets(listOf(target("bob"))))
+                expect { names = stack.names }
+            }
+            return names
+        }
+        val one = stackAfterCasting("Storm Spark", "Cinder Bolt")
+        assertEquals(2, one.size)
+        assertEquals(one.reversed(), stackAfterCasting("Cinder Bolt", "Storm Spark"))
     }
 
     /** Finale of Vows with X=10: each spell cast this way is copied twice. */

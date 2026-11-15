@@ -139,7 +139,7 @@ class Mh3Chunk10WardConditionsTest {
             interveningIf = Condition.Exists(creatureYouControl, atLeast = 1)),
     )
 
-    // CR 608.2h: "that creature's power" is the sacrificed creature's as it last existed (it was read as the entering creature's); CR 712.8
+    // CR 608.2h: "that creature's power" is the sacrificed creature's as it last existed (it was read as the entering creature's); CR 712.6
     // (a modal double-faced card's back face)
     @Test
     fun acolyteOfTheGrove() = cardFaces(

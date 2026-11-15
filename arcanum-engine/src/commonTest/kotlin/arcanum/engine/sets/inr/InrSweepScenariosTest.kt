@@ -164,7 +164,7 @@ class InrSweepScenariosTest {
     """)
     private val walker = Cards.invent("Sweep Grove Sage", "{2}{G}", "Legendary Planeswalker — Sage", "[+1]: You gain 1 life.", loyalty = "3")
 
-    // CR 714.3c: the precombat main phase's lore counter is a turn-based action, not an effect: it isn't doubled (chapter II only)
+    // CR 715.3c: the precombat main phase's lore counter is a turn-based action, not an effect: it isn't doubled (chapter II only)
     @Test
     fun mainPhaseLoreCounterIsntDoubled() = scenario {
         libraries()

@@ -211,10 +211,10 @@ val entersTapped: Ability = Ability.Static(listOf(Mechanic.Replacement(EventPatt
 /** "{T}: Add {A} or {B}." */
 fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
     colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { arcanum.api.ColorRef.Literal(it) })), Players.You)))
-/** A Saga's chapter ability (CR 714.2b). */
+/** A Saga's chapter ability (CR 715.2b). */
 fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
-/** "I, II —": one chapter ability for each listed chapter (CR 714.2c). */
+/** "I, II —": one chapter ability for each listed chapter (CR 715.2c). */
 fun chapters(numbers: List<Int>, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(numbers), Instructions(targets = targets, steps = steps.toList()))
 val diesSelfLeaves: Trigger = on(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield))

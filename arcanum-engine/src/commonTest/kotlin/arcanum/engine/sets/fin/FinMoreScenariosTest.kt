@@ -19,7 +19,7 @@ import arcanum.engine.sets.fin.FinExtras.zap
 import kotlin.test.Test
 
 /**
- * Final Fantasy chunks 16 and 17 in play: the remaining black, red, green, gold and colorless cards, the Town Adventures (CR 715) and the
+ * Final Fantasy chunks 16 and 17 in play: the remaining black, red, green, gold and colorless cards, the Town Adventures (CR 716) and the
  * Town lands. Templates already played elsewhere: Treacherous Envoy's Plot (kicker like Bird Kick), Saszs Chick, Spiny Plant and Runner
  * Racetrack (landfall), Salvage Crew (Gerra Tiel's death trigger shape), Manic Laughter and Runner Greens (flashback), Burrow Scout, Meadow
  * Rexaur, Strider Shot, Keep Fighting, Villain's Demise, Cohort Reinforcements, Many-Eyed Ooze, Great Toad (Stinger Sentry's lands), Ahriel
@@ -29,7 +29,7 @@ import kotlin.test.Test
 class FinMoreScenariosTest {
     private fun lands(land: String, n: Int) = Array(n) { land }
 
-    /** The way to cast the Adventure half ([face] 1) of an adventurer card (CR 715.3). */
+    /** The way to cast the Adventure half ([face] 1) of an adventurer card (CR 716.3). */
     private val adventure = CastWay(face = 1)
 
     // ---- chunk 16
@@ -386,7 +386,7 @@ class FinMoreScenariosTest {
         }
     }
 
-    // CR 715.3: casting the Adventure, then the card from exile
+    // CR 716.3: casting the Adventure, then the card from exile
     @Test
     fun forgeRegencyAdventureThenTheTown() = scenario {
         alice.battlefield(*lands("Mountain", 3))

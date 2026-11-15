@@ -43,7 +43,7 @@ class LtrBlueScenariosTest {
     }
 
     /** Chapter III shuffles the chosen graveyard cards into the library and adds {U}{U}. */
-    // CR 714.2b, 701.24
+    // CR 715.2b, 701.24
     @Test
     fun washingSongShufflesBack() = scenario {
         alice.battlefield(s.theWashingSong, counters = listOf(CounterKind.Lore to 2))

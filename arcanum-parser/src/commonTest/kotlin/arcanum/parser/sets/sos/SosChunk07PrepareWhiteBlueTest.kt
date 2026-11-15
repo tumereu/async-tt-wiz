@@ -25,9 +25,9 @@ import arcanum.parser.cube.cardFaces
 import kotlin.test.Test
 
 /**
- * Secrets of Strixhaven chunk 07: preparation cards (CR 722) in white and blue. Each card has two faces: the creature, and the prepare
- * spell in its inset frame, cast only as the copy a prepared permanent's controller gets in exile (CR 722.3c). "Enters prepared" is a
- * replacement (CR 614.1c, 722.3a); "becomes prepared" by triggers (end step, attacking, tokens entering) and by an activated ability
+ * Secrets of Strixhaven chunk 07: preparation cards (CR 723) in white and blue. Each card has two faces: the creature, and the prepare
+ * spell in its inset frame, cast only as the copy a prepared permanent's controller gets in exile (CR 723.3c). "Enters prepared" is a
+ * replacement (CR 614.1c, 723.3a); "becomes prepared" by triggers (end step, attacking, tokens entering) and by an activated ability
  * tapping creatures; the spells: tap or untap, Swords-style exile, "you and target opponent each draw", Brainstorm-style drawing and
  * putting back, X Fractals with X counters each, a blink of a non-Pilot creature.
  */
@@ -69,7 +69,7 @@ class SosChunk07PrepareWhiteBlueTest {
         ),
     )
 
-    // CR 722.3a: it becomes prepared only if an opponent controls more creatures as the ability resolves
+    // CR 723.3a: it becomes prepared only if an opponent controls more creatures as the ability resolves
     @Test
     fun emeritusOfConcord() = cardFaces(
         Layout.Prepare,

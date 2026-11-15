@@ -202,7 +202,7 @@ class MshChunk04ConniveAndVillainsTest {
         triggered(secondCardEachTurn, loseLife(1, Players.Each(PlayerFilter.Opponent)), gainLife(1)),
     )
 
-    // "This ability triggers only once each turn" (CR 603.2i)
+    // "This ability triggers only once each turn" (CR 603.2h)
     @Test
     fun boneBreakerMercenary() = card(
         name = "Bonebreaker, Cruel Mercenary",

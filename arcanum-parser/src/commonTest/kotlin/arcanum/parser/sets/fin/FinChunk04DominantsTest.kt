@@ -26,8 +26,8 @@ import arcanum.parser.cube.cardFaces
 import kotlin.test.Test
 
 /**
- * Final Fantasy chunk 04: double-faced cards whose back face is a Saga creature (CR 712, 714): exiled and returned transformed by an
- * activated ability (CR 701.27), their last chapter exiling and returning them front face up (CR 712.14); a spell cast from a graveyard that
+ * Final Fantasy chunk 04: double-faced cards whose back face is a Saga creature (CR 712, 715): exiled and returned transformed by an
+ * activated ability (CR 701.27), their last chapter exiling and returning them front face up (CR 712.11); a spell cast from a graveyard that
  * becomes its own back face with a finality counter (CR 122.1h); a creature returned transformed from the graveyard; a dies trigger that puts
  * the card on the bottom of its owner's library.
  */
@@ -42,7 +42,7 @@ class FinChunk04DominantsTest {
     /** "Exile [this], then return it to the battlefield (front face up)." */
     private val returnFrontFaceUp = exileAndReturnFrontFaceUp().toTypedArray()
 
-    // CR 712.14 (front face up), 615 (prevention), 701.27
+    // CR 712.11 (front face up), 615 (prevention), 701.27
     @Test
     fun shardOfTheJudge() = cardFaces(Layout.Transform,
         card(
@@ -274,7 +274,7 @@ class FinChunk04DominantsTest {
     )
 
     /** "If this spell was cast from a graveyard, exile it, then put it onto the battlefield transformed … with a finality counter on it." */
-    // CR 702.34a (flashback), 712.14, 122.1h
+    // CR 702.34a (flashback), 712.11, 122.1h
     @Test
     fun espersAwakening() = cardFaces(Layout.Transform,
         card(

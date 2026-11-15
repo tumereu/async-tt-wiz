@@ -58,7 +58,7 @@ class ActionWordingsTest {
         assertEquals(did(KeywordActionKind.Connive, null, creatureYouControl), event("a creature you control connives"))
     }
 
-    // CR 701.37b, 702.112b, 701.60a, 722.3a, 702.171b
+    // CR 701.37b, 702.112b, 701.60a, 723.3a, 702.171b
     @Test
     fun gainingAMark() {
         assertEquals(EventPattern.GotMark(ObjectMark.Monstrous, creatureYouControl), event("a creature you control becomes monstrous"))

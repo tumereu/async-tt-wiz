@@ -20,7 +20,7 @@ import kotlin.test.Test
 
 /**
  * Final Fantasy chunks 07 and 08 in play: the white cards and the white-blue legends: Equipment matters, life gain triggers, an until-leaves
- * exile (CR 610.3), giving a permanent away, End the turn (CR 724.1), player protection (CR 702.16b) and the other new shapes.
+ * exile (CR 610.3), giving a permanent away, End the turn (CR 725.1), player protection (CR 702.16b) and the other new shapes.
  * Stonehold Guard's dies token, The Light's Chosen, Moogle's Stand, Ironclad Walker and Skybound Moogle use tested token and counter
  * effects; Clawed Prowler's tap ability, Crested Cat's and Clockwork Infantry's artifact-count statics, Snowe Valiers' power and Ronan's
  * Inspiration's attacker pump are covered templates.
@@ -226,7 +226,7 @@ class FinWhiteScenariosTest {
         expect { alice.life shouldBe 22 }
     }
 
-    // CR 724.1: end the turn
+    // CR 725.1: end the turn
     @Test
     fun finalOblivionDestroysAndEndsTheTurn() = scenario {
         libraries()

@@ -150,7 +150,7 @@ class DmuChunk04MillReadAheadScryScenariosTest {
     }
 
     // CR 702.26a, b (a phased-out permanent phases in during its controller's untap step), CR 611.2b (not while Alice controls the Saga); CR 702.26d
-    // (phased out, it isn't destroyed); CR 608.2h (each destroyed creature's controller creates a token); CR 714.4 (sacrificed after III)
+    // (phased out, it isn't destroyed); CR 608.2h (each destroyed creature's controller creates a token); CR 715.4 (sacrificed after III)
     @Test
     fun phasingHoldsItOutWhileTheSagaStaysThenTokensForEachController() = scenario(players = 3) {
         alice.battlefield("Island", "Island", "Island", "Island", bear)
@@ -201,7 +201,7 @@ class DmuChunk04MillReadAheadScryScenariosTest {
         expect { assertTrue(card(ogre).view.obj?.phasedOut == false, "phased in") }
     }
 
-    // CR 305.1-like: putting permanent cards onto the battlefield, up to two, not Sagas (CR 714.1) nor instants
+    // CR 305.1-like: putting permanent cards onto the battlefield, up to two, not Sagas (CR 715.1) nor instants
     @Test
     fun worldSpellPutsUpToTwoNonSagaPermanents() = scenario {
         alice.hand(ogre, idol, otherSaga, three)

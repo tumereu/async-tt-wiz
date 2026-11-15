@@ -18,17 +18,17 @@ import arcanum.engine.state.StatusFlag
 import arcanum.engine.state.TokenIds
 
 /**
- * Preparation cards (CR 722): a permanent with a prepare spell (copiable values of [Layout.Prepare], their second face, CR
- * 722.2b) becomes prepared ([ObjectMark.Prepared]); as it does, its controller creates a copy of it in exile with only the
- * prepare spell's characteristics (722.3c), a copy of a card ([GameObject.copyOfCard]) linked to it by
+ * Preparation cards (CR 723): a permanent with a prepare spell (copiable values of [Layout.Prepare], their second face, CR
+ * 723.2b) becomes prepared ([ObjectMark.Prepared]); as it does, its controller creates a copy of it in exile with only the
+ * prepare spell's characteristics (723.3c), a copy of a card ([GameObject.copyOfCard]) linked to it by
  * [GameObject.prepareSpellOf]. The copy stays in exile while the permanent stays on the battlefield prepared (an exception to
- * CR 704.5e), and its controller may cast it then; the permanent loses the designation as the copy becomes cast (722.3c, 601.2i).
+ * CR 704.5e), and its controller may cast it then; the permanent loses the designation as the copy becomes cast (723.3c, 601.2i).
  */
 internal object Prepare {
-    /** Whether copiable values have a prepare spell (CR 722.2a, b). */
+    /** Whether copiable values have a prepare spell (CR 723.2a, b). */
     fun hasPrepareSpell(values: CopiableValues?): Boolean = values != null && values.layout == Layout.Prepare && values.faces.size > 1
 
-    /** [id] becomes prepared (CR 722.3a, c): only with a prepare spell and not when it already is. */
+    /** [id] becomes prepared (CR 723.3a, c): only with a prepare spell and not when it already is. */
     fun becomePrepared(act: Act, id: ObjectId) {
         val o = act.obj(id) ?: return
         val values = act.view()[id]?.copiable
@@ -47,7 +47,7 @@ internal object Prepare {
         act.record(Change.Created(listOf(Placed(copy, act.state.zone(Zone.Exile, controller).size)), listOf(arcanum.engine.change.Meaning.CardCopied)))
     }
 
-    /** [id] becomes unprepared (CR 722.3b); its copy ceases to exist. */
+    /** [id] becomes unprepared (CR 723.3b); its copy ceases to exist. */
     fun unprepare(act: Act, id: ObjectId) {
         val o = act.obj(id) ?: return
         if (ObjectMark.Prepared !in o.marks) return
@@ -61,14 +61,14 @@ internal object Prepare {
         }
     }
 
-    /** CR 601.2i, 722.3c: the permanent whose prepare spell [spell] is loses the designation as it becomes cast. */
+    /** CR 601.2i, 723.3c: the permanent whose prepare spell [spell] is loses the designation as it becomes cast. */
     fun onCast(recorder: Recorder, spell: ObjectId) {
         val of = recorder.state.obj(spell)?.prepareSpellOf ?: return
         val permanent = recorder.state.obj(of) ?: return
         if (ObjectMark.Prepared in permanent.marks) recorder.record(Change.Status(of, StatusFlag.Marked(ObjectMark.Prepared), true, false))
     }
 
-    /** Whether [o] is a prepared permanent's copy that stays in exile (CR 722.3c, an exception to 704.5e). */
+    /** Whether [o] is a prepared permanent's copy that stays in exile (CR 723.3c, an exception to 704.5e). */
     fun keptInExile(state: GameState, o: GameObject): Boolean {
         if (o.zone != Zone.Exile) return false
         val of = o.prepareSpellOf ?: return false

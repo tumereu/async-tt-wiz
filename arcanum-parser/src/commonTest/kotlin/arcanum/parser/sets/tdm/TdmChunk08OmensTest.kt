@@ -8,7 +8,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Tarkir: Dragonstorm chunk 08: Omen cards (CR 720): each Dragon with its Omen spell, shuffled into its owner's library as it resolves.
+ * Tarkir: Dragonstorm chunk 08: Omen cards (CR 721): each Dragon with its Omen spell, shuffled into its owner's library as it resolves.
  */
 class TdmChunk08OmensTest {
     @Test

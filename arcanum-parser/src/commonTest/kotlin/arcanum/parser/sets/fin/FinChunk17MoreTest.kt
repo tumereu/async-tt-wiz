@@ -45,7 +45,7 @@ import kotlin.test.Test
  * Final Fantasy chunk 17: multicoloured legends, artifacts and Towns with shapes tested elsewhere in parts: named legendary tokens
  * (CR 111.4), an extra combat after the first (CR 500.8), a Saga returned from the graveyard by its mana value, counters by life gained,
  * playing exiled cards for as long as you control a creature (CR 611.2b), equip cost reductions for a target (CR 601.2f), the Town lands
- * and their Adventures (CR 715). The other Towns that enter tapped and tap for two colours, and the basic lands, repeat these templates.
+ * and their Adventures (CR 716). The other Towns that enter tapped and tap for two colours, and the basic lands, repeat these templates.
  */
 class FinChunk17MoreTest {
     @Test
@@ -462,7 +462,7 @@ class FinChunk17MoreTest {
         activated(cost(mana("{3}"), tap, CostPart.Sacrifice(arcanum.api.CostObjects.Choose(artifact, n(2)))), draw(1)),
     )
 
-    // CR 715 (an Adventure on a land, played later from exile)
+    // CR 716 (an Adventure on a land, played later from exile)
     @Test
     fun holySeeTown() = cardFaces(Layout.Adventure,
         card(name = "Holy See of Ishvar", cost = null, type = "Land — Town", text = """

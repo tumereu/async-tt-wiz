@@ -55,10 +55,10 @@ internal object Casting {
         val snap = recorder.snapshot()
         refusal(snap, input)?.let { throw IllegalArgumentException(it) }
         val s = recorder.state
-        // CR 305.1: a special action; the land simply enters the battlefield (CR 712.11: with the face played up)
+        // CR 305.1: a special action; the land simply enters the battlefield (CR 712.8: with the face played up)
         val turn = s.turn
         recorder.record(Changes.step(s, turn.copy(landsPlayed = turn.landsPlayed + (input.player to (turn.landsPlayed[input.player] ?: 0) + 1))))
-        // The face played is up as it enters, so that face's "as this land enters" applies (CR 712.11, 614.12)
+        // The face played is up as it enters, so that face's "as this land enters" applies (CR 712.8, 614.12)
         s.obj(input.card)?.let { if (input.face != it.face) recorder.record(Change.Face(input.card, it.face, input.face)) }
         // Through the event pipeline: "enters tapped", "as this land enters" choices (CR 614.12); a choice waits
         // eoe: "Each land played this way enters tapped" (the permission it is played with, CR 614.1c)
@@ -100,7 +100,7 @@ internal object Casting {
         // CR 601.2a: the card moves to the Stack and becomes the topmost object there
         recorder.record(Changes.move(recorder.state, listOf(input.card), Zone.Stack, controller = input.player, faceDown = faceDown))
         val onStack = (input.card as ObjectId.Card).next()
-        // CR 702.146a, 712.11a: a double-faced card cast transformed (disturb) is its back face on the Stack and enters that way
+        // CR 702.146a, 712.8a: a double-faced card cast transformed (disturb) is its back face on the Stack and enters that way
         val castTransformed = (permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay)?.transformed == true &&
             o.definition.layout == arcanum.api.Layout.Transform && o.definition.faces.size > 1
         val face = if (castTransformed) 1 else way.face
@@ -199,7 +199,7 @@ internal object Casting {
      * [cast], on the effect's terms: without paying its mana cost ([withoutPaying], an alternative cost, CR 118.9; X is
      * then 0, CR 107.3b), for [cost] instead of its mana cost (madness, CR 702.35a), or else for its own mana cost or an
      * alternative cost the player announces ([chooseAlternative], CR 601.2b). Its face is chosen when it has several to
-     * cast (CR 709.3, 715.3, 712.11); modes, optional and additional costs, X, targets, objects for costs and mana are
+     * cast (CR 709.3, 716.3, 712.8); modes, optional and additional costs, X, targets, objects for costs and mana are
      * asked with [act]'s decisions, redone with their answers (D29); a target slot with only as many legal targets as it needs takes them without asking (P5). Nobody gets priority afterwards.
      * Returns the spell, or null when it can't be cast (a prohibition, too few legal targets or objects for its costs, no
      * mana to pay with; CR 101.2, 601.2c, 601.2h, 118.3): then nothing about it happened and the card stays where it is.
@@ -208,7 +208,7 @@ internal object Casting {
                      withoutPaying: Boolean, cost: arcanum.api.Cost?, transformed: Boolean = false, manaAsAnyType: Boolean = false): ObjectId? {
         val o = act.state.obj(card) ?: return null
         val snap = Snapshot(act.state)
-        // CR 712.11a: cast transformed, a transforming double-faced card is its back face (a Siege, CR 310.12b)
+        // CR 712.8a: cast transformed, a transforming double-faced card is its back face (a Siege, CR 310.12b)
         val castTransformed = transformed && o.definition.layout == arcanum.api.Layout.Transform && o.definition.faces.size > 1
         val faces = (if (castTransformed) listOf(1) else Legality.castableFaces(o)).filter { Legality.cantCastByEffect(snap, player, card, it) == null }
         if (faces.isEmpty()) return null
@@ -243,7 +243,7 @@ internal object Casting {
         while (true) {
             val plan = Plan(act.state, c)
             val q = plan.next()
-            // Blocked from the start, it can't be cast; blocked by an answer, that answer is refused (CR 601.2, 727)
+            // Blocked from the start, it can't be cast; blocked by an answer, that answer is refused (CR 601.2, 734)
             plan.blocker(q)?.let { why -> if (asked) throw IllegalArgumentException(why) else return cannot() }
             // isd: an unpayable cost (CR 118.6) can't be paid: the spell isn't cast, or the answer that made it so is refused
             plan.unpayable?.let { why -> if (asked) throw IllegalArgumentException(why) else return cannot() }

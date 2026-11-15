@@ -32,7 +32,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /*
- * INR chunk 04: Coven (ability word, CR 207.2c), Emerge (CR 702.119), Auras (CR 303.4, 702.5). "Can't transform" is CR 701.27/701.28f.
+ * INR chunk 04: Coven (ability word, CR 207.2c), Emerge (CR 702.119), Auras (CR 303.4, 702.5). "Can't transform" is CR 701.27/701.28g.
  */
 class InrChunk04CovenEmergeAurasTest {
     private val enchanted = Objects.AttachedTo(Objects.Self)
@@ -192,7 +192,7 @@ class InrChunk04CovenEmergeAurasTest {
         Keyword.Flying,
     )
 
-    // CR 701.27 and 701.28f: can't transform; 508.1 and 509.1 (can't attack or block); 701.3 (attach, once each turn, as a sorcery)
+    // CR 701.27 and 701.28g: can't transform; 508.1 and 509.1 (can't attack or block); 701.3 (attach, once each turn, as a sorcery)
     @Test
     fun boundByMoonlight() = card(
         name = "Bound by Moonlight",

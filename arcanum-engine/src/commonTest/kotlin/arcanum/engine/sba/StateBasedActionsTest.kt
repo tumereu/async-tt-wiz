@@ -249,7 +249,7 @@ class StateBasedActionsTest {
         }
     }
 
-    // CR 714.4: a Saga whose lore counters reached its last chapter, with no chapter ability waiting, is sacrificed
+    // CR 715.4: a Saga whose lore counters reached its last chapter, with no chapter ability waiting, is sacrificed
     @Test
     fun finishedSagaIsSacrificed() = scenario {
         alice.battlefield("Haruka's Age of Honor", counters = listOf(CounterKind.Lore to 3))

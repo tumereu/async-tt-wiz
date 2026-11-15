@@ -11,7 +11,7 @@ import arcanum.engine.state.PlayerId
 object Attention {
     /**
      * The player the game waits for in [state]: who makes the open decision, holds priority, or declares attackers or
-     * blockers ([Host.decider] of them, CR 723); null once the game is over or before it has started.
+     * blockers ([Host.decider] of them, CR 724); null once the game is over or before it has started.
      */
     fun of(state: GameState): PlayerId? {
         if (Engine.result(state) != null) return null

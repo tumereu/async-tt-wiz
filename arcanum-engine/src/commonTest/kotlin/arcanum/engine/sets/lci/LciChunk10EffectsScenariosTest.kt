@@ -135,7 +135,7 @@ class LciChunk10EffectsScenariosTest {
     }
 
     /** With three players, the opponent with two artifacts counts once and the one with none not at all: two Maps. */
-    // CR 102.2, 715.3a
+    // CR 102.2, 716.3a
     @Test
     fun onwardTrekCountsOpponentsWithAnArtifact() = scenario(players = 3) {
         alice.battlefield("Forest")

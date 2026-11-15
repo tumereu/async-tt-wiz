@@ -264,7 +264,7 @@ class WoeChunk08ConditionsAndCostsScenariosTest {
         expect { imp.toughness shouldBe 2 }
     }
 
-    // CR 715.3: from the graveyard only as the Adventure; CR 715.4: the Adventure resolves into exile, and the creature may then be cast from there
+    // CR 716.3: from the graveyard only as the Adventure; CR 716.4: the Adventure resolves into exile, and the creature may then be cast from there
     @Test
     fun mosswoodDreadknightCastsItsAdventureFromTheGraveyard() = scenario {
         alice.battlefield(darkknight, "Mountain", "Swamp", "Swamp", "Forest", "Forest")

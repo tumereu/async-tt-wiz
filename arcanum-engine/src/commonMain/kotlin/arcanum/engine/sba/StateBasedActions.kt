@@ -122,7 +122,7 @@ internal object StateBasedActions {
         val strayTokens = state.objects.values.filter { it.token && it.zone != Zone.Battlefield } +
             // dsk gaps: CR 704.5e: a copy of a card in a zone other than the Stack or the battlefield ceases to exist
             state.objects.values.filter { it.copyOfCard && it.zone != Zone.Battlefield && it.zone != Zone.Stack &&
-                !arcanum.engine.prepare.Prepare.keptInExile(state, it) } // fra: CR 722.3c
+                !arcanum.engine.prepare.Prepare.keptInExile(state, it) } // fra: CR 723.3c
 
         val battlefield = state.battlefield.filter { state.obj(it)?.phasedOut == false }
         battlefield.forEach { id ->
@@ -166,7 +166,7 @@ internal object StateBasedActions {
             val plus = o.counters(CounterKind.PowerToughness(1, 1))
             val minus = o.counters(CounterKind.PowerToughness(-1, -1))
             if (plus > 0 && minus > 0) removedCounters += Triple(id, CounterKind.PowerToughness(1, 1), minOf(plus, minus))
-            // CR 714.4: a Saga with lore counters at least its final chapter, and no chapter ability waiting or on the Stack
+            // CR 715.4: a Saga with lore counters at least its final chapter, and no chapter ability waiting or on the Stack
             if (c.subtypes.any { it.name == "Saga" }) {
                 val final = c.abilities.mapNotNull { ((it.ability as? Ability.Triggered)?.trigger as? Trigger.Chapter)?.chapters?.maxOrNull() }.maxOrNull()
                 val busy = state.stackItems.values.any { it.source == id && (it.ability as? Ability.Triggered)?.trigger is Trigger.Chapter } ||

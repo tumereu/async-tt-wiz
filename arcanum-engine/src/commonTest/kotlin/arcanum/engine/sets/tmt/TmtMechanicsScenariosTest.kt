@@ -333,7 +333,7 @@ class TmtMechanicsScenariosTest {
     }
 
     /** Chapter III: a creature attacking alone this turn gets three counters and keywords. */
-    // CR 603.7c, 714.2b
+    // CR 603.7c, 715.2b
     @Test
     fun attacksAloneThisTurn() = scenario {
         alice.battlefield(bear)

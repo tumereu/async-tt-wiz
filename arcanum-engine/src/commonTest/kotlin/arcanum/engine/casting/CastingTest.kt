@@ -472,7 +472,7 @@ class CastingTest {
         assertFailsWith<IllegalArgumentException> { alice.casts("Forest") }
     }
 
-    // CR 712.11, 305.1: a modal double-faced card's land face is played as a land
+    // CR 712.8, 305.1: a modal double-faced card's land face is played as a land
     @Test
     fun playingTheBackFaceLand() = scenario {
         alice.hand("Summit Ascetic // Hermit Peak")
@@ -485,14 +485,14 @@ class CastingTest {
         }
     }
 
-    // CR 305.9, 712.11: its front face isn't a land
+    // CR 305.9, 712.8: its front face isn't a land
     @Test
     fun frontFaceIsntALand() = scenario {
         alice.hand("Summit Ascetic // Hermit Peak")
         assertFailsWith<IllegalArgumentException> { alice.plays("Summit Ascetic // Hermit Peak") }
     }
 
-    // CR 712.11: the front face is cast as a spell
+    // CR 712.8: the front face is cast as a spell
     @Test
     fun castingTheFrontFace() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
@@ -513,7 +513,7 @@ class CastingTest {
         expect { (0..2).all { card("Mountain", it).tapped } shouldBe true }
     }
 
-    // CR 715.3: an adventurer card's Adventure is cast as that face
+    // CR 716.3: an adventurer card's Adventure is cast as that face
     @Test
     fun castingTheAdventure() = scenario {
         alice.battlefield("Island", "Island")

@@ -227,7 +227,7 @@ class InrConditionsCopiesCountersScenariosTest {
         assertEquals(emptyList(), decision<Decision.ManaPayment>().suggestion)
     }
 
-    // CR 723.1: Alice decides for Carol during Carol's next turn; CR 500.7: Carol's extra turn follows that turn, before Alice's (3 players)
+    // CR 724.1: Alice decides for Carol during Carol's next turn; CR 500.7: Carol's extra turn follows that turn, before Alice's (3 players)
     @Test
     fun vorthakControlsTheNextTurnThenGivesAnExtraTurn() = scenario(players = 3) {
         libraries()

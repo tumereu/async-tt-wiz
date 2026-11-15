@@ -114,7 +114,7 @@ sealed interface LoopStop {
      * or too many changes (a possible loop no player can stop). */
     @Serializable @SerialName("cap") data object Cap : LoopStop
 
-    /** A loop of mandatory actions the host found (CR 104.4b, 732.4) at a state with [key]. */
+    /** A loop of mandatory actions the host found (CR 104.4b, 733.4) at a state with [key]. */
     @Serializable @SerialName("mandatory") data class Mandatory(val key: arcanum.engine.turn.LoopKey) : LoopStop
 
     companion object {

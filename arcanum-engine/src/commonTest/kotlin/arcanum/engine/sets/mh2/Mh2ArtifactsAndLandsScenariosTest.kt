@@ -356,7 +356,7 @@ class Mh2ArtifactsAndLandsScenariosTest {
     }
 
     /** Chapter III finds an artifact with mana cost {0} or {1}. */
-    // CR 714.2c
+    // CR 715.2c
     @Test
     fun urzasEpicChapterThree() = scenario {
         alice.battlefield(s.urzasEpic, counters = listOf(CounterKind.Lore to 2))

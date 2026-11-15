@@ -69,7 +69,7 @@ internal fun Scenario.playOut(vararg picks: String, may: Boolean = true) {
 }
 
 /** Alice's [saga] with [n] - 1 lore counters at her draw step of turn 3 (her [library] on top): passing into the main
- * phase adds a lore counter and chapter [n] triggers (CR 714.3b). */
+ * phase adds a lore counter and chapter [n] triggers (CR 715.3b). */
 internal fun Scenario.loreChapter(saga: String, n: Int, vararg library: String) {
     alice.battlefield(saga, counters = listOf(arcanum.api.CounterKind.Lore to n - 1))
     alice.library(*library, spmOgre, spmOgre)

@@ -70,7 +70,7 @@ class AlternativeWaysTest {
         expect { alice.exile has growth }
     }
 
-    // CR 702.160a, 718.3: cast prototyped it is a red 2/2 with mana value 2
+    // CR 702.160a, 719.3: cast prototyped it is a red 2/2 with mana value 2
     @Test
     fun prototype() = scenario {
         alice.battlefield("Mountain", "Mountain")

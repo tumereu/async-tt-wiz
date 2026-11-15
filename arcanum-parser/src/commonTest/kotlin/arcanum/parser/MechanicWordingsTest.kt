@@ -313,7 +313,7 @@ class MechanicWordingsTest {
         text = "When this creature enters, venture into the dungeon.",
     ) parsesTo abilities(whenThisEnters(Step.Do(Effect.Action(KeywordAction.Venture))))
 
-    // CR 726.1, 726.3: "you take the initiative"
+    // CR 727.1, 727.3: "you take the initiative"
     @Test
     fun takeTheInitiative() = card(
         name = "Gate Warden",

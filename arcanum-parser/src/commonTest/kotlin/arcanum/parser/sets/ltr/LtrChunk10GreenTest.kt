@@ -38,13 +38,13 @@ import kotlin.test.Test
 
 /**
  * The Lord of the Rings chunk 10: green cards, second part. A creature type noted once for each chapter with the next creature spell of
- * that type entering with a counter (CR 714.2b, 603.7), Halflings attacking a player, sacrificing Foods, an extra Food with each token
+ * that type entering with a counter (CR 715.2b, 603.7), Halflings attacking a player, sacrificing Foods, an extra Food with each token
  * creation (CR 614.1a), an optional sacrifice choosing the pump, Treefolk entering, looking at cards by a creature's mana value and a
  * creature card sharing no creature type (CR 700.8), revealing until X lands, a permanent having left the battlefield this turn, one
  * creature dealing damage to another, a Food sacrificed this turn, modes on entering or attacking, and a pump by the number of Forests.
  */
 class LtrChunk10GreenTest {
-    // CR 714.2b: one chapter ability for each chapter; CR 603.7: the next creature spell of the noted type this turn
+    // CR 715.2b: one chapter ability for each chapter; CR 603.7: the next creature spell of the noted type this turn
     @Test
     fun longRollOfTheEnts() = card(
         name = "Long Roll of the Ents",

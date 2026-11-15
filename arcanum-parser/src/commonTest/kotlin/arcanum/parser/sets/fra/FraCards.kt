@@ -125,12 +125,12 @@ fun gains(objects: Objects, vararg keywords: Ability): Step = untilEndOfTurn(obj
 fun move(objects: Objects, zone: Zone, tapped: Boolean = false, position: Int? = null): Step =
     Step.Do(Effect.Move(objects, arcanum.api.Destination(zone, libraryPosition = position, tapped = tapped)))
 
-// ---- Prepare (CR 722)
+// ---- Prepare (CR 723)
 
-/** "This creature enters prepared." (CR 722.3a) */
+/** "This creature enters prepared." (CR 723.3a) */
 val entersPrepared: Ability = Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
     modify = listOf(Modification.EntersMarked(ObjectMark.Prepared)))), affects = Affected.Objects(Objects.Self))
-/** "[objects] become(s) prepared" / "unprepared" (CR 722.3a, b). */
+/** "[objects] become(s) prepared" / "unprepared" (CR 723.3a, b). */
 fun becomesPrepared(objects: Objects): Step = Step.Do(Effect.Mark(objects, ObjectMark.Prepared))
 fun becomesUnprepared(objects: Objects): Step = Step.Do(Effect.Mark(objects, ObjectMark.Prepared, remove = true))
 val isPrepared: ObjectFilter = ObjectFilter.HasStatus(Status.Marked(ObjectMark.Prepared))

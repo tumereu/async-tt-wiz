@@ -33,7 +33,7 @@ import kotlin.test.Test
 
 /**
  * Lorwyn Eclipsed chunk 07: the double-faced legends that transform at the beginning of your first main phase if you pay a mana of
- * the other face's colour (CR 505.1a, 701.27a, 712). "Whenever this creature enters or transforms into [this face]" (CR 701.27e, the
+ * the other face's colour (CR 505.1a, 701.27a, 712). "Whenever this creature enters or transforms into [this face]" (CR 701.27f, the
  * face's name has a comma), "transforms into [this face] and at the beginning of your first main phase" (one ability, two events),
  * X mana of one of two colours, convoke and persist given to other objects, planeswalker loyalty abilities (CR 606) with an emblem
  * of the chosen type (CR 114), a granted combat damage trigger, protection from each colour, and a tapped and attacking copy of the

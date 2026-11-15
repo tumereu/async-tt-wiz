@@ -198,8 +198,8 @@ class CardDefinitionsTest {
         )), definition(names[3]))
     }
 
-    // set check (TDM, SOS, FIN): Omen cards (named "adventure" in card data, CR 720), preparation cards (CR 722) and meld
-    // cards (CR 712.4) are read with their layouts, not left unreadable
+    // set check (TDM, SOS, FIN): Omen cards (named "adventure" in card data, CR 721), preparation cards (CR 723) and meld
+    // cards (CR 713.1) are read with their layouts, not left unreadable
     @Test fun omenPreparationAndMeldCardsKeepTheirLayout() {
         val result = definitions().forDefinitions(listOf("Tidewing Regent // Swell and Surge", "Quillward Tutor // Ink Lesson",
             "Bramble Twin // Thornwall Colossus").map(::of))

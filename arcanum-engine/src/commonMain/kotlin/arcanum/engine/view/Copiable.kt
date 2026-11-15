@@ -75,7 +75,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
      * The values of a token that's a copy of [id] (CR 707.2, 111.3), or that a copy of a permanent spell becomes (CR 707.10f, g).
      * A double-faced permanent or card gives a double-faced token, each face the copiable values of the same face and the same
      * face up (CR 707.8a), but an object that only copies a double-faced permanent doesn't (the rule's example of Clone), and a
-     * meld card or a melded permanent gives its face up (CR 712.9); the token enters unflipped (CR 110.5b) and with neither half
+     * meld card or a melded permanent gives its face up (CR 707.8); the token enters unflipped (CR 110.5b) and with neither half
      * unlocked (CR 709.5d). Null: unknown.
      */
     fun forToken(id: ObjectId): CopiableValues? {
@@ -130,12 +130,12 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         if (o.faceDown) return Worked(CopiableValues.of(faceDown(o)), listOf(IndexedFace(0, faceDown(o))))
         val definition = o.definition
         var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying, o.createdBy).let { Worked(it, inEffect(it, o)) }
-        // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
+        // CR 719.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
         if (o.castOrNone.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
             worked = worked.map(::prototyped)
-        // CR 730.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all, a
+        // CR 731.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all, a
         // copy effect timestamped as the objects merged (the latest merge)
-        // fin: a melded permanent has only the combined back face's characteristics (CR 712.8g)
+        // fin: a melded permanent has only the combined back face's characteristics (CR 713.5c)
         var mergeDue = o.merged && !(definition.layout is arcanum.api.Layout.Meld && o.face == 1)
         val mergedAt = (o.mergedAbove + o.mergedBelow).maxOfOrNull { it.timestamp } ?: 0
         // CR 613.2a, 613.7, 707.2: copy effects (the merge among them) in timestamp order: a later copy effect overrides the merge
@@ -158,9 +158,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         else -> listOfNotNull(values.faces.getOrNull(values.up)?.let { IndexedFace(values.up, it) })
     } + gainedPart(values)
 
-    /** CR 730.2a, 702.140e: the topmost component's faces, then the other components' abilities ([IndexedFace.abilitiesOnly]). In its
+    /** CR 731.2a, 702.140e: the topmost component's faces, then the other components' abilities ([IndexedFace.abilitiesOnly]). In its
      * copiable values those are [CopiableValues.gained] with its own card on top, its faces as printed, so no face or door decides
-     * whether it has them; with another card on top that card's face holds them all. It is one object, not double-faced (CR 701.27g). */
+     * whether it has them; with another card on top that card's face holds them all. It is one object, not double-faced (CR 701.27h). */
     private fun merged(o: GameObject, own: Worked): Worked {
         fun part(p: arcanum.engine.state.MergedPart): IndexedFace? =
             p.definition.faces.getOrNull(p.face)?.let { IndexedFace(p.face, it, card = p.id.card) }
@@ -287,7 +287,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     companion object {
         // bro chunk 03
         /** [except] with [CopyException.OwnPowerToughness] fixed to [own]'s power and toughness, the entering object's as it enters
-         * (its prototype's when cast prototyped, CR 718.3b; CR 707.9b). */
+         * (its prototype's when cast prototyped, CR 719.3b; CR 707.9b). */
         fun ownPowerToughness(except: List<CopyException>, own: Characteristics?): List<CopyException> =
             if (CopyException.OwnPowerToughness !in except) except else except.mapNotNull { x ->
                 if (x != CopyException.OwnPowerToughness) x
@@ -300,14 +300,14 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             else CopiableValues(o.definition.layout, o.definition.faces, o.face, o.gainedInCopying, o.createdBy)
 
         /** A merged permanent's [faces] as one face (CR 707.2): the first face, with the abilities of its other components (CR
-         * 730.2a, 702.140e: they are part of its copiable values). */
+         * 731.2a, 702.140e: they are part of its copiable values). */
         private fun copiedFace(faces: List<IndexedFace>): FaceDefinition? {
             val main = faces.firstOrNull { !it.abilitiesOnly }?.face ?: return null
             val others = faces.filter { it.abilitiesOnly }.flatMap { it.face.abilities }
             return if (others.isEmpty()) main else main.copy(abilities = main.abilities + others)
         }
 
-        /** Whether [layout] is that of a card that can turn over to its other face (CR 712.9). */
+        /** Whether [layout] is that of a card that can turn over to its other face (CR 712.7). */
         private fun doubleFaced(layout: Layout) = layout == Layout.Transform || layout == Layout.ModalDoubleFaced
 
         private fun faceUp(values: CopiableValues) = CopiableValues.of(values.faces.getOrElse(values.up) { FaceDefinition("") })
@@ -315,7 +315,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         /**
          * What a copy effect takes from [values]: of a double-faced object, the face up (CR 707.8); of a flip card both
          * versions, the copy's own [flipped] status choosing (CR 707.2, 707.3); else all of them: a split card's halves (CR
-         * 709.5b) and the alternative characteristics of an Adventure, an Omen or a prepare spell (CR 715.2b, 720.2b, 722.2b).
+         * 709.5b) and the alternative characteristics of an Adventure, an Omen or a prepare spell (CR 716.2b, 721.2b, 723.2b).
          */
         fun copiedByEffect(values: CopiableValues, flipped: Boolean): CopiableValues = when {
             doubleFaced(values.layout) || values.layout is Layout.Meld -> faceUp(values)
@@ -324,7 +324,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         }
 
         /**
-         * CR 707.9: the exceptions of a copy effect, on each face. A prepare spell's characteristics ignore them (CR 722.3c). An
+         * CR 707.9: the exceptions of a copy effect, on each face. A prepare spell's characteristics ignore them (CR 723.3c). An
          * ability a split card gains in copying is in neither half (CR 707.9a, 709.5): it is held once, in [CopiableValues.gained].
          */
         fun exceptions(values: CopiableValues, except: List<CopyException>): CopiableValues {
@@ -348,7 +348,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             name = "", types = listOf(CardType.Creature), power = PrintedNumber.Fixed(2), toughness = PrintedNumber.Fixed(2),
         )
 
-        /** CR 718.3b: [face] with its prototype's mana cost, power and toughness, and the colour of that mana cost (CR 202.2). */
+        /** CR 719.3b: [face] with its prototype's mana cost, power and toughness, and the colour of that mana cost (CR 202.2). */
         fun prototyped(face: FaceDefinition): FaceDefinition {
             val p = face.abilities.filterIsInstance<arcanum.api.Keyword.Prototype>().firstOrNull() ?: return face
             val cost = p.cost.parts.filterIsInstance<arcanum.api.CostPart.Mana>().firstOrNull()?.cost ?: return face

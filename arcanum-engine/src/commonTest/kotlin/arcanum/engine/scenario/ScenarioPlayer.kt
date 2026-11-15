@@ -93,7 +93,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
 
     // ---- Moves
 
-    /** Plays the land [name] (CR 305.1), with [face] up (a modal double-faced card's back, CR 712.11). */
+    /** Plays the land [name] (CR 305.1), with [face] up (a modal double-faced card's back, CR 712.8). */
     fun plays(name: String, face: Int = 0): Outcome = scenario.perform(Input.PlayLand(id, toCast(name), face))
 
     /** The card named [name] this player would cast or play: their own in hand, else their own elsewhere off the

@@ -277,7 +277,7 @@ class InrChunk01TransformTest {
             pt = "4/3",
             colorIndicator = "R",
         ) to abilities(
-            // CR 701.27c: a Werewolf without a back face doesn't transform
+            // CR 701.27d: a Werewolf without a back face doesn't transform
             triggered(enters(and(sub("Werewolf"), you)), Step.May(listOf(doing(Effect.Transform(Objects.EventObject(arcanum.api.EventRole.After)))), Players.You)),
             werewolfBack,
         ),
@@ -341,7 +341,7 @@ class InrChunk01TransformTest {
         ),
     )
 
-    // CR 701.27e: "transforms into [name]"; CR 115.1: the creature target is chosen among the first target's player's creatures
+    // CR 701.27f: "transforms into [name]"; CR 115.1: the creature target is chosen among the first target's player's creatures
     @Test
     fun packmasterOfTheMoors() = cardFaces(Layout.Transform,
         card(

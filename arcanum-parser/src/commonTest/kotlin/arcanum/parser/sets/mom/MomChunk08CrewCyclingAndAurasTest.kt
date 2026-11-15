@@ -199,7 +199,7 @@ class MomChunk08CrewCyclingAndAurasTest {
         pt = "6/5",
     ) parsesTo abilities(Keyword.Reach, Keyword.Trample, Keyword.Typecycling(sub("Forest"), "Forestcycling", manaCost("{2}")))
 
-    // CR 701.53a; CR 701.27a: transform the target; CR 701.10e: double its +1/+1 counters, the same object after it transformed (CR 711.8)
+    // CR 701.53a; CR 701.27a: transform the target; CR 701.10e: double its +1/+1 counters, the same object after it transformed (CR 712.15)
     @Test
     fun elvishVatwarden() = card(
         name = "Elvish Vatwarden",

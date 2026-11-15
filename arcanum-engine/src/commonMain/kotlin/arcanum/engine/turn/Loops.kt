@@ -32,7 +32,7 @@ data class LoopKey(val value: String) {
 }
 
 /**
- * Loops (CR 104.4b, 732.4): the safety cap of one [arcanum.engine.Engine.perform] call, and the draw a host reports for
+ * Loops (CR 104.4b, 733.4): the safety cap of one [arcanum.engine.Engine.perform] call, and the draw a host reports for
  * a loop of mandatory actions.
  */
 internal object Loops {

@@ -245,7 +245,7 @@ fun entersWith(kind: CounterKind, amount: Value, abilityWord: String? = null): A
     EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(arcanum.api.Modification.EntersWithCounters(kind, amount))),
     abilityWord = abilityWord)
 
-// ---- Preparation cards (CR 722)
+// ---- Preparation cards (CR 723)
 
 val entersPrepared: Ability = static(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
     modify = listOf(arcanum.api.Modification.EntersMarked(arcanum.api.ObjectMark.Prepared))))

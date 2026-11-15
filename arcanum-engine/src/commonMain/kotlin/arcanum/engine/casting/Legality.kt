@@ -68,11 +68,11 @@ internal object Legality {
 
     // ---- Spells (CR 601.3)
 
-    /** The face a spell has when cast [way] (CR 709.3, 715.3, 712.11). */
+    /** The face a spell has when cast [way] (CR 709.3, 716.3, 712.8). */
     fun face(o: GameObject, way: CastWay): FaceDefinition? = o.definition.faces.getOrNull(way.face)
 
     /** Faces a card can be cast as: the front, the other half of a split card, an Adventure, a modal double-faced
-     * card's back (CR 709.3, 715.3, 712.11). */
+     * card's back (CR 709.3, 716.3, 712.8). */
     fun castableFaces(o: GameObject): List<Int> {
         val d = o.definition
         return when (d.layout) {
@@ -141,7 +141,7 @@ internal object Legality {
         val fromHand = o.zone == Zone.Hand && o.owner == player
         val permission = if (fromHand && way.permission == null) null else permission(snap, player, card, way, PlayKind.Cast)
         if (!fromHand && permission == null) return "no permission to cast it from ${o.zone}"
-        // A permission for some spells only ("it may not be cast as an Adventure this way", CR 715.4): the face cast; a filter
+        // A permission for some spells only ("it may not be cast as an Adventure this way", CR 716.4): the face cast; a filter
         // the face alone can't answer ("a spell with mana value less than or equal to …", ecl) is checked on the card
         (permission?.second?.mechanic as? Mechanic.MayPlay)?.resultingSpell?.let { filter ->
             val applied = permission.second
@@ -182,7 +182,7 @@ internal object Legality {
         if (onlyAsSorcery(snap, player, card) && !sorceryTiming(snap, player)) return "$player can cast it only as a sorcery (CR 307.5)"
         legendarySpellWithoutLegend(snap, player, face, types)?.let { return it }
         restriction(snap, player, card)?.let { return it }
-        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed the spell has other characteristics (CR 718.3b, 702.103b): the
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed the spell has other characteristics (CR 719.3b, 702.103b): the
         // prohibition is tested on the spell as proposed ([prohibitedAsProposed]), not on the card as it is now
         if (!changesCharacteristics(alternative(snap, card, way, player)?.second?.keyword) && cantCastBy(snap, player, card)) return "$player can't cast it"
         return null
@@ -305,7 +305,7 @@ internal object Legality {
      * chosen for it so far (its announced X counting in its mana value, CR 202.3e), on the board with its provisional item. */
     fun prohibitedAsProposed(plan: Plan): Boolean {
         if (!plan.isSpell) return false
-        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed, it is tested with those characteristics (CR 718.3b, 702.103b)
+        // rvr sweep, CR 601.3a, 601.3e: cast prototyped or bestowed, it is tested with those characteristics (CR 719.3b, 702.103b)
         val keyword = plan.alternative?.second?.keyword
         if (changesCharacteristics(keyword)) {
             val s = plan.snap.state.deepCopy()
@@ -358,7 +358,7 @@ internal object Legality {
                 (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash }
             }
 
-    /** An alternative cost that gives the spell other characteristics: prototype (CR 718.3b), bestow (CR 702.103b). */
+    /** An alternative cost that gives the spell other characteristics: prototype (CR 719.3b), bestow (CR 702.103b). */
     private fun changesCharacteristics(keyword: arcanum.api.KeywordKind?): Boolean =
         keyword == Keyword.Prototype.Kind || keyword == Keyword.Bestow.Kind
 

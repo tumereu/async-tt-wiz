@@ -56,7 +56,7 @@ class Chunk56MultiFacedCardsScenariosTest {
     }
 
     /** Brennor, the back face: discard a card: exile the top two cards; you may play them this turn. */
-    // CR 712.11
+    // CR 712.8
     @Test
     fun brennorCastBackAndUsed() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
@@ -98,7 +98,7 @@ class Chunk56MultiFacedCardsScenariosTest {
     }
 
     /** Hermit Peak, the land face: pay 3 life or it enters tapped. */
-    // CR 712.11, 305.1
+    // CR 712.8, 305.1
     @Test
     fun hermitPeakPaid() = scenario {
         alice.hand("Summit Ascetic")
@@ -123,10 +123,10 @@ class Chunk56MultiFacedCardsScenariosTest {
         }
     }
 
-    // ---- Adventure (CR 715)
+    // ---- Adventure (CR 716)
 
     /** Petty Pinch: bounce a nonland permanent an opponent controls; then Brash Pilferer can be cast from exile. */
-    // CR 715.4
+    // CR 716.4
     @Test
     fun brashPilfererAdventure() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Island")
@@ -289,7 +289,7 @@ class Chunk56MultiFacedCardsScenariosTest {
 
     /** Haruka's Age of Honor: I, II: a creature gets +1/+1 for each artifact and enchantment; III: it returns
      * transformed into Likeness of Haruka. */
-    // CR 714.3a, 714.2b
+    // CR 715.3a, 715.2b
     @Test
     fun harukasAgeOfHonorChapterOne() = scenario {
         alice.battlefield("Plains", "Plains", "Sun Band", "Elvish Seer")
@@ -305,7 +305,7 @@ class Chunk56MultiFacedCardsScenariosTest {
         }
     }
 
-    // CR 714.3b: after the draw step, a lore counter; chapter III transforms it
+    // CR 715.3b: after the draw step, a lore counter; chapter III transforms it
     @Test
     fun harukasAgeOfHonorChapterThree() = scenario {
         alice.battlefield("Sun Band")

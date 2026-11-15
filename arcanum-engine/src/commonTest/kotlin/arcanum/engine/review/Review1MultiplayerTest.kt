@@ -196,7 +196,7 @@ class Review1MultiplayerTest {
     }
 
     /** A Saga with its last chapter on the Stack isn't sacrificed until that chapter has resolved. */
-    // CR 714.4
+    // CR 715.4
     @Test
     fun sagaWaitsForItsLastChapter() = scenario {
         alice.battlefield("Haruka's Age of Honor", counters = listOf(CounterKind.Lore to 2))

@@ -32,7 +32,7 @@ object CatalogCards {
     fun meldResult(catalog: CardCatalog, printing: CatalogPrintingRecord, linked: List<CatalogPrintingRecord>): Boolean =
         catalog.faces[printing.face].side != FRONT && linked.count { catalog.faces[it.face].side == FRONT } > 1
 
-    /** The sides of one physical card from [linked]: of two fronts (a meld pair) only the first stays (CR 712.4). */
+    /** The sides of one physical card from [linked]: of two fronts (a meld pair) only the first stays (CR 713.1). */
     fun physicalSides(catalog: CardCatalog, linked: List<CatalogPrintingRecord>): List<CatalogPrintingRecord> {
         val front = linked.firstOrNull { catalog.faces[it.face].side == FRONT }
         return linked.filter { catalog.faces[it.face].side != FRONT || it === front }

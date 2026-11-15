@@ -26,7 +26,7 @@ class MarkRulesTest {
         assertEquals(MarkRules.all.toSet(), marks.map(MarkRules::of).toSet(), "the list above has every rule")
     }
 
-    // CR 701.37b, 702.112b, 701.60b, 702.171b, 719.3b, 709.5c, 701.40a, 722.3a, 701.64b, 701.58a, 701.54b: permanents only
+    // CR 701.37b, 702.112b, 701.60b, 702.171b, 720.3b, 709.5c, 701.40a, 723.3a, 701.64b, 701.58a, 701.54b: permanents only
     // CR 702.185b, 702.143a, d, 702.170c: cards in exile only
     @Test
     fun whereEachMarkLives() {
@@ -43,7 +43,7 @@ class MarkRulesTest {
         (marks - ObjectMark.Suspected).forEach { assertTrue(MarkRules.of(it).abilities.isEmpty(), "$it") }
     }
 
-    // CR 702.171b; 701.60a; 701.40a; 701.58a; 722.3b, c; 709.5g; 701.54a; 701.37b, 702.112b, 719.3b, 701.64b: only leaving the battlefield
+    // CR 702.171b; 701.60a; 701.40a; 701.58a; 723.3b, c; 709.5g; 701.54a; 701.37b, 702.112b, 720.3b, 701.64b: only leaving the battlefield
     @Test
     fun whenEachMarkClears() {
         assertEquals(setOf<MarkClear>(MarkClear.EndOfTurn), MarkRules.of(ObjectMark.Saddled).clears)
@@ -58,7 +58,7 @@ class MarkRulesTest {
         }
     }
 
-    // CR 702.143a: a foretell cost; 702.170d: free, as a sorcery; 722.3c: the copy; 702.185a, b: warped gives none, the warp ability does
+    // CR 702.143a: a foretell cost; 702.170d: free, as a sorcery; 723.3c: the copy; 702.185a, b: warped gives none, the warp ability does
     @Test
     fun whatEachMarkLetsBeCast() {
         assertEquals(MarkPermission.CastCard(MarkCost.OfKeyword(Keyword.Foretell.Kind)), MarkRules.of(ObjectMark.Foretold).permission)

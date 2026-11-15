@@ -232,7 +232,7 @@ class MomChunk09EquipFightProwessScryTest {
             targets = listOf(slot("permanent", or(artifact, enchantment), min = 0))),
     )
 
-    // CR 701.27a, 712.14; CR 601.2d: divided as the chapter ability is put on the Stack, at least one counter each; CR 701.14a
+    // CR 701.27a, 712.11; CR 601.2d: divided as the chapter ability is put on the Stack, at least one counter each; CR 701.14a
     @Test
     fun thornvex() = cardFaces(Layout.Transform,
         card(

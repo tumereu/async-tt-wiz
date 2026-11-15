@@ -201,7 +201,7 @@ class AutomatedKeywordsMoreTest {
         expect { tributer.power shouldBe 4 }
     }
 
-    // CR 701.39b: a +1/+1 counter on each of up to two target creatures
+    // CR 701.41a: a +1/+1 counter on each of up to two target creatures
     @Test
     fun support() = scenario {
         alice.battlefield("Plains", "Plains", bear, "Auto Plain Ox")

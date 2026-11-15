@@ -130,7 +130,7 @@ class LciChunk05TransformScenariosTest {
         }
     }
 
-    // CR 712.14, 400.7: it dies and returns as a new object, tapped, its back face up
+    // CR 712.11, 400.7: it dies and returns as a new object, tapped, its back face up
     @Test
     fun zotlacaiReturnsTappedAsItsLand() = scenario {
         alice.battlefield(zotlacai, "Swamp")
@@ -241,7 +241,7 @@ class LciChunk05TransformScenariosTest {
         }
     }
 
-    // CR 712.14, 122.6: it returns with three time counters; tapping the land for mana removes one (CR 602.5b: no transform while any remain)
+    // CR 712.11, 122.6: it returns with three time counters; tapping the land for mana removes one (CR 602.5b: no transform while any remain)
     @Test
     fun quetziReturnsWithTimeCounters() = scenario {
         alice.battlefield(quetzi, "Swamp")

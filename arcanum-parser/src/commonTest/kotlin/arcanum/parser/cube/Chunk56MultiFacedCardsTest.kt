@@ -47,10 +47,10 @@ import kotlin.test.Test
 
 /**
  * Chunk 56: cards with two faces, each face parsed on its own and checked with the card's layout: modal double-faced
- * cards (CR 712.3), an adventurer card (CR 715), a split card (CR 709) and transforming double-faced cards (CR 712.2),
- * whose back faces have a colour indicator and no mana cost (CR 204, 712.8e). Their wordings: mana kept until end of
- * turn, boasting twice, impulse draw, block restrictions, Saga chapters (CR 714.2), returning transformed (CR 712.14a),
- * transforming when counters run out or tokens pile up, "transforms into" triggers (CR 701.27e), loyalty abilities with
+ * cards (CR 712.3), an adventurer card (CR 716), a split card (CR 709) and transforming double-faced cards (CR 712.2),
+ * whose back faces have a colour indicator and no mana cost (CR 204, 712.6d). Their wordings: mana kept until end of
+ * turn, boasting twice, impulse draw, block restrictions, Saga chapters (CR 715.2), returning transformed (CR 712.11a),
+ * transforming when counters run out or tokens pile up, "transforms into" triggers (CR 701.27f), loyalty abilities with
  * a graveyard-cast permission and an emblem, and a token that becomes a creature.
  */
 class Chunk56MultiFacedCardsTest {
@@ -82,7 +82,7 @@ class Chunk56MultiFacedCardsTest {
     )
 
     /** "Exile [this], then return it to the battlefield transformed under [controller]'s control": a new object with its
-     * back face up (CR 400.7, 712.14a). */
+     * back face up (CR 400.7, 712.11a). */
     private fun exileAndReturnTransformed(controller: Players) = listOf(
         Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Exile), postBind = "exiled")),
         Step.Do(Effect.Move(Objects.Bound("exiled"), to = Destination(Zone.Battlefield, transformed = true, controller = controller))),
@@ -211,7 +211,7 @@ class Chunk56MultiFacedCardsTest {
 
     // ---- An adventurer card and a split card
 
-    /** CR 715: the second face is the Adventure, an instant; the layout says how the two are cast. */
+    /** CR 716: the second face is the Adventure, an instant; the layout says how the two are cast. */
     @Test
     fun brashPilferer() = cardFaces(
         layout = Layout.Adventure,
@@ -395,9 +395,9 @@ class Chunk56MultiFacedCardsTest {
         ),
     )
 
-    /** CR 714.2c: "I, II —" is one chapter ability for each chapter. The count is taken once, as it resolves (CR 608.2h);
+    /** CR 715.2c: "I, II —" is one chapter ability for each chapter. The count is taken once, as it resolves (CR 608.2h);
      * the back face's is a continuous count (layer 7c). The lore counter line is reminder text: Sagas get their lore
-     * counters by rule (CR 714.3a, c). */
+     * counters by rule (CR 715.3a, c). */
     @Test
     fun harukasAgeOfHonor() = cardFaces(
         layout = Layout.Transform,
@@ -443,7 +443,7 @@ class Chunk56MultiFacedCardsTest {
     )
 
     /** "Then if it has no ice counters on it" is checked as the ability resolves, after the removal; the back face's
-     * trigger needs it to have that name right after it transforms (CR 701.27e). */
+     * trigger needs it to have that name right after it transforms (CR 701.27f). */
     @Test
     fun shapeBeneathTheFloe() = cardFaces(
         layout = Layout.Transform,

@@ -209,7 +209,7 @@ class MomChunk07MillTest {
             shuffle),
     )
 
-    // CR 602.5b: "Activate only as a sorcery and only if …"; CR 701.27; CR 714.2: chapters; CR 608.2c: each opponent discards, then mills
+    // CR 602.5b: "Activate only as a sorcery and only if …"; CR 701.27; CR 715.2: chapters; CR 608.2c: each opponent discards, then mills
     @Test
     fun morvayne() {
         val exiled = Objects.Bound("exiled")

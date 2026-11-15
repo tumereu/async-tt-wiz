@@ -14,11 +14,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Controlling another player (CR 723): who makes the controlled player's decisions and what they see. */
+/** Controlling another player (CR 724): who makes the controlled player's decisions and what they see. */
 class ControlPlayerTest {
     private val gambit = Cards.invent("Puppeteer's Gambit", "{1}{U}", "Sorcery", "You control target opponent during their next turn.")
 
-    // CR 723.1, 723.3, 723.5, 723.8: Bob's next turn is Alice's to play; Bob stays the active player
+    // CR 724.1, 724.3, 724.5, 724.8: Bob's next turn is Alice's to play; Bob stays the active player
     @Test
     fun controlDuringTheirNextTurn() = scenario {
         alice.battlefield("Island", "Island")
@@ -34,9 +34,9 @@ class ControlPlayerTest {
         assertEquals(alice.id, Host.decider(state, bob.id))
         assertEquals(alice.id, Host.decider(state, alice.id))
         assertTrue(state.turn.controlNext.isEmpty())
-        // Bob's options are still Bob's own inputs (his resources, CR 723.5a)
+        // Bob's options are still Bob's own inputs (his resources, CR 724.5a)
         assertTrue(Engine.options(state, bob.id, prefs).all { it !is Input.PassPriority || it.player == bob.id })
-        // CR 723.1: until the next turn begins
+        // CR 724.1: until the next turn begins
         advanceTo(TurnStep.End, turn = 2)
         assertEquals(alice.id, Host.decider(state, bob.id))
         advanceTo(TurnStep.Upkeep, turn = 3)
@@ -44,7 +44,7 @@ class ControlPlayerTest {
         assertNull(state.turn.controlled)
     }
 
-    // CR 723.4: the controller sees what the controlled player sees in the game
+    // CR 724.4: the controller sees what the controlled player sees in the game
     @Test
     fun theControllerSeesTheirHand() = scenario {
         alice.battlefield("Island", "Island")
@@ -60,7 +60,7 @@ class ControlPlayerTest {
         assertTrue(card("Forest") in Host.visible(state, bob.id))
     }
 
-    // CR 723.1b: a skipped turn isn't taken, so the control waits for the next turn the player actually takes
+    // CR 724.1b: a skipped turn isn't taken, so the control waits for the next turn the player actually takes
     @Test
     fun waitsThroughASkippedTurn() = scenario {
         alice.battlefield("Island", "Island")
@@ -77,7 +77,7 @@ class ControlPlayerTest {
         assertEquals(alice.id, Host.decider(state, bob.id))
     }
 
-    // CR 723.1a: the last control effect created is the one that works
+    // CR 724.1a: the last control effect created is the one that works
     @Test
     fun theLastControlWins() = scenario(players = 3) {
         alice.battlefield("Island", "Island")
@@ -92,7 +92,7 @@ class ControlPlayerTest {
         assertEquals(alice.id, Host.decider(state, alice.id))
     }
 
-    // CR 723.5: while controlled, a player's "skip when I have no choice" follows the controller's setting
+    // CR 724.5: while controlled, a player's "skip when I have no choice" follows the controller's setting
     @Test
     fun passingFollowsTheControllersSetting() = scenario {
         alice.battlefield("Island", "Island")

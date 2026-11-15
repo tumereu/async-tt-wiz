@@ -158,7 +158,7 @@ class TdmMulticolorCardsScenariosTest {
     }
 
     /** Chapter I destroys a nonland permanent; II mills three; III trades a discard for a creature card. */
-    // CR 714.2b
+    // CR 715.2b
     @Test
     fun rouseTheReveredDeadChapterOne() = scenario {
         bob.battlefield(giant)

@@ -135,7 +135,7 @@ class WoeChunk16CountersTapUntapScenariosTest {
         expect { ox.tapped shouldBe false }
     }
 
-    // CR 715.3: the Adventure face makes a 2/2 Knight with vigilance
+    // CR 716.3: the Adventure face makes a 2/2 Knight with vigilance
     @Test
     fun virtueAdventureMakesAKnight() = scenario {
         alice.battlefield("Plains", "Plains")

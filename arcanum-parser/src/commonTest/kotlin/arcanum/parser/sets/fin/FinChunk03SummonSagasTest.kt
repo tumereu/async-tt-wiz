@@ -27,7 +27,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Final Fantasy chunk 03: Saga creatures (CR 714: chapter abilities on a creature, sacrificed after the last chapter, CR 714.4), their
+ * Final Fantasy chunk 03: Saga creatures (CR 715: chapter abilities on a creature, sacrificed after the last chapter, CR 715.4), their
  * chapter text after flavor words (CR 207.2d); "when you next cast" delayed triggers (CR 603.7), a delayed trigger that lasts until end of
  * turn, a permission that works only during turns a lore counter was put on the Saga, an ability gained for good.
  */
@@ -35,7 +35,7 @@ class FinChunk03SummonSagasTest {
     private fun saga(name: String, cost: String, type: String, pt: String, text: String) = card(name = name, cost = cost, type = type, pt = pt, text = text)
     private val otherCreaturesYouControl = Objects.Each(and(another, creature, you))
 
-    // CR 714.2c, 714.4
+    // CR 715.2c, 715.4
     @Test
     fun conjureSkyfireWyrm() = saga(
         name = "Conjure: Skyfire Wyrm",

@@ -188,7 +188,7 @@ class Mh3Chunk11EffectsTest {
             rules = asSorcery),
     )
 
-    // CR 714.2b (chapter abilities); CR 111.4, 202.2: the token named in chapter III has the mana cost its reminder gives, so it's red
+    // CR 715.2b (chapter abilities); CR 111.4, 202.2: the token named in chapter III has the mana cost its reminder gives, so it's red
     @Test
     fun vexaAndTheSpiralVault() = card(
         name = "Vexa and the Spiral Vault",

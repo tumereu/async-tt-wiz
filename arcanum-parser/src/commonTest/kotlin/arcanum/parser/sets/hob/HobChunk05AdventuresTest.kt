@@ -36,13 +36,13 @@ import arcanum.parser.cube.cardFaces
 import kotlin.test.Test
 
 /**
- * The Hobbit chunk 05: adventurer cards (CR 715), each face parsed on its own. A creature type chosen as it enters (CR 607.2d);
+ * The Hobbit chunk 05: adventurer cards (CR 716), each face parsed on its own. A creature type chosen as it enters (CR 607.2d);
  * X tokens; one or two targets; two targets sharing a card type, the second chosen after the first (CR 701.12, 601.2c); a blink
  * (CR 400.7); milling and choosing from among the milled cards; cards exiled face down that may be played while you control a
  * Wizard (CR 406.3); an additional land play (CR 305.2); a cost reduction by the equipped creature's power (CR 601.2f).
  */
 class HobChunk05AdventuresTest {
-    // CR 715.3
+    // CR 716.3
     @Test
     fun bolfinSteadyWarden() = cardFaces(Layout.Adventure,
         card(

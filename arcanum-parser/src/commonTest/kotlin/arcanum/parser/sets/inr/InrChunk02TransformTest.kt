@@ -69,7 +69,7 @@ class InrChunk02TransformTest {
         ) to abilities(Keyword.Flying, Keyword.Lifelink, Keyword.Indestructible, Keyword.Haste),
     )
 
-    // CR 603.7 (delayed trigger), 701.27a; the back face's trigger watches its own transformation (CR 701.27f)
+    // CR 603.7 (delayed trigger), 701.27a; the back face's trigger watches its own transformation (CR 701.27g)
     @Test
     fun seraphOfVigil() = cardFaces(Layout.Transform,
         card(
@@ -246,7 +246,7 @@ class InrChunk02TransformTest {
         ) to abilities(),
     )
 
-    // CR 701.27a, 310.12b (a Siege is cast transformed when defeated), 712.8 (the back face is an enchantment)
+    // CR 701.27a, 310.12b (a Siege is cast transformed when defeated), 712.6 (the back face is an enchantment)
     @Test
     fun invasionOfTheMoors() = cardFaces(Layout.Transform,
         OracleCard(
@@ -276,7 +276,7 @@ class InrChunk02TransformTest {
         ),
     )
 
-    // CR 701.27a, 701.27c; "sacrifice two Blood tokens" is a cost, "only as a sorcery" its timing (CR 602.5d)
+    // CR 701.27a, 701.27d; "sacrifice two Blood tokens" is a cost, "only as a sorcery" its timing (CR 602.5d)
     @Test
     fun bloodthirstyLurker() = cardFaces(Layout.Transform,
         card(

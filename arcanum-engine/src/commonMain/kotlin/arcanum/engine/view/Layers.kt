@@ -843,7 +843,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             if (o.phasedOut || o.counters(CounterKind.Finality) == 0) return@forEach
             rules += AppliedMechanic(Layers.FINALITY, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
         }
-        // What marks let be cast from exile (CR 702.143a, 702.170d, 722.3c)
+        // What marks let be cast from exile (CR 702.143a, 702.170d, 723.3c)
         arcanum.engine.foretell.MarkCasts.permissions(state, { board.work[it]?.controller },
             { id -> board.work[id]?.chars?.abilities.orEmpty().map { it.ability } }).forEach { (id, applied) ->
             if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
@@ -931,7 +931,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         return view.copy(objects = objects)
     }
 
-    /** [o]'s statuses with those the view derives: level 1 for a Class on the battlefield that has gained none (CR 716.2a). */
+    /** [o]'s statuses with those the view derives: level 1 for a Class on the battlefield that has gained none (CR 717.2a). */
     private fun viewStatuses(o: arcanum.engine.state.GameObject): List<arcanum.engine.state.ObjectStatus> {
         if (o.zone != Zone.Battlefield || o.statuses.any { it is arcanum.engine.state.ObjectStatus.ClassLevel } ||
             arcanum.api.Subtype("Class") !in o.definition.faces.getOrNull(o.face)?.subtypes.orEmpty()) return o.statuses

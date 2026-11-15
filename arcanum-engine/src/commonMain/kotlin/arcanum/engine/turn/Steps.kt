@@ -85,8 +85,8 @@ internal object Steps {
     }
 
     /**
-     * CR 724.1d: an effect ended the turn: the current step and phase end, everything is removed from combat, and the game skips straight to
-     * the cleanup step (its "at the beginning of the end step" abilities don't trigger, 724.1e). Additional steps and phases still to come are
+     * CR 725.1d: an effect ended the turn: the current step and phase end, everything is removed from combat, and the game skips straight to
+     * the cleanup step (its "at the beginning of the end step" abilities don't trigger, 725.1e). Additional steps and phases still to come are
      * dropped with the rest of the turn.
      */
     fun endTheTurn(recorder: Recorder): Progress {
@@ -197,7 +197,7 @@ internal object Steps {
             next = Priority.nextPlayer(s, next)
         }
         val number = s.turn.number + 1
-        // CR 723.1, 723.1a, b: control of the player whose turn actually begins applies to it, the last created winning; the
+        // CR 724.1, 724.1a, b: control of the player whose turn actually begins applies to it, the last created winning; the
         // control of the turn before ends as this one begins
         val (taken, waiting) = s.turn.controlNext.partition { it.player == next }
         val turn = TurnState(
@@ -219,7 +219,7 @@ internal object Steps {
         val previous = s.turn.active
         val previousTurn = s.turn.number
         recorder.record(Changes.step(s, turn, listOf(Meaning.TurnBegan, Meaning.StepBegan)))
-        // CR 502.2, 731.2: the untap step checks whether day becomes night or night becomes day
+        // CR 502.2, 732.2: the untap step checks whether day becomes night or night becomes day
         DayNight.untapCheck(recorder, previous, previousTurn)
         // Their effects lasting until their next turn, or until a point in it, end as that turn would have begun
         passedOver.forEach { left -> endEffects(recorder, onlyController = left) { d, _ -> keyedToYourNextTurn(d) } }
@@ -263,7 +263,7 @@ internal object Steps {
                     Progress.Done -> Next.Priority
                 }
             }
-            // CR 714.3b: as the precombat main phase begins, the active player puts a lore counter on each of their Sagas
+            // CR 715.3b: as the precombat main phase begins, the active player puts a lore counter on each of their Sagas
             TurnStep.PrecombatMain -> {
                 val snap = Snapshot(s)
                 val sagas = s.battlefield.filter { id ->

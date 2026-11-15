@@ -371,7 +371,7 @@ class DmuChunk02DomainTest {
             targets = listOf(slot("creature", and(not(isSelf), creature, you)))).domain(),
     )
 
-    // CR 714.3a (read ahead), 714.2
+    // CR 715.3a (read ahead), 715.2
     @Test
     fun theSeedwindAccord() = card(
         name = "The Seedwind Accord",

@@ -9,6 +9,7 @@ import arcanum.api.Effect
 import arcanum.api.EventPattern
 import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
+import arcanum.api.Keyword
 import arcanum.api.Layout
 import arcanum.api.ManaCost
 import arcanum.api.ManaKind
@@ -53,7 +54,7 @@ infix fun OracleCard.parsesTo(expected: List<Ability>) {
     recordCoveredAbilities(face.abilities)
 }
 
-/** A card with two faces or halves (CR 709 split, 712 double-faced, 715 adventurer): each face, written as
+/** A card with two faces or halves (CR 709 split, 712 double-faced, 716 adventurer): each face, written as
  * `card(…) to abilities(…)`, is checked like [parsesTo], and the whole card's definition passes [DefinitionChecks]. */
 fun cardFaces(layout: Layout, vararg faces: Pair<OracleCard, List<Ability>>) {
     val definition = OracleParser.parseCard(layout, faces.map { it.first })
@@ -69,7 +70,9 @@ private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<
     assertEquals(printed.typeLine, TypeLine.render(face), "type line")
     assertEquals(printed.manaCost, face.manaCost?.toString(), "mana cost")
     assertEquals(printed.colorIndicator, face.colorIndicator?.joinToString("") { it.symbol.toString() }, "colour indicator")
-    assertEquals(listOf(printed.power, printed.toughness, printed.loyalty), listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
+    // A station card's P/T box is part of its striation's ability (CR 722.2b, checked with the abilities), not the face's (CR 208.3)
+    val pt = if (Keyword.Station in face.abilities) listOf(null, null) else listOf(printed.power, printed.toughness)
+    assertEquals(pt + printed.loyalty, listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
     assertEquals(expected, face.abilities.map(::withoutText), printed.name)
     checkTexts(printed, face.abilities)
     checkSpans(printed.name, face.abilities)

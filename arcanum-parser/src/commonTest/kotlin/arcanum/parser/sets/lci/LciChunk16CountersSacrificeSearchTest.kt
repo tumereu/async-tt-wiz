@@ -245,7 +245,7 @@ class LciChunk16CountersSacrificeSearchTest {
             Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command).map { ObjectFilter.InZone(it) })))),
     )
 
-    // CR 701.21a (sacrifice), 701.21b: each player chooses two of their own creatures
+    // CR 701.21a (sacrifice): each player chooses two of their own creatures
     @Test
     fun gravetideBrute() = card(
         name = "Gravetide Brute",

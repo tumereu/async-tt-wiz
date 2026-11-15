@@ -39,7 +39,7 @@ internal object Knowledge {
     /** Objects [player] may see the identity of now: public ones, their own hand and cards outside the game, face-down
      * cards they may look at, and cards a "you may look at" ability lets them look at (CR 401.5 cards such as "look at
      * the top card of your library any time"); revealed ones ("play with the top card revealed") for everyone. While
-     * [player] controls another player, also what that player may see of objects in the game (CR 723.4: not their cards
+     * [player] controls another player, also what that player may see of objects in the game (CR 724.4: not their cards
      * outside the game). */
     fun visible(state: GameState, view: View, player: PlayerId): Set<ObjectId> {
         val own = ownVisible(state, view, player)
@@ -53,7 +53,7 @@ internal object Knowledge {
 
     /** Objects only [player] may see (I-D18): visible to them and not to some other player still in the game (their
      * hand and cards outside the game, face-down cards they control, cards only they may look at). Library cards nobody
-     * may look at aren't among them. What a controlling player sees of them (CR 723.4) doesn't count. */
+     * may look at aren't among them. What a controlling player sees of them (CR 724.4) doesn't count. */
     fun privateTo(state: GameState, view: View, player: PlayerId): Set<ObjectId> {
         val others = state.players.filter { it.id != player && !it.lost }.map { ownVisible(state, view, it.id) }
         return ownVisible(state, view, player).filter { id -> others.any { id !in it } }.toSet()

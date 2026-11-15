@@ -1,0 +1,23 @@
+# Cited rules whose text changed with a Comprehensive Rules pin move, checked: rule (pinned numbering), effective date of the text
+# checked against, why the citing code still holds. Read by :arcanum-tools:crDelta; entries for an older date no longer count.
+122.1g	2026-11-06	only a Siege waits for its own triggered ability; the engine already applies 704.5v and 704.5w (StateBasedActions)
+202.3b	2026-11-06	a see-also reference added
+202.3c	2026-11-06	a see-also reference added
+205.3g	2026-11-06	Communicator added to the engine's artifact types (Subtypes) and the parser's subtypes (RulesWords)
+205.3j	2026-11-06	the new planeswalker types added to Subtypes and RulesWords
+205.3m	2026-11-06	the new creature types added to RulesWords (creature types are every subtype in no other list)
+207.2c	2026-11-06	the new ability words added to RulesWords
+208.3	2026-11-06	a station card's P/T box is part of its striation's ability: the parser no longer gives it as the face's P/T (EoeStationScenariosTest)
+608.2g	2026-11-06	casting several spells during a resolution asks the caster for the order (Casts.castByEffect)
+701.27i	2026-11-06	was 712.20, now for a double-faced permanent; FIN's transform-as abilities still read and resolve so
+701.42a	2026-11-06	the see-also names rule 713, Meld Cards
+707.2	2026-11-06	defense was copied already (Copiable); copies of spells and abilities keep their choices (707.10)
+707.8	2026-11-06	the same rule with meld named apart
+712.1	2026-11-06	meld cards aren't double-faced cards any more: ObjectFilter.DoubleFaced leaves them out (MomChunk09 scenario)
+712.2	2026-11-06	a see-also reference added
+712.6	2026-11-06	was 712.8 for double-faced cards; meld is 713.5
+712.6b	2026-11-06	was 712.8c, the same rule
+712.7	2026-11-06	was 712.9, the same rule; meld cards can't transform by 713.1c
+712.15	2026-11-06	was 712.18 (cited as the nonexistent 711.8): transforming doesn't make a new object
+713	2026-11-06	the new Meld Cards section, rules moved from 712
+713.1	2026-11-06	was 712.4, meld cards; not double-faced cards any more (see 712.1)

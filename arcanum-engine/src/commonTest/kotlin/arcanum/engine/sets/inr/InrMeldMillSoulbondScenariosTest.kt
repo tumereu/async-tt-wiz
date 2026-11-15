@@ -74,7 +74,7 @@ class InrMeldMillSoulbondScenariosTest {
     private fun Scenario.libraries() { players.forEach { it.library("Island", "Island", "Island", "Island") } }
     private fun Scenario.canCast(player: arcanum.engine.scenario.ScenarioPlayer) = Engine.options(state, player.id).any { it is Input.Cast }
 
-    // CR 701.42a, 712.4a: at the beginning of your end step, no payment; CR 101.2 (the melded card's restriction applies to every opponent)
+    // CR 701.42a, 713.1a: at the beginning of your end step, no payment; CR 101.2 (the melded card's restriction applies to every opponent)
     @Test
     fun gildaMeldsAtTheEndStepAndOpponentsCantCastCheapSpells() = scenario(players = 3) {
         libraries()

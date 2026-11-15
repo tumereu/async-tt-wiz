@@ -140,7 +140,7 @@ class FdnChunk19ModifyPtScenariosTest {
         }
     }
 
-    // CR 613.4c, 611.3a, 613.4f: with two instants/sorceries in the graveyard it is 2/2 with haste; with one it is not; opponent's graveyard does not count
+    // CR 613.4c, 611.3a, 613.1f: with two instants/sorceries in the graveyard it is 2/2 with haste; with one it is not; opponent's graveyard does not count
     @Test
     fun runnerNeedsTwoInstantsOrSorceriesInYourGraveyard() = scenario {
         alice.battlefield(runner)
@@ -190,7 +190,7 @@ class FdnChunk19ModifyPtScenariosTest {
         }
     }
 
-    // CR 613.4c, 613.4f, 702.15a: other Angels get +1/+1 and lifelink; Lyra herself keeps 5/5
+    // CR 613.4c, 613.1f, 702.15a: other Angels get +1/+1 and lifelink; Lyra herself keeps 5/5
     @Test
     fun lyraPumpsOtherAngelsAndGivesLifelink() = scenario {
         alice.battlefield(lyra, angel, ox)

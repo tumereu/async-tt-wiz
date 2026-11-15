@@ -329,7 +329,7 @@ class ExampleCardsTest {
         assertEquals(emptyList(), DefinitionChecks.unusedTargetSlots(Ability.Spell(reflexive)))
     }
 
-    // CR 614.12, 110.5b: "as enters" steps only pay, choose, check or modify how it enters; CR 714: chapters are Sagas'.
+    // CR 614.12, 110.5b: "as enters" steps only pay, choose, check or modify how it enters; CR 715: chapters are Sagas'.
     @Test
     fun asEntersEffectsAndStrayChaptersAreReported() {
         val entering = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)

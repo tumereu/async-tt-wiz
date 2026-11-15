@@ -60,7 +60,7 @@ class WoeChunk07FightMillTreasureTest {
             targets = listOf(slot("creature", creatureYouDontControl)), rules = asSorcery),
     )
 
-    // CR 715.2a: a spell that has an Adventure, cast as the creature (a permanent spell); CR 601.2f; CR 701.17a: mill, then each milled card
+    // CR 716.2a: a spell that has an Adventure, cast as the creature (a permanent spell); CR 601.2f; CR 701.17a: mill, then each milled card
     // that has an Adventure goes to the hand
     @Test
     fun thessalyStormstride() = cardFaces(Layout.Adventure,
@@ -123,7 +123,7 @@ class WoeChunk07FightMillTreasureTest {
         ) to abilities(spell(mill(4, postBind = "milled"), chooseOne(or(instant, sorcery, sub("Faerie")), from = milled), move(Objects.Bound("chosen"), Zone.Hand))),
     )
 
-    // CR 604.3 (characteristic-defining); CR 701.17a; CR 715.3d
+    // CR 604.3 (characteristic-defining); CR 701.17a; CR 716.3d
     @Test
     fun grimDreameater() = cardFaces(Layout.Adventure,
         card(name = "Grim Dreameater", cost = "{1}{B}", type = "Creature — Nightmare", pt = "*/*",
@@ -179,7 +179,7 @@ class WoeChunk07FightMillTreasureTest {
             targets = listOf(slot("Treasure", and(sub("Treasure"), you)))),
     )
 
-    // CR 714.2b (chapters); CR 111.10a; the exiled cards may be played this turn (CR 305.1, lands too)
+    // CR 715.2b (chapters); CR 111.10a; the exiled cards may be played this turn (CR 305.1, lands too)
     @Test
     fun ravenousKingAndThePickpocket() = card(
         name = "Ravenous King and the Pickpocket",
@@ -224,7 +224,7 @@ class WoeChunk07FightMillTreasureTest {
         spell(damage(1, toAny), createTreasure(), draw(1), targets = listOf(anyTarget)),
     )
 
-    // CR 602.1 (cost before the colon); CR 715.3d. Audit (cost span starts at "an", not "Sacrifice"): a false alarm: a part choosing objects
+    // CR 602.1 (cost before the colon); CR 716.3d. Audit (cost span starts at "an", not "Sacrifice"): a false alarm: a part choosing objects
     // spans the objects' phrase ("an artifact or land"), as every sacrifice cost does
     @Test
     fun greedyColossus() {
@@ -244,7 +244,7 @@ class WoeChunk07FightMillTreasureTest {
         assertEquals(listOf("{2}{R}", "an artifact or land"), ability.cost.spans.map { text.substring(it.start, it.end) })
     }
 
-    // CR 702.10 (haste); CR 715.2a: a card in exile you own that has an Adventure, used or not
+    // CR 702.10 (haste); CR 716.2a: a card in exile you own that has an Adventure, used or not
     @Test
     fun bayingWindfang() = card(
         name = "Baying Windfang",

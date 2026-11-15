@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Review 2: modal double-faced, transforming and Adventure cards in each zone (CR 712.8, 715.4): outside the
+ * Review 2: modal double-faced, transforming and Adventure cards in each zone (CR 712.6, 716.4): outside the
  * battlefield and the Stack only the front face counts; a transformed permanent's mana value is its front face's.
  */
 class Review2MultiFacedTest {
@@ -26,7 +26,7 @@ class Review2MultiFacedTest {
 
     /** A modal double-faced card with a land back face is a creature card in the graveyard: Knight of the Relic Vault
      * counts only the Forest. */
-    // CR 712.8a
+    // CR 712.6a
     @Test
     fun anMdfcInTheGraveyardIsItsFrontFace() = scenario {
         alice.battlefield("Knight of the Relic Vault")
@@ -35,7 +35,7 @@ class Review2MultiFacedTest {
     }
 
     /** "Search your library for a land card" doesn't find a modal double-faced card whose back face is a land. */
-    // CR 712.8a, 701.23a
+    // CR 712.6a, 701.23a
     @Test
     fun aSearchForALandDoesntFindTheBackFace() = scenario {
         alice.battlefield("Forest", "Forest")
@@ -49,7 +49,7 @@ class Review2MultiFacedTest {
     }
 
     /** Played as its back face, Hermit Peak is a land with mana value 0 on the battlefield. */
-    // CR 712.8f, 202.3b
+    // CR 712.6e, 202.3b
     @Test
     fun aBackFaceLandHasManaValueZero() = scenario {
         alice.hand("Summit Ascetic // Hermit Peak")
@@ -62,7 +62,7 @@ class Review2MultiFacedTest {
     }
 
     /** In a hand, an Adventurer card is only its creature: "choose a noncreature, nonland card" can't take it. */
-    // CR 715.4
+    // CR 716.4
     @Test
     fun anAdventurerInHandIsOnlyACreature() = scenario {
         alice.battlefield("Swamp")
@@ -75,7 +75,7 @@ class Review2MultiFacedTest {
     }
 
     /** An Adventure that's countered goes to the graveyard, not to exile. */
-    // CR 715.4
+    // CR 716.4
     @Test
     fun aCounteredAdventureGoesToTheGraveyard() = scenario {
         alice.battlefield("Island", "Island")
@@ -91,7 +91,7 @@ class Review2MultiFacedTest {
 
     /** A transformed permanent's mana value is its front face's: Risen Leviathan has mana value 2, so Revoke Writ with X 2
      * can target it. */
-    // CR 712.8e
+    // CR 712.6d
     @Test
     fun aTransformedPermanentHasItsFrontFacesManaValue() = scenario {
         alice.battlefield("Island", "Island", "Island")
@@ -106,7 +106,7 @@ class Review2MultiFacedTest {
 
     /** Cast as its back face, Brennor is a mana value 5 spell on the Stack: "counter target spell with mana value 2"
      * can't target it. */
-    // CR 712.8f
+    // CR 712.6e
     @Test
     fun aBackFaceSpellHasItsOwnManaValue() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain")

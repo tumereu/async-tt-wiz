@@ -124,7 +124,7 @@ class MomChunk08CrewCyclingAndAurasScenariosTest {
     }
 
     // CR 701.27a: the target Incubator transforms into a Phyrexian artifact creature; CR 701.10e: its two +1/+1 counters double to four on the
-    // same permanent (CR 711.8)
+    // same permanent (CR 712.15)
     @Test
     fun theVatwardenTransformsAnIncubatorAndDoublesItsCounters() = scenario {
         alice.battlefield("Swamp", "Forest", *Array(6) { "Forest" })

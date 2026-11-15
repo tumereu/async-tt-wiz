@@ -8,7 +8,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Marvel's Spider-Man chunk 04: Sagas (CR 714) and modes (CR 700.2) with flavor words (CR 207.2d): becoming a legendary Spider Hero, a copy of the next creature spell that isn't legendary (CR 707.10), a chosen card name, a discard or life choice for each player, graveyards exiled, a forced attack on another player, modes of one or both.
+ * Marvel's Spider-Man chunk 04: Sagas (CR 715) and modes (CR 700.2) with flavor words (CR 207.2d): becoming a legendary Spider Hero, a copy of the next creature spell that isn't legendary (CR 707.10), a chosen card name, a discard or life choice for each player, graveyards exiled, a forced attack on another player, modes of one or both.
  */
 class SpmChunk04SagasAndModesTest {
 

@@ -11,7 +11,7 @@ import kotlin.test.Test
 class FdnChunk26EndTurnGainAbilitiesLifeLookTest {
     private val vampire = sub("Vampire")
 
-    // CR 723.1: "End the turn." is one effect
+    // CR 724.1: "End the turn." is one effect
     @Test
     fun hourHalt() = card(name = "Hour Halt", cost = "{4}{U}{U}", type = "Instant", text = "End the turn.") parsesTo abilities(
         spell(doing(Effect.EndTurn)),

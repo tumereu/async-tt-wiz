@@ -103,7 +103,7 @@ class InrTransformPart2ScenariosTest {
         assertFailsWith<IllegalArgumentException> { alice.activates(chapel, ability = 1) }
     }
 
-    // CR 603.7, 701.27a, 701.27f, 120.3: a non-Angel creature dying sets up the transform at the next upkeep; the back face then hits
+    // CR 603.7, 701.27a, 701.27g, 120.3: a non-Angel creature dying sets up the transform at the next upkeep; the back face then hits
     // every other creature and each opponent (three players)
     @Test
     fun theSeraphTransformsAtTheNextUpkeepAndHurtsEveryOpponent() = scenario(players = 3) {

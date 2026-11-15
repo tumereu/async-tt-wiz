@@ -320,7 +320,7 @@ class BroChunk04AurasEquipmentAndMeldScenariosTest {
 
     // ---- Meld
 
-    // CR 603.2c, 508.1m: "whenever you attack" drains each opponent by the attackers; CR 701.42a, 712.4a: both attacking, they meld; CR
+    // CR 603.2c, 508.1m: "whenever you attack" drains each opponent by the attackers; CR 701.42a, 713.1a: both attacking, they meld; CR
     // 508.4: the melded permanent enters tapped and attacking the player its controller chooses (Carol, though Varkon attacked Bob), and
     // its enters trigger works, but not its attack trigger
     @Test
@@ -364,7 +364,7 @@ class BroChunk04AurasEquipmentAndMeldScenariosTest {
         }
     }
 
-    // CR 603.4, 701.42a, 712.4a: four land cards in the graveyard: at the upkeep they meld; the melded creature (2/2 with the two Plains,
+    // CR 603.4, 701.42a, 713.1a: four land cards in the graveyard: at the upkeep they meld; the melded creature (2/2 with the two Plains,
     // CR 604.3) returns the lands tapped and counts them
     @Test
     fun sylvaraMeldsAtTheUpkeepWithFourLandsInTheGraveyard() = scenario {
@@ -398,7 +398,7 @@ class BroChunk04AurasEquipmentAndMeldScenariosTest {
         }
     }
 
-    // CR 701.42a, 712.4a, 602.5d: the activated meld makes a planeswalker with its printed loyalty (CR 306.5b); CR 606.3: its loyalty
+    // CR 701.42a, 713.1a, 602.5d: the activated meld makes a planeswalker with its printed loyalty (CR 306.5b); CR 606.3: its loyalty
     // abilities may be activated twice this turn, not three times
     @Test
     fun orenMeldsIntoAPlaneswalkerThatActivatesTwice() = scenario {

@@ -479,7 +479,7 @@ class KeywordActionTriggersTest {
         expect { alice.life shouldBe 21 }
     }
 
-    // CR 722.3a: gaining the designation triggers; one without a prepare spell can't gain it, and one that has it can't gain it again
+    // CR 723.3a: gaining the designation triggers; one without a prepare spell can't gain it, and one that has it can't gain it again
     @Test
     fun whenACreatureBecomesPrepared() = scenario {
         val seraph = Cards.inventFaces("Prepare",

@@ -126,7 +126,7 @@ class FdnChunk19ModifyPtTest {
         activated(cost(mana("{G}"), tap), create(creatureToken("Elf Warrior", listOf(Color.Green), 1, 1))),
     )
 
-    // CR 613.4c, 613.4f (abilities), 702.2/702.7/702.15
+    // CR 613.4c, 613.1f (abilities), 702.2/702.7/702.15
     @Test
     fun lyraSkybringer() = card(
         name = "Lyra Skybringer", cost = "{3}{W}{W}", type = "Legendary Creature — Angel", pt = "5/5",

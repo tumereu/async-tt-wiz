@@ -53,7 +53,7 @@ internal object Applier {
     private fun applyState(state: GameState, change: Change) {
         when (change) {
             is Change.ZoneChange -> change.moves.forEach { move ->
-                // CR 730.3: a merged permanent's components arrive as their own objects; taken back, they leave again first
+                // CR 731.3: a merged permanent's components arrive as their own objects; taken back, they leave again first
                 val splits = move.before.merged
                 if (!splits) move.parts.reversed().forEach { remove(state, it.obj, it.index) }
                 remove(state, move.before, move.fromIndex)
@@ -178,7 +178,7 @@ internal object Applier {
                     check(o == change.before) { "${change.before.id} isn't as expected" }
                     change.after
                 }
-                // CR 730.2a: a merge's timestamp is given as the objects merge
+                // CR 731.2a: a merge's timestamp is given as the objects merge
                 change.after.statuses.status<ObjectStatus.Merged>()?.let { m -> (m.above + m.below).forEach { stamp(state, it.timestamp) } }
             }
             is Change.Step -> {

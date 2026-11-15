@@ -205,7 +205,7 @@ class LtrChunk09GreenTest {
             targets = listOf(slot("creature", creatureYouControl), slot("second creature", and(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You)))))),
     )
 
-    // CR 714.2b; a granted dies trigger, then a fight with up to one other target (CR 115.3: a different creature from the first target)
+    // CR 715.2b; a granted dies trigger, then a fight with up to one other target (CR 115.3: a different creature from the first target)
     @Test
     fun fallOfTheElvenKing() = card(
         name = "Fall of the Elven King",

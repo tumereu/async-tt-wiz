@@ -305,7 +305,7 @@ class TurnStructureTest {
         assertFailsWith<IllegalArgumentException> { perform(Input.PassPriority(alice.id)) }
     }
 
-    // CR 714.3b: as the precombat main phase begins, the active player puts a lore counter on each Saga they control
+    // CR 715.3b: as the precombat main phase begins, the active player puts a lore counter on each Saga they control
     @Test
     fun loreCounterAfterTheDrawStep() = scenario {
         alice.battlefield("Haruka's Age of Honor", counters = listOf(CounterKind.Lore to 1))
@@ -319,7 +319,7 @@ class TurnStructureTest {
         }
     }
 
-    // CR 714.3a: a Saga enters with a lore counter, and its chapter I triggers (CR 714.2b)
+    // CR 715.3a: a Saga enters with a lore counter, and its chapter I triggers (CR 715.2b)
     @Test
     fun sagaEntersWithALoreCounter() = scenario {
         alice.battlefield("Plains", "Plains", "Elvish Seer")

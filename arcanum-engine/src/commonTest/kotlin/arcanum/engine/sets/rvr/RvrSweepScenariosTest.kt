@@ -134,7 +134,7 @@ class RvrSweepScenariosTest {
         }
     }
 
-    // CR 601.3e, 718.3b: a prototyped spell is tested with its prototype's characteristics: mana value 2 isn't prohibited by "can't cast
+    // CR 601.3e, 719.3b: a prototyped spell is tested with its prototype's characteristics: mana value 2 isn't prohibited by "can't cast
     // spells with mana value 4 or greater"
     @Test
     fun aPrototypedSpellIsTestedWithItsPrototypeManaValue() = scenario(players = 3) {
@@ -146,7 +146,7 @@ class RvrSweepScenariosTest {
         expect { "Smelter Colossus".power shouldBe 2 }
     }
 
-    // CR 601.3e, 718.3b: prototyped it is red, so "can't cast red spells" prohibits it, though the card is colourless
+    // CR 601.3e, 719.3b: prototyped it is red, so "can't cast red spells" prohibits it, though the card is colourless
     @Test
     fun aPrototypedSpellIsTestedWithItsPrototypeColour() = scenario {
         opponentsCantCast(bob, ObjectFilter.OfColor(Color.Red))

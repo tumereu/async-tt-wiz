@@ -46,7 +46,7 @@ class Mh3Chunk06AffinityAnnihilatorBestowTest {
     private fun bestow(cost: String) = Keyword.Bestow(manaCost(cost))
     private fun enchantedGets(vararg mechanics: Mechanic) = static(*mechanics, affects = enchanted)
 
-    // CR 702.160a, 718.3: prototype's mana cost, power and toughness; CR 702.41a: affinity for artifacts
+    // CR 702.160a, 719.3: prototype's mana cost, power and toughness; CR 702.41a: affinity for artifacts
     @Test
     fun toadmyrBruiser() = card(
         name = "Toadmyr Bruiser",

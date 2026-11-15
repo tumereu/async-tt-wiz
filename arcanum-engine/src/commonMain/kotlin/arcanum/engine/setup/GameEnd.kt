@@ -176,7 +176,7 @@ internal object GameEnd {
      * (to outside the game; their tokens then cease to exist, CR 704.5d); their abilities and copies on the Stack cease to
      * exist; what they still control is exiled. Their waiting and delayed triggers are dropped (CR 800.4d). Priority they
      * held passes to the next player (CR 800.4a); passes made so far keep counting, theirs aside. An active player's turn
-     * goes on without them (CR 800.4j). The initiative they had passes on (CR 726.4); their face-down permanents, spells and
+     * goes on without them (CR 800.4j). The initiative they had passes on (CR 727.4); their face-down permanents, spells and
      * conspiracies are revealed (CR 708.9, 702.106e).
      */
     fun leave(recorder: Recorder, player: PlayerId) {
@@ -232,9 +232,9 @@ internal object GameEnd {
         if (after != p) recorder.record(Changes.priority(s, after, if (after.holder != holder) listOf(Meaning.PriorityGranted) else emptyList()))
     }
 
-    /** CR 726.4: when [player], leaving, has the initiative, the active player takes it at the same time; if the active player is
+    /** CR 727.4: when [player], leaving, has the initiative, the active player takes it at the same time; if the active player is
      * the one leaving, the next player in turn order does. Taking it is a [GameEvent.TookInitiative] (its venture into Undercity
-     * triggers, CR 726.2). */
+     * triggers, CR 727.2). */
     private fun passInitiative(recorder: Recorder, player: PlayerId) {
         val s = recorder.state
         val initiative = arcanum.api.Designation.Initiative

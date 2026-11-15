@@ -131,7 +131,7 @@ sealed interface ObjectMark {
     @Serializable @SerialName("renowned") data object Renowned : ObjectMark
     @Serializable @SerialName("suspected") data object Suspected : ObjectMark
     @Serializable @SerialName("saddled") data object Saddled : ObjectMark
-    /** A solved Case (CR 719.3b). */
+    /** A solved Case (CR 720.3b). */
     @Serializable @SerialName("solved") data object Solved : ObjectMark
     /** "Left half unlocked" / "right half unlocked" (CR 709.5c): the unlocked designations of a permanent with a shared
      * type line (a Room). Given as it enters for the half cast (709.5d), by unlocking (709.5e, f), taken by locking
@@ -142,9 +142,9 @@ sealed interface ObjectMark {
      * manifests. */
     @Serializable @SerialName("manifested") data object Manifested : ObjectMark
     // fra
-    /** The prepared designation (CR 722.3a): only a permanent with a prepare spell ([Layout.Prepare]) can have it, and not
+    /** The prepared designation (CR 723.3a): only a permanent with a prepare spell ([Layout.Prepare]) can have it, and not
      * twice. As it gains it, its controller gets a copy of the prepare spell in exile that they may cast for as long as the
-     * permanent stays prepared; casting it unprepares the permanent (722.3b, c). Set and removed with [Effect.Mark]
+     * permanent stays prepared; casting it unprepares the permanent (723.3b, c). Set and removed with [Effect.Mark]
      * ("becomes prepared", "becomes unprepared"); "enters prepared" marks it as it enters. */
     @Serializable @SerialName("prepared") data object Prepared : ObjectMark
     // msh
@@ -184,7 +184,7 @@ sealed interface Door {
     @Serializable @SerialName("right") data object Right : Door
 }
 
-/** Player designations: the monarch (CR 725), the initiative (CR 726), the city's blessing (CR 702.131c), an enduring story
+/** Player designations: the monarch (CR 726), the initiative (CR 727), the city's blessing (CR 702.131c), an enduring story
  * (CR 702.195b). */
 @Serializable
 sealed interface Designation {

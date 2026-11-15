@@ -60,7 +60,7 @@ class MomChunk02TransformTest {
     /** "Exile [this], then return it to the battlefield transformed under its owner's control." (CR 701.27) */
     private val exileAndReturnTransformed = arrayOf(move(Objects.Self, Zone.Exile, postBind = "exiled"),
         Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled")), transformed = true))))
-    /** "Exile this Saga, then return it to the battlefield (front face up)." (a new object, CR 400.7, 712.14) */
+    /** "Exile this Saga, then return it to the battlefield (front face up)." (a new object, CR 400.7, 712.11) */
     private val exileAndReturnFrontFaceUp = arrayOf(move(Objects.Self, Zone.Exile, postBind = "exiled"),
         Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield))))
     private fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
@@ -146,7 +146,7 @@ class MomChunk02TransformTest {
     )
 
     // CR 702.21; CR 602.5b, 602.5d: both restrictions; CR 402.2, 611.2b: no maximum hand size while you control the Saga; CR 608.2g: the spells
-    // are cast while the chapter resolves; CR 305.9: a land can't be cast; CR 712.14: it returns front face up
+    // are cast while the chapter resolves; CR 305.9: a land can't be cast; CR 712.11: it returns front face up
     @Test
     fun velQuorias() = cardFaces(Layout.Transform,
         card(
@@ -189,7 +189,7 @@ class MomChunk02TransformTest {
         ),
     )
 
-    // CR 701.27g: a transformed permanent is a double-faced permanent with its back face up; CR 613.4c
+    // CR 701.27h: a transformed permanent is a double-faced permanent with its back face up; CR 613.4c
     @Test
     fun mutantAppraiser() = card(
         name = "Mutant Appraiser",
@@ -206,7 +206,7 @@ class MomChunk02TransformTest {
         static(Mechanic.ModifyPowerToughness(count(transformedPermanentYouControl), n(0))),
     )
 
-    // CR 701.27g; CR 613.1f: the granted ability while the condition holds; CR 603.10a: a dies trigger looks back
+    // CR 701.27h; CR 613.1f: the granted ability while the condition holds; CR 603.10a: a dies trigger looks back
     @Test
     fun lensbornDrakeling() = card(
         name = "Lensborn Drakeling",
@@ -290,7 +290,7 @@ class MomChunk02TransformTest {
         ),
     )
 
-    // CR 700.2: one mode; CR 701.27a, 701.27c: transforming an Incubator token (a double-faced token)
+    // CR 700.2: one mode; CR 701.27a, 701.27d: transforming an Incubator token (a double-faced token)
     @Test
     fun spawnpodTender() = card(
         name = "Spawnpod Tender",
@@ -399,7 +399,7 @@ class MomChunk02TransformTest {
         ) to abilities(Keyword.Menace),
     )
 
-    // CR 701.27f: "transforms into [back face]"; CR 611.2: play it until the end of your next turn
+    // CR 701.27g: "transforms into [back face]"; CR 611.2: play it until the end of your next turn
     @Test
     fun cagedOddity() = cardFaces(Layout.Transform,
         card(
@@ -449,7 +449,7 @@ class MomChunk02TransformTest {
         ) to abilities(Keyword.Flying, Keyword.Haste),
     )
 
-    // CR 701.27f; CR 608.2h: X is this creature's power as the ability resolves (not a cast X, CR 107.3)
+    // CR 701.27g; CR 608.2h: X is this creature's power as the ability resolves (not a cast X, CR 107.3)
     @Test
     fun botanyTutor() = cardFaces(Layout.Transform,
         card(

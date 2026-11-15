@@ -124,7 +124,7 @@ class LciChunk10EffectsTest {
         triggered(enters(and(sub("Cave"), you)), counters(target("creature")), targets = listOf(slot("creature", creatureYouControl))),
     )
 
-    // CR 715.3: an adventure; CR 102.2: each opponent who controls an artifact counts once
+    // CR 716.3: an adventure; CR 102.2: each opponent who controls an artifact counts once
     @Test
     fun tamsinBoldWanderer() = cardFaces(Layout.Adventure,
         card(name = "Tamsin, Bold Wanderer", cost = "{1}{W}", type = "Legendary Creature — Human Faerie Scout", pt = "2/3",

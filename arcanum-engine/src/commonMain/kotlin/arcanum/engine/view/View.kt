@@ -62,7 +62,7 @@ data class ObjectView(
      * noncreature. */
     val basePower: Int? = null,
     /** Its statuses ([GameObject.statuses]) with those the view derives: a Class on the battlefield that has gained no level
-     * shows level 1 ([arcanum.engine.state.ObjectStatus.ClassLevel], CR 716.2a). */
+     * shows level 1 ([arcanum.engine.state.ObjectStatus.ClassLevel], CR 717.2a). */
     val statuses: List<arcanum.engine.state.ObjectStatus> = emptyList(),
 ) {
     val name: String? get() = characteristics?.name
@@ -201,7 +201,7 @@ sealed interface AbilityOrigin {
     /** A special action the rules give an object rather than an ability it has (CR 116.2): unlocking a Room's locked
      * door (CR 709.5e, [name] "unlock-left" / "unlock-right"), turning a manifested permanent face up (CR 701.40b,
      * "manifested"); or an inherent triggered ability the rules give a player, with no source (an exception to CR 113.8): speed's
-     * ("speed", CR 702.179d), the initiative's ("initiative", CR 726.2). */
+     * ("speed", CR 702.179d), the initiative's ("initiative", CR 727.2). */
     @Serializable @SerialName("rule") data class Rule(val name: String) : AbilityOrigin {
         override val key: String get() = "r:$name"
     }

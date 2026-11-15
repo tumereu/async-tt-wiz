@@ -290,7 +290,7 @@ class InrTransformScenariosTest {
     }
 
     /** The creature target is chosen among the creatures of the targeted opponent only. */
-    // CR 115.1, 701.27e
+    // CR 115.1, 701.27f
     @Test
     fun theDespoilerHitsAnOpponentAndOneOfTheirCreatures() = scenario(players = 3) {
         alice.battlefield(packmaster)

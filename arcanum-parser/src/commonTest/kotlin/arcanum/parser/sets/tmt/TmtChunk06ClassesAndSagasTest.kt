@@ -30,7 +30,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Teenage Mutant Ninja Turtles chunk 06: Classes (CR 716: level abilities gained as a sorcery) and Sagas (CR 714): counters as you
+ * Teenage Mutant Ninja Turtles chunk 06: Classes (CR 717: level abilities gained as a sorcery) and Sagas (CR 715): counters as you
  * attack, life when a creature with a counter leaves (CR 603.10a), cards in your graveyard given sneak and cast with it (CR 601.2a),
  * a discard-and-draw loot, each player creating a Food, "one or more of your opponents are attacked" (CR 508.3d), token copies that
  * aren't legendary and are Mutants (CR 707.9b) of cards exiled with the Saga (CR 607.2a), a mill with a reflexive trigger (CR 603.12),

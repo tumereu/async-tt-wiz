@@ -37,7 +37,7 @@ import arcanum.engine.state.TriggerEvent
 import arcanum.engine.view.View
 
 /**
- * Dungeons (CR 309), venturing into the dungeon (CR 701.49) and the initiative (CR 726).
+ * Dungeons (CR 309), venturing into the dungeon (CR 701.49) and the initiative (CR 727).
  *
  * A dungeon card begins outside the game, among its owner's cards there ([arcanum.engine.state.PlayerState.outside]); venturing
  * brings one into the command zone with the venture marker on its topmost room, moves the marker along an arrow (its owner choosing
@@ -48,7 +48,7 @@ import arcanum.engine.view.View
  * [arcanum.engine.state.PlayerStatus.DungeonsCompleted].
  *
  * A dungeon that may only be entered by "venture into [quality]" (Undercity, [arcanum.api.Mechanic.OnlyVentureInto], CR 701.49d) is
- * never chosen by a plain venture. The initiative's three inherent triggered abilities (CR 726.2) have no source and are found here
+ * never chosen by a plain venture. The initiative's three inherent triggered abilities (CR 727.2) have no source and are found here
  * ([inherent]).
  */
 internal object Dungeons {
@@ -138,9 +138,9 @@ internal object Dungeons {
     }
 
     /**
-     * CR 726.2: the initiative's inherent triggered abilities, without a source and controlled by the player who had the initiative:
+     * CR 727.2: the initiative's inherent triggered abilities, without a source and controlled by the player who had the initiative:
      * at the beginning of their upkeep they venture into Undercity; when creatures a player controls deal combat damage to them, that
-     * player takes the initiative; whenever a player takes the initiative (726.5: also when they had it), they venture into Undercity.
+     * player takes the initiative; whenever a player takes the initiative (727.5: also when they had it), they venture into Undercity.
      */
     fun inherent(state: GameState, now: View, change: Change): List<WaitingTrigger> {
         val holder = state.players.firstOrNull { !it.lost && Designation.Initiative in it.designations }?.id
@@ -166,7 +166,7 @@ internal object Dungeons {
 
     private const val TAKER = "\$takes-initiative"
 
-    /** The origin of the initiative's inherent abilities on the Stack (CR 726.2): a rule's, with no source. */
+    /** The origin of the initiative's inherent abilities on the Stack (CR 727.2): a rule's, with no source. */
     private val RULE = arcanum.engine.view.AbilityOrigin.Rule("initiative")
 
     private fun ventureUndercity(player: PlayerId) = WaitingTrigger(player, Ability.Triggered(arcanum.api.Trigger.On(emptyList()),

@@ -76,7 +76,7 @@ class Mh3Chunk06AffinityAnnihilatorBestowScenariosTest {
 
     private fun Scenario.bestowed(name: String) = alternativeOf(name, Keyword.Bestow.Kind)
 
-    // CR 702.160a, 718.3: cast prototyped, a red 2/2; CR 702.41a, 601.2f: affinity lowers the prototype cost too ({3}{R} less two)
+    // CR 702.160a, 719.3: cast prototyped, a red 2/2; CR 702.41a, 601.2f: affinity lowers the prototype cost too ({3}{R} less two)
     @Test
     fun prototypedWithAffinity() = scenario {
         alice.battlefield("Mountain", "Mountain", trinket, ingot)

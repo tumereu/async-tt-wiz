@@ -34,7 +34,7 @@ internal fun meldResult(printing: CatalogPrinting, linked: List<CatalogPrinting>
 /**
  * The sides of one physical card, from a printing and the faces it links to, in the given order. Problem report 7ZZC89:
  * MTGJSON links a meld result to both its fronts (each front only to the result), while a physical meld card is one
- * front with the result on its back (CR 712.4), so of two fronts only the first stays.
+ * front with the result on its back (CR 713.1), so of two fronts only the first stays.
  */
 internal fun physicalSides(faces: List<CatalogPrinting>): List<CatalogPrinting> {
     val front = faces.firstOrNull { it.side == FRONT_SIDE }

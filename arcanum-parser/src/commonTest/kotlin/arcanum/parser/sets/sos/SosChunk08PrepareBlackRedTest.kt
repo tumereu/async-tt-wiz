@@ -30,7 +30,7 @@ import arcanum.parser.cube.cardFaces
 import kotlin.test.Test
 
 /**
- * Secrets of Strixhaven chunk 08: preparation cards (CR 722) in black and red: becoming prepared at your upkeep after surveilling, at
+ * Secrets of Strixhaven chunk 08: preparation cards (CR 723) in black and red: becoming prepared at your upkeep after surveilling, at
  * the end step after two creatures died, the first time you gain life each turn, at your first and second main phases (CR 505.1a, b),
  * on your third spell each turn; the spells: reanimation with life loss by mana value (CR 608.2h), a tutor, Seething Song mana, a
  * delayed "when you next cast" copy (CR 603.7, 707.10), nonbasic land destruction and Spirit tokens.

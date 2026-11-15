@@ -117,7 +117,7 @@ class SpmModesAndVillainCardsScenariosTest {
     // ---- Chunk 04: Sagas and modes
 
     /** Chapter I: five cards milled, then the greatest power among the creature cards milled (5) hits a creature. */
-    // CR 714.2b, 603.12
+    // CR 715.2b, 603.12
     @Test
     fun theStalkersFinalPursuitMillsAndStrikes() = scenario {
         bob.battlefield(giant)
@@ -130,7 +130,7 @@ class SpmModesAndVillainCardsScenariosTest {
     }
 
     /** Chapter III: a creature card back to the hand. */
-    // CR 714.2b
+    // CR 715.2b
     @Test
     fun theStalkersFinalPursuitReturnsACreatureCard() = scenario {
         alice.graveyard(ogre)
@@ -328,7 +328,7 @@ class SpmModesAndVillainCardsScenariosTest {
     }
 
     /** Two Villains entering in a turn: one counter (once each turn). */
-    // CR 603.2i
+    // CR 603.2h
     @Test
     fun hoveringClawbotGrowsOncePerTurn() = scenario {
         alice.battlefield(hoveringClawbot, "Swamp", "Swamp", "Swamp", "Swamp")

@@ -142,7 +142,7 @@ class IsdChunk02TransformScenariosTest {
         }
     }
 
-    // CR 701.27c: only double-faced permanents transform; CR 615.1: the prevention covers creatures other than Werewolves and Wolves
+    // CR 701.27d: only double-faced permanents transform; CR 615.1: the prevention covers creatures other than Werewolves and Wolves
     @Test
     fun transformAllHumansOnlyTransformsDoubleFacedHumansAndPreventsTheRestsDamage() = scenario {
         alice.battlefield(villager, human, "Forest", "Forest")

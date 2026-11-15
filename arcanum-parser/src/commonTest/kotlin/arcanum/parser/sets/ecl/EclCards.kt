@@ -245,7 +245,7 @@ val shapeshifter: TokenSpec = creatureToken("Shapeshifter", emptyList(), 1, 1, a
 /** "At the beginning of your first main phase, you may pay {G}. If you do, transform [this]." (CR 505.1a, 701.27a) */
 fun mayPayToTransform(mana: String): Ability = triggered(stepBegins(TurnStep.PrecombatMain, PlayerFilter.You),
     *mayPay(mana(mana), then = listOf(Step.Do(Effect.Transform(Objects.Self)))).toTypedArray())
-/** "Whenever this creature enters or transforms into [name]" (CR 701.27e) */
+/** "Whenever this creature enters or transforms into [name]" (CR 701.27f) */
 fun entersOrTransformsInto(name: String): Trigger = Trigger.On(listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
     EventPattern.Transform(and(ObjectFilter.Is(Objects.Self), ObjectFilter.Named(name)))))
 fun transformsInto(name: String): Trigger = on(EventPattern.Transform(and(ObjectFilter.Is(Objects.Self), ObjectFilter.Named(name))))

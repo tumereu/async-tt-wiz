@@ -162,7 +162,7 @@ class SpmMulticolorArtifactAndLandCardsScenariosTest {
     }
 
     /** The first Spider entering each turn draws a card; the second doesn't. */
-    // CR 603.2i
+    // CR 603.2h
     @Test
     fun rosalindFairweatherDrawsForTheFirstSpider() = scenario {
         alice.battlefield(rosalindFairweather, "Forest", "Forest", "Forest", "Forest")

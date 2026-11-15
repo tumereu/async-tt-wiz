@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  * Secrets of Strixhaven cards whose rules are new to the engine: skipped turns (CR 614.10), 2ˣ cards, "can't be copied" (CR 707.10),
  * casualty and miracle given by Elder Dragons (CR 702.153a, 702.94a), exiling until a total mana value, "until the end of their next turn",
  * an additional cost of X life, entering with three minus X stun counters, a mode chosen twice (CR 700.2d), and becoming prepared or
- * unprepared by other cards (CR 722.3a, b).
+ * unprepared by other cards (CR 723.3a, b).
  */
 class SosCardsScenariosTest {
     private val varek = Cards.invent("Varek Thorn, Visiting Lecturer", "{1}{B}{B}", "Legendary Planeswalker — Ral", """
@@ -244,7 +244,7 @@ class SosCardsScenariosTest {
     }
 
     /** Tokens entering prepare the creature; another card can unprepare it. */
-    // CR 722.3a, 722.3b
+    // CR 723.3a, 723.3b
     @Test
     fun preparedByTokensAndUnpreparedByAnotherCard() = scenario {
         alice.battlefield(devotee, "Plains", "Plains", "Plains", "Plains", "Plains")

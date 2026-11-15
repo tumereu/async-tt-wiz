@@ -260,13 +260,13 @@ class TriggerTest {
         expect { stack.isEmpty() }
     }
 
-    // CR 714.2b, 714.4: lore counters reach a chapter; after the last chapter the Saga is sacrificed
+    // CR 715.2b, 715.4: lore counters reach a chapter; after the last chapter the Saga is sacrificed
     @Test
     fun sagaChapters() = scenario {
         alice.battlefield("Haruka's Age of Honor", counters = listOf(CounterKind.Lore to 2))
         alice.battlefield("Elvish Seer")
 
-        // CR 714.3b: a lore counter is put on after the draw step (a turn-based action)
+        // CR 715.3b: a lore counter is put on after the draw step (a turn-based action)
         drive { r ->
             r.record(Changes.counters(r.state, TargetRef.Object(card("Haruka's Age of Honor")), CounterKind.Lore, 1))
             arcanum.engine.Progress.Done

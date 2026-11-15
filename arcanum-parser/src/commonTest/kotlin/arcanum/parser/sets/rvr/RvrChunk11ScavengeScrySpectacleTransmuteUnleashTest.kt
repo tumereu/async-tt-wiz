@@ -128,7 +128,7 @@ class RvrChunk11ScavengeScrySpectacleTransmuteUnleashTest {
         transmute("{1}{U}{U}"),
     )
 
-    // CR 702.98a (unleash), 702.98b (can't block while it has a +1/+1 counter)
+    // CR 702.98a (unleash; can't block while it has a +1/+1 counter)
     @Test
     fun bloodmawGiantLookalike() = card(
         name = "Bloodmaw Giant", cost = "{2}{R}{R}", type = "Creature — Giant", pt = "4/3",

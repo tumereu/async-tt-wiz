@@ -15,19 +15,19 @@ class OracleLayoutTest {
         assertEquals(Layout.Normal, OracleParser.layout("prepare", listOf(creature)))
     }
 
-    // CR 715, 720: card data names an Omen card's layout "adventure"; the inset spell's subtype tells them apart
+    // CR 716, 721: card data names an Omen card's layout "adventure"; the inset spell's subtype tells them apart
     @Test fun anAdventureLayoutWithAnOmenSpellIsAnOmenCard() {
         assertEquals(Layout.Adventure, OracleParser.layout("adventure", listOf(creature, spell("Sorcery — Adventure"))))
         assertEquals(Layout.Omen, OracleParser.layout("adventure", listOf(creature, spell("Instant — Omen"))))
         assertEquals(Layout.Omen, OracleParser.layout("omen", listOf(creature, spell("Instant — Omen"))))
     }
 
-    // CR 722
+    // CR 723
     @Test fun aPreparationCard() {
         assertEquals(Layout.Prepare, OracleParser.layout("prepare", listOf(creature, spell("Sorcery"))))
     }
 
-    // CR 712.4, 701.42a: the partner from the reminder text, or from the meld ability's "a creature named"
+    // CR 713.1, 701.42a: the partner from the reminder text, or from the meld ability's "a creature named"
     @Test fun aMeldCardNamesItsPartner() {
         val back = OracleCard("Thornwall Colossus", null, "Creature — Elemental", "Trample", power = "9", toughness = "9", colorIndicator = "G")
         val reminder = OracleCard("Bramble Twin, Elder Root", "{2}{G}", "Legendary Creature — Elf", "Reach\n(Melds with Hollow Twin, Last Seed.)")

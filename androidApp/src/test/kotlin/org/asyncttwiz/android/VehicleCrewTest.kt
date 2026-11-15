@@ -27,7 +27,7 @@ class VehicleCrewTest {
 
     @After fun forget() = AutomatumBoards.reset()
 
-    // TBL-137 (owner notes 2026-11-14), CR 301.7c, 208.3: Alice's Ember Cart (crew 2, 3/3) on the battlefield, not crewed: its
+    // TBL-137 (owner notes 2026-11-14), CR 301.7a, 208.3: Alice's Ember Cart (crew 2, 3/3) on the battlefield, not crewed: its
     // bottom text reads "Crew 2" before its printed 3/3; her Ash Pup, a creature, shows its P/T alone
     @Test fun anUncrewedVehicleShowsItsCrewBeforeItsPowerAndToughness() {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.CART, Choices.PUP))))

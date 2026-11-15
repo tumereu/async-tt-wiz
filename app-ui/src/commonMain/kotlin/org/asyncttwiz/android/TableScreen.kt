@@ -37,6 +37,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** HIS-112: the Stack entries of plays shown that landed: one arriving on the Stack appears in place (the play shown
      * flew there), never flying there itself. */
     val landedEntries: List<String> = emptyList(),
+    /** STK-006: the board drawn is a take-back's (an undo, a rewind): what left the Stack comes back the way it went. */
+    val takenBack: Boolean = false,
     val liveView: Boolean = !reviewing,
     val changes: TableChanges? = null,
     /** The opponent's presence: a dot on their life square and a line in their life panel. */

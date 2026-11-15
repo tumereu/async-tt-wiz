@@ -140,6 +140,9 @@ data class TableItem(
     val peekOwners: List<String> = emptyList(),
     val sourceId: String? = cardId, val projection: Boolean = false, val frozen: Boolean = false,
     val token: Boolean = false,
+    /** STK-006 (owner playtest 2026-11-15): a Stack entry that goes nowhere when it leaves the Stack (an ability, a trigger, a
+     * copy of a spell): it rises a little and fades out there, as from a pile, instead of flying anywhere. */
+    val vanishes: Boolean = false,
     val typeIcon: String = "", val artwork: ArtworkReference? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     /** CMB-001 (owner playtest 2026-11-11): a combat copy fading out where it was as the band closes: clipped to the table
@@ -874,13 +877,17 @@ object TablePresentation {
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
         val sp = port(stack.id, sb, stackWidth)
+        // STK-006 (owner playtest 2026-11-15): the entries that go nowhere when they leave (abilities, triggers, copies)
+        fun vanishes(entry: String) = play.board.stackEffects.firstOrNull { it.id == entry }?.item?.kind
+            .let { it != null && it !is MtgStackKind.Spell }
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
             countBadge = TableBounds(stackRegion.x - 8.5f, stackRegion.y - 8.5f, 20f, 20f))
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
-            items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards)
+            items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards,
+                vanishes = vanishes(drawing.viewId))
         }
         // Animation metadata for ALL entries, including a real spell buried below the peeks.
         val stackProjections = stack.cards.mapNotNull { entryId ->
@@ -890,7 +897,8 @@ object TablePresentation {
                     Faults.report("TablePresentation", "Stack entry without a card to animate", mapOf("game" to game.id, "entry" to entryId))
                 },
                 TableBounds(sb.x, sb.y, stackWidth, stackHeight), sb, null, PlayZone.STACK, sp.id, entryId,
-                projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
+                projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId",
+                    vanishes = vanishes(entryId))
         }
         val combatY = bandY + (bandHeight - combat.height) / 2
         // CMB-007: the band on the screen (the table's whole width), and the lanes it holds in its middle

@@ -15,6 +15,8 @@ fun stackRemovalFlights(from: TableScene, to: TableScene): List<StackRemovalFlig
         }
     }
     return (from.stackProjections + from.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD })
+        // STK-006: an ability, a trigger or a copy goes nowhere: it vanishes where it is (HistorySceneAnimation)
+        .filter { !it.vanishes }
         .distinctBy { it.animationId }.mapNotNull { entry ->
             val source = entry.sourceId ?: return@mapNotNull null
             if (entry.cardId in remaining || from.sources[source]?.containerId == to.sources[source]?.containerId)

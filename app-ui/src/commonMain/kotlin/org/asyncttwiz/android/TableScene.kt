@@ -312,7 +312,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             val settled = runtime.onSceneSettled
             val faceChanges = runtime.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
             val shuffles = if (navigation) emptySet() else runtime.changes?.shuffles(play.nodeId).orEmpty()
-            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId, runtime.landedEntries.toSet())) {
+            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId, runtime.landedEntries.toSet(),
+                    runtime.takenBack)) {
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++

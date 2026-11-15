@@ -54,6 +54,11 @@ const val CARD_FLIP_DURATION_MILLIS = 350
 const val CARD_FADE_DURATION_MILLIS = 350
 const val LIBRARY_SHUFFLE_DURATION_MILLIS = 280
 const val HAND_REFLOW_DURATION_MILLIS = 220
+/** STK-006 (owner playtest 2026-11-15): how long a Stack entry that goes nowhere takes to rise and fade out as it leaves the
+ * Stack, at Card move speed 1× (scaled by it, TBL-038). */
+const val STACK_VANISH_MILLIS = 300
+/** STK-006: how far it rises meanwhile, as a share of its height. */
+const val STACK_VANISH_RISE = .3f
 private val DOCK_PILE_ZONES = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
@@ -73,6 +78,10 @@ class HistorySceneAnimation(initial: TableScene) {
     var rotatingCardIds: Set<String> = emptySet(); private set
     private var flippingCardIds: Set<String> = emptySet()
     private var stackFlightIds: Set<String> = emptySet()
+    /** STK-006: the Stack entries rising and fading out as they leave the Stack (or, taken back, falling and fading in). */
+    private var vanishingIds: Set<String> = emptySet()
+    /** STK-006: how long [vanishingIds] take at the scene's card move speed (TBL-038). */
+    private fun vanishDuration() = kotlin.math.round(STACK_VANISH_MILLIS * DEFAULT_CARD_MOVE_SPEED / sceneMoveSpeed).toInt().coerceAtLeast(1)
     private var shufflingPileIds: Set<String> = emptySet()
     private var lastShuffleCursor: String? = null
     private var latestScene = initial
@@ -137,6 +146,14 @@ class HistorySceneAnimation(initial: TableScene) {
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
             // Most of a large board is stationary during a tap. Reuse its immutable drawings
             // instead of allocating transforms and copied items for every card on every frame.
+            // STK-006 (owner playtest 2026-11-15): a Stack entry that goes nowhere rises a little and fades out where it is (taken
+            // back, it falls back into place fading in), at the card move speed
+            if (id in vanishingIds) {
+                val v = channel(vanishDuration())
+                val e = 1f - (1f - v) * (1f - v)
+                return@map HistoryAnimatedItem((latestItems[id] ?: a.item).copy(inTransit = v < 1f),
+                    a.bounds.copy(y = a.bounds.y + (b.bounds.y - a.bounds.y) * e), a.alpha + (b.alpha - a.alpha) * v)
+            }
             if (a.bounds == b.bounds && a.alpha == b.alpha && a.item.tapped == b.item.tapped &&
                 id !in shufflingPileIds && a.item.cardId !in flippingCardIds && a.item.covered == b.item.covered && a.item.faceTransform(a.bounds) == b.item.faceTransform(b.bounds)) {
                 val shown = latestItems[id] ?: b.item
@@ -203,7 +220,9 @@ class HistorySceneAnimation(initial: TableScene) {
     fun retarget(target: TableScene, currentProgress: Float, faceChanges: Set<String> = emptySet(),
         shuffles: Set<String> = emptySet(), shuffleCursor: String? = null,
         /** HIS-112: Stack entries whose play shown flew into their place: arriving, they appear there. */
-        landed: Set<String> = emptySet()): Boolean {
+        landed: Set<String> = emptySet(),
+        /** STK-006: the board is a take-back's (an undo, a rewind): what left the Stack comes back the way it went. */
+        takenBack: Boolean = false): Boolean {
         val freshShuffle = shuffles.isNotEmpty() && shuffleCursor != null && shuffleCursor != lastShuffleCursor
         if (target.animationTargets == destination.animationTargets && !freshShuffle) {
             if (shuffleCursor != null) lastShuffleCursor = shuffleCursor
@@ -232,8 +251,17 @@ class HistorySceneAnimation(initial: TableScene) {
         // Hidden library instances have no individual scene item. Seed every newly drawn card
         // from its former pile, using stable instance identity (also covers multi-card draws).
         val arrivals = end.values.filter { it.item.kind == TableItemKind.CARD && it.item.animationId !in start }
+        val vanishing = HashSet<String>()
         for (arrival in arrivals) {
             val item = arrival.item
+            if (takenBack && item.zone == org.asyncttwiz.protocol.PlayZone.STACK && item.projection && item.vanishes &&
+                !destination.stackContains(item.cardId)) {
+                // STK-006: taken back, an entry that vanished as it left comes back the way it went: falling into its place, fading in
+                start = start + (item.animationId to arrival.copy(bounds = arrival.bounds.copy(y = arrival.bounds.y -
+                    arrival.bounds.height * STACK_VANISH_RISE), alpha = 0f))
+                vanishing += item.animationId
+                continue
+            }
             if (item.zone == org.asyncttwiz.protocol.PlayZone.STACK && item.cardId in landed) {
                 // HIS-112 (owner playtest 2026-11-14): a play shown landed here: its entry takes the flying card's place, with
                 // no move or fade of its own
@@ -273,6 +301,14 @@ class HistorySceneAnimation(initial: TableScene) {
         for (departure in start.values.filter { it.item.kind == TableItemKind.CARD && it.item.projection &&
             it.item.zone == org.asyncttwiz.protocol.PlayZone.STACK && !target.stackContains(it.item.cardId) &&
             it.item.animationId !in end }) {
+            if (departure.item.vanishes) {
+                // STK-006 (owner playtest 2026-11-15): an ability, a trigger or a copy leaving the Stack (resolved, countered or
+                // removed) goes nowhere: it rises a little and fades out, as from a pile, instead of flying back to its source
+                end = end + (departure.item.animationId to departure.copy(bounds = departure.bounds.copy(y = departure.bounds.y -
+                    departure.bounds.height * STACK_VANISH_RISE), alpha = 0f))
+                vanishing += departure.item.animationId
+                continue
+            }
             val source = departure.item.sourceId
             if (destination.sources[source] != target.sources[source]) continue
             target.realCardBounds(source)?.let { bounds ->
@@ -331,6 +367,7 @@ class HistorySceneAnimation(initial: TableScene) {
             }
         }
         stackFlightIds = flights.map { it.entry.animationId }.toSet() + realFlights + madeTokens.map { it.item.animationId }
+        vanishingIds = vanishing
         // Rotation changes its endpoint AABB/anchor too; that alone is not a move. Any other
         // transition (including a move alongside a tap) keeps the longer scene duration.
         rotatingCardIds = end.values.mapNotNull { b ->
@@ -338,7 +375,7 @@ class HistorySceneAnimation(initial: TableScene) {
             b.item.cardId?.takeIf { b.item.kind == TableItemKind.CARD &&
                 a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation }
         }.toSet()
-        durationMillis = (start.keys + end.keys).maxOfOrNull { id ->
+        durationMillis = (start.keys + end.keys - vanishing).maxOfOrNull { id ->
             val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
             maxOf(moveDuration(a, b),
@@ -346,6 +383,7 @@ class HistorySceneAnimation(initial: TableScene) {
                 if (flipping(a, b)) CARD_FLIP_DURATION_MILLIS else 0,
                 if (a.alpha != b.alpha) CARD_FADE_DURATION_MILLIS else 0)
         }?.coerceAtLeast(if (shufflingPileIds.isEmpty()) 1 else LIBRARY_SHUFFLE_DURATION_MILLIS) ?: 1
+        if (vanishing.isNotEmpty()) durationMillis = maxOf(durationMillis, vanishDuration())
         // CMB-001: a battlefield moving (the band opening or closing) takes as long as a card moving as far
         val fieldMoves = endFields.mapNotNull { (owner, to) -> startFields[owner]?.takeIf { it.y != to.y }?.let { from ->
             cardMoveDurationMillis(kotlin.math.abs(to.y - from.y), sceneMoveSpeed)

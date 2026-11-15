@@ -416,6 +416,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         sceneTimeShare = if (reviewPlay != null) 1.0 else stackAnimation.resolutionShare(play, unhidden),
                         // HIS-112: a play shown's entry appears on the Stack where it landed, never flying there again
                         landedEntries = stackAnimation.landed,
+                        takenBack = reviewPlay == null && shown.transition?.undone != null,
                         sceneVersion = if (reviewPlay != null) null else motion.key(),
                         waitingLine = routes.waitingLine(play).also { line -> if (waitLogged.getAndSet(line) != line) AppLog.info("game", "Wait: $line") },
                         timelinePlayback = when {

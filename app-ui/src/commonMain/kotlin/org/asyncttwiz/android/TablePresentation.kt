@@ -5,6 +5,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.appui.NativeColors
 import org.asyncttwiz.appui.toRadians
+import androidx.compose.runtime.State
 
 
 /** All coordinates are dp. Personal navigation never changes shared placement or container order. */
@@ -129,6 +130,12 @@ data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll:
     /** STK-024: the sources paying the open payment: they lie in a pile of their own, to the right of their stack; the
      * viewer's own. */
     val paying: Set<String> = emptySet())
+/** This layout state without its camera: equal while only the camera changes (a pan or zoom step), so what composition
+ * reads of it through this recomposes nothing then (web frame rate, 2026-11-15). */
+fun State<TableLayoutState>.withoutCamera(): State<TableLayoutState> =
+    androidx.compose.runtime.derivedStateOf(androidx.compose.runtime.structuralEqualityPolicy()) {
+        value.let { if (it.camera == TableCamera()) it else it.copy(camera = TableCamera()) } }
+
 /** [DUNGEON]: a player's dungeon in the command zone (TRN-069), a small card after their piles (landscape: in the free row). */
 enum class TableItemKind { CARD, PILE, LIFE, HAND, DUNGEON }
 data class TableItem(

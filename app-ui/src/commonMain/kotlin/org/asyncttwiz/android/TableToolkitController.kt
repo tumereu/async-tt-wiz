@@ -244,7 +244,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             alwaysOpen = cast.targeting || flows.targeting)
 
     /** TBL-122: the battlefield group the viewer opened (personal UI), null when none. */
-    val expandedGroup: String? get() = layoutState.value.expandedGroup
+    val expandedGroup: String? get() = layoutShown.value.expandedGroup
     /** TBL-122: closes the opened battlefield group (a tap elsewhere, or acting). */
     fun collapse() { if (layoutState.value.expandedGroup != null) layoutState.value = layoutState.value.copy(expandedGroup = null) }
 
@@ -316,6 +316,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Closes the ability chips (a tap elsewhere, an activation). */
     fun closeAbilities() { abilityCard = null; heldAbility = null }
     val layoutState = mutableStateOf(TableLayoutState())
+    /** The table's layout without its camera ([withoutCamera]): what composition reads of the layout, so a pan or zoom step
+     * (a change of the camera alone) recomposes nothing (web frame rate, 2026-11-15). */
+    val layoutShown: State<TableLayoutState> = layoutState.withoutCamera()
     /** I-D50 (ZON-079, ZON-080): the viewer's hand with Automatum on: a tap raises a card with its cost chips. */
     val hand = HandController(viewer, { current()?.takeIf { enabled() } }, layoutState, automatumWork,
         cast = { card, chip -> error = null; castGesture = card; cast.start(card, chip.input, chip.times) },
@@ -625,7 +628,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (layoutState.value.localPileId == pile) layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false)
     }
     fun publicContents(): PileContents? {
-        val id = layoutState.value.localPileId?.takeIf { panel == null } ?: return null
+        val id = layoutShown.value.localPileId?.takeIf { panel == null } ?: return null
         val play = current() ?: return null
         val container = play.board.containers.singleOrNull { it.id == id } ?: return null
         val stack = container.zone == PlayZone.STACK

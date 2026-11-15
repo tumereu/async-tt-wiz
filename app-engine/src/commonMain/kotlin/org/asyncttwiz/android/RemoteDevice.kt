@@ -32,6 +32,7 @@ class DeviceChannel(private val post: (String) -> Unit, val log: EngineLog = Eng
 
     /** A message from the worker. */
     fun received(text: String) {
+        val start = kotlin.time.TimeSource.Monotonic.markNow()
         val message = try { DeviceMessage.decode(text) } catch (problem: Exception) {
             log.log(true, "Device boundary: an unreadable message from the worker (${problem::class.simpleName}): ${text.take(160)}"); return
         }
@@ -47,12 +48,15 @@ class DeviceChannel(private val post: (String) -> Unit, val log: EngineLog = Eng
         val device = devices[message.game] ?: run {
             log.log(false, "Device boundary: ${answer::class.simpleName} for ${message.game.take(8)}, closed on the page: dropped"); return
         }
-        device.received(answer)
+        device.received(answer, start.elapsedNow(), text.length)
     }
 
     /** The worker failed: every device's waiting calls end (their callbacks get their refusals). */
     fun lost(why: String) { devices.values.toList().forEach { it.closed("the worker is lost ($why)") } }
 }
+
+/** How long (ms) a published board may take to be taken in on the page before the app log says so ([RemoteDevice.received]). */
+private const val SLOW_BOARD_MS = 8L
 
 /**
  * Game [gameId]'s device in the worker, as its [EngineGame] on the page sees it: requests out ([ask]), the boards it
@@ -108,9 +112,11 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
         channel.forget(this)
     }
 
-    internal fun received(answer: DeviceAnswer) {
+    /** The worker's [answer] for this game, its message [read] (parsed) in that long from [chars] characters. */
+    internal fun received(answer: DeviceAnswer, read: kotlin.time.Duration = kotlin.time.Duration.ZERO, chars: Int = 0) {
         when (answer) {
             is DeviceAnswer.Published -> {
+                val start = kotlin.time.TimeSource.Monotonic.markNow()
                 answer.definitions?.let { text ->
                     // The device loaded (again): its boards are read anew, with its card data
                     codec = EngineJson(EngineJson.decodeDefinitions(text))
@@ -120,7 +126,16 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
                     AppLog.error("engine", "Device boundary: board v${answer.shown.version} of ${gameId.take(8)} couldn't be read", problem)
                     return
                 }
+                val built = start.elapsedNow()
                 game.remotePublished(decoded.shown, decoded.notes, answer.takeBacks, answer.lastTakeBack)
+                // Web frame rate (owner, 2026-11-15): a board slow to take in on the page says what took the time (its message
+                // read, its engine state and values made on the page's copy, its publishing to the table and the game), as the
+                // frame times' page work (WEB-057) doesn't
+                val took = read + start.elapsedNow()
+                if (took.inWholeMilliseconds >= SLOW_BOARD_MS) channel.log.log(false, "Device boundary: board v${answer.shown.version} " +
+                    "of ${gameId.take(8)} taken in in ${took.inWholeMilliseconds} ms: its message ($chars chars) read in " +
+                    "${read.inWholeMilliseconds} ms, the board made in ${built.inWholeMilliseconds} ms (${answer.shown.events.size} new " +
+                    "events), published in ${(start.elapsedNow() - built).inWholeMilliseconds} ms")
             }
             is DeviceAnswer.Done -> calls.done(answer.id, answer.result)
             is DeviceAnswer.Failed -> calls.failed(answer.id, answer.problem)

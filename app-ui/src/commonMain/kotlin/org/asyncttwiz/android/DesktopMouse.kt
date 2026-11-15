@@ -469,7 +469,7 @@ fun DesktopQuickLook(play: TableBoard, viewer: String, item: TableItem, toolkit:
     val tiles = remember(IdentityKey(play.board), id, viewer) {
         val inspection = toolkit.inspection(id) ?: return@remember emptyList()
         val card = org.asyncttwiz.protocol.CombatStackRules.inspection(play.board, inspection.cardId) ?: return@remember emptyList()
-        gameInspectGroups(play, viewer, inspection, card, emptyMap()).firstOrNull()?.tiles.orEmpty()
+        gameQuickLookTiles(play, viewer, inspection, card)
     }
     if (tiles.isEmpty()) return
     val height = minOf(QUICK_LOOK_HEIGHT, tableHeight - 16f)

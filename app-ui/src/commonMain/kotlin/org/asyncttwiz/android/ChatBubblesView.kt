@@ -65,7 +65,7 @@ fun ChatBubblesOverlay(scene: TableScene, viewer: String, bubbles: TableChatBubb
     val sent = bubbles.sent
     var sentDone by remember(sent?.key) { mutableStateOf(false) }
     val showSent = sent != null && !sentDone
-    val placed = remember(scene, incoming, if (showSent) sent else null, width, height, density) {
+    val placed = remember(IdentityKey(scene), incoming, if (showSent) sent else null, width, height, density) {
         val opponentLife = scene.items.firstOrNull { it.kind == TableItemKind.LIFE && it.owner != viewer && it.visible.isNotEmpty() }
         val ownLife = scene.items.firstOrNull { it.kind == TableItemKind.LIFE && it.owner == viewer && it.visible.isNotEmpty() }
         val other = if (incoming != null && opponentLife != null)

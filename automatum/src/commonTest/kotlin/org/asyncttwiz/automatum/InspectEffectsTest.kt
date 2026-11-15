@@ -74,6 +74,15 @@ class InspectEffectsTest {
         assertEquals(setOf(herald), board.withEffects, "the copy marks the Herald, nothing else")
     }
 
+    // TBL-136 (web frame rate, 2026-11-15): the board's values as the page receives them carry the effects markers the engine side
+    // worked out with its own view, so the page (its copy of the state) marks the same cards without running the layers again
+    @Test fun thePagesBoardMarksTheCardsTheEngineSideMarked() {
+        val board = board(Mechanic.CopyOf(Objects.Bound("original")), mapOf("original" to NamedValue.Objects(listOf(table.obj(ogre)))))
+        val wire = board.wire()
+        assertEquals(setOf(herald), wire.withEffects)
+        assertEquals(setOf(herald), ComputedBoard.restored(wire, table.state()).withEffects, "marked from the values received")
+    }
+
     // CR 613.1f: what it has "all activated abilities of" names that permanent
     @Test fun abilitiesOfAnotherPermanentNameIt() {
         val board = board(Mechanic.GainAbilitiesOf(Objects.Bound("lender")), mapOf("lender" to NamedValue.Objects(listOf(table.obj(cairn)))))

@@ -24,8 +24,9 @@ import org.asyncttwiz.protocol.*
  * event feedback, and a pending result. Inline, so it stays part of TableSurface's own recomposition scope. */
 @Composable
 inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: String, runtime: TableRuntimeHooks,
-    scene: TableScene, rendered: State<TableRenderFrame>) {
-    ManaPoolRows(play, scene)
+    scene: TableScene, rendered: State<TableRenderFrame>, sceneNow: State<LaidScene>? = null) {
+    // On the battlefields: laid out with the camera as it is now (web frame rate, 2026-11-15: only this recomposes as it moves)
+    if (sceneNow == null) ManaPoolRows(play, scene) else CurrentScene(sceneNow) { now -> ManaPoolRows(play, now) }
     if (runtime.reviewing) scene.world?.visibleViewport?.let { board ->
         // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
         Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)

@@ -14,10 +14,13 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
     rendered: State<TableRenderFrame>, runtime: TableRuntimeHooks,
     crossinline currentRuntime: () -> TableRuntimeHooks, coordinator: TableGestureCoordinator, writable: Boolean,
     toolkit: TableToolkitController?, crossinline preview: () -> TableGesturePreview,
-    layoutState: MutableState<TableLayoutState>, groupTaps: Map<String, GroupTap> = emptyMap()) {
-    var layout by layoutState
-    for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
-        .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
+    layoutState: MutableState<TableLayoutState>, groupTaps: Map<String, GroupTap> = emptyMap(),
+    /** The battlefields as laid out now (with the camera): where their nodes are, read in layout (web frame rate, 2026-11-15:
+     * a pan or zoom step recomposes nothing). */
+    noinline fieldsNow: () -> List<TableField> = { scene.fields }) {
+    for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.tableFrameBounds {
+            fieldsNow().firstOrNull { it.owner == field.owner && it.containerId == field.containerId }?.bounds
+        }.semantics {
             val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
             contentDescription = "${player.username} Battlefield, ${play.board.containers.firstOrNull { it.id == field.containerId }?.cards?.size ?: 0} cards"
             stateDescription = if (field.holdsAttention) "${player.username}'s move" else "Waiting for move"
@@ -38,34 +41,52 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
     val spreading = scene.battlefieldGroups.filter { it.key in drawn.spread }.flatMapTo(HashSet()) { it.members }
     val marks = { card: String -> setOfNotNull("target".takeIf { card in targets }, "picked".takeIf { card in picks }, "source".takeIf { card in outlined },
         "choices inside".takeIf { card in spreading }) }
+    // Web frame rate (2026-11-15): each item's node is its own skippable composable with what it says worked out here, so a new
+    // board recomposes only the nodes of what it changed (and only their semantics are worked out again)
+    val bySource = scene.items.groupBy { it.sourceId }
     for (item in semanticItems) {
         if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
-        key(item.id) {
-            Box(Modifier.tableFrameBounds {
-                rendered.value.items[item.id]?.let { current ->
-                    if (current.touchBounds != null) current.touchBounds
-                    else if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
-                    else current.visible.maxByOrNull { it.width * it.height }
-                }
-            }.semantics {
-                contentDescription = item.label
-                item.cardId?.let { card -> marks(card).takeIf { it.isNotEmpty() }?.let { this[TableMarks] = it } }
-                if (item.kind == TableItemKind.PILE && item.zone != PlayZone.STACK && item.id in glowingPiles) this[TableMarks] = setOf("choices inside")
-                 if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
+        val pileGlow = item.kind == TableItemKind.PILE && item.zone != PlayZone.STACK && item.id in glowingPiles
+        val related = item.sourceId != null && bySource[item.sourceId].orEmpty().any { it.cardId != item.cardId }
+        val facts = TableNodeFacts(item,
+            marks = if (pileGlow) setOf("choices inside") else item.cardId?.let { card -> marks(card).takeIf { it.isNotEmpty() } },
+            state = if (related) "Related source and projections share this source identity; selection is independent"
+                else if (item.peekOwners.isNotEmpty()) "Visible card owners: " + item.peekOwners.joinToString { owner ->
                     if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
-                }
-                 if (item.sourceId != null && scene.items.any { it.cardId != item.cardId && it.sourceId == item.sourceId })
-                     stateDescription = "Related source and projections share this source identity; selection is independent"
-                onClick("Actions") { coordinator.actions(item); true }
-                val commands = mutableListOf<CustomAccessibilityAction>()
-                scene.viewports.firstOrNull { it.id == item.viewport && it.maxScroll > 0 }?.let { port ->
-                    commands += CustomAccessibilityAction("Scroll toward start") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll - port.bounds.width / 2).coerceAtLeast(0f))); true }
-                    commands += CustomAccessibilityAction("Scroll toward end") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll + port.bounds.width / 2).coerceAtMost(port.maxScroll))); true }
-                }
-                 customActions = commands
-            })
-        }
+                } else null,
+            port = scene.viewports.firstOrNull { it.id == item.viewport && it.maxScroll > 0 })
+        key(item.id) { TableItemNode(facts, rendered, coordinator, layoutState) }
     }
+}
+
+/** What a table item's semantics node says ([TableItemNode]): equal for an item a new board left as it was. */
+@Immutable
+data class TableNodeFacts(val item: TableItem, val marks: Set<String>?, val state: String?, val port: TableViewport?)
+
+/** A table item's semantics node, laid out on the animated frame ([rendered]); skipped while its [facts] stay the same. */
+@Composable
+fun TableItemNode(facts: TableNodeFacts, rendered: State<TableRenderFrame>, coordinator: TableGestureCoordinator,
+    layoutState: MutableState<TableLayoutState>) {
+    val item = facts.item
+    var layout by layoutState
+    Box(Modifier.tableFrameBounds {
+        rendered.value.items[item.id]?.let { current ->
+            if (current.touchBounds != null) current.touchBounds
+            else if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
+            else current.visible.maxByOrNull { it.width * it.height }
+        }
+    }.semantics {
+        contentDescription = item.label
+        facts.marks?.let { this[TableMarks] = it }
+        facts.state?.let { stateDescription = it }
+        onClick("Actions") { coordinator.actions(item); true }
+        val commands = mutableListOf<CustomAccessibilityAction>()
+        facts.port?.let { port ->
+            commands += CustomAccessibilityAction("Scroll toward start") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll - port.bounds.width / 2).coerceAtLeast(0f))); true }
+            commands += CustomAccessibilityAction("Scroll toward end") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll + port.bounds.width / 2).coerceAtMost(port.maxScroll))); true }
+        }
+        customActions = commands
+    })
 }
 
 /** The marks the table draws on a card: "target" a violet glow, "picked" picked in a choice of several, "source" Autotap's amber

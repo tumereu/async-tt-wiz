@@ -12,28 +12,42 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.appui.coilImageBitmap
 
+/**
+ * The table's pictures of [items] (the cards drawn, as laid out now), by their artwork's key: each at the size its largest
+ * card is drawn, rounded up to a step ([tableArtworkPixels]). Only this recomposes as those sizes change (a zoom passing a
+ * step, a card coming into view); the map it returns is read while drawing, so a picture loading redraws the table only (web
+ * frame rate, 2026-11-15).
+ */
 @Composable
-fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
-    val images = mutableMapOf<String, ImageBitmap>()
+fun tableArtwork(items: State<List<TableItem>>): Map<String, ImageBitmap> {
+    val images = remember { mutableStateMapOf<String, ImageBitmap>() }
+    val density = LocalDensity.current
+    val sizes = remember(items, density) { derivedStateOf(structuralEqualityPolicy()) {
+        val extents = LinkedHashMap<org.asyncttwiz.storage.ArtworkReference, Float>()
+        for (item in items.value) if (item.visible.isNotEmpty() && !item.covered) item.artwork?.let { reference ->
+            extents[reference] = maxOf(extents[reference] ?: 0f, item.bounds.width, item.bounds.height)
+        }
+        extents.mapValues { (_, extent) -> tableArtworkPixels(with(density) { extent.dp.roundToPx() }) }
+    } }
+    TableArtworkLoads(sizes, images)
+    return images
+}
+
+/** Loads each of [sizes]' pictures at its size into [images], each kept while its reference is drawn. */
+@Composable
+private fun TableArtworkLoads(sizes: State<Map<org.asyncttwiz.storage.ArtworkReference, Int>>, images: MutableMap<String, ImageBitmap>) {
     val context = LocalPlatformContext.current
-    val extents = mutableMapOf<org.asyncttwiz.storage.ArtworkReference, Float>()
-    for (item in scene.items) if (item.visible.isNotEmpty() && !item.covered) item.artwork?.let { reference ->
-         extents[reference] = maxOf(extents[reference] ?: 0f, item.bounds.width, item.bounds.height)
-     }
-    for ((reference, extent) in extents) key(reference) {
-        val width = tableArtworkPixels(with(LocalDensity.current) { extent.dp.roundToPx() })
+    for ((reference, width) in sizes.value) key(reference) {
         val height = width
         // A new size (a zoom, a raised card) loads beside the picture already shown, which stays until it has
-        var image by remember { mutableStateOf<ImageBitmap?>(null) }
         LaunchedEffect(width, height) {
             val request = CardArtworkRequest(reference, width, height)
             val result = PublicArtwork.get(context).loader.execute(coil3.request.ImageRequest.Builder(context)
                 .data(request).size(width, height).build()) as? coil3.request.SuccessResult
-            result?.image?.let(::coilImageBitmap)?.let { image = it }
+            result?.image?.let(::coilImageBitmap)?.let { images[reference.key] = it }
         }
-        image?.let { images[reference.key] = it }
+        DisposableEffect(reference) { onDispose { images.remove(reference.key) } }
     }
-    return images
 }
 
 /**

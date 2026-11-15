@@ -29,7 +29,7 @@ import org.asyncttwiz.protocol.PlayZone
  */
 @Composable
 fun PileChoiceGlow(scene: TableScene, glow: Set<String>, frame: State<TableRenderFrame>, spread: Set<String> = emptySet()) {
-    val piles = remember(scene, glow, spread) {
+    val piles = remember(IdentityKey(scene), glow, spread) {
         scene.items.filter { it.kind == TableItemKind.PILE && it.zone != PlayZone.STACK && it.id in glow && it.visible.isNotEmpty() }
             .map { pile -> listOf(pile.id) to scene.viewports.firstOrNull { it.id == pile.viewport }?.bounds } +
             scene.battlefieldGroups.filter { it.key in spread }.mapNotNull { group ->

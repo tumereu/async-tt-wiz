@@ -36,16 +36,7 @@ fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspe
     val entry = inspection.stackEntryId ?: inspection.cardId
     // STK-050 (owner playtest 2026-11-06): an ability on the Stack is its panel alone (the source's art crop, the
     // ability's text and what was chosen), not its source card's picture
-    StackAbilities.of(state, entry, viewer)?.let { shown ->
-        val definition = state.definitions.firstOrNull { it.digest == card.definition }?.definition?.takeIf { it.faces.isNotEmpty() }
-        val face = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
-        val art = definition?.let { InspectedCard.retained(it).artwork.getOrNull(face) }?.forTable()
-        // (owner 2026-11-07) its text names its targets in place; the details list only the targets it doesn't name
-        val text = StackAbilities.text(state, entry, viewer, names)
-        return listOf(InspectGroup("ability/$entry", listOf(InspectTile.Ability("ability/$entry", shown,
-            StackAbilities.details(state, entry, viewer, names, text), CombatStackRules.controller(state.board, entry) == viewer, art,
-            text?.pieces?.tinted(viewer)))))
-    }
+    abilityGroup(state, viewer, entry, card, names)?.let { return listOf(it) }
     // TBL-111: holding a battlefield group shows each of its members in turn
     val below = if (inspection.snapshot == null) inspection.group.mapNotNull { id -> state.board.cards.firstOrNull { it.id == id } }
         else emptyList()
@@ -59,6 +50,31 @@ fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspe
         StackAbilities.details(state, entry, viewer, names).map { InspectChange(it) } else emptyList()
     return listOf(InspectGroup(card.id, held, chosen + changes[card.id].orEmpty())) +
         others.map { (member, tiles) -> InspectGroup(member.id, tiles, changes[member.id].orEmpty()) }
+}
+
+/** STK-050: the panel of the ability on the Stack [entry] (its source [card]), null when [entry] is no ability there. */
+private fun abilityGroup(state: TableBoard, viewer: String, entry: String, card: PlayCard, names: Map<String, String>): InspectGroup? {
+    val shown = StackAbilities.of(state, entry, viewer) ?: return null
+    val definition = state.definitions.firstOrNull { it.digest == card.definition }?.definition?.takeIf { it.faces.isNotEmpty() }
+    val face = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
+    val art = definition?.let { InspectedCard.retained(it).artwork.getOrNull(face) }?.forTable()
+    // (owner 2026-11-07) its text names its targets in place; the details list only the targets it doesn't name
+    val text = StackAbilities.text(state, entry, viewer, names)
+    return InspectGroup("ability/$entry", listOf(InspectTile.Ability("ability/$entry", shown,
+        StackAbilities.details(state, entry, viewer, names, text), CombatStackRules.controller(state.board, entry) == viewer, art,
+        text?.pieces?.tinted(viewer))))
+}
+
+/**
+ * WEB-026: the pictures the quick look shows of [card] held as [inspection] says: the first group's tiles of
+ * [gameInspectGroups] (an ability on the Stack its panel, a card its faces), without working out what changed on it, which
+ * the quick look never shows (worked out on the page from the board's engine state, a hover took about 12 ms in the browser).
+ */
+fun gameQuickLookTiles(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard): List<InspectTile> {
+    val entry = inspection.stackEntryId ?: inspection.cardId
+    abilityGroup(state, viewer, entry, card, emptyMap())?.let { return it.tiles }
+    val faceDown = CombatStackRules.faceDownEntry(state.board, inspection.cardId)
+    return cardTiles(state, viewer, card, inspection, faceDown, inspection.cardId in CombatStackRules.projectionIds(state.board))
 }
 
 /** [card]'s faces as its inspection shows them to [viewer], or one covered tile when they may see none of it. */

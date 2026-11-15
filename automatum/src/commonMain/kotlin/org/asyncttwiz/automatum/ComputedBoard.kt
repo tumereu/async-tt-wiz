@@ -122,6 +122,9 @@ class ComputedBoard private constructor(
     /** Web client step 4c: a board restored on the page from the engine side's values ([restored]), whose view is worked out
      * on the page when an explanation first needs it. */
     private val restoredView: Boolean = false,
+    /** Web client (web frame rate, 2026-11-15): a restored board's [withEffects] as the engine side worked them out with its own
+     * view, so the page doesn't run the layers for each board it receives; null: worked out here when first read. */
+    private val givenWithEffects: Set<String>? = null,
 ) {
     /** The view worked out on the page for a restored board ([restoredView]). */
     private var workedView: View? = null
@@ -137,10 +140,14 @@ class ComputedBoard private constructor(
         val manualAbilities: Int = 0, val manualCards: List<Pair<String, Int>> = emptyList(),
         val exileStates: Map<String, List<String>> = emptyMap(), val handRow: List<String> = emptyList(),
         /** Whether the values were worked out from a state (false: [NONE] or [failed]). */
-        val computed: Boolean = false)
+        val computed: Boolean = false,
+        /** [withEffects] as the engine side worked them out (null: none sent, worked out on the page). */
+        val withEffects: Set<String>? = null)
 
-    /** These values as the page receives them ([Wire]). */
-    fun wire(): Wire = Wire(cards, unsupported, manualAbilities, manualCards, exileStates, handRow, state != null)
+    /** These values as the page receives them ([Wire]), with [withEffects] worked out here (where the board's view is) rather
+     * than on the page (web frame rate, 2026-11-15: the page ran the layers again for each board it drew). */
+    fun wire(): Wire = Wire(cards, unsupported, manualAbilities, manualCards, exileStates, handRow, state != null,
+        withEffects.takeIf { state != null })
     /**
      * TBL-136 effects marker (owner, 2026-11-12): the Battlefield cards (by ATW card id) a continuous effect other than counters
      * applies to: exactly those Inspect lists an effect for ([effects]: a copy, gained or lost abilities, a changed P/T, type,
@@ -148,6 +155,7 @@ class ComputedBoard private constructor(
      * first asked (one run of the layers for all of them).
      */
     val withEffects: Set<String> by lazy {
+        givenWithEffects?.let { return@lazy it }
         val ids = cards.keys.toList()
         if (state == null || ids.isEmpty()) emptySet() else effects(ids, "").keys + restrictions(ids, "").keys
     }
@@ -359,7 +367,7 @@ class ComputedBoard private constructor(
         fun restored(wire: Wire, state: GameState): ComputedBoard = if (!wire.computed)
             ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, null, null, null, wire.exileStates, wire.handRow)
             else ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, state, null, CardIds(), wire.exileStates,
-                wire.handRow, restoredView = true)
+                wire.handRow, restoredView = true, givenWithEffects = wire.withEffects)
 
         /** Nothing computed (Automatum off, or the board not built yet). */
         val NONE = ComputedBoard(emptyMap(), emptyList(), 0, emptyList(), null, null, null)

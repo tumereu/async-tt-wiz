@@ -195,7 +195,6 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
         if (!copy && !real) continue
         val chips = mutableListOf<Triple<String, Color, String>>()
         val actions = mutableListOf<StagingChip>()
-        val b = bounds(item)
         val attackerCopy = copy && area?.pairs?.any { p -> p.attackers.any { it.id == item.cardId } } == true
         if (attackerCopy && staging) actions += stagingChips(play, combat, choices, attackChoices, bands, picking, card, choosing, computed)
         // CMB-037: the costs it must pay to attack or block as drafted
@@ -226,6 +225,9 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
         val dealt = if (copy || card !in inCombat) damage[card] else null
         val dying = (copy || card !in inCombat) && card in dies
         if (chips.isEmpty() && actions.isEmpty() && dealt == null && !dying) continue
+        // Read only for a card that shows something here: where each card is drawn changes every frame of a play or a pan, and
+        // reading it for every card recomposed this overlay with each (web frame rate, 2026-11-15)
+        val b = bounds(item)
         // An attacker's badges sit on its side away from the arrows (below it in the attacker's view, above it mirrored),
         // stacked one per line no wider than the card, so neighbours' chips never run into each other (combat review #2)
         val below = attackerCopy && port != null && b.center.y > port.center.y

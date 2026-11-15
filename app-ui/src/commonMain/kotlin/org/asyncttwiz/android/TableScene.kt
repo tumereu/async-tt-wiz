@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -24,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.snapshots.Snapshot
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.displayRefreshRate
 
@@ -36,6 +40,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     PrefetchGameArtwork(play, accountId)
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.playId, accountId) { mutableStateOf(TableLayoutState()) }
     var layout by layoutState
+    // Web frame rate (owner, 2026-11-15: the table stutters in Firefox and Chrome): composition reads the layout without its
+    // camera, so a pan or zoom step recomposes nothing ([sceneNow] below)
+    val layoutShown = toolkit?.layoutShown ?: remember(layoutState) { layoutState.withoutCamera() }
     val peekScroll = rememberScrollState()
     // TBL-104 (owner 2026-11-06): a drag to the left while inspecting pins the Inspect
     val peekSwipe = remember { InspectSwipe() }
@@ -257,6 +264,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 presented.hit(point)?.id != toolkit?.layoutState?.value?.localPileId) toolkit?.closeLocalPile()
         }
     }) {
+        SideEffect { TableProbes.composed?.invoke(accountId) }
         val compactHeader = maxWidth < 400.dp
         val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
         val cardAppearance = rememberCardAppearance()
@@ -271,7 +279,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             ?.let { it.attackers && it.declaring == accountId } == true
         // STK-024: what pays the open payment lies in its own pile, to the right of its stack
         val paying = if (runtime.reviewing) emptySet() else toolkit?.paySources().orEmpty()
-        val laid = if (paying.isEmpty()) layout else layout.copy(paying = paying)
+        val shownLayout = layoutShown.value
+        val laid = if (paying.isEmpty()) shownLayout else shownLayout.copy(paying = paying)
         // ZON-079 (owner, 2026-11-12): your cards from other zones a permission lets you cast or play, at your hand row's end
         // (worked out with the board; the engine's own casts from elsewhere join them once worked out)
         val cachedPlays = AutomatumBoards.cachedHandPlays(play, accountId)
@@ -280,62 +289,82 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         }
         // A board the scene can't be built from (a state nobody tested, prod crash WCRF3Q) keeps the last scene shown, reported
         val lastScene = remember(play.playId, accountId) { LastScene() }
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots, handRow, desktop) {
-            try {
-                TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                    maxHeight.value.coerceAtLeast(1f), landscape, laid, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
-                    computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots, handRow = handRow,
-                    desktop = desktop).also { lastScene.scene = it }
-            } catch (failure: RuntimeException) {
-                Faults.report("TableScene", "table scene not built", mapOf("game" to game.id, "node" to play.nodeId,
-                    "failure" to failure.stackTraceToString().take(4_000)))
-                lastScene.scene ?: throw failure
+        // Web frame rate (owner, 2026-11-15): the scene as laid out now, with the camera, which only drawing, layout, hit testing
+        // and what follows the cards read: a pan or zoom step lays the scene out again there and recomposes none of the table
+        // (the camera is read only here). Composition reads it as it was when it last ran ([targetScene]), for everything but
+        // where the battlefields' things are
+        val camera = remember(layoutState) { derivedStateOf(structuralEqualityPolicy()) { layoutState.value.camera } }
+        val sceneNow = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, laid, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed, attackerSlots, handRow, desktop) {
+            val inputs = Any()
+            derivedStateOf {
+                val full = laid.copy(camera = camera.value)
+                val built = try {
+                    TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
+                        maxHeight.value.coerceAtLeast(1f), landscape, full, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
+                        computed, landscapeHome = true, timeline = runtime.timelineOpen, attackerSlots = attackerSlots, handRow = handRow,
+                        desktop = desktop).also { lastScene.scene = it }
+                } catch (failure: RuntimeException) {
+                    Faults.report("TableScene", "table scene not built", mapOf("game" to game.id, "node" to play.nodeId,
+                        "failure" to failure.stackTraceToString().take(4_000)))
+                    lastScene.scene ?: throw failure
+                }
+                LaidScene(built, full, maxWidth to maxHeight, inputs)
             }
         }
-        var previousLayout by remember { mutableStateOf(laid) }
-        var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card, opening or closing a battlefield group
-        // (TBL-122) and a source joining or leaving a payment's pile (STK-024) are the only layout changes that animate, at the card move speed; any other layout change (camera,
-        // panels) or a new size jumps
-        val raiseOnly = previousLayout != laid &&
-            previousLayout.copy(raised = laid.raised, expandedGroup = laid.expandedGroup, paying = laid.paying) == laid
-        val navigation = previousLayout != laid && !raiseOnly || previousSize != (maxWidth to maxHeight)
+        val targetScene = Snapshot.withoutReadObservation { sceneNow.value.scene }
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.playId, accountId) { HistorySceneAnimation(targetScene) }
         val movePreferences = rememberCardMovePreferences(accountId)
         val moveMultiplier by movePreferences.multiplierState()
         SideEffect { animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * moveMultiplier }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
+        // Bumped as the animation is retargeted: [animationRevision] recomposes (the semantics' items), [frameRevision] only
+        // redraws (a retarget for a camera change alone)
         var animationRevision by remember(animation) { mutableIntStateOf(0) }
+        val frameRevision = remember(animation) { mutableIntStateOf(0) }
         SideEffect { animation.updateMetadata(targetScene) }
-        LaunchedEffect(animation, targetScene.animationTargets, play.nodeId, runtime.sceneVersion) {
-            val settled = runtime.onSceneSettled
-            val faceChanges = runtime.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
-            val shuffles = if (navigation) emptySet() else runtime.changes?.shuffles(play.nodeId).orEmpty()
-            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId, runtime.landedEntries.toSet(),
-                    runtime.takenBack)) {
-                DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
-                progress.snapTo(0f)
-                animationRevision++
-                if (navigation || !raiseOnly && runtime.changes?.animates(play.nodeId) == false) progress.snapTo(1f)
-                else progress.animateTo(1f, tween((animation.durationMillis * runtime.sceneTimeShare).toInt().coerceAtLeast(1),
-                    easing = androidx.compose.animation.core.LinearEasing))
-            } else if (progress.value < 1f) {
-                // Metadata can cancel this effect mid-scene, but cannot slow its existing clock.
-                progress.animateTo(1f, tween(animation.remainingDurationMillis(progress.value), easing = androidx.compose.animation.core.LinearEasing))
-            }
-            animationRevision++
-            withFrameNanos { }
-            settled?.invoke(play.nodeId)
+        // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card, opening or closing a battlefield group
+        // (TBL-122) and a source joining or leaving a payment's pile (STK-024) are the only layout changes that animate, at the
+        // card move speed; any other layout change (camera, panels) or a new size jumps ([LaidBefore])
+        val currentSceneNow by rememberUpdatedState(sceneNow)
+        val laidBefore = remember(animation) { LaidBefore(Snapshot.withoutReadObservation { sceneNow.value }) }
+        LaunchedEffect(animation, play.nodeId, runtime.sceneVersion) {
+            snapshotFlow { currentSceneNow.value }
+                .map { now -> laidBefore.next(now) }
+                .distinctUntilChangedBy { it.now.scene.animationTargets }
+                .collectLatest { step ->
+                    val target = step.now.scene
+                    val rt = currentRuntime
+                    val settled = rt.onSceneSettled
+                    fun bump() { frameRevision.intValue++; if (!step.cameraOnly) animationRevision++ }
+                    val faceChanges = rt.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
+                    val shuffles = if (step.navigation) emptySet() else rt.changes?.shuffles(play.nodeId).orEmpty()
+                    if (animation.retarget(target, progress.value, faceChanges, shuffles, play.nodeId, rt.landedEntries.toSet(),
+                            rt.takenBack)) {
+                        DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
+                        progress.snapTo(0f)
+                        bump()
+                        if (step.navigation || !step.raiseOnly && rt.changes?.animates(play.nodeId) == false) progress.snapTo(1f)
+                        else progress.animateTo(1f, tween((animation.durationMillis * rt.sceneTimeShare).toInt().coerceAtLeast(1),
+                            easing = androidx.compose.animation.core.LinearEasing))
+                    } else if (progress.value < 1f) {
+                        // Metadata can cancel this effect mid-scene, but cannot slow its existing clock.
+                        progress.animateTo(1f, tween(animation.remainingDurationMillis(progress.value), easing = androidx.compose.animation.core.LinearEasing))
+                    }
+                    bump()
+                    withFrameNanos { }
+                    settled?.invoke(play.nodeId)
+                }
         }
         // Only draw/layout/semantics (and the small open-overlay host) observe the clock. Sampling
         // and clipping are shared once per frame, not repeated for every accessibility child.
-        val rendered = remember(animation, targetScene, runtime.reviewing, IdentityKey(play), maxWidth, maxHeight) { derivedStateOf {
-            animationRevision
-            val frame = animation.frame(progress.value, targetScene)
+        val rendered = remember(animation, sceneNow, runtime.reviewing, IdentityKey(play), maxWidth, maxHeight) { derivedStateOf {
+            frameRevision.intValue
+            val target = sceneNow.value.scene
+            val frame = animation.frame(progress.value, target)
             // CMB-001: the battlefields slide with their cards, so the combat band between them opens and closes with them
-            val base = TablePresentation.clip(targetScene.copy(items = frame.filter { it.alpha > 0f }
-                .map { it.item.copy(bounds = it.bounds) }, fields = animation.fields(progress.value, targetScene)), maxWidth.value, maxHeight.value)
+            val base = TablePresentation.clip(target.copy(items = frame.filter { it.alpha > 0f }
+                .map { it.item.copy(bounds = it.bounds) }, fields = animation.fields(progress.value, target)), maxWidth.value, maxHeight.value)
             TableRenderFrame(base, frame.associate { it.item.id to it.alpha })
         } }
         val scene = targetScene
@@ -343,29 +372,37 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             toolkit?.panel ?: "card".takeIf { toolkit?.capture != null },
             previewDragging, { progress.isRunning },
             { rendered.value.scene.items.count { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() } })
-        val semanticItems = remember(animation, targetScene, animationRevision) {
+        val semanticItems = remember(animation, IdentityKey(targetScene), animationRevision) {
             // Target metadata owns the accepted disclosure; start-frame metadata may still be a back
             // during a flip. Bounds continue to come exclusively from the rendered frame below.
             (targetScene.items + animation.frame(0f, targetScene).map { it.item }).distinctBy { it.id }
         }
-        LaunchedEffect(IdentityKey(play), layout.localPileId) {
+        LaunchedEffect(IdentityKey(play), shownLayout.localPileId) {
             if (layout.localPileId != null && play.board.containers.none { it.id == layout.localPileId && it.cards.isNotEmpty() })
                 layout = layout.copy(localPileId = null)
         }
-        val artwork = tableArtwork(scene.copy(items = semanticItems))
+        // The pictures at the sizes the cards are drawn now (a zoom asks again only past a size step, TABLE_ARTWORK_STEP)
+        val artItems = remember(animation, sceneNow) { derivedStateOf {
+            frameRevision.intValue
+            val now = sceneNow.value.scene
+            (now.items + animation.frame(0f, now).map { it.item }).distinctBy { it.id }
+        } }
+        val artwork = tableArtwork(artItems)
         val drawCache = remember(density, play.playId) { TableDrawCache(density) }
         val refreshRate = displayRefreshRate()
-        SideEffect { previousLayout = laid; previousSize = maxWidth to maxHeight }
         val tableWidth = maxWidth.value; val tableHeight = maxHeight.value
+        // The frame drawn last: the gestures go on from it while the camera moves (each pointer move of a pan writes the camera;
+        // the scene is laid out again for the next frame drawn, not for every move in between)
+        val drawnFrame = remember(rendered) { arrayOfNulls<TableRenderFrame>(1) }
         SideEffect {
             presentation = { rendered.value.scene }
-            coordinator.update(scene, writable, sceneSource = { rendered.value.scene }, reviewing = runtime.reviewing)
+            coordinator.update(scene, writable, sceneSource = { (drawnFrame[0] ?: rendered.value).scene }, reviewing = runtime.reviewing)
         }
         Box(Modifier.fillMaxSize().semantics {
             contentDescription = "Shared table"
             customActions = listOf(
-                CustomAccessibilityAction("Zoom in") { coordinator.transform(TablePoint(0f, 0f), 1.2f, scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
-                CustomAccessibilityAction("Zoom out") { coordinator.transform(TablePoint(0f, 0f), 1 / 1.2f, scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
+                CustomAccessibilityAction("Zoom in") { coordinator.transform(TablePoint(0f, 0f), 1.2f, sceneNow.value.scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
+                CustomAccessibilityAction("Zoom out") { coordinator.transform(TablePoint(0f, 0f), 1 / 1.2f, sceneNow.value.scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
                 CustomAccessibilityAction("Pan left") { coordinator.panBy(-84f, 0f); true },
                 CustomAccessibilityAction("Pan right") { coordinator.panBy(84f, 0f); true },
                 CustomAccessibilityAction("Pan up") { coordinator.panBy(0f, -84f); true },
@@ -414,7 +451,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 }
             } finally { coordinator.cancel(); preview = coordinator.preview }
         }) {
-            val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
+            // Read while drawing: its fade (a turn's change) redraws the bars only, recomposing nothing
+            val barColor = animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
+            val bars = Modifier.drawBehind { drawRect(barColor.value) }
             // A cast or an Automatum decision choosing targets (I-D6): its legal targets glow
             val castGlow = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
             // STK-047 (owner 2026-11-07): the targets picked so far show picked, alone or in an opened group (TBL-130)
@@ -455,15 +494,16 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     Box(Modifier.offset(0.dp, port.bounds.y.dp).size(desktopGeometry.tableRight.dp, DesktopTable.SEAT.dp)
                         .background(seatHeaderColor(owner, accountId, runtime.reviewing)))
                 }
-                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(desktopGeometry.band.dp).background(barColor))
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(desktopGeometry.band.dp).then(bars))
             } else {
-            Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
+            Box(Modifier.fillMaxWidth().height(48.dp).then(bars))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape, runtime.timelineOpen).dp)
-                .background(barColor))
+                .then(bars))
             }
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
+                drawnFrame[0] = frame
                 val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow, pickedGlow)
                 val targetAlphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
                     .filter { it.battlefieldCard && it.cardId in dimmed }.associate { it.id to minOf(frame.alphas[it.id] ?: 1f, TARGET_DIMMED) }
@@ -477,23 +517,26 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // STK-047 (owner, 2026-11-12): a pile holding a card the viewer may target or choose glows over its whole face,
             // pulsing, in a layer of its own
             // Owner notes 2026-11-14: as does a closed group a tap spreads open to pick from (TBL-130)
-            val spreadGroups = remember(scene, groupTaps, castGlow) {
+            val spreadGroups = remember(IdentityKey(scene), groupTaps, castGlow) {
                 TableGlows.of(scene.battlefieldGroups, groupTaps, emptyMap(), castGlow).spread
             }
             PileChoiceGlow(scene, castGlow, rendered, spreadGroups)
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
-                { preview }, layoutState, groupTaps)
+                { preview }, layoutState, groupTaps, fieldsNow = { sceneNow.value.scene.fields })
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             // CMB-001 (owner playtest 2026-11-11): the chips on the band's upper edge move with the battlefield above it as
             // the band opens or closes
             val bandShift = { rendered.value.scene.fields.firstOrNull()?.gridBounds?.bottom
-                ?.minus(scene.fields.firstOrNull()?.gridBounds?.bottom ?: 0f) ?: 0f }
-            CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
+                ?.minus(sceneNow.value.scene.fields.firstOrNull()?.gridBounds?.bottom ?: 0f) ?: 0f }
+            // What lies on or by the combat band, which pans and zooms with the battlefields: laid out with the camera as it is now
+            CurrentScene(sceneNow) { now ->
+                CombatAreaOverlay(toolkit?.combat, play, now, accountId, writable && !runtime.reviewing,
                     pressed = { pressGlow.value }, dragged = { preview.scope?.contextId }, bandShift = bandShift) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
+            }
             // CMB-001 (owner playtest 2026-11-11): when the band closes, what sat on it or by it fades out where it was
-            ClosingCombatBand(play, scene, accountId) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
+            CurrentScene(sceneNow) { now -> ClosingCombatBand(play, now, accountId) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds } }
             // STK-058 (owner playtest 2026-11-07): the top Stack entry's target arrows, for both players; not while the viewer
             // picks targets themselves (their violet glow, STK-047)
             val stackNames = remember(game) { gameNames(game) }
@@ -519,9 +562,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight) }
         }
         CompositionLocalProvider(LocalDesktopGeometry provides desktopGeometry) {
-        TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
-        // WEB-026: the quick look of the card the mouse rests on
-        if (desktopGeometry != null && toolkit != null) mouse.quickLook?.let { item ->
+        TableBoardOverlays(game, play, accountId, runtime, scene, rendered, sceneNow)
+        // WEB-026: the quick look of the card the mouse rests on, in a scope of its own: its coming and going recomposes only it
+        if (desktopGeometry != null && toolkit != null) QuickLookHost(mouse) { item ->
             DesktopQuickLook(play, accountId, item, toolkit, desktopGeometry.tableRight, tableHeight)
         }
         // WEB-020: on the desktop table the top row is the screen's, above the table
@@ -533,13 +576,15 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             Box(Modifier.align(Alignment.TopEnd).width(DesktopTable.DOCK.dp).height((maxHeight.value - desktopGeometry.band).coerceAtLeast(0f).dp)) { dock() }
         }
         // TBL-067: table popups keep off both hands where they fit elsewhere
-        val hands = remember(scene) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
+        val hands = remember(IdentityKey(scene)) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
-         if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) {
+         // Its chips and panels by the cards (a battlefield card's ability chips, what is attached to the combat band) follow the
+         // camera: laid out with it as it is now
+         if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) { CurrentScene(sceneNow) { now ->
              TableToolkitScreen(toolkit, play, game, landscape,
-              peekScroll = peekScroll, scene = scene, peekSwipe = peekSwipe, onTimeline = runtime.history,
+              peekScroll = peekScroll, scene = now, peekSwipe = peekSwipe, onTimeline = runtime.history,
               reviewing = runtime.reviewing, gameActionsBlocked = runtime.gameActionsBlocked)
-         }
+         } }
         }
         }
     }
@@ -608,5 +653,42 @@ fun rememberPlayableGlow(play: TableBoard, target: Set<String>?): PlayableGlow {
     return glow
 }
 
+/** Test probe (web frame rate, 2026-11-15): told each time a table's own scope recomposes, with the account it is drawn for. */
+object TableProbes {
+    @kotlin.concurrent.Volatile var composed: ((me: String) -> Unit)? = null
+}
+
+/** WEB-026: [content] for the card whose quick look [mouse] shows, if any; read here alone (web frame rate, 2026-11-15). */
+@Composable
+private fun QuickLookHost(mouse: DesktopTableMouse, content: @Composable (TableItem) -> Unit) { mouse.quickLook?.let { content(it) } }
+
 /** The last table scene built, shown again while a newer board's can't be built. */
 private class LastScene { var scene: TableScene? = null }
+
+/** A table scene as laid out ([TableSurface]'s sceneNow): [laid] its layout (with the camera), [size] the table's, [inputs] the
+ * composition's inputs it was built from (the same object while only the camera has changed). */
+class LaidScene(val scene: TableScene, val laid: TableLayoutState, val size: Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp>,
+    val inputs: Any)
+
+/** A change of the table's scene as its animation takes it: [navigation] (the camera or another layout change but a raised
+ * card, an opened group or a payment's pile, or a new size: it jumps), [raiseOnly] (only those: it animates), [cameraOnly]
+ * (the camera alone: nothing composition reads changed). */
+class SceneStep(val now: LaidScene, val navigation: Boolean, val raiseOnly: Boolean, val cameraOnly: Boolean)
+
+/** The scene laid out before ([next] compares each with it, as the table's layout changes). */
+private class LaidBefore(private var before: LaidScene) {
+    fun next(now: LaidScene): SceneStep {
+        val was = before
+        before = now
+        val raiseOnly = was.laid != now.laid &&
+            was.laid.copy(raised = now.laid.raised, expandedGroup = now.laid.expandedGroup, paying = now.laid.paying) == now.laid
+        val navigation = was.laid != now.laid && !raiseOnly || was.size != now.size
+        val cameraOnly = was.inputs === now.inputs && was.size == now.size && was.laid.copy(camera = now.laid.camera) == now.laid
+        return SceneStep(now, navigation, raiseOnly, cameraOnly)
+    }
+}
+
+/** [content] with the table's scene as laid out now ([now], the camera's place too): only this recomposes as the camera moves,
+ * for what lies by the battlefields' cards and follows them (web frame rate, 2026-11-15). */
+@Composable
+fun CurrentScene(now: State<LaidScene>, content: @Composable (TableScene) -> Unit) { content(now.value.scene) }

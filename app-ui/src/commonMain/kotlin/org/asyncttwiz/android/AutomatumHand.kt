@@ -68,7 +68,9 @@ class HandController(
     private val game: () -> EngineGame? = { null },
 ) {
     /** The raised card, null when none. */
-    val raised: String? get() = layout.value.raised
+    val raised: String? get() = raisedState.value
+    /** [raised] as composition reads it: not changed by a pan or zoom step (the layout's camera, web frame rate 2026-11-15). */
+    private val raisedState = derivedStateOf(structuralEqualityPolicy()) { layout.value.raised }
     /** The raised card's chips on the board acted on, null while worked out or when it has none. */
     var chips by mutableStateOf<HandCastChips?>(null); private set
     /** The chip held (its details shown, its sources outlined): an index of [HandCastChips.chips], or [MORE]. */

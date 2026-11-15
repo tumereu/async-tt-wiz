@@ -202,7 +202,8 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                     if (main == null && !arrow && wait != null && assumeLook(wait)) Color.White else AutomatumViolet)
                 if (unconfirmed && engine != null) EngineUnconfirmedMark(engine.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             } }
-        if (stacked) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // WEB-018 (owner playtest 2026-11-15: "no need for such a large margin"): only the quick actions' gap between the rows
+        if (stacked) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(DesktopTable.ACTION_GAP.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(DesktopTable.ACTION_GAP.dp), content = cells)
             // WEB-018: the right two thirds of the bottom row, Undo (the action area's) in the first third
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {

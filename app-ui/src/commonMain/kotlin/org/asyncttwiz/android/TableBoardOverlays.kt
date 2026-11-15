@@ -26,7 +26,7 @@ import org.asyncttwiz.protocol.*
 inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: String, runtime: TableRuntimeHooks,
     scene: TableScene, rendered: State<TableRenderFrame>) {
     ManaPoolRows(play, scene)
-    if (runtime.reviewing) scene.world?.visibleViewport?.let { board ->
+    if (runtime.reviewing) scene.boardArea?.let { board ->
         // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
         Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
             .background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
@@ -61,13 +61,13 @@ inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: St
         }
     }
     // HIS-094: the catch-up's centre text, a tap resumes playback
-    if (!runtime.reviewing) runtime.centreAction?.let { action -> scene.world?.visibleViewport?.let { board ->
+    if (!runtime.reviewing) runtime.centreAction?.let { action -> scene.boardArea?.let { board ->
         Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
             TableCentreButton(action)
         }
     } }
     // Outside the review condition: the end of playback (back to live) still flashes the pause.
-    scene.world?.visibleViewport?.let { board ->
+    scene.boardArea?.let { board ->
         PlaybackStatusFlash(runtime.timelinePlayback, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
         // HIS-021, HIS-112, HIS-113: a held finger pausing what the view is waiting on
         ViewPausedIcon(LocalEngineRoutes.current?.viewPaused() == true, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
@@ -75,7 +75,7 @@ inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: St
     TableChangeOverlay(runtime.changes, accountId, scene.appearance,
         item = { id -> rendered.value.items[id] })
     ResultActions.pendingPresentation(game, play, accountId)?.let { result ->
-        val board = scene.world?.visibleViewport
+        val board = scene.boardArea
         Box(if (board == null) Modifier.fillMaxSize() else
             Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp),
             contentAlignment = Alignment.Center) {

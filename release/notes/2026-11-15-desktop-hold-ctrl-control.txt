@@ -1,0 +1,1 @@
+add: In the browser's desktop layout, holding Ctrl keeps you in Control mode until you let go.

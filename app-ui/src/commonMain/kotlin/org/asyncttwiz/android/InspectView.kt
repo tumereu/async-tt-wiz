@@ -138,12 +138,14 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
     val pinned = swipe?.pinned == true
     val progress by animateFloatAsState(swipe?.let { if (it.pinned) 1f else it.progress } ?: 0f,
         if (pinned) tween(200) else snap(), label = "inspect pin")
+    val desktop = LocalAppLayout.current == AppLayout.Desktop
     // WEB-024: on the desktop layout a click on a pinned Inspect closes it (a click outside the card)
-    val clickCloses = swipe != null && pinned && LocalAppLayout.current == AppLayout.Desktop
+    val clickCloses = swipe != null && pinned && desktop
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f + .2f * progress)).testTag("card-inspection")
         .then(if (clickCloses) Modifier.pointerInput(swipe) {
             detectTapGestures { AppLog.info("table", "Pinned Inspect closed by a click"); swipe?.close() }
         } else Modifier)
+        .then(if (desktop) Modifier.inspectWheel(scroll, groups.size) else Modifier)
         .semantics { paneTitle = "Card inspection" }, contentAlignment = Alignment.Center) {
         val landscape = maxWidth > maxHeight
         val room = DpSize(maxWidth - 16.dp, maxHeight - 16.dp)
@@ -153,7 +155,21 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
         val buttonRoom = CLOSE_BUTTON_ROOM * progress
         // TBL-131: the cards slide to the left edge as the swipe goes on, their changes right of them
         val toStart = androidx.compose.ui.BiasAlignment(-progress, 0f)
-        if (landscape) Row(content.align(toStart).padding(top = buttonRoom).widthIn(max = room.width).horizontalScroll(scroll),
+        // WEB-024 (owner playtest 2026-11-15: "should be top down and scrollable"): on the desktop layout several cards lie one
+        // under another, each with its changes beside it, a little smaller than the window so the next shows, and the mouse
+        // wheel scrolls them, with Alt or Shift held too
+        if (desktop) Column(content.align(toStart).padding(top = buttonRoom).heightIn(max = room.height - buttonRoom)
+            .verticalScroll(scroll).testTag(INSPECT_LIST_TAG),
+            verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = androidx.compose.ui.BiasAlignment.Horizontal(-progress)) {
+            val cardsRoom = DpSize(room.width, (room.height - buttonRoom) * if (groups.size > 1) DESKTOP_LIST_SHARE else 1f)
+            groups.forEachIndexed { index, group ->
+                key(group.key) {
+                    if (index > 0) GroupSeparator(Modifier.padding(vertical = 4.dp).height(1.dp).width(room.width * .8f))
+                    val changesWidth = if (progress > 0f) pinnedChangesWidth(listOf(group), cardsRoom, room.width) else SIDE_CHANGES_WIDTH
+                    LandscapeGroup(group, cardsRoom, changesWidth, pinned, progress)
+                }
+            }
+        } else if (landscape) Row(content.align(toStart).padding(top = buttonRoom).widthIn(max = room.width).horizontalScroll(scroll),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             val cardsRoom = DpSize(room.width, room.height - buttonRoom)
             // TBL-131 (owner playtest 2026-11-07): from the swipe's start the changes have their pinned width, so their
@@ -186,6 +202,40 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
         }
         if (swipe != null && progress > 0f && !swipe.keyHeld) InspectCloseButton(swipe::close, Modifier.align(Alignment.TopEnd).padding(12.dp)
             .graphicsLayer { alpha = progress; scaleX = .6f + .4f * progress; scaleY = .6f + .4f * progress })
+    }
+}
+
+/** The test tag of the desktop layout's Inspect list (WEB-024). */
+const val INSPECT_LIST_TAG = "inspect-list"
+
+/** WEB-024: on the desktop layout several cards in Inspect are this share of the window's height, so the next one shows. */
+private const val DESKTOP_LIST_SHARE = .8f
+
+/** WEB-024: how far (dp) one wheel step scrolls the desktop layout's Inspect. */
+private const val INSPECT_WHEEL_STEP = 60f
+
+/**
+ * WEB-024 (owner playtest 2026-11-15: "scrollable, preferably even whilst held"): the mouse wheel scrolls the desktop layout's
+ * Inspect up and down ([scroll]), whatever modifier is held (Shift's turn of the wheel, sideways in the browser, counts as up
+ * and down); the page keeps the browser's own Alt+wheel (history) and Shift+wheel off the table (jsGuardTablePage). Logged
+ * once per Inspect of [cards] cards.
+ */
+private fun Modifier.inspectWheel(scroll: ScrollState, cards: Int): Modifier = pointerInput(scroll) {
+    var logged = false
+    awaitPointerEventScope {
+        while (true) {
+            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+            if (event.type != androidx.compose.ui.input.pointer.PointerEventType.Scroll) continue
+            val delta = event.changes.firstOrNull()?.scrollDelta ?: continue
+            val steps = (if (delta.y != 0f) delta.y else delta.x).coerceIn(-4f, 4f)
+            val moved = scroll.dispatchRawDelta(steps * INSPECT_WHEEL_STEP.dp.toPx())
+            if (!logged) {
+                logged = true
+                AppLog.info("table", "Inspect of $cards cards scrolled by the wheel (${if (moved == 0f) "at its end" else "moved"}, " +
+                    "${scroll.value}/${scroll.maxValue} px)")
+            }
+            event.changes.forEach { it.consume() }
+        }
     }
 }
 
@@ -339,7 +389,9 @@ private fun ChangeLine(change: InspectChange, interactive: Boolean, size: androi
     lineHeight: androidx.compose.ui.unit.TextUnit = 20.sp, pinnedLayout: Boolean = interactive) {
     var open by remember(change) { mutableStateOf(false) }
     var pressed by remember(change) { mutableStateOf(false) }
-    val source = change.source.takeIf { pinnedLayout }
+    // WEB-024 (owner playtest 2026-11-15): on the desktop layout, where nothing clicks a change, its source always shows
+    val always = LocalAppLayout.current == AppLayout.Desktop
+    val source = change.source.takeIf { pinnedLayout || always }
     // TBL-132 (owner gallery review 2026-11-06): a line naming a keyword ("Flying", "+3/+3, trample until end of turn")
     // explains it too
     val explained = if (pinnedLayout) remember(change.text) { arcanum.api.RulesGlossary.named(change.text) } else emptyList()
@@ -348,6 +400,8 @@ private fun ChangeLine(change: InspectChange, interactive: Boolean, size: androi
         detectTapGestures(onPress = { pressed = true; tryAwaitRelease(); pressed = false }, onTap = { open = !open })
     })) {
         CardText(change.text, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontSize = size, lineHeight = lineHeight))
+        if (always && source != null && !(interactive && (open || pressed)))
+            Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
         if (interactive && (open || pressed)) {
             if (source != null) Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
             if (explained.isNotEmpty()) Column(Modifier.padding(top = 4.dp).semantics { contentDescription = "Rule explanation" },

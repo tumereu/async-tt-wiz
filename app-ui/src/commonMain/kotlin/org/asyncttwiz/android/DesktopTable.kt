@@ -79,9 +79,11 @@ object DesktopTable {
     /** The seat header's avatar's side and the name's size (sp). */
     const val AVATAR = 36f
     const val NAME_TEXT = 17f
-    /** The bottom band's least height: the action area's quick actions over Undo and the main button, drawn [UI_SCALE]
-     * larger, with its padding. */
-    val MIN_BAND = (DESKTOP_ACTIONS_HEIGHT + 2 * ACTIONS_PADDING) * UI_SCALE
+    /** WEB-015, WEB-018 (owner playtest 2026-11-15: "Matching hand card panel vert size with the vert size of these controls"):
+     * the height of what floats over the battlefields' bottom, alike for each: your seat header at the left, your hand's fan
+     * between (its cards' part in view), the action area (its quick actions over Undo and the main button, drawn [UI_SCALE]
+     * larger, with its padding) at the right. */
+    val FLOAT = (DESKTOP_ACTIONS_HEIGHT + 2 * ACTIONS_PADDING) * UI_SCALE
     /** The action area's padding around its rows (at 1×). */
     const val ACTIONS_PADDING = 8f
     /** WEB-018: the gap between the action area's buttons, as between the quick actions (at 1×). */
@@ -99,35 +101,44 @@ object DesktopTable {
     /** A centred overlay's width (WEB-019). */
     const val OVERLAY_WIDTH = 560f
 
-    /** The room above your hand's cards in the bottom band for a raised card (ZON-079). */
-    fun handRoom(handHeight: Float) = handHeight * TablePresentation.RAISE + 6f
+    /** WEB-015 (owner playtest 2026-11-15): the height at the window's bottom what floats over the battlefields takes
+     * ([FLOAT]); in timeline mode with the timeline strip under it (WEB-021). */
+    fun band(timeline: Boolean): Float = FLOAT + if (timeline) TableTimelineHeight else 0f
 
-    /** The bottom band's height: your hand (its cards [handHeight] tall, a raised one whole) or the action area, whichever is
-     * taller; in timeline mode the timeline strip under the hand (WEB-021). */
-    fun band(handHeight: Float, timeline: Boolean): Float =
-        maxOf(MIN_BAND, handRoom(handHeight) + handHeight + 8f + 6f) + if (timeline) TableTimelineHeight else 0f
-
-    /** [band] for [appearance]'s hand cards. */
-    fun band(appearance: CardAppearance, timeline: Boolean): Float = band(40f * appearance.size(CardArea.HAND), timeline)
+    /** WEB-016 (owner playtest 2026-11-15): your seat header floating at the bottom left: its life square this far from its
+     * left edge, your avatar and "You" over its life square and piles. */
+    const val PLATE_PAD = 10f
+    /** WEB-015 (owner playtest 2026-11-15, as in MTG Arena): your hand as a fan at the bottom centre: each card this share of
+     * its width from the one before at most (closer when they don't fit), turned [FAN_TURN] degrees from the one before at
+     * most and [FAN_MAX_TURN] either side about a point [FAN_PIVOT] card heights below its middle, the part of it in view as
+     * tall as the action area ([FLOAT]); the card the mouse is on and a raised one rise whole into view, [FAN_LIFT] above the
+     * window's bottom, drawn over the others. */
+    const val FAN_PITCH = .62f
+    const val FAN_TURN = 2.5f
+    const val FAN_MAX_TURN = 10f
+    const val FAN_PIVOT = 3f
+    const val FAN_LIFT = 8f
 
     /**
      * The right end of a seat header's life square, [places] piles, the other player's hand's fan ([fan] wide, ZON-001; 0 for
      * yours) and round chips ([emblems]: the player has chips; [wanted]: the room their chips would like) on a table
-     * [tableWidth] wide. The other player's always keeps the chips' room; yours has it only with chips (your hand is in the
-     * bottom band).
+     * [tableWidth] wide, the life square at [start]. The other player's always keeps the chips' room; yours has it only with
+     * chips (your seat header floats at the bottom left, as narrow as it can be).
      */
-    fun rowRight(tableWidth: Float, own: Boolean, places: Int, emblems: Boolean, wanted: Float, fan: Float = 0f): Float {
-        val piles = pilesRight(NAME, places) + if (fan > 0f) TablePresentation.FAN_GAP + fan else 0f
+    fun rowRight(tableWidth: Float, own: Boolean, places: Int, emblems: Boolean, wanted: Float, fan: Float = 0f, start: Float = NAME): Float {
+        val piles = pilesRight(start, places) + if (fan > 0f) TablePresentation.FAN_GAP + fan else 0f
         if (own && !emblems) return piles
         val fit = tableWidth - 10f - piles - 4f
         return piles + 4f + maxOf(TablePresentation.Landscape.EMBLEMS, wanted).coerceAtMost(fit).coerceAtLeast(TablePresentation.Landscape.MIN_EMBLEMS)
     }
 }
 
-/** WEB-015: where the desktop table's parts lie on the table surface (dp), worked out with its scene by [TableSurface]. */
+/** WEB-015: where the desktop table's parts lie on the table surface (dp), worked out with its scene by [TableSurface];
+ * [band]: the height at the bottom what floats over the battlefields takes ([DesktopTable.band]). */
 data class DesktopGeometry(val width: Float, val height: Float, val tableRight: Float, val band: Float) {
-    /** Your seat header's top: a prompt strip's bottom (WEB-019). */
-    val seatTop: Float get() = height - band - DesktopTable.SEAT
+    /** The top of what floats at the bottom (your seat header, your hand's fan, the action area): a prompt strip's bottom
+     * (WEB-019). */
+    val seatTop: Float get() = height - band
     /** The action area (WEB-018). */
     val actions: TableBounds get() = TableBounds(width - DesktopTable.ACTIONS, height - band, DesktopTable.ACTIONS, band)
 }
@@ -154,18 +165,54 @@ val LocalPromptDim = compositionLocalOf<PromptDim?> { null }
 private const val OVERLAY_DIM = .45f
 
 /**
+ * WEB-019 (owner playtest 2026-11-15): a desktop panel [content] with the go-on of the open panel ([MainSlot.action]: Cast,
+ * Pay, OK, Done, Keep …) in a row at its bottom right ([PanelGoOn]), as wide as the panel, on its white; none while the panel
+ * has no go-on on the main button (its own buttons answer it) or is hidden with its eye (STK-044).
+ */
+@Composable
+private fun PanelWithGoOn(content: @Composable () -> Unit) {
+    val action = LocalMainSlot.current?.action
+    val hidden = (LocalPromptDim.current?.shown ?: 1f) < .5f
+    val shown = action?.takeIf { !hidden }
+    LaunchedEffect(shown?.label, shown?.refusal) {
+        if (shown != null) AppLog.info("panel", "Desktop panel go-on in its corner: \"${shown.label}\"" +
+            (shown.refusal?.let { " (greyed: $it)" } ?: ""))
+    }
+    Layout(content = {
+        // One measurable whatever the panel draws (it may draw nothing for a moment), its constraints passed on as they come
+        Box(propagateMinConstraints = true) { content() }
+        if (shown != null) Box(Modifier.background(Color.White).padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 10.dp),
+            contentAlignment = Alignment.CenterEnd) { PanelGoOn(shown) }
+    }) { measurables, constraints ->
+        val goOn = measurables.getOrNull(1)
+        // The button's 48 dp and the row's padding (the button lays out by subcomposition, so it has no intrinsic height)
+        val rowHeight = if (goOn == null) 0 else (48 + 14).dp.roundToPx()
+        val room = if (constraints.hasBoundedHeight) (constraints.maxHeight - rowHeight).coerceAtLeast(0) else constraints.maxHeight
+        val panel = measurables.first().measure(constraints.copy(minHeight = 0, maxHeight = room))
+        // Under a panel that draws nothing, no go-on either
+        val row = goOn?.takeIf { panel.height > 0 }?.measure(Constraints.fixed(panel.width, rowHeight))
+        val height = panel.height + (row?.height ?: 0)
+        layout(panel.width, height.coerceIn(constraints.minHeight, constraints.maxHeight)) {
+            panel.place(0, 0)
+            row?.place(0, panel.height)
+        }
+    }
+}
+
+/**
  * WEB-019 (owner, decision 28: as in MTG Arena): a panel on the desktop table. [PromptPlace.Board]: a strip bottom-centre of
  * the battlefields, at most [DesktopTable.PROMPT_WIDTH] wide, its bottom on your seat header, so the board stays in view.
  * [PromptPlace.Choice]: a centred overlay [DesktopTable.OVERLAY_WIDTH] wide over the battlefields, the table and the dock
  * dimmed under it and taking no input while it shows (the eye hides it, and the dimming with it); the top row and the action
- * area stay as they are, since the go-on is the main button. Reports its height as a docked panel (D2) for the strip. Either
- * draws the panel [DesktopTable.UI_SCALE] larger than the phone's (owner, desktop playtest 2026-11-14), in its same width.
+ * area stay as they are, since the go-on is the main button too; the panel has its go-on in its own bottom right corner as well
+ * ([PanelWithGoOn]). Reports its height as a docked panel (D2) for the strip. Either draws the panel [DesktopTable.UI_SCALE]
+ * larger than the phone's (owner, desktop playtest 2026-11-14), in its same width.
  */
 @Composable
 fun DesktopPrompt(geometry: DesktopGeometry, place: PromptPlace, content: @Composable () -> Unit) {
     val docked = dockedPanelReporter()
     if (place == PromptPlace.Board) {
-        Layout(content = { DesktopFittedScale(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        Layout(content = { DesktopFittedScale(DesktopTable.UI_SCALE) { PanelWithGoOn(content) } }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
             val bottom = geometry.seatTop.dp.roundToPx().coerceIn(0, constraints.maxHeight)
             val tableRight = geometry.tableRight.dp.roundToPx().coerceAtMost(constraints.maxWidth)
             val width = minOf(DesktopTable.PROMPT_WIDTH.dp.roundToPx(), tableRight - 16.dp.roundToPx()).coerceAtLeast(0)
@@ -179,15 +226,17 @@ fun DesktopPrompt(geometry: DesktopGeometry, place: PromptPlace, content: @Compo
     SideEffect { docked(0f) }
     val shade = Color.Black.copy(alpha = OVERLAY_DIM * dim.shown)
     val blocking = dim.shown > .5f
-    // The battlefields and the dock, not the action area (its main button is the go-on) nor the top row (outside the surface)
-    val parts = listOf(TableBounds(0f, 0f, geometry.tableRight, geometry.height),
-        TableBounds(geometry.tableRight, 0f, geometry.width - geometry.tableRight, geometry.height - geometry.band))
+    // The battlefields (your seat header and hand floating over their bottom) and the dock, not the action area (its main
+    // button is the go-on too) nor the top row (outside the surface)
+    val parts = listOf(TableBounds(0f, 0f, geometry.tableRight, geometry.seatTop),
+        TableBounds(0f, geometry.seatTop, (geometry.width - DesktopTable.ACTIONS).coerceAtLeast(0f), geometry.band),
+        TableBounds(geometry.tableRight, 0f, geometry.width - geometry.tableRight, geometry.seatTop))
     for (part in parts) Box(Modifier.offset(part.x.dp, part.y.dp).size(part.width.dp, part.height.dp).background(shade)
         .testTag("prompt-dim").then(if (blocking) Modifier.pointerInput(Unit) {
             awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
         } else Modifier))
     CompositionLocalProvider(LocalPromptDim provides dim) {
-        Layout(content = { DesktopFittedScale(DesktopTable.UI_SCALE, content) }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        Layout(content = { DesktopFittedScale(DesktopTable.UI_SCALE) { PanelWithGoOn(content) } }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
             val tableRight = geometry.tableRight.dp.roundToPx().coerceAtMost(constraints.maxWidth)
             val room = geometry.seatTop.dp.roundToPx().coerceIn(0, constraints.maxHeight)
             val width = minOf(DesktopTable.OVERLAY_WIDTH.dp.roundToPx(), tableRight - 32.dp.roundToPx()).coerceAtLeast(0)
@@ -391,8 +440,14 @@ fun SeatHeaderNames(game: GameSummary, scene: TableScene, viewer: String) {
     for (life in scene.items.filter { it.kind == TableItemKind.LIFE }) {
         val player = listOf(game.inviter, game.recipient).firstOrNull { it.accountId == life.owner } ?: continue
         val own = player.accountId == viewer
-        Row(Modifier.offset((life.bounds.x - DesktopTable.NAME).dp, life.bounds.y.dp)
-            .size(DesktopTable.NAME.dp, life.bounds.height.dp).padding(start = 10.dp, end = 8.dp),
+        // WEB-016 (owner playtest 2026-11-15): your seat header floats at the bottom left, your avatar and "You" over its life
+        // square and piles
+        val plate = scene.desktopPlate?.takeIf { own }
+        val place = if (plate != null) Modifier.offset(plate.x.dp, plate.y.dp)
+                .size(plate.width.dp, (plate.height - DesktopTable.SEAT).coerceAtLeast(0f).dp).padding(start = DesktopTable.PLATE_PAD.dp)
+            else Modifier.offset((life.bounds.x - DesktopTable.NAME).dp, life.bounds.y.dp)
+                .size(DesktopTable.NAME.dp, life.bounds.height.dp).padding(start = 10.dp, end = 8.dp)
+        Row(place,
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Avatar(player, size = DesktopTable.AVATAR.dp)
             Text(if (own) "You" else player.username, color = if (own) OwnTableColor else OpponentTableColor, fontSize = DesktopTable.NAME_TEXT.sp,

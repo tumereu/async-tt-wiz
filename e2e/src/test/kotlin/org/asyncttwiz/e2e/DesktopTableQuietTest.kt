@@ -46,12 +46,12 @@ class DesktopTableQuietTest : E2e() {
             run()
         }
 
-        // TBL-010, WEB-029: zoomed out step by step and back in (the Cub stays in view)
+        // TBL-010, WEB-029: zoomed out and in, step by step (the Cub stays in view)
         val before = cub()
         step("Zoom out")
         val zoomed = cub()
         assertNotEquals(before.width, zoomed.width, "the zoom scaled the Cub: $before, then $zoomed")
-        step("Zoom out"); step("Zoom in"); step("Zoom in")
+        repeat(ZOOMS - 1) { i -> step(if (i % 2 == 0) "Zoom in" else "Zoom out") }
         assertTrue(composed < ZOOMS / 2.0, "the table recomposed $composed times for $ZOOMS zoom steps")
 
         // TBL-011, WEB-029: panned step by step, to one side and back
@@ -65,7 +65,7 @@ class DesktopTableQuietTest : E2e() {
     }
 
     private companion object {
-        const val ZOOMS = 4
+        const val ZOOMS = 8
         const val PANS = 8
     }
 }

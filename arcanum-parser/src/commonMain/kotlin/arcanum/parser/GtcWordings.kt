@@ -66,7 +66,8 @@ internal object Gtc {
     val PRIMORDIAL_EXILE_GAIN_LIFE = Regex("""exile up to one target (.+?) that player controls and that player gains life equal to its power\.""")
     val PRIMORDIAL_CAST = Regex("""you may cast up to one target (.+?) from that player's graveyard without paying its mana cost\.""")
     val PRIMORDIAL_PUT_ONTO_BATTLEFIELD = Regex("""you may put up to one target (.+?) from that player's graveyard onto the battlefield under your control\.""")
-    val PRIMORDIAL_GAIN_CONTROL = Regex("""gain control of up to one target (.+?) that player controls until end of turn\.""")
+    // trk chunk 11: "… that player controls with mana value 3 or less until end of turn"
+    val PRIMORDIAL_GAIN_CONTROL = Regex("""gain control of up to one target (.+?) that player controls( with .+?)? until end of turn\.""")
     val PRIMORDIAL_DESTROY = Regex("""destroy target (.+?) that player controls\.""")
     val SEARCH_UP_TO_X_DESTROYED = Regex("""Search your library for up to X (.+?) cards?, where X is the number of permanents destroyed this way, put those cards onto the battlefield tapped, then shuffle\.""")
 

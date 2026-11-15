@@ -60,4 +60,16 @@ internal object Trk {
     const val COPIED_COUNTERS_SUFFIX = " If you do, it enters with additional counters on it equal to the same number and kinds of counters the copied permanent has on it."
     // trk chunk 10: "Each Equipment token you control becomes a copy of target Equipment you control until end of turn." (CR 707.2, 611.2c)
     val EACH_BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""Each (.+?) becomes a copy of target (.+?) until end of turn\.""")
+    // trk chunk 11: "Each opponent loses life equal to the life that player lost this turn."
+    val EACH_LOSES_LIFE_THAT_PLAYER_LOST_THIS_TURN = Regex("""Each (opponent|player) loses life equal to the life that player lost this turn\.""")
+    // trk chunk 11: "Choose up to two target cards in graveyards. The owners of those cards shuffle them into their libraries."
+    val CHOOSE_TARGETS_IN_GRAVEYARDS_OWNERS_SHUFFLE = Regex("""Choose (up to )?(\w+) target (.+?) in graveyards\. The owners of those cards shuffle them into their libraries\.""")
+    // trk chunk 11: "Sacrifice those lands at the beginning of your next end step." (the cards put onto the battlefield before)
+    val SACRIFICE_THOSE_AT_NEXT_END_STEP = Regex("""Sacrifice those (lands|creatures|artifacts|permanents) at the beginning of (the|your) next end step\.""")
+    // trk chunk 11: Vulcan Mind-Meld, each player exiling face down from the other's library and playing what they exiled
+    val OPPONENT_LOOKS_EXILES_YOU_LOOK_EXILE_EACH_MAY_PLAY = Regex("""Target opponent looks at the top card of your library, then exiles it face down\. You look at the top (\w+) cards of their library, then exile them face down\. For each card exiled this way, the player who exiled it may play it for as long as it remains exiled\. Mana of any type can be spent to cast spells this way\.""")
+    // trk chunk 11: "That nonland card gains "Exile a card from your hand: …"" (the card an exile until found, in exile)
+    val THAT_CARD_GAINS_QUOTED = Regex("""That (?:[a-z]+ )?card gains "(.+)"\.?""")
+    // trk chunk 11: "Create a copy of this card." (in an ability a card in exile has)
+    val CREATE_A_COPY_OF = Regex("""Create a copy of (.+)\.""")
 }

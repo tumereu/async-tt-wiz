@@ -571,7 +571,8 @@ internal object Filters {
         else -> OnePhrases.eachWho(phrase) // one chunk 03
     }
 
-    private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
+    // trk chunk 11: also "cards named …"
+    private val NAMED = Regex("""cards? named (.+?)( in each graveyard)?""")
     // dsk chunk 08
     private val TARGETS_ONLY_A_SINGLE = Regex("""(.+ spell) that targets only a single (.+)""")
     // dsk chunk 07
@@ -1495,6 +1496,16 @@ internal object Conditions {
             val matches = Condition.ObjectMatches(Objects.Bound("discarded"), Filters.noun(m.groupValues[2]) ?: return null)
             return if (m.groupValues[1] == "was") matches else Condition.Not(matches)
         }
+        // trk chunk 11: "this card is exiled" (in exile, CR 406.1)
+        if (text.endsWith(" is exiled") && text.removeSuffix(" is exiled") in self)
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Exile))
+        // trk chunk 11: "all cards exiled with this Saga share a card type": its card memory still in exile (CR 607.2a), every one of them having
+        // one type in common (true when there are none: no card lacks it)
+        ALL_EXILED_WITH_SHARE.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let { m ->
+            val cards = Objects.Where(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))
+            val quality = if (m.groupValues[2] == "color") SharedQuality.Color else SharedQuality.CardType
+            return Condition.Compare(Value.MostSharing(cards, quality), Comparison.Equal, Value.Count(cards))
+        }
         // dsk chunk 04: "there are three or more cards exiled with this creature": its card memory still in exile (CR 607.2a)
         EXILED_WITH_AT_LEAST.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
             return Condition.Compare(Value.Count(Objects.Where(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))), Comparison.AtLeast,
@@ -1553,6 +1564,12 @@ internal object Conditions {
                 ObjectFilter.OwnedBy(PlayerFilter.You)))), if (m.groupValues[2] == "card") SharedQuality.CardType else SharedQuality.PermanentType),
                 Comparison.AtLeast, Value.Fixed(n))
         }
+        // trk chunk 11: "a permanent was returned to your hand from the battlefield this turn" (a hand is its owner's, CR 400.3; looked back
+        // at as it left, CR 603.10a)
+        if (text == "a permanent was returned to your hand from the battlefield this turn")
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(
+                ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.OwnedBy(PlayerFilter.You))), from = Zone.Battlefield, to = Zone.Hand),
+                atLeast = 1, measure = Measure.Events)
         if (text == "a permanent left the battlefield under your control this turn")
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(
                 ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You))), from = Zone.Battlefield), atLeast = 1, measure = Measure.Events)
@@ -1791,6 +1808,7 @@ internal object Conditions {
     private val LIFE_MORE_THAN_STARTING = Regex("""(?:you have at least (\d+) life more than|your life total is at least (\d+) greater than) your starting life total""")
     // dsk chunk 04
     private val CONTROL_A_PHRASE = Regex("""you (don't )?control (an?|another) (.+)""")
+    private val ALL_EXILED_WITH_SHARE = Regex("""all cards exiled with (.+) share a (card type|color)""")
     private val EXILED_WITH_AT_LEAST = Regex("""there are (\w+) or more cards exiled with (.+)""")
     private val UNLOCKED_DOORS_AT_LEAST = Regex("""there are (\w+) or more unlocked doors among (.+)""")
     private val NAMES_AMONG_UNLOCKED_DOORS = Regex("""there are (\w+) or more different names among unlocked doors of Rooms you control""")

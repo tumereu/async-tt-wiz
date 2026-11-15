@@ -638,12 +638,13 @@ internal object Options {
         faces.filter { face -> Legality.cantPlayLand(snap, player, card, face) == null }.map { Input.PlayLand(player, card, it) }
     }
 
-    /** Cards in the player's hand and cards elsewhere they have a permission for. */
+    /** Cards in the player's hand and cards elsewhere they have a permission for (trk: their own cards outside the game too, CR 400.11). */
     private fun candidates(snap: Snapshot, player: PlayerId) = snap.state.player(player).hand +
-        listOf(Zone.Graveyard, Zone.Exile, Zone.Library, Zone.Command).flatMap { zone ->
+        listOf(Zone.Graveyard, Zone.Exile, Zone.Library, Zone.Command, Zone.Outside).flatMap { zone ->
             when (zone) {
                 Zone.Exile -> snap.state.exile
                 Zone.Command -> snap.state.command
+                Zone.Outside -> snap.state.player(player).outside
                 else -> snap.state.players.flatMap { p -> snap.state.zone(zone, p.id) }
             }
         }.filter { id -> snap.view[id]?.mechanics.orEmpty().any { it.mechanic is arcanum.api.Mechanic.MayPlay } }

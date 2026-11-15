@@ -72,7 +72,8 @@ internal object Tdm {
     // tdm chunk 07: "exile a card at random from your graveyard. You may play that card this turn."
     val EXILE_RANDOM_FROM_GRAVEYARD_PLAY = Regex("""[Ee]xile a card at random from your graveyard\. You may play that card this turn\.""")
     // tdm chunk 07: "Until end of turn, Sarkhan becomes a Dragon in addition to his other types and gains flying."
-    val UNTIL_EOT_BECOMES_SUBTYPE_AND_GAINS = Regex("""Until end of turn, (.+?) becomes an? ([A-Z]\w+) in addition to (?:its|his|her|their) other types and gains (.+)\.""")
+    // trk chunk 11: "Until end of turn, they become Warriors in addition to their other types and gain haste."
+    val UNTIL_EOT_BECOMES_SUBTYPE_AND_GAINS = Regex("""Until end of turn, (.+?) (?:becomes an? ([A-Z]\w+)|become ([A-Z]\w+?)s) in addition to (?:its|his|her|their) other types and gains? (.+)\.""")
     // tdm chunk 07: "exile cards from the top of your library until you exile a nonland card. You may cast it without paying its mana cost if
     // that spell's mana value is 8 or less. If you don't, put that card into your hand."
     val EXILE_UNTIL_CAST_FREE_IF_OR_HAND = Regex("""[Ee]xile cards from the top of your library until you exile an? (.+?) card\. You may cast it without paying its mana cost if that spell's mana value is (\d+) or less\. If you don't, put that card into your hand\.""")

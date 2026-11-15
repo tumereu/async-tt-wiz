@@ -287,7 +287,9 @@ fun DesktopFittedScale(scale: Float, content: @Composable () -> Unit) {
     val shown = remember { mutableFloatStateOf(scale) }
     val room = remember { mutableStateOf(Constraints()) }
     Layout(content = {
-        Box(Modifier.graphicsLayer { val k = shown.floatValue; scaleX = k; scaleY = k; transformOrigin = TransformOrigin(0f, 0f) }) {
+        // Centred in its room: a panel narrower than the room it gets once drawn smaller stays in the middle of it
+        Box(Modifier.graphicsLayer { val k = shown.floatValue; scaleX = k; scaleY = k; transformOrigin = TransformOrigin(0f, 0f) },
+            contentAlignment = Alignment.TopCenter) {
             content()
         }
     }) { measurables, constraints ->

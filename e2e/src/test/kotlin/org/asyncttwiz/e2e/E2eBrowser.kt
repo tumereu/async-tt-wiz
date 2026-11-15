@@ -25,11 +25,13 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     val page: Page = context.newPage()
     /** The page's console lines and errors. */
     val console = CopyOnWriteArrayList<String>()
+    private val signInRefusals = java.util.concurrent.atomic.AtomicInteger()
 
     init {
         page.onConsoleMessage { console += "${it.type()}: ${it.text()}" }
         page.onPageError { console += "pageerror: $it" }
         // WEB-056: Chrome ended the page (its "Aw, Snap!": a crash or out of memory)
+        page.onResponse { if (it.status() == 429 && java.net.URI(it.url()).path == "/sessions") signInRefusals.incrementAndGet() }
         page.onCrash { console += "pageerror: the page crashed (Chrome ended it)" }
     }
 
@@ -44,7 +46,19 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
         tap("#password")
         page.keyboard().type(ServerSetup.PASSWORD)
         page.keyboard().press("Enter")
-        waitFor("#menu-GAMES, #main-button, div[role=button]:text-is('Skip')", 60_000.0)
+        // The server's sign-in limits (AccountHttp: 5 a minute per email, 10 per address) are shared by the whole run's
+        // browsers and phones on 127.0.0.1: refused, the page shows "Too many attempts…" and Sign in is pressed again
+        // after the minute, as a player would
+        val signedIn = "#menu-GAMES, #main-button, div[role=button]:text-is('Skip')"
+        for (attempt in 1..3) {
+            val refused = signInRefusals.get()
+            val end = System.currentTimeMillis() + 60_000
+            while (System.currentTimeMillis() < end && !shows(signedIn) && signInRefusals.get() == refused) page.waitForTimeout(250.0)
+            if (signInRefusals.get() == refused) break
+            page.waitForTimeout(61_000.0)
+            tap("div[role=button]:text-is('Sign in')")
+        }
+        waitFor(signedIn, 60_000.0)
         if (page.locator("div[role=button]:text-is('Skip')").count() > 0) tap("div[role=button]:text-is('Skip')")
     }
 

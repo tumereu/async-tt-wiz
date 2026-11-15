@@ -76,10 +76,14 @@ class WebHoverPointerTest : E2e() {
                     }
                 }
                 waitUntil("the Keep / Bottom overlay", timeoutSeconds = 60) { web.shows(panel) }
-                // A panel (WEB-019): the centred overlay, 560 wide, over the battlefields left of the dock
-                val overlay = web.box(panel)
+                // A panel (WEB-019): the centred overlay, 560 wide, over the battlefields left of the dock; measured once its
+                // opening animation has ended (two reads alike)
+                var settled = web.box(panel)
+                waitUntil("the overlay settled") { web.box(panel).let { box -> (show(box) == show(settled)).also { settled = box } } }
+                val overlay = settled
                 assertEquals((1440 - 320) / 2.0, overlay.x + overlay.width / 2, 4.0, "the overlay centred on the battlefields: ${show(overlay)}")
-                assertEquals(560.0, overlay.width, 3.0, "the overlay's width: ${show(overlay)}")
+                // 560 wide at 1.3×, or narrower where it is drawn smaller to fit the height (not below 1×; the hand dealt decides)
+                assertTrue(overlay.width <= 563 && overlay.width >= 560 / 1.3 - 3, "the overlay's width: ${show(overlay)}")
                 // A card of her hand (the test deck's Mountains, Storm Sparks and Ember Cubs) in the overlay's Keep area
                 val named = ":is([aria-label='Mountain'], [aria-label='Storm Spark'], [aria-label='Ember Cub'])"
                 val card = "div[aria-label='Keep area'] $named"

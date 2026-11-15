@@ -1478,6 +1478,11 @@ internal class Sentences(
             arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You))
     }
 
+    /** chunk 36: "pay {1} and discard a card": one cost of several parts joined by "and", each a cost part; null unless every part reads. */
+    private fun costPartsJoined(action: String, context: Context): List<CostPart>? = action.split(" and ").map {
+            costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: oneCostOnIt(it.replaceFirstChar { c -> c.uppercase() }, context) }
+        .takeIf { it.size > 1 && it.all { p -> p != null } }?.flatMap { it!! }
+
     /** msh: a mode's text without its flavor word ("• Solar Beam — [effect]", CR 207.2d). */
     private fun modeBody(line: String): String =
         ABILITY_WORD.matchEntire(line)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) }?.groupValues?.get(2) ?: line
@@ -6304,9 +6309,7 @@ internal class Sentences(
                 context.it = Objects.Bound("exiled")
                 listOf(CostPart.Exile(CostObjects.These(it), from = Zone.Battlefield, postBind = "exiled"))
             }
-            val parts = them ?: exileIt ?: costPart(action) ?: oneCostOnIt(action, context) ?: exileThatCard(action, context) ?: action.split(" and ").map {
-                    costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: oneCostOnIt(it.replaceFirstChar { c -> c.uppercase() }, context) }
-                .takeIf { it.size > 1 && it.all { p -> p != null } }?.flatMap { it!! }
+            val parts = them ?: exileIt ?: costPart(action) ?: oneCostOnIt(action, context) ?: exileThatCard(action, context) ?: costPartsJoined(action, context)
             // fix1: "you may exile target historic permanent you control. If you do, return that card …", "you may exile Hikari. If
             // you do, return it …": "it" and "that card" are the exiled card (CR 400.7, 603.7c), named as it is exiled
             val refersBack = REFERS_BACK.containsMatchIn(m.groupValues[2])
@@ -6748,8 +6751,10 @@ internal class Sentences(
             // dsk chunk 12: "You may discard a card or pay {2}. When you do, …": one of two costs
             val options = m.groupValues[1].split(LazyRegexes.OR_BEFORE_COST_VERB)
             val either = if (options.size < 2) null else options.map { Cost(costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return@let) }
+            // trk chunk 01: "you may pay {1} and exile a card from your graveyard. When you do, …": one cost of two parts (CR 118.12)
             (either?.let { listOf(CostPart.OneOf(it)) } ?: costPart(m.groupValues[1].replaceFirstChar { it.uppercase() })
-                ?: oneCostOnIt(m.groupValues[1].replaceFirstChar { it.uppercase() }, context))?.let { parts ->
+                ?: oneCostOnIt(m.groupValues[1].replaceFirstChar { it.uppercase() }, context)
+                ?: costPartsJoined(m.groupValues[1].replaceFirstChar { it.uppercase() }, context))?.let { parts ->
                 val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
                 return listOf(Step.Pay(Cost(parts), bind = "paid", payer = Players.You),
                     Step.If(arcanum.api.Condition.Did("paid"), then = listOf(reflexiveTrigger(reflexive, m.groupValues[2]))))
@@ -32165,9 +32170,12 @@ internal class Sentences(
                 mechanics += Mechanic.SetPowerToughness(Value.Fixed(pt.groupValues[1].toInt()), Value.Fixed(pt.groupValues[2].toInt()))
                 with = pt.groupValues[3]
             }
+            // trk chunk 01: "… with base power and toughness 3/4 and gains "[ability]"", "… and gains "[first]" and "[second]"" (CR 113.1a)
+            with = with.removePrefix("gains ")
             if (with.isNotEmpty()) {
                 val quoted = with.removeSurrounding("\"")
-                val gained = if (quoted != with) listOf(Sentences(self + setOf("this creature")).line(quoted) ?: return@let) // fdn: "Whenever Kellan deals …"
+                val gained = if (quoted != with) quoted.split("\" and \"").map { part -> // fdn: "Whenever Kellan deals …"
+                        Sentences(self + setOf("this creature")).let { it.line(part) ?: it.line("$part.") } ?: return@let }
                     else keywords(with) ?: return@let
                 mechanics += Mechanic.GainAbilities(gained)
             }

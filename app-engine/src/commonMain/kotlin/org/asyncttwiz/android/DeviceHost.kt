@@ -211,6 +211,8 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                 is DeviceRequest.LogBoard -> game.logBoard { done(r.id, DeviceResult.None) }
                 is DeviceRequest.TokenArtFound -> {
                     tokenPictures[r.query] = r.scryfallId
+                    AppLog.info("engine", "Device boundary: the token picture of ${r.query.face.name}: " +
+                        (r.scryfallId?.let { "$it, the boards projected again with it" } ?: "none, the plain frame"))
                     // A new picture: the boards are projected again with it
                     if (r.scryfallId != null) game.tokenArt = tokenArt()
                 }
@@ -277,7 +279,14 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
         /** Token pictures from the page's card records, asked once each: the plain frame until the answer comes. */
         private fun tokenArt() = TokenArt { query ->
             if (query in tokenPictures) tokenPictures[query]
-            else { if (tokensAsked.add(query)) host.send(gameId, DeviceAnswer.TokenArt(query)); null }
+            else {
+                if (tokensAsked.add(query)) {
+                    AppLog.info("engine", "Device boundary: the token picture of ${query.face.name}" +
+                        (query.sourceName?.let { " made by $it" } ?: "") + " asked of the page's card records (the plain frame until it answers)")
+                    host.send(gameId, DeviceAnswer.TokenArt(query))
+                }
+                null
+            }
         }
 
         /** CR 707.12: the card named [name] from the page's card records, asked once: its decision waits until the answer. */

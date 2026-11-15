@@ -41,4 +41,16 @@ internal object Trk {
     // trk chunk 08: "If another creature you control with a +1/+1 counter on it would be destroyed, instead remove all +1/+1 counters from it and all
     // damage already dealt to it is healed."
     val WOULD_BE_DESTROYED_REMOVE_COUNTERS_HEAL = Regex("""If (.+?) would be destroyed, instead remove all (\S+) counters from it and all damage already dealt to it is healed\.""")
+    // trk chunk 09: "you control five or more differently named lands" (CR 201.2)
+    val CONTROL_N_DIFFERENTLY_NAMED = Regex("""you control (\w+) or more differently named (.+)""")
+    // trk chunk 09: "Seven of Nine's base power and toughness become 7/9." (layer 7b, no end: CR 611.2a)
+    val BASE_PT_BECOME = Regex("""(.+?)'s base power and toughness become (\d+)/(\d+)\.""")
+    // trk chunk 09: "Until end of turn, it gets +1/+1 and becomes a Doctor." (its other creature types replaced, CR 205.1b)
+    val UNTIL_EOT_IT_GETS_AND_BECOMES = Regex("""Until end of turn, it gets ([+-]\d+)/([+-]\d+) and becomes an? ([A-Z]\w+)\.""")
+    // trk chunk 09: "If a creature you control would enter while you control an attacking creature, instead it enters tapped and attacking."
+    val WOULD_ENTER_WHILE_ENTERS_ATTACKING = Regex("""If (an? .+?) would enter while (.+?), instead it enters tapped and attacking\.""")
+    // trk chunk 09: "All artifacts and creatures phase out." (CR 702.26)
+    val ALL_PHASE_OUT = Regex("""All (.+) phase out\.""")
+    // trk chunk 09: "Permanents can't phase in." (CR 702.26c, 101.2)
+    val PERMANENTS_CANT_PHASE_IN = Regex("""Permanents can't phase in\.""")
 }

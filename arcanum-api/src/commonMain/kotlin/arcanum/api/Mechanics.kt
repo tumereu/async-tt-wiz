@@ -457,6 +457,9 @@ sealed interface Mechanic {
     // trk
     /** The affected creatures can't be returned to their owner's hand to pay a beam me up cost (CR 702.196b). */
     @Serializable @SerialName("cant-be-beamed-up") data object CantBeBeamedUp : Mechanic
+    /** "Permanents can't phase in": a game rule while it applies; phased-out permanents stay phased out, in untap steps and when an effect
+     * would phase them in (CR 702.26c, 101.2). */
+    @Serializable @SerialName("permanents-cant-phase-in") data object PermanentsCantPhaseIn : Mechanic
     // inr chunk 09
     /** The affected permanents can't be sacrificed because of a spell or ability whose controller matches [controllers], seen
      * from this ability's controller (Sigarda, Host of Herons: "Spells and abilities your opponents control can't cause you to
@@ -812,6 +815,11 @@ sealed interface Modification {
     @Serializable @SerialName("win-flips") data object WinFlips : Modification
     /** "Lands you control enter untapped": the permanent enters untapped even if another effect would have it enter tapped (applied last). */
     @Serializable @SerialName("enters-untapped") data object EntersUntapped : Modification
+    // trk
+    /** "instead it enters tapped and attacking" (with [EntersTapped]): during combat the permanent enters attacking what its controller
+     * chooses, a player, planeswalker or battle, without being declared as an attacker (CR 508.4, 614.1c); outside combat it isn't
+     * attacking (CR 506.3). */
+    @Serializable @SerialName("enters-attacking") data object EntersAttacking : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
     /** Also create [count] of [token] ("those tokens plus that many 1/1 Squirrel tokens"). */

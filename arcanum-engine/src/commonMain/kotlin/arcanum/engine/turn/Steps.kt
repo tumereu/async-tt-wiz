@@ -301,13 +301,15 @@ internal object Steps {
         val active = s.turn.active
         val mark = recorder.changes.size
         val snap = Snapshot(s)
-        // CR 502.1, 702.26: phasing
+        // CR 502.1, 702.26: phasing; trk: "Permanents can't phase in" (CR 101.2)
+        val cantPhaseIn = snap.view.game.rules.any { it.mechanic == arcanum.api.Mechanic.PermanentsCantPhaseIn }
         s.battlefield.toList().forEach { id ->
             val o = s.obj(id) ?: return@forEach
             val controller = o.controller ?: o.owner
             // dmu: held out while a player controls an object (CR 611.2b, 702.26b)
             val heldWhile = o.heldPhasedOutWhile?.takeIf { h -> s.obj(h.source)?.let { it.zone == Zone.Battlefield && !it.phasedOut && snap.board.controller(h.source) == h.player } == true }
             if (o.phasedOut && controller == active && !o.heldPhasedOut /* mh2 */ && heldWhile == null) {
+                if (cantPhaseIn) return@forEach
                 recorder.record(Change.Status(id, StatusFlag.PhasedOut, true, false, listOf(Meaning.PhasedIn)))
                 if (o.heldPhasedOutWhile != null) arcanum.engine.change.Changes.status(recorder.state, id, "held-phased-out-while", null)?.let(recorder::record)
             } else if (!o.phasedOut && snap.board.controller(id) == active && hasPhasing(snap, id)) {

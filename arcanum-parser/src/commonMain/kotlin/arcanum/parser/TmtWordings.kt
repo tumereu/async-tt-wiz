@@ -105,7 +105,8 @@ internal object Tmt {
     val REVEAL_UNTIL_TAPPED_ATTACKING = Regex("""[Rr]eveal cards from the top of your library until you reveal an? (.+?) card\. Put that card onto the battlefield tapped and attacking and the rest on the bottom of your library in a random order\.""")
     val MANA_SPENT_LESS_THAN_MANA_VALUE = Regex("""the amount of mana spent to cast it was less than its mana value""")
     // mom chunk 12: also "It gains haste." and "Create five tokens that are copies of … They gain haste. Sacrifice them …"; lci chunk 10: ", except …"
-    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:That token|It) gains haste\. Sacrifice it at the beginning of the next end step\.|Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:They|Those tokens) gain haste\. Sacrifice them at the beginning of the next end step\.""")
+    // trk chunk 09: also "It gains haste until end of turn."
+    val TOKEN_COPY_GAINS_HASTE_SACRIFICE = Regex("""Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:That token|It) gains haste(?: until end of turn)?\. Sacrifice it at the beginning of the next end step\.|Create (?:a token that's a copy|(\w+) tokens that are copies) of (.+?)(?:, except (.+?))?\. (?:They|Those tokens) gain haste(?: until end of turn)?\. Sacrifice them at the beginning of the next end step\.""")
     val TARGET_PLAYER_GAINS_AND_DRAWS = Regex("""Target player gains (\d+) life and draws (\w+) cards?\.""")
     val EACH_OF_YOUR_OPPONENTS = Regex("""Each of your opponents (.+)""")
     val TOKEN_FOR_EACH_COUNTER_ON_IT = Regex("""[Cc]reate an? (\w+) token for each (\+1/\+1) counter on it\.""")

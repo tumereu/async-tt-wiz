@@ -1408,6 +1408,12 @@ internal object Conditions {
         }
         RvrPhrases.condition(text, self)?.let { return it } // rvr
         OnePhrases.condition(text, self)?.let { return it } // one
+        // trk chunk 09: "you control five or more differently named lands" (CR 201.2)
+        Trk.CONTROL_N_DIFFERENTLY_NAMED.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val among = Filters.noun(m.groupValues[2].removeSuffix("s") + " you control") ?: return null
+            return Condition.Compare(Value.CountDistinct(Objects.Each(among), arcanum.api.SharedQuality.Name), arcanum.api.Comparison.AtLeast, Value.Fixed(n))
+        }
         IsdPhrases.condition(text, self)?.let { return it } // isd
         BroPhrases.condition(text, self)?.let { return it } // bro
         // dmr chunk 01: "this permanent is an enchantment" (CR 205.2, 603.4): the permanent has the type right now

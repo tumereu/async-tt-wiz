@@ -113,8 +113,19 @@ class BrowserArtworkService(context: PlatformContext = PlatformContext.INSTANCE,
         .components {
             add(Keyer<CardArtworkRequest> { data, _ -> data.key })
             add(Fetcher.Factory<CardArtworkRequest> { data, _, _ -> Fetcher {
-                val bitmap = repository.loadDecoded(data.reference, { attempted(data.reference, it) }) { bytes ->
-                    BrowserArtworkDecoder.decode(bytes, data.width, data.height, memoryBudget)
+                // Problem report VSVLSK: a token picture's loading is logged (its first failure, then its load; the failed
+                // downloads' reasons are ArtworkAppLog's), other cards' successes are not (there are thousands)
+                val token = TokenPictures.name(data.reference.printing)
+                var failures = 0
+                val bitmap = repository.loadDecoded(data.reference, { loaded ->
+                    attempted(data.reference, loaded)
+                    if (token != null && !loaded && ++failures == 1)
+                        AppLog.info("artwork", "Token picture of $token (${data.reference.key}) couldn't be loaded yet; tried again after a pause")
+                }) { bytes ->
+                    BrowserArtworkDecoder.decode(bytes, data.width, data.height, memoryBudget).also {
+                        if (token != null) AppLog.info("artwork", "Token picture of $token (${data.reference.key}) " +
+                            (it?.let { b -> "loaded at ${b.width}×${b.height} for ${data.width}×${data.height}" } ?: "isn't a picture the app can draw"))
+                    }
                 }
                 ImageFetchResult(bitmap.asImage(), true, DataSource.DISK)
             } })

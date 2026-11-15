@@ -1,0 +1,1 @@
+fix: In the browser, tokens show their pictures instead of a blank card.

@@ -958,9 +958,22 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             if (field === value) return
             field = value
             val r = remote
-            if (r != null) r.tokenArtSet() else worker.run { publish() }
+            if (r != null) r.tokenArtSet() else worker.run { forgetPlainTokens(); publish() }
         }
     private val pictures = HashMap<arcanum.engine.state.ObjectId, org.asyncttwiz.protocol.SubmittedDefinition>()
+
+    /**
+     * Owner, desktop playtest 2026-11-15 (problem report VSVLSK, SYS-072): the tokens kept in [pictures] with the plain frame
+     * are looked up again with the new [tokenArt]. In the browser the worker's lookups are answered by the page later: a
+     * token first projected while its lookup was on its way was kept with the plain frame and stayed blank once the picture
+     * was found. Those with a picture keep it. Engine thread.
+     */
+    private fun forgetPlainTokens() {
+        val plain = pictures.filterValues { it.definition.faces.singleOrNull()?.scryfallId == null }.keys
+        if (plain.isEmpty()) return
+        pictures.keys.removeAll(plain)
+        AppLog.info("automatum", "Token pictures of ${gameId.take(8)}: ${plain.size} tokens drawn with the plain frame looked up again")
+    }
 
     /** The player's own staging of a declaration made behind the head (at a decision stop in playback: their lanes and
      * attack choices, CMB-028, CMB-034), shown while the point it was made at lasts and sent only as the declaration itself

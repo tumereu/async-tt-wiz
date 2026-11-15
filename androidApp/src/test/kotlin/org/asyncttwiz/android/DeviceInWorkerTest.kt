@@ -173,6 +173,36 @@ class DeviceInWorkerTest {
         pump()
     }
 
+    // SYS-072 across the boundary (owner, desktop playtest 2026-11-15, problem report VSVLSK: "Web UI token arts ... are just
+    // blank art"): Alice's game opens in the worker with her Ember Herald's token on the battlefield; its first board draws it
+    // with the plain frame while the page hasn't answered its lookup, and once the page's card records find its picture the
+    // worker's next board draws it with that picture (it kept the plain frame for good before)
+    @Test fun aTokenDrawnWithThePlainFrameBeforeThePageAnsweredGetsItsPictureOnceItDoes() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(heralds = true)))
+        kit.opening()
+        kit.playLand()
+        val herald = kit.atw(kit.hand("Ember Herald").first())
+        kit.bobKnownAsNormal()
+        assertTrue(kit.toolkit.cast.start(herald), "${kit.toolkit.error}")
+        kit.playOn("the Herald's token on the battlefield") {
+            if (kit.alice.device.status == GameDevice.Status.YourMove && kit.state().stack.isNotEmpty() &&
+                kit.state().priority.holder == kit.me) kit.alice.pass()
+            kit.state().battlefield.any { kit.state().obj(it)?.token == true } && kit.state().stack.isEmpty()
+        }
+        val f = kit.scenario.f
+        val remote = EngineGame(f.game.id, f.a, f.base, kit.scenario.sim.snapshot(f.a), device = channel)
+        pump()
+        fun tokenFace() = assertNotNull(remote.shown).board.let { play ->
+            val card = play.board.cards.single { it.token }
+            play.definitions.single { it.digest == card.definition }.definition.faces.single()
+        }
+        assertNull(tokenFace().scryfallId, "the plain frame while the page hasn't answered")
+        val name = tokenFace().name
+        remote.tokenArt = org.asyncttwiz.automatum.TokenArt { if (it.face.name == name) "scryfall-elemental" else null }
+        pump()
+        assertEquals("scryfall-elemental", tokenFace().scryfallId, "the token drawn with the picture the page found")
+    }
+
     // SYS-011, SYS-012 across the boundary: a press made on a board the worker's device has moved on from (the page hadn't
     // shown its newer board yet) is checked against the board the page showed, and refused as stale with its note
     @Test fun aTapOnABoardTheDeviceMovedOnFromIsStale() {

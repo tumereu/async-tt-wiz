@@ -53,4 +53,11 @@ internal object Trk {
     val ALL_PHASE_OUT = Regex("""All (.+) phase out\.""")
     // trk chunk 09: "Permanents can't phase in." (CR 702.26c, 101.2)
     val PERMANENTS_CANT_PHASE_IN = Regex("""Permanents can't phase in\.""")
+    // trk chunk 10: "You may cast any number of spells with mana value less than or equal to the number of Officers you control from among those
+    // cards without paying their mana costs." after an exile
+    val MAY_CAST_ANY_NUMBER_FROM_AMONG_THEM = Regex("""You may cast any number of (?:(.+?) )?spells(?: with mana value (?:less than or equal to (.+?)|(\w+) or less))? from among (?:them|those cards|the exiled cards) without paying their mana costs\.""")
+    // trk chunk 10: the second sentence of a clone's line ("You may have this creature enter as a copy of any artifact or creature on the battlefield …")
+    const val COPIED_COUNTERS_SUFFIX = " If you do, it enters with additional counters on it equal to the same number and kinds of counters the copied permanent has on it."
+    // trk chunk 10: "Each Equipment token you control becomes a copy of target Equipment you control until end of turn." (CR 707.2, 611.2c)
+    val EACH_BECOMES_COPY_OF_TARGET_UNTIL_EOT = Regex("""Each (.+?) becomes a copy of target (.+?) until end of turn\.""")
 }

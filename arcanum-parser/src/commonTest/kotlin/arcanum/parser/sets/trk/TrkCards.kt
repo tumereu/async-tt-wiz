@@ -260,3 +260,11 @@ fun investigate(count: Value = n(1)): Step = Step.Do(Effect.Action(KeywordAction
 val food: TokenSpec = TokenSpec.Predefined("Food")
 /** Federation: "the number of creature types among non-Borg creatures you control" (CR 205.3m). */
 val federation: Value = Value.CountDistinct(Objects.Each(and(not(sub("Borg")), creature, you)), SharedQuality.CreatureType)
+
+// ---- trk chunk 08, 10: New Planet
+
+/** "Create a tapped Planet land token named New Planet with "{T}: Add one mana of any color."" (CR 111.4, 205.3i) */
+val newPlanet: Step = Step.Do(Effect.CreateToken(TokenSpec.Defined(FaceDefinition("New Planet", colorIndicator = emptyList(),
+    types = listOf(CardType.Land), subtypes = listOf(Subtype("Planet")),
+    abilities = listOf(activated(cost(tap), doing(Effect.AddMana(arcanum.api.ManaProduction(arcanum.parser.cube.anyOneColor(1)), Players.You)))))),
+    n(1), Players.You, tapped = true))

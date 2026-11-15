@@ -16,11 +16,6 @@ class TrkChunk08LandfallMillTreasureTest {
     private val treasures = sub("Treasure")
     private fun landfall(vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
         triggered(arcanum.parser.sets.trk.landfall, *steps, targets = targets, abilityWord = "Landfall")
-    /** "Create a tapped Planet land token named New Planet with "{T}: Add one mana of any color."" (CR 111.4, 205.3i) */
-    private val newPlanet = Step.Do(Effect.CreateToken(TokenSpec.Defined(FaceDefinition("New Planet", colorIndicator = emptyList(),
-        types = listOf(CardType.Land), subtypes = listOf(Subtype("Planet")),
-        abilities = listOf(activated(cost(tap), doing(Effect.AddMana(ManaProduction(anyOneColor(1)), Players.You)))))),
-        n(1), Players.You, tapped = true))
     /** "Mill four cards. You may put a permanent card from among them into your hand." (CR 701.17a, 110.4a) */
     private val millFourKeepPermanent = arrayOf(
         mill(4, postBind = "milled"),

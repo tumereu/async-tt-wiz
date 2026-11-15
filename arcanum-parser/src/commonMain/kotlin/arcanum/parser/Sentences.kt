@@ -2341,6 +2341,8 @@ internal class Sentences(
             val spells = Value.EventsThisTurn(EventPattern.Cast(by = PlayerFilter.You, spell = ObjectFilter.Any), measure = Measure.Events)
             return if (phrase.endsWith("first")) Value.Max(listOf(Value.Difference(spells, Value.Fixed(1)), Value.Fixed(0))) else spells
         }
+        // trk chunk 10: "dilemma you've faced this turn" (each time you faced one, CR 700.17)
+        if (phrase == "dilemma you've faced this turn") return Value.EventsThisTurn(EventPattern.FaceDilemma(PlayerFilter.You), Measure.Events)
         COUNTER_ON.matchEntire(phrase)?.takeIf { isSelf(it.groupValues[2]) || (itIsSelf && it.groupValues[2] == "it") }?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[1]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
         }
@@ -10723,7 +10725,10 @@ internal class Sentences(
             ". " !in it.groupValues[1] &&
             // dmr chunk 04: "If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next
             // end step.": the condition is checked as the ability resolves, and only then is the delayed trigger created (CR 608.2c, 603.7a)
-            !it.groupValues[1].startsWith("If ") }?.let { m ->
+            !it.groupValues[1].startsWith("If ") &&
+            // trk chunk 10: "When it dies this turn, return that card … at the beginning of the next end step.": a delayed trigger whose effect
+            // makes the delayed trigger at the end step, not the other way round (CR 603.7)
+            !it.groupValues[1].startsWith("When ") && !it.groupValues[1].startsWith("Whenever ") }?.let { m ->
             // inr chunk 06: "When you sacrifice this creature, return it to the battlefield transformed ... at the beginning of the next end step":
             // "it" is the card in the graveyard (CR 400.7), named now because the delayed trigger has another event (CR 603.7c)
             // inr chunk 14: the same for "Whenever another creature dies, return that card to its owner's hand at the beginning of the next end step"
@@ -13953,8 +13958,12 @@ internal class Sentences(
         // "You may have this creature enter as a copy of any creature on the battlefield [with …], except [exceptions]." (CR
         // 614.1c, 707.9b)
         // lci chunk 10: "enter tapped as a copy of any land card in a graveyard": tapped only as a copy (CR 614.1c)
-        val copyLine = line.replace(" enter tapped as a copy of any ", " enter as a copy of any ")
-        val tappedCopy = copyLine != line
+        val tappedLine = line.replace(" enter tapped as a copy of any ", " enter as a copy of any ")
+        val tappedCopy = tappedLine != line
+        // trk chunk 10: "… If you do, it enters with additional counters on it equal to the same number and kinds of counters the copied permanent
+        // has on it." (counters it enters with as a copy, CR 614.1c, 707.9e)
+        val copyLine = tappedLine.removeSuffix(Trk.COPIED_COUNTERS_SUFFIX)
+        val copiedCounters = copyLine != tappedLine
         BlbGaps.ENTER_AS_COPY.matchEntire(copyLine)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val of = copyCandidates(m.groupValues[2]) ?: return null
             // inr chunk 07: "except it enters with X additional +1/+1 counters on it": not a copiable value but counters it enters with; an
@@ -13963,12 +13972,14 @@ internal class Sentences(
                 val kind = Counters.kind(c.groupValues[2]) ?: return null
                 val amount = if (c.groupValues[1] == "X") Value.CastX(of = Objects.Self) else Value.Fixed(Numbers.count(c.groupValues[1]) ?: return null)
                 return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                    modify = listOf(Modification.EntersAsCopy(of, optional = true, tapped = tappedCopy, withCounters = listOf(Modification.EntersWithCounters(kind, amount)))))),
+                    modify = listOf(Modification.EntersAsCopy(of, optional = true, tapped = tappedCopy, withCounters = listOf(Modification.EntersWithCounters(kind, amount)),
+                        copiedCounters = copiedCounters)))),
                     affects = Affected.Objects(Objects.Self))
             }
             val except = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { gapCopyExceptions(it) ?: return null }.orEmpty()
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                modify = listOf(Modification.EntersAsCopy(of, except, optional = true, tapped = tappedCopy)))), affects = Affected.Objects(Objects.Self))
+                modify = listOf(Modification.EntersAsCopy(of, except, optional = true, tapped = tappedCopy, copiedCounters = copiedCounters)))),
+                affects = Affected.Objects(Objects.Self))
         }
         return null
     }
@@ -15400,8 +15411,9 @@ internal class Sentences(
             val (one, token) = Tokens.spec(m.groupValues[1]) ?: return@let
             if (one != 1) return@let
             amongCount(m.groupValues[2])?.let { return listOf(Step.Do(Effect.CreateToken(token, it, Players.You))) } // dmu chunk 02
-            val noun = Filters.noun(m.groupValues[2]) ?: return@let
-            return listOf(Step.Do(Effect.CreateToken(token, Value.Count(Objects.Each(noun)), Players.You)))
+            // trk chunk 10: what isn't objects, "for each dilemma you've faced this turn"
+            val count = Filters.noun(m.groupValues[2])?.let { Value.Count(Objects.Each(it)) } ?: perEach(m.groupValues[2]) ?: return@let
+            return listOf(Step.Do(Effect.CreateToken(token, count, Players.You)))
         }
         // "Starting with you, each player chooses up to one permanent with mana value 3 or greater from among permanents your opponents control.
         // Exile those permanents." (CR 101.4)
@@ -15994,10 +16006,10 @@ internal class Sentences(
         }
         // "Up to two target creatures you control each deal damage equal to their power to target creature an opponent controls."
         Tla.EACH_DEAL_DAMAGE_POWER.matchEntire(sentence)?.let { m ->
-            val dealers = tlaTarget("up to two target ${m.groupValues[1]}", context) ?: return null
-            val victim = tlaTarget("target ${m.groupValues[3]}", context) ?: return null
+            val dealers = tlaTarget("${m.groupValues[1].lowercase()} target ${m.groupValues[2]}", context) ?: return null
+            val victim = tlaTarget("target ${m.groupValues[4]}", context) ?: return null
             // rvr chunk 04: Band Together: "another target creature" is none of the first targets (CR 115.3)
-            if (m.groupValues[2].isNotEmpty()) context.targets[context.targets.lastIndex] = context.targets.last().copy(distinctFrom = listOf((dealers as Objects.Target).slot))
+            if (m.groupValues[3].isNotEmpty()) context.targets[context.targets.lastIndex] = context.targets.last().copy(distinctFrom = listOf((dealers as Objects.Target).slot))
             val dealer = Objects.Bound("dealer")
             return listOf(Step.ForEach(arcanum.api.Each.Objects(dealers), bind = "dealer", steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = victim),
                 Value.Of(arcanum.api.NumericProperty.Power, dealer, arcanum.api.Combine.Single), dealer)))))
@@ -17554,6 +17566,29 @@ internal class Sentences(
 
     /** trk: single sentences. */
     private fun trkEffect(sentence: String, context: Context): List<Step>? {
+        // trk chunk 10: "Each Equipment token you control becomes a copy of target Equipment you control until end of turn." (the objects as it
+        // resolves, CR 611.2c; layer 1, CR 707.2)
+        // "Each other creature becomes a copy of target nonlegendary creature …": other than the target (CR 115.3)
+        Trk.EACH_BECOMES_COPY_OF_TARGET_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val other = m.groupValues[1].startsWith("other ")
+            val each = Filters.noun(m.groupValues[1].removePrefix("other ")) ?: return null
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            val affected = if (other) Filters.all(ObjectFilter.Not(ObjectFilter.Is(target)), each) else each
+            return listOf(spmApply(Objects.Each(affected), arcanum.api.Duration.EndOfTurn, Mechanic.CopyOf(target)))
+        }
+        // trk chunk 10: "You may cast any number of spells with mana value less than or equal to the number of Officers you control from among
+        // those cards without paying their mana costs." (the cards exiled just before; chosen and cast while this resolves, CR 608.2g, 601.2a: a
+        // land card is no spell)
+        Trk.MAY_CAST_ANY_NUMBER_FROM_AMONG_THEM.matchEntire(sentence)?.let { m ->
+            val them = context.them as? Objects.Bound ?: return null
+            val kind = if (m.groupValues[1].isEmpty()) ObjectFilter.Not(ObjectFilter.Type(CardType.Land))
+                else Filters.noun(m.groupValues[1].replace(" and/or ", " or ").replace(" and ", " or ")) ?: return null
+            val most = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { context.value(it) ?: return null }
+                ?: m.groupValues[3].takeIf { it.isNotEmpty() }?.let { context.value(it) ?: return null }
+            val filter = if (most == null) kind else Filters.all(kind, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, most))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null, from = them), bind = "toCast", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("toCast"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))
+        }
         // trk chunk 09: "All artifacts and creatures phase out." (CR 702.26)
         Trk.ALL_PHASE_OUT.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.PhaseOut(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null))))
@@ -27081,7 +27116,8 @@ internal class Sentences(
         // ecl chunk 13: "Soul Immolation deals X damage to each opponent and each creature they control."
         // lci chunk 10: also a fixed amount ("Tectonic Hazard deals 1 damage to each opponent and each creature they control.")
         // mom chunk 02: "This Saga deals 3 damage to target opponent and each creature they control." (one damage event, CR 120.2)
-        Ecl.DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        Ecl.DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES.matchEntire(sentence)
+            ?.takeIf { isSelf(it.groupValues[1]) && (it.groupValues[4] == "they" || it.groupValues[3] == "each opponent") }?.let { m ->
             val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             val (players, controllers) = when (m.groupValues[3]) {
                 "each opponent" -> Players.Each(PlayerFilter.Opponent) to PlayerFilter.Opponent
@@ -30117,9 +30153,11 @@ internal class Sentences(
         }
         // tdm chunk 12: "Each Dragon you control enters with an additional +1/+1 counter on it." (CR 614.1c)
         Tdm.EACH_ENTERS_WITH_ADDITIONAL.matchEntire(line)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[1].ifEmpty { m.groupValues[2] }
+            val filter = Filters.noun(noun) ?: Filters.noun(noun.replaceFirstChar { it.lowercase() }) ?: return null
+            val amount = Numbers.count(m.groupValues[3]) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(filter, to = Zone.Battlefield),
-                modify = listOf(Modification.EntersWithCounters(Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(1))))), affects = Affected.Objects(Objects.Self))
+                modify = listOf(Modification.EntersWithCounters(Counters.kind(m.groupValues[4]) ?: return null, Value.Fixed(amount))))), affects = Affected.Objects(Objects.Self))
         }
         return null
     }

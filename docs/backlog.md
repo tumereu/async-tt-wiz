@@ -77,6 +77,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 - Summoning-sick permanents in the same battlefield group as their non-sick copies (owner idea, 2026-11-07; owner testing first): one group regardless of sickness with a "2 sick" badge, attacks picking a non-sick member first, so groups don't reshuffle after the turn.
 
+- Rule references the compiler can check (owner, 2026-11-15; parked, to think about, not now): replace plain-text `// CR 613.4c` citations with annotations naming the rule number, store each cited rule's text or a checksum of it, and have a build job list which rules the code relies on and which of them changed when the Comprehensive Rules pin moves, so a renumbered or reworded rule can't go unnoticed (today's citations are comments the compiler doesn't check; the 2026-11-15 pin move uses a one-off citation delta tool in arcanum-tools instead).
+
 ## Later (nice to have)
 
 - Repeating a loop ("infinite" combos; owner 2026-11-14): record a sequence of actions as a macro and repeat it N times, with the engine handling large numbers (mana, life, damage, counters) and many tokens (a counted token pile instead of a million objects). **Don't build until properly specified** (owner: "needs more design").

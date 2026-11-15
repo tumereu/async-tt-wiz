@@ -243,10 +243,12 @@ internal class CatalogRecordReader(private val times: CatalogPhaseTimes = Catalo
                     CatalogPrinting(record.id, face.name, record.set, record.number, "English", face.side, record.scryfall,
                         record.token, record.others, CatalogCards.sourceRecordText(record, face))
                 }
-                // What addBatch reads back from the record: its scryfallOracleId (search key) and faceName, put there from the face
+                // What addBatch reads back from the record: its scryfallOracleId (search key), faceName and printed names
+                // (LOB-150), put there from the face and the printing
                 batch += CatalogIndex.StagedPrinting(printing, CatalogPrintingTraits(record.rarity, CardColors.mask(face.identity),
                     face.legal, if (record.token) record.makers else record.tokens),
-                    face.oracle.ifEmpty { "name:${face.name.lowercase(Locale.ROOT)}" }, face.faceName.ifEmpty { null })
+                    face.oracle.ifEmpty { "name:${face.name.lowercase(Locale.ROOT)}" }, face.faceName.ifEmpty { null },
+                    listOf(record.flavorName, record.faceFlavorName).filter { it.isNotBlank() })
                 if (face.automatum && !record.token) supported += record.id
                 printings++
                 if (batch.size == BATCH) return take()

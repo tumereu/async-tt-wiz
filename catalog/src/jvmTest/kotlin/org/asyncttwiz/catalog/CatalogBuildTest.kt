@@ -87,6 +87,38 @@ class CatalogBuildTest {
         assertEquals(listOf("Nobody Here"), build(setOf("Listed Lone", "Nobody Here")).unknownNames)
     }
 
+    // LOB-150, TBL-138: a printing that gives the card another name (MTGJSON flavorName, faceFlavorName per face) keeps it
+    // beside the Oracle name; the card's face, and so what the rules read, stays the Oracle card's
+    @Test fun `a printing under another name keeps its printed name, each face's too`() {
+        val lance = catalog.printings.single { it.flavorName == "Thunder Lance" }
+        val bolt = catalog.printings.single { it.set == "TST" && catalog.faces[it.face].name == "Test Bolt" }
+        assertEquals(bolt.face, lance.face, "one face shared with the card's other printings")
+        assertEquals("", bolt.flavorName)
+        val definition = CatalogCards.definition(catalog, lance)
+        assertEquals("Test Bolt", definition.name)
+        assertEquals("Test Bolt", definition.faces.single().name)
+        assertEquals("Thunder Lance", definition.faces.single().printedName)
+        assertEquals("Thunder Lance", definition.shownName)
+        assertTrue(DeckValidation.definition(definition))
+        assertNull(CatalogCards.definition(catalog, bolt).faces.single().printedName, "an ordinary printing has none")
+        assertFalse("printedName" in DeckJson.canonical(CatalogCards.definition(catalog, bolt)), "nor any field for it: digests stay")
+
+        val hiker = catalog.printings.single { it.faceFlavorName == "Morning Hiker" }
+        assertEquals("Morning Hiker // Evening Prowler", hiker.flavorName)
+        val dfc = CatalogCards.definition(catalog, hiker)
+        assertEquals("Dawnward Scout // Duskward Stalker", dfc.name)
+        assertEquals(listOf("Dawnward Scout", "Duskward Stalker"), dfc.faces.map { it.name })
+        assertEquals(listOf("Morning Hiker", "Evening Prowler"), dfc.faces.map { it.printedName })
+        assertEquals("Morning Hiker // Evening Prowler", dfc.shownName)
+        assertTrue(DeckValidation.definition(dfc))
+        // The record the app keeps carries both names, and the catalog line reads back whole
+        val record = CatalogCards.sourceRecord(hiker, catalog.faces[hiker.face])
+        assertEquals("Morning Hiker // Evening Prowler", record["flavorName"]?.toString()?.trim('"'))
+        assertEquals("Morning Hiker", record["faceFlavorName"]?.toString()?.trim('"'))
+        assertEquals(hiker, CardCatalogFormat.decode(CardCatalogFormat.encode(hiker)))
+        assertFalse("flavorName" in CardCatalogFormat.encode(bolt), "left out when empty")
+    }
+
     // SYS-082: a reversible printing (the same card on both sides) counts as the card it shows
     @Test fun `a reversible printing is the card it shows`() {
         val reversible = catalog.faces.filter { it.layout == "reversible_card" }

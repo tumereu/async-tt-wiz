@@ -49,7 +49,9 @@ class MemoryCardCatalog internal constructor(
         for (id in ordered) {
             val record = printings.getValue(id)
             val face = faces[record.face]
-            listOfNotNull(face.name, face.faceName.ifEmpty { null }).map { it.lowercase() }.distinct()
+            // A printing under another name (flavorName) is found by that name too
+            listOfNotNull(face.name, face.faceName.ifEmpty { null }, record.flavorName.ifBlank { null },
+                record.faceFlavorName.ifBlank { null }).map { it.lowercase() }.distinct()
                 .forEach { byName.getOrPut(it) { ArrayList() } += id }
             record.scryfall?.let { byScryfall.getOrPut(it) { ArrayList() } += id }
             if (record.token) {
@@ -87,8 +89,10 @@ class MemoryCardCatalog internal constructor(
 
     private fun oracleOf(face: CatalogFaceRecord) = face.oracle.ifEmpty { "name:${face.name.lowercase()}" }
 
-    // Same preference as a deck import without a printing: English, not promo, paper, newest, lowest number.
-    private val preference = compareBy<CatalogPrintingRecord> { it.promo }.thenByDescending { paper(it) }
+    // Same preference as a deck import without a printing: English, under its own name (LOB-150), not promo, paper,
+    // newest, lowest number.
+    private val preference = compareBy<CatalogPrintingRecord> { printedName(it).isNotEmpty() }.thenBy { it.promo }
+        .thenByDescending { paper(it) }
         .thenByDescending { releaseDates[it.set].orEmpty() }
         .thenComparator { a, b -> compareCollectorNumbers(a.number, b.number) }
         .thenBy { it.number }.thenBy { it.set }.thenBy { it.id }
@@ -108,9 +112,12 @@ class MemoryCardCatalog internal constructor(
         val legalBits = group.fold(0L) { mask, record -> mask or faces[record.face].legal }
         val legal = CardSearchRules.FORMATS.filterIndexed { bit, _ -> legalBits and (1L shl bit) != 0L }.toSet()
         val card = CardSearchCard(preferredFace.name, preferredFace.layout, cardFaces, identity and CardColors.ALL, legal,
-            ranked.map { CardSearchPrinting(it.set.lowercase(), it.rarity) }.distinct())
+            ranked.map { CardSearchPrinting(it.set.lowercase(), it.rarity, printedName(it)) }.distinct())
         return SearchEntry(oracle, CardSearchRules.foldName(card.name), ranked.map { it.id }, card)
     }
+
+    /** The whole card's name [record] prints where it gives the card another (search matches it), else empty. */
+    private fun printedName(record: CatalogPrintingRecord) = record.flavorName.ifBlank { record.faceFlavorName }
 
     private fun searchFace(face: CatalogFaceRecord) = CardSearchFace(face.faceName.ifEmpty { face.name }, face.type, face.text,
         face.manaCost, CardColors.mask(face.colors), face.power.ifEmpty { null }, face.toughness.ifEmpty { null },
@@ -236,7 +243,8 @@ class MemoryCardCatalog internal constructor(
         val visible = hits.take(limit)
         val found = visible.map { hit ->
             val chosen = if (hit.printing == 0) hit.entry.ranked.first() else hit.entry.card.printings[hit.printing].let { wanted ->
-                hit.entry.ranked.first { printings.getValue(it).set.lowercase() == wanted.set && printings.getValue(it).rarity == wanted.rarity }
+                hit.entry.ranked.first { id -> printings.getValue(id).let { it.set.lowercase() == wanted.set && it.rarity == wanted.rarity &&
+                    printedName(it) == wanted.printedName } }
             }
             val printing = checkNotNull(record(chosen)) { "Card printing is unavailable." }
             CatalogCard(hit.entry.oracle, printing.name, (printing.otherFaces + printing.id).distinct()

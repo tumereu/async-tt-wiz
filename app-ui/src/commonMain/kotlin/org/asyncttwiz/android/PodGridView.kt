@@ -306,9 +306,9 @@ private fun PodGridCard(copy: DraftCopy, definition: CardDefinition?, modifier: 
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         CardArtwork(card?.artwork?.firstOrNull()?.takeIf { it.printing != null || it.customUrl != null }?.copy(size = "normal"),
-            definition?.name ?: "Card data unavailable",
+            definition?.shownName ?: "Card data unavailable",
             with(density) { maxWidth.roundToPx() }.coerceIn(1, 4096),
             with(density) { maxHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(),
-            crop = true, placeholder = { PodCardPlaceholder(definition?.name ?: "Card data unavailable") })
+            crop = true, placeholder = { PodCardPlaceholder(definition?.shownName ?: "Card data unavailable") })
     }
 }

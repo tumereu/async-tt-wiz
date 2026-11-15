@@ -20,10 +20,11 @@ data class TestFace(val name: String, val typeLine: String, val manaCost: String
  * (tests/fixtures/card-catalog), in set [set]: the catalog's records of these cards are generated from them
  * ([TestCardsFixture], kept the same by TestCardsFixtureTest), so the server and the phones read them from their catalog
  * like any card. [name] the card's name ("A // B" for a card of two faces), [faces] its printed faces in order, [layout]
- * MTGJSON's, [scryfallId] a picture id of its own (invented) or none, [token] a token record (as dungeons are, CR 309).
+ * MTGJSON's, [scryfallId] a picture id of its own (invented) or none, [token] a token record (as dungeons are, CR 309),
+ * [flavorName] the name its printing gives it instead of its own (MTGJSON's `flavorName`, LOB-150), for a card of one face.
  */
 class TestCard(val name: String, val faces: List<TestFace>, val layout: String = "normal", val set: String = TestCards.SET,
-    val scryfallId: String? = null, val token: Boolean = false) {
+    val scryfallId: String? = null, val token: Boolean = false, val flavorName: String? = null) {
     /** The printing a deck or cube names it by (its first face's). */
     val printingId: String get() = faces.first().id
     /** Its card data, exactly as the server builds it from the catalog (CatalogCards.definition). */
@@ -73,8 +74,9 @@ object TestCards {
     const val BASICS = "M21"
 
     private fun card(name: String, typeLine: String, manaCost: String = "", rulesText: String = "", power: String = "",
-        toughness: String = "", loyalty: String = "", scryfallId: String? = null, set: String = SET) =
-        TestCard(name, listOf(TestFace(name, typeLine, manaCost, rulesText, power, toughness, loyalty)), set = set, scryfallId = scryfallId)
+        toughness: String = "", loyalty: String = "", scryfallId: String? = null, set: String = SET, flavorName: String? = null) =
+        TestCard(name, listOf(TestFace(name, typeLine, manaCost, rulesText, power, toughness, loyalty)), set = set, scryfallId = scryfallId,
+            flavorName = flavorName)
 
     private const val LEARN = "Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)"
 
@@ -202,6 +204,10 @@ object TestCards {
         "1", "1")
     /** A free creature with a pump ability. */
     val ashHound = card("Ash Hound", "Creature — Elemental Dog", "{0}", "{R}: This creature gets +1/+0 until end of turn.", "1", "1")
+    /** LOB-150, TBL-138: a free creature printed under another name (as Secret Lair and Universes Within printings are):
+     * the table and Inspect show "Sparkfang the Kitten", Automatum plays it as Ember Pyreling. */
+    val pyreling = card("Ember Pyreling", "Creature — Elemental Cat", "{0}", power = "1", toughness = "1",
+        flavorName = "Sparkfang the Kitten")
     /** A free creature with nothing to do. */
     val pup = card("Ash Pup", "Creature — Elemental Dog", "{0}", power = "1", toughness = "1")
     /** A free creature with trample (CMB-033: its damage divides among its blockers and the defender). */

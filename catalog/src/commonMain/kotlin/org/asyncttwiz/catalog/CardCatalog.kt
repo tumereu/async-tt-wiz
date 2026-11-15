@@ -77,7 +77,10 @@ data class CatalogFaceRecord(
 
 /** One face of one English printing: its MTGJSON id, its [face], set and collector number, the Scryfall id for its
  * picture, rarity, the ids of the printing's other faces ([others]), and for tokens (LOB-125): a card's tokens' printing
- * ids ([tokens]), a token's lower-case names of the cards that make it ([makers]). */
+ * ids ([tokens]), a token's lower-case names of the cards that make it ([makers]). A printing that gives the card another
+ * name (Secret Lair, Universes Within; MTGJSON's `flavorName` and `faceFlavorName`) keeps it beside the face's Oracle
+ * name: [flavorName] the whole card's printed name, [faceFlavorName] this face's, on a card of several faces
+ * ([CatalogCards.printedName]). */
 @Serializable @SerialName("printing")
 data class CatalogPrintingRecord(
     val id: String,
@@ -93,6 +96,8 @@ data class CatalogPrintingRecord(
     val promo: Boolean = false,
     val tokens: List<String> = emptyList(),
     val makers: List<String> = emptyList(),
+    val flavorName: String = "",
+    val faceFlavorName: String = "",
 ) : CatalogRecord
 
 /** The booster recipe a draftable set's packs follow (DRF-090: Play, else Draft, else default), with the printings it names. */
@@ -120,7 +125,7 @@ class CardCatalog(
 /** Reading and writing catalog lines. */
 object CardCatalogFormat {
     /** The format of [CatalogHeader.format]; a change makes clients download the catalog again (with a new version). */
-    const val FORMAT = 2
+    const val FORMAT = 3
 
     val json = Json {
         classDiscriminator = "t"

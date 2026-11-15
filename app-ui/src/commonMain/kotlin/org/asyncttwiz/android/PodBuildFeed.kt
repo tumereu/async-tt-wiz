@@ -189,7 +189,7 @@ private fun PodBuildFeedCardView(
     val latestThreshold by rememberUpdatedState(threshold)
     val latestEditable by rememberUpdatedState(editable)
     val latestDecide by rememberUpdatedState(onDecide)
-    val name = card.definition?.name ?: "Card details unavailable"
+    val name = card.definition?.shownName ?: "Card details unavailable"
     val progress = (abs(offset.value) / threshold).coerceIn(0f, 1f)
     val tint = (if (offset.value >= 0f) rightColor else leftColor).copy(alpha = .35f * progress)
     Box(Modifier.size(width, width * 1.4f).testTag("pod-build-feed-card-${card.copyId}")
@@ -256,7 +256,7 @@ private fun PodBuildFeedFlickCard(flick: PodBuildFeedFlick, width: Dp, done: () 
 private fun PodBuildFeedArtwork(card: PodBuildFeedCard, face: Int, width: Dp, touchable: Boolean = true) {
     val density = LocalDensity.current
     val definition = card.definition
-    val name = definition?.faces?.getOrNull(face)?.name ?: definition?.name ?: "Card details unavailable"
+    val name = definition?.faces?.getOrNull(face)?.shownName ?: definition?.shownName ?: "Card details unavailable"
     val reference = remember(card.digest, definition, face) {
         definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }?.artwork?.getOrNull(face)
     }

@@ -305,7 +305,7 @@ fun PodBuildView(
             // Reaching the end closes the review; its summary lingers on the Build screen (Build undo still reverts).
             onFinish = { done -> feed = null; feedback = PodBuildFeedback(++feedbackId, done.summary, 2000) })
     }
-    inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
+    inspected?.second?.let { PodCardArtPreview(it, it.definition.shownName, previewScroll) }
 }
 
 /** The pod deck's name dialog (DRF-105), from Build or a pod game's Prepare deck: [current] to start from, [onSave] with
@@ -400,7 +400,7 @@ private fun PodBuildLeavingCard(leaving: PodBuildLeaving, done: () -> Unit) {
     val currentDone by rememberUpdatedState(done)
     LaunchedEffect(Unit) { alpha.animateTo(0f, tween(PodBuildSettleMillis)); currentDone() }
     val density = LocalDensity.current
-    val name = leaving.tile.definition?.name ?: "Card details unavailable"
+    val name = leaving.tile.definition?.shownName ?: "Card details unavailable"
     val reference = remember(leaving.tile) { podTileArtwork(leaving.tile.definition) }
     Box(Modifier.offset { leaving.bounds.topLeft.round() }
         .size(with(density) { leaving.bounds.width.toDp() }, with(density) { leaving.bounds.height.toDp() })
@@ -474,7 +474,7 @@ fun PodBuildCard(
     val threshold = with(LocalDensity.current) { 20.dp.toPx() }
     val right = PodDeckRules.swipe(category, PodDeckSwipe.RIGHT)
     val left = PodDeckRules.swipe(category, PodDeckSwipe.LEFT)
-    val name = tile.definition?.name ?: "Card details unavailable"
+    val name = tile.definition?.shownName ?: "Card details unavailable"
     val confirm: (PodDeckCategory) -> Unit = { destination ->
         // Only a card that leaves its place entirely fades out there; a stack just loses one copy.
         if (latestCopies == 1) anchor.coordinates?.takeIf { it.isAttached }?.let {

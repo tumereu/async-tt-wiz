@@ -60,10 +60,12 @@ sealed interface InspectTile {
     val key: String
 
     /** One physical picture of a card: [reference] (null: the placeholder card), turned [degrees] clockwise; game cards
-     * carry their [owner]'s frame, and the holder's own face-down card is dimmed with "Face down" (TBL-109). */
+     * carry their [owner]'s frame, and the holder's own face-down card is dimmed with "Face down" (TBL-109). [name] is
+     * the name its printing shows; a printing that gives the card another name carries the card's [oracleName] too
+     * (TBL-138), labelled on the picture. */
     data class Face(override val key: String, val reference: ArtworkReference?, val name: String, val degrees: Int = 0,
         val owner: Color? = null, val token: Boolean = false, val projection: Boolean = false,
-        val faceDown: Boolean = false) : InspectTile
+        val faceDown: Boolean = false, val oracleName: String? = null) : InspectTile
 
     /** A card the viewer may not see, or whose card data is missing: a card-shaped tile with [text]. */
     data class Covered(override val key: String, val text: String) : InspectTile
@@ -92,8 +94,11 @@ fun inspectFaces(card: InspectedCard, shown: Int = 0, flipped: Boolean = false, 
     return (listOf(start) + (physical - start)).map { index ->
         val orientation = card.orientation(index)
         val degrees = if (physical.size == 1 && flipped && orientation.alternate != null) orientation.alternate else orientation.degrees
-        val name = if (physical.size == 1) card.definition.name else card.definition.faces[index].name
-        InspectTile.Face("$key/$index", card.artwork[index], name, degrees, owner, token, projection, faceDown)
+        // TBL-138: a printing under another name shows that name, with the Oracle name beside it
+        val name = if (physical.size == 1) card.definition.shownName else card.definition.faces[index].shownName
+        val oracle = if (physical.size == 1) card.definition.name else card.definition.faces[index].name
+        InspectTile.Face("$key/$index", card.artwork[index], name, degrees, owner, token, projection, faceDown,
+            oracle.takeIf { it != name })
     }
 }
 
@@ -497,6 +502,22 @@ fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Modifier = M
         if (tile.faceDown) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {
             Text("Face down", color = Color.White, style = MaterialTheme.typography.headlineSmall)
         }
+        tile.oracleName?.let { OracleNameLabel(it, Modifier.align(Alignment.BottomCenter).padding(horizontal = 8.dp, vertical = 10.dp)) }
+    }
+}
+
+/** The test tag of the Oracle name's label on an inspected picture (TBL-138). */
+const val INSPECT_ORACLE_NAME_TAG = "inspect-oracle-name"
+
+/**
+ * TBL-138: on the picture of a printing that gives the card another name (in Inspect and the web quick look), a dark
+ * rounded label at its bottom, over the collector line: "Oracle name: " and the card's own name, the one the rules know.
+ */
+@Composable
+private fun OracleNameLabel(oracleName: String, modifier: Modifier) {
+    Box(modifier.testTag(INSPECT_ORACLE_NAME_TAG).clip(RoundedCornerShape(8.dp)).background(InspectChangesColor)
+        .padding(horizontal = 10.dp, vertical = 5.dp)) {
+        Text("Oracle name: $oracleName", color = Color.White, fontSize = 13.sp, lineHeight = 17.sp, textAlign = TextAlign.Center)
     }
 }
 

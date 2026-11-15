@@ -31,7 +31,7 @@ fun contentsEntries(state: TableBoard, pile: PileContents, viewer: String, searc
         val location = card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() }
             ?: Faults.placeholder("ContentsEntries", "card without its place", "Unavailable", mapOf("card" to id))
         val ability = if (visible && effect != null) StackAbilities.of(state, id, viewer) else null
-        ContentsEntry(id, if (visible) ability?.name ?: face?.name ?: unavailableCard(id) else "Card back",
+        ContentsEntry(id, if (visible) ability?.name ?: face?.shownName ?: unavailableCard(id) else "Card back",
             if (visible) contentsCategory(face?.typeLine.orEmpty()) else "Cards",
             (if (pile.ordered) "${index + 1} · " else "") + location +
                 when { effect?.frozen != null -> " · Retained effect"; effect != null -> " · Effect"; else -> "" },
@@ -49,7 +49,7 @@ fun contentsEntries(state: TableBoard, display: ContentsDisplay, viewer: String,
             ?.singleOrNull { it.faceId == card?.faceId } else null
         val type = face?.typeLine.orEmpty()
         val category = if (!visible) "Cards" else contentsCategory(type)
-        ContentsEntry(id, if (visible) face?.name ?: unavailableCard(id) else "Card back", category,
+        ContentsEntry(id, if (visible) face?.shownName ?: unavailableCard(id) else "Card back", category,
             card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() }
             ?: Faults.placeholder("ContentsEntries", "card without its place", "Unavailable", mapOf("card" to id)),
             display.selection == ContentsSelection.BOTTOM && index == display.cardIds.lastIndex, faceVisible = visible)

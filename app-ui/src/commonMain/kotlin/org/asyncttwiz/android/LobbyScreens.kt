@@ -419,8 +419,8 @@ fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: S
             val definition = cover?.let { digest -> preparation.definitions.find { it.digest == digest }?.definition }
             val face = definition?.faces?.firstOrNull()
             if (cover != null && face != null) {
-                CardArtwork(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.name,
-                    48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
+                CardArtwork(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.shownName,
+                    48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.shownName) })
             } else Box(Modifier.size(48.dp, 68.dp), contentAlignment = Alignment.Center) { EntryIcon(null, "decks") }
             Column(Modifier.weight(1f, fill = false)) {
                 Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name, player?.deckShown == true, player?.shownPodDeckName), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

@@ -10,7 +10,9 @@ A small, invented MTGJSON AllPrintings file (no real card data) and its support 
   of them double-faced, the other printed twice), a reprint of Test Bear, a Japanese printing.
 - `BON` Bonus Sheet Set: listed; three commons, a reversible printing of Test Bear on a sheet of its own, and a
   special-guest sheet holding Plain Bear from `OFF` (unsupported).
-- `DCK` Test Promos: a kind of set the Sets tab doesn't list, whose recipe the catalog leaves out.
+- `DCK` Test Promos: a kind of set the Sets tab doesn't list, whose recipe the catalog leaves out; it also holds printings
+  under another name (MTGJSON `flavorName`, LOB-150): Test Bolt as "Thunder Lance" and Dawnward Scout // Duskward Stalker
+  as "Morning Hiker // Evening Prowler" (`faceFlavorName` per face).
 - `E2E` End-to-End Test Cards and `M21` Test Basic Lands: every card the e2e and server tests save in decks and cubes
   (`e2e/.../TestCards.kt`), M21 holding the five basic lands the server supplies with pod decks. Both are a kind of set
   the Sets tab doesn't list. Generated from `TestCards`: after changing it, run

@@ -85,13 +85,14 @@ object PlayShows {
             (effect?.frozen != null || CardVisibility.isVisibleFaceUp(play.board, card, viewer))
         val definition = card?.let { c -> play.definitions.firstOrNull { it.digest == c.definition }?.definition }
         val faceIndex = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
-        val name = definition?.faces?.getOrNull(faceIndex)?.name?.takeIf { visible && it.isNotBlank() }
+        val name = definition?.faces?.getOrNull(faceIndex)?.shownName?.takeIf { visible && it.isNotBlank() }
         return when (show.kind) {
             GameDevice.PlayKind.Cast -> {
                 val caption = line ?: listOf(StackTextPiece("$who cast ${name ?: unnamed(visible, "a card", show)}"))
+                // TBL-138: a card printed under another name has its Oracle name labelled in Inspect and the quick look only
                 val face = if (visible && definition != null) inspectFaces(InspectedCard.retained(definition), faceIndex,
                     flippedOnTable(definition, card.faceId), "play-show/${card.id}",
-                    if (own) OwnTableColor else OpponentTableColor, card.token).firstOrNull() else null
+                    if (own) OwnTableColor else OpponentTableColor, card.token).firstOrNull()?.copy(oracleName = null) else null
                 PlayShown(caption.plain(), caption, own, face = face, covered = face == null)
             }
             GameDevice.PlayKind.Activated, GameDevice.PlayKind.Triggered -> {

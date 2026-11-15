@@ -20,7 +20,7 @@ private val NON_CARD_LAYOUTS = setOf("art_series", "token", "double_faced_token"
 
 internal fun CatalogIndex.hasCardSearch(): Boolean =
     long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='search_ready')") != 0L &&
-        long("SELECT count(*) FROM search_ready WHERE version=1") == 1L
+        long("SELECT count(*) FROM search_ready WHERE version=$SEARCH_VERSION") == 1L
 
 /**
  * Rebuilt on the unpublished generation in the finishing transaction, from installed printings only: one row per
@@ -35,9 +35,10 @@ internal fun CatalogIndex.rebuildCardSearch(onPrinting: (CatalogPrinting) -> Uni
     sql("""CREATE TABLE search_card (oracle TEXT NOT NULL PRIMARY KEY, name_key TEXT NOT NULL, printing_id TEXT NOT NULL,
         types TEXT NOT NULL, texts TEXT NOT NULL, colors INTEGER NOT NULL, identity INTEGER NOT NULL, mv REAL NOT NULL,
         legal INTEGER NOT NULL, rarities INTEGER NOT NULL, layout TEXT NOT NULL, extra INTEGER NOT NULL,
-        pow_min REAL, pow_max REAL, tou_min REAL, tou_max REAL, loy_min REAL, loy_max REAL)""")
+        pow_min REAL, pow_max REAL, tou_min REAL, tou_max REAL, loy_min REAL, loy_max REAL, printed TEXT NOT NULL DEFAULT '')""")
     sql("CREATE TABLE search_data (oracle TEXT NOT NULL PRIMARY KEY, data TEXT NOT NULL)")
-    sql("CREATE TABLE search_printing (oracle TEXT NOT NULL, rank INTEGER NOT NULL, printing_id TEXT NOT NULL, set_code TEXT NOT NULL, rarity TEXT NOT NULL, PRIMARY KEY(oracle, rank))")
+    sql("CREATE TABLE search_printing (oracle TEXT NOT NULL, rank INTEGER NOT NULL, printing_id TEXT NOT NULL, set_code TEXT NOT NULL, rarity TEXT NOT NULL, " +
+        "printed TEXT NOT NULL DEFAULT '', PRIMARY KEY(oracle, rank))")
     times.time("search order") { sql("CREATE INDEX IF NOT EXISTS printing_oracle ON printing(oracle, id)") }
     var group = mutableListOf<SearchRow>()
     val cards = SearchCards(this)
@@ -70,14 +71,17 @@ internal fun CatalogIndex.rebuildCardSearch(onPrinting: (CatalogPrinting) -> Uni
     if (group.isNotEmpty()) cards.add(group)
     cards.flush()
     times.time("search indexes") {
-        // Covers every numeric filter, so those scans never read the wide text columns.
+        // Covers every numeric filter and the printed names (mostly empty), so those scans never read the wide text columns.
         sql("""CREATE INDEX search_card_name ON search_card(name_key, oracle, extra, colors, identity, mv, legal, rarities, layout,
-            pow_min, pow_max, tou_min, tou_max, loy_min, loy_max, printing_id)""")
+            pow_min, pow_max, tou_min, tou_max, loy_min, loy_max, printing_id, printed)""")
         sql("CREATE INDEX search_printing_set ON search_printing(set_code, oracle)")
     }
     sql("CREATE TABLE search_ready (version INTEGER NOT NULL)")
-    sql("INSERT INTO search_ready VALUES (1)")
+    sql("INSERT INTO search_ready VALUES ($SEARCH_VERSION)")
 }
+
+/** The card search tables' layout; 2: printed names (a printing's flavorName) beside each card's printings. */
+private const val SEARCH_VERSION = 2
 
 // Prepared-statement cache ids for the constant SQL of the rebuild (arbitrary, distinct from SQLDelight's).
 private const val SEARCH_BATCH = 0x5EA4C001
@@ -92,6 +96,10 @@ private class SearchRow(val id: String, val name: String, val set: String, val n
     val layout: String by lazy(LazyThreadSafetyMode.NONE) { text(json, "layout") ?: "normal" }
     val english by lazy(LazyThreadSafetyMode.NONE) { language.equals("English", ignoreCase = true) }
     val promo by lazy(LazyThreadSafetyMode.NONE) { json.get("isPromo")?.takeIf { it.isJsonPrimitive }?.asBoolean == true }
+    /** The whole card's name this printing prints where it gives the card another (flavorName), else empty. */
+    val printed by lazy(LazyThreadSafetyMode.NONE) {
+        (text(json, "flavorName")?.takeIf { it.isNotBlank() } ?: text(json, "faceFlavorName")?.takeIf { it.isNotBlank() }).orEmpty()
+    }
     val paper by lazy(LazyThreadSafetyMode.NONE) { json.get("isOnlineOnly")?.takeIf { it.isJsonPrimitive }?.asBoolean != true &&
         json.get("availability")?.takeIf { it.isJsonArray }?.asJsonArray?.any { it.isJsonPrimitive && it.asString == "paper" } != false }
 }
@@ -111,9 +119,11 @@ private class SearchCards(private val index: CatalogIndex) {
 
     fun flush() {
         if (pending.isEmpty()) return
-        // Same preference as a deck import without a printing: English, not promo, paper, newest, lowest number.
+        // Same preference as a deck import without a printing: English, under its own name (LOB-150), not promo, paper,
+        // newest, lowest number.
         val ranked = index.times.time("search ranks") { pending.map { group ->
-            group.sortedWith(compareByDescending<SearchRow> { it.english }.thenBy { it.promo }.thenByDescending { it.paper }
+            group.sortedWith(compareByDescending<SearchRow> { it.english }.thenBy { it.printed.isNotEmpty() }.thenBy { it.promo }
+                .thenByDescending { it.paper }
                 .thenByDescending { index.releaseDates[it.set].orEmpty() }
                 .thenComparator { a, b -> compareCollectorNumbers(a.number, b.number) }
                 .thenBy { it.number }.thenBy { it.set }.thenBy { it.id })
@@ -159,7 +169,7 @@ private fun CatalogIndex.searchRows(ranked: List<SearchRow>, others: List<Triple
     val legalBits = group.fold(0L) { mask, row -> mask or row.legal }
     val legal = CardSearchRules.FORMATS.filterIndexed { bit, _ -> legalBits and (1L shl bit) != 0L }.toSet()
     val card = CardSearchCard(preferred.name, preferred.layout, faces, identity and CardColors.ALL, legal,
-        ranked.map { CardSearchPrinting(it.set.lowercase(Locale.ROOT), it.rarity) }.distinct())
+        ranked.map { CardSearchPrinting(it.set.lowercase(Locale.ROOT), it.rarity, it.printed) }.distinct())
     val rarities = card.printings.fold(0L) { mask, printing ->
         CardSearchRules.RARITIES.indexOf(printing.rarity).takeIf { it >= 0 }?.let { mask or (1L shl it) } ?: mask
     }
@@ -171,10 +181,11 @@ private fun CatalogIndex.searchRows(ranked: List<SearchRow>, others: List<Triple
         faces.joinToString("\n") { CardSearchRules.foldText(it.text) },
         card.colorUnits.fold(0L) { bits, mask -> bits or (1L shl mask) }, 1L shl card.identity, card.manaValue,
         legalBits, rarities, card.layout, if (card.extra) 1L else 0L) + range { it.power } + range { it.toughness } +
-        range { it.loyalty }
+        range { it.loyalty } + card.printings.map { it.printedName }.filter { it.isNotEmpty() }.distinct()
+            .joinToString("\n") { CardSearchRules.foldName(it) }
     data += listOf(preferred.oracle, times.time("search encoding") { searchJson.encodeToString(CardSearchCard.serializer(), card) })
     ranked.forEachIndexed { rank, row ->
-        printings += listOf(row.oracle, rank.toLong(), row.id, row.set.lowercase(Locale.ROOT), row.rarity)
+        printings += listOf(row.oracle, rank.toLong(), row.id, row.set.lowercase(Locale.ROOT), row.rarity, row.printed)
     }
 }
 
@@ -233,8 +244,8 @@ internal fun searchCatalogCards(file: File?, open: (File) -> SqlDriver, query: S
         val visible = hits.take(limit)
         val chosen = visible.map { hit ->
             if (hit.printing == 0) hit.printingId else hit.card.printings[hit.printing].let { wanted ->
-                index.texts("SELECT printing_id FROM search_printing WHERE oracle=? AND set_code=? AND rarity=? ORDER BY rank LIMIT 1",
-                    listOf(hit.oracle, wanted.set, wanted.rarity)).single()
+                index.texts("SELECT printing_id FROM search_printing WHERE oracle=? AND set_code=? AND rarity=? AND printed=? ORDER BY rank LIMIT 1",
+                    listOf(hit.oracle, wanted.set, wanted.rarity, wanted.printedName)).single()
             }
         }
         val printings = index.printings(chosen)
@@ -290,26 +301,30 @@ internal object CardSearchSql {
         val parts = mutableListOf<String>()
         val args = mutableListOf<Any>()
         if (!query.includeExtras) parts += "extra=0"
-        query.root?.let(::translate)?.let { parts.add(it.sql); args.addAll(it.args) }
+        query.root?.let { translate(it, query.printingSpecific) }?.let { parts.add(it.sql); args.addAll(it.args) }
         return (parts.joinToString(" AND ") { "($it)" }.ifEmpty { "1" }) to args
     }
 
-    fun translate(node: CardSearchNode): Clause? = when (node) {
+    /** [printingLevel]: the query has printing terms, so the matcher reads a name term per printing: its printed names
+     * count one printing at a time, which the card's columns can't tell apart under a Not. */
+    fun translate(node: CardSearchNode, printingLevel: Boolean = false): Clause? = when (node) {
         is CardSearchNode.And -> {
-            val parts = node.terms.map(::translate)
+            val parts = node.terms.map { translate(it, printingLevel) }
             val present = parts.filterNotNull()
             if (node.terms.isEmpty()) Clause("1", emptyList(), true)
             else if (present.isEmpty()) null
             else Clause(present.joinToString(" AND ") { "(${it.sql})" }, present.flatMap { it.args }, parts.all { it?.exact == true })
         }
         is CardSearchNode.Or -> {
-            val parts = node.terms.map(::translate)
+            val parts = node.terms.map { translate(it, printingLevel) }
             val present = parts.filterNotNull()
             if (present.size != parts.size) null
             else Clause(present.joinToString(" OR ") { "(${it.sql})" }, present.flatMap { it.args }, present.all { it.exact })
         }
-        is CardSearchNode.Not -> translate(node.term)?.takeIf { it.exact }?.let { Clause("NOT (${it.sql})", it.args, true) }
-        is CardSearchNode.Name -> Clause("instr(name_key, ?) > 0", listOf(node.text), exact = !node.exact)
+        is CardSearchNode.Not -> translate(node.term, printingLevel)?.takeIf { it.exact }?.let { Clause("NOT (${it.sql})", it.args, true) }
+        // The names the card's printings give it (flavorName) match too (LOB-151)
+        is CardSearchNode.Name -> Clause("(instr(name_key, ?) > 0 OR instr(printed, ?) > 0)", listOf(node.text, node.text),
+            exact = !node.exact && !printingLevel)
         is CardSearchNode.TypeLine -> Clause("instr(types, ?) > 0", listOf(node.text), true)
         is CardSearchNode.OracleText -> if ('~' in node.text) null else Clause("instr(texts, ?) > 0", listOf(node.text), true)
         is CardSearchNode.Colors -> {

@@ -14,7 +14,8 @@ fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition {
         val loyalty = field("loyalty"); val defense = field("defense")
         DefinitionFace(face.id, field("faceName").ifBlank { face.name }, face.otherFaces.filter { it in ids },
             field("type"), field("manaCost"), field("text"), power, toughness, loyalty, defense,
-             scryfallId = face.scryfallId, sourceData = face.json, colorIndicator = catalogColorIndicator(raw))
+             scryfallId = face.scryfallId, sourceData = face.json, colorIndicator = catalogColorIndicator(raw),
+             printedName = field("faceFlavorName").ifBlank { field("flavorName") }.ifBlank { null })
             .let { it.copy(corner = it.defaultCorner()) }
     }
     val raw = DeckJson.format.parseToJsonElement(printing.json).jsonObject

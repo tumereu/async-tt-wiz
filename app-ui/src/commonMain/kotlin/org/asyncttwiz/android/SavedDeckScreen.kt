@@ -158,9 +158,9 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
                          BoxWithConstraints(Modifier.fillMaxWidth()) {
                              val face = definition.faces.first()
                              DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri),
-                                 definition.name, maxWidth, 64.dp)
+                                 definition.shownName, maxWidth, 64.dp)
                          }
-                        Text(definition.name)
+                        Text(definition.shownName)
                     }
                 }
             }
@@ -176,8 +176,8 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
                         OutlinedCard(Modifier.fillMaxWidth(), colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 val face = definition.faces.first()
-                                DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.name, 120.dp, 64.dp)
-                                Text(definition.name, fontWeight = FontWeight.Bold)
+                                DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), definition.shownName, 120.dp, 64.dp)
+                                Text(definition.shownName, fontWeight = FontWeight.Bold)
                             }
                         }
                     } }

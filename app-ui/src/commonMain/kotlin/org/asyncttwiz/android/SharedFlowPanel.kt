@@ -461,7 +461,7 @@ fun rulesTextOf(play: TableBoard, cardId: String?): String? {
 
 private fun faceName(play: TableBoard, card: PlayCard): String? =
     play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
-        ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name
+        ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.shownName
 
 /** The decision's source ([source], its own by default) by name: the card or ability it is about. */
 private fun sourceName(flows: SharedFlowController, flow: SharedShown, play: TableBoard, decision: Decision,

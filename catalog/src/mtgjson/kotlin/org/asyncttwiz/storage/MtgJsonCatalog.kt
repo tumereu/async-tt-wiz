@@ -146,6 +146,8 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
             ?.get("scryfallId")?.takeUnless { it.isJsonNull }?.asString?.let(::uuid)
         // These optional fields are consumed by the import/default-printing and artwork paths.
         string(json, "faceName")
+        string(json, "flavorName")
+        string(json, "faceFlavorName")
         listOf("isOnlineOnly", "isPromo").forEach { key -> json.get(key)?.takeUnless { it.isJsonNull }?.let {
             check(it.isJsonPrimitive && it.asJsonPrimitive.isBoolean)
         } }
@@ -188,10 +190,12 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
 
     companion object {
         // Exhaustive consumers: DeckImportResolver, DeckSavePlan/DeckEditorSource, card inspection,
-        // CatalogIndex aliases/token search and ArtworkReference. Never retain unrelated provider data.
+        // CatalogIndex aliases/token search and ArtworkReference; flavorName and faceFlavorName: the name a printing
+        // gives its card where it is printed under another (shown, and found by imports and search; the rules read the
+        // Oracle name). Never retain unrelated provider data.
         val retainedFields = setOf("uuid", "name", "setCode", "number", "language", "side", "otherFaceIds",
-            "faceName", "layout", "type", "manaCost", "text", "power", "toughness", "loyalty", "defense", "colors",
-            "availability", "isOnlineOnly", "isPromo")
+            "faceName", "flavorName", "faceFlavorName", "layout", "type", "manaCost", "text", "power", "toughness", "loyalty",
+            "defense", "colors", "availability", "isOnlineOnly", "isPromo")
         fun retainedRecord(json: JsonObject): JsonObject = JsonObject().apply {
             retainedFields.forEach { key -> json.get(key)?.let { add(key, it) } }
             json.get("identifiers")?.let { ids ->

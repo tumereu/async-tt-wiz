@@ -7,7 +7,9 @@ import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.performClick
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * Owner notes 2026-11-14 (STK-024): casting with a mana source whose cost taps other creatures ("Tap two untapped creatures you
@@ -38,6 +40,12 @@ class BoardManaTest : E2e() {
         }
         assertFalse(alice.shows(hasContentDescription("Mana source ", substring = true)), "no source offered by name: ${alice.screen()}")
         assertFalse(alice.shows(hasText("Hearth Elders:", substring = true)), "no chip naming the cards the cost taps: ${alice.screen()}")
+        // ZON-095 (owner notes 2026-11-14): meanwhile her hand is dimmed and takes no taps
+        val other = alice.state.player(alice.me).hand.mapNotNull { cardName(alice.state, it) }.first()
+        alice.handCard(other).performClick()
+        repeat(5) { run() }
+        assertEquals(null, alice.raisedInHand(), "a tap on her dimmed hand raises nothing: ${alice.screen()}")
+        assertTrue(alice.shows(hasContentDescription("Not paid: Still owed {U}: produce the mana on the board.")), "the cast stays open")
         alice.tap("Hide cast panel")
         waitUntil("the panel hidden") { alice.showsControl("Show cast panel") }
         alice.battlefieldCard("Hearth Elders").performClick()

@@ -51,6 +51,8 @@ Old forms only read now, found at the wipe (2026-11-09; read, not run; can be do
 Playtest notes (owner, 2026-11-12): before web step 3 (after the engine API rework). The web wireframes show the same changes.
 
 
+- Printed alternate names (owner, 2026-11-15; Secret Lair drops, Universes Within names, and later Commander, where a player may flavour a deck with an alias): the card catalog keeps a printing's printed name (MTGJSON `flavorName`, per face too) beside its Oracle name. Deck import and card search find a printing by its printed name as well; a card printed under another name shows that name on the table, in panels and in Inspect, with its Oracle name beside it (Inspect, the quick look); rules support still follows the Oracle card. Exact wording and where the Oracle name shows: plainest option, listed under choices made.
+
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
@@ -76,6 +78,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - R5 of `engine-responsiveness.md` (optional, decided later; owner 2026-11-06: not now, after the End turn speed work): while the player looks at the board, the idle engine thread works out their step-arrow pass on a probe, so the tap only applies the result (frame-fast passes, some battery cost). Decide after R1–R3's measurements.
 
 - Summoning-sick permanents in the same battlefield group as their non-sick copies (owner idea, 2026-11-07; owner testing first): one group regardless of sickness with a "2 sick" badge, attacks picking a non-sick member first, so groups don't reshuffle after the turn.
+
+- Rule references the compiler can check (owner, 2026-11-15; parked, to think about, not now): replace plain-text `// CR 613.4c` citations with annotations naming the rule number, store each cited rule's text or a checksum of it, and have a build job list which rules the code relies on and which of them changed when the Comprehensive Rules pin moves, so a renumbered or reworded rule can't go unnoticed (today's citations are comments the compiler doesn't check; the 2026-11-15 pin move uses a one-off citation delta tool in arcanum-tools instead).
 
 ## Later (nice to have)
 

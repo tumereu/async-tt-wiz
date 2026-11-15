@@ -67,6 +67,10 @@ import org.asyncttwiz.appui.passThroughPopupProperties
 val PodPickGreen = Color(0xFF237A38)
 val PodPickRed = Color(0xFFB3261E)
 
+/** WEB-044 (owner playtest 2026-11-15): on the desktop layout's larger cards the keep and burn marks (borders, badges) and
+ * the trays' count chips are drawn this much larger, so they read at a glance. */
+const val PodPickDesktopMarkScale = 1.5f
+
 /** Without [onMarks] the marks live only in this composition (previews and tests). */
 @Composable
 fun PodPickView(
@@ -535,12 +539,13 @@ private fun PodPickCard(
                 )
             }) {
             PodPickCardFace(copy, definition, keepAlpha, burnAlpha,
-                (if (flashMark == PodPickMark.KEEP) PodPickGreen else PodPickRed).copy(alpha = flashAlpha.value))
+                (if (flashMark == PodPickMark.KEEP) PodPickGreen else PodPickRed).copy(alpha = flashAlpha.value),
+                markScale = if (desktop) PodPickDesktopMarkScale else 1f)
             if (onRefund != null) Icon(Icons.Default.MenuBook, "Spent Librarian", Modifier.align(Alignment.TopStart)
                 .background(PodPickGreen, RoundedCornerShape(4.dp)).padding(2.dp).size(16.dp), tint = Color.White)
         }
-        // WEB-044 (§12 item 8): the hovered card's ⋯ opens its menu (Unmark, Refund Librarian)
-        if (hovered) Surface(Modifier.align(Alignment.TopEnd).padding(top = 32.dp, end = 4.dp).size(28.dp)
+        // WEB-044 (§12 item 8): the hovered card's ⋯ opens its menu (Unmark, Refund Librarian), under the mark's larger badge
+        if (hovered) Surface(Modifier.align(Alignment.TopEnd).padding(top = 52.dp, end = 4.dp).size(28.dp)
             .testTag("pod-pick-more-${copy.id}").clickable(onClickLabel = "Card menu", role = Role.Button) {
                 AppLog.info("pod", "⋯ opened the menu of ${copy.id}"); currentOnMenu(true)
             }, shape = CircleShape, color = Color.White, border = BorderStroke(1.dp, ScreenBorder), shadowElevation = 2.dp) {
@@ -563,6 +568,8 @@ private fun PodPickCard(
 private fun PodPickCardFace(
     copy: DraftCopy, definition: CardDefinition?, keepAlpha: Float, burnAlpha: Float,
     tint: Color = Color.Transparent, reuseArtwork: Boolean = false,
+    /** WEB-044: the marks' size, [PodPickDesktopMarkScale] on the desktop layout. */
+    markScale: Float = 1f,
 ) {
     Box(Modifier.fillMaxSize().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
         PodPickArtwork(copy, definition, Modifier.fillMaxSize(), reuseArtwork, crop = true)
@@ -571,12 +578,14 @@ private fun PodPickCardFace(
             if (alpha > 0f) {
                 val color = if (kind == PodPickMark.KEEP) PodPickGreen else PodPickRed
                 Box(Modifier.matchParentSize().graphicsLayer { this.alpha = alpha }
-                    .border(3.dp, color, RoundedCornerShape(4.dp))) {
+                    .border(3.dp * markScale, color, RoundedCornerShape(4.dp))) {
+                    val badge = LocalTextStyle.current
                     Text(if (kind == PodPickMark.KEEP) "✓" else "🔥",
                         Modifier.align(Alignment.TopEnd).graphicsLayer {
                             scaleX = .85f + .15f * alpha
                             scaleY = scaleX
-                        }.background(color).padding(4.dp), color = Color.White)
+                        }.background(color).padding(4.dp * markScale).testTag("pod-pick-badge"), color = Color.White,
+                        style = badge.copy(fontSize = badge.fontSize * markScale, lineHeight = badge.lineHeight * markScale))
                 }
             }
         }
@@ -655,11 +664,14 @@ private fun PodPickTray(
             } }
             trailing()
         }
-        // The count overlays the tray corner (it may cover part of a card); touches pass through.
+        // The count overlays the tray corner (it may cover part of a card); touches pass through. WEB-044: larger on the desktop.
+        val scale = if (desktop) PodPickDesktopMarkScale else 1f
+        val chip = MaterialTheme.typography.labelSmall
         Text("${if (label == "Keep") "✓" else "🔥"} ${ids.size}/$required",
             Modifier.align(Alignment.TopStart).background(color, RoundedCornerShape(4.dp))
-                .padding(horizontal = 3.dp).semantics { contentDescription = "$label ${ids.size}/$required" },
-            color = Color.White, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                .padding(horizontal = 3.dp * scale).testTag("pod-pick-${label.lowercase()}-chip")
+                .semantics { contentDescription = "$label ${ids.size}/$required" },
+            color = Color.White, style = chip.copy(fontSize = chip.fontSize * scale, lineHeight = chip.lineHeight * scale), maxLines = 1)
     }
 }
 

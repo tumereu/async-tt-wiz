@@ -109,11 +109,14 @@ class PickOnTableTest : E2e() {
         waitUntil("paid, Cast usable on the main button") { alice.mainSays("Cast") }
         val logged = PickLog.count()
         val flashes = alice.hand("Red Flash").size
-        // Two taps with no time between them on this phone's clock: the second lands on whatever the button says by then
+        // Two taps with no time between them on this phone's clock: the second lands on whatever the button says by then. That
+        // is the wait's Assume once the cast has gone out (TRN-063), when the cast's work off the main thread finished before
+        // the second tap looked for the button (full e2e run 2026-11-15: no node "main-button" there)
+        val mainButton = hasTestTag("main-button") or hasTestTag("engine-wait-action")
         alice.node(hasTestTag("main-button")).performClick()
-        val second = alice.stepArrow() ?: alice.nodes(hasTestTag("main-button")).fetchSemanticsNodes().firstOrNull()
+        val second = alice.stepArrow() ?: alice.nodes(mainButton).fetchSemanticsNodes().firstOrNull()
             ?.config?.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }?.joinToString()
-        alice.node(hasTestTag("main-button")).performClick()
+        alice.node(mainButton).performClick()
         waitUntil("Red Flash on the Stack, sent", along = emptyList()) {
             alice.state.stack.size == 1 && alice.engine { device.session.pending.isEmpty() } && !alice.showsControl("Show cast panel")
         }

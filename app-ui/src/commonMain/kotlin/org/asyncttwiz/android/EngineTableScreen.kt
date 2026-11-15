@@ -412,9 +412,12 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                     controller.writeChat(ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id)))
                 }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread))
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                TableSurface(game, play, accountId, landscape || desktopLayout, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
-                    onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(chat = chatOpener,
+                // HIS-113, HIS-021 (full e2e run 2026-11-15, CombatHoldTest): the table stays the same one throughout the game.
+                // Its hooks worked out in its own call, Compose made the table anew as a combat's hold began and as it ended (when
+                // the hooks' double-tap skip comes and goes), and all it held went with it: a finger already down
+                // on it lost its hold and the pause, its gestures, its card animation. Worked out before it, and the table keyed,
+                // Compose finds the same table. The app log says when a table is made and let go (TableSurface)
+                val hooks = TableRuntimeHooks(chat = chatOpener,
                         navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
@@ -478,7 +481,11 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         // WEB-017: the game chat docked at the right (the Stack stays on the table, STK-007)
                         desktopDock = if (!chatDocked) null else ({
                             DesktopDock { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
-                        })))
+                        }))
+                key(game.id) {
+                    TableSurface(game, play, accountId, landscape || desktopLayout, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
+                        onIntent = toolkit::handle, toolkit = toolkit, runtime = hooks)
+                }
                 // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the
                 // battlefields' top, under the other player's seat header
                 Box(if (desktopFrame == null) Modifier.matchParentSize()

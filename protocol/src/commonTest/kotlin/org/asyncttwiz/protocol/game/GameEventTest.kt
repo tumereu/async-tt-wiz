@@ -87,12 +87,13 @@ class GameEventTest {
         val alice = PlayerId("alice")
         val obj = ObjectId.Card(arcanum.engine.state.CardId("c1"), 2)
         var table = TableState()
-        table = TableChange.LineMoved(Line(), Line(0, 2)).apply(table)
+        val two = Line(0, mapOf(alice to 2))
+        table = TableChange.LineMoved(Line(), two).apply(table)
         table = TableChange.AttackDraft(null, listOf(arcanum.engine.input.Attack(obj, arcanum.engine.state.TargetRef.Player(alice)))).apply(table)
-        assertEquals(Line(0, 2), table.line)
+        assertEquals(two, table.line)
         assertFailsWith<IllegalStateException> { TableChange.AttackDraft(null, emptyList()).apply(table) }
-        assertFailsWith<IllegalStateException> { TableChange.LineMoved(Line(), Line(1, 0)).apply(table) }
-        table = TableChange.LineMoved(Line(0, 2), Line()).apply(table)
+        assertFailsWith<IllegalStateException> { TableChange.LineMoved(Line(), Line(1)).apply(table) }
+        table = TableChange.LineMoved(two, Line()).apply(table)
         assertEquals(TableState(attackDraft = table.attackDraft), table)
     }
 

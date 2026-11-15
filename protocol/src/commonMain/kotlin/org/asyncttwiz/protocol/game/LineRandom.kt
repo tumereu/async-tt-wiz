@@ -2,23 +2,27 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.RandomKind
+import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.RandomV1
 import org.asyncttwiz.protocol.sha256
 
 /**
- * A game's randomness, deterministic per line of play (I-D56 §9): the k-th random answer of line n (its reshuffle of the
- * libraries' unknown parts, shuffles, mulligans, coin flips, die rolls, random choices) comes from H(secret, n, k), so the
- * same input on a line gives the same result, every new line gives new results, and the server checks each device's
- * random answer against it. The secret is made by the server when a play starts ([TableState.secret]); both devices hold
- * it (I-D27: the unmodified app never shows anything worked out from it before it happens).
+ * A game's randomness, deterministic per line of play and per player (I-D56 §9; first turn during mulligans §5, HIS-042):
+ * the k-th random answer of player X on line n (their library's part of a line's reshuffle of the libraries' unknown
+ * parts, their shuffles and mulligans, their coin flips and die rolls, their random choices: X is the player the engine's
+ * random decision names, [arcanum.engine.decision.Decision.Random.player]) comes from H(secret, n, X, k), so the same
+ * input on a line gives the same result, every new line gives new results, one player's random answers never move
+ * another's (a mulligan of the other player's doesn't change the cards a player draws), and the server checks each
+ * device's random answer against it. The secret is made by the server when a play starts ([TableState.secret]); both
+ * devices hold it (I-D27: the unmodified app never shows anything worked out from it before it happens).
  */
 object LineRandom {
     /** A secret from 32 random bytes the server made. */
     fun secret(bytes: ByteArray): String = RandomV1.encodeSeed(bytes)
 
-    /** The answer to a random decision of [kind] as the [k]-th random answer of line [line]. */
-    fun answer(secret: String, line: Int, k: Int, kind: RandomKind): Answer {
-        val words = Words(secret, line, k)
+    /** The answer to a random decision of [kind] as the [k]-th random answer of [player] on line [line]. */
+    fun answer(secret: String, line: Int, player: PlayerId, k: Int, kind: RandomKind): Answer {
+        val words = Words(secret, line, player, k)
         return when (kind) {
             RandomKind.CoinFlip -> Answer.CoinFlip(RandomV1.sample(2, words::next) == 1)
             is RandomKind.Die -> Answer.DieRolls(List(kind.count) { RandomV1.sample(kind.sides, words::next) + 1 })
@@ -26,8 +30,9 @@ object LineRandom {
         }
     }
 
-    /** [items] in a new random order as the [k]-th random answer of line [line] (a reshuffle of an unknown part). */
-    fun <T> order(secret: String, line: Int, k: Int, items: List<T>): List<T> = shuffle(items, Words(secret, line, k))
+    /** [items] in a new random order as the [k]-th random answer of [player] on line [line] (a reshuffle of an unknown
+     * part of their library). */
+    fun <T> order(secret: String, line: Int, player: PlayerId, k: Int, items: List<T>): List<T> = shuffle(items, Words(secret, line, player, k))
 
     private fun <T> shuffle(items: List<T>, words: Words): List<T> {
         val result = items.toMutableList()
@@ -38,9 +43,9 @@ object LineRandom {
         return result
     }
 
-    /** 32-bit words of SHA-256 in counter mode over the domain, the secret, the line and the answer's index. */
-    private class Words(secret: String, line: Int, k: Int) {
-        private val prefix = (DOMAIN + secret + "\u0000" + line + "\u0000" + k + "\u0000").encodeToByteArray()
+    /** 32-bit words of SHA-256 in counter mode over the domain, the secret, the line, the player and the answer's index. */
+    private class Words(secret: String, line: Int, player: PlayerId, k: Int) {
+        private val prefix = (DOMAIN + secret + "\u0000" + line + "\u0000" + player.value + "\u0000" + k + "\u0000").encodeToByteArray()
         private var counter = 0L
         private var block = ByteArray(0)
         private var offset = 0
@@ -57,5 +62,5 @@ object LineRandom {
         }
     }
 
-    private const val DOMAIN = "async-tt-wiz/engine-line/v1\u0000"
+    private const val DOMAIN = "async-tt-wiz/engine-line/v2\u0000"
 }

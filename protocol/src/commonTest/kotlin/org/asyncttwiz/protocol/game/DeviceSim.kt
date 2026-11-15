@@ -41,6 +41,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     val leaks = mutableListOf<String>()
     var branches = 0
     var confirmations = 0
+    var reapplies = 0
     var rewinds = 0
     /** The game's assume reveal settings (LOB-135): the server, every device and the leak oracle honour them. Nothing
      * relaxed unless a test says. */
@@ -199,6 +200,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
                 when (result) {
                     is Acceptance.Accepted -> { if (result.discarded != null) branches++; broadcast(listOf(result.event)) }
                     is Acceptance.Confirmed -> { confirmations++; broadcast(emptyList(), confirmed = result.event) }
+                    is Acceptance.Reapplied -> { reapplies++; if (result.reapply.stoppedAt != null) branches++; broadcast(listOf(result.event) + result.reapply.events) }
                 }
             }, { refuse(p, action, it.message ?: "refused") })
             is GameAction.EngineSeen -> {

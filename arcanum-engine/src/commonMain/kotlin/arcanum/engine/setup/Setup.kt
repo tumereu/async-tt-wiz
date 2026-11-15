@@ -65,10 +65,13 @@ data class StartOptions(
     val conspiracies: Boolean = false,
     val handSizes: Map<PlayerId, Int> = emptyMap(),
     /**
-     * A host variant of CR 103.5 for players who don't sit together: each round's mulligan declarations, and the
-     * choices of cards to put on the bottom, may be made in any order. The open decision is still the next one in turn
-     * order; any other player who still has theirs to make in the round may make it ahead of it ([Input.SetupAnswer]).
-     * The mulligans themselves are still taken at the same time once everyone has declared.
+     * A host variant of CR 103.5 for players who don't sit together: each player's mulligans are their own. A player's
+     * declaration is taken as soon as it is made, in the order the players make them, not in rounds: a mulligan at once
+     * (their hand shuffled back, a new hand drawn, then their choice of cards to put on the bottom), a keep ending their
+     * process. The open decision is the next one in turn order of a player who hasn't kept (their declaration, or the
+     * bottom choice their last mulligan owes); any other player who hasn't kept may make theirs ahead of it
+     * ([Input.SetupAnswer]). Each player's hands and library come out as an order of declarations by the rules would give
+     * them (each draws only from their own library); only who decides knowing what differs.
      */
     val simultaneousMulligans: Boolean = false,
 )
@@ -95,8 +98,9 @@ sealed interface SetupStage {
     /** CR 103.5: the next player in turn order who hasn't kept declares keep or mulligan. */
     @Serializable @SerialName("declare") data class Declare(val mulligans: Mulligans) : SetupStage
 
-    /** CR 103.5: everyone who declared a mulligan takes it at the same time: hands shuffled back, new hands drawn. */
-    @Serializable @SerialName("mulligan") data class Mulligan(val mulligans: Mulligans) : SetupStage
+    /** CR 103.5: everyone who declared a mulligan takes it at the same time: hands shuffled back, new hands drawn; with
+     * [StartOptions.simultaneousMulligans], [player] alone takes theirs, as soon as they declared it. */
+    @Serializable @SerialName("mulligan") data class Mulligan(val mulligans: Mulligans, val player: PlayerId? = null) : SetupStage
 
     /** CR 103.5: then each of them, in turn order, puts cards on the bottom; [done] already did. */
     @Serializable @SerialName("bottom") data class Bottom(val mulligans: Mulligans, val done: List<PlayerId> = emptyList()) : SetupStage
@@ -109,7 +113,8 @@ sealed interface SetupStage {
 }
 
 /** The mulligan process so far (CR 103.5): mulligans [taken] by each player, who [kept], and who declared a mulligan in
- * this round ([taking]). */
+ * this round ([taking]); with [StartOptions.simultaneousMulligans], who took a mulligan and still owes the cards it puts
+ * on the bottom. */
 @Serializable
 data class Mulligans(
     val taken: Map<PlayerId, Int> = emptyMap(),
@@ -136,7 +141,9 @@ val GameState.started: Boolean get() = turn.number > 0
  * 4. Mulligans (CR 103.5): the starting player, then each other player in turn order, declares keep or mulligan; then
  *    everyone who chose a mulligan takes it at once: hand shuffled back, a new hand drawn, then as many cards as
  *    mulligans taken (the first one free in multiplayer, CR 103.5c) put on the bottom of the library, in the order chosen
- *    (the last chosen lowest). This repeats until all have kept; a player whose hand is down to zero cards keeps.
+ *    (the last chosen lowest). This repeats until all have kept; a player whose hand is down to zero cards keeps. With
+ *    [StartOptions.simultaneousMulligans] (a host variant) each player's declarations are taken as they come instead, a
+ *    mulligan at once with its bottom choice, so each player's mulligans are their own.
  * 5. Opening-hand actions (CR 103.6): starting player first, each player may put cards with "if this card is in your
  *    opening hand, you may begin the game with it on the battlefield" onto the battlefield (CR 103.6a). Actions "any time you could mulligan" (CR 103.5b,
  *    [arcanum.api.Mechanic.WhenYouCouldMulligan]) are offered with each declaration, as further options ([USE] and the card's
@@ -206,52 +213,47 @@ internal object Setup {
         val next: SetupStage = when (val stage = c.stage) {
             is SetupStage.Declare -> {
                 val m = stage.mulligans
-                require(p !in m.kept && p !in m.taking) { "$p has declared in this round already" }
-                val choice = (input.answer as? Answer.Option)?.chosen
-                require(choice == KEEP || (choice == MULLIGAN && canMulligan(s, m, p, c.options))) { "Answer $KEEP or $MULLIGAN" }
-                recorder.record(Changes.pending(s, null))
-                if (choice == MULLIGAN) SetupStage.Declare(m.copy(taking = m.taking + p))
-                else {
-                    recorder.record(Change.Happened(GameEvent.Kept(p, s.player(p).hand.size)))
-                    SetupStage.Declare(m.copy(kept = m.kept + p))
+                require(p !in m.kept) { "$p has kept already" }
+                if (p in m.taking) {
+                    // The cards [p]'s last mulligan puts on the bottom (CR 103.5)
+                    val hand = s.player(p).hand
+                    val n = bottomCount(s, m, p, c.options)
+                    val chosen = (input.answer as? Answer.Objects)?.chosen ?: throw IllegalArgumentException("Answer with the cards")
+                    require(chosen.size == n && chosen.distinct().size == n && chosen.all { it in hand }) { "Choose $n cards of $p's hand" }
+                    recorder.record(Changes.pending(s, null))
+                    if (chosen.isNotEmpty()) {
+                        recorder.record(Changes.move(s, chosen, Zone.Library, Changes.Position.Bottom, meanings = listOf(Meaning.PutIntoLibrary)))
+                    }
+                    SetupStage.Declare(m.copy(taking = m.taking - p))
+                } else {
+                    val choice = (input.answer as? Answer.Option)?.chosen
+                    require(choice == KEEP || (choice == MULLIGAN && canMulligan(s, m, p, c.options))) { "Answer $KEEP or $MULLIGAN" }
+                    recorder.record(Changes.pending(s, null))
+                    // Taken at once: [p]'s mulligans are their own
+                    if (choice == MULLIGAN) SetupStage.Mulligan(m, p)
+                    else {
+                        recorder.record(Change.Happened(GameEvent.Kept(p, s.player(p).hand.size)))
+                        SetupStage.Declare(m.copy(kept = m.kept + p))
+                    }
                 }
-            }
-            is SetupStage.Bottom -> {
-                val m = stage.mulligans
-                require(p in m.taking && p !in stage.done) { "$p has no cards to put on the bottom in this round" }
-                val hand = s.player(p).hand
-                val n = bottomCount(s, m, p, c.options)
-                val chosen = (input.answer as? Answer.Objects)?.chosen ?: throw IllegalArgumentException("Answer with the cards")
-                require(chosen.size == n && chosen.distinct().size == n && chosen.all { it in hand }) { "Choose $n cards of $p's hand" }
-                recorder.record(Changes.pending(s, null))
-                if (chosen.isNotEmpty()) {
-                    recorder.record(Changes.move(s, chosen, Zone.Library, Changes.Position.Bottom, meanings = listOf(Meaning.PutIntoLibrary)))
-                }
-                stage.copy(done = stage.done + p)
             }
             else -> throw IllegalArgumentException("No mulligan decision is open")
         }
         return run(recorder, next, c.options, emptyList())
     }
 
-    /** The [Input.SetupAnswer]s [player] may give while [pending] is open: a declaration or a bottom choice (the first
-     * cards of their hand; any such choice is accepted) of this round they haven't made, while another player's is open. */
+    /** The [Input.SetupAnswer]s [player] may give while [pending] is open: their declaration, or the bottom choice their
+     * last mulligan owes (the first cards of their hand; any such choice is accepted), while another player's is open and
+     * they haven't kept. */
     fun earlyAnswers(s: GameState, pending: Pending, player: PlayerId): List<Input> {
         val c = pending.continuation as? Continuation.Setup ?: return emptyList()
         if (!c.options.simultaneousMulligans || pending.decision.player == player || s.player(player).lost) return emptyList()
-        return when (val stage = c.stage) {
-            is SetupStage.Declare -> {
-                val m = stage.mulligans
-                if (player in m.kept || player in m.taking) emptyList()
-                else listOfNotNull(Input.SetupAnswer(player, Answer.Option(KEEP)),
-                    if (canMulligan(s, m, player, c.options)) Input.SetupAnswer(player, Answer.Option(MULLIGAN)) else null)
-            }
-            is SetupStage.Bottom -> {
-                val m = stage.mulligans
-                if (player !in m.taking || player in stage.done) emptyList()
-                else listOf(Input.SetupAnswer(player, Answer.Objects(s.player(player).hand.take(bottomCount(s, m, player, c.options)))))
-            }
-            else -> emptyList()
+        val m = (c.stage as? SetupStage.Declare)?.mulligans ?: return emptyList()
+        return when (player) {
+            in m.kept -> emptyList()
+            in m.taking -> listOf(Input.SetupAnswer(player, Answer.Objects(s.player(player).hand.take(bottomCount(s, m, player, c.options)))))
+            else -> listOfNotNull(Input.SetupAnswer(player, Answer.Option(KEEP)),
+                if (canMulligan(s, m, player, c.options)) Input.SetupAnswer(player, Answer.Option(MULLIGAN)) else null)
         }
     }
 
@@ -290,7 +292,7 @@ internal object Setup {
         SetupStage.Shuffle -> "shuffle"
         SetupStage.Draw -> "draw"
         is SetupStage.Declare -> stage.mulligans.let { "declare:${it.taken.values.sum()}:${it.kept.size}:${it.taking.size}" }
-        is SetupStage.Mulligan -> "mulligan:${stage.mulligans.taken.values.sum()}"
+        is SetupStage.Mulligan -> "mulligan:${stage.mulligans.taken.values.sum()}${stage.player?.let { ":${it.value}" }.orEmpty()}"
         is SetupStage.Bottom -> "bottom:${stage.mulligans.taken.values.sum()}:${stage.done.size}"
         is SetupStage.OpeningHand -> "opening-hand:${stage.done.size}"
         SetupStage.FirstTurn -> "first-turn"
@@ -317,7 +319,7 @@ internal object Setup {
             SetupStage.Declare(Mulligans())
         }
         is SetupStage.Declare -> declare(act, stage.mulligans, options)
-        is SetupStage.Mulligan -> mulligan(act, stage.mulligans, options)
+        is SetupStage.Mulligan -> mulligan(act, stage.mulligans, options, stage.player)
         is SetupStage.Bottom -> bottom(act, stage, options)
         is SetupStage.OpeningHand -> openingHand(act, stage)
         SetupStage.FirstTurn -> {
@@ -447,9 +449,15 @@ internal object Setup {
 
     private fun declare(act: Act, m: Mulligans, options: StartOptions): SetupStage {
         val s = act.state
-        val player = order(s).firstOrNull { it !in m.kept && it !in m.taking }
+        val own = options.simultaneousMulligans
+        val player = (if (own) order(s).firstOrNull { it !in m.kept } else order(s).firstOrNull { it !in m.kept && it !in m.taking })
             // CR 103.6: opening-hand actions, once nobody takes a mulligan any more
             ?: return if (order(s).none { it in m.taking }) SetupStage.OpeningHand() else SetupStage.Mulligan(m)
+        // The host variant: the cards [player]'s last mulligan puts on the bottom (CR 103.5), before their next declaration
+        if (own && player in m.taking) {
+            bottomOf(act, m, player, options)
+            return SetupStage.Declare(m.copy(taking = m.taking - player))
+        }
         // A hand already down to zero cards can't be mulliganed again (CR 103.5)
         val canMulligan = counted(m.taken[player] ?: 0, freeFirst(s, options)) < handSize(act, player, options)
         // CR 103.5b: actions "any time you could mulligan" of cards in their hand, then they declare
@@ -465,14 +473,16 @@ internal object Setup {
             return SetupStage.Declare(m)
         }
         require(choice == KEEP || (choice == MULLIGAN && canMulligan)) { "Answer $KEEP or $MULLIGAN" }
+        // The host variant: taken at once, [player]'s mulligans being their own
+        if (choice == MULLIGAN && own) return SetupStage.Mulligan(m, player)
         if (choice == MULLIGAN) return SetupStage.Declare(m.copy(taking = m.taking + player))
         act.record(Change.Happened(GameEvent.Kept(player, s.player(player).hand.size)))
         return SetupStage.Declare(m.copy(kept = m.kept + player))
     }
 
-    private fun mulligan(act: Act, m: Mulligans, options: StartOptions): SetupStage {
+    private fun mulligan(act: Act, m: Mulligans, options: StartOptions, only: PlayerId?): SetupStage {
         val s = act.state
-        val players = order(s).filter { it in m.taking }
+        val players = if (only != null) listOf(only) else order(s).filter { it in m.taking }
         val taken = m.taken + players.associateWith { (m.taken[it] ?: 0) + 1 }
         // All at the same time (CR 103.5): hands shuffled back and new hands drawn, committed before anyone chooses
         players.forEach { p ->
@@ -482,6 +492,12 @@ internal object Setup {
             Actions.shuffle(act, p)
             Actions.draw(act, null, p, handSize(act, p, options))
         }
+        // The host variant: [only] owes the cards it puts on the bottom (none: they declare again at once)
+        if (only != null) {
+            val after = m.copy(taken = taken)
+            val owes = bottomCount(act.state, after, only, options) > 0
+            return SetupStage.Declare(after.copy(taking = if (owes) m.taking + only else m.taking))
+        }
         return SetupStage.Bottom(m.copy(taken = taken))
     }
 
@@ -490,12 +506,19 @@ internal object Setup {
         val m = stage.mulligans
         val p = order(s).firstOrNull { it in m.taking && it !in stage.done }
             ?: return SetupStage.Declare(m.copy(taking = emptyList()))
+        bottomOf(act, m, p, options)
+        return stage.copy(done = stage.done + p)
+    }
+
+    /** CR 103.5: [p] puts as many cards from their hand on the bottom of their library as their mulligans count, in the order
+     * they choose. */
+    private fun bottomOf(act: Act, m: Mulligans, p: PlayerId, options: StartOptions) {
+        val s = act.state
         val hand = s.player(p).hand
         val n = bottomCount(s, m, p, options)
         val chosen = act.chooseObjects(p, null, hand, n, n, "Put $n ${if (n == 1) "card" else "cards"} on the bottom of your library (CR 103.5)")
         if (chosen.isNotEmpty()) {
             act.record(Changes.move(s, chosen, Zone.Library, Changes.Position.Bottom, meanings = listOf(Meaning.PutIntoLibrary)))
         }
-        return stage.copy(done = stage.done + p)
     }
 }

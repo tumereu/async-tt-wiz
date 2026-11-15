@@ -78,7 +78,7 @@ class AuthorityTest {
         assertEquals(1, server.state().engine.turn.number)
         // The random answers were the line's: the game's start used line 0's stream, nothing else
         assertEquals(0, server.state().table.line.number)
-        assertTrue(server.state().table.line.drawn > 0)
+        assertTrue(server.state().table.line.total > 0)
     }
 
     // HIS-092: a submission is taken or refused whole
@@ -148,10 +148,11 @@ class AuthorityTest {
         assertEquals(assumed, server.head)
     }
 
-    // I-D56 §8, §9: another answer is a branch: a new line from the counter, reshuffled; the old line is discarded
-    // HIS-043, ZON-024: the discarded line is kept and shown to nobody; the new line reshuffles
+    // HIS-115, HIS-097 (owner 2026-11-15): another opening answer at the assumed keep doesn't branch at once: Bob's mulligan
+    // is made on his local head on the same line and Alice's line is made again on top of it (her passes stand)
+    // HIS-043: the old line is kept in storage and shown to nobody; her inputs on it are stale
     @Test
-    fun anotherAnswerBranchesAndTheDiscardedLineIsShownToNobody() {
+    fun aMulliganAtTheAssumedKeepMakesTheLineAgainAndTheOldLineIsShownToNobody() {
         val server = AsyncServer(EngineGames(5))
         server.start()
         val alice = server.alice; val bob = server.bob
@@ -163,44 +164,56 @@ class AuthorityTest {
         server.playOn(alice) { it.engine.turn.step == TurnStep.PrecombatMain }
         val oldLine = server.line().map { it.id }
         assertEquals(server.head, server.heads[alice])
-        // Bob mulligans instead: without a new line it's refused; with the next line it branches at his local head
         val at = server.stateAt(aliceKeep)
         val open = at.engine.pending!!.decision
-        val (plain, _) = server.make(server.stateAt(aliceKeep), aliceKeep, bob, Input.Answer(open.id, Answer.Option("Mulligan")))
-        assertEquals("newLine", server.submit(plain, bob).exceptionOrNull()?.message)
-        val (branch, made) = server.make(server.stateAt(aliceKeep), aliceKeep, bob, Input.Answer(open.id, Answer.Option("Mulligan")), newLine = 1)
-        val accepted = assertIs<Acceptance.Accepted>(server.submit(branch, bob).getOrThrow())
-        assertEquals(made, accepted.event)
-        assertEquals(assumed, accepted.discarded)
-        assertEquals(1, accepted.event.startsLine)
-        // The new line's first step reshuffled the libraries' unknown parts; nothing known moved (all unknown here)
-        val reseed = accepted.event.engine!!.steps.first()
-        assertNull(reseed.input)
-        assertTrue(reseed.changes.all { it is arcanum.engine.change.Change.Reorder })
-        assertNotEquals(at.engine.player(alice).library, server.state().engine.player(alice).library)
-        // The discarded line: kept in storage, not on the main line; Alice's local head fell back to the branch point
-        assertEquals(listOf("start", aliceKeep, accepted.event.id), server.line().map { it.id })
+        val (plain, made) = server.make(server.stateAt(aliceKeep), aliceKeep, bob, Input.Answer(open.id, Answer.Option("Mulligan")))
+        val reapplied = assertIs<Acceptance.Reapplied>(server.submit(plain, bob).getOrThrow())
+        assertEquals(made, reapplied.event)
+        assertEquals(assumed, reapplied.discarded)
+        assertNull(reapplied.event.startsLine, "no new line")
+        // The stand-in bottom his mulligan owes (two players: the first isn't free), the keep again, then her passes made again
+        assertNull(reapplied.reapply.stoppedAt, reapplied.reapply.why)
+        assertEquals(listOf("start", aliceKeep, made.id) + reapplied.reapply.events.map { it.id }, server.line().map { it.id })
         assertTrue(oldLine.drop(2).all { server.store.node(it) != null && it !in server.line().map { e -> e.id } })
-        assertEquals(aliceKeep, server.heads[alice])
+        assertEquals(server.head, server.heads[alice])
         // Her inputs on the old line are stale now
         val (late, _) = server.make(server.stateAt(oldLine.last()), oldLine.last(), alice, Input.PassPriority(alice))
         assertEquals("stale", server.submit(late, alice).exceptionOrNull()?.message)
-        // The next new line takes the counter's next number, never the parent's again (§9)
-        assertEquals(1, server.lines)
-        assertEquals("stale", runCatching {
-            Authority.make(server.state(), Submission("n", server.head, listOf(Act.NewLine(1))), bob, Authority.Rules(nextLine = 2))
-        }.exceptionOrNull()?.message)
+        assertEquals(0, server.lines)
     }
 
-    // I-D56 §9: the k-th random answer of line n is H(secret, n, k): the same on a line, new on another
+    // HIS-042 (I-D56 §9): the k-th random answer of player X on line n is H(secret, n, X, k): the same on a line, new on
+    // another line, and each player's own
     @Test
-    fun randomAnswersAreDeterministicPerLine() {
+    fun randomAnswersAreDeterministicPerLineAndPlayer() {
         val secret = LineRandom.secret(ByteArray(32) { it.toByte() })
         val kind = arcanum.engine.decision.RandomKind.Objects((1..30).map { ObjectId.Card(arcanum.engine.state.CardId("c$it"), 0) }, 30)
-        assertEquals(LineRandom.answer(secret, 2, 5, kind), LineRandom.answer(secret, 2, 5, kind))
-        assertNotEquals(LineRandom.answer(secret, 2, 5, kind), LineRandom.answer(secret, 3, 5, kind))
-        assertNotEquals(LineRandom.answer(secret, 2, 5, kind), LineRandom.answer(secret, 2, 6, kind))
-        assertNotEquals(LineRandom.answer(secret, 2, 5, kind), LineRandom.answer(LineRandom.secret(ByteArray(32)), 2, 5, kind))
+        val alice = PlayerId("alice")
+        assertEquals(LineRandom.answer(secret, 2, alice, 5, kind), LineRandom.answer(secret, 2, alice, 5, kind))
+        assertNotEquals(LineRandom.answer(secret, 2, alice, 5, kind), LineRandom.answer(secret, 3, alice, 5, kind))
+        assertNotEquals(LineRandom.answer(secret, 2, alice, 5, kind), LineRandom.answer(secret, 2, alice, 6, kind))
+        assertNotEquals(LineRandom.answer(secret, 2, alice, 5, kind), LineRandom.answer(secret, 2, PlayerId("bob"), 5, kind))
+        assertNotEquals(LineRandom.answer(secret, 2, alice, 5, kind), LineRandom.answer(LineRandom.secret(ByteArray(32)), 2, alice, 5, kind))
+    }
+
+    // HIS-042 (first turn during mulligans §5): each player's random answers come from their own stream: Bob's mulligans
+    // (his shuffles) before Alice's draw never change the cards she draws
+    @Test
+    fun theOtherPlayersRandomAnswersDontMoveAPlayersOwn() {
+        fun aliceAfter(bobMulligans: Int): List<ObjectId> {
+            val server = AsyncServer(EngineGames(1))
+            server.start()
+            repeat(bobMulligans) { server.act(server.bob, Input.SetupAnswer(server.bob, Answer.Option("Mulligan"))).getOrThrow()
+                server.pending()?.takeIf { it is arcanum.engine.decision.Decision.ChooseObjects && it.player == server.bob }
+                    ?.let { d -> server.act(server.bob, Input.Answer(d.id, Answer.Objects((d as arcanum.engine.decision.Decision.ChooseObjects).options.takeLast(d.min)))).getOrThrow() }
+                Engine.options(server.state().engine, server.bob).filterIsInstance<Input.SetupAnswer>().firstOrNull { it.answer is Answer.Objects }
+                    ?.let { server.act(server.bob, it).getOrThrow() } }
+            server.act(server.alice, Input.Answer(server.pending()!!.id, Answer.Option("Mulligan"))).getOrThrow()
+            return server.state().engine.player(server.alice).hand.toList()
+        }
+        val hand = aliceAfter(0)
+        assertEquals(hand, aliceAfter(1))
+        assertEquals(hand, aliceAfter(3))
     }
 
     // I-D56 §3: only the assumable kinds, only where the other player decides, never at their stop

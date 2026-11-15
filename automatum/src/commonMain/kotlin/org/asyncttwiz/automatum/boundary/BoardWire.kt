@@ -203,6 +203,7 @@ sealed interface NoteWire {
     @Serializable @SerialName("branched")
     data class Branched(val by: PlayerId, val discarded: String, val takenBack: List<String>, val actions: List<String> = emptyList()) : NoteWire
     @Serializable @SerialName("taken-back") data class TakenBack(val by: PlayerId, val takenBack: List<String>) : NoteWire
+    @Serializable @SerialName("stands") data class Stands(val by: PlayerId, val mulligan: Boolean) : NoteWire
     @Serializable @SerialName("request-needed") data class RequestNeeded(val target: String) : NoteWire
     @Serializable @SerialName("refused") data class Refused(val reason: String, val on: ObjectId? = null) : NoteWire
 
@@ -210,6 +211,7 @@ sealed interface NoteWire {
         fun of(note: GameDevice.Note, ref: (GameEvent) -> String): NoteWire = when (note) {
             is GameDevice.Note.Branched -> Branched(note.by, ref(note.discarded), note.takenBack.map(ref), note.actions.map(ref))
             is GameDevice.Note.TakenBack -> TakenBack(note.by, note.takenBack.map(ref))
+            is GameDevice.Note.Stands -> Stands(note.by, note.mulligan)
             is GameDevice.Note.RequestNeeded -> RequestNeeded(note.target)
             is GameDevice.Note.Refused -> Refused(note.reason, note.on)
         }
@@ -218,6 +220,7 @@ sealed interface NoteWire {
     fun restored(event: (String) -> GameEvent): GameDevice.Note = when (this) {
         is Branched -> GameDevice.Note.Branched(by, event(discarded), takenBack.map(event), actions.map(event))
         is TakenBack -> GameDevice.Note.TakenBack(by, takenBack.map(event))
+        is Stands -> GameDevice.Note.Stands(by, mulligan)
         is RequestNeeded -> GameDevice.Note.RequestNeeded(target)
         is Refused -> GameDevice.Note.Refused(reason, on)
     }

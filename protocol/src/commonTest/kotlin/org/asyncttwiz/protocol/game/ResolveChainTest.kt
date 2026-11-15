@@ -45,7 +45,7 @@ class ResolveChainTest {
      * for Bob over the trigger, with Assume.
      */
     private fun twoOfHersOnTheStack(mode: ResponseMode = ResponseMode.AutoSkip): DeviceSim {
-        val sim = DeviceSim(EngineGames(3, (List(10) { "Mountain" } + List(15) { altar } + List(15) { martyr }) to
+        val sim = DeviceSim(EngineGames(3, (List(20) { altar } + List(20) { martyr }) to
             (List(20) { "Island" } + List(20) { glimmer })))
         sim.start(sim.alice, alwaysAssume = false)
         sim.keepWhileAway(sim.alice)

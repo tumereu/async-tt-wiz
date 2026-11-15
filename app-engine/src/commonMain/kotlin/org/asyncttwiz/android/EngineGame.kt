@@ -1439,6 +1439,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val offered: Input = when ((seen.status as? GameDevice.Status.Waiting)?.offer) {
             GameDevice.Offer.AssumeResolves -> Input.PassPriority(state.priority.holder ?: return false)
             GameDevice.Offer.AssumeBlockers -> Input.DeclareBlockers(device.opponent, blocks)
+            GameDevice.Offer.AssumeKeep -> org.asyncttwiz.protocol.game.Reapply.assumedKeep(state, device.me) ?: return false
             null -> return false
         }
         if (device.pressedByItself(seen.tip, offered)) return true

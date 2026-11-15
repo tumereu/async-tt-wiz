@@ -232,6 +232,8 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
     var mode: ResponseMode? = null
     /** The main button press the event records ([GameEvent.press]). */
     var press: MainPress? = null
+    /** The event of a discarded line this one is made again from ([GameEvent.carriedFrom], [Reapply]). */
+    var carriedFrom: String? = null
     private val timestampBefore = model.engine.timestampCounter
     private val lineBefore = model.table.line
     private var line = lineBefore
@@ -285,15 +287,16 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         model.keep(outcome.view)
         steps += EngineStep(input, outcome.changes, assumedBy)
         if (random != null && input is Input.Answer && input.decision == random.id) {
-            line = line.copy(drawn = line.drawn + 1)
+            line = line.next(random.player)
             randomSteps += steps.size - 1
         }
         return outcome
     }
 
-    /** The answer the line's stream gives the open random decision [decision] (I-D56 §9), without making it. */
+    /** The answer the stream of the player [decision] names gives it on the line (I-D56 §9, each player's own stream), without
+     * making it. */
     fun randomAnswer(decision: Decision.Random): Answer =
-        LineRandom.answer(model.table.secret, line.number, line.drawn, decision.what)
+        LineRandom.answer(model.table.secret, line.number, decision.player, line.drawn(decision.player), decision.what)
 
     /** Answers the engine's random decisions from the line's stream until none is open (D25: the host's randomness). */
     fun answerRandoms() {
@@ -305,16 +308,16 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
 
     /**
      * Starts line [number] (I-D56 §9): as the event's first step, each player's library's unknown parts
-     * ([Host.unknownOrder]) are put in a new order from the new line's stream, one random answer per part, in players'
-     * order; cards whose place a player knows stay where they are. Shown nowhere.
+     * ([Host.unknownOrder]) are put in a new order from the new line's stream of that library's owner, one random answer
+     * per part; cards whose place a player knows stay where they are. Shown nowhere.
      */
     fun startLine(number: Int) {
         check(!done && steps.isEmpty()) { "A line starts with an event's first step" }
-        line = Line(number, 0)
+        line = Line(number)
         val changes = mutableListOf<Change>()
         for (player in model.engine.players) {
             val parts = Host.unknownOrder(model.engine, player.id).map { part ->
-                LineRandom.order(model.table.secret, line.number, line.drawn, part).also { line = line.copy(drawn = line.drawn + 1) }
+                LineRandom.order(model.table.secret, line.number, player.id, line.drawn(player.id), part).also { line = line.next(player.id) }
             }
             Host.reorderUnknown(model.engine, player.id, parts)?.let { reorder ->
                 pristine = false
@@ -355,13 +358,13 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
     /** Web client step 4c: the event as made so far, not ended (its line's move not added, nothing dropped from the log):
      * applying its changes straight to the state it was begun on gives the model's state now. */
     fun provisional(): GameEvent =
-        GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode, press)
+        GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode, press, carriedFrom)
 
     fun build(): GameEvent {
         check(!done) { "The event was built or abandoned" }
         if (line != lineBefore) table(TableChange.LineMoved(lineBefore, line))
         done = true
-        val event = GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode, press)
+        val event = GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode, press, carriedFrom)
         model.afterEvent()
         return event
     }

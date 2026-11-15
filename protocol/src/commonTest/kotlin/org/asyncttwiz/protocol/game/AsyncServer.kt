@@ -35,10 +35,10 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
 
     /** The game's start, made by the server itself: both local heads at it (each player is shown their opening);
      * [handSizes]: opening hands other than seven cards. */
-    fun start(starter: PlayerId = alice, handSizes: Map<PlayerId, Int> = emptyMap()): GameEvent {
+    fun start(starter: PlayerId = alice, handSizes: Map<PlayerId, Int> = emptyMap(), freeFirstMulligan: Boolean? = null): GameEvent {
         val model = history.stateAt("root")
         val builder = EventBuilder(model, "start", "root", starter.value)
-        builder.perform(Input.StartGame(StartOptions(startingPlayer = starter, simultaneousMulligans = true, handSizes = handSizes)))
+        builder.perform(Input.StartGame(StartOptions(startingPlayer = starter, simultaneousMulligans = true, handSizes = handSizes, freeFirstMulligan = freeFirstMulligan)))
         builder.answerRandoms()
         val event = builder.build()
         add(event, model)
@@ -57,8 +57,27 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     fun submit(submission: Submission, author: PlayerId): Result<Acceptance.Result> = try {
         val oldHead = head
         val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1, rewindOpen = request != null,
-            aliases = aliases, reveals = reveals)
+            aliases = aliases, reveals = reveals, ids = { "r${++ids}" })
         when (result) {
+            is Acceptance.Reapplied -> {
+                // As the server: the event and the re-made line after it; local heads on the old line go to the events made
+                // from theirs, or back to the branch point when theirs was taken back (HIS-115, HIS-116)
+                val event = result.event
+                val gone = MainLine.after(history, oldHead, event.parentId)!!.map { it.id }.toSet()
+                val made = listOf(event) + result.reapply.events
+                var model = history.stateAt(event.parentId)
+                for (e in made) {
+                    model.apply(e)
+                    store.add(e, history.checkpointFor(store.depthOfParent(e) + 1, model))
+                }
+                head = made.last().id
+                warm = result.live
+                heads[author] = event.id
+                val carried = result.reapply.events.associateBy { it.carriedFrom }
+                heads.replaceEach { _, h -> if (h in gone) carried[h]?.id ?: head else h }
+                if (result.reapply.stoppedAt != null) lines = result.nextLine
+                request = null
+            }
             is Acceptance.Accepted -> {
                 val event = result.event
                 if (result.discarded != null) {

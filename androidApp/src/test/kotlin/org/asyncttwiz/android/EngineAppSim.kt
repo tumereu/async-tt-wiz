@@ -146,7 +146,26 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
             is GameAction.Submit -> try {
                 val oldHead = head
                 when (val result = Acceptance.accept(history, head, warm, action.submission, me, heads.mapKeys { PlayerId(it.key) },
-                    lines + 1, rewindOpen = request != null)) {
+                    lines + 1, rewindOpen = request != null, ids = { DeviceRandom.uuid() })) {
+                    // HIS-115: as the server, the event and the other player's line made again after it
+                    is Acceptance.Reapplied -> {
+                        val event = result.event
+                        val gone = MainLine.after(history, oldHead, event.parentId)!!.map { it.id }.toSet()
+                        val made = listOf(event) + result.reapply.events
+                        val model = history.stateAt(event.parentId)
+                        for (e in made) {
+                            model.apply(e)
+                            store.add(e, history.checkpointFor(store.depthOfParent(e) + 1, model))
+                        }
+                        head = made.last().id
+                        warm = result.live
+                        heads[p] = event.id
+                        val carried = result.reapply.events.associateBy { it.carriedFrom }
+                        heads.replaceAll { _, h -> if (h in gone) carried[h]?.id ?: head else h }
+                        if (result.reapply.stoppedAt != null) { branches++; lines = result.nextLine }
+                        request = null
+                        broadcast(made, p)
+                    }
                     is Acceptance.Accepted -> {
                         val event = result.event
                         if (result.discarded != null) {

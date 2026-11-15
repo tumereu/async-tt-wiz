@@ -41,7 +41,7 @@ class SamePressTest {
      * then activates the Altar sacrificing the Martyr: its death trigger on the Stack above her ability, her pass folded in.
      */
     private fun twoOfHersOnTheStack(assume: AssumeResolves = AssumeResolves.Normal): DeviceSim {
-        val sim = DeviceSim(EngineGames(3, (List(10) { "Mountain" } + List(15) { altar } + List(15) { martyr }) to List(40) { "Island" }))
+        val sim = DeviceSim(EngineGames(3, (List(20) { altar } + List(20) { martyr }) to List(40) { "Island" }))
         sim.start(sim.alice, alwaysAssume = false)
         sim.keepWhileAway(sim.alice)
         val alice = sim.alice

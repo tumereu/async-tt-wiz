@@ -275,7 +275,8 @@ object WhoActs {
     }
 
     /** Why [author] may not assume [input] of [player] here (I-D56 §3), or null: a pass anywhere but at [player]'s stop,
-     * blocks without costs to block (CR 509.1d), or the opening keep. */
+     * blocks without costs to block (CR 509.1d), or the opening keep (HIS-096: by the starting player once their own opening
+     * is done; where [player]'s last mulligan still owes cards to the bottom, first its stand-in choice, [Reapply.standIn]). */
     private fun assumable(state: GameState, input: Input, player: PlayerId, author: PlayerId): String? = when {
         input is Input.PassPriority -> when {
             state.pending != null || state.priority.holder != player -> "Not an assumable input"
@@ -284,14 +285,22 @@ object WhoActs {
         }
         input is Input.DeclareBlockers ->
             if (CombatDeclarations.blockCosts(state, input.blocks).isNotEmpty()) "Blocks with a cost to block aren't assumed (CR 509.1d)" else null
-        keep(input) -> when {
+        keep(input) || standIn(state, input) -> when {
             state.turn.number != 0 -> "Not an assumable input"
             state.turn.active != author -> "Only the starting player assumes the other player's keep (I-D56 §3)"
             !logged(state) { it is arcanum.engine.change.GameEvent.Kept && it.player == author } -> "Assume a keep after your own"
-            logged(state) { it is arcanum.engine.change.GameEvent.Mulliganed && it.player == player } -> "A keep that owes cards to the bottom isn't assumed"
+            // Their own open opening decision, answered as the assumed keep answers it (HIS-096)
+            Reapply.assumedKeep(state, author) != input -> "Not an assumable input"
             else -> null
         }
         else -> "Not an assumable input"
+    }
+
+    /** Whether [input] answers a bottom choice of the opening with its stand-in ([Reapply.standIn]). */
+    private fun standIn(state: GameState, input: Input): Boolean {
+        val answer = (input as? Input.Answer)?.answer as? Answer.Objects ?: return false
+        val d = state.pending?.decision?.takeIf { it.id == input.decision } ?: return false
+        return Reapply.standIn(state, d) == answer
     }
 
     private fun keep(input: Input): Boolean = when (input) {
@@ -366,6 +375,10 @@ class LiveState(val at: String, val model: GameModel)
  *   author's local head moves past it and the submission is dropped as a duplicate); any other input (a mana ability
  *   or special action first included) is a branch: the new event's parent is P, it starts a new line, and the old line
  *   after P is discarded (kept in storage, shown to nobody);
+ * - the next main-line event after P is the other player's assumed opening answer about the author (their assumed keep or
+ *   its stand-in bottom choice, HIS-096) and the author's answer is another: the submission is made on P without a new
+ *   line and the other player's line after P is made again on top of it ([Reapplied], [Reapply], HIS-115): it stands as far
+ *   as it comes out the same for them, and from the first event that doesn't the game branches;
  * - the next main-line event after P is the other player's own input that the author's submission assumed for them
  *   (the same event, [duplicate]): their real answer came first, and the submission is dropped as its duplicate too
  *   ([Confirmed]; owner 2026-11-07, SYS-077);
@@ -392,6 +405,14 @@ object Acceptance {
      * player's own input [event] that came first, and was dropped. [alias]: the submission's id when it was [event]'s
      * [duplicate] (the same event on the same board): the author's later submissions made on it are taken on [event]. */
     class Confirmed(val event: String, val alias: String? = null) : Result
+    /**
+     * HIS-115: the submission was the author's real opening answer at the other player's assumed opening answer about them
+     * ([discarded], the first event of the line it replaces): [event] is made on its parent without a new line, and
+     * [reapply]'s events (the other player's line made again on top of it) follow it; [live] is the state after the last of
+     * them. When [Reapply.Result.stoppedAt] is set, the rest of the old line was taken back as a branch and a new line is
+     * due at the new head (the line counter moves on to [nextLine], [Rewind.lineDue]).
+     */
+    class Reapplied(val event: GameEvent, val reapply: Reapply.Result, val live: LiveState, val discarded: String, val nextLine: Int) : Result
 
     /**
      * Accepts [sent] by [author] on the main line ending at [head] with each player's local head [heads] (a player
@@ -404,7 +425,8 @@ object Acceptance {
      */
     fun accept(history: GameHistory, head: String, warm: LiveState?, sent: Submission, author: PlayerId,
         heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false, aliases: Map<String, String> = emptyMap(),
-        reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Result {
+        reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE,
+        ids: () -> String = { error("No ids for re-made events") }): Result {
         val submission = aliases[sent.parentId]?.let { sent.copy(parentId = it) } ?: sent
         val concession = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()?.input.let { it is Input.Concede && it.player == author }
         var used: LiveState? = null
@@ -453,6 +475,19 @@ object Acceptance {
             if (about != author && !concession) throw Refusal("stale")
             if (about == author && !concession && assumedInput != null && confirms(first.input, assumedInput))
                 return Confirmed(next.id, alias = submission.id.takeIf { duplicate(submission, next) })
+            // HIS-115: another opening answer at the assumed keep (or its stand-in bottom): made on P on the same line, and the
+            // other player's line made again on top of it
+            var atParent: GameModel? = null
+            if (about == author && !concession && assumed?.assumedBy != null) {
+                val model = state(parent).also { atParent = it }
+                if (Reapply.opening(next, model.engine)) {
+                    val oldBase = model.copy()
+                    val event = Authority.make(model, submission.copy(acts = submission.acts.filter { it !is Act.NewLine }), author,
+                        Authority.Rules(reveals = reveals))
+                    val result = Reapply.run(oldBase, model, event.id, rest, assumed.assumedBy, ids)
+                    return Reapplied(event, result, LiveState(result.events.lastOrNull()?.id ?: event.id, model), next.id, nextLine)
+                }
+            }
             // A branch at the author's local head: a new line, the old line after it discarded. A concession's line is
             // the server's to start when the device didn't (it conceded at what it showed as the head, §11)
             val acts = when {
@@ -460,7 +495,7 @@ object Acceptance {
                 submission.acts.firstOrNull() is Act.NewLine -> submission.acts
                 else -> throw Refusal("newLine")
             }
-            val model = state(parent)
+            val model = atParent ?: state(parent)
             val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine, reveals = reveals))
             return Accepted(event, LiveState(event.id, model), discarded = next.id)
         } catch (refusal: Refusal) {

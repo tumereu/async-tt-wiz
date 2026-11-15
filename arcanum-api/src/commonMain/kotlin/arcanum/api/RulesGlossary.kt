@@ -307,6 +307,7 @@ object RulesGlossary {
         Triple("mayhem", "Mayhem", "If you discarded it this turn, you can cast it (play it, for a land) from your graveyard, for its mayhem cost when it has one."),
         Triple("web-slinging", "Web-slinging", "You may cast it for its web-slinging cost by also returning one of your tapped creatures to your hand."),
         Triple("sneak", "Sneak", "During your declare blockers step you may cast it for its sneak cost by also returning one of your unblocked attackers to your hand; a creature cast this way enters tapped and attacking."),
+        Triple("beam-me-up", "Beam me up", "You can cast it from your graveyard for its beam me up cost by also returning one of your creatures to your hand; then it's exiled."),
         Triple("suspend", "Suspend", "Pay its suspend cost and exile it from your hand with N time counters; at each of your upkeeps remove one, and when the last is gone you cast it for free (a creature gets haste)."),
         Triple("reinforce", "Reinforce", "Pay its reinforce cost and discard it: put N +1/+1 counters on a creature, at instant speed."),
         Triple("awaken", "Awaken", "You may cast it for its awaken cost; then one of your lands also becomes a 0/0 Elemental creature with haste and N +1/+1 counters."),

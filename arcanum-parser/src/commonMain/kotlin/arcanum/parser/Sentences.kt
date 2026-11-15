@@ -4591,8 +4591,9 @@ internal class Sentences(
                     distinct = arcanum.api.SharedQuality.Number(property)), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
         }
-        // dsk chunk 04: "Put the rest on the bottom of your library in a random order." (after picking from among them)
-        if (sentence == "Put the rest on the bottom of your library in a random order." && context.seen != null && context.picked != null) {
+        // dsk chunk 04: "Put the rest on the bottom of your library in a random order." (after picking from among them); trk: "on the bottom in a
+        // random order" (the bottom of the same library, CR 401.1)
+        if (Blb.REST_ON_BOTTOM_RANDOM.matches(sentence) && context.seen != null && context.picked != null) {
             return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(context.seen!!), Objects.Bound(context.picked!!)),
                 Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
@@ -13206,6 +13207,8 @@ internal class Sentences(
         val TARGET_GETS_AND_GAINS = Regex("""(?:Target|(Up to one target)) (.+) gets ([+-]\d+)/([+-]\d+) and gains ([a-z ,]+) until end of turn\.""")
         val IT_GETS = Regex("""(It|This [a-z]+|Equipped creature|Enchanted creature) gets ([+-]\d+)/([+-]\d+)(?: and gains ([a-z ,]+?))? until end of turn\.""")
         val MAY_REVEAL_FROM_AMONG = Regex("""You may reveal an? (.+) from among them\.""")
+        // trk: also without "of your library"
+        val REST_ON_BOTTOM_RANDOM = Regex("""Put the rest on the bottom(?: of your library)? in a random order\.""")
         val ADD_EITHER_FOR_EACH = Regex("""Add \{([WUBRG])\} or \{([WUBRG])\} for each (.+)\.""")
         val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (those cards|that card|them|it)\.""")
         val DRAW_EQUAL_TO_COUNTERS = Regex("""Draw cards equal to the number of (\S+) counters on (.+)\.""")
@@ -21202,7 +21205,7 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "exiled", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Exile), postBind = "exiledCard")))
         }
-        if (sentence == "Put the rest on the bottom of your library in a random order.") {
+        if (Blb.REST_ON_BOTTOM_RANDOM.matches(sentence)) {
             val seen = context.seen ?: return null
             val picked = context.picked ?: return null
             return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(seen), Objects.Bound(picked)), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))

@@ -83,4 +83,57 @@ class EngineMotionQueueTest {
         queue.settled()
         assertTrue(!queue.playing, "on to the board itself")
     }
+
+    /** [board] with [entries] on its Stack, top first. */
+    private fun stacked(board: TableBoard, vararg entries: String) = board.copy(board = board.board.copy(containers =
+        board.board.containers.map { if (it.zone == org.asyncttwiz.protocol.PlayZone.STACK) it.copy(cards = entries.toList()) else it }))
+
+    // HIS-112, TBL-125 (owner playtest 2026-11-15, report VSVLSK: the plays landed on a Stack their entries had already left,
+    // with no arrows): the same board published again while its steps play toward a play shown not landed yet (its status,
+    // the other player's presence) keeps the steps, instead of jumping to the end of the event under the play
+    @Test fun aBoardPublishedAgainKeepsTheStepsTowardAPlayShown() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EngineWorker.Direct)
+        val live = game.shown!!.board
+        val cast = stacked(live, "entry:x")
+        val queue = EngineMotionQueue()
+        queue.board(1, null, live)
+        val event = transition(1, listOf(live, cast, live))
+        val plays = setOf("entry:x")
+        queue.stopEntries = plays
+        assertEquals(live, queue.board(2, event, live, plays = plays))
+        assertTrue(queue.playing)
+        // Published again on the way to the play: the steps go on
+        queue.board(3, event, live, plays = plays)
+        assertTrue(queue.playing, "the steps still going")
+        queue.settled()
+        assertEquals(cast, queue.board(3, event, live, plays = plays), "on to the play's entry on the Stack")
+        queue.settled()
+        assertTrue(queue.reachedEntries(), "stopped where the play shows")
+        assertEquals(cast, queue.board(4, event, live, plays = plays), "still there while it shows")
+    }
+
+    // HIS-112, TBL-125 (owner playtest 2026-11-15, report VSVLSK: the caster's own trigger shown over a Stack its event had
+    // already resolved): the board drawn before has the entry of a play shown not landed yet, and the event's first step
+    // already takes it off the Stack: that board stays drawn until the play has landed, then the steps play
+    @Test fun aFirstStepTakingAPlaysEntryOffTheStackWaitsForThePlay() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EngineWorker.Direct)
+        val live = game.shown!!.board
+        val early = stacked(live, "entry:t", "entry:s")
+        val resolved = stacked(live, "entry:s")
+        val queue = EngineMotionQueue()
+        // The own action's early board, its trigger on the Stack (kept off the table's board until its play lands)
+        queue.board(1, null, early)
+        val plays = setOf("entry:t")
+        queue.stopEntries = plays
+        val whole = transition(1, listOf(resolved, live))
+        assertEquals(early, queue.board(2, whole, live, plays = plays), "the board before the steps, the trigger still there")
+        queue.settled()
+        assertEquals(early, queue.board(2, whole, live, plays = plays), "held while the play shows")
+        assertTrue(queue.reachedEntries(), "the play may show")
+        // It landed
+        queue.stopEntries = emptySet()
+        assertEquals(resolved, queue.board(2, whole, live), "the first step plays: the trigger resolves")
+        queue.settled()
+        assertEquals(live, queue.board(2, whole, live), "then the next")
+    }
 }

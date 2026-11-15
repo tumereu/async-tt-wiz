@@ -184,6 +184,8 @@ object StackAnimationProbe {
     @kotlin.concurrent.Volatile var targeting: ((me: String, entry: String, targets: Int, millis: Long) -> Unit)? = null
     /** Each step 5 as it starts on [me]'s table: the entries leaving the Stack. */
     @kotlin.concurrent.Volatile var resolving: ((me: String, entries: List<String>) -> Unit)? = null
+    /** HIS-112: each play shown that landed on [me]'s table (its entry appears on the Stack from then on). */
+    @kotlin.concurrent.Volatile var landed: ((me: String, entry: String) -> Unit)? = null
 }
 
 /**
@@ -260,6 +262,10 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
         private set
     private var lastTop: String? = null
     private var previous: TableBoard? = null
+    /** The board [previous] was made from: every entry the game had on its Stack, the ones kept off it ([lastHidden]) too. */
+    private var previousUnhidden: TableBoard? = null
+    /** The entries kept off the board drawn last while their plays shown hadn't landed. */
+    private var lastHidden: Set<String> = emptySet()
     private val targetPace = PlayShowPace()
     private val resolutionPace = PlayShowPace()
     /** Step 4's end of each entry still on the Stack (wall clock) and what the game waited for then, for step 5's log. */
@@ -271,30 +277,42 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
      * Step 5's pace for [play], the board the table is about to draw (read in composition, nothing changed): the share of
      * its effects' animation time it takes when it resolves a repeat of the same ability in its chain, else 1.
      */
-    fun resolutionShare(play: TableBoard): Double {
+    fun resolutionShare(play: TableBoard, unhidden: TableBoard = play): Double {
         val before = previous ?: return 1.0
         if (before.board === play.board) return 1.0
-        val gone = CombatStackRules.stack(before.board).cards - CombatStackRules.stack(play.board).cards.toSet()
+        // What the game took off the Stack (an entry only kept off the board while its play shows hasn't left it)
+        val gone = CombatStackRules.stack((previousUnhidden ?: before).board).cards - CombatStackRules.stack(unhidden.board).cards.toSet()
         val key = gone.firstNotNullOfOrNull { StackAbilities.of(before, it, viewer) } ?: return 1.0
         return StackSchedule.resolutionShare(resolutionPace.peek(key, clock()))
     }
 
     /**
-     * The table draws [play] now (live or in catch-up playback; never timeline mode). [instant]: a board opened, taken back
-     * to or jumped to: its top entry's arrows show at once. A new top entry with targets makes step 4 pending; entries gone
-     * from the Stack begin step 5.
+     * The table draws [play] now (live or in catch-up playback; never timeline mode): [unhidden] with the entries [hidden]
+     * taken off it while their plays shown haven't landed (HIS-112). [instant]: a board opened, taken back to or jumped to:
+     * its top entry's arrows show at once. A new top entry with targets makes step 4 pending; entries the game took off the
+     * Stack begin step 5. An entry only kept off the board while its play shows hasn't left the Stack, and while the game's
+     * top entry is one of those nothing is the top entry here yet (owner playtest 2026-11-15, report VSVLSK: the spell
+     * under its cast's trigger grew its arrows before the trigger showed, and again after it resolved).
      */
-    fun drawn(play: TableBoard, instant: Boolean) {
+    fun drawn(play: TableBoard, instant: Boolean, unhidden: TableBoard = play, hidden: Set<String> = emptySet()) {
         driven = true
         val before = previous
         if (before != null && before.board === play.board) return
         previous = play
+        val beforeUnhidden = previousUnhidden
+        previousUnhidden = unhidden
+        val hiddenBefore = lastHidden
+        lastHidden = hidden
+        if (hidden != hiddenBefore) AppLog.info("game", "Stack animation: " + (if (hidden.isEmpty()) "no entry kept off the Stack"
+            else "entries ${hidden.joinToString { it.take(24) }} kept off the Stack until their plays shown land") +
+            (hiddenBefore - hidden).takeIf { it.isNotEmpty() }?.let { "; ${it.joinToString { e -> e.take(24) }} " +
+                (if (it.all { e -> e in landed }) "landed" else "no longer shown") }.orEmpty())
         // The first board drawn (the table opened, back from timeline mode or a take-back) is taken as it is
         if (instant || before == null) targeting?.takeIf { !it.done }?.skipped = true
         val asIs = instant || before == null
         takenAsIs = asIs
-        val stack = CombatStackRules.stack(play.board).cards
-        val gone = before?.let { CombatStackRules.stack(it.board).cards - stack.toSet() }.orEmpty()
+        val stack = CombatStackRules.stack(unhidden.board).cards
+        val gone = (beforeUnhidden ?: before)?.let { CombatStackRules.stack(it.board).cards - stack.toSet() }.orEmpty()
         if (gone.isNotEmpty() && !asIs && before != null) {
             val key = gone.firstNotNullOfOrNull { StackAbilities.of(before, it, viewer) }
             val (repeats, _) = resolutionPace.begin(key, clock())
@@ -307,11 +325,15 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
                 // The spec's logging: what the game waited for between steps 4 and 5, and how long
                 AppLog.info("game", "Stack entry ${entry.take(24)} leaves the Stack (step 5): " +
                     (waited?.let { (at, what) -> "${now - at} ms after its step 4 ended, the game waiting for $what" } ?: "no step 4 before it") +
+                    (if (entry in hiddenBefore) " (its play shown never landed here: it leaves unseen)" else "") +
                     ", repeat $repeats, its effect's animations at ${(share * 100).roundToLong()}% of their time")
             }
         }
         waitingSince.keys.retainAll(stack.toSet())
-        val top = stack.firstOrNull()
+        val gameTop = stack.firstOrNull()
+        val top = gameTop?.takeIf { it !in hidden }
+        if (gameTop != top && gameTop != lastTop) AppLog.info("game", "Stack entry ${gameTop?.take(24)} is the top entry, kept off the " +
+            "Stack until its play shown lands: no entry's arrows meanwhile")
         if (top == lastTop) return
         lastTop = top
         targeting?.takeIf { it.entry != top && !it.done }?.let {
@@ -422,22 +444,26 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
         resolving = null
         // The next board drawn is taken as it is
         previous = null
+        previousUnhidden = null
     }
 
     /** HIS-112: the play shown [show] ended on this table (landed, or skipped by a double tap): its entry shows from now on. */
     fun land(show: GameDevice.PlayShow) {
         if (show !in ended) ended += show
         val entry = "entry:${show.entry}"
+        StackAnimationProbe.landed?.invoke(viewer, entry)
         if (entry !in landed) {
             landed += entry
             if (landed.size > LANDED_KEPT) landed.removeAt(0)
         }
     }
 
-    /** The entries of the plays shown in [moments] (the device's open ones) not ended on this table yet: off the board
-     * until they land. */
-    fun hidden(moments: List<GameDevice.ViewMoment>): Set<String> =
-        moments.filterIsInstance<GameDevice.PlayShow>().filter { it !in ended }.mapTo(LinkedHashSet()) { "entry:${it.entry}" }
+    /** The entries of the plays shown in [moments] (the device's open ones) not ended on this table yet, and of the plays
+     * an own action's early board says its event will show ([coming], EngineGame.Shown.coming): off the board until they
+     * land. */
+    fun hidden(moments: List<GameDevice.ViewMoment>, coming: List<GameDevice.PlayShow> = emptyList()): Set<String> =
+        (moments.filterIsInstance<GameDevice.PlayShow>().filter { it !in ended } + coming.filter { it !in ended })
+            .mapTo(LinkedHashSet()) { "entry:${it.entry}" }
 
     private var boardMemo: Triple<TableBoard, Set<String>, TableBoard>? = null
 
@@ -446,8 +472,7 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
      * as the table draws it while the plays shown in [moments] haven't landed: without their entries ([withoutEntries]); the
      * same board object while nothing changes.
      */
-    fun board(unhidden: TableBoard, moments: List<GameDevice.ViewMoment>): TableBoard {
-        val hidden = hidden(moments)
+    fun board(unhidden: TableBoard, hidden: Set<String>): TableBoard {
         boardMemo?.takeIf { it.first === unhidden && it.second == hidden }?.let { return it.third }
         return unhidden.withoutEntries(hidden).also { boardMemo = Triple(unhidden, hidden, it) }
     }

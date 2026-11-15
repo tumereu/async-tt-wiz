@@ -124,19 +124,33 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // arrows play (step 4) a newer board waits (never a take-back)
     val stackAnimation = routes.stackAnimation
     // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks the attacker's lanes show the blocks placed to assume
-    val unhidden = reviewPlay ?: motion.board(shown.version, shown.transition, live, hold = stackAnimation.busy)
-        .let { b -> routes.assuming()?.board(b) ?: b }
     // HIS-112 (owner playtest 2026-11-14: a play flew to the middle and at the same time straight to the Stack): until a play
-    // shown lands, its Stack entry isn't drawn anywhere (the Stack, its count, the dock's list) and nothing moves to the
-    // Stack for it; the board's steps stop where it went on the Stack meanwhile, so nothing after it plays under it
-    val hidden = if (reviewPlay != null) emptySet() else stackAnimation.hidden(shown.moments)
-    val play = if (reviewPlay != null) unhidden else stackAnimation.board(unhidden, shown.moments)
+    // shown lands, its Stack entry isn't drawn anywhere (the Stack, its count) and nothing moves to the Stack for it; the
+    // board's steps stop where it is on the Stack meanwhile, so nothing after it (its resolution) plays under it
+    // (owner playtest 2026-11-15, report VSVLSK) an own action's early board keeps off the plays its event will show too
+    val hidden = if (reviewPlay != null) emptySet() else stackAnimation.hidden(shown.moments, shown.coming)
+    val unhidden = reviewPlay ?: motion.board(shown.version, shown.transition, live, hold = stackAnimation.busy, plays = hidden)
+        .let { b -> routes.assuming()?.board(b) ?: b }
+    val play = if (reviewPlay != null) unhidden else stackAnimation.board(unhidden, hidden)
     SideEffect {
         routes.motionBusy = { motion.playing }
         routes.showReady = { !stackAnimation.busy && motion.reachedEntries() }
+        // HIS-112, STK-058, TBL-125 (owner playtest 2026-11-15: "'You may pay' was asked before the trigger had animated to
+        // its place on the Stack"): a choice asked while something resolves waits for the plays shown to land, the top
+        // entry's arrows and the board's steps up to it
+        routes.choiceHold = {
+            when {
+                reviewPlay != null -> null
+                hidden.isNotEmpty() -> "plays shown not landed yet (${hidden.joinToString { it.take(24) }})"
+                stackAnimation.busy -> "the top entry's arrows (step 4 of ${(stackAnimation.targeting?.entry ?: stackAnimation.pending)?.take(24)})"
+                motion.playing -> "the board's steps (${motion.key()})"
+                else -> null
+            }
+        }
         motion.stopEntries = hidden
         stackAnimation.prune(shown.moments)
-        if (reviewPlay == null) stackAnimation.drawn(play, instant = shown.transition?.let { it.jump || it.undone != null } ?: true)
+        if (reviewPlay == null) stackAnimation.drawn(play, instant = shown.transition?.let { it.jump || it.undone != null } ?: true,
+            unhidden = unhidden, hidden = hidden)
     }
     // A take-back ends what plays at once; timeline mode ends it too (its board is looked at as it is)
     LaunchedEffect(shown.transition?.serial, shown.transition?.undone != null) {
@@ -399,7 +413,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         }) else stackAnimation.settleHook(scope, play, moveMultiplier, routes.viewPause, gameWaits, motion::key,
                             motion::settled),
                         // Stack animation step 5: a repeat's resolution plays its effect's animations faster
-                        sceneTimeShare = if (reviewPlay != null) 1.0 else stackAnimation.resolutionShare(play),
+                        sceneTimeShare = if (reviewPlay != null) 1.0 else stackAnimation.resolutionShare(play, unhidden),
                         // HIS-112: a play shown's entry appears on the Stack where it landed, never flying there again
                         landedEntries = stackAnimation.landed,
                         sceneVersion = if (reviewPlay != null) null else motion.key(),

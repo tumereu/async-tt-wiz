@@ -63,6 +63,7 @@ class ShownWire(
     val opponentAt: GameDevice.OpponentAt? = null,
     val moments: List<GameDevice.ViewMoment> = emptyList(),
     val ownStepHeld: Boolean = false,
+    val coming: List<GameDevice.PlayShow> = emptyList(),
     /** The notes published with the board, to be shown once. */
     val notes: List<NoteWire> = emptyList(),
 ) {

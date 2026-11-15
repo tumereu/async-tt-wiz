@@ -99,7 +99,7 @@ class SosChunk03ParadigmAndFlashbackTest {
         """,
     ) parsesTo abilities(
         spell(
-            doing(Effect.RevealUntil(ObjectFilter.Any, Players.You, count = n(0), reveal = true, into = Zone.Exile, foundBind = "exiled",
+            doing(Effect.RevealUntil(ObjectFilter.Any, Players.You, count = n(0), reveal = false, into = Zone.Exile, foundBind = "exiled",
                 totalAtLeast = Total(NumericProperty.ManaValue, n(4)))),
             Step.ForEach(Each.Objects(Objects.Bound("exiled")), "card", listOf(Step.May(listOf(
                 doing(Effect.Cast(Objects.Bound("card"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), Players.You))),

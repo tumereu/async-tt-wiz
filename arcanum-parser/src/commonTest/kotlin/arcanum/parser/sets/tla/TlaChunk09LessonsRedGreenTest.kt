@@ -144,7 +144,7 @@ class TlaChunk09LessonsRedGreenTest {
         """,
     ) parsesTo abilities(
         spell(
-            doing(Effect.RevealUntil(nonland, Players.You, n(1), reveal = true, into = Zone.Exile, foundBind = "found")),
+            doing(Effect.RevealUntil(nonland, Players.You, n(1), reveal = false, into = Zone.Exile, foundBind = "found")),
             Step.Pay(steps = listOf(doing(Effect.Cast(Objects.Bound("found"), PlayKind.Cast, withoutPaying = true, caster = Players.You,
                 resultingSpell = ObjectFilter.ManaValue(Comparison.Less, count(and(sub("Mountain"), you)))))), payer = Players.You, bind = "cast"),
             Step.If(Condition.Not(Condition.Did("cast")), then = listOf(move(Objects.Bound("found"), Zone.Hand)))),

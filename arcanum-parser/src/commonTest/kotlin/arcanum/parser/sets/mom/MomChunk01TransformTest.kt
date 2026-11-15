@@ -182,7 +182,7 @@ class MomChunk01TransformTest {
         ) to abilities(
             Keyword.Trample,
             triggered(entersSelf,
-                doing(Effect.RevealUntil(nonland, Players.Each(PlayerFilter.Any), n(1), reveal = true, into = Zone.Exile, foundBind = "found", restBind = "rest")),
+                doing(Effect.RevealUntil(nonland, Players.Each(PlayerFilter.Any), n(1), reveal = false, into = Zone.Exile, foundBind = "found", restBind = "rest")),
                 Step.Choose(Choice.Objects(ObjectFilter.Any, n(0), Value.Count(Objects.Bound("found")), from = Objects.Bound("found")), bind = "chosen", chooser = Players.You),
                 Step.ForEach(Each.Objects(Objects.Bound("chosen")), bind = "card", steps = listOf(
                     doing(Effect.Cast(Objects.Bound("card"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))),

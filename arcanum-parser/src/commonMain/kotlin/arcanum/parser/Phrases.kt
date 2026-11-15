@@ -186,9 +186,9 @@ internal object Filters {
             return all(noun(m.groupValues[1] + " or " + m.groupValues[2] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
         }
         // blb gaps 2: "creature spells with {X} in their mana costs" (CR 107.3)
-        WITH_X_IN_MANA_COST.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.XInManaCost) }
+        WITH_X_IN_MANA_COST.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.XInManaCost) }
         // dsk chunk 01: "creatures with power 3 or greater"
-        WITH_POWER_OR_GREATER.matchEntire(phrase)?.let { m ->
+        WITH_POWER_OR_GREATER.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val n = Value.Fixed(m.groupValues[3].toInt())
             val test = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
             return all(noun(m.groupValues[1]) ?: return null, test)
@@ -254,11 +254,11 @@ internal object Filters {
             return all(ObjectFilter.Attached(attachments = attachment), noun(m.groupValues[2]) ?: return null)
         }
         // blb chunk 05: "permanents you control with counters on them" (any kind)
-        WITH_ANY_COUNTERS.matchEntire(phrase)?.let { m -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(null, atLeast = 1)) }
+        WITH_ANY_COUNTERS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(null, atLeast = 1)) }
         // tla chunk 03: "creature with no counters on it"
-        WITH_NO_COUNTERS.matchEntire(phrase)?.let { m -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasCounter(null, atLeast = 1))) }
+        WITH_NO_COUNTERS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasCounter(null, atLeast = 1))) }
         // chunk 21: "creatures you control with +1/+1 counters on them"
-        WITH_COUNTERS.matchEntire(phrase)?.let { m ->
+        WITH_COUNTERS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(kind, atLeast = 1))
         }
@@ -287,7 +287,7 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
         // dmu chunk 06: "creature with total power and toughness 5 or less" (its power plus its toughness)
-        WITH_TOTAL_POWER_AND_TOUGHNESS.matchEntire(phrase)?.let { m ->
+        WITH_TOTAL_POWER_AND_TOUGHNESS.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val total = Value.Sum(listOf(Value.Of(arcanum.api.NumericProperty.Power, Objects.Tested, arcanum.api.Combine.Single),
                 Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Tested, arcanum.api.Combine.Single)))
             val comparison = if (m.groupValues[3] == "greater") Comparison.AtLeast else Comparison.AtMost
@@ -302,7 +302,7 @@ internal object Filters {
             val comparison = when (m.groupValues[3]) { "" -> arcanum.api.Comparison.Equal; " or greater" -> arcanum.api.Comparison.AtLeast; else -> arcanum.api.Comparison.AtMost }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(comparison, value))
         }
-        WITH_POWER_OR_TOUGHNESS_AT_MOST.matchEntire(phrase)?.let { m ->
+        WITH_POWER_OR_TOUGHNESS_AT_MOST.matchEntire(phrase)?.takeUnless { OR_AN_ALTERNATIVE.containsMatchIn(it.groupValues[1]) }?.let { m ->
             val n = Value.Fixed(m.groupValues[2].toInt())
             // blb chunk 10: "… or greater"
             val c = if (m.groupValues[3] == "greater") arcanum.api.Comparison.AtLeast else arcanum.api.Comparison.AtMost
@@ -683,6 +683,7 @@ internal object Filters {
     private val QUALIFIED_PERMANENT_SPELL = Regex("""(.+) permanent spells?""")
     // chunk 36
     // trk chunk 05: also "a Plains card or nonland permanent card with …": a repeated "card" starts an alternative of its own
+    // trk sweep: every "with …" qualifier, not only mana value, power or toughness and keywords (counters, {X}, total power and toughness)
     private val OR_AN_ALTERNATIVE = Regex(" or an? | card or ")
     private val OR_LIST_NOT_COMPARISON = Regex(""",? or (?!less\b|greater\b|more\b|fewer\b)|, """)
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")

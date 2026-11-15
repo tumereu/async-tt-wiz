@@ -76,7 +76,7 @@ class MshChunk12BlackTest {
     ) parsesTo abilities(
         Keyword.Menace,
         triggered(combatDamageToAPlayer,
-            Step.Do(Effect.RevealUntil(nonland, Players.EventPlayer, n(1), reveal = true, into = Zone.Exile, foundBind = "found")),
+            Step.Do(Effect.RevealUntil(nonland, Players.EventPlayer, n(1), reveal = false, into = Zone.Exile, foundBind = "found")),
             Step.Pay(steps = listOf(counters(Objects.Self)), payer = Players.You, bind = "paid"),
             Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast,
                 holder = PlayerFilter.You, manaAsAnyColor = true)), arcanum.api.Affected.Objects(Objects.Bound("found")), Duration.EndOfTurn))))),

@@ -178,8 +178,9 @@ internal object Tdm {
     // tdm chunk 12: "Equipped creature gets +2/+2 and has hexproof from monocolored."
     // tdm chunk 12: "Equip {4}. This ability costs {1} less to activate for each color of the creature it targets."
     val EQUIP_LESS_FOR_EACH_COLOR = Regex("""Equip (\{[^}]+\})\. This ability costs (\{[^}]+\}) less to activate for each color of the creature it targets\.""")
-    // tdm chunk 12: "Each Dragon you control enters with an additional +1/+1 counter on it."
-    val EACH_ENTERS_WITH_ADDITIONAL = Regex("""Each (.+?) enters with an additional (\S+) counter on it\.""")
+    // tdm chunk 12: "Each Dragon you control enters with an additional +1/+1 counter on it."; trk chunk 10: "Other creatures you control enter
+    // with an additional +1/+1 counter on them.", "Spacecraft you control enter with two additional charge counters on them."
+    val EACH_ENTERS_WITH_ADDITIONAL = Regex("""(?:Each (.+?) enters|(.+?) enter) with (an|${Numbers.WORD_PATTERN}) additional (\S+) counters? on (?:it|them)\.""")
     // tdm chunk 12: "you may search your library for a basic land card, reveal it, then shuffle and put that card on top. If you control a Dragon,
     // put that card onto the battlefield tapped instead."
     val SEARCH_TOP_OR_BATTLEFIELD_IF = Regex("""[Yy]ou may search your library for an? (.+?) card, reveal it, then shuffle and put that card on top\. If (.+?), put that card onto the battlefield tapped instead\.""")

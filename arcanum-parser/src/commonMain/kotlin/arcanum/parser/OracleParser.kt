@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 120
+    const val VERSION: Int = 121
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -132,6 +132,8 @@ object OracleParser {
 
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
+    private val NICKNAME = Regex(""" "[^"]+" """)
+
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =
         (setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
             listOf("this card", "this permanent", "this spell") +
@@ -142,8 +144,10 @@ object OracleParser {
             // dmu chunk 07: a legendary name without its regnal number ("King Darien" of "King Darien XLVIII", CR 201.5c)
             listOfNotNull(REGNAL_NUMBER.matchEntire(name)?.groupValues?.get(1)?.takeIf { arcanum.api.Supertype.Legendary in face.supertypes }) +
             // trk chunk 07: a legendary three-word name's first and last words ("Captain Archer" of "Captain Jonathan Archer", CR 201.5c)
-            listOfNotNull(name.split(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it.size == 3 }
-                ?.let { "${it[0]} ${it[2]}" }) +
+            // trk chunk 10: also with a nickname in quotes left out ("Dr. McCoy" of "Dr. Leonard "Bones" McCoy")
+            name.replace(NICKNAME, " ").let { plain ->
+                listOfNotNull(plain.split(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in plain && it.size == 3 }
+                    ?.let { "${it[0]} ${it[2]}" }) } +
             // chunk 20
             face.subtypes.map { "this " + it.name }).let { names ->
             // msh: dotless aliases ("MODOK" for "M.O.D.O.K.", "Ms Marvel"), which [dotless] writes the lines with

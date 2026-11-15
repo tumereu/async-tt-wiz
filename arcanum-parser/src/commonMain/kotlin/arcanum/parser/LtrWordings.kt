@@ -28,7 +28,7 @@ internal object Ltr {
     // ltr chunk 02
     val ATTACH_TARGET_TO_SELF = Regex("""[Aa]ttach (target .+?) to (.+)\.""")
     val FOR_AS_LONG_AS_YOU_CONTROL = Regex("""(.+) for as long as you control (.+)\.""")
-    val CHOOSE_TARGET = Regex("""[Cc]hoose (up to one target .+|up to two (?:other )?target (?!.+ that were put there ).+)\.""")
+    val CHOOSE_TARGET = Regex("""[Cc]hoose (up to one (?:other )?target .+|up to two (?:other )?target (?!.+ that were put there ).+)\.""")
     val EXILE_THEN_RETURN_UNDER_YOUR_CONTROL = Regex("""[Ee]xile (up to one target .+?|target .+?), then return (?:it|that card) to the battlefield under your control\.""") // inr chunk 09: that card
     // lci chunk 03: "Then destroy all other creatures if its power is exactly 20."
     val TRAILING_IF_POWER = Regex("""([A-Z].+?) if (that creature's|its) power is (?:(\d+) or (less|greater)|exactly (\d+))\.""")

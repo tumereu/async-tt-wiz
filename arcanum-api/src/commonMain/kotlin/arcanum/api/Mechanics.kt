@@ -786,6 +786,10 @@ sealed interface Modification {
         /** How long the copy effect lasts ("As this artifact enters, you may have it become a copy of any creature on the battlefield until end
          * of turn", CR 611.2a); null: for as long as it stays (CR 707.4). */
         val duration: Duration? = null,
+        // trk chunk 10
+        /** "If you do, it enters with additional counters on it equal to the same number and kinds of counters the copied permanent has on
+         * it": the counters on the object copied, each kind, as it enters as a copy; counters aren't copiable values (CR 614.1c, 707.2). */
+        val copiedCounters: Boolean = false,
     ) : Modification
     /** The event's amount times [factor]: damage, life, counters, tokens; for a keyword action ([EventPattern.KeywordActionDone]), the times
      * it is done; on an [EventPattern.Tap] with `forMana = true`, the mana produced by tapping that permanent for mana ("it produces three

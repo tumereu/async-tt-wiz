@@ -419,7 +419,7 @@ object CombatStackPresentation {
         val hidden = if (drawing.frozen) card.covered else CombatStackRules.faceDownEntry(state.board, drawing.viewId) ||
             !CardVisibility.isVisibleFaceUp(state.board, card, "")
         val name = if (hidden) "Covered card" else state.definitions.find { it.digest == card.definition }?.definition
-            ?.faces?.find { it.faceId == card.faceId }?.name
+            ?.faces?.find { it.faceId == card.faceId }?.shownName
             ?: Faults.placeholder("CombatStackPresentation", "combat copy without its card's name", "Card", mapOf("card" to card.id))
         return when {
             drawing.frozen -> "Effect, $name, retained source, read-only"

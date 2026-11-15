@@ -284,6 +284,30 @@ class CardSearchTest {
         }
     }
 
+    // LOB-151: a name term matches a printing's printed name (flavorName) too, and the card is found as that printing
+    @Test fun aNameMatchesAPrintingsPrintedNameAndFindsThatPrinting() {
+        val card = CardSearchCard("Zap Bolt", faces = listOf(face("Zap Bolt", "Instant", "{R}", r)), identity = r,
+            printings = listOf(CardSearchPrinting("tst", "common"), CardSearchPrinting("dck", "rare", "Thunder Lance"),
+                CardSearchPrinting("dck", "common", "Storm Pike")))
+        fun match(query: String) = (CardSearchQuery.parse(query) as CardSearchParse.Valid).query.match(card)
+        assertEquals(0, match("zap"), "by its own name: the preferred printing")
+        assertEquals(1, match("thunder"))
+        assertEquals(1, match("\"thunder lance\""))
+        assertEquals(1, match("!\"Thunder Lance\""))
+        assertEquals(2, match("pike"))
+        assertEquals(1, match("lance r:rare"))
+        assertEquals(2, match("s:dck r:common pike"), "the printing the whole query holds for")
+        assertNull(match("lance r:common"))
+        assertNull(match("!thunder"))
+        assertNull(match("hammer"))
+        assertNull(match("-thunder"), "a negated name: none of the card's names")
+        assertEquals(0, match("-hammer"))
+        val split = CardSearchCard("Fire // Ice", "split", listOf(face("Fire", "Instant"), face("Ice", "Instant")),
+            printings = listOf(CardSearchPrinting("tst", "common", "Blaze // Frost")))
+        val exact = (CardSearchQuery.parse("!frost") as CardSearchParse.Valid).query
+        assertEquals(0, exact.match(split), "an exact name matches a face's printed name")
+    }
+
     @Test fun rulesHelpers() {
         assertEquals(listOf(u, b), CardSearchRules.colorUnits("transform", listOf(face("a", "", colors = u), face("b", "", colors = b))))
         assertEquals(listOf(u or r), CardSearchRules.colorUnits("split", listOf(face("a", "", colors = u), face("b", "", colors = r))))

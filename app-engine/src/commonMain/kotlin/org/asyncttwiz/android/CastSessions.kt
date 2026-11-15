@@ -408,7 +408,7 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
             val card = play.board.cards.singleOrNull { it.id == cardId }
                 ?: return Faults.placeholder("CastController", "card to name not on the board", "That card", mapOf("card" to cardId))
             return play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
-                ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name
+                ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.shownName
                 ?: Faults.placeholder("CastController", "card to name without its definition", "That card", mapOf("card" to cardId))
         }
 

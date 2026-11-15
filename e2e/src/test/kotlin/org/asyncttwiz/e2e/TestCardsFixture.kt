@@ -37,6 +37,7 @@ object TestCardsFixture {
         JsonObject().apply {
             addProperty("uuid", face.id)
             addProperty("name", card.name)
+            card.flavorName?.let { addProperty("flavorName", it) }
             addProperty("setCode", set)
             addProperty("number", number)
             addProperty("language", "English")

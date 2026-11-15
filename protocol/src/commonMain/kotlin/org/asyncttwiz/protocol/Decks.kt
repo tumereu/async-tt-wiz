@@ -31,7 +31,18 @@ data class DefinitionFace(
     /** The printed parts of one physical face that holds several: a split card's halves, an adventurer card's creature
      * and Adventure, a flip card's two halves (PhysicalCardFaces), in printed order. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val parts: List<PrintedPart> = emptyList(),
-)
+    /** The name this face's printing prints where it gives the card another than its Oracle name [name] (Secret Lair,
+     * Universes Within: MTGJSON's `flavorName`): the app shows it ([shownName]); the rules read [name]. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val printedName: String? = null,
+) {
+    /** The face's name as its printing shows it: its [printedName], else its Oracle [name]. */
+    val shownName: String get() = printedName ?: name
+}
+
+/** The printed name of a card of [faces] (each face's [DefinitionFace.shownName], the same ones once, "A // B"), or null
+ * when its printing gives it no other name than its Oracle one. */
+fun printedCardName(faces: List<DefinitionFace>): String? =
+    faces.takeIf { list -> list.any { it.printedName != null } }?.map { it.shownName }?.distinct()?.joinToString(" // ")
 
 /** One printed part of a [DefinitionFace] that holds several, with its own printed values. */
 @Serializable
@@ -57,7 +68,11 @@ data class CardDefinition(
     val printingId: String? = null,
     val layout: String = "normal",
     val token: Boolean = false,
-)
+) {
+    /** The card's name as its printing shows it: the printed name its faces carry ([printedCardName]), else its Oracle
+     * [name], which the rules read. */
+    val shownName: String get() = printedCardName(faces) ?: name
+}
 
 @Serializable data class SubmittedDefinition(val digest: String, val definition: CardDefinition)
 /** A card list's sections. Decks have all three; cubes have Main and Maybe. Maybe holds cards being considered: never
@@ -219,7 +234,7 @@ object DeckValidation {
         if (value.schemaVersion != 1 || value.name.isBlank() || value.faces.size !in 1..64) return false
         val strings = listOfNotNull(value.name, value.provider, value.sourceVersion, value.printingId, value.layout) +
             value.faces.flatMap { listOfNotNull(it.faceId, it.name, it.typeLine, it.manaCost, it.rulesText,
-                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.sourceData) +
+                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.sourceData, it.printedName) +
                 it.parts.flatMap { part -> listOf(part.name, part.typeLine, part.manaCost, part.rulesText, part.power,
                     part.toughness, part.loyalty, part.defense) } }
         if (!strings.all(::text)) return false
@@ -227,7 +242,7 @@ object DeckValidation {
         if (!indicators.all { it == null || (it.isNotEmpty() && COLOR_INDICATOR.matches(it)) } || value.faces.any { it.parts.size > 64 }) return false
         val ids = value.faces.map { it.faceId }.toSet()
         if (ids.size != value.faces.size || !ids.all(::uuid)) return false
-        return value.faces.all { face -> face.name.isNotBlank() &&
+        return value.faces.all { face -> face.name.isNotBlank() && face.printedName?.isNotBlank() != false &&
             face.otherFaceIds.size == ids.size - 1 && face.otherFaceIds.toSet() == ids - face.faceId &&
             (face.scryfallId == null || uuid(face.scryfallId)) }
     }

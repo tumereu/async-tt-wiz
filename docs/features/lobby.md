@@ -109,6 +109,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-122** Search results follow about 0.35 s after typing, sorted by name, 3 columns (5 in landscape), loading more while scrolling; with nothing typed or chosen the page shows a hint. Another printing of a card already in the section adds to it; Done counts this visit's change ("Done" when none); adding past the limit says "A deck holds at most 1000 cards."; the search is kept for the next visit in the same edit session. (r35)
 - **LOB-108** Search understands Scryfall-style syntax: name words, `t:` type, `o:` rules text, `c:`/`c=`/`c<=` colours, `id:` colour identity, `mv`/`cmc` mana value (from the mana cost), `pow`/`tou`/`loy`, `r:` rarity, `f:` format legality, `s:` set, `is:` layout (e.g. `is:dfc`), comparisons (`mv<=3`), `-` negation, `or` and parentheses. (r35)
 - **LOB-109** Search rules not taken from Scryfall's documentation: */X/? power or toughness counts as 0; a double-faced card's colours count per face; `!name` also matches a face name; rarities order common < uncommon < rare < special < mythic < bonus; `f:` counts restricted cards as legal; planes, schemes and vanguards show only with `include:extras`; Alchemy cards are included. (r35)
+- **LOB-151** A list's lines and search find a card by the name a printing gives it too (LOB-150): "1 Thunder Lance" imports that printing (a card's own Oracle name comes before a printing's name for another card, which comes before a back face's name), and a name search (`!name` too) finds the card shown as that printing; the Text tab writes such a card by its Oracle name with that printing's set and number. (r76)
 
 ### Game chat
 
@@ -187,6 +188,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-143** While card records install, content that needs them shows a placeholder with LOB-096's line in its place: a game's table (one opened from a notification), a saved deck's or cube's cards, the Sets tab of a pod's source, pod picks, and the avatar choices.
 - **LOB-110** Card records (the server's card catalog, LOB-091) include rarity, format legalities and colour identity for search (LOB-108). (r35)
 - **LOB-125** Card records (the server's card catalog) include which tokens each card makes and which cards make each token, for token pictures (SYS-072). (r57)
+- **LOB-150** Card records keep, beside a card's Oracle name, the name a printing gives it where it is printed under another one (Secret Lair drops, Universes Within), for each face of a card of several faces too. (r76)
 
 ### Card pictures
 

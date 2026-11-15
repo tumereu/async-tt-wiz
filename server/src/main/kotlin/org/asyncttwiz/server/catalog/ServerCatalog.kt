@@ -49,12 +49,13 @@ class ServerCatalog(val directory: File, val catalog: CardCatalog, val version: 
 
     /** Owner 2026-11-10 (card data from the server's catalog, step 4): the printing a saved card named [name] (case
      * ignored) is found again by when its own printing is missing: the front face of a card of that name, not a token,
-     * preferring a paper, not promo printing, then the newest set, the lowest collector number, the id; null when the
-     * catalog has no card of that name. */
+     * preferring a printing under the card's own name (LOB-150), a paper, not promo printing, then the newest set, the
+     * lowest collector number, the id; null when the catalog has no card of that name. */
     fun printingNamed(name: String): String? = byName[name.lowercase()]
 
     private val byName: Map<String, String> by lazy {
-        val order = compareBy<CatalogPrintingRecord>({ it.promo }, { it.onlineOnly || "paper" !in it.availability })
+        val order = compareBy<CatalogPrintingRecord>({ it.flavorName.isNotBlank() || it.faceFlavorName.isNotBlank() }, { it.promo },
+            { it.onlineOnly || "paper" !in it.availability })
             .thenByDescending { catalog.set[it.set]?.released.orEmpty() }
             .thenBy { it.number.toIntOrNull() ?: Int.MAX_VALUE }.thenBy { it.number }.thenBy { it.id }
         catalog.printings.filter { !it.token && catalog.faces[it.face].side.let { side -> side == "" || side == "a" } }

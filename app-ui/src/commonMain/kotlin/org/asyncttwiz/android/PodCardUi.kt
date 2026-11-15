@@ -60,7 +60,7 @@ fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: Scro
     val card = remember(copy.definition, definition) {
         definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
     }
-    PodCardArtPreview(card, definition?.name ?: "Card data unavailable", scroll = scroll)
+    PodCardArtPreview(card, definition?.shownName ?: "Card data unavailable", scroll = scroll)
 }
 
 /** Inspect outside a game (TBL-104): every face of [card] while held ([fallback] names a card without card data). */

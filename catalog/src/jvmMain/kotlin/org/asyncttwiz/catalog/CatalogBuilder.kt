@@ -85,7 +85,8 @@ class CatalogBuilder(
                 traits?.rarity.orEmpty(), printing.token, printing.otherFaces, strings(json.get("availability")),
                 flag(json, "isOnlineOnly"), flag(json, "isPromo"),
                 tokens = if (printing.token) emptyList() else traits?.related.orEmpty(),
-                makers = if (printing.token) traits?.related.orEmpty() else emptyList())
+                makers = if (printing.token) traits?.related.orEmpty() else emptyList(),
+                flavorName = text(json, "flavorName"), faceFlavorName = text(json, "faceFlavorName"))
         }
         val draftTypes = setOf("expansion", "core", "masters", "draft_innovation")
         val recipes = collected.recipes.filterKeys { collected.sets[it]?.type in draftTypes }.toSortedMap()
@@ -186,6 +187,8 @@ class CatalogBuilder(
 
     private fun strings(element: JsonElement?): List<String> = element?.takeIf { it.isJsonArray }?.asJsonArray
         ?.filter { it.isJsonPrimitive }?.map { it.asString }.orEmpty()
+
+    private fun text(json: JsonObject, key: String) = json.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
 
     private fun flag(json: JsonObject, key: String) = json.get(key)?.takeIf { it.isJsonPrimitive }?.asBoolean == true
 }

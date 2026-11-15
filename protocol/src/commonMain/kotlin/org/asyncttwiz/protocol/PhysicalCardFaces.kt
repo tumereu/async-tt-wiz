@@ -23,8 +23,9 @@ object PhysicalCardFaces {
         // The printed parts stay readable for rules engines.
         val parts = definition.faces.map { PrintedPart(it.name, it.typeLine, it.manaCost, it.rulesText, it.power, it.toughness,
             it.loyalty, it.defense, it.colorIndicator) }
+        // A printing under another name keeps it for the whole face (the parts are what the rules read)
         return definition.copy(faces = listOf(first.copy(name = definition.name, otherFaceIds = emptyList(),
             manaCost = "", rulesText = text, power = "", toughness = "", loyalty = "", defense = "", colorIndicator = null,
-            parts = parts)))
+            parts = parts, printedName = printedCardName(definition.faces))))
     }
 }

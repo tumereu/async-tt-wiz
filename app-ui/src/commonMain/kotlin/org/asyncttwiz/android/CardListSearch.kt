@@ -21,6 +21,7 @@ import org.asyncttwiz.protocol.CardSearchPrinting
 import org.asyncttwiz.protocol.DeckJson
 import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.protocol.PodDeckManaCost
+import org.asyncttwiz.protocol.printedCardName
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -74,7 +75,10 @@ private fun DefinitionFace.searchColors(): Int {
  */
 fun listSearchCard(entry: ResolvedDeckEntry, definition: CardDefinition, known: CardSearchCard?): CardSearchCard {
     val set = entry.printing.set.lowercase()
-    if (known != null) return known.copy(printings = known.printings.filter { it.set == set }.ifEmpty { known.printings })
+    // A printing under another name (flavorName) is found by that name too
+    val printed = printedCardName(definition.faces).orEmpty()
+    if (known != null) return known.copy(printings = known.printings.filter { it.set == set && it.printedName == printed }
+        .ifEmpty { known.printings.filter { it.set == set } }.ifEmpty { known.printings })
     val faces = definition.faces.map { face ->
         CardSearchFace(face.name, face.typeLine, face.rulesText, face.manaCost, face.searchColors(),
             face.power.ifEmpty { null }, face.toughness.ifEmpty { null }, face.loyalty.ifEmpty { null })
@@ -83,7 +87,7 @@ fun listSearchCard(entry: ResolvedDeckEntry, definition: CardDefinition, known: 
         mask or read.colors or CardColors.mask(PodDeckManaCost.parse(face.manaCost).colors.map { it.name })
     }
     return CardSearchCard(definition.name, definition.layout ?: "normal", faces, identity,
-        printings = if (set.isEmpty()) emptyList() else listOf(CardSearchPrinting(set, "")))
+        printings = if (set.isEmpty()) emptyList() else listOf(CardSearchPrinting(set, "", printed)))
 }
 
 /**

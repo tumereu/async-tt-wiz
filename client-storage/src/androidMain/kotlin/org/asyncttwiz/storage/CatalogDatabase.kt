@@ -14,7 +14,7 @@ import java.util.logging.Logger
 // The card records' format, kept as the file's user_version. Card records are always the app's built-in card catalog
 // (docs/specs/web-client.md section 3.5): a new app with a new format comes with a new catalog checksum, so the records
 // are downloaded and indexed again anyway.
-internal const val CATALOG_INDEX_VERSION = 6
+internal const val CATALOG_INDEX_VERSION = 7
 // CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
 
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
@@ -280,16 +280,16 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         val staged = times.time("record reads") {
             records.mapIndexed { position, record ->
                 val json = JsonParser.parseString(record.json).asJsonObject
-                StagedPrinting(record, traits.getOrNull(position), cardSearchKey(record, json), faceName(json))
+                StagedPrinting(record, traits.getOrNull(position), cardSearchKey(record, json), faceName(json), printedNames(json))
             }
         }
         addPrintings(staged)
     }
 
-    /** A printing to index, with what the index takes from its record: its card's search key ([cardSearchKey]) and its
-     * face name (an import name besides the card name; null without one). */
+    /** A printing to index, with what the index takes from its record: its card's search key ([cardSearchKey]), its
+     * face name (an import name besides the card name; null without one) and its printed names ([printedNames]). */
     internal class StagedPrinting(val record: CatalogPrinting, val trait: CatalogPrintingTraits?, val oracle: String,
-        val faceName: String?)
+        val faceName: String?, val printedNames: List<String> = emptyList())
 
     /**
      * Indexes [printings] with a few multi-row statements per table. The first record of an id wins: a later one (in this
@@ -322,7 +322,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
         times.time("import names") {
             insertRows("INSERT INTO import_name", fresh.flatMap { staged ->
-                importNames(staged.record.name, staged.faceName).map { listOf(it, staged.record.id) }
+                importNames(staged.record.name, staged.faceName, staged.printedNames).map { listOf(it, staged.record.id) }
             })
         }
         times.time("token relations") {
@@ -546,14 +546,22 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     private fun createImportNames() = sql("CREATE TABLE import_name (normalized TEXT NOT NULL, printing_id TEXT NOT NULL, PRIMARY KEY(normalized, printing_id))")
 
     private fun addImportNames(record: CatalogPrinting) {
-        importNames(record.name, faceName(JsonParser.parseString(record.json).asJsonObject)).forEach {
+        val json = JsonParser.parseString(record.json).asJsonObject
+        importNames(record.name, faceName(json), printedNames(json)).forEach {
             sql("INSERT INTO import_name VALUES (?, ?)", listOf(it, record.id))
         }
     }
 
-    /** The names a deck import finds a printing by: its card name and its face name, lower case. */
-    private fun importNames(name: String, faceName: String?): List<String> =
-        listOfNotNull(name, faceName).map { it.lowercase(Locale.ROOT) }.distinct()
+    /** The names a deck import finds a printing by: its card name, its face name and the names it is printed under
+     * ([printedNames]), lower case. */
+    private fun importNames(name: String, faceName: String?, printedNames: List<String> = emptyList()): List<String> =
+        (listOfNotNull(name, faceName) + printedNames).map { it.lowercase(Locale.ROOT) }.distinct()
+
+    /** The names a printing that gives its card another name prints (MTGJSON's `flavorName`, the whole card's, and
+     * `faceFlavorName`, its face's): none for most printings. */
+    private fun printedNames(json: com.google.gson.JsonObject): List<String> = listOf("flavorName", "faceFlavorName").mapNotNull { key ->
+        json.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+    }
 
     /** A record's face name, null without one (or an empty one). */
     private fun faceName(json: com.google.gson.JsonObject): String? =

@@ -90,7 +90,7 @@ object StackAbilities {
         // shows only as far as the viewer may see it
         val frozen = effect.frozen != null
         if (!frozen && !CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return null
-        val source = face?.name?.takeIf { it.isNotBlank() }
+        val source = face?.shownName?.takeIf { it.isNotBlank() }
             ?: Faults.placeholder("StackAbilities", "ability entry without its source's name", "Ability", mapOf("entry" to entryId))
         val text = text(item, face?.rulesText) ?: face?.rulesText?.takeIf { frozen }.orEmpty()
         return kind(item)?.let { StackAbilityShown(triggered, source, text.trim(), it) } ?: StackAbilityShown(triggered, source, text.trim())
@@ -165,7 +165,7 @@ object StackAbilities {
         val card = CombatStackRules.inspection(play.board, id) ?: return hidden
         if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return hidden
         return play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
-            ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name ?: hidden
+            ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.shownName ?: hidden
     }
 }
 

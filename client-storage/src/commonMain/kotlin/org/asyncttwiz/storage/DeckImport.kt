@@ -67,7 +67,10 @@ class DeckImportResolver(private val repository: CatalogSnapshots) : DeckResolve
             // the card named Lightning Bolt. Prefer full/front names, retaining back-face
             // lookup only when there is no primary match; genuine front-name conflicts stay errors.
             val cards = matching.filterNot { it.printing.token }.ifEmpty { matching }
-            val candidates = cards.filter { it.primaryName(line.name) }.ifEmpty { cards }
+            // A card's own (Oracle) name comes before a name a printing gives it (flavorName: Secret Lair, Universes
+            // Within), which comes before a back face's.
+            val candidates = cards.filter { it.primaryName(line.name) }.ifEmpty { cards.filter { it.printedName(line.name) } }
+                .ifEmpty { cards }
             // Several printings of one card are never ambiguous; only different cards sharing a name are.
             // A cube import still picks a deterministic card then, and reports it as a substitution.
             val ambiguous = !sameCard(candidates)
@@ -110,6 +113,13 @@ class DeckImportResolver(private val repository: CatalogSnapshots) : DeckResolve
             (raw.present("availability")?.jsonArray?.any { it.asText() == "paper" } != false) }
         fun primaryName(name: String) = printing.name.equals(name, ignoreCase = true) ||
             json.first().present("faceName")?.asText()?.equals(name, ignoreCase = true) == true
+        private val printedNames = listOf("flavorName", "faceFlavorName").mapNotNull { key ->
+            json.first().present(key)?.asText()?.takeIf { it.isNotBlank() }
+        }
+        /** Whether this printing gives the card another name than its own (LOB-150). */
+        val printed = printedNames.isNotEmpty()
+        /** Whether [name] is the name this printing gives the card, whole or its front face's. */
+        fun printedName(name: String) = printedNames.any { it.equals(name, ignoreCase = true) }
     }
 
     private fun sameCard(candidates: List<Candidate>): Boolean {
@@ -122,8 +132,9 @@ class DeckImportResolver(private val repository: CatalogSnapshots) : DeckResolve
         return candidates.map { it.shape }.distinct().size == 1
     }
 
+    // A printing under another name (LOB-150) only when the line names it (then every candidate is one)
     private val defaultPrinting = compareByDescending<Candidate> { it.english }
-        .thenBy { it.promo }.thenByDescending { it.paper }
+        .thenBy { it.printed }.thenBy { it.promo }.thenByDescending { it.paper }
         .thenByDescending { it.printing.releaseDate }
         .thenComparator { a, b -> compareCollectorNumbers(a.printing.number, b.printing.number) }
         .thenBy { it.printing.number }.thenBy { it.printing.set }.thenBy { it.printing.id }

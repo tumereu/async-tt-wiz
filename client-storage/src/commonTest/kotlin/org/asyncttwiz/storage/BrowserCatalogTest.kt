@@ -214,9 +214,31 @@ class BrowserCatalogTest {
         assertFailsWith<CatalogNotInstalledException> { BrowserCardRecords().searchCards("t:creature") }
     }
 
-    private suspend fun loaded(): BrowserCardRecords {
+    // LOB-150, LOB-151: a printing under another name is found by that name, imports as that printing (by the card's own
+    // name, a printing under it comes first), and search finds the card as that printing
+    @Test
+    fun aPrintingUnderAnotherNameIsFoundByIt() = runTest {
+        val lair = CatalogPrintingRecord("p-bear-lair", 0, "TST", "0", scryfall(8), "rare", availability = listOf("paper"),
+            flavorName = "Cuddly Grizzly")
+        val records = loaded(lines(listOf(lair)))
+        val catalog = assertNotNull(records.current)
+        assertEquals(listOf("p-bear-lair"), catalog.find("CUDDLY GRIZZLY", null, null, 10).map { it.id })
+        val result = DeckImportResolver(records).resolve("2 Cuddly Grizzly\n1 Test Bear")
+        assertEquals(emptyList(), result.issues)
+        assertEquals(listOf("p-bear-lair", "p-bear-tst"), result.entries.map { it.printing.id }, "by its own name, not the lower number")
+        val definition = result.entries.first().definition(result.catalog)
+        assertEquals("Test Bear", definition.name)
+        assertEquals("Cuddly Grizzly", definition.shownName)
+        assertEquals("Test Bear", result.entries.last().definition(result.catalog).shownName)
+        val found = assertIs<CatalogCardSearch.Page>(records.searchCards("grizzly"))
+        assertEquals(listOf("Test Bear" to "p-bear-lair"), found.cards.map { it.name to it.printing.id })
+        val own = assertIs<CatalogCardSearch.Page>(records.searchCards("!\"test bear\""))
+        assertEquals(listOf("p-bear-tst"), own.cards.map { it.printing.id })
+    }
+
+    private suspend fun loaded(text: String = lines()): BrowserCardRecords {
         val records = BrowserCardRecords()
-        installer(records, Server(A, mutableMapOf(A to File(lines(), A))), Kept()).run(A)
+        installer(records, Server(A, mutableMapOf(A to File(text, A))), Kept()).run(A)
         return records
     }
 
@@ -225,7 +247,7 @@ class BrowserCatalogTest {
         val B = "b".repeat(64)
         fun scryfall(n: Int) = "00000000-0000-4000-8000-00000000000$n"
 
-        fun lines(): String {
+        fun lines(extra: List<CatalogPrintingRecord> = emptyList()): String {
             val legal = (1L shl CardSearchRules.FORMATS.indexOf("standard")) or (1L shl CardSearchRules.FORMATS.indexOf("modern"))
             val faces = listOf(
                 CatalogFaceRecord(0, "Test Bear", type = "Creature — Bear", manaCost = "{1}{G}", power = "2", toughness = "2",
@@ -251,7 +273,7 @@ class BrowserCatalogTest {
                 CatalogPrintingRecord("p-token", 4, "TST", "T1", scryfall(5), token = true, makers = listOf("test bear")),
                 CatalogPrintingRecord("p-emblem", 5, "TST", "E1", scryfall(6), token = true),
                 CatalogPrintingRecord("p-broken", 1, "OLD", "5", scryfall(7), "common", others = listOf("p-missing")),
-            )
+            ) + extra
             val sets = listOf(
                 CatalogSetRecord("TST", "Test Set", "expansion", "2026-01-01", "tst", draftable = true, unsupported = listOf("Glorp Wizard")),
                 CatalogSetRecord("OLD", "Old Set", "core", "2001-01-01"),

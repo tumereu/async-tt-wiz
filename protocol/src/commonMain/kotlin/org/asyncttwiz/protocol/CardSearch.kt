@@ -31,13 +31,15 @@ data class CardSearchFace(
     val loyalty: String? = null,
 )
 
-/** One printing's searchable traits: lower-case set code and provider rarity (common, uncommon, …). */
+/** One printing's searchable traits: lower-case set code and provider rarity (common, uncommon, …), and the name it
+ * prints where it gives the card another (MTGJSON's `flavorName`; empty for most printings), which name searches match
+ * too. */
 @Serializable
-data class CardSearchPrinting(val set: String, val rarity: String)
+data class CardSearchPrinting(val set: String, val rarity: String, val printedName: String = "")
 
 /**
  * One card (oracle identity). Faces are in printed order, front first. [legal] holds the formats where the
- * card is legal or restricted. [printings] are distinct set/rarity pairs, preferred printing first.
+ * card is legal or restricted. [printings] are distinct set/rarity/printed name triples, preferred printing first.
  */
 @Serializable
 data class CardSearchCard(
@@ -163,13 +165,21 @@ class CardSearchQuery(val root: CardSearchNode?, val includeExtras: Boolean = fa
     fun matches(card: CardSearchCard): Boolean = match(card) != null
 
     /** Null when the card does not match; otherwise the index in [CardSearchCard.printings] of the first printing
-     * that satisfies the query (0 when the query has no printing terms). */
+     * that satisfies the query (0 when the query has no printing terms). A name term matches the names the card's
+     * printings give it too ([CardSearchPrinting.printedName]; a negated one none of them): a card found by one is found
+     * as that printing. */
     fun match(card: CardSearchCard): Int? {
         if (card.extra && !includeExtras) return null
         val node = root ?: return 0
-        if (!printingSpecific || card.printings.isEmpty()) return if (eval(node, card, null)) 0 else null
-        card.printings.forEachIndexed { index, printing -> if (eval(node, card, printing)) return index }
-        return null
+        if (printingSpecific && card.printings.isNotEmpty()) {
+            card.printings.forEachIndexed { index, printing -> if (eval(node, card, printing)) return index }
+            return null
+        }
+        if (!eval(node, card, null)) return null
+        // The printing to show: the first the query holds for by its own names (a printing under another name, found by it)
+        if (card.printings.any { it.printedName.isNotEmpty() })
+            card.printings.forEachIndexed { index, printing -> if (eval(node, card, printing)) return index }
+        return 0
     }
 
     private fun printingLevel(node: CardSearchNode): Boolean = when (node) {
@@ -186,8 +196,12 @@ class CardSearchQuery(val root: CardSearchNode?, val includeExtras: Boolean = fa
         is CardSearchNode.Not -> !eval(node.term, card, printing)
         is CardSearchNode.Name -> {
             val full = CardSearchRules.foldName(card.name)
-            if (node.exact) full == node.text || card.faces.any { CardSearchRules.foldName(it.name) == node.text }
-            else node.text in full
+            // A printing's printed name; with no printing in view, any printing's
+            val printed = (if (printing != null) listOf(printing) else card.printings)
+                .mapNotNull { it.printedName.takeIf(String::isNotEmpty)?.let(CardSearchRules::foldName) }
+            if (node.exact) full == node.text || card.faces.any { CardSearchRules.foldName(it.name) == node.text } ||
+                printed.any { name -> name == node.text || name.split(" // ").any { it == node.text } }
+            else node.text in full || printed.any { node.text in it }
         }
         is CardSearchNode.TypeLine -> card.faces.any { node.text in CardSearchRules.foldText(it.typeLine) }
         is CardSearchNode.OracleText -> card.faces.any { face ->

@@ -146,6 +146,40 @@ class CatalogCardSearchTest {
         assertEquals(bolt.cards.single().key, id("oracle", "Lightning Bolt"))
     }
 
+    // LOB-150, LOB-151: a printing under another name (flavorName; faceFlavorName per face) is found by that name, by
+    // search and by a list's lines, as that printing; by the card's own name the printings under it come first, even newer
+    @Test fun aPrintedNameFindsTheCardAsThatPrinting() {
+        val lance = card("SLD", "7", "Lightning Bolt", "Instant", "{R}", "R", rarity = "rare",
+            text = "Lightning Bolt deals 3 damage to any target.", legal = modern).apply { addProperty("flavorName", "Thunder Lance") }
+        val dawn = faces("SLD", "8", "Delver of Secrets // Insectile Aberration", "transform", "rare", "U", modern,
+            { face("Delver of Secrets", "Creature — Human Wizard", "{U}", "U", "Transform it.", "1", "1")
+                addProperty("flavorName", "Tide Watcher // Deep Horror"); addProperty("faceFlavorName", "Tide Watcher") },
+            { face("Insectile Aberration", "Creature — Human Insect", "", "U", "Flying", "3", "2")
+                addProperty("flavorName", "Tide Watcher // Deep Horror"); addProperty("faceFlavorName", "Deep Horror") })
+        val repository = install(root = root(sets() + ("SLD" to ("2025-01-01" to listOf(lance) + dawn))))
+        fun printing(query: String) = page(repository, query).cards.single().let { "${it.name}: ${it.printing.set} ${it.printing.number}" }
+        assertEquals("Lightning Bolt: SLD 7", printing("thunder"))
+        assertEquals("Lightning Bolt: SLD 7", printing("!\"thunder lance\""))
+        assertEquals("Lightning Bolt: BBB 5", printing("bolt"), "the newest printing gives it another name")
+        assertEquals("Delver of Secrets // Insectile Aberration: SLD 8", printing("horror"))
+        assertEquals("Delver of Secrets // Insectile Aberration: BBB 20", printing("t:insect"))
+        assertEquals(1, page(repository, "thunder").examined, "the printed names are prefiltered in SQL")
+        assertEquals(emptyList<String>(), names(repository, "thunder -bolt"))
+
+        val resolver = DeckImportResolver(repository)
+        val result = resolver.resolve("4 Thunder Lance\n1 Deep Horror\n2 Tide Watcher\n3 Lightning Bolt")
+        assertTrue(result.resolved, result.issues.toString())
+        assertEquals(listOf("SLD 7", "SLD 8", "BBB 5"), result.entries.map { "${it.printing.set} ${it.printing.number}" })
+        assertEquals(listOf(4, 3, 3), result.entries.map { it.quantity }, "both of the DFC's printed names are one card")
+        val lanceCard = result.entries.first().definition(result.catalog)
+        assertEquals("Lightning Bolt", lanceCard.name)
+        assertEquals("Thunder Lance", lanceCard.shownName)
+        val dawnCard = result.entries[1].definition(result.catalog)
+        assertEquals(listOf("Delver of Secrets", "Insectile Aberration"), dawnCard.faces.map { it.name })
+        assertEquals(listOf("Tide Watcher", "Deep Horror"), dawnCard.faces.map { it.shownName })
+        assertEquals("Tide Watcher // Deep Horror", dawnCard.shownName)
+    }
+
     // LOB-142: what a listed card's filter needs and its record doesn't hold; nothing for what search doesn't know
     @Test fun searchDataGivesEachPrintingsCardAsSearchKnowsIt() {
         val stray = CatalogPrinting("stray", "Stray", "AAA", "1", "English", "", null, false, emptyList(), "{}")

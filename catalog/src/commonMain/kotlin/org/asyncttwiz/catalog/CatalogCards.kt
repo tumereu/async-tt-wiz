@@ -68,7 +68,7 @@ object CatalogCards {
             val record = sourceRecord(side, face)
             DefinitionFace(side.id, face.faceName.ifBlank { face.name }, side.others.filter { it in ids }, face.type,
                 face.manaCost, face.text, face.power, face.toughness, face.loyalty, face.defense, scryfallId = side.scryfall,
-                sourceData = record.toString(), colorIndicator = GameCards.colorIndicator(record))
+                sourceData = record.toString(), colorIndicator = GameCards.colorIndicator(record), printedName = printedName(side))
                 .let { it.copy(corner = it.defaultCorner()) }
         }
         val first = sides.first()
@@ -82,6 +82,12 @@ object CatalogCards {
             else PhysicalCardFaces.normalize(definition)
     }
 
+    /** The name [printing] prints on its face where it gives the card another than its Oracle name (MTGJSON's
+     * `faceFlavorName` on a card of several faces, else `flavorName`), or null: what the app shows for it, while the rules
+     * read the Oracle name. */
+    fun printedName(printing: CatalogPrintingRecord): String? =
+        printing.faceFlavorName.ifBlank { printing.flavorName }.ifBlank { null }
+
     /** A printing's record as the app keeps it (MtgJsonCatalog's retained fields, in that order), made from the catalog. */
     fun sourceRecord(printing: CatalogPrintingRecord, face: CatalogFaceRecord): JsonObject = buildJsonObject {
         fun text(key: String, value: String) { if (value.isNotEmpty()) put(key, value) }
@@ -93,6 +99,8 @@ object CatalogCards {
         text("side", face.side)
         if (printing.others.isNotEmpty()) putJsonArray("otherFaceIds") { printing.others.forEach { add(JsonPrimitive(it)) } }
         text("faceName", face.faceName)
+        text("flavorName", printing.flavorName)
+        text("faceFlavorName", printing.faceFlavorName)
         put("layout", face.layout)
         text("type", face.type)
         text("manaCost", face.manaCost)
@@ -131,6 +139,8 @@ object CatalogCards {
         text("side", face.side)
         if (printing.others.isNotEmpty()) array("otherFaceIds", printing.others)
         text("faceName", face.faceName)
+        text("flavorName", printing.flavorName)
+        text("faceFlavorName", printing.faceFlavorName)
         put("layout", face.layout)
         text("type", face.type)
         text("manaCost", face.manaCost)

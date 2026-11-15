@@ -24,7 +24,7 @@ fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparation?, act
             .sumOf { it.quantity.toLong() }
         val delta = side(next) - side(old)
         if (delta == 0L) null else {
-            val name = after.definitions.find { it.digest == digest }?.definition?.name ?: "Card"
+            val name = after.definitions.find { it.digest == digest }?.definition?.shownName ?: "Card"
             "${kotlin.math.abs(delta)}× $name → ${if (delta > 0) "Sideboard" else "Mainboard"}"
         }
     }
@@ -66,7 +66,7 @@ fun preparationSwipeProgress(offset: Float, threshold: Float): Float =
 
 /** One tile: every copy of one card in one section. */
 data class PreparationTile(val digest: String, val definition: CardDefinition?, val quantity: Long) {
-    val name get() = definition?.name ?: "Card"
+    val name get() = definition?.shownName ?: "Card"
 }
 data class PreparationGroup(val type: CardTypeGroup, val tiles: List<PreparationTile>) {
     val count get() = tiles.sumOf { it.quantity }

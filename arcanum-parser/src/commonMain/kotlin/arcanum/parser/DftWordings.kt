@@ -71,7 +71,7 @@ internal object Dft {
     val LABEL_ABILITIES_OF_COST_LESS = Regex("""(\w+) abilities of (.+) cost (\{\d+\}) less to activate\.""")
     // inr chunk 09: tapped; mkm chunk 10: "up to X", "from your hand and/or graveyard"
     val PUT_ANY_NUMBER_FROM_HAND = Regex("""Put (?:any number of|up to (\w+)) (.+?) cards from your (hand|hand and/or graveyard) onto the battlefield( tapped)?\.""")
-    val REVEAL_UNTIL_TWO_PUT_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal (\w+) (\w+) cards\. Put those \2 cards onto the battlefield( tapped)? and the rest on the bottom of your library in a random order\. (.+)""")
+    val REVEAL_UNTIL_TWO_PUT_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal (\w+) (\w+) cards\. Put those \2 cards onto the battlefield( tapped)? and the rest on the bottom of your library in a random order\.(?: (.+))?""")
     val PUT_X_COUNTERS_THEN_MAY_BASE_PT = Regex("""Put X (\S+) counters on (.+?)\. Then you may have the base power and toughness of each other creature you control become equal to (.+?)'s power until end of turn\.""")
     val COSTS_LESS_IF_TARGETS_MV = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (\w+) with mana value (\d+)\.""")
     // dft chunk 10

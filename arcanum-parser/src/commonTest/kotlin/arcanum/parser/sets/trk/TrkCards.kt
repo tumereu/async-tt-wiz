@@ -224,3 +224,14 @@ fun surveil(count: Int): Step = Step.Do(Effect.Surveil(Players.You, n(count)))
 fun tapFor(color: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(
     arcanum.api.ManaKind.Fixed(ManaCost.parse("{$color}")!!)), Players.You)))
 val yourUpkeep: Trigger = stepBegins(TurnStep.Upkeep, PlayerFilter.You)
+
+// ---- trk chunk 03: station (copied from eoe)
+
+/** Charge counters (CR 122.1), what station puts (CR 702.184a). */
+val charge: CounterKind = arcanum.api.KeywordExpansions.CHARGE
+/** A station symbol "N+ | [abilities]" (CR 722.2a), with its P/T box "[P/T]" when it has one (CR 722.2b). */
+fun station(threshold: Int, vararg abilities: Ability, pt: String? = null): Ability.Static {
+    val creature = pt?.split('/')?.let { (p, t) -> listOf(Mechanic.SetTypes(add = listOf(CardType.Creature)), Mechanic.SetPowerToughness(n(p.toInt()), n(t.toInt()))) }
+    return Ability.Static(creature.orEmpty() + Mechanic.GainAbilities(abilities.toList()), affects = Affected.Objects(Objects.Self),
+        condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(charge, atLeast = threshold)))
+}

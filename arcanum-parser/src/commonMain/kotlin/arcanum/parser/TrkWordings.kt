@@ -10,4 +10,6 @@ internal object Trk {
     // trk chunk 02: "For as long as Lwaxana Troi remains tapped, if a triggered ability of that creature triggers, that ability triggers an
     // additional time."
     val FOR_AS_LONG_AS_TAPPED_TRIGGERS_ADDITIONAL = Regex("""For as long as (.+?) remains tapped, if a triggered ability of that creature triggers, that ability triggers an additional time\.""")
+    // trk chunk 03: "Put all permanent cards exiled this way onto the battlefield." after an exile
+    val PUT_ALL_EXILED_THIS_WAY_ONTO_BATTLEFIELD = Regex("""Put all (.+? cards?) exiled this way onto the battlefield\.""")
 }

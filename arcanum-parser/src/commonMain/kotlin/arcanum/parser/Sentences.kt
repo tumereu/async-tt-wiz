@@ -651,7 +651,8 @@ internal class Sentences(
         Dft.REVEAL_UNTIL_TWO_PUT_REST_BOTTOM.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
-            val rest = effect(m.groupValues[4], context) ?: return null
+            // trk chunk 03: also as the whole ability text, with nothing after it
+            val rest = if (m.groupValues[4].isEmpty()) emptyList() else effect(m.groupValues[4], context) ?: return null
             return listOf(Step.Do(Effect.RevealUntil(filter, Players.You, Value.Fixed(n), reveal = true, foundBind = "found", restBind = "rest")),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
                 Step.Do(Effect.Move(Objects.Bound("rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true)))) + rest
@@ -2761,6 +2762,12 @@ internal class Sentences(
         // chunk 25: "it"/"them" in the effect: the event's object, or the objects the condition is about;
         // chunk 20: "that creature" is the event's object
         val about = (interveningIf as? arcanum.api.Condition.ObjectMatches)
+        // trk chunk 03: "Whenever a creature dies, if this Spacecraft isn't a creature, put a charge counter on it": the trigger is about another
+        // object and the condition names this one, so "it" is this permanent, not the event's object
+        val itIsSelf = (interveningIf as? arcanum.api.Condition.Not)?.condition.let { inner -> (inner ?: interveningIf) as? arcanum.api.Condition.ObjectMatches }
+            ?.objects == Objects.Self && trigger.events.all { e ->
+            e is EventPattern.Cast || (e is EventPattern.ZoneChange && e.objects != ObjectFilter.Is(Objects.Self))
+        }
         triggerIt = itOf(trigger.events)
         // blb chunk 04: with an event that has no object ("whenever you expend 4"), "it" is this permanent
         val event = trigger.events.firstOrNull { it is EventPattern.Expend }
@@ -2774,7 +2781,7 @@ internal class Sentences(
             // one chunk 06: "When this Aura enters, if enchanted creature has toxic, that creature gains hexproof": the creature the condition is
             // about, not the Aura that entered
             instructions(conditional?.groupValues?.get(2) ?: rest, event = event,
-                them = about?.objects?.takeIf { it != Objects.Self }, that = about?.objects?.takeIf { it is Objects.AttachedTo } ?: that(trigger))
+                them = about?.objects?.takeIf { it != Objects.Self }, that = about?.objects?.takeIf { it is Objects.AttachedTo } ?: that(trigger), it = Objects.Self.takeIf { itIsSelf })
         } finally { conditionAmount = null }
         triggerIt = null
         instructions = instructions?.let { itsOfTheTriggerObject(it, trigger, conditional?.groupValues?.get(2) ?: rest) }
@@ -7004,6 +7011,7 @@ internal class Sentences(
         // chunks 52, 56: "If [condition], [effect]." (checked as it resolves)
         IF_CONDITION.matchEntire(sentence)?.let { m ->
             val condition = itCondition(m.groupValues[1], context) ?: Conditions.condition(m.groupValues[1], self)
+                ?: m.groupValues[1].takeIf { " and " in it }?.let(::conditionWithAnd) // trk chunk 03: "If you control a Whale and haven't begun an extra turn this game, …"
             // lci chunk 05: "[Then] if there are three or more dread counters on it, transform it.": both "it"s are the object the condition
             // reads (this permanent), not an earlier "it" (the attacking creature)
             if (m.groupValues[1].endsWith(" on it") && (condition as? arcanum.api.Condition.ObjectMatches)?.objects == Objects.Self) context.it = Objects.Self
@@ -11607,6 +11615,15 @@ internal class Sentences(
             val filter = Filters.noun(Rtr.SPELLS_OF_TYPES.replace(m.groupValues[1]) { "${it.groupValues[1]} or ${it.groupValues[2]} card" }) ?: return null
             return named + rtrMayCastEach(Objects.Where(Objects.Bound(exiled), filter))
         }
+        // trk chunk 03: "Exile the top four cards of your library. Put all permanent cards exiled this way onto the battlefield." (CR 701.13, 400.7)
+        Trk.PUT_ALL_EXILED_THIS_WAY_ONTO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
+            if (move.to.zone != Zone.Exile) return null
+            val bind = move.postBind ?: "exiled"
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.Move(
+                Objects.Where(Objects.Bound(bind), Filters.all(noun, ObjectFilter.InZone(Zone.Exile))), Destination(Zone.Battlefield)))
+        }
         if (sentence.removePrefix("Then put").let { it != sentence && "Put$it" == "Put all cards exiled this way that weren't cast into your graveyard." } ||
             sentence == "Put all cards exiled this way that weren't cast into your graveyard.") {
             val exiled = rtrExiledBind(steps) ?: return null
@@ -13229,7 +13246,8 @@ internal class Sentences(
         val ENTERS_FROM_A = Regex("""(.+?) enters from (an?|your) (graveyard|exile)""")
         val COUNTERS_ON_SELF = Regex("""the number of (\w+) counters on (.+)""")
         // chunk 35: also after a quoted ability that ends a sentence ('… with "This token can't block." If …')
-        val SENTENCE_END = Regex("""(?<=\.)\s+|(?<=\.")\s+""")
+        // trk chunk 03: not after a dotted abbreviation in a card name ("U.S.S. Voyager", "H.M.S. Bounty")
+        val SENTENCE_END = Regex("""(?<=\.)(?<!\b(?:[A-Z]\.){2,5})\s+|(?<=\.")\s+""")
         // msh: "Power-up —", "I LOVE Squirrels! —", "Do You Like Squirrels? —"
         val ABILITY_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\-ā ]+) — (.+)""") // spm: "Pavitr's Sevā"; fin: "10,000 Needles"
         const val IMPRINTED = "imprinted"

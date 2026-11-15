@@ -933,6 +933,12 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "sneak"; override val text: String get() = "Sneak"; override val rule: String get() = "702.190" }
     }
+    /** trk: Beam me up (CR 702.196): cast this instant or sorcery from your graveyard for [cost] and by returning a creature you
+     * control to its owner's hand, rather than its mana cost; then it is exiled. */
+    @Serializable @SerialName("beam-me-up") data class BeamMeUp(override val cost: Cost) : Keyword, HasCost {
+        override val kind: KeywordKind get() = Kind
+        companion object Kind : KeywordKind { override val id: String get() = "beam-me-up"; override val text: String get() = "Beam me up"; override val rule: String get() = "702.196" }
+    }
     /** Suspend (CR 702.62) */
     @Serializable @SerialName("suspend") data class Suspend(override val amount: Int, override val cost: Cost) : Keyword, HasAmount, HasCost {
         init { requireAmount(amount) }
@@ -1273,6 +1279,7 @@ interface KeywordKind {
                 Keyword.Mayhem.Kind,
                 Keyword.WebSlinging.Kind,
                 Keyword.Sneak.Kind,
+                Keyword.BeamMeUp.Kind,
                 Keyword.Suspend.Kind,
                 Keyword.Reinforce.Kind,
                 Keyword.Awaken.Kind,

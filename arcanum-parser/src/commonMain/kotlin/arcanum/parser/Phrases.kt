@@ -668,7 +668,8 @@ internal object Filters {
     private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
     private val QUALIFIED_PERMANENT_SPELL = Regex("""(.+) permanent spells?""")
     // chunk 36
-    private val OR_AN_ALTERNATIVE = Regex(" or an? ")
+    // trk chunk 05: also "a Plains card or nonland permanent card with …": a repeated "card" starts an alternative of its own
+    private val OR_AN_ALTERNATIVE = Regex(" or an? | card or ")
     private val OR_LIST_NOT_COMPARISON = Regex(""",? or (?!less\b|greater\b|more\b|fewer\b)|, """)
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
     // chunk 47

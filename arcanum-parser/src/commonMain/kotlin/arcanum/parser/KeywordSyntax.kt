@@ -192,6 +192,7 @@ internal sealed class KeywordSyntax(val text: String) {
             cost("Mayhem") { Keyword.Mayhem(arcanum.api.Cost.mana(it)) },
             cost("Web-slinging") { Keyword.WebSlinging(arcanum.api.Cost.mana(it)) },
             cost("Sneak") { Keyword.Sneak(arcanum.api.Cost.mana(it)) },
+            cost("Beam me up") { Keyword.BeamMeUp(arcanum.api.Cost.mana(it)) },
             amountAndCost("Suspend") { a, c -> Keyword.Suspend(a, arcanum.api.Cost.mana(c)) },
             amountAndCost("Reinforce") { a, c -> Keyword.Reinforce(a, arcanum.api.Cost.mana(c)) },
             amountAndCost("Awaken") { a, c -> Keyword.Awaken(a, arcanum.api.Cost.mana(c)) },

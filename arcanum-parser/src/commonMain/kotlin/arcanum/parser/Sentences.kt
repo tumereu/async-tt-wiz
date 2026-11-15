@@ -4591,8 +4591,9 @@ internal class Sentences(
                     distinct = arcanum.api.SharedQuality.Number(property)), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
         }
-        // dsk chunk 04: "Put the rest on the bottom of your library in a random order." (after picking from among them)
-        if (sentence == "Put the rest on the bottom of your library in a random order." && context.seen != null && context.picked != null) {
+        // dsk chunk 04: "Put the rest on the bottom of your library in a random order." (after picking from among them); trk: "on the bottom in a
+        // random order" (the bottom of the same library, CR 401.1)
+        if (Blb.REST_ON_BOTTOM_RANDOM.matches(sentence) && context.seen != null && context.picked != null) {
             return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(context.seen!!), Objects.Bound(context.picked!!)),
                 Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
@@ -13206,6 +13207,8 @@ internal class Sentences(
         val TARGET_GETS_AND_GAINS = Regex("""(?:Target|(Up to one target)) (.+) gets ([+-]\d+)/([+-]\d+) and gains ([a-z ,]+) until end of turn\.""")
         val IT_GETS = Regex("""(It|This [a-z]+|Equipped creature|Enchanted creature) gets ([+-]\d+)/([+-]\d+)(?: and gains ([a-z ,]+?))? until end of turn\.""")
         val MAY_REVEAL_FROM_AMONG = Regex("""You may reveal an? (.+) from among them\.""")
+        // trk: also without "of your library"
+        val REST_ON_BOTTOM_RANDOM = Regex("""Put the rest on the bottom(?: of your library)? in a random order\.""")
         val ADD_EITHER_FOR_EACH = Regex("""Add \{([WUBRG])\} or \{([WUBRG])\} for each (.+)\.""")
         val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (those cards|that card|them|it)\.""")
         val DRAW_EQUAL_TO_COUNTERS = Regex("""Draw cards equal to the number of (\S+) counters on (.+)\.""")
@@ -17410,6 +17413,31 @@ internal class Sentences(
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
                     Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound("tokens"), Destination(Zone.Exile))))))))
         }
+        // trk chunk 04: "Reveal the top X cards of your library, where X is …. Put all permanent cards revealed this way onto the battlefield tapped
+        // and the rest on the bottom of your library in a random order." (CR 701.20, 401.4)
+        Trk.REVEAL_PUT_ALL_TAPPED_REST_BOTTOM.matchEntire(text)?.let { m ->
+            val x = context.definedX ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val revealed = Objects.Bound("revealed")
+            val reveal = listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, x, fromTop = true), bind = "revealed")))
+            val matching = Objects.Where(revealed, filter)
+            return reveal + listOf(Step.Do(Effect.Move(matching, Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty()))),
+                Step.Do(Effect.Move(Objects.Except(revealed, matching), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // trk chunk 04: "Each opponent exiles the top X cards of their library, where X is …. For each opponent, choose a land card that player owns
+        // exiled this way. You may play the chosen cards for as long as they remain exiled." (CR 101.4, 608.2e; each choice is the controller's)
+        Trk.EACH_OPPONENT_EXILES_CHOOSE_ONE_EACH_MAY_PLAY.matchEntire(text)?.let { m ->
+            val x = context.definedX ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val exiled = Objects.Bound("exiled")
+            return listOf(
+                Step.Do(Effect.Move(Objects.LibraryCards(Players.Each(PlayerFilter.Opponent), x, fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+                Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "owner", together = true, steps = listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Bound("owner")))), Value.Fixed(1), Value.Fixed(1),
+                        from = exiled), bind = "chosen", chooser = Players.You))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
+                    Affected.Objects(Objects.Bound("chosen")), arcanum.api.Duration.Indefinitely)))
+        }
         return null
     }
 
@@ -20908,6 +20936,11 @@ internal class Sentences(
         }
         // one chunk 10: Thrun, "Thrun can't be the target of nongreen spells your opponents control or abilities from nongreen sources your opponents
         // control." (the spell itself or the ability's source, as hexproof from a quality looks, CR 702.11d, 113.7)
+        // trk chunk 04: "This creature can't be the target of abilities from artifact sources your opponents control." (spells aren't restricted)
+        Trk.CANT_BE_TARGET_OF_ABILITIES_FROM.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.ControlledBy(PlayerFilter.Opponent)),
+                fromSource = Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
+        }
         One.CANT_BE_TARGET_OF_SPELLS_OR_ABILITIES_FROM.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent), fromSource = Filters.noun(m.groupValues[2]) ?: return null)),
                 affects = Affected.Objects(Objects.Self))
@@ -21172,7 +21205,7 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "exiled", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Exile), postBind = "exiledCard")))
         }
-        if (sentence == "Put the rest on the bottom of your library in a random order.") {
+        if (Blb.REST_ON_BOTTOM_RANDOM.matches(sentence)) {
             val seen = context.seen ?: return null
             val picked = context.picked ?: return null
             return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(seen), Objects.Bound(picked)), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))

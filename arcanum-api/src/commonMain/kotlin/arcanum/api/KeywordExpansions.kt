@@ -284,6 +284,14 @@ object KeywordExpansions {
         is Keyword.CommanderNinjutsu -> listOf(ninjutsu(keyword.cost, listOf(Zone.Hand, Zone.Command)))
         // spm: CR 702.188a: cast for [cost] by also returning a tapped creature you control to its owner's hand (an alternative cost)
         is Keyword.WebSlinging -> static(webSlinging(keyword.cost))
+        // trk: CR 702.196a: "You may cast this card from your graveyard if the resulting spell is an instant or sorcery spell by paying
+        // [cost] and returning a creature you control to its owner's hand rather than paying its mana cost" and "If the beam me up cost
+        // was paid, exile this card instead of putting it anywhere else any time it would leave the stack."
+        is Keyword.BeamMeUp -> static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast,
+            resultingSpell = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)),
+            cost = Cost(keyword.cost.parts + CostPart.ReturnToHand(CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
+                ObjectFilter.ControlledBy(PlayerFilter.You))), count = Value.Fixed(1)))),
+            then = Destination(Zone.Exile), holder = PlayerFilter.You))
         // spm: CR 702.187b: as long as you discarded this card this turn, you may cast it from your graveyard for [cost] rather than its
         // mana cost; CR 702.187c: without a cost, you may play it from your graveyard (a land too). The discard is the event whose
         // card in the graveyard is this object (CR 400.7).

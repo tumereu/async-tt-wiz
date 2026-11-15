@@ -1372,6 +1372,9 @@ internal object Conditions {
         // trk chunk 03: "[you] haven't begun an extra turn this game" (CR 500.7)
         if (text == "haven't begun an extra turn this game" || text == "you haven't begun an extra turn this game")
             return Condition.Not(Condition.BegunExtraTurnThisGame(PlayerFilter.You))
+        // trk chunk 08: "this spell is the first spell you've cast this game": judged as it is cast, counting itself (CR 601.2i)
+        if (text == "this spell is the first spell you've cast this game")
+            return Condition.AsCast(Condition.Compare(Value.SpellsCastThisGame(Players.You), arcanum.api.Comparison.Equal, Value.Fixed(1)))
         LtrPhrases.condition(text)?.let { return it } // ltr
         Mh2Phrases.condition(text, self)?.let { return it } // mh2
         DftPhrases.condition(text)?.let { return it } // dft

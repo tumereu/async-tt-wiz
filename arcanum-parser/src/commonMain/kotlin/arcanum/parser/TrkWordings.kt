@@ -32,4 +32,13 @@ internal object Trk {
     val DRAW_FOR_EVERY = Regex("""[Dd]raw a card for every (\w+) (.+)\.""")
     // trk chunk 07: "If you draw three or more cards this way, put two +1/+1 counters on each creature you control." (after a draw)
     val IF_DREW_N_THIS_WAY = Regex("""If you draw (\w+) or more cards this way, (.+)\.""")
+    // trk chunk 08: "You can't sacrifice Treasure tokens."
+    val YOU_CANT_SACRIFICE = Regex("""You can't sacrifice (.+?)\.""")
+    // trk chunk 08: "Choose target creature. Whenever it deals combat damage to a player this turn, you draw that many cards."
+    val CHOOSE_TARGET_WHENEVER_COMBAT_DAMAGE_THIS_TURN = Regex("""Choose target (.+?)\. Whenever (?:it|that creature) deals combat damage to a player this turn, (.+)""")
+    // trk chunk 08: "<a cast permission>. If you cast a spell this way, that artifact creature enters with a finality counter on it."
+    val PERMISSION_CAST_THIS_WAY_ENTERS_WITH = Regex("""(.+?\.) If you cast a spell this way, that (?:[a-z]+ )*?(?:creature|permanent|spell) enters with (a|an|one|two) (\S+) counters? on it\.""")
+    // trk chunk 08: "If another creature you control with a +1/+1 counter on it would be destroyed, instead remove all +1/+1 counters from it and all
+    // damage already dealt to it is healed."
+    val WOULD_BE_DESTROYED_REMOVE_COUNTERS_HEAL = Regex("""If (.+?) would be destroyed, instead remove all (\S+) counters from it and all damage already dealt to it is healed\.""")
 }

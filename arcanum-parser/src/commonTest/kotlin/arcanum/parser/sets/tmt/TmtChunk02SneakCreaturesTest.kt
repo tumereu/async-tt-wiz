@@ -103,7 +103,7 @@ class TmtChunk02SneakCreaturesTest {
         Keyword.DoubleStrike,
         static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, holder = PlayerFilter.You, spellGets = listOf(Mechanic.Replacement(
                 EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
-                modify = listOf(Modification.EntersWithCounters(CounterKind.Named("finality"), n(1)))))),
+                modify = listOf(Modification.EntersWithCounters(CounterKind.Finality, n(1)))))),
             affects = Objects.Each(and(creature, or(power(arcanum.api.Comparison.AtMost, 1), ObjectFilter.Toughness(arcanum.api.Comparison.AtMost, n(1))),
                 inZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))),
             condition = Condition.YourTurn),

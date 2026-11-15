@@ -43,7 +43,7 @@ class LciChunk09ConditionsAndManaTest {
     private val cave = sub("Cave")
     private val chosenColor = listOf(ColorRef.Remembered("color"))
     private val finality = Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
-        modify = listOf(Modification.EntersWithCounters(CounterKind.Named("finality"), n(1))))
+        modify = listOf(Modification.EntersWithCounters(CounterKind.Finality, n(1))))
     private fun becomesCreature(objects: Objects, subtype: String) = Step.Do(Effect.ApplyMechanics(listOf(
         Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype)))),
         Mechanic.SetPowerToughness(n(0), n(0)), Mechanic.GainAbilities(listOf(Keyword.Haste))), Affected.Objects(objects), Duration.Indefinitely))

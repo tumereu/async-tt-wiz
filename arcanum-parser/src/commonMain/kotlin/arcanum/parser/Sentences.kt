@@ -2221,6 +2221,17 @@ internal class Sentences(
         // graveyard." A permanent spell is cast from a permanent card (CR 110.4a).
         // mkm chunk 09: "Once each turn, you may cast a creature spell with power 2 or less from the top of your library." (any turn; the top card only)
         // woe chunk 10: "Once each turn, you may cast an instant or sorcery spell from the top of your library." (CR 601.3e)
+        // trk chunk 08: "Once during each of your turns, you may cast an artifact creature spell from your graveyard. If you cast a spell this way,
+        // that artifact creature enters with a finality counter on it." (what a spell cast with the permission gets, CR 400.7d; CR 122.1h)
+        Trk.PERMISSION_CAST_THIS_WAY_ENTERS_WITH.matchEntire(line)?.let { m ->
+            val first = static(m.groupValues[1]) as? Ability.Static ?: return@let
+            val may = first.mechanics.singleOrNull() as? Mechanic.MayPlay ?: return@let
+            if (may.how != PlayKind.Cast) return@let
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            val gets = Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+            return first.copy(mechanics = listOf(may.copy(spellGets = may.spellGets + gets)))
+        }
         ONCE_EACH_TURN_CAST_FROM_GRAVEYARD.matchEntire(line)?.let { m ->
             val cards = Filters.noun(m.groupValues[2].replace(" spell", " card")) ?: return null
             val zone = if (m.groupValues[3] == "your graveyard") Zone.Graveyard else Zone.Library
@@ -5098,6 +5109,14 @@ internal class Sentences(
         CREATE_NAMED_LAND_TOKEN.matchEntire(sentence)?.let { m ->
             val face = arcanum.api.FaceDefinition(name = m.groupValues[2], colorIndicator = emptyList(), types = listOf(CardType.Land),
                 subtypes = Filters.BASIC_LAND_TYPES.map { Subtype(it) })
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(face), count = Value.Fixed(1), controller = Players.You,
+                tapped = m.groupValues[1].isNotEmpty())))
+        }
+        CREATE_NAMED_LAND_TOKEN_WITH.matchEntire(sentence)?.let { m ->
+            val subtypes = m.groupValues[2].split(' ').filter { it.isNotEmpty() }.map { if (it in RulesWords.subtypes) Subtype(it) else return null }
+            val ability = Sentences(setOf("this token", "this land")).line(m.groupValues[4]) ?: return null
+            val face = arcanum.api.FaceDefinition(name = m.groupValues[3], colorIndicator = emptyList(), types = listOf(CardType.Land), subtypes = subtypes,
+                abilities = listOf(ability))
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(face), count = Value.Fixed(1), controller = Players.You,
                 tapped = m.groupValues[1].isNotEmpty())))
         }
@@ -10839,11 +10858,11 @@ internal class Sentences(
                 postBind = "exiled")))
         }
         // "Exile cards from the top of your library until you exile a nonland card." (each card exiled as it is turned over;
-        // "that card" is the one found)
+        // "that card" is the one found; trk chunk 08: exiled face up, not revealed, CR 406.3, 701.20a)
         BlbGaps2.EXILE_UNTIL.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
             context.it = Objects.Bound(FOUND)
-            return listOf(Step.Do(Effect.RevealUntil(filter, library = Players.You, count = Value.Fixed(1), reveal = true, into = Zone.Exile,
+            return listOf(Step.Do(Effect.RevealUntil(filter, library = Players.You, count = Value.Fixed(1), reveal = false, into = Zone.Exile,
                 foundBind = FOUND, restBind = REST)))
         }
         // "You may cast that card by discarding a card rather than paying its mana cost." (an alternative cost, CR 118.9,
@@ -13478,6 +13497,8 @@ internal class Sentences(
         val WOULD_BE_PUT_INTO_GRAVEYARD_EXILE_INSTEAD = Regex("""If an? (.+?) would be put into (an opponent's|your) graveyard from anywhere, exile it instead\.""")
         val TARGET_LOSES_THAT_MUCH = Regex("""Target (player|opponent) loses that much life\.""")
         val CREATE_NAMED_LAND_TOKEN = Regex("""Create an? (tapped )?colorless land token named (.+?) that is every basic land type\.""")
+        // trk chunk 08: 'Create a tapped Planet land token named New Planet with "{T}: Add one mana of any color."' (CR 111.4, 205.3i)
+        val CREATE_NAMED_LAND_TOKEN_WITH = Regex("""Create an? (tapped )?((?:[A-Z][a-z]+ )*)land token named ([A-Z][^"]*?) with "(.+)"\.?""")
         // dsk chunk 07
         val WHILE = Regex("""(.+?) while (.+)""")
         val SELF_COSTS_LESS_AS_LONG_AS = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast as long as (.+)\.""")
@@ -16274,7 +16295,7 @@ internal class Sentences(
             val cards = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(ObjectFilter.Power(arcanum.api.Comparison.AtMost, n),
                 ObjectFilter.Toughness(arcanum.api.Comparison.AtMost, n))), ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
             val finality = Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
-                modify = listOf(Modification.EntersWithCounters(arcanum.api.CounterKind.Named("finality"), Value.Fixed(1))))
+                modify = listOf(Modification.EntersWithCounters(arcanum.api.CounterKind.Finality, Value.Fixed(1))))
             return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, holder = PlayerFilter.You, spellGets = listOf(finality))),
                 affects = Affected.Objects(Objects.Each(cards)), condition = arcanum.api.Condition.YourTurn)
         }
@@ -17408,6 +17429,21 @@ internal class Sentences(
     /** msh: wordings of several sentences, read as a whole first. */
     /** trk: wordings of several sentences read as one. */
     private fun trkWhole(text: String, context: Context): List<Step>? {
+        // trk chunk 08: "Choose target creature. Whenever it deals combat damage to a player this turn, you draw that many cards." (a delayed
+        // trigger for the rest of the turn, triggering each time, CR 603.7b; its object fixed as it is created, 603.7c; "that many" is the damage)
+        Trk.CHOOSE_TARGET_WHENEVER_COMBAT_DAMAGE_THIS_TURN.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val slots = context.targets.size
+            val event = EventPattern.Damage(ObjectFilter.Is(context.target(Filters.slotName(m.groupValues[1]), filter)),
+                arcanum.api.RecipientFilter(players = PlayerFilter.Any), combat = true)
+            val (savedEvent, savedMuch) = context.event to context.thatMuch
+            context.event = event
+            context.thatMuch = null
+            val then = try { effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) } finally { context.event = savedEvent; context.thatMuch = savedMuch }
+            if (then == null) { while (context.targets.size > slots) context.targets.removeAt(context.targets.size - 1); return null }
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(event), Instructions(steps = then), duration = arcanum.api.Duration.EndOfTurn,
+                repeats = true)))
+        }
         // trk chunk 02: "Gain control of target nonland permanent an opponent controls. That opponent draws three cards." ("that opponent" is the
         // target's controller as the spell resolves, found before control changes, CR 608.2c)
         Trk.GAIN_CONTROL_THAT_OPPONENT_DRAWS.matchEntire(text)?.let { m ->
@@ -18806,7 +18842,7 @@ internal class Sentences(
             val cards = Filters.all(Filters.noun(m.groupValues[1] + " card") ?: return null, ObjectFilter.InZone(Zone.Exile), ObjectFilter.OwnedBy(PlayerFilter.You),
                 ObjectFilter.Is(Objects.Remembered(EXILED_WITH)))
             val finality = Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
-                modify = listOf(Modification.EntersWithCounters(arcanum.api.CounterKind.Named("finality"), Value.Fixed(1))))
+                modify = listOf(Modification.EntersWithCounters(arcanum.api.CounterKind.Finality, Value.Fixed(1))))
             return Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, holder = PlayerFilter.You, spellGets = listOf(finality))),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
@@ -29981,6 +30017,22 @@ internal class Sentences(
         // tdm chunk 11: "This token can't be sacrificed." (CR 701.21a)
         Tdm.CANT_BE_SACRIFICED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.CantBeSacrificed), affects = Affected.Objects(Objects.Self))
+        }
+        // trk chunk 08: "If another creature you control with a +1/+1 counter on it would be destroyed, instead remove all +1/+1 counters from it and
+        // all damage already dealt to it is healed." (a replacement of the destruction, not regeneration: it doesn't tap it or remove it from combat,
+        // and "can't be regenerated" doesn't stop it, CR 614.1a, 614.8, 701.19)
+        Trk.WOULD_BE_DESTROYED_REMOVE_COUNTERS_HEAL.matchEntire(line)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val it = Objects.EventObject(arcanum.api.EventRole.Before)
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Destroyed(noun), instead = Instructions(steps = listOf(
+                Step.Do(Effect.RemoveCounters(it, kind, Value.Of(arcanum.api.NumericProperty.Counters(kind), it, arcanum.api.Combine.Single))),
+                Step.Do(Effect.RemoveAllDamage(it)))))), affects = Affected.Objects(Objects.Self))
+        }
+        // trk chunk 08: "You can't sacrifice Treasure tokens." (only a permanent's controller sacrifices it, CR 701.21a: those you control can't be)
+        Trk.YOU_CANT_SACRIFICE.matchEntire(line)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.CantBeSacrificed), affects = Affected.Objects(Objects.Each(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.You)))))
         }
         // tdm chunk 02: "If a creature attacking (one chunk 07: or dying) causes a triggered ability of a permanent you control to trigger, that ability
         // triggers an additional time." (CR 603.2d)

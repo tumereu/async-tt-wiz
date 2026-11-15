@@ -79,7 +79,7 @@ class Mh3Chunk02EnergyTest {
         triggered(entersSelf,
             getEnergy(2),
             ifThen(Condition.CastFrom(Zone.Hand, of = Objects.Self),
-                doing(Effect.RevealUntil(filter = nonland, library = Players.You, count = n(1), reveal = true, into = Zone.Exile, foundBind = "found", restBind = "rest")),
+                doing(Effect.RevealUntil(filter = nonland, library = Players.You, count = n(1), reveal = false, into = Zone.Exile, foundBind = "found", restBind = "rest")),
                 Step.May(listOf(doing(Effect.Cast(Objects.Bound("found"), PlayKind.Cast,
                     cost = cost(CostPart.PayEnergy(Value.Of(NumericProperty.ManaValue, Objects.Bound("found"), Combine.Single))), caster = Players.You))),
                     player = Players.You)),

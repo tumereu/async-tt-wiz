@@ -12,4 +12,12 @@ internal object Trk {
     val FOR_AS_LONG_AS_TAPPED_TRIGGERS_ADDITIONAL = Regex("""For as long as (.+?) remains tapped, if a triggered ability of that creature triggers, that ability triggers an additional time\.""")
     // trk chunk 03: "Put all permanent cards exiled this way onto the battlefield." after an exile
     val PUT_ALL_EXILED_THIS_WAY_ONTO_BATTLEFIELD = Regex("""Put all (.+? cards?) exiled this way onto the battlefield\.""")
+    // trk chunk 04: "Reveal the top X cards of your library, where X is …. Put all permanent cards revealed this way onto the battlefield tapped and the
+    // rest on the bottom of your library in a random order."
+    val REVEAL_PUT_ALL_TAPPED_REST_BOTTOM = Regex("""Reveal the top X cards of your library\. Put all (.+? cards?) revealed this way onto the battlefield( tapped)? and the rest on the bottom of your library in a random order\.""")
+    // trk chunk 04: "Each opponent exiles the top X cards of their library, where X is …. For each opponent, choose a land card that player owns exiled
+    // this way. You may play the chosen cards for as long as they remain exiled."
+    val EACH_OPPONENT_EXILES_CHOOSE_ONE_EACH_MAY_PLAY = Regex("""[Ee]ach opponent exiles the top X cards of their library\. For each opponent, choose an? (.+? card) that player owns exiled this way\. You may play the chosen cards for as long as they remain exiled\.""")
+    // trk chunk 04: "This creature can't be the target of abilities from artifact sources your opponents control."
+    val CANT_BE_TARGET_OF_ABILITIES_FROM = Regex("""(.+?) can't be the target of abilities from (.+?) sources your opponents control\.""")
 }

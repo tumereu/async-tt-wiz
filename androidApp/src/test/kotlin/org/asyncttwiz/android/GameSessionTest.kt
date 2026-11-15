@@ -273,4 +273,74 @@ class GameSessionTest {
         f.message(GameAdmissionError("storageUnavailable", true))
         assertTrue(f.session.pending(b.id)); assertTrue(f.results.isEmpty())
     }
+    // WEB-060, SYS-014 (problem report VSVLSK): another tab of the same browser (one installation to the server) opened the
+    // game's stream, so the server fences this tab's next command; the stream is opened again on the same socket (no
+    // reconnect) and the command goes again under its own request id once it is ready
+    @Test fun aStreamAnotherTabTookIsOpenedAgainOnTheSameSocketAndTheFencedCommandGoesAgain() {
+        val f = Fixture(); val game = game()
+        try {
+            f.connect(listOf(game))
+            assertTrue(f.session.submit(game, GameAction.AcceptInvitation))
+            val original = f.wire.frames.filterIsInstance<GameCommand>().single()
+            val opens = f.wire.frames.filterIsInstance<OpenGameStream>().size
+            val disconnects = f.wire.disconnected
+            f.message(GameAdmissionError("streamFenced", false, original.requestId, game.id))
+            assertEquals(1, f.wire.tokens.size, "no new socket")
+            assertEquals(disconnects, f.wire.disconnected, "the socket stays")
+            val open = f.wire.frames.filterIsInstance<OpenGameStream>()
+            assertEquals(opens + 1, open.size, "the stream is opened again")
+            assertFalse(f.session.ready(game.id))
+            assertTrue(f.session.pending(game.id))
+            f.message(GameStreamReady(game.id, open.last().streamId, "3"))
+            assertEquals(original.copy(generation = "3"), f.wire.frames.filterIsInstance<GameCommand>().last())
+            assertEquals(2, f.wire.frames.filterIsInstance<GameCommand>().size)
+            assertTrue(f.session.ready(game.id))
+        } finally { f.session.close() }
+    }
+    // WEB-060, SYS-014 (problem report VSVLSK): after a lost socket the tab asks to resume a stream another tab has opened
+    // since; the fenced resume opens the stream afresh instead of dropping the socket and asking to resume again forever,
+    // and what waited goes again
+    @Test fun aFencedResumeOpensTheStreamAfreshInsteadOfReconnectingForever() {
+        val f = Fixture(); val game = game()
+        try {
+            f.connect(listOf(game))
+            assertTrue(f.session.submit(game, GameAction.AcceptInvitation))
+            val original = f.wire.frames.filterIsInstance<GameCommand>().single()
+            f.wire.listener.disconnected(false, "socketFailure"); f.drain()
+            f.session.tick()
+            assertEquals(2, f.wire.tokens.size)
+            f.wire.listener.opened(); f.drain(); f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            val resume = f.wire.frames.filterIsInstance<ResumeGameStream>().single()
+            assertEquals(listOf(original.requestId), resume.requestIds)
+            val disconnects = f.wire.disconnected
+            f.message(GameAdmissionError("streamFenced", false, null, game.id))
+            assertEquals(disconnects, f.wire.disconnected, "the socket stays")
+            repeat(5) { f.now += 1_000; f.session.poll() }
+            assertEquals(2, f.wire.tokens.size, "no reconnect loop")
+            val open = f.wire.frames.filterIsInstance<OpenGameStream>().last()
+            assertEquals(resume.streamId, open.streamId)
+            assertEquals(2, f.wire.frames.filterIsInstance<OpenGameStream>().size)
+            f.message(GameStreamReady(game.id, open.streamId, "4"))
+            f.message(GameHead(game.id, game.revision, game))
+            assertEquals(original.copy(generation = "4"), f.wire.frames.filterIsInstance<GameCommand>().last())
+            assertTrue(f.session.ready(game.id))
+        } finally { f.session.close() }
+    }
+    // WEB-060: the fences of several commands sent before the stream's new open are answered by that one open
+    @Test fun fencesOfCommandsSentBeforeTheNewOpenAskForNoMoreOpens() {
+        val f = Fixture(); val a = game(); val b = game()
+        try {
+            f.connect(listOf(a, b))
+            assertTrue(f.session.submit(a, GameAction.AcceptInvitation))
+            assertTrue(f.session.setAssumeReveals(a, AssumeReveals(library = false, hands = true)))
+            val (first, second) = f.wire.frames.filterIsInstance<GameCommand>()
+            val opens = f.wire.frames.filterIsInstance<OpenGameStream>().size
+            f.message(GameAdmissionError("streamFenced", false, first.requestId, a.id))
+            f.message(GameAdmissionError("streamFenced", false, second.requestId, a.id))
+            assertEquals(opens + 1, f.wire.frames.filterIsInstance<OpenGameStream>().size)
+            f.message(GameStreamReady(a.id, f.wire.frames.filterIsInstance<OpenGameStream>().last().streamId, "2"))
+            assertEquals(listOf(first, second).map { it.copy(generation = "2") }, f.wire.frames.filterIsInstance<GameCommand>().drop(2))
+            assertTrue(f.session.ready(b.id), "the other game's stream is untouched")
+        } finally { f.session.close() }
+    }
 }

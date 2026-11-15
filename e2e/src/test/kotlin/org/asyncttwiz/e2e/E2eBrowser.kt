@@ -62,6 +62,19 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
         if (page.locator("div[role=button]:text-is('Skip')").count() > 0) tap("div[role=button]:text-is('Skip')")
     }
 
+    /** The page's console lines of another tab ([openTab]). */
+    val tabConsole = CopyOnWriteArrayList<String>()
+    private val tabs = CopyOnWriteArrayList<Page>()
+
+    /** Another tab of the same browser opened at [path]: the same site storage, so the same sign-in and the same browser
+     * installation; its console goes to [tabConsole]. */
+    fun openTab(path: String): Page = context.newPage().also { tab ->
+        tabs += tab
+        tab.onConsoleMessage { tabConsole += "${it.type()}: ${it.text()}" }
+        tab.onPageError { tabConsole += "pageerror: $it" }
+        tab.navigate("${E2eStack.origin}$path")
+    }
+
     /** The site may show notifications (as if the player had allowed them in the browser's prompt). */
     fun allowNotifications() {
         context.grantPermissions(listOf("notifications"), com.microsoft.playwright.BrowserContext.GrantPermissionsOptions()
@@ -142,6 +155,8 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
         val dir = File(E2eStack.output, "failures/$name").apply { mkdirs() }
         runCatching { page.screenshot(Page.ScreenshotOptions().setPath(Paths.get(dir.path, "page.png"))) }
         File(dir, "console.log").writeText(console.joinToString("\n"))
+        if (tabs.isNotEmpty()) File(dir, "tab-console.log").writeText(tabConsole.joinToString("\n"))
+        tabs.forEachIndexed { index, tab -> runCatching { tab.screenshot(Page.ScreenshotOptions().setPath(Paths.get(dir.path, "tab${index + 2}.png"))) } }
         runCatching { File(dir, "semantics.txt").writeText(semantics()) }
     }
 

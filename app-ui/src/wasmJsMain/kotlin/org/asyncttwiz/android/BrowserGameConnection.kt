@@ -55,7 +55,13 @@ class BrowserGameTransport : GameSocketTransport {
                 }
             })
         handle = object : GameSocketHandle {
-            override fun send(text: String) = open && wsSend(socket, text)
+            override fun send(text: String): Boolean {
+                if (!open) return false
+                // Problem report VSVLSK: why the browser's socket didn't take a message (the session logs the failure)
+                val state = wsSend(socket, text)
+                if (state != SENT) AppLog.warn("game", "Socket didn't take a message: its state is ${SOCKET_STATES.getOrElse(state) { "$state" }}")
+                return state == SENT
+            }
             override fun cancel() { ended(); wsCancel(socket) }
             override fun close(code: Int) { ended(); wsClose(socket, code) }
         }
@@ -87,6 +93,9 @@ class BrowserGameTransport : GameSocketTransport {
 
     private companion object {
         const val ABNORMAL_CLOSE = 1006
+        /** [wsSend]'s answer for a message the socket took; any other answer is the socket's readyState. */
+        const val SENT = -1
+        val SOCKET_STATES = listOf("connecting", "open", "closing", "closed")
         const val WATCH_MILLIS = 25_000L
         const val SILENCE_MILLIS = 100_000L
     }
@@ -103,10 +112,11 @@ private fun wsOpen(url: String, protocols: String, opened: () -> Unit, text: (St
     return socket;
 })()""")
 
-private fun wsSend(socket: JsAny, text: String): Boolean = js("""(() => {
-    if (socket.readyState !== 1) return false;
+/** Sends [text] on [socket]: -1 when it took it, else its readyState (it takes messages only while open, 1). */
+private fun wsSend(socket: JsAny, text: String): Int = js("""(() => {
+    if (socket.readyState !== 1) return socket.readyState;
     socket.send(text);
-    return true;
+    return -1;
 })()""")
 
 /** Drops [socket] at once: nothing more is reported from it. */

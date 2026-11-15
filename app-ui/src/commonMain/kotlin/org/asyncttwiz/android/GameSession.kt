@@ -110,6 +110,11 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Socket attempts in a row that failed before the server's welcome, and when [poll] may try the next one. */
     private var failedConnects = 0
     private var nextConnectAt = 0L
+    /** Problem report VSVLSK: the connection's opens, closes, failed sends, hello and welcome, stream opens and fences, each
+     * with its cause and epoch; repeats summarised ([ConnectionLog]). */
+    private val connectionLog = ConnectionLog(now)
+    /** Why the next socket is opened: the cause the last one ended with (logged with the attempt). */
+    private var connectReason = "the games need the connection"
     private fun reconnectDelay(failures: Int): Long =
         if (failures <= 0) 0L else minOf(1_000L shl minOf(failures - 1, 10), MAX_RECONNECT_DELAY_MS)
     private val uncertainGames = mutableSetOf<String>()
@@ -443,14 +448,19 @@ class GameSession(private val connection: GameConnection, private val credential
         if (compatibilityError != null && now() < compatibilityRetryAt) return
         val current = credential()
         if (current != token) {
-            if (connected) streams.keys.forEach { reconnectTrace.start(it,
-                if (current == null) "credentialUnavailable" else "credentialChanged") }
+            if (connected) {
+                val cause = if (current == null) "credentialUnavailable" else "credentialChanged"
+                streams.keys.forEach { reconnectTrace.start(it, cause) }
+                connectionLog.info("credential", "Connection ends (epoch $epoch): $cause")
+                connectReason = cause
+            }
             disconnect()
         }
         if (current == null || streams.isEmpty()) return
         if (!connected) {
             if (compatibilityError != null) compatibilityRetryAt = now() + 30_000
             token = current; lastCredential = current; connected = true; lastPing = now(); val generation = ++epoch
+            connectionLog.info("connect", "Connecting (epoch $generation): $connectReason; ${pending.size} commands waiting")
             reconnectTrace.stepAll("socketConnectStart")
             statusChanged()
             connection.connect(current, object : GameConnection.Listener {
@@ -458,7 +468,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     if (!closed && epoch == generation && credential() == current && sameAccount()) action()
                 }
                 override fun opened() = deliver {
-                    AppLog.info("game", "Connected")
+                    connectionLog.info("opened", "Connected (epoch $generation): hello sent")
                     reconnectTrace.stepAll("socketConnectedHttpAuthenticated")
                     send(GameHello(processId, installationId, maxMinor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
                 }
@@ -474,8 +484,9 @@ class GameSession(private val connection: GameConnection, private val credential
                     // A socket that never got the server's welcome failed: the next background attempt waits longer
                     failedConnects = if (welcome) 0 else failedConnects + 1
                     nextConnectAt = now() + reconnectDelay(failedConnects)
-                    AppLog.warn("game", "Connection lost: $cause")
-                    connectionUnavailable(cause)
+                    connectionLog.warn("lost", "Connection lost (epoch $generation, ${if (welcome) "after" else "before"} the welcome): " +
+                        "$cause; ${pending.size} commands waiting, next attempt in ${reconnectDelay(failedConnects)} ms or at the next action")
+                    connectionUnavailable(cause, logged = true)
                     if (unauthorized) authenticationRequired(current)
                 }
             })
@@ -588,14 +599,23 @@ class GameSession(private val connection: GameConnection, private val credential
         error = null; flush(); statusChanged(); return command
     }
     private fun openStreams() {
-        for ((id, stream) in streams) if (!stream.opening) {
-            if (!available(id) && pending.values.none { it.scope.gameId == id }) continue
-            stream.opening = true
-            val ids = pending.values.filter { it.scope.gameId == id }.map { it.requestId }
-            stream.recoveryIds = ids
-            stream.awaitingReady = true
-            reconnectTrace.step(id, if (stream.opened) "streamResumeStart" else "streamOpenStart")
-            if (!send(if (stream.opened) ResumeGameStream(id, stream.id, ids) else OpenGameStream(id, stream.id))) return
+        val asked = mutableListOf<String>()
+        try {
+            for ((id, stream) in streams) if (!stream.opening) {
+                if (!available(id) && pending.values.none { it.scope.gameId == id }) continue
+                stream.opening = true
+                // Only a resume recovers the outcomes of what was sent before (SYS-014); an open starts the stream afresh, and
+                // what is still waiting goes again under its own request ids (the server answers a repeat with its outcome)
+                val ids = if (stream.opened) pending.values.filter { it.scope.gameId == id }.map { it.requestId } else emptyList()
+                if (!stream.opened) sent.removeAll { pending[it]?.scope?.gameId == id }
+                stream.recoveryIds = ids
+                stream.awaitingReady = true
+                reconnectTrace.step(id, if (stream.opened) "streamResumeStart" else "streamOpenStart")
+                asked += "${if (stream.opened) "resume" else "open"} ${id.take(8)}" + if (ids.isEmpty()) "" else " (${ids.size} to recover)"
+                if (!send(if (stream.opened) ResumeGameStream(id, stream.id, ids) else OpenGameStream(id, stream.id))) return
+            }
+        } finally {
+            if (asked.isNotEmpty()) connectionLog.info("streams", "Game streams asked (epoch $epoch): ${asked.joinToString()}")
         }
     }
     private fun receive(message: GameServerMessage) {
@@ -612,6 +632,8 @@ class GameSession(private val connection: GameConnection, private val credential
                     return
                 }
                 compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE
+                connectionLog.info("welcome", "Welcome (epoch $epoch): ${streams.size} game streams, ${pending.size} commands waiting")
+                connectReason = "the games need the connection"
                 reconnectTrace.stepAll("protocolWelcome")
                 welcome = true; error = null; resumePending = false; resumePing = null; failedConnects = 0; openStreams()
             }
@@ -623,6 +645,9 @@ class GameSession(private val connection: GameConnection, private val credential
                 stream.generation = message.generation; stream.opened = true
                 stream.lastGeneration = message.generation
                 stream.awaitingReady = false
+                if (message.statuses.isNotEmpty() || engineLoad(message.gameId)) connectionLog.info("ready",
+                    "Game ${message.gameId.take(8)} stream ready (epoch $epoch, generation ${message.generation})" +
+                    message.statuses.groupBy { it.status }.entries.joinToString("") { (status, list) -> ", ${list.size} $status" })
                 reconnectTrace.step(message.gameId, "streamAuthorized")
                 require(message.statuses.size == stream.recoveryIds.size &&
                     message.statuses.map { it.requestId }.toSet() == stream.recoveryIds.toSet())
@@ -710,14 +735,19 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
             is GameAdmissionError -> {
                 if (Diagnostics.enabled) message.requestId?.let(DebugLatency::result)
+                val fenced = message.gameId?.takeIf { message.code == "streamFenced" && it in streams }
                 if (message.code == "gameplayRulesUpgradeRequired" || message.code == "serverUpdatePending" ||
                     (!welcome && message.code == "invalidInput" && message.requestId == null)) {
                     // A server older than the app's Hello rejects it as unknown input: wait for the server update.
                     incompatibleRules(clientOlder = message.code == "gameplayRulesUpgradeRequired")
                 }
                 else if (message.code == "unauthorized") { val rejected = token; connectionUnavailable("admission:unauthorized"); rejected?.let(authenticationRequired) }
+                else if (fenced != null) streamTakenOver(fenced, message.requestId)
                 else if (message.retryable || message.code == "streamFenced") connectionUnavailable("admission:${message.code}")
                 else {
+                    connectionLog.warn("admission", "Refused at admission (epoch $epoch): ${message.code}" +
+                        (message.requestId?.let { " for request ${it.take(8)} (${pending[it]?.action?.let(::simpleClassName)})" } ?: "") +
+                        (message.gameId?.let { " of game ${it.take(8)}" } ?: ""))
                     val original = message.requestId?.let(pending::get)
                     if (message.code == "accessDenied") message.gameId?.let(::unavailable)
                     message.requestId?.let { id ->
@@ -833,13 +863,43 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     fun heartbeat(presence: GamePresence): Boolean = connected && welcome && send(GamePing(randomUuid(), presence))
     private fun send(message: GameClientMessage): Boolean {
-        if (!connection.send(message)) { connectionUnavailable("socketSendFailed"); return false }; return true
+        if (!connection.send(message)) {
+            connectionLog.warn("sendFailed", "Couldn't send ${simpleClassName(message)} (epoch $epoch): the socket didn't take it")
+            connectionUnavailable("socketSendFailed:${simpleClassName(message)}"); return false
+        }
+        return true
     }
-    private fun connectionUnavailable(cause: String) {
+    /**
+     * Problem report VSVLSK: the server fenced [gameId]'s stream on this connection: another tab of this browser (one
+     * installation to the server) or another process opened it since. The stream is opened again here, on the same socket,
+     * and what waits goes again under its own request ids once it is ready ([openStreams]); a fence of a command sent before
+     * an open or resume still on its way is left to that one's answer. Before, the whole connection was dropped and every
+     * new one asked to resume the stream the other tab held, was fenced again and started over, silently, forever.
+     */
+    private fun streamTakenOver(gameId: String, requestId: String?) {
+        val stream = streams.getValue(gameId)
+        val what = requestId?.let { "request ${it.take(8)} (${pending[it]?.action?.let(::simpleClassName)})" }
+            ?: if (stream.opened) "its resume" else "its open"
+        if (requestId != null && stream.awaitingReady) {
+            connectionLog.info("fenced", "Game ${gameId.take(8)} stream fenced on $what (epoch $epoch), sent before the open or resume on its way")
+            return
+        }
+        connectionLog.warn("fenced", "Game ${gameId.take(8)} stream fenced on $what (epoch $epoch): another tab or process of " +
+            "this installation opened it; opening it again here, ${pending.values.count { it.scope.gameId == gameId }} commands to send again")
+        stream.opened = false; stream.opening = false; stream.awaitingReady = false; stream.generation = null
+        headAsked.remove(gameId)
+        reconnectTrace.start(gameId, "streamFenced")
+        openStreams()
+    }
+    private fun connectionUnavailable(cause: String, logged: Boolean = false) {
+        if (!logged && connected) connectionLog.warn("dropped", "Connection dropped (epoch $epoch): $cause; ${pending.size} commands waiting")
+        connectReason = "after $cause"
         streams.keys.forEach { reconnectTrace.start(it, if (backgrounded) "lifecycle:$cause" else cause) }
         disconnect(); statusChanged()
     }
     private fun incompatibleRules(clientOlder: Boolean) {
+        connectionLog.warn("incompatible", "Connection ends (epoch $epoch): " +
+            if (clientOlder) "the app is older than the server" else "the server is older than the app")
         compatibilityError = if (clientOlder) "Update the app to continue this game" else "Server update pending"
         compatibilityRetryAt = if (clientOlder) Long.MAX_VALUE else now() + 30_000
         disconnect()

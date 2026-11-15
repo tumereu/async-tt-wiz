@@ -633,7 +633,7 @@ internal object RulesWords {
         "follow the 3rd rule", "follow the 98th rule", "hail", "i am klingon", "i am starfleet", "interfere", "kill",
         "obliterate the transwarp network", "observe", "of the obsidian order", "plain, simple garak", "remain fused",
         "repair the timeline", "rewrite the past", "sensors", "shaka, when the walls fell", "shoot to kill", "stun",
-        "surgical separation", "temba, his arms wide", "transport", "use the relic",
+        "cloaking device", "surgical separation", "temba, his arms wide", "transport", "use the relic",
         // one: ONE's ability word, not in the pinned CR 207.2c list
         "corrupted",
     )

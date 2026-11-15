@@ -1360,6 +1360,9 @@ internal object Conditions {
 
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
+        // trk chunk 03: "[you] haven't begun an extra turn this game" (CR 500.7)
+        if (text == "haven't begun an extra turn this game" || text == "you haven't begun an extra turn this game")
+            return Condition.Not(Condition.BegunExtraTurnThisGame(PlayerFilter.You))
         LtrPhrases.condition(text)?.let { return it } // ltr
         Mh2Phrases.condition(text, self)?.let { return it } // mh2
         DftPhrases.condition(text)?.let { return it } // dft

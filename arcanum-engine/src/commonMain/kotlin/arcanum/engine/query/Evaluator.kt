@@ -1069,6 +1069,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.ResolvedEarlierThisGame -> objects(condition.of).flatMap { names(characteristics(it)) }.any { name ->
             state.players.any { p -> matches(condition.controller, p.id) && (state.ledgers[p.id]?.get(resolvedKey(name)) ?: 0) > 0 }
         }
+        // trk: a matching player began an extra turn this game (CR 500.7); the turn change counts it in the player's ledger
+        is Condition.BegunExtraTurnThisGame -> state.players.any { p -> matches(condition.players, p.id) && (state.ledgers[p.id]?.get(EXTRA_TURN_BEGUN) ?: 0) > 0 }
         // CR 702.179e: max speed is speed 4
         Condition.MaxSpeed -> arcanum.engine.turn.Speed.of(state, ctx.you) >= arcanum.engine.turn.Speed.MAX
         // The revealed companion is set up before the game (CR 702.139a)
@@ -1108,6 +1110,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         const val SEARCHED_PREFIX = "\$searched:"
         /** sos: the player ledger key counting resolutions of spells named [name] that player controlled (CR 702.192a). */
         fun resolvedKey(name: String): String = "resolved:$name"
+        /** The ledger key counting the extra turns a player has begun (CR 500.7). */
+        const val EXTRA_TURN_BEGUN = "extra-turn-begun"
 
         /** Day and night as [arcanum.engine.turn.DayNight.of] reads them (0: neither). */
         const val DAY = 1

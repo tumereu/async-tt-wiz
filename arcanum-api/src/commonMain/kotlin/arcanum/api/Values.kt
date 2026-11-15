@@ -306,6 +306,10 @@ sealed interface Condition {
     /** A spell with [of]'s name controlled by a player matching [controller] has resolved earlier this game (paradigm: "if this is the
      * first time a spell you control with this spell's name has resolved this game" is its negation, CR 702.192a). */
     @Serializable @SerialName("resolved-earlier-this-game") data class ResolvedEarlierThisGame(val of: Objects, val controller: PlayerFilter) : Condition
+    // trk
+    /** A player matching [players] has begun an extra turn earlier this game, the current turn included (CR 500.7; "if you … haven't begun
+     * an extra turn this game" is its negation). */
+    @Serializable @SerialName("begun-extra-turn-this-game") data class BegunExtraTurnThisGame(val players: PlayerFilter) : Condition
 }
 
 /** How long a continuous effect created by a resolving spell or ability lasts (CR 611.2). */

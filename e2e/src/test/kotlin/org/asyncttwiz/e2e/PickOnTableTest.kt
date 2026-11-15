@@ -164,11 +164,10 @@ class PickOnTableTest : E2e() {
         alice.playFromHand("Altar Offering", this)
         waitUntil("the sacrifice asked on the table: ${alice.screen()}") { alice.shows(bar) }
         assertFalse(alice.shows(hasContentDescription("Cast panel")), "no panel: ${alice.screen()}")
-        waitUntil("a Pup glows") { "target" in alice.marks("Ash Pup") }
-        // TBL-117 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"): the Pups' closed stack shows as
-        // pickable as a whole, both members framed in violet as a card alone is, not only in the colour of a group a tap opens
-        waitUntil("both Pups of the closed stack framed as pickable: ${alice.marks("Ash Pup")}, ${alice.marks("Ash Pup", 1)}") {
-            "target" in alice.marks("Ash Pup") && "target" in alice.marks("Ash Pup", 1)
+        // TBL-117 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"; owner notes 2026-11-14): the Pups'
+        // closed stack, which a tap spreads open, shows as pickable as a whole with the glow of a pile holding choices, both members
+        waitUntil("both Pups of the closed stack glow as choices inside: ${alice.marks("Ash Pup")}, ${alice.marks("Ash Pup", 1)}") {
+            "choices inside" in alice.marks("Ash Pup") && "choices inside" in alice.marks("Ash Pup", 1)
         }
         alice.battlefieldCard("Ash Pup").performClick()
         if (alice.shows(bar) && alice.field("Ash Pup").size == 2) {

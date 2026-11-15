@@ -294,7 +294,8 @@ class CastabilityTest : E2e() {
     }
 
     // STK-059, CR 605.3a (spec §6.8): with Autotap off each mana kind is picked by hand at a payment: an Ancient Tomb style source, one removing a
-    // counter, and a sacrifice altar with the creature it takes (a chip in the panel); mana left over floats
+    // counter, and a sacrifice altar with the creature it takes (tapped on the table: owner notes 2026-11-14, STK-024, never a chip
+    // naming the creature); mana left over floats
     @Test fun everyManaKindPaysByHandAtAPayment() {
         start(deck(TestCards.engineRock to 7, TestCards.tomb to 7, TestCards.chargeStone to 7, TestCards.bloodAltar to 7, TestCards.pup to 12),
             mapOf("Ember Engine" to 1, "Tomb Stone" to 1, "Charge Stone" to 1, "Blood Altar" to 1, "Ash Pup" to 1),
@@ -303,7 +304,10 @@ class CastabilityTest : E2e() {
         val start = alice.state.player(alice.me).life
         activatesEngine({ alice.onTable("Tomb Stone") }) { alice.tappedCount("Tomb Stone") == 1 && alice.state.player(alice.me).manaPool.size == 1 }
         activatesEngine({ alice.onTable("Charge Stone") }) { alice.tappedCount("Charge Stone") == 1 }
-        activatesEngine({ alice.node(hasContentDescription("Mana source Blood Altar: Ash Pup", substring = true)).performClick() }) { alice.field("Ash Pup").isEmpty() }
+        activatesEngine({
+            assertFalse(alice.shows(hasContentDescription("Mana source Blood Altar", substring = true)), "no chip naming the creature: ${alice.screen()}")
+            alice.onTable("Blood Altar")
+        }) { alice.field("Ash Pup").isEmpty() }
         assertEquals(start - 2 + 3, alice.state.player(alice.me).life, "the Tomb's damage, the life gained")
     }
 

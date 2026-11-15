@@ -278,8 +278,8 @@ fun NumberedOptions(options: List<() -> Unit>) {
 }
 
 /**
- * WEB-024 (§5): a card outside the table's scene the finger key inspects when the pointer is over it (the play shown, the
- * dock's Stack entries): the card id the table's Inspect opens. Set by the mouse entering and leaving it. Main thread.
+ * WEB-024 (§5): a card outside the table's scene the finger key inspects when the pointer is over it (the play shown):
+ * the card id the table's Inspect opens. Set by the mouse entering and leaving it. Main thread.
  */
 @Stable
 class FingerTargets {

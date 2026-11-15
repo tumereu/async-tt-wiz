@@ -821,7 +821,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
         val peekHeight = holdPreviewScreenHeight()
         // Made from the board with their entries on it (the table's board has them off until they land)
         PlayShowOverlay(LocalUnhiddenPlay.current ?: play, scene, routes.viewer, shows, names, showMillis, routes.viewPause,
-            tapScope = showTapScope, pace = showPace, ready = { routes.showReady() }, dockTop = { stackAnimation.dockTop },
+            tapScope = showTapScope, pace = showPace, ready = { routes.showReady() },
             // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
             inspect = { held, holding ->
                 if (holding) {

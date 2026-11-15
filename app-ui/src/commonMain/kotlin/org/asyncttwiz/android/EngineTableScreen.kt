@@ -386,7 +386,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             if (desktopFrame != null) DesktopTopRow(game, play, accountId, toolkit, reviewing, hamburger.takeIf { !takingBack },
                 if (reviewPlay != null) ({ routes.leaveReview() }) else null, changes, dockOpen,
                 toggleDock = {
-                    AppLog.info("game", "Desktop dock ${if (dockOpen) "folded away" else "shown"}")
+                    AppLog.info("game", "Desktop chat dock ${if (dockOpen) "folded away" else "shown"}")
                     // The docked chat doesn't turn into the side panel
                     if (dockOpen) controller.closeChat()
                     dockOpen = !dockOpen
@@ -457,10 +457,9 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat
                         quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
                             send = controller::sendQuickChat, write = { controller.writeChat() }),
-                        // WEB-017: the Stack list and the game chat docked at the right
+                        // WEB-017: the game chat docked at the right (the Stack stays on the table, STK-007)
                         desktopDock = if (!chatDocked) null else ({
-                            DesktopDock(play, accountId, names, stackPlace = { stackAnimation.dockTop = it }) { modifier ->
-                                ChatPanel(controller, accountId, modifier, docked = true) }
+                            DesktopDock { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
                         })))
                 // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the
                 // battlefields' top, under the other player's seat header

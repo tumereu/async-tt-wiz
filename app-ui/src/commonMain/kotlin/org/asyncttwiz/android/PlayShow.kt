@@ -281,8 +281,8 @@ private class PlayShowLooks(val shown: List<PlayShown>, val sources: List<TableB
  * table ([playShowSource]; one out of sight from the board's edge in its direction), growing from small to large in the
  * middle, one after another [PLAY_SHOW_STAGGER_MILLIS] apart in Stack order, so they pile up there, the last on top. Then one
  * at a time, top first: it stays large for [millis] (shorter for a repeat of the same ability in its chain, [pace]:
- * [playShowMillis]) with its line under it, then shrink-flies into its entry's place ([playShowTarget]: the Stack's top on
- * the phone, the dock's list on the desktop table, [dockTop]), with an accelerating curve ([playShowFlightMillis]), its line
+ * [playShowMillis]) with its line under it, then shrink-flies into its entry's place ([playShowTarget]: the Stack's top, on
+ * the phone and the desktop table alike), with an accelerating curve ([playShowFlightMillis]), its line
  * gone as the flight starts and the card fading out over the flight's second half; the next is already waiting large under
  * it. Until it lands its entry isn't on the table's board ([withoutEntries]); when it lands it is gone from this screen at
  * once and [done] runs for it (its entry shows in its place, and the device's dismissal follows). A double tap on the one
@@ -301,9 +301,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     /** Outlives these plays: the chain they are part of, for their pace. */
     pace: PlayShowPace = remember { PlayShowPace() },
     /** Whether the table is ready for these plays (read as snapshot state). */
-    ready: () -> Boolean = { true },
-    /** WEB-017: the desktop dock's list top (root dp) the plays fly into, null on the phone or with the dock folded. */
-    dockTop: () -> TableBounds? = { null }, done: (GameDevice.PlayShow) -> Unit) {
+    ready: () -> Boolean = { true }, done: (GameDevice.PlayShow) -> Unit) {
     val board = scene.world?.visibleViewport ?: return
     val first = shows.firstOrNull() ?: return
     // Fixed for the group's life: what shows, where each flies from and to (the table as it is when they begin)
@@ -318,7 +316,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     }
     // Made as they begin: at once when the table is ready for them, else once it is
     var looks by remember(first) { mutableStateOf(if (ready()) looksNow() else null) }
-    // Where each flies to, worked out as its flight starts (the dock's list or the Stack where they are then)
+    // Where each flies to, worked out as its flight starts (the Stack where it is then)
     val targets = remember(first) { arrayOfNulls<TableBounds>(group.size) }
     // Where this overlay's board lies on the screen (root dp), for the dock's place
     val boxOrigin = remember(first) { FloatArray(2) }
@@ -371,11 +369,8 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             val run = launch {
                 pause.wait(showFor)
                 flown = withFrameMillis { it }
-                // Step 3 into its entry's place: the dock's list on the desktop table, else the Stack (WEB-017, STK-007)
-                val s = currentScene
-                val area = s.world?.visibleViewport ?: board
-                target = dockTop()?.let { d -> TableBounds(d.x - (boxOrigin[0] - area.x), d.y - (boxOrigin[1] - area.y), d.width, d.height) }
-                    ?: playShowTarget(s, group[i])
+                // Step 3 into its entry's place: the Stack (STK-007; on the desktop table too, WEB-017)
+                target = playShowTarget(currentScene, group[i])
                 targets[i] = target
                 flying = true
                 if (target != null) leave[i].animateTo(1f, tween(flightFor, easing = FastOutLinearInEasing))
@@ -393,7 +388,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             // Stack), each from the group's start
             AppLog.info("game", "Play shown ${group[i].kind::class.simpleName} ${group[i].entry} in ${group[i].event.take(8)} " +
                 "(${group.size - i} of ${group.size} put on the Stack together, from ${if (sources[i] == null) "nowhere on the table" else "its source"}" +
-                (if (dockTop() != null) ", into the dock's list" else "") + "): " +
+"): " +
                 (if (gap == null) "first of its chain" else "$gap ms after the one before landed") +
                 "; step 1 (fly-in) at 0 ms for ${arrived - began} ms (${group.size} from $PLAY_SHOW_STAGGER_MILLIS ms apart, $arrival ms each)" +
                 "; step 2 (middle hold) at ${start - began} ms for ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms)" +

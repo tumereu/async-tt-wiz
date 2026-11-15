@@ -233,8 +233,8 @@ number	item	screenshot	catalog	decisions	sequence
 232	Plays put on the Stack in one go fly in and pile up large in the middle	engine/play-show-pile.png	HIS-112 HIS-021		
 233	Hand row: a flashback card from the graveyard after a divider, with its zone badge	hand/hand-row-flashback.png	ZON-079		
 234	Hand row: a graveyard card raised with a greyed Flashback chip and a live ability chip	hand/hand-row-ability-chips.png	ZON-079 ZON-080 TBL-128		
-235	Desktop table at its default sizes (1440 × 900): top row with the phase track, seat headers (Bob's hand a small fan of backs), docked Stack and chat, hand and action area	desktop/table.png	WEB-015 WEB-016 WEB-017 WEB-018 WEB-020 WEB-022 TBL-117 ZON-001		Desktop table
-236	Desktop table: responding to Bob's spell, the Stack listed in the dock	desktop/table-responding.png	WEB-017 WEB-016 STK-057 WEB-022		Desktop table
+235	Desktop table at its default sizes (1440 × 900): top row with the phase track, seat headers (Bob's hand a small fan of backs), the Stack on the field beside the docked chat, hand and action area	desktop/table.png	WEB-015 WEB-016 WEB-017 WEB-018 WEB-020 WEB-022 TBL-117 ZON-001		Desktop table
+236	Desktop table: responding to Bob's spell, the Stack at the battlefields' right edge	desktop/table-responding.png	WEB-017 WEB-016 STK-007 STK-057 WEB-022		Desktop table
 237	Desktop table: declaring attackers, the combat band between the battlefields	desktop/table-attackers.png	WEB-015 CMB-001 CMB-028		Desktop table
 238	Desktop table: a decision that needs the board is a strip bottom-centre	desktop/prompt-strip.png	WEB-019 STK-047		Desktop table
 239	Desktop table: a choice that doesn't need the board is a centred overlay over the dimmed table	desktop/prompt-overlay.png	WEB-019 STK-023		Desktop table
@@ -269,7 +269,7 @@ number	item	screenshot	catalog	decisions	sequence
 268	Desktop: avatar search results, larger and seven to a row	desktop/avatar-search.png	LOB-149		Avatar choices
 269	Stack animation 1 of 4: the other player's spell held in the middle, its Stack entry not shown yet	stack-animation/2-hold.png	HIS-112 STK-057		Stack animation
 270	Stack animation 2 of 4: the spell's flight to the Stack, nothing else moving there	stack-animation/3-to-stack.png	HIS-112		Stack animation
-271	Stack animation 3 of 4: on the desktop table the spell flies into the dock's Stack list	stack-animation/3-to-dock.png	HIS-112 WEB-017		Stack animation
+271	Stack animation 3 of 4: on the desktop table the spell flies into the Stack on the field, beside the chat dock	stack-animation/3-to-stack-desktop.png	HIS-112 WEB-017 STK-007		Stack animation
 272	Stack animation 4 of 4: landed as the top entry, its target arrow grows before it resolves	stack-animation/4-arrows.png	STK-058 HIS-112		Stack animation
 273	Payment with a source that taps other creatures: no chip naming cards, "Still owed {U}: produce the mana on the board."	cast-panel/payment-on-the-board.png	STK-024	ManaPayment
 274	A pile of sources paying a cast: one chip with all the mana it produces	cast-panel/payment-pile-chip.png	STK-024 TBL-053	ManaPayment
@@ -277,3 +277,4 @@ number	item	screenshot	catalog	decisions	sequence
 276	Combat chips zoomed all the way out: "attacking" scaled down with the card, no chip naming the target	combat-band/chips-zoomed-out.png	CMB-035
 277	Picking on the table: a stack a tap spreads open glows as a pile holding choices; spread, each member has the targeting glow	table-pick/sacrifice-spread.png	TBL-117 TBL-130 STK-047
 278	An uncrewed Vehicle: "Crew 2" before its P/T in its bottom text	battlefield/vehicle-crew.png	TBL-137
+279	Desktop table: the chat dock open, the Stack on the field at the battlefields' right edge beside it, never under it	desktop/stack-beside-chat.png	WEB-017 STK-007 WEB-020		

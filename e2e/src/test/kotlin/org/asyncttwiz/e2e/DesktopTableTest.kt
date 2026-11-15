@@ -11,7 +11,6 @@ import androidx.compose.ui.test.performTextInput
 import arcanum.api.TurnStep
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.android.DESKTOP_UNDO_TAG
-import org.asyncttwiz.android.DOCK_STACK_TAG
 import org.asyncttwiz.android.HOTKEY_SHEET_TAG
 import org.asyncttwiz.android.HotkeyAction
 import org.asyncttwiz.android.hotkeyRowTag
@@ -111,29 +110,34 @@ class DesktopTableTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // WEB-017, STK-007 (owner, desktop playtest 2026-11-14: "a green half-circle in the chat pane was the Stack, almost
-    // completely hidden by the open chat panel"): Alice casts her Ember Cub and waits for Bob: the dock lists it whole above
-    // the chat, and the table's own Stack, hidden under the open dock, shows nothing of itself at the dock's edge (its count
-    // bubble peeked out there)
-    @Test fun theDockListsTheStackAboveTheChatAndNothingOfItPeeksOut() {
+    // WEB-017, STK-007 (owner playtest 2026-11-15: "web chat pane now completely hides the stack? It should completely not hide
+    // the stack, i.e. push it to the side. Stack is better as a thing on the field, not in the chat pane at all"): Alice casts
+    // her Ember Cub and waits for Bob: with the chat dock open the Cub is on the Stack at the battlefields' right edge, wholly
+    // left of the dock, which holds only the chat; a click on the Stack opens the Stack list; folded away by the chat button,
+    // the Stack moves right with the battlefields' edge
+    @Test fun theStackStaysOnTheFieldBesideTheChatDock() {
         start(bobWaits = true)
         keep()
         clickFromHand("Mountain")
         waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
         clickFromHand("Ember Cub")
         waitUntil("the Cub on Alice's Stack, waiting for Bob") {
-            alice.state.stack.isNotEmpty() && alice.shows(hasTestTag(DOCK_STACK_TAG)) && alice.showsText("Top · Ember Cub")
+            alice.state.stack.isNotEmpty() && alice.shows(hasContentDescription("Stack, 1 entries")) && alice.settled(this)
         }
         run()
         val dock = alice.tagged("desktop-dock").fetchSemanticsNode().boundsInRoot
-        val list = alice.tagged(DOCK_STACK_TAG).fetchSemanticsNode().boundsInRoot
-        val entry = alice.text("Top · Ember Cub").fetchSemanticsNode().boundsInRoot
-        val chat = alice.text("Game chat").fetchSemanticsNode().boundsInRoot
-        assertTrue(entry.top >= list.top && entry.bottom <= list.bottom && entry.height > 0f, "the entry whole in the dock's list: $entry in $list")
-        assertTrue(list.bottom <= chat.top, "the list above the chat: $list, chat at $chat")
-        assertTrue(dock.contains(list.topLeft) && dock.contains(list.bottomRight), "in the dock: $list in $dock")
         val stack = alice.node(hasContentDescription("Stack, 1 entries")).fetchSemanticsNode().boundsInRoot
-        assertTrue(stack.left >= dock.left, "the table's Stack wholly under the dock, its count bubble too: $stack, dock $dock")
+        assertTrue(stack.right <= dock.left && stack.width > 0f, "the Stack on the field, wholly left of the chat dock: $stack, dock $dock")
+        assertTrue(!alice.showsText("Top · Ember Cub"), "nothing of the Stack in the dock: ${alice.screen()}")
+        alice.node(hasContentDescription("Stack, 1 entries")).performMouseInput { click() }
+        waitUntil("the Stack list open") { alice.showsText("Top · Ember Cub") }
+        alice.control("Close").performMouseInput { click() }
+        waitUntil("the Stack list closed") { !alice.showsText("Top · Ember Cub") }
+        alice.tagged("dock-button").performMouseInput { click() }
+        waitUntil("Alice's chat dock folded away") { !alice.shows(hasTestTag("desktop-dock")) && alice.settled(this) }
+        run()
+        val folded = alice.node(hasContentDescription("Stack, 1 entries")).fetchSemanticsNode().boundsInRoot
+        assertEquals(stack.right + (dock.right - dock.left), folded.right, 2f, "the Stack moved right with the battlefields' edge: $folded")
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 

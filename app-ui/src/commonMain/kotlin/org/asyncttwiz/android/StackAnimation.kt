@@ -115,8 +115,7 @@ object StackSchedule {
 
 /**
  * The spec's step 1 rule ("until it lands its Stack entry isn't shown"): [this] board without the Stack entries [entries]
- * (ids "entry:…"), as it looks while their plays are shown and before they land: no entry in the Stack (the HUD, the dock's
- * list, the count), and a spell's card gone from where it was cast from (it flies in from there). The same board when none
+ * (ids "entry:…"), as it looks while their plays are shown and before they land: no entry in the Stack (the HUD, the count), and a spell's card gone from where it was cast from (it flies in from there). The same board when none
  * of them is on it.
  */
 fun TableBoard.withoutEntries(entries: Collection<String>): TableBoard {
@@ -208,10 +207,6 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
     /** The node of the board the table last settled on (its moves done): playback lets the next event follow an entry put
      * on the Stack once it has. */
     var settledNode by mutableStateOf<String?>(null)
-
-    /** WEB-017: where the desktop dock's Stack list puts a new top entry (root dp; a card's size), while the dock shows; a
-     * play shown flies into it (step 3). */
-    var dockTop: TableBounds? = null
 
     /** Step 4 running now (its arrows growing or read), or null. */
     var targeting by mutableStateOf<Targeting?>(null)

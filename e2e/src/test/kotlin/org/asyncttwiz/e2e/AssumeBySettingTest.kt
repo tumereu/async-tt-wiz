@@ -78,7 +78,7 @@ class AssumeBySettingTest : E2e() {
     // CMB-040, HIS-096, TRN-070 (owner, 2026-11-05, 2026-11-06): Alice attacks while Bob is away, "Assume resolves"
     // Normal (the default): his pause right after her attack is assumed at once and his blockers wait in assume mode on the lanes with
     // "Assume no blockers" on the main button; nothing is assumed by itself, however long he stays away; the button
-    // assumes no blocks; his priority after the blocks waits with "Assume no response" (the setting); her End turn then
+    // assumes no blocks; his priority after the blocks waits with "Assume pass" (the setting); her End turn then
     // goes past his pause at her end step at once
     @Test fun blocksAreAssumedOnlyFromTheMainButton() {
         // Bob in Normal: his pauses wait for him (owner 2026-11-06: in Quick, unable to respond, his pass is assumed at once)
@@ -134,7 +134,7 @@ class AssumeBySettingTest : E2e() {
         waitUntil("Alice waiting for Bob after his blocks") {
             (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves
         }
-        alice.tap("Assume no response")
+        alice.tap("Assume pass")
         waitUntil("Alice in her second main phase") { alice.inOwnMain(TurnStep.PostcombatMain) }
         offers.clear()
         alice.hold(alice.stepArrow()!!)

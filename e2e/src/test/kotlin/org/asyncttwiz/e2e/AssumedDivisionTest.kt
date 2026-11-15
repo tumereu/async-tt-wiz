@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 /**
  * Owner problem report JVPJ8Y ("assume no response won't continue"): Alice attacks with her Zinc Hauler (4/3) and Bob
  * blocks it with two Ash Pups, then leaves. Alice passes after the blocks ("To damage") and her table waits for Bob (his
- * Normal stops at the blocks) with "Assume no response". Her press assumes his pass; in the combat damage step that
+ * Normal stops at the blocks) with "Assume pass". Her press assumes his pass; in the combat damage step that
  * follows her Hauler's 4 damage divides among the Pups by itself (enough for lethal damage to each, STK-033), in the
  * same event. The server refused that event until the fix (it took her automatic division for a real input of hers in
  * an assumed event), so the damage was shown and taken back at every press.
@@ -87,10 +87,10 @@ class AssumedDivisionTest : E2e() {
         // Her pass; then Bob's priority, which her table waits for with Assume
         alice.tap("To damage")
         waitUntil("Alice waiting for Bob with Assume") {
-            alice.settled(this) && alice.state.turn.step == TurnStep.DeclareBlockers && alice.showsControl("Assume no response")
+            alice.settled(this) && alice.state.turn.step == TurnStep.DeclareBlockers && alice.showsControl("Assume pass")
         }
         val takenBack = AppLog.text().lines().count { "Shown board taken back" in it }
-        alice.tap("Assume no response")
+        alice.tap("Assume pass")
         waitUntil("the combat damage dealt and on the server") {
             alice.engine { device.session.pending.isEmpty() } && pups(alice) == 0 &&
                 alice.engine { device.session.events.any { it.assumed?.assumedBy == alice.me && it.assumed?.input == Input.PassPriority(bob.me) &&

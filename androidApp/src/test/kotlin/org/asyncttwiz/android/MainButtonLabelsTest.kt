@@ -55,7 +55,7 @@ class MainButtonLabelsTest {
         AutomatumStep.Resolve to "Resolve")
 
     /** Every name the main button shows: the step arrow's, a combat division's OK, the waits' (TRN-063, TRN-070). */
-    private val labels = steps.map { it.second }.distinct() + listOf("OK", "Assume resolves", "Assume no response", "Assume no blockers",
+    private val labels = steps.map { it.second }.distinct() + listOf("OK", "Assume resolves", "Assume pass", "Assume no blockers",
         "Assume blockers", "Cancel request")
 
     @OptIn(ExperimentalLayoutApi::class)
@@ -114,7 +114,7 @@ class MainButtonLabelsTest {
         render(width = 108, fontScale = 1.3f)
         labels.forEach(::readsWhole)
         compose.onNodeWithTag("buttons").captureShot("$SCREENSHOTS/main-button/names-narrow-large-text.png",
-            "The main button's names on a narrow phone with large system text: each reads whole on at most two lines (Assume no response and Assume no blockers on two), drawn a little smaller where needed.")
+            "The main button's names on a narrow phone with large system text: each reads whole on at most two lines (Assume pass and Assume no blockers on two), drawn a little smaller where needed.")
     }
 
     // TRN-063, TRN-070 (owner, 2026-11-10): the main button tells an assumption from your own action at a glance: your own

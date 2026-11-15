@@ -10,7 +10,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -259,6 +261,38 @@ class CastChipsTest {
         assertEquals(1, piles().size, "taken out, back in its stack")
     }
 
+    // STK-024 (owner notes 2026-11-14): a closed pile of several paying sources carries one chip with all the mana it produces,
+    // not a chip per card
+    @Test fun aPileOfPayingSourcesShowsOneCombinedChip() {
+        deck = listOf(Choices.BROODRAIDER, Choices.SHARD, "Mountain")
+        kit.opening()
+        val shards = kit.hand(Choices.SHARD).map(kit::atw)
+        assertTrue(shards.size >= 2, "two Shards dealt: $shards")
+        for (shard in shards) {
+            assertTrue(toolkit.cast.start(shard), "the Shard is cast: ${toolkit.error}")
+            kit.playOn("the Shard on the battlefield") { shard in kit.field(Choices.SHARD).map(kit::atw) && kit.aliceMain() }
+        }
+        toolkit.cast.autotap = false
+        val card = kit.atw(kit.hand(Choices.BROODRAIDER).first())
+        render()
+        raise(card)
+        kit.tap(kit.item(card, PlayZone.HAND))
+        assertTrue(toolkit.cast.open, "the Broodraider's cast panel: ${toolkit.error}")
+        toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
+        refresh()
+        kit.tap(kit.item(shards.first()))
+        refresh()
+        val first = toolkit.cast.paySources().single()
+        // The kit's scene doesn't split off the paying pile: the second Shard is added as a tap on it would add it
+        assertTrue(toolkit.cast.tapSource(shards.first { it != first }))
+        refresh()
+        assertEquals(2, toolkit.cast.paySources().size, "two Shards paying: ${toolkit.cast.paySources()}")
+        compose.onNodeWithContentDescription("Pays {R}{R}: ${Choices.SHARD} ×2").assertExists()
+        compose.onAllNodes(hasTestTag(PAY_CHIP_TAG)).assertCountEquals(1)
+        captureShot("$SCREENSHOTS/cast-panel/payment-pile-chip.png",
+            "Alice opened her Ember Broodraider's cast panel ({2}{R}) with Autotap off, panned the table up and tapped her Ember Shards twice: the two Shards paying lie in their own pile with one amber chip at its corner, \"{R}{R}\", all the mana the pile produces.")
+    }
+
     // ZON-080 (owner 2026-11-07): the screenshots: the Kit's chips, the Broodraider's "Cast…" chip, and the Kit's panel
     // paying with the hand-picked Shard (outlined) with Cast enabled, then greyed with the reason while nothing pays
     @Test fun screenshots() {
@@ -273,12 +307,12 @@ class CastChipsTest {
         kit.tap(kit.item(card, PlayZone.HAND))
         assertTrue(toolkit.cast.handExtra(0))
         refresh()
-        // STK-024 (owner 2026-11-07, open issue for the owner): unpanned, the portrait cast panel covers her land row: the source
-        // Autotap chose can't be seen, so it is the one thing the panel names (gallery review 2026-11-09)
-        val covered = toolkit.cast.paySources().single()
-        compose.onNodeWithText("Out of view: ${if (covered == shard) Choices.SHARD else "Mountain"}").assertExists()
+        // STK-024 (owner 2026-11-07; owner notes 2026-11-14): unpanned, the portrait cast panel covers her land row: the source
+        // Autotap chose can't be seen, and the panel names no source even then (the eye and panning show it)
+        assertEquals(1, toolkit.cast.paySources().size)
+        compose.onNodeWithText("Out of view", substring = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/cast-panel/covers-lands.png",
-            "Alice tapped her raised Ember Kit to open its cast panel and turned on its Offspring extra, the table not panned: the panel covers the bottom of her battlefield, so her Mountain paying is hidden under it and only that is named, \"Out of view: Mountain\" under \"Mana · {R}\".")
+            "Alice tapped her raised Ember Kit to open its cast panel and turned on its Offspring extra, the table not panned: the panel covers the bottom of her battlefield, so the source paying is hidden under it, and the panel names no source: \"Outlined sources pay. Tap sources on the table to change them.\" under \"Mana · {R}\".")
         // In portrait the panel covers the bottom of her battlefield: she pans the table up to see her sources above it
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
         val suggested = toolkit.cast.paySources().single()
@@ -286,7 +320,7 @@ class CastChipsTest {
         val filled = toolkit.cast.paySources().single()
         kit.tap(kit.item(filled))
         refresh()
-        compose.onNodeWithContentDescription("Not paid: Tap sources on the table to pay {R}.").assertExists()
+        compose.onNodeWithContentDescription("Not paid: Still owed {R}: produce the mana on the board.").assertExists()
         compose.onNode(hasText("Cast") and hasClickAction()).assertIsNotEnabled()
         kit.tap(kit.item(shard))
         refresh()

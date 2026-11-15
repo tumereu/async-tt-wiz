@@ -45,7 +45,12 @@ fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bound
     var open by remember { mutableStateOf<String?>(null) }
     val paying = toolkit.paySources()
     if (open != null && open !in paying) open = null
-    val chips = paying.mapNotNull { card ->
+    // STK-024 (owner notes 2026-11-14): a closed pile of several paying sources shows one chip with all the mana it produces
+    val piles = scene.battlefieldGroups.filter { group -> group.kind == BattlefieldGroup.Kind.Stack && group.members.size > 1 &&
+        group.key != scene.expandedGroup && group.members.all { it in paying } }
+    val piled = piles.flatMapTo(HashSet()) { it.members }
+    PileChips(toolkit, scene, piles, bounds)
+    val chips = paying.filterNot { it in piled }.mapNotNull { card ->
         val item = scene.items.firstOrNull { it.cardId == card && it.battlefieldCard } ?: return@mapNotNull null
         val shown = bounds(item)
         val field = scene.viewports.firstOrNull { it.id == item.viewport }?.bounds
@@ -76,6 +81,47 @@ fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bound
             if (open == card) WaysPopup(ways, use, chip.bounds.height, { open = null }) { way -> open = null; toolkit.chooseWay(card, way) }
         }
     }
+}
+
+/**
+ * STK-024 (owner notes 2026-11-14): a closed pile of several sources paying the open payment carries one amber chip at its top right
+ * corner with all the mana the pile produces ("{R}{R}{R}"; ways that spend no mana by name and count, "Convoke ×2"), in place of a
+ * chip per card. Drawn only: a tap on the pile takes its last added source out, as before (TBL-130).
+ */
+@Composable
+private fun PileChips(toolkit: TableToolkitController, scene: TableScene, piles: List<BattlefieldGroup>, bounds: (TableItem) -> TableBounds) {
+    val chips = piles.mapNotNull { pile ->
+        val items = pile.members.mapNotNull { card -> scene.items.firstOrNull { it.cardId == card && it.battlefieldCard } }
+        if (items.isEmpty()) return@mapNotNull null
+        val shown = items.map(bounds)
+        val field = scene.viewports.firstOrNull { it.id == items.first().viewport }?.bounds
+        val left = shown.minOf { it.x }
+        val top = shown.minOf { it.y }
+        val whole = TableBounds(left, top, shown.maxOf { it.right } - left, shown.maxOf { it.bottom } - top)
+        if (field != null && !field.contains(whole.center)) return@mapNotNull null
+        Triple(pile, whole, pileLabel(pile.members.mapNotNull(toolkit::paidWith)) to items.first().label.substringBefore(", owner"))
+    }
+    for ((pile, whole, words) in chips) key(pile.key) {
+        val (label, name) = words
+        CornerPlaced(whole) {
+            Surface(shape = RoundedCornerShape(8.dp), color = Color.White, border = BorderStroke(1.5.dp, PayAmber), shadowElevation = 2.dp,
+                modifier = Modifier.testTag(PAY_CHIP_TAG).semantics { contentDescription = "Pays $label: $name ×${pile.members.size}" }) {
+                CardText(label, Modifier.padding(horizontal = 4.dp), style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Medium))
+            }
+        }
+    }
+}
+
+/** STK-024: the mana a pile of paying sources produces, as its chip says it: the mana symbols in order of colour (W, U, B, R, G,
+ * then colourless and the rest), then each way that spends no mana with its count ("{R}{R} Convoke ×2"). */
+fun pileLabel(uses: List<ManaUse>): String {
+    val labels = uses.map(ManaWays::label)
+    val (mana, ways) = labels.partition { it.startsWith("{") }
+    val order = "WUBRGC"
+    val symbols = mana.flatMap { label -> label.split('}').filter { it.isNotEmpty() }.map { "$it}" } }
+        .sortedBy { symbol -> order.indexOf(symbol.trim('{', '}').firstOrNull() ?: 'Z').let { if (it < 0) order.length else it } }
+    val named = ways.groupingBy { it }.eachCount().entries.joinToString(" ") { (way, n) -> if (n == 1) way else "$way ×$n" }
+    return listOf(symbols.joinToString(""), named).filter { it.isNotEmpty() }.joinToString(" ")
 }
 
 /** The test tag of a picked card's role chip (STK-047). */

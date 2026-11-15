@@ -431,7 +431,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         val run: () -> Unit)
 
     /** The control the main button shows while the other player must act, or null for none: "Assume resolves" with
-     * something on the Stack (STK-028), else "Assume no response" (TRN-070, owner playtest 2026-11-05 evening); while their
+     * something on the Stack (STK-028), else "Assume pass" (TRN-070, owner playtest 2026-11-05 evening; owner notes 2026-11-14: nothing to resolve); while their
      * blocks are awaited "Assume no blockers", or "Assume blockers" once blockers are placed on the lanes (CMB-040). */
     fun waitAction(): WaitAction? {
         val g = game() ?: return null
@@ -444,9 +444,9 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
                 WaitAction("Assume resolves", AssumeIcon,
                     "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there",
                     hold = { g.holdAssume { pump() } }, holdName = RESOLVE_CHAIN) { g.assume { pump() } }
-                else WaitAction("Assume no response", AssumeIcon,
+                else WaitAction("Assume pass", AssumeIcon,
                     "Assume $name lets the game go on; if they act here when they come back, the game goes back there",
-                    hold = { g.assume { pump() } }, holdName = "Assume no response") { g.assume { pump() } }
+                    hold = { g.assume { pump() } }, holdName = "Assume pass") { g.assume { pump() } }
             // CMB-040 (owner, 2026-11-05): the blocks placed on the lanes, assumed only by this button
             GameDevice.Offer.AssumeBlockers -> assuming()?.let { placed ->
                 if (placed.blocks.isEmpty()) WaitAction("Assume no blockers", AssumeIcon,
@@ -463,7 +463,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
                 // TRN-067, TRN-071 (owner gallery review, 2026-11-06): where assuming their answer would show hidden
                 // information or a random result, Assume shows greyed; holding it says why
                 status.reason == GameDevice.Wait.HiddenCards -> WaitAction(
-                    if (shown.engine.stack.isNotEmpty()) "Assume resolves" else "Assume no response", AssumeIcon,
+                    if (shown.engine.stack.isNotEmpty()) "Assume resolves" else "Assume pass", AssumeIcon,
                     refusal = "Assuming this would show you hidden cards or a random result: wait for $name.") {}
                 else -> null
             }

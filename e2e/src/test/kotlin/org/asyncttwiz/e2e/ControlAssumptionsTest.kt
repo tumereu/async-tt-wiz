@@ -45,7 +45,7 @@ class ControlAssumptionsTest : E2e() {
     private fun assumedPasses(by: E2ePlayer, about: E2ePlayer) = by.engine { device.session.events + device.session.pending }
         .filter { it.assumed?.assumedBy == by.me && it.assumed?.input == Input.PassPriority(about.me) }
 
-    /** Whether [player]'s table waits for the other player with "Assume resolves" (or "Assume no response"). */
+    /** Whether [player]'s table waits for the other player with "Assume resolves" (or "Assume pass"). */
     private fun waitsWithAssume(player: E2ePlayer) = (player.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves
 
     /** [player]'s phone, on a wait with Assume, still waiting a minute of its time later, having assumed nothing more. */
@@ -156,7 +156,7 @@ class ControlAssumptionsTest : E2e() {
         // He has no creature: no blocks to wait for
         waitUntil("Alice waiting for Bob after the blocks") { waitsWithAssume(alice) && alice.state.turn.step == TurnStep.DeclareBlockers }
         assertTrue(waits.none { it.step == TurnStep.DeclareAttackers }, "his pause right after her attack assumed: $waits")
-        alice.tap("Assume no response")
+        alice.tap("Assume pass")
         waitUntil("Alice in her second main phase") { alice.inOwnMain(TurnStep.PostcombatMain) }
         waits.clear()
         alice.hold(alice.stepArrow()!!)
@@ -181,7 +181,7 @@ class ControlAssumptionsTest : E2e() {
         /** Alice presses each wait's Assume until [done]. */
         fun assumingUntil(what: String, done: () -> Boolean) = waitUntil(what) {
             if (!done() && waitsWithAssume(alice)) alice.once {
-                alice.tap(if (alice.showsControl("Assume resolves")) "Assume resolves" else "Assume no response")
+                alice.tap(if (alice.showsControl("Assume resolves")) "Assume resolves" else "Assume pass")
             }
             done()
         }

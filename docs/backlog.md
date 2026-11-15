@@ -20,18 +20,6 @@ Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 
 
 - Desktop battlefield cards at least twice today's size (the rest of the desktop default sizes is built, 2026-11-14): waits for the owner's choice, since at 4× the six battlefield rows don't fit a 1440 × 900 or 1920 × 1080 window even at the opening's 0.65× (TBL-121), so the table opens with both land rows out of view (gallery: desktop/table-battlefield-4x.png). Meanwhile, with the taller seat headers, hand band and top row, the 2× battlefield cards open smaller at 1440 × 900 than before (the rows fit: about 56 px tall, 72 before; at 1920 × 1080 about 78, 80 before). Options: the desktop opening shows your own battlefield whole (the other player's land row out of view); a lower least zoom on the desktop so the rows fit (cards then only as large as fit); fewer rows on the desktop; or the battlefield stays 2× (the Card size slider gives 4×) (WEB-022, TBL-121, TBL-010).
 
-Owner notes 2026-11-14 evening, agreed changes (after the desktop playtest batch and the Stack animation; two workers may run in parallel, one per group). Each is first checked on master.
-
-Table and casting:
-- Casting with a mana source that taps cards (e.g. Supportive Parents: "Tap two untapped creatures you control: Add one mana") when the app finds no sure payment: no dialog offering cards by name, ever (owner: anything done on the board is done by tapping the cards themselves; a card can have auras, counters, effects, too much to show as a dialog choice). The cast panel just says what's still owed and that you produce the mana on the board; the attempt stays allowed as now.
-- Mana chips while casting: a pile of lands shows one combined chip of all the mana the pile will produce (single cards keep their own chip); the out-of-view mana text goes (the eye toggle and panning show the sources).
-- While a cast, choice or other panel is open, your hand is dimmed (about 40%) and not tappable, unless the choice is about a hand card.
-- "Assume resolves" reads "Assume pass" when the Stack is empty (nothing to resolve).
-- Combat chips under combatants keep readable at any zoom: their text scales down with the zoom (or clips) instead of disappearing. The "who it's attacking" chip goes: the attacker's lane already shows it.
-- Piles where your tap spreads the pile rather than selects get a different glow when targeting or pseudo-targeting; after the spread every valid target has the normal targeting glow.
-- An uncrewed Vehicle shows "Crew N" in its bottom text when it fits (usually one short line); Crew N comes before any crewed P/T.
-- Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
-
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).

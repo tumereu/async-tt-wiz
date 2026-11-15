@@ -8,9 +8,25 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Castle
+import androidx.compose.material.icons.outlined.Coronavirus
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.MeetingRoom
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.automirrored.outlined.Redo
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Stars
+import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import org.asyncttwiz.automatum.StateChip
 import org.asyncttwiz.automatum.StateGlyph
+import org.asyncttwiz.automatum.StateIcon
 
 /** One state chip where it lies: [chip] by its label, or, for a "+N" chip ([hidden] not empty), the states it stands for. */
 data class PlacedStateChip(val label: String, val bounds: TableBounds, val chip: StateChip? = null,
@@ -145,6 +162,14 @@ private fun StateChipView(placed: PlacedStateChip) {
             StateGlyph.Day -> Icon(Icons.Outlined.LightMode, null, Modifier.size((15 * scale).dp), tint = StateChipInk)
             StateGlyph.Night -> Icon(Icons.Outlined.DarkMode, null, Modifier.size((15 * scale).dp), tint = StateChipInk)
             StateGlyph.Room -> Icon(Icons.Outlined.MeetingRoom, null, Modifier.size((15 * scale).dp), tint = StateChipInk)
+            // TRN-072 (owner notes 2026-11-14): the state's icon, its level under it where it has one
+            is StateGlyph.Icon -> if (glyph.level == null) Icon(stateIcon(glyph.icon), null, Modifier.size((15 * scale).dp), tint = StateChipInk)
+                else Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(stateIcon(glyph.icon), null, Modifier.size((11 * scale).dp), tint = StateChipInk)
+                    val level = glyph.level.toString()
+                    Text(level, color = StateChipInk, fontSize = (levelSize(level) * scale).sp, fontWeight = FontWeight.Bold,
+                        lineHeight = (levelSize(level) * scale).sp, maxLines = 1, softWrap = false)
+                }
             null -> Unit
         }
         if (holding) {
@@ -153,6 +178,38 @@ private fun StateChipView(placed: PlacedStateChip) {
             Popup(popupPositionProvider = remember(gap) { HoldTooltipPosition(gap) }) { RuleExplanation(entries, lead) }
         }
     }
+}
+
+/** TRN-072 (owner notes 2026-11-14): each state's icon. */
+private fun stateIcon(icon: StateIcon): ImageVector = when (icon) {
+    StateIcon.Monarch -> CrownIcon
+    StateIcon.Initiative -> Icons.Outlined.Explore
+    StateIcon.CitysBlessing -> Icons.Outlined.Castle
+    StateIcon.EnduringStory -> Icons.Outlined.AutoStories
+    StateIcon.Speed -> Icons.Outlined.Speed
+    StateIcon.Ring -> Icons.Outlined.RadioButtonUnchecked
+    StateIcon.Poison -> Icons.Outlined.WaterDrop
+    StateIcon.Energy -> Icons.Outlined.Bolt
+    StateIcon.Experience -> Icons.Outlined.Stars
+    StateIcon.Rad -> Icons.Outlined.Coronavirus
+    StateIcon.Dungeons -> Icons.Outlined.EmojiEvents
+    StateIcon.ExtraTurn -> Icons.AutoMirrored.Outlined.Redo
+    StateIcon.SkippedTurn -> Icons.Outlined.SkipNext
+}
+
+/** TRN-072: the monarch's crown (the icon set has none). */
+private val CrownIcon = ImageVector.Builder("Crown", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(4f, 17f); lineTo(2.5f, 7f); lineTo(8f, 11f); lineTo(12f, 4f); lineTo(16f, 11f); lineTo(21.5f, 7f); lineTo(20f, 17f); close()
+        moveTo(4f, 19f); lineTo(20f, 19f); lineTo(20f, 21f); lineTo(4f, 21f); close()
+    }
+}.build()
+
+/** A level's text size under its icon on a full-size chip (sp): smaller for more digits. */
+private fun levelSize(text: String): Float = when (text.length) {
+    1 -> 8.5f
+    2 -> 7.5f
+    else -> 6.5f
 }
 
 /** A glyph's text size on a full-size chip (sp): smaller for longer glyphs, so up to four characters fit the circle. */

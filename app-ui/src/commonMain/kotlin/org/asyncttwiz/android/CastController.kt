@@ -426,7 +426,9 @@ class CastController(
         if (ways.isEmpty()) {
             // A source used with other objects (the creature an altar sacrifices): one pick per object set
             val group = groupOf(cardId) ?: return false
-            AppLog.info("cast", "Payment: source $cardId tapped, paying before ${paySources()}")
+            // STK-024 (owner 2026-11-14): never a chip naming the objects its cost uses; which ones the engine lists, for reports
+            AppLog.info("cast", "Payment: source $cardId tapped, its cost using ${(group.first() as? ManaUse.Ability)?.answers}, " +
+                "${if (mana.any { it in group }) "taken out" else "added"}; paying before ${paySources()}")
             toggleMana(group)
             return true
         }

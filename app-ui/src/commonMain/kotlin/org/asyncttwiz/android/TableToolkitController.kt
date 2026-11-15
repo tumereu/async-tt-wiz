@@ -376,6 +376,26 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** HIS-110 (owner, 2026-11-07): the other player's reveal panel is open: game actions are refused as while a choice
      * is open (STK-032) until its OK. */
     fun revealing(): Boolean = engine?.revealing() == true
+
+    /**
+     * ZON-095 (owner notes 2026-11-14): while a cast (its target bar too), a choice of the viewer's or another panel (a reveal, a
+     * Library, the deck view, the Stack's list, the table menu) is open, the viewer's hand row is dimmed and takes no taps, unless
+     * the open choice is about a card in their hand (a discard, a cost discarding or exiling one). On [play], the board acted on.
+     */
+    fun handDimmed(play: TableBoard): Boolean {
+        val open = cast.open || flows.answering != null || revealing() || panel != null
+        if (!open) return false
+        val hand = play.board.containers.filter { it.zone == PlayZone.HAND && it.accountId == viewer }.flatMapTo(HashSet()) { it.cards }
+        val asked = listOfNotNull(cast.flow?.pending, flows.answering)
+        return asked.none { decision -> decisionObjects(decision).any { it in hand } }
+    }
+
+    /** The ATW cards [decision] chooses among (its objects or targets), for [handDimmed]. */
+    private fun decisionObjects(decision: arcanum.engine.decision.Decision): List<String> = when (decision) {
+        is arcanum.engine.decision.Decision.ChooseObjects -> decision.options
+        is arcanum.engine.decision.Decision.Targets -> decision.options.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
+        else -> emptyList()
+    }.mapNotNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value }
     /** UI review round 2 #4 (I-D46 b): an action refused because the viewer's own cast is open ("Finish or cancel the cast
      * first.") or Automatum's choice is open (STK-032) shakes what it was made on (the card or pile whose menu it came
      * from), else the card being cast, instead of a message. */
@@ -667,6 +687,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // ZON-079 (I-D50): a hand has no menu: a tap raises the card (or casts the raised one); a tap on anything else
         // lowers it
         if (item.zone == PlayZone.HAND && item.kind == TableItemKind.CARD) {
+            // ZON-095 (owner notes 2026-11-14): the viewer's dimmed hand takes no taps while a panel is open
+            if (item.owner == viewer && handDimmed(play)) {
+                AppLog.info("table", "Tap on hand card ${item.cardId} while a panel is open (cast ${cast.open}, choice " +
+                    "${flows.answering?.kind}, panel $panel): the hand is dimmed, nothing done")
+                return
+            }
             dismiss()
             // TBL-118: while the other player's choice is open the viewer's own hand card only shakes
             val card = item.cardId
@@ -817,6 +843,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val play = current()?.takeIf { enabled() }
         // ZON-004, ZON-077 (owner 2026-11-07): as a tap on the raised card: cast at once without any choice, else the
         // cast panel
+        // ZON-095 (owner notes 2026-11-14): the viewer's dimmed hand takes no double taps or drags while a panel is open
+        if (play != null && handDimmed(play) && CastController.inHandRow(play, cardId, viewer) == true) {
+            AppLog.info("table", "Double tap or drag of hand card $cardId while a panel is open: the hand is dimmed, nothing done")
+            return false
+        }
         val known = hand.known(cardId)
         hand.lower()
         if (play != null && !cast.open && unplayable(play, cardId)) { shake(cardId); return false }

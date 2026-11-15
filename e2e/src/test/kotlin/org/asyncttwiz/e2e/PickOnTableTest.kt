@@ -69,7 +69,7 @@ class PickOnTableTest : E2e() {
         start(deck(TestCards.fork to 20, TestCards.blueNote to 20), mapOf("Ember Fork" to 1, "Blue Note" to 1), PlaySettings(autotap = false))
         plays("Ember Fork")
         alice.playFromHand("Blue Note", this)
-        waitUntil("the panel, nothing paying: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {U}.")) }
+        waitUntil("the panel, nothing paying: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {U}: produce the mana on the board.")) }
         assertFalse(alice.shows(hasContentDescription("Cast panel") and androidx.compose.ui.test.hasAnyDescendant(hasClickAction() and hasContentDescription("Cast"))),
             "no Cast in the panel: ${alice.screen()}")
         alice.tap("Hide cast panel")
@@ -102,7 +102,7 @@ class PickOnTableTest : E2e() {
         start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 1, "Red Flash" to 1), PlaySettings(autotap = false))
         plays("Ember Shard")
         alice.playFromHand("Red Flash", this)
-        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Tap sources on the table to pay {R}.")) }
+        waitUntil("the panel: ${alice.screen()}") { alice.shows(hasContentDescription("Not paid: Still owed {R}: produce the mana on the board.")) }
         alice.tap("Hide cast panel")
         waitUntil("the panel hidden") { alice.showsControl("Show cast panel") }
         alice.battlefieldCard("Ember Shard").performClick()
@@ -164,11 +164,10 @@ class PickOnTableTest : E2e() {
         alice.playFromHand("Altar Offering", this)
         waitUntil("the sacrifice asked on the table: ${alice.screen()}") { alice.shows(bar) }
         assertFalse(alice.shows(hasContentDescription("Cast panel")), "no panel: ${alice.screen()}")
-        waitUntil("a Pup glows") { "target" in alice.marks("Ash Pup") }
-        // TBL-117 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"): the Pups' closed stack shows as
-        // pickable as a whole, both members framed in violet as a card alone is, not only in the colour of a group a tap opens
-        waitUntil("both Pups of the closed stack framed as pickable: ${alice.marks("Ash Pup")}, ${alice.marks("Ash Pup", 1)}") {
-            "target" in alice.marks("Ash Pup") && "target" in alice.marks("Ash Pup", 1)
+        // TBL-117 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"; owner notes 2026-11-14): the Pups'
+        // closed stack, which a tap spreads open, shows as pickable as a whole with the glow of a pile holding choices, both members
+        waitUntil("both Pups of the closed stack glow as choices inside: ${alice.marks("Ash Pup")}, ${alice.marks("Ash Pup", 1)}") {
+            "choices inside" in alice.marks("Ash Pup") && "choices inside" in alice.marks("Ash Pup", 1)
         }
         alice.battlefieldCard("Ash Pup").performClick()
         if (alice.shows(bar) && alice.field("Ash Pup").size == 2) {

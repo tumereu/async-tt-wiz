@@ -1,0 +1,1 @@
+mod: While you pick targets, a stack of cards that a tap spreads open glows differently from a single target; once spread, each card you can pick has the usual glow.

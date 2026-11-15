@@ -214,6 +214,21 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else i.bounds.width / 28f
         val cardWidth = 28f * z; val cardHeight = 40f * z
         val corner = if (i.eotCorner.isEmpty() && !i.cornerHourglass) i.corner else "⌛${i.corner}"
+        // TBL-137 (owner notes 2026-11-14): an uncrewed Vehicle's "Crew N", one short line on a white chip just above its P/T
+        // at the art's bottom right, where it fits the card's width
+        fun crewLine() {
+            val crew = i.crew ?: return
+            paint.textSize = 6 * valueScale * z * density
+            val width = cache.measure(crew) / density + 3 * z
+            if (width > cardWidth - 4 * z) return
+            val height = maxOf(8f, 6 * valueScale + 2) * z
+            val top = y + artBottom * z - height - .5f * z
+            drawRoundRect(Color.White, xy(x + cardWidth - 2 * z - width, top), size(width, height), CornerRadius(z * density))
+            val previousColor = paint.color
+            paint.color = NativeColors.DKGRAY
+            fittedText(crew, x + cardWidth - 3.5f * z, top + height - 2 * z, width - 3 * z, right = true)
+            paint.color = previousColor
+        }
         fun damageBadge() {
             if (!TablePresentation.nonzero(i.damage)) return
             val previousColor = paint.color
@@ -301,6 +316,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
         fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor
+        crewLine()
         damageBadge()
         cardAnnotations(i, x, y, z)
         paint.textSize = 11 * density

@@ -187,13 +187,6 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     val dies = (preview?.dies ?: result?.dying.orEmpty()).toSet()
     val inCombat = copies.mapNotNull { it.sourceId }.toSet()
     val computed = LocalComputedBoard.current
-    fun label(target: MtgRef) = when (target) {
-        is MtgRef.Player -> scene.combatLabels.firstOrNull { it.cardId == null }
-        is MtgRef.Card -> scene.combatLabels.firstOrNull { it.cardId == target.cardId }
-        else -> null
-    }
-    // "5 → Bob": damage an attacker deals to its target (unblocked or with trample), by source
-    val toTargets = preview?.dealt.orEmpty().filter { label(it.target) != null }.groupBy { it.source }
     for (item in scene.items) {
         if (item.kind != TableItemKind.CARD || item.visible.isEmpty()) continue
         val card = item.sourceId ?: continue
@@ -214,14 +207,7 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             val keywords = computed.cards[card]?.keywords.orEmpty()
             COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }
                 .forEach { chips += Triple(it.lowercase(), AutomatumViolet, it.lowercase()) }
-            toTargets[card]?.groupBy { it.target }?.forEach { (target, list) ->
-                val name = label(target)?.label ?: run {
-                    Faults.report("CombatAreaOverlay", "division target without a label", mapOf("card" to card, "target" to target.toString()))
-                    return@forEach
-                }
-                val text = "${list.sumOf { it.amount }} → ${name.removePrefix("→ ")}"
-                chips += Triple(text, PreviewRed, text)
-            }
+            // CMB-035 (owner notes 2026-11-14): no chip saying whom it attacks or deals damage to: its lane shows it
         }
         // CMB-036: a creature a staged attacker enlists
         if (real) enlistedBy[card]?.let { by -> chips += Triple("enlisted", AutomatumViolet, "Enlisted by ${combatName(play, by)}") }
@@ -233,8 +219,8 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
                 mapOf("card" to card, "occurrence" to occurrence?.id.toString(), "pairs" to area?.pairs?.size.toString()))
             val attacker = occurrence != null && pair != null && pair.attackers.any { it.id == occurrence.id }
             // CMB-035 (owner playtest 2026-11-07): a staged attacker carries no chip, its lane already names its target.
-            // Only where it fits: small cards show their combat by their copies alone
-            if (pair != null && !(staging && attacker) && b.width >= 44f)
+            // Owner notes 2026-11-14: on any card, however small: its text scales down with the card (CombatChip)
+            if (pair != null && !(staging && attacker))
                 (if (attacker) "attacking" else "blocking").let { chips += Triple(it, ArrowColor, it) }
         }
         val dealt = if (copy || card !in inCombat) damage[card] else null
@@ -617,24 +603,27 @@ private fun stagingChips(play: TableBoard, combat: CombatController?, choices: o
 @Composable
 private fun StagingChipView(chip: StagingChip, width: Float) {
     val color = if (chip.cost) AutotapAmber else AutomatumViolet
-    val shape = RoundedCornerShape(6.dp)
-    val room = (width - if (chip.icon != null) 18f else 6f).coerceAtLeast(8f)
+    // CMB-035 (owner notes 2026-11-14): readable at any zoom: below a full-size card everything scales with the card, the text
+    // shrinking further (then clipped) only when it still doesn't fit
+    val z = chipScale(width)
+    val shape = RoundedCornerShape((6f * z).dp)
+    val room = (width - (if (chip.icon != null) 18f else 6f) * z).coerceAtLeast(1f)
     val natural = CombatStackPresentation.laneTextWidth(chip.text, 10f)
-    val size = if (chip.cost) 13f else if (natural <= room) 10f else maxOf(6f, 10f * room / natural)
+    val size = if (chip.cost) 13f * z else if (natural * z <= room) 10f * z else maxOf(MIN_CHIP_TEXT, 10f * room / natural)
     // TBL-132 (owner gallery review 2026-11-06): holding a chip naming a keyword ("Exert") explains it too, unless what
     // holding it says explains it already ("Enlist: …")
     RuleTip(if (chip.hold.startsWith("${chip.text}:")) "" else chip.text, lead = chip.hold) {
-        Row(Modifier.width(width.dp).heightIn(min = 22.dp).background(if (chip.on) color else Color.White, shape)
-            .border(if (chip.picking) 2.5.dp else 1.5.dp, color, shape)
+        Row(Modifier.width(width.dp).heightIn(min = (22f * z).dp).background(if (chip.on) color else Color.White, shape)
+            .border(((if (chip.picking) 2.5f else 1.5f) * z).dp, color, shape)
             .semantics {
                 contentDescription = chip.description
                 if (chip.onTap != null) stateDescription = listOfNotNull(if (chip.on) "on" else "off", "picking".takeIf { chip.picking }).joinToString()
             }
             .let { if (chip.onTap != null) it.clickable(onClick = chip.onTap) else it }
-            .padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            chip.icon?.let { Icon(it, null, Modifier.size(12.dp), tint = if (chip.on) Color.White else color); Spacer(Modifier.width(2.dp)) }
+            .padding(horizontal = (2f * z).dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            chip.icon?.let { Icon(it, null, Modifier.size((12f * z).dp), tint = if (chip.on) Color.White else color); Spacer(Modifier.width((2f * z).dp)) }
             if (chip.cost) CardText(chip.text, style = androidx.compose.ui.text.TextStyle(fontSize = size.sp, fontWeight = FontWeight.Bold,
-                color = Color(0xff7a4a00)), maxLines = 1)
+                color = Color(0xff7a4a00), lineHeight = (size + 2f).sp), maxLines = 1)
             else Text(chip.text, color = if (chip.on) Color.White else color, fontSize = size.sp, fontWeight = FontWeight.Bold,
                 lineHeight = (size + 2f).sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip)
         }
@@ -645,16 +634,29 @@ private fun StagingChipView(chip: StagingChip, width: Float) {
  * Drawn only, so taps reach the card beneath. */
 @Composable
 private fun CombatChip(text: String, color: Color, width: Float, description: String) {
-    val room = (width - 8f).coerceAtLeast(8f)
+    // CMB-035 (owner notes 2026-11-14): readable at any zoom: below a full-size card the chip scales with the card, its text
+    // shrinking further (then clipped) only when it still doesn't fit; never left out
+    val z = chipScale(width)
+    val room = (width - 8f * z).coerceAtLeast(1f)
     val natural = CombatStackPresentation.laneTextWidth(text, 9f)
-    val size = if (natural <= room) 9f else maxOf(5.5f, 9f * room / natural)
+    val size = if (natural * z <= room) 9f * z else maxOf(MIN_CHIP_TEXT, 9f * room / natural)
+    val shape = RoundedCornerShape((6f * z).dp)
     Box(Modifier.widthIn(max = width.dp).semantics { contentDescription = description }
-        .background(color, RoundedCornerShape(6.dp)).border(1.5.dp, color, RoundedCornerShape(6.dp))) {
-        Text(text, Modifier.padding(horizontal = 3.dp), color = Color.White, fontSize = size.sp,
+        .background(color, shape).border((1.5f * z).dp, color, shape)) {
+        Text(text, Modifier.padding(horizontal = (3f * z).dp), color = Color.White, fontSize = size.sp,
             fontWeight = FontWeight.Bold, lineHeight = (size + 2f).sp, maxLines = 1, softWrap = false,
             overflow = androidx.compose.ui.text.style.TextOverflow.Clip)
     }
 }
+
+/** CMB-035 (owner notes 2026-11-14): the card width (dp) from which a combatant's chips show at their full size. */
+private const val FULL_CHIP_CARD = 44f
+
+/** CMB-035: the smallest text (sp) a combatant's chip shrinks to before it is clipped. */
+private const val MIN_CHIP_TEXT = 3f
+
+/** CMB-035: how much a combatant's chips scale on a card [width] dp wide: 1 on a full-size card, smaller with the card. */
+private fun chipScale(width: Float): Float = (width / FULL_CHIP_CARD).coerceIn(.25f, 1f)
 
 /** An arrow from [start] to [end] (px) with its head at [end]. */
 private fun DrawScope.arrow(start: Offset, end: Offset, color: Color, d: Float) {

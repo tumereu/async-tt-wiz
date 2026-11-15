@@ -14,14 +14,34 @@ data class StateChip(val label: String, val explanation: RulesGlossary.Entry?, v
 
 /** TRN-072 (owner gallery review 2026-11-10, gallery 157): what a state's round chip shows in place of its words. */
 sealed interface StateGlyph {
-    /** A letter or two, with the state's number where it has one ("M", "S2", "P3"). */
+    /** A letter or two, with the state's number where it has one ("Sh1"): a player counter with no icon of its own. */
     data class Letters(val text: String) : StateGlyph
+    /** TRN-072 (owner notes 2026-11-14): the state's own [icon], with its current [level] on it where it has one (speed 2, the
+     * Ring's level, 3 poison). */
+    data class Icon(val icon: StateIcon, val level: Int? = null) : StateGlyph
     /** TRN-073: a sun. */
     data object Day : StateGlyph
     /** TRN-073: a moon. */
     data object Night : StateGlyph
     /** TRN-069: a door, for the room a player's dungeon marker is on. */
     data object Room : StateGlyph
+}
+
+/** TRN-072 (owner notes 2026-11-14): the player states with an icon of their own; a table draws each as it likes. */
+sealed interface StateIcon {
+    data object Monarch : StateIcon
+    data object Initiative : StateIcon
+    data object CitysBlessing : StateIcon
+    data object EnduringStory : StateIcon
+    data object Speed : StateIcon
+    data object Ring : StateIcon
+    data object Poison : StateIcon
+    data object Energy : StateIcon
+    data object Experience : StateIcon
+    data object Rad : StateIcon
+    data object Dungeons : StateIcon
+    data object ExtraTurn : StateIcon
+    data object SkippedTurn : StateIcon
 }
 
 /**
@@ -35,9 +55,10 @@ object PlayerStates {
     private const val RING_LEVELS = 4
 
     /**
-     * The glyphs (TRN-072, owner gallery review 2026-11-10): each state's first letter, with its number where it has one; where
-     * two would share a letter they are told apart: an enduring story "St" (energy keeps "E"), extra and skipped turns "+T" and
-     * "−T" (their count before the T when more than one), and a counter whose letter an earlier chip shows its first two letters.
+     * The glyphs (TRN-072, owner notes 2026-11-14): each state its own icon ([StateGlyph.Icon]) with its current level where it has
+     * one (speed, the Ring's level, poison, energy, experience, rad, dungeons completed, extra and skipped turns); a player counter
+     * with no icon of its own keeps letters: its first letter and count, or its first two letters where an earlier counter's chip
+     * shows that letter.
      */
     fun of(state: GameState, account: String): List<StateChip> {
         val id = PlayerId(account)
@@ -50,27 +71,28 @@ object PlayerStates {
         var dungeons: StateChip? = null
         for (status in player.statuses) when (status) {
             is PlayerStatus.Designated -> when (status.designation) {
-                Designation.Monarch -> designations[0] = chip("Monarch", "monarch", "M")
-                Designation.Initiative -> designations[1] = chip("Initiative", "initiative", "I")
-                Designation.CitysBlessing -> designations[2] = chip("City's blessing", "citys-blessing", "C")
-                Designation.EnduringStory -> designations[3] = chip("Enduring story", "enduring-story", "St")
+                Designation.Monarch -> designations[0] = chip("Monarch", "monarch", StateIcon.Monarch)
+                Designation.Initiative -> designations[1] = chip("Initiative", "initiative", StateIcon.Initiative)
+                Designation.CitysBlessing -> designations[2] = chip("City's blessing", "citys-blessing", StateIcon.CitysBlessing)
+                Designation.EnduringStory -> designations[3] = chip("Enduring story", "enduring-story", StateIcon.EnduringStory)
             }
-            is PlayerStatus.Speed -> speed = status.value.takeIf { it > 0 }?.let { chip("Speed $it", "speed", "S$it") }
+            is PlayerStatus.Speed -> speed = status.value.takeIf { it > 0 }?.let { chip("Speed $it", "speed", StateIcon.Speed, it) }
             is PlayerStatus.RingTempted -> ring = status.times.takeIf { it > 0 }?.coerceAtMost(RING_LEVELS)?.let { level ->
-                chip("Ring $level/$RING_LEVELS", "the-ring", "R$level") }
-            is PlayerStatus.DungeonsCompleted -> dungeons = status.count.takeIf { it > 0 }?.let { chip("Dungeons $it", "dungeons-completed", "D$it") }
+                chip("Ring $level/$RING_LEVELS", "the-ring", StateIcon.Ring, level) }
+            is PlayerStatus.DungeonsCompleted -> dungeons = status.count.takeIf { it > 0 }?.let {
+                chip("Dungeons $it", "dungeons-completed", StateIcon.Dungeons, it) }
         }
         val chips = buildList {
             designations.forEach { it?.let(::add) }
             speed?.let(::add)
             ring?.let(::add)
-            val taken = mapNotNullTo(HashSet()) { (it.glyph as? StateGlyph.Letters)?.text?.takeWhile(Char::isLetter) }
+            val taken = HashSet<String>()
             for (entry in player.counters) if (entry.count != 0) add(counter(entry.kind, entry.count, taken))
             dungeons?.let(::add)
             state.turn.extraTurns.count { it == id }.takeIf { it > 0 }?.let {
-                add(chip(if (it == 1) "Extra turn" else "Extra turns $it", "extra-turn", if (it == 1) "+T" else "+${it}T")) }
+                add(chip(if (it == 1) "Extra turn" else "Extra turns $it", "extra-turn", StateIcon.ExtraTurn, it)) }
             state.turn.skippedTurns.count { it == id }.takeIf { it > 0 }?.let {
-                add(chip(if (it == 1) "Skips a turn" else "Skips $it turns", "skipped-turn", if (it == 1) "−T" else "−${it}T")) }
+                add(chip(if (it == 1) "Skips a turn" else "Skips $it turns", "skipped-turn", StateIcon.SkippedTurn, it)) }
         }
         return chips
     }
@@ -85,10 +107,11 @@ object PlayerStates {
         return chip
     }
 
-    private fun chip(label: String, id: String, letters: String) = StateChip(label, RulesGlossary.state(id), StateGlyph.Letters(letters))
+    private fun chip(label: String, id: String, icon: StateIcon, level: Int? = null) =
+        StateChip(label, RulesGlossary.state(id), StateGlyph.Icon(icon, level))
 
-    /** A counter's chip, its glyph its name's first letter and its count, or its first two letters when an earlier chip already
-     * shows that letter ([taken], which it adds its own to; "D" is kept for dungeons completed, which come after). */
+    /** A counter's chip: its own icon with its count (poison, energy, experience, rad), or else its name's first letter and its
+     * count, or its first two letters when an earlier counter's chip already shows that letter ([taken], which it adds its own to). */
     private fun counter(kind: CounterKind, count: Int, taken: MutableSet<String>): StateChip {
         val name = when (kind) {
             CounterKind.Poison -> "poison"
@@ -97,9 +120,17 @@ object PlayerStates {
             else -> ComputedBoard.counterName(EngineCodec.counterName(kind))
         }
         val title = name.replaceFirstChar { it.uppercase() }
+        val icon = when {
+            kind == CounterKind.Poison -> StateIcon.Poison
+            kind == CounterKind.Energy -> StateIcon.Energy
+            kind == CounterKind.Rad -> StateIcon.Rad
+            name.equals("experience", ignoreCase = true) -> StateIcon.Experience
+            else -> null
+        }
+        if (icon != null) return chip("$title $count", name.lowercase(), icon, count)
         val letter = title.take(1)
-        val letters = if (letter in taken || letter == "D") title.filter(Char::isLetter).take(2) else letter
+        val letters = if (letter in taken) title.filter(Char::isLetter).take(2) else letter
         taken += letters
-        return chip("$title $count", name.lowercase(), "$letters$count")
+        return StateChip("$title $count", RulesGlossary.state(name.lowercase()), StateGlyph.Letters("$letters$count"))
     }
 }

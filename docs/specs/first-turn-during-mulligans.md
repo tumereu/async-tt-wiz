@@ -43,7 +43,7 @@ real opening and comparing (§4). So cards added later (new sets, new wordings) 
 - Once Alice's own opening is done (her keep, and any cards she owes to the bottom), Bob's open opening declaration is
   assumable. This holds only while keeping needs nothing more from him: no cards owed to the bottom. In practice that
   means his first hand, or his hand after the free first mulligan (TRN-062).
-- Alice's main button (TRN-063) then holds **"Assume keep"**, as it holds "Assume no response" elsewhere (TRN-004,
+- Alice's main button (TRN-063) then holds **"Assume keep"**, as it holds "Assume pass" elsewhere (TRN-004,
   TRN-070). Pressing it makes the assumed keep, and her turn-1 controls follow at once.
 - Her phone never assumes Bob's keep by itself, whatever "Assume resolves" says (HIS-096). This keeps the e2e finding
   of 2026-11-05 fixed: a phone must not run ahead into turn 1 just because it opened the game first.

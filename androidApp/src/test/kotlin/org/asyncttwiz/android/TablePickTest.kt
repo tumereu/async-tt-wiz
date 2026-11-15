@@ -80,15 +80,28 @@ class TablePickTest {
         render(kit)
         compose.onNode(hasText("Sacrifice") and isHeading()).assertExists()
         compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
-        // TBL-117 (owner gallery review 2026-11-10, gallery 145): the Pups' closed stack is drawn framed in violet as a whole, both
-        // members, though a tap opens it
+        // TBL-117, TBL-130 (owner notes 2026-11-14): the Pups' closed stack, which a tap spreads open rather than picks from, glows
+        // as a pile holding choices, both members, not framed as a target
+        val spread = compose.onAllNodes(hasContentDescription("${Choices.PUP}, owner", substring = true) and
+            SemanticsMatcher("glowing as choices inside") { "choices inside" in it.config.getOrElse(TableMarks) { emptySet() } }).fetchSemanticsNodes()
+        assertEquals(2, spread.size, "both Pups of the closed stack glow as choices inside")
         val framed = compose.onAllNodes(hasContentDescription("${Choices.PUP}, owner", substring = true) and
             SemanticsMatcher("framed as a target") { "target" in it.config.getOrElse(TableMarks) { emptySet() } }).fetchSemanticsNodes()
-        assertEquals(2, framed.size, "both Pups of the closed stack framed")
+        assertEquals(0, framed.size, "the closed stack isn't framed as a target")
         compose.onRoot().captureShot("$SCREENSHOTS/table-pick/sacrifice-bar.png",
             "Alice tapped her Ember Altar, whose cost sacrifices another creature: the slim bar above her hand says \"Sacrifice\" over " +
-                "the ability's text with the ability at its right, and the closed stack of her two Ash Pups is framed " +
-                "in violet as a whole on the table, to be picked.")
+                "the ability's text with the ability at its right, and the closed stack of her two Ash Pups, which a tap spreads open, " +
+                "glows pulsing violet as a pile holding choices.")
+        // Owner notes 2026-11-14: spread open (as a tap on the closed stack opens it, TBL-130), each Pup has the normal targeting glow
+        val group = kit.scene().battlefieldGroups.single { it.members.containsAll(pups) }
+        kit.toolkit.layoutState.value = kit.toolkit.layoutState.value.copy(expandedGroup = group.key)
+        compose.waitForIdle()
+        val opened = compose.onAllNodes(hasContentDescription("${Choices.PUP}, owner", substring = true) and
+            SemanticsMatcher("framed as a target") { "target" in it.config.getOrElse(TableMarks) { emptySet() } }).fetchSemanticsNodes()
+        assertEquals(2, opened.size, "both Pups framed as targets once spread")
+        compose.onRoot().captureShot("$SCREENSHOTS/table-pick/sacrifice-spread.png",
+            "Alice opened the glowing stack of her Ash Pups while picking the Ember Altar's sacrifice: it spread open, and each Pup " +
+                "now has the normal violet targeting glow, to be picked by a tap of its own.")
         // A tap on a Pup picks it: the cost's one creature, so the ability goes on at once
         kit.tap(kit.item(pups[0]))
         assertTrue(!cast.targeting, "the pick answered the cost: ${kit.toolkit.error}")

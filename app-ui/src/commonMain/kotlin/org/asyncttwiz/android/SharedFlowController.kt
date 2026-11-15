@@ -428,16 +428,33 @@ class SharedFlowController(
     fun paidWith(cardId: String): ManaUse? = if (!paying) null else mana.firstOrNull { tableSource(it) == cardId }
 
     /** STK-049: the table cards paying the open payment (outlined in amber, in a pile of their own). */
-    fun paySources(): Set<String> = if (!paying) emptySet() else mana.mapNotNull(::tableSource).toSet()
+    fun paySources(): Set<String> = if (!paying) emptySet() else mana.mapNotNull { tableSource(it) ?: objectSource(it) }.toSet()
 
     /** STK-049: the table cards a tap adds to the open payment (or takes out). */
-    fun payableSources(): Set<String> = if (!paying) emptySet() else payment?.options.orEmpty().mapNotNull(::tableSource).toSet()
+    fun payableSources(): Set<String> = if (!paying) emptySet() else payment?.options.orEmpty().mapNotNull { tableSource(it) ?: objectSource(it) }.toSet()
+
+    /** STK-024 (owner 2026-11-14): the battlefield source of [use] when its cost uses other objects ("Tap two untapped creatures you
+     * control"): tapped on the table, never a chip naming those objects; null for any other use. */
+    private fun objectSource(use: ManaUse): String? {
+        val flow = view ?: return null
+        if (!org.asyncttwiz.automatum.ManaPicks.usesObjects(use)) return null
+        val ability = use as ManaUse.Ability
+        return flow.atwCard(ability.source).takeIf { flow.state.obj(ability.source)?.zone == arcanum.api.Zone.Battlefield }
+    }
 
     /** STK-049 (owner playtest 2026-11-09): a tap on the battlefield card [cardId] while the viewer pays on the table: a source the
      * payment can use is added (its sensible way, STK-024) or taken out; false when it isn't one. */
     fun tapSource(cardId: String): Boolean {
         if (!paying) return false
-        val ways = waysOf(cardId).ifEmpty { return false }
+        val ways = waysOf(cardId).ifEmpty {
+            // STK-024 (owner 2026-11-14): a source whose cost uses other objects: one pick per object set, the first not paying yet
+            val groups = org.asyncttwiz.automatum.ManaPicks.groups(payment ?: return false).filter { objectSource(it.first()) == cardId }
+            val group = groups.firstOrNull { g -> mana.none { it in g } } ?: groups.firstOrNull() ?: return false
+            AppLog.info("decision", "Payment while resolving: source $cardId tapped, its cost using ${group.first().let { (it as ManaUse.Ability).answers }}, " +
+                "paying before ${paySources()}")
+            toggleMana(group)
+            return true
+        }
         AppLog.info("decision", "Payment while resolving: source $cardId tapped (${ways.size} ways), paying before ${paySources()}")
         tapWays(ways, "source $cardId", ManaBelongs.Uses(ways))
         return true

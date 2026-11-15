@@ -312,6 +312,8 @@ object TestCards {
 
     /** A free source of two colours (STK-024: its ways to pay). */
     val fork = card("Ember Fork", "Artifact", "{0}", "{T}: Add {R} or {U}.")
+    /** STK-024 (owner, 2026-11-14): a free creature whose mana ability taps other creatures (worded as a real such card). */
+    val elders = card("Hearth Elders", "Creature — Human Citizen", "{0}", "Tap two untapped creatures you control: Add one mana of any color.", "1", "1")
     /** A free Vehicle with crew 2 (CR 702.122a). */
     val cart = card("Ember Cart", "Artifact — Vehicle", "{0}", "Crew 2", "3", "3")
     /** CMB-050: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */

@@ -84,7 +84,7 @@ class ConfirmCrossingTest : E2e() {
         bob.declare("Block (3)", this)
         waitUntil("Alice's pause at the blocks, Bob waiting for her with Assume") {
             alice.settled(this) && bob.settled(this) && alice.status == GameDevice.Status.YourMove &&
-                alice.state.turn.step == TurnStep.DeclareBlockers && bob.showsControl("Assume no response")
+                alice.state.turn.step == TurnStep.DeclareBlockers && bob.showsControl("Assume pass")
         }
         // Her pass goes out slowly: her phone goes on to her division with it still on its way
         alice.link.holdOutgoing()
@@ -97,7 +97,7 @@ class ConfirmCrossingTest : E2e() {
         val transition = alice.shown.transition?.serial
         val takenBack = AppLog.text().lines().count { "Shown board taken back" in it }
         // Bob presses Assume: his assumption of her pass reaches the server first, then her phone
-        bob.tap("Assume no response")
+        bob.tap("Assume pass")
         waitUntil("Bob's assumption of her pass on the server") {
             bob.engine { device.session.pending.isEmpty() && device.session.events.any { it.assumed?.input == Input.PassPriority(alice.me) &&
                 it.author == bob.id } && device.model.engine.pending?.decision is Decision.Divide }

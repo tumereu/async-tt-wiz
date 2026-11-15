@@ -1,0 +1,1 @@
+Alice cast her Ember Cart (a Vehicle with crew 2, 3/3) and an Ash Pup: the uncrewed Cart's bottom text reads "Crew 2" on a short line just above the 3/3 it has once crewed, while the Pup shows its 1/1 alone.

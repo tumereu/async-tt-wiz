@@ -240,10 +240,13 @@ internal class BenchBoard(val name: String, private val board: List<Pair<BenchCa
     }
 
     private val snapshot: EngineSnapshot = run {
-        val model = GameModel(Engine.newGame(listOf(a, b).map { p ->
-            Seat(PlayerId(p), decks.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) })
+        val secret = LineRandom.secret(ByteArray(32) { 5 })
+        // The opening hands and libraries the game's single random stream dealt (EngineWorkCountTest's numbers were counted on
+        // them): each player's own stream (HIS-042) would deal other hands, so other cards on the board and in hand
+        val model = GameModel(Engine.newGame(listOf(a, b).mapIndexed { k, p ->
+            Seat(PlayerId(p), singleStreamDeal(secret, p, k, decks.getValue(p)).map { (id, card) -> DeckCard(CardId(id), card.definition) })
         }),
-            TableState(secret = LineRandom.secret(ByteArray(32) { 5 })))
+            TableState(secret = secret))
         fun event(id: String, parent: String, author: String, input: (GameState) -> Input) = EventBuilder(model, f.id(id), f.id(parent), author).run {
             perform(input(model.engine)); answerRandoms(); build()
         }

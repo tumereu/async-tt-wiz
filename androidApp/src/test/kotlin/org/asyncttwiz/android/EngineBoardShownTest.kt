@@ -155,7 +155,8 @@ class EngineBoardShownTest {
     }
 
     // TRN-027, TRN-062, TRN-066, TRN-070: Alice's turn-1 controls wait while Bob (online) is still deciding on a mulligan:
-    // no step arrow and nothing in its place (his keep is never assumed, TRN-027); once he keeps she plays her first turn
+    // no step arrow, Assume keep in its place (her phone never assumes his keep by itself, HIS-096); once he keeps she
+    // plays her first turn
     // TRN-004: the step arrow shows only while the viewer may act
     @Test fun theStartingPlayersControlsWaitForTheOtherKeep() {
         val kit = EngineTableKit()
@@ -164,12 +165,12 @@ class EngineBoardShownTest {
         kit.alice.tick(2_000)
         val waiting = assertIs<GameDevice.Status.Waiting>(kit.alice.device.status)
         assertEquals(GameDevice.Wait.Keep, waiting.reason)
-        assertEquals(null, waiting.offer)
+        assertEquals(GameDevice.Offer.AssumeKeep, waiting.offer)
         assertFalse(kit.routes.arrowShown(), "no step arrow")
-        assertEquals(null, kit.routes.waitAction(), "no Assume keep")
-        // Long after Bob left: still his keep to make
+        assertEquals("Assume keep", kit.routes.waitAction()?.label, "Assume keep on the main button")
+        // Long after Bob left: still his keep to make, nothing assumed by itself
         kit.alice.tick(2_000 + 600_000)
-        assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), kit.alice.device.status)
+        assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep, GameDevice.Offer.AssumeKeep), kit.alice.device.status)
         assertFalse(kit.routes.canAct())
         kit.bob.keep()
         kit.playOn("Alice's Main 1") { kit.aliceMain() }

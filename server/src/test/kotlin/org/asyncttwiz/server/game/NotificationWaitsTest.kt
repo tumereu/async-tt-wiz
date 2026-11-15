@@ -206,9 +206,9 @@ class NotificationWaitsTest {
         f.assertMoves(f.b, f.b, "Alice's undo")
     }
 
-    // TRN-058, HIS-097 (I-D56 §8): Bob answers Alice's assumed keep differently (a mulligan): a branch; the new line's head
-    // is his opening declaration again, so the game waits for him: his move for both
-    @Test fun `a branch gives the move to whom the new line waits for`() = withService { runtime ->
+    // TRN-058, HIS-097, HIS-115 (owner 2026-11-15): Bob answers Alice's assumed keep differently (a mulligan): her line is
+    // made again on it (her keep of his new hand assumed again) and she plays on: her move for both
+    @Test fun `a mulligan at the assumed keep leaves the move with the player playing on`() = withService { runtime ->
         val f = Fixture(runtime)
         val bob = f.device(f.b)
         val alice = f.aliceKeeps()
@@ -218,11 +218,10 @@ class NotificationWaitsTest {
         f.assertMoves(f.a, f.a, "Alice plays on")
         val open = bob.model.engine.pending!!.decision
         val builder = org.asyncttwiz.protocol.game.EventBuilder(bob.model, id(), aliceKeep.id, f.b.account.accountId)
-        builder.startLine(f.snapshot().lines + 1)
         builder.perform(Input.Answer(open.id, Answer.Option("Mulligan")))
         builder.answerRandoms()
         assertEquals("accepted", f.recipient.execute(GameAction.Submit(org.asyncttwiz.protocol.game.Submission.of(builder.build()))).outcome)
-        f.assertMoves(f.b, f.b, "after Bob's branch")
+        f.assertMoves(f.a, f.a, "after Bob's mulligan, made again")
     }
 
     // TRN-058, HIS-100, switchreview #12: an open undo request waits for the other player's answer: their move for both;

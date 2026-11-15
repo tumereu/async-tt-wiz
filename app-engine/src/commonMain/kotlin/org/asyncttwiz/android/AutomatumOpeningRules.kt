@@ -31,8 +31,9 @@ object AutomatumOpening {
         if (s.turn.number != 0) return 0
         val me = PlayerId(viewer)
         val pending = s.pending ?: return 0
-        val stage = (pending.continuation as? Continuation.Setup)?.stage as? SetupStage.Bottom ?: return 0
-        if (me !in stage.mulligans.taking || me in stage.done) return 0
+        // Each player's mulligans are their own (StartOptions.simultaneousMulligans): owed while their opening is declared
+        val stage = (pending.continuation as? Continuation.Setup)?.stage as? SetupStage.Declare ?: return 0
+        if (me !in stage.mulligans.taking || me in stage.mulligans.kept) return 0
         (pending.decision as? Decision.ChooseObjects)?.takeIf { Host.decider(s, it.player) == me }?.let { return it.min }
         return Engine.options(s, me, EnginePreferences.of(s)).firstNotNullOfOrNull { input ->
             ((input as? Input.SetupAnswer)?.takeIf { it.player == me }?.answer as? Answer.Objects)?.chosen?.size

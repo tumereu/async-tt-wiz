@@ -62,6 +62,21 @@ object Host {
     fun loopKey(state: GameState): arcanum.engine.turn.LoopKey = arcanum.engine.turn.Loops.key(state)
 
     /**
+     * [loopKey] as [viewer] could tell the position (no new function: the loop key with a viewer): equal for two states
+     * [viewer] can't tell apart. Every card [viewer] may not see ([visible]) counts only where they can see something of
+     * it (a face-down card's place, never its identity): the contents, order and number of the cards in hidden hands,
+     * libraries and outside the game don't count, nor do object ids, timestamps, the timestamp counter and the input
+     * count (which shift with any change elsewhere, such as another player's mulligan). Everything else counts as it is:
+     * what [viewer] may see of the layers' results (an effect counting hidden cards shows in what it changes), this turn's
+     * logged changes as they could see them (two runs ending equal by different steps this turn differ), the ledgers,
+     * "this turn" counts and statuses. Nothing is left out for looking irrelevant, so a host comparing keys errs only
+     * towards "different". The key also keeps its place naming ([arcanum.engine.turn.LoopKey.place],
+     * [arcanum.engine.turn.LoopKey.objectAt]): a host finds, for an object named in an input made on one state, the one in
+     * the same place of another. Loop detection uses [loopKey] without a viewer, which this doesn't change.
+     */
+    fun loopKey(state: GameState, viewer: PlayerId): arcanum.engine.turn.LoopKey = arcanum.engine.turn.Loops.key(state, viewer)
+
+    /**
      * The objects whose identity [player] may know now (spec §7.0 "Hidden information"): public cards, their own
      * hand and cards outside the game, face-down cards they control, and cards an ability lets them look at any time
      * ("you may look at the top card of your library any time", CR 401.5). A host shows a player what [state] knows

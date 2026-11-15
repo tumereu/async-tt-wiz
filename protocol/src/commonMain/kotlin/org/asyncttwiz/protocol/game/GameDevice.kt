@@ -338,6 +338,8 @@ class GameDevice(
     @kotlinx.serialization.Serializable sealed interface Offer {
         @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("resolves") data object AssumeResolves : Offer
         @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("blockers") data object AssumeBlockers : Offer
+        /** HIS-096, TRN-070: the other player's opening keep (with its stand-in bottom choice when one is owed), only by a press. */
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("keep") data object AssumeKeep : Offer
     }
 
     /** Something to tell the player once. */
@@ -349,6 +351,9 @@ class GameDevice(
             val actions: List<GameEvent> = emptyList()) : Note
         /** [by] took the main line back past what you were shown ([takenBack]). */
         data class TakenBack(val by: PlayerId, val takenBack: List<GameEvent>) : Note
+        /** HIS-115: [by]'s opening move (a mulligan when [mulligan]) re-applied your line, and it all came out the same: your
+         * turn stands. */
+        data class Stands(val by: PlayerId, val mulligan: Boolean) : Note
         /** Taking back to [target] needs the other player's approval (an undo request). */
         data class RequestNeeded(val target: String) : Note
         /** The server refused something for [reason]; [on] is the object the refused action was made on (the card cast or
@@ -1287,7 +1292,9 @@ class GameDevice(
         val d = s.pending?.decision
         if (d != null) {
             if (d !is Decision.Random) WhoActs.automaticAnswer(m, d)?.let { return Point.Automatic(it) }
-            // TRN-027, HIS-096 (owner, 2026-11-05): the other player's opening keep is never assumed: their opening is waited for
+            // TRN-027, HIS-096 (owner, 2026-11-15): the other player's opening keep is assumed only by a press of Assume keep
+            // (never by the phone itself), once this player's own opening is done
+            Reapply.assumedKeep(s, me)?.let { keep -> return Point.Wait(Wait.Keep, Offer.AssumeKeep.takeIf { assumable(keep, m) }, keep) }
             if (Engine.options(s, d.player, m.keptView(), EnginePreferences.of(s)).any { keep(it) }) return Point.Wait(Wait.Keep)
             return Point.Wait(Wait.Choosing(d.source?.takeIf { it in m.visible(me) }))
         }
@@ -1416,6 +1423,11 @@ class GameDevice(
         pausing = false
         if (stop != null && Acceptance.confirms(input, stop.assumed)) return confirmThen(input, table, follow, replay)
         if (stop == null && input !is Input.Concede) return Acted.Refused("playback")
+        // HIS-115: another opening answer at the other player's assumed keep re-applies their line on it: on the same line
+        if (stop != null && input !is Input.Concede && Reapply.opening(stop.event, model.engine)) {
+            remember("opening answer $input at the assumed ${stop.assumed}: re-applies their line")
+            return make(input, assumed = false, follow = follow, table = table, player = true, reapplies = true)
+        }
         return make(input, assumed = false, follow = follow, table = table, newLine = lines + 1, player = true)
     }
 
@@ -1552,10 +1564,11 @@ class GameDevice(
     private var draftStop: Status.Stopped? = null
     private var draftBefore: InformationRule.Before? = null
 
-    /** Opens a draft at the tip: starting [newLine] (a branch), or the line a rewind left due at the head (§9). */
-    private fun open(newLine: Int? = null): EventBuilder {
+    /** Opens a draft at the tip: starting [newLine] (a branch), or the line a rewind left due at the head (§9); [reapplies]:
+     * an opening answer at the other player's assumed keep, sent behind the head on the same line (HIS-115). */
+    private fun open(newLine: Int? = null, reapplies: Boolean = false): EventBuilder {
         val line = newLine ?: if (session.behind) null else Rewind.lineDue(model, lines)
-        return session.begin(ids(), line).also { builder ->
+        return session.begin(ids(), line, reapplies).also { builder ->
             // HIS-042: what a new line's reshuffle moved, and what it was made under (report DH3QX6)
             if (line != null) remember("line $line starts: cards moved per library " + builder.changes
                 .filterIsInstance<arcanum.engine.change.Change.Reorder>().map { c -> c.before.indices.count { c.before[it] != c.after[it] } } +
@@ -1565,7 +1578,7 @@ class GameDevice(
 
     /** Makes [input] (assumed: the other player's, §3) as an event at the tip, or at the local head with [newLine]. */
     private fun make(input: Input, assumed: Boolean, follow: (GameModel) -> Input? = { null }, table: List<TableChange> = emptyList(),
-        newLine: Int? = null, player: Boolean = false, performed: (() -> Unit)? = null): Acted {
+        newLine: Int? = null, player: Boolean = false, performed: (() -> Unit)? = null, reapplies: Boolean = false): Acted {
         // The server's rules (§6): the player's own inputs (or engine-automatic answers), the other player's only assumed
         try {
             val kind = WhoActs.kind(model, input, me, assumed)
@@ -1576,7 +1589,7 @@ class GameDevice(
         // move made again after a lost race (SYS-077) comes here as a press too, and keeps its mark
         val press = model.engine.turn.step.takeIf { player && !assumed && input == Input.PassPriority(me) && model.engine.pending == null && Stops.stop(model.engine, me) }
             ?.let { if (it == arcanum.api.TurnStep.PrecombatMain) MainPress.ToCombat else MainPress.ToEndStep }
-        val builder = open(newLine)
+        val builder = open(newLine, reapplies)
         try {
             // Inputs worked out on the board shown answer the same decisions after a new line's reorder (problem report
             // GXKJSE: a decision's id doesn't read the libraries' order)
@@ -1719,6 +1732,7 @@ class GameDevice(
         refusal(null)?.let { return Acted.Refused(it) }
         if (session.behind) return Acted.Refused("playback")
         val point = point(model.engine) as? Point.Wait ?: return Acted.Refused("noOffer")
+        if (point.offer == Offer.AssumeKeep) return assumeKeep()
         val input = when (point.offer) {
             null -> return Acted.Refused("noOffer")
             Offer.AssumeBlockers -> Input.DeclareBlockers(opponent, blocks)
@@ -1731,6 +1745,24 @@ class GameDevice(
             assumeTaps += acted.event.id
             if (assumeTaps.size > MAX_ORIGINS) assumeTaps.remove(assumeTaps.first())
         }
+    }
+
+    /**
+     * HIS-096, TRN-070: a press of Assume keep: the other player's opening keep assumed, with the stand-in choice of the
+     * cards their last mulligan owes to the bottom first when one is owed ([Reapply.assumedKeep]: each its own event). Never
+     * made by the device itself; after a re-apply the server makes it again with the line (HIS-115).
+     */
+    private fun assumeKeep(): Acted {
+        var acted: Acted = Acted.Refused("noOffer")
+        repeat(2) {
+            val input = Reapply.assumedKeep(model.engine, me)?.takeIf { assumable(it) } ?: return acted
+            remember("assume keep: $input")
+            acted = assumed(input)
+            val sent = acted as? Acted.Sent ?: return acted
+            assumeTaps += sent.event.id
+            if (assumeTaps.size > MAX_ORIGINS) assumeTaps.remove(assumeTaps.first())
+        }
+        return acted
     }
 
     /** Assumes the other player's [input] at the head (§3): a press of Assume and the device's own assumption alike (spec
@@ -2166,6 +2198,8 @@ class GameDevice(
                 remember("own undo to $target already shown")
                 if (localUndos.isEmpty()) session.undone()
             }
+            // HIS-115: their rewind inside their opening re-applied this player's line resting on the assumed keep about them
+            else if (by != null && rewoundReapplying(target, PlayerId(by), events)) {}
             else when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
@@ -2184,6 +2218,8 @@ class GameDevice(
             // isn't made again
             holdAt = if (by == me.value) session.head else null
             if (by == me.value) forgetRemakes()
+        } else if (reapplied(events)) {
+            // HIS-115, HIS-116: handled
         } else for (event in events) {
             val r = session.received(event)
             // TRN-017 (owner 2026-11-07): the other player's real input ends a Resolve chain at once, so the chain never
@@ -2235,6 +2271,99 @@ class GameDevice(
         showResultOks()
         trim()
         settleQueuedUndo()
+    }
+
+    /**
+     * HIS-115, HIS-116: whether [events] are the server's re-apply of this player's line on the other player's opening move
+     * (its first event, made on an earlier event of the line, without a new line, where this player's assumption followed),
+     * and if so follows it: the shown state goes to the event made from the one it was on, without a take-back of what
+     * stands ("<name> took a mulligan · your turn stands", [Note.Stands]); what was taken back goes back as a branch
+     * ([Note.Branched]). This player's moves on their way meanwhile are made again on the re-made events when they still
+     * apply there (the same decision), else dropped with the usual note. Logged in full.
+     */
+    private fun reapplied(events: List<GameEvent>): Boolean {
+        val first = events.firstOrNull() ?: return false
+        if (first.author == me.value || first.startsLine != null || session.knows(first.id)) return false
+        val at = session.indexOf(first.parentId) ?: return false
+        if (first.parentId == session.head) return false
+        val next = session.events.getOrNull(at + 1) ?: return false
+        if (next.assumed?.assumedBy != me) return false
+        return followReapply(first.parentId, events, PlayerId(first.author), first)
+    }
+
+    /**
+     * HIS-115 (first turn during mulligans §3.6): whether the other player's rewind to [target] ([by], with its new
+     * [events]) re-applied this player's line, which rested on their assumed keep about [by] after their opening events the
+     * rewind took back ([Rewind.reapplies] on this device's line; the server marks the events made again,
+     * [GameEvent.carriedFrom]); if so it is followed as any re-apply ([followReapply]): what stands doesn't go back, what
+     * doesn't is taken back as a branch ("<name> responded — your Ember Echo was taken back"). A rewind that made nothing
+     * again is an ordinary one.
+     */
+    private fun rewoundReapplying(target: String, by: PlayerId, events: List<GameEvent>): Boolean {
+        if (by == me || events.none { it.carriedFrom != null }) return false
+        val after = session.after(target) ?: return false
+        if (session.drafting) session.abandon()
+        val at = session.stateAt(target)?.let { Rewind.reapplies(it, after, by) } ?: return false
+        remember("rewind to ${target.take(8)} by ${by.value.take(8)} took back their ${at} opening event(s) and re-applied this player's line")
+        return followReapply(target, events, by, null)
+    }
+
+    /**
+     * Follows the server's re-apply of this player's line after [parent] ([events]: the other player's opening move [first],
+     * or with none their rewind's events, then the events made again): see [reapplied] and [rewoundReapplying].
+     */
+    private fun followReapply(parent: String, events: List<GameEvent>, by: PlayerId, first: GameEvent?): Boolean {
+        // The moves of this player's own on their way, carried to the re-made events (the board they were made on, by place)
+        val pending = session.pending.filter { it.id in made && it.author == me.value && it.assumed == null }
+        val madeOn = pending.firstOrNull()?.let { p -> session.pending.firstOrNull()?.let { session.stateAt(p.parentId) } }
+        val before = where()
+        val r = session.reapplied(parent, events)
+        if (r == null) { needsReload = true; remember("reload at re-apply by ${by.value.take(8)} on $parent: ${followed()}"); return true }
+        val again = events.filter { it.carriedFrom != null || it.assumed != null }
+        remember("re-apply by ${by.value.take(8)}: ${first?.let { "${it.id.take(8)} (${it.engine?.steps?.firstNotNullOfOrNull { s -> s.input }})" } ?: "their rewind"} on " +
+            "${parent.take(8)}, ${again.size} made again (${again.joinToString { "${it.carriedFrom?.take(8) ?: "-"}→${it.id.take(8)}" }}), " +
+            "was $before, now ${where()}, head carried ${r.carried}, taken back ${r.takenBack.map { it.id.take(8) }}, own pending dropped ${r.dropped.size}")
+        // What the old events were for this device, the new ones are
+        for (e in events) {
+            val old = e.carriedFrom ?: continue
+            origins[old]?.let { origins[e.id] = it }
+            made[old]?.let { made[e.id] = it }
+            foldedPress[old]?.let { foldedPress[e.id] = it }
+            if (old in assumeTaps) assumeTaps += e.id
+            if (endTurnFirst == old) endTurnFirst = e.id
+            if (endTurnAt == old) endTurnAt = e.id
+        }
+        opponentInputs++
+        endChain("their input ${first?.id ?: "rewind to $parent"}")
+        // Their own opening events a rewind took back aren't this player's to be told about as taken back
+        val takenBack = r.takenBack.filter { first != null || it.author != by.value }
+        if (takenBack.isNotEmpty()) note(Note.Branched(by, r.discarded.first(), takenBack, takenBack.filter(::realInput)))
+        else if (r.carried) {
+            val input = first?.engine?.steps?.firstNotNullOfOrNull { it.input }
+            val mulligan = (input as? Input.Answer)?.answer == arcanum.engine.decision.Answer.Option("Mulligan") ||
+                (input as? Input.SetupAnswer)?.answer == arcanum.engine.decision.Answer.Option("Mulligan")
+            note(Note.Stands(by, mulligan))
+        }
+        endTurnTakenBack(parent)
+        // §3.5: the player's moves on their way, made again on the board now when the same decision waits there, by place
+        if (madeOn != null) {
+            val keyOld = Host.loopKey(madeOn.engine, me)
+            val keyNew = Host.loopKey(model.engine, me)
+            for (p in pending) {
+                val (inputs, table) = made.getValue(p.id)
+                val carried = inputs.map { Reapply.carry(it, keyOld, madeOn.engine.pending?.decision?.id?.value, keyNew, model.engine.pending?.decision?.id?.value) }
+                if (carried.any { it == null } || keyOld != keyNew) {
+                    remember("re-apply: own move ${inputs.firstOrNull()} on its way no longer applies")
+                    note(Note.Refused("stale"))
+                    break
+                }
+                lost += p.id
+                remaking += Lost(p.id, "", model.engine.deepCopy(), carried.filterNotNull(), table, first = false)
+                remember("re-apply: own move ${inputs.firstOrNull()} on its way made again on ${session.tip.take(8)}")
+                break
+            }
+        }
+        return true
     }
 
     /** The server refused [action] for [reason]. */
@@ -2657,6 +2786,7 @@ class GameDevice(
             is Note.RequestNeeded -> " ${note.target}"
             is Note.TakenBack -> " by ${note.by.value}: ${note.takenBack.size} events"
             is Note.Branched -> " by ${note.by.value}: ${note.takenBack.size} events"
+            is Note.Stands -> " by ${note.by.value}, mulligan ${note.mulligan}"
         })
         notes += note
     }

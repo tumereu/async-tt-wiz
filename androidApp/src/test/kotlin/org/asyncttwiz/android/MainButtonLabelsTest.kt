@@ -56,7 +56,7 @@ class MainButtonLabelsTest {
 
     /** Every name the main button shows: the step arrow's, a combat division's OK, the waits' (TRN-063, TRN-070). */
     private val labels = steps.map { it.second }.distinct() + listOf("OK", "Assume resolves", "Assume pass", "Assume no blockers",
-        "Assume blockers", "Cancel request")
+        "Assume blockers", "Assume keep", "Cancel request")
 
     @OptIn(ExperimentalLayoutApi::class)
     private fun render(width: Int, fontScale: Float) {

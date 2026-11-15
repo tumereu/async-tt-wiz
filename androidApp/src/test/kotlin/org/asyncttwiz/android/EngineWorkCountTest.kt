@@ -25,6 +25,11 @@ import kotlin.test.assertTrue
  * - A count going up: the test fails. Find the cause; don't just update the number.
  * - Byte sizes may change only where the stored format changes; give the old and new sizes in the change's report, and
  *   growth over 5% needs the owner's approval.
+ * - The boards are dealt as the game's single random stream dealt them ([BenchBoard], [singleStreamDeal]): other opening
+ *   hands put other cards on the board and in hand, which moves the counts without any change in the code (HIS-042,
+ *   2026-11-15: each player's own stream dealt other hands and moved every count here, down for End turn and the wipe, up
+ *   for the cast; dealt as before, the counts were exactly as before). Per-player random indices in the stored line state
+ *   added 75 to 107 bytes per scenario.
  */
 class EngineWorkCountTest {
     @Before fun clean() = AutomatumBoards.reset()
@@ -71,7 +76,7 @@ class EngineWorkCountTest {
     @Test fun endTurnOnTheHeavyBoard() {
         val game = BenchBoard("heavy", BenchBoard.HEAVY).game()
         val work = counted(game) { game.endTurn() }
-        assertWork(Work(layers = 31, copies = 73, searches = 10, eventBytes = 18_020, checkpointBytes = 176_314), work)
+        assertWork(Work(layers = 31, copies = 73, searches = 10, eventBytes = 18_020, checkpointBytes = 176_389), work)
     }
 
     // On the heavy board, Alice casts Storm Spark at Bob's Thornback Brute: she chooses its target; the device pays its
@@ -101,7 +106,7 @@ class EngineWorkCountTest {
             assertEquals(listOf("Storm Spark"), s.player(a).graveyard.map { s.obj(it)?.definition?.faces?.first()?.name }, "Storm Spark resolved")
             assertTrue(s.stack.isEmpty(), "the Stack is empty")
         }
-        assertWork(Work(layers = 747, copies = 1_008, searches = 12, eventBytes = 26_647, checkpointBytes = 172_535), work)
+        assertWork(Work(layers = 747, copies = 1_008, searches = 12, eventBytes = 26_754, checkpointBytes = 172_631), work)
     }
 
     // MassDeathTriggersScenariosTest's 30-creature board wipe: Alice with four Plains, a Ledger of Debts and 15 creatures,
@@ -136,6 +141,6 @@ class EngineWorkCountTest {
             assertEquals(10, s.player(PlayerId(board.b)).life)
             assertEquals(70, s.player(a).life)
         }
-        assertWork(Work(layers = 599, copies = 728, searches = 67, eventBytes = 362_244, checkpointBytes = 298_429), work)
+        assertWork(Work(layers = 599, copies = 728, searches = 67, eventBytes = 362_348, checkpointBytes = 298_518), work)
     }
 }

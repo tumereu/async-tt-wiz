@@ -87,6 +87,22 @@ tasks.register<JavaExec>("manaCheck") {
     argumentProviders += CommandLineArgumentProvider { listOf(output.get().asFile.absolutePath, sets.get()) }
 }
 
+// The viewer key's fuzz over the supported sets (first turn during mulligans, HIS-116), from the same pinned file: twin boards
+// that differ only in the opponent's hidden cards; fails where a player's key is equal while what they may see differs.
+// -Psets=LTR,BLB checks only those sets; -Pgames=N games per set (default 20).
+tasks.register<JavaExec>("viewerKeyFuzz") {
+    group = "arcanum"
+    description = "Fails where the viewer key of twin boards is equal while what the viewer may see differs."
+    // In the test source set: its boards are built with the engine's test setup (@ArcanumTestSetup), which only tests may use.
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("arcanum.tools.ViewerKeyFuzzKt")
+    maxHeapSize = "2g"
+    parserToolPaths()
+    val sets = providers.gradleProperty("sets").orElse("")
+    val games = providers.gradleProperty("games").orElse("20")
+    argumentProviders += CommandLineArgumentProvider { listOf(sets.get(), games.get()) }
+}
+
 // The parser migration's gate: --args=snapshot writes a canonical model of every local card outside the repository, and the
 // default (--args=compare) compares one with the current parser. Fails on a change in a supported set or a cube card and on a
 // card that stops being read; lists what changes on held-out cards.

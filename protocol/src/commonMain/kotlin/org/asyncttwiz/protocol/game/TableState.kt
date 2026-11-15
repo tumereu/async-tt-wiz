@@ -39,11 +39,21 @@ data class TableState(
 
 /**
  * A line of play (I-D56 §9): it starts at the game's start (line 0) and at every branch and rewind, each taking the
- * play's next [number] from one counter (never the parent's line + 1, so no stream is used twice); [drawn] random
- * answers have been made on it so far. The k-th random answer of line n comes from H(secret, n, k) ([LineRandom]).
+ * play's next [number] from one counter (never the parent's line + 1, so no stream is used twice); [drawn] says, per
+ * player, how many of their random answers have been made on it so far. The k-th random answer of player X on line n
+ * comes from H(secret, n, X, k) ([LineRandom]): each player's own stream (first turn during mulligans §5).
  */
 @Serializable
-data class Line(val number: Int = 0, val drawn: Int = 0)
+data class Line(val number: Int = 0, val drawn: Map<PlayerId, Int> = emptyMap()) {
+    /** How many of [player]'s random answers have been made on this line so far. */
+    fun drawn(player: PlayerId): Int = drawn[player] ?: 0
+
+    /** This line after one more random answer of [player]'s. */
+    fun next(player: PlayerId): Line = copy(drawn = drawn + (player to drawn(player) + 1))
+
+    /** How many random answers have been made on this line so far, every player's. */
+    val total: Int get() = drawn.values.sum()
+}
 
 /**
  * A player's own play settings for one game (I-D56 §2, §13), kept on the server for that player and game, never an event

@@ -24,6 +24,9 @@ class StartedGamesWipeTest {
     // LOB-133: the same for the engine API rework's wipe
     @Test fun `V85 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V85)
 
+    // LOB-133, HIS-042: the same for the per-player random streams' wipe (owner 2026-11-15)
+    @Test fun `V89 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V89)
+
     private fun removesStartedGames(migration: String) = HistoryWorld.run { w ->
         val a = w.account("WipeAlice"); val b = w.account("WipeBob")
         val finished = w.Match(a, b, "Wipe finished"); finished.start(); finished.concede()
@@ -68,5 +71,6 @@ class StartedGamesWipeTest {
     private companion object {
         const val V74 = "V74__engine_general_forms_wipe_plays.sql"
         const val V85 = "V85__engine_full_information_wipe_plays.sql"
+        const val V89 = "V89__per_player_random_streams_wipe_plays.sql"
     }
 }

@@ -47,6 +47,9 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     private val waiting = ArrayDeque<GameEvent>()
     private var draft: EventBuilder? = null
     private var draftAt: String? = null
+    /** The open draft is the player's opening answer at the other player's assumed keep, sent behind the head without a
+     * new line (it re-applies, [Reapply]). */
+    private var draftReapplies = false
     /** The events the device's own pending branch replaces, and those received on them since (ignored). */
     private val superseded = mutableSetOf<String>()
     /** The events the player's own undo took back on this device before the server's rewind came ([undoLocally]), and
@@ -102,12 +105,12 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
      * [newLine]: the draft starts that line as its first step (a branch at the local head while events are buffered,
      * I-D56 §8). Behind the head only a draft at the local head is made, and only one that starts a line is sent.
      */
-    fun begin(id: String, newLine: Int? = null): EventBuilder {
+    fun begin(id: String, newLine: Int? = null, reapplies: Boolean = false): EventBuilder {
         check(draft == null) { "A draft is open" }
         if (behind) check(waiting.isEmpty()) { "Behind the head, only a branch at the local head is made" }
         return EventBuilder(model, id, tip, me.value).also { b ->
             newLine?.let(b::startLine)
-            draft = b; draftAt = tip
+            draft = b; draftAt = tip; draftReapplies = reapplies
         }
     }
 
@@ -118,8 +121,8 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     /** [send], returning the event made. */
     fun sendEvent(): GameEvent {
         val builder = checkNotNull(draft) { "No draft is open" }
-        check(!behind || builder.startsLine) { "Behind the head only a branch is sent" }
-        draft = null; draftAt = null
+        check(!behind || builder.startsLine || draftReapplies) { "Behind the head only a branch is sent" }
+        draft = null; draftAt = null; draftReapplies = false
         val event = builder.build()
         onSent?.let { hook -> hook(model.copy().also { it.revert(event) }.engine, event) }
         while (behind) superseded += line.removeAt(line.lastIndex).id
@@ -133,7 +136,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     /** Takes the open draft back, if any. */
     fun abandon() {
         draft?.abandon()
-        draft = null; draftAt = null
+        draft = null; draftAt = null; draftReapplies = false
     }
 
     /** One acting point at once: [input] (the other player's, assumed, when [assumed]: I-D56 §3), the random answers
@@ -277,6 +280,44 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         if (waiting.isNotEmpty()) waiting[0] = waiting[0].copy(parentId = event.id)
         else draft?.let { it.parentId = event.id; draftAt = event.id }
         return Received.Adopted(mine)
+    }
+
+    /** What [reapplied] did: [takenBack] are the old line's events the player had been shown and that weren't made again
+     * (taken back as a branch), [dropped] the device's own pending events, [carried] whether the local head moved to the
+     * event made again from its own. */
+    class Reapplied(val takenBack: List<GameEvent>, val dropped: List<GameEvent>, val carried: Boolean, val discarded: List<GameEvent>)
+
+    /**
+     * HIS-115, HIS-116: the server re-applied this player's line after main-line event [parent]: on the other player's
+     * opening move (the first of [made]), or on the point their rewind to [parent] landed on (spec §3.6); [made] (that
+     * move, or the rewind's table-only events, then the events made again from the old line's, [GameEvent.carriedFrom])
+     * replaces the line after [parent]. The shown state follows without a take-back of what stands: it goes to the event
+     * made from the one the local head was on, or, when that one was taken back, to the last event made (the branch
+     * point). The pending events are dropped (the server refuses them as stale). Null when it can't follow exactly.
+     */
+    fun reapplied(parent: String, made: List<GameEvent>): Reapplied? {
+        if (superseded.isNotEmpty()) return null
+        val at = indexOf(parent) ?: return null
+        if (made.withIndex().any { (i, e) -> e.parentId != (if (i == 0) parent else made[i - 1].id) }) return null
+        val was = localHead
+        val old = line.subList(at + 1, line.size).toList()
+        val shownOld = old.take((shown - at - 1).coerceAtLeast(0))
+        val changed = cut(at + 1) ?: return null
+        line += made
+        val carried = made.lastOrNull { it.carriedFrom != null && it.carriedFrom == was }
+        val target = when {
+            carried != null -> carried.id
+            shownOld.isEmpty() -> null
+            else -> made.lastOrNull()?.id ?: parent
+        }
+        if (target != null) while (localHead != target) {
+            val next = line[shown]
+            beforeShow?.invoke(model.engine, next)
+            try { model.apply(next) } catch (_: IllegalStateException) { return null }
+            shown++
+        }
+        val again = made.mapNotNull { it.carriedFrom }.toSet()
+        return Reapplied(shownOld.filter { it.id !in again }, changed.dropped, carried != null, old)
     }
 
     /** Whether [id] is an event the device's own pending branch replaced (the line it discards). */

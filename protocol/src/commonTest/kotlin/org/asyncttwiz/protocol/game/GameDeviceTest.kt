@@ -158,10 +158,11 @@ class GameDeviceTest {
         assertEquals(emptyList(), reports(sim, alice), "the server took it")
     }
 
-    // TRN-027, HIS-096 (owner, 2026-11-05): the starting player's device never assumes the other player's opening keep,
-    // with "Always assume resolves" on or off: it waits for it with no Assume button, and turn 1 begins on their own keep
+    // TRN-027, TRN-070, HIS-096 (owner, 2026-11-15): the starting player's device never assumes the other player's opening
+    // keep by itself, with "Always assume resolves" on or off: it waits for it with Assume keep on the main button, and turn
+    // 1 begins on their own keep
     @Test
-    fun theOpeningKeepIsNeverAssumed() {
+    fun theOpeningKeepIsAssumedOnlyByAPress() {
         for (always in listOf(false, true)) {
             val sim = spells("Storm Spark")
             val alice = sim.alice; val bob = sim.bob
@@ -170,8 +171,7 @@ class GameDeviceTest {
             sim.settle(only = listOf(bob))
             sim.now += 600_000
             sim.settle(only = listOf(bob))
-            assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), sim.device(bob).status, "always assume: $always")
-            assertEquals(GameDevice.Acted.Refused("noOffer"), sim.device(bob).assume())
+            assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep, GameDevice.Offer.AssumeKeep), sim.device(bob).status, "always assume: $always")
             assertEquals(0, sim.server.state().engine.turn.number)
             assertTrue(sim.server.line().none { it.assumed != null })
             sim.deliver(alice)
@@ -180,6 +180,27 @@ class GameDeviceTest {
             sim.settle()
             assertTrue(sim.atMain(bob), "turn 1 on her own keep")
         }
+    }
+
+    // TRN-070, HIS-096, HIS-117: a press of Assume keep makes the assumed keep and the starting player's turn-1 controls
+    // follow at once; the other player's playback stops before it, and their Keep confirms it
+    @Test
+    fun assumeKeepIsAPressAndTheOtherPlayerStopsBeforeIt() {
+        val sim = spells("Storm Spark")
+        val alice = sim.alice; val bob = sim.bob
+        sim.start(bob)
+        assertIs<GameDevice.Acted.Sent>(sim.device(bob).act(sim.keep(bob)))
+        sim.settle(only = listOf(bob))
+        assertIs<GameDevice.Acted.Sent>(sim.device(bob).assume())
+        sim.settle(only = listOf(bob))
+        assertTrue(sim.atMain(bob), "her turn 1 at once")
+        sim.deliver(alice)
+        sim.device(alice).playToStop()
+        val stop = assertIs<GameDevice.Status.Stopped>(sim.device(alice).status)
+        assertEquals(0, sim.device(alice).model.engine.turn.number, "nothing of his turn shown before her keep")
+        assertIs<GameDevice.Acted.Confirmed>(sim.device(alice).act(stop.assumed))
+        sim.settle()
+        assertTrue(sim.server.line().any { it.assumed != null })
     }
 
     // HIS-095, STK-036 (owner, 2026-11-06): playback stops by the player's current response mode; set to Control

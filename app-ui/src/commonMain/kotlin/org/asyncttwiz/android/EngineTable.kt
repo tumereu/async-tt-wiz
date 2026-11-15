@@ -456,6 +456,10 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
                 else WaitAction("Assume pass", AssumeIcon,
                     "Assume $name lets the game go on; if they act here when they come back, the game goes back there",
                     hold = { g.assume { pump() } }, holdName = "Assume pass") { g.assume { pump() } }
+            // TRN-070, HIS-096 (owner, 2026-11-15): their opening keep, assumed only by this button
+            GameDevice.Offer.AssumeKeep -> WaitAction("Assume keep", AssumeIcon,
+                "Assume $name keeps and play your first turn; if they take a mulligan, your turn stays as far as it doesn't depend on their hand",
+                hold = { g.assume { pump() } }, holdName = "Assume keep") { g.assume { pump() } }
             // CMB-040 (owner, 2026-11-05): the blocks placed on the lanes, assumed only by this button
             GameDevice.Offer.AssumeBlockers -> assuming()?.let { placed ->
                 if (placed.blocks.isEmpty()) WaitAction("Assume no blockers", AssumeIcon,
@@ -905,6 +909,8 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
                 // HIS-099, §29.4: the other player's undo of events you had seen: your board goes back the way it came,
                 // with "<name> undid: <action>" fading at the top (the transition's, EngineTableScreen)
                 is GameDevice.Note.TakenBack -> {}
+                // HIS-115 (owner, 2026-11-15): the other player's mulligan re-applied your turn, and it all stands
+                is GameDevice.Note.Stands -> if (note.mulligan) routes.tell("${names[note.by.value] ?: opponent} took a mulligan · your turn stands")
                 is GameDevice.Note.RequestNeeded -> routes.rewind = EngineTableRoutes.RewindChoice(note.target)
                 // SYS-012 (owner, 2026-11-08): any other refusal of your own action shakes what it was made on, never a
                 // silent snap back (problem report N7FU6Y); the board shows where the game is

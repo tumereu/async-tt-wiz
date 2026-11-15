@@ -253,6 +253,12 @@ object TestCards {
         "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.")
     /** A free sorcery revealing the target player's top two library cards (LOB-135: let through by default). */
     val augury = card("Ember Augury", "Sorcery", "{0}", "Target player reveals the top two cards of their library.")
+    /** A free sorcery whose damage counts the target player's hand (HIS-116: it stands through a mulligan only while the
+     * count does). */
+    val echo = card("Ember Echo", "Sorcery", "{0}", "Ember Echo deals damage to target player equal to the number of cards in that player's hand.")
+    /** A creature that may begin the game on the battlefield (CR 103.6a: an opening-hand action, HIS-115). */
+    val vanguard = card("Ember Vanguard", "Creature — Human Soldier", "{3}{R}",
+        "If this card is in your opening hand, you may begin the game with it on the battlefield.", "3", "3")
     /** A free enchantment whose trigger its controller gets on the other player's cheap spell (their spell puts it on top). */
     val warden = card("Ember Warden", "Enchantment", "{0}", "Whenever an opponent casts a spell with mana value 2 or less, you gain 2 life.")
     /** A free sorcery that reveals its caster's top card and puts it into their hand (HIS-110: the other player's reveal

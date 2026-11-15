@@ -14,6 +14,8 @@ import kotlinx.serialization.Serializable
  * reads it to know that player's mode (null: made before modes were recorded, or by the server). [press]: the main button
  * press whose first pass this event is (HIS-101; null on every other event, an End turn's later passes included, on a pass
  * the device made by itself or the other player's device assumed, and on events made before presses were recorded).
+ * [carriedFrom]: the event of a discarded line this one was made again from, the same inputs coming out the same on the
+ * other player's new opening move ([Reapply], HIS-115); null on every other event.
  */
 @Serializable
 data class GameEvent(
@@ -24,6 +26,7 @@ data class GameEvent(
     val table: List<TableChange> = emptyList(),
     val mode: ResponseMode? = null,
     val press: MainPress? = null,
+    val carriedFrom: String? = null,
 ) {
     /** The first step when it is an assumed input (I-D56 §13: an assumed input always begins its own event). */
     val assumed: EngineStep? get() = engine?.steps?.firstOrNull { it.input != null }?.takeIf { it.assumedBy != null }

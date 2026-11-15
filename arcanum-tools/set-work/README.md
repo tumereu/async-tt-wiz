@@ -130,6 +130,9 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
     - Add the set to `arcanum-tools/src/main/resources/arcanum/tools/supported-sets.txt` (code and name, sorted) and, in
       the same commit, its release note `release/notes/<YYYY-MM-DD>-set-<name-slug>.txt` holding one line
       `set: <full name as in supported-sets.txt>`. Run `setSupport` again: every card of the set must pass.
+    - `bin/gradle-slot.sh :arcanum-tools:viewerKeyFuzz -Psets=<CODE>`: seeded turns with the set's cards on twin boards that
+      differ only in the opponent's hidden cards; it fails where a player's key stays equal while something they may see
+      differs (a value `Host.loopKey` with a viewer leaves out). Fix it in the engine (`Loops`) like any rules finding.
     - Quality sample: one default-model agent with the quality-sample prompt reads 15-30 random `REPEAT` cards (they got no
       test of their own) and plays 4-5. A real defect means `REPEAT` was too loose for that kind of card: fix it, and test
       the set's remaining `REPEAT` cards of that kind.

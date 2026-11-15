@@ -53,6 +53,7 @@ Host.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // 
 Host.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
 Host.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
 Host.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
+Host.loopKey(state, viewer): LoopKey           // the position as one player could tell it (their hidden cards and every counter left out); place(id) / objectAt(place) find an object in the same place of another state
 
 // which cards the engine plays fully
 CardSupport.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
@@ -184,10 +185,12 @@ order, mulligans at once, then each puts as many cards on the bottom as mulligan
 103.5c; actions "any time you could mulligan", 103.5b, and starting hand sizes, 103.5a: see Status); opening-hand actions
 (CR 103.6a); turn 1 from its upkeep with priority.
 
-With `StartOptions.simultaneousMulligans` (a host variant for players who don't sit together) each round's
-declarations and bottom choices may be made in any order: the open decision is still the next in turn order, and any
-other player who still has theirs to make gives it ahead with `Input.SetupAnswer(player, answer)` (listed by `options`);
-the open decision is then asked again with a new id, and the mulligans are still taken together.
+With `StartOptions.simultaneousMulligans` (a host variant for players who don't sit together) each player's mulligans
+are their own: every declaration is taken as soon as it is made, in the order made, not in rounds (a mulligan at once,
+then that player's bottom choice, then their next declaration). The open decision is the next in turn order of a player
+who hasn't kept, and any other player who hasn't kept gives theirs ahead with `Input.SetupAnswer(player, answer)` (listed
+by `options`); the open decision is then asked again with a new id. Each player draws only from their own library, so
+the hands come out as an order of declarations by the rules would give them.
 
 `Input.AgreedResult(result)` ends the game as the players agreed, at once, also while a decision is open (an announced
 cast is cancelled): a draw (CR 104.4i), or a win, every other remaining player conceding (CR 104.3a); the host vouches

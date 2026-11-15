@@ -279,12 +279,13 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(author.toString())
         val result = try {
             Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
-                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals)
+                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() })
         } catch (refusal: Refusal) {
             keepWarm(play, history, refusal.state, head)
             throw refusal
         }
         return when (result) {
+            is Acceptance.Reapplied -> reapplied(sql, play, history, store, head, seats, row, author, result, live)
             is Acceptance.Confirmed -> {
                 setHead(sql, play, author, result.event)
                 // The warm state wasn't used: it is still the head's
@@ -307,6 +308,46 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
                 refresh(sql, play, history, result.live, listOf(event), live, branched = result.discarded != null)
             }
         }
+    }
+
+    /**
+     * HIS-115, HIS-116: [author]'s real opening answer at the other player's assumed keep: their event, then the other
+     * player's line made again on top of it ([Acceptance.Reapplied]), are stored as the main line; the old line stays in
+     * storage, shown to nobody. A local head on the old line moves to the event made from its event; one whose event was
+     * taken back falls back to the branch point, remembering where it stood (HIS-106). When part of the line was taken back
+     * a new line is due at the new head (the line counter moves on, [Rewind.lineDue]) and the other player is told as for
+     * any branch (LOB-116). Logged in full: what was made again from what, where it stopped and why.
+     */
+    private fun reapplied(sql: DSLContext, play: UUID, history: GameHistory, store: EngineHistoryStore, head: String, seats: List<SeatRow>,
+        row: PlayRow, author: UUID, result: Acceptance.Reapplied, live: (UUID) -> Boolean): Outcome {
+        val event = result.event
+        val again = result.reapply
+        val log = org.slf4j.LoggerFactory.getLogger(EngineGames::class.java)
+        log.info("Re-apply in play {}: {}'s opening answer {} ({}) on {} replaces the assumed {}; {} event(s) made again, {}", play, author,
+            event.id, event.engine?.steps.orEmpty().mapNotNull { it.input }.firstOrNull(), event.parentId, result.discarded, again.events.size,
+            again.stoppedAt?.let { "taken back from ${it.id} (${again.why})" } ?: "the whole line stands")
+        again.record.forEach { log.info("Re-apply in play {}: {}", play, it) }
+        val gone = MainLine.after(history, head, event.parentId).orEmpty().map { it.id }.toSet()
+        val made = listOf(event) + again.events
+        // The states along the new line, for the store's checkpoints: the parent's, moved along
+        val model = history.stateAt(event.parentId)
+        for (e in made) {
+            model.apply(e)
+            store.append(history, e, UUID.fromString(e.author), model)
+        }
+        val newHead = made.last().id
+        val carried = again.events.associate { it.carriedFrom to it.id }
+        for (seat in seats) {
+            if (seat.account == author) { setHead(sql, play, author, event.id); continue }
+            if (seat.head !in gone) continue
+            val to = carried[seat.head]
+            if (to != null) setHead(sql, play, seat.account, to)
+            else takeBack(sql, play, seat.account, newHead, seat.head)
+            log.info("Re-apply in play {}: {}'s local head {} → {}{}", play, seat.account, seat.head, to ?: newHead, if (to == null) " (taken back)" else "")
+        }
+        if (again.stoppedAt != null) sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, result.nextLine).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
+        if (row.request != null) clearRequest(sql, play)
+        return refresh(sql, play, history, LiveState(newHead, result.live.model), made, live, branched = again.stoppedAt != null)
     }
 
     /** [account]'s device showed the main line up to [eventId] (I-D56 §7): their local head moves forward to it. */
@@ -364,6 +405,11 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         // A new line (§9), kept as the line counter: no event of the rewind's own (owner's rule 2026-11-04)
         val line = row.lines + 1
         sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, line).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
+        // HIS-115: a rewind inside the rewinder's opening to before the other player's assumed keep about them makes that
+        // player's line again on the point it lands on, as any opening move of theirs does
+        (if (model.engine.turn.number == 0) Rewind.reapplies(model.copy(), after, me) else null)?.let { at ->
+            return rewoundReapplying(sql, play, history, store, account, target, after, at, model, line, seats, approved || row.request != null, live)
+        }
         val events = Rewind.again(model, target, after, me, line, { UUID.randomUUID().toString() }, dropped = { event, why ->
             org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info("Rewind of play {} to {} by {}: {}'s table-only event {} doesn't stand: {}",
                 play, target, account, event.author, event.id, why)
@@ -381,6 +427,53 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         }
         if (approved || row.request != null) clearRequest(sql, play)
         return refresh(sql, play, history, LiveState(newHead, model), events, live, target = target, rewoundBy = account.toString())
+    }
+
+    /**
+     * HIS-115 (first turn during mulligans §3.6): [account]'s rewind to [target], inside their opening and before the other
+     * player's assumed keep about them (index [at] of [after], [Rewind.reapplies]; [after] already deleted, the line counter
+     * at [line]): the other player's table-only events before the keep that may stand are added again, then their line from
+     * the assumed keep is made again on top of them ([Rewind.reapply]), the first event made starting the new line. Stands as
+     * far as it comes out the same for them; from the first event that doesn't the rest stays taken back (with the new line
+     * already started, no further one) and they are told as for a branch (LOB-116). [account]'s local head goes to where the
+     * rewind landed (nothing of the other player's line shown to them, HIS-117); the other player's to the event made from
+     * theirs, or, when theirs was taken back, back to the new head, remembering where it stood (HIS-106). Logged in full.
+     */
+    private fun rewoundReapplying(sql: DSLContext, play: UUID, history: GameHistory, store: EngineHistoryStore, account: UUID, target: String,
+        after: List<GameEvent>, at: Int, model: GameModel, line: Int, seats: List<SeatRow>, closesRequest: Boolean, live: (UUID) -> Boolean): Outcome {
+        val log = org.slf4j.LoggerFactory.getLogger(EngineGames::class.java)
+        val me = PlayerId(account.toString())
+        val r = Rewind.reapply(model, target, after, at, me, line, { UUID.randomUUID().toString() }, dropped = { event, why ->
+            log.info("Rewind of play {} to {} by {}: {}'s table-only event {} doesn't stand: {}", play, target, account, event.author, event.id, why)
+        }) { event -> store.append(history, event, UUID.fromString(event.author), model) }
+        val again = r.reapply
+        log.info("Rewind of play {} to {} by {} re-applies: {} of their event(s) taken back ({}), the other player's line of {} event(s) from {} " +
+            "made again on {} (line {}): {} made, {}", play, target, account, at, after.take(at).joinToString { it.id },
+            after.size - at, after[at].id, r.base, line, again.events.size,
+            again.stoppedAt?.let { "taken back from ${it.id} (${again.why})" } ?: "the whole line stands")
+        again.record.forEach { log.info("Rewind of play {} re-applies: {}", play, it) }
+        val states = r.atBase
+        for (e in again.events) {
+            states.apply(e)
+            store.append(history, e, UUID.fromString(e.author), states)
+        }
+        val made = r.standing + again.events
+        val newHead = made.lastOrNull()?.id ?: target.also(store::raise)
+        val gone = after.map { it.id }.toSet()
+        val carried = again.events.associate { it.carriedFrom to it.id }
+        for (seat in seats) {
+            if (seat.account == account) {
+                if (seat.head in gone || seat.head == target) setHead(sql, play, account, r.base)
+                continue
+            }
+            if (seat.head !in gone) continue
+            val to = carried[seat.head]
+            if (to != null) setHead(sql, play, seat.account, to) else takeBack(sql, play, seat.account, newHead, seat.head)
+            log.info("Rewind of play {} re-applies: {}'s local head {} → {}{}", play, seat.account, seat.head, to ?: newHead, if (to == null) " (taken back)" else "")
+        }
+        if (closesRequest) clearRequest(sql, play)
+        return refresh(sql, play, history, LiveState(newHead, model), made, live, target = target, rewoundBy = account.toString(),
+            branched = again.stoppedAt != null)
     }
 
     /** [account] asks the other player to approve taking the main line back to just after [target] (I-D56 §10). */
@@ -437,8 +530,10 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val after = MainLine.after(history, head, start).orEmpty()
         val base = if (after.isEmpty()) null else store.codec.encodeModel(stateAtLocalHead(history, state, start, after))
         val seat = seats.singleOrNull { it.account == viewer }
-        // HIS-106: what of the discarded line the viewer had been shown, when another player's branch took it back
-        val takenBack = seat?.takenBackFrom?.let { from -> MainLine.after(history, from, seat.head) }
+        // HIS-106: what of the discarded line the viewer had been shown, when another player's branch took it back (HIS-115:
+        // from the old event its branch point was made again from, when a re-apply took it back)
+        val takenBack = seat?.takenBackFrom?.let { from -> MainLine.after(history, from, seat.head)
+            ?: store.node(seat.head)?.event?.carriedFrom?.let { old -> MainLine.after(history, from, old) } }
             ?.takeIf { it.isNotEmpty() && it.size <= MAX_TAKEN_BACK && seat.head != head }.orEmpty().map(store.codec::encodeEvent)
         // HIS-108: or what of it the other player's undo took back (deleted from the line, kept with the seat)
         val undone = seat?.undone?.takeIf { seat.undoneBy != null }.orEmpty()

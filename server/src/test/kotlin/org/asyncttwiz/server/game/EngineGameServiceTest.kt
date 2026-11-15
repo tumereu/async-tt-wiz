@@ -240,8 +240,10 @@ class EngineGameServiceTest {
         assertEquals(early.table, head.table)
     }
 
-    // I-D56 §8, §9: another answer branches from Bob's local head: a new line; the discarded line is kept, shown to nobody
-    @Test fun `another answer branches and starts a new line`() = withService { runtime ->
+    // HIS-115, HIS-117 (owner 2026-11-15): Bob's mulligan at Alice's assumed keep is made on his local head on the same line
+    // and her line is made again on top of it (the keep, his first mulligan being free): it stands, her local head
+    // moves to the keep made again, no branch notice; the old line is kept, shown to nobody, and her inputs on it are stale
+    @Test fun `another opening answer at the assumed keep makes the line again`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "b")
         val alice = f.device(f.a)
         val bob = f.device(f.b)
@@ -251,60 +253,80 @@ class EngineGameServiceTest {
         val open = alice.model.engine.pending!!.decision
         f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(open.id, Answer.Option("Keep")), assumed = true)))
         val discarded = alice.pending.single()
-        // Bob mulligans: a branch at his local head (the start, moved to Alice's keep by his submission), line 1
+        // Bob mulligans at his local head (the start, moved to Alice's keep by his submission), on the same line
         val builder = EventBuilder(bob.model, id(), aliceKeep.id, f.b.account.accountId)
-        builder.startLine(f.snapshot().lines + 1)
         builder.perform(Input.Answer(open.id, Answer.Option("Mulligan")))
         builder.answerRandoms()
-        val branch = builder.build()
-        assertEquals("accepted", f.recipient.execute(GameAction.Submit(Submission.of(branch))).outcome)
+        val mulligan = builder.build()
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(Submission.of(mulligan))).outcome)
         val snapshot = f.snapshot()
-        assertEquals(branch.id, snapshot.headId)
-        assertEquals(1, snapshot.lines)
-        // Alice's local head fell back to the branch point; her assumed keep isn't on the main line any more
-        assertEquals(aliceKeep.id, snapshot.localHeads[f.a.account.accountId])
-        assertTrue(f.codec().decodeModel(snapshot.state).sameAs(bob.model))
-        assertNotEquals(discarded.id, snapshot.headId)
-        // I-D56 §7 (step B): the snapshot also holds the state at the earliest local head and the events after it, so
-        // her device opens at her local head with Bob's branch buffered; KWKB3Y (HIS-084): and the line before it, up to
-        // GameDevice.KEPT_EVENTS events (here from the game's first event), as a device that kept the game open holds it,
-        // for Undo
-        assertNotEquals(aliceKeep.id, snapshot.baseId)
-        assertNotEquals(snapshot.rootId, snapshot.baseId)
-        // LOB-116 (I-D56 §8): Alice, whose assumption Bob answered differently, gets a Game activity that says so
-        assertEquals(true, runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
+        assertEquals(0, snapshot.lines, "no new line")
+        val line = snapshot.events.map(f.codec()::decodeEvent)
+        val after = line.dropWhile { it.id != mulligan.id }
+        assertEquals(mulligan, after.first())
+        // The keep made again as Alice's assumption about Bob
+        assertEquals(1, after.size - 1, "the first mulligan is free (TRN-062): the keep alone")
+        assertTrue(after.drop(1).all { it.author == f.a.account.accountId && it.assumed?.assumedBy == f.alice })
+        assertEquals(discarded.id, after.last().carriedFrom)
+        assertEquals(after.last().id, snapshot.headId)
+        assertEquals(after.last().id, snapshot.localHeads[f.a.account.accountId], "her local head on the keep made again")
+        assertEquals(mulligan.id, snapshot.localHeads[f.b.account.accountId])
+        assertEquals(1, f.codec().decodeModel(snapshot.state).engine.turn.number)
+        assertEquals(emptyList<String>(), snapshot.takenBack)
+        // LOB-116: nothing was taken back: no branch notice
+        assertNotEquals(true, runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
             .select(ACTIVITY_SUMMARY.BRANCHED).from(ACTIVITY_SUMMARY).where(ACTIVITY_SUMMARY.ACCOUNT_ID.eq(UUID.fromString(f.a.account.accountId)))
             .and(ACTIVITY_SUMMARY.GAME_ID.eq(UUID.fromString(f.game.id))).and(ACTIVITY_SUMMARY.KIND.eq("GAME")).fetchOne(ACTIVITY_SUMMARY.BRANCHED) })
-        assertEquals(listOf(aliceKeep, branch), snapshot.events.map(f.codec()::decodeEvent).takeLast(2))
-        val (opened, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice) { id() }
-        assertEquals(aliceKeep.id, opened.session.localHead)
-        assertEquals(listOf(branch), opened.session.buffered)
+        // HIS-117: Bob's device opens at his mulligan with her assumptions buffered, stopped before them
+        val (opened, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.bob) { id() }
         opened.playToStop()
-        assertTrue(opened.model.sameAs(bob.model))
-        // HIS-106 (owner playtest 2026-11-06): the snapshot also holds what of the discarded line she had been shown, so a
-        // device opening the game shows the branch: where she left it, then Bob's branch received as it is live
-        assertEquals(listOf(discarded), snapshot.takenBack.map(f.codec()::decodeEvent))
-        val (left, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice, takenBack = true) { id() }
-        assertEquals(discarded.id, left.session.localHead)
-        assertEquals(listOf(branch), left.branchOnLoad)
-        left.revision(left.branchOnLoad, null)
-        assertTrue(left.notes().any { it is org.asyncttwiz.protocol.game.GameDevice.Note.Branched }, "the branch's note")
-        assertEquals(aliceKeep.id, left.session.localHead)
-        assertEquals(listOf(branch), left.session.buffered)
-        // A table-only event of hers at the head while she is behind doesn't move her local head (it confirms nothing)
-        val behind = org.asyncttwiz.protocol.game.GameDevice.load(f.snapshot(), f.alice) { id() }.first
-        val early = behind.session.headModel().let { m -> EventBuilder(m, id(), snapshot.headId, f.a.account.accountId).also {
-            it.table(org.asyncttwiz.protocol.game.TableChange.Suggestion(null, org.asyncttwiz.protocol.game.ResultSuggestion(f.alice, EngineResult.Draw)))
-        }.build() }
-        assertEquals("accepted", f.owner.execute(GameAction.Submit(Submission.of(early))).outcome)
-        assertEquals(aliceKeep.id, f.snapshot().localHeads[f.a.account.accountId])
+        assertTrue(opened.status is org.asyncttwiz.protocol.game.GameDevice.Status.Stopped, "stopped: ${opened.status}")
+        assertEquals(0, opened.model.engine.turn.number)
         // Her later input on the discarded line is stale
         val late = Submission(id(), discarded.id, listOf(Act.Perform(Input.PassPriority(f.alice))))
         assertEquals("stale", f.owner.execute(GameAction.Submit(late)).reason)
-        // HIS-106: shown Bob's branch, her local head moves on and the take-back is no longer sent
-        assertEquals(listOf(discarded.id), f.snapshot().takenBack.map { f.codec().decodeEvent(it).id })
-        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(branch.id)).outcome)
-        assertEquals(emptyList<String>(), f.snapshot().takenBack)
+    }
+
+    // HIS-115, HIS-087, HIS-042 (spec §3.6): Bob mulligans twice (the first is free), Alice assumes his keep (its stand-in
+    // bottom choice, then the keep), Bob's own bottom choice re-applies her line; his undo of that bottom choice is free (it
+    // showed him nothing new; her line isn't taken back) and makes her line again on the point it lands on: the first event
+    // made starts the rewind's new line, her local head moves to the event made from hers, his stays at the undo's point
+    @Test fun `a rewind of the other player's to before the assumed keep makes the line again`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "r")
+        val alice = f.device(f.a)
+        val bob = f.device(f.b)
+        fun submit(stream: Stream, submission: Submission) = assertEquals("accepted", stream.execute(GameAction.Submit(submission)).outcome)
+        submit(f.owner, alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))))
+        val aliceKeep = alice.pending.single()
+        bob.receivedShown(aliceKeep); alice.receivedShown(aliceKeep)
+        val mulligans = List(2) {
+            submit(f.recipient, bob.act(id(), Input.Answer(bob.model.engine.pending!!.decision.id, Answer.Option("Mulligan"))))
+            bob.pending.single().also { bob.receivedShown(it); alice.receivedShown(it) }
+        }
+        // Alice, shown his mulligans, presses Assume keep: the stand-in bottom choice, then the keep
+        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(mulligans.last().id)).outcome)
+        repeat(2) {
+            val keep = org.asyncttwiz.protocol.game.Reapply.assumedKeep(alice.model.engine, f.alice)!!
+            submit(f.owner, alice.act(id(), keep, assumed = true))
+            alice.receivedShown(alice.pending.single())
+        }
+        assertEquals(1, alice.model.engine.turn.number)
+        val d = bob.model.engine.pending!!.decision as arcanum.engine.decision.Decision.ChooseObjects
+        submit(f.recipient, bob.act(id(), Input.Answer(d.id, Answer.Objects(bob.model.engine.player(f.bob).hand.take(d.min)))))
+        val lines = f.snapshot().lines
+        assertEquals("accepted", f.recipient.execute(GameAction.EngineRewind(mulligans.last().id)).outcome, "free")
+        val snapshot = f.snapshot()
+        assertEquals(lines + 1, snapshot.lines)
+        val after = snapshot.events.map(f.codec()::decodeEvent).dropWhile { it.id != mulligans.last().id }.drop(1)
+        assertEquals(2, after.size, "the stand-in bottom choice and the keep made again")
+        assertTrue(after.all { it.author == f.a.account.accountId && it.assumed?.assumedBy == f.alice })
+        assertEquals(snapshot.lines, after.first().startsLine, "the first event made starts the rewind's new line")
+        assertNotNull(after.last().carriedFrom)
+        assertEquals(after.last().id, snapshot.headId)
+        assertEquals(after.last().id, snapshot.localHeads[f.a.account.accountId], "her local head on the event made from hers")
+        assertEquals(mulligans.last().id, snapshot.localHeads[f.b.account.accountId], "his at the undo's point")
+        assertEquals(1, f.codec().decodeModel(snapshot.state).engine.turn.number)
+        assertEquals(null, snapshot.rewindRequest)
     }
 
     // I-D56 §10, HIS-086: a free undo rewinds at once: it only pops events (owner's rule 2026-11-04), and the next event

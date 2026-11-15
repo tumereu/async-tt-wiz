@@ -6,8 +6,10 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.test.core.app.ApplicationProvider
 import arcanum.api.TurnStep
 import org.asyncttwiz.android.HistoryPlaybackPreferences
+import org.asyncttwiz.android.TableProbes
 import org.asyncttwiz.android.VIEW_PAUSED_TAG
 import org.asyncttwiz.protocol.game.GameDevice
+import org.junit.After
 import org.junit.Test
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -194,4 +196,21 @@ class CombatHoldTest : E2e() {
             waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
         }
     }
+
+    // HIS-113, HIS-021 (full e2e run 2026-11-15): Alice's table stays the one she has as the attackers' hold begins and ends.
+    // It was made anew as the hold began, and a finger already down on it lost its hold and the pause (whether the finger
+    // came down before or after that was timing: aHeldFingerPausesTheCombatHold failed only now and then)
+    @Test fun theTableStaysTheSameThroughTheCombatHold() {
+        aliceDeclaring(HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
+        var made = 0
+        TableProbes.made = { me -> if (me == alice.id) made++ }
+        clockInStep {
+            alice.declare("Attack (1)", this)
+            waitUntil("the attackers hold Alice's view") { alice.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
+            waitUntil("the hold over by itself", along = listOf(bob)) { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
+        }
+        assertEquals(0, made, "Alice's table made anew during the attack and its hold")
+    }
+
+    @After fun noProbe() { TableProbes.made = null }
 }

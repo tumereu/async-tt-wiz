@@ -72,4 +72,9 @@ internal object Trk {
     val THAT_CARD_GAINS_QUOTED = Regex("""That (?:[a-z]+ )?card gains "(.+)"\.?""")
     // trk chunk 11: "Create a copy of this card." (in an ability a card in exile has)
     val CREATE_A_COPY_OF = Regex("""Create a copy of (.+)\.""")
+    // trk chunk 12: "<sentence>. At the beginning of the next combat this turn, <sentences>" (a delayed trigger about the first sentence's target)
+    val THEN_AT_NEXT_COMBAT_THIS_TURN = Regex("""(.+?\.) At the beginning of the next combat(?: phase)? this turn, (.+)""")
+    // trk chunk 12: "you put a peace counter on this enchantment" (an imperative with "you" written out; one clause only, so a "You may …, then …"
+    // sentence is never read through it as a mandatory one)
+    val YOU_IMPERATIVE = Regex("""[Yy]ou ((?:put|sacrifice|exile|return|create|destroy|reveal|discard) [^,]+)""")
 }

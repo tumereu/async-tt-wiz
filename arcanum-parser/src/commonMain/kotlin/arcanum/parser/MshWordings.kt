@@ -76,7 +76,9 @@ internal object Msh {
     val ONE_OR_MORE_DEAL_DAMAGE_TO_A_PLAYER = Regex("""one or more (.+) deal damage to a player""")
     val EACH_YOUVE_PUT_COUNTERS_ON_HAS = Regex("""Each (.+) that you've put one or more (\S+) counters on this turn has ([a-z ,]+)\.""")
     // trk chunk 09: also "put twice that many of each of those kinds of counters on that creature instead"
-    val COUNTERS_PLUS_ONE = Regex("""If you would put one or more counters on (.+), put (that many plus one|twice that many) of each of those kinds of counters on that (?:permanent|creature) instead\.""")
+    // trk chunk 12: also the passive "If one or more counters would be put on …, that many plus one of each of those kinds of counters are put on that
+    // permanent instead." (counters any player puts)
+    val COUNTERS_PLUS_ONE = Regex("""If (?:you would put one or more counters on (.+), put (that many plus one|twice that many) of each of those kinds of counters on that (?:permanent|creature)|one or more counters would be put on (.+), (that many plus one|twice that many) of each of those kinds of counters are put on that (?:permanent|creature)) instead\.""")
     val COPY_TARGET_ABILITY = Regex("""Copy target activated or triggered ability you control from an? (\w+) source\. You may choose new targets for the copy\.""")
     val CAST_WITH_MANA_SYMBOLS_CREATE_THAT_MANY = Regex("""Whenever you cast an? (\w+) spell with one or more (white|blue|black|red|green) mana symbols in its mana cost, create that many (.+) tokens\.""")
     val FOR_EACH_CREATE_COPY_NOT_LEGENDARY = Regex("""For each (.+), create a token that's a copy of (?:that (creature|permanent)|it)(?:, except (.+))?\.""") // mh3 chunk 09: "it", other exceptions // inr chunk 09: permanent, no exception

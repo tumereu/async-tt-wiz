@@ -165,7 +165,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val group = presentation?.invoke()?.let { shown -> shown.groupOf(id)?.takeIf { it.members.size > 1 && it.key != shown.expandedGroup } }
         toolkit?.peek(id, group?.inspectOrder)
     }
-    // WEB-024: the cards outside the scene the finger key inspects (the play shown, the dock's Stack entries)
+    // WEB-024: the cards outside the scene the finger key inspects (the play shown)
     val fingerTargets = remember(coordinator) { FingerTargets() }
     fun applyFinger(effects: List<DesktopFingerKey.Effect>) {
         for (effect in effects) when (effect) {
@@ -187,7 +187,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         if (key.repeat) return@Listen fingerKey.held
         if (key.down && key.textField) return@Listen false
         // The card under the pointer, as a held finger would inspect it (a pile's shown card too; not a hand row's backing);
-        // the play shown and the dock's Stack entries first, which lie over the table
+        // the play shown first, which lies over the table
         val card = fingerTargets.hovered ?: mouse.hovered?.let { item ->
             item.cardId ?: item.cards.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND } }
         val effects = if (key.down) fingerKey.press(key.key, key.time, card, toolkit?.peek != null) else fingerKey.release(key.key, key.time)
@@ -312,7 +312,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             val settled = runtime.onSceneSettled
             val faceChanges = runtime.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
             val shuffles = if (navigation) emptySet() else runtime.changes?.shuffles(play.nodeId).orEmpty()
-            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId, runtime.landedEntries.toSet())) {
+            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId, runtime.landedEntries.toSet(),
+                    runtime.takenBack)) {
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
@@ -527,7 +528,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         if (desktopGeometry == null) TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)
         TableControlsLayer(game, play, accountId, landscape, connected, runtime, toolkit, scene)
-        // WEB-017: the right dock, under the table's popups and panels
+        // WEB-017: the right chat dock, under the table's popups and panels
         if (desktopGeometry != null && desktop.dockOpen) runtime.desktopDock?.let { dock ->
             Box(Modifier.align(Alignment.TopEnd).width(DesktopTable.DOCK.dp).height((maxHeight.value - desktopGeometry.band).coerceAtLeast(0f).dp)) { dock() }
         }

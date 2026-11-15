@@ -125,4 +125,42 @@ class StackRemovalFlightTest {
         changes.clear()
         assertFalse(changes.animates("parent"))
     }
+
+    /** [state] with a triggered ability of the source card on the Stack, as Automatum puts one there. */
+    private fun trigger(state: PlayState) = state.copy(board = state.board.copy(
+        stackEffects = listOf(StackEffect("effect", source, item = MtgStackItem(MtgRef.StackItem("t1"), MtgStackKind.Triggered, "a", timestamp = 1))),
+        containers = state.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf("effect")) else it }))
+
+    // STK-006, TBL-038 (owner playtest 2026-11-15: "if it was not a permanent that entered, I don't think it should fly back to
+    // its permanent anymore. Perhaps just fly slightly up and fade out"): a trigger leaving the Stack rises a little and fades out
+    // where it is, never flying to its source, over its time at the card move speed; taken back, it falls back in, fading in
+    @Test fun anAbilityLeavingTheStackRisesAndFadesOutInPlace() {
+        for (landscape in listOf(false, true)) for (speed in listOf(DEFAULT_CARD_MOVE_SPEED, DEFAULT_CARD_MOVE_SPEED / 2)) {
+            val initial = TableFixture.play(hand = 1)
+            val before = TableFixture.scene(trigger(initial), landscape)
+            val after = TableFixture.scene(initial, landscape)
+            assertTrue(stackRemovalFlights(before, after).isEmpty(), "it flies nowhere")
+            val slot = before.items.single { it.cardId == "effect" }.bounds
+            val animation = HistorySceneAnimation(before)
+            animation.cardMoveSpeedDpPerMs = speed
+            assertTrue(animation.retarget(after, 1f))
+            val vanish = kotlin.math.round(STACK_VANISH_MILLIS * DEFAULT_CARD_MOVE_SPEED / speed).toInt()
+            assertEquals(vanish, animation.durationMillis, "its time at the card move speed")
+            val half = animation.frame(.5f).single { it.item.cardId == "effect" }
+            assertEquals(slot.x, half.bounds.x, .001f, "straight up, where it was")
+            assertTrue(half.bounds.y < slot.y && half.bounds.y > slot.y - slot.height * STACK_VANISH_RISE, "rising: ${half.bounds} from $slot")
+            assertEquals(.5f, half.alpha, .001f, "fading")
+            val end = animation.frame(1f).single { it.item.cardId == "effect" }
+            assertEquals(slot.y - slot.height * STACK_VANISH_RISE, end.bounds.y, .001f)
+            assertEquals(0f, end.alpha)
+            // An undo: it falls back into its place, fading in
+            assertTrue(animation.retarget(before, 1f, takenBack = true))
+            val back = animation.frame(0f).single { it.item.cardId == "effect" }
+            assertEquals(slot.y - slot.height * STACK_VANISH_RISE, back.bounds.y, .001f)
+            assertEquals(0f, back.alpha)
+            val landed = animation.frame(1f).single { it.item.cardId == "effect" }
+            assertEquals(slot, landed.bounds)
+            assertEquals(1f, landed.alpha)
+        }
+    }
 }

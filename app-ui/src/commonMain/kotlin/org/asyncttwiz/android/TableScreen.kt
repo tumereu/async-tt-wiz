@@ -37,6 +37,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** HIS-112: the Stack entries of plays shown that landed: one arriving on the Stack appears in place (the play shown
      * flew there), never flying there itself. */
     val landedEntries: List<String> = emptyList(),
+    /** STK-006: the board drawn is a take-back's (an undo, a rewind): what left the Stack comes back the way it went. */
+    val takenBack: Boolean = false,
     val liveView: Boolean = !reviewing,
     val changes: TableChanges? = null,
     /** The opponent's presence: a dot on their life square and a line in their life panel. */
@@ -60,7 +62,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val chatBubbles: TableChatBubbles? = null,
     /** LOB-139, TRN-030: the quick messages and Write button of your own Life panel; null: none. */
     val quickChat: TableQuickChat? = null,
-    /** WEB-017: the desktop table's right dock (the Stack list and the docked chat), drawn while its frame has the dock open;
+    /** WEB-017: the desktop table's right dock (the docked chat), drawn while its frame has the dock open;
      * null: none. */
     val desktopDock: (@Composable () -> Unit)? = null) {
     /** Timeline mode itself (not a branch's take-back, which only looks like it): its panel is taller (HIS-001, HIS-007). */

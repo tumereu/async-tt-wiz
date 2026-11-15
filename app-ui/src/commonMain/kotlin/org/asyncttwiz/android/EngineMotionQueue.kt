@@ -40,12 +40,18 @@ class EngineMotionQueue {
     private val stopped = mutableStateOf<Pair<Long, Int>?>(null)
     /** The board [board] gave last: what stays drawn while the Stack animation holds the table ([board]'s hold). */
     private var last: TableBoard? = null
+    /** HIS-112 (owner playtest 2026-11-15, report VSVLSK): the step sequence ([run]) whose first step would take an entry of a
+     * play shown not landed yet off the Stack: the board before it ([before]) stays drawn until the plays have landed. */
+    private val heldBefore = mutableStateOf<Long?>(null)
+    private var before: TableBoard? = null
 
     /** Composition: [version]'s board [live], with the steps of [transition] to show before it when it is new (a board
      * published again with the same transition, an action's preview, shows at once; a branch's take-back goes on, and so
      * do steps on their way to a combat moment holding the view or stopped at one, HIS-113: the server's confirmation
      * meanwhile, the hold's end). */
-    fun board(version: Long, transition: EngineGame.Transition?, live: TableBoard, hold: Boolean = false): TableBoard {
+    fun board(version: Long, transition: EngineGame.Transition?, live: TableBoard, hold: Boolean = false,
+        /** HIS-112: the Stack entries of the plays shown not landed yet ([stopEntries] as this board brings them). */
+        plays: Set<String> = emptySet()): TableBoard {
         // The Stack animation (owner 2026-11-14): while its step plays (an entry's target arrows) a newer board waits, so the
         // entry stays on the Stack as long as its own animation and what follows plays after it; never a take-back
         if (hold && version != this.version && this.version >= 0 && transition?.undone == null) last?.let { return it }
@@ -55,15 +61,41 @@ class EngineMotionQueue {
             this.version = version
             val same = transition != null && transition.serial == serial
             val takeBackGoesOn = same && transition.undone?.branch == true
-            // HIS-112: steps stopped where a play shown went on the Stack go on too (from there, once it landed)
-            val combatGoesOn = same && playing && (stopped.value?.first == run || stopAt != null)
+            // HIS-112: steps stopped where a play shown went on the Stack go on too (from there, once it landed); (owner playtest
+            // 2026-11-15, report VSVLSK) so do steps on their way to a play shown not landed yet: ended by the same board
+            // published again (its status, the other player's presence), they jumped to the end of its event, and the plays then
+            // landed on a Stack the entries had already left, with no arrows
+            val combatGoesOn = same && playing && (stopped.value?.first == run || stopAt != null || plays.isNotEmpty())
             if (combatGoesOn) AppLog.info("game", "View hold: the board's steps go on from step ${index + 1} of ${steps.size}" +
-                (stopAt?.let { ", now held for ${it::class.simpleName}" } ?: ""))
+                (stopAt?.let { ", now held for ${it::class.simpleName}" } ?: "") +
+                (if (plays.isNotEmpty()) ", toward the plays shown of ${plays.joinToString { it.take(24) }}" else ""))
             if (!takeBackGoesOn && !combatGoesOn) {
                 steps = if (transition == null || transition.serial == serial || transition.jump) emptyList() else transition.steps
                 run++
+                // HIS-112 (owner playtest 2026-11-15, report VSVLSK: the caster's own trigger shown over a Stack its event had
+                // already resolved): a first step that takes an entry of a play shown not landed yet off the Stack waits, the
+                // board before it drawn, until the plays have landed
+                val from = last
+                val first = steps.firstOrNull()
+                if (from != null && first != null && plays.isNotEmpty()) {
+                    val after = org.asyncttwiz.protocol.CombatStackRules.stack(first.board).cards.toSet()
+                    val leaving = org.asyncttwiz.protocol.CombatStackRules.stack(from.board).cards.filter { it in plays && it !in after }
+                    if (leaving.isNotEmpty()) {
+                        heldBefore.value = run
+                        before = from
+                        AppLog.info("game", "Board steps held before step 1 of ${steps.size}: it takes ${leaving.joinToString { it.take(24) }} " +
+                            "off the Stack before its play shown lands")
+                    }
+                }
             }
             transition?.let { serial = it.serial }
+        }
+        if (heldBefore.value == run) {
+            val kept = before
+            if (kept != null && plays.isNotEmpty()) return kept.also { last = it }
+            heldBefore.value = null
+            before = null
+            AppLog.info("game", "Board steps go on from step 1 of ${steps.size}: the plays shown landed")
         }
         return (this.steps.getOrNull(index) ?: live).also { last = it }
     }
@@ -75,6 +107,8 @@ class EngineMotionQueue {
     fun settled() {
         val at = index
         if (at >= steps.size) return
+        // HIS-112: the board before the first step stays drawn until the plays shown land ([board])
+        if (heldBefore.value == run) return
         val stops = when (stopAt) {
             org.asyncttwiz.protocol.game.GameDevice.CombatMoment.Attackers -> EngineMotion.attackers(steps[at].board).isNotEmpty()
             org.asyncttwiz.protocol.game.GameDevice.CombatMoment.Damage -> steps[at].damageDealt
@@ -89,7 +123,7 @@ class EngineMotionQueue {
 
     /** HIS-112: whether the board drawn is where the plays shown of [stopEntries] show: the steps stopped at the first
      * step with one of them on the Stack, or over (none had one). */
-    fun reachedEntries(): Boolean = !playing || stopEntries.isNotEmpty() && stopped.value == (run to index)
+    fun reachedEntries(): Boolean = !playing || stopEntries.isNotEmpty() && (stopped.value == (run to index) || heldBefore.value == run)
 
     /** HIS-113: whether the steps stand stopped at [moment] ([stopAt]). */
     fun stoppedAt(moment: org.asyncttwiz.protocol.game.GameDevice.CombatMoment): Boolean =

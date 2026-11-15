@@ -140,6 +140,9 @@ data class TableItem(
     val peekOwners: List<String> = emptyList(),
     val sourceId: String? = cardId, val projection: Boolean = false, val frozen: Boolean = false,
     val token: Boolean = false,
+    /** STK-006 (owner playtest 2026-11-15): a Stack entry that goes nowhere when it leaves the Stack (an ability, a trigger, a
+     * copy of a spell): it rises a little and fades out there, as from a pile, instead of flying anywhere. */
+    val vanishes: Boolean = false,
     val typeIcon: String = "", val artwork: ArtworkReference? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     /** CMB-001 (owner playtest 2026-11-11): a combat copy fading out where it was as the band closes: clipped to the table
@@ -525,8 +528,6 @@ object TablePresentation {
         val stackPadding = 12f
         val stackHeight = hudHeight * stackScale
         val panelArea = worldViewport.copy(x = 0f, width = tableRight)
-        // WEB-017: with the desktop dock open the Stack is its list there, not on the table
-        val stackOnTable = desktop?.dockOpen != true
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
         // TBL-004, TBL-053 (Arena style): each battlefield lays itself out from the game state: its groups (stacks, cards with
         // what is attached to them) in its land row and upper band; the group the viewer opened lies with its members side by side
@@ -534,7 +535,7 @@ object TablePresentation {
         val expanded = ui.expandedGroup?.takeIf { key -> groups.any { it.key == key && it.members.size > 1 } }
         // TBL-004: the upper band's right end at 1×: the battlefield's own width on the screen left of the Stack pinned at its
         // right edge (STK-007), so the non-creatures lying from there leftwards aren't under it in the opening view
-        val rowWidth = ((worldViewport.width - if (stackOnTable) stackWidth + 2 * stackPadding else 0f) / battlefieldScale - 32f)
+        val rowWidth = ((worldViewport.width - stackWidth - 2 * stackPadding) / battlefieldScale - 32f)
             .coerceAtLeast(BattlefieldLayout.SLOT)
         val spots = players.associate { player -> container(player.accountId, PlayZone.BATTLEFIELD).id.let { id ->
             id to BattlefieldLayout.place(groups.filter { it.field == id }, rowWidth, expanded) } }
@@ -868,23 +869,25 @@ object TablePresentation {
         val portraitStackY = if (worldViewport.height >= 2 * stackHalfHeight)
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)
             else worldViewport.center.y
-        // STK-007: pinned at the right edge, vertically mid-screen (in landscape too, TBL-009); WEB-017: with the desktop dock
-        // open inside it, under it (the dock shows the Stack as its list; what flies to the Stack and the top entry's arrows go
-        // there), wholly: its count bubble and frame never peek out at the dock's left edge (owner, desktop playtest
-        // 2026-11-14: "a green half-circle in the chat pane")
-        val stackCenter = TablePoint(if (stackOnTable) tableRight - stackWidth / 2 - stackPadding
-            else tableRight + DesktopTable.HIDDEN_STACK_INSET + stackWidth / 2 + stackPadding, portraitStackY)
+        // STK-007: pinned at the battlefields' right edge, vertically mid-screen (in landscape too, TBL-009); WEB-017 (owner
+        // playtest 2026-11-15: "Stack is better as a thing on the field, not in the chat pane at all"): on the desktop table
+        // too, left of the chat dock while it is open, so nothing covers it
+        val stackCenter = TablePoint(tableRight - stackWidth / 2 - stackPadding, portraitStackY)
         val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
         val sp = port(stack.id, sb, stackWidth)
+        // STK-006 (owner playtest 2026-11-15): the entries that go nowhere when they leave (abilities, triggers, copies)
+        fun vanishes(entry: String) = play.board.stackEffects.firstOrNull { it.id == entry }?.item?.kind
+            .let { it != null && it !is MtgStackKind.Spell }
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
             countBadge = TableBounds(stackRegion.x - 8.5f, stackRegion.y - 8.5f, 20f, 20f))
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
-            items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards)
+            items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards,
+                vanishes = vanishes(drawing.viewId))
         }
         // Animation metadata for ALL entries, including a real spell buried below the peeks.
         val stackProjections = stack.cards.mapNotNull { entryId ->
@@ -894,7 +897,8 @@ object TablePresentation {
                     Faults.report("TablePresentation", "Stack entry without a card to animate", mapOf("game" to game.id, "entry" to entryId))
                 },
                 TableBounds(sb.x, sb.y, stackWidth, stackHeight), sb, null, PlayZone.STACK, sp.id, entryId,
-                projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
+                projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId",
+                    vanishes = vanishes(entryId))
         }
         val combatY = bandY + (bandHeight - combat.height) / 2
         // CMB-007: the band on the screen (the table's whole width), and the lanes it holds in its middle
@@ -962,9 +966,9 @@ object TablePresentation {
         }.toMap()
         return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = stackRegion, world = world, appearance = appearance, desktop = desktop != null,
-            // TRN-073; WEB-017: with the desktop dock open, at the battlefields' top right end
+            // TRN-073: above the Stack
             dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { PlayerChips.aboveStack(it,
-                if (stackOnTable) stackRegion else TableBounds(tableRight - 6f, worldViewport.y + EmblemChips.SIZE + 14f, 0f, 0f)) },
+                stackRegion) },
             combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel,
             combatSlots = combat.slots.map { it.copy(bounds = translated(it.bounds)) },
             combatDealt = dealt, combatGainEdge = gainEdge,

@@ -218,6 +218,10 @@ object TestCards {
         "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\nWhen you cycle this card, each opponent mills four cards.")
     /** A free instant dealing 1 damage to any target (a targeted spell that needs no mana). */
     val flick = card("Ember Flick", "Instant", "{0}", "Ember Flick deals 1 damage to any target.")
+    /** Owner playtest 2026-11-15 (a cast that makes a trigger, Firebrand Archer style): each noncreature spell its controller
+     * casts puts its trigger on the Stack above that spell. */
+    val archer = card("Ember Archer", "Creature — Human Archer", "{0}",
+        "Whenever you cast a noncreature spell, this creature deals 1 damage to each opponent.", "1", "1")
     /** A fetch-style land (owner playtest 2026-11-05 evening): its ability searches its controller's library for a basic land. */
     val cinderTrail = card("Cinder Trail", "Land",
         rulesText = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.")
@@ -277,6 +281,9 @@ object TestCards {
     val hauberk = card("Ember Hauberk", "Artifact — Equipment", "{0}", "Equipped creature gets +4/+2.\nEquip—Sacrifice a creature.")
     /** A free enchantment whose trigger begins its controller's upkeep (no input before it in the step). */
     val chime = card("Ember Chime", "Enchantment", "{0}", "At the beginning of your upkeep, you gain 1 life.")
+    /** Owner playtest 2026-11-15 ("you may pay" asked before its trigger reached the Stack): its trigger goes on the Stack in its
+     * controller's upkeep, which the other player's End turn may reach, and asks them to pay as it resolves. */
+    val bell = card("Ember Toll Bell", "Enchantment", "{0}", "At the beginning of your upkeep, you may pay {1}. If you do, draw a card.")
     /** CMB-044: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
     val bulwark = card("Ember Bulwark", "Enchantment", "{0}",
         "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control.")

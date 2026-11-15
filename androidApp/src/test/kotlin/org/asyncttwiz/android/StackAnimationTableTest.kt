@@ -150,10 +150,11 @@ class StackAnimationTableTest {
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
     }
 
-    // HIS-112, WEB-017 (spec step 3): on the desktop table the play shown flies into the dock's Stack list (its top), not to
-    // the Stack hidden under the dock; the list shows the entry only as it lands
+    // HIS-112, WEB-017, STK-007 (spec step 3; owner playtest 2026-11-15: the Stack on the field, never in the chat pane): on the
+    // desktop table the play shown flies into the Stack at the battlefields' right edge, left of the open chat dock, as on the
+    // phone; the Stack shows the entry only as it lands
     @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
-    @Test fun onTheDesktopTableThePlayFliesIntoTheDocksList() {
+    @Test fun onTheDesktopTableThePlayFliesIntoTheStackBesideTheChatDock() {
         val (kit, show) = bobsSparkShown()
         val entry = "entry:${show.entry}"
         compose.mainClock.autoAdvance = false
@@ -167,10 +168,7 @@ class StackAnimationTableTest {
                         Box(Modifier.weight(1f).fillMaxSize()) {
                             StackAnimatedTable(kit, Modifier.fillMaxSize(), landscape = true) { play ->
                                 TableRuntimeHooks(navigation = {}, undo = { kit.routes.undo() }, controlsConnected = true,
-                                    waitingLine = kit.routes.waitingLine(play), desktopDock = {
-                                        DesktopDock(play, kit.f.a, gameNames(kit.f.game),
-                                            stackPlace = { kit.routes.stackAnimation.dockTop = it }) { }
-                                    })
+                                    waitingLine = kit.routes.waitingLine(play), desktopDock = { DesktopDock { } })
                             }
                         }
                     }
@@ -179,19 +177,20 @@ class StackAnimationTableTest {
         }
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
-        compose.onNodeWithText("STACK · 0").assertExists()
-        val dock = assertNotNull(compose.runOnIdle { kit.routes.stackAnimation.dockTop }, "the dock tells where a new top entry goes")
+        val dock = compose.onNodeWithTag("desktop-dock").fetchSemanticsNode().boundsInRoot
+        val stack = compose.onNodeWithContentDescription("Stack, 0 entries").fetchSemanticsNode().boundsInRoot
+        assertTrue(stack.right <= dock.left, "the Stack on the field, left of the chat dock: $stack, dock $dock")
         advance(PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + 100L + PLAY_SHOW_FLIGHT_MILLIS * 3L / 4L)
         compose.onNodeWithTag(PLAY_SHOW_TAG).assertExists()
-        compose.onNodeWithText("STACK · 0").assertExists()
-        // Most of its flight done, it lies between the middle and the dock's list
+        compose.onNodeWithContentDescription("Stack, 0 entries").assertExists()
+        // Most of its flight done, it lies between the middle and the Stack
         val flying = compose.onNodeWithTag(PLAY_SHOW_TAG).fetchSemanticsNode().boundsInRoot
-        assertTrue(flying.center.x > 760f && flying.center.x < dock.x + dock.width, "flying toward the dock: $flying, dock $dock")
-        captureShot("$SCREENSHOTS/stack-animation/3-to-dock.png",
-            "On Alice's desktop table Bob's Storm Spark, held in the middle, shrinks into the dock's Stack list at the right, which still reads \"STACK · 0\" and \"Empty\": its entry shows there only as it lands.")
+        assertTrue(flying.center.x > 560f && flying.center.x < dock.left, "flying toward the Stack beside the dock: $flying, Stack $stack")
+        captureShot("$SCREENSHOTS/stack-animation/3-to-stack-desktop.png",
+            "On Alice's desktop table Bob's Storm Spark, held in the middle, shrinks into the Stack at the battlefields' right edge, beside the open chat dock; the Stack still reads 0 entries: its entry shows there only as it lands.")
         compose.mainClock.advanceTimeUntil(1_000) { entry in kit.routes.stackAnimation.landed }
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
-        compose.onNodeWithText("STACK · 1").assertExists()
+        compose.onNodeWithContentDescription("Stack, 1 entries").assertExists()
     }
 }

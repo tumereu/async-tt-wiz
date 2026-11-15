@@ -36,6 +36,19 @@ import org.asyncttwiz.automatum.Divisions
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
 
+/** The choice panel's waits (HIS-112, TBL-125), for the report: when [decision] waits and for what ([held]), and when it opens. */
+@Composable
+private fun ChoiceHoldLog(decision: String?, held: String?) {
+    val last = remember { arrayOfNulls<String>(2) }
+    SideEffect {
+        if (decision == null) { last[0] = null; last[1] = null; return@SideEffect }
+        if (last[0] == decision && last[1] == held) return@SideEffect
+        if (held != null) AppLog.info("decision", "Choice panel of $decision waits for $held")
+        else if (last[0] == decision && last[1] != null) AppLog.info("decision", "Choice panel of $decision opens: nothing before it plays any more")
+        last[0] = decision; last[1] = held
+    }
+}
+
 /**
  * Automatum's shared flows on the table (integration spec §3 I2b, I-D11): by the Stack, in the cast panel's style,
  * - the player who decides an open choice of a resolution or a trigger: the choice, its prompt the card's sentence;
@@ -70,6 +83,11 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
     fun name(player: String) = if (player == viewer) "You" else names[player] ?: "The other player"
     val decision = flow.decision
     val holder = flow.priority
+    // HIS-112, STK-058, TBL-125 (owner playtest 2026-11-15: "'You may pay' was asked before the trigger had animated to its
+    // place on the Stack"): a choice asked while something resolves opens once what leads to it has played on this table
+    val held = if (decision != null && !reviewing) toolkit.engine?.choiceHeld() else null
+    ChoiceHoldLog(decision?.let { "${it::class.simpleName} ${it.id.value} of ${it.player.value.take(8)}" }, held)
+    if (held != null) return
     // TRN-062 (owner playtest 2026-11-04 #3): the opening's Mulligan / Keep is answered only with the quick actions
     if (openingDecision(decision)) return
     // TRN-062 (owner problem report 5DDSKK): the bottom after a mulligan is the Keep / Bottom screen's ([OpeningKeepHost])

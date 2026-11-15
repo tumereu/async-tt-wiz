@@ -33,7 +33,7 @@ import org.asyncttwiz.protocol.*
 
 /**
  * WEB-015 (docs/specs/web-client.md §7.2): the desktop table's frame, which [EngineTableScreen] provides in the desktop layout
- * ([AppLayout.Desktop]): whether its right dock (the Stack list and the chat, WEB-017) is open. The table under it is the same
+ * ([AppLayout.Desktop]): whether its right dock (the game chat, WEB-017) is open. The table under it is the same
  * table as the phone's landscape one ([TableSurface] with landscape true), arranged by [TablePresentation.scene] for it.
  */
 data class DesktopFrame(val dockOpen: Boolean = true) {
@@ -46,7 +46,7 @@ val LocalDesktopFrame = compositionLocalOf<DesktopFrame?> { null }
 
 /** WEB-015: the desktop table's fixed parts' sizes, in dp (CSS px). */
 object DesktopTable {
-    /** The global top row (WEB-020) at 1×: menu, turn line and move pill, the phase track, the dock and Table actions
+    /** The global top row (WEB-020) at 1×: menu, turn line and move pill, the phase track, the chat and Table actions
      * buttons. It is drawn [topRowScale] larger. */
     const val TOP_ROW = 56f
     /** WEB-020 (owner, desktop playtest 2026-11-14: its texts too small): how much larger than at 1× the top row is drawn, its
@@ -61,11 +61,6 @@ object DesktopTable {
     const val UI_SCALE = 1.3f
     /** The right dock's width (WEB-017). */
     const val DOCK = 320f
-    /** How far inside the open dock's left edge the table's own Stack lies, hidden under it (WEB-017): its count bubble
-     * (which overhangs its corner) and its frame stay wholly under the dock. */
-    const val HIDDEN_STACK_INSET = 24f
-    /** The most of the dock's height the Stack's entries take (WEB-017); they scroll beyond it, and the chat has the rest. */
-    const val DOCK_STACK_SHARE = .45f
     /** The action area's width at the bottom right (WEB-018), under the dock, whether the dock is open or not. */
     const val ACTIONS = 320f
     /** A seat header's height (WEB-016): its piles ([PILE_HEIGHT]) with their count bubbles above them inside it. */
@@ -208,8 +203,9 @@ fun DesktopPrompt(geometry: DesktopGeometry, place: PromptPlace, content: @Compo
 /**
  * WEB-020 (owner, decision 15 and 27): the desktop table's global top row: the side menu button, the turn line and move pill
  * (TRN-005, TRN-006), the phase track (WEB-020: the phase dialog's step squares, current outlined, so the step button and
- * dialog aren't needed), Return to current in timeline mode (HIS-018), the chat button while the dock is folded away
- * (LOB-066), the dock's button and Table actions. Only global things: each player's own things are on their seat header.
+ * dialog aren't needed), Return to current in timeline mode (HIS-018), the chat button (LOB-066: it unfolds the chat dock,
+ * [dockOpen], and folds it away again, [toggleDock]) and Table actions. Only global things: each player's own things are on
+ * their seat header.
  */
 @Composable
 fun DesktopTopRow(game: GameSummary, play: TableBoard, viewer: String, toolkit: TableToolkitController?, reviewing: Boolean,
@@ -241,14 +237,16 @@ fun DesktopTopRow(game: GameSummary, play: TableBoard, viewer: String, toolkit: 
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { DesktopPhaseTrack(play, viewer, changes) }
         if (reviewing) ActionSquare("Return to current", "", returnCurrent != null, Modifier.width(48.dp),
             icon = { TableChromeIcon("current") }, onClick = { returnCurrent?.invoke() })
-        if (!dockOpen) Box {
-            ActionSquare("Chat, $chatUnread unread messages", "", chat != null, Modifier.width(48.dp), icon = { TableChromeIcon("chat") },
-                onClick = { chat?.invoke() })
+        // WEB-017, LOB-066 (owner playtest 2026-11-15: the dock is the chat only): one chat button unfolds the chat dock, ready to
+        // type, and folds it away again; open, it is drawn pressed
+        Box {
+            ActionSquare(if (dockOpen) "Fold the chat away" else "Chat, $chatUnread unread messages", "", dockOpen || chat != null,
+                Modifier.width(48.dp).testTag("dock-button")
+                    .then(if (dockOpen) Modifier.background(OwnTableColor.copy(alpha = .14f), RoundedCornerShape(6.dp)) else Modifier),
+                icon = { TableChromeIcon("chat") }, onClick = { if (dockOpen) toggleDock() else chat?.invoke() })
             if (chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp)
                 .background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))
         }
-        ActionSquare(if (dockOpen) "Fold the dock away" else "Show the dock", "", true, Modifier.width(48.dp).testTag("dock-button"),
-            icon = { DockIcon() }, onClick = toggleDock)
         // HIS-020, TRN-049: open while a suggestion blocks game actions, for its Timeline (its other entries greyed)
         if (!reviewing) ActionSquare("Table actions", "", toolkit != null, Modifier.width(48.dp), icon = { TableChromeIcon("grid") },
             onClick = { toolkit?.tableMenu() })
@@ -326,18 +324,6 @@ private fun androidx.compose.ui.layout.Placeable?.scaledWidth(scale: Float, cons
 private fun androidx.compose.ui.layout.Placeable?.scaledHeight(scale: Float, constraints: Constraints) =
     ((this?.height ?: 0) * scale).roundToInt().coerceIn(constraints.minHeight, constraints.maxHeight)
 
-/** The dock button's icon: a window with its right panel. */
-@Composable
-private fun DockIcon() {
-    val color = LocalContentColor.current
-    androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
-        val u = size.width / 24f
-        drawRoundRect(color, androidx.compose.ui.geometry.Offset(3f * u, 4f * u), androidx.compose.ui.geometry.Size(18f * u, 16f * u),
-            androidx.compose.ui.geometry.CornerRadius(2f * u), style = androidx.compose.ui.graphics.drawscope.Stroke(1.6f * u))
-        drawLine(color, androidx.compose.ui.geometry.Offset(15f * u, 4f * u), androidx.compose.ui.geometry.Offset(15f * u, 20f * u), 1.6f * u)
-    }
-}
-
 /**
  * WEB-020: the phase track: the phase dialog's (TRN-008) phase labels over their step squares in the phases' colours, the
  * current step outlined in the turn player's colour, flashing on a step change (TRN-007). View-only, as the dialog is
@@ -379,62 +365,22 @@ fun desktopPhaseLabel(phase: String): String = when (phase) {
 }
 
 /**
- * WEB-017 (owner, decision 15): the desktop table's right dock: the Stack as its full list, always open, top first as the
- * Stack list shows it (STK-018; "Empty" with nothing on it), and the game chat under it with its input always visible
- * ([chat]: LOB-066's panel docked, Game / Pod tabs in a pod game). A centred overlay's dimming (WEB-019) covers it too.
+ * WEB-017 (owner, decision 15; owner playtest 2026-11-15: "Stack is better as a thing on the field, not in the chat pane at
+ * all"): the desktop table's right dock: the game chat with its input always visible ([chat]: LOB-066's panel docked, Game /
+ * Pod tabs in a pod game). The Stack is never in it: it stays the table's HUD, left of the dock (STK-007). A centred overlay's
+ * dimming (WEB-019) covers it too.
  */
 @Composable
-fun DesktopDock(play: TableBoard, viewer: String, names: Map<String, String>, modifier: Modifier = Modifier,
-    /** HIS-112 (Stack animation, owner 2026-11-14): told where a new top entry goes in the list (root dp, a card's size; null
-     * once the dock is gone), for a play shown to fly into it. */
-    stackPlace: (TableBounds?) -> Unit = {},
-    chat: @Composable (Modifier) -> Unit) {
-    val order = CombatStackRules.stack(play.board).cards
-    val entrySize = rememberCardAppearance().size(CardArea.STACK)
-    DisposableEffect(Unit) { onDispose { stackPlace(null) } }
-    // WEB-017 (owner, desktop playtest 2026-11-14): how the dock shares its height between the Stack and the chat, logged as
-    // it changes, so a report of a squeezed Stack or chat says what was measured
-    var stackShown by remember { mutableIntStateOf(0) }
+fun DesktopDock(modifier: Modifier = Modifier, chat: @Composable (Modifier) -> Unit) {
+    // WEB-017: the chat's height, logged as it changes, so a report of a squeezed chat says what was measured
     var chatShown by remember { mutableIntStateOf(0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    LaunchedEffect(chatShown) { if (chatShown > 0) AppLog.info("dock", "Desktop dock: chat $chatShown dp") }
     Column(modifier.fillMaxSize().background(Color(0xfffafbfb)).border(1.dp, Color(0xffd5d8dc))
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }.testTag("desktop-dock")) {
-        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-            val stackMax = maxHeight * DesktopTable.DOCK_STACK_SHARE
-            val dockHeight = maxHeight.value.toInt()
-            val density = androidx.compose.ui.platform.LocalDensity.current.density
-            LaunchedEffect(order.size, stackShown, chatShown, dockHeight) {
-                if (stackShown > 0 || chatShown > 0) AppLog.info("dock", "Desktop dock $dockHeight dp: Stack ${order.size} entries in " +
-                    "$stackShown dp (at most ${stackMax.value.toInt()}), chat $chatShown dp")
-            }
-            Column(Modifier.fillMaxSize()) {
-                Text("STACK · ${order.size}", Modifier.padding(start = 16.dp, top = 10.dp, bottom = 6.dp).semantics { heading() },
-                    fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, color = MenuInk)
-                // The list's top (its first entry's card, or the "Empty" box's middle): where a new top entry shows, as it is drawn
-                // on the screen (its corners mapped to the root, so a scaled dock, DesktopScaled, gives its drawn place and size)
-                val measured = Modifier.onSizeChanged { stackShown = (it.height / density).toInt() }.onGloballyPositioned { c ->
-                    val w = 32f * entrySize * density
-                    val h = 44f * entrySize * density
-                    val x = if (order.isEmpty()) (c.size.width - w) / 2 else 0f
-                    val y = if (order.isEmpty()) (c.size.height - h) / 2 else 0f
-                    val from = c.localToRoot(androidx.compose.ui.geometry.Offset(x, y))
-                    val to = c.localToRoot(androidx.compose.ui.geometry.Offset(x + w, y + h))
-                    stackPlace(TableBounds(from.x / density, from.y / density, (to.x - from.x) / density, (to.y - from.y) / density))
-                }
-                if (order.isEmpty()) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp).then(measured)
-                    .border(1.dp, MenuBorder, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                    Text("Empty", fontSize = 12.sp, color = MenuInk.copy(alpha = .6f))
-                } else StackEntries(play, viewer, Modifier.padding(horizontal = 12.dp).fillMaxWidth().heightIn(max = stackMax).then(measured)
-                    .testTag(DOCK_STACK_TAG), names = names, nameInCard = true)
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(color = Color(0xffd5d8dc))
-                chat(Modifier.fillMaxWidth().weight(1f).onSizeChanged { chatShown = (it.height / density).toInt() })
-            }
-        }
+        chat(Modifier.fillMaxWidth().weight(1f).onSizeChanged { chatShown = (it.height / density).toInt() })
     }
 }
-
-/** WEB-017: the dock's list of Stack entries (not shown while the Stack is empty). */
-const val DOCK_STACK_TAG = "dock-stack"
 
 /**
  * WEB-016 (owner, decision 27): each seat header's start: the player's avatar and name, before their life square, piles and

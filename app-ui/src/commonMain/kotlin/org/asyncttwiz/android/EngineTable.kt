@@ -100,6 +100,10 @@ interface EngineRoutes {
     /** HIS-110: whether the other player's reveal panel is open: it comes before any choice panel of the viewer's. */
     fun revealing(): Boolean = false
 
+    /** HIS-112, STK-058, TBL-125 (owner playtest 2026-11-15): why a choice asked while something resolves waits before its
+     * panel opens (a play shown still flying or showing, the top entry's arrows, the board's steps up to it), or null. */
+    fun choiceHeld(): String? = null
+
     /** HIS-112: whether a play shows large in the middle of the table: the Stack line and the wait's words give way. */
     fun showing(): Boolean = false
 
@@ -310,6 +314,11 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
 
     override fun revealing(): Boolean = openReveal() != null
+
+    /** [choiceHeld]'s answer, set by the table (read as snapshot state where it can be). */
+    var choiceHold: () -> String? = { null }
+
+    override fun choiceHeld(): String? = choiceHold()
 
     /**
      * HIS-110 (owner, 2026-11-12: OK dismissed late): the reveals this table's OK dismissed whose dismissal the engine thread
@@ -812,7 +821,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
         val peekHeight = holdPreviewScreenHeight()
         // Made from the board with their entries on it (the table's board has them off until they land)
         PlayShowOverlay(LocalUnhiddenPlay.current ?: play, scene, routes.viewer, shows, names, showMillis, routes.viewPause,
-            tapScope = showTapScope, pace = showPace, ready = { routes.showReady() }, dockTop = { stackAnimation.dockTop },
+            tapScope = showTapScope, pace = showPace, ready = { routes.showReady() },
             // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
             inspect = { held, holding ->
                 if (holding) {

@@ -22,13 +22,14 @@ internal fun StackAnimatedTable(kit: EngineTableKit, modifier: Modifier, landsca
     }) {
     val animation = kit.routes.stackAnimation
     val unhidden = version.let { kit.alice.play() }
-    val play = animation.board(unhidden, kit.alice.shown?.moments.orEmpty())
+    val hidden = animation.hidden(kit.alice.shown?.moments.orEmpty())
+    val play = animation.board(unhidden, hidden)
     val scope = rememberCoroutineScope()
-    SideEffect { animation.drawn(play, instant = false) }
+    SideEffect { animation.drawn(play, instant = false, unhidden = unhidden, hidden = hidden) }
     CompositionLocalProvider(LocalUnhiddenPlay provides unhidden) {
         TableSurface(kit.f.game, play, kit.f.a, landscape, modifier, connected = true, onIntent = kit.toolkit::handle,
             toolkit = kit.toolkit, runtime = runtime(play).copy(
                 onSceneSettled = animation.settleHook(scope, play, 1f, kit.routes.viewPause, { "the test" }, { 0 }, {}),
-                landedEntries = animation.landed, sceneTimeShare = animation.resolutionShare(play)))
+                landedEntries = animation.landed, sceneTimeShare = animation.resolutionShare(play, unhidden)))
     }
 }

@@ -214,6 +214,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         /** TRN-063, STK-029 (owner playtest 2026-11-12): a play shown or a combat's hold is all that keeps the device from a
          * step of the player's own it makes by itself ([GameDevice.ownStepHeld]): the main button shows no press meanwhile. */
         val ownStepHeld: Boolean = false,
+        /** HIS-112 (owner playtest 2026-11-15, report VSVLSK): on an own action's early board ([ownActionShown]), the plays its
+         * event will show that aren't open yet (the player's own triggers its action put on the Stack): their entries stay
+         * off the table's board from the first board that has them, so nothing of them shows before their play does. */
+        val coming: List<GameDevice.PlayShow> = emptyList(),
         /** [board]'s engine state (every board this game builds has one). */
         val engine: GameState) {
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
@@ -569,7 +573,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
             last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt, moments = last.moments,
-            ownStepHeld = last.ownStepHeld, engine = engine)
+            ownStepHeld = last.ownStepHeld, coming = comingShows(last.moments), engine = engine)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main {
@@ -578,6 +582,21 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             measure(shown, timing); onShown()
         }
         return play
+    }
+
+    /**
+     * HIS-112 (owner playtest 2026-11-15, report VSVLSK): the plays shown the own action being made opens once its event is
+     * finished (its own triggers put on the Stack so far), but [open] doesn't hold yet: an early board ([preview]) keeps
+     * their entries off the table, or the table drew them on the Stack and then took them off as their plays began (which
+     * looked like their resolution, and moved the top entry's arrows to the entry under them). Engine thread.
+     */
+    private fun comingShows(open: List<GameDevice.ViewMoment>): List<GameDevice.PlayShow> {
+        if (!device.showPlays) return emptyList()
+        val draft = device.session.draftEvent() ?: return emptyList()
+        val coming = GameDevice.showsIn(draft, PlayerId(me)).filter { it !in open }
+        if (coming.isNotEmpty()) AppLog.info("engine", "Own action's early board: ${coming.size} play(s) its event will show " +
+            "kept off the table until shown: ${coming.joinToString { "${it.kind::class.simpleName} ${it.entry}" }}")
+        return coming
     }
 
     /** Web client step 4c: the line the device's model stands on now (the main line up to the local head, its own pending

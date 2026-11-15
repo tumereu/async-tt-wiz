@@ -32,7 +32,7 @@ import kotlin.test.assertTrue
 /**
  * The desktop table (docs/specs/web-client.md §7.2, wireframes D1–D5) at 1440 × 900: the same game table as the phone's
  * arranged for a large window: the global top row with the phase track, each player's seat header on their battlefield,
- * the right dock with the Stack list and the docked chat, your hand centred in the bottom band, the action area at the
+ * the Stack at the battlefields' right edge beside the right dock with the docked chat, your hand centred in the bottom band, the action area at the
  * bottom right, and panels as a strip bottom-centre or a centred overlay over the dimmed table.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -58,23 +58,23 @@ class DesktopTableScreenshotTest {
     }
 
     /** Alice's table of [kit]'s game drawn as [EngineTableScreen] draws it in the desktop layout: the top row over the table
-     * surface with the desktop frame, the dock holding the Stack list and the docked chat of [lobby]. */
-    private fun render(kit: EngineTableKit, lobby: LobbyController = chatLobby(kit)) {
+     * surface with the desktop frame, the dock holding the docked chat of [lobby] while [dockOpen] (read as state). */
+    private fun render(kit: EngineTableKit, lobby: LobbyController = chatLobby(kit), dockOpen: () -> Boolean = { true }) {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop, LocalEngineRoutes provides kit.routes,
-                        LocalDesktopFrame provides DesktopFrame()) {
+                        LocalDesktopFrame provides DesktopFrame(dockOpen())) {
                         val play = kit.alice.play()
                         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
                             DesktopTopRow(kit.f.game, play, kit.f.a, kit.toolkit, reviewing = false, navigation = {}, returnCurrent = null,
-                                changes = null, dockOpen = true, toggleDock = {}, chat = null, chatUnread = 0)
+                                changes = null, dockOpen = dockOpen(), toggleDock = {}, chat = null, chatUnread = 0)
                             Box(Modifier.weight(1f).fillMaxWidth()) {
                                 TableSurface(kit.f.game, play, kit.f.a, true, Modifier.fillMaxSize(), connected = true,
                                     onIntent = kit.toolkit::handle, toolkit = kit.toolkit,
                                     runtime = TableRuntimeHooks(navigation = {}, undo = { kit.routes.undo() }, controlsConnected = true,
                                         waitingLine = kit.routes.waitingLine(play),
-                                        desktopDock = { DesktopDock(play, kit.f.a, gameNames(kit.f.game)) { m -> ChatPanel(lobby, kit.f.a, m, docked = true) } }))
+                                        desktopDock = { DesktopDock { m -> ChatPanel(lobby, kit.f.a, m, docked = true) } }))
                             }
                         }
                     }
@@ -194,9 +194,10 @@ class DesktopTableScreenshotTest {
         compose.runOnIdle { assertEquals(1 to 1, holds to taps, "the left click tapped it") }
     }
 
-    // WEB-015, WEB-016, WEB-018, WEB-022: the desktop table's arrangement: the battlefields end at the dock, the other player's
-    // seat header is at the top with their hand as a small fan of backs, yours lies right above the bottom band, your hand is centred
-    // in the band left of the action area at the desktop's larger size, and the Stack isn't on the battlefields
+    // WEB-015, WEB-016, WEB-018, WEB-022, WEB-017, STK-007: the desktop table's arrangement: the battlefields end at the dock,
+    // the other player's seat header is at the top with their hand as a small fan of backs, yours lies right above the bottom
+    // band, your hand is centred in the band left of the action area at the desktop's larger size, and the Stack is the HUD at
+    // the battlefields' right edge, left of the dock (owner playtest 2026-11-15: never in the chat pane)
     @Test fun theSceneLaysOutSeatHeadersHandAndBattlefieldsForTheDock() {
         val kit = EngineTableKit()
         kit.opening()
@@ -243,16 +244,16 @@ class DesktopTableScreenshotTest {
         assertTrue(bobsHand.all { it.bounds.x > bobsPiles.maxOf { pile -> pile.bounds.right } }, "after his piles")
         val stackItem = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         val stack = stackItem.bounds
-        assertTrue(stack.x >= 1440f - DesktopTable.DOCK, "the Stack under the dock, not on the battlefields: $stack")
-        // WEB-017 (owner, desktop playtest 2026-11-14): its count bubble and its frame's shadow wholly under the dock too
         val region = assertNotNull(scene.stackRegion)
-        assertTrue(stackItem.stackBadge.x >= 1440f - DesktopTable.DOCK && region.x - 4f >= 1440f - DesktopTable.DOCK,
-            "nothing of the Stack peeks out at the dock's edge: ${stackItem.stackBadge}, $region")
+        assertTrue(region.right <= 1440f - DesktopTable.DOCK + .5f && region.right >= world.right - 1f && stack.x > world.center.x,
+            "the Stack at the battlefields' right edge, left of the dock: $stack, $region, battlefields $world")
+        assertTrue(stackItem.stackBadge.x >= world.x && stackItem.stackBadge.right <= 1440f - DesktopTable.DOCK,
+            "its count bubble on the battlefields, nothing of it under the dock: ${stackItem.stackBadge}")
     }
 
-    // WEB-015, WEB-016, WEB-017, WEB-018, WEB-020, TBL-117: the table at Alice's first main phase: the top row with the turn line, move
-    // pill and phase track (no step button), the seat headers with avatars and names, the dock with an empty Stack and the
-    // chat, the action area with Undo and the main button
+    // WEB-015, WEB-016, WEB-017, WEB-018, WEB-020, TBL-117, STK-007: the table at Alice's first main phase: the top row with the
+    // turn line, move pill and phase track (no step button), the seat headers with avatars and names, the empty Stack at the
+    // battlefields' right edge beside the chat dock, the action area with Undo and the main button
     @Test fun theDesktopTableHasTopRowSeatHeadersDockAndActionArea() {
         val kit = EngineTableKit()
         kit.opening()
@@ -260,8 +261,10 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithTag("phase-track").assertExists()
         compose.onNodeWithContentDescription("Choose phase/step", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("desktop-dock").assertExists()
-        compose.onNodeWithText("STACK · 0").assertExists()
-        compose.onNodeWithText("Empty").assertExists()
+        compose.onNodeWithText("STACK · 0").assertDoesNotExist()
+        val dock = compose.onNodeWithTag("desktop-dock").fetchSemanticsNode().boundsInRoot
+        val stack = compose.onNodeWithContentDescription("Stack, 0 entries").fetchSemanticsNode().boundsInRoot
+        assertTrue(stack.right <= dock.left, "the Stack on the field, left of the chat dock: $stack, dock $dock")
         compose.onNodeWithText("rematch after this one?").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close chat").assertDoesNotExist()
         compose.onNodeWithTag("action-area").assertExists()
@@ -284,13 +287,11 @@ class DesktopTableScreenshotTest {
         compose.onAllNodesWithText("Bob").onFirst().assertExists()
         compose.onNodeWithText("You").assertExists()
         captureShot("$SCREENSHOTS/desktop/table.png",
-            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top with his hand as a small fan of card backs after his piles, as on the phone, and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the Stack (empty) and the game chat docked at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
+            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top with his hand as a small fan of card backs after his piles, as on the phone, and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the empty Stack at the battlefields' right edge and the game chat docked beside it at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
     }
 
-    // WEB-017, WEB-016, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the dock's
-    // Stack list shows the Spark with its target named, the band under Bob's seat header says what it does, the main button
-    // reads Resolve
-    @Test fun respondingShowsTheStackInTheDock() {
+    /** Bob casts Storm Spark at Alice's Ember Cub in his turn and she holds priority over it. */
+    private fun respondingKit(): EngineTableKit {
         val kit = EngineTableKit()
         val cub = kit.toReadyCub()
         kit.bobCastsSpark { s -> TargetRef.Object(s.battlefield.first { (it as arcanum.engine.state.ObjectId.Card).card.value == cub }) }
@@ -300,12 +301,37 @@ class DesktopTableScreenshotTest {
             val s = kit.state()
             s.stack.isNotEmpty() && s.priority.holder == kit.me && kit.routes.arrowShown() && s.stackItems[s.stack.last()]?.kind == StackItemKind.Spell
         }
-        render(kit)
-        compose.onNodeWithText("STACK · 1").assertExists()
-        compose.onNodeWithText("Storm Spark deals 3 damage to Ember Cub.").assertExists()
+        return kit
+    }
+
+    // WEB-017, WEB-016, STK-007, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the
+    // Spark is on the Stack at the battlefields' right edge (never in the dock), its arrow to the Cub, the band under Bob's seat
+    // header says what it does, the main button reads Resolve
+    @Test fun respondingShowsTheStackOnTheField() {
+        render(respondingKit())
+        compose.onNodeWithText("STACK · 1").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stack, 1 entries").assertExists()
         compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast Storm Spark · deals 3 damage to Ember Cub"))
         captureShot("$SCREENSHOTS/desktop/table-responding.png",
-            "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the dock's Stack list shows the Spark with its target named in its text, the band under Bob's seat header says what it does, and the main button at the bottom right reads Resolve.")
+            "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the Spark is on the Stack at the battlefields' right edge with its arrow to the Cub, the band under Bob's seat header says what it does, and the main button at the bottom right reads Resolve.")
+    }
+
+    // WEB-017, STK-007 (owner playtest 2026-11-15: "push it to the side"): with the chat dock open the battlefields narrow and the
+    // Stack holding Bob's Spark lies at their right edge, left of the dock, nothing covering it; with the dock folded away the
+    // battlefields take its width and the Stack moves right with their edge
+    @Test fun theStackMovesWithTheBattlefieldsEdgeBesideTheChatDock() {
+        val open = androidx.compose.runtime.mutableStateOf(true)
+        render(respondingKit(), dockOpen = { open.value })
+        val dock = compose.onNodeWithTag("desktop-dock").fetchSemanticsNode().boundsInRoot
+        val beside = compose.onNodeWithContentDescription("Stack, 1 entries").fetchSemanticsNode().boundsInRoot
+        assertTrue(beside.right <= dock.left && beside.right > dock.left - 120f, "the Stack just left of the open chat dock: $beside, dock $dock")
+        captureShot("$SCREENSHOTS/desktop/stack-beside-chat.png",
+            "Bob cast Storm Spark at Alice's Ember Cub and she holds priority with the chat dock open at the right: the battlefields end at the dock and the Stack holding the Spark lies at their right edge, beside the chat and not under it.")
+        compose.runOnIdle { open.value = false }
+        compose.waitForIdle()
+        compose.onNodeWithTag("desktop-dock").assertDoesNotExist()
+        val folded = compose.onNodeWithContentDescription("Stack, 1 entries").fetchSemanticsNode().boundsInRoot
+        assertEquals(beside.right + DesktopTable.DOCK, folded.right, 1f, "folded away, the Stack at the window's right edge: $folded")
     }
 
     // WEB-015, WEB-016, WEB-020, WEB-022: in a 1920 × 1080 window, with Alice's Mountain and Ember Cub out at her main phase,

@@ -1,0 +1,1 @@
+fix: A spell and the trigger it makes now land on the Stack, show their target arrows once, and only then resolve; a choice such as "you may pay" waits until they have.

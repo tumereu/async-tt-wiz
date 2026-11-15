@@ -122,6 +122,11 @@ internal object Filters {
         OF_CHOSEN_TYPE.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")))
         }
+        // trk chunk 06: "another creature with a Communicator attached to it" (an attachment of that kind, CR 301.5, 303.4)
+        WITH_ATTACHED.matchEntire(phrase)?.let { m ->
+            val attachment = noun(m.groupValues[2]) ?: return@let
+            return all(noun(m.groupValues[1]) ?: return@let, ObjectFilter.Attached(attachments = attachment))
+        }
         // one chunk 04: "creatures you control that are equipped" (have an Equipment attached, CR 301.5)
         THAT_ARE_EQUIPPED.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
@@ -644,6 +649,7 @@ internal object Filters {
     private val OF_CHOSEN_COLOR = Regex("""(.+) of the chosen color""")
     private val OF_THAT_COLOR = Regex("""(.+) of that color""")
     private val THAT_ARE_EQUIPPED = Regex("""(.+) that (?:are|is) equipped""")
+    private val WITH_ATTACHED = Regex("""(.+?) with an? ([A-Z]\w+) attached to (?:it|them)""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or (?:an? )?(\w+)""")
     // blb chunk 11
     private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with (toughness greater than its power|power equal to its toughness)""")
@@ -987,6 +993,8 @@ internal object Events {
         }
         // otj chunk 04: "you commit a crime" (CR 700.13)
         if (text == "you commit a crime") return EventPattern.CommitCrime(PlayerFilter.You)
+        // trk chunk 06: "you face a dilemma" (CR 700.17)
+        if (text == "you face a dilemma") return EventPattern.FaceDilemma(PlayerFilter.You)
         // otj chunk 06: "you activate an ability that targets a creature or player" (the ability on the Stack; a mana ability
         // doesn't target, CR 605.1a, 115.1b)
         Otj.ACTIVATE_ABILITY_THAT_TARGETS.matchEntire(text)?.let { m ->

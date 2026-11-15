@@ -204,6 +204,10 @@ sealed interface EventPattern {
     @Serializable @SerialName("copy") data class Copy(val spell: ObjectFilter, val by: PlayerFilter) : EventPattern
     /** A player commits a crime: targets an opponent or their objects (CR 700.13). */
     @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter) : EventPattern
+    // trk
+    /** A player faces a dilemma: chooses one or more modes for a spell or ability (CR 700.17); a copy's modes are copied, not
+     * chosen (CR 707.10). "Faced a dilemma this turn" is [Condition.HappenedThisTurn] of it. */
+    @Serializable @SerialName("face-dilemma") data class FaceDilemma(val players: PlayerFilter) : EventPattern
     /** A player plays a land (a special action, CR 116.2a, 305.1). */
     @Serializable @SerialName("play-land") data class PlayLand(
         val lands: ObjectFilter, val players: PlayerFilter,

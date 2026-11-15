@@ -1,0 +1,1 @@
+mod: Combat chips on attackers and blockers stay readable when you zoom out, and the chip saying whom an attacker hits is gone: its lane already shows that.

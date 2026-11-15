@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -294,7 +295,7 @@ class CombatBandTest {
             "Bob's phone, 3 of 5, a wait for the other player: his block is declared and he waits for Alice to go on to the damage, the damage preview on the band.")
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Alice passes")
         k.settle(bobActs = false)
-        // Bob may respond: Alice's phone assumes he doesn't (Assume no response), on to the damage
+        // Bob may respond: Alice's phone assumes he doesn't (Assume pass), on to the damage
         assertTrue(k.alice.assume() !is GameDevice.Acted.Refused, "Bob's pass assumed")
         // Her own action's steps, the damage's hold board among them (HIS-113)
         val aliceDealt = k.alice.transition?.steps.orEmpty().lastOrNull { it.damageDealt }
@@ -585,6 +586,28 @@ class CombatBandTest {
         compose.onNodeWithContentDescription("${bobName()} would go from $life to ${life - 2}").assertExists()
         captureShot("$SCREENSHOTS/combat-band/chip-preview.png",
             "Bob declares blockers with none placed yet: his target chip at the bottom of the band, mirrored for him, reads his name and $life → ${life - 2} in red, what Alice's unblocked Ember Cub would do to his life.")
+    }
+
+    // CMB-035 (owner notes 2026-11-14): zoomed all the way out, Alice's attacking Cub on the battlefield still carries its
+    // "attacking" chip, its text scaled down with the card, and no chip says whom it attacks or deals damage to (its lane does)
+    @Test fun combatChipsStayAtAnyZoomAndNoneNamesTheTarget() {
+        val attacker = aliceDeclaring()
+        k.tap(k.item(attacker))
+        k.settle()
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
+        k.playOn("Bob declaring blockers", bobActs = false) {
+            Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers }
+        }
+        k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+        k.bobToolkit.layoutState.value = k.bobToolkit.layoutState.value.copy(camera = TableCamera(zoom = TablePresentation.MIN_ZOOM))
+        render(k.f.b)
+        val card = k.scene(k.f.b).items.first { it.sourceId == attacker && it.zone == org.asyncttwiz.protocol.PlayZone.BATTLEFIELD &&
+            it.viewport != "combat" && !it.projection }
+        assertTrue(card.bounds.width < 44f, "a small card at this zoom: ${card.bounds.width}")
+        compose.onAllNodesWithContentDescription("attacking").assertCountEquals(1)
+        compose.onAllNodesWithContentDescription(" → ", substring = true).assertCountEquals(0)
+        captureShot("$SCREENSHOTS/combat-band/chips-zoomed-out.png",
+            "Bob declares blockers with his table zoomed all the way out: Alice's attacking Ember Cub on her battlefield keeps its grey \"attacking\" chip, scaled down with the card, and nothing under its copy names whom it attacks.")
     }
 
     // CMB-040, CMB-049 (owner, 2026-11-05): Bob is away when Alice attacks; while she waits for his blocks her table is at

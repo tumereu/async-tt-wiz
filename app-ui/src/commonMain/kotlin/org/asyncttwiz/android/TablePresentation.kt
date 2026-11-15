@@ -197,6 +197,9 @@ data class TableItem(
     /** ZON-079 (owner, 2026-11-12): a card of the viewer's hand row from another zone: the zone of its pile, shown as a badge;
      * null for every other item. */
     val handZone: PlayZone? = null,
+    /** TBL-137 (owner notes 2026-11-14): an uncrewed Vehicle's "Crew N", drawn before its corner's P/T where it fits; null for
+     * anything else (a crewed Vehicle is a creature and shows its P/T alone). */
+    val crew: String? = null,
     /** ZON-079: on the viewer's hand, the x of the thin divider in the gap before its cards from other zones; null without one. */
     val handDivider: Float? = null,
 ) {
@@ -613,7 +616,9 @@ object TablePresentation {
                 EnteredTurn.marked(play.board, card)
             // Automatum on (I1): a Battlefield card (and its combat copies) shows the engine's P/T and marks.
             val auto = if (values && zone == PlayZone.BATTLEFIELD && !frozen) computed.cards[card.id] else null
-            val autoCorner = auto?.corner
+            // TBL-137 (owner notes 2026-11-14): an uncrewed Vehicle's corner is the P/T it has once crewed, after its "Crew N"
+            val autoCorner = auto?.corner ?: auto?.takeIf { it.crew != null }?.let { a ->
+                if (a.basePower != null && a.baseToughness != null) "${a.basePower}/${a.baseToughness}" else null }
             // STK-046: an ability on the Stack names itself as an ability, with its text
             val ability = if (zone == PlayZone.STACK && projection && !hidden) StackAbilities.of(play, viewId, viewer) else null
             val label = if (ability != null) "${ability.kind}, ${ability.line}, controller ${name(CombatStackRules.controller(play.board, viewId) ?: card.owner)}"
@@ -637,8 +642,9 @@ object TablePresentation {
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = if (autoCorner != null) false
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
-                    cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
-                    cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
+                    cornerColor = if (autoCorner != null) auto?.let { computedCornerColor(it.trend) } else null,
+                    cornerHourglass = autoCorner != null && auto?.untilEndOfTurn == true,
+                    crew = auto?.crew?.let { "Crew $it" }, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
                     counterBubbles = auto?.bubbles.orEmpty(), effectsMarker = auto != null && card.id in computed.withEffects,
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }

@@ -140,6 +140,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         /** STK-024: a free creature whose mana ability taps other creatures: "Tap two untapped creatures you control: Add one
          * mana of any color." (worded as a real such card). */
         const val ELDERS = "Hearth Elders"
+        /** TBL-137: a free Vehicle with crew 2 (CR 702.122a). */
+        const val CART = "Ember Cart"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -198,6 +200,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("ghoul", Choices.GHOUL, "Creature — Zombie", "Sacrifice this creature: You gain 1 life.\nUnearth {R}", "2", "2"),
         free("reprise", Choices.REPRISE, "Sorcery", "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand."),
         free("bulwark", Choices.BULWARK, "Enchantment", "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control."),
+        free("cart", Choices.CART, "Artifact — Vehicle", "Crew 2", "3", "3"),
         free("elders", Choices.ELDERS, "Creature — Human Citizen", "Tap two untapped creatures you control: Add one mana of any color.", "1", "1"),
         free("fork", Choices.FORK, "Artifact", "{T}: Add {R} or {U}."),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),

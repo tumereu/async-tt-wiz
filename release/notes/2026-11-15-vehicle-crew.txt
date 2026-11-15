@@ -1,0 +1,1 @@
+add: A Vehicle that isn't crewed shows its crew cost ("Crew 2") before its power and toughness, where there is room.

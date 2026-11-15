@@ -23,7 +23,6 @@ Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 
 Owner notes 2026-11-14 evening, agreed changes (after the desktop playtest batch and the Stack animation; two workers may run in parallel, one per group). Each is first checked on master.
 
 Table and casting:
-- An uncrewed Vehicle shows "Crew N" in its bottom text when it fits (usually one short line); Crew N comes before any crewed P/T.
 - Player status icons: one icon per player status with its current level on it (the Ring's tempt level, speed, monarch, initiative, day/night, city's blessing, energy, experience, poison).
 
 Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.

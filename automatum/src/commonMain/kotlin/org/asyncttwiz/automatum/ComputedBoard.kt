@@ -37,6 +37,7 @@ import org.asyncttwiz.protocol.SubmittedDefinition
  *   defense, a Saga's lore (count 0 when it has none); null for one with P/T or with no such counter kind.
  * - [keywords]: every keyword ability it has.
  * - [states]: TBL-133: the states the rules keep on it ("Ring-bearer", "Goaded", "Monstrous", [CardStates.words]).
+ * - [crew]: TBL-137: an uncrewed Vehicle's crew amount (CR 702.122a: it has crew and is no creature now); null otherwise.
  */
 @kotlinx.serialization.Serializable
 data class ComputedCard(
@@ -55,6 +56,7 @@ data class ComputedCard(
     /** Every keyword ability it has now ("Flying", "First strike"), as the engine works them out (layer 6). */
     val keywords: List<String> = emptyList(),
     val states: List<String> = emptyList(),
+    val crew: Int? = null,
 ) {
     /** The computed P/T as the corner shows it ("3/3"); for a permanent without P/T its primary counter's count (TBL-021:
      * "4" loyalty); null when it has neither. */
@@ -402,6 +404,7 @@ class ComputedBoard private constructor(
                     primary = primaryCounter(chars, shownCounters(card.typedCounters)),
                     keywords = chars.keywords.map(Keyword::text),
                     states = o.obj?.let { CardStates.words(it, o.statuses) }.orEmpty(),
+                    crew = if (chars.power != null) null else chars.keywords.filterIsInstance<Keyword.Crew>().firstOrNull()?.amount,
                 )
             }
             val exile = board.containers.filter { it.zone == PlayZone.EXILE }.flatMap { it.cards }.toSet()

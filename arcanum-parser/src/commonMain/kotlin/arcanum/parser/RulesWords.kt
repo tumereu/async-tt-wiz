@@ -634,6 +634,7 @@ internal object RulesWords {
         "obliterate the transwarp network", "observe", "of the obsidian order", "plain, simple garak", "remain fused",
         "repair the timeline", "rewrite the past", "sensors", "shaka, when the walls fell", "shoot to kill", "stun",
         "cloaking device", "surgical separation", "temba, his arms wide", "transport", "use the relic",
+        "transfer symbiont",
         // one: ONE's ability word, not in the pinned CR 207.2c list
         "corrupted",
     )

@@ -67,7 +67,8 @@ internal object Fra {
     val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast (if .+?)\.""")
     val GETS_FOR_EVERY = Regex("""(.+?) gets \+(\d+)/\+(\d+) for every (\w+) (cards in your graveyard)\.""")
     val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on (?:it|that permanent|that creature) instead\.""") // mom: "that permanent"
-    val TOKENS_CREATED_INSTEAD = Regex("""If one or more (.+?) tokens would be created under your control, that many (.+? creature) tokens(?: with (.+))? are created instead\.""")
+    // trk chunk 09: also any tokens ("If one or more tokens would be created under your control, that many 3/3 … tokens are created instead.")
+    val TOKENS_CREATED_INSTEAD = Regex("""If one or more (?:(.+?) )?tokens would be created under your control, that many (.+? creature) tokens(?: with (.+))? are created instead\.""")
     val ENCHANTED_IS_CREATURE_WITH_BASE = Regex("""Enchanted (?:permanent|artifact) is an? (?:([A-Z][a-z]+(?: [A-Z][a-z]+)*) )?creature with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
     val EQUIPPED_GETS_AND_HAS_QUOTED = Regex("""(?:Equipped|Enchanted) creature gets \+(\d+)/\+(\d+) and has (?:([a-z ,]+?),? and )?"(.+?)"(?: It's an? ([A-Z]\w+) in addition to its other types\.)?""")
     val HAVE_NO_MORE_THAN_ATTACK = Regex("""(.+?) you control have "No more than (\w+) creatures? can attack this planeswalker each combat\."""")

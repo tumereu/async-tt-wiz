@@ -286,7 +286,9 @@ internal object Effects {
                     extra = mapOf(UNTIL_SOURCE to NamedValue.Objects(until), UNTIL_RETURNED to NamedValue.Objects(phased)), oneShot = true)
             }
             // mh2: phasing in (CR 702.26c)
-            is Effect.PhaseIn -> scope.objects(effect.objects).filter { act.state.obj(it)?.phasedOut == true }.forEach {
+            // trk: not while "Permanents can't phase in" applies (CR 101.2)
+            is Effect.PhaseIn -> scope.objects(effect.objects).filter { act.state.obj(it)?.phasedOut == true }
+                .takeIf { act.view().game.rules.none { it.mechanic == Mechanic.PermanentsCantPhaseIn } }.orEmpty().forEach {
                 Actions.tapStatus(act, it, StatusFlag.PhasedOut, false, listOf(Meaning.PhasedIn))
                 arcanum.engine.change.Changes.status(act.state, it, arcanum.engine.state.ObjectStatus.HeldPhasedOut.key, null)?.let(act::record)
                 arcanum.engine.change.Changes.status(act.state, it, "held-phased-out-while", null)?.let(act::record)
@@ -861,7 +863,7 @@ internal object Effects {
 
     /** CR 508.4: [player] chooses what a creature they control put onto the battlefield attacking attacks: a defending player, a
      * planeswalker a defending player controls or a battle one protects (asked only when there is more than one, any number of players). */
-    private fun chosenAttackTarget(act: arcanum.engine.action.Act, player: PlayerId, source: ObjectId?): TargetRef? {
+    internal fun chosenAttackTarget(act: arcanum.engine.action.Act, player: PlayerId, source: ObjectId?): TargetRef? {
         val options = arcanum.engine.combat.CombatRules.attackTargets(arcanum.engine.casting.Snapshot(act.state), player)
         return if (options.size <= 1) options.firstOrNull() else act.chooseTargets(player, source, ATTACKING_SLOT, options, 1, 1).single()
     }
@@ -1134,7 +1136,9 @@ internal object Effects {
     internal fun tokensCreated(scope: Scope, created: List<ObjectId>, attacking: TargetRef?, bind: String?, attackChosen: Boolean = false) {
         val act = scope.act
         if (act.state.combat != null && (attacking != null || attackChosen)) {
-            val attackers = created.mapNotNull { id ->
+            // trk: a token a replacement already had enter attacking stays as it is
+            val already = act.state.combat?.attackers.orEmpty().map { it.id }.toSet()
+            val attackers = created.filter { it !in already }.mapNotNull { id ->
                 val to = attacking ?: chosenAttackTarget(act, act.controllerOf(id) ?: scope.actor, scope.self)
                 to?.let { arcanum.engine.state.Attacker(id, it) }
             }

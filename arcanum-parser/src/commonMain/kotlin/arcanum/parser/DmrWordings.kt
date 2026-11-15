@@ -16,7 +16,8 @@ internal object Dmr {
     val GET_AN_ADDITIONAL = Regex("""\b(gets?) an additional """)
     val ONCE_EACH_TURN_AND_ONLY_IF = Regex("""Activate only once each turn and only if (.+?)\.""")
     // dmr chunk 03: Battlefield Scrounger
-    val PUT_FROM_YOUR_GRAVEYARD_ON_BOTTOM_COST = Regex("""Put (\w+) cards? from your graveyard on the bottom of your library""")
+    // trk chunk 09: also "Put this card from your graveyard on the bottom of your library"
+    val PUT_FROM_YOUR_GRAVEYARD_ON_BOTTOM_COST = Regex("""Put (\w+ cards?|.+?) from your graveyard on the bottom of your library""")
     // dmr chunk 01: Wild Dogs
     val PLAYER_WITH_MOST_LIFE_GAINS_CONTROL = Regex("""[Tt]he player with the most life gains control of (.+)\.""")
     // dmr chunk 04: Orim's Thunder

@@ -224,7 +224,8 @@ internal object Tdm {
     val HEXPROOF_FROM = Regex("""[Hh]exproof from (.+)""")
     // tdm chunk 02: "If a creature attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time."
     // one chunk 07: "dying" too
-    val ATTACKING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) (attacking|dying) causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    // trk chunk 09: also "If you gaining life causes …"
+    val ATTACKING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If (an? .+?|you) (attacking|dying|gaining life) causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
     // tdm chunk 10: "for each opponent, create a tapped token that's a copy of the exiled card attacking that opponent. At the beginning of your next end
     // step, sacrifice those tokens."
     // tdm chunk 14: "Sidisi": "Sacrifice a creature you control with mana value X other than Sidisi"

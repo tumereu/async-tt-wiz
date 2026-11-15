@@ -305,6 +305,10 @@ internal object Actions {
                 is Modification.RaiseAmountTo, is Modification.ProducesInstead -> move
                 // fin: "Lands you control enter untapped": applied after the others ([untapped])
                 Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
+                // trk: "instead it enters tapped and attacking": its controller chooses what it attacks as it enters (CR 508.4)
+                Modification.EntersAttacking -> if (move.to != Zone.Battlefield || move.attacking != null || act.state.combat == null) move
+                    else move.copy(attacking = arcanum.engine.resolution.Effects.chosenAttackTarget(act, move.controller ?: act.controllerOf(move.id)
+                        ?: act.state.obj(move.id)!!.owner, r.source))
                 // fin: transforming and coin flips aren't zone changes
                 is Modification.AsTransforms, is Modification.AsTurnedFaceUp, Modification.WinFlips -> move
             }
@@ -1030,7 +1034,11 @@ internal object Actions {
     )
 
     /** The tokens of one [TokenRequest] as they will be created, replacements applied. */
-    private class PreparedTokens(val tokens: List<GameObject>, val entersAs: Map<ObjectId, List<Mechanic>>, val linked: List<WaitingTrigger>)
+    private class PreparedTokens(
+        val tokens: List<GameObject>, val entersAs: Map<ObjectId, List<Mechanic>>, val linked: List<WaitingTrigger>,
+        /** trk: tokens a replacement has enter attacking (CR 508.4). */
+        val entersAttacking: List<ObjectId> = emptyList(),
+    )
 
     /**
      * Creates the tokens of every one of [requests] as one event (CR 608.2f: "for each of them, create a token", "each player
@@ -1057,6 +1065,14 @@ internal object Actions {
                 act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", mechanics, t.id, t.controller ?: t.owner, ts, act) })
             }
             Replacements.addLinked(act, p.linked)
+        }
+        // trk: tokens entering attacking by a replacement ("instead it enters tapped and attacking"): each one's controller chooses what it
+        // attacks (CR 508.4); not declared as attackers
+        prepared.flatMap { it?.entersAttacking.orEmpty() }.forEach { id ->
+            val combat = act.state.combat ?: return@forEach
+            if (combat.attackers.any { it.id == id }) return@forEach
+            val to = arcanum.engine.resolution.Effects.chosenAttackTarget(act, act.controllerOf(id) ?: return@forEach, cause.source) ?: return@forEach
+            act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + arcanum.engine.state.Attacker(id, to))))
         }
         return prepared.map { p -> p?.tokens.orEmpty().map { it.id } }
     }
@@ -1126,6 +1142,7 @@ internal object Actions {
         val proposedBoard = { ProposedBoard(act.board(), tokens.associateBy { it.id }) }
         // gtc: "enters … as a Mutant in addition to its other types" (CR 614.1c): an effect from as it enters
         val entersAs = LinkedHashMap<ObjectId, List<Mechanic>>()
+        val entersAttacking = LinkedHashSet<ObjectId>()
         tokens = tokens.mapNotNull { t ->
             val enters = Replacements.candidates(act, cause).filter { r ->
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
@@ -1145,6 +1162,8 @@ internal object Actions {
                         is Modification.EntersWithCounters -> o.copy(counters = o.counters + CounterEntry(mod.kind, e.value(mod.amount), o.timestamp))
                         Modification.Skip -> return@mapNotNull null
                         is Modification.EntersAs -> o.also { entersAs[t.id] = entersAs[t.id].orEmpty() + mod.mechanics }
+                        // trk: "instead it enters tapped and attacking" (CR 508.4): chosen as the tokens are created
+                        Modification.EntersAttacking -> o.also { if (act.state.combat != null) entersAttacking += t.id }
                         else -> o
                     }
                 }
@@ -1160,7 +1179,7 @@ internal object Actions {
             if (!r.enters) null else if (r.host == t.attachedTo) t else t.copy(attachedTo = r.host)
         }
         if (tokens.isEmpty()) return null
-        return PreparedTokens(tokens, entersAs, linked)
+        return PreparedTokens(tokens, entersAs, linked, entersAttacking.filter { id -> tokens.any { it.id == id } })
     }
 
     /** The values a token that's a copy of [id] gets (CR 707.2): as it is, or as it last existed if it has left its zone or the

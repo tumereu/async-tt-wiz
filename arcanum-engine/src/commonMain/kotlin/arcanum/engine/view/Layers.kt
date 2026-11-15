@@ -112,7 +112,8 @@ internal object Layers {
     fun isRule(mechanic: Mechanic): Boolean = mechanic is Mechanic.Replacement || mechanic is Mechanic.Prevention ||
         mechanic is Mechanic.CostChange || mechanic is Mechanic.TriggersAdditionalTime || mechanic is Mechanic.DamageCantBePrevented ||
         mechanic is Mechanic.EventDoesntTrigger || // fra
-        mechanic is Mechanic.AdditionalCostOf // otj
+        mechanic is Mechanic.AdditionalCostOf || // otj
+        mechanic == Mechanic.PermanentsCantPhaseIn // trk
 
     /** Whether an effect object still applies: its "for as long as" condition holds and what it lasts until is still
      * there (CR 611.2b, 610.3). Ending it is a change made by the flow that notices; the view doesn't wait for that. */

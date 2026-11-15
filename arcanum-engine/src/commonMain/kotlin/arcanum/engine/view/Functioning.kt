@@ -61,6 +61,7 @@ object Functioning {
             when {
                 part is CostPart.Discard && part.what == CostObjects.Self -> return setOf(Zone.Hand)
                 part is CostPart.Exile && part.what == CostObjects.Self -> return setOf(part.from)
+                part is CostPart.PutOnBottomOfLibrary && part.what == CostObjects.Self -> return setOf(part.from)
                 part is CostPart.Reveal && part.what == CostObjects.Self -> return setOf(Zone.Hand)
             }
         }

@@ -405,6 +405,11 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         // A new line (§9), kept as the line counter: no event of the rewind's own (owner's rule 2026-11-04)
         val line = row.lines + 1
         sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, line).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
+        // HIS-115: a rewind inside the rewinder's opening to before the other player's assumed keep about them makes that
+        // player's line again on the point it lands on, as any opening move of theirs does
+        (if (model.engine.turn.number == 0) Rewind.reapplies(model.copy(), after, me) else null)?.let { at ->
+            return rewoundReapplying(sql, play, history, store, account, target, after, at, model, line, seats, approved || row.request != null, live)
+        }
         val events = Rewind.again(model, target, after, me, line, { UUID.randomUUID().toString() }, dropped = { event, why ->
             org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info("Rewind of play {} to {} by {}: {}'s table-only event {} doesn't stand: {}",
                 play, target, account, event.author, event.id, why)
@@ -422,6 +427,53 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         }
         if (approved || row.request != null) clearRequest(sql, play)
         return refresh(sql, play, history, LiveState(newHead, model), events, live, target = target, rewoundBy = account.toString())
+    }
+
+    /**
+     * HIS-115 (first turn during mulligans §3.6): [account]'s rewind to [target], inside their opening and before the other
+     * player's assumed keep about them (index [at] of [after], [Rewind.reapplies]; [after] already deleted, the line counter
+     * at [line]): the other player's table-only events before the keep that may stand are added again, then their line from
+     * the assumed keep is made again on top of them ([Rewind.reapply]), the first event made starting the new line. Stands as
+     * far as it comes out the same for them; from the first event that doesn't the rest stays taken back (with the new line
+     * already started, no further one) and they are told as for a branch (LOB-116). [account]'s local head goes to where the
+     * rewind landed (nothing of the other player's line shown to them, HIS-117); the other player's to the event made from
+     * theirs, or, when theirs was taken back, back to the new head, remembering where it stood (HIS-106). Logged in full.
+     */
+    private fun rewoundReapplying(sql: DSLContext, play: UUID, history: GameHistory, store: EngineHistoryStore, account: UUID, target: String,
+        after: List<GameEvent>, at: Int, model: GameModel, line: Int, seats: List<SeatRow>, closesRequest: Boolean, live: (UUID) -> Boolean): Outcome {
+        val log = org.slf4j.LoggerFactory.getLogger(EngineGames::class.java)
+        val me = PlayerId(account.toString())
+        val r = Rewind.reapply(model, target, after, at, me, line, { UUID.randomUUID().toString() }, dropped = { event, why ->
+            log.info("Rewind of play {} to {} by {}: {}'s table-only event {} doesn't stand: {}", play, target, account, event.author, event.id, why)
+        }) { event -> store.append(history, event, UUID.fromString(event.author), model) }
+        val again = r.reapply
+        log.info("Rewind of play {} to {} by {} re-applies: {} of their event(s) taken back ({}), the other player's line of {} event(s) from {} " +
+            "made again on {} (line {}): {} made, {}", play, target, account, at, after.take(at).joinToString { it.id },
+            after.size - at, after[at].id, r.base, line, again.events.size,
+            again.stoppedAt?.let { "taken back from ${it.id} (${again.why})" } ?: "the whole line stands")
+        again.record.forEach { log.info("Rewind of play {} re-applies: {}", play, it) }
+        val states = r.atBase
+        for (e in again.events) {
+            states.apply(e)
+            store.append(history, e, UUID.fromString(e.author), states)
+        }
+        val made = r.standing + again.events
+        val newHead = made.lastOrNull()?.id ?: target.also(store::raise)
+        val gone = after.map { it.id }.toSet()
+        val carried = again.events.associate { it.carriedFrom to it.id }
+        for (seat in seats) {
+            if (seat.account == account) {
+                if (seat.head in gone || seat.head == target) setHead(sql, play, account, r.base)
+                continue
+            }
+            if (seat.head !in gone) continue
+            val to = carried[seat.head]
+            if (to != null) setHead(sql, play, seat.account, to) else takeBack(sql, play, seat.account, newHead, seat.head)
+            log.info("Rewind of play {} re-applies: {}'s local head {} → {}{}", play, seat.account, seat.head, to ?: newHead, if (to == null) " (taken back)" else "")
+        }
+        if (closesRequest) clearRequest(sql, play)
+        return refresh(sql, play, history, LiveState(newHead, model), made, live, target = target, rewoundBy = account.toString(),
+            branched = again.stoppedAt != null)
     }
 
     /** [account] asks the other player to approve taking the main line back to just after [target] (I-D56 §10). */

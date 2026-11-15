@@ -1169,9 +1169,14 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         // §29.4: an undo animates backwards from the board shown before it; HIS-097 (owner playtest 2026-11-05): so does
         // the other player's branch, back to the branch point, before their new events play back
         val branch = update?.target == null && events.firstOrNull()?.let { it.parentId != head && it.author != me } == true
+        // HIS-115: the other player's rewind inside their opening that made this player's line again (events made from
+        // theirs): what doesn't stand goes back as a branch's take-back with its note, not as an undo
+        val reapplied = update?.target != null && update.rewoundBy != me && events.any { it.carriedFrom != null }
+        if (reapplied) AppLog.info("engine", "Rewind to ${update?.target} by ${update?.rewoundBy} re-applies this player's line: " +
+            "${events.count { it.carriedFrom != null }} of ${events.size} events made from theirs")
         rewinding = update?.target?.let { target ->
             lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target,
-                if (it.line.any { e -> e.id == target || e.parentId == target }) it.line else it.older + it.line, it.engine) }
+                if (it.line.any { e -> e.id == target || e.parentId == target }) it.line else it.older + it.line, it.engine, branch = reapplied) }
         } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
             lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
         }
@@ -1184,7 +1189,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             (if (events.isEmpty()) " (a settings update, no event)" else " (with events ${events.joinToString(",") { it.id.take(8) }})"))
         if (device.needsReload && update?.target != null) reloadRewind = rewinding
         val drained = device.notes()
-        val branched = branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }
+        val branched = (branch || reapplied) && device.session.behind && drained.any { it is GameDevice.Note.Branched }
         if (branched) {
             takingBack = true
             // HIS-106: the rewind back to the branch point plays at once: live, or once the player tapped the centre text

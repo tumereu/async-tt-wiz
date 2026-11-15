@@ -127,15 +127,41 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
      * line is due there (the next event starts it), and local heads past the target move to the new head; the other
      * players' table-only events that may stand are added again (the first starting the line). Closes an open undo
      * request. Returns the events added. */
+    /** What the last [rewind] made again when it re-applied the other player's line (HIS-115), else null. */
+    var rewound: Rewind.Reapplied? = null
+        private set
+
     fun rewind(player: PlayerId, target: String): List<GameEvent> {
         val after = MainLine.after(history, head, target)!!
         val gone = after.map { it.id }.toSet()
+        val at = Rewind.reapplies(history.stateAt(target), after, player)
         store.remove(gone)
         val model = history.stateAt(target)
         lines++
         head = target
         warm = LiveState(target, model)
         var n = 0
+        rewound = null
+        if (at != null) {
+            // HIS-115: inside the player's opening, before the other player's assumed keep about them: that line is made again
+            val r = Rewind.reapply(model, target, after, at, player, lines, { "line${lines}s${n++}" }) { add(it, model) }
+            val states = r.atBase
+            for (e in r.reapply.events) {
+                states.apply(e)
+                store.add(e, history.checkpointFor(store.depthOfParent(e) + 1, states))
+                head = e.id
+            }
+            warm = LiveState(head, model)
+            val carried = r.reapply.events.associateBy { it.carriedFrom }
+            heads.replaceEach { p, h -> when {
+                p == player -> if (h in gone || h == target) r.base else h
+                h in gone -> carried[h]?.id ?: head
+                else -> h
+            } }
+            request = null
+            rewound = r
+            return r.standing + r.reapply.events
+        }
         val events = Rewind.again(model, target, after, player, lines, { "line${lines}s${n++}" }) { add(it, model) }
         heads.replaceEach { _, h -> if (h in gone || h == target) head else h }
         request = null

@@ -2198,6 +2198,8 @@ class GameDevice(
                 remember("own undo to $target already shown")
                 if (localUndos.isEmpty()) session.undone()
             }
+            // HIS-115: their rewind inside their opening re-applied this player's line resting on the assumed keep about them
+            else if (by != null && rewoundReapplying(target, PlayerId(by), events)) {}
             else when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
@@ -2286,18 +2288,43 @@ class GameDevice(
         if (first.parentId == session.head) return false
         val next = session.events.getOrNull(at + 1) ?: return false
         if (next.assumed?.assumedBy != me) return false
+        return followReapply(first.parentId, events, PlayerId(first.author), first)
+    }
+
+    /**
+     * HIS-115 (first turn during mulligans §3.6): whether the other player's rewind to [target] ([by], with its new
+     * [events]) re-applied this player's line, which rested on their assumed keep about [by] after their opening events the
+     * rewind took back ([Rewind.reapplies] on this device's line; the server marks the events made again,
+     * [GameEvent.carriedFrom]); if so it is followed as any re-apply ([followReapply]): what stands doesn't go back, what
+     * doesn't is taken back as a branch ("<name> responded — your Ember Echo was taken back"). A rewind that made nothing
+     * again is an ordinary one.
+     */
+    private fun rewoundReapplying(target: String, by: PlayerId, events: List<GameEvent>): Boolean {
+        if (by == me || events.none { it.carriedFrom != null }) return false
+        val after = session.after(target) ?: return false
+        if (session.drafting) session.abandon()
+        val at = session.stateAt(target)?.let { Rewind.reapplies(it, after, by) } ?: return false
+        remember("rewind to ${target.take(8)} by ${by.value.take(8)} took back their ${at} opening event(s) and re-applied this player's line")
+        return followReapply(target, events, by, null)
+    }
+
+    /**
+     * Follows the server's re-apply of this player's line after [parent] ([events]: the other player's opening move [first],
+     * or with none their rewind's events, then the events made again): see [reapplied] and [rewoundReapplying].
+     */
+    private fun followReapply(parent: String, events: List<GameEvent>, by: PlayerId, first: GameEvent?): Boolean {
         // The moves of this player's own on their way, carried to the re-made events (the board they were made on, by place)
         val pending = session.pending.filter { it.id in made && it.author == me.value && it.assumed == null }
         val madeOn = pending.firstOrNull()?.let { p -> session.pending.firstOrNull()?.let { session.stateAt(p.parentId) } }
         val before = where()
-        val r = session.reapplied(first, events.drop(1))
-        if (r == null) { needsReload = true; remember("reload at re-apply ${first.id} on ${first.parentId}: ${followed()}"); return true }
-        val by = PlayerId(first.author)
-        remember("re-apply by ${first.author.take(8)}: ${first.id.take(8)} (${first.engine?.steps?.firstNotNullOfOrNull { it.input }}) on " +
-            "${first.parentId.take(8)}, ${events.size - 1} made again (${events.drop(1).joinToString { "${it.carriedFrom?.take(8) ?: "-"}→${it.id.take(8)}" }}), " +
+        val r = session.reapplied(parent, events)
+        if (r == null) { needsReload = true; remember("reload at re-apply by ${by.value.take(8)} on $parent: ${followed()}"); return true }
+        val again = events.filter { it.carriedFrom != null || it.assumed != null }
+        remember("re-apply by ${by.value.take(8)}: ${first?.let { "${it.id.take(8)} (${it.engine?.steps?.firstNotNullOfOrNull { s -> s.input }})" } ?: "their rewind"} on " +
+            "${parent.take(8)}, ${again.size} made again (${again.joinToString { "${it.carriedFrom?.take(8) ?: "-"}→${it.id.take(8)}" }}), " +
             "was $before, now ${where()}, head carried ${r.carried}, taken back ${r.takenBack.map { it.id.take(8) }}, own pending dropped ${r.dropped.size}")
         // What the old events were for this device, the new ones are
-        for (e in events.drop(1)) {
+        for (e in events) {
             val old = e.carriedFrom ?: continue
             origins[old]?.let { origins[e.id] = it }
             made[old]?.let { made[e.id] = it }
@@ -2307,15 +2334,17 @@ class GameDevice(
             if (endTurnAt == old) endTurnAt = e.id
         }
         opponentInputs++
-        endChain("their input ${first.id}")
-        if (r.takenBack.isNotEmpty()) note(Note.Branched(by, r.discarded.first(), r.takenBack, r.takenBack.filter(::realInput)))
+        endChain("their input ${first?.id ?: "rewind to $parent"}")
+        // Their own opening events a rewind took back aren't this player's to be told about as taken back
+        val takenBack = r.takenBack.filter { first != null || it.author != by.value }
+        if (takenBack.isNotEmpty()) note(Note.Branched(by, r.discarded.first(), takenBack, takenBack.filter(::realInput)))
         else if (r.carried) {
-            val input = first.engine?.steps?.firstNotNullOfOrNull { it.input }
+            val input = first?.engine?.steps?.firstNotNullOfOrNull { it.input }
             val mulligan = (input as? Input.Answer)?.answer == arcanum.engine.decision.Answer.Option("Mulligan") ||
                 (input as? Input.SetupAnswer)?.answer == arcanum.engine.decision.Answer.Option("Mulligan")
             note(Note.Stands(by, mulligan))
         }
-        endTurnTakenBack(first.parentId)
+        endTurnTakenBack(parent)
         // §3.5: the player's moves on their way, made again on the board now when the same decision waits there, by place
         if (madeOn != null) {
             val keyOld = Host.loopKey(madeOn.engine, me)

@@ -287,6 +287,48 @@ class EngineGameServiceTest {
         assertEquals("stale", f.owner.execute(GameAction.Submit(late)).reason)
     }
 
+    // HIS-115, HIS-087, HIS-042 (spec §3.6): Bob mulligans twice (the first is free), Alice assumes his keep (its stand-in
+    // bottom choice, then the keep), Bob's own bottom choice re-applies her line; his undo of that bottom choice is free (it
+    // showed him nothing new; her line isn't taken back) and makes her line again on the point it lands on: the first event
+    // made starts the rewind's new line, her local head moves to the event made from hers, his stays at the undo's point
+    @Test fun `a rewind of the other player's to before the assumed keep makes the line again`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "r")
+        val alice = f.device(f.a)
+        val bob = f.device(f.b)
+        fun submit(stream: Stream, submission: Submission) = assertEquals("accepted", stream.execute(GameAction.Submit(submission)).outcome)
+        submit(f.owner, alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))))
+        val aliceKeep = alice.pending.single()
+        bob.receivedShown(aliceKeep); alice.receivedShown(aliceKeep)
+        val mulligans = List(2) {
+            submit(f.recipient, bob.act(id(), Input.Answer(bob.model.engine.pending!!.decision.id, Answer.Option("Mulligan"))))
+            bob.pending.single().also { bob.receivedShown(it); alice.receivedShown(it) }
+        }
+        // Alice, shown his mulligans, presses Assume keep: the stand-in bottom choice, then the keep
+        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(mulligans.last().id)).outcome)
+        repeat(2) {
+            val keep = org.asyncttwiz.protocol.game.Reapply.assumedKeep(alice.model.engine, f.alice)!!
+            submit(f.owner, alice.act(id(), keep, assumed = true))
+            alice.receivedShown(alice.pending.single())
+        }
+        assertEquals(1, alice.model.engine.turn.number)
+        val d = bob.model.engine.pending!!.decision as arcanum.engine.decision.Decision.ChooseObjects
+        submit(f.recipient, bob.act(id(), Input.Answer(d.id, Answer.Objects(bob.model.engine.player(f.bob).hand.take(d.min)))))
+        val lines = f.snapshot().lines
+        assertEquals("accepted", f.recipient.execute(GameAction.EngineRewind(mulligans.last().id)).outcome, "free")
+        val snapshot = f.snapshot()
+        assertEquals(lines + 1, snapshot.lines)
+        val after = snapshot.events.map(f.codec()::decodeEvent).dropWhile { it.id != mulligans.last().id }.drop(1)
+        assertEquals(2, after.size, "the stand-in bottom choice and the keep made again")
+        assertTrue(after.all { it.author == f.a.account.accountId && it.assumed?.assumedBy == f.alice })
+        assertEquals(snapshot.lines, after.first().startsLine, "the first event made starts the rewind's new line")
+        assertNotNull(after.last().carriedFrom)
+        assertEquals(after.last().id, snapshot.headId)
+        assertEquals(after.last().id, snapshot.localHeads[f.a.account.accountId], "her local head on the event made from hers")
+        assertEquals(mulligans.last().id, snapshot.localHeads[f.b.account.accountId], "his at the undo's point")
+        assertEquals(1, f.codec().decodeModel(snapshot.state).engine.turn.number)
+        assertEquals(null, snapshot.rewindRequest)
+    }
+
     // I-D56 §10, HIS-086: a free undo rewinds at once: it only pops events (owner's rule 2026-11-04), and the next event
     // there starts the new line; past the other player's input it is a request
     @Test fun `free undo, an undo request and its answer`() = withService { runtime ->

@@ -98,8 +98,68 @@ object Rewind {
     fun requestNeeded(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): String? =
         judge(model, target, after, player, others).reason
 
-    /** [requestNeeded] with its account ([Verdict.why]). */
+    /**
+     * [requestNeeded] with its account ([Verdict.why]). A rewind of [player]'s inside their opening to before the other
+     * player's assumed keep about them ([reapplies]) is judged by the events before that keep alone: the other player's line
+     * after it isn't taken back but made again on the point the rewind lands on (HIS-115).
+     */
     fun judge(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): Verdict {
+        val at = if (model.engine.turn.number == 0) reapplies(model.copy(), after, player) else null
+        if (at == null) return judgeAll(model, target, after, player, others)
+        val before = after.take(at)
+        val ids = before.map { it.id }.toSet()
+        // A local head on the line made again has seen everything before it
+        val seen = others.map { if (it == target || it in ids) it else before.last().id }
+        val verdict = judgeAll(model, target, before, player, seen)
+        return Verdict(verdict.reason, verdict.why + "; the other player's line of ${after.size - at} event(s) after ${before.last().id.take(8)} " +
+            "rests on their assumed keep about you: made again, not taken back (HIS-115)")
+    }
+
+    /**
+     * HIS-115 (first turn during mulligans §3.6): whether [player]'s rewind to the point [model] is at (used up) re-applies
+     * the other player's line instead of taking it back: the index in [after] of the other player's assumed opening answer
+     * about [player] (their assumed keep, or its stand-in bottom choice, [Reapply.opening]) that the line rests on, when only
+     * [player]'s own events and other players' table-only events come before it (so the other player's own opening, their
+     * keep included, isn't taken back) and at least one does; else null: an ordinary rewind.
+     */
+    fun reapplies(model: GameModel, after: List<GameEvent>, player: PlayerId): Int? {
+        if (model.engine.turn.number != 0) return null
+        for ((i, event) in after.withIndex()) {
+            val by = event.assumed?.assumedBy
+            if (by != null) return i.takeIf { i > 0 && by != player && Reapply.opening(event, model.engine) }
+            if (event.engine != null && event.author != player.value) return null
+            model.apply(event)
+        }
+        return null
+    }
+
+    /**
+     * HIS-115: what a rewind of [player]'s to [target] that [reapplies] (at [at]) adds: the other players' table-only events
+     * before the assumed keep that may stand ([again], the first starting the new [line]), then the other player's line
+     * from the assumed keep made again on top of them ([Reapply.run]: the assumed keep for the opening as it is there, then
+     * each event while it comes out the same; the first event made starts [line] when [again] added none). [model] is the
+     * state at [target] (used up: it ends as the state after the last event made); [after] the main line's events after
+     * [target].
+     */
+    fun reapply(model: GameModel, target: String, after: List<GameEvent>, at: Int, player: PlayerId, line: Int, ids: () -> String,
+        dropped: (GameEvent, String) -> Unit = { _, _ -> }, added: (GameEvent) -> Unit = {}): Reapplied {
+        val before = after.take(at)
+        val old = after.drop(at)
+        // The state the old line rests on (its base P)
+        val oldBase = model.copy().also { m -> before.forEach(m::apply) }
+        val standing = again(model, target, before, player, line, ids, dropped, added)
+        val base = standing.lastOrNull()?.id ?: target
+        val atBase = model.copy()
+        val assumer = checkNotNull(old.first().assumed?.assumedBy) { "No assumption at ${old.first().id}" }
+        val result = Reapply.run(oldBase, model, base, old, assumer, ids, line = line.takeIf { standing.isEmpty() })
+        return Reapplied(standing, result, base, atBase)
+    }
+
+    /** What [reapply] added: [standing] (the other players' table-only events made again first), then [reapply]'s events
+     * after [base] (the last of [standing], or the target); [atBase] is the state at [base]. */
+    class Reapplied(val standing: List<GameEvent>, val reapply: Reapply.Result, val base: String, val atBase: GameModel)
+
+    private fun judgeAll(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): Verdict {
         // The index in [after] of the last event another player has seen (−1: none)
         val seen = others.maxOfOrNull { head -> if (head == target) -1 else after.indexOfFirst { it.id == head } } ?: -1
         val undone = mutableListOf<GameEvent>()

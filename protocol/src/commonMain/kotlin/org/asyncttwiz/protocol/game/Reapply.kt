@@ -74,9 +74,13 @@ object Reapply {
      * up), [model] the state at the new base [baseId] (the other player's real opening event made on P, used up: it ends
      * as the state after the last re-made event). The old line's leading assumed opening answers are made again for the
      * opening as it now is ([assumedKeep]), then each later event input by input while it comes out the same. [ids] names
-     * the new events.
+     * the new events. [line]: the line the first event made starts (a rewind of the other player's to before the base,
+     * [Rewind.reapply]: every rewind starts a new line, HIS-042); null for a re-apply at the other player's opening move,
+     * which starts none.
      */
-    fun run(oldBase: GameModel, model: GameModel, baseId: String, old: List<GameEvent>, assumer: PlayerId, ids: () -> String): Result {
+    fun run(oldBase: GameModel, model: GameModel, baseId: String, old: List<GameEvent>, assumer: PlayerId, ids: () -> String,
+        line: Int? = null): Result {
+        var lineDue = line
         val record = mutableListOf<String>()
         val events = mutableListOf<GameEvent>()
         var parent = baseId
@@ -108,6 +112,7 @@ object Reapply {
             builder.mode = keepMode
             builder.carriedFrom = replaced[n]?.id
             try {
+                lineDue?.let(builder::startLine)
                 builder.perform(input, assumedBy = assumer)
                 foldAssumed(builder, model, assumer)
             } catch (e: RuntimeException) {
@@ -116,6 +121,8 @@ object Reapply {
                 return Result(events, old.getOrNull(i), "the assumed keep wasn't made again: ${e.message}", record)
             }
             val event = builder.build()
+            lineDue?.let { record += "${event.id.take(8)} starts line $it (the rewind's)" }
+            lineDue = null
             record += "assumed again ${event.id.take(8)}${event.carriedFrom?.let { " (for ${it.take(8)})" }.orEmpty()}: $input"
             events += event
             parent = event.id
@@ -131,7 +138,10 @@ object Reapply {
             builder.carriedFrom = event.id
             val why: String? = try {
                 var failed: String? = null
-                for ((j, step) in event.engine?.steps.orEmpty().withIndex()) {
+                // After a rewind the first event made starts its new line; an old event's own line start can't follow it
+                if (line != null && event.startsLine != null) failed = "it starts a line of its own, which the rewind's new line replaces"
+                else lineDue?.let(builder::startLine)
+                if (failed == null) for ((j, step) in event.engine?.steps.orEmpty().withIndex()) {
                     val input = step.input
                     if (input == null) {
                         // A line's start (the old event started one, after an undo of the assumer's): the same line's reshuffle
@@ -185,6 +195,8 @@ object Reapply {
                 return Result(events, event, why, record)
             }
             val made = builder.build()
+            lineDue?.let { record += "${made.id.take(8)} starts line $it (the rewind's)" }
+            lineDue = null
             record += "${event.id.take(8)} → ${made.id.take(8)}: ${made.engine?.steps.orEmpty().mapNotNull { it.input }.joinToString()}"
             events += made
             carried += event to made

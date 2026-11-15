@@ -35,9 +35,6 @@ class InspectSwipe {
      * pinned Inspect shows them, while the key is held. */
     fun holdByKey() { begin(); progress = 1f; keyHeld = true }
 
-    /** WEB-024: a tap of the finger key pins the Inspect it opened, its close button showing. */
-    fun pinByKey() { keyHeld = false; pinned = true; progress = 1f }
-
     /**
      * The holding finger is [dx], [dy] from where the hold began. True when the movement is the swipe's (the caller doesn't
      * scroll with it); false when it is the scroll's.

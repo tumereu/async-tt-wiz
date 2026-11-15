@@ -86,6 +86,26 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
         val b = port.bounds
         drawRect(Color.White, xy(b.x, b.y), size(b.width, b.height))
     }
+    // WEB-015 (owner playtest 2026-11-15): on the desktop table the battlefields fill their room down to the window's bottom:
+    // the land rows' colours go on beyond the rows (yours down under what floats over the bottom, the other player's up to their
+    // seat header) where the rows don't reach
+    val shown = scene.world?.clipViewport
+    val top = scene.fields.firstOrNull()
+    val own = scene.fields.lastOrNull()
+    if (scene.desktop && shown != null && top != null && own != null && top !== own) {
+        if (top.gridBounds.y > shown.y) drawRect(battlefieldColor(top.owner, viewer, turnPlayer, lands = true),
+            xy(shown.x, shown.y), size(shown.width, top.gridBounds.y - shown.y))
+        if (own.gridBounds.bottom < shown.bottom) drawRect(battlefieldColor(own.owner, viewer, turnPlayer, lands = true),
+            xy(shown.x, own.gridBounds.bottom), size(shown.width, shown.bottom - own.gridBounds.bottom))
+    }
+    // WEB-015, WEB-016, WEB-018: what floats over the desktop table's battlefields with a background of its own
+    for ((b, color) in scene.floats) drawRect(color, xy(b.x, b.y), size(b.width, b.height))
+    // WEB-016: your floating seat header's edges over the battlefield, so it reads as lying on it
+    scene.desktopPlate?.let { b ->
+        val edge = OwnTableColor.copy(alpha = .35f)
+        drawLine(edge, xy(b.x, b.y), xy(b.right, b.y), density)
+        drawLine(edge, xy(b.right, b.y), xy(b.right, b.bottom), density)
+    }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {
         val b = hand.bounds
         // ZON-001: the other player's fanned hand in portrait shows only its count at its right, on their row

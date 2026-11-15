@@ -377,6 +377,23 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             else -> false
         }
     }
+    // WEB-031 (owner playtest 2026-11-15): holding Ctrl (its hold key, WEB-035) keeps the response mode Control until it is let
+    // go, back to the mode you had; another key with it is that key's hotkey (Ctrl+Z). Heard before the hotkeys above (it never
+    // takes a key), so it sees every key pressed with it
+    val holdScope = rememberCoroutineScope()
+    val holdKey = remember(game.id) { HoldKey(holdScope, { name -> routes.holdControl(name) },
+        { previous, why -> routes.releaseControl(previous, why) }) }
+    DisposableEffect(holdKey) { onDispose { holdKey.release("the table closed") } }
+    DesktopKeyboard.Listen(desktopLayout) { key ->
+        val chord = bindings.keyOf(HotkeyAction.ControlHold) ?: return@Listen false
+        val matches = KeyChord.holdOf(key) == chord
+        when {
+            matches && key.down && !key.repeat && !key.textField && !takingBack -> holdKey.press(key.key)
+            matches && !key.down -> holdKey.release("let go")
+            key.down && !key.repeat && !matches && holdKey.held -> holdKey.release("${key.key} pressed with it")
+        }
+        false
+    }
     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap,
         LocalUnhiddenPlay provides unhidden,
         LocalDesktopFrame provides desktopFrame, LocalTableHotkeys provides hotkeys.takeIf { desktopLayout },

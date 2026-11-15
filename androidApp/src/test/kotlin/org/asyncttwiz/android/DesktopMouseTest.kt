@@ -19,53 +19,35 @@ class DesktopMouseTest {
         assertEquals(null, MouseButton.of(primary = false, secondary = false, tertiary = false))
     }
 
-    // WEB-024 (owner, D4, decision 31): holding Alt over a card inspects it while held and pauses the view; releasing it after
-    // the tap's time closes the Inspect and lets the view go on
+    // WEB-024 (owner, D4, decision 31; owner playtest 2026-11-15: no pinning by a tap): holding Alt over a card inspects it
+    // while held and pauses the view; releasing it, however soon, closes the Inspect and lets the view go on
     @Test fun holdingTheFingerKeyOverACardInspectsItWhileHeld() {
         val key = DesktopFingerKey()
-        assertEquals(listOf(Effect.Pause(true), Effect.Inspect("c1")), key.press("Alt", 1_000, "c1", inspectOpen = false))
+        assertEquals(listOf(Effect.Pause(true), Effect.Inspect("c1")), key.press("Alt", "c1"))
         assertTrue(key.held)
-        assertEquals(emptyList(), key.press("Alt", 1_030, "c1", inspectOpen = true), "a held key's repeat does nothing")
-        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt", 2_000))
-        assertFalse(key.pinned)
+        assertEquals(emptyList(), key.press("Alt", "c1"), "a held key's repeat does nothing")
+        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt"))
+        key.press("Alt", "c1")
+        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt"), "a quick tap pins nothing")
+        assertFalse(key.held)
     }
 
-    // WEB-024: a tap of Alt (released within the hold time, nothing else pressed) pins the Inspect; Alt again closes it
-    @Test fun aTapOfTheFingerKeyPinsTheInspectUntilTheKeyAgain() {
+    // WEB-024: Shift is the fallback finger key; a second finger key while one is held does nothing
+    @Test fun shiftIsTheFallbackFingerKey() {
         val key = DesktopFingerKey()
-        key.press("Alt", 0, "c1", inspectOpen = false)
-        assertEquals(listOf(Effect.Pause(false), Effect.Pin), key.release("Alt", 120))
-        assertTrue(key.pinned)
-        assertEquals(listOf(Effect.Close, Effect.Pause(true)), key.press("Alt", 5_000, "c2", inspectOpen = true), "Alt again closes it")
-        assertEquals(listOf(Effect.Pause(false)), key.release("Alt", 5_080), "and its release opens nothing")
-        assertFalse(key.pinned)
+        assertEquals(listOf(Effect.Pause(true), Effect.Inspect("c1")), key.press("Shift", "c1"))
+        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Shift"))
+        key.press("Alt", "c1")
+        assertEquals(emptyList(), key.press("Shift", null), "a second finger key does nothing")
+        assertEquals(emptyList(), key.release("Shift"))
+        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt"))
     }
 
-    // WEB-024: a pinned Inspect closed by ✕, Esc or a click is forgotten: the next press over a card opens that card's
-    @Test fun aPinnedInspectClosedElsewhereIsForgotten() {
-        val key = DesktopFingerKey()
-        key.press("Alt", 0, "c1", inspectOpen = false); key.release("Alt", 100)
-        assertEquals(listOf(Effect.Pause(true), Effect.Inspect("c2")), key.press("Alt", 3_000, "c2", inspectOpen = false))
-    }
-
-    // WEB-024: another key or a mouse button during the press makes it no tap; Shift is the fallback finger key
-    @Test fun anInterruptedPressIsNoTapAndShiftIsTheFallback() {
-        val key = DesktopFingerKey()
-        key.press("Shift", 0, "c1", inspectOpen = false)
-        key.interrupt()
-        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Shift", 100))
-        key.press("Alt", 1_000, "c1", inspectOpen = false)
-        assertEquals(emptyList(), key.press("Shift", 1_010, null, inspectOpen = true), "a second finger key only interrupts")
-        assertEquals(emptyList(), key.release("Shift", 1_020))
-        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt", 1_050))
-    }
-
-    // WEB-025 (decision 31): away from cards the finger key only pauses the view while held, and its tap pins nothing
+    // WEB-025 (decision 31): away from cards the finger key only pauses the view while held
     @Test fun theFingerKeyElsewhereOnlyPauses() {
         val key = DesktopFingerKey()
-        assertEquals(listOf(Effect.Pause(true)), key.press("Alt", 0, null, inspectOpen = false))
-        assertEquals(listOf(Effect.Pause(false)), key.release("Alt", 50))
-        assertFalse(key.pinned)
+        assertEquals(listOf(Effect.Pause(true)), key.press("Alt", null))
+        assertEquals(listOf(Effect.Pause(false)), key.release("Alt"))
     }
 
     // WEB-025, HIS-021: on the desktop table the left button held still on a card pauses the view but never inspects (§5: no

@@ -104,9 +104,9 @@ class DesktopTableScreenshotTest {
         compose.waitForIdle()
     }
 
-    // WEB-024, WEB-025, TBL-131 (D4): Alice cast her Ember Cub this turn; she holds Alt with the mouse over the Cub:
-    // Inspect shows it over the dimmed table with its changes beside it, without the close button, and the view is paused;
-    // a quick tap of Alt pins it with its close button, Alt again closes it
+    // WEB-024, WEB-025 (D4; owner playtest 2026-11-15: no pinned Inspect by a tap of Alt): Alice cast her Ember Cub this turn;
+    // she holds Alt with the mouse over the Cub: Inspect shows it over the dimmed table with its changes beside it, without a
+    // close button, and the view is paused; released it closes, and a quick tap of Alt pins nothing
     @Test fun holdingAltOverACardInspectsItWithItsChanges() {
         val kit = EngineTableKit()
         kit.opening()
@@ -120,18 +120,64 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithContentDescription("Close inspection").assertDoesNotExist()
         compose.runOnIdle { assertTrue(kit.routes.viewPause.key, "the finger key pauses the view") }
         captureShot("$SCREENSHOTS/desktop/inspect-alt.png",
-            "Alice cast her Ember Cub this turn; holding Alt with the mouse over it inspects it over the dimmed desktop table, its picture at the left with its changes (entered this turn) beside it, as pinned Inspect shows them, and no close button while Alt is held.")
+            "Alice cast her Ember Cub this turn; holding Alt with the mouse over it inspects it over the dimmed desktop table, its picture at the left with its changes (entered this turn) beside it, and no close button: it shows only while Alt is held.")
         key("Alt", false, 12_000)
         compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         hover(cubItem.copy(bounds = cubItem.bounds.copy(x = cubItem.bounds.x + 2f)))
         key("Alt", true, 20_000)
         key("Alt", false, 20_100)
-        compose.onNodeWithTag("card-inspection").assertExists()
-        compose.onNodeWithContentDescription("Close inspection").assertExists()
-        compose.runOnIdle { assertFalse(kit.routes.viewPause.key) }
-        key("Alt", true, 30_000)
-        key("Alt", false, 30_050)
         compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+        compose.runOnIdle { assertFalse(kit.routes.viewPause.key) }
+    }
+
+    // WEB-024, TBL-111 (owner playtest 2026-11-15: "should be top down and scrollable, preferably even whilst held"): Alice has two
+    // Mountains stacked on her battlefield; holding Alt over the stack inspects both, one under the other, and the mouse wheel
+    // scrolls them while Alt is held
+    @Test fun aMultiCardInspectListsTheCardsTopDownAndTheWheelScrollsIt() {
+        val kit = EngineTableKit()
+        kit.toReadyCub()
+        kit.playLand()
+        render(kit)
+        val stack = scene(kit).items.filter { it.battlefieldCard && it.copies == 2 }.last()
+        hover(stack)
+        key("Alt", true, 10_000)
+        compose.onNodeWithTag(INSPECT_LIST_TAG).assertExists()
+        val line = compose.onNodeWithTag(INSPECT_SEPARATOR_TAG).fetchSemanticsNode().boundsInRoot
+        assertTrue(line.width > line.height, "the cards one under another, a line across between them: $line")
+        compose.onNodeWithTag(INSPECT_LIST_TAG).performMouseInput { scroll(3f) }
+        compose.waitForIdle()
+        val scrolled = compose.onNodeWithTag(INSPECT_SEPARATOR_TAG).fetchSemanticsNode().boundsInRoot
+        assertTrue(scrolled.top < line.top - 50f, "the wheel scrolled them up while Alt is held: $line -> $scrolled")
+        compose.onNodeWithTag(INSPECT_LIST_TAG).performMouseInput { scroll(-3f) }
+        compose.waitForIdle()
+        captureShot("$SCREENSHOTS/desktop/inspect-list.png",
+            "Alice holds Alt with the mouse over her two stacked Mountains on the desktop table: Inspect lists both, one under the other with a line between them, the second peeking in at the bottom; the mouse wheel scrolls the list while Alt is held.")
+        key("Alt", false, 12_000)
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+    }
+
+    // WEB-031 (owner playtest 2026-11-15): the hold key keeps the response mode Control while held and puts back the mode Alice
+    // had when it is let go; a mode changed meanwhile is kept
+    @Test fun holdingTheHoldKeyKeepsControlModeUntilItIsLetGo() {
+        val kit = EngineTableKit()
+        kit.opening()
+        val mode = { kit.alice.device.settings.mode }
+        val before = mode()
+        assertTrue(before != org.asyncttwiz.protocol.game.ResponseMode.FullControl, "Alice isn't in Control to begin with: $before")
+        val was = assertNotNull(kit.routes.holdControl("Control"))
+        kit.settle()
+        assertEquals(org.asyncttwiz.protocol.game.ResponseMode.FullControl, mode(), "Control while held")
+        kit.routes.releaseControl(was, "let go")
+        kit.settle()
+        assertEquals(before, mode(), "back to her mode")
+        kit.routes.holdControl("Control")
+        kit.settle()
+        assertTrue(kit.routes.nextResponseMode(), "she changes the mode meanwhile")
+        kit.settle()
+        val changed = mode()
+        kit.routes.releaseControl(was, "let go")
+        kit.settle()
+        assertEquals(changed, mode(), "a mode changed meanwhile is kept")
     }
 
     // WEB-027, ZON-080, WEB-026 (§5): with a Mountain and an Ember Shard out, the mouse rests on Alice's Ember Kit in hand: its
@@ -173,6 +219,24 @@ class DesktopTableScreenshotTest {
         kit.playOn("the Kit cast with offspring") { kit.state().stack.isNotEmpty() || card in kit.field(Choices.KIT).map(kit::atw) }
     }
 
+    // WEB-015 (owner playtest 2026-11-15, as in MTG Arena): Alice's hand is a fan at the bottom of her desktop table between her
+    // seat header and the action area, its cards partly below the window's bottom; the mouse on her Mountain raises it whole
+    // into view, upright and over the others, its Play chip faded above it
+    @Test fun theHandIsAFanAndTheHoveredCardRises() {
+        val kit = EngineTableKit()
+        kit.opening()
+        render(kit)
+        val mountain = scene(kit).items.first { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.label.startsWith("Mountain") }
+        hover(mountain.copy(bounds = mountain.handSlot!!))
+        compose.waitForIdle()
+        val risen = compose.onAllNodes(hasContentDescription("Mountain, owner", substring = true)).fetchSemanticsNodes()
+            .map { it.boundsInRoot }.minBy { it.top }
+        assertTrue(risen.bottom <= 900f - DesktopTable.FAN_LIFT + 1f && risen.top < 900f - DesktopTable.FLOAT - 40f,
+            "the Mountain whole in view: $risen")
+        captureShot("$SCREENSHOTS/desktop/hand-fan.png",
+            "Alice's hand on the desktop table is a fan at the bottom between her seat header and the action area, its cards turned a little and partly below the window; with the mouse on her Mountain it rose whole into view, upright and over the others, its Play chip faded above it and, as the mouse rested there, its quick look beside it.")
+    }
+
     // WEB-028 (§5): on the desktop layout a right-click on a control does its hold action and never its tap; a left click
     // taps it
     @Test fun aRightClickOnAControlDoesItsHold() {
@@ -194,27 +258,35 @@ class DesktopTableScreenshotTest {
         compose.runOnIdle { assertEquals(1 to 1, holds to taps, "the left click tapped it") }
     }
 
-    // WEB-015, WEB-016, WEB-018, WEB-022, WEB-017, STK-007: the desktop table's arrangement: the battlefields end at the dock,
-    // the other player's seat header is at the top with their hand as a small fan of backs, yours lies right above the bottom
-    // band, your hand is centred in the band left of the action area at the desktop's larger size, and the Stack is the HUD at
-    // the battlefields' right edge, left of the dock (owner playtest 2026-11-15: never in the chat pane)
+    // WEB-015, WEB-016, WEB-018, WEB-022, WEB-017, STK-007, TBL-012: the desktop table's arrangement: the battlefields end at
+    // the dock and reach the window's bottom, laid out above what floats over their bottom (owner playtest 2026-11-15); the other
+    // player's seat header is at the top with their hand as a small fan of backs; yours floats at the bottom left, as tall as the
+    // action area at the bottom right; your hand is a fan between them, its cards partly below the window's bottom, the part in
+    // view as tall as the action area; the Stack is the HUD at the battlefields' right edge, left of the dock
     @Test fun theSceneLaysOutSeatHeadersHandAndBattlefieldsForTheDock() {
         val kit = EngineTableKit()
         kit.opening()
         val scene = scene(kit)
         val height = 900f - DesktopTable.topRow(1440f)
-        val band = DesktopTable.band(DesktopCardAppearance, false)
-        val world = assertNotNull(scene.world).viewport
-        assertTrue(world.right <= 1440f - DesktopTable.DOCK, "the battlefields end at the dock: $world")
+        val world = assertNotNull(scene.world)
+        val laidOut = world.viewport
+        assertTrue(laidOut.right <= 1440f - DesktopTable.DOCK, "the battlefields end at the dock: $laidOut")
+        assertEquals(height, assertNotNull(world.clipViewport).bottom, .5f, "drawn down to the window's bottom")
+        assertTrue(laidOut.bottom <= height - DesktopTable.FLOAT, "laid out (fitted, TBL-012) above the floats: $laidOut")
         val bobLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.b }.bounds
         val aliceLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.a }.bounds
         val margin = (DesktopTable.SEAT - DesktopTable.LIFE) / 2
         assertEquals(margin, bobLife.y, "Bob's seat header at the top, its life square in its middle")
-        assertEquals(height - band - DesktopTable.SEAT + margin, aliceLife.y, "Alice's seat header right above the bottom band")
-        assertEquals(DesktopTable.NAME, aliceLife.x, "after the avatar and name")
+        assertEquals(height - DesktopTable.SEAT + margin, aliceLife.y, "Alice's life square at the bottom of her seat header")
+        assertEquals(DesktopTable.PLATE_PAD, aliceLife.x, "her avatar and name over it")
         assertEquals(DesktopTable.LIFE, aliceLife.height)
-        assertTrue(world.y >= DesktopTable.SEAT && world.bottom <= height - band - DesktopTable.SEAT,
-            "the battlefields between the seat headers: $world")
+        val plate = assertNotNull(scene.desktopPlate)
+        assertEquals(TableBounds(0f, height - DesktopTable.FLOAT, DesktopTable.pilesRight(DesktopTable.PLATE_PAD, 3) + DesktopTable.PLATE_PAD,
+            DesktopTable.FLOAT), plate, "her seat header floating at the bottom left, as tall as the action area")
+        assertEquals(2, scene.floats.size, "her seat header and the action area float with backgrounds of their own")
+        assertTrue(scene.floats.any { it.first == TableBounds(1440f - DesktopTable.ACTIONS, height - DesktopTable.FLOAT, DesktopTable.ACTIONS,
+            DesktopTable.FLOAT) }, "the action area: ${scene.floats}")
+        assertTrue(laidOut.y >= DesktopTable.SEAT, "the battlefields under Bob's seat header: $laidOut")
         // WEB-016, WEB-022: the piles twice the landscape bar row's 32 dp, inside their seat header with their count bubbles
         val piles = scene.items.filter { it.kind == TableItemKind.PILE && it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
         assertEquals(6, piles.size)
@@ -224,13 +296,33 @@ class DesktopTableScreenshotTest {
             "Bob's piles and their bubbles inside his seat header: ${bobsPiles.map { it.bounds }}")
         // WEB-022: battlefield cards 2× (before the opening zoom, TBL-121)
         assertEquals(2f * 28f, scene.cardWidth / scene.camera.zoom, .5f)
+        // WEB-015 (owner playtest 2026-11-15): her hand a fan at 5.2×, centred between her seat header and the action area,
+        // turned and overlapping, the part in view at rest as tall as the action area
         val hand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.a }
         assertEquals(7, hand.size)
-        assertTrue(hand.all { it.bounds.height == 104f }, "hand cards at 2.6×")
-        val middle = (hand.minOf { it.bounds.x } + hand.maxOf { it.bounds.right }) / 2
-        val bandMiddle = (8f + 1440f - DesktopTable.ACTIONS - 8f) / 2
-        assertTrue(kotlin.math.abs(middle - bandMiddle) < 16f, "centred in the band left of the action area: $middle vs $bandMiddle")
-        assertTrue(hand.all { it.bounds.y >= height - band }, "in the bottom band")
+        assertTrue(hand.all { it.cardTransform?.height == 208f }, "hand cards at 5.2×: ${hand.map { it.cardTransform }}")
+        assertTrue(hand.first().cardTransform!!.rotation < 0f && hand.last().cardTransform!!.rotation > 0f, "turned as a fan")
+        assertTrue(hand.zipWithNext().all { (a, b) -> b.handSlot!!.x < a.bounds.right }, "overlapping")
+        val middle = (hand.minOf { it.handSlot!!.x } + hand.maxOf { it.handSlot!!.right }) / 2
+        val room = (plate.right + 8f + 1440f - DesktopTable.ACTIONS - 8f - TablePresentation.FAN_COUNT) / 2
+        assertEquals(room, middle, 1f, "centred between her seat header and the action area")
+        val centre = hand[3]
+        assertEquals(height - DesktopTable.FLOAT, centre.bounds.y, 1f, "the part in view as tall as the action area")
+        assertTrue(hand.all { it.bounds.bottom > height }, "partly below the window's bottom")
+        // The card the mouse is on rises whole into view, upright, and is drawn over the others; the mouse finds each card by
+        // its own part of the fan, risen or not
+        val raisedScene = TablePresentation.scene(kit.f.game, kit.alice.play(), kit.f.a, 1440f, height, true,
+            kit.toolkit.layoutState.value.copy(hovered = centre.cardId), appearance = DesktopCardAppearance, landscapeHome = true,
+            handRow = HandRow.cards(kit.alice.play(), kit.f.a), desktop = DesktopFrame())
+        val risen = raisedScene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.a }
+        assertEquals(centre.cardId, risen.last().cardId, "drawn over the others")
+        assertEquals(0f, risen.last().cardTransform!!.rotation)
+        assertEquals(height - DesktopTable.FAN_LIFT, risen.last().bounds.bottom, .5f, "whole in view")
+        val neighbour = hand[4]
+        assertEquals(neighbour.cardId, raisedScene.hit(TablePoint(neighbour.handSlot!!.center.x, height - 20f))?.cardId,
+            "the card beside it is still found by its part of the fan")
+        assertEquals(centre.cardId, raisedScene.hit(TablePoint(centre.handSlot!!.center.x, height - DesktopTable.FLOAT - 30f))?.cardId,
+            "the risen card above the fan")
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
         assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.y >= 0f && it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
         // WEB-016, ZON-001 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): Bob's hand is
@@ -245,9 +337,9 @@ class DesktopTableScreenshotTest {
         val stackItem = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         val stack = stackItem.bounds
         val region = assertNotNull(scene.stackRegion)
-        assertTrue(region.right <= 1440f - DesktopTable.DOCK + .5f && region.right >= world.right - 1f && stack.x > world.center.x,
-            "the Stack at the battlefields' right edge, left of the dock: $stack, $region, battlefields $world")
-        assertTrue(stackItem.stackBadge.x >= world.x && stackItem.stackBadge.right <= 1440f - DesktopTable.DOCK,
+        assertTrue(region.right <= 1440f - DesktopTable.DOCK + .5f && region.right >= laidOut.right - 1f && stack.x > laidOut.center.x,
+            "the Stack at the battlefields' right edge, left of the dock: $stack, $region, battlefields $laidOut")
+        assertTrue(stackItem.stackBadge.x >= laidOut.x && stackItem.stackBadge.right <= 1440f - DesktopTable.DOCK,
             "its count bubble on the battlefields, nothing of it under the dock: ${stackItem.stackBadge}")
     }
 
@@ -394,8 +486,8 @@ class DesktopTableScreenshotTest {
         val tableRight = 1440f - DesktopTable.DOCK
         assertTrue(kotlin.math.abs((bar.left + bar.right) / 2 - tableRight / 2) < 2f, "centred on the battlefields: $bar")
         assertTrue(bar.width <= DesktopTable.PROMPT_WIDTH + 1f, "at most the strip's width: $bar")
-        val seatTop = 900f - scene(kit).let { DesktopTable.band(DesktopCardAppearance, false) } - DesktopTable.SEAT
-        assertTrue(kotlin.math.abs(bar.bottom - seatTop) < 2f, "on Alice's seat header: $bar vs $seatTop")
+        val seatTop = 900f - DesktopTable.band(false)
+        assertTrue(kotlin.math.abs(bar.bottom - seatTop) < 2f, "on the top of what floats at the bottom: $bar vs $seatTop")
         compose.onAllNodesWithTag("prompt-dim").assertCountEquals(0)
         captureShot("$SCREENSHOTS/desktop/prompt-strip.png",
             "Alice chose Cinder Charm's damage mode on the desktop table: \"Choose any target\" is a strip at the bottom centre of the battlefields, right on her seat header, while the legal targets glow on the undimmed table.")
@@ -412,9 +504,34 @@ class DesktopTableScreenshotTest {
         val tableRight = 1440f - DesktopTable.DOCK
         assertTrue(kotlin.math.abs((panel.left + panel.right) / 2 - tableRight / 2) < 2f, "centred on the battlefields: $panel")
         assertEquals(DesktopTable.OVERLAY_WIDTH, panel.width, 1f)
-        compose.onAllNodesWithTag("prompt-dim").assertCountEquals(2)
+        compose.onAllNodesWithTag("prompt-dim").assertCountEquals(3)
+        // WEB-019 (owner playtest 2026-11-15): its go-on, greyed as the main button's until a mode is chosen, in its bottom right
+        // corner too
+        val goOn = compose.onNodeWithTag(PANEL_GO_ON_TAG).assert(hasContentDescription("Cast", substring = true))
+            .fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("main-button").assert(hasContentDescription("Cast", substring = true))
+        assertTrue(kotlin.math.abs(goOn.right - panel.right) < 24f && goOn.top >= panel.bottom - 1f && goOn.top < panel.bottom + 24f,
+            "in the overlay's bottom right corner, under its content: $goOn, $panel")
         captureShot("$SCREENSHOTS/desktop/prompt-overlay.png",
-            "Alice began casting Cinder Charm on the desktop table: its modes are a centred overlay over the battlefields with the table and the dock dimmed behind it, while the top row and the action area with the main button stay as they are.")
+            "Alice began casting Cinder Charm on the desktop table: its modes are a centred overlay over the battlefields with the table and the dock dimmed behind it, Cast greyed in its bottom right corner as on the main button, while the top row and the action area stay as they are.")
+    }
+
+    // WEB-019 (owner playtest 2026-11-15: the panels float in the centre, away from the main button): Alice casts Ember Burst
+    // with a Mountain out: its X panel is a centred overlay with Cast, ready at X 0, in its bottom right corner as on the main
+    // button; a click on it goes on as the main button does, to the target strip
+    @Test fun aPanelHasItsGoOnInItsCorner() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.BURST, "Mountain"))))
+        kit.opening()
+        kit.playLand()
+        assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.BURST).first())), "the cast begins: ${kit.toolkit.error}")
+        render(kit)
+        compose.onNodeWithTag(PANEL_GO_ON_TAG).assertIsEnabled().assert(hasContentDescription("Cast", substring = true))
+        compose.runOnIdle { assertEquals(null, kit.toolkit.mainSlot.action?.refusal, "Cast can be done") }
+        captureShot("$SCREENSHOTS/desktop/panel-go-on.png",
+            "Alice began casting Ember Burst with a Mountain out on the desktop table: its X panel is the centred overlay, and Cast, ready at X 0, sits in its bottom right corner as well as on the main button at the bottom right.")
+        compose.onNodeWithTag(PANEL_GO_ON_TAG).performClick()
+        compose.waitForIdle()
+        compose.runOnIdle { assertTrue(kit.toolkit.cast.targeting, "the corner's Cast went on to the targets") }
     }
 
     /** Bob kept and Alice mulliganed twice: the Keep / Bottom overlay asks for one card for the bottom; the overlay's bounds,

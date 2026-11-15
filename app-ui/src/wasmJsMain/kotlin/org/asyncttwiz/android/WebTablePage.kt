@@ -19,7 +19,8 @@ internal fun jsTablePage(on: Boolean): Unit = js("document.documentElement.class
 /**
  * Installs, once, the page's listeners that keep the browser's zoom and menus off the table and the draft (while
  * `atw-table` is set): the context menu (a long press on a phone, a right-click), Safari's pinch gestures, a trackpad's
- * pinch or Ctrl+wheel and Ctrl with +, - or 0 (page zoom), and a second finger's or a double tap's default (zoom).
+ * pinch or Ctrl+wheel and Ctrl with +, - or 0 (page zoom), Alt+wheel and Shift+wheel (history, sideways scroll), and a second
+ * finger's or a double tap's default (zoom).
  * Compose still gets every event: only the browser's default actions are cancelled.
  */
 internal fun jsGuardTablePage(): Unit = js("""{
@@ -27,7 +28,9 @@ internal fun jsGuardTablePage(): Unit = js("""{
     const stop = (event) => { if (on() && event.cancelable) event.preventDefault(); };
     window.addEventListener('contextmenu', stop, { capture: true });
     for (const kind of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(kind, stop, { capture: true, passive: false });
-    window.addEventListener('wheel', (event) => { if (event.ctrlKey) stop(event); }, { capture: true, passive: false });
+    // WEB-024 (owner playtest 2026-11-15: Alt with the wheel went back a page in Firefox): the wheel with Alt or Shift held
+    // (scrolling a held Inspect) never moves the browser through its history or scrolls the page
+    window.addEventListener('wheel', (event) => { if (event.ctrlKey || event.altKey || event.shiftKey) stop(event); }, { capture: true, passive: false });
     window.addEventListener('touchmove', (event) => { if (event.touches.length > 1) stop(event); }, { capture: true, passive: false });
     window.addEventListener('dblclick', stop, { capture: true });
     // The chat's text field (Compose's hidden input while typing) keeps its own selection

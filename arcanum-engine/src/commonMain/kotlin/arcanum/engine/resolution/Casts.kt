@@ -98,6 +98,8 @@ internal object Casts {
         watch: ((List<Int>, Map<String, List<TargetRef>>) -> Unit)? = null,
         // mh3: the kind of the ability being put on the Stack (a trigger, CR 603.3d)
         pendingKind: arcanum.api.AbilityKind? = null,
+        // trk fixes: told the player who chose the modes when not [controller] (CR 700.2e)
+        modesChosenBy: ((PlayerId) -> Unit)? = null,
     ): Pair<List<Int>, Map<String, List<TargetRef>>>? {
         val modes = instructions.modes?.let { m ->
             // "Choose one that hasn't been chosen (this turn)": modes this object chose before aren't available
@@ -123,8 +125,15 @@ internal object Casts {
             // msh: "choose up to X": at most that many
             val max = m.maxCount?.let { minOf(printed, maxOf(m.min, ev.value(it))) } ?: printed
             val min = if (raised && m.min == m.max && !m.upToMaxIf) max else m.min
+            // CR 700.2e: another player may choose the modes ("an opponent chooses one —"); of several who could, the controller picks one
+            val chooser = if (m.chooser == arcanum.api.Players.You) controller else ev.players(m.chooser).let { among ->
+                if (among.size > 1) (act.ask { Decision.ChoosePlayer(it, controller, source, among) } as Answer.Player).player.also { p ->
+                    require(p in among) { "Not a player to choose the modes: $p" }
+                } else among.singleOrNull() ?: controller
+            }
+            if (chooser != controller) modesChosenBy?.invoke(chooser)
             val chosen = if (used.isEmpty() && min == max && max == m.options.size && !m.repeatable) options.map { it.index }
-                else (act.ask { Decision.Modes(it, controller, source, options, min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
+                else (act.ask { Decision.Modes(it, chooser, source, options, min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
             require(chosen.size <= max) { "At most $max modes" }
             require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
             require(chosen.none { it in illegal }) { "Mode without legal targets: $chosen" }

@@ -71,7 +71,8 @@ class TrkChunk04StrangeNewWorldsTest {
     ) parsesTo abilities(
         triggered(entersSelf, Step.Do(Effect.GainLife(Players.You, named)), abilityWord = "Strange new worlds"),
         static(Mechanic.CantBeBlockedBy(and(artifact, creature))),
-        static(Mechanic.CantBeTargeted(by = and(ObjectFilter.Category(ObjectCategory.StackAbility), opponents), fromSource = artifact)),
+        // CR 113.7: "your opponents control" is said of the source, not of who controls the ability
+        static(Mechanic.CantBeTargeted(by = ObjectFilter.Category(ObjectCategory.StackAbility), fromSource = and(artifact, opponents))),
     )
 
     // CR 602.5b (once each turn), 601.2f (cost reduction)

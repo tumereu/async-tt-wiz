@@ -162,7 +162,8 @@ class LtrChunk13MulticoloredTest {
     ) parsesTo abilities(
         static(Mechanic.CantBeActivated(manaAbilities = false), affects = Objects.Each(and(land, opponents))),
         static(Mechanic.GainAbilitiesOf(Objects.Each(and(land, opponents)), exceptMana = true)),
-        playerStatic(Mechanic.SpendManaAsAnyColor(onlyFor = ObjectFilter.AbilityOf(source = ObjectFilter.Is(Objects.Self)))),
+        // CR 106.1b, 609.4b: "mana of any type" includes colorless
+        playerStatic(Mechanic.SpendManaAsAnyColor(onlyFor = ObjectFilter.AbilityOf(source = ObjectFilter.Is(Objects.Self)), anyType = true)),
     )
 
     // CR 707.9b: a copy that's only a Food artifact with the Food ability

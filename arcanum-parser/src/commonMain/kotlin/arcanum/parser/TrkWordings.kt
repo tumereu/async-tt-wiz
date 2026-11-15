@@ -77,4 +77,7 @@ internal object Trk {
     // trk chunk 12: "you put a peace counter on this enchantment" (an imperative with "you" written out; one clause only, so a "You may …, then …"
     // sentence is never read through it as a mandatory one)
     val YOU_IMPERATIVE = Regex("""[Yy]ou ((?:put|sacrifice|exile|return|create|destroy|reveal|discard) [^,]+)""")
+    // trk fixes: Scotty, Miracle Worker, "During your main phase, each card in your graveyard has beam me up. The beam me up cost is equal to
+    // that spell's mana cost. Scotty can't be beamed up to cast a spell this way."
+    val EACH_HAS_BEAM_ME_UP_ITS_MANA_COST = Regex("""During your (?:main phase|turn), each (.+?) in your graveyard has beam me up\. The beam me up cost is equal to (?:that spell's|its) mana cost\.(?: (.+) can't be beamed up to cast a spell this way\.)?""")
 }

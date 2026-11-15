@@ -157,6 +157,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = if (byEffect) (c.what as Announced.Spell).permitted?.let { it to null }
         else way.permission?.let { p -> (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p) }
 
+    /** trk fixes: when the permission comes from a keyword another object's static ability gives ("each card in your graveyard has beam
+     * me up"), that object ([arcanum.api.Objects.Granter] in its cost, CR 702.196b). */
+    private val permissionGranter: ObjectId? get() = generateSequence(permission?.second) { (it as? AbilityOrigin.Expansion)?.keyword }
+        .firstNotNullOfOrNull { (it as? AbilityOrigin.FromAbility)?.source }
+
     /**
      * What the other parts of the total cost use, for the mana paid before them (CR 601.2g before 601.2h): what the cost taps (its
      * own {T}, tla, CR 107.5; the creatures it asks) can't also tap for mana; what it moves away may tap for mana first, but can't
@@ -248,6 +253,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         targets = choices.targets,
         divided = choices.divided,
         modes = choices.modes,
+        modesChooser = if (choices.names[MODES_ASKED] != null) modesChooser().takeIf { it != player } else null,
         announced = choices.announced,
         names = publicNames(choices.names),
         snapshots = choices.snapshots,
@@ -294,7 +300,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     // hob: a permission's cost reads the spell it lets be cast as the affected object ("pay life equal to its mana value
     // rather than pay its mana cost", CR 118.9)
     val eval: Evaluator = snap.evaluator(player, self = sourceId, names = names, stackItem = item).let { e ->
-        if (isSpell) e.with(e.ctx.copy(affected = itemId)) else e
+        if (isSpell) e.with(e.ctx.copy(affected = itemId, granter = permissionGranter)) else e
     }
 
     // ---- Instructions
@@ -727,7 +733,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      * colorless mana as though it were mana of any colour. */
     val manaAsAnyColor: Mana.AsAnyColor get() = permission?.first.let { p ->
         when {
-            p?.manaAsAnyColor == true -> Mana.AsAnyColor.All
+            // trk fixes: every such permission says "mana of any type", so it pays {C} too (CR 106.1b, 609.4b)
+            p?.manaAsAnyColor == true -> Mana.AsAnyColor.AnyType
             p?.colorlessAsAnyColor == true -> Mana.AsAnyColor.Colorless
             else -> Mana.AsAnyColor.None
         }
@@ -746,15 +753,31 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         else snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
             .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
 
+    /** CR 700.2e: when another player chooses the modes ("an opponent chooses one —") and several could, the controller first
+     * picks which one. */
+    private fun modesChooserQuestion(modes: arcanum.api.Modes): Question? {
+        if (modes.chooser == arcanum.api.Players.You || choices.names[PLAYER + CHOOSER + MODES_ASKED] != null) return null
+        val among = eval.players(modes.chooser)
+        return if (among.size > 1) Question.Player(CHOOSER + MODES_ASKED, among, AnnounceStage.Modes) else null
+    }
+
+    /** Who chooses the modes (CR 700.2a, 700.2e): the controller unless the modes name another player. */
+    fun modesChooser(): PlayerId {
+        val modes = instructions.modes ?: return player
+        if (modes.chooser == arcanum.api.Players.You) return player
+        return (choices.names[PLAYER + CHOOSER + MODES_ASKED] as? NamedValue.Players)?.ids?.firstOrNull()
+            ?: eval.players(modes.chooser).singleOrNull() ?: player
+    }
+
     // ---- The next question
 
     fun next(): Question? {
         // CR 601.2b: modes, optional and additional costs, announced values; ecl: optional costs first when how many modes may be
         // chosen depends on them ("If this spell's additional cost was paid, choose both instead")
         val modesFirst = instructions.modes?.maxIf == null
-        if (modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
+        if (modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return modesChooserQuestion(modes) ?: Question.Modes(modes) }
         additionalCosts.forEach { (inst, m) -> if (m.optional && optionalTimes(inst) == null) return Question.OptionalCost(optionalKey(inst), m) }
-        if (!modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
+        if (!modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return modesChooserQuestion(modes) ?: Question.Modes(modes) }
         spliceable.forEach { if (choices.costs[spliceKey(it.card)] == null) return Question.Splice(spliceKey(it.card), it) }
         val announce = (instructions.announced + (if (Costs.mentionsX(contributions)) listOf("X") else emptyList())).distinct()
         announce.forEach { name -> if (name !in choices.announced) return Question.Announce(name, if (name == "X") xMinimum() else 0) }
@@ -1046,7 +1069,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             // ecl: "Choose one. If …, choose both instead": exactly that many
             // dsk backfill: "choose one or more instead" keeps the minimum (CR 700.2d)
             val min = if (raised && q.modes.min == q.modes.max && !q.modes.upToMaxIf) max else q.modes.min
-            Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
+            Decision.Modes(id, modesChooser(), sourceId, q.modes.options.mapIndexed { i, m ->
                 ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore) && !modeWithoutTargets(m), pawprints = m.pawprints)
             }, min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
         }

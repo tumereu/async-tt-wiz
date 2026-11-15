@@ -512,9 +512,11 @@ internal object Triggers {
                 arcanum.engine.decision.Choices(modes = modes, targets = targets))
         placing.current = announcing(arcanum.engine.decision.AnnounceStage.Modes, emptyList(), emptyMap())
         var chosen: Pair<List<Int>, Map<String, List<TargetRef>>>? = null
+        var modesChooser: PlayerId? = null
         val choices = try {
             Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event,
-                watch = { modes, targets -> chosen = modes to targets }, pendingKind = arcanum.api.AbilityKind.Triggered)
+                watch = { modes, targets -> chosen = modes to targets }, pendingKind = arcanum.api.AbilityKind.Triggered,
+                modesChosenBy = { modesChooser = it })
         } catch (n: NeedDecision) {
             // CR 603.3d: a decision of its modes or targets: what was chosen before it, for the one choosing
             chosen?.let { (modes, targets) -> placing.current = announcing(arcanum.engine.decision.AnnounceStage.Targets, modes, targets.toMap()) }
@@ -525,7 +527,7 @@ internal object Triggers {
         t.source?.let { recordTriggerCount(act, it, t.origin) }
         val item = StackItem(
             id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,
-            origin = t.origin, targets = choices.second, modes = choices.first, names = t.names,
+            origin = t.origin, targets = choices.second, modes = choices.first, modesChooser = modesChooser.takeIf { choices.first.isNotEmpty() }, names = t.names,
             divided = divide(act, t, ability, choices.first, choices.second),
             snapshots = (listOfNotNull(t.sourceSeen) + t.snapshots).distinctBy { it.id }, event = t.event, delayedTrigger = t.delayedTrigger,
             timestamp = act.state.nextTimestamp(),

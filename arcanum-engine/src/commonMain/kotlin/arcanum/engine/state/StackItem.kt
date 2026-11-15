@@ -34,6 +34,9 @@ data class StackItem(
     val divided: List<DividedShare> = emptyList(),
     /** Chosen mode indices (CR 700.2), in order; repeats allowed for repeatable modes. */
     val modes: List<Int> = emptyList(),
+    /** The player who chose [modes] when not the controller ("an opponent chooses one —", CR 700.2e); that player faces the
+     * dilemma (CR 700.17). */
+    val modesChooser: PlayerId? = null,
     /** Announced values by name ("X", CR 107.3, 601.2b). */
     val announced: Map<String, Int> = emptyMap(),
     /** Names bound while casting or activating: cost names ("the sacrificed creature"), paid optional costs (D37). */

@@ -302,7 +302,8 @@ class OneChunk10EffectsAndTriggersTest {
     ) parsesTo abilities(
         static(Mechanic.CantBeCountered),
         Keyword.Trample,
-        static(Mechanic.CantBeTargeted(by = opponents, fromSource = not(ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.Green))))),
+        // CR 113.7: a spell is its own source; an ability's source, not the ability, is the one an opponent controls
+        static(Mechanic.CantBeTargeted(by = ObjectFilter.Any, fromSource = and(not(ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(Color.Green))), opponents))),
         static(Mechanic.GainAbilities(listOf(Keyword.Indestructible)), condition = Condition.YourTurn),
     )
 

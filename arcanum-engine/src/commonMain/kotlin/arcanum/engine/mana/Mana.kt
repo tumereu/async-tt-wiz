@@ -638,6 +638,8 @@ internal object Mana {
         data object None : AsAnyColor { override fun covers(color: Color?) = false }
         data object All : AsAnyColor { override fun covers(color: Color?) = true }
         data object Colorless : AsAnyColor { override fun covers(color: Color?) = color == null }
+        /** "Mana of any type can be spent": as though it were mana of any colour or colorless (CR 106.1b, 609.4b), so it pays {C} too. */
+        data object AnyType : AsAnyColor { override fun covers(color: Color?) = true }
     }
 
     /** Payers from mana in [player]'s pool that may be spent on [paysFor] (CR 106.6); [anyColor]: spent as though it were
@@ -645,8 +647,8 @@ internal object Mana {
     fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null, anyColor: AsAnyColor = AsAnyColor.None,
                    xCost: Boolean = false): List<Payer> {
         val pool = snap.state.player(player).manaPool
-        val anyColor = if (spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
-        val anyType = spendsAsAnyType(snap, player, paysFor)
+        val anyColor = if (anyColor != AsAnyColor.AnyType && spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
+        val anyType = anyColor == AsAnyColor.AnyType || spendsAsAnyType(snap, player, paysFor)
         return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor, xCost) }
             .map { (i, u) -> Payer(colorsOf(u, anyColor, anyType), u.snow, ManaUse.Pool(i), u) }
     }
@@ -844,8 +846,8 @@ internal object Mana {
         val lifeBarred: Boolean = false,
     ) {
         val life = snap.state.player(player).life
-        val any = if (spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
-        val anyType = spendsAsAnyType(snap, player, paysFor)
+        val any = if (anyColor != AsAnyColor.AnyType && spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
+        val anyType = any == AsAnyColor.AnyType || spendsAsAnyType(snap, player, paysFor)
         private val removedPool = removed.filterIsInstance<ManaUse.Pool>().map { it.index }.toSet()
         val pool: List<Payer> = if (!canSpendMana) emptyList() else poolPayers(snap, player, paysFor, anyColor = any, xCost = xCost).filter { (it.use as ManaUse.Pool).index !in removedPool }
         val pinnedSources = pinned.filterIsInstance<ManaUse.Ability>()

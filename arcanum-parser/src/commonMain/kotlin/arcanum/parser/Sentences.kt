@@ -1934,8 +1934,11 @@ internal class Sentences(
                 subtypes.all { (it as? arcanum.api.SubtypeRef.Literal)?.subtype?.name in Filters.BASIC_LAND_TYPES }
             // trk chunk 06: "Enchanted creature … is a Salamander." sets its creature type: the old creature types go (CR 205.1a)
             val setsCreatureType = add.isEmpty() && subtypes.isNotEmpty() && line.startsWith("Enchanted creature ")
-            val mechanics = listOf<Mechanic>(Mechanic.SetTypes(add = add, addSubtypes = subtypes, replaceTypes = m.groupValues[3].isNotEmpty(),
-                replaceSubtypes = setsLandType || setsCreatureType)) +
+            // trk fixes: "is a Vehicle artifact … and it loses all other card types" sets its card types and so its subtypes of those types
+            // too: an Equipment artifact creature becomes an artifact with the subtype Vehicle only (CR 205.1a)
+            val setsTypes = m.groupValues[3].isNotEmpty()
+            val mechanics = listOf<Mechanic>(Mechanic.SetTypes(add = add, addSubtypes = subtypes, replaceTypes = setsTypes,
+                replaceSubtypes = setsLandType || setsCreatureType || (setsTypes && subtypes.isNotEmpty()))) +
                 (if (keywords.isEmpty()) emptyList() else listOf(Mechanic.GainAbilities(keywords)))
             return Ability.Static(mechanics, affects = arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
         }
@@ -15764,6 +15767,18 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Flashback(Cost(listOf(CostPart.ItsManaCost)))))),
                 affects = Affected.Objects(Objects.Each(cards)), condition = arcanum.api.Condition.YourTurn)
         }
+        // trk fixes: Scotty, "During your main phase, each card in your graveyard has beam me up. The beam me up cost is equal to that spell's
+        // mana cost. Scotty can't be beamed up to cast a spell this way." (layer 6; the giver isn't returned for the beam me up it gives,
+        // CR 702.196a, b)
+        Trk.EACH_HAS_BEAM_ME_UP_ITS_MANA_COST.matchEntire(line)?.let { m ->
+            val cards = Filters.noun(m.groupValues[1]) ?: return null
+            val except = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { if (isSelf(it)) ObjectFilter.Is(Objects.Granter) else return null }
+            val condition = if (line.startsWith("During your turn")) arcanum.api.Condition.YourTurn
+                else Conditions.condition("it's your main phase", self) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.BeamMeUp(Cost(listOf(CostPart.ItsManaCost)), returnExcept = except)))),
+                affects = Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))),
+                condition = condition)
+        }
         // "If you would lose unspent mana, that mana becomes red instead." (CR 106.4, 614.1a)
         Tla.LOSE_UNSPENT_BECOMES.matchEntire(line)?.let { m ->
             val color = Tokens.color(m.groupValues[1]) ?: return null
@@ -21264,12 +21279,16 @@ internal class Sentences(
         // one chunk 10: Thrun, "Thrun can't be the target of nongreen spells your opponents control or abilities from nongreen sources your opponents
         // control." (the spell itself or the ability's source, as hexproof from a quality looks, CR 702.11d, 113.7)
         // trk chunk 04: "This creature can't be the target of abilities from artifact sources your opponents control." (spells aren't restricted)
+        // trk fixes: "your opponents control" is said of the sources: an ability from such a source, whoever controls the ability (CR 113.7, 113.8)
         Trk.CANT_BE_TARGET_OF_ABILITIES_FROM.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.ControlledBy(PlayerFilter.Opponent)),
-                fromSource = Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
+            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility),
+                fromSource = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Opponent)))), affects = Affected.Objects(Objects.Self))
         }
+        // trk fixes: a spell is its own source, so "X spells your opponents control or abilities from X sources your opponents control" is
+        // any spell or ability whose source is an X an opponent controls (CR 113.7a, 113.8)
         One.CANT_BE_TARGET_OF_SPELLS_OR_ABILITIES_FROM.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent), fromSource = Filters.noun(m.groupValues[2]) ?: return null)),
+            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.Any,
+                fromSource = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Opponent)))),
                 affects = Affected.Objects(Objects.Self))
         }
         One.WOULD_GET_COUNTERS_INSTEAD_ONE_THEN_CANT.matchEntire(line)?.let { m ->
@@ -32015,8 +32034,10 @@ internal class Sentences(
             return ltrSelfStatic(Mechanic.GainAbilitiesOf(objects, exceptMana = true))
         }
         // ltr chunk 13: "Mana of any type can be spent to activate Sandyman's abilities."
+        // trk fixes: any type, so it pays {C} too (CR 106.1b, 609.4b)
         Ltr.MANA_OF_ANY_TYPE_TO_ACTIVATE_SELFS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return Ability.Static(listOf(Mechanic.SpendManaAsAnyColor(onlyFor = ObjectFilter.AbilityOf(source = ObjectFilter.Is(Objects.Self)))), affects = Affected.Players(Players.You))
+            return Ability.Static(listOf(Mechanic.SpendManaAsAnyColor(onlyFor = ObjectFilter.AbilityOf(source = ObjectFilter.Is(Objects.Self)), anyType = true)),
+                affects = Affected.Players(Players.You))
         }
         // ltr chunk 11: "This spell costs {1} less to cast for each permanent sacrificed this turn." (by any player, CR 601.2f)
         Ltr.COSTS_LESS_FOR_EACH_SACRIFICED_THIS_TURN.matchEntire(line)?.let { m ->

@@ -39,6 +39,10 @@ class TrkChunk04StrangeNewWorldsScenariosTest {
         Strange new worlds — {7}{U}{U}, Sacrifice this enchantment: Draw two cards. This ability costs {X} less to activate, where X is the number of differently named lands you control.
     """)
     private val slowLand = Cards.invent("Sluggish Vale", null, "Land", "This land enters tapped.")
+    private val sharedProd = Cards.invent("Trk Fix Shared Prod", "{1}", "Artifact",
+        "{1}: This artifact deals 1 damage to target creature. Any player may activate this ability.")
+    private val lentProd = Cards.invent("Trk Fix Lent Prod", "{1}", "Artifact",
+        "{1}: This artifact deals 1 damage to target creature. Any player may activate this ability.")
     private val prod = Cards.invent("Trk4 Prod", "{1}", "Artifact", "{T}: This artifact deals 1 damage to target creature.")
     private val shrine = Cards.invent("Trk4 Shrine", "{1}", "Enchantment", "{T}: This enchantment deals 1 damage to target creature.")
     private val bear = Cards.invent("Trk4 Bear", "{1}{G}", "Creature — Bear", "", "2/2")
@@ -96,6 +100,20 @@ class TrkChunk04StrangeNewWorldsScenariosTest {
         expect { beast.view.obj?.damage shouldBe 1 }
     }
 
+    // CR 113.7, 602.2: "artifact sources your opponents control" is about the source: an opponent activating this player's own artifact
+    // ("any player may activate") can target it; this player activating an opponent's artifact can't
+    @Test
+    fun theSourcesControllerNotTheAbilitysDecides() = scenario(players = 3) {
+        alice.battlefield(beast, sharedProd, "Island")
+        bob.battlefield(lentProd, "Swamp")
+        turn(number = 1, active = alice, priority = alice)
+        assertFailsWith<IllegalArgumentException> { alice.activates(lentProd, target = beast, paying = listOf("Island")) }
+        alice.passes()
+        bob.activates(sharedProd, target = beast, paying = listOf("Swamp"))
+        resolveAll()
+        expect { beast.view.obj?.damage shouldBe 1 }
+    }
+
     // CR 603.2, 107.3: Island and Forest and Mountain are three names, so each creature gets +3/+0 until end of turn
     @Test
     fun attackingGivesEveryCreatureYouControlPlusTheNumberOfLandNames() = scenario(players = 3) {
@@ -128,8 +146,8 @@ class TrkChunk04StrangeNewWorldsScenariosTest {
         cantPay()
     }
 
-    // CR 614.1d, 616.1: the land's own "enters tapped" and the Garden's "enter untapped" are both offered; "enter untapped" is applied after
-    // the others (engine design from Final Fantasy), so the land is untapped
+    // CR 614.1d, 616.1e, 616.1f: the land's own "enters tapped" and the Garden's "enter untapped" are both offered to the land's controller,
+    // who applies them in the order they choose; the one applied last decides
     private fun Scenario.landEntersChoosing(garden1: Boolean): Boolean? {
         val choice = pending as Decision.ChooseReplacement
         answer(arcanum.engine.decision.Answer.Replacement(choice.options.first { (it.source == card(garden)) == garden1 }.index))
@@ -137,12 +155,21 @@ class TrkChunk04StrangeNewWorldsScenariosTest {
     }
 
     @Test
-    fun landsEnterUntappedWhateverTheirOwnReplacementSays() = scenario {
+    fun landEntersUntappedWhenTheGardenIsAppliedLast() = scenario {
         alice.battlefield(garden, "Island", "Forest")
         alice.hand(slowLand)
         alice.plays(slowLand)
         landEntersChoosing(garden1 = false)
         expect { slowLand.tapped shouldBe false }
+    }
+
+    @Test
+    fun landEntersTappedWhenItsOwnReplacementIsAppliedLast() = scenario {
+        alice.battlefield(garden, "Island", "Forest")
+        alice.hand(slowLand)
+        alice.plays(slowLand)
+        landEntersChoosing(garden1 = true)
+        expect { slowLand.tapped shouldBe true }
     }
 
     // CR 601.2f, 602.2: {7}{U}{U} costs three less with three land names, so six lands pay it

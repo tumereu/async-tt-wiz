@@ -264,8 +264,9 @@ internal object EventMatcher {
         // halves aren't modes (CR 702.102d)
         is EventPattern.FaceDilemma -> (change as? Change.StackItemAdded)
             ?.takeIf { it.meanings.any { m -> m == Meaning.Cast || m == Meaning.Activated || m == Meaning.Triggered } }
-            ?.takeIf { c -> c.item.modes.isNotEmpty() && e.board.state.obj(c.item.id)?.cast?.fused != true && e.matches(pattern.players, c.item.controller) }
-            ?.let { listOf(TriggerEvent(players = listOf(it.item.controller))) }.orEmpty()
+            // the player who chose the modes faces it, the controller unless another player chose them (CR 700.2e)
+            ?.takeIf { c -> c.item.modes.isNotEmpty() && e.board.state.obj(c.item.id)?.cast?.fused != true && e.matches(pattern.players, c.item.modesChooser ?: c.item.controller) }
+            ?.let { listOf(TriggerEvent(players = listOf(it.item.modesChooser ?: it.item.controller))) }.orEmpty()
         is EventPattern.Attach -> {
             fun attached(id: ObjectId, onto: TargetRef): TriggerEvent? {
                 val to = (onto as? TargetRef.Object)?.id

@@ -934,8 +934,10 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "sneak"; override val text: String get() = "Sneak"; override val rule: String get() = "702.190" }
     }
     /** trk: Beam me up (CR 702.196): cast this instant or sorcery from your graveyard for [cost] and by returning a creature you
-     * control to its owner's hand, rather than its mana cost; then it is exiled. */
-    @Serializable @SerialName("beam-me-up") data class BeamMeUp(override val cost: Cost) : Keyword, HasCost {
+     * control to its owner's hand, rather than its mana cost; then it is exiled. [returnExcept]: a creature matching it can't be
+     * returned for this beam me up ("Scotty can't be beamed up to cast a spell this way": [ObjectFilter.Is] of [Objects.Granter], the
+     * object whose ability gives the keyword, CR 702.196b). */
+    @Serializable @SerialName("beam-me-up") data class BeamMeUp(override val cost: Cost, val returnExcept: ObjectFilter? = null) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "beam-me-up"; override val text: String get() = "Beam me up"; override val rule: String get() = "702.196" }
     }

@@ -38,6 +38,23 @@ class TrkChunk13LandsScenariosTest {
         }
     }
 
+    // CR 614.11: "If you would draw" is its controller's draws only: an opponent's draw on their own turn isn't doubled (3 players)
+    @Test
+    fun anOpponentsDrawIsNotDoubled() = scenario(players = 3) {
+        turn(number = 2, active = bob)
+        alice.battlefield(spock)
+        bob.battlefield("Island")
+        bob.hand(cantrip)
+        alice.library("Island", "Island", "Island")
+        bob.library("Island", "Island", "Island")
+        bob.casts(cantrip)
+        resolveAll()
+        expect {
+            bob.hand.size shouldBe 1
+            alice.hand.size shouldBe 0
+        }
+    }
+
     // CR 614.1c (enters tapped), 603.2 (the life trigger)
     @Test
     fun planetEntersTappedAndGainsLife() = scenario(players = 3) {

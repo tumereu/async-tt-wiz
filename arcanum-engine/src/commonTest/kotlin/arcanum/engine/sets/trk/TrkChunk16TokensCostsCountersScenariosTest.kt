@@ -80,7 +80,11 @@ class TrkChunk16TokensCostsCountersScenariosTest {
         advanceTo(TurnStep.DeclareAttackers, turn = 5)
         bob.attacks(cub, defender = "alice")
         advanceTo(TurnStep.DeclareBlockers)
-        assertFailsWith<Throwable> { alice.blocks(fuzzballs to cub) }
+        // the original and the token copy by object id: neither may block (CR 707.2: the copy has "can't block" too)
+        val original = state.battlefield.single { view()[it]?.characteristics?.name == fuzzballs && state.obj(it)?.isToken == false }
+        val copy = state.battlefield.single { view()[it]?.characteristics?.name == fuzzballs && state.obj(it)?.isToken == true }
+        assertFailsWith<Throwable> { perform(arcanum.engine.input.Input.DeclareBlockers(alice.id, listOf(arcanum.engine.input.Block(original, card(cub))))) }
+        assertFailsWith<Throwable> { perform(arcanum.engine.input.Input.DeclareBlockers(alice.id, listOf(arcanum.engine.input.Block(copy, card(cub))))) }
     }
 
     // CR 601.2f: two noncreature, nonland cards (instant, artifact) reduce {5}{R} by {2}; the creature and land cards don't count

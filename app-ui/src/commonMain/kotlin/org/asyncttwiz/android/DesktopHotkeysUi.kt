@@ -177,7 +177,8 @@ fun KeyboardShortcutsSetting(state: AccountSettingsState?, applied: KeyBindingsS
             waiting = null
             return@Listen true
         }
-        val chord = KeyChord.of(key) ?: return@Listen key.key in KeyChord.MODIFIERS
+        // WEB-035: a hold key (Control mode while held) takes Ctrl or ⌘ alone, or a key without modifiers
+        val chord = (if (action.hold) KeyChord.holdOf(key) else KeyChord.of(key)) ?: return@Listen key.key in KeyChord.MODIFIERS
         KeyBindings.refusal(chord)?.let { why ->
             AppLog.info("keys", "Settings: ${chord.text} refused for ${action.id}: $why")
             refused = action to why

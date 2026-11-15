@@ -1,0 +1,1 @@
+mod: In the browser's desktop layout, holding Alt over several cards lists them top to bottom and the mouse wheel scrolls them; Alt with the wheel no longer goes back a page, and changes always say what they come from.

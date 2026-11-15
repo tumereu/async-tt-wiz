@@ -52,7 +52,7 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
         } } }
         FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
             { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
-            Modifier.align(Alignment.BottomStart).width(desktop.tableRight.dp).padding(bottom = (desktop.band + DesktopTable.SEAT + 8f).dp))
+            Modifier.align(Alignment.BottomStart).width(desktop.tableRight.dp).padding(bottom = (desktop.band + 8f).dp))
         return
     }
     val playControls: @Composable () -> Unit = {
@@ -89,7 +89,7 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
 }
 
 /** WEB-018: the quick actions' row over the main button's in the desktop action area. */
-const val DESKTOP_ACTIONS_HEIGHT = 104f
+const val DESKTOP_ACTIONS_HEIGHT = 98f
 
 /**
  * WEB-018 (owner, desktop playtest 2026-11-14: "perhaps undo should be a "real" button here to make the panel line up more

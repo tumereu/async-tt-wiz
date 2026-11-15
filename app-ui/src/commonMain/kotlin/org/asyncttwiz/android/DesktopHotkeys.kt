@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import kotlinx.coroutines.launch
 
 // The desktop layout's hotkeys (docs/specs/web-client.md §6; WEB-031 to WEB-036): which key does what, rebindable and kept on
 // the account (decision 23), and the hooks the screens act through. The phone layout and Android have none of it.
@@ -35,7 +36,7 @@ data class KeyChord(val key: String, val shift: Boolean = false, val ctrl: Boole
 
     companion object {
         private val KEY_LABELS = mapOf("ArrowLeft" to "←", "ArrowRight" to "→", "ArrowUp" to "↑", "ArrowDown" to "↓",
-            "Escape" to "Esc", "PageUp" to "Page Up", "PageDown" to "Page Down")
+            "Escape" to "Esc", "PageUp" to "Page Up", "PageDown" to "Page Down", "Control" to "Ctrl", "Meta" to "⌘")
 
         /** The modifier keys alone: never a hotkey of their own (Alt and Shift are the finger key, §5). */
         val MODIFIERS = setOf("Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "Fn", "OS", "Hyper", "Super")
@@ -70,6 +71,13 @@ data class KeyChord(val key: String, val shift: Boolean = false, val ctrl: Boole
             val printed = name.length == 1 && !name[0].isLetter() && name[0] != ' '
             return KeyChord(name, shift = key.shift && !printed, ctrl = key.ctrl || key.meta)
         }
+
+        /** WEB-031, WEB-035: the key a press is as a hold key ([HotkeyAction.hold]): Ctrl or ⌘ alone ("Control", "Meta"), or
+         * a key without modifiers; null for anything else (Alt and Shift are the finger key). */
+        fun holdOf(key: DesktopKey): KeyChord? = when {
+            key.key == "Control" || key.key == "Meta" -> KeyChord(key.key)
+            else -> of(key)?.takeIf { !it.ctrl && !it.shift }
+        }
     }
 }
 
@@ -96,6 +104,8 @@ sealed class HotkeyPlace(val title: String) {
  * Esc, Enter, 1–9, "?" and Alt are fixed ([FixedKey]).
  */
 sealed class HotkeyAction(val id: String, val label: String, val place: HotkeyPlace, val default: KeyChord) {
+    /** A key that acts while held and stops on release ([KeyChord.holdOf]), rather than on a press. */
+    open val hold: Boolean get() = false
     data object Main : HotkeyAction("main", "Main button", HotkeyPlace.Table, KeyChord("Space"))
     data object MainHold : HotkeyAction("main-hold", "Main button's hold (End turn; on Resolve the whole Stack)", HotkeyPlace.Table,
         KeyChord("Space", shift = true))
@@ -108,6 +118,11 @@ sealed class HotkeyAction(val id: String, val label: String, val place: HotkeyPl
         KeyChord("G", shift = true))
     data object OpponentExile : HotkeyAction("opponent-exile", "The other player's exile", HotkeyPlace.Table, KeyChord("X", shift = true))
     data object Mode : HotkeyAction("mode", "Next response mode (Control, Normal, Quick)", HotkeyPlace.Table, KeyChord("M"))
+    /** WEB-031 (owner playtest 2026-11-15): held, the response mode is Control; released, back to the mode you had. */
+    data object ControlHold : HotkeyAction("control-hold", "Control mode while held (back to your mode on release)", HotkeyPlace.Table,
+        KeyChord("Control")) {
+        override val hold: Boolean get() = true
+    }
     data object Chat : HotkeyAction("chat", "Write in chat", HotkeyPlace.Table, KeyChord("C"))
     data object Timeline : HotkeyAction("timeline", "Timeline mode on / off", HotkeyPlace.Timeline, KeyChord("T"))
     data object Previous : HotkeyAction("previous", "Previous event", HotkeyPlace.Timeline, KeyChord("ArrowLeft"))
@@ -124,7 +139,7 @@ sealed class HotkeyAction(val id: String, val label: String, val place: HotkeyPl
     companion object {
         /** Every rebindable hotkey, in the order the "?" sheet and Settings list them. */
         val all: List<HotkeyAction> get() = listOf(Main, MainHold, Undo, Fit, Stack, Graveyard, Exile, OpponentGraveyard,
-            OpponentExile, Mode, Chat, Timeline, Previous, Next, Auto, NextTab, PreviousTab, Keep, Burn, Unmark, Save)
+            OpponentExile, Mode, ControlHold, Chat, Timeline, Previous, Next, Auto, NextTab, PreviousTab, Keep, Burn, Unmark, Save)
         fun of(id: String): HotkeyAction? = all.firstOrNull { it.id == id }
     }
 }
@@ -137,7 +152,7 @@ data class FixedKey(val keys: String, val label: String, val place: HotkeyPlace)
             FixedKey("Enter", "The open panel's go-on on the main button (Cast, Done, OK, Pay), a dialog's main button, a draft pick's Confirm",
                 HotkeyPlace.Table),
             FixedKey("1–9", "Choose the Nth mode, way or option of the open panel", HotkeyPlace.Table),
-            FixedKey("Alt (held)", "Over a card: Inspect while held, a tap pins it; elsewhere pauses (Shift works too)", HotkeyPlace.Table),
+            FixedKey("Alt (held)", "Over a card: Inspect while held, the wheel scrolls it; elsewhere pauses (Shift works too)", HotkeyPlace.Table),
             FixedKey("?", "This list of keys", HotkeyPlace.Table))
 
         /** WEB-046: the keys on a card under the pointer in Build, Prepare and the editor (its edge zones, WEB-045). Fixed: ← and →
@@ -312,6 +327,50 @@ class TableHotkeys {
     val main = ControlKeys()
     val undo = ControlKeys()
     val options = PanelOptions()
+}
+
+/** WEB-031: how long the hold key is held alone before Control mode begins: a quicker second key makes a chord (Ctrl+Z). */
+const val CONTROL_HOLD_DELAY_MILLIS = 250L
+
+/**
+ * WEB-031 (owner playtest 2026-11-15: "hold control to stay in control mode until you release it, returning to your current
+ * mode"): the hold key ([HotkeyAction.ControlHold]) on the desktop table. Held alone for [delayMillis] it [begin]s the hold
+ * (the response mode turns Control; what it was is kept, null when nothing changed); let go, or another key pressed with it
+ * (a chord: Ctrl+Z is Undo, as Shift with a key is that key's hotkey, WEB-024), it [end]s, back to what it was. Main thread.
+ */
+@Stable
+class HoldKey<T : Any>(private val scope: kotlinx.coroutines.CoroutineScope, private val begin: (String) -> T?,
+    private val end: (T, String) -> Unit, private val delayMillis: Long = CONTROL_HOLD_DELAY_MILLIS) {
+    private var key: String? = null
+    private var job: kotlinx.coroutines.Job? = null
+    private var kept: T? = null
+    /** Whether the hold key is down. */
+    val held: Boolean get() = key != null
+    /** Whether the hold began (the key held alone long enough). */
+    var holding: Boolean = false; private set
+
+    /** The hold key [name] went down. */
+    fun press(name: String) {
+        if (key != null) return
+        key = name
+        job = scope.launch {
+            kotlinx.coroutines.delay(delayMillis)
+            holding = true
+            kept = begin(name)
+        }
+    }
+
+    /** The hold key is let go, or a chord made of it ([why]): the hold ends. */
+    fun release(why: String) {
+        val name = key ?: return
+        key = null
+        job?.cancel(); job = null
+        val was = kept
+        kept = null
+        if (holding && was != null) end(was, why)
+        else if (!holding) AppLog.info("keys", "Hold key $name: $why before Control mode began")
+        holding = false
+    }
 }
 
 /** The desktop table's [TableHotkeys]; null in the phone layout. */

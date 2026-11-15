@@ -1,0 +1,1 @@
+mod: In the browser's desktop layout the card shown in the middle of the table when something is played is larger.

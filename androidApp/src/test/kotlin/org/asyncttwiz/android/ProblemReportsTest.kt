@@ -57,6 +57,21 @@ class ProblemReportsTest {
         assertTrue(text.contains("a".repeat(64)))
     }
 
+    // LOB-089: each redaction alone, in any letter case, still applies now that a line is only searched for what it may hold
+    // (web frame rate, owner 2026-11-15: the six regexes on every log line were slow in the browser)
+    @Test fun `each secret alone is redacted, and a line without any is left as it was`() {
+        val token = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde"
+        assertEquals("x Bearer [redacted] y", redactLog("x BEARER abc.def y"))
+        assertEquals("AUTHORIZATION=[redacted]", redactLog("AUTHORIZATION=secretvalue"))
+        assertEquals("{\"Email\":\"[redacted]\"}", redactLog("{\"Email\": \"someone\"}"))
+        assertEquals("a?Secret=[redacted]&b=1", redactLog("a?Secret=xyz&b=1"))
+        assertEquals("mail [email] now", redactLog("mail A.B@Example.org now"))
+        assertEquals("t [redacted] t", redactLog("t $token t"))
+        assertEquals("t ${token}x t", redactLog("t ${token}x t"), "44 characters are no token")
+        val plain = "Game 7776665f seat d42fe907 turn 1 PrecombatMain: hand -Mountain; battlefield +Mountain"
+        assertEquals(plain, redactLog(plain))
+    }
+
     @Test fun `oversized reports drop the oldest logcat lines first, then the oldest log lines`() {
         val report = ProblemReport(time.toString(), "0.1.3", 4, "release", "Pixel", "Android 15", "desc", "problem",
             log = (1..2_000).joinToString("\n") { "log line $it" }, logcat = (1..2_000).joinToString("\n") { "cat line $it" })

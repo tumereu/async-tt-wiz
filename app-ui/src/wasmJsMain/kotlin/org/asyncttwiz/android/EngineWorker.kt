@@ -45,8 +45,16 @@ fun startEngineWorkers(base: String): EngineWorkerChannels {
 
 private fun jsNewWorker(url: String): JsAny = js("new Worker(url)")
 private fun jsPostMessage(worker: JsAny, text: String): Unit = js("worker.postMessage(text)")
+/** The worker's messages to [received] (their handling timed as the page's other work for the frame times, WEB-057:
+ * BrowserFrameTimes.kt's meter), its failures to [failed]. */
 private fun jsOnWorkerMessages(worker: JsAny, received: (String) -> Unit, failed: (String) -> Unit): Unit = js("""{
-    worker.onmessage = (event) => received(event.data);
+    worker.onmessage = (event) => {
+        const start = performance.now();
+        try { received(event.data); } finally {
+            const meter = globalThis.atwFrameMeter;
+            if (meter && meter.on) meter.other += performance.now() - start;
+        }
+    };
     worker.onerror = (event) => failed(String(event.message || event));
     worker.onmessageerror = () => failed('a message could not be read');
 }""")

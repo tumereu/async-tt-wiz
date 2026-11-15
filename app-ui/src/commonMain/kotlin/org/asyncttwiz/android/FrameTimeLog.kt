@@ -4,9 +4,10 @@ import kotlin.math.roundToInt
 
 /**
  * Frame times for the app log, so a problem report says how smoothly the screen drew and what was on it when it didn't
- * (WEB-057; the web client's table and draft). The platform feeds it the time between drawn frames ([frame]); it keeps a
- * fixed histogram and the few worst frames, so a frame allocates nothing, and writes at most one line per [windowMs] of
- * drawing (only when that stretch had slow frames) plus one line per session ([end]).
+ * (WEB-057; the web client's table and draft). The platform feeds it the time between drawn frames ([frame]: on the web
+ * [DrawnFrames] says which refreshes were frames, so a page with nothing to draw adds none) and how long the page's own
+ * drawing of each took; it keeps a fixed histogram and the few worst frames, so a frame allocates nothing, and writes at
+ * most one line per [windowMs] of drawing (only when that stretch had slow frames) plus one line per session ([end]).
  *
  * A frame is slow when it took more than one and a half display frames ([periodMs], estimated from the frames themselves:
  * the commonest frame time), i.e. at least one display refresh was missed. Slow frames are counted by the [frame]'s
@@ -29,13 +30,14 @@ class FrameTimeLog(private val log: (String) -> Unit, private val windowMs: Doub
         log("Frame times: $screen opened; $detail")
     }
 
-    /** A frame drawn [intervalMs] after the previous one; [group] names what was going on in a few words, [labels] in full. */
-    fun frame(intervalMs: Double, group: String, labels: String) {
+    /** A frame drawn [intervalMs] after the previous one; [group] names what was going on in a few words, [labels] in full;
+     * [drawMs] the time the page's own drawing of it took (negative: not known). */
+    fun frame(intervalMs: Double, group: String, labels: String, drawMs: Double = -1.0) {
         if (screen == null || intervalMs <= 0.0 || intervalMs.isNaN()) return
         if (++sinceEstimate >= ESTIMATE_EVERY) { sinceEstimate = 0; session.modeMs()?.let { periodMs = it } }
         val slow = intervalMs > periodMs * SLOW_FACTOR
-        window.add(intervalMs, slow, group, labels)
-        session.add(intervalMs, slow, group, labels)
+        window.add(intervalMs, slow, group, labels, drawMs)
+        session.add(intervalMs, slow, group, labels, drawMs)
         if (window.drawnMs >= windowMs) closeWindow(false)
     }
 
@@ -68,12 +70,16 @@ class FrameTimeLog(private val log: (String) -> Unit, private val windowMs: Doub
         val groups = LinkedHashMap<String, Int>()
         val worstMs = DoubleArray(keep); val worstAt = DoubleArray(keep); val worstLabels = arrayOfNulls<String>(keep)
         var worstCount = 0
+        /** The page's own drawing of the frames: how many were timed, their total and the longest. */
+        var drawFrames = 0; var drawTotalMs = 0.0; var drawMaxMs = 0.0
 
         fun clear() {
             histogram.fill(0); frames = 0; slow = 0; drawnMs = 0.0; maxMs = 0.0; groups.clear(); worstCount = 0
+            drawFrames = 0; drawTotalMs = 0.0; drawMaxMs = 0.0
         }
 
-        fun add(ms: Double, isSlow: Boolean, group: String, labels: String) {
+        fun add(ms: Double, isSlow: Boolean, group: String, labels: String, drawMs: Double) {
+            if (drawMs >= 0) { drawFrames++; drawTotalMs += drawMs; if (drawMs > drawMaxMs) drawMaxMs = drawMs }
             histogram[bucket(ms)]++
             frames++
             val at = drawnMs
@@ -117,7 +123,9 @@ class FrameTimeLog(private val log: (String) -> Unit, private val windowMs: Doub
             append(if (span == "last") "last ${seconds.roundToInt()} s: " else "${seconds.oneDecimal()} s drawn: ")
             append("$frames frames (${(frames / seconds).roundToInt()} fps; display ${periodMs.oneDecimal()} ms), ")
             append("p50 ${percentile(.5).oneDecimal()} p95 ${percentile(.95).oneDecimal()} p99 ${percentile(.99).oneDecimal()} ")
-            append("max ${maxMs.oneDecimal()} ms; slow $slow (${(slow * 1000.0 / frames).roundToInt() / 10.0}%)")
+            append("max ${maxMs.oneDecimal()} ms; ")
+            if (drawFrames > 0) append("drawing ${(drawTotalMs / drawFrames).oneDecimal()} ms a frame, at most ${drawMaxMs.oneDecimal()} ms; ")
+            append("slow $slow (${(slow * 1000.0 / frames).roundToInt() / 10.0}%)")
             if (groups.isNotEmpty()) append(": ").append(groups.entries.sortedByDescending { it.value }.joinToString(", ") { "${it.key} ${it.value}" })
             if (worstCount > 0) {
                 append("; worst ")

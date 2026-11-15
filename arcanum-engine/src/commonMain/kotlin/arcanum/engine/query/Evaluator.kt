@@ -1008,7 +1008,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return when (quality) {
             SharedQuality.Color -> cs.flatMap { it.colors }.distinct().size
             SharedQuality.CardType -> cs.flatMap { it.types }.distinct().size
-            SharedQuality.CreatureType -> cs.flatMap { creatureTypes(it) }.distinct().size
+            // trk: an object with every creature type (changeling) brings all of them (CR 702.73a, 205.3m)
+            SharedQuality.CreatureType -> if (cs.any { it.allCreatureTypes }) Subtypes.creatureTypeCount else cs.flatMap { creatureTypes(it) }.distinct().size
             SharedQuality.Name -> cs.flatMap { names(it) }.distinct().size
             SharedQuality.BasicLandType -> cs.flatMap { c -> c.subtypes.filter { it in Subtypes.basicLandTypes } }.distinct().size
             SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size

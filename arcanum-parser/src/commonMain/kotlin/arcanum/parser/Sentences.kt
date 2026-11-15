@@ -3897,16 +3897,23 @@ internal class Sentences(
             return steps.dropLast(1) + Step.RepeatWhile(listOf(Step.Do(mill.copy(postBind = "milled")), Step.If(shared, then = then)), shared)
         }
         // dsk gaps: "Copy them." after exiling cards: copies of those cards (CR 707.12), named for the casting that follows
-        if (sentence == "Copy them." || sentence == "Copy it.") {
+        // trk chunk 07: also "Copy that card X times, where X is …."
+        val times = COPY_THAT_CARD_TIMES.matchEntire(sentence)?.let { m ->
+            if (m.groupValues[1] == "X") context.definedX ?: return null else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+        }
+        if (sentence == "Copy them." || sentence == "Copy it." || times != null) {
             val move = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Exile } ?: return null
             val bind = move.postBind ?: "exiled"
-            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.CopyCard(Objects.Bound(bind), owner = Players.You, bind = COPIES))
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) +
+                Step.Do(Effect.CopyCard(Objects.Bound(bind), owner = Players.You, bind = COPIES, times = times ?: Value.Fixed(1)))
         }
         // dsk gaps: "You may cast any number of the copies." / "You may cast the copy." after copying cards: each copy may be
         // cast (CR 707.12a), paying its costs
-        CAST_THE_COPIES.matchEntire(sentence)?.let {
+        // trk chunk 07: also "You may cast the copies without paying their mana costs." (CR 118.9)
+        CAST_THE_COPIES.matchEntire(sentence)?.let { m ->
             val copy = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CopyCard) ?: return null
-            val cast = { objects: Objects -> Step.May(listOf(Step.Do(Effect.Cast(objects, PlayKind.Cast, caster = Players.You))), player = Players.You) }
+            val free = m.groupValues[1].isNotEmpty()
+            val cast = { objects: Objects -> Step.May(listOf(Step.Do(Effect.Cast(objects, PlayKind.Cast, withoutPaying = free, caster = Players.You))), player = Players.You) }
             return steps + Step.ForEach(arcanum.api.Each.Objects(Objects.Bound(copy.bind)), bind = "copy", steps = listOf(cast(Objects.Bound("copy"))))
         }
         blbModify(sentence, steps, context)?.let { return it }
@@ -10434,8 +10441,9 @@ internal class Sentences(
         }
         // blb chunk 05: "Create a token that's a copy of target token you control." (CR 707.2)
         Blb.COPY_OF_TARGET.matchEntire(sentence)?.let { m ->
-            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
-            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target), count = Value.Fixed(1), controller = Players.You)))
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target), count = Value.Fixed(1), controller = Players.You,
+                tapped = m.groupValues[1].isNotEmpty())))
         }
         // blb chunk 05: "Target attacking creature with power 3 or less can't be blocked this turn." (CR 509.1b)
         Blb.TARGET_CANT_BE_BLOCKED_THIS_TURN.matchEntire(sentence)?.let { m ->
@@ -12531,12 +12539,15 @@ internal class Sentences(
         // fra chunk 08: 'For each creature target player controls, create a token that's a copy of that creature, except it has haste
         // and "[ability]."' (CR 707.9b)
         Fra.FOR_EACH_CREATURE_COPY_EXCEPT.matchEntire(sentence)?.let { m ->
-            val player = context.targetPlayer()
-            val keyword = OracleParser.keyword(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
-            val granted = Sentences(setOf("this token", "This token", "this creature", "This creature")).line(m.groupValues[2]) ?: return null
+            val except = Fra.HAS_KEYWORD_AND_QUOTED.matchEntire(m.groupValues[2])?.let { q ->
+                val keyword = OracleParser.keyword(q.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+                val granted = Sentences(setOf("this token", "This token", "this creature", "This creature")).line(q.groupValues[2]) ?: return null
+                listOf(arcanum.api.CopyException.AddAbilities(listOf(keyword, granted)))
+            } ?: copyExceptions(m.groupValues[2]) ?: return null
+            val player = if (m.groupValues[1] == "opponent") context.targetOpponent() else context.targetPlayer()
             return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.Is(player))))),
-                "creature", listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Bound("creature"),
-                    except = listOf(arcanum.api.CopyException.AddAbilities(listOf(keyword, granted)))), Value.Fixed(1), controller = Players.You)))))
+                "creature", listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Bound("creature"), except = except),
+                    Value.Fixed(1), controller = Players.You)))))
         }
         // fra chunk 08: "Exile target creature or planeswalker you control. Reveal cards from the top of your library until you reveal a
         // creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order."
@@ -13203,7 +13214,8 @@ internal class Sentences(
         val RETURN_A_FROM_GRAVEYARD_WITH_COUNTER = Regex("""Return an? (.+) from your graveyard to the battlefield with (a|an|one|two) (\S+) counters? on it\.""")
         // woe chunk 09r: also "… to up to one target creature you don't control"
         val TARGET_DEALS_POWER_TO_TARGET = Regex("""Target (.+?) deals damage equal to (twice )?its power to (up to one )?target (.+)\.""")
-        val COPY_OF_TARGET = Regex("""[Cc]reate a token that's a copy of target (.+)\.""")
+        // trk chunk 07: also "a tapped token"
+        val COPY_OF_TARGET = Regex("""[Cc]reate a (tapped )?token that's a copy of target (.+)\.""")
         val TARGET_CANT_BE_BLOCKED_THIS_TURN = Regex("""Target (.+) can't be blocked this turn\.""")
         val EACH_OPPONENT_DISCARDS_UNLESS = Regex("""Each opponent discards (\w+) cards unless they discard an? (.+)\.""")
         val DRAW_FOR_EACH_OPPONENT_WITH_HAND = Regex("""Draw an additional card for each opponent who has (\w+) or fewer cards in hand\.""")
@@ -13396,7 +13408,8 @@ internal class Sentences(
         // dsk gaps
         val REPEAT_IF_MILLED_SHARE = Regex("""If two cards that share a (card type|color) were milled this way, (.+) and repeat this process\.""")
         val EXILE_ANY_NUMBER_FROM_YOUR_GRAVEYARD = Regex("""Exile any number of target (.+) from your graveyard\.""")
-        val CAST_THE_COPIES = Regex("""You may cast (?:any number of the copies|the copy)\.""")
+        val CAST_THE_COPIES = Regex("""You may cast (?:any number of the copies|the copy|the copies)( without paying (?:their mana costs|its mana cost))?\.""")
+        val COPY_THAT_CARD_TIMES = Regex("""Copy (?:that card|it) (X|\w+) times\.""")
         const val COPIES = "copies"
         val SELF_DEALS_THAT_MUCH_TO_ANY_TARGET = Regex("""(.+) deals that much damage to any target\.""")
         val SELF_DEALS_AND_YOU_GAIN = Regex("""(.+) deals (X|\d+) damage to each opponent and you gain (X|\d+) life\.""")
@@ -17450,6 +17463,15 @@ internal class Sentences(
 
     /** trk: sentences that change the steps before them, tried in [modify]. */
     private fun trkModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // trk chunk 07: "If you draw three or more cards this way, put two +1/+1 counters on each creature you control." (the cards the draw
+        // before it drew, CR 121.2)
+        Trk.IF_DREW_N_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val draw = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Draw)?.takeIf { it.postBind == null } ?: return null
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return steps.dropLast(1) + Step.Do(draw.copy(postBind = "drawn")) + Step.If(arcanum.api.Condition.Compare(Value.Count(Objects.Bound("drawn")),
+                arcanum.api.Comparison.AtLeast, Value.Fixed(n)), then = then)
+        }
         // trk chunk 06: "Whenever Jett Reno becomes tapped, surveil 1. If her power is 4 or greater, instead draw a card." (the sentence before
         // happens only if the condition is false; a replacement wording "If … would …" is a static ability, not this)
         Trk.IF_INSTEAD.matchEntire(sentence)?.takeIf { " would " !in it.groupValues[1] }?.let { m ->
@@ -17469,6 +17491,12 @@ internal class Sentences(
 
     /** trk: single sentences. */
     private fun trkEffect(sentence: String, context: Context): List<Step>? {
+        // trk chunk 07: "draw a card for every five creature types among non-Borg creatures you control." (rounded down)
+        Trk.DRAW_FOR_EVERY.matchEntire(sentence)?.let { m ->
+            val every = Numbers.count(m.groupValues[1])?.takeIf { it > 1 } ?: return null
+            val counted = context.value("the number of " + m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Quotient(counted, every))))
+        }
         // trk chunk 06: "assimilate target creature card from a graveyard", "assimilate a creature card exiled with it": put it onto the battlefield
         // under your control with a +1/+1 counter on it; it's a Borg artifact creature as it enters (CR 701.72b, 611.2e)
         Trk.ASSIMILATE.matchEntire(sentence)?.let { m ->

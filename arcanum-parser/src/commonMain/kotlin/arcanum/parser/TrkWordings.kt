@@ -28,4 +28,8 @@ internal object Trk {
     val TARGET_OPPONENT_MAY_HAVE_YOU = Regex("""[Tt]arget opponent may have you (.+)\.""")
     // trk chunk 06: "If her power is 4 or greater, instead draw a card." (the sentence before happens only if the condition is false)
     val IF_INSTEAD = Regex("""If (.+?), instead (.+)\.""")
+    // trk chunk 07: "draw a card for every five creature types among non-Borg creatures you control."
+    val DRAW_FOR_EVERY = Regex("""[Dd]raw a card for every (\w+) (.+)\.""")
+    // trk chunk 07: "If you draw three or more cards this way, put two +1/+1 counters on each creature you control." (after a draw)
+    val IF_DREW_N_THIS_WAY = Regex("""If you draw (\w+) or more cards this way, (.+)\.""")
 }

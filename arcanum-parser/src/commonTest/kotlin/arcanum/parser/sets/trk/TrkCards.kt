@@ -252,3 +252,11 @@ val assimilated: Mechanic = Mechanic.SetTypes(add = listOf(CardType.Artifact, Ca
 /** "assimilate [objects]": onto the battlefield under your control with a +1/+1 counter, a Borg artifact creature (CR 701.72b). */
 fun assimilate(objects: Objects, postBind: String? = null): Step = Step.Do(Effect.Move(objects, Destination(Zone.Battlefield, controller = Players.You,
     counters = listOf(arcanum.api.CountersToPut(p1p1, n(1))), entersAs = listOf(assimilated)), postBind = postBind))
+
+// ---- trk chunk 07
+
+/** "Investigate" (CR 701.16a): create a Clue token, [count] times. */
+fun investigate(count: Value = n(1)): Step = Step.Do(Effect.Action(KeywordAction.Investigate(count)))
+val food: TokenSpec = TokenSpec.Predefined("Food")
+/** Federation: "the number of creature types among non-Borg creatures you control" (CR 205.3m). */
+val federation: Value = Value.CountDistinct(Objects.Each(and(not(sub("Borg")), creature, you)), SharedQuality.CreatureType)

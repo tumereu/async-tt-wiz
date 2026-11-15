@@ -467,6 +467,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // otj: a spell ability with modes (CR 700.2)
             ObjectFilter.Modal -> c?.abilities.orEmpty().any { (it.ability as? arcanum.api.Ability.Spell)?.instructions?.modes != null }
             ObjectFilter.HasTapAbility -> c?.abilities.orEmpty().any { a -> (a.ability as? Ability.Activated)?.cost?.parts?.any { it == CostPart.TapSelf } == true } // rvr
+            is ObjectFilter.HasMechanic -> board.mechanicsOf(id).any { it == filter.mechanic } // trk
             is ObjectFilter.AttachableBy -> objects(filter.attachment).any { attachable(it, id) } // rvr
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false

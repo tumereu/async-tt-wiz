@@ -117,6 +117,9 @@ internal object OtjPhrases {
         // otj chunk 05: "you've committed a crime this turn" (CR 700.13)
         if (text == "you've committed a crime this turn") return arcanum.api.Condition.HappenedThisTurn(
             arcanum.api.EventPattern.CommitCrime(arcanum.api.PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events)
+        // trk chunk 06: "you faced a dilemma this turn" (CR 700.17)
+        if (text == "you faced a dilemma this turn") return arcanum.api.Condition.HappenedThisTurn(
+            arcanum.api.EventPattern.FaceDilemma(arcanum.api.PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events)
         // otj chunk 11: "you controlled a Mount as you cast this spell" (CR 601.2i)
         AS_YOU_CAST_THIS_SPELL.matchEntire(text)?.let { m ->
             return arcanum.api.Condition.AsCast(Conditions.condition(m.groupValues[1].replace("you controlled ", "you control ")) ?: return null)

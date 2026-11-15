@@ -235,3 +235,20 @@ fun station(threshold: Int, vararg abilities: Ability, pt: String? = null): Abil
     return Ability.Static(creature.orEmpty() + Mechanic.GainAbilities(abilities.toList()), affects = Affected.Objects(Objects.Self),
         condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(charge, atLeast = threshold)))
 }
+
+// ---- trk chunk 06: Auras, Equipment, assimilate, face a dilemma
+
+/** The permanent this Aura or Equipment is attached to (CR 301.5, 303.4). */
+val attached: Objects = Objects.AttachedTo(Objects.Self)
+fun enchant(filter: ObjectFilter): Keyword = Keyword.Enchant(TargetKind.Objects(filter))
+fun equip(cost: String): Keyword = Keyword.Equip(manaCost(cost))
+/** "When you cast this spell" (CR 603.1; it triggers on the Stack) */
+val youCastThis: Trigger = youCast(ObjectFilter.Is(Objects.Self))
+/** "Whenever you face a dilemma" (CR 700.17) */
+val youFaceADilemma: Trigger = on(EventPattern.FaceDilemma(PlayerFilter.You))
+/** What an assimilated card is as it enters: a Borg artifact creature, its other creature types replaced (CR 701.72b, 205.1b). */
+val assimilated: Mechanic = Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Borg"))),
+    replaceSubtypes = true)
+/** "assimilate [objects]": onto the battlefield under your control with a +1/+1 counter, a Borg artifact creature (CR 701.72b). */
+fun assimilate(objects: Objects, postBind: String? = null): Step = Step.Do(Effect.Move(objects, Destination(Zone.Battlefield, controller = Players.You,
+    counters = listOf(arcanum.api.CountersToPut(p1p1, n(1))), entersAs = listOf(assimilated)), postBind = postBind))

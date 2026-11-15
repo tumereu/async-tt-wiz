@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 116
+    const val VERSION: Int = 117
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -865,7 +865,8 @@ object OracleParser {
     // chunk 13
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
     // chunk 30
-    private val AFFINITY = Regex("""Affinity for (\w+)""")
+    // trk chunk 06: also two words ("Affinity for artifact creatures")
+    private val AFFINITY = Regex("""Affinity for (\w+(?: \w+)?)""")
     private val CAST_THIS_TURN = Regex("""(permanents|creatures) that were cast this turn""")
     private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp|Cycling|Cumulative upkeep|Madness)—(.+?)\.?""")
     // dsk chunk 06

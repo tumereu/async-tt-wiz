@@ -100,6 +100,7 @@ internal object Restrictions {
         is Mechanic.CantBeActivated -> if (mechanic.manaAbilities) "Its abilities can't be activated" else "Its abilities can't be activated, but for mana"
         Mechanic.CantBeRegenerated -> "Can't be regenerated"
         Mechanic.CantBeSacrificed -> "Can't be sacrificed"
+        Mechanic.CantBeBeamedUp -> "Can't be beamed up" // trk
         Mechanic.CantBeTurnedFaceUp -> "Can't be turned face up"
         Mechanic.CantTransform -> "Can't transform"
         is Mechanic.CantBeTargeted -> "Can't be targeted by some spells or abilities"

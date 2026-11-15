@@ -395,6 +395,8 @@ class Chunk25EnchantmentEnginesTest {
                     add = listOf(CardType.Artifact),
                     addSubtypes = listOf(SubtypeRef.Literal(Subtype("Vehicle"))),
                     replaceTypes = true,
+                    // CR 205.1a: setting its card types and the artifact subtype Vehicle replaces its other artifact subtypes too
+                    replaceSubtypes = true,
                 ),
                 Mechanic.GainAbilities(listOf(Keyword.Crew(5))),
             ),

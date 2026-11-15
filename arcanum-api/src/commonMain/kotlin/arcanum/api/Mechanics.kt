@@ -282,7 +282,8 @@ sealed interface Mechanic {
      * static ability on the card itself, the card); [resultingSpell] only conditions the spell it becomes ("if the
      * resulting spell is an instant or sorcery", CR 702.34a). [topOnly]: only the top card of a library; [cost] replaces
      * the mana cost (flashback, escape); [then] is where it goes when it leaves the Stack (flashback: exile);
-     * [manaAsAnyColor]: mana may be spent as though it were mana of any colour for them. Timing is the card's own
+     * [manaAsAnyColor]: mana of any type may be spent for them ("mana of any type can be spent", "as though it were mana of any
+     * type": any colour or colorless, so it pays {C} too, CR 106.1b, 609.4b). Timing is the card's own
      * ("as though it had flash" is [InstantSpeed]). The permission belongs to "you" (the ability's or effect's
      * controller), also for cards in an opponent's library or exile.
      */

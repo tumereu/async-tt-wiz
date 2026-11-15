@@ -117,6 +117,10 @@ internal data class Context(
      * … this turn" is about the creature as it entered, not as it is now): its statuses and, when it was face down then and isn't
      * now, its face-down characteristics (CR 708.2a). */
     val asOf: GameObject? = null,
+    // trk fixes
+    /** The object whose static ability gives the keyword a spell is being cast with ("each card in your graveyard has beam me up"):
+     * [Objects.Granter] in that permission's cost (CR 702.196b). */
+    val granter: ObjectId? = null,
 )
 
 /**
@@ -186,7 +190,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         // ecl: an Aura sacrificed to pay its own ability's cost still names what it was attached to (CR 608.2h)
         is Objects.AttachedTo -> objects(objects.of).mapNotNull { ((state.obj(it)?.attachedTo ?: lki(it)?.attachedTo) as? TargetRef.Object)?.id }
         // tla: in an ability another object's static ability gives, that object (CR 113.10)
-        Objects.Granter -> listOfNotNull((ctx.stackItem?.origin as? arcanum.engine.view.AbilityOrigin.FromAbility)?.source ?: ctx.self)
+        Objects.Granter -> listOfNotNull((ctx.stackItem?.origin as? arcanum.engine.view.AbilityOrigin.FromAbility)?.source ?: ctx.granter ?: ctx.self)
         // isd: in a token's ability, the object that created it while it is still that object (CR 201.5a, 400.7)
         Objects.Creator -> listOfNotNull(ctx.self?.let { board.createdBy(it) }?.takeIf { state.obj(it) != null })
         // The source's new object after a zone change: bound by a flow that knows the move, else found in the log

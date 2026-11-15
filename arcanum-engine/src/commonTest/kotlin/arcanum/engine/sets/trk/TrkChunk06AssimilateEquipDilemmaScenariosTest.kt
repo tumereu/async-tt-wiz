@@ -133,6 +133,42 @@ class TrkChunk06AssimilateEquipDilemmaScenariosTest {
         }
     }
 
+    // "An opponent chooses one — • You gain 2 life. • Each opponent loses 1 life." written in the model (the parser doesn't read "An opponent
+    // chooses one —" yet)
+    private val imposedQuandary = Cards.define("Trk Fix Imposed Quandary", Cards.definition(Cards.invent("Trk Fix Imposed Quandary Base", "{0}", "Instant", """
+        Choose one —
+        • You gain 2 life.
+        • Each opponent loses 1 life.
+    """)).let { d ->
+        d.copy(faces = d.faces.map { f -> f.copy(name = "Trk Fix Imposed Quandary", abilities = f.abilities.map { a ->
+            if (a is arcanum.api.Ability.Spell) a.copy(instructions = a.instructions.copy(modes = a.instructions.modes!!.copy(
+                chooser = arcanum.api.Players.Each(arcanum.api.PlayerFilter.Opponent)))) else a
+        }) })
+    })
+
+    // CR 700.2e, 700.17: when another player chooses the modes, the controller first picks which opponent does, and that player faces the
+    // dilemma, not the controller
+    @Test
+    fun theOpponentWhoChoosesTheModesFacesTheDilemma() = scenario(players = 3) {
+        alice.battlefield(analyst)
+        carol.battlefield(analyst)
+        alice.hand(imposedQuandary)
+        alice.library("Forest")
+        bob.library("Island")
+        carol.library("Plains")
+        alice.casts(imposedQuandary)
+        expect { (pending as Decision.ChoosePlayer).player shouldBe alice.id }
+        answer(Answer.Player(carol.id))
+        expect { (pending as Decision.Modes).player shouldBe carol.id }
+        answer(Answer.Modes(listOf(0)))
+        resolveAll()
+        expect {
+            carol.hand has "Plains"
+            alice.hand.size shouldBe 0
+            alice.life shouldBe 22
+        }
+    }
+
     // CR 700.17, 603.3c: the modes of a triggered ability are chosen as it is put on the Stack, a dilemma too; each opponent loses 2 life
     @Test
     fun choosingAModeForATriggeredAbilityFacesADilemma() = scenario(players = 3) {

@@ -84,9 +84,6 @@ internal data class PlannedMove(
     // fra
     /** Marks it enters with ("enters prepared", CR 723.3a). */
     val marks: List<arcanum.api.ObjectMark> = emptyList(),
-    // fin
-    /** "Lands you control enter untapped": it enters untapped whatever else says (applied last). */
-    val untapped: Boolean = false,
 )
 
 /**
@@ -274,6 +271,8 @@ internal object Actions {
                     // ecl: "exile that card with a dream counter on it" (CR 122.1)
                     counters = move.counters + mod.to.counters.map { it.kind to e.value(it.amount) },
                 )
+                // CR 616.1e, 616.1f: "enters tapped" and "enters untapped" both apply, in the order the affected object's controller
+                // chose; the last one applied decides
                 Modification.EntersTapped -> if (move.to == Zone.Battlefield) move.copy(tapped = true) else move
                 is Modification.EntersWithCounters -> if (move.to == Zone.Battlefield && entersAs(act, move, mod.ifEntersAs, r.controller))
                     move.copy(counters = move.counters + (mod.kind to e.value(mod.amount))) else move
@@ -303,8 +302,8 @@ internal object Actions {
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
                 is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage,
                 is Modification.RaiseAmountTo, is Modification.ProducesInstead -> move
-                // fin: "Lands you control enter untapped": applied after the others ([untapped])
-                Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
+                // fin: "Lands you control enter untapped" (CR 614.1d), in the chosen order with "enters tapped" (CR 616.1e)
+                Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(tapped = false) else move
                 // trk: "instead it enters tapped and attacking": its controller chooses what it attacks as it enters (CR 508.4)
                 Modification.EntersAttacking -> if (move.to != Zone.Battlefield || move.attacking != null || act.state.combat == null) move
                     else move.copy(attacking = arcanum.engine.resolution.Effects.chosenAttackTarget(act, move.controller ?: act.controllerOf(move.id)
@@ -371,7 +370,7 @@ internal object Actions {
             val toBattlefield = m.to == Zone.Battlefield
             val zc = Changes.move(
                 scratch, listOf(m.id), m.to, position = m.position ?: if (m.to == Zone.Library) Changes.Position.Top else Changes.Position.Bottom,
-                controller = m.controller, tapped = m.tapped && toBattlefield && !m.untapped, faceDown = m.faceDown, meanings = m.meanings,
+                controller = m.controller, tapped = m.tapped && toBattlefield, faceDown = m.faceDown, meanings = m.meanings,
                 counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } else emptyList(),
             )
             val moved = zc.moves.single().let { mv ->

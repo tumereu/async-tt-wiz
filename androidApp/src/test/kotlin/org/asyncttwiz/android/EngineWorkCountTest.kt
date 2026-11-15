@@ -71,7 +71,7 @@ class EngineWorkCountTest {
     @Test fun endTurnOnTheHeavyBoard() {
         val game = BenchBoard("heavy", BenchBoard.HEAVY).game()
         val work = counted(game) { game.endTurn() }
-        assertWork(Work(layers = 31, copies = 73, searches = 10, eventBytes = 18_020, checkpointBytes = 176_314), work)
+        assertWork(Work(layers = 26, copies = 68, searches = 10, eventBytes = 18_020, checkpointBytes = 173_589), work)
     }
 
     // On the heavy board, Alice casts Storm Spark at Bob's Thornback Brute: she chooses its target; the device pays its
@@ -101,7 +101,9 @@ class EngineWorkCountTest {
             assertEquals(listOf("Storm Spark"), s.player(a).graveyard.map { s.obj(it)?.definition?.faces?.first()?.name }, "Storm Spark resolved")
             assertTrue(s.stack.isEmpty(), "the Stack is empty")
         }
-        assertWork(Work(layers = 747, copies = 1_008, searches = 12, eventBytes = 26_647, checkpointBytes = 172_535), work)
+        // HIS-042 (2026-11-15): each player's own random stream: other library orders on the bench board, and the line state counts
+        // per player (a few bytes more per event and checkpoint)
+        assertWork(Work(layers = 751, copies = 1_012, searches = 12, eventBytes = 26_759, checkpointBytes = 172_620), work)
     }
 
     // MassDeathTriggersScenariosTest's 30-creature board wipe: Alice with four Plains, a Ledger of Debts and 15 creatures,
@@ -136,6 +138,6 @@ class EngineWorkCountTest {
             assertEquals(10, s.player(PlayerId(board.b)).life)
             assertEquals(70, s.player(a).life)
         }
-        assertWork(Work(layers = 599, copies = 728, searches = 67, eventBytes = 362_244, checkpointBytes = 298_429), work)
+        assertWork(Work(layers = 347, copies = 476, searches = 67, eventBytes = 362_354, checkpointBytes = 297_998), work)
     }
 }

@@ -315,7 +315,7 @@ class ViewerKeyTest {
         fun walk(e: JsonElement) {
             when (e) {
                 // Not what caused it (a source Alice may see moving a card she may not)
-                is JsonObject -> e.filterKeys { it != "by" }.values.forEach(::walk)
+                is JsonObject -> e.filterKeys { it != "by" }.forEach { (k, v) -> walk(JsonPrimitive(k)); walk(v) }
                 is JsonArray -> e.forEach(::walk)
                 is JsonPrimitive -> if (e.isString && (e.content.startsWith("c:") && e.content.lastIndexOf('#') > 2 || e.content.startsWith("s:")))
                     runCatching { Json.decodeFromJsonElement(ObjectId.serializer(), e) }.getOrNull()?.let(ids::add)
@@ -331,9 +331,10 @@ class ViewerKeyTest {
         private const val STEPS = 40
         private const val SEED = 9_100L
         private val BASICS = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
-        /** Counters (the input count, a timestamp), a look (shown, never part of the state: the information rule counts it)
-         * and a shuffle (a library's order, which nobody may see; what it forgets of known places is "library-places"). */
-        private val NO_POSITION = setOf("inputs", "restamped", "shown", "shuffle")
+        /** Counters (the input count, a timestamp), a look (shown, never part of the state: the information rule counts it),
+         * a shuffle (a library's order, which nobody may see) and which places in a library are known (of cards the viewer can't
+         * see: a card they may look at shows by its place in the library itself). */
+        private val NO_POSITION = setOf("inputs", "restamped", "shown", "shuffle", "library-places")
         /** Changes that are only their log entry (an event that happened, damage dealt). */
         private val LOG_ONLY = setOf("happened", "damage")
     }

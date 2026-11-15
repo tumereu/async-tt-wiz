@@ -1,0 +1,1 @@
+add: The starting player can play their first turn while the opponent is still deciding on a mulligan. If the opponent takes a mulligan, the turn stays as long as nothing in it depended on their hand or library.

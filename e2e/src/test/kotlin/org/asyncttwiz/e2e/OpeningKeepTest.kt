@@ -4,18 +4,18 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import java.time.Duration
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Found by the e2e framework (owner, 2026-11-05: drop the assumed opening keep): a phone that opened the game before the
- * other player arrived assumed their opening keep at once, and went on to turn 1 without them, even after they came.
- * The starting player's phone never assumes the other player's keep: it waits for their keep (or mulligans).
+ * Found by the e2e framework (owner, 2026-11-05): a phone that opened the game before the other player arrived assumed
+ * their opening keep at once, and went on to turn 1 without them, even after they came. The starting player's phone
+ * never assumes the other player's keep by itself (owner, 2026-11-15: only a press of Assume keep does, HIS-096).
  */
 class OpeningKeepTest : E2e() {
     // TRN-027, TRN-070, HIS-096: Alice (the starting player) opens the game first and keeps while Bob hasn't
-    // opened it; her phone waits for his keep, offers no Assume keep, and her turn 1 begins only on his own keep
+    // opened it; long past any grace her phone still waits for his keep with Assume keep on the main button, assumes
+    // nothing by itself, and her turn 1 begins on his own keep
     @Test fun theStartingPlayerWaitsForTheOtherPlayersKeepWhenOpeningFirst() {
         startGame()
         alice.openGame(game, this)
@@ -25,8 +25,8 @@ class OpeningKeepTest : E2e() {
         repeat(3) { run(skip = Duration.ofSeconds(90)) }
         val waiting = assertIs<GameDevice.Status.Waiting>(alice.status, "Alice waits for Bob's keep")
         assertEquals(GameDevice.Wait.Keep, waiting.reason)
-        assertEquals(null, waiting.offer, "no Assume keep")
-        assertFalse(alice.showsControl("Assume keep"))
+        assertEquals(GameDevice.Offer.AssumeKeep, waiting.offer, "Assume keep offered")
+        assertTrue(alice.showsControl("Assume keep"))
         assertEquals(0, alice.state.turn.number, "turn 1 hasn't begun")
         assertTrue(alice.engine { device.session.events + device.session.pending }.none { e -> e.engine?.steps.orEmpty().any { it.assumedBy != null } },
             "nothing assumed for Bob")

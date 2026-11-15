@@ -236,6 +236,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
     /** Mountains and Storm Sparks; with [creatures] also Ember Cubs (2/1 for {R}), a third each (with [heralds] Ember
      * Heralds instead: 1/1 for {R} whose enters trigger makes a 1/1 token); with [dungeons] Alice's are two
      * thirds Torch Maps. */
+    /** The player who doesn't start. */
+    val other: String = if (startingPlayer == a) b else a
+
     private val decks = listOf(a, b).associateWith { p -> List(30) { i -> f.id("$p/card/$i") to when {
         aliceChoices.isNotEmpty() && p == a -> aliceChoices[i % aliceChoices.size]
         bobChoices.isNotEmpty() && p == b -> bobChoices[i % bobChoices.size]
@@ -265,13 +268,52 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
                 }))
     }
 
+    private val secret = LineRandom.secret(ByteArray(32) { 3 })
+
+    /**
+     * Each deck in the order whose shuffle at the game's start deals what the fixture always dealt: the scenarios here were
+     * written on the libraries the game's single stream gave (I-D56 §9 before each player had their own, HIS-042), so the
+     * fixture orders each deck so that its owner's own stream shuffles it into that same order (same cards, same ids).
+     */
+    private val dealt = decks.mapValues { (p, deck) ->
+        val old = singleStreamOrder(secret, listOf(startingPlayer, other).indexOf(p), deck.size)
+        val new = LineRandom.order(secret, 0, PlayerId(p), 0, deck.indices.toList())
+        // The own stream's shuffle puts deck position new[j] at j; the single stream put old[j] there
+        val order = IntArray(deck.size)
+        for (j in deck.indices) order[new[j]] = old[j]
+        order.map { deck[it] }
+    }
+
+    /** The order the game's single stream (line 0, its [k]-th answer) shuffled [n] cards into: the deck positions, top first. */
+    private fun singleStreamOrder(secret: String, k: Int, n: Int): List<Int> {
+        val prefix = ("async-tt-wiz/engine-line/v1\u0000" + secret + "\u0000" + 0 + "\u0000" + k + "\u0000").encodeToByteArray()
+        var counter = 0L
+        var block = ByteArray(0)
+        var offset = 0
+        fun next(): Long {
+            if (offset == block.size) {
+                block = java.security.MessageDigest.getInstance("SHA-256").digest(prefix + ByteArray(8) { (counter shr ((7 - it) * 8)).toByte() })
+                counter++; offset = 0
+            }
+            var word = 0L
+            repeat(4) { word = (word shl 8) or (block[offset++].toLong() and 255) }
+            return word
+        }
+        val result = (0 until n).toMutableList()
+        for (i in result.lastIndex downTo 1) {
+            val j = org.asyncttwiz.protocol.RandomV1.sample(i + 1, ::next)
+            val v = result[i]; result[i] = result[j]; result[j] = v
+        }
+        return result
+    }
+
     /** As the server starts it: every player's Skip when I have no choice off in the shared state (I-D56 §13). */
     val model: GameModel = GameModel(Engine.newGame(listOf(a, b).map { p ->
-        Seat(PlayerId(p), decks.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) },
+        Seat(PlayerId(p), dealt.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) },
             if (p != a) emptyList() else outside.mapIndexed { i, d ->
                 DeckCard(CardId(f.id("$p/outside/$i")), checkNotNull(org.asyncttwiz.protocol.game.GameCards.parse(d.definition).definition) { "Unreadable outside card ${d.digest}" }) })
     }),
-        TableState(secret = LineRandom.secret(ByteArray(32) { 3 })))
+        TableState(secret = secret))
     val codec = EngineJson(GameDefinitions.of(model.engine))
     /** The state before the game's start (the root's checkpoint, as the server stores it). */
     val rootState: String = codec.encodeModel(model)
@@ -283,8 +325,6 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         build()
     }
 
-    /** The player who doesn't start. */
-    val other: String = if (startingPlayer == a) b else a
 
     /** The other player's keep, the server's next event after [start] (TRN-027: the starting player's device waits for
      * it; an opening keep is never assumed). */

@@ -224,22 +224,20 @@ class EngineTableScreenshotTest {
     }
 
     // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
-    // says so and nothing stands in the step arrow's place (TRN-004: only its quiet status): his keep is never assumed
+    // says so and the main button holds Assume keep (TRN-004; her phone never assumes his keep by itself, HIS-096)
     @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep())
         game.tick(2_000)
-        assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), game.device.status)
+        assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep, GameDevice.Offer.AssumeKeep), game.device.status)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
         compose.onNodeWithText("Bob is deciding on a mulligan").assertExists()
         compose.onNodeWithTag("wait-band").assertExists()
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
-        compose.onNodeWithTag("engine-wait-action").assertDoesNotExist()
-        // TRN-004 (owner playtest 2026-11-12): the quiet waiting status in the main button's place
-        compose.onNode(hasTestTag(QUIET_WAIT_TAG) and hasText("Bob's mulligan…")).assertExists()
+        compose.onNode(hasTestTag("engine-wait-action") and hasContentDescription("Assume keep")).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-bar.png",
-            "Alice kept while Bob is online: a dark band under his hand, edge to edge and fading out toward both sides, says Bob is deciding on a mulligan, nothing covers her hand, and the main button's place holds no button (his keep is never assumed) but the quiet grey words \"Bob's mulligan…\".")
+            "Alice kept while Bob is online: a dark band under his hand, edge to edge and fading out toward both sides, says Bob is deciding on a mulligan, nothing covers her hand, and the main button holds Assume keep in the Assume violet (pressed, she plays her first turn while he decides; her phone never assumes it by itself).")
     }
 
     // TRN-066 (owner, 2026-11-09): in landscape the band lies under the other player's hand as well, and takes no touch: a tap

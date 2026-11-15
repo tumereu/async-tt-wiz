@@ -38,6 +38,13 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     placements: Map<String, TablePlacement> = emptyMap(), toolkit: TableToolkitController? = null,
     runtime: TableRuntimeHooks = TableRuntimeHooks()) {
     PrefetchGameArtwork(play, accountId)
+    // HIS-113 (full e2e run 2026-11-15): when a table is made and let go reaches the app log; one made anew mid-game drops
+    // its gestures (a held finger), its animation and what it remembers
+    DisposableEffect(Unit) {
+        AppLog.info("table", "Table made for ${accountId.take(8)} (game ${game.id.take(8)}, play ${play.playId.take(8)})")
+        TableProbes.made?.invoke(accountId)
+        onDispose { AppLog.info("table", "Table let go for ${accountId.take(8)} (game ${game.id.take(8)})") }
+    }
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.playId, accountId) { mutableStateOf(TableLayoutState()) }
     var layout by layoutState
     // Web frame rate (owner, 2026-11-15: the table stutters in Firefox and Chrome): composition reads the layout without its
@@ -128,7 +135,11 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             }
         }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) },
             onPeekSwipe = peekSwipe::moved, diagnostic = { event -> DebugLatency.tap(game.id, event, toolkit?.popupItem != null) },
-            onHeld = { held -> currentViewPause?.finger = held })
+            onHeld = { held ->
+                // HIS-021, HIS-113: what a held finger pauses (a play shown, a combat's hold) reaches the app log with it
+                AppLog.info("table", if (held) "Finger held on the table (pauses what the view waits on)" else "Finger on the table lifted")
+                currentViewPause?.finger = held
+            })
         owner.viewHoldSkip = { currentRuntime.holdTap }
         owner.combatDrag = { item -> toolkit?.combatDraggable(item) ?: true }
         owner
@@ -662,6 +673,8 @@ fun rememberPlayableGlow(play: TableBoard, target: Set<String>?): PlayableGlow {
 /** Test probe (web frame rate, 2026-11-15): told each time a table's own scope recomposes, with the account it is drawn for. */
 object TableProbes {
     @kotlin.concurrent.Volatile var composed: ((me: String) -> Unit)? = null
+    /** Told each time a table is made (HIS-113: a table made anew mid-game drops a finger held on it), with its account. */
+    @kotlin.concurrent.Volatile var made: ((me: String) -> Unit)? = null
 }
 
 /** WEB-026: [content] for the card whose quick look [mouse] shows, if any; read here alone (web frame rate, 2026-11-15). */

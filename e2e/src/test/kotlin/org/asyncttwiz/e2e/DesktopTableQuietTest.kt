@@ -40,28 +40,31 @@ class DesktopTableQuietTest : E2e() {
         var composed = 0
         TableProbes.composed = { me -> if (me == alice.id) composed++ }
         fun cub() = alice.battlefieldCard("Ember Cub").fetchSemanticsNode().boundsInRoot
-        /** The table's own step [label] ("Zoom in", "Pan left"), as its accessibility action takes it, then a frame. */
-        fun step(label: String) {
-            alice.described("Shared table").fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == label }.action()
-            run()
+        // Step by step, a frame or two each: the game's own ticks (a second apart) stay out of the count
+        frameByFrame {
+            /** The table's own step [label] ("Zoom in", "Pan left"), as its accessibility action takes it, then its frames. */
+            fun step(label: String) {
+                alice.described("Shared table").fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == label }.action()
+                frame(); frame()
+            }
+
+            // TBL-010, WEB-029: zoomed out and in, step by step (the Cub stays in view)
+            val before = cub()
+            step("Zoom out")
+            val zoomed = cub()
+            assertNotEquals(before.width, zoomed.width, "the zoom scaled the Cub: $before, then $zoomed")
+            repeat(ZOOMS - 1) { i -> step(if (i % 2 == 0) "Zoom in" else "Zoom out") }
+            assertTrue(composed < ZOOMS / 2.0, "the table recomposed $composed times for $ZOOMS zoom steps")
+
+            // TBL-011, WEB-029: panned step by step, to one side and back
+            composed = 0
+            val unpanned = cub()
+            step("Pan left")
+            val panned = cub()
+            assertNotEquals(unpanned.left, panned.left, "the pan moved the Cub: $unpanned, then $panned")
+            repeat(PANS - 1) { i -> step(if (i % 2 == 0) "Pan right" else "Pan left") }
+            assertTrue(composed < PANS / 2.0, "the table recomposed $composed times for $PANS pan steps")
         }
-
-        // TBL-010, WEB-029: zoomed out and in, step by step (the Cub stays in view)
-        val before = cub()
-        step("Zoom out")
-        val zoomed = cub()
-        assertNotEquals(before.width, zoomed.width, "the zoom scaled the Cub: $before, then $zoomed")
-        repeat(ZOOMS - 1) { i -> step(if (i % 2 == 0) "Zoom in" else "Zoom out") }
-        assertTrue(composed < ZOOMS / 2.0, "the table recomposed $composed times for $ZOOMS zoom steps")
-
-        // TBL-011, WEB-029: panned step by step, to one side and back
-        composed = 0
-        val unpanned = cub()
-        step("Pan left")
-        val panned = cub()
-        assertNotEquals(unpanned.left, panned.left, "the pan moved the Cub: $unpanned, then $panned")
-        repeat(PANS - 1) { i -> step(if (i % 2 == 0) "Pan right" else "Pan left") }
-        assertTrue(composed < PANS / 2.0, "the table recomposed $composed times for $PANS pan steps")
     }
 
     private companion object {

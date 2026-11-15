@@ -20,7 +20,7 @@ import org.asyncttwiz.appui.coilImageBitmap
  */
 @Composable
 fun tableArtwork(items: State<List<TableItem>>): Map<String, ImageBitmap> {
-    val images = remember { mutableStateMapOf<String, ImageBitmap>() }
+    val images = remember { TableArtworkImages() }
     val density = LocalDensity.current
     val sizes = remember(items, density) { derivedStateOf(structuralEqualityPolicy()) {
         val extents = LinkedHashMap<org.asyncttwiz.storage.ArtworkReference, Float>()
@@ -30,12 +30,19 @@ fun tableArtwork(items: State<List<TableItem>>): Map<String, ImageBitmap> {
         extents.mapValues { (_, extent) -> tableArtworkPixels(with(density) { extent.dp.roundToPx() }) }
     } }
     TableArtworkLoads(sizes, images)
-    return images
+    return images.map
 }
+
+/**
+ * The table's loaded pictures by their artwork's key ([map], read while drawing). A holder of its own, so passing it on to
+ * [TableArtworkLoads] never compares (reads) the map's pictures in the caller's composition: a picture loading then
+ * recomposed the whole table.
+ */
+class TableArtworkImages { val map = mutableStateMapOf<String, ImageBitmap>() }
 
 /** Loads each of [sizes]' pictures at its size into [images], each kept while its reference is drawn. */
 @Composable
-private fun TableArtworkLoads(sizes: State<Map<org.asyncttwiz.storage.ArtworkReference, Int>>, images: MutableMap<String, ImageBitmap>) {
+private fun TableArtworkLoads(sizes: State<Map<org.asyncttwiz.storage.ArtworkReference, Int>>, images: TableArtworkImages) {
     val context = LocalPlatformContext.current
     for ((reference, width) in sizes.value) key(reference) {
         val height = width
@@ -44,9 +51,9 @@ private fun TableArtworkLoads(sizes: State<Map<org.asyncttwiz.storage.ArtworkRef
             val request = CardArtworkRequest(reference, width, height)
             val result = PublicArtwork.get(context).loader.execute(coil3.request.ImageRequest.Builder(context)
                 .data(request).size(width, height).build()) as? coil3.request.SuccessResult
-            result?.image?.let(::coilImageBitmap)?.let { images[reference.key] = it }
+            result?.image?.let(::coilImageBitmap)?.let { images.map[reference.key] = it }
         }
-        DisposableEffect(reference) { onDispose { images.remove(reference.key) } }
+        DisposableEffect(reference) { onDispose { images.map.remove(reference.key) } }
     }
 }
 

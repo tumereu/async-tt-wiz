@@ -117,6 +117,80 @@ class DesktopDraftScreenshotTest {
             "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full above the full-width Confirm; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
     }
 
+    // WEB-044, DRF-061, DRF-065 (owner playtest 2026-11-15): in the owner's 1920 × 919 window the marks on the pack cards (their
+    // borders and badges) and the trays' count chips are drawn 1.5 times the phone's size; the ⋯ sits under a marked card's badge
+    @Test @Config(qualifiers = "w1920dp-h919dp-land-mdpi") fun draftPickMarks() {
+        val head = DraftPrivatePack("pack-a", 1, (0..13).map { copy(it) }, 2, "bob")
+        val members = listOf(PodMember(alice, packsWaiting = 2), PodMember(bob, packsWaiting = 1), PodMember(carol))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.glimpse(), members).copy(draft = DraftPrivateView("alice", head, 1,
+            listOf(copy(16, 1)), queuedPacks = emptyList(), round = 1, rounds = 9))
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
+        compose.onNodeWithTag("pod-pick-card-c12-0").performMouseInput { click() }
+        compose.onNodeWithTag("pod-pick-card-c3-0").performMouseInput {
+            moveTo(center); press(androidx.compose.ui.test.MouseButton.Secondary); release(androidx.compose.ui.test.MouseButton.Secondary)
+        }
+        compose.onNodeWithTag("pod-pick-card-c12-0").performMouseInput { moveTo(center) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        fun badge(id: String) = compose.onNode(hasTestTag("pod-pick-badge") and hasAnyAncestor(hasTestTag("pod-pick-card-$id")))
+            .fetchSemanticsNode().boundsInRoot
+        // The phone's badges are about 20 tall, its chips 13 to 15: here half as large again
+        val keep = badge("c12-0")
+        assertTrue(keep.height >= 28f, "a 1.5× keep badge: $keep")
+        val burn = badge("c3-0")
+        assertTrue(burn.height >= 28f, "a 1.5× burn badge: $burn")
+        val more = compose.onNodeWithTag("pod-pick-more-c12-0").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(more.top >= keep.bottom, "the ⋯ under the badge: $more, $keep")
+        for (tag in listOf("pod-pick-keep-chip", "pod-pick-burn-chip")) {
+            val chip = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue(chip.height >= 18f, "a 1.5× $tag: $chip")
+        }
+        captureShot("$SCREENSHOTS/desktop/draft-pick-marks-1920.png",
+            "Alice's Glimpse pick in a 1920 × 919 window, as the owner played it: a click kept Mossback Cub and a right-click burned Mercy Vow, their borders, ✓ and 🔥 badges and the trays' count chips drawn half as large again as the phone's; the pointer rests on Mossback Cub, its ⋯ under the badge.")
+    }
+
+    private fun statsDetail(): PodDetail {
+        val main = (0..15).map { copy(it) } + copy(9, 1)
+        val build = PodDeckBuild(main.map { PodDeckCopy(it.id) } + listOf(PodDeckCopy(copy(16).id, PodDeckCategory.SIDE)),
+            PodDeckBasics(plains = 6, mountain = 5, forest = 6))
+        return detail(PodPhase.DRAFTED, DraftSettings.booster(), listOf(PodMember(alice, building = true),
+            PodMember(bob, submitted = true), PodMember(carol, building = true))).copy(
+            draft = DraftPrivateView("alice", null, 0, main + copy(16)), build = build)
+    }
+
+    // WEB-061, DRF-111, DRF-114, DRF-117, DRF-118 (owner playtest 2026-11-15): the pod's Stats on the desktop layout keeps
+    // Settings' readable width, the deck's numbers in the left column and the colours, notes and counters in the right
+    @Test fun stats() {
+        val detail = statsDetail()
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.STATS))
+        compose.runOnIdle { pods.editNotes { PodDeckNotes("White-green go-wide; Carol takes red.", listOf(4, 0, 0, 1, 5, 0, 1, 0)) } }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        val stats = compose.onNodeWithTag("pod-stats").fetchSemanticsNode().boundsInRoot
+        assertTrue(stats.width <= 1120f, "a readable width: $stats")
+        val left = compose.onNodeWithTag("pod-stats-left").fetchSemanticsNode().boundsInRoot
+        val right = compose.onNodeWithTag("pod-stats-right").fetchSemanticsNode().boundsInRoot
+        assertTrue(right.left > left.right, "two columns: $left, $right")
+        fun inside(tag: String, column: androidx.compose.ui.geometry.Rect) = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+            .let { assertTrue(it.left >= column.left && it.right <= column.right, "$tag in its column: $it, $column") }
+        inside("pod-stats-curve", left)
+        inside("pod-stats-mana", left)
+        inside("pod-stats-donut-Colors", right)
+        inside("pod-stats-notes", right)
+        inside("pod-stats-counter-7", right)
+        captureShot("$SCREENSHOTS/desktop/stats.png",
+            "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the colours donut, notes and tally counters in the right.")
+    }
+
+    // WEB-061: a desktop window too narrow for two columns shows Stats in one, as the phone does
+    @Test @Config(qualifiers = "w700dp-h500dp-land-mdpi") fun statsNarrow() {
+        val detail = statsDetail()
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.STATS))
+        compose.onNodeWithTag("pod-stats").assertIsDisplayed()
+        compose.onNodeWithTag("pod-stats-left").assertDoesNotExist()
+        compose.onNodeWithTag("pod-stats-curve").assertIsDisplayed()
+    }
+
     // WEB-045 (D8, D9): Build with the pointer on a Main card's right quarter: "Maybe ▸" tinted strongly, "◂ Side" faintly
     @Test fun buildEdgeZones() {
         val main = (0..15).map { copy(it) } + copy(9, 1)

@@ -4,11 +4,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performTextInput
 import org.asyncttwiz.protocol.DraftSettings
 import org.asyncttwiz.protocol.PodDeckCategory
 import org.junit.Test
@@ -46,6 +49,14 @@ class DesktopDraftTest : E2e() {
         waitUntil("a right-click burned the first card") { marked(burned, "Burn") }
         card(clicked).performMouseInput { click() }
         waitUntil("a click kept the second") { marked(clicked, "Keep") }
+        // WEB-044 (owner playtest 2026-11-15): the marks and the trays' chips half as large again as the phone's
+        fun height(matcher: SemanticsMatcher) = alice.nodes(matcher).onFirst().fetchSemanticsNode().boundsInRoot.height
+        for (id in listOf(burned, clicked)) {
+            val badge = height(hasTestTag("pod-pick-badge") and hasAnyAncestor(hasTestTag("pod-pick-card-$id")))
+            assertTrue(badge >= 28f, "a 1.5× badge on $id: $badge")
+        }
+        for (chip in listOf("pod-pick-keep-chip", "pod-pick-burn-chip"))
+            height(hasTestTag(chip)).let { assertTrue(it >= 18f, "a 1.5× $chip: $it") }
         card(keyed).performMouseInput { moveTo(center) }
         run()
         assertTrue(alice.key("k", true), "K taken over the third card")
@@ -57,6 +68,34 @@ class DesktopDraftTest : E2e() {
             ServerSetup.pod(alice.account, pod).draft?.pool.orEmpty().any { it.id == keyed }
         }
         assertTrue(ServerSetup.pod(alice.account, pod).draft?.pool.orEmpty().none { it.id == clicked || it.id == burned }, "only the kept card")
+    }
+
+    // WEB-061, DRF-118 (owner playtest 2026-11-15): Alice's Stats keeps a readable width in two columns, the curve and the
+    // mana table left, the donut, notes and counters right, where she writes a note and raises a counter
+    @Test fun statsInTwoColumnsWithNotes() {
+        launchPlayers(aliceDesktop = true)
+        val name = "E2E desktop stats ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftedPod(alice.account, bob.account, name)
+        openPod(pod)
+        waitUntil("Alice's Build") { alice.pods.state.detail?.takeIf { it.id == pod }?.build != null && alice.shows(hasTestTag("pod-build")) }
+        alice.text("Stats").performClick()
+        waitUntil("Alice's Stats in two columns") { alice.shows(hasTestTag("pod-stats-left")) && alice.shows(hasTestTag("pod-stats-right")) }
+        fun bounds(tag: String) = alice.tagged(tag).fetchSemanticsNode().boundsInRoot
+        assertTrue(bounds("pod-stats").width <= 1120f, "a readable width: ${bounds("pod-stats")}")
+        val left = bounds("pod-stats-left")
+        val right = bounds("pod-stats-right")
+        assertTrue(right.left > left.right, "side by side: $left, $right")
+        for (tag in listOf("pod-stats-curve", "pod-stats-mana"))
+            assertTrue(bounds(tag).let { it.left >= left.left && it.right <= left.right }, "$tag on the left")
+        for (tag in listOf("pod-stats-donut-Colors", "pod-stats-notes", "pod-stats-counter-4"))
+            assertTrue(bounds(tag).let { it.left >= right.left && it.right <= right.right }, "$tag on the right")
+        alice.tagged("pod-stats-notes").performTextInput("Green-white, two drops")
+        alice.described("Increase Green").performClick()
+        // (The test players' apps don't save notes: their pod controller has no save scheduler, so only Alice's own notes are read.)
+        waitUntil("the note and the counter in Alice's notes") {
+            alice.pods.notes()?.let { it.text == "Green-white, two drops" && it.counters[4] == 1 } == true &&
+                alice.shows(hasTestTag("pod-stats-counter-4") and hasAnyDescendant(hasContentDescription("Green 1")))
+        }
     }
 
     // WEB-045, WEB-046, DRF-099: a click on a Main card's left edge zone moves it to Side; → over another Main card moves it to Maybe

@@ -17410,6 +17410,31 @@ internal class Sentences(
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
                     Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound("tokens"), Destination(Zone.Exile))))))))
         }
+        // trk chunk 04: "Reveal the top X cards of your library, where X is …. Put all permanent cards revealed this way onto the battlefield tapped
+        // and the rest on the bottom of your library in a random order." (CR 701.20, 401.4)
+        Trk.REVEAL_PUT_ALL_TAPPED_REST_BOTTOM.matchEntire(text)?.let { m ->
+            val x = context.definedX ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val revealed = Objects.Bound("revealed")
+            val reveal = listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, x, fromTop = true), bind = "revealed")))
+            val matching = Objects.Where(revealed, filter)
+            return reveal + listOf(Step.Do(Effect.Move(matching, Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty()))),
+                Step.Do(Effect.Move(Objects.Except(revealed, matching), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // trk chunk 04: "Each opponent exiles the top X cards of their library, where X is …. For each opponent, choose a land card that player owns
+        // exiled this way. You may play the chosen cards for as long as they remain exiled." (CR 101.4, 608.2e; each choice is the controller's)
+        Trk.EACH_OPPONENT_EXILES_CHOOSE_ONE_EACH_MAY_PLAY.matchEntire(text)?.let { m ->
+            val x = context.definedX ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val exiled = Objects.Bound("exiled")
+            return listOf(
+                Step.Do(Effect.Move(Objects.LibraryCards(Players.Each(PlayerFilter.Opponent), x, fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+                Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "owner", together = true, steps = listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Bound("owner")))), Value.Fixed(1), Value.Fixed(1),
+                        from = exiled), bind = "chosen", chooser = Players.You))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
+                    Affected.Objects(Objects.Bound("chosen")), arcanum.api.Duration.Indefinitely)))
+        }
         return null
     }
 
@@ -20908,6 +20933,11 @@ internal class Sentences(
         }
         // one chunk 10: Thrun, "Thrun can't be the target of nongreen spells your opponents control or abilities from nongreen sources your opponents
         // control." (the spell itself or the ability's source, as hexproof from a quality looks, CR 702.11d, 113.7)
+        // trk chunk 04: "This creature can't be the target of abilities from artifact sources your opponents control." (spells aren't restricted)
+        Trk.CANT_BE_TARGET_OF_ABILITIES_FROM.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantBeTargeted(by = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.ControlledBy(PlayerFilter.Opponent)),
+                fromSource = Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
+        }
         One.CANT_BE_TARGET_OF_SPELLS_OR_ABILITIES_FROM.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent), fromSource = Filters.noun(m.groupValues[2]) ?: return null)),
                 affects = Affected.Objects(Objects.Self))

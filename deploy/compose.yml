@@ -55,6 +55,11 @@ services:
       APP_RELEASE_DIR: /app-release
       # The card catalog built at release (docs/specs/web-client.md section 3.4): <checksum>.jsonl.gz files and `current`.
       CATALOG_DIR: /catalog
+      # The web client (webApp's `webDist` output, docs/specs/web-client.md section 2.1), served on the same origin; an
+      # empty directory serves none.
+      WEB_APP_DIR: /web-app
+      # Browser notifications' VAPID key pair (WEB-052): the private key (PKCS#8) and its public key, in one PEM file.
+      WEB_PUSH_KEY_FILE: /run/secrets/web_push_key
       SERVER_ADDRESS: 0.0.0.0
       SERVER_PORT: "8080"
       HEALTH_ADDRESS: 127.0.0.1
@@ -64,10 +69,11 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_FROM: ${SMTP_FROM:-no-reply@example.invalid}
       SMTP_TLS: ${SMTP_TLS:-starttls}
-    secrets: [db_password, reset_mail_key]
+    secrets: [db_password, reset_mail_key, web_push_key]
     volumes:
       - ${APP_RELEASE_HOST_DIR:-./app-release}:/app-release:ro
       - ${CATALOG_HOST_DIR:-./catalog}:/catalog:ro
+      - ${WEB_APP_HOST_DIR:-./web-app}:/web-app:ro
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
     healthcheck:
@@ -86,6 +92,8 @@ secrets:
     file: ${DB_PASSWORD_PATH:-./secrets/db-password}
   reset_mail_key:
     file: ${RESET_MAIL_KEY_PATH:-./secrets/reset-mail-key}
+  web_push_key:
+    file: ${WEB_PUSH_KEY_PATH:-./secrets/web-push-key}
 
 volumes:
   db_data:

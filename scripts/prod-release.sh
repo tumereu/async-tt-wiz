@@ -328,6 +328,12 @@ rm -rf -- "$artifact/catalog"
 "$worktree/scripts/catalog-pin.sh" build "$artifact/catalog" || die "The card catalog couldn't be built from the pinned MTGJSON file; release refused."
 catalog_checksum=$(tr -d '[:space:]' < "$artifact/catalog/current")
 [[ $catalog_checksum =~ ^[0-9a-f]{64}$ ]] || die "The card catalog build left no checksum; release refused."
+# The web client (docs/specs/web-client.md section 2.1), built from the same commit and served by the server on the
+# same origin; the playbook installs it beside the server (atw_web_artifact).
+"$worktree/scripts/gradle.sh" :webApp:webDist
+rm -rf -- "$artifact/web"
+cp -a "$worktree/webApp/build/web" "$artifact/web"
+[[ -f $artifact/web/index.html ]] || die "The web client build left no index.html; release refused."
 export ATW_RELEASE_STORE_FILE=$KEYS/release.p12
 export ATW_RELEASE_STORE_PASSWORD_FILE=$KEYS/store-password
 export ATW_RELEASE_KEY_ALIAS=atw-release
@@ -369,7 +375,8 @@ PY
 (
     cd "$PI_SETUP"
     ATW_VERSION=$commit direnv exec . ansible-playbook async-tt-wiz.yml \
-        -e "atw_controller_source=$worktree" -e "atw_app_release_artifact=$artifact" -e "atw_catalog_artifact=$artifact/catalog"
+        -e "atw_controller_source=$worktree" -e "atw_app_release_artifact=$artifact" -e "atw_catalog_artifact=$artifact/catalog" \
+        -e "atw_web_artifact=$artifact/web"
 )
 echo "Published production $commit (versionCode $code)."
 install_phone "$artifact/app.apk"

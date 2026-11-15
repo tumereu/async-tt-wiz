@@ -19,10 +19,13 @@ mkdir -p deploy/secrets
 chmod 700 deploy/secrets
 (umask 077; openssl rand -hex 24 > deploy/secrets/db-password)
 (umask 077; openssl rand -base64 32 > deploy/secrets/reset-mail-key)
+# Browser notifications' key pair: the private key, then its public key, in one file.
+(umask 077; openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out deploy/secrets/web-push-key)
+(umask 077; openssl pkey -in deploy/secrets/web-push-key -pubout >> deploy/secrets/web-push-key)
 # Compose file secrets preserve host modes. The server (UID 10001) and PostgreSQL
 # (UID 999) both need to read the DB password. The owner-only parent directory
 # protects these files on the host; Docker mounts only each required file read-only.
-chmod 444 deploy/secrets/db-password deploy/secrets/reset-mail-key
+chmod 444 deploy/secrets/db-password deploy/secrets/reset-mail-key deploy/secrets/web-push-key
 ```
 
 Do this secret initialization **once**, not on each start. Edit `deploy/.env`:
@@ -86,6 +89,13 @@ server reads it from `deploy/catalog` (or `CATALOG_HOST_DIR`):
 
 ```sh
 scripts/catalog-pin.sh build deploy/catalog
+```
+
+The web client is served from `deploy/web-app` (or `WEB_APP_HOST_DIR`); without a build there,
+the server serves only the API and the phone app:
+
+```sh
+./scripts/gradle.sh :webApp:webDist && rm -rf deploy/web-app && cp -a webApp/build/web deploy/web-app
 ```
 
 ```sh

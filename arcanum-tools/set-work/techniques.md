@@ -51,7 +51,13 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   cast-free static's affected filter never keeps `Category(Spell)`: in a hand or library it matches nothing (CR 601.2a).
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
-- "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one.
+- "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one; at top
+  level the clause is cut before the Whole/Effect rules run: read X from `context.definedX` and match the sentence without it.
+- Mode labels ("• <Name> — ...") are flavor words: add them to `RulesWords.flavorWords`. Titles and dotted abbreviations
+  (Dr., Capt., U.S.S.) don't end sentences; a legendary name also answers to first+last word or title+last name.
+- "X enters tapped/untapped" triggers are `ZoneChange(And(subject, [Not] HasStatus(Tapped)))`; both replacements apply in
+  the chosen order, last wins. Player-bound results that outlast the resolution ("that opponent" after a control change, a
+  permission only that player holds) bind the player with a one-player `ForEach(..., bind = ...)`.
 - Every copy keeps the original's targets ("Copy target ... spell", "copy it", "copy this spell", copies in delayed
   triggers and repeats); only a following "You may choose new targets" sets `newTargets` (CR 707.10, 707.10c).
 - "If ... would ... this turn, ... instead." or "Until end of turn, if ... instead." inside an effect is a replacement
@@ -134,7 +140,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - `turn(step = Upkeep)` fires no upkeep triggers: start in `PrecombatMain` and `advanceTo(Upkeep, turn = n)`. Going past
   turn 1 needs a library for each player who draws (an empty library loses the game).
 - Opponent's turn: `turn(number = 2, active = bob)`, or `priority = alice` to act in it. After your own spell resolves you
-  hold priority again: `alice.passes()` before the opponent acts. `Engine.options(state, p.id)` is empty without priority.
+  hold priority again: `alice.passes()` before the opponent acts; with 3 players priority then goes in turn order from the
+  active player (bob active: carol, then alice). `Engine.options(state, p.id)` is empty without priority.
 - `casts(...)` answers targets in slot order, `modes`, `x`, `kicked` (0 declines; without it a kicker card stops at a May
   and later expectations can pass vacuously: assert the spell resolved), `option` ("A or B" costs), `choosing` (cost
   objects), `paying` ("name#1" = the second land of that name). Leftover decisions stay open for `answer(...)`.
@@ -149,7 +156,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A trigger with targets or a "may": `resolveAll()` after the cast, then `Answer.Targets`, `allPass()`, then
   `Answer.YesNo`; an empty optional slot is `Answer.Targets(emptyList())`. `resolve()` resolves one item, to act before a
   trigger resolves. Modes of a triggered ability with no legal target are unavailable (CR 700.2b).
-  Answering a cast's `Targets` by hand leaves its `ManaPayment` open: finish with `playOut()`. Which ways a card can be
+  Casting several chosen cards asks "Order to cast" (`chooses(a, b)` again). Answering a cast's `Targets` by hand leaves its `ManaPayment` open: finish with `playOut()`. Which ways a card can be
   cast now (free casts, permissions): `Engine.options(state, p.id).filterIsInstance<Input.Cast>()` lists payable ones.
 - `activates(name, ability = i)` counts activated abilities only, mana abilities included, from 0 (a planeswalker's
   loyalty abilities in printed order). A planeswalker needs `battlefield(x, counters = listOf(CounterKind.Loyalty to n))`;
@@ -193,7 +200,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   leaves no priority holder, so in combat scenarios skip it. "One or more ... deal combat damage to a player or battle"
   batches, and counts "first time each turn", per player or per battle (`Triggers.batchKey`, CR 603.2c, 310.6).
 - Removing counters of no named kind asks the remover which, one `ChooseOption` per counter (`Actions.removeChosenCounters`,
-  CR 608.2d, 118.3), for effects and costs alike (a cast's cost: before paying, `Question.CounterPick`).
+  CR 608.2d, 118.3), for effects and costs alike (a cast's cost: before paying, `Question.CounterPick`); "remove N counters from among creatures" is answered by
+  `activates(card, choosing = listOf(...))`.
 - `paying = listOf("<source>:G")` picks a source and colour, granted mana abilities included; an ability on the Stack as a
   target: `state.stack.first { state.stackItems[it]?.source == card(name) }`.
 - Keywords: `x hasKeyword Keyword.Flying.kind` / `lacksKeyword`; a token id is wrapped with `CardRef(id, label)`;
@@ -231,10 +239,13 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - A card of several faces: `Cards.inventFaces(layout, face(...), ...)` (colour indicator last) and `cardFaces(...)` in
   parser tests; a meld pair is `Cards.inventFaces("Meld:<partner>", front, back)` for both cards.
 - A predefined token (Treasure, Powerstone, ...) on the battlefield from the start: `Cards.define("<X> Proxy", ...)` of
-  `PredefinedTokens.face("<X>")`; created ones are named "<X> Token".
+  `PredefinedTokens.face("<X>")`; created ones are named "<X> Token". A proxy isn't a token: test token wordings with real ones.
+- Invented engine cards name themselves in full in their text ("When <Full Name> enters"); `chooses(...)` takes plain names.
+- A restricted-mana "can't pay" test: `perform(Input.Cast(...))`, then `decision<Decision.ManaPayment>()` has no `ManaUse.Pool`.
 - One cycle of near-identical cards (e.g. lands that enter tapped unless a condition holds): one private helper in the
   chunk's test file, one test per card.
 - In one Gradle call, `--tests` applies to the task just before it; `bin/set-tests.sh` handles this.
 - Sibling misreads: `<plan>/parser-base.snapshot` holds every card's model JSON (fifth tab column); a `python3 -I`
   scan of it finds every card with the same wrong shape in seconds, e.g. a `{"type":"bound","name":N}` with no binder
-  (`bind`, `*Bind`, `announced`) in the same card.
+  (`bind`, `*Bind`, `announced`) in the same card. Without Gradle, dump one card's model through jshell on
+  `arcanum-tools/build/explain-classpath.txt` (`p.parse(new arcanum.parser.OracleCard(...)).getAbilities()`).

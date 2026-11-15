@@ -34,7 +34,10 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
     val glowingPiles = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
     val picks = drawn.picked
     val outlined = toolkit?.hand?.sources(play).orEmpty() + toolkit?.paySources().orEmpty()
-    val marks = { card: String -> setOfNotNull("target".takeIf { card in targets }, "picked".takeIf { card in picks }, "source".takeIf { card in outlined }) }
+    // Owner notes 2026-11-14: a closed group a tap spreads open to pick from glows as a pile holding choices
+    val spreading = scene.battlefieldGroups.filter { it.key in drawn.spread }.flatMapTo(HashSet()) { it.members }
+    val marks = { card: String -> setOfNotNull("target".takeIf { card in targets }, "picked".takeIf { card in picks }, "source".takeIf { card in outlined },
+        "choices inside".takeIf { card in spreading }) }
     for (item in semanticItems) {
         if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
         key(item.id) {
@@ -66,5 +69,6 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
 }
 
 /** The marks the table draws on a card: "target" a violet glow, "picked" picked in a choice of several, "source" Autotap's amber
- * outline; on a pile, "choices inside" its pulsing glow (STK-047). */
+ * outline; on a pile, or on the members of a closed group a tap spreads open to pick from, "choices inside" its pulsing glow
+ * (STK-047). */
 val TableMarks = androidx.compose.ui.semantics.SemanticsPropertyKey<Set<String>>("TableMarks")

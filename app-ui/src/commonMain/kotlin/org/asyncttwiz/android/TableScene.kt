@@ -475,7 +475,11 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             }
             // STK-047 (owner, 2026-11-12): a pile holding a card the viewer may target or choose glows over its whole face,
             // pulsing, in a layer of its own
-            PileChoiceGlow(scene, castGlow, rendered)
+            // Owner notes 2026-11-14: as does a closed group a tap spreads open to pick from (TBL-130)
+            val spreadGroups = remember(scene, groupTaps, castGlow) {
+                TableGlows.of(scene.battlefieldGroups, groupTaps, emptyMap(), castGlow).spread
+            }
+            PileChoiceGlow(scene, castGlow, rendered, spreadGroups)
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState, groupTaps)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players

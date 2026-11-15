@@ -101,7 +101,7 @@ import kotlinx.serialization.json.Json
 
 object ActivityWire {
     val json = Json { encodeDefaults = true; ignoreUnknownKeys = false }
-    fun ordinal(value: String): Long? = value.takeIf { it.matches(Regex("0|[1-9][0-9]{0,18}")) }?.toLongOrNull()
+    fun ordinal(value: String): Long? = value.takeIf { ScalarCodecs.canonicalDecimal(it, maxDigits = 19) }?.toLongOrNull()
     fun valid(input: RegisterInstallation) = DeckValidation.uuid(input.installationId) && DeckValidation.uuid(input.binding) &&
         (input.pushToken == null || (input.pushToken.length in 1..4096 && input.pushToken.all { it.code in 33..126 })) &&
         (input.webPush == null || (input.pushToken == null && valid(input.webPush)))

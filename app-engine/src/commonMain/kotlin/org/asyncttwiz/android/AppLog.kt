@@ -86,14 +86,31 @@ class LogBuffer(private val file: File?, private val maxBytes: Int = 256 * 1024,
     }
 }
 
+/** A redaction: its pattern and replacement, run only on a line that [may] hold a match (a quick test with no regex: the web
+ * client's regexes are slow, and every line went through all six, owner 2026-11-15: "Web FPS is still stuttery"). */
+private class Redaction(val pattern: Regex, val replacement: String, val may: (String) -> Boolean)
+
+private fun mentions(text: String, vararg words: String) = words.any { text.contains(it, ignoreCase = true) }
+
+/** Whether [text] has a run of at least [length] base64url characters (a token's 43). */
+private fun hasRun(text: String, length: Int): Boolean {
+    var run = 0
+    for (c in text) {
+        run = if (c in 'A'..'Z' || c in 'a'..'z' || c in '0'..'9' || c == '_' || c == '-') run + 1 else 0
+        if (run >= length) return true
+    }
+    return false
+}
+
 private val redactions = listOf(
-    Regex("(?i)bearer\\s+[^\\s\"',]+") to "Bearer [redacted]",
-    Regex("(?i)(authorization\\s*[:=]\\s*)(?!bearer \\[redacted])[^\\s\"',]+") to "$1[redacted]",
-    Regex("(?i)\"(password|token|email|secret)\"\\s*:\\s*\"[^\"]*\"") to "\"$1\":\"[redacted]\"",
-    Regex("(?i)\\b(password|token|secret)=[^&\\s\"']+") to "$1=[redacted]",
-    Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}") to "[email]",
+    Redaction(Regex("(?i)bearer\\s+[^\\s\"',]+"), "Bearer [redacted]") { mentions(it, "bearer") },
+    Redaction(Regex("(?i)(authorization\\s*[:=]\\s*)(?!bearer \\[redacted])[^\\s\"',]+"), "$1[redacted]") { mentions(it, "authorization") },
+    Redaction(Regex("(?i)\"(password|token|email|secret)\"\\s*:\\s*\"[^\"]*\""), "\"$1\":\"[redacted]\"") {
+        mentions(it, "password", "token", "email", "secret") },
+    Redaction(Regex("(?i)\\b(password|token|secret)=[^&\\s\"']+"), "$1=[redacted]") { mentions(it, "password", "token", "secret") },
+    Redaction(Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"), "[email]") { '@' in it },
     // Session and reset tokens: 43 base64url characters.
-    Regex("(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])") to "[redacted]")
+    Redaction(Regex("(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])"), "[redacted]") { hasRun(it, 43) })
 
 /** Last line of defence: callers never pass secrets, but exception messages and logcat may contain them. */
-fun redactLog(text: String): String = redactions.fold(text) { value, (pattern, replacement) -> pattern.replace(value, replacement) }
+fun redactLog(text: String): String = redactions.fold(text) { value, r -> if (r.may(value)) r.pattern.replace(value, r.replacement) else value }

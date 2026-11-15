@@ -230,7 +230,7 @@ object GameWire {
         return json.decodeFromString(text)
     }
     fun encode(message: GameServerMessage): String = json.encodeToString(message)
-    fun ordinal(value: String): Long = ScalarCodecs.decodeRevision(JsonPrimitive(value).toString())
+    fun ordinal(value: String): Long = ScalarCodecs.revision(value)
     fun valid(command: GameCommand): Boolean = runCatching {
         require(command.commandVersion == 1)
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,

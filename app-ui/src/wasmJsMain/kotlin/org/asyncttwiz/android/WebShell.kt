@@ -59,6 +59,8 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
     installBuildInfo(build)
     // WEB-056: the app log kept in the browser as the page goes, so a visit the browser ends is named by the next
     BrowserVisitJournal.start(jsBuildId())
+    // WEB-057: the page's drawing timed from its first frame (the table's and the draft's frame times)
+    DebugJank.install()
     pageScope.launch {
         val assets = try { WebAppPlatform.fetchAssets(assetBase) } catch (failure: Throwable) {
             jsLoadingMessage("ATW couldn't load. Check your connection and reload the page.")

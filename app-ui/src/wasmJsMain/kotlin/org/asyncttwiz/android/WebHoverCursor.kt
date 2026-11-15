@@ -67,7 +67,8 @@ internal fun jsHoverCursor(): Unit = js("""{
     const later = (event) => {
         mouse = event.pointerType === 'mouse';
         x = event.clientX; y = event.clientY;
-        if (!queued) { queued = true; requestAnimationFrame(decide); }
+        // The browser's own frame request where the frame times' meter wrapped it (WEB-057: the cursor is no drawing)
+        if (!queued) { queued = true; (globalThis.atwFrameRequest || requestAnimationFrame)(decide); }
     };
     for (const kind of ['pointermove', 'pointerdown', 'pointerup']) window.addEventListener(kind, later, { capture: true, passive: true });
     document.documentElement.addEventListener('pointerleave', () => { mouse = false; if (find()) show(''); });

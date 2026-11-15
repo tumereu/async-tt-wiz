@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -64,45 +66,74 @@ fun PodStatsView(
         }.orEmpty()
     }
     val stats = remember(build, copies, definitions, manaColors) { podStats(build, copies, definitions, manaColors) }
-    BoxWithConstraints(modifier.fillMaxSize()) {
-        val wide = maxWidth >= 600.dp
-        LazyColumn(Modifier.fillMaxSize().testTag("pod-stats"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item {
-                Column {
-                    PodStatsCurveToggle(curveChoice.byColor, curveChoice::choose)
-                    PodStatsCurve(stats, curveChoice.byColor)
-                }
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (curveChoice.byColor) PodStatsCurveColorLegend()
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        listOf("Creature" to stats.creatures, "Noncreature" to stats.noncreatures, "Land" to stats.lands).forEachIndexed { index, (label, count) ->
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                if (index < 2 && !curveChoice.byColor) PodStatsSwatch(if (index == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer)
-                                Text("$label: $count", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
+    val curve: @Composable () -> Unit = {
+        Column {
+            PodStatsCurveToggle(curveChoice.byColor, curveChoice::choose)
+            PodStatsCurve(stats, curveChoice.byColor)
+        }
+    }
+    val counts: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (curveChoice.byColor) PodStatsCurveColorLegend()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                listOf("Creature" to stats.creatures, "Noncreature" to stats.noncreatures, "Land" to stats.lands).forEachIndexed { index, (label, count) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (index < 2 && !curveChoice.byColor) PodStatsSwatch(if (index == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer)
+                        Text("$label: $count", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
-            if (stats.types.isNotEmpty()) item { PodStatsTypes(stats.types) }
-            if (stats.subtypes.isNotEmpty()) item { PodStatsSubtypes(stats.subtypes) }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    PodStatsMana(stats, Modifier.weight(1f))
-                    if (wide) PodStatsColors(stats, Modifier.weight(1f))
-                }
+        }
+    }
+    val colors: @Composable () -> Unit = {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            PodStatsColors(stats, Modifier.widthIn(max = 240.dp).fillMaxWidth())
+        }
+    }
+    // WEB-060 (owner playtest 2026-11-15): on the desktop layout Stats keeps Settings' readable width at the left of its room
+    val desktop = desktopLayout()
+    Box(modifier.fillMaxSize()) {
+        BoxWithConstraints((if (desktop) Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth) else Modifier).fillMaxSize()) {
+            val wide = maxWidth >= 600.dp
+            val columns = desktop && maxWidth >= PodStatsDesktopColumnsWidth
+            LaunchedEffect(desktop, columns) {
+                if (desktop) AppLog.info("pod", "Stats on the desktop layout: ${if (columns) "two columns" else "one column"} at ${maxWidth.value.roundToInt()} wide")
             }
-            if (!wide) item {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    PodStatsColors(stats, Modifier.widthIn(max = 240.dp).fillMaxWidth())
+            // WEB-060: the deck's numbers on the left (the curve with its toggle, the counts, the type rows, pips and sources), the
+            // colours donut, notes and counters on the right
+            if (columns) Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("pod-stats").padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                Column(Modifier.weight(1f).testTag("pod-stats-left"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    curve()
+                    counts()
+                    if (stats.types.isNotEmpty()) PodStatsTypes(stats.types)
+                    if (stats.subtypes.isNotEmpty()) PodStatsSubtypes(stats.subtypes)
+                    PodStatsMana(stats, Modifier.fillMaxWidth())
                 }
+                Column(Modifier.weight(1f).testTag("pod-stats-right"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    colors()
+                    if (notes != null) PodStatsNotes(notes, onNotes)
+                }
+            } else LazyColumn(Modifier.fillMaxSize().testTag("pod-stats"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item { curve() }
+                item { counts() }
+                if (stats.types.isNotEmpty()) item { PodStatsTypes(stats.types) }
+                if (stats.subtypes.isNotEmpty()) item { PodStatsSubtypes(stats.subtypes) }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        PodStatsMana(stats, Modifier.weight(1f))
+                        if (wide) PodStatsColors(stats, Modifier.weight(1f))
+                    }
+                }
+                if (!wide) item { colors() }
+                if (notes != null) item("notes") { PodStatsNotes(notes, onNotes) }
             }
-            if (notes != null) item("notes") { PodStatsNotes(notes, onNotes) }
         }
     }
 }
+
+/** WEB-060: the narrowest room in which the desktop layout's Stats lies in two columns (Settings' own, WEB-043). */
+val PodStatsDesktopColumnsWidth = 720.dp
 
 /** The Stats chips' look: the type counts and the pip counts (DRF-113, DRF-116). */
 @Composable

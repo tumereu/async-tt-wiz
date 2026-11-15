@@ -166,6 +166,31 @@ class InspectChangesUiTest {
         compose.onAllNodes(hasContentDescription("Rule explanation"), useUnmergedTree = true).assertCountEquals(1)
     }
 
+    // WEB-024, TBL-132 (owner 2026-11-15): on the desktop layout, inspected by Alt held, nothing clicks a change: a line naming a
+    // keyword ("Flying") shows its source and what the keyword means under it at once; a line naming none ("1 damage") only
+    // its source, if it has one
+    @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
+    @Test fun onTheDesktopAKeywordChangeExplainsTheKeywordWithoutAClick() {
+        val swipe = InspectSwipe()
+        compose.setContent { MaterialTheme { NoRipples {
+            androidx.compose.runtime.CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop) { InspectContent(groups, ScrollState(0), swipe) }
+        } } }
+        compose.runOnIdle { swipe.holdByKey() }
+        compose.waitForIdle()
+        val flying = arcanum.api.RulesGlossary.keywords.getValue("flying").text
+        compose.onNodeWithText("From Gale Banner").assertExists()
+        compose.onNodeWithText("From Wild Surge").assertExists()
+        compose.onNodeWithText(flying).assertExists()
+        val line = compose.onAllNodesWithText("Flying")[0].getBoundsInRoot()
+        val explanation = compose.onNodeWithText(flying).getBoundsInRoot()
+        assertTrue(explanation.top >= line.bottom, "under the line: $explanation, line $line")
+        compose.onAllNodes(hasContentDescription("Rule explanation"), useUnmergedTree = true).assertCountEquals(1)
+        compose.onNodeWithContentDescription("Close inspection").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/desktop/inspect-explained.png", "Desktop Inspect by Alt held over a Meadow Sentinel with a " +
+            "keyword it gained: beside its picture each change in its own dark block, \"Flying\" with \"From Gale Banner\" and " +
+            "what flying means under it without any click, the +3/+3 change with its source, and the River Adept under it.")
+    }
+
     // TBL-131 (owner playtest 2026-11-06): pinned by a drag to the right, an unchanged card goes to the left edge with a faded
     // "No changes" in the middle of the room beside it
     @Test fun pinnedAnUnchangedCardSaysNoChanges() {

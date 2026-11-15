@@ -10,3 +10,4 @@ __pycache__/
 deploy/.env
 deploy/secrets/
 deploy/catalog/
+deploy/web-app/

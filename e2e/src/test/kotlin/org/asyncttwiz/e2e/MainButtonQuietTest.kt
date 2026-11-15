@@ -36,9 +36,14 @@ class MainButtonQuietTest : E2e() {
         alice.playFromHand("Mountain", this)
         waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
         clockInStep {
-            val from = alice.shownTexts.size
             alice.playFromHand("Ember Herald", this)
+            // HIS-109, SYS-011 (StaleTapTest): the cast's own early board (SYS-025), shown before her phone folds its pass into
+            // the cast's event, says "Resolve", and a tap there is that very pass; whether a frame draws it in the few ms it
+            // lasts is timing, so what the main button says is looked at from the cast's full outcome on
+            var from: Int? = null
             waitUntil("the Herald's trigger shown on Alice's table", along = listOf(bob)) {
+                if (from == null && !alice.shown.ownActionShown && (alice.state.stack.isNotEmpty() || alice.field("Ember Herald").isNotEmpty()))
+                    from = alice.shownTexts.size
                 alice.shown.show?.kind == GameDevice.PlayKind.Triggered && alice.shows(hasTestTag(PLAY_SHOW_TAG))
             }
             assertEquals(GameDevice.Status.YourMove, alice.status, "she holds priority over her trigger")
@@ -47,7 +52,7 @@ class MainButtonQuietTest : E2e() {
             waitUntil("the trigger resolved on Alice's table, her phone having passed", along = listOf(bob)) {
                 alice.shown.show == null && alice.state.stack.isEmpty() && alice.state.battlefield.any { alice.state.obj(it)?.token == true } && alice.inOwnMain()
             }
-            val bars = alice.shownTexts.drop(from).filter { it.startsWith(BOTTOM_BAR) }
+            val bars = alice.shownTexts.drop(assertNotNull(from, "the cast's full outcome seen")).filter { it.startsWith(BOTTOM_BAR) }
             assertFalse(bars.any { "Resolve" in it }, "no Resolve on her main button: $bars")
         }
         // TRN-017: holding the main button in her main phase ends her turn

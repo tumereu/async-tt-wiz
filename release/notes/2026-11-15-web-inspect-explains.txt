@@ -1,0 +1,1 @@
+mod: In the browser, inspecting a card with Alt or Shift held explains each keyword or state it gained right under the change, without a click.

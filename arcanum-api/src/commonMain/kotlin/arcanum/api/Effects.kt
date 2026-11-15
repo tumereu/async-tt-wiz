@@ -161,8 +161,10 @@ sealed interface Effect {
     // dsk gaps
     /** "Copy them" (CR 707.12): a copy of each card of [objects], created in the zone the card is in and owned by
      * [owner], the player instructed to create it (CR 112.2a); named [bind] for the "cast the copies" that follows. A
-     * copy of a card isn't a card; in any zone other than the Stack or the battlefield it ceases to exist (CR 704.5e). */
-    @Serializable @SerialName("copy-card") data class CopyCard(val objects: Objects, val owner: Players, val bind: String) : Effect
+     * copy of a card isn't a card; in any zone other than the Stack or the battlefield it ceases to exist (CR 704.5e).
+     * [times] copies of each card ("Copy that card X times", trk). */
+    @Serializable @SerialName("copy-card") data class CopyCard(val objects: Objects, val owner: Players, val bind: String,
+        val times: Value = Value.Fixed(1)) : Effect
     // mh2
     /** "Create a copy of the card with the chosen name" (CR 707.12): a copy of the card named by the name choice bound as [name],
      * a card that needn't be in the game, so the host supplies it; made in exile and owned by [owner], named [bind] for "you may

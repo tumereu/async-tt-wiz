@@ -91,7 +91,9 @@ internal object Fra {
     val DISCARD_REFLEXIVE_TAP_STUN = Regex("""Draw (\w+) cards, then discard (\w+) cards\. When you discard one or more nonland cards this way, tap up to that many target creatures and put a stun counter on each of them\.""")
     val MAY_EXILE_SPELL_AND_NAMED = Regex("""You may exile this spell and (\w+) cards named (.+?) from your graveyard\. If you do, (.+)""")
     val EACH_PLAYER_MAY_DISCARD_HAND_DRAW = Regex("""Each player may (discard|exile) their hand and draw (?:(\w+) cards|a number of cards equal to (.+?))\.""") // mh3 chunk 02: exile, a number
-    val FOR_EACH_CREATURE_COPY_EXCEPT = Regex("""For each creature target player controls, create a token that's a copy of that creature, except it has (\w+) and "(.+)"\.""")
+    // trk chunk 07: also "target opponent" and any copy exception ("except it has menace")
+    val FOR_EACH_CREATURE_COPY_EXCEPT = Regex("""[Ff]or each creature target (player|opponent) controls, create a token that's a copy of that creature, except (.+)\.""")
+    val HAS_KEYWORD_AND_QUOTED = Regex("""it has (\w+) and "(.+)"""")
     val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\.""")
     // otj chunk 11: "each of two other target creatures"; mom chunk 12: "another target creature, planeswalker, or battle"
     val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|(?:another )?target .+?|each of (\w+) other target (.+?))\.""")
@@ -261,6 +263,8 @@ internal object FraPhrases {
         return null
     }
 
+    private val TYPES_AMONG = Regex("""the number of (planeswalker|creature) types among (.+)""")
+
     fun value(text: String): Value? {
         // fra chunk 03: "the amount of life you gained this turn"
         if (text == "the amount of life you gained this turn") return Value.EventsThisTurn(EventPattern.GainLife(PlayerFilter.You), Measure.Amount)
@@ -269,8 +273,10 @@ internal object FraPhrases {
             return Value.Of(NumericProperty.Toughness, Filters.objects(text.removePrefix("the greatest toughness among ")) ?: return null, Combine.Greatest)
         }
         // fra chunk 10: "the number of planeswalker types among planeswalkers you control" (CR 205.3j)
-        if (text.startsWith("the number of planeswalker types among ")) {
-            return Value.CountDistinct(Filters.objects(text.removePrefix("the number of planeswalker types among ")) ?: return null, SharedQuality.PlaneswalkerType)
+        // trk chunk 07: "the number of creature types among non-Borg creatures you control" (Federation, CR 205.3m)
+        TYPES_AMONG.matchEntire(text)?.let { m ->
+            val quality = if (m.groupValues[1] == "planeswalker") SharedQuality.PlaneswalkerType else SharedQuality.CreatureType
+            return Value.CountDistinct(Filters.objects(m.groupValues[2]) ?: return null, quality)
         }
         // fra chunk 10: "the number of card types among cards in all graveyards"
         if (text == "the number of card types among cards in all graveyards") return Value.CountDistinct(Objects.Each(ObjectFilter.InZone(Zone.Graveyard)), SharedQuality.CardType)

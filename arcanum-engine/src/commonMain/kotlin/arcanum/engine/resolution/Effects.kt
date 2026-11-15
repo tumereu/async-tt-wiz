@@ -762,7 +762,9 @@ internal object Effects {
         val owner = scope.players(effect.owner).firstOrNull() ?: scope.actor
         val creator = TokenIds.created("copy", act.state.nextTimestamp())
         val first = act.state.nextTimestamp()
-        val copies = scope.objects(effect.objects).mapNotNull { act.state.obj(it) }.mapIndexed { i, card ->
+        // trk: "Copy that card X times": X copies of each card
+        val times = scope.value(effect.times).coerceAtLeast(0)
+        val copies = scope.objects(effect.objects).mapNotNull { act.state.obj(it) }.flatMap { card -> List(times) { card } }.mapIndexed { i, card ->
             GameObject(
                 id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = owner, zone = card.zone,
                 // A card outside the battlefield and the Stack has its printed copiable values

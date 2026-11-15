@@ -193,7 +193,7 @@ class TmtCardsScenariosTest {
     }
 
     /** Chapter I exiles a legendary creature card and makes a non-legendary Mutant token copy of it. */
-    // CR 707.9b, 714.2b
+    // CR 707.9b, 715.2b
     @Test
     fun cloneIsntLegendaryAndIsAMutant() = scenario {
         alice.battlefield("Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Swamp")

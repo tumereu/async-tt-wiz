@@ -47,7 +47,7 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  *   controller), exile (by the owner) and the Stack (entries top first). A spell's card stays in the zone it was cast
  *   from with a Stack entry pointing at it (STK-001, STK-045).
  * - What [viewer] may not see is covered (a card in a hidden zone they may see, looked at or revealed, is known to them).
- * - A merged permanent's other cards (mutate, CR 730.2) lie on its Battlefield as cards attached to it (SYS-074).
+ * - A merged permanent's other cards (mutate, CR 731.2) lie on its Battlefield as cards attached to it (SYS-074).
  * - Battlefield places are the first free cell of the card's normal row ([org.asyncttwiz.protocol.BattlefieldPlacement]),
  *   in timestamp order.
  * - The combat lanes show the engine's combat (a pair per attacker), or the shared attack and block staging before they are

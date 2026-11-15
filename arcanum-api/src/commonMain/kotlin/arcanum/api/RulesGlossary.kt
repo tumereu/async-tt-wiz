@@ -99,7 +99,7 @@ object RulesGlossary {
     /** Keyword variants printed under names of their own, and the keyword they are (CR 702.33c, 702.37b). */
     private val VARIANTS = listOf("multikicker" to "kicker", "megamorph" to "morph")
 
-    // An object's states (CR 701, 702, 709, 719, 722): (id, name as a player reads it, explanation)
+    // An object's states (CR 701, 702, 709, 720, 723): (id, name as a player reads it, explanation)
     private val CARD_STATES: List<Triple<String, String, String>> = listOf(
         Triple("ring-bearer", "Ring-bearer", "The creature its controller chose when the Ring tempted them. It stays the Ring-bearer until they choose another or someone else gains control of it, and it gets more with each of the Ring's levels."),
         Triple("goaded", "Goaded", "It must attack each combat if it can, and must go after someone other than the player who goaded it if it can. It lasts until that player's next turn."),
@@ -333,6 +333,7 @@ object RulesGlossary {
         Triple("populate", "Populate", "You get another token that copies one of your creature tokens."),
         Triple("explore", "Explore", "Reveal your top card: a land goes to your hand; anything else gives this creature a +1/+1 counter, and you may put that card into your graveyard."),
         Triple("amass", "Amass", "Your Army grows by N +1/+1 counters; with no Army you first get a 0/0 Army creature token."),
+        Triple("incubate", "Incubate", "You get an Incubator token with N +1/+1 counters on it; for {2} it transforms into a 0/0 Phyrexian artifact creature that keeps them."),
         Triple("connive", "Connive", "You draw one card and then discard one; if what you discarded wasn't a land, the creature that connived gets a +1/+1 counter."),
         Triple("discover", "Discover", "Turn over cards from the top of your library until one isn't a land and has mana value N or less: cast it for free or take it into your hand; the others go to the bottom."),
         Triple("venture", "Venture into the dungeon", "Move your marker to the next room of your dungeon (starting a new dungeon if you have none) and do what that room says."),

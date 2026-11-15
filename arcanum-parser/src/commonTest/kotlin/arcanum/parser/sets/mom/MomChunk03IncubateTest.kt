@@ -111,7 +111,7 @@ class MomChunk03IncubateTest {
         triggered(entersSelf, incubate(5)),
     )
 
-    // CR 701.27a: a permanent transforms; CR 712.14a: one put onto the battlefield transformed enters back face up; CR 603.2h: "Do this
+    // CR 701.27a: a permanent transforms; CR 712.11a: one put onto the battlefield transformed enters back face up; CR 603.2h: "Do this
     // only once each turn" limits the draw, not the trigger
     @Test
     fun blightOfSpirehold() = card(
@@ -131,7 +131,7 @@ class MomChunk03IncubateTest {
 
     // CR 120.3, 603.2c: each damage event from an opponent's source to you or a permanent you control; CR 118.12a: that source's
     // controller may pay {1}; CR 608.2h: its last controller if it has left. Chapter I: CR 701.53a five times, then CR 701.27a.
-    // Chapter III: CR 701.8a; CR 712.14: the Saga returns front face up
+    // Chapter III: CR 701.8a; CR 712.11: the Saga returns front face up
     @Test
     fun vessaGrandMatron() = cardFaces(Layout.Transform,
         card(

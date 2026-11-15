@@ -42,9 +42,9 @@ import arcanum.parser.cube.parsesTo
 import arcanum.parser.cube.abilities
 import kotlin.test.Test
 
-/** Murders at Karlov Manor chunk 02: investigate (CR 701.16a), part 1, and the Case's "To solve" (CR 719.3a). */
+/** Murders at Karlov Manor chunk 02: investigate (CR 701.16a), part 1, and the Case's "To solve" (CR 720.3a). */
 class MkmChunk02InvestigateTest {
-    // CR 719.3a: "To solve" is an end-step trigger; CR 702.169d: a solved activated ability; CR 613.1d, f: it becomes a 0/0 creature
+    // CR 720.3a: "To solve" is an end-step trigger; CR 702.169d: a solved activated ability; CR 613.1d, f: it becomes a 0/0 creature
     // with flying for good
     @Test
     fun caseOfThePlunderedPerch() = card(
@@ -185,7 +185,7 @@ class MkmChunk02InvestigateTest {
             investigate(), triggersOnlyIf = Condition.Compare(Value.EventAmount, Comparison.AtLeast, n(3))),
     )
 
-    // CR 715.2: an Adventurer card; CR 608.2h: "if you controlled that permanent" as it last existed; CR 305.2: an additional land
+    // CR 716.2: an Adventurer card; CR 608.2h: "if you controlled that permanent" as it last existed; CR 305.2: an additional land
     @Test
     fun tamsinCuriousProdigy() = cardFaces(
         Layout.Adventure,

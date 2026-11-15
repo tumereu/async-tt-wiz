@@ -168,7 +168,7 @@ class Chunk31EntersLibraryAndGraveyardScenariosTest {
         expect { "Clever Tinkersmith".counters(CounterKind.PowerToughness(1, 1)) shouldBe 1 }
     }
 
-    /** CR 603.2i: "This ability triggers only once each turn". */
+    /** CR 603.2h: "This ability triggers only once each turn". */
     @Test
     fun cleverTinkersmithTriggersOnceEachTurn() = scenario {
         alice.battlefield("Clever Tinkersmith")

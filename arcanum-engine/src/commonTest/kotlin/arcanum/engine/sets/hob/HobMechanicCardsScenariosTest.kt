@@ -677,7 +677,7 @@ class HobMechanicCardsScenariosTest {
         }
     }
 
-    // ---- Chunk 04: Sagas (CR 714)
+    // ---- Chunk 04: Sagas (CR 715)
 
     @Test
     fun theHillLordComesHomeRecruitsThenReanimates() = scenario {
@@ -783,7 +783,7 @@ class HobMechanicCardsScenariosTest {
         expect { alice.battlefield has "Treasure Token" }
     }
 
-    // CR 714.2: four Treasures turn the Saga into a Dragon
+    // CR 715.2: four Treasures turn the Saga into a Dragon
     @Test
     fun theFrozenPeaksFarBecomesADragon() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain")
@@ -810,7 +810,7 @@ class HobMechanicCardsScenariosTest {
         expect { alice.hand has "Forest" }
     }
 
-    // ---- Chunk 05: Adventures (CR 715)
+    // ---- Chunk 05: Adventures (CR 716)
 
     @Test
     fun bolfinUnitedCareShieldsThenBolfinFromExile() = scenario {

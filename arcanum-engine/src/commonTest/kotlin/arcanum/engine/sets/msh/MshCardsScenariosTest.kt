@@ -146,7 +146,7 @@ class MshCardsScenariosTest {
     }
 
     /** Up to two targets with total mana value 6 or less: an Ogre and a Giant (7) are refused, an Ogre and a Bear taken. */
-    // CR 601.2c, 714.2b
+    // CR 601.2c, 715.2b
     @Test
     fun targetsWithTotalManaValueAtMostSix() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Plains", "Plains")
@@ -366,7 +366,7 @@ class MshCardsScenariosTest {
     }
 
     /** Chapter I: the next red or green creature spell this turn is free. */
-    // CR 714.2b, 118.9
+    // CR 715.2b, 118.9
     @Test
     fun nextGreenCreatureSpellIsFree() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest")

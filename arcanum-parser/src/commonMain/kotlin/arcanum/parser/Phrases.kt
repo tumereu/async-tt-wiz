@@ -536,7 +536,7 @@ internal object Filters {
             "modal" -> return ObjectFilter.Modal
             // gtc chunk 06: "blocked creature" (CR 509.1h)
             "blocked" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocked)
-            // mom chunk 02: "transformed permanent": a double-faced permanent with its back face up (CR 701.27g)
+            // mom chunk 02: "transformed permanent": a double-faced permanent with its back face up (CR 701.27h)
             "transformed" -> return ObjectFilter.HasStatus(arcanum.api.Status.Transformed)
             // mom chunk 09: "a land or double-faced card" (CR 712.1)
             "double-faced" -> return ObjectFilter.DoubleFaced
@@ -720,7 +720,7 @@ internal object Events {
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(transforms, EventPattern.ZoneChange(subject, from = Zone.Battlefield, to = Zone.Graveyard))
         }
-        // mom chunk 03: "a permanent you control transforms or a permanent you control enters transformed" (CR 701.27a, 712.14)
+        // mom chunk 03: "a permanent you control transforms or a permanent you control enters transformed" (CR 701.27a, 712.11)
         Mom.TRANSFORMS_OR_ENTERS_TRANSFORMED.matchEntire(text)?.let { m ->
             val transforms = subject(m.groupValues[1], self) ?: return null
             val enters = subject(m.groupValues[2], self) ?: return null
@@ -972,7 +972,7 @@ internal object Events {
         if (text == "an opponent gains life") return EventPattern.GainLife(PlayerFilter.Opponent)
         // blb chunk 01
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
-        // blb chunk 05: "this Class becomes level 2" (CR 716.2a)
+        // blb chunk 05: "this Class becomes level 2" (CR 717.2a)
         BECOMES_LEVEL.matchEntire(text)?.let { m -> return EventPattern.BecomesLevel(subject(m.groupValues[1], self) ?: return null, m.groupValues[2].toInt()) }
         // blb chunk 05: "one or more creatures you control die"
         ONE_OR_MORE_DIE.matchEntire(text)?.let { m ->
@@ -1049,7 +1049,7 @@ internal object Events {
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile)
         }
-        // chunk 56: "this creature transforms into [its back face's name]": it transforms and then has that name (CR 701.27e)
+        // chunk 56: "this creature transforms into [its back face's name]": it transforms and then has that name (CR 701.27f)
         TRANSFORMS_INTO.matchEntire(text)?.let { m ->
             // mom chunk 04: "a permanent you control transforms into a Phyrexian": it is one after transforming (CR 701.27a; not a look-back
             // trigger, CR 603.10)
@@ -1378,7 +1378,7 @@ internal object Conditions {
         OtjPhrases.condition(text)?.let { return it } // otj
         WoePhrases.condition(text, self)?.let { return it } // woe
         mkmCondition(text)?.let { return it } // mkm
-        // fra chunk 06: "this creature isn't prepared" (CR 722.3a); mkm chunk 05: any mark, "this creature is suspected", "it's not suspected"
+        // fra chunk 06: "this creature isn't prepared" (CR 723.3a); mkm chunk 05: any mark, "this creature is suspected", "it's not suspected"
         // (about this object, CR 701.60a)
         MARKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
             val marked = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Marked(ActionWordings.mark(m.groupValues[3]) ?: return@let)))

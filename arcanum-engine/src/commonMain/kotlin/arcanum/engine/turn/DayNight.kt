@@ -20,10 +20,10 @@ import arcanum.engine.state.GameState
 import arcanum.engine.view.View
 
 /**
- * Day and night (CR 731) with daybound and nightbound (CR 702.145): the game's designation is its
+ * Day and night (CR 732) with daybound and nightbound (CR 702.145): the game's designation is its
  * [arcanum.engine.state.GameStatus.DayNight] (read here as 0 neither, [Evaluator.DAY], [Evaluator.NIGHT]). It becomes day when a player controls a daybound
  * permanent and it's neither (702.145d), night when a nightbound one and no daybound one (702.145g); in the untap step the previous
- * turn's spells may change it (731.2); daybound permanents transform as it becomes night and nightbound ones as it becomes day, at
+ * turn's spells may change it (732.2); daybound permanents transform as it becomes night and nightbound ones as it becomes day, at
  * once (702.145c, f), and a daybound card enters transformed at night (702.145b).
  */
 internal object DayNight {
@@ -37,7 +37,7 @@ internal object DayNight {
     private fun status(value: Int): arcanum.engine.state.GameStatus? =
         if (value == 0) null else arcanum.engine.state.GameStatus.DayNight(night = value == Evaluator.NIGHT)
 
-    /** It becomes day or night; "day becomes night" and "night becomes day" are events (CR 731.1a). */
+    /** It becomes day or night; "day becomes night" and "night becomes day" are events (CR 732.1a). */
     fun set(recorder: Recorder, value: Int) {
         val before = of(recorder.state)
         if (before == value) return
@@ -45,7 +45,7 @@ internal object DayNight {
         if (before != 0) recorder.record(Change.Happened(GameEvent.DayNightChanged(night = value == Evaluator.NIGHT)))
     }
 
-    /** CR 731.2: as the turn of [state] begins, [previous]'s spells cast during the turn before decide. */
+    /** CR 732.2: as the turn of [state] begins, [previous]'s spells cast during the turn before decide. */
     fun untapCheck(recorder: Recorder, previous: arcanum.engine.state.PlayerId, previousTurn: Int) {
         val now = of(recorder.state)
         if (now == 0) return

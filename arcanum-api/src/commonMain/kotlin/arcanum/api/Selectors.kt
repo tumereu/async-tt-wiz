@@ -146,8 +146,8 @@ sealed interface ObjectFilter {
     /** Shares a colour / card type / creature type with [objects] (with one of them; [each] (dmr): with each of them, "shares a
      * creature type with each creature tapped this way", not necessarily the same one). */
     @Serializable @SerialName("shares") data class Shares(val quality: SharedQuality, val objects: Objects, val each: Boolean = false) : ObjectFilter
-    /** mom chunk 09: a double-faced card or permanent: a nonmodal or modal double-faced card or a meld card (CR 712.1), also a double-faced
-     * token (CR 111.13), whichever face is up ("If it's a land or double-faced card"). */
+    /** mom chunk 09: a double-faced card or permanent: a nonmodal or modal double-faced card (CR 712.1; a meld card isn't one, 713.1),
+     * also a double-faced token (CR 111.13), whichever face is up ("If it's a land or double-faced card"). */
     @Serializable @SerialName("double-faced") data object DoubleFaced : ObjectFilter
 
     @Serializable @SerialName("controlled-by") data class ControlledBy(val players: PlayerFilter) : ObjectFilter
@@ -246,7 +246,7 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("nth-spell-this-turn") data class NthSpellThisTurn(val spells: ObjectFilter, val n: Int) : ObjectFilter
     // fra
     /** A prepare spell: the copy of a prepared permanent's prepare spell cast from exile, or a copy of such a spell
-     * ("Whenever you cast a prepared spell", CR 722.3c, d). */
+     * ("Whenever you cast a prepared spell", CR 723.3c, d). */
     @Serializable @SerialName("prepare-spell") data object PrepareSpell : ObjectFilter
     /** It has dealt combat damage since it became this object (CR 400.7): "as long as they haven't dealt combat damage
      * yet". */
@@ -300,7 +300,7 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("has-mana-cost") data class HasManaCost(val cost: ManaCost) : ObjectFilter
     // woe
     /** It has an Adventure: its copiable values include an Adventure spell's alternative characteristics, whether or not it uses
-     * them now ("permanent spells you cast that have an Adventure", "a card in exile that has an Adventure", CR 715.2a, b). */
+     * them now ("permanent spells you cast that have an Adventure", "a card in exile that has an Adventure", CR 716.2a, b). */
     @Serializable @SerialName("has-adventure") data object HasAdventure : ObjectFilter
 }
 

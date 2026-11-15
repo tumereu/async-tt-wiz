@@ -14,7 +14,7 @@ import arcanum.engine.scenario.scenario
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Day and night with daybound and nightbound (CR 731, 702.145), speed (CR 702.179), compleated (702.150) and read ahead
+/** Day and night with daybound and nightbound (CR 732, 702.145), speed (CR 702.179), compleated (702.150) and read ahead
  * (702.155): rules the engine used to leave to the players. */
 class DayNightAndSpeedTest {
     private val watcher = Cards.inventFaces("Transform",
@@ -31,8 +31,8 @@ class DayNightAndSpeedTest {
 
     private fun dayNight(s: arcanum.engine.state.GameState) = arcanum.engine.turn.DayNight.of(s)
 
-    // CR 702.145d: a daybound permanent makes it day; CR 731.2a: a turn without spells makes it night, and the daybound
-    // permanent transforms (702.145c); CR 731.2b: two spells in a turn make it day again, and it transforms back (702.145f)
+    // CR 702.145d: a daybound permanent makes it day; CR 732.2a: a turn without spells makes it night, and the daybound
+    // permanent transforms (702.145c); CR 732.2b: two spells in a turn make it day again, and it transforms back (702.145f)
     @Test
     fun dayAndNight() = scenario {
         alice.battlefield(watcher)
@@ -206,7 +206,7 @@ class DayNightAndSpeedTest {
         }
     }
 
-    // CR 702.155a, b, 714.3b: read ahead: it enters with the chosen chapter's lore counters; only that chapter triggers
+    // CR 702.155a, b, 715.3b: read ahead: it enters with the chosen chapter's lore counters; only that chapter triggers
     @Test
     fun readAhead() = scenario {
         alice.battlefield("Plains", "Plains")

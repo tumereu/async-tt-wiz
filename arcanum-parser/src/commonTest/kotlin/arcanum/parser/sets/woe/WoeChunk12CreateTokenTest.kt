@@ -104,7 +104,7 @@ class WoeChunk12CreateTokenTest {
         gains(Objects.Each(creatureYouControl), Keyword.Haste),
         announced = listOf("X")))
 
-    // CR 714.2b (chapters), 111.2, 608.2c
+    // CR 715.2b (chapters), 111.2, 608.2c
     @Test
     fun theHuntsmansReward() = card(
         name = "The Huntsman's Reward",
@@ -125,7 +125,7 @@ class WoeChunk12CreateTokenTest {
         chapter(3, pump(target("creatures"), 2, 2, has(Keyword.Trample)), targets = listOf(slot("creatures", creature, min = 0, max = 2))),
     )
 
-    // CR 714.2b, 111.2, 707.2 (token copy), 611.2a
+    // CR 715.2b, 111.2, 707.2 (token copy), 611.2a
     @Test
     fun threeBlindMoles() = card(
         name = "Three Blind Moles",

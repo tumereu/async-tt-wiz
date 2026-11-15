@@ -832,7 +832,7 @@ class TmtMechanicCardsScenariosTest {
         expect { festeringFriends.counters(p1p1) shouldBe 2 }
     }
 
-    // ---- Chunks 06–07: Classes (CR 716)
+    // ---- Chunks 06–07: Classes (CR 717)
 
     @Test
     fun commandersKnackCountersAttackers() = scenario {

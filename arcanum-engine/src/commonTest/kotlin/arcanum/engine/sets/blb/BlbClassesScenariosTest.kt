@@ -10,7 +10,7 @@ import arcanum.engine.scenario.scenario
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
-/** Bloomburrow's Classes (CR 716), played with invented cards of the parser's chunk 05. */
+/** Bloomburrow's Classes (CR 717), played with invented cards of the parser's chunk 05. */
 class BlbClassesScenariosTest {
     private val steward = Cards.invent("Steward's Knack", "{2}{W}", "Enchantment — Class", """
         (Gain the next level as a sorcery to add its ability.)
@@ -38,7 +38,7 @@ class BlbClassesScenariosTest {
     }
 
     /** Levels go up one at a time, each adding its section's abilities; "becomes level 2" triggers as it does. */
-    // CR 716.2a: "Activate only if this Class is level N-1"; CR 716.2d: a Class without a level is level 1
+    // CR 717.2a: "Activate only if this Class is level N-1"; CR 717.2d: a Class without a level is level 1
     @Test
     fun levelsInOrder() = scenario {
         alice.battlefield(steward, "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains")
@@ -53,7 +53,7 @@ class BlbClassesScenariosTest {
         assertFailsWith<IllegalArgumentException> { alice.activates(steward, ability = 1) }
         alice.activates(steward, ability = 0)
         allPass()
-        // CR 716.2a: now level 2: its trigger copies a token
+        // CR 717.2a: now level 2: its trigger copies a token
         targets("Rabbit Token")
         allPass()
         expect {

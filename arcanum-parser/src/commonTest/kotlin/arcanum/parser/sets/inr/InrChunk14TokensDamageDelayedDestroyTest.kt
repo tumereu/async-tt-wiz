@@ -60,7 +60,7 @@ class InrChunk14TokensDamageDelayedDestroyTest {
         triggered(on(EventPattern.Sacrifice(and(sub("Blood"), token, you))), gainLife(1)),
     )
 
-    // CR 701.7a, 508.4: tokens put onto the battlefield tapped and attacking; CR 712.4a: the meld pair
+    // CR 701.7a, 508.4: tokens put onto the battlefield tapped and attacking; CR 713.1a: the meld pair
     @Test
     fun hanweirGarrison() = cardFaces(Layout.Meld("Brackmoor, the Seething Hamlet"),
         card(

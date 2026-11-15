@@ -93,7 +93,7 @@ internal object Triggers {
         found += discardedFromHand(state, now, change, seen)
         found += leftTheStack(state, now, change, seen)
         found += additional(state, now, change, found)
-        // CR 726.2: the initiative's inherent triggered abilities
+        // CR 727.2: the initiative's inherent triggered abilities
         found += arcanum.engine.dungeon.Dungeons.inherent(state, now, change)
         // CR 702.179d: speed's inherent triggered ability
         found += arcanum.engine.turn.Speed.inherent(state, now, change)
@@ -307,7 +307,7 @@ internal object Triggers {
     /** The instances of [trigger] in [change] (CR 603.2): one per event, or one per batch ([Trigger.On.oneOrMore], CR
      * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,
      * or earlier batches, so "one or more cards for the first time each turn" keeps the whole batch); chapter abilities
-     * as lore counters pass their numbers (CR 714.2b). */
+     * as lore counters pass their numbers (CR 715.2b). */
     fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change, whole: Change = change, door: Int? = null): List<TriggerEvent> = when (trigger) {
         is Trigger.On -> {
             fun units(c: Change): List<TriggerEvent> {

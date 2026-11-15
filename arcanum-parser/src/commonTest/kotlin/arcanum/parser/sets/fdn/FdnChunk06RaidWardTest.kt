@@ -214,7 +214,7 @@ class FdnChunk06RaidWardTest {
         ),
     )
 
-    // CR 702.21a (ward with two costs, both paid), CR 107.3c ("where X is"), CR 112.7a (the spell's mana value as it last existed)
+    // CR 702.21a (ward with two costs, both paid), CR 107.3c ("where X is"), CR 113.7a (the spell's mana value as it last existed)
     @Test
     fun zeruvo() = card(
         name = "Zeruvo, Riddle Colossus",

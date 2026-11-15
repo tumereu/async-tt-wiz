@@ -49,7 +49,7 @@ internal object ActionWordings {
     private val MARKS = mapOf<String, ObjectMark>(
         "monstrous" to ObjectMark.Monstrous, // CR 701.37b
         "plotted" to ObjectMark.Plotted, // CR 702.170a, c: a card in exile
-        "prepared" to ObjectMark.Prepared, // CR 722.3a
+        "prepared" to ObjectMark.Prepared, // CR 723.3a
         "renowned" to ObjectMark.Renowned, // CR 702.112b
         "saddled" to ObjectMark.Saddled, // CR 702.171b
         "suspected" to ObjectMark.Suspected, // CR 701.60a
@@ -81,7 +81,7 @@ internal object ActionWordings {
         val (word, players) = PLAYERS.firstOrNull { text.startsWith(it.first) } ?: return null
         val rest = text.removePrefix(word)
         fun form(verb: Verb) = if (players == PlayerFilter.You) verb.base else verb.third
-        // mkm chunk 10: "you solve a Case": a Case of theirs becomes solved (CR 719.3a, 719.3b)
+        // mkm chunk 10: "you solve a Case": a Case of theirs becomes solved (CR 720.3a, 720.3b)
         (if (players == PlayerFilter.You) "solve " else "solves ").takeIf { rest.startsWith(it) }?.let { verb ->
             return EventPattern.GotMark(ObjectMark.Solved, ObjectFilter.And(listOf(subject(rest.removePrefix(verb)) ?: return null, ObjectFilter.ControlledBy(players))))
         }

@@ -214,7 +214,7 @@ class SpmCardsScenariosTest {
         assertTrue(arcanum.api.Supertype.Legendary !in view()[token]!!.characteristics!!.supertypes)
     }
 
-    /** [saga] with [n] - 1 lore counters at the start of alice's draw step: after it, chapter [n] triggers (CR 714.3b). */
+    /** [saga] with [n] - 1 lore counters at the start of alice's draw step: after it, chapter [n] triggers (CR 715.3b). */
     private fun arcanum.engine.scenario.Scenario.chapter(saga: String, n: Int) {
         alice.battlefield(saga, counters = listOf(arcanum.api.CounterKind.Lore to n - 1))
         alice.library(ogre, ogre, ogre)

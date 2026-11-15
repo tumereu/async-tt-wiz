@@ -270,7 +270,7 @@ fun addOne(symbol: String): Ability = activated(cost(tap), Step.Do(Effect.AddMan
 fun equip(text: String): Keyword = Keyword.Equip(manaCost(text))
 /** "Equipped creature gets …" (CR 301.5) */
 val equipped: Objects = Objects.AttachedTo(Objects.Self)
-/** A Saga's chapter ability (CR 714.2b). */
+/** A Saga's chapter ability (CR 715.2b). */
 fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
 /** A loyalty ability (CR 606.4) */

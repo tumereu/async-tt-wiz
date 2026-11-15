@@ -212,7 +212,7 @@ class Review1CastingTest {
     }
 
     /** Cancelling a cast from the graveyard leaves no trace, even of a trigger the card's leaving caused. */
-    // CR 601.2 (illegal or cancelled cast reversed, 723.1), D58
+    // CR 601.2 (illegal or cancelled cast reversed, 734.1), D58
     @Test
     fun cancelFromGraveyardLeavesNoTrace() = scenario {
         alice.battlefield("Stitchwork Porter", "Sinister Rootwork")

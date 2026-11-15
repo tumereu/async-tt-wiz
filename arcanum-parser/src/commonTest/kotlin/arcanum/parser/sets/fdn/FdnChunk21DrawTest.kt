@@ -89,7 +89,7 @@ class FdnChunk21DrawTest {
         triggered(youCast(arcanum.api.ObjectFilter.Targets(objects = Objects.Self)), draw(1)),
     )
 
-    // CR 117.12: "you may pay", then "if you do"; CR 208.1: power 2 or less, another creature
+    // CR 118.12: "you may pay", then "if you do"; CR 208.1: power 2 or less, another creature
     @Test
     fun menderOfTheMeek() = card(
         name = "Mender of the Meek",
@@ -167,7 +167,7 @@ class FdnChunk21DrawTest {
         activated(cost(mana("{1}{U}"), tap), draw(1), discard(1)),
     )
 
-    // CR 117.12, 701.21a: sacrifice another creature, then "if you do"; CR 509.1b: can't be blocked
+    // CR 118.12, 701.21a: sacrifice another creature, then "if you do"; CR 509.1b: can't be blocked
     @Test
     fun vampireGlutton() = card(
         name = "Vampire Glutton",

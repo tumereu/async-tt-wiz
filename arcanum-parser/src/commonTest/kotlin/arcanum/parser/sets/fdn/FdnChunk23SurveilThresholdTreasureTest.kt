@@ -334,7 +334,7 @@ class FdnChunk23SurveilThresholdTreasureTest {
         activated(cost(mana("{4}"), tap), untilEndOfTurn(target("creature"), Mechanic.CantBeBlocked), targets = listOf(slot("creature", creature))),
     )
 
-    // CR 106.4a, 106.4c: mana added on an attack trigger, kept until end of turn
+    // CR 106.4: mana added on an attack trigger, kept until end of turn
     @Test
     fun savageVentwing() = card(
         name = "Savage Ventwing",

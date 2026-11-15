@@ -184,7 +184,7 @@ class SpmWebSlingingMayhemAndModifiedCardsScenariosTest {
     }
 
     /** Tobin makes a Spider as he enters, then transforms into the 4/4 web-slinging granter. */
-    // CR 701.27a, 712.8
+    // CR 701.27a, 712.6
     @Test
     fun tobinAshgroveMakesASpiderAndTransforms() = scenario {
         alice.battlefield("Plains", "Plains", "Forest", "Plains", "Island", "Island")

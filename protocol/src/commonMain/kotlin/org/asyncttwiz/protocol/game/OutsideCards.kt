@@ -15,7 +15,7 @@ import org.asyncttwiz.protocol.CardDefinition as GameCard
 
 /**
  * Cards a player owns outside the game that aren't part of their deck or sideboard: dungeon cards (CR 309.2), brought in only by
- * venturing into the dungeon (CR 701.49) or taking the initiative (CR 726). The server brings the dungeons of its card catalog with
+ * venturing into the dungeon (CR 701.49) or taking the initiative (CR 727). The server brings the dungeons of its card catalog with
  * a player's Ready when their deck holds a card that ventures or takes the initiative ([mayVenture], LOB-117); it keeps them with
  * the prepared deck ([PreparedDeck.outside]) and the engine game starts with them among the player's cards outside the game.
  */
@@ -32,7 +32,7 @@ object OutsideCards {
     }
 
     /** What a parsed card needs of the dungeon cards outside the game: a plain venture ([Need.Dungeon]), "venture into Undercity"
-     * or the initiative ([Need.Undercity], CR 701.49d, 726.2). */
+     * or the initiative ([Need.Undercity], CR 701.49d, 727.2). */
     sealed interface Need {
         data object Dungeon : Need
         data object Undercity : Need

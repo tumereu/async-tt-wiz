@@ -37,7 +37,7 @@ import arcanum.parser.cube.card
 import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
-/** BRO chunk 03: prototype creatures (CR 702.160, 718). */
+/** BRO chunk 03: prototype creatures (CR 702.160, 719). */
 class BroChunk03PrototypeTest {
     private val reminder = "(You may cast this spell with different mana cost, color, and size. It keeps its abilities and types.)"
 
@@ -94,7 +94,7 @@ class BroChunk03PrototypeTest {
         pt = "6/4",
     ) parsesTo abilities(prototype("{2}{R}", 3, 2), Keyword.Haste)
 
-    // CR 702.160a, 718.3b: its power is the prototype's when cast prototyped
+    // CR 702.160a, 719.3b: its power is the prototype's when cast prototyped
     @Test
     fun mossrockGolem() = card(
         name = "Mossrock Golem",
@@ -186,7 +186,7 @@ class BroChunk03PrototypeTest {
     ) parsesTo abilities(prototype("{1}{B}", 1, 1), Keyword.Deathtouch)
 
     // CR 707.9b: exceptions are part of the copy's copiable values; its own power and toughness are the prototype's when cast prototyped
-    // (CR 718.3b), fixed as it enters (CR 614.12)
+    // (CR 719.3b), fixed as it enters (CR 614.12)
     @Test
     fun bulkyShapecaster() = card(
         name = "Bulky Shapecaster",
@@ -278,7 +278,7 @@ class BroChunk03PrototypeTest {
         pt = "10/10",
     ) parsesTo abilities(prototype("{3}{G}{G}", 3, 5), Keyword.Reach, Keyword.Trample)
 
-    // CR 603.4 ("if you cast it"), 707.2, 718.3d (copies of a prototyped permanent are prototyped too)
+    // CR 603.4 ("if you cast it"), 707.2, 719.3d (copies of a prototyped permanent are prototyped too)
     @Test
     fun scuttlelightBattalion() = card(
         name = "Scuttlelight Battalion",

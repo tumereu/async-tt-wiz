@@ -253,7 +253,7 @@ object StackAbilityText {
 
     /**
      * The name a sourceless ability the rules give a player goes by ([AbilityOrigin.Rule]: speed's increase, CR 702.179d; the
-     * initiative's, CR 726.2): the rule's name as the rules glossary calls it ("Speed", "Initiative"), standing where a source's
+     * initiative's, CR 727.2): the rule's name as the rules glossary calls it ("Speed", "Initiative"), standing where a source's
      * name would ("Speed's ability"); null for an item with a source or another origin, or a rule the glossary doesn't name
      * (logged as an error).
      */

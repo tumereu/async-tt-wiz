@@ -54,7 +54,7 @@ class LtrChunk07RedTest {
             damage(1, toObjects(Objects.Each(and(creature, ObjectFilter.Blocking(Objects.Self)))))),
     )
 
-    // CR 714.2b
+    // CR 715.2b
     @Test
     fun bookOfTheDeepRecords() = card(
         name = "Book of the Deep Records",

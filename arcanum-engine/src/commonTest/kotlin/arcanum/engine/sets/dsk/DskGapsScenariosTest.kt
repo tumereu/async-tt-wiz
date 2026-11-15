@@ -293,7 +293,7 @@ class DskGapsScenariosTest {
         IV — Exile any number of target instant, sorcery, and/or Tamiyo planeswalker cards from your graveyard. Copy them. You may cast any number of the copies.
     """)
 
-    // CR 714.2b, 608.2c: chapter I mills two; while two milled cards share a card type, draw and mill again
+    // CR 715.2b, 608.2c: chapter I mills two; while two milled cards share a card type, draw and mill again
     @Test
     fun repeatThisProcess() = scenario {
         alice.battlefield("Island", "Island", "Island")
@@ -315,7 +315,7 @@ class DskGapsScenariosTest {
     }
 
     // CR 707.12, 707.12a, 112.2a: chapter IV exiles the targets and copies them in exile; each copy may be cast, its
-    // costs paid; a copy of a card that leaves the Stack for the graveyard ceases to exist (CR 704.5e); CR 714.4: the
+    // costs paid; a copy of a card that leaves the Stack for the graveyard ceases to exist (CR 704.5e); CR 715.4: the
     // Saga is sacrificed after its last chapter
     @Test
     fun castCopiesOfExiledCards() = scenario {

@@ -273,7 +273,7 @@ class FdnChunk06RaidWardScenariosTest {
         }
     }
 
-    // CR 107.3c, CR 112.7a: a 2-mana-value sorcery makes two Goblins, with haste until end of turn
+    // CR 107.3c, CR 113.7a: a 2-mana-value sorcery makes two Goblins, with haste until end of turn
     @Test
     fun zeruvoMakesGoblinsForTheSpellsManaValue() = scenario {
         alice.battlefield(zeruvo, "Island", "Island")

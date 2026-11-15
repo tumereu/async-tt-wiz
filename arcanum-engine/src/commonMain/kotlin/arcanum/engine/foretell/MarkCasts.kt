@@ -26,7 +26,7 @@ import arcanum.engine.view.AppliedMechanic
 /**
  * The one path of what marks let be cast from exile ([MarkRule.permission]): a card that gained a mark may be cast by its owner after that
  * turn, as the table says (foretold, CR 702.143a; plotted, 702.170d, even an instant and even if it no longer has plot), and a prepared
- * permanent's controller may cast the copy of its prepare spell (CR 722.3c). Each card's permission has the origin
+ * permanent's controller may cast the copy of its prepare spell (CR 723.3c). Each card's permission has the origin
  * [AbilityOrigin.Rule] of the mark's name, with the cost's place after a colon from the second on, so each cost is its own way to cast it.
  */
 internal object MarkCasts {
@@ -50,7 +50,7 @@ internal object MarkCasts {
         return (MarkRules.named(name)?.permission as? MarkPermission.CastCard)?.timing == Timing.Sorcery
     }
 
-    /** CR 722.3c: a copy kept in exile may be cast by its permanent's controller. */
+    /** CR 723.3c: a copy kept in exile may be cast by its permanent's controller. */
     private fun copyPermission(state: GameState, o: GameObject, controllerOf: (ObjectId) -> PlayerId?): List<AppliedMechanic> {
         if (!Prepare.keptInExile(state, o)) return emptyList()
         val permanent = state.obj(o.prepareSpellOf!!)!!

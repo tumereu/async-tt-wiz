@@ -17,7 +17,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** MKM chunk 06: Cases solved (CR 719.3a) by distinct damage sources, attacking creatures, creature cards put into graveyards (not tokens),
+/** MKM chunk 06: Cases solved (CR 720.3a) by distinct damage sources, attacking creatures, creature cards put into graveyards (not tokens),
  * a suspected token gone, life gained; their solved abilities (CR 702.169b, d): a 4/4 creature, casting from the top of the library, and
  * creature cards in the graveyard castable until end of turn (only those there as it resolved, CR 611.2c). */
 class MkmChunk06SolvedScenariosTest {
@@ -63,7 +63,7 @@ class MkmChunk06SolvedScenariosTest {
         resolveAll()
     }
 
-    // CR 719.3a, 120.1: a spell and two attacking creatures are three sources; the spell counts though it is in the graveyard now
+    // CR 720.3a, 120.1: a spell and two attacking creatures are three sources; the spell counts though it is in the graveyard now
     @Test
     fun threeSourcesSolveTheCase() = scenario {
         alice.battlefield(veils, Plain.bear, Plain.ogre, "Mountain")
@@ -80,7 +80,7 @@ class MkmChunk06SolvedScenariosTest {
         assertTrue(solved(veils))
     }
 
-    // CR 719.3a, 702.4b: a double striker deals damage twice but is one source, so it and a second creature are only two
+    // CR 720.3a, 702.4b: a double striker deals damage twice but is one source, so it and a second creature are only two
     @Test
     fun oneSourceDealingDamageTwiceCountsOnce() = scenario {
         alice.battlefield(veils, duelist, Plain.bear)
@@ -94,7 +94,7 @@ class MkmChunk06SolvedScenariosTest {
         assertFailsWith<IllegalArgumentException> { alice.activates(veils) }
     }
 
-    // CR 120.2: each creature you control deals 1 damage to the chosen creature; CR 719.3a: three creatures attacked; CR 702.169b, 613.4c:
+    // CR 120.2: each creature you control deals 1 damage to the chosen creature; CR 720.3a: three creatures attacked; CR 702.169b, 613.4c:
     // solved, creatures you control get +1/+0
     @Test
     fun eachCreatureDealsOneDamageAndThreeAttackersSolve() = scenario {
@@ -116,7 +116,7 @@ class MkmChunk06SolvedScenariosTest {
         }
     }
 
-    // CR 719.3a, 506.1: two creatures attacking in each of two combats are still two creatures that attacked, not four
+    // CR 720.3a, 506.1: two creatures attacking in each of two combats are still two creatures that attacked, not four
     @Test
     fun aCreatureAttackingTwiceCountsOnce() = scenario {
         alice.battlefield(tram, Plain.bear, Plain.ogre, "Mountain")
@@ -154,7 +154,7 @@ class MkmChunk06SolvedScenariosTest {
         expect { basilisk.types.contains(CardType.Creature) shouldBe false }
     }
 
-    // CR 719.3a: three creature cards milled; CR 702.169b, 613.1d, f: solved, the Case is a 4/4 Gorgon creature with deathtouch and lifelink
+    // CR 720.3a: three creature cards milled; CR 702.169b, 613.1d, f: solved, the Case is a 4/4 Gorgon creature with deathtouch and lifelink
     @Test
     fun threeCreatureCardsMilledMakeTheCaseAGorgon() = scenario {
         alice.battlefield(basilisk, "Island")
@@ -175,7 +175,7 @@ class MkmChunk06SolvedScenariosTest {
         }
     }
 
-    // CR 719.3a: seven lands; CR 702.169b, 401.5, 305.1, 601.3: solved, a land is played and an enchantment cast from the top of the library
+    // CR 720.3a: seven lands; CR 702.169b, 401.5, 305.1, 601.3: solved, a land is played and an enchantment cast from the top of the library
     @Test
     fun solvedOrangeryPlaysAndCastsFromTheTopOfTheLibrary() = scenario {
         alice.battlefield(orangery, "Plains", "Plains", "Plains", "Plains", "Island", "Island", "Island")
@@ -190,7 +190,7 @@ class MkmChunk06SolvedScenariosTest {
         expect { Plain.charm.zone shouldBe Zone.Battlefield }
     }
 
-    // CR 719.3a: 6 life gained; CR 702.169d, 611.2c, 113.6f: solved, the creature card in the graveyard can be cast from there this turn, the one
+    // CR 720.3a: 6 life gained; CR 702.169d, 611.2c, 113.6f: solved, the creature card in the graveyard can be cast from there this turn, the one
     // put there after the ability resolved can't
     @Test
     fun solvedSupperLetsCreatureCardsAlreadyInTheGraveyardBeCast() = scenario {

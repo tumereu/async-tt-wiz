@@ -147,7 +147,7 @@ class MomFixesScenariosTest {
         assertEquals(listOf(card(trinket)), state.player(alice.id).library.take(1))
     }
 
-    // CR 310.12b, 712.11a: the defeated Siege is cast transformed; CR 604.3, 105.2: the spell is all colours; CR 608.2c-d: the copied
+    // CR 310.12b, 712.8a: the defeated Siege is cast transformed; CR 604.3, 105.2: the spell is all colours; CR 608.2c-d: the copied
     // permanent and the creatures sharing the counters are chosen as it resolves; CR 707.2: the token copies the Charger
     @Test
     fun awakenTheMomentideDoesEverythingInOrder() = scenario {

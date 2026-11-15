@@ -629,7 +629,7 @@ internal object Payment {
         // CR 601.2i: the spell becomes cast
         recorder.record(Change.StackItemAdded(item, null, listOf(Meaning.Cast)))
         NextSpells.useUp(recorder, id)
-        arcanum.engine.prepare.Prepare.onCast(recorder, id) // fra: CR 722.3c
+        arcanum.engine.prepare.Prepare.onCast(recorder, id) // fra: CR 723.3c
         spentOnSpells(recorder, plan.player, spent.size)
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
@@ -770,7 +770,7 @@ internal object Payment {
                 arcanum.engine.change.Changes.cast(recorder.state, o.id, o.castOrNone.copy(modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct()))
                     ?.let { recorder.record(it) }
             }
-        // otj chunk 06: the ability is on the Stack with its targets when it becomes activated (CR 602.2i), so "an ability that
+        // otj chunk 06: the ability is on the Stack with its targets when it becomes activated (CR 602.2b, 601.2i), so "an ability that
         // targets a creature or player" reads them
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
             keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))

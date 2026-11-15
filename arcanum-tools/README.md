@@ -45,6 +45,10 @@ Adding a set to Arcanum: follow [set-work/README.md](set-work/README.md).
   the reason and shape ids; `CardVerdict.kt` has the conditions, and whatever can't be judged is `TEST`), `chunks/NN.md`, `digest.md`, `difficult.md`, `notes.md` and `audit/`
   (`batch-NN.md`, plus `seeded.tsv`: about 8% of entries are deliberately wrong copies, the same for one card list). A rerun keeps `notes.md`, and the audit once it has results.
   Needs `coveredShapes` first. `./scripts/gradle.sh :arcanum-tools:setPlan --args=MOM`
+- `crDelta`: for a Comprehensive Rules pin move, every `CR <number>` cited in the repository (the feature catalog and specs left out) as
+  unchanged, renumbered, changed, removed or new, from two local rules texts, citations read in the pinned version's numbering; `--apply` (old
+  pin) rewrites renumbered citations (`--map=old=new,...` for the reader's choices); a checked change goes in `cr-delta-checked.tsv`.
+  `./scripts/gradle.sh :arcanum-tools:crDelta --args="<old rules.txt> <new rules.txt> [report.md] [--apply [--map=...]]"`
 
 Every tool here that reads real cards reads one MTGJSON AllPrintings file, the host's pinned one: `~/projects/atw-cache/AllPrintings.json.gz`
 (or `-Pmtgjson=`), checked against the pin's SHA-256 (the host passes the pin as `arcanum.pin`). Without it, or with another file there, a tool

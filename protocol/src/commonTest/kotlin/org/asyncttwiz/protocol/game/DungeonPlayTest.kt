@@ -27,7 +27,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * LOB-117, CR 309, 701.49, 726: dungeon cards as a player's device brings them (card data as the catalog writes it, the arrows
+ * LOB-117, CR 309, 701.49, 727: dungeon cards as a player's device brings them (card data as the catalog writes it, the arrows
  * "(Leads to: …)", Undercity's restriction, the reminder face of a double-faced token dropped), played through the server's rules
  * at protocol level: a venture enters the dungeon a plain venture may enter, moves through its rooms by the owner's choice and
  * completes it; the initiative enters the Undercity; an undo across room moves gives back the earlier state exactly. Invented
@@ -162,7 +162,7 @@ class DungeonPlayTest {
         assertTrue(server.state().engine.player(server.alice).outside.any { server.state().engine.obj(it)?.named() == "Dungeon Test Crypt" })
     }
 
-    // CR 726.2, 701.49d: taking the initiative ventures into Undercity: the dungeon only "venture into Undercity" may enter
+    // CR 727.2, 701.49d: taking the initiative ventures into Undercity: the dungeon only "venture into Undercity" may enter
     @Test
     fun theInitiativeEntersTheUndercity() {
         val server = server(claim)

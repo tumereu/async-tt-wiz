@@ -138,7 +138,7 @@ class WoeChunk12CreateTokenScenariosTest {
         expect { boar.zone shouldBe Zone.Graveyard }
     }
 
-    // CR 714.3b, 111.2: chapter I makes a 3/3 Beast
+    // CR 715.3b, 111.2: chapter I makes a 3/3 Beast
     @Test
     fun huntsmansRewardChapterOneMakesABeast() = scenario {
         loreChapter(reward, 1)

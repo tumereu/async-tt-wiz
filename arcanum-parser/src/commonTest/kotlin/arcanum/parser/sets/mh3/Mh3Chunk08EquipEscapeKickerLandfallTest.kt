@@ -203,7 +203,7 @@ class Mh3Chunk08EquipEscapeKickerLandfallTest {
             targets = listOf(slot("creature", creatureOpponentControls))),
     )
 
-    // CR 714.2b: chapter abilities; CR 701.16a: investigate twice for each discarded card
+    // CR 715.2b: chapter abilities; CR 701.16a: investigate twice for each discarded card
     @Test
     fun tamiyoMeetsTheStoryCircle() = card(
         name = "Moonfolk Hears the Tale",

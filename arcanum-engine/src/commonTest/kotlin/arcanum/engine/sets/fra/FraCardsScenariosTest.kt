@@ -61,7 +61,7 @@ class FraCardsScenariosTest {
         [−7]: You get an emblem with "Whenever you cast a spell, this emblem deals 5 damage to any target."
     """, loyalty = "4")
     private val confront = Cards.invent("Confront Thyself", "{5}{R}{R}", "Sorcery",
-        "For each creature target player controls, create a token that's a copy of that creature, except it has haste and \"At the beginning of the end step, if you don't control a planeswalker, sacrifice this creature.\"")
+        "For each creature target player controls, create a token that's a copy of that creature, except it has haste and \"At the beginning of the end step, if you don't control a planeswalker, sacrifice this token.\"")
     private val spiteful = Cards.invent("Spiteful Victory", "{W}{B}{B}", "Instant",
         "Exile target creature or planeswalker. If that permanent's mana value was 3 or less, return it to the battlefield tapped under your control. Exile it at the beginning of the next end step.")
     private val scorch = Cards.invent("Quintessence Scorch", "{1}{R}", "Instant",
@@ -165,6 +165,8 @@ class FraCardsScenariosTest {
         // targets: one of each type
         answer(Answer.Targets(listOf(target(shock), target(ox), target(study))))
         resolveStackFully()
+        alice.chooses("Wide Ox", "Deep Study")
+        // CR 608.2g: and the order to cast them in
         alice.chooses("Wide Ox", "Deep Study")
         resolveStackFully()
         expect {

@@ -37,7 +37,7 @@ import kotlin.test.Test
 
 /**
  * Phyrexia: All Will Be One chunk 11: proliferate (CR 701.34a) as the last or only step of a spell, after an optional tap or payment,
- * as a cost's effect and in modes; triggers on proliferating (CR 701.34e); toxic (CR 702.164a).
+ * as a cost's effect and in modes; triggers on proliferating (CR 701.34a); toxic (CR 702.164a).
  */
 class OneChunk11ProliferateTwoTest {
     private fun bound(name: String): Objects = Objects.Bound(name)
@@ -85,7 +85,7 @@ class OneChunk11ProliferateTwoTest {
         ),
     )
 
-    // CR 701.34e: a trigger on proliferating
+    // CR 701.34a: a trigger on proliferating
     @Test
     fun schemingAdept() = card(
         name = "Scheming Adept", cost = "{1}{B}", type = "Creature — Phyrexian Advisor", pt = "1/3",
@@ -189,7 +189,7 @@ class OneChunk11ProliferateTwoTest {
         ),
     )
 
-    // CR 701.34e, 700.2: a mode that creates a token only if you control no creature of that name, and a mode that grants flying and lifelink
+    // CR 701.34a, 700.2: a mode that creates a token only if you control no creature of that name, and a mode that grants flying and lifelink
     @Test
     fun vesnerCorpseHandler() = card(
         name = "Vesner, Corpse Handler", cost = "{U}{B}", type = "Legendary Creature — Phyrexian Zombie Wizard", pt = "1/3",
@@ -222,7 +222,7 @@ class OneChunk11ProliferateTwoTest {
         spell(draw(3), proliferate),
     )
 
-    // CR 701.34e: "when you proliferate" works from the graveyard (CR 603.6)
+    // CR 701.34a: "when you proliferate" works from the graveyard (CR 603.6)
     @Test
     fun voidwingHatchling() = card(
         name = "Voidwing Hatchling", cost = "{U}{B}", type = "Creature — Phyrexian Bat", pt = "2/1",

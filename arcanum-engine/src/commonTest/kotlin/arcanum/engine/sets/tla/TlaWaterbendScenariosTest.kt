@@ -169,7 +169,7 @@ class TlaWaterbendScenariosTest {
     }
 
     /** Unpaid: Alice makes Bob's decisions during his next combat phase only. */
-    // CR 723.2
+    // CR 724.2
     @Test
     fun secretOfVeinshapingControlsTheNextCombat() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island")

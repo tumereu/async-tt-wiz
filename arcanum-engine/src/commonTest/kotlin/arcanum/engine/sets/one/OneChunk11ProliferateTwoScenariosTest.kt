@@ -17,7 +17,7 @@ import kotlin.test.assertEquals
 
 /**
  * Phyrexia: All Will Be One chunk 11 in play: proliferate (CR 701.34a) after an optional tap, as a loyalty-less life-paid ability and
- * after a spell's other steps; triggers on proliferating (CR 701.34e) from the battlefield and the graveyard, with a mode that
+ * after a spell's other steps; triggers on proliferating (CR 701.34a) from the battlefield and the graveyard, with a mode that
  * creates a token only when no creature of that name is controlled; a mana ability of any color (CR 106.1b).
  */
 class OneChunk11ProliferateTwoScenariosTest {
@@ -91,7 +91,7 @@ class OneChunk11ProliferateTwoScenariosTest {
         }
     }
 
-    // CR 701.34e, 102.2, 3+ players: each opponent loses 2 life and you gain 2, once per proliferate
+    // CR 701.34a, 102.2, 3+ players: each opponent loses 2 life and you gain 2, once per proliferate
     @Test
     fun adeptDrainsEachOpponentWhenYouProliferate() = scenario(players = 3) {
         alice.battlefield("Mountain", "Mountain", "Mountain")
@@ -109,7 +109,7 @@ class OneChunk11ProliferateTwoScenariosTest {
         }
     }
 
-    // CR 701.34e: only the proliferating player's trigger: an opponent's proliferate doesn't drain
+    // CR 701.34a: only the proliferating player's trigger: an opponent's proliferate doesn't drain
     @Test
     fun adeptIgnoresAnOpponentsProliferate() = scenario {
         alice.battlefield(adept)
@@ -126,7 +126,7 @@ class OneChunk11ProliferateTwoScenariosTest {
         }
     }
 
-    // CR 603.6c, 701.34e: the graveyard trigger returns the card when you proliferate
+    // CR 603.6c, 701.34a: the graveyard trigger returns the card when you proliferate
     @Test
     fun hatchlingReturnsFromTheGraveyardWhenYouProliferate() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Island")

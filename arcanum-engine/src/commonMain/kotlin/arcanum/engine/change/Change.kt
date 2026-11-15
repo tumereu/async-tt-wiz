@@ -221,7 +221,7 @@ sealed interface Change {
     }
 
     /** A player's status of [before]'s or [after]'s key changes ([PlayerStatus]): null is none (at its default). A designation
-     * gained or lost (CR 724–726) is an event; the other statuses are not. */
+     * gained or lost (CR 725–726) is an event; the other statuses are not. */
     @Serializable @SerialName("player-status")
     data class PlayerStatusChanged(val player: PlayerId, val before: PlayerStatus?, val after: PlayerStatus?) : Change {
         init { require(before != null || after != null) { "A status change needs a status" } }
@@ -417,7 +417,7 @@ data class Move(
     val meanings: List<Meaning> = emptyList(),
     /** What everyone could see of it as it left (D33): characteristics after layers, for history and "dies" triggers. */
     val seen: ObjectSnapshot? = null,
-    /** A merged permanent's other components (CR 730.3): put into the new zone as their own objects as it leaves the
+    /** A merged permanent's other components (CR 731.3): put into the new zone as their own objects as it leaves the
      * battlefield ([before] is merged), taken out of it again when the move is taken back ([after] is merged). */
     val parts: List<Placed> = emptyList(),
 ) {
@@ -448,7 +448,7 @@ data class DamageDealt(
 @Serializable
 sealed interface GameEvent {
     // ltr chunk 13
-    /** The final chapter ability of the Saga [saga] resolved (CR 714.2c). */
+    /** The final chapter ability of the Saga [saga] resolved (CR 715.2c). */
     @Serializable @SerialName("final-chapter-resolved")
     data class FinalChapterResolved(val saga: ObjectId) : GameEvent
     /** [player] activated an ability of [source] (CR 602); mana abilities too (CR 605). */
@@ -489,16 +489,16 @@ sealed interface GameEvent {
     @Serializable @SerialName("spent-on-spells") data class SpentOnSpells(val player: PlayerId, val before: Int, val after: Int) : GameEvent
     /** [player] conceded the game (CR 104.3a). */
     @Serializable @SerialName("conceded") data class Conceded(val player: PlayerId) : GameEvent
-    /** The game was in a loop of mandatory actions: it is a draw (CR 104.4b, 732.4). */
+    /** The game was in a loop of mandatory actions: it is a draw (CR 104.4b, 733.4). */
     @Serializable @SerialName("mandatory-loop") data object MandatoryLoop : GameEvent
     /** The players still in the game agreed to end it with [result] ([arcanum.engine.input.Input.AgreedResult]: an
      * intentional draw, CR 104.4i, or the others conceding, CR 104.3a). */
     @Serializable @SerialName("result-agreed") data class ResultAgreed(val result: arcanum.engine.setup.GameResult) : GameEvent
     /** [player] completed [dungeon] (CR 309.7). */
     @Serializable @SerialName("completed-dungeon") data class CompletedDungeon(val player: PlayerId, val dungeon: ObjectId) : GameEvent
-    /** [player] took the initiative (CR 726.2, 726.5: also when they had it). */
+    /** [player] took the initiative (CR 727.2, 727.5: also when they had it). */
     @Serializable @SerialName("took-initiative") data class TookInitiative(val player: PlayerId) : GameEvent
-    /** The Class [id] became level [level] (CR 716.2a). */
+    /** The Class [id] became level [level] (CR 717.2a). */
     @Serializable @SerialName("became-level") data class BecameLevel(val id: ObjectId, val level: Int) : GameEvent
     /** [player] unlocked door [door] (0 left, 1 right) of [id] (CR 709.5h); [fully]: it now has both unlocked designations
      * (709.5i). */
@@ -515,7 +515,7 @@ sealed interface GameEvent {
     @Serializable @SerialName("enlisted") data class Enlisted(val attacker: ObjectId, val enlisted: ObjectId) : GameEvent
     /** The Ring tempted [player] (CR 701.54d); [bearer]: the creature they chose as their Ring-bearer, if they could. */
     @Serializable @SerialName("ring-tempted") data class RingTempted(val player: PlayerId, val bearer: ObjectId?) : GameEvent
-    /** Day became night ([night]) or night became day (CR 731.1a). */
+    /** Day became night ([night]) or night became day (CR 732.1a). */
     @Serializable @SerialName("day-night") data class DayNightChanged(val night: Boolean) : GameEvent
     /** A triggered ability of [source] triggered on an event of [cause]'s kind and was put on the Stack as [item] (CR 603.2): what
      * "attacking causes a triggered ability of that creature to trigger" looks for. [attack]: the event was [source] attacking. */
@@ -579,7 +579,7 @@ sealed interface Meaning {
     /** A copy of a card was created in the card's zone (CR 707.12). */
     @Serializable @SerialName("card-copied") data object CardCopied : Meaning
     @Serializable @SerialName("ceased-to-exist") data object CeasedToExist : Meaning
-    /** Became part of a merged permanent (CR 730.2b: it leaves its zone). */
+    /** Became part of a merged permanent (CR 731.2b: it leaves its zone). */
     @Serializable @SerialName("merged") data object Merged : Meaning
     @Serializable @SerialName("turned-face-up") data object TurnedFaceUp : Meaning
     @Serializable @SerialName("turned-face-down") data object TurnedFaceDown : Meaning

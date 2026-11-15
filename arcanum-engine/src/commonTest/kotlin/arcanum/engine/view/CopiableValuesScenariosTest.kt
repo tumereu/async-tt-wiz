@@ -200,8 +200,8 @@ class CopiableValuesScenariosTest {
 
     // ---- Preparation
 
-    // CR 722.2b, 722.3a: the prepare spell is part of the copiable values, so a copy of a preparation creature can become prepared;
-    // CR 722.3c: its controller creates the copy in exile, of the prepare spell
+    // CR 723.2b, 723.3a: the prepare spell is part of the copiable values, so a copy of a preparation creature can become prepared;
+    // CR 723.3c: its controller creates the copy in exile, of the prepare spell
     @Test
     fun aCopyOfAPreparationCreatureCanBecomePrepared() = scenario {
         alice.battlefield(seraph, clay)
@@ -209,13 +209,13 @@ class CopiableValuesScenariosTest {
         val copy = card(clay)
         activateOnly(copy)
         assertTrue(ObjectMark.Prepared in state.objOrThrow(copy).marks, "the copy becomes prepared")
-        assertFalse(ObjectMark.Prepared in state.objOrThrow(card(seraph)).marks, "CR 722.3a: the designation is the object's own")
+        assertFalse(ObjectMark.Prepared in state.objOrThrow(card(seraph)).marks, "CR 723.3a: the designation is the object's own")
         val spell = state.exile.single()
         assertEquals("Small Mending", seen(spell).characteristics!!.name)
         assertEquals<ObjectId?>(copy, state.objOrThrow(spell).prepareSpellOf)
     }
 
-    // CR 707.2, 722.3a: the prepared designation isn't copied
+    // CR 707.2, 723.3a: the prepared designation isn't copied
     @Test
     fun theCopyOfAPreparedPermanentIsNotPrepared() = scenario {
         alice.battlefield(seraph, mold)
@@ -226,7 +226,7 @@ class CopiableValuesScenariosTest {
         assertFalse(ObjectMark.Prepared in state.objOrThrow(token()).marks)
     }
 
-    // CR 722.2b, 722.3c: a token copy has the prepare spell too; its exceptions don't reach the spell (the rule's example)
+    // CR 723.2b, 723.3c: a token copy has the prepare spell too; its exceptions don't reach the spell (the rule's example)
     @Test
     fun aTokenCopyOfAPreparationCreatureHasThePrepareSpellAsPrinted() = scenario {
         /** "Create a token that's a copy of target creature, except it's a 1/1." */
@@ -282,7 +282,7 @@ class CopiableValuesScenariosTest {
         assertEquals("Pale Pup", seen(token).characteristics!!.name, "it can transform back")
     }
 
-    // CR 707.8, 712.9, 701.27c: a one-faced permanent copying a double-faced one has the face up's values and can't transform;
+    // CR 707.8, 712.7, 701.27d: a one-faced permanent copying a double-faced one has the face up's values and can't transform;
     // CR 707.8a's example of Clone: a token copy of that permanent isn't double-faced either
     @Test
     fun aOneFacedCopyOfADoubleFacedPermanentCannotTransform() = scenario {
@@ -360,7 +360,7 @@ class CopiableValuesScenariosTest {
         assertFalse(state.objOrThrow(token).flipped)
     }
 
-    // CR 110.5c, 707.3, 712.8e: a double-faced permanent with its back face up never flipped: copying a flip card, it has the unflipped version
+    // CR 110.5c, 707.3, 712.6d: a double-faced permanent with its back face up never flipped: copying a flip card, it has the unflipped version
     @Test
     fun aTransformedPermanentCopyingAFlipCardIsUnflipped() = scenario {
         alice.battlefield(werewolf, novice)
@@ -394,7 +394,7 @@ class CopiableValuesScenariosTest {
         assertTrue(state.objOrThrow(id).flipped, "CR 110.5c: it stays flipped")
     }
 
-    // CR 110.5c, 712.8d: a double-faced permanent that flips while copying a flip card still has its front face up afterwards
+    // CR 110.5c, 712.6c: a double-faced permanent that flips while copying a flip card still has its front face up afterwards
     @Test
     fun aDoubleFacedPermanentThatFlippedAsACopyStaysFrontFaceUp() = scenario {
         alice.battlefield(werewolf, novice)
@@ -405,7 +405,7 @@ class CopiableValuesScenariosTest {
         assertFalse(state.objOrThrow(id).transformed)
     }
 
-    // CR 110.5c, 722.4: a preparation permanent has only its normal characteristics whatever its flipped status
+    // CR 110.5c, 723.4: a preparation permanent has only its normal characteristics whatever its flipped status
     @Test
     fun aPreparationPermanentThatFlippedAsACopyKeepsItsNormalCharacteristics() = scenario {
         alice.battlefield(seraph, novice)
@@ -465,7 +465,7 @@ class CopiableValuesScenariosTest {
         assertEquals("Pale Pup", seen(id).characteristics!!.name, "after the original transformed")
     }
 
-    // CR 707.2b, 722.2b: the fixed values are whole: a copy of a preparation creature still has the prepare spell once the original is gone
+    // CR 707.2b, 723.2b: the fixed values are whole: a copy of a preparation creature still has the prepare spell once the original is gone
     @Test
     fun aBecomesACopyEffectFixesLayoutAndFaces() = scenario {
         alice.battlefield(shifter, seraph)
@@ -643,7 +643,7 @@ class CopiableValuesScenariosTest {
 
     // ---- What stays as it was
 
-    // CR 707.2b, 722.2b: a permanent entering as a copy fixes the values, layout and faces with them
+    // CR 707.2b, 723.2b: a permanent entering as a copy fixes the values, layout and faces with them
     @Test
     fun aPermanentEnteringAsACopyFixesLayoutAndFaces() = scenario {
         val clone = Cards.invent("Mimic Ooze", "{0}", "Creature — Ooze", "You may have this creature enter as a copy of any creature on the battlefield.", "0/0")

@@ -433,7 +433,7 @@ class FinGreenGoldScenariosTest {
         }
     }
 
-    // CR 712.21: both cards leave together
+    // CR 713.8: both cards leave together
     @Test
     fun ragnarothDiesAsTwoCards() = scenario {
         libraries()

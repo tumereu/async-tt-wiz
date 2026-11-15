@@ -29,7 +29,7 @@ import kotlin.test.Test
  * (CR 401.4), a reflexive trigger after an optional sacrifice or payment (CR 603.12), the Ring tempting after a spell's other
  * effects (CR 701.54a), tokens being created as a trigger (CR 111.1), a card put into a graveyard from the battlefield this
  * turn (CR 400.7), exiling until this creature leaves (CR 610.3), a flicker under your control, chapter abilities with a
- * duration of controlling the Saga (CR 714.2b, 611.2b), creatures that blocked or were blocked by a legendary creature
+ * duration of controlling the Saga (CR 715.2b, 611.2b), creatures that blocked or were blocked by a legendary creature
  * (CR 509.1), tapping creatures as a cost (CR 118.3), attaching Equipment by a trigger (CR 701.3), prevention during your
  * turn (CR 615.1) and keyword counters (CR 122.1b).
  */
@@ -219,7 +219,7 @@ class LtrChunk02WhiteTest {
         triggered(drawSecondCard, counters(Objects.Self)),
     )
 
-    // CR 714.2b; CR 611.2b: "for as long as you control this Saga"
+    // CR 715.2b; CR 611.2b: "for as long as you control this Saga"
     @Test
     fun layOfLuthiel() = card(
         name = "Lay of Lúthiel",

@@ -33,7 +33,7 @@ class WoeChunk14DestroyDiscardDrawTest {
                 ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, RecipientFilter()), role = EventRole.Object))))),
     )
 
-    // CR 715.2 (Adventure faces), 701.8a (destroy)
+    // CR 716.2 (Adventure faces), 701.8a (destroy)
     @Test
     fun spindleChoir() = cardFaces(Layout.Adventure,
         card(
@@ -75,7 +75,7 @@ class WoeChunk14DestroyDiscardDrawTest {
             min = 1, max = 3))),
     )
 
-    // CR 715.2, 701.9 (each opponent discards), 701.5a? no: 400.7 return a spell to its owner's hand (it ceases to be a spell)
+    // CR 716.2, 701.9 (each opponent discards), 701.5a? no: 400.7 return a spell to its owner's hand (it ceases to be a spell)
     @Test
     fun hexscornChorus() = cardFaces(Layout.Adventure,
         card(
@@ -157,7 +157,7 @@ class WoeChunk14DestroyDiscardDrawTest {
             rules = asSorcery).let { it.copy(instructions = it.instructions.copy(announced = listOf("X"))) },
     )
 
-    // CR 601.2 and 603.2 (cast trigger), 715.4 (Adventure is a subtype)
+    // CR 601.2 and 603.2 (cast trigger), 716.4 (Adventure is a subtype)
     @Test
     fun pixieChronicler() = card(
         name = "Pixie Chronicler",
@@ -192,7 +192,7 @@ class WoeChunk14DestroyDiscardDrawTest {
             EventPattern.Cast(and(spellFilter, manaValue(Comparison.AtLeast, 5)), PlayerFilter.You))), draw(1)),
     )
 
-    // CR 715.2, 401.2 (top of library)
+    // CR 716.2, 401.2 (top of library)
     @Test
     fun valeAcolyte() = cardFaces(Layout.Adventure,
         card(
@@ -229,7 +229,7 @@ class WoeChunk14DestroyDiscardDrawTest {
         activated(cost(mana("{2}{B}")), pump(Objects.Self, 1, 0)),
     )
 
-    // CR 715.2, 702.15 (lifelink), 613.1f (granting to spells on the stack), 120.3 (damage)
+    // CR 716.2, 702.15 (lifelink), 613.1f (granting to spells on the stack), 120.3 (damage)
     @Test
     fun cinderDuelist() = cardFaces(Layout.Adventure,
         card(
@@ -247,7 +247,7 @@ class WoeChunk14DestroyDiscardDrawTest {
         ) to abilities(spell(damage(3, toAny), targets = listOf(anyTarget))),
     )
 
-    // CR 715.2, 702.7 (first strike), 611.3 (only during your turn), 111.1, 509.1b (can't block)
+    // CR 716.2, 702.7 (first strike), 611.3 (only during your turn), 111.1, 509.1b (can't block)
     @Test
     fun rodentWrangler() = cardFaces(Layout.Adventure,
         card(

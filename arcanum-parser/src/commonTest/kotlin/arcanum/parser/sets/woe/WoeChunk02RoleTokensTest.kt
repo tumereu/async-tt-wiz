@@ -212,7 +212,7 @@ class WoeChunk02RoleTokensTest {
             ifThen(Condition.Did("paid"), createRole("Sorcerer", Objects.EventObject(EventRole.After)))),
     )
 
-    // CR 715 (Adventure); CR 701.26 (tap); CR 111.10j
+    // CR 716 (Adventure); CR 701.26 (tap); CR 111.10j
     @Test
     fun brineglassAlchemist() = cardFaces(Layout.Adventure,
         card(name = "Brineglass Alchemist", cost = "{3}{U}", type = "Creature — Human Wizard", pt = "3/4") to none,

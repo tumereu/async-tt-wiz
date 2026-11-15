@@ -290,7 +290,7 @@ class FdnChunk12ApplyScenariosTest {
         }
     }
 
-    // CR 117.12, 608.2c, 509.1b: pay {R} and the target can't block
+    // CR 118.12, 608.2c, 509.1b: pay {R} and the target can't block
     @Test
     fun franticGoblinPaidStopsABlocker() = scenario {
         alice.battlefield(frenetic, "Mountain")

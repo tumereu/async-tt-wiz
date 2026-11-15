@@ -587,7 +587,7 @@ class TdmEndureMobilizeAndClanCardsScenariosTest {
     }
 
     /** Sultai: the first counter on a creature each turn draws a card; Abzan: attacking gives a counter and menace. */
-    // CR 603.2i
+    // CR 603.2h
     @Test
     fun fenhollowSiegeSultaiDraws() = scenario {
         alice.battlefield("Swamp", "Forest", "Forest", "Forest", bear, ogre)

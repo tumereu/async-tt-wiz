@@ -1,0 +1,1 @@
+mod: Cards follow the November 2026 rules update: meld cards no longer count as double-faced cards, Spacecraft have no power or toughness outside the battlefield, and when an effect lets you cast several spells at once you choose their order.

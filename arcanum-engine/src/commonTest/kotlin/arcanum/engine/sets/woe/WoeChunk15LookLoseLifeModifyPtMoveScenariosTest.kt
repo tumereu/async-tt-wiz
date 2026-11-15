@@ -114,7 +114,7 @@ class WoeChunk15LookLoseLifeModifyPtMoveScenariosTest {
         }
     }
 
-    // CR 715.3, 608.2h: the Adventure face counts the creatures you control as it resolves (three): +3/+3 and vigilance
+    // CR 716.3, 608.2h: the Adventure face counts the creatures you control as it resolves (three): +3/+3 and vigilance
     @Test
     fun hareRaisingGivesPlusXAndVigilance() = scenario {
         alice.battlefield("Forest", bear, bear2, fox)
@@ -234,7 +234,7 @@ class WoeChunk15LookLoseLifeModifyPtMoveScenariosTest {
         expect { vanguard.zone shouldBe Zone.Graveyard }
     }
 
-    // CR 714.2b, 610.3, 400.7, 303.4: chapter I exiles an opponent's creature, II pumps, III returns it under its owner's control
+    // CR 715.2b, 610.3, 400.7, 303.4: chapter I exiles an opponent's creature, II pumps, III returns it under its owner's control
     @Test
     fun princessExilesThenReturnsTheCreatureUnderItsOwner() = scenario {
         alice.battlefield(bear)

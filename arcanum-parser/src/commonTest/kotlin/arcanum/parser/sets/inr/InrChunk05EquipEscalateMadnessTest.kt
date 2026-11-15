@@ -68,7 +68,7 @@ class InrChunk05EquipEscalateMadnessTest {
         equip("{1}"),
     )
 
-    // CR 712.14: returned to the battlefield transformed, under its dying controller's control ("your"); "it" is the card in
+    // CR 712.11: returned to the battlefield transformed, under its dying controller's control ("your"); "it" is the card in
     // the graveyard (CR 400.7). Back: CR 301.5, 611.3a.
     @Test
     fun gleaningScarecrow() = cardFaces(Layout.Transform,

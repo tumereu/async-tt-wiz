@@ -61,7 +61,7 @@ class MomChunk03IncubateScenariosTest {
 
     // CR 701.53a: the token enters with N +1/+1 counters; CR 111.10i: its front face is a colorless Incubator artifact, not a creature;
     // CR 701.27a: "{2}: Transform this token." turns it into a 0/0 colorless Phyrexian artifact creature named Phyrexian Token, its
-    // counters kept (CR 122.2, 711.8)
+    // counters kept (CR 122.2, 712.15)
     @Test
     fun theIncubatorEntersWithCountersAndTransformsIntoAPhyrexian() = scenario {
         alice.battlefield(*Array(6) { "Forest" })
@@ -151,7 +151,7 @@ class MomChunk03IncubateScenariosTest {
         expect { alice.hand.size shouldBe 1 }
     }
 
-    // CR 712.14a: Vessa returns transformed, so the Blight's trigger sees a permanent entering transformed; CR 714.3a: its Saga enters with a
+    // CR 712.11a: Vessa returns transformed, so the Blight's trigger sees a permanent entering transformed; CR 715.3a: its Saga enters with a
     // lore counter and chapter I's five transforms trigger it too; CR 603.2h: declined, each asks again
     @Test
     fun aPermanentEnteringTransformedDrawsForTheBlight() = scenario {
@@ -209,7 +209,7 @@ class MomChunk03IncubateScenariosTest {
         assertTrue(state.battlefield.filter { cards("Mountain", owner = carol).any { m -> m.id == it } }.all { state.objOrThrow(it).tapped })
     }
 
-    // CR 714.2b: chapter I after the draw step; CR 701.53a five times, then CR 701.27a: every Incubator becomes a 2/2 Phyrexian
+    // CR 715.2b: chapter I after the draw step; CR 701.53a five times, then CR 701.27a: every Incubator becomes a 2/2 Phyrexian
     @Test
     fun theEngravingsMakeFiveTwoTwoPhyrexians() = scenario {
         alice.battlefield(vessa, counters = listOf(CounterKind.Lore to 0))
@@ -225,7 +225,7 @@ class MomChunk03IncubateScenariosTest {
         }
     }
 
-    // CR 701.8a: chapter III destroys every other permanent but artifacts, lands and Phyrexians, any player's; CR 712.14: the Saga returns front
+    // CR 701.8a: chapter III destroys every other permanent but artifacts, lands and Phyrexians, any player's; CR 712.11: the Saga returns front
     // face up as a new object (CR 400.7)
     @Test
     fun theEngravingsSpareArtifactsLandsAndPhyrexians() = scenario {

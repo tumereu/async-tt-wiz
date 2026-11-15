@@ -19,7 +19,7 @@ import arcanum.engine.sets.eoe.EoeExtras.trinket
 import kotlin.test.Test
 
 /**
- * Edge of Eternities chunks 01 and 02 in play: Spacecraft and Planets with their station abilities (CR 702.184) and striations (CR 721.2).
+ * Edge of Eternities chunks 01 and 02 in play: Spacecraft and Planets with their station abilities (CR 702.184) and striations (CR 722.2).
  * Arc-Charged Bladeship, Survey Probe Cutter's 8+ and the other "N+ | Flying" Spacecraft repeat the creature-at-N template of
  * [EoeMechanicsScenariosTest.stationBecomesACreature]; Coilwall Sweepcraft's surveil 2 as it enters is a covered keyword action.
  */
@@ -44,7 +44,7 @@ class EoeStationScenariosTest {
     }
 
     /** 10+: whenever you attack, 100 damage to up to one target creature; 20+: a 20/20 flier. */
-    // CR 721.2a, b
+    // CR 722.2a, b
     @Test
     fun highsunDreadnoughtFiresWhenYouAttack() = scenario {
         libraries()
@@ -67,6 +67,18 @@ class EoeStationScenariosTest {
         expect {
             EoeSet.highsunStarwardDreadnought.power shouldBe 20
             EoeSet.highsunStarwardDreadnought hasKeyword Keyword.Flying
+        }
+    }
+
+    // CR 208.3, 722.2b: a station card's P/T box is part of its striation's ability, so in a hand or graveyard it has no power or toughness
+    @Test
+    fun aStationCardOffTheBattlefieldHasNoPowerOrToughness() = scenario {
+        alice.hand(EoeSet.highsunStarwardDreadnought)
+        alice.graveyard(EoeSet.wreckageBeltGrinder)
+        expect {
+            EoeSet.highsunStarwardDreadnought.power shouldBe null
+            EoeSet.highsunStarwardDreadnought.toughness shouldBe null
+            EoeSet.wreckageBeltGrinder.power shouldBe null
         }
     }
 
@@ -137,7 +149,7 @@ class EoeStationScenariosTest {
     }
 
     /** 2+: other creatures you control get +1/+1; 12+: it's a 3/5 flier with lifelink. */
-    // CR 721.2a
+    // CR 722.2a
     @Test
     fun radianceClassCutterAnthem() = scenario {
         alice.battlefield(EoeSet.radianceClassCutter, bear)

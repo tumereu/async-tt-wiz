@@ -29,9 +29,9 @@ import arcanum.engine.state.StackItem
 import arcanum.engine.state.TargetRef
 
 /**
- * Mutate (CR 702.140) and merging (CR 730): a spell cast for its mutate cost is a mutating creature spell that targets a non-Human
+ * Mutate (CR 702.140) and merging (CR 731): a spell cast for its mutate cost is a mutating creature spell that targets a non-Human
  * creature with the same owner ([slot]); as it resolves with that target legal it merges with the creature, on top or under as its
- * controller chooses, instead of entering ([resolve]). The merged permanent is the same object (CR 730.2c) and keeps its other
+ * controller chooses, instead of entering ([resolve]). The merged permanent is the same object (CR 731.2c) and keeps its other
  * components in [GameObject.mergedAbove] / [GameObject.mergedBelow]: its characteristics are the topmost component's, its abilities
  * every component's (layer 1, [arcanum.engine.view.Copiable]); as it leaves the battlefield every component goes to the new zone
  * ([arcanum.engine.change.Move.parts]).
@@ -58,14 +58,14 @@ internal object Mutate {
         if (!Targeting.legal(act, slot, ref, item.controller, item.id, item.names, item)) return false
         val target = act.state.obj(ref.id)?.takeIf { it.zone == Zone.Battlefield } ?: return false
         val onTop = act.chooseOption(item.controller, item.id, listOf(ON_TOP, UNDER)) == ON_TOP
-        // CR 730.2e: merged on top of a face-down permanent, it is face up (not turned face up): its own card is seen, as its
+        // CR 731.2e: merged on top of a face-down permanent, it is face up (not turned face up): its own card is seen, as its
         // abilities now count
         if (onTop && target.faceDown) act.show(target.owner, listOf(target.id), public = true)
         val now = act.state.objOrThrow(target.id)
         val spell = act.state.objOrThrow(card.id)
-        // CR 730.2a: the merge is a copy effect timestamped as the objects merge
+        // CR 731.2a: the merge is a copy effect timestamped as the objects merge
         val part = MergedPart(spell.id, spell.owner, spell.definition, spell.face, spell.token, spell.copyOfCard, act.state.nextTimestamp())
-        // CR 730.2b: it leaves the Stack and becomes part of the permanent, which hasn't entered
+        // CR 731.2b: it leaves the Stack and becomes part of the permanent, which hasn't entered
         act.record(Change.Removed(listOf(Placed(spell, act.state.stack.indexOf(spell.id))), listOf(Meaning.Merged)))
         val merged = if (onTop) arcanum.engine.state.ObjectStatus.Merged(listOf(part) + now.mergedAbove, now.mergedBelow)
             else arcanum.engine.state.ObjectStatus.Merged(now.mergedAbove, now.mergedBelow + part)

@@ -203,7 +203,7 @@ class TlaChunk06FirebendingTest {
             label = AbilityLabel.Exhaust),
     )
 
-    // CR 714.2b, 106.1 (one mana of any colour), 111.4
+    // CR 715.2b, 106.1 (one mana of any colour), 111.4
     @Test
     fun theTaleOfArdan() = cardFaces(Layout.Transform,
         card(

@@ -227,7 +227,7 @@ class Mh3Chunk09ManifestMillReplicateTransformScenariosTest {
     }
 
     // CR 707.9b: each copy is a 1/1 black and green Insect, keeping the copied card's name; CR 704.5i: with no loyalty left Grindle itself is
-    // in the graveyard as the ability resolves, a creature card (its front face, CR 712.8a), and is copied too
+    // in the graveyard as the ability resolves, a creature card (its front face, CR 712.6a), and is copied too
     @Test
     fun grindleCopiesEachCreatureCardAsInsects() = scenario {
         alice.battlefield(grindle, counters = listOf(CounterKind.Loyalty to 6))

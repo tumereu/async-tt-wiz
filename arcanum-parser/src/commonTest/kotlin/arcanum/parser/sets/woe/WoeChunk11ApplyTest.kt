@@ -17,7 +17,7 @@ class WoeChunk11ApplyTest {
     private val power4OrMore = and(creature, power(Comparison.AtLeast, 4), you)
     private val creatureTarget = listOf(slot("creature", creature))
 
-    // CR 715.2 (Adventure faces), 305.2 (additional land play), 702.17a (reach)
+    // CR 716.2 (Adventure faces), 305.2 (additional land play), 702.17a (reach)
     @Test
     fun vinewyrmClimber() = cardFaces(Layout.Adventure,
         card(
@@ -39,7 +39,7 @@ class WoeChunk11ApplyTest {
         ),
     )
 
-    // CR 715.2, 509.1b (can't be blocked by creatures with power 3 or greater), 611.2a
+    // CR 716.2, 509.1b (can't be blocked by creatures with power 3 or greater), 611.2a
     @Test
     fun whiskerQuick() = cardFaces(Layout.Adventure,
         card(
@@ -101,7 +101,7 @@ class WoeChunk11ApplyTest {
         activated(cost(mana("{2}"), tap, sacrificeSelf), Step.Do(Effect.LoseLife(Players.Target("opponent"), n(3))), targets = listOf(targetOpponent)),
     )
 
-    // CR 715.2, 603.2, 120.3 (damage to any target)
+    // CR 716.2, 603.2, 120.3 (damage to any target)
     @Test
     fun boundingFamiliar() = cardFaces(Layout.Adventure,
         card(
@@ -164,7 +164,7 @@ class WoeChunk11ApplyTest {
         ),
     )
 
-    // CR 715.2, 603.6a, 611.2c (affects only creatures on the battlefield when it resolves), 111.2
+    // CR 716.2, 603.6a, 611.2c (affects only creatures on the battlefield when it resolves), 111.2
     @Test
     fun rallyRecruiter() = cardFaces(Layout.Adventure,
         card(
@@ -186,7 +186,7 @@ class WoeChunk11ApplyTest {
         ),
     )
 
-    // CR 715.2, 115.1 (any creature may be targeted), 613.4c
+    // CR 716.2, 115.1 (any creature may be targeted), 613.4c
     @Test
     fun quarryDaredevil() = cardFaces(Layout.Adventure,
         card(
@@ -229,7 +229,7 @@ class WoeChunk11ApplyTest {
         ))),
     )
 
-    // CR 715.2, 613.4c (-4/-0), 702.9a
+    // CR 716.2, 613.4c (-4/-0), 702.9a
     @Test
     fun fallowAttendants() = cardFaces(Layout.Adventure,
         card(
@@ -280,7 +280,7 @@ class WoeChunk11ApplyTest {
         addEither("R", "G"),
     )
 
-    // CR 715.2, 603.2, 613.4c, 205.3m
+    // CR 716.2, 603.2, 613.4c, 205.3m
     @Test
     fun shadedShepherd() = cardFaces(Layout.Adventure,
         card(
@@ -347,7 +347,7 @@ class WoeChunk11ApplyTest {
             interveningIf = Condition.Exists(power4OrMore, 1)),
     )
 
-    // CR 715.2, 702.4a (double strike), 702.7a (menace)
+    // CR 716.2, 702.4a (double strike), 702.7a (menace)
     @Test
     fun tripleHeadedHunter() = cardFaces(Layout.Adventure,
         card(

@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface Input {
     /** [player] plays the land [card] (a special action, CR 116.2a, 305.1), with its [face] up: a modal double-faced
-     * card's back face (CR 712.11); default the front. */
+     * card's back face (CR 712.8); default the front. */
     @Serializable @SerialName("play-land")
     data class PlayLand(val player: PlayerId, val card: ObjectId, val face: Int = 0) : Input
 
@@ -62,7 +62,7 @@ sealed interface Input {
     data class Concede(val player: PlayerId) : Input
 
     /**
-     * The host found a loop of mandatory actions (CR 104.4b, 732.4): where a player has priority, the game is in a state
+     * The host found a loop of mandatory actions (CR 104.4b, 733.4): where a player has priority, the game is in a state
      * with the same [arcanum.engine.Host.loopKey] as earlier, with only forced actions in between (priority passes
      * [arcanum.engine.Host.shouldPassFor] said, no decision answered). The engine can't see what happened in between:
      * the host vouches for it. The engine then waits on the loop choice (a [arcanum.engine.decision.Decision.ChooseOption]

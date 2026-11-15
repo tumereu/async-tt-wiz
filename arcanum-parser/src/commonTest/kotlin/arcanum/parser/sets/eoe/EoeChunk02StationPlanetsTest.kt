@@ -7,7 +7,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Edge of Eternities chunk 02: station symbols granting activated and triggered abilities (CR 721.2a): the Planet lands with mana and token abilities at 12+, a mana ability counting charge counters at 20+, a combat trigger at 2+, and more Spacecraft.
+ * Edge of Eternities chunk 02: station symbols granting activated and triggered abilities (CR 722.2a): the Planet lands with mana and token abilities at 12+, a mana ability counting charge counters at 20+, a combat trigger at 2+, and more Spacecraft.
  */
 class EoeChunk02StationPlanetsTest {
 

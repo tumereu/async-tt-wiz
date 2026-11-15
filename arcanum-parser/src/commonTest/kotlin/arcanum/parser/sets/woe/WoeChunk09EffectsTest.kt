@@ -97,7 +97,7 @@ class WoeChunk09EffectsTest {
             Players.You))),
     )
 
-    // CR 714 (Saga chapters), 707.9a (a copy with exceptions), 707.9b (an added type), 701.21a
+    // CR 715 (Saga chapters), 707.9a (a copy with exceptions), 707.9b (an added type), 701.21a
     @Test
     fun theApprenticesFolly() = card(
         name = "The Pupil's Blunder",
@@ -117,7 +117,7 @@ class WoeChunk09EffectsTest {
         chapter(3, doing(Effect.Sacrifice(Objects.Each(and(sub("Reflection"), you))))),
     )
 
-    // CR 107.3a (X defined by the text), 715.2a (cards that have an Adventure)
+    // CR 107.3a (X defined by the text), 716.2a (cards that have an Adventure)
     @Test
     fun franticFirebolt() = card(
         name = "Hasty Cinderbolt",

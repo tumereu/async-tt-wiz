@@ -71,7 +71,7 @@ internal fun Scenario.chooseNone() {
 internal fun Scenario.loyalty(name: String): Int =
     state.obj(card(name, zone = arcanum.api.Zone.Battlefield))!!.counters(CounterKind.Loyalty)
 
-/** Whether the permanent named [name] is prepared (CR 722). */
+/** Whether the permanent named [name] is prepared (CR 723). */
 internal fun Scenario.prepared(name: String): Boolean =
     state.obj(card(name, zone = arcanum.api.Zone.Battlefield))!!.marks.contains(arcanum.api.ObjectMark.Prepared)
 

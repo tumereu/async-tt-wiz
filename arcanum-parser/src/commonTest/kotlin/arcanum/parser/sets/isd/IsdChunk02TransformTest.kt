@@ -72,7 +72,7 @@ class IsdChunk02TransformTest {
         ),
     )
 
-    // CR 701.27c: only a double-faced permanent transforms; CR 615.1: a prevention effect for this turn's combat damage
+    // CR 701.27d: only a double-faced permanent transforms; CR 615.1: a prevention effect for this turn's combat damage
     @Test
     fun lunarHaze() = card(
         name = "Lunar Haze",

@@ -67,7 +67,7 @@ class MomChunk01TransformScenariosTest {
             You may cast spells as though they had flash.
             Spells you cast cost {1} less to cast for each card your opponents have drawn this turn.
         """.trimIndent(), "4/6", null, "U"))
-    // the back faces of Sieges, set up back face up (a Siege's back face is reached by defeating it, CR 310.12b, 712.8e)
+    // the back faces of Sieges, set up back face up (a Siege's back face is reached by defeating it, CR 310.12b, 712.6d)
     private val cinder = Cards.inventFaces("Transform",
         OracleCard("Invasion of Momentide Ash", "{3}{B}{R}", "Battle — Siege", "", defense = "5"),
         face("Momentide Reaper", null, "Creature — Zombie Elemental", """

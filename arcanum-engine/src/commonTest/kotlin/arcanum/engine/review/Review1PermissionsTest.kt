@@ -99,7 +99,7 @@ class Review1PermissionsTest {
 
     /** An Adventure sent on its adventure goes to exile, and the creature can be cast from there; a creature from exile
      * that dies goes to the graveyard normally. */
-    // CR 715.4
+    // CR 716.4
     @Test
     fun adventureThenCreature() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Island")

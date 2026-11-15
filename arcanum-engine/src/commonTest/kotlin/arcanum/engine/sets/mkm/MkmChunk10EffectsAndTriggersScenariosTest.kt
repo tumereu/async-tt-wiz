@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 /** MKM chunk 10: stun counters on only some targets (CR 122.1b), cards put onto the battlefield from graveyards and hands (CR 400.7, 303.4f),
  * face-down returns turned face up (CR 708.8), look-and-reveal and piles (CR 701.20), sacrifices and searches (CR 701.21, 701.23),
  * "attacked this combat" with a block requirement (CR 506.4, 509.1c), last known toughness (CR 603.10a), cards drawn this turn, attack
- * batches of any player (CR 508.1), a reflexive trigger reading the discarded cards (CR 603.12) and solving a Case (CR 719.3). */
+ * batches of any player (CR 508.1), a reflexive trigger reading the discarded cards (CR 603.12) and solving a Case (CR 720.3). */
 class MkmChunk10EffectsAndTriggersScenariosTest {
     private val labyrinth = Cards.invent("Snarled Labyrinth", "{X}{U}{U}", "Enchantment", """
         Flash
@@ -614,7 +614,7 @@ class MkmChunk10EffectsAndTriggersScenariosTest {
         }
     }
 
-    // CR 719.3a: the Case is solved at the end step: Alice "solves a Case" and the examiner looks again; CR 609.4b: an Island pays for {W}
+    // CR 720.3a: the Case is solved at the end step: Alice "solves a Case" and the examiner looks again; CR 609.4b: an Island pays for {W}
     @Test
     fun dossierExaminerTriggersWhenACaseIsSolved() = scenario {
         alice.battlefield(examiner, "Island")

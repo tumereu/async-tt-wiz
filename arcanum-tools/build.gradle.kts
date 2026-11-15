@@ -139,3 +139,13 @@ tasks.register<JavaExec>("setPlan") {
     maxHeapSize = "2g"
     parserToolPaths()
 }
+
+// What moving the Comprehensive Rules pin means for the repository's `CR <number>` citations, from two local rules texts (never
+// committed): --args="<older text> [<newer text> [<report.md>]]"; the newer defaults to the pinned version's file in the local data folder.
+tasks.register<JavaExec>("crDelta") {
+    group = "arcanum"
+    description = "Reports each cited rule as unchanged, renumbered, changed or removed between two rules texts, and the new rules."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("arcanum.tools.CrDeltaKt")
+    systemProperty("arcanum.repoRoot", rootProject.projectDir.path)
+}

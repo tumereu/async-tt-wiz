@@ -82,7 +82,7 @@ internal data class PlannedMove(
     /** What the instruction says it is as it enters the battlefield (CR 611.2e): applied as it enters. */
     val entersAs: List<Mechanic> = emptyList(),
     // fra
-    /** Marks it enters with ("enters prepared", CR 722.3a). */
+    /** Marks it enters with ("enters prepared", CR 723.3a). */
     val marks: List<arcanum.api.ObjectMark> = emptyList(),
     // fin
     /** "Lands you control enter untapped": it enters untapped whatever else says (applied last). */
@@ -117,7 +117,7 @@ internal object Actions {
         }
         val replaced = planned.mapNotNull { pm ->
             val o = act.obj(pm.id) ?: return@mapNotNull null
-            // mh3 chunk 09: entering transformed, it is checked as it will exist, back face up (CR 614.12, 712.14a): the back face's own "enters
+            // mh3 chunk 09: entering transformed, it is checked as it will exist, back face up (CR 614.12, 712.11a): the back face's own "enters
             // with" replacements apply ("Ral enters with an additional loyalty counter …"), the front face's don't
             val back = if (pm.to == Zone.Battlefield && pm.transformed && o.face == 0 && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld))
                 o.definition.faces.getOrNull(1) else null
@@ -153,17 +153,17 @@ internal object Actions {
         insteads.forEach { (r, instance) -> runInstead(act, r, instance) }
         final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
             .takeIf { it.size > 1 }?.let { LibraryPlaces.group(act.recorder, it) }
-        // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
+        // CR 715.3a: as a Saga enters, its controller puts a lore counter on it
         final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
             .filter { act.state.obj(it)?.zone == Zone.Battlefield && act.view()[it]?.characteristics?.subtypes?.any { s -> s.name == "Saga" } == true }
             .forEach { saga ->
-                // CR 714.3b, 702.155b: with read ahead, the number of lore counters chosen between one and its final chapter number
+                // CR 715.3b, 702.155b: with read ahead, the number of lore counters chosen between one and its final chapter number
                 val chars = act.view()[saga]?.characteristics
                 val final = chars?.abilities.orEmpty().mapNotNull { ((it.ability as? arcanum.api.Ability.Triggered)?.trigger as? arcanum.api.Trigger.Chapter)
                     ?.chapters?.maxOrNull() }.maxOrNull()
                 val readAhead = chars?.hasKeyword(arcanum.api.Keyword.ReadAhead) == true && final != null && final > 1
                 val lore = if (readAhead) act.chooseNumber(act.controllerOf(saga) ?: act.state.objOrThrow(saga).owner, saga, 1, final) else 1
-                // CR 714.3a, 614.1c: an effect (a replacement effect) puts it, so "if an effect would put counters" replacements apply
+                // CR 715.3a, 614.1c: an effect (a replacement effect) puts it, so "if an effect would put counters" replacements apply
                 val controller = act.controllerOf(saga) ?: act.state.objOrThrow(saga).owner
                 putCounters(act, cause ?: Cause(controller, saga, key = "enters:$saga"), TargetRef.Object(saga), CounterKind.Lore, lore)
             }
@@ -296,7 +296,7 @@ internal object Actions {
                     } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
-                // fra: "enters prepared" (CR 722.3a)
+                // fra: "enters prepared" (CR 723.3a)
                 // otj: a resolving spell exiled instead "becomes plotted" there (CR 702.170c): wherever the mark can live
                 is Modification.EntersMarked -> if (move.to in arcanum.api.MarkRules.of(mod.mark).zones) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
@@ -350,7 +350,7 @@ internal object Actions {
             m.copyOf?.let { (of, except) ->
                 act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", listOf(Mechanic.CopyOf(Objects.Bound(COPIED), except)), next, m.controller, ts, act,
                     Bindings.EMPTY.with(COPIED, NamedValue.Objects(listOf(of))),
-                    // CR 707.2, 730.2a: a merged permanent's copiable values include every component's abilities
+                    // CR 707.2, 731.2a: a merged permanent's copiable values include every component's abilities
                     copied = arcanum.engine.view.Copiable(act.state).forCopyEffect(of), duration = m.copyDuration ?: Duration.Indefinitely) })
             }
             if (m.abilities.isNotEmpty()) act.record(Changes.effect(act.state) { ts ->
@@ -416,7 +416,7 @@ internal object Actions {
                 blockers = combat.blockers + arcanum.engine.state.Blocker(moved.id, listOf(attacker.id), controller))))
         }
         arcanum.engine.room.Rooms.enteredUnlocked(act, all.filter { it.before.zone == Zone.Stack && it.after.zone == Zone.Battlefield }.map { it.after.id })
-        // fra: marks it enters with; becoming prepared makes its prepare spell's copy (CR 722.3a, c)
+        // fra: marks it enters with; becoming prepared makes its prepare spell's copy (CR 723.3a, c)
         moves.filter { it.marks.isNotEmpty() && it.to == Zone.Battlefield }.forEach { m ->
             val after = all.first { it.before.id == m.id }.after.id
             m.marks.distinct().forEach { mark ->
@@ -489,7 +489,7 @@ internal object Actions {
     /** [m] entering as a copy of [of] by [mod], with the counters it enters with as a copy and tapped if it enters tapped as a copy (CR 614.1c, 707.9b). */
     fun asCopy(act: Act, m: PlannedMove, of: ObjectId, mod: Modification.EntersAsCopy, e: Evaluator, controller: PlayerId): PlannedMove {
         // lci: "enter tapped as a copy of": tapped only as a copy; mh3: a copy effect that lasts until end of turn
-        // bro chunk 03: "its power and toughness are equal to this creature's" fixed as it enters (CR 707.9b, 718.3b)
+        // bro chunk 03: "its power and toughness are equal to this creature's" fixed as it enters (CR 707.9b, 719.3b)
         val except = arcanum.engine.view.Copiable.ownPowerToughness(mod.except, e.characteristics(m.id))
         val copy = m.copy(copyOf = of to except, copyDuration = mod.duration, tapped = m.tapped || mod.tapped)
         val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) }.map { it.kind to e.value(it.amount) }
@@ -1317,7 +1317,7 @@ internal object Actions {
         }
     }
 
-    /** [id] gets or loses [mark]: a mark that gives a copy to cast does that as it is gained and lost (prepared, CR 722.3a–c). */
+    /** [id] gets or loses [mark]: a mark that gives a copy to cast does that as it is gained and lost (prepared, CR 723.3a–c). */
     fun setMark(act: Act, id: ObjectId, mark: arcanum.api.ObjectMark, on: Boolean, given: List<arcanum.api.Cost> = emptyList()) {
         if (arcanum.api.MarkRules.of(mark).permission == arcanum.api.MarkPermission.CastCopy) {
             if (on) arcanum.engine.prepare.Prepare.becomePrepared(act, id) else arcanum.engine.prepare.Prepare.unprepare(act, id)

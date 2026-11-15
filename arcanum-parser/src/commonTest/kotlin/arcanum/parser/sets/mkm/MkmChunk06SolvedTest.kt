@@ -42,7 +42,7 @@ import arcanum.parser.cube.card
 import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
-/** Murders at Karlov Manor chunk 06: Cases, "To solve" (CR 719.3a) and "Solved" (CR 702.169). */
+/** Murders at Karlov Manor chunk 06: Cases, "To solve" (CR 720.3a) and "Solved" (CR 702.169). */
 class MkmChunk06SolvedTest {
     private fun solved(ability: Ability): Ability = when (ability) {
         is Ability.Activated -> ability.copy(label = AbilityLabel.Solved)
@@ -55,7 +55,7 @@ class MkmChunk06SolvedTest {
     private fun yourLibraryTop(cards: ObjectFilter, how: PlayKind) = Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, how, topOnly = true,
         holder = PlayerFilter.You)), affects = Affected.Objects(Objects.Each(and(cards, inZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
 
-    // CR 719.3a; CR 120.1, 609.7: "three or more sources" counts each source once, wherever it is now; CR 702.169d
+    // CR 720.3a; CR 120.1, 609.7: "three or more sources" counts each source once, wherever it is now; CR 702.169d
     @Test
     fun caseOfTheSmolderingVeils() = card(
         name = "Case of the Smoldering Veils",
@@ -78,7 +78,7 @@ class MkmChunk06SolvedTest {
         )),
     )
 
-    // CR 719.3a: no cards in hand; CR 702.169c: the upkeep trigger only while solved
+    // CR 720.3a: no cards in hand; CR 702.169c: the upkeep trigger only while solved
     @Test
     fun caseOfTheRacingHeartbeat() = card(
         name = "Case of the Racing Heartbeat",
@@ -175,7 +175,7 @@ class MkmChunk06SolvedTest {
         solved(static(Mechanic.Replacement(EventPattern.CreateToken(you), modify = listOf(Modification.AlsoCreate(clue, n(1)))))),
     )
 
-    // CR 601.2f: the reduction; CR 719.3a: instant and sorcery spells cast this turn
+    // CR 601.2f: the reduction; CR 720.3a: instant and sorcery spells cast this turn
     @Test
     fun caseOfTheUpendedStudy() = card(
         name = "Case of the Upended Study",

@@ -117,7 +117,7 @@ class BroChunk06ConditionsTest {
             doing(Effect.CreateToken(creatureToken("Zombie", emptyList(), 3, 3, types = listOf(CardType.Artifact, CardType.Creature)), n(1), Players.You, tapped = true))),
     )
 
-    // CR 601.2f: it costs {3} more while it isn't your turn; CR 723.1
+    // CR 601.2f: it costs {3} more while it isn't your turn; CR 724.1
     @Test
     fun hurkylsFinalMeditation() = card(
         name = "Sage's Last Reverie",

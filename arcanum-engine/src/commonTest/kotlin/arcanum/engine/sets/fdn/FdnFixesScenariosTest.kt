@@ -120,8 +120,8 @@ class FdnFixesScenariosTest {
     """, "1/1")
     private val ox = Cards.invent("Fixes Ox", "{3}", "Creature — Ox", "", "4/4")
 
-    // CR 714.3a, 614.1c, 122.6: a Saga's "enters with a lore counter" is a replacement effect that puts a counter on a permanent
-    // you control, so it puts two: chapters I and II both trigger (CR 714.2c)
+    // CR 715.3a, 614.1c, 122.6: a Saga's "enters with a lore counter" is a replacement effect that puts a counter on a permanent
+    // you control, so it puts two: chapters I and II both trigger (CR 715.2c)
     @Test
     fun sagaEntersWithDoubledLoreCounters() = scenario {
         alice.battlefield(springtide, "Plains", "Plains", "Plains")

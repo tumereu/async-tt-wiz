@@ -86,7 +86,7 @@ internal object InventedCards {
         sorcery("Twofold Manifestation", "{2}{G}", action(arcanum.api.KeywordAction.Manifest(Value.Fixed(2)))),
         /** "Cloak the top card of your library." (CR 701.58a) */
         sorcery("Shrouded Arrival", "{1}{W}", action(arcanum.api.KeywordAction.Cloak(Value.Fixed(1)))),
-        /** "Support 2. (Put a +1/+1 counter on each of up to two target creatures.)" (CR 701.39b) */
+        /** "Support 2. (Put a +1/+1 counter on each of up to two target creatures.)" (CR 701.41a) */
         sorcery("Rallying Support", "{1}{W}", arcanum.api.Instructions(
             targets = listOf(arcanum.api.TargetSlot("supported", arcanum.api.TargetKind.Objects(creatures), min = Value.Fixed(0), max = Value.Fixed(2))),
             steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.Action(arcanum.api.KeywordAction.Support(Value.Fixed(2), "supported")))))),
@@ -103,7 +103,7 @@ internal object InventedCards {
             subtypes = listOf(Subtype("Spirit")), power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1), abilities = listOf(
                 Ability.Triggered(arcanum.api.Trigger.On(arcanum.api.EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = arcanum.api.Zone.Battlefield)),
                     action(arcanum.api.KeywordAction.Endure(Objects.Self, Value.Fixed(2))))))),
-        /** "Prototype {1}{R} — 2/2" on a 6/6 artifact creature for {7} (CR 702.160a, 718) */
+        /** "Prototype {1}{R} — 2/2" on a 6/6 artifact creature for {7} (CR 702.160a, 719) */
         card(FaceDefinition(name = "Smelter Colossus", manaCost = ManaCost.parse("{7}"), types = listOf(CardType.Artifact, CardType.Creature),
             subtypes = listOf(Subtype("Construct")), power = PrintedNumber.Fixed(6), toughness = PrintedNumber.Fixed(6),
             abilities = listOf(arcanum.api.Keyword.Prototype(arcanum.api.Cost.mana(ManaCost.parse("{1}{R}")!!), 2, 2)))),

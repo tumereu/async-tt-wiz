@@ -168,7 +168,7 @@ object KeywordExpansions {
                 Ability.Triggered(entersSelf, Instructions(steps = gift), interveningIf = promised),
             )
         }
-        // blb: CR 716.2a: "[Cost]: This Class's level becomes N. Activate only if this Class is level N-1 and only as a
+        // blb: CR 717.2a: "[Cost]: This Class's level becomes N. Activate only if this Class is level N-1 and only as a
         // sorcery" and "As long as this Class is level N or greater, it has [abilities]"
         is Keyword.ClassLevel -> listOf(
             Ability.Activated(keyword.cost, steps(Effect.SetClassLevel(Objects.Self, keyword.level)), ActivationRules(timing = Timing.Sorcery,
@@ -849,7 +849,7 @@ object KeywordExpansions {
     /** The name the creature tapped to pay a station cost is bound to (CR 702.184a: "the tapped creature's power"). */
     const val STATION_TAPPED: String = "station-tapped"
 
-    /** Charge counters (CR 122.1): what station puts on its permanent and station symbols count (CR 721.2a). */
+    /** Charge counters (CR 122.1): what station puts on its permanent and station symbols count (CR 722.2a). */
     val CHARGE: CounterKind = CounterKind.Named("charge")
 
     /** The name the card a warp ability's delayed trigger exiles is bound to (CR 702.185a). */

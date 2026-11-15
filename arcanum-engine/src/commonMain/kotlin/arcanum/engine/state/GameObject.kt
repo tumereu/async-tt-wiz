@@ -30,7 +30,7 @@ data class GameObject(
     /** The card's definition (the state has full information: every card is known). */
     val definition: CardDefinition,
     /** Which face is up: 0 the front; 1 the back of a transformed or modal double-faced card, the flipped half of a
-     * flip card (CR 710), or the second half / Adventure being cast (CR 709, 715). */
+     * flip card (CR 710), or the second half / Adventure being cast (CR 709, 716). */
     val face: Int = 0,
     /** A token (CR 111); [definition] holds its characteristics as created. */
     val token: Boolean = false,
@@ -62,8 +62,8 @@ data class GameObject(
 ) {
     val card: CardId get() = id.card
 
-    /** A transformed double-faced permanent (CR 712, 701.27g): its back face is up. What it is physically: a permanent
-     * copying a double-faced permanent isn't double-faced (CR 712.9), a token copy of one is (CR 707.8a, its [definition]). */
+    /** A transformed double-faced permanent (CR 712, 701.27h): its back face is up. What it is physically: a permanent
+     * copying a double-faced permanent isn't double-faced (CR 712.7), a token copy of one is (CR 707.8a, its [definition]). */
     val transformed: Boolean get() = definition.layout == Layout.Transform && face == 1
 
     /** A bestowed Aura spell or permanent (CR 702.103b): cast bestowed, on the Stack or the battlefield, and not ceased
@@ -77,10 +77,10 @@ data class GameObject(
 
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 
-    /** A merged permanent: represented by more than one card or token (CR 730.2). */
+    /** A merged permanent: represented by more than one card or token (CR 731.2). */
     val merged: Boolean get() = statuses.status<ObjectStatus.Merged>() != null
 
-    /** A token (CR 111.1); a merged permanent only if its topmost component is one (CR 730.2d). */
+    /** A token (CR 111.1); a merged permanent only if its topmost component is one (CR 731.2d). */
     val isToken: Boolean get() = statuses.status<ObjectStatus.Merged>()?.above?.firstOrNull()?.token ?: token
 }
 
@@ -90,8 +90,8 @@ data class GameObject(
 data class FixedCopy(val source: ObjectId, val ability: Int, val values: CopiableValues)
 
 /**
- * One card or token among those representing a merged permanent other than its own card (CR 730.2): the object it was as it
- * merged ([id]; as the merged permanent leaves the battlefield it becomes [ObjectId.Card.next] in the new zone, CR 730.3), with
+ * One card or token among those representing a merged permanent other than its own card (CR 731.2): the object it was as it
+ * merged ([id]; as the merged permanent leaves the battlefield it becomes [ObjectId.Card.next] in the new zone, CR 731.3), with
  * its definition.
  */
 @Serializable
@@ -102,7 +102,7 @@ data class MergedPart(
     val face: Int = 0,
     val token: Boolean = false,
     val copyOfCard: Boolean = false,
-    /** When it merged (CR 730.2a: the merge is a copy effect with this timestamp, applied in timestamp order among the
+    /** When it merged (CR 731.2a: the merge is a copy effect with this timestamp, applied in timestamp order among the
      * permanent's copy effects, CR 613.7); 0: before every copy effect. */
     val timestamp: Long = 0,
 )

@@ -21,8 +21,8 @@ sealed interface ObjectStatus {
      * ceases to exist in any zone other than the Stack or the battlefield (CR 704.5e). */
     @Serializable @SerialName("copy-of-card") data object CopyOfCard : ObjectStatus { override val key: String get() = "copy-of-card" }
 
-    /** A copy of [permanent]'s prepare spell (CR 722.3c): kept in exile while that permanent stays prepared, and as it is cast a
-     * prepare spell (722.3d). */
+    /** A copy of [permanent]'s prepare spell (CR 723.3c): kept in exile while that permanent stays prepared, and as it is cast a
+     * prepare spell (723.3d). */
     @Serializable @SerialName("prepare-spell-of") data class PrepareSpellOf(val permanent: ObjectId.Card) : ObjectStatus {
         override val key: String get() = "prepare-spell-of"
     }
@@ -33,8 +33,8 @@ sealed interface ObjectStatus {
     /** Goaded by [by] (CR 701.15), in the order they goaded it. */
     @Serializable @SerialName("goaded") data class Goaded(val by: List<PlayerId>) : ObjectStatus { override val key: String get() = "goaded" }
 
-    /** A merged permanent (mutate, CR 730.2, 702.140c): its other components [above] its own card and [below] it, topmost first.
-     * The topmost component gives its characteristics other than abilities (730.2a, 702.140e). */
+    /** A merged permanent (mutate, CR 731.2, 702.140c): its other components [above] its own card and [below] it, topmost first.
+     * The topmost component gives its characteristics other than abilities (731.2a, 702.140e). */
     @Serializable @SerialName("merged") data class Merged(
         val above: List<MergedPart> = emptyList(),
         val below: List<MergedPart> = emptyList(),
@@ -86,7 +86,7 @@ sealed interface ObjectStatus {
      * it is a plain 2/2, not what the way it was cast face down gave it (a disguise's ward, CR 708.2a). */
     @Serializable @SerialName("turned-face-up") data object TurnedFaceUp : ObjectStatus { override val key: String get() = "turned-face-up" }
 
-    /** The level a Class has gained (CR 716.2a), stored once it gains one; the view shows 1 for a Class on the battlefield without it. */
+    /** The level a Class has gained (CR 717.2a), stored once it gains one; the view shows 1 for a Class on the battlefield without it. */
     @Serializable @SerialName("class-level") data class ClassLevel(val level: Int) : ObjectStatus { override val key: String get() = "class-level" }
 
     /** The room of a dungeon its owner's venture marker is on (CR 309.4), by index into its rooms ([arcanum.api.FaceDefinition.rooms]). */
@@ -153,7 +153,7 @@ sealed interface PlayerStatus {
         override val key: String get() = "dungeons-completed"
     }
 
-    /** The player has [designation]: the monarch, the initiative, the city's blessing, an enduring story (CR 724–726, 702.195). */
+    /** The player has [designation]: the monarch, the initiative, the city's blessing, an enduring story (CR 725–726, 702.195). */
     @Serializable @SerialName("designated") data class Designated(val designation: Designation) : PlayerStatus {
         override val key: String get() = "designated:$designation"
     }
@@ -168,7 +168,7 @@ sealed interface GameStatus {
     /** Which status this is: one of each per game. */
     val key: String
 
-    /** It is day, or [night] (CR 731); neither while the game has no such status, as it starts. */
+    /** It is day, or [night] (CR 732); neither while the game has no such status, as it starts. */
     @Serializable @SerialName("day-night") data class DayNight(val night: Boolean) : GameStatus { override val key: String get() = "day-night" }
 }
 

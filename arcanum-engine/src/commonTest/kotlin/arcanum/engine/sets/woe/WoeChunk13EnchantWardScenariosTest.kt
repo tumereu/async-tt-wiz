@@ -202,7 +202,7 @@ class WoeChunk13EnchantWardScenariosTest {
         expect { sprite.tapped shouldBe false }
     }
 
-    // CR 715.2, 700.2: the Adventure face targets an attacking creature of an opponent; its owner chooses top or bottom (CR 400.3)
+    // CR 716.2, 700.2: the Adventure face targets an attacking creature of an opponent; its owner chooses top or bottom (CR 400.3)
     @Test
     fun tarnPlungeLetsTheOwnerChoose() = scenario {
         alice.battlefield("Island", "Island")
@@ -237,7 +237,7 @@ class WoeChunk13EnchantWardScenariosTest {
         expect { sprite.tapped shouldBe false }
     }
 
-    // CR 715.2, 603.7, 400.7: exile a nontoken creature; it comes back at the beginning of the next end step under its owner's control
+    // CR 716.2, 603.7, 400.7: exile a nontoken creature; it comes back at the beginning of the next end step under its owner's control
     @Test
     fun briefSpiralReturnsTheCreatureAtEndOfTurn() = scenario {
         alice.battlefield("Plains", "Island")
@@ -284,7 +284,7 @@ class WoeChunk13EnchantWardScenariosTest {
         bob.blocks(boar to vanguard)
     }
 
-    // CR 715.2, 701.8: Bear Under destroys an artifact
+    // CR 716.2, 701.8: Bear Under destroys an artifact
     @Test
     fun bearUnderDestroysAnArtifact() = scenario {
         alice.battlefield("Forest", "Forest")
@@ -295,7 +295,7 @@ class WoeChunk13EnchantWardScenariosTest {
         expect { idol.zone shouldBe Zone.Graveyard }
     }
 
-    // CR 707.10, 707.10c, 715.4: casting an Adventure spell lets Alice copy it with a new target; a creature face cast from hand isn't one
+    // CR 707.10, 707.10c, 716.4: casting an Adventure spell lets Alice copy it with a new target; a creature face cast from hand isn't one
     @Test
     fun reeveCopiesAnAdventureSpellWithNewTargets() = scenario {
         alice.battlefield(reeve, bear, ox, "Plains")
@@ -405,7 +405,7 @@ class WoeChunk13EnchantWardScenariosTest {
         expect { carol.life shouldBe 19 }
     }
 
-    // CR 715.2: Steam Rinse returns a nonland permanent to its owner's hand
+    // CR 716.2: Steam Rinse returns a nonland permanent to its owner's hand
     @Test
     fun steamRinseBouncesAPermanent() = scenario {
         alice.battlefield("Island", "Island")

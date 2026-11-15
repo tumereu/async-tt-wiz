@@ -288,7 +288,7 @@ sealed interface Effect {
      * ("At the beginning of that turn's end step", [CreateDelayedTrigger.inTurn]). */
     @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players, val mark: String? = null) : Effect
     // fin
-    /** "End the turn" (CR 724.1): every spell and ability on the Stack is exiled (this one included), then the turn goes on from its cleanup
+    /** "End the turn" (CR 725.1): every spell and ability on the Stack is exiled (this one included), then the turn goes on from its cleanup
      * step (CR 514), with no other phases or steps in between. */
     @Serializable @SerialName("end-turn") data object EndTurn : Effect
     /** "There is an additional [step] after this step" (CR 500.9): the step happens again right after the current one. */
@@ -340,7 +340,7 @@ sealed interface Effect {
         val bind: String? = null, val caster: Players,
         /** Only if the resulting spell matches ("if the resulting spell's mana value is less", cascade, CR 702.85a). */
         val resultingSpell: ObjectFilter? = null,
-        /** "Cast it transformed": a transforming double-faced card cast with its back face up (a Siege, CR 310.12b, 712.11a). */
+        /** "Cast it transformed": a transforming double-faced card cast with its back face up (a Siege, CR 310.12b, 712.8a). */
         val transformed: Boolean = false,
         // fin
         /** "and mana of any type can be spent to cast that spell" (CR 601.2h). */
@@ -374,7 +374,7 @@ sealed interface Effect {
     @Serializable @SerialName("emblem") data class CreateEmblem(val abilities: List<Ability>, val players: Players) : Effect
     /** A keyword action; [bind] names what it acted on ("the beheld card", "the evidence collected"). */
     @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction, val bind: String? = null) : Effect
-    /** [objects]'s class level becomes [level] (CR 716.2a); a level is a designation any permanent can have (716.2b). */
+    /** [objects]'s class level becomes [level] (CR 717.2a); a level is a designation any permanent can have (717.2b). */
     @Serializable @SerialName("set-class-level") data class SetClassLevel(val objects: Objects, val level: Int) : Effect
     /** "Unlock a locked door of [objects]" (CR 709.5f): for each of [objects] with a locked half, [chooser] chooses one of
      * its locked halves (or [door] only, when given: the unlock special action of CR 709.5e) and it gets that half's
@@ -410,11 +410,11 @@ sealed interface Effect {
      * keeps none, and one already at or below [atLeast] keeps their speed. */
     @Serializable @SerialName("reduce-speed") data class ReduceSpeed(val players: Players, val amount: Value, val atLeast: Int) : Effect
     /** [controller] controls [players] during their next turn: makes every decision they could make, seeing what they could see
-     * (CR 723.1, 723.2; "you control target opponent during their next turn"). */
+     * (CR 724.1, 724.2; "you control target opponent during their next turn"). */
     @Serializable @SerialName("control-next-turn") data class ControlNextTurn(
         val players: Players, val controller: Players,
         // tla
-        /** Only during their next combat phase ("you control target opponent during their next combat phase", CR 723.2). */
+        /** Only during their next combat phase ("you control target opponent during their next combat phase", CR 724.2). */
         val combatPhase: Boolean = false,
         // inr
         /** "After that turn, that player takes an extra turn" (CR 500.7): the extra turn comes directly after the controlled turn. */
@@ -590,7 +590,7 @@ sealed interface KeywordAction {
     @Serializable @SerialName("airbend") data class Airbend(val objects: Objects) : KeywordAction
     // fin
     /** "Meld them into [into]" (CR 701.42a): the two cards of [objects], a meld pair, are put onto the battlefield with their back faces up and
-     * combined as one permanent (CR 712.4): [into], the back face both cards share. If they can't be melded, they stay where they are (701.42c). */
+     * combined as one permanent (CR 713.1): [into], the back face both cards share. If they can't be melded, they stay where they are (701.42c). */
     @Serializable @SerialName("meld") data class Meld(
         val objects: Objects, val into: String,
         // bro

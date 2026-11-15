@@ -153,7 +153,7 @@ class FdnChunk12ApplyTest {
         spell(pump(target("creature"), -1, 0), draw(1), targets = listOf(slot("creature", creature))),
     )
 
-    // CR 117.12 ("you may pay"), 608.2c ("if you do"), 509.1b (can't block)
+    // CR 118.12 ("you may pay"), 608.2c ("if you do"), 509.1b (can't block)
     @Test
     fun rabidGoblin() = card(
         name = "Frenetic Goblin",

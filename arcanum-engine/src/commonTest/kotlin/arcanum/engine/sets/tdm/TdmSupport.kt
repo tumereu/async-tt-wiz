@@ -110,7 +110,7 @@ internal fun Scenario.abilityIndex(name: String, text: String): Int =
         .also { check(it >= 0) { "$name has no activated ability with \"$text\"" } }
 
 /** Alice's [saga] with [n] - 1 lore counters at her draw step of turn 3 ([library] on top): passing into the main phase adds a lore
- * counter and chapter [n] triggers (CR 714.3b). */
+ * counter and chapter [n] triggers (CR 715.3b). */
 internal fun Scenario.loreChapter(saga: String, n: Int, vararg library: String) {
     alice.battlefield(saga, counters = listOf(CounterKind.Lore to n - 1))
     alice.library(*library, Plain.ogre, Plain.ogre)
@@ -136,7 +136,7 @@ internal fun Scenario.hits(vararg attackers: String, picks: List<String> = empty
     playOut(*picks.toTypedArray(), options = options)
 }
 
-/** The Omen face of [name] (CR 720.3). */
+/** The Omen face of [name] (CR 721.3). */
 internal val omen = CastWay(face = 1)
 
 /** The way to cast [name] by a permission (a [Mechanic.MayPlay] of another object, "without paying its mana cost"), as the

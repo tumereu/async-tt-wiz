@@ -205,12 +205,12 @@ fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effe
 val addAnyColor: Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1))), Players.You)))
 /** "{T}: Add {C}." */
 val addColorless: Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Fixed(ManaCost.parse("{C}")!!)), Players.You)))
-/** A Saga's chapter ability (CR 714.2b). */
+/** A Saga's chapter ability (CR 715.2b). */
 fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
 fun chapters(numbers: List<Int>, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(numbers), Instructions(targets = targets, steps = steps.toList()))
-/** "III — Exile this Saga, then return it to the battlefield transformed under your control." (CR 714.2b, 701.27) */
+/** "III — Exile this Saga, then return it to the battlefield transformed under your control." (CR 715.2b, 701.27) */
 val exileAndReturnTransformed: Ability = chapter(3, move(Objects.Self, Zone.Exile, postBind = "exiled"),
     Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.You, transformed = true))))
 val enteredOne: Objects = Objects.EventObject(EventRole.After)
@@ -267,6 +267,6 @@ fun alsoA(vararg subtypes: String): Mechanic = Mechanic.SetTypes(addSubtypes = s
 val thatSpell: Objects = Objects.EventObject(EventRole.Object)
 fun manaSpentAtLeast(n: Int): Condition = Condition.Compare(Value.ManaSpent(of = thatSpell), arcanum.api.Comparison.AtLeast, n(n))
 fun ifThen(condition: Condition, vararg then: Step, otherwise: List<Step> = emptyList()): Step = Step.If(condition, then.toList(), otherwise)
-/** "Exile [this], then return it to the battlefield (front face up)." (a back face's Saga chapter, CR 712.14) */
+/** "Exile [this], then return it to the battlefield (front face up)." (a back face's Saga chapter, CR 712.11) */
 fun exileAndReturnFrontFaceUp(): List<Step> = listOf(move(Objects.Self, Zone.Exile, postBind = "exiled"),
     Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield))))

@@ -12,7 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Venturing into the dungeon (CR 701.49, 309) and the initiative (CR 726), with invented dungeon cards. */
+/** Venturing into the dungeon (CR 701.49, 309) and the initiative (CR 727), with invented dungeon cards. */
 class VentureTest {
     private val crypt = Cards.invent("Venture Test Crypt", null, "Dungeon", """
         Crypt Door — You gain 1 life. (→ Bone Hall or Dark Well)
@@ -88,7 +88,7 @@ class VentureTest {
         }
     }
 
-    // CR 726.2, 701.49d: taking the initiative ventures into Undercity (only an Undercity dungeon), and so does the beginning of the
+    // CR 727.2, 701.49d: taking the initiative ventures into Undercity (only an Undercity dungeon), and so does the beginning of the
     // upkeep of the player who has it; combat damage to that player passes it to the attacker's controller, who ventures too
     @Test
     fun theInitiative() = scenario {

@@ -40,7 +40,7 @@ import kotlin.test.Test
  * mana when a land is tapped for {C} (CR 106.12), a base power set by your life total, an activation limited by this turn's combat damage, a
  * free spell cast up to the damage dealt, cards shuffled back counted, attacking with first strike and a lure, a dying trigger doubled
  * (CR 603.2d), base power from Towns, three or more blockers, an optional attach that grants abilities, a hideaway played free if you have four
- * legends, a land untapped only on your first three turns, and the meld pair (CR 701.42, 712.4).
+ * legends, a land untapped only on your first three turns, and the meld pair (CR 701.42, 713.1).
  */
 class FinChunk15ArtifactsLandsAndMeldTest {
     // CR 611.2b, 205.1a (losing land types), 106.12
@@ -238,7 +238,7 @@ class FinChunk15ArtifactsLandsAndMeldTest {
     )
 
     /** "if you both own and control Valla and a creature named Fenna, Fearless Pulsebearer, you may pay {3}{B}{G}. If you do, exile them, then
-     * meld them into Ragnaroth, Divine Deliverance." (CR 701.42a, 712.4) */
+     * meld them into Ragnaroth, Divine Deliverance." (CR 701.42a, 713.1) */
     @Test
     fun vallaCheerfulPulsebearer() = cardFaces(Layout.Meld("Fenna, Fearless Pulsebearer"),
         card(

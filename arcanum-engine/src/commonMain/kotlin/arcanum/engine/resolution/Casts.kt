@@ -30,7 +30,8 @@ import arcanum.engine.view.AbilityOrigin
  * Casting from an effect ([Effect.Cast]: cascade, rebound, suspend, madness, "you may cast it", CR 608.2g): each card
  * is cast with the casting flow's own plan ([arcanum.engine.casting.Casting.castByEffect]) on the effect's terms; one
  * that can't be cast (no legal targets, a cost it can't pay) isn't, and is left out of [Effect.Cast.bind] so the
- * effect's "if you don't" part applies to it. A land is played instead when the effect says play (CR 305.1).
+ * effect's "if you don't" part applies to it. A land is played instead when the effect says play (CR 305.1). Of several, the caster
+ * chooses the order (CR 608.2g).
  * [announceOrNull] chooses a triggered ability's modes and targets as it is put on the Stack (CR 603.3d).
  */
 internal object Casts {
@@ -38,7 +39,10 @@ internal object Casts {
         val act = scope.act
         val caster = scope.players(effect.caster).firstOrNull() ?: scope.actor
         val cast = mutableListOf<ObjectId>()
-        for (id in scope.objects(effect.objects).filter { act.state.obj(it) != null }) {
+        val candidates = scope.objects(effect.objects).filter { act.state.obj(it) != null }
+        // CR 608.2g: a player told or allowed to cast more than one spell during a resolution casts them in the order of their choice
+        val ordered = if (candidates.size > 1) act.order(caster, scope.self, candidates, "Order to cast, first cast first") else candidates
+        for (id in ordered) {
             // woe chunk 04: a card that can't be cast this way isn't shown (a face-down card goes on hidden; showing it would also count as
             // something done for "if you don't cast it", CR 608.2c)
             if (effect.resultingSpell != null && !resultingSpellMatches(scope, effect.resultingSpell!!, id)) continue

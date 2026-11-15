@@ -252,7 +252,7 @@ class Mh3Chunk11EffectsScenariosTest {
         assertFailsWith<IllegalArgumentException> { alice.activates(hollow, ability = 1, targets = listOf(bear, bear)) }
     }
 
-    // CR 714.2b, 111.4, 202.2: chapter III's token is a red 2/2 Weird with mana value 3 that grows on noncreature spells
+    // CR 715.2b, 111.4, 202.2: chapter III's token is a red 2/2 Weird with mana value 3 that grows on noncreature spells
     @Test
     fun vexaMakesTheReminderToken() = scenario {
         alice.battlefield("Island", "Island")

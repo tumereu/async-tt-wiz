@@ -619,7 +619,7 @@ class LtrWhiteScenariosTest {
     }
 
     /** Chapter I: indestructible while Alice controls the Saga; II returns a creature; III lifelink. */
-    // CR 714.2b, 611.2b
+    // CR 715.2b, 611.2b
     @Test
     fun layOfLuthielChapters() = scenario {
         alice.battlefield("Plains", "Plains", "Plains", "Plains", "Plains", p.bear)

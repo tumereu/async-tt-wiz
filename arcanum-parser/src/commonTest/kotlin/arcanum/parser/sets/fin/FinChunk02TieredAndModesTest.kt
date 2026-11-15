@@ -282,7 +282,7 @@ class FinChunk02TieredAndModesTest {
         ),
     )
 
-    // CR 701.14a (fight), 714.3b (lore counters removed don't trigger chapters)
+    // CR 701.14a (fight), 715.3b (lore counters removed don't trigger chapters)
     @Test
     fun clashOfTheTitans() = card(
         name = "Clash of the Titans",

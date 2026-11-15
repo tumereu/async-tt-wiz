@@ -470,7 +470,7 @@ class ComputedBoard private constructor(
             .map { ShownCounter(runCatching { EngineCodec.counterKind(it.kind) }.getOrNull(), counterName(it.kind), it.count) }
 
         /** TBL-021 (owner, 2026-11-11): the counter a permanent without P/T shows in its corner, the one its rules make primary:
-         * a planeswalker's loyalty (CR 306.5c), a battle's defense (CR 310.4c), a Saga's lore (CR 714.2b); with its count, 0
+         * a planeswalker's loyalty (CR 306.5c), a battle's defense (CR 310.4c), a Saga's lore (CR 715.2b); with its count, 0
          * when it has none. Null for a permanent with P/T (its corner is the P/T, the counter a bubble) or none of these. */
         fun primaryCounter(chars: Characteristics, counters: List<ShownCounter>): ShownCounter? {
             if (chars.power != null && chars.toughness != null) return null

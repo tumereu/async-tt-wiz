@@ -39,7 +39,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Dominaria United chunk 04: mill (CR 701.17), read ahead Sagas (CR 702.155, 714) and scry (CR 701.22), with the other abilities of
+ * Dominaria United chunk 04: mill (CR 701.17), read ahead Sagas (CR 702.155, 715) and scry (CR 701.22), with the other abilities of
  * the cards that carry them.
  */
 class DmuChunk04MillReadAheadScryTest {

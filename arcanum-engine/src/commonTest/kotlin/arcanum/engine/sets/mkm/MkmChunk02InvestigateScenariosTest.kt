@@ -18,7 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/** MKM chunk 02: investigate (CR 701.16a) and what the chunk's cards do around it, a Case's "To solve" (CR 719.3a) among them. */
+/** MKM chunk 02: investigate (CR 701.16a) and what the chunk's cards do around it, a Case's "To solve" (CR 720.3a) among them. */
 class MkmChunk02InvestigateScenariosTest {
     private val perch = Cards.invent("Case of the Plundered Perch", "{U}", "Enchantment — Case", """
         When this Case enters, investigate. (Create a Clue token. It's an artifact with "{2}, Sacrifice this token: Draw a card.")
@@ -59,7 +59,7 @@ class MkmChunk02InvestigateScenariosTest {
 
     private fun Scenario.clues(): Int = state.objects.values.count { o -> o.zone == arcanum.api.Zone.Battlefield && nameOf(o) == "Clue Token" }
 
-    // CR 719.3a: with fewer than three artifacts the Case stays unsolved at your end step, and its solved ability can't be activated
+    // CR 720.3a: with fewer than three artifacts the Case stays unsolved at your end step, and its solved ability can't be activated
     // (CR 702.169d); with three it becomes solved and the ability makes a noncreature artifact a 4/4 flying Bird for good (CR 613.1d, f)
     @Test
     fun caseSolvesAtYourEndStepWithThreeArtifacts() = scenario {
@@ -81,7 +81,7 @@ class MkmChunk02InvestigateScenariosTest {
         }
     }
 
-    // CR 719.3a: the condition is checked at the beginning of the end step (CR 603.4): two artifacts aren't enough
+    // CR 720.3a: the condition is checked at the beginning of the end step (CR 603.4): two artifacts aren't enough
     @Test
     fun caseWithTwoArtifactsStaysUnsolved() = scenario {
         alice.battlefield(perch, Plain.idol, satchel, "Island", "Island", "Island")

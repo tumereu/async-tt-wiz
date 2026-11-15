@@ -114,7 +114,7 @@ class TlaChunk10LessonMattersTest {
         static(has(Keyword.Lifelink), affects = Objects.Each(or(and(sub("Noble"), creature, you), and(lesson, spellFilter, you)))),
     )
 
-    // CR 714.2b
+    // CR 715.2b
     @Test
     fun petalsFromTheBough() = card(
         name = "Petals from the Bough",

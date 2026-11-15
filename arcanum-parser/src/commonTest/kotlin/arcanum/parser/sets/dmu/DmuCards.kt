@@ -230,7 +230,7 @@ fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effe
 
 // ---- dmu chunk 04
 
-/** A Saga's chapter ability for [numbers] ("I, II — …", CR 714.2b, c). */
+/** A Saga's chapter ability for [numbers] ("I, II — …", CR 715.2b, c). */
 fun chapters(vararg numbers: Int, steps: List<Step>, targets: List<TargetSlot> = emptyList()): Ability =
     Ability.Triggered(Trigger.Chapter(numbers.toList()), Instructions(targets = targets, steps = steps))
 /** "Whenever a creature you control dies" (CR 700.4). */

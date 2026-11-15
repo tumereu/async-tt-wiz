@@ -226,7 +226,7 @@ class FraPrepareEmpowerAndPathCardsScenariosTest {
 
     // ---- Chunk 01: preparation, white and blue
 
-    // CR 722.3c, 701.25a: the copy's surveil triggers the creature's own scry-or-surveil ability
+    // CR 723.3c, 701.25a: the copy's surveil triggers the creature's own scry-or-surveil ability
     @Test
     fun augurOfTriumphsBouncesAndGrows() = scenario {
         alice.battlefield("Island", "Island", "Island")
@@ -246,7 +246,7 @@ class FraPrepareEmpowerAndPathCardsScenariosTest {
         }
     }
 
-    // CR 722.3c, 111.4: a token named Cadet
+    // CR 723.3c, 111.4: a token named Cadet
     @Test
     fun termSeerSurveilsAndMakesACadet() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Plains", "Plains", "Plains")
@@ -266,7 +266,7 @@ class FraPrepareEmpowerAndPathCardsScenariosTest {
         }
     }
 
-    // CR 722.3c: "each player may discard their hand and draw seven cards"
+    // CR 723.3c: "each player may discard their hand and draw seven cards"
     @Test
     fun vectorPursuerRefillsWhoWants() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Island", "Island")

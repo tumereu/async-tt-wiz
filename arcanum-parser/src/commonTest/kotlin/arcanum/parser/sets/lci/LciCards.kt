@@ -237,7 +237,7 @@ fun discover(count: Value): Step = Step.Do(Effect.Action(KeywordAction.Discover(
 
 fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
     Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
-/** "When [this] dies, return it to the battlefield tapped and transformed under its owner's control [with counters]." (CR 712.14) */
+/** "When [this] dies, return it to the battlefield tapped and transformed under its owner's control [with counters]." (CR 712.11) */
 fun diesReturnTransformed(counters: List<CountersToPut> = emptyList()): Ability = triggered(diesSelf, Step.Do(Effect.Move(
     Objects.EventObject(EventRole.After), Destination(Zone.Battlefield, tapped = true, transformed = true,
         controller = Players.OwnerOf(Objects.EventObject(EventRole.After)), counters = counters))))

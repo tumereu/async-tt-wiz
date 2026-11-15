@@ -77,7 +77,7 @@ class WoeChunk16CountersTapUntapTest {
         pt = "2/1",
     ) parsesTo abilities(triggered(youCast(manaValue5), counters(Objects.Self, 2)))
 
-    // CR 715.2 (Adventure faces), 601.2, 202.3, 701.9 (discard)
+    // CR 716.2 (Adventure faces), 601.2, 202.3, 701.9 (discard)
     @Test
     fun gusthornHart() = cardFaces(Layout.Adventure,
         card(
@@ -98,7 +98,7 @@ class WoeChunk16CountersTapUntapTest {
         ) to abilities(spell(draw(2), discard(2))),
     )
 
-    // CR 715.2, 511.1 (end step), 122.1, 701.26 (untap)
+    // CR 716.2, 511.1 (end step), 122.1, 701.26 (untap)
     @Test
     fun virtueOfPledges() = cardFaces(Layout.Adventure,
         card(
@@ -273,7 +273,7 @@ class WoeChunk16CountersTapUntapTest {
         activated(cost(mana("{2}{B}"), CostPart.Exile(CostObjects.Self, from = Zone.Graveyard)), draw(1), loseLife(1)),
     )
 
-    // CR 715.2, 601.2, 202.3, 701.26, 122.1 (stun)
+    // CR 716.2, 601.2, 202.3, 701.26, 122.1 (stun)
     @Test
     fun thunderColossus() = cardFaces(Layout.Adventure,
         card(

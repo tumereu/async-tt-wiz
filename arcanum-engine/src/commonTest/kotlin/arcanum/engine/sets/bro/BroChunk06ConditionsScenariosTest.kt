@@ -89,7 +89,7 @@ class BroChunk06ConditionsScenariosTest {
         assertTrue(decision<Decision.ManaPayment>().suggestion.isEmpty())
     }
 
-    // CR 601.2f, 723.1: on its controller's own turn seven lands pay for it; nonland permanents return to their owners' hands
+    // CR 601.2f, 724.1: on its controller's own turn seven lands pay for it; nonland permanents return to their owners' hands
     @Test
     fun reverieOnYourTurnCostsItsManaCost() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island", "Island", "Island", "Island")

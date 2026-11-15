@@ -16,7 +16,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** Reality Fracture's preparation cards (CR 722): a prepared permanent's controller gets a copy of its prepare spell in
+/** Reality Fracture's preparation cards (CR 723): a prepared permanent's controller gets a copy of its prepare spell in
  * exile and may cast it, which unprepares the permanent; the copy goes when the permanent stops being prepared. */
 class FraPrepareScenariosTest {
     private val seraph = Cards.inventFaces("Prepare",
@@ -50,7 +50,7 @@ class FraPrepareScenariosTest {
     private fun Scenario.prepared(name: String): Boolean = state.obj(card(name, zone = Zone.Battlefield))!!.marks.contains(ObjectMark.Prepared)
 
     /** Entering prepared gives its controller the prepare spell's copy in exile; casting it unprepares the creature. */
-    // CR 722.3a, 722.3c, 601.2i
+    // CR 723.3a, 723.3c, 601.2i
     @Test
     fun entersPreparedAndCastsTheCopy() = scenario {
         alice.battlefield("Plains", "Plains", "Plains", "Plains", "Forest")
@@ -72,7 +72,7 @@ class FraPrepareScenariosTest {
     }
 
     /** The copy is the controller's only while the permanent stays prepared on the battlefield. */
-    // CR 722.3c, 704.5e
+    // CR 723.3c, 704.5e
     @Test
     fun copyGoesWhenThePermanentLeaves() = scenario {
         alice.battlefield("Plains", "Plains", "Plains", "Plains")
@@ -92,7 +92,7 @@ class FraPrepareScenariosTest {
     }
 
     /** "If this creature isn't prepared, it becomes prepared": not again while it is (one copy). */
-    // CR 603.4, 722.3a
+    // CR 603.4, 723.3a
     @Test
     fun becomesPreparedEachUpkeepOnlyWhenNot() = scenario {
         alice.battlefield(shaper)
@@ -110,7 +110,7 @@ class FraPrepareScenariosTest {
     }
 
     /** The copy is a spell cast: prowess triggers; an instant copy can be cast any time its controller has priority. */
-    // CR 702.108a, 722.3c
+    // CR 702.108a, 723.3c
     @Test
     fun castingTheCopyIsCastingASpell() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain")
@@ -129,7 +129,7 @@ class FraPrepareScenariosTest {
     }
 
     /** A sorcery copy only as a sorcery. */
-    // CR 307.1, 722.3c
+    // CR 307.1, 723.3c
     @Test
     fun aSorceryCopyAsASorcery() = scenario {
         alice.battlefield(shaper, "Island")
@@ -146,7 +146,7 @@ class FraPrepareScenariosTest {
     }
 
     /** "Whenever you cast a prepared spell, copy it": the copy of the prepare spell is a prepare spell too. */
-    // CR 722.3d, 707.10
+    // CR 723.3d, 707.10
     @Test
     fun codieCopiesThePreparedSpell() = scenario {
         alice.battlefield(codie, "Plains", "Plains", "Plains", "Plains", "Forest")
@@ -165,7 +165,7 @@ class FraPrepareScenariosTest {
     }
 
     /** Only creatures with prepare spells can become prepared; an Aura can unprepare one (the copy goes). */
-    // CR 722.3a, 722.3b
+    // CR 723.3a, 723.3b
     @Test
     fun onlyPrepareCreaturesBecomePreparedAndAurasUnprepare() = scenario {
         alice.battlefield(arena, bear, "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Island", "Island", "Island")

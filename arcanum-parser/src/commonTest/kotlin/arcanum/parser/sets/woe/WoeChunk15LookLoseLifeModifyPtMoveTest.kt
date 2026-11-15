@@ -89,7 +89,7 @@ class WoeChunk15LookLoseLifeModifyPtMoveTest {
         static(pt(2, 2), affects = Objects.Each(and(ObjectFilter.Attached(attachments = sub("Aura")), creature, you))),
     )
 
-    // CR 715.2 (Adventure faces), 613.4c, 111.1 (token), 608.2h (X fixed on resolution)
+    // CR 716.2 (Adventure faces), 613.4c, 111.1 (token), 608.2h (X fixed on resolution)
     @Test
     fun pollenShieldHare() = cardFaces(Layout.Adventure,
         card(
@@ -113,7 +113,7 @@ class WoeChunk15LookLoseLifeModifyPtMoveTest {
         ),
     )
 
-    // CR 715.2, 400.7 (a spell returned to hand), 111.1
+    // CR 716.2, 400.7 (a spell returned to hand), 111.1
     @Test
     fun belunasGatekeeper() = cardFaces(Layout.Adventure,
         card(
@@ -148,7 +148,7 @@ class WoeChunk15LookLoseLifeModifyPtMoveTest {
             .copy(functionsIn = listOf(Zone.Graveyard)),
     )
 
-    // CR 715.2, 700.4, 400.7 (it is a new object in the library)
+    // CR 716.2, 700.4, 400.7 (it is a new object in the library)
     @Test
     fun fellHorseman() = cardFaces(Layout.Adventure,
         card(
@@ -229,7 +229,7 @@ class WoeChunk15LookLoseLifeModifyPtMoveTest {
         activated(cost(mana("{1}"), tap, sacrificeSelf), draw(1)),
     )
 
-    // CR 714.2b (chapters), 610.3 (exile), 400.7 (return as a new object), 613.4c
+    // CR 715.2b (chapters), 610.3 (exile), 400.7 (return as a new object), 613.4c
     @Test
     fun thePrincessTakesFlight() = card(
         name = "Crowned Vigil",

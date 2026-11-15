@@ -57,7 +57,7 @@ class LciChunk05TransformTest {
         colors.map { c -> arcanum.api.ColorRef.Literal(mapOf('W' to Color.White, 'U' to Color.Blue, 'B' to Color.Black, 'R' to Color.Red, 'G' to Color.Green).getValue(c)) })), Players.You)))
 
     // CR 701.9a, 603.2: each opponent discards; one draw for each who couldn't; an opponent's land discard makes a Bat (any opponent, 3+ players)
-    // CR 712.14: dies, returns transformed; CR 602.5b: the land transforms only if any player has one or fewer cards in hand
+    // CR 712.11: dies, returns transformed; CR 602.5b: the land transforms only if any player has one or fewer cards in hand
     @Test
     fun zotlacaiHollowTreachery() = cardFaces(Layout.Transform,
         card(
@@ -104,7 +104,7 @@ class LciChunk05TransformTest {
         ),
     )
 
-    // CR 714.2b: chapter II gives the Saga a static ability for as long as it stays (CR 611.2a), granting a mana ability (layer 6, CR 613.1f)
+    // CR 715.2b: chapter II gives the Saga a static ability for as long as it stays (CR 611.2a), granting a mana ability (layer 6, CR 613.1f)
     @Test
     fun itzelSingerOfUnity() = cardFaces(Layout.Transform,
         card(
@@ -221,7 +221,7 @@ class LciChunk05TransformTest {
         ),
     )
 
-    // CR 702.88a, 400.7: the instant spell cast from your hand gains rebound while it is on the Stack; CR 712.14, 122.6: it returns with
+    // CR 702.88a, 400.7: the instant spell cast from your hand gains rebound while it is on the Stack; CR 712.11, 122.6: it returns with
     // three time counters; the land transforms only without time counters (CR 602.5b)
     @Test
     fun ojenQuetziDeepestTide() = cardFaces(Layout.Transform,

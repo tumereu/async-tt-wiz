@@ -14,7 +14,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * Tarkir: Dragonstorm cards of parser chunks 07–08 in play: harmonize (CR 702.180) and the Omen cards (CR 720), both halves of each.
+ * Tarkir: Dragonstorm cards of parser chunks 07–08 in play: harmonize (CR 702.180) and the Omen cards (CR 721), both halves of each.
  */
 class TdmHarmonizeAndOmenCardsScenariosTest {
     private val focusedWyrmfire = Cards.invent("Focused Wyrmfire", "{R}", "Sorcery", """
@@ -326,7 +326,7 @@ class TdmHarmonizeAndOmenCardsScenariosTest {
     // ---- Chunk 08: Omens
 
     /** The Omen half: two basic Forests, one onto the battlefield tapped, one to hand; the card shuffled into the library. */
-    // CR 720.3d
+    // CR 721.3d
     @Test
     fun thornbloomRegentStakesTheWilds() = scenario {
         alice.battlefield("Forest", "Forest", "Forest")
@@ -351,7 +351,7 @@ class TdmHarmonizeAndOmenCardsScenariosTest {
     }
 
     /** Omen: a creature tapped and a card; then shuffled into the library, not the graveyard. */
-    // CR 720.3d
+    // CR 721.3d
     @Test
     fun shoalIsleDragonGlances() = scenario {
         alice.battlefield("Island", "Island")

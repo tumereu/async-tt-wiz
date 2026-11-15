@@ -29,7 +29,7 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   cost whose parts' phrases aren't all found in order gets none. Every parse test checks that each activated ability's
   cost has them.
 - `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
-  double-faced; CR 709, 712, 715) → `CardDefinition`, each face parsed on its own. A face's
+  double-faced; CR 709, 712, 716) → `CardDefinition`, each face parsed on its own. A face's
   colour indicator is read from `OracleCard.colorIndicator` ("U").
 - `OracleParser.layout(name, faces)`: the `Layout` for `parseCard` of a card printed with `faces` under a card-data
   layout name (Scryfall's and MTGJSON's: "split", "transform", "modal_dfc", "adventure", ...); null where the parser

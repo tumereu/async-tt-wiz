@@ -304,7 +304,7 @@ internal object Resolution {
         if (!fizzled) arcanum.engine.epic.Epic.resolves(act, item)
         val card = act.state.obj(item.id)
         if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.KeywordActionDone(arcanum.api.KeywordActionKind.GiveGift, item.controller)))
-        // ltr chunk 13: CR 714.2c: the final chapter ability of a Saga resolved
+        // ltr chunk 13: CR 715.2c: the final chapter ability of a Saga resolved
         if (!fizzled) (item.ability as? Ability.Triggered)?.trigger?.let { it as? arcanum.api.Trigger.Chapter }?.let { chapter ->
             val saga = item.source ?: return@let
             val final = (act.view()[saga]?.characteristics ?: arcanum.engine.query.Lki.find(act.state, saga)?.characteristics)?.abilities.orEmpty()
@@ -355,7 +355,7 @@ internal object Resolution {
             if (entered != null && act.state.obj(entered)?.zone == Zone.Battlefield) delayed.forEach { act.record(it(act.state.nextTimestamp())) }
             return
         }
-        // CR 715.3d: a resolving Adventure is exiled instead, and its controller may play the card from exile later (fin: a land card, a Town,
+        // CR 716.3d: a resolving Adventure is exiled instead, and its controller may play the card from exile later (fin: a land card, a Town,
         // is played as a land)
         if (!fizzled && card.definition.layout == arcanum.api.Layout.Adventure && card.face == 1) {
             val land = arcanum.api.CardType.Land in card.definition.faces.first().types
@@ -372,7 +372,7 @@ internal object Resolution {
             })
             return
         }
-        // tdm: CR 720.3d: a resolving Omen spell is shuffled into its owner's library instead
+        // tdm: CR 721.3d: a resolving Omen spell is shuffled into its owner's library instead
         if (!fizzled && card.definition.layout == arcanum.api.Layout.Omen && card.face == 1) {
             Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Library, meanings = listOf(meaning))))
             Actions.shuffle(act, card.owner)
@@ -384,7 +384,7 @@ internal object Resolution {
     /** Where a resolved or countered spell's card goes: its owner's graveyard, unless the permission it was cast with
      * says otherwise (flashback: exile, CR 702.34a). */
     private fun leavesTo(act: Act, item: StackItem): Zone {
-        // fin: CR 724.1b: the spell that ended the turn is exiled as it leaves
+        // fin: CR 725.1b: the spell that ended the turn is exiled as it leaves
         if (act.state.turn.endingTurn) return Zone.Exile
         val o = act.state.obj(item.id) ?: return Zone.Graveyard
         val from = o.castOrNone.castFrom ?: return Zone.Graveyard

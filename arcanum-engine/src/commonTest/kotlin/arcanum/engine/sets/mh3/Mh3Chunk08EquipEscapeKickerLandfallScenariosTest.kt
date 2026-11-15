@@ -236,7 +236,7 @@ class Mh3Chunk08EquipEscapeKickerLandfallScenariosTest {
         expect { alice.graveyard has drake }
     }
 
-    // CR 714.3b, 701.16a: chapter II discards two cards and investigates twice for each: four Clues
+    // CR 715.3b, 701.16a: chapter II discards two cards and investigates twice for each: four Clues
     @Test
     fun discardsAndInvestigatesTwiceEach() = scenario {
         alice.battlefield(saga, counters = listOf(CounterKind.Lore to 1))

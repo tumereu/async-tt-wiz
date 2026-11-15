@@ -85,7 +85,7 @@ class InrEquipEscalateMadnessScenariosTest {
         }
     }
 
-    // CR 712.14a: the dies trigger returns the card with its back face up, an Equipment, under its controller's control
+    // CR 712.11a: the dies trigger returns the card with its back face up, an Equipment, under its controller's control
     @Test
     fun theScarecrowReturnsAsTheSickle() = scenario {
         alice.battlefield("Mountain", scarecrow)

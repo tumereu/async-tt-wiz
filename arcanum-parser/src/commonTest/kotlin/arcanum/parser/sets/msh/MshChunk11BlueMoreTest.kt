@@ -60,7 +60,7 @@ class MshChunk11BlueMoreTest {
         triggered(secondCardEachTurn, counters(Objects.Self)),
     )
 
-    // CR 603.2i: once each turn
+    // CR 603.2h: once each turn
     @Test
     fun jesterGodOfMischief() = card(
         name = "Jester, God of Mischief",

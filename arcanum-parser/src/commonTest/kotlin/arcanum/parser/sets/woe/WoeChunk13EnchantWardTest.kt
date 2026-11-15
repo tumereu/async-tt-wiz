@@ -68,7 +68,7 @@ class WoeChunk13EnchantWardTest {
         activated(cost(mana("{2}{W}")), move(enchantedCreature, Zone.Exile)),
     )
 
-    // CR 715.2 (Adventure faces), 702.21 (ward), 702.36 (flash), 614.1c (enters tapped unless it's your turn), 715.4
+    // CR 716.2 (Adventure faces), 702.21 (ward), 702.36 (flash), 614.1c (enters tapped unless it's your turn), 716.4
     @Test
     fun antleredTarnWhale() = cardFaces(Layout.Adventure,
         card(
@@ -122,7 +122,7 @@ class WoeChunk13EnchantWardTest {
         activated(cost(mana("{1}{U}")), untapIt(Objects.Self)),
     )
 
-    // CR 715.2, 702.21, 702.20 (vigilance), 610.3 and 603.7 (return at the beginning of the next end step)
+    // CR 716.2, 702.21, 702.20 (vigilance), 610.3 and 603.7 (return at the beginning of the next end step)
     @Test
     fun mirroredTwosome() = cardFaces(Layout.Adventure,
         card(
@@ -166,7 +166,7 @@ class WoeChunk13EnchantWardTest {
         activated(cost(mana("{1}"), tap), Step.Do(Effect.AddMana(ManaProduction(anyOneColor(1)), Players.You))),
     )
 
-    // CR 715.2, 509.1b (can't be blocked by creatures with power 2 or less), 701.8 (destroy)
+    // CR 716.2, 509.1b (can't be blocked by creatures with power 2 or less), 701.8 (destroy)
     @Test
     fun stormcragVanguard() = cardFaces(Layout.Adventure,
         card(
@@ -186,7 +186,7 @@ class WoeChunk13EnchantWardTest {
         ),
     )
 
-    // CR 707.10 (copy a spell), 707.10c (new targets), 715.4 (an Adventure spell is a spell cast as the Adventure face)
+    // CR 707.10 (copy a spell), 707.10c (new targets), 716.4 (an Adventure spell is a spell cast as the Adventure face)
     @Test
     fun reeveOfYarns() = card(
         name = "Reeve of Yarns",
@@ -263,7 +263,7 @@ class WoeChunk13EnchantWardTest {
         spell(doing(Effect.Counter(target("spell"))), targets = listOf(slot("spell", and(spellFilter, manaValue(Comparison.AtLeast, 4))))),
     )
 
-    // CR 715.2, 603.2 (opponent casts), 202.3
+    // CR 716.2, 603.2 (opponent casts), 202.3
     @Test
     fun searingAdder() = cardFaces(Layout.Adventure,
         card(

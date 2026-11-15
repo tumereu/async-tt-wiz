@@ -17,7 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/** Mutate (CR 702.140) and merged permanents (CR 730): merging on top or under, characteristics and abilities, splitting as it leaves. */
+/** Mutate (CR 702.140) and merged permanents (CR 731): merging on top or under, characteristics and abilities, splitting as it leaves. */
 class MutateTest {
     private val hulk = Cards.invent("Mutate Hulking Brute", "{3}{G}{G}", "Creature — Beast", """
         Mutate {2}{G}
@@ -43,8 +43,8 @@ class MutateTest {
         answer(Answer.Option(where))
     }
 
-    // CR 702.140a, c, e, 730.2a: on top, the merged permanent has the top card's characteristics and every card's abilities;
-    // CR 702.140d: "whenever this creature mutates"; CR 730.2b: it didn't enter
+    // CR 702.140a, c, e, 731.2a: on top, the merged permanent has the top card's characteristics and every card's abilities;
+    // CR 702.140d: "whenever this creature mutates"; CR 731.2b: it didn't enter
     @Test
     fun mergesOnTop() = scenario {
         wolfAndBrute()
@@ -79,7 +79,7 @@ class MutateTest {
         }
     }
 
-    // CR 730.3: as the merged permanent dies, each of its cards is put into the graveyard
+    // CR 731.3: as the merged permanent dies, each of its cards is put into the graveyard
     @Test
     fun splitsAsItDies() = scenario {
         wolfAndBrute()
@@ -98,7 +98,7 @@ class MutateTest {
         }
     }
 
-    // CR 730.3: returned to its owner's hand, both cards go
+    // CR 731.3: returned to its owner's hand, both cards go
     @Test
     fun splitsAsItIsReturned() = scenario {
         wolfAndBrute()
@@ -144,7 +144,7 @@ class MutateTest {
         assertFailsWith<IllegalArgumentException> { alice.casts(hulk, way = mutate(hulk), target = squire) }
     }
 
-    // CR 730.2a, 702.140e: mutating again on top: the newest top card's characteristics, all three cards' abilities
+    // CR 731.2a, 702.140e: mutating again on top: the newest top card's characteristics, all three cards' abilities
     @Test
     fun mutatesTwice() = scenario {
         val beetle = Cards.invent("Mutate Horned Beetle", "{1}{G}", "Creature — Insect", """
@@ -172,7 +172,7 @@ class MutateTest {
         }
     }
 
-    // CR 730.2e, 708.2a: merged on top of a face-down creature, the permanent is face up and everyone sees its card. Merged
+    // CR 731.2e, 708.2a: merged on top of a face-down creature, the permanent is face up and everyone sees its card. Merged
     // under, it stays a face-down 2/2.
     @Test
     fun onTopOfAFaceDownCreature() = listOf(Mutate.ON_TOP, Mutate.UNDER).forEach { where ->

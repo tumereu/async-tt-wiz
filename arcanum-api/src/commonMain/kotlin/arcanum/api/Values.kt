@@ -290,7 +290,7 @@ sealed interface Condition {
     @Serializable @SerialName("targets-legal") data class TargetsLegal(val slots: List<String>) : Condition
     /** The [Effect.Search] named [name] searched [zone] ("If you search your library this way, shuffle"). */
     @Serializable @SerialName("searched") data class Searched(val name: String, val zone: Zone) : Condition
-    /** The source Class is at [level] or higher (CR 716). Levelers compare their [CounterKind.Level] counters. */
+    /** The source Class is at [level] or higher (CR 717). Levelers compare their [CounterKind.Level] counters. */
     @Serializable @SerialName("class-level") data class ClassLevelAtLeast(val level: Int) : Condition
     /** [value] is a prime number ("you control a prime number of lands"). */
     @Serializable @SerialName("prime") data class Prime(val value: Value) : Condition

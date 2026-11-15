@@ -125,7 +125,7 @@ class RestrictionsTest {
         assertNull(Restrictions.text(Mechanic.CantGainLife), "not about an object")
     }
 
-    // CR 702.179, 701.54c, 731: what the rules keep for a player and the game
+    // CR 702.179, 701.54c, 732: what the rules keep for a player and the game
     @Test
     fun aPlayersAndTheGamesStates() = scenario {
         alice.battlefield("Swamp", cub)
@@ -141,7 +141,7 @@ class RestrictionsTest {
         assertEquals(listOf<arcanum.engine.state.GameStatus>(arcanum.engine.state.GameStatus.DayNight(night = true)), view().game.statuses)
     }
 
-    // CR 716.2: a Class is level 1 until it levels up
+    // CR 717.2: a Class is level 1 until it levels up
     @Test
     fun aClasssLevel() = scenario {
         alice.battlefield(tale, cub)

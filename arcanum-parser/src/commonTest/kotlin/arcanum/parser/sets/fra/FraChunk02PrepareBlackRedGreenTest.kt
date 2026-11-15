@@ -38,11 +38,11 @@ import arcanum.parser.sets.gtc.you
 import kotlin.test.Test
 
 /**
- * Reality Fracture chunk 02: preparation cards (CR 722) in black, red and green, and the cards that prepare others. Becoming
+ * Reality Fracture chunk 02: preparation cards (CR 723) in black, red and green, and the cards that prepare others. Becoming
  * prepared at the beginning of each end step after three creatures died, or each upkeep when it isn't; a mana ability whose
- * mana can't be spent on spells cast from the hand (CR 106.6); "whenever you cast a prepared spell, copy it" (CR 722.3d,
- * 707.10); a land and an artifact that make creatures prepared (only those with prepare spells can be, 722.3a); an Aura that
- * taps its creature and unprepares it (722.3b). Heartwood tokens are predefined (CR 111.10x).
+ * mana can't be spent on spells cast from the hand (CR 106.6); "whenever you cast a prepared spell, copy it" (CR 723.3d,
+ * 707.10); a land and an artifact that make creatures prepared (only those with prepare spells can be, 723.3a); an Aura that
+ * taps its creature and unprepares it (723.3b). Heartwood tokens are predefined (CR 111.10x).
  */
 class FraChunk02PrepareBlackRedGreenTest {
     // CR 603.4, 700.4
@@ -261,7 +261,7 @@ class FraChunk02PrepareBlackRedGreenTest {
         ) to abilities(spell(createHeartwood)),
     )
 
-    // CR 722.3d, 707.10
+    // CR 723.3d, 707.10
     @Test
     fun pageyHungeringTome() = card(
         name = "Pagey, Hungering Tome",
@@ -294,7 +294,7 @@ class FraChunk02PrepareBlackRedGreenTest {
             activated(cost(mana("{4}"), tap), becomesPrepared(target("creature")), targets = listOf(slot("creature", creature))),
         )
 
-    // CR 722.3b, 613.1f
+    // CR 723.3b, 613.1f
     @Test
     fun endlessSyllabus() = card(
         name = "Endless Syllabus",

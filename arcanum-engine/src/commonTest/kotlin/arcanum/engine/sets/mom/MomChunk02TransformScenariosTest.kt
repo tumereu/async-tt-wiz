@@ -187,7 +187,7 @@ class MomChunk02TransformScenariosTest {
         assertFailsWith<IllegalArgumentException> { alice.activates(velQuorias) }
     }
 
-    // CR 714.3a: it returns as a Saga with a lore counter, chapter I draws as many cards as are in hand; CR 402.2, 514.1: no discard to hand size
+    // CR 715.3a: it returns as a Saga with a lore counter, chapter I draws as many cards as are in hand; CR 402.2, 514.1: no discard to hand size
     // while you control the Saga
     @Test
     fun velQuoriasTransformsDrawsAndKeepsAFullHand() = scenario {
@@ -203,7 +203,7 @@ class MomChunk02TransformScenariosTest {
     }
 
     // CR 608.2g: the chosen spells are cast for free while chapter III resolves (one at a time, in the order chosen, CR 608.2f); CR 305.9: the
-    // land stays; CR 712.14: it returns front face up
+    // land stays; CR 712.11: it returns front face up
     @Test
     fun theGrandDistillationCastsFromHandForFree() = scenario {
         alice.battlefield(velQuorias, counters = listOf(CounterKind.Lore to 2))
@@ -226,7 +226,7 @@ class MomChunk02TransformScenariosTest {
         assertEquals("Vel-Quorias", faceName(velQuorias))
     }
 
-    // CR 602.5b: three instant and/or sorcery spells cast this turn allow it; CR 714.3a: chapter I on entering deals 3 to the opponent and their
+    // CR 602.5b: three instant and/or sorcery spells cast this turn allow it; CR 715.3a: chapter I on entering deals 3 to the opponent and their
     // creatures (CR 120.2)
     @Test
     fun kharavexTransformsAfterThreeSpells() = scenario {
@@ -299,7 +299,7 @@ class MomChunk02TransformScenariosTest {
         }
     }
 
-    // CR 701.27g: only a permanent with its back face up counts; CR 613.1f: the dies trigger is granted while you control one (CR 603.10a)
+    // CR 701.27h: only a permanent with its back face up counts; CR 613.1f: the dies trigger is granted while you control one (CR 603.10a)
     @Test
     fun transformedPermanentsPumpTheAppraiserAndArmTheDrakeling() = scenario {
         alice.battlefield(appraiser, drakeling, grazer, tinker)
@@ -317,7 +317,7 @@ class MomChunk02TransformScenariosTest {
         }
     }
 
-    // CR 701.27g: without a transformed permanent the Drakeling has no dies trigger
+    // CR 701.27h: without a transformed permanent the Drakeling has no dies trigger
     @Test
     fun theDrakelingDrawsNothingWithoutATransformedPermanent() = scenario {
         alice.battlefield(appraiser, drakeling, tinker)

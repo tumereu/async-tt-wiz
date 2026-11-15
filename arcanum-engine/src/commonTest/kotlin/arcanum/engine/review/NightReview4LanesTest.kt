@@ -213,9 +213,9 @@ class NightReview4LanesTest {
         expect { keen.tapped shouldBe true }
     }
 
-    // ---- Mutate and merging (CR 702.140, 730)
+    // ---- Mutate and merging (CR 702.140, 731)
 
-    // CR 730.2e, 708.2: merged under a face-down creature the merged permanent is face down, a 2/2 with no abilities, so the
+    // CR 731.2e, 708.2: merged under a face-down creature the merged permanent is face down, a 2/2 with no abilities, so the
     // mutating card's abilities don't count: no trample, and "whenever this creature mutates" doesn't trigger
     @Test
     fun mergedUnderAFaceDownCreatureHasNoAbilities() = scenario {
@@ -234,7 +234,7 @@ class NightReview4LanesTest {
         expect { alice.hand.size shouldBe 0 }
     }
 
-    // CR 730.2e: a face-down permanent made face up by a card merging on top isn't turned face up: its "when turned face up"
+    // CR 731.2e: a face-down permanent made face up by a card merging on top isn't turned face up: its "when turned face up"
     // ability doesn't trigger
     @Test
     fun mergingOnTopOfAFaceDownCreatureDoesntTurnItFaceUp() = scenario {
@@ -256,7 +256,7 @@ class NightReview4LanesTest {
         }
     }
 
-    // CR 707.2, 730.2a: the merge is a copiable effect, so a copy of a mutated permanent copies the topmost card's characteristics and
+    // CR 707.2, 731.2a: the merge is a copiable effect, so a copy of a mutated permanent copies the topmost card's characteristics and
     // the abilities of every component
     @Test
     fun aCopyOfAMutatedPermanentCopiesTheMerge() = scenario {
@@ -284,7 +284,7 @@ class NightReview4LanesTest {
         assertTrue(c.hasKeyword(Keyword.Vigilance), "The copy has the abilities of every component (CR 702.140e, 707.2)")
     }
 
-    // CR 730.2a, 613.7: the merge is a copy effect with the timestamp of the merge; a copy effect applied to the merged permanent
+    // CR 731.2a, 613.7: the merge is a copy effect with the timestamp of the merge; a copy effect applied to the merged permanent
     // later wins: it becomes a copy of the Ox, with none of the merged cards' characteristics or abilities
     @Test
     fun aLaterCopyEffectOverridesTheMerge() = scenario {
@@ -332,7 +332,7 @@ class NightReview4LanesTest {
         }
     }
 
-    // CR 730.2c: the merged permanent is the same object: a creature controlled since the turn began can still attack
+    // CR 731.2c: the merged permanent is the same object: a creature controlled since the turn began can still attack
     @Test
     fun theMergedPermanentIsntSummoningSick() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", wolf)
@@ -348,10 +348,10 @@ class NightReview4LanesTest {
         expect { bob.life shouldBe 14 }
     }
 
-    // ---- The initiative (CR 726)
+    // ---- The initiative (CR 727)
 
-    // CR 726.4: if the player who has the initiative leaves the game, the active player takes it at once (and, taking it,
-    // ventures into Undercity, CR 726.2)
+    // CR 727.4: if the player who has the initiative leaves the game, the active player takes it at once (and, taking it,
+    // ventures into Undercity, CR 727.2)
     @Test
     fun theInitiativePassesToTheActivePlayerWhenItsHolderLeaves() = scenario(players = 3) {
         alice.outside(undercity)
@@ -363,7 +363,7 @@ class NightReview4LanesTest {
         passUntilEmpty()
         assertTrue(Designation.Initiative in state.player(bob.id).designations)
         perform(Input.Concede(bob.id))
-        assertTrue(Designation.Initiative in state.player(alice.id).designations, "alice, the active player, takes the initiative (CR 726.4)")
+        assertTrue(Designation.Initiative in state.player(alice.id).designations, "alice, the active player, takes the initiative (CR 727.4)")
     }
 
     // ---- Assist (CR 702.132)

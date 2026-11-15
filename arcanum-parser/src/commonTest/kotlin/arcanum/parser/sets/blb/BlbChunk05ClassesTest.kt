@@ -48,10 +48,10 @@ import arcanum.parser.cube.whenThisEnters
 import kotlin.test.Test
 
 /**
- * Bloomburrow chunk 05: Classes (CR 716). Each class level bar "[cost]: Level N" is a keyword ability with the
+ * Bloomburrow chunk 05: Classes (CR 717). Each class level bar "[cost]: Level N" is a keyword ability with the
  * abilities printed in its section ([Keyword.ClassLevel]): activating it makes the Class level N, only from level N-1
- * and as a sorcery, and from level N on the Class has those abilities (CR 716.2a). The top section's abilities are the
- * Class's own (CR 716.3); "When this Class becomes level N" is a trigger of a level's section. Also here: tokens named
+ * and as a sorcery, and from level N on the Class has those abilities (CR 717.2a). The top section's abilities are the
+ * Class's own (CR 717.3); "When this Class becomes level N" is a trigger of a level's section. Also here: tokens named
  * and with abilities, "equipped creatures you control", counters doubled for whoever puts them, damage plus 2.
  */
 class BlbChunk05ClassesTest {
@@ -63,7 +63,7 @@ class BlbChunk05ClassesTest {
     private val otter = creatureToken("Otter", listOf(Color.Blue, Color.Red), 1, 1, listOf(Keyword.Prowess))
     private val opponentsUpkeep = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.Opponent))
 
-    // CR 716.2a: level 2's trigger works from level 2 on; level 3's "becomes level 3" triggers as it gets there
+    // CR 717.2a: level 2's trigger works from level 2 on; level 3's "becomes level 3" triggers as it gets there
     @Test
     fun masonsKnack() = card(
         name = "Mason's Knack",

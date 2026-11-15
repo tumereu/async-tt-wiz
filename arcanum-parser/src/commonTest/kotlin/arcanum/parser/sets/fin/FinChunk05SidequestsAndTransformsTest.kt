@@ -46,12 +46,12 @@ import kotlin.test.Test
 /**
  * Final Fantasy chunk 05: Sidequests and other double-faced cards that transform (CR 701.27, 712): transforming when a quest is done
  * (intervening ifs, CR 603.4), on the fourth resolution of an ability this turn, when the chosen creature leaves; "As this creature
- * transforms into …" (CR 712.20, applied while it transforms); an emblem (CR 114); "when the chosen player loses the game"; damage doubled
+ * transforms into …" (CR 701.27i, applied while it transforms); an emblem (CR 114); "when the chosen player loses the game"; damage doubled
  * for Wizards (CR 614.1a); playing cards from the graveyard during your turn; cards put into your graveyard exiled instead.
  */
 class FinChunk05SidequestsAndTransformsTest {
     private fun transformsInto(name: String) = EventPattern.Transform(and(ObjectFilter.Is(Objects.Self), ObjectFilter.Named(name)))
-    /** "As this creature transforms into [name], [steps]" (CR 712.20). */
+    /** "As this creature transforms into [name], [steps]" (CR 701.27i). */
     private fun asTransformsInto(name: String, vararg steps: Step) = static(Mechanic.Replacement(transformsInto(name), modify = listOf(Modification.AsTransforms(steps.toList()))))
     private val transformSelf = doing(Effect.Transform(Objects.Self))
     private val endOfCombatOnYourTurn = stepBegins(TurnStep.EndOfCombat, PlayerFilter.You)
@@ -245,7 +245,7 @@ class FinChunk05SidequestsAndTransformsTest {
     )
 
     /** "If this is the fourth time this ability has resolved this turn" (counted with this resolution); an emblem made as it transforms. */
-    // CR 114, 712.20
+    // CR 114, 701.27i
     @Test
     fun severusFabledSoldier() = cardFaces(Layout.Transform,
         card(
@@ -353,7 +353,7 @@ class FinChunk05SidequestsAndTransformsTest {
         ),
     )
 
-    // CR 712.20 is not used here: "you may transform" at upkeep; "If a card or token would be put into your graveyard from anywhere, exile it instead."
+    // CR 701.27i is not used here: "you may transform" at upkeep; "If a card or token would be put into your graveyard from anywhere, exile it instead."
     @Test
     fun aethelUnsundered() = cardFaces(Layout.Transform,
         card(

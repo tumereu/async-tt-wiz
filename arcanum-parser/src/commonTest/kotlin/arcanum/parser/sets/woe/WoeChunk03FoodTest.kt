@@ -20,7 +20,7 @@ class WoeChunk03FoodTest {
     private fun mayPay(cost: CostPart, vararg then: Step): List<Step> =
         listOf(Step.Pay(cost(cost), payer = Players.You, bind = "paid"), Step.If(Condition.Did("paid"), then = then.toList()))
 
-    // CR 118.12: "If you don't" after an optional sacrifice; CR 715 (Adventure)
+    // CR 118.12: "If you don't" after an optional sacrifice; CR 716 (Adventure)
     @Test
     fun ravenousCandymaw() = cardFaces(Layout.Adventure,
         card(name = "Ravenous Candymaw", cost = "{2}{B}{B}", type = "Creature — Horror", pt = "6/6", text = """
@@ -80,7 +80,7 @@ class WoeChunk03FoodTest {
         triggered(attacksSelf, *mayPay(sacrificeA(aFood), draw(1)).toTypedArray()),
     )
 
-    // CR 111.10j (Wicked Role); CR 714.2b
+    // CR 111.10j (Wicked Role); CR 715.2b
     @Test
     fun theHagsPride() = card(
         name = "The Hag's Pride",
@@ -360,7 +360,7 @@ class WoeChunk03FoodTest {
         activated(cost(mana("{2}"), tap, sacrificeSelf), gainLife(3)),
     )
 
-    // CR 714.2b; CR 107.1 (one plus the count)
+    // CR 715.2b; CR 107.1 (one plus the count)
     @Test
     fun greetingsToCandyville() = card(
         name = "Greetings to Candyville",

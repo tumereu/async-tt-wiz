@@ -203,7 +203,7 @@ internal object Effects {
             }
             is Effect.Unattach -> onBattlefield(scope, effect.objects).forEach { Actions.attach(act, it, null) }
             // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g). What
-            // represents it decides, not its copiable values (CR 712.9): a double-faced token does, a copy on a one-faced card doesn't
+            // represents it decides, not its copiable values (CR 712.7): a double-faced token does, a copy on a one-faced card doesn't
             is Effect.Transform -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
                 // CR 701.27, 101.2: "can't transform" wins over the instruction
@@ -218,7 +218,7 @@ internal object Effects {
                 asTransforms(scope, id)
             }
             // CR 707.3, 110.5: a flip card flips, and so does a permanent that's a copy of one; the status is the object's own, and
-            // what isn't a flip card keeps the face it has up (CR 712.8d)
+            // what isn't a flip card keeps the face it has up (CR 712.6c)
             is Effect.Flip -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
                 if (act.view()[id]?.copiable?.layout != Layout.Flip || o.flipped) return@forEach
@@ -395,7 +395,7 @@ internal object Effects {
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)
             is Effect.Remember -> remember(scope, effect.key, scope.objects(effect.objects), effect.replace)
-            // blb: CR 716.2a, b: the level is a designation of the permanent, kept as its status
+            // blb: CR 717.2a, b: the level is a designation of the permanent, kept as its status
             is Effect.SetClassLevel -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.obj(id) ?: return@forEach
                 val before = o.statuses.firstOrNull { it is arcanum.engine.state.ObjectStatus.ClassLevel }
@@ -438,7 +438,7 @@ internal object Effects {
                 val n = scope.value(effect.count).coerceAtLeast(0)
                 act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = List(n) { effect.step } + act.state.turn.extraPhases)))
             } else act.record(Changes.step(act.state, act.state.turn.copy(extraSteps = listOf(effect.step) + act.state.turn.extraSteps)))
-            // fin: CR 724.1a, b: waiting triggers cease to exist and every other object on the Stack is exiled; the resolving one is exiled as it
+            // fin: CR 725.1a, b: waiting triggers cease to exist and every other object on the Stack is exiled; the resolving one is exiled as it
             // leaves ([Resolution.finish]) and the turn goes on from its cleanup step ([arcanum.engine.turn.Steps.endTheTurn])
             Effect.EndTurn -> {
                 act.state.triggered.toList().let { waiting -> if (waiting.isNotEmpty()) act.record(Change.TriggersWaiting(waiting, emptyList())) }
@@ -566,14 +566,14 @@ internal object Effects {
                 val chosen = kinds[labels.indexOf(act.chooseOption(scope.actor, scope.self, labels, text = "Choose a kind of counter")).coerceAtLeast(0)]
                 Actions.putCounters(act, cause, ref, chosen, 1)
             }
-            // msh: CR 723.1: control of a player during their next turn, waiting until they actually take one; the host asks
+            // msh: CR 724.1: control of a player during their next turn, waiting until they actually take one; the host asks
             // Host.decider who makes their decisions
             is Effect.ControlNextTurn -> {
                 val controller = scope.players(effect.controller).firstOrNull() ?: return
                 scope.players(effect.players).forEach { p ->
                     val control = arcanum.engine.state.PlayerControl(p, controller, combatOnly = effect.combatPhase, thenExtraTurn = effect.thenExtraTurn)
                     val turn = act.state.turn
-                    // tla: only their next combat phase (CR 723.2): this turn's when it is theirs and its combat is still to come
+                    // tla: only their next combat phase (CR 724.2): this turn's when it is theirs and its combat is still to come
                     val now = effect.combatPhase && turn.active == p && turn.step in BEFORE_COMBAT
                     act.record(Changes.step(act.state, if (now) turn.copy(controlled = control) else turn.copy(controlNext = turn.controlNext + control)))
                 }
@@ -1167,10 +1167,10 @@ internal object Effects {
     }
 
     /**
-     * fin: "meld them into [name]" (CR 701.42a, 712.4): the two exiled cards of a meld pair, owned by one player, become one permanent
+     * fin: "meld them into [name]" (CR 701.42a, 713.1): the two exiled cards of a meld pair, owned by one player, become one permanent
      * under that player's control with the combined back face up: the card whose back face is [KeywordAction.Meld.into] enters
      * transformed, the other one merged under it ([arcanum.engine.state.GameObject.mergedBelow]: both leave the battlefield together, as two
-     * cards, CR 712.21). Any other pair stays where it is (CR 701.42c).
+     * cards, CR 713.8). Any other pair stays where it is (CR 701.42c).
      */
     private fun meld(scope: Scope, action: arcanum.api.KeywordAction.Meld) {
         val act = scope.act
@@ -1656,14 +1656,14 @@ internal object Effects {
         act.record(Change.Memory(self, key, before, after))
     }
 
-    /** CR 725.1, 726.1: one monarch, one player with the initiative. */
+    /** CR 726.1, 727.1: one monarch, one player with the initiative. */
     private fun designate(scope: Scope, player: PlayerId, designation: Designation) {
         val act = scope.act
         act.state.players.filter { it.id != player && designation in it.designations }.forEach {
             act.record(arcanum.engine.change.Changes.designation(it.id, designation, false))
         }
         if (designation !in act.state.player(player).designations) act.record(arcanum.engine.change.Changes.designation(player, designation, true))
-        // CR 726.2, 726.5: taking the initiative triggers, also for the player who has it
+        // CR 727.2, 727.5: taking the initiative triggers, also for the player who has it
         if (designation == Designation.Initiative) act.record(Change.Happened(GameEvent.TookInitiative(player)))
     }
 

@@ -52,7 +52,7 @@ The definition model (overview in `Definitions.kt`):
   keyword's cost (its expansion keeps it). Text only, no rules meaning; empty when unknown.
 - `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
-- `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).
+- `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-11-06).
 - `RulesGlossary.states`, `state(id)`, `ringLevels`: the same plain words for what the rules keep on an object or a
   player (a permanent's marks, goaded, phased out; monarch, initiative, speed, the Ring, day and night, player counters)
   and what a Ring-bearer gets at each of the Ring's levels (CR 701.54c).
@@ -90,7 +90,7 @@ The definition model (overview in `Definitions.kt`):
   `Modification.EntersAs` ("enters … as a Mutant"), `CopyException.ThisAbility`, `Value.GreatestFor` ("the greatest number
   of cards a player discarded"), `CostPart.RemoveCounters.distributed` ("from among creatures you control"),
   `Effect.RemoveCounters.bind`, `TargetSlot.sameOwner` ("from a single graveyard") and `TargetSlot.atRandom`.
-- Reality Fracture (set `fra`): preparation cards (CR 722: `Layout.Prepare`, `ObjectMark.Prepared` set with `Effect.Mark`,
+- Reality Fracture (set `fra`): preparation cards (CR 723: `Layout.Prepare`, `ObjectMark.Prepared` set with `Effect.Mark`,
   `Modification.EntersMarked` for "enters prepared", `ObjectFilter.PrepareSpell`), empower Jace (CR 701.71a:
   `KeywordAction.EmpowerJace`, written out by `KeywordExpansions` with `KeywordExpansions.JACE_TOKEN`), the Heartwood token
   (CR 111.10x), split second (a `KeywordExpansions` entry, with `Mechanic.CantActivate` for players), and smaller pieces:
@@ -115,7 +115,7 @@ The definition model (overview in `Definitions.kt`):
   `EventPattern.Connive`, `CountersPut.reaching` ("when the fourth plan counter is put on"), `BecomesTarget.players`,
   `ObjectFilter.AttackingAlone` and `TargetedBy`, `NumericProperty.ManaSymbols`, `Modes.maxCount` ("choose up to X"),
   `TargetSlot.totalAtMost`, `CostPart.GetCounters` (ward—get poison counters), `Effect.OneMoreCounterOfEachKind`,
-  `Effect.ControlNextTurn` (CR 723), and the mechanics `CantBecomeUntapped`, `AbilitiesIgnoreSummoningSickness` and the
+  `Effect.ControlNextTurn` (CR 724), and the mechanics `CantBecomeUntapped`, `AbilitiesIgnoreSummoningSickness` and the
   modification `HealsOtherDamage` (CR 701.69a).
 - Secrets of Strixhaven (set `sos`): paradigm (CR 702.192: `Keyword.Paradigm`, written out by `KeywordExpansions` with
   `Condition.ResolvedEarlierThisGame`), increment (CR 702.191), casualty (CR 702.153) and miracle (CR 702.94) as `KeywordExpansions`
@@ -196,8 +196,8 @@ The definition model (overview in `Definitions.kt`):
   loses all other card types", CR 707.9b), `Effect.MoveCounters.exceptKindsOn`/`chosen`/`bind` (a chosen number of each kind, kinds
   already on the destination excepted, the number moved named), `Effect.PutEventCounterKinds` ("put one of each kind of counter put
   this way on …"), `Choice.CreatureTypeUnchosen` ("a creature type that hasn't been noted for [this]"), `EventPattern.PhaseIn` (CR
-  702.26c) and `EventPattern.FinalChapterResolves` ("the final chapter ability of a Saga you control resolves", CR 714.2c).
-- Final Fantasy (set `fin`): `Effect.EndTurn` (CR 724.1) and `Effect.AdditionalStep` ("an additional end step after this step", CR
+  702.26c) and `EventPattern.FinalChapterResolves` ("the final chapter ability of a Saga you control resolves", CR 715.2c).
+- Final Fantasy (set `fin`): `Effect.EndTurn` (CR 725.1) and `Effect.AdditionalStep` ("an additional end step after this step", CR
   500.9), `KeywordAction.Meld(objects, into)` with the existing `Layout.Meld` (CR 701.42), `Effect.Cast.manaAsAnyType` (CR 609.4b),
   `ActivationRules.cantBeCopied` ("this ability can't be copied", CR 707.10), `Modification.AsTransforms` ("as this creature transforms
   into …", its steps), `Modification.WinFlips` (a coin flip won by a replacement, CR 705.2), `Modification.EntersUntapped` ("lands you

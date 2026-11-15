@@ -37,9 +37,9 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Marvel Super Heroes chunk 05: Plans (an enchantment type, CR 205.3h) and Sagas (CR 714). A Plan gets plan counters and, as the
+ * Marvel Super Heroes chunk 05: Plans (an enchantment type, CR 205.3h) and Sagas (CR 715). A Plan gets plan counters and, as the
  * nth one is put on it (the event that puts it, CR 122.6), is sacrificed for a big effect, often a reflexive trigger (CR 603.12).
- * Controlling another player's next turn (CR 723). Saga chapters with a free next spell (CR 611.2f), a "you may … If you don't"
+ * Controlling another player's next turn (CR 724). Saga chapters with a free next spell (CR 611.2f), a "you may … If you don't"
  * choice, the turn's artifact spells costing less, a named legendary token (CR 111.4), a two-target control change with a total
  * mana value (CR 601.2c) and a fight with up to one other target.
  */
@@ -74,7 +74,7 @@ class MshChunk05PlansAndSagasTest {
             targets = listOf(slot("cards", inYourGraveyard(or(instant, sorcery)), min = 0, max = 2)))),
     )
 
-    // CR 723: controlling another player's turn
+    // CR 724: controlling another player's turn
     @Test
     fun forgeAnInfinitePrism() = card(
         name = "Forge an Infinite Prism",
@@ -240,7 +240,7 @@ class MshChunk05PlansAndSagasTest {
         chapter(3, createTreasure(count(and(villainFilter, you)))),
     )
 
-    // CR 714.2c: "II, III —" is one chapter ability for each; CR 111.4: a named legendary token with a quoted trigger
+    // CR 715.2c: "II, III —" is one chapter ability for each; CR 111.4: a named legendary token with a quoted trigger
     @Test
     fun theComingOfTheDevourer() = card(
         name = "The Coming of the Devourer",

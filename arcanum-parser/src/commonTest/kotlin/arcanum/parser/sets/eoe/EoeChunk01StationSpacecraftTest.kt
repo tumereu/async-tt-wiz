@@ -7,7 +7,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /**
- * Edge of Eternities chunk 01: station (CR 702.184) and station symbols with a P/T box (CR 721.2a, b): Spacecraft that are creatures from a number of charge counters, with enters and attack triggers.
+ * Edge of Eternities chunk 01: station (CR 702.184) and station symbols with a P/T box (CR 722.2a, b): Spacecraft that are creatures from a number of charge counters, with enters and attack triggers.
  */
 class EoeChunk01StationSpacecraftTest {
 

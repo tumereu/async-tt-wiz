@@ -22,14 +22,14 @@ import arcanum.parser.sets.gtc.you
 import kotlin.test.Test
 
 /**
- * Reality Fracture chunk 01: preparation cards (CR 722) in white and blue. Each card has two faces: the creature, and the
- * prepare spell in its inset frame, which is never cast from the card (722.3) but by the copy a prepared permanent's
- * controller gets in exile (722.3c). "This creature enters prepared" is a replacement (CR 614.1c, 722.3a); "if this
+ * Reality Fracture chunk 01: preparation cards (CR 723) in white and blue. Each card has two faces: the creature, and the
+ * prepare spell in its inset frame, which is never cast from the card (723.3) but by the copy a prepared permanent's
+ * controller gets in exile (723.3c). "This creature enters prepared" is a replacement (CR 614.1c, 723.3a); "if this
  * creature isn't prepared, it becomes prepared" checks the designation as it triggers and resolves (CR 603.4). The
  * spells: +1/+1 counters and life, bounce and surveil, Cadet tokens, "each player may discard their hand and draw seven".
  */
 class FraChunk01PrepareWhiteBlueTest {
-    // CR 722.3a: it has the designation as it enters
+    // CR 723.3a: it has the designation as it enters
     @Test
     fun bloomwingSeraph() = cardFaces(
         Layout.Prepare,

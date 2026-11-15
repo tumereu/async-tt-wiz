@@ -92,7 +92,7 @@ class Mh3Chunk01DevoidTest {
             ))))), affects = Affected.Objects(Objects.Self)),
     )
 
-    // CR 603.4: the intervening "if" is checked as it triggers and as it resolves; CR 712.8a: the back face is a land
+    // CR 603.4: the intervening "if" is checked as it triggers and as it resolves; CR 712.6a: the back face is a land
     @Test
     fun drownerOfTheDeep() = cardFaces(
         Layout.ModalDoubleFaced,

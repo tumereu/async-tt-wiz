@@ -36,11 +36,11 @@ Inspect.explain(state, ids): Map<ObjectId, Explanation> // the same for several 
 Inspect.restrictions(state, view, id): List<AppliedRestriction> // what continuous effects tell it it can't or must do ("can't block"), from the view at hand
 Inspect.events(state): List<LoggedChange>        // the tagged events the state keeps (D33), for a host's history and displays
 // the rules state kept for objects, players and the game: typed statuses in the view (stored ones on the state too)
-view[id].statuses: List<ObjectStatus>             // ClassLevel (1 for a Class without one stored, CR 716.2), VentureRoom, Goaded, Protector, …
+view[id].statuses: List<ObjectStatus>             // ClassLevel (1 for a Class without one stored, CR 717.2), VentureRoom, Goaded, Protector, …
                                                   // Playable (view only): the players who may use a card from outside a hand: a permission lets them cast or
                                                   // play it (how, CR 601.3), or its activated abilities and special actions they may use there (abilities, CR 113.6, 602.2)
 view.players[p].statuses: List<PlayerStatus>      // Speed, RingTempted, DungeonsCompleted, Designated(designation)
-view.game.statuses: List<GameStatus>              // DayNight (CR 731); none while it is neither; view.game.rules: the rules in force
+view.game.statuses: List<GameStatus>              // DayNight (CR 732); none while it is neither; view.game.rules: the rules in force
 Inspect.lastKnown(state, id): ObjectSnapshot?     // what an object that no longer exists was as it last existed (CR 608.2h): a choice can still offer one (CR 701.44c, d)
 
 // a host running games
@@ -48,7 +48,7 @@ Host.visible(state, player[, view]): Set<ObjectId> // the objects whose identity
 Host.shouldPassFor(state, player[, view], prefs): Boolean // a host passes priority for this player now (I-D3, I-D18)
 Host.passCheck(state, player[, view], prefs): PassCheck // shouldPassFor as set and with the player's own skip on, one search
 Host.samePosition(a, b): Boolean               // the same game position but for the tagged events, the timestamp counter and library order
-Host.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
+Host.decider(state, player): PlayerId          // who makes this player's decisions now (CR 724; see Controlling another player)
 Host.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them
 Host.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2), without what the step waiting on an open decision has read
 Host.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
@@ -146,9 +146,9 @@ seeded random games of cube cards, failing on any open player decision without a
   (CR 113.12), with plain words, the object that made it and its duration, read from `ObjectView.mechanics`; the object's
   own printed text and what a keyword means aren't listed (the host lists the keyword);
   the layer system (`Layers`, `Copiable`; `ObjectView.copiable` is an object's whole copiable values, `CopiableValues`, CR 707.2:
-  layout and all faces, what a Room's doors and a prepare spell work by on a copy too, CR 709.5b, 722.2b, and what a token copy holds
+  layout and all faces, what a Room's doors and a prepare spell work by on a copy too, CR 709.5b, 723.2b, and what a token copy holds
   in its definition, CR 707.8a; designations and status stay on the object, and what can transform or meld goes by its own
-  definition, CR 712.9; `CopiableValues.gained` holds abilities in no face: what a split card gains in copying, CR 707.9a, and a merged permanent's other components', CR 702.140e), where abilities function (`Functioning`, CR 113.6),
+  definition, CR 712.7; `CopiableValues.gained` holds abilities in no face: what a split card gains in copying, CR 707.9a, and a merged permanent's other components', CR 702.140e), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet (none today), abilities with a `Manual` step at its natural moment (cast, enters, attacks, dies, …), which
   `CardSupport.manualParts` names, so no keyword is silently taken as supported (D61).
@@ -217,7 +217,7 @@ loses to several state-based actions at once gets the first listed in CR 704.5; 
 - **The loop choice** is a `Decision.ChooseOption` with options `LoopStop.CONTINUE` and `LoopStop.DRAW` and a `text`
   saying why: Continue goes on (at the cap, with the next round in a new call); Draw logs `GameEvent.MandatoryLoop`
   and every remaining player leaves the game together (`GameResult.Draw`, CR 104.4b).
-- **Mandatory loops (CR 104.4b, 732.4):** the engine can't see what happens between calls, so the host finds them. A
+- **Mandatory loops (CR 104.4b, 733.4):** the engine can't see what happens between calls, so the host finds them. A
   host passing for players (`shouldPassFor`) keeps `Host.loopKey` of each state it passes in with something on the
   Stack (the state as JSON without its log, ledgers, "this turn" counts of uses, the input count and timestamps, cards by name, ids
   replaced by their place in the zones; hashed); meeting a key again with only such passes since, it performs
@@ -244,26 +244,26 @@ rework, 2026-11-12). Hidden information is display: what a host shows each playe
   without revealing the card; the foretold card is face down in exile, `ObjectMark.Foretold`, known to its owner only
   (`Knowledge.mayKnow`).
 
-## Controlling another player (CR 723)
+## Controlling another player (CR 724)
 
 `Effect.ControlNextTurn` records `PlayerControl(player, controller, combatOnly)` in `TurnState.controlNext`; as that player's
-next turn actually begins it becomes `TurnState.controlled` (723.1; the last one created wins, 723.1a; a skipped turn isn't
-taken, so it waits, 723.1b), until the next turn begins; "during their next combat phase" (723.2) applies only in that turn's
+next turn actually begins it becomes `TurnState.controlled` (724.1; the last one created wins, 724.1a; a skipped turn isn't
+taken, so it waits, 724.1b), until the next turn begins; "during their next combat phase" (724.2) applies only in that turn's
 combat phase, this turn's when it is their turn and its combat is still to come. The controlled player stays the active player
-and every decision, option and input stays theirs (`Decision.player`, `Input.player`), so only their resources pay (723.3,
-723.5a). The engine's part for a host:
+and every decision, option and input stays theirs (`Decision.player`, `Input.player`), so only their resources pay (724.3,
+724.5a). The engine's part for a host:
 
 - `Host.decider(state, player)`: who makes `player`'s decisions now: the controller, else `player` (a controller goes on
-  making their own, 723.8; a player controlling themselves decides as usual, 723.9; nobody controls a player who left).
+  making their own, 724.8; a player controlling themselves decides as usual, 724.9; nobody controls a player who left).
 - `Host.visible(state, controller)` adds what the controlled player may see of objects in the game (their hand, face-down
-  permanents they control, cards they may look at), not their cards outside the game (723.4). `Knowledge.privateTo` (the
+  permanents they control, cards they may look at), not their cards outside the game (724.4). `Knowledge.privateTo` (the
   "skip when I have no choice" rule) still counts only a player's own sight.
 - `Host.shouldPassFor` follows the decider's "Skip when I have no choice" setting.
 
 What the host does (the ATW side, a follow-up): route each decision of the controlled player and their priority, casts,
 activations, attacks and blocks to the decider (`options(state, player)` are offered to the decider, inputs performed as
 `player`); show the decider the controlled player's hidden cards (`visible`); never let the controller concede
-for them (723.6: `Input.Concede` only from the player themself) or make choices no rule or object calls for (723.5b); and show
+for them (724.6: `Input.Concede` only from the player themself) or make choices no rule or object calls for (724.5b); and show
 both players who is controlling whom while `TurnState.controlled` is in force.
 
 ## Skip when I have no choice (I-D18)
@@ -365,12 +365,12 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   without paying its mana cost with X 0, for another cost such as madness, or for its own or an alternative cost the
   card has or another object gives it, within its limit each turn, the player choosing which (CR 601.2b, 118.9; none
   when the effect's terms are one, CR 118.9a, and none face down); not cast without legal targets), the card going to the graveyard/exile/battlefield (an
-  Adventure to exile, castable from there as the creature, CR 715.4); mana paid on resolution as a
+  Adventure to exile, castable from there as the creature, CR 716.4); mana paid on resolution as a
   `ManaPayment` decision, asked only when a payment is found (CR 118.3); an X nothing defines chosen by the payer as they pay, up
   to the most they may pay, and read as X by the rest (CR 107.3f); "its mana cost" the source's (X as 0 unless it is a spell, CR
   107.3h; none is unpayable, CR 118.6). Permanents enter with their printed
   loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
-  draw step (CR 714.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
+  draw step (CR 715.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
   Triggers: detection as each event is recorded, looking back for CR 603.10a events (objects new with such an event
   see only its parts that don't look back, and "from anywhere" abilities the others' moves, CR 603.6c), batches,
@@ -385,7 +385,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Change.Status` or a move (`EventPattern.GotMark`). Waiting triggers in `GameState.triggered`, put on
   the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
   State-based actions (CR 704.5a–q,
-  v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
+  v, Sagas 715.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
   Events outside resolution (land plays, the draw step's draw, combat damage) go through
   `Events.run` and wait with `Continuation.Event`.
 - Done, the game around it (`setup/`): starting a game (CR 103) with companions, London mulligans and opening-hand
@@ -430,7 +430,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   triggering once per counter; counters removed from among several creatures; "enters as a Mutant" for tokens too;
   "except it has this ability"; a triggered mana ability adding a type the land produced.
 - Done, Reality Fracture (scenarios in `commonTest/…/sets/fra/`): all 285 cards play. Preparation cards (`prepare/`, CR
-  722: becoming prepared makes the prepare spell's copy in exile, which its controller may cast while the permanent stays
+  723: becoming prepared makes the prepare spell's copy in exile, which its controller may cast while the permanent stays
   prepared, and casting it unprepares the permanent; the copy goes as the permanent stops being prepared), empower Jace,
   beholding as a cost paid on resolution, split second, loyalty abilities at instant speed, planeswalkers kept at 0 loyalty,
   "the legend rule doesn't apply", entering that doesn't trigger, negative power assigning damage, hexproof until combat damage,
@@ -451,7 +451,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   tapped and attacking what the returned creature attacked, CR 702.190), "choose up to X" modes, targets with a total mana value,
   "can't become untapped", damage that heals other damage, ward paid with poison counters, modal double-faced cards that transform
   (CR 701.27a), and alternative costs for "the next spell" effects (a card tested as the spell it would be, CR 601.2a). Controlling
-  another player's next turn (CR 723): see Controlling another player.
+  another player's next turn (CR 724): see Controlling another player.
 - Done, Secrets of Strixhaven (scenarios in `commonTest/…/sets/sos/`): all 271 cards play. Paradigm (the names of spells that
   resolved this game kept per player in the player ledger, CR 702.192a), increment, converge and opus (mana spent and its colours),
   infusion, repartee, stun counters, casualty and miracle (also when another object gives them; a spell has the abilities other objects
@@ -464,7 +464,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   crew cost is recorded with `Meaning.Crewed`, CR 702.122b), an equip cost paid once each turn, searching outside the game.
 - Done, learn (CR 701.48a, `view/LearnTest`; `SUPPORT_VERSION` 11): played by its expansion, a host bringing the player's cards outside
   the game in `Seat.sideboard`. A Lesson, a discard to draw, or nothing, asked once, and with no card to discard she may still take a
-  Lesson, or choose none; the chosen Lesson is revealed and nothing else of those cards is shown (the rules above: hidden until revealed, and a controlling player doesn't see them, CR 723.4).
+  Lesson, or choose none; the chosen Lesson is revealed and nothing else of those cards is shown (the rules above: hidden until revealed, and a controlling player doesn't see them, CR 724.4).
 - Done, collecting evidence as it resolves (CR 701.59a, b; `casting/GeneralSpecialActionsTest`): one `Decision.ChooseObjects` of any number
   of the graveyard's cards, with its `total`, exiled together. An answer below the total is refused, `CastScreen.selection` is done only
   from the total on, and it is asked whenever there is anything to choose, even when only all the cards reach the total. With no way to
@@ -484,7 +484,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   turn counts (from the latest turn each player began); unspent mana of a colour kept; mana of any type for spells cast with a permission
   (`MayPlay.manaAsAnyColor`); targets with different names; suspected creatures (menace and can't block, CR 701.60c).
 - Done, Avatar: The Last Airbender (scenarios in `commonTest/…/sets/tla/`): all 281 cards play (another player's next combat phase or
-  turn controlled, CR 723, and foretell, CR 702.143, are the engine's since 2026-11-03). Airbend (the owner may cast the card from exile
+  turn controlled, CR 724, and foretell, CR 702.143, are the engine's since 2026-11-03). Airbend (the owner may cast the card from exile
   for {2}), earthbend (the land returns tapped when it dies or is exiled), waterbend
   costs paid by tapping artifacts and creatures (only the waterbend cost's generic mana), firebending's mana kept until end of combat,
   unspent mana kept or turned red, the bend triggers, triggered abilities of attackers copied, names set by effects, extra combats for
@@ -506,7 +506,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   chosen as a cost (tapped or sacrificed with the costs); delayed triggers that wait for a later turn; permissions that change a
   spell's cost or make lands enter tapped; and counters put on each of several objects counted once before any is put (CR 608.2h).
 - Done, Tarkir: Dragonstorm (scenarios in `commonTest/…/sets/tdm/`): every non-trivial card plays. Omen spells are shuffled into
-  their owner's library as they resolve (CR 720.3d); endure by any permanent, its controller choosing counters or the Spirit; the clan
+  their owner's library as they resolve (CR 721.3d); endure by any permanent, its controller choosing counters or the Spirit; the clan
   chosen as a Siege enters, each clan's ability working only when chosen; a spell cast as though it had flash only by paying the
   additional cost that gives it flash; what has dealt any damage remembered; and a cost that names an announced X ("Sacrifice a creature
   you control with mana value X") checked once X is announced (CR 601.2b).
@@ -527,26 +527,26 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   in seeing their own phase-in event; the final chapter ability of a Saga resolving as an event; abilities gained except mana
   abilities; and copies that lose their other card types.
 - Done, Final Fantasy (scenarios in `commonTest/…/sets/fin/`): every card plays (templates repeated elsewhere in the set played once in
-  `FinTemplatesScenariosTest`). Ending the turn (CR 724.1: the Stack exiled, straight to cleanup); additional steps after the current one
+  `FinTemplatesScenariosTest`). Ending the turn (CR 725.1: the Stack exiled, straight to cleanup); additional steps after the current one
   (CR 500.9); meld (the two exiled cards one permanent, back face up, both cards leaving together; its mana value the total of the
   front faces); a player's protection (targeting and damage); mill and coin-flip replacements; "as this transforms into" steps; control
   changes noticed as events (`sba/ControlChanges`: also as effects end in cleanup, before delayed triggers of the same duration end,
   and moving who has controlled the permanent continuously, CR 302.6); "that player" of a trigger kept in the effects it creates;
   "tap a land for {C}" seen as its mana is added; the target an effect moved found as the new object (CR 400.7j); attachments of a
   host that left as it last existed; damage kept in cleanup; a batch trigger's "that many" counting its events; and a land
-  adventurer played from exile after its Adventure (CR 715.3d).
+  adventurer played from exile after its Adventure (CR 716.3d).
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action; what can change its cost and timing is in its
   KDoc), what marks let be cast from exile (`foretell/MarkCasts`, read from `MarkRules`: foretold, for any foretell cost it had as it was foretold,
   has printed, has now in exile, or an effect gave it as it became foretold (`Effect.Mark.cost`, CR 702.143d; "its mana cost reduced by {2}" is
-  `CostPart.ItsManaCostLess`), CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 722.3c), the turn a mark was
+  `CostPart.ItsManaCostLess`), CR 702.143a, e; plotted, free on a later turn as a sorcery, CR 702.170d; a prepared permanent's copy, CR 723.3c), the turn a mark was
   gained in one record (`ObjectStatus.MarksGained`), disguise and cloak (face-down with ward
   {2}, `Copiable.faceDown`; not once turned face up, `ObjectStatus.TurnedFaceUp`, CR 708.2a), manifest (a manifested or cloaked instant or
   sorcery card an effect would turn face up is revealed and stays face down, CR 701.40g, 701.58g), static copy effects (the values fixed as
   each first applies, `ObjectStatus.FixedCopies`, recorded with the checks before priority by `view/StaticCopies`, CR 707.2c), backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
-  mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts
-  transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: `GameStatus.DayNight`, untap check CR 731.2, daybound and nightbound
+  mode may be chosen), prototype (copiable values, CR 719.3), aftermath (each half from its zone), a permission that casts
+  transformed (disturb, CR 712.8a), day and night (`turn/DayNight`: `GameStatus.DayNight`, untap check CR 732.2, daybound and nightbound
   transforming and entering transformed), speed (`turn/Speed`: `PlayerStatus.Speed`, start your engines! as a state-based action, the
   inherent trigger (702.179d) as a sourceless waiting trigger of origin `AbilityOrigin.Rule("speed")`, only in its controller's turn,
   only below max speed (an intervening if, CR 603.4) and only once each turn, max speed), compleated (Phyrexian symbols paid with
@@ -565,18 +565,18 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
 - Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`, `dungeon/VentureTest`, `combat/BandingTest`, `conspiracy/HiddenAgendaTest`): mutate and merged permanents
-  (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
+  (`mutate/Mutate`, CR 702.140, 731: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
   same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
   `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
   other components in its `ObjectStatus.Merged(above, below)` as `MergedPart`s: layer 1 gives it the topmost component's
   characteristics and every component's abilities, `AbilityOrigin.Printed.card` naming the component, and a token only when the
-  topmost is one, 730.2d; leaving the battlefield each component becomes its own object in the new zone, `Move.parts`, right
-  after its own card, 730.3; merged on top of a face-down permanent it is face up and its card shown to everyone, 730.2e;
+  topmost is one, 731.2d; leaving the battlefield each component becomes its own object in the new zone, `Move.parts`, right
+  after its own card, 731.3; merged on top of a face-down permanent it is face up and its card shown to everyone, 731.2e;
   the merge is a copy effect timestamped as the objects merge, `MergedPart.timestamp`, applied in timestamp order among the
   permanent's copy effects, so a later one overrides it, 613.7; a copy of a merged permanent copies the topmost card with every
   component's abilities, 707.2).
   Not done: a copy of a mutating spell merging (it enters as a token), effects that find "it" after a merged permanent leaves
-  find its own card only (730.3c), turning a merged permanent face down (730.2f, j). Epic (`epic/Epic`, CR 702.50, scenarios in
+  find its own card only (731.3c), turning a merged permanent face down (731.2f, j). Epic (`epic/Epic`, CR 702.50, scenarios in
   `epic/EpicTest`): as a spell with epic finishes resolving, an effect object that its controller can't cast spells and a repeating
   delayed trigger at each of their upkeeps that copies the spell as it last was on the Stack (`NamedValue.Spell`: its choices
   and snapshot), except for its epic ability (`CopyException.WithoutKeyword`), new targets allowed. Assist (CR 702.132, scenarios in
@@ -585,16 +585,16 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player spends their mana
   to cast the spell, so mana restricted to such spells pays (CR 106.6); one who leaves the game before the cast finishes pays
   nothing and nobody else is asked (CR 800.4f): the caster pays the whole cost. Venturing into the dungeon and the initiative (`dungeon/Dungeons`, CR 309, 701.49,
-  726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game is put into the command zone with the venture marker (the dungeon's `ObjectStatus.VentureRoom`) on its topmost room; each
+  727, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game is put into the command zone with the venture marker (the dungeon's `ObjectStatus.VentureRoom`) on its topmost room; each
   venture follows an arrow (the owner choosing among several) and the room's ability triggers, controlled by the owner; from the
   bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
   Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
   `PlayerStatus.DungeonsCompleted`. "Venture into Undercity" only chooses Undercity dungeons, and a dungeon with `Mechanic.OnlyVentureInto` ("You can't
   enter this dungeon unless you "venture into Undercity."", CR 701.49d) is never chosen by a plain venture; its
   `ObjectStatus.VentureRoom` says which room a dungeon's marker is on (a host's display). Every room effect of the dungeons in the card data is carried out
-  (scenarios on invented rooms with the printed templates in `dungeon/DungeonRoomsTest`; `SUPPORT_VERSION` 9). The initiative's three inherent triggers (CR 726.2: upkeep, combat
-  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers of origin `AbilityOrigin.Rule("initiative")`; when
-  its holder leaves the game the active player (or, the active player leaving, the next player in turn order) takes it (726.4).
+  (scenarios on invented rooms with the printed templates in `dungeon/DungeonRoomsTest`; `SUPPORT_VERSION` 9). The initiative's three inherent triggers (CR 727.2: upkeep, combat
+  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 727.5) are sourceless waiting triggers of origin `AbilityOrigin.Rule("initiative")`; when
+  its holder leaves the game the active player (or, the active player leaving, the next player in turn order) takes it (727.4).
   Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an
   attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature
   blocking a member blocks the whole band; the defending player assigns the damage of an attacker blocked by a creature with banding,

@@ -99,8 +99,8 @@ object Changes {
     }
 
     /**
-     * CR 730.3, 730.3a: as a merged permanent leaves the battlefield, each of its other components is put into the new zone as its
-     * own new object: in [after]'s zone of its owner, right after [after] (above it on a library, CR 730.3a: the plainest order,
+     * CR 731.3, 731.3a: as a merged permanent leaves the battlefield, each of its other components is put into the new zone as its
+     * own new object: in [after]'s zone of its owner, right after [after] (above it on a library, CR 731.3a: the plainest order,
      * the components topmost first).
      */
     private fun mergedParts(scratch: GameState, before: GameObject, after: GameObject, toIndex: Int): List<Placed> {
@@ -177,7 +177,7 @@ object Changes {
         return if (before == after) null else Change.PlayerStatusChanged(player, before, after)
     }
 
-    /** [player] gets ([on]) or loses [designation] (CR 724–726): a [Change.PlayerStatusChanged] of [PlayerStatus.Designated]. */
+    /** [player] gets ([on]) or loses [designation] (CR 725–726): a [Change.PlayerStatusChanged] of [PlayerStatus.Designated]. */
     fun designation(player: PlayerId, designation: arcanum.api.Designation, on: Boolean): Change.PlayerStatusChanged =
         PlayerStatus.Designated(designation).let { Change.PlayerStatusChanged(player, it.takeIf { !on }, it.takeIf { on }) }
 

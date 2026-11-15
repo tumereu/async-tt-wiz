@@ -36,7 +36,7 @@ import arcanum.parser.cube.parsesTo
 import kotlin.test.Test
 
 /*
- * BRO chunk 04: Auras (CR 303.4), Equipment (CR 301.5, 702.6) and meld (CR 701.42, 712.4).
+ * BRO chunk 04: Auras (CR 303.4), Equipment (CR 301.5, 702.6) and meld (CR 701.42, 713.1).
  */
 class BroChunk04AurasEquipmentAndMeldTest {
 
@@ -297,13 +297,13 @@ class BroChunk04AurasEquipmentAndMeldTest {
         and(*also, type, ObjectFilter.Named(name), you, ObjectFilter.OwnedBy(PlayerFilter.You))
     private val ownsSelf = Condition.ObjectMatches(Objects.Self, and(you, ObjectFilter.OwnedBy(PlayerFilter.You)))
 
-    /** "exile them, then meld them into [into]": the partner is chosen as the ability resolves (CR 712.4a) */
+    /** "exile them, then meld them into [into]": the partner is chosen as the ability resolves (CR 713.1a) */
     private fun meldSteps(partner: ObjectFilter, into: String, tapped: Boolean = false, attacking: AttackTarget? = null) = listOf(
         Step.Choose(Choice.Objects(partner, n(1), n(1)), bind = "partner", chooser = Players.You),
         move(Objects.Union(listOf(Objects.Self, Objects.Bound("partner"))), Zone.Exile, postBind = "exiled"),
         doing(Effect.Action(KeywordAction.Meld(Objects.Bound("exiled"), into, tapped = tapped, attacking = attacking))))
 
-    // CR 701.42a, 712.4a: both attacking, both owned and controlled by you; CR 508.4: the melded permanent enters attacking what its
+    // CR 701.42a, 713.1a: both attacking, both owned and controlled by you; CR 508.4: the melded permanent enters attacking what its
     // controller chooses, without having attacked; CR 603.2c ("whenever you attack" once per combat)
     @Test
     fun varkonClaimedByRuin() {
@@ -352,7 +352,7 @@ class BroChunk04AurasEquipmentAndMeldTest {
         )
     }
 
-    // CR 701.42a, 712.4a: a land partner, and a second condition of the intervening if (CR 603.4); CR 604.3 (characteristic-defining
+    // CR 701.42a, 713.1a: a land partner, and a second condition of the intervening if (CR 603.4); CR 604.3 (characteristic-defining
     // power and toughness); CR 205.1b: "It's still a land" keeps its other types
     @Test
     fun sylvaraVoiceOfLoam() {
@@ -401,7 +401,7 @@ class BroChunk04AurasEquipmentAndMeldTest {
         )
     }
 
-    // CR 701.42a, 712.4a: an artifact partner, an activated meld ability (CR 602.5d: as a sorcery); CR 606.3: loyalty abilities twice
+    // CR 701.42a, 713.1a: an artifact partner, an activated meld ability (CR 602.5d: as a sorcery); CR 606.3: loyalty abilities twice
     // each turn; CR 611.2c, 601.2f: a cost reduction for the turn
     @Test
     fun orenLordWarden() {

@@ -196,7 +196,7 @@ class LtrChunk04BlueTest {
         spell(doing(Effect.Counter(target("spell"))), amassOrcs(1), targets = listOf(slot("spell", spellFilter))),
     )
 
-    // CR 611.2b, 714.2b; CR 122.1d: stun counters on each of them
+    // CR 611.2b, 715.2b; CR 122.1d: stun counters on each of them
     @Test
     fun scrollOfTheLastKing() = card(
         name = "Scroll of the Last King",

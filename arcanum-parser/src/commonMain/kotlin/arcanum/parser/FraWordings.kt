@@ -23,9 +23,9 @@ import arcanum.api.Zone
 internal object Fra {
     // fra chunk 01: "Empower Jace 2." / "empower Jace X" (CR 701.71a)
     val EMPOWER_JACE = Regex("""[Ee]mpower Jace (\d+|X)\.""")
-    // fra chunk 01: "This creature enters prepared." (CR 722.3a)
+    // fra chunk 01: "This creature enters prepared." (CR 723.3a)
     val ENTERS_PREPARED = Regex("""(.+?) enters prepared\.""")
-    // fra chunk 01: "[objects] becomes prepared." / "It becomes unprepared." (CR 722.3a, b)
+    // fra chunk 01: "[objects] becomes prepared." / "It becomes unprepared." (CR 723.3a, b)
     val BECOMES_PREPARED = Regex("""(.+?) (?:becomes?) (prepared|unprepared)\.""")
     // fra chunk 01: "Create a 2/2 colorless Wizard Soldier creature token named Cadet." (CR 111.4)
     val CREATE_NAMED_TOKENS = Regex("""Create (a|an|one|two|three|four|five|X) ((?:\d+/\d+) \w+(?: and \w+)? [A-Z][A-Za-z ]+? creature) tokens? named ([A-Z][A-Za-z' ]+?)(?: with (".+"|[a-z ,]+?))?(, then .+)?\.""")
@@ -152,7 +152,7 @@ internal object FraPhrases {
     private val WITH_MV_AT_MOST_VALUE = Regex("""(.+?) with mana value less than or equal to (the .+)""")
 
     fun noun(phrase: String): ObjectFilter? {
-        // fra chunk 05: "prepared spell" (CR 722.3d)
+        // fra chunk 05: "prepared spell" (CR 723.3d)
         if (phrase == "prepared spell" || phrase == "prepared") return ObjectFilter.PrepareSpell
         // fra chunk 10: "spells with mana value less than or equal to the number of creatures you control"
         WITH_MV_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->

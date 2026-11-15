@@ -11,7 +11,7 @@ import kotlin.test.Test
  * OTJ chunk 18: audit findings on cards whose models were read but doubted.
  */
 class OtjChunk18AuditTest {
-    // CR 608.2d (a "you may" step is the player's choice) and 117.12 (an optional cost): Step.Pay is optional unless mandatory = true,
+    // CR 608.2d (a "you may" step is the player's choice) and 118.12 (an optional cost): Step.Pay is optional unless mandatory = true,
     // so the audit's doubt is a false alarm; "If you do" draws only when the discard was paid.
     @Test
     fun discerningPeddlerDiscardIsOptional() = card(

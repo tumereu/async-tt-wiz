@@ -179,7 +179,7 @@ class HandWrittenEffectsTest {
         assertTrue(ObjectMark.Monstrous in state.objOrThrow(card("Elvish Seer")).marks)
     }
 
-    // CR 725.1: there is one monarch; becoming it takes it from the other player
+    // CR 726.1: there is one monarch; becoming it takes it from the other player
     @Test
     fun becomeTheMonarch() = scenario {
         /** "You become the monarch." */

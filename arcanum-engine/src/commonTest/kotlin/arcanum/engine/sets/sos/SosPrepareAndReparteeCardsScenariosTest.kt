@@ -20,7 +20,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /** Secrets of Strixhaven's life, repartee, Inkling and preparation cards in play (parser chunks 05–09): each prepare
- * card's creature and the copy of its spell (CR 722). */
+ * card's creature and the copy of its spell (CR 723). */
 class SosPrepareAndReparteeCardsScenariosTest {
     private val smirkingDuskscribe = Cards.invent("Smirking Duskscribe", "{4}{B}", "Creature — Vampire Warlock", """
         Flying
@@ -472,7 +472,7 @@ class SosPrepareAndReparteeCardsScenariosTest {
         }
     }
 
-    // ---- Chunks 07–09: preparation (CR 722)
+    // ---- Chunks 07–09: preparation (CR 723)
 
     @Test
     fun crackWaylayerRetortsAndDraws() = scenario {

@@ -287,7 +287,7 @@ class Review2LayersTest {
     }
 
     /** A Saga gets its lore counter as the precombat main phase begins, not during the draw step. */
-    // CR 714.3c
+    // CR 715.3c
     @Test
     fun loreCounterAtTheBeginningOfThePrecombatMainPhase() = scenario {
         turn(number = 3, step = TurnStep.Upkeep)
@@ -301,7 +301,7 @@ class Review2LayersTest {
 
     /** The Saga's last chapter exiles it and returns it transformed: a 0/0 + 1/1 per artifact or enchantment, itself
      * included (an enchantment creature), so 1/1; it isn't sacrificed. */
-    // CR 714.2b, 714.4, 712.14
+    // CR 715.2b, 715.4, 712.11
     @Test
     fun sagaThirdChapterTransforms() = scenario {
         alice.battlefield("Elvish Seer")

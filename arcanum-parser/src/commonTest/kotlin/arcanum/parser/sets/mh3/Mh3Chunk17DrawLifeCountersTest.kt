@@ -9,8 +9,8 @@ import kotlin.test.Test
 
 /*
  * MH3 chunk 17: drawing, gaining abilities, gaining life, looking at cards, losing life, power and toughness changes,
- * moving cards and putting counters; with the "modified" cards (CR 700.9), a Saga (CR 714), three modal double-faced
- * cards (CR 712) and an Adventure (CR 715).
+ * moving cards and putting counters; with the "modified" cards (CR 700.9), a Saga (CR 715), three modal double-faced
+ * cards (CR 712) and an Adventure (CR 716).
  */
 class Mh3Chunk17DrawLifeCountersTest {
     private val modifiedCreatureYouControl = and(creature, you, ObjectFilter.Modified)
@@ -189,7 +189,7 @@ class Mh3Chunk17DrawLifeCountersTest {
         activated(cost(tap, sacrificeA(and(another, creature))), search(land), move(Objects.Bound("found"), Zone.Battlefield, tapped = true), Step.Do(Effect.Shuffle(Players.You))),
     )
 
-    // CR 714.2 chapters, 701.8 exile, 111.1 token, 122.1b keyword counter, 702.4 double strike
+    // CR 715.2 chapters, 701.8 exile, 111.1 token, 122.1b keyword counter, 702.4 double strike
     @Test
     fun sunderTheColossus() = card(
         name = "Sunder the Colossus",
@@ -282,7 +282,7 @@ class Mh3Chunk17DrawLifeCountersTest {
         ),
     )
 
-    // CR 715.3 adventure, 700.9 modified creature dies, 122.1 counters, 601.2d divide counters
+    // CR 716.3 adventure, 700.9 modified creature dies, 122.1 counters, 601.2d divide counters
     @Test
     fun ondaKnotweaver() = cardFaces(
         Layout.Adventure,

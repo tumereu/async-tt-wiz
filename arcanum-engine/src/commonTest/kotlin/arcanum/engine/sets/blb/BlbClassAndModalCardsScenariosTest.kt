@@ -141,7 +141,7 @@ class BlbClassAndModalCardsScenariosTest {
 
     // ---- Chunk 05: Classes (levels themselves: BlbClassesScenariosTest)
 
-    // CR 716.2a: a level is gained as a sorcery, one at a time
+    // CR 717.2a: a level is gained as a sorcery, one at a time
     @Test
     fun masonsKnackRewardsNoncreaturePermanents() = scenario {
         alice.battlefield("Plains", "Plains", "Plains", "Plains", "Plains")
@@ -162,7 +162,7 @@ class BlbClassAndModalCardsScenariosTest {
         expect { "Wall Token".counters(p1p1) shouldBe 1 }
     }
 
-    // CR 716.2c: "when this Class becomes level 3"
+    // CR 717.2c: "when this Class becomes level 3"
     @Test
     fun masonsKnackReturnsAPermanentAtLevelThree() = scenario {
         alice.battlefield(masonsKnack, "Plains", "Plains", "Plains", "Plains", "Plains", "Plains")

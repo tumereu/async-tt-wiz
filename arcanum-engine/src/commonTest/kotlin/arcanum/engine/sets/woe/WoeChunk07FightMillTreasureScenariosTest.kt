@@ -115,7 +115,7 @@ class WoeChunk07FightMillTreasureScenariosTest {
         }
     }
 
-    // CR 715.2a, 601.2f: a creature spell without an Adventure costs its full {2}{G}
+    // CR 716.2a, 601.2f: a creature spell without an Adventure costs its full {2}{G}
     @Test
     fun thessalyDoesntReduceACreatureWithoutAnAdventure() = scenario {
         alice.battlefield(thessaly, "Forest", "Forest")
@@ -124,7 +124,7 @@ class WoeChunk07FightMillTreasureScenariosTest {
         assertTrue(decision<Decision.ManaPayment>().suggestion.isEmpty())
     }
 
-    // CR 715.2a, 110.4b, 601.2f: the adventurer cast as a creature (a permanent spell that has an Adventure) costs {1} less
+    // CR 716.2a, 110.4b, 601.2f: the adventurer cast as a creature (a permanent spell that has an Adventure) costs {1} less
     @Test
     fun thessalyLetsTheAdventurerBeCastForLess() = scenario {
         alice.battlefield(thessaly, "Forest", "Forest")
@@ -134,7 +134,7 @@ class WoeChunk07FightMillTreasureScenariosTest {
         expect { courier.zone shouldBe Zone.Battlefield }
     }
 
-    // CR 701.17a, 715.2a: of the seven milled cards, each that has an Adventure goes to the hand
+    // CR 701.17a, 716.2a: of the seven milled cards, each that has an Adventure goes to the hand
     @Test
     fun chaseTheGalePutsTheAdventurersIntoTheHand() = scenario {
         alice.battlefield("Forest", "Forest", "Island", "Mountain", "Mountain")
@@ -151,7 +151,7 @@ class WoeChunk07FightMillTreasureScenariosTest {
         }
     }
 
-    // CR 715.2a: an adventurer card Alice owns in exile gives haste; a card without an Adventure doesn't
+    // CR 716.2a: an adventurer card Alice owns in exile gives haste; a card without an Adventure doesn't
     @Test
     fun bayingWindfangHasHasteWithAnAdventurerInExile() = scenario {
         alice.battlefield(windfang)

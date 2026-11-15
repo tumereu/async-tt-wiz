@@ -370,7 +370,7 @@ internal object KeywordExpansionsMore {
                     bind = HARMONIZED))))), affects = self),
             Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), CostChange.Less(ManaCost(listOf(ManaSymbol.Generic(1))),
                 Value.Of(NumericProperty.Power, Objects.Bound(HARMONIZED), Combine.Total)))), affects = self))
-        // CR 702.160a, 718.3: cast prototyped for its prototype cost, with that mana cost, power and toughness as it is on the Stack and the
+        // CR 702.160a, 719.3: cast prototyped for its prototype cost, with that mana cost, power and toughness as it is on the Stack and the
         // battlefield (the engine's copiable values of a spell cast this way)
         is Keyword.Prototype -> listOf(alternative(Keyword.Prototype.Kind, keyword.cost))
         // CR 702.127a: "You may cast this half of this split card from your graveyard," "This half of this split card can't be cast from any

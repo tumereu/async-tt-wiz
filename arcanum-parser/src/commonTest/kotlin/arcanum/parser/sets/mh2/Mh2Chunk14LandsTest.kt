@@ -30,7 +30,7 @@ import kotlin.test.Test
 
 /**
  * Modern Horizons 2 chunk 14: lands: fetch lands (CR 701.23), indestructible artifact lands entering tapped (the ten Bridges), mana spent
- * only on artifacts (CR 106.6) with modular, a Saga land (CR 714) whose chapters grant abilities and search for a card by its mana cost
+ * only on artifacts (CR 106.6) with modular, a Saga land (CR 715) whose chapters grant abilities and search for a card by its mana cost
  * (CR 202.1), and a land that makes every land a Forest (CR 305.7, layer 4).
  */
 class Mh2Chunk14LandsTest {
@@ -88,7 +88,7 @@ class Mh2Chunk14LandsTest {
         Keyword.Modular(1),
     )
 
-    // CR 714.2: chapter abilities; CR 202.1: a card whose mana cost is {0} or {1}
+    // CR 715.2: chapter abilities; CR 202.1: a card whose mana cost is {0} or {1}
     @Test
     fun urzasEpic() = card(
         name = "Urza's Epic",

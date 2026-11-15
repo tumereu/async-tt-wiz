@@ -616,7 +616,7 @@ class EoeGreenGoldArtifactScenariosTest {
     }
 
     /** The equipped creature's ability costs {X} less (its power): exile the Equipment, control the opponent's next turn. */
-    // CR 723
+    // CR 724
     @Test
     fun sovereignBangleControlsATurn() = scenario {
         libraries()

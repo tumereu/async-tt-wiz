@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 110
+    const val VERSION: Int = 111
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -74,7 +74,7 @@ object OracleParser {
         abilities = abilities.map { MechanicWordings.haunting(it) ?: it }
         // spm chunk 06: "It gains this card's other abilities." (CR 113.10): the face's other abilities written into the effect
         abilities = abilities.map { a -> if (a is Ability.Activated && a.text?.contains("this card's other abilities") == true) withOtherAbilities(a, abilities.filter { it !== a }) else a }
-        // eoe chunk 01: a station card's P/T box (CR 721.2b)
+        // eoe chunk 01: a station card's P/T box (CR 722.2b)
         return withStationPowerToughness(face.copy(abilities = abilities), card.text)
     }
 
@@ -90,7 +90,7 @@ object OracleParser {
 
     /**
      * chunk 56: a whole card: each printed face (a split card's halves, a double-faced card's faces, an adventurer card's
-     * creature and Adventure, CR 709, 712, 715) parsed on its own with [parse], in printed order, under [layout].
+     * creature and Adventure, CR 709, 712, 716) parsed on its own with [parse], in printed order, under [layout].
      */
     fun parseCard(layout: arcanum.api.Layout, faces: List<OracleCard>): arcanum.api.CardDefinition =
         arcanum.api.CardDefinition(layout, faces.map(::parse))
@@ -106,13 +106,13 @@ object OracleParser {
         "flip" -> arcanum.api.Layout.Flip
         "transform" -> arcanum.api.Layout.Transform
         "modal_dfc" -> arcanum.api.Layout.ModalDoubleFaced
-        // set check (TDM): card data names an Omen card's layout "adventure"; its inset spell is an Omen (CR 720)
+        // set check (TDM): card data names an Omen card's layout "adventure"; its inset spell is an Omen (CR 721)
         "adventure" -> if (faces.getOrNull(1)?.let { TypeLine.parse(it.typeLine)?.subtypes?.contains(omen) } == true) arcanum.api.Layout.Omen
             else arcanum.api.Layout.Adventure
         "omen" -> arcanum.api.Layout.Omen
-        // set check (SOS, FRA): a preparation card (CR 722)
+        // set check (SOS, FRA): a preparation card (CR 723)
         "prepare" -> arcanum.api.Layout.Prepare
-        // set check (FIN): a meld card's front and the back face it shares with its partner (CR 712.4)
+        // set check (FIN): a meld card's front and the back face it shares with its partner (CR 713.1)
         "meld" -> meldPartner(faces[0].text)?.let { arcanum.api.Layout.Meld(it) }
         else -> null
     }
@@ -197,7 +197,7 @@ object OracleParser {
             val raw = lines[i++]
             // msh: a name with full stops ("M.O.D.O.K.", "Ms. Marvel") is read as its dotless alias, so sentences split right
             val line = plainNumbers(dotless(REMINDER.replace(raw, "").trim(), self))
-            // blb chunk 05: a class level bar "[cost]: Level N" with the abilities of its section, up to the next bar (CR 716.2a).
+            // blb chunk 05: a class level bar "[cost]: Level N" with the abilities of its section, up to the next bar (CR 717.2a).
             // A section with an unread line stays printed text as a whole.
             val classLevel = CLASS_LEVEL.matchEntire(line)
             if (classLevel != null) {
@@ -237,7 +237,7 @@ object OracleParser {
                 raws += printed
                 continue
             }
-            // eoe chunk 01: a station symbol and the abilities of its striation, "N+ | [abilities]" (CR 721.2a): "As long as this permanent
+            // eoe chunk 01: a station symbol and the abilities of its striation, "N+ | [abilities]" (CR 722.2a): "As long as this permanent
             // has N or more charge counters on it, it has [abilities]." Its P/T box is added by [parse]. An unread line stays printed text.
             STATION_SYMBOL.matchEntire(line)?.let { m ->
                 result += stationSymbol(m.groupValues[1].toInt(), m.groupValues[2], sentences) ?: Ability.Unparsed(raw.trim())
@@ -559,7 +559,7 @@ object OracleParser {
         return Ability.Static(mechanics, condition = condition, affects = Affected.Objects(Objects.Self))
     }
 
-    /** eoe chunk 01: a station symbol's static ability (CR 721.2a) granting the abilities of its striation (the static keeps the printed
+    /** eoe chunk 01: a station symbol's static ability (CR 722.2a) granting the abilities of its striation (the static keeps the printed
      * line as its text); null when one can't be read. */
     private fun stationSymbol(threshold: Int, body: String, sentences: Sentences): Ability? {
         val granted = keywordLine(body) ?: sentences.multi(body) ?: listOf(sentences.line(body) ?: return null)
@@ -568,20 +568,21 @@ object OracleParser {
             condition = stationed(threshold))
     }
 
-    /** eoe: "this permanent has N or more charge counters on it" (CR 721.2a). */
+    /** eoe: "this permanent has N or more charge counters on it" (CR 722.2a). */
     private fun stationed(threshold: Int): arcanum.api.Condition = arcanum.api.Condition.ObjectMatches(Objects.Self,
         arcanum.api.ObjectFilter.HasCounter(arcanum.api.KeywordExpansions.CHARGE, atLeast = threshold))
 
-    /** eoe chunk 01: a station card's P/T box is part of the static ability of its striation (CR 721.2b): "… and is a creature with base
+    /** eoe chunk 01: a station card's P/T box is part of the static ability of its striation (CR 722.2b): "… and is a creature with base
      * power and toughness [P/T] in addition to its other types". The striation is the one the station reminder names ("It's an artifact
-     * creature at 12+."), else the highest. */
+     * creature at 12+."), else the highest. Being part of that ability, it isn't the face's power and toughness: off the battlefield the
+     * card has none (CR 208.3). */
     private fun withStationPowerToughness(face: FaceDefinition, text: String): FaceDefinition {
         val power = (face.power as? arcanum.api.PrintedNumber.Fixed)?.value ?: return face
         val toughness = (face.toughness as? arcanum.api.PrintedNumber.Fixed)?.value ?: return face
         if (face.abilities.none { it == Keyword.Station }) return face
         val thresholds = face.abilities.mapNotNull { a -> a.stationThreshold() }
         val threshold = STATION_CREATURE_AT.find(text)?.groupValues?.get(1)?.toInt() ?: thresholds.maxOrNull() ?: return face
-        return face.copy(abilities = face.abilities.map { a ->
+        return face.copy(power = null, toughness = null, abilities = face.abilities.map { a ->
             if (a !is Ability.Static || a.stationThreshold() != threshold) a
             else a.copy(mechanics = listOf(arcanum.api.Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Creature)),
                 arcanum.api.Mechanic.SetPowerToughness(arcanum.api.Value.Fixed(power), arcanum.api.Value.Fixed(toughness))) + a.mechanics)
@@ -592,7 +593,7 @@ object OracleParser {
         ?.takeIf { it.objects == Objects.Self }?.let { (it.filter as? arcanum.api.ObjectFilter.HasCounter) }
         ?.takeIf { it.kind == arcanum.api.KeywordExpansions.CHARGE }?.atLeast
 
-    /** blb chunk 05: a class level bar and its section's abilities (CR 716.2a), each with its printed line; null when the
+    /** blb chunk 05: a class level bar and its section's abilities (CR 717.2a), each with its printed line; null when the
      * cost or a line can't be read. */
     private fun classLevel(m: MatchResult, section: List<String>, sentences: Sentences): Ability? {
         val cost = sentences.cost(m.groupValues[1]) ?: return null

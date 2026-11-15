@@ -51,7 +51,7 @@ class InrChunk16MoveSearchTapTest {
         activated(cost(mana("{1}{G}")), move(target("card"), Zone.Hand), targets = listOf(slot("card", inYourGraveyard(ObjectFilter.Super(Supertype.Basic), land)))),
     )
 
-    // CR 712.4: meld; CR 205.3m (Rogue)
+    // CR 713.1: meld; CR 205.3m (Rogue)
     @Test
     fun midnightScavengers() = cardFaces(Layout.Meld("Graf Rats"),
         card(

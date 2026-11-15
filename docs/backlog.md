@@ -51,6 +51,8 @@ Old forms only read now, found at the wipe (2026-11-09; read, not run; can be do
 Playtest notes (owner, 2026-11-12): before web step 3 (after the engine API rework). The web wireframes show the same changes.
 
 
+- Printed alternate names (owner, 2026-11-15; Secret Lair drops, Universes Within names, and later Commander, where a player may flavour a deck with an alias): the card catalog keeps a printing's printed name (MTGJSON `flavorName`, per face too) beside its Oracle name. Deck import and card search find a printing by its printed name as well; a card printed under another name shows that name on the table, in panels and in Inspect, with its Oracle name beside it (Inspect, the quick look); rules support still follows the Oracle card. Exact wording and where the Oracle name shows: plainest option, listed under choices made.
+
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.

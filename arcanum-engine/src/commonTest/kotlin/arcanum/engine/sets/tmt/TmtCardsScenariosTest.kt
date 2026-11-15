@@ -188,7 +188,7 @@ class TmtCardsScenariosTest {
         resolveAll()
         expect {
             squire.zone shouldBe Zone.Battlefield
-            squire.counters(CounterKind.Named("finality")) shouldBe 1
+            squire.counters(CounterKind.Finality) shouldBe 1
         }
     }
 

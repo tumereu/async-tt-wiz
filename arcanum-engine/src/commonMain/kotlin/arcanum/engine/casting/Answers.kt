@@ -187,12 +187,23 @@ internal object Answers {
                 arcanum.api.CostObjects.Self -> enoughCounters(plan, part, listOf(plan.sourceId))
                 is arcanum.api.CostObjects.These -> enoughCounters(plan, part, plan.eval.objects(from.objects))
             }
+            // trk chunk 08: "Sacrifice this …" or named objects: not when one of them can't be sacrificed (CR 701.21a, 118.3)
+            is CostPart.Sacrifice -> when (val what = part.what) {
+                arcanum.api.CostObjects.Self -> sacrificable(plan, listOf(plan.sourceId))
+                is arcanum.api.CostObjects.These -> sacrificable(plan, plan.eval.objects(what.objects))
+                is arcanum.api.CostObjects.Choose -> Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
+                    .let { choice -> choice == null || choice.options.size >= choice.min }
+            }
             else -> {
                 val choice = Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
                 choice == null || choice.options.size >= choice.min
             }
         }
     }
+
+    /** Whether none of [ids] can't be sacrificed ([arcanum.api.Mechanic.CantBeSacrificed], CR 701.21a). */
+    private fun sacrificable(plan: Plan, ids: List<arcanum.engine.state.ObjectId>): Boolean =
+        ids.none { id -> plan.snap.view[id]?.has { it is arcanum.api.Mechanic.CantBeSacrificed } == true }
 
     /** Whether each of [ids] has the counters [part] removes (of its kind; mh3 sweep: else of any kinds, CR 118.3). */
     private fun enoughCounters(plan: Plan, part: CostPart.RemoveCounters, ids: List<arcanum.engine.state.ObjectId>): Boolean {

@@ -268,7 +268,7 @@ class LciChunk09ConditionsAndManaScenariosTest {
         resolveAll()
         expect {
             saur.zone shouldBe Zone.Battlefield
-            saur.counters(CounterKind.Named("finality")) shouldBe 1
+            saur.counters(CounterKind.Finality) shouldBe 1
         }
     }
 

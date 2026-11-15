@@ -398,6 +398,8 @@ internal object Payment {
             is CostPart.Sacrifice -> {
                 val ids = objects(part.what)
                 check(ids, Zone.Battlefield)
+                // trk chunk 08: CR 701.21a, 118.3: a permanent that can't be sacrificed can't pay the cost
+                ids.firstOrNull { id -> snap.view[id]?.has { it is arcanum.api.Mechanic.CantBeSacrificed } == true }?.let { refuse("$it can't be sacrificed") }
                 move(ids, Zone.Graveyard, listOf(Meaning.Sacrificed), part.preBind, part.postBind)
             }
             is CostPart.Discard -> {
@@ -597,6 +599,9 @@ internal object Payment {
         val s = recorder.state
         val id = plan.itemId
         val o = s.objOrThrow(id)
+        // trk: CR 601.2i: the spell is cast now; counted before the "as cast" conditions, so "the first spell you've cast this game" sees 1
+        val castBefore = s.ledgers[plan.player]?.get(arcanum.engine.query.Evaluator.SPELLS_CAST) ?: 0
+        recorder.record(Change.Ledger(plan.player, arcanum.engine.query.Evaluator.SPELLS_CAST, castBefore, castBefore + 1))
         // woe, otj: CR 601.2i: "if you controlled a Faerie as you cast this spell", "if you controlled a Mount as you cast this spell" are
         // answered now, once, with the spell's choices
         val asCast = asCastConditions(plan.instructions).distinct().let { conditions ->

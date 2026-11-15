@@ -181,7 +181,7 @@ class BlbChunk15LastLegendsTest {
                     ObjectFilter.Not(land),
                     library = Players.You,
                     count = one(),
-                    reveal = true,
+                    reveal = false, // CR 406.3, 701.20a: exiled face up, not revealed
                     into = Zone.Exile,
                     foundBind = "found",
                     restBind = "rest",

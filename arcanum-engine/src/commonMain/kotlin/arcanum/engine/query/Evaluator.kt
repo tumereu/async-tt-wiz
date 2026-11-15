@@ -786,6 +786,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.TurnsTaken -> players(value.players).firstOrNull()?.let { p ->
             ((state.turn.turnStarted[p] ?: 0) + state.players.size - 1) / state.players.size
         } ?: 0
+        // trk: counted in each player's ledger as a cast finishes (casting.Payment)
+        is Value.SpellsCastThisGame -> players(value.players).sumOf { state.ledgers[it]?.get(SPELLS_CAST) ?: 0 }
         is Value.Announced -> (ctx.names[value.name] as? NamedValue.Number)?.value ?: ctx.stackItem?.announced?.get(value.name) ?: 0
         is Value.Bound -> boundNumber(ctx.names[value.name])
         is Value.Remembered -> boundNumber(selfMemory(value.key))
@@ -1114,6 +1116,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         fun resolvedKey(name: String): String = "resolved:$name"
         /** The ledger key counting the extra turns a player has begun (CR 500.7). */
         const val EXTRA_TURN_BEGUN = "extra-turn-begun"
+        /** trk: how many spells the player has cast this game ([Value.SpellsCastThisGame]). */
+        const val SPELLS_CAST = "spells-cast"
 
         /** Day and night as [arcanum.engine.turn.DayNight.of] reads them (0: neither). */
         const val DAY = 1

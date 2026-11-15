@@ -105,6 +105,10 @@ sealed interface Value {
     /** How many turns [players] (one player) has had this game, the current turn included ("during your first, second, or third
      * turns of the game": at most 3 during your turn). */
     @Serializable @SerialName("turns-taken") data class TurnsTaken(val players: Players) : Value
+    // trk
+    /** How many spells [players] have cast this game, each counted as its casting finishes (CR 601.2i), copies not (CR 707.10):
+     * "if this spell is the first spell you've cast this game" is [Condition.AsCast] of this being 1. */
+    @Serializable @SerialName("spells-cast-this-game") data class SpellsCastThisGame(val players: Players) : Value
     // tla
     /** The amount of unspent mana in the mana pools of [players] ("as long as you have six or more unspent mana", CR 106.4). */
     @Serializable @SerialName("mana-in-pool") data class ManaInPool(val players: Players) : Value

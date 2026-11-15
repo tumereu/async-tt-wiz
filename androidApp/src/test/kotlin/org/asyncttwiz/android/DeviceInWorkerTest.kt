@@ -178,6 +178,58 @@ class DeviceInWorkerTest {
     // with the plain frame while the page hasn't answered its lookup, and once the page's card records find its picture the
     // worker's next board draws it with that picture (it kept the plain frame for good before)
     @Test fun aTokenDrawnWithThePlainFrameBeforeThePageAnsweredGetsItsPictureOnceItDoes() {
+        val kit = heraldsToken()
+        val f = kit.scenario.f
+        val remote = EngineGame(f.game.id, f.a, f.base, kit.scenario.sim.snapshot(f.a), device = channel)
+        pump()
+        assertNull(tokenFace(remote).scryfallId, "the plain frame while the page hasn't answered")
+        val name = tokenFace(remote).name
+        remote.tokenArt = org.asyncttwiz.automatum.TokenArt { if (it.face.name == name) "scryfall-elemental" else null }
+        pump()
+        assertEquals("scryfall-elemental", tokenFace(remote).scryfallId, "the token drawn with the picture the page found")
+    }
+
+    /** Card records that arrive when the test says ([installed]), with a picture for every token once they have. */
+    private class LateRecords : org.asyncttwiz.automatum.TokenArt {
+        var installed = false
+        override fun find(token: org.asyncttwiz.automatum.TokenArtQuery): String? = "scryfall-elemental".takeIf { installed }
+        override fun ready() = installed
+    }
+
+    // SYS-072 (coordinator follow-up of problem report VSVLSK): on the phone, Alice's game is open with her Ember Herald's
+    // token on the battlefield while her card records are still being installed: drawn with the plain frame, and once the
+    // records are in, the next engine tick draws it with its picture (before, only opening the game again did)
+    @Test fun aTokenDrawnBeforeThePhonesCardRecordsArrivedGetsItsPictureOnceTheyDo() {
+        val kit = heraldsToken()
+        val records = LateRecords()
+        kit.alice.tokenArt = records
+        kit.alice.tick(kit.scenario.sim.now)
+        assertNull(tokenFace(kit.alice).scryfallId, "the plain frame without card records")
+        records.installed = true
+        kit.alice.tick(kit.scenario.sim.now + 1_000)
+        assertEquals("scryfall-elemental", tokenFace(kit.alice).scryfallId, "the token drawn with its picture once they are in")
+    }
+
+    // SYS-072 across the boundary: in the browser the same with the page's card records arriving after the table opened:
+    // the worker's lookup waits for them (it was answered with the plain frame for good before) and goes back with the
+    // picture on the page's next tick
+    @Test fun aTokenLookupWaitsForThePagesCardRecords() {
+        val kit = heraldsToken()
+        val f = kit.scenario.f
+        val remote = EngineGame(f.game.id, f.a, f.base, kit.scenario.sim.snapshot(f.a), device = channel)
+        val records = LateRecords()
+        remote.tokenArt = records
+        pump()
+        assertNull(tokenFace(remote).scryfallId, "the plain frame without card records")
+        assertTrue(toWorker.isEmpty(), "the lookup not answered without card records")
+        records.installed = true
+        remote.tick(1_000)
+        pump()
+        assertEquals("scryfall-elemental", tokenFace(remote).scryfallId, "the token drawn with its picture once they are in")
+    }
+
+    /** Alice's Ember Herald resolved in her Main 1, its 1/1 token on her battlefield. */
+    private fun heraldsToken(): EngineTableKit {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(heralds = true)))
         kit.opening()
         kit.playLand()
@@ -189,18 +241,13 @@ class DeviceInWorkerTest {
                 kit.state().priority.holder == kit.me) kit.alice.pass()
             kit.state().battlefield.any { kit.state().obj(it)?.token == true } && kit.state().stack.isEmpty()
         }
-        val f = kit.scenario.f
-        val remote = EngineGame(f.game.id, f.a, f.base, kit.scenario.sim.snapshot(f.a), device = channel)
-        pump()
-        fun tokenFace() = assertNotNull(remote.shown).board.let { play ->
-            val card = play.board.cards.single { it.token }
-            play.definitions.single { it.digest == card.definition }.definition.faces.single()
-        }
-        assertNull(tokenFace().scryfallId, "the plain frame while the page hasn't answered")
-        val name = tokenFace().name
-        remote.tokenArt = org.asyncttwiz.automatum.TokenArt { if (it.face.name == name) "scryfall-elemental" else null }
-        pump()
-        assertEquals("scryfall-elemental", tokenFace().scryfallId, "the token drawn with the picture the page found")
+        return kit
+    }
+
+    /** The face [game]'s board draws its one token with. */
+    private fun tokenFace(game: EngineGame) = assertNotNull(game.shown).board.let { play ->
+        val card = play.board.cards.single { it.token }
+        play.definitions.single { it.digest == card.definition }.definition.faces.single()
     }
 
     // SYS-011, SYS-012 across the boundary: a press made on a board the worker's device has moved on from (the page hadn't

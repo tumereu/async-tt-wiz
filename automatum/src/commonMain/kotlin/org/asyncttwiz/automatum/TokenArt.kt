@@ -12,6 +12,10 @@ fun interface TokenArt {
     /** The Scryfall id of the token printing [token] is drawn with, or null for the plain token frame. */
     fun find(token: TokenArtQuery): String?
 
+    /** Whether [find] can answer yet: false while the device has no card records to look in (its answers are the plain
+     * frame until they arrive, and the tokens drawn so are looked up again then). Cheap: asked on the engine's ticks. */
+    fun ready(): Boolean = true
+
     companion object {
         val None = TokenArt { null }
     }

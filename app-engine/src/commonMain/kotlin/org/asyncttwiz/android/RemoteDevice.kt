@@ -125,9 +125,9 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
             is DeviceAnswer.Done -> calls.done(answer.id, answer.result)
             is DeviceAnswer.Failed -> calls.failed(answer.id, answer.problem)
             DeviceAnswer.LoadFailed -> game.remoteLoadFailed()
-            // The table hasn't given the page its card records' lookup yet: answered once it does (the worker asks once each)
-            is DeviceAnswer.TokenArt ->
-                if (game.tokenArt === org.asyncttwiz.automatum.TokenArt.None) tokenQueries += answer.query else tokenArtFound(answer.query)
+            // The table hasn't given the page its card records' lookup yet, or the page has no card records yet: answered once
+            // it does (the worker asks once each)
+            is DeviceAnswer.TokenArt -> if (tokenArtReady()) tokenArtFound(answer.query) else tokenQueries += answer.query
             is DeviceAnswer.NamedCard -> {
                 val found = try { game.namedCardsOnPage.definition(answer.name) } catch (problem: Exception) {
                     AppLog.warn("engine", "Device boundary: the card named ${answer.name} couldn't be looked up: ${problem.message?.take(200)}"); null
@@ -141,9 +141,13 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
     /** The worker's token picture lookups waiting for the page's [EngineGame.tokenArt] (SYS-072). */
     private val tokenQueries = mutableListOf<org.asyncttwiz.automatum.TokenArtQuery>()
 
-    /** The page's [EngineGame.tokenArt] was set: the lookups waiting for it are answered. */
+    /** Whether the page can answer the worker's lookups: its [EngineGame.tokenArt] set, with card records to look in. */
+    private fun tokenArtReady() = game.tokenArt !== org.asyncttwiz.automatum.TokenArt.None && game.tokenArt.ready()
+
+    /** The page's [EngineGame.tokenArt] was set, or its card records may have arrived (asked on each tick): the lookups
+     * waiting for them are answered. */
     internal fun tokenArtSet() {
-        if (game.tokenArt === org.asyncttwiz.automatum.TokenArt.None || tokenQueries.isEmpty()) return
+        if (tokenQueries.isEmpty() || !tokenArtReady()) return
         val waiting = tokenQueries.toList()
         tokenQueries.clear()
         AppLog.info("engine", "Device boundary: ${waiting.size} token picture lookups of ${gameId.take(8)} answered now the page has its card records")

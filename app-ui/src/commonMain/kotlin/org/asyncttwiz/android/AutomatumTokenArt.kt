@@ -43,6 +43,12 @@ class CatalogTokenArt(private val repository: () -> CardCatalog) : TokenArt {
         null
     }
 
+    /** Card records installed (once they are, for good: asked on the engine's ticks, this reads the device's records only
+     * until they first are). */
+    @Volatile private var recordsSeen = false
+    override fun ready(): Boolean = recordsSeen || try { repository().tokenGeneration() != null } catch (problem: Exception) { false }
+        .also { recordsSeen = it }
+
     private fun describe(token: TokenArtQuery) = token.face.name +
         (token.sourceName?.let { " made by $it" } ?: "") + (token.sourcePrintingId?.let { " ($it)" } ?: "")
 }

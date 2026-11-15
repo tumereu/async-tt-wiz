@@ -42,6 +42,7 @@ import arcanum.engine.state.setup
 import org.asyncttwiz.automatum.EngineProjection
 import org.asyncttwiz.automatum.PlayerStates
 import org.asyncttwiz.automatum.StateGlyph
+import org.asyncttwiz.automatum.StateIcon
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.EngineRecord
 import org.asyncttwiz.protocol.EngineRecordKind
@@ -216,22 +217,26 @@ class CardStatesTest {
         setup.command.add(crypt)
     }
 
-    // TRN-072: a player's states as chips, in their order, by the rules' words; each round chip shows a glyph (owner gallery
-    // review 2026-11-10, gallery 157): its first letter with its number, those that would share a letter told apart
+    // TRN-072: a player's states as chips, in their order, by the rules' words; each round chip shows its state's own icon with
+    // its current level where it has one (owner notes 2026-11-14); a counter with no icon of its own keeps letters
     @Test fun aPlayersStatesInOrder() {
         val state = board { playerStates() }.engine!!.state
         assertEquals(listOf("Monarch", "Speed 2", "Ring 2/4", "Poison 3"), PlayerStates.of(state, f.a).map { it.label })
         assertEquals(listOf("Initiative", "City's blessing", "Ring 4/4", "Energy 5"), PlayerStates.of(state, f.b).map { it.label })
         assertTrue(PlayerStates.of(state, f.a).all { it.explanation != null }, "each explains itself")
         assertEquals("Night", PlayerStates.dayOrNight(state)?.label)
-        fun glyphs(account: String) = PlayerStates.of(state, account).map { (it.glyph as StateGlyph.Letters).text }
-        assertEquals(listOf("M", "S2", "R2", "P3"), glyphs(f.a))
-        assertEquals(listOf("I", "C", "R4", "E5"), glyphs(f.b))
+        fun glyphs(account: String) = PlayerStates.of(state, account).map { it.glyph }
+        assertEquals(listOf(StateGlyph.Icon(StateIcon.Monarch), StateGlyph.Icon(StateIcon.Speed, 2), StateGlyph.Icon(StateIcon.Ring, 2),
+            StateGlyph.Icon(StateIcon.Poison, 3)), glyphs(f.a))
+        assertEquals(listOf(StateGlyph.Icon(StateIcon.Initiative), StateGlyph.Icon(StateIcon.CitysBlessing), StateGlyph.Icon(StateIcon.Ring, 4),
+            StateGlyph.Icon(StateIcon.Energy, 5)), glyphs(f.b))
         assertEquals(StateGlyph.Night, PlayerStates.dayOrNight(state)?.glyph)
         val shared = board { player(f.a) { it.copy(statuses = playerStatuses(Designation.EnduringStory, speed = 1),
-            counters = listOf(CounterEntry(CounterKind.Energy, 2, 1), CounterEntry(CounterKind.Named("shield"), 1, 2))) } }.engine!!.state
-        assertEquals(listOf("St", "S1", "E2", "Sh1"), PlayerStates.of(shared, f.a).map { (it.glyph as StateGlyph.Letters).text },
-            "an enduring story beside energy, a shield counter beside speed")
+            counters = listOf(CounterEntry(CounterKind.Energy, 2, 1), CounterEntry(CounterKind.Named("experience"), 4, 2),
+                CounterEntry(CounterKind.Named("shield"), 1, 3), CounterEntry(CounterKind.Named("stash"), 2, 4))) } }.engine!!.state
+        assertEquals(listOf(StateGlyph.Icon(StateIcon.EnduringStory), StateGlyph.Icon(StateIcon.Speed, 1), StateGlyph.Icon(StateIcon.Energy, 2),
+            StateGlyph.Icon(StateIcon.Experience, 4), StateGlyph.Letters("S1"), StateGlyph.Letters("St2")), PlayerStates.of(shared, f.a).map { it.glyph },
+            "experience has its icon; counters with none keep letters, told apart from each other")
     }
 
     private fun assertClear(scene: TableScene, width: Float, height: Float, hands: Boolean = true) {

@@ -393,16 +393,14 @@ private fun ChangeLine(change: InspectChange, interactive: Boolean, size: androi
     val always = LocalAppLayout.current == AppLayout.Desktop
     val source = change.source.takeIf { pinnedLayout || always }
     // TBL-132 (owner gallery review 2026-11-06): a line naming a keyword ("Flying", "+3/+3, trample until end of turn")
-    // explains it too
-    val explained = if (pinnedLayout) remember(change.text) { arcanum.api.RulesGlossary.named(change.text) } else emptyList()
+    // explains it too; WEB-024 (owner 2026-11-15): on the desktop layout always, under the line with its source
+    val explained = if (pinnedLayout || always) remember(change.text) { arcanum.api.RulesGlossary.named(change.text) } else emptyList()
     val tappable = source != null || explained.isNotEmpty()
-    Column(if (!tappable) Modifier else Modifier.fillMaxWidth().then(if (!interactive) Modifier else Modifier.pointerInput(change) {
+    Column(if (!tappable) Modifier else Modifier.fillMaxWidth().then(if (!interactive || always) Modifier else Modifier.pointerInput(change) {
         detectTapGestures(onPress = { pressed = true; tryAwaitRelease(); pressed = false }, onTap = { open = !open })
     })) {
         CardText(change.text, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontSize = size, lineHeight = lineHeight))
-        if (always && source != null && !(interactive && (open || pressed)))
-            Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
-        if (interactive && (open || pressed)) {
+        if (always || interactive && (open || pressed)) {
             if (source != null) Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
             if (explained.isNotEmpty()) Column(Modifier.padding(top = 4.dp).semantics { contentDescription = "Rule explanation" },
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {

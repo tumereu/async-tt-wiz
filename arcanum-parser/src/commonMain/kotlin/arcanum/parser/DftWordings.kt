@@ -109,7 +109,7 @@ internal object Dft {
     val AS_ENTERS_EXILE_UP_TO_X_COUNTERS_FOR_EACH = Regex("""As (.+?) enters, exile up to X (.+?) cards from your graveyard\. It enters with (\w+) (\S+) counters on it for each \2 card exiled this way\.""")
     val BECOMES_COPY_OF_EXILED_WITH_EXCEPT = Regex("""(.+?) becomes a copy of target (.+?) card exiled with it, except it's (\d+)/(\d+) and has this ability\.""")
     val CHOOSE_TARGET_OPPONENT_CREATE_THEN_DRAIN_X = Regex("""Choose target opponent\. (Create .+?\.) Then the chosen player loses X life and you gain X life\.""")
-    val LOOK_AT_HAND_MAY_CHOOSE_DISCARDS_DRAWS = Regex("""Look at target player's hand\. You may choose a card from it\. If you do, that player discards that card, then draws a card\.""")
+    val LOOK_AT_HAND_MAY_CHOOSE_DISCARDS_DRAWS = Regex("""Look at target (player|opponent)'s hand\. You may choose an? (.+?) from it\. If you do, that player (discards|exiles) that card, then draws a card\.""") // trk: opponent, nonland, exiles
     val CARDS_PUT_INTO_EXILE_FROM_DURING_YOUR_TURN = Regex("""one or more cards are put into exile from graveyards and/or the battlefield during your turn""")
     val GETS_FOR_EACH_DISCARDED_THEN_WHENEVER_DAMAGE = Regex("""Target creature gets \+(\d+)/\+0 until end of turn for each card discarded this way\. Whenever that creature deals combat damage to a player this turn, you draw a card\.""")
     val FOR_EACH_OPPONENT_PUT_THIRD_FROM_TOP = Regex("""For each opponent, put up to one target (.+?) that player controls into its owner's library (\w+) from the top\.""")

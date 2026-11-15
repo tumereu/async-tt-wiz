@@ -174,7 +174,7 @@ internal object Msh {
     val PUT_COUNTER_ON_IT_FOR_EACH_THEN = Regex("""Put an? (\S+) counter on it for each (\S+) counter on (.+?), then put an? (\S+) counter on (.+)\.""")
     val MAY_DRAW_FOR_EACH_IF_YOU_DO = Regex("""You may draw a card for each (.+?)\. If you do, (.+)""")
     val CREATE_THAT_MANY = Regex("""Create that many (.+) tokens\.""")
-    val DEALS_TO_EACH_AND_EACH_OPPONENT = Regex("""(.+?) deals (\d+) damage to each (.+?) and each opponent\.""")
+    val DEALS_TO_EACH_AND_EACH_OPPONENT = Regex("""(.+?) deals (\d+) damage to each (.+?) and each (opponent|player)\.""") // trk: each player
     val CREATE_TOKEN_FOR_EACH = Regex("""Create an? (\w+) token for each (.+)\.""")
     val CHOOSE_OPPONENT_AND_CREATURE_EXILE_UNTIL = Regex("""Choose target opponent and up to one target (.+?) they control\. They reveal their hand\. You may exile a (.+?) from their hand or the chosen creature until (.+?) leaves? the battlefield\.""")
     val MAY_EXILE_TOP_IF_HERO_PLAY = Regex("""You may exile the top card of your library\. If that card is an? (.+?), (.+?) gets \+(\d+)/\+(\d+) until end of turn\. You may play that card this turn\.""")

@@ -55,7 +55,10 @@ class CombatController(
     /** Web client step 4e: the game played (its device in the browser's engine worker: combat's engine work is asked of it). */
     private val game: () -> EngineGame? = { null },
 ) {
-    private var shownBoard: BoardState? = null
+    /** The board whose combat [view] shows. State, so what read [ready] before its combat was worked out (the quick actions,
+     * the band's lanes) is drawn again once it is ([show]), not only when something else happens to recompose it (web frame
+     * rate, 2026-11-15: a pan, a picture loading or an animation's frame did, and no longer does). */
+    private var shownBoard: BoardState? by mutableStateOf(null, referentialEqualityPolicy())
     /** What the table shows of combat on the board last worked out ([show]). */
     var view by mutableStateOf(CombatShown.NONE); private set
 

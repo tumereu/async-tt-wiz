@@ -56,7 +56,7 @@ class DeviceChannel(private val post: (String) -> Unit, val log: EngineLog = Eng
 }
 
 /** How long (ms) a published board may take to be taken in on the page before the app log says so ([RemoteDevice.received]). */
-private const val SLOW_BOARD_MS = 8L
+private const val SLOW_BOARD_MS = 16L
 
 /**
  * Game [gameId]'s device in the worker, as its [EngineGame] on the page sees it: requests out ([ask]), the boards it

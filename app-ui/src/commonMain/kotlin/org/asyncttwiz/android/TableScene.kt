@@ -441,6 +441,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // are dimmed (as the Stack list's, STK-048)
             val dimmed = if (toolkit?.let { it.cast.targeting || it.flows.targeting } != true) emptySet() else scene.battlefieldGroups
                 .firstOrNull { it.key == scene.expandedGroup }?.members.orEmpty().filterNotTo(HashSet()) { it in castGlow }
+            // ZON-095 (owner notes 2026-11-14): while a cast, a choice or another panel is open the viewer's hand is dimmed
+            val handDim = toolkit != null && !runtime.reviewing && toolkit.handDimmed(play)
             // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
             val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
             val pressGlow = rememberPressGlow(pressedId)
@@ -462,8 +464,11 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow, pickedGlow)
-                val alphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
+                val targetAlphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
                     .filter { it.battlefieldCard && it.cardId in dimmed }.associate { it.id to minOf(frame.alphas[it.id] ?: 1f, TARGET_DIMMED) }
+                val alphas = if (!handDim) targetAlphas else targetAlphas + frame.scene.items
+                    .filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == accountId }
+                    .associate { it.id to minOf(targetAlphas[it.id] ?: 1f, HAND_DIMMED) }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
                     attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, picked = glows.picked, pileBadges = false)
@@ -566,6 +571,9 @@ const val GLOW_FADE_MILLIS = 220
 
 /** How opaque an opened group's members that aren't legal targets are drawn while targets are picked (TBL-130). */
 private const val TARGET_DIMMED = .4f
+
+/** ZON-095 (owner notes 2026-11-14): the viewer's hand while a cast, a choice or another panel is open. */
+private const val HAND_DIMMED = .4f
 
 /**
  * TBL-117: the glow of [play]'s playable cards, [target] (null while Automatum still works the board out: the cards

@@ -454,6 +454,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-play-lands") data class CantPlayLands(val lands: ObjectFilter) : Mechanic
     /** The affected permanents can't be sacrificed. */
     @Serializable @SerialName("cant-be-sacrificed") data object CantBeSacrificed : Mechanic
+    // trk
+    /** The affected creatures can't be returned to their owner's hand to pay a beam me up cost (CR 702.196b). */
+    @Serializable @SerialName("cant-be-beamed-up") data object CantBeBeamedUp : Mechanic
     // inr chunk 09
     /** The affected permanents can't be sacrificed because of a spell or ability whose controller matches [controllers], seen
      * from this ability's controller (Sigarda, Host of Herons: "Spells and abilities your opponents control can't cause you to

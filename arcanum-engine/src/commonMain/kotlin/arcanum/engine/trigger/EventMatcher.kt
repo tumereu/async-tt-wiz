@@ -259,6 +259,13 @@ internal object EventMatcher {
             ?.takeIf { it.meanings.any { m -> m == Meaning.Cast || m == Meaning.Activated || m == Meaning.Triggered } }
             ?.takeIf { c -> c.item.targets.values.flatten().any { crimeAgainst(e, it, c.item.controller) } && e.matches(pattern.players, c.item.controller) }
             ?.let { listOf(TriggerEvent(players = listOf(it.item.controller))) }.orEmpty()
+        // trk: CR 700.17: a player faces a dilemma when they choose one or more modes for a spell or ability as it is cast, activated or
+        // put on the Stack (CR 601.2b, 602.2b, 603.3c); a copy's modes are copied, not chosen (CR 707.10), and a fused split spell's
+        // halves aren't modes (CR 702.102d)
+        is EventPattern.FaceDilemma -> (change as? Change.StackItemAdded)
+            ?.takeIf { it.meanings.any { m -> m == Meaning.Cast || m == Meaning.Activated || m == Meaning.Triggered } }
+            ?.takeIf { c -> c.item.modes.isNotEmpty() && e.board.state.obj(c.item.id)?.cast?.fused != true && e.matches(pattern.players, c.item.controller) }
+            ?.let { listOf(TriggerEvent(players = listOf(it.item.controller))) }.orEmpty()
         is EventPattern.Attach -> {
             fun attached(id: ObjectId, onto: TargetRef): TriggerEvent? {
                 val to = (onto as? TargetRef.Object)?.id

@@ -289,8 +289,9 @@ object KeywordExpansions {
         // was paid, exile this card instead of putting it anywhere else any time it would leave the stack."
         is Keyword.BeamMeUp -> static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast,
             resultingSpell = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)),
+            // CR 702.196b: a creature that can't be beamed up can't be returned for it
             cost = Cost(keyword.cost.parts + CostPart.ReturnToHand(CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
-                ObjectFilter.ControlledBy(PlayerFilter.You))), count = Value.Fixed(1)))),
+                ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Not(ObjectFilter.HasMechanic(Mechanic.CantBeBeamedUp)))), count = Value.Fixed(1)))),
             then = Destination(Zone.Exile), holder = PlayerFilter.You))
         // spm: CR 702.187b: as long as you discarded this card this turn, you may cast it from your graveyard for [cost] rather than its
         // mana cost; CR 702.187c: without a cost, you may play it from your graveyard (a land too). The discard is the event whose

@@ -20,4 +20,12 @@ internal object Trk {
     val EACH_OPPONENT_EXILES_CHOOSE_ONE_EACH_MAY_PLAY = Regex("""[Ee]ach opponent exiles the top X cards of their library\. For each opponent, choose an? (.+? card) that player owns exiled this way\. You may play the chosen cards for as long as they remain exiled\.""")
     // trk chunk 04: "This creature can't be the target of abilities from artifact sources your opponents control."
     val CANT_BE_TARGET_OF_ABILITIES_FROM = Regex("""(.+?) can't be the target of abilities from (.+?) sources your opponents control\.""")
+    // trk chunk 06: "assimilate target creature card from a graveyard", "assimilate a creature card exiled with it" (CR 701.72b)
+    val ASSIMILATE = Regex("""[Aa]ssimilate (.+? cards?(?: from .+?| exiled with .+?)?)\.""")
+    // trk chunk 06: "target opponent exiles cards from the top of their library until they exile a nonland card."
+    val TARGET_PLAYER_EXILES_UNTIL = Regex("""[Tt]arget (opponent|player) exiles cards from the top of their library until they exile (an? .+)\.""")
+    // trk chunk 06: "target opponent may have you draw a card." (then "If they don't, …")
+    val TARGET_OPPONENT_MAY_HAVE_YOU = Regex("""[Tt]arget opponent may have you (.+)\.""")
+    // trk chunk 06: "If her power is 4 or greater, instead draw a card." (the sentence before happens only if the condition is false)
+    val IF_INSTEAD = Regex("""If (.+?), instead (.+)\.""")
 }

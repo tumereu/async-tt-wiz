@@ -907,6 +907,12 @@ internal object Events {
             val kind = Filters.noun(m.groupValues[2]) ?: return null
             return EventPattern.Sacrifice(if (m.groupValues[1] == "a player") kind else Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.Opponent)))
         }
+        // trk chunk 01: "this land enters untapped" / "a creature enters tapped": the permanent as it entered (CR 603.6a, 603.10)
+        ENTERS_TAPPED_OR_UNTAPPED.matchEntire(text)?.let { m ->
+            val tapped = ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
+            val status = if (m.groupValues[2] == "untapped") ObjectFilter.Not(tapped) else tapped
+            return EventPattern.ZoneChange(Filters.all(subject(m.groupValues[1], self) ?: return null, status), to = Zone.Battlefield)
+        }
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             // bro chunk 07: also "is put into exile from the battlefield" (a leaves-the-battlefield trigger, CR 603.10a)
@@ -1209,6 +1215,7 @@ internal object Events {
     }
 
     private val ENTERS = Regex("""(.+) enters?""")
+    private val ENTERS_TAPPED_OR_UNTAPPED = Regex("""(.+) enters? (tapped|untapped)""")
     // gtc chunk 01
     private val AND_AT_LEAST_OTHERS_ATTACK = Regex("""(.+?) and at least (\w+) other creatures attack""")
     // blb chunk 11
@@ -1353,6 +1360,9 @@ internal object Conditions {
 
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
+        // trk chunk 03: "[you] haven't begun an extra turn this game" (CR 500.7)
+        if (text == "haven't begun an extra turn this game" || text == "you haven't begun an extra turn this game")
+            return Condition.Not(Condition.BegunExtraTurnThisGame(PlayerFilter.You))
         LtrPhrases.condition(text)?.let { return it } // ltr
         Mh2Phrases.condition(text, self)?.let { return it } // mh2
         DftPhrases.condition(text)?.let { return it } // dft

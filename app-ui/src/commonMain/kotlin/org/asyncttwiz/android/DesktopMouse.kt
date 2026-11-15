@@ -138,17 +138,15 @@ object DesktopKeyboard {
 
 /**
  * WEB-024, WEB-025 (owner, decision 31): the desktop's finger key, Alt (Shift as the fallback where a browser's Alt menu
- * gets in the way): holding it is the phone's finger down. Over a card it opens Inspect while held; a tap of it (released
- * within [tapMillis], nothing else pressed meanwhile) pins that Inspect open, until the key again (or ✕, Esc, a click
- * outside); anywhere it pauses what the view waits on (a play shown, a combat hold, playback) while held. Pure: the table
- * applies the [Effect]s.
+ * gets in the way): holding it is the phone's finger down. Over a card it opens Inspect while held, closed on release
+ * (owner playtest 2026-11-15: no pinned Inspect by a tap of it any more, "If hold-scrolling is possible I would scrap the
+ * tap-alt-to-open-with-close-button version completely"); anywhere it pauses what the view waits on (a play shown, a combat
+ * hold, playback) while held. Pure: the table applies the [Effect]s.
  */
-class DesktopFingerKey(private val tapMillis: Long = CardPeekHoldMillis) {
+class DesktopFingerKey {
     sealed interface Effect {
-        /** Open Inspect of [cardId], in its pinned look without the close button while the key is held. */
+        /** Open Inspect of [cardId], the pictures with their changes beside them, while the key is held. */
         data class Inspect(val cardId: String) : Effect
-        /** The Inspect opened by the key stays open, pinned. */
-        data object Pin : Effect
         /** Close the Inspect. */
         data object Close : Effect
         /** The finger down: the view waits ([on]) or goes on. */
@@ -156,61 +154,42 @@ class DesktopFingerKey(private val tapMillis: Long = CardPeekHoldMillis) {
     }
 
     private var down: String? = null
-    private var since = 0L
     private var card: String? = null
-    private var interrupted = false
-    private var closing = false
     /** The Shift held is part of a chord (Shift+Space): no finger any more until it is released. */
     private var chorded = false
-    /** Whether an Inspect the key opened is pinned open. */
-    var pinned: Boolean = false; private set
 
     /** Whether the finger key is held. */
     val held: Boolean get() = down != null
 
-    /** [key] pressed at [time] with the pointer over [overCard] (its card id, null elsewhere); [inspectOpen]: an Inspect
-     * shows (a pinned one closed meanwhile by ✕, Esc or a click is forgotten). */
-    fun press(key: String, time: Long, overCard: String?, inspectOpen: Boolean): List<Effect> {
-        if (down != null) { if (key != down) interrupted = true; return emptyList() }
-        if (pinned && !inspectOpen) pinned = false
-        down = key; since = time; interrupted = false
-        if (pinned) {
-            pinned = false; closing = true; card = null
-            return listOf(Effect.Close, Effect.Pause(true))
-        }
+    /** [key] pressed with the pointer over [overCard] (its card id, null elsewhere). */
+    fun press(key: String, overCard: String?): List<Effect> {
+        if (down != null) return emptyList()
+        down = key
         card = overCard
         return listOfNotNull(Effect.Pause(true), overCard?.let { Effect.Inspect(it) })
     }
 
-    /** [key] released at [time]. */
-    fun release(key: String, time: Long): List<Effect> {
+    /** [key] released: the Inspect it opened closes and the view goes on. */
+    fun release(key: String): List<Effect> {
         if (key != down) return emptyList()
         down = null
         if (chorded) { chorded = false; card = null; return emptyList() }
         val opened = card
         card = null
-        if (closing) { closing = false; return listOf(Effect.Pause(false)) }
-        if (opened == null) return listOf(Effect.Pause(false))
-        if (!interrupted && time - since < tapMillis) { pinned = true; return listOf(Effect.Pause(false), Effect.Pin) }
-        return listOf(Effect.Pause(false), Effect.Close)
+        return listOfNotNull(Effect.Pause(false), Effect.Close.takeIf { opened != null })
     }
 
-    /** Another key, a mouse button or the wheel while the finger key is held: its release is no tap. */
-    fun interrupt() { if (down != null) interrupted = true }
-
     /**
-     * WEB-031 (§6): another key pressed while the finger key is held. Alt stays the finger ([interrupt]). Shift, the fallback,
-     * becomes part of a chord (Shift+Space, Shift+G, "?"): the finger is lifted at once, so the Inspect it opened closes and
-     * the view goes on, and its release does nothing more.
+     * WEB-031 (§6): another key pressed while the finger key is held. Alt stays the finger. Shift, the fallback, becomes part
+     * of a chord (Shift+Space, Shift+G, "?"): the finger is lifted at once, so the Inspect it opened closes and the view goes
+     * on, and its release does nothing more.
      */
     fun chord(): List<Effect> {
         if (down == null) return emptyList()
-        interrupted = true
         if (down != "Shift" || chorded) return emptyList()
         chorded = true
         val opened = card != null
         card = null
-        closing = false
         return listOfNotNull(Effect.Close.takeIf { opened }, Effect.Pause(false))
     }
 }
@@ -293,8 +272,6 @@ class DesktopTableMouse(private val coordinator: TableGestureCoordinator, privat
     var hovered by mutableStateOf<TableItem?>(null); private set
     /** WEB-026: the card whose quick look shows, null when none. */
     var quickLook by mutableStateOf<TableItem?>(null); private set
-    /** Something else is pressed meanwhile (the finger key's tap is then no tap). */
-    var interrupted: () -> Unit = {}
     /** The camera was moved by the wheel or the middle button: the table's clock runs for its settling. */
     var moved: () -> Unit = {}
     /** WEB-027: the hover chips of what the pointer is over. */
@@ -326,7 +303,6 @@ class DesktopTableMouse(private val coordinator: TableGestureCoordinator, privat
     /** A button went down (any): no quick look while it is. */
     fun press() {
         pressed = true
-        interrupted()
         looking?.cancel(); looking = null
         quickLook = null
     }
@@ -343,7 +319,6 @@ class DesktopTableMouse(private val coordinator: TableGestureCoordinator, privat
 
     /** WEB-029: the wheel turned by [delta] at [at]: zooms around the pointer, or pans sideways with Shift or a sideways turn. */
     fun wheel(delta: Offset, at: TablePoint, shift: Boolean) {
-        interrupted()
         if (coordinator.pressed) return
         dismissLook()
         val sideways = if (shift) (if (delta.x != 0f) delta.x else delta.y) else delta.x

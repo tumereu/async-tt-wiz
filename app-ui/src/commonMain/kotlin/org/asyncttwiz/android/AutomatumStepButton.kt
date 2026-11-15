@@ -245,17 +245,43 @@ fun MainButtonAction(action: MainAction): Boolean {
     return true
 }
 
+/** The test tag of a desktop panel's go-on in its corner (WEB-019). */
+const val PANEL_GO_ON_TAG = "panel-go-on"
+
+/**
+ * WEB-019 (owner playtest 2026-11-15: "desktop panels should have the cast/pay/ok etc button in their corner, since the panels
+ * float in the centre and don't seem connected to the corner button"): the go-on of the open panel ([MainSlot.action]) at a
+ * desktop panel's bottom right, as the main button holds it: its words and icon, greyed (a tap shakes it, holding it says
+ * why) while it can't be done yet; a press does what a press of the main button does, which keeps working with Space and Enter.
+ */
+@Composable
+fun PanelGoOn(action: MainAction, modifier: Modifier = Modifier) {
+    val engine = LocalEngineRoutes.current
+    MainActionArrow(MainAction(action.label, action.icon, action.refusal, action.tooltip) {
+        AppLog.info("game", "Panel go-on \"${action.label}\" pressed in the panel's corner")
+        engine?.ownAction()
+        action.run()
+    }, true, modifier.width(MainButtonWidth), guard = { label ->
+        (engine?.engine?.pressTaken() ?: true).also { taken ->
+            if (!taken) AppLog.info("game", "Panel go-on: a quick second press on \"$label\" ignored")
+        }
+    }, tag = PANEL_GO_ON_TAG, keys = null)
+}
+
 /** The main button holding [action] ([MainAction]): the step arrow's look, no hold command. */
 @Composable
 fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier,
     /** TRN-063: whether a press is taken at all (false: a quick second tap, ignored before anything else). */
-    guard: ((String) -> Boolean)? = null) {
+    guard: ((String) -> Boolean)? = null,
+    /** WEB-019: a desktop panel's own copy of its go-on ([PanelGoOn]) has a tag of its own and no hotkey (Space and Enter
+     * press the main button). */
+    tag: String = "main-button", keys: ControlKeys? = LocalTableHotkeys.current?.main) {
     var shakes by remember { mutableIntStateOf(0) }
     val ink = AutomatumStepInk.copy(alpha = if (enabled && action.refusal == null) 1f else .38f)
-    ActionSquare(action.label, "", enabled, modifier.testTag("main-button").shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+    ActionSquare(action.label, "", enabled, modifier.testTag(tag).shaken(shakes).shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
         fill = Color.White, ink = ink, compactContent = true, tooltip = action.refusal ?: action.tooltip, refused = action.refusal != null,
-        gestureKey = action.label to action.refusal, keys = LocalTableHotkeys.current?.main,
+        gestureKey = action.label to action.refusal, keys = keys,
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
             label = action.label) }, onClick = { if (guard?.invoke(action.label) != false) { if (action.refusal != null) shakes++ else action.run() } })
 }

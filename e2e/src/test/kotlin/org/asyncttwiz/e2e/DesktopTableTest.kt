@@ -13,6 +13,9 @@ import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.android.DESKTOP_UNDO_TAG
 import org.asyncttwiz.android.HOTKEY_SHEET_TAG
 import org.asyncttwiz.android.HotkeyAction
+import org.asyncttwiz.android.INSPECT_LIST_TAG
+import org.asyncttwiz.android.INSPECT_SEPARATOR_TAG
+import org.asyncttwiz.android.PANEL_GO_ON_TAG
 import org.asyncttwiz.android.hotkeyRowTag
 import org.asyncttwiz.protocol.game.AssumeResolves
 import org.asyncttwiz.protocol.game.PlaySettings
@@ -86,7 +89,7 @@ class DesktopTableTest : E2e() {
             cub in alice.field("Ember Cub").map(::atw) && alice.showsOnBattlefield("Ember Cub") && alice.inOwnMain() && alice.settled(this)
         }
         assertTrue(!alice.refusalSeen, "nothing refused")
-        // WEB-024: Alt held over the Cub inspects it; released after the tap's time, the Inspect closes
+        // WEB-024: Alt held over the Cub inspects it; released, the Inspect closes
         alice.battlefieldCard("Ember Cub").performMouseInput { moveTo(center) }
         run()
         assertTrue(alice.key("Alt", true, at = 100_000), "the finger key taken")
@@ -197,27 +200,119 @@ class DesktopTableTest : E2e() {
         return minOf(green, blue) - red
     }
 
-    /** How cyan [picture] is over the middle of the card [bounds]' top edge, a tenth of its width above it: the phone's glow
-     * (4 dp around its 28 dp wide cards) reaches that far from a card of any size. */
-    private fun glowAbove(picture: android.graphics.Bitmap, bounds: androidx.compose.ui.geometry.Rect): Int =
-        cyanAt(picture, bounds.center.x, bounds.top - bounds.width * .1f)
+    /** WEB-015: the mouse on Alice's hand card [name]: it rises whole into view out of the fan, upright; its bounds then. */
+    private fun hoverInHand(name: String): androidx.compose.ui.geometry.Rect {
+        waitUntil("Alice's game settled") { alice.settled(this) }
+        alice.handCard(name).performMouseInput { moveTo(center) }
+        waitUntil("$name risen out of Alice's fan") {
+            alice.settled(this) && alice.handCard(name).fetchSemanticsNode().boundsInRoot.let { it.bottom <= 900f && it.height > it.width }
+        }
+        repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
+        return alice.handCard(name).fetchSemanticsNode().boundsInWindow
+    }
 
     // TBL-117 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
-    // are highlight?"): at Alice's Main 1 with no land out, her Mountain may be played and glows around it as on the phone,
-    // as far from the card for its size; her Ember Cub, which she can't pay for, doesn't
+    // are highlight?"), WEB-022, WEB-015: at Alice's Main 1 with no land out, her Mountain may be played and glows around it as
+    // on the phone, as far from the card for its size; her Ember Cub, which she can't pay for, doesn't. Each is looked at risen
+    // out of the fan with the mouse on it (owner playtest 2026-11-15), upright at the desktop's 5.2x
     @Test fun onlyThePlayableHandCardGlowsAsOnThePhone() {
         start()
         keep()
+        fun glow(name: String): Pair<Int, Int> {
+            val card = hoverInHand(name)
+            assertEquals(28f * 5.2f, card.width, 1f, "the desktop's hand card at 5.2x, upright: $card")
+            val picture = alice.picture()
+            val y = card.top - card.width * .1f
+            // The battlefield's own colour at the same height at the window's left, away from the cards
+            return cyanAt(picture, card.left + card.width * .1f, y) to cyanAt(picture, 20f, y)
+        }
+        val (mountain, field) = glow("Mountain")
+        assertTrue(mountain - field >= 10, "the Mountain glows: $mountain over $field")
+        val (cub, cubField) = glow("Ember Cub")
+        assertTrue(cub - cubField <= 3, "the Cub doesn't glow: $cub over $cubField")
+    }
+
+    // WEB-015, WEB-016, WEB-018, WEB-019, WEB-024, WEB-031 (owner playtest 2026-11-15): Alice's hand is a fan at the bottom of her
+    // desktop table, its cards partly below the window's bottom: the mouse on a Mountain raises it whole into view, a click
+    // keeps it up and a second plays it from the fan. Her Ember Burst's cast panel has its Cast in its bottom right corner as on
+    // the main button, which casts it. Held, Ctrl keeps her in Control mode and let go puts back her mode; with another key it
+    // is that key's chord. In her next turn her second Mountain stacks on the first: Alt over them lists both one under the
+    // other, and the wheel scrolls the list while Alt is held
+    @Test fun theHandFanPanelCornerAndHeldKeys() {
+        startGame(TestDeck.bursts(), aliceDesktop = true,
+            deal = { a, _ -> hand(a).count { it == "Mountain" } >= 2 && "Ember Burst" in hand(a) })
+        bothOpen()
+        keep()
         waitUntil("Alice's game settled") { alice.settled(this) }
-        repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
-        val mountain = alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow
-        val cub = alice.handCard("Ember Cub").fetchSemanticsNode().boundsInWindow
-        assertEquals(28f * 2.6f, mountain.width, 1f, "the desktop's hand card at 2.6×: $mountain")
-        val picture = alice.picture()
-        // The band's own colour at the same height, away from the cards
-        val band = cyanAt(picture, 20f, mountain.top - mountain.width * .1f)
-        assertTrue(glowAbove(picture, mountain) - band >= 10, "the Mountain glows: ${glowAbove(picture, mountain)} over $band at $mountain")
-        assertTrue(glowAbove(picture, cub) - band <= 3, "the Cub doesn't glow: ${glowAbove(picture, cub)} over $band at $cub")
+        val resting = alice.handCard("Mountain").fetchSemanticsNode().boundsInRoot
+        // The card's part in view (its semantics end at the window's bottom) is shorter than a card
+        assertTrue(resting.bottom >= 899f && resting.height < resting.width * 1.3f, "partly below the window's bottom: $resting")
+        val risen = hoverInHand("Mountain")
+        assertTrue(risen.top < resting.top - 40f, "risen whole into view: $resting -> $risen")
+        clickFromHand("Mountain")
+        waitUntil("the Mountain played from the fan", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        // WEB-019: the cast panel's go-on in its corner, as the main button says it
+        clickFromHand("Ember Burst")
+        waitUntil("the Burst's cast panel with Cast in its corner") {
+            alice.shows(hasContentDescription("Cast panel")) &&
+                alice.shows(hasTestTag(PANEL_GO_ON_TAG) and hasContentDescription("Cast", substring = true))
+        }
+        val panel = alice.described("Cast panel").fetchSemanticsNode().boundsInRoot
+        val corner = alice.tagged(PANEL_GO_ON_TAG).fetchSemanticsNode().boundsInRoot
+        assertTrue(kotlin.math.abs(corner.right - panel.right) < 24f && corner.top >= panel.bottom - 1f,
+            "at the panel's bottom right: $corner, $panel")
+        alice.described("One more").performMouseInput { click() }
+        waitUntil("X at 1") { alice.shows(hasContentDescription("Value 1")) && alice.settled(this) }
+        alice.pastMainGuard()
+        alice.tagged(PANEL_GO_ON_TAG).performMouseInput { click() }
+        waitUntil("Alice's target bar") { alice.showsText("Choose any target") }
+        alice.described("${bob.name}, life 20", substring = true).performMouseInput { click() }
+        waitUntil("the Burst dealing 1 to Bob", along = listOf(bob)) {
+            alice.state.player(bob.me).life == 19 && alice.inOwnMain() && alice.settled(this)
+        }
+        // WEB-031: Ctrl held is Control mode until it is let go; Ctrl with another key is that key's chord
+        val mode = { alice.game?.shown?.settings?.mode }
+        val own = mode()
+        assertTrue(own != null && own != ResponseMode.FullControl, "Alice not in Control to begin with: $own")
+        alice.key("Control", true, ctrl = true)
+        repeat(2) { run(skip = java.time.Duration.ofMillis(300)) }
+        waitUntil("Control while Ctrl is held") {
+            mode() == ResponseMode.FullControl && alice.shows(hasContentDescription("Response mode") and
+                androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Control"))
+        }
+        alice.key("Control", false)
+        waitUntil("back to her mode once let go") { mode() == own }
+        alice.key("Control", true, ctrl = true)
+        alice.key("k", true, ctrl = true)
+        alice.key("k", false, ctrl = true)
+        repeat(2) { run(skip = java.time.Duration.ofMillis(300)) }
+        alice.key("Control", false)
+        run()
+        assertEquals(own, mode(), "Ctrl+K is a chord, never Control mode")
+        // WEB-024: the next turn her second Mountain stacks on the first; Alt held over them lists both, the wheel scrolls them
+        alice.pastMainGuard()
+        alice.pressKey(" ", shift = true)
+        waitUntil("Alice's next Main 1", along = listOf(bob)) { alice.state.turn.number >= 3 && alice.inOwnMain() }
+        clickFromHand("Mountain")
+        waitUntil("two Mountains on Alice's battlefield", along = listOf(bob)) {
+            alice.field("Mountain").size == 2 && alice.inOwnMain() && alice.settled(this)
+        }
+        alice.battlefieldCard("Mountain").performMouseInput { moveTo(center) }
+        run()
+        assertTrue(alice.key("Alt", true), "the finger key taken")
+        waitUntil("both Mountains inspected, one under the other") {
+            alice.shows(hasTestTag(INSPECT_LIST_TAG)) && alice.shows(hasTestTag(INSPECT_SEPARATOR_TAG))
+        }
+        val line = alice.tagged(INSPECT_SEPARATOR_TAG).fetchSemanticsNode().boundsInRoot
+        assertTrue(line.width > line.height, "a line across between them: $line")
+        alice.tagged(INSPECT_LIST_TAG).performMouseInput { scroll(3f) }
+        run()
+        val scrolled = alice.tagged(INSPECT_SEPARATOR_TAG).fetchSemanticsNode().boundsInRoot
+        assertTrue(scrolled.top < line.top - 50f, "the wheel scrolled the list while Alt is held: $line -> $scrolled")
+        alice.key("Alt", false)
+        waitUntil("the Inspect closed with Alt let go") { !alice.shows(hasTestTag("card-inspection")) }
+        assertTrue(!alice.refusalSeen, "nothing refused")
+        assertEquals(emptyList(), alice.leaks.leaks)
     }
 
     // WEB-035, WEB-033, WEB-034: from the list of keys Alice opens Settings and gives the main button N; the server keeps it

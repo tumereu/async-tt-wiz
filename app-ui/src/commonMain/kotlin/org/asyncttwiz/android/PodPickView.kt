@@ -127,13 +127,10 @@ fun PodPickView(
             inspected = copy
         } else if (inspected == copy) inspected = null
     }
-    // WEB-024, WEB-031 (desktop layout): the card under the pointer: holding Alt (Shift too) inspects it, a tap of Alt pins it
-    // (Alt again or Esc closes it); K / B / U keep, burn or unmark it
+    // WEB-024, WEB-031 (desktop layout): the card under the pointer: holding Alt (Shift too) inspects it while held (owner
+    // playtest 2026-11-15: no pinned Inspect by a tap of Alt); K / B / U keep, burn or unmark it
     val desktop = LocalAppLayout.current == AppLayout.Desktop
     val fingerKey = remember { DesktopFingerKey() }
-    var pinned by remember(pack.id) { mutableStateOf(false) }
-    if (inspected == null && pinned) pinned = false
-    BackHandler(enabled = desktop && pinned) { AppLog.info("pod", "Pinned Inspect closed by Esc"); inspected = null }
     val bindings = currentKeyBindings()
     val confirm: () -> Unit = {
         if (rules.canConfirm(marks, busy)) {
@@ -155,7 +152,6 @@ fun PodPickView(
             if (effects.isNotEmpty()) AppLog.info("pod", "Finger key ${key.key} ${if (key.down) "down" else "up"}${hovered?.let { " over $it" }.orEmpty()}: ${effects.joinToString()}")
             for (effect in effects) when (effect) {
                 is DesktopFingerKey.Effect.Inspect -> copies[effect.cardId]?.let { inspect(it, true) }
-                DesktopFingerKey.Effect.Pin -> pinned = true
                 DesktopFingerKey.Effect.Close -> inspected = null
                 is DesktopFingerKey.Effect.Pause -> Unit
             }
@@ -163,7 +159,7 @@ fun PodPickView(
         if (key.key == "Alt" || key.key == "Shift") {
             if (key.repeat) return@Listen fingerKey.held
             if (key.down && key.textField) return@Listen false
-            val effects = if (key.down) fingerKey.press(key.key, key.time, hovered, inspected != null) else fingerKey.release(key.key, key.time)
+            val effects = if (key.down) fingerKey.press(key.key, hovered) else fingerKey.release(key.key)
             apply(effects)
             return@Listen effects.isNotEmpty() || fingerKey.held
         }

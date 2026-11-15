@@ -127,16 +127,50 @@ class DesktopHotkeysTest {
     // the view goes on, its release does nothing more; Alt with another key stays the finger
     @Test fun shiftWithAnotherKeyIsAChordNotTheFinger() {
         val key = DesktopFingerKey()
-        assertEquals(listOf(Effect.Pause(true), Effect.Inspect("c1")), key.press("Shift", 0, "c1", inspectOpen = false))
+        assertEquals(listOf(Effect.Pause(true), Effect.Inspect("c1")), key.press("Shift", "c1"))
         assertEquals(listOf(Effect.Close, Effect.Pause(false)), key.chord())
         assertEquals(emptyList(), key.chord(), "once")
-        assertEquals(emptyList(), key.release("Shift", 50), "a quick release pins nothing")
-        assertFalse(key.pinned)
-        key.press("Shift", 1_000, null, inspectOpen = false)
+        assertEquals(emptyList(), key.release("Shift"), "its release does nothing more")
+        key.press("Shift", null)
         assertEquals(listOf(Effect.Pause(false)), key.chord(), "over nothing: only the pause ends")
-        key.release("Shift", 1_200)
-        key.press("Alt", 2_000, "c1", inspectOpen = false)
+        key.release("Shift")
+        key.press("Alt", "c1")
         assertEquals(emptyList(), key.chord(), "Alt stays the finger")
-        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt", 2_050), "but its release is no tap")
+        assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt"))
+    }
+
+    // WEB-031, WEB-035 (owner playtest 2026-11-15): the hold key for Control mode: Ctrl (or ⌘) alone, or a key without
+    // modifiers; Ctrl with another key is that key's chord, never the hold key; it is listed with the table's hotkeys,
+    // rebindable, its default Ctrl
+    @Test fun theHoldKeyIsCtrlAloneOrAPlainKey() {
+        assertEquals(KeyChord("Control"), KeyChord.holdOf(DesktopKey("Control", true, 0, ctrl = true)))
+        assertEquals(KeyChord("Meta"), KeyChord.holdOf(DesktopKey("Meta", true, 0, meta = true)))
+        assertEquals(KeyChord("Q"), KeyChord.holdOf(DesktopKey("q", true, 0)))
+        assertEquals(null, KeyChord.holdOf(DesktopKey("z", true, 0, ctrl = true)), "Ctrl+Z is Undo's chord")
+        assertEquals(null, KeyChord.holdOf(DesktopKey("Alt", true, 0, alt = true)), "Alt is the finger key")
+        assertEquals(KeyChord("Control"), KeyBindings().keyOf(HotkeyAction.ControlHold))
+        assertEquals("Ctrl", KeyChord("Control").label)
+        assertTrue(HotkeyAction.ControlHold.hold && HotkeyAction.ControlHold in HotkeyAction.all)
+        val bound = KeyBindings().bind(HotkeyAction.ControlHold, KeyChord("M"))
+        assertEquals(HotkeyAction.Mode, bound.took, "one key per hotkey")
+        assertEquals(KeyChord("M"), bound.bindings.keyOf(HotkeyAction.ControlHold))
+    }
+
+    // WEB-031: held alone past its delay the hold begins (Control mode) and its release ends it, back to what it was; let go
+    // sooner, or with another key pressed meanwhile (a chord), nothing begins
+    @Test fun theHoldKeyBeginsAfterItsDelayAndEndsOnRelease() = kotlinx.coroutines.runBlocking {
+        val log = mutableListOf<String>()
+        val slow = HoldKey(this, { name -> log += "begin $name"; "Normal" }, { was, why -> log += "end $was $why" }, delayMillis = 60_000)
+        slow.press("Control")
+        kotlinx.coroutines.yield()
+        slow.release("Z pressed with it")
+        assertEquals(emptyList(), log, "a chord before the delay changes nothing")
+        val hold = HoldKey(this, { name -> log += "begin $name"; "Normal" }, { was, why -> log += "end $was $why" }, delayMillis = 0)
+        hold.press("Control")
+        kotlinx.coroutines.yield()
+        assertTrue(hold.holding)
+        hold.release("let go")
+        assertEquals(listOf("begin Control", "end Normal let go"), log)
+        assertFalse(hold.held)
     }
 }

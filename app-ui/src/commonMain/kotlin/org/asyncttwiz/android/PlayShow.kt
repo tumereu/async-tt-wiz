@@ -109,6 +109,11 @@ object PlayShows {
 /** HIS-112: the shown card's height: about half the board's, at most this. */
 private const val PLAY_SHOW_MAX_HEIGHT = 300f
 
+/** HIS-112, WEB-015 (owner playtest 2026-11-15): on the desktop table the shown card is this much larger, at most this share of
+ * the battlefields' height above what floats over their bottom, so its line fits under it. */
+private const val DESKTOP_PLAY_SHOW = 1.5f
+private const val DESKTOP_PLAY_SHOW_SHARE = .74f
+
 /** HIS-112 (owner playtest 2026-11-07): the flight to the Stack at Card move speed 1×. */
 const val PLAY_SHOW_FLIGHT_MILLIS = 250
 
@@ -302,7 +307,8 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     pace: PlayShowPace = remember { PlayShowPace() },
     /** Whether the table is ready for these plays (read as snapshot state). */
     ready: () -> Boolean = { true }, done: (GameDevice.PlayShow) -> Unit) {
-    val board = scene.world?.visibleViewport ?: return
+    // WEB-015: on the desktop table the battlefields above what floats over their bottom
+    val board = scene.boardArea ?: return
     val first = shows.firstOrNull() ?: return
     // Fixed for the group's life: what shows, where each flies from and to (the table as it is when they begin)
     val group = remember(first) { shows.toList() }
@@ -311,7 +317,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     fun looksNow(): PlayShowLooks {
         val p = currentPlay
         val s = currentScene
-        val area = s.world?.visibleViewport ?: board
+        val area = s.boardArea ?: board
         return PlayShowLooks(group.map { PlayShows.of(p, it, viewer, names) }, group.map { playShowStart(area, playShowSource(s, p, it)) })
     }
     // Made as they begin: at once when the table is ready for them, else once it is
@@ -321,7 +327,10 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     // Where this overlay's board lies on the screen (root dp), for the dock's place
     val boxOrigin = remember(first) { FloatArray(2) }
     val multiplier by rememberCardMovePreferences(viewer).multiplierState()
-    val height = minOf(board.height * .46f, PLAY_SHOW_MAX_HEIGHT)
+    // HIS-112, WEB-015 (owner playtest 2026-11-15: "could be a little bit bigger than it is now on desktop"): about 1.5× on the
+    // desktop table, its line still under it on the battlefields
+    val height = if (scene.desktop) minOf(board.height * DESKTOP_PLAY_SHOW_SHARE, PLAY_SHOW_MAX_HEIGHT * DESKTOP_PLAY_SHOW)
+        else minOf(board.height * .46f, PLAY_SHOW_MAX_HEIGHT)
     val width = height / 1.4f
     val arrive = remember(first) { group.map { Animatable(0f) } }
     val leave = remember(first) { group.map { Animatable(0f) } }

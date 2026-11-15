@@ -219,6 +219,11 @@ internal object Steps {
         val previous = s.turn.active
         val previousTurn = s.turn.number
         recorder.record(Changes.step(s, turn, listOf(Meaning.TurnBegan, Meaning.StepBegan)))
+        // trk: "haven't begun an extra turn this game" (CR 500.7): the extra turn counts as begun with its untap step
+        if (extra != null) {
+            val before = s.ledgers[next]?.get(arcanum.engine.query.Evaluator.EXTRA_TURN_BEGUN) ?: 0
+            recorder.record(Change.Ledger(next, arcanum.engine.query.Evaluator.EXTRA_TURN_BEGUN, before, before + 1))
+        }
         // CR 502.2, 732.2: the untap step checks whether day becomes night or night becomes day
         DayNight.untapCheck(recorder, previous, previousTurn)
         // Their effects lasting until their next turn, or until a point in it, end as that turn would have begun

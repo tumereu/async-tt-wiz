@@ -146,10 +146,15 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         toolkit?.hoveredAbility = null
     } }
     val mouse = remember(coordinator) { DesktopTableMouse(coordinator, { p -> presentation?.invoke()?.hit(p) }, mouseScope) }
+    // WEB-015 (owner playtest 2026-11-15): the viewer's hand card the mouse is on, which rises out of the fan, and stays up while
+    // the pointer is on its chips (WEB-027) (read so only a change of it rebuilds the scene, not every item the pointer passes)
+    val handHover by remember(mouse, desktopHover, accountId) { derivedStateOf {
+        mouse.hovered?.takeIf { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == accountId }?.cardId
+            ?: (desktopHover.target as? HoverTarget.Hand)?.cardId
+    } }
     SideEffect {
         coordinator.holdInspects = desktopFrame == null
         mouse.hoverChips = desktopHover
-        mouse.interrupted = { fingerKey.interrupt() }
         mouse.moved = { clockEpoch++; preview = coordinator.preview }
         mouse.quickLookAllowed = { toolkit?.peek == null && toolkit?.popupItem == null }
         // WEB-031: F zooms to fit, as a double click on the empty battlefield does
@@ -178,7 +183,6 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         for (effect in effects) when (effect) {
             is DesktopFingerKey.Effect.Pause -> currentViewPause?.key = effect.on
             is DesktopFingerKey.Effect.Inspect -> keyInspect(effect.cardId)
-            DesktopFingerKey.Effect.Pin -> peekSwipe.pinByKey()
             DesktopFingerKey.Effect.Close -> { peekSwipe.begin(); toolkit?.peek(null) }
         }
     }
@@ -197,7 +201,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         // the play shown first, which lies over the table
         val card = fingerTargets.hovered ?: mouse.hovered?.let { item ->
             item.cardId ?: item.cards.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND } }
-        val effects = if (key.down) fingerKey.press(key.key, key.time, card, toolkit?.peek != null) else fingerKey.release(key.key, key.time)
+        val effects = if (key.down) fingerKey.press(key.key, card) else fingerKey.release(key.key)
         if (effects.isNotEmpty()) AppLog.info("table", "Finger key ${key.key} ${if (key.down) "down" else "up"}${card?.let { " over $it" }.orEmpty()}: " +
             effects.joinToString { it.toString() })
         applyFinger(effects)
@@ -271,7 +275,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         // WEB-015: the desktop table (the desktop layout's frame), drawn as landscape with its own arrangement
         val desktop = LocalDesktopFrame.current
         val desktopGeometry = desktop?.let { DesktopGeometry(maxWidth.value, maxHeight.value, (maxWidth.value - it.dockWidth).coerceAtLeast(1f),
-            DesktopTable.band(cardAppearance, runtime.timelineOpen)) }
+            DesktopTable.band(runtime.timelineOpen)) }
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
         val computed = LocalComputedBoard.current
         // CMB-028: the viewer declares attackers: the band's lanes keep room for the next
@@ -280,7 +284,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         // STK-024: what pays the open payment lies in its own pile, to the right of its stack
         val paying = if (runtime.reviewing) emptySet() else toolkit?.paySources().orEmpty()
         val shownLayout = layoutShown.value
-        val laid = if (paying.isEmpty()) shownLayout else shownLayout.copy(paying = paying)
+        // WEB-015 (owner playtest 2026-11-15): on the desktop table the hand card the mouse is on rises out of the fan
+        val laid = (if (paying.isEmpty()) shownLayout else shownLayout.copy(paying = paying))
+            .let { if (desktop != null && handHover != it.hovered) it.copy(hovered = handHover) else it }
         // ZON-079 (owner, 2026-11-12): your cards from other zones a permission lets you cast or play, at your hand row's end
         // (worked out with the board; the engine's own casts from elsewhere join them once worked out)
         val cachedPlays = AutomatumBoards.cachedHandPlays(play, accountId)
@@ -324,8 +330,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val frameRevision = remember(animation) { mutableIntStateOf(0) }
         SideEffect { animation.updateMetadata(targetScene) }
         // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card, opening or closing a battlefield group
-        // (TBL-122) and a source joining or leaving a payment's pile (STK-024) are the only layout changes that animate, at the
-        // card move speed; any other layout change (camera, panels) or a new size jumps ([LaidBefore])
+        // (TBL-122), a source joining or leaving a payment's pile (STK-024) and the desktop hand card the mouse is on rising
+        // (WEB-015) are the only layout changes that animate, at the card move speed; any other layout change (camera, panels)
+        // or a new size jumps ([LaidBefore])
         val currentSceneNow by rememberUpdatedState(sceneNow)
         val laidBefore = remember(animation) { LaidBefore(Snapshot.withoutReadObservation { sceneNow.value }) }
         LaunchedEffect(animation, play.nodeId, runtime.sceneVersion) {
@@ -487,14 +494,13 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
             val pressGlow = rememberPressGlow(pressedId)
             if (desktopGeometry != null) {
-                // WEB-016: each seat header in its player's colour across its battlefield; WEB-018: the bottom band, your hand
-                // and the action area, in the bars' colour
-                for (port in scene.viewports.filter { it.id.startsWith("dock/") && it.id.count { c -> c == '/' } == 1 }) {
+                // WEB-016: the other player's seat header in their colour across their battlefield (yours, the action area and
+                // the timeline strip float over the battlefields' bottom, drawn with the table: [TableScene.floats])
+                for (port in scene.viewports.filter { it.id.startsWith("dock/") && it.id.count { c -> c == '/' } == 1 && it.id != "dock/$accountId" }) {
                     val owner = port.id.substringAfter("dock/")
                     Box(Modifier.offset(0.dp, port.bounds.y.dp).size(desktopGeometry.tableRight.dp, DesktopTable.SEAT.dp)
                         .background(seatHeaderColor(owner, accountId, runtime.reviewing)))
                 }
-                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(desktopGeometry.band.dp).then(bars))
             } else {
             Box(Modifier.fillMaxWidth().height(48.dp).then(bars))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape, runtime.timelineOpen).dp)
@@ -681,7 +687,8 @@ private class LaidBefore(private var before: LaidScene) {
         val was = before
         before = now
         val raiseOnly = was.laid != now.laid &&
-            was.laid.copy(raised = now.laid.raised, expandedGroup = now.laid.expandedGroup, paying = now.laid.paying) == now.laid
+            was.laid.copy(raised = now.laid.raised, expandedGroup = now.laid.expandedGroup, paying = now.laid.paying,
+                hovered = now.laid.hovered) == now.laid
         val navigation = was.laid != now.laid && !raiseOnly || was.size != now.size
         val cameraOnly = was.inputs === now.inputs && was.size == now.size && was.laid.copy(camera = now.laid.camera) == now.laid
         return SceneStep(now, navigation, raiseOnly, cameraOnly)

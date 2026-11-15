@@ -765,6 +765,35 @@ fun EngineTableRoutes.nextResponseMode(): Boolean {
     return true
 }
 
+/**
+ * WEB-031 (owner playtest 2026-11-15: "hold control to stay in control mode until you release it, returning to your current
+ * mode"): while the hold key is held the response mode is Control, as the quick actions' mode cell then shows: the mode it
+ * had before (kept by [HoldKey]; null when it already was Control, so its release changes nothing).
+ */
+fun EngineTableRoutes.holdControl(key: String): ResponseMode? {
+    val game = engine ?: return null
+    val settings = game.shown?.settings ?: return null
+    if (settings.mode == ResponseMode.FullControl) {
+        AppLog.info("game", "Response mode held in Control by $key: already Control")
+        return null
+    }
+    AppLog.info("game", "Response mode held in Control by $key: ${settings.mode.label()} -> Control until it is released")
+    game.settings(settings.copy(mode = ResponseMode.FullControl)); pump()
+    return settings.mode
+}
+
+/** WEB-031: the hold key let go ([why]): the response mode goes back to [previous], unless it was changed meanwhile. */
+fun EngineTableRoutes.releaseControl(previous: ResponseMode, why: String) {
+    val game = engine ?: return
+    val settings = game.shown?.settings ?: return
+    if (settings.mode != ResponseMode.FullControl) {
+        AppLog.info("game", "Response mode hold ended ($why): changed meanwhile to ${settings.mode.label()}, kept")
+        return
+    }
+    AppLog.info("game", "Response mode hold ended ($why): Control -> ${previous.label()}")
+    game.settings(settings.copy(mode = previous)); pump()
+}
+
 /** TRN-059: what holding the greyed Assume resolves cell says in catch-up playback, where the device assumes nothing. */
 fun assumeIdleReason(assume: AssumeResolves): String = "Assume resolves: ${assume.label()}. Not used while you catch up on " +
     "moves already made; it works again once you're caught up."

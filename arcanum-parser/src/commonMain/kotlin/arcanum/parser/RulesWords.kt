@@ -627,6 +627,13 @@ internal object RulesWords {
         "starscourge", "summon", "super nova", "take 59 flights of stairs", "take the elevator", "the allagan eye", "the minstrel's ballad",
         "thundaga", "thundara", "thunder", "time compression", "trance", "triple", "two-headed coin", "ultimate end", "ultimate jecht shot",
         "wark", "wave cannon", "wings of light", "zantetsuken",
+        // trk
+        "power to engines", "power to life support",
+        "abandon ship", "alter the past", "battle stations", "begin negotiations", "come in peace", "destroy the relic",
+        "follow the 3rd rule", "follow the 98th rule", "hail", "i am klingon", "i am starfleet", "interfere", "kill",
+        "obliterate the transwarp network", "observe", "of the obsidian order", "plain, simple garak", "remain fused",
+        "repair the timeline", "rewrite the past", "sensors", "shaka, when the walls fell", "shoot to kill", "stun",
+        "cloaking device", "surgical separation", "temba, his arms wide", "transport", "use the relic",
         // one: ONE's ability word, not in the pinned CR 207.2c list
         "corrupted",
     )

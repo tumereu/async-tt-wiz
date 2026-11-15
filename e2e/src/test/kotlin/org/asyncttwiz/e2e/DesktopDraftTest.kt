@@ -70,7 +70,7 @@ class DesktopDraftTest : E2e() {
         assertTrue(ServerSetup.pod(alice.account, pod).draft?.pool.orEmpty().none { it.id == clicked || it.id == burned }, "only the kept card")
     }
 
-    // WEB-060, DRF-118 (owner playtest 2026-11-15): Alice's Stats keeps a readable width in two columns, the curve and the
+    // WEB-061, DRF-118 (owner playtest 2026-11-15): Alice's Stats keeps a readable width in two columns, the curve and the
     // mana table left, the donut, notes and counters right, where she writes a note and raises a counter
     @Test fun statsInTwoColumnsWithNotes() {
         launchPlayers(aliceDesktop = true)

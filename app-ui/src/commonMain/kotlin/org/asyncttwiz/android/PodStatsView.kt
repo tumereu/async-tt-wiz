@@ -90,7 +90,7 @@ fun PodStatsView(
             PodStatsColors(stats, Modifier.widthIn(max = 240.dp).fillMaxWidth())
         }
     }
-    // WEB-060 (owner playtest 2026-11-15): on the desktop layout Stats keeps Settings' readable width at the left of its room
+    // WEB-061 (owner playtest 2026-11-15): on the desktop layout Stats keeps Settings' readable width at the left of its room
     val desktop = desktopLayout()
     Box(modifier.fillMaxSize()) {
         BoxWithConstraints((if (desktop) Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth) else Modifier).fillMaxSize()) {
@@ -99,7 +99,7 @@ fun PodStatsView(
             LaunchedEffect(desktop, columns) {
                 if (desktop) AppLog.info("pod", "Stats on the desktop layout: ${if (columns) "two columns" else "one column"} at ${maxWidth.value.roundToInt()} wide")
             }
-            // WEB-060: the deck's numbers on the left (the curve with its toggle, the counts, the type rows, pips and sources), the
+            // WEB-061: the deck's numbers on the left (the curve with its toggle, the counts, the type rows, pips and sources), the
             // colours donut, notes and counters on the right
             if (columns) Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("pod-stats").padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(32.dp)) {
@@ -132,7 +132,7 @@ fun PodStatsView(
     }
 }
 
-/** WEB-060: the narrowest room in which the desktop layout's Stats lies in two columns (Settings' own, WEB-043). */
+/** WEB-061: the narrowest room in which the desktop layout's Stats lies in two columns (Settings' own, WEB-043). */
 val PodStatsDesktopColumnsWidth = 720.dp
 
 /** The Stats chips' look: the type counts and the pip counts (DRF-113, DRF-116). */

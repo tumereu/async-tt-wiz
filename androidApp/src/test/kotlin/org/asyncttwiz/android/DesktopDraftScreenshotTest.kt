@@ -158,7 +158,7 @@ class DesktopDraftScreenshotTest {
             draft = DraftPrivateView("alice", null, 0, main + copy(16)), build = build)
     }
 
-    // WEB-060, DRF-111, DRF-114, DRF-117, DRF-118 (owner playtest 2026-11-15): the pod's Stats on the desktop layout keeps
+    // WEB-061, DRF-111, DRF-114, DRF-117, DRF-118 (owner playtest 2026-11-15): the pod's Stats on the desktop layout keeps
     // Settings' readable width, the deck's numbers in the left column and the colours, notes and counters in the right
     @Test fun stats() {
         val detail = statsDetail()
@@ -182,7 +182,7 @@ class DesktopDraftScreenshotTest {
             "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the colours donut, notes and tally counters in the right.")
     }
 
-    // WEB-060: a desktop window too narrow for two columns shows Stats in one, as the phone does
+    // WEB-061: a desktop window too narrow for two columns shows Stats in one, as the phone does
     @Test @Config(qualifiers = "w700dp-h500dp-land-mdpi") fun statsNarrow() {
         val detail = statsDetail()
         show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.STATS))

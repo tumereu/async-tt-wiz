@@ -84,6 +84,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - Automatic answers (owner wishlist, 2026-11-12): remembered answers to "you may" choices (always yes / always no per ability), perhaps for other repeated choices too, like the remembered trigger orders below.
 
 - Remembered trigger orders (owner, 2026-11-06): conveniences like "always resolve these triggers in this order".
-- Play your first turn while the opponent is still deciding on mulligans, without rollbacks when they mulligan, as long as what you did comes out the same on top of their real opening (owner, 2026-11-05; replaces the dropped assumed keep). Not high priority. Spec draft for the owner's review: `docs/specs/first-turn-during-mulligans.md` (2026-11-08).
+- Play your first turn while the opponent is still deciding on mulligans, without rollbacks when they mulligan, as long as what you did comes out the same on top of their real opening (owner, 2026-11-05; replaces the dropped assumed keep). Not high priority. Spec approved 2026-11-15: `docs/specs/first-turn-during-mulligans.md` (queued after the 2026-11-15 playtest fixes).
 
 - Choose a card's printing (art) in decks and cubes.

@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 121
+    const val VERSION: Int = 122
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -35,7 +35,8 @@ object OracleParser {
     val subtypes: Set<String> get() = RulesWords.subtypes
 
     /** Parses a whole face: its printed characteristics and its rules text. */
-    fun parse(card: OracleCard): FaceDefinition {
+    fun parse(printed: OracleCard): FaceDefinition {
+        val card = printed.copy(text = joinBrokenReminders(printed.text))
         val face = characteristics(card)
         // CR 309.4: a dungeon card's text is its rooms
         if (arcanum.api.CardType.Dungeon in face.types) {
@@ -864,6 +865,18 @@ object OracleParser {
     private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: that hasn't been chosen)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
+    /** trk chunk 11: a reminder text broken over two lines ("(As this Saga enters and after your draw" / "step, add a lore counter. …)") is one
+     * line, so the parenthesis is read as reminder text. */
+    private fun joinBrokenReminders(text: String): String {
+        if ('(' !in text) return text
+        val out = mutableListOf<String>()
+        for (line in text.split('\n')) {
+            val last = out.lastOrNull()
+            if (last != null && last.count { it == '(' } > last.count { it == ')' }) out[out.size - 1] = "$last $line" else out += line
+        }
+        return out.joinToString("\n")
+    }
+
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")

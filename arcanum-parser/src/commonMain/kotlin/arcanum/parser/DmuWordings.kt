@@ -43,7 +43,8 @@ internal object Dmu {
     val SPEND_ONLY_OR_KICKED = Regex("""cast (?:an? )?(.+?) spell or a kicked spell""")
     val PUT_IT_ON_BOTTOM = Regex("""(You may p|P)ut (?:it|that card) on the bottom of your library\.""")
     val DIDNT_PUT_ONTO_BATTLEFIELD = Regex("""If you didn't put a card onto the battlefield this way, (.+)\.""")
-    val PUT_A_CARD_FROM_AMONG_REST = Regex("""Put an? (.+?) from among them into your hand and the rest on the bottom of your library in a random order\.""")
+    // trk chunk 11: also "onto the battlefield tapped and the rest into your graveyard"
+    val PUT_A_CARD_FROM_AMONG_REST = Regex("""Put an? (.+?) from among them (into your hand|onto the battlefield( tapped)?) and the rest (on the bottom of your library in a random order|into your graveyard)\.""")
     val MAY_PUT_FROM_A_GRAVEYARD_UNDER_YOUR_CONTROL = Regex("""[Yy]ou may put an? (.+?) from a graveyard onto the battlefield( tapped)? under your control\.""")
     val IF_SELF_IS_A = Regex("""If (.+?) is an? ([A-Z]\w+), (.+)\.""")
     val YOU_MAY_SACRIFICE_IF_YOU_DO = Regex("""You may sacrifice (an? .+?)\. If you do, (.+)""")

@@ -958,21 +958,29 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             if (field === value) return
             field = value
             val r = remote
-            if (r != null) r.tokenArtSet() else worker.run { forgetPlainTokens(); publish() }
+            if (r != null) r.tokenArtSet() else worker.run { artWaiting = !value.ready(); forgetPlainTokens(); publish() }
         }
     private val pictures = HashMap<arcanum.engine.state.ObjectId, org.asyncttwiz.protocol.SubmittedDefinition>()
+
+    /** Whether [tokenArt] had no card records to look in when last asked ([TokenArt.ready]): the engine's ticks ask again
+     * until it has ([tick]). Engine thread. */
+    private var artWaiting = false
 
     /**
      * Owner, desktop playtest 2026-11-15 (problem report VSVLSK, SYS-072): the tokens kept in [pictures] with the plain frame
      * are looked up again with the new [tokenArt]. In the browser the worker's lookups are answered by the page later: a
      * token first projected while its lookup was on its way was kept with the plain frame and stayed blank once the picture
-     * was found. Those with a picture keep it. Engine thread.
+     * was found. On the phone a token drawn before the card records were installed got its picture only when the game was
+     * opened again ([artWaiting]). Those with a picture keep it. Whether any was forgotten. Engine thread.
      */
-    private fun forgetPlainTokens() {
+    private fun forgetPlainTokens(): Boolean {
         val plain = pictures.filterValues { it.definition.faces.singleOrNull()?.scryfallId == null }.keys
-        if (plain.isEmpty()) return
+        if (plain.isEmpty()) return false
         pictures.keys.removeAll(plain)
+        // The board built last drew them plain: projected anew
+        built = null
         AppLog.info("automatum", "Token pictures of ${gameId.take(8)}: ${plain.size} tokens drawn with the plain frame looked up again")
+        return true
     }
 
     /** The player's own staging of a declaration made behind the head (at a decision stop in playback: their lanes and
@@ -1214,14 +1222,24 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The time [now]; makes the device's own steps (passes, assumptions). The other player's presence never decides
      * an assumption (HIS-096). */
-    fun tick(now: Long) = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Tick(it, now) } ?: worker.run {
+    fun tick(now: Long) = remote?.let { r ->
+        // The page's card records arrived: the worker's token picture lookups that waited for them are answered
+        r.tokenArtSet()
+        r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Tick(it, now) }
+    } ?: worker.run {
         this.now = now
         val before = device.status
         val tip = device.session.tip
         val request = device.request
         device.advance(now)
         val drained = device.notes()
-        if (device.status != before || device.session.tip != tip || device.request != request || drained.isNotEmpty()) publish(drained)
+        // SYS-072: the card records arrived after tokens were drawn without them: those are drawn with their pictures now
+        val pictured = artWaiting && tokenArt.ready() && run {
+            artWaiting = false
+            AppLog.info("automatum", "Token pictures of ${gameId.take(8)}: the card records are here")
+            forgetPlainTokens()
+        }
+        if (pictured || device.status != before || device.session.tip != tip || device.request != request || drained.isNotEmpty()) publish(drained)
     }
 
     /** TRN-057 (reports P2XUER, 3WWPA8): a press of the main button on [board], which says [label], into the app log (main

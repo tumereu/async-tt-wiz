@@ -1150,6 +1150,24 @@ class GameDevice(
     /** [ownStepHeld] at its point, worked out last. */
     private var stepHeldAt: Pair<PointKey, Boolean>? = null
 
+    /**
+     * TRN-063, STK-029, SYS-025 (owner, 2026-11-16): at the player's own action's performed point ([act]'s performed: its
+     * event still open), whether the first thing folded into it next ([fold]) is a pass of theirs: by their response mode,
+     * an End turn going on, or one they can't avoid. The action's own board, shown there before that pass is made, then
+     * holds no press on the main button (it said "Resolve" for a few ms before the device passed by itself). The pass check
+     * it may need is the one [fold] reads right after (kept with the state); after the player's own spell or ability their
+     * mode's pass needs none.
+     */
+    fun ownPassFollows(): Boolean {
+        val s = model.engine
+        if (Engine.result(s) != null || s.pending?.decision != null) return false
+        val holder = s.priority.holder ?: return false
+        if (Host.decider(s, holder) != me) return false
+        if (endTurn == s.turn.number) return true
+        val check by lazy { model.passCheck(holder) }
+        return Stops.passes(settings.mode, s, holder) { check.ownSkipOn } || (check.asSet && !Stops.stop(s, holder))
+    }
+
     /** [automaticStep] worked out: whether the device made its own step at the head. */
     private fun decideStep(): Boolean {
         val s = model.engine

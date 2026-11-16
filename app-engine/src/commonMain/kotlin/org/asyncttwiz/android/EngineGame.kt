@@ -212,7 +212,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
          * none while a reveal panel is open): the table shows the next play the moment the one before lands. */
         val moments: List<GameDevice.ViewMoment> = emptyList(),
         /** TRN-063, STK-029 (owner playtest 2026-11-12): a play shown or a combat's hold is all that keeps the device from a
-         * step of the player's own it makes by itself ([GameDevice.ownStepHeld]): the main button shows no press meanwhile. */
+         * step of the player's own it makes by itself ([GameDevice.ownStepHeld]): the main button shows no press meanwhile. On an
+         * own action's early board ([ownActionShown]) also when the device folds the player's own pass in next
+         * ([GameDevice.ownPassFollows], owner 2026-11-16). */
         val ownStepHeld: Boolean = false,
         /** HIS-112 (owner playtest 2026-11-15, report VSVLSK): on an own action's early board ([ownActionShown]), the plays its
          * event will show that aren't open yet (the player's own triggers its action put on the Stack): their entries stay
@@ -568,12 +570,18 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val engine = play.engine?.state ?: return null.also {
             Faults.report("EngineGame", "preview board without engine state", mapOf("game" to gameId, "node" to last.board.nodeId))
         }
+        // TRN-063, STK-029 (owner, 2026-11-16): when the player's own pass is what the device folds in next (their mode's,
+        // after their own cast in Normal or Quick), the main button holds no press on this board: it said "Resolve" here
+        // for a few ms before the device passed by itself
+        val passFollows = last.status == GameDevice.Status.YourMove && device.ownPassFollows()
+        if (passFollows) AppLog.info("game", "Own action's early board: the main button holds no press, the player's own pass follows by itself " +
+            "(${device.settings.mode::class.simpleName}, stack ${engine.stack.size})")
         // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
             last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt, moments = last.moments,
-            ownStepHeld = last.ownStepHeld, coming = comingShows(last.moments), engine = engine)
+            ownStepHeld = last.ownStepHeld || passFollows, coming = comingShows(last.moments), engine = engine)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main {

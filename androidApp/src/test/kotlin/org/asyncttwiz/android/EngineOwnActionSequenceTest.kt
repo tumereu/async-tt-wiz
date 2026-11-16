@@ -190,6 +190,27 @@ class EngineOwnActionSequenceTest {
         } finally { OwnActionProbes.remove(heard) }
     }
 
+    // TRN-063, STK-029, SYS-025 (owner, 2026-11-16): her Spark's early board, shown before her phone (Quick) folds her own
+    // pass over her own spell into the cast's event, holds no press on the main button (its own step held): before, it said
+    // "Resolve" there for a few ms
+    @Test fun anEarlyBoardHoldsTheMainButtonWhenHerOwnPassFollows() {
+        val threads = Threads(early = true)
+        val game = ready(threads)
+        val draw: () -> Unit = { game.shown?.let { drawnForProbe(it.board, f.a) } }
+        game.act(option(game) { it is Input.PlayLand })
+        threads.settle(draw)
+        assertEquals(org.asyncttwiz.protocol.game.ResponseMode.AutoSkip, game.shown!!.settings.mode)
+        assertEquals(GameDevice.Acted.Made, game.send(cast(game)))
+        threads.mains.removeFirst()()
+        val early = game.shown!!
+        assertTrue(early.ownActionShown, "the cast's early board")
+        assertEquals(PlayerId(f.a), early.engine.priority.holder, "her priority over her Spark")
+        assertTrue(early.engine.stack.isNotEmpty(), "her Spark on the Stack")
+        assertTrue(early.ownStepHeld, "no press on her main button: her pass follows by itself")
+        threads.settle(draw)
+        assertTrue(game.shown!!.version > early.version, "the cast's whole outcome after it")
+    }
+
     // SYS-025: a reader on another thread (the table's glow and cost chips) waits for promised plays alone, never for the
     // engine thread's queued work
     @Test fun aReaderWaitsForPromisedPlaysNotForTheEngineThread() {

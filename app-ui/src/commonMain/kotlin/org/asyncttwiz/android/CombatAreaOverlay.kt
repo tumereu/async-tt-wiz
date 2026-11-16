@@ -280,7 +280,7 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             }
         }
     }
-    // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): the target chips fade in (once per declare attackers step);
+    // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06, 2026-11-16): the target chips fade in (once per combat);
     // while the viewer declares attackers a tap on one makes its target the active one; holding one shows its full name
     // and highlights the target's card or the player's life square
     // CMB-013, CMB-029 (owner gallery review 2026-11-06): each chip shows its target's value, and with the damage preview
@@ -408,10 +408,16 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
         if (stack != null && row != null && stack.y < row.bottom && stack.bottom > row.y && stack.x > t.x && stack.x < t.right)
             t.copy(width = stack.x - t.x) else t
     } ?: return
-    // CMB-001: the chips fade in when they first show in a step (staging's opening keeps them)
+    // CMB-001 (owner playtest 2026-11-16): the chips fade in once, when they first show in a combat (the viewer's declaration,
+    // or the attackers shown), and never again in it: not as the steps go on to the blocks and the damage
     val key = if (lanes.isEmpty()) null else combatBandKey(play.board)
     val appear = remember(key) { androidx.compose.animation.core.Animatable(if (leaving) 1f else 0f) }
-    LaunchedEffect(key) { if (key != null) appear.animateTo(1f, androidx.compose.animation.core.tween(CHIP_FADE_MILLIS)) }
+    LaunchedEffect(key) {
+        if (key == null || appear.value >= 1f) return@LaunchedEffect
+        AppLog.info("combat", "Combat chips fade in for ${viewer.take(8)} at ${play.nodeId.take(8)} (combat $key, ${lanes.size} chips)")
+        TableProbes.chipsFadeIn?.invoke(viewer, key)
+        appear.animateTo(1f, androidx.compose.animation.core.tween(CHIP_FADE_MILLIS))
+    }
     if (lanes.isEmpty()) return
     var held by remember(key) { mutableStateOf<CombatLaneLabel?>(null) }
     // HIS-113: a finger held on a chip is a finger held on the table
@@ -446,11 +452,11 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
             TargetChip(lane, change, width, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
                 held = { heldNow -> held = if (heldNow) lane else held?.takeIf { h -> h.cardId != lane.cardId }; pause?.finger = heldNow },
                 Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y + chipShift()).dp.roundToPx()) }, interactive = !leaving)
-            // CMB-050 (owner playtest 2026-11-10, 2026-11-11): the net combat damage it took, a red splash at the chip's right
-            // end; a net gain (a defender's lifelink blocker) the life-gain heart with "+N"
+            // CMB-050 (owner playtest 2026-11-10, 2026-11-11): the net combat damage it took, a red splash just right of the chip
+            // (owner playtest 2026-11-16: not over its end); a net gain (a defender's lifelink blocker) the life-gain heart with "+N"
             val net = dealt[lane.cardId]
             val size = lane.chip.height * TARGET_SPLASH
-            val badgeX = x + width - size * .3f
+            val badgeX = x + width + lane.chip.height * TARGET_SPLASH_GAP
             if (net != null) {
                 val at = Modifier.offset { IntOffset((badgeX - table.x).dp.roundToPx(), (lane.chip.center.y - size / 2 - table.y + chipShift()).dp.roundToPx()) }
                 if (net < 0) LifeGainBadge(-net, size, at, "${lane.label} gained ${-net} life with the combat damage")
@@ -480,6 +486,9 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
 
 /** CMB-050: a target chip's damage splash, as a share of the chip's height. */
 private const val TARGET_SPLASH = 1.25f
+/** CMB-050 (owner playtest 2026-11-16): the gap between a target chip's right end and its damage splash, as a share of the
+ * chip's height. */
+private const val TARGET_SPLASH_GAP = .08f
 
 /** How long the target chips take to fade in (CMB-001). */
 const val CHIP_FADE_MILLIS = 300

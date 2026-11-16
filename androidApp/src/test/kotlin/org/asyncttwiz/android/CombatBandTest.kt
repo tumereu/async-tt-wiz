@@ -362,6 +362,18 @@ class CombatBandTest {
         assertNull(k.scene().combatPanel)
     }
 
+    // CMB-001 (owner playtest 2026-11-16: the chips faded in again at the damage): the target chips fade in once per combat,
+    // keyed by the combat itself, the same through all its steps; the next turn's combat fades them in anew
+    @Test fun theChipsFadeInOncePerCombat() {
+        val board = k.alice.play().board
+        fun at(turn: String, position: TurnPosition) =
+            combatBandKey(board.copy(turn = board.turn.copy(number = turn, phase = position.phase, step = position.step)))
+        val steps = listOf(TurnPosition.BEGIN_COMBAT, TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS,
+            TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE, TurnPosition.END_COMBAT)
+        assertEquals(1, steps.map { at("3", it) }.toSet().size, "one key for the whole combat")
+        assertTrue(at("3", TurnPosition.DECLARE_ATTACKERS) != at("5", TurnPosition.DECLARE_ATTACKERS), "a new one for the next combat")
+    }
+
     // CMB-013 (owner playtest 2026-11-06): holding a chip shows the target's full name over it and highlights the
     // player's life square while held
     @Test fun holdingAChipShowsTheFullNameAndHighlightsTheTarget() {

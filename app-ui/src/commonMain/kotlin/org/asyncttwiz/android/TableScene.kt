@@ -346,6 +346,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         // or a new size jumps ([LaidBefore])
         val currentSceneNow by rememberUpdatedState(sceneNow)
         val laidBefore = remember(animation) { LaidBefore(Snapshot.withoutReadObservation { sceneNow.value }) }
+        // CMB-001 (owner playtest 2026-11-16): whether the scene animated to last had the combat band open, for the log of
+        // its opening and closing
+        val bandShown = remember(animation) { booleanArrayOf(targetScene.combatPanel != null) }
         LaunchedEffect(animation, play.nodeId, runtime.sceneVersion) {
             snapshotFlow { currentSceneNow.value }
                 .map { now -> laidBefore.next(now) }
@@ -362,9 +365,19 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                         DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                         progress.snapTo(0f)
                         bump()
-                        if (step.navigation || !step.raiseOnly && rt.changes?.animates(play.nodeId) == false) progress.snapTo(1f)
-                        else progress.animateTo(1f, tween((animation.durationMillis * rt.sceneTimeShare).toInt().coerceAtLeast(1),
-                            easing = androidx.compose.animation.core.LinearEasing))
+                        val instant = step.navigation || !step.raiseOnly && rt.changes?.animates(play.nodeId) == false
+                        val millis = (animation.durationMillis * rt.sceneTimeShare).toInt().coerceAtLeast(1)
+                        // CMB-001 (owner playtest 2026-11-16: the band closed at once for the attacker): how the band opens or
+                        // closes reaches the app log, and why when it jumps
+                        val bandOpen = target.combatPanel != null
+                        if (bandOpen != bandShown[0]) {
+                            bandShown[0] = bandOpen
+                            AppLog.info("combat", "Combat band ${if (bandOpen) "opens" else "closes"} for ${accountId.take(8)} at " +
+                                "${play.nodeId.take(8)}: " + if (!instant) "over $millis ms" else if (step.navigation)
+                                    "at once (the layout or the table's size changed with it)" else "at once (a board that doesn't animate)")
+                        }
+                        if (instant) progress.snapTo(1f)
+                        else progress.animateTo(1f, tween(millis, easing = androidx.compose.animation.core.LinearEasing))
                     } else if (progress.value < 1f) {
                         // Metadata can cancel this effect mid-scene, but cannot slow its existing clock.
                         progress.animateTo(1f, tween(animation.remainingDurationMillis(progress.value), easing = androidx.compose.animation.core.LinearEasing))
@@ -675,6 +688,9 @@ object TableProbes {
     @kotlin.concurrent.Volatile var composed: ((me: String) -> Unit)? = null
     /** Told each time a table is made (HIS-113: a table made anew mid-game drops a finger held on it), with its account. */
     @kotlin.concurrent.Volatile var made: ((me: String) -> Unit)? = null
+    /** Told each time a table's combat target chips begin to fade in (CMB-001: once per combat), with its account and the
+     * combat ([combatBandKey]). */
+    @kotlin.concurrent.Volatile var chipsFadeIn: ((me: String, combat: String) -> Unit)? = null
 }
 
 /** WEB-026: [content] for the card whose quick look [mouse] shows, if any; read here alone (web frame rate, 2026-11-15). */

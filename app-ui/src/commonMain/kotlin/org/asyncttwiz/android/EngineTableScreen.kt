@@ -417,7 +417,24 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 // the hooks' double-tap skip comes and goes), and all it held went with it: a finger already down
                 // on it lost its hold and the pause, its gestures, its card animation. Worked out before it, and the table keyed,
                 // Compose finds the same table. The app log says when a table is made and let go (TableSurface)
-                val hooks = TableRuntimeHooks(chat = chatOpener,
+                // (owner playtest 2026-11-16, combat animations: it was still made anew as a combat's hold ended, on both phones,
+                // and the attacker's band then closed at once on the new table, with nothing to fade.) Compose remembers each
+                // lambda below, and one made only under a condition (the hold's skip, the centre text's tap) shifted what the
+                // ones after it remembered, the table's key with them: every lambda is made whatever holds, a condition only
+                // picks one, and the hooks have a group of their own, so nothing in them reaches the table's
+                val holdSkip = { combatHold?.let { engine.dismissCombatHold(it, "double tap"); controller.engineSent() }; Unit }
+                val arrowsSkip = { stackAnimation.skip(); Unit }
+                val rewindSettled = { _: String -> scope.launch { delay(rewindPause); motion.settled() }; Unit }
+                val enterTimeline = { routes.enterReview(timeline.last().id) }
+                val leaveTimeline = { routes.leaveReview() }
+                val reviewPanel: @Composable (@Composable () -> Unit) -> Unit = { _ ->
+                    EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
+                }
+                val rewindPanel: @Composable (@Composable () -> Unit) -> Unit = { _ -> EngineRewindPanel(landscape) }
+                val watch = { watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
+                val pausePlayback = { engine.pause(); controller.engineSent() }
+                val dock: @Composable () -> Unit = { DesktopDock { modifier -> ChatPanel(controller, accountId, modifier, docked = true) } }
+                val hooks = key("table hooks") { TableRuntimeHooks(chat = chatOpener,
                         navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
@@ -427,11 +444,9 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             accept = { engine.answerSuggestion(true) { controller.engineSent() } }),
                         controlsConnected = interactive && !locked && reviewPlay == null,
                         reviewing = reviewing, liveView = !reviewing, changes = changes,
-                        onSceneSettled = if (reviewPlay != null) null else if (rewindingBranch) ({ _ ->
-                            scope.launch { delay(rewindPause); motion.settled() }; Unit
                         // Stack animation step 4: the top entry's arrows play before the board's next step
-                        }) else stackAnimation.settleHook(scope, play, moveMultiplier, routes.viewPause, gameWaits, motion::key,
-                            motion::settled),
+                        onSceneSettled = if (reviewPlay != null) null else if (rewindingBranch) rewindSettled
+                            else stackAnimation.settleHook(scope, play, moveMultiplier, routes.viewPause, gameWaits, motion::key, motion::settled),
                         // Stack animation step 5: a repeat's resolution plays its effect's animations faster
                         sceneTimeShare = if (reviewPlay != null) 1.0 else stackAnimation.resolutionShare(play, unhidden),
                         // HIS-112: a play shown's entry appears on the Stack where it landed, never flying there again
@@ -444,13 +459,11 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             reviewPlay != null -> if (routes.reviewPlaying) TimelinePlaybackStatus.PLAYING else TimelinePlaybackStatus.PAUSED
                             else -> null
                         },
-                        history = if (timeline.isNotEmpty() && !takingBack) ({ routes.enterReview(timeline.last().id) }) else null,
-                        returnCurrent = if (reviewPlay != null) ({ routes.leaveReview() }) else null,
+                        history = if (timeline.isNotEmpty() && !takingBack) enterTimeline else null,
+                        returnCurrent = if (reviewPlay != null) leaveTimeline else null,
                         bottomPanel = when {
-                            reviewPlay != null && timeline.isNotEmpty() -> ({ _ ->
-                                EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
-                            })
-                            rewindingBranch -> ({ _ -> EngineRewindPanel(landscape) })
+                            reviewPlay != null && timeline.isNotEmpty() -> reviewPanel
+                            rewindingBranch -> rewindPanel
                             else -> null
                         },
                         centreAction = if (reviewPlay == null && (catchUp || pausedStop) && !takingBack && watchTappedAt != shown.version)
@@ -460,16 +473,14 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                                 false -> "${routes.opponentName} responded differently · Tap to watch"
                                 true -> "${routes.opponentName} undid moves · Tap to watch"
                                 null -> "${routes.opponentName} has made moves · Tap to watch"
-                            }) {
-                                watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
+                            }, watch)
                             else null,
-                        boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({
-                            engine.pause(); controller.engineSent() }) else null,
-                        holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold, "double tap"); controller.engineSent() }) }
+                        boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) pausePlayback else null,
+                        holdTap = if (combatHold != null) holdSkip
                             // Stack animation: a double tap or double click skips the arrows' step (WEB-030), while the move isn't
                             // the player's (then their taps act on the table at once)
-                            ?: if (stackAnimation.targeting?.done == false && reviewPlay == null && status != GameDevice.Status.YourMove)
-                                ({ stackAnimation.skip(); Unit }) else null,
+                            else if (stackAnimation.targeting?.done == false && reviewPlay == null && status != GameDevice.Status.YourMove)
+                                arrowsSkip else null,
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
                         chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape || desktopLayout,
@@ -479,9 +490,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
                             send = controller::sendQuickChat, write = { controller.writeChat() }),
                         // WEB-017: the game chat docked at the right (the Stack stays on the table, STK-007)
-                        desktopDock = if (!chatDocked) null else ({
-                            DesktopDock { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
-                        }))
+                        desktopDock = if (!chatDocked) null else dock) }
                 key(game.id) {
                     TableSurface(game, play, accountId, landscape || desktopLayout, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                         onIntent = toolkit::handle, toolkit = toolkit, runtime = hooks)

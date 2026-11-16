@@ -16,7 +16,11 @@ data class CardAppearance(
     val textSize: Float = 1f,
     val customizeText: Boolean = false,
     val text: Map<CardTextScalePart, Float> = emptyMap(),
-    val layout: LayoutCardScale = LayoutCardScale()
+    val layout: LayoutCardScale = LayoutCardScale(),
+    /** TBL-139 (owner 2026-11-16): hand cards drawn as their whole printed picture rather than the app's card frame. */
+    val handFullPicture: Boolean = false,
+    /** TBL-139 (owner 2026-11-16): battlefield cards drawn as their whole printed picture rather than the app's card frame. */
+    val battlefieldFullPicture: Boolean = false
 ) {
     /** The slider size of [area] (TBL-034), as Settings shows it. */
     fun slider(area: CardArea) = cardScale(if (customizeAreas) areas[area] ?: cardSize else cardSize)
@@ -50,13 +54,14 @@ val DesktopCardScale = LayoutCardScale(battlefield = 2f,
     areas = mapOf(CardArea.HAND to 5.2f, CardArea.PILES to 1.6f, CardArea.STACK to 2f, CardArea.PANELS to 2f))
 
 /** The desktop layout's card sizes before the player changes them (WEB-022, docs/specs/web-client.md §7.2): every slider at
- * 1×, on top of [DesktopCardScale]. */
-val DesktopCardAppearance = CardAppearance(layout = DesktopCardScale)
+ * 1×, on top of [DesktopCardScale]; TBL-139 (owner 2026-11-16): its hand cards as full pictures, its battlefield's not. */
+val DesktopCardAppearance = CardAppearance(layout = DesktopCardScale, handFullPicture = true)
 
 /** One file for the device, intentionally independent of account IDs and logout cleanup. WEB-019: one per layout, the
  * desktop layout's ([AppLayout.Desktop]) starting from [DesktopCardAppearance]. */
 class CardAppearancePreferences(platform: AppPlatform, layout: AppLayout = AppLayout.Phone) {
     private val defaults = if (layout == AppLayout.Desktop) DesktopCardAppearance else CardAppearance()
+    private val layoutName = if (layout == AppLayout.Desktop) "desktop layout" else "phone layout"
     // WEB-022: since 2026-11-14 the desktop layout's sliders scale on top of its own sizes (DesktopCardScale), so its store
     // starts afresh rather than multiplying the sizes saved before
     private val store = platform.preferences(if (layout == AppLayout.Desktop) "card-sizes-desktop" else "card-appearance")
@@ -66,7 +71,15 @@ class CardAppearancePreferences(platform: AppPlatform, layout: AppLayout = AppLa
         return CardAppearance(cardScale(size), store.getBoolean("custom-areas", defaults.customizeAreas),
             CardArea.entries.associateWith { cardScale(store.getFloat("area/${it.name}", if (store.contains("size")) size else defaults.areas[it] ?: size)) },
             cardScale(text), store.getBoolean("custom-text", defaults.customizeText),
-            CardTextScalePart.entries.associateWith { cardScale(store.getFloat("text/${it.name}", text)) }, defaults.layout)
+            CardTextScalePart.entries.associateWith { cardScale(store.getFloat("text/${it.name}", text)) }, defaults.layout,
+            store.getBoolean(HAND_FULL_PICTURE, defaults.handFullPicture),
+            store.getBoolean(BATTLEFIELD_FULL_PICTURE, defaults.battlefieldFullPicture))
+    }
+
+    /** TBL-139: hand cards ([hand]) or battlefield cards drawn as their whole printed picture, or not ([enabled]). */
+    fun fullPicture(hand: Boolean, enabled: Boolean) {
+        AppLog.info("settings", "${if (hand) "Hand" else "Battlefield"} cards: full picture ${if (enabled) "on" else "off"} ($layoutName)")
+        store.edit().putBoolean(if (hand) HAND_FULL_PICTURE else BATTLEFIELD_FULL_PICTURE, enabled).apply()
     }
 
     fun setSize(value: Float, area: CardArea? = null) {
@@ -86,6 +99,11 @@ class CardAppearancePreferences(platform: AppPlatform, layout: AppLayout = AppLa
         edit.apply()
     }
     fun observe(change: () -> Unit): () -> Unit = store.observe { change() }
+
+    private companion object {
+        const val HAND_FULL_PICTURE = "full-picture/hand"
+        const val BATTLEFIELD_FULL_PICTURE = "full-picture/battlefield"
+    }
 }
 
 @Composable

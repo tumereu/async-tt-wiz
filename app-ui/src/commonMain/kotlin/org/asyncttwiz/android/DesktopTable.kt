@@ -111,8 +111,8 @@ object DesktopTable {
     /** WEB-015 (owner playtest 2026-11-15, as in MTG Arena): your hand as a fan at the bottom centre: each card this share of
      * its width from the one before at most (closer when they don't fit), turned [FAN_TURN] degrees from the one before at
      * most and [FAN_MAX_TURN] either side about a point [FAN_PIVOT] card heights below its middle, the part of it in view as
-     * tall as the action area ([FLOAT]); the card the mouse is on and a raised one rise whole into view, [FAN_LIFT] above the
-     * window's bottom, drawn over the others. */
+     * tall as the action area ([FLOAT]); the card the mouse is on is drawn over the others where it lies, and a raised one
+     * (owner 2026-11-16) pops out along its own turn until its lowest corner is [FAN_LIFT] above the window's bottom. */
     const val FAN_PITCH = .62f
     const val FAN_TURN = 2.5f
     const val FAN_MAX_TURN = 10f

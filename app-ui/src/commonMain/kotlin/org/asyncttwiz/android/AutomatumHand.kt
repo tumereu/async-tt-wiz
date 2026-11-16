@@ -110,6 +110,9 @@ class HandController(
         if (CastController.ownHand(play, cardId, viewer)) null else HandRow.cards(play, viewer).firstOrNull { it.cardId == cardId }?.zone
 
     private fun raise(play: TableBoard, cardId: String) {
+        // ZON-079, WEB-015 (owner 2026-11-16: a raised card wasn't shown on the desktop hand): what is raised, and what it replaced
+        AppLog.info("automatum", "Hand card $cardId raised" + (layout.value.raised?.let { " (lowering $it)" } ?: "") +
+            (hovered?.let { " with the mouse on $it" } ?: ""))
         layout.value = layout.value.copy(raised = cardId)
         chips = null; held = null; answering = true
         compute(play)
@@ -117,6 +120,7 @@ class HandController(
 
     /** Lowers the raised card (a tap elsewhere, a cast). */
     fun lower() {
+        layout.value.raised?.let { AppLog.info("automatum", "Hand card $it lowered") }
         if (layout.value.raised != null) layout.value = layout.value.copy(raised = null)
         generation++
         chips = null; held = null; board = null

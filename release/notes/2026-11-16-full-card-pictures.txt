@@ -1,0 +1,1 @@
+add: Settings → Table can show hand cards and battlefield cards as their full printed card picture; in the browser's desktop layout hand cards show it from the start.

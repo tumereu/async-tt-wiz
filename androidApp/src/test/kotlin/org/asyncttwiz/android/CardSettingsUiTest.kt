@@ -60,6 +60,29 @@ class CardSettingsUiTest {
         compose.runOnIdle { assertEquals(3f, preferences.read().size(CardArea.HAND)) }
     }
 
+    // TBL-139, WEB-022 (owner 2026-11-16): the two full picture switches, kept for each layout: off in the phone layout, the
+    // hand's on and the battlefield's off in the desktop layout; turning one changes only that layout's
+    @Test fun fullPictureSwitchesAreKeptForEachLayout() {
+        context.getSharedPreferences("card-sizes-desktop", Context.MODE_PRIVATE).edit().clear().commit()
+        val phone = CardAppearancePreferences(AppPlatform.current)
+        val desktop = CardAppearancePreferences(AppPlatform.current, AppLayout.Desktop)
+        assertEquals(false to false, phone.read().let { it.handFullPicture to it.battlefieldFullPicture })
+        assertEquals(true to false, desktop.read().let { it.handFullPicture to it.battlefieldFullPicture })
+        compose.setContent { MaterialTheme { Column(Modifier.verticalScroll(rememberScrollState())) { CardSettings(phone) } } }
+        compose.onNodeWithText("Hand cards: full picture").assertExists()
+        compose.onNodeWithTag(FULL_PICTURE_HAND_TAG).performScrollTo().assertIsOff().performClick()
+        compose.onNodeWithTag(FULL_PICTURE_BATTLEFIELD_TAG).performScrollTo().assertIsOff().performClick()
+        compose.onNodeWithTag(FULL_PICTURE_HAND_TAG).assertIsOn()
+        compose.onNodeWithTag(FULL_PICTURE_BATTLEFIELD_TAG).assertIsOn()
+        compose.runOnIdle {
+            assertEquals(true to true, phone.read().let { it.handFullPicture to it.battlefieldFullPicture })
+            assertEquals(true to false, desktop.read().let { it.handFullPicture to it.battlefieldFullPicture }, "the desktop layout's own")
+        }
+        compose.onNodeWithTag(FULL_PICTURE_HAND_TAG).performClick()
+        compose.runOnIdle { assertFalse(phone.read().handFullPicture) }
+        context.getSharedPreferences("card-sizes-desktop", Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
     @OptIn(ExperimentalRoborazziApi::class)
     private fun screenshots(landscape: Boolean) {
         val f = TableStatesFixture

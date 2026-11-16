@@ -52,6 +52,9 @@ private fun TableArtworkLoads(sizes: State<Map<org.asyncttwiz.storage.ArtworkRef
             val result = PublicArtwork.get(context).loader.execute(coil3.request.ImageRequest.Builder(context)
                 .data(request).size(width, height).build()) as? coil3.request.SuccessResult
             result?.image?.let(::coilImageBitmap)?.let { images.map[reference.key] = it }
+            // TBL-139: a full picture that didn't load leaves its card in the app's frame; say so once per picture and size
+            if (result == null && reference.size == "normal" && reference.customUrl == null)
+                AppLog.info("artwork", "Full picture ${reference.printing}/${reference.face} not loaded at $width px: the app's frame stays")
         }
         DisposableEffect(reference) { onDispose { images.map.remove(reference.key) } }
     }

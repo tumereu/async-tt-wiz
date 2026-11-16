@@ -37,6 +37,24 @@ fun CardSettings(preferences: CardAppearancePreferences = rememberCardAppearance
         if (appearance.customizeText) for (part in CardTextScalePart.entries) {
             CardScaleSlider(part.label, "card-text-${part.name}", appearance.text(part), { preferences.setText(it, part) })
         }
+        // TBL-139 (owner 2026-11-16): the whole printed card picture instead of the app's card frame, for each layout
+        FullPictureSwitch("Hand cards: full picture", "Show your hand's cards as their printed card picture",
+            FULL_PICTURE_HAND_TAG, appearance.handFullPicture) { preferences.fullPicture(hand = true, enabled = it) }
+        FullPictureSwitch("Battlefield cards: full picture", "Show battlefield cards as their printed card picture",
+            FULL_PICTURE_BATTLEFIELD_TAG, appearance.battlefieldFullPicture) { preferences.fullPicture(hand = false, enabled = it) }
+    }
+}
+
+/** The test tags of the full picture switches (TBL-139). */
+const val FULL_PICTURE_HAND_TAG = "full-picture-hand"
+const val FULL_PICTURE_BATTLEFIELD_TAG = "full-picture-battlefield"
+
+@Composable
+private fun FullPictureSwitch(label: String, detail: String, tag: String, checked: Boolean, change: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).toggleable(checked, role = Role.Switch, onValueChange = change),
+        verticalAlignment = Alignment.CenterVertically) {
+        SettingsLabel(label, detail, Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

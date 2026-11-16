@@ -280,7 +280,7 @@ number	item	screenshot	catalog	decisions	sequence
 279	Desktop draft pick in the owner's 1920 × 919 window: keep and burn marks and the trays' count chips half as large again	desktop/draft-pick-marks-1920.png	WEB-044 DRF-061 DRF-065
 280	Desktop: the pod's Stats at a readable width centred in two columns, the deck's numbers left, colours, notes and counters right	desktop/stats.png	WEB-061 DRF-111 DRF-114 DRF-118		
 281	Desktop table: the chat dock open, the Stack on the field at the battlefields' right edge beside it, never under it	desktop/stack-beside-chat.png	WEB-017 STK-007 WEB-020		
-282	Desktop table: the hand a fan at the bottom, partly below the window; the card under the mouse risen whole into view over the others	desktop/hand-fan.png	WEB-015 WEB-016 WEB-018 WEB-022 WEB-027		
+282	Desktop table: the hand a fan of printed card pictures at the bottom, partly below the window, the whole fan in view at its sides	desktop/hand-fan.png	WEB-015 WEB-016 WEB-018 WEB-022 TBL-139		
 283	Desktop table: a centred panel with its go-on (Cast) in its bottom right corner as well as on the main button	desktop/panel-go-on.png	WEB-019 TRN-063		
 284	Desktop table: Alt over two stacked Mountains lists them one under the other, the wheel scrolling the list while Alt is held	desktop/inspect-list.png	WEB-024 TBL-111		
 285	Desktop Inspect by Alt held: a keyword change shows its source and what the keyword means under it, without a click	desktop/inspect-explained.png	WEB-024 TBL-132		
@@ -288,3 +288,6 @@ number	item	screenshot	catalog	decisions	sequence
 287	Inspect of a card printed under another name: its printed name, the Oracle name labelled at the bottom of its picture	printed-name/inspect.png	TBL-138 TBL-104		Printed names
 288	Desktop: Build, the card under the pointer brought to the front of its overlapping column, whole and in place	desktop/build-hovered-card.png	WEB-063 WEB-045		Desktop draft 11-16
 289	Desktop: in a narrow window with eight players the pod's tabs fall back to their own row under the header	desktop/pod-header-narrow.png	WEB-062 DRF-076		Desktop draft 11-16
+290	Desktop table: the hand card under the mouse drawn over the others where it lies in the fan, not moved or turned, its Play chip faded above it	desktop/hand-hover.png	WEB-015 WEB-027		Desktop hand
+291	Desktop table: a clicked hand card popped out of the fan along its own turn, whole in view, its Play chip above it	desktop/hand-raised.png	WEB-015 ZON-079 ZON-080		Desktop hand
+292	Desktop table with "Battlefield cards: full picture" on: battlefield cards as their printed pictures with a thin owner-colour border, the hand too	desktop/full-picture-battlefield.png	TBL-139 WEB-022		Desktop hand

@@ -432,6 +432,9 @@ const val QUICK_LOOK_TAG = "quick-look"
 /** WEB-026: the quick look's largest height (dp). */
 private const val QUICK_LOOK_HEIGHT = 420f
 
+/** WEB-026: the room between a desktop hand card's top and its quick look, which its chips' row takes (dp). */
+private const val FAN_QUICK_LOOK_GAP = 72f
+
 /**
  * WEB-026 (owner): the quick look of [item], the card the pointer rests on: its large picture only (each face it may be
  * seen with, as Inspect shows them), beside the card, inside the table [tableWidth] × [tableHeight]; no dimming, nothing
@@ -451,9 +454,14 @@ fun DesktopQuickLook(play: TableBoard, viewer: String, item: TableItem, toolkit:
     val room = DpSize((height / 1.4f).dp, height.dp)
     val width = tiles.sumOf { inspectTileSize(it, room).width.value.toDouble() }.toFloat() + 8f * (tiles.size - 1)
     val bounds = item.bounds
-    // Beside the card: to its right where it fits, else to its left; level with it, inside the table
-    val x = if (bounds.right + 12f + width <= tableWidth - 8f) bounds.right + 12f else (bounds.x - 12f - width).coerceAtLeast(8f)
-    val y = (bounds.center.y - height / 2).coerceIn(8f, (tableHeight - height - 8f).coerceAtLeast(8f))
+    val slot = item.handSlot
+    // Beside the card: to its right where it fits, else to its left; level with it, inside the table. WEB-015 (owner
+    // 2026-11-16: a hovered hand card no longer rises out of the desktop fan): a card of the fan's above it, clear of the fan
+    // and of its chips' row (WEB-027), so it covers none of the cards beside it or the chips the mouse goes on to
+    val x = if (slot != null) (bounds.center.x - width / 2).coerceIn(8f, (tableWidth - width - 8f).coerceAtLeast(8f))
+        else if (bounds.right + 12f + width <= tableWidth - 8f) bounds.right + 12f else (bounds.x - 12f - width).coerceAtLeast(8f)
+    val y = if (slot != null) (minOf(slot.y, bounds.y) - FAN_QUICK_LOOK_GAP - height).coerceAtLeast(8f)
+        else (bounds.center.y - height / 2).coerceIn(8f, (tableHeight - height - 8f).coerceAtLeast(8f))
     Row(Modifier.offset(x.dp, y.dp).testTag(QUICK_LOOK_TAG).semantics { contentDescription = "Quick look" },
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (tile in tiles) Box { InspectTileView(tile, room) }

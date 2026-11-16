@@ -213,6 +213,10 @@ class DesktopTableScreenshotTest {
         }
         compose.onNodeWithTag(HOVER_CHIPS_TAG).assertExists()
         compose.onNodeWithTag(QUICK_LOOK_TAG).assertExists()
+        // WEB-026, WEB-015 (owner 2026-11-16: the card stays in the fan): its quick look above it, clear of the fan and its chips
+        val look = compose.onNodeWithTag(QUICK_LOOK_TAG).fetchSemanticsNode().boundsInRoot
+        val chipRow = compose.onNodeWithTag(HOVER_CHIPS_TAG).fetchSemanticsNode().boundsInRoot
+        assertTrue(look.bottom <= chipRow.top, "the quick look above the chips: $look, $chipRow")
         // The pointer moves up onto the "Cast with offspring" chip: it turns solid and its one source is outlined
         compose.onNodeWithContentDescription("Way Cast with offspring {R}").performMouseInput { moveTo(center) }
         compose.mainClock.advanceTimeBy(HOVER_CHIPS_KEEP_MILLIS + 50)

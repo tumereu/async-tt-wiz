@@ -396,21 +396,24 @@ class DesktopTableTest : E2e() {
     }
 
     // TBL-139, WEB-022 (owner 2026-11-16): in her desktop layout's Settings Alice finds "Hand cards: full picture" on and
-    // "Battlefield cards: full picture" off; her Mountain on the battlefield shows the app's white frame. She turns the
-    // battlefield's on: back at the table the Mountain shows its whole printed card (the test pictures' beige text box low
-    // on the card, where the app's frame is white)
+    // "Battlefield cards: full picture" off; her Ember Twin on the battlefield (with its token copy, the test cards' one card
+    // with a picture) shows the app's white frame. She turns the battlefield's on: back at the table the Twin shows its whole
+    // printed card (the test pictures' beige text box low on the card, where the app's frame is white)
     @Test fun theFullPictureSettings() {
-        start()
+        startGame(TestDeck.thirds(TestCards.twin), aliceDesktop = true, deal = { a, _ -> "Mountain" in hand(a) && "Ember Twin" in hand(a) })
+        bothOpen()
         keep()
         clickFromHand("Mountain")
-        waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) {
-            alice.field("Mountain").isNotEmpty() && alice.showsOnBattlefield("Mountain") && alice.inOwnMain() && alice.settled(this)
+        waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        clickFromHand("Ember Twin")
+        waitUntil("the Twin and its copy on Alice's battlefield", along = listOf(bob)) {
+            alice.field("Ember Twin").size == 2 && alice.showsOnBattlefield("Ember Twin") && alice.inOwnMain() && alice.settled(this)
         }
-        // The mouse away from the cards, so no quick look covers the Mountain
+        // The mouse away from the cards, so no quick look covers the Twin
         alice.tagged("phase-track").performMouseInput { moveTo(center) }
         fun textBox(): Int {
             repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
-            val card = alice.battlefieldCard("Mountain").fetchSemanticsNode().boundsInWindow
+            val card = alice.battlefieldCard("Ember Twin").fetchSemanticsNode().boundsInWindow
             return beigeAt(alice.picture(), card.left + card.width * .2f, card.top + card.height * .85f)
         }
         val frame = textBox()
@@ -427,7 +430,8 @@ class DesktopTableTest : E2e() {
         run()
         if (!alice.shows(hasTestTag("phase-track"))) alice.openGame(game, this)
         waitUntil("Alice's table") { alice.shows(hasTestTag("phase-track")) && alice.game?.shown != null && alice.settled(this) }
-        waitUntil("the Mountain's whole printed card on the battlefield") { textBox() >= 12 }
+        alice.tagged("phase-track").performMouseInput { moveTo(center) }
+        waitUntil("the Twin's whole printed card on the battlefield") { textBox() >= 12 }
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 

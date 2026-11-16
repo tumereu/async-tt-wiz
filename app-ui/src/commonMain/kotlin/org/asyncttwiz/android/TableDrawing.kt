@@ -87,8 +87,8 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
         drawRect(Color.White, xy(b.x, b.y), size(b.width, b.height))
     }
     // WEB-015 (owner playtest 2026-11-15): on the desktop table the battlefields fill their room down to the window's bottom:
-    // the land rows' colours go on beyond the rows (yours down under what floats over the bottom, the other player's up to their
-    // seat header) where the rows don't reach
+    // the land rows' colours go on beyond the rows (yours down under what floats over the bottom, the other player's up to the
+    // top row, WEB-016) where the rows don't reach
     val shown = scene.world?.clipViewport
     val top = scene.fields.firstOrNull()
     val own = scene.fields.lastOrNull()
@@ -100,10 +100,13 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     // WEB-015, WEB-016, WEB-018: what floats over the desktop table's battlefields with a background of its own
     for ((b, color) in scene.floats) drawRect(color, xy(b.x, b.y), size(b.width, b.height))
-    // WEB-016: your floating seat header's edges over the battlefield, so it reads as lying on it
-    scene.desktopPlate?.let { b ->
-        val edge = OwnTableColor.copy(alpha = .35f)
-        drawLine(edge, xy(b.x, b.y), xy(b.right, b.y), density)
+    // WEB-016: each floating seat box's edges over the battlefield, in its player's colour, so it reads as lying on it: yours at
+    // the bottom left outlined above and at its right, the other player's at the top left below and at its right
+    for ((owner, b) in scene.desktopPlates) {
+        val own = owner == viewer
+        val edge = (if (own) OwnTableColor else OpponentTableColor).copy(alpha = .35f)
+        val inner = if (own) b.y else b.bottom
+        drawLine(edge, xy(b.x, inner), xy(b.right, inner), density)
         drawLine(edge, xy(b.right, b.y), xy(b.right, b.bottom), density)
     }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {

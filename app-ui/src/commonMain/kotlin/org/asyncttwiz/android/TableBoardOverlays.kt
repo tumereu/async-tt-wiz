@@ -114,8 +114,14 @@ fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit)
     val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer } ?: return
     // ZON-001: in portrait their hand is a fan in their row: the band lies under that row, on top of their battlefield
     val row = scene.viewports.firstOrNull { it.id == "dock/${hand.owner}" }?.bounds?.bottom ?: 0f
-    // WEB-016: on the desktop table under their seat header, across the battlefields (not the dock)
+    // WEB-016 (owner notes 2026-11-16): on the desktop table at the battlefields' top, beside the other player's seat box at
+    // their top left, across the rest of the battlefields (not the dock)
     val desktop = LocalDesktopGeometry.current
+    val box = scene.desktopPlates[hand.owner]
+    if (desktop != null && box != null) {
+        WaitBandStrip(Modifier.offset(box.right.dp, 0.dp).width((desktop.tableRight - box.right).coerceAtLeast(0f).dp), content)
+        return
+    }
     WaitBandStrip(Modifier.offset(0.dp, maxOf(hand.bounds.bottom, row).dp)
         .then(if (desktop != null) Modifier.width(desktop.tableRight.dp) else Modifier), content)
 }

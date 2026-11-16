@@ -37,9 +37,11 @@ data class TableBounds(val x: Float, val y: Float, val width: Float, val height:
 data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1f)
 /** One affine transform for the entire world. Camera offsets are world units from its home center. [bottomInset] (screen
  * dp): how far past the usual bounds the world may be panned up, so its bottom can sit above an open Automatum panel
- * (D2: the panel's height). */
+ * (D2: the panel's height). [leftInset] (screen dp, WEB-016): how much of the viewport's left the desktop table's seat boxes
+ * cover: the opening view ([landscapeHome]) puts column 0 right of it and [fit] fits the table into the rest, while the
+ * world still pans under it freely (only how far right it may be panned grows by as much, so those views are in bounds). */
 data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds,
-    val clipViewport: TableBounds? = null, val bottomInset: Float = 0f) {
+    val clipViewport: TableBounds? = null, val bottomInset: Float = 0f, val leftInset: Float = 0f) {
     val visibleViewport get() = clipViewport ?: viewport
     private val home get() = TablePoint(viewport.width / 2, viewport.height / 2)
     fun screen(p: TablePoint, camera: TableCamera) = TablePoint(
@@ -57,8 +59,13 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
             // [past]: the end may also come that far inside the viewport (the bottom above an open panel)
             return value.coerceIn(minOf(a, b), maxOf(a, b, b + past))
         }
-        return c.copy(x = offset(c.x, panBounds.x, panBounds.right, home.x, viewport.width),
-            y = offset(c.y, panBounds.y, panBounds.bottom, home.y, viewport.height, bottomInset / c.zoom))
+        // WEB-016: content as large as the room right of [leftInset] covers that room (its left end may come as far in as the
+        // inset); smaller content stays inside the viewport. Without an inset this is [offset]'s sorting
+        val a = panBounds.x - home.x + viewport.width / (2 * c.zoom)
+        val b = panBounds.right - home.x - viewport.width / (2 * c.zoom)
+        val least = a - leftInset / c.zoom
+        val x = if (least <= b) c.x.coerceIn(least, b) else c.x.coerceIn(b, a)
+        return c.copy(x = x, y = offset(c.y, panBounds.y, panBounds.bottom, home.y, viewport.height, bottomInset / c.zoom))
     }
     /** This world with [inset] dp more room to pan up (D2: an open panel's height). */
     fun withBottomInset(inset: Float) = if (inset == bottomInset) this else copy(bottomInset = inset.coerceAtLeast(0f))
@@ -97,13 +104,19 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
     fun horizontalBand(band: TableBounds) = TableBounds(viewport.x, band.y, viewport.width, band.height)
         .intersection(visibleViewport) ?: TableBounds(viewport.x, viewport.y, viewport.width, 0f)
     /** TBL-121: the opening view in landscape: zoomed out (to at most 1x, at least the smallest zoom) until the
-     * battlefields' rows fit the height, centred on them, with column 0 still at the left edge as at 1x. */
+     * battlefields' rows fit the height, centred on them, with column 0 still at the left edge as at 1x (WEB-016: on the
+     * desktop table [leftInset] from it, right of the seat boxes). */
     fun landscapeHome(): TableCamera {
         val zoom = (viewport.height / bounds.height).coerceIn(TablePresentation.MIN_ZOOM, 1f)
-        return TableCamera(home.x / zoom - home.x, bounds.center.y - home.y, zoom)
+        return TableCamera((home.x - leftInset) / zoom - home.x, bounds.center.y - home.y, zoom)
     }
-    fun fit(): TableCamera = clamp(TableCamera(bounds.center.x - home.x, bounds.center.y - home.y,
-        minOf(viewport.width / bounds.width, viewport.height / bounds.height).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)))
+    /** TBL-012: the whole table fitted into the viewport (WEB-016: into its part right of [leftInset]), centred there. */
+    fun fit(): TableCamera {
+        val room = (viewport.width - leftInset).coerceAtLeast(1f)
+        val zoom = minOf(room / bounds.width, viewport.height / bounds.height)
+            .coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)
+        return clamp(TableCamera(bounds.center.x - home.x - leftInset / (2 * zoom), bounds.center.y - home.y, zoom))
+    }
 }
 data class TablePlacement(val column: Float, val row: Float, val pileIndex: Int = 0, val pileId: String? = null) {
     constructor(column: Int, row: Int, pileIndex: Int = 0, pileId: String? = null) : this(column.toFloat(), row.toFloat(), pileIndex, pileId)
@@ -301,11 +314,12 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     /** WEB-015: laid out for the desktop layout's table, whose cards are larger: the glows behind them grow with them
      * (TBL-117, [glowScale]). */
     val desktop: Boolean = false,
-    /** WEB-016 (owner playtest 2026-11-15): on the desktop table your seat header floating at the bottom left, over the
-     * battlefields; null elsewhere. */
-    val desktopPlate: TableBounds? = null,
+    /** WEB-016 (owner playtest 2026-11-15, owner notes 2026-11-16): on the desktop table each player's seat header as a box
+     * floating over the battlefields, by account id: yours at the bottom left, the other player's at the top left; empty
+     * elsewhere. */
+    val desktopPlates: Map<String, TableBounds> = emptyMap(),
     /** WEB-015 (owner playtest 2026-11-15): what floats over the battlefields on the desktop table with a background of its
-     * own (your seat header, the action area, the timeline strip), with its colour: the battlefield cards under it are
+     * own (the seat headers, the action area, the timeline strip), with its colour: the battlefield cards under it are
      * hidden there and the mouse doesn't reach them through it. */
     val floats: List<Pair<TableBounds, Color>> = emptyList()) {
     /** TBL-117 (owner, desktop playtest 2026-11-14): how much wider than the phone's the glows of [item] (a card) are: on
@@ -541,7 +555,26 @@ object TablePresentation {
         val fanWidth = handFanWidth(fanCardWidth, fanCardHeight)
         val dockSpacing = if (landscape) Landscape.PILE_PITCH else pileWidth + 12f
         val gridWidth = minOf(132f, width * .34f)
-        val boardTop = if (desktop != null) DesktopTable.SEAT + 4f else HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
+        // TRN-069, TRN-053, TRN-072: what each player's life and pile row holds besides: their dungeon and their round chips
+        val seatRows = players.associate { player ->
+            val dungeon = play.engine?.let { org.asyncttwiz.automatum.EngineProjection.dungeon(it.state, player.accountId) }
+            player.accountId to SeatRow(dungeon, EmblemChips.texts(play.board, player.accountId),
+                listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let(::roomChip)) +
+                    play.engine?.let { org.asyncttwiz.automatum.PlayerStates.of(it.state, player.accountId) }.orEmpty())
+        }
+        // WEB-016 (owner playtest 2026-11-15, owner notes 2026-11-16): on the desktop table each seat header is a box floating
+        // over the battlefields, as wide as its contents (its life square, piles, the other player's hand's fan, chips): the
+        // other player's at the top left, yours at the bottom left, each as tall as the action area
+        val plates = if (desktop == null) emptyMap() else players.associate { player ->
+            val row = seatRows.getValue(player.accountId)
+            val right = DesktopTable.rowRight(tableRight, row.places, row.emblems, row.stateRow,
+                fan = if (player.accountId == viewer) 0f else fanWidth, start = DesktopTable.PLATE_PAD) + DesktopTable.PLATE_PAD
+            player.accountId to TableBounds(0f, if (player.accountId == viewer) floorY - DesktopTable.FLOAT else 0f, right, DesktopTable.FLOAT)
+        }
+        // WEB-016, TBL-121, TBL-012: the battlefields' column 0 lies just right of both boxes in the opening view and when the
+        // table is fitted; the boxes take no height from the rows (their battlefields reach the top row and the bottom floats)
+        val boxesRight = plates.values.maxOfOrNull { it.right } ?: 0f
+        val boardTop = if (desktop != null) 4f else HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar (taller cards reach above it)
         val ownHandHeight = maxOf(HEADER, railHeight)
         // WEB-015, TBL-012, TBL-121: on the desktop table the battlefields are laid out (fitted, opened on) above what floats over
@@ -555,24 +588,31 @@ object TablePresentation {
         // TBL-009: the battlefields take the table's whole width in both orientations
         val worldViewport = TableBounds(6f, worldTop, (tableRight - 12f).coerceAtLeast(1f),
             (worldBottom - worldTop).coerceAtLeast(1f))
-        // WEB-015: where the battlefields are drawn: on the desktop table down to the window's bottom (the timeline strip)
-        val shownViewport = if (desktop != null) worldViewport.copy(height = (floorY - worldTop).coerceAtLeast(worldViewport.height))
+        // WEB-015: where the battlefields are drawn: on the desktop table from the top row down to the window's bottom (the
+        // timeline strip)
+        val shownViewport = if (desktop != null) worldViewport.copy(y = 0f, height = floorY.coerceAtLeast(worldViewport.bottom))
             else worldViewport
+        // WEB-016: how much of the battlefields' left the seat boxes take, and the battlefields' width right of them (at 1×)
+        val boxInset = (boxesRight - worldViewport.x).coerceIn(0f, (worldViewport.width - 1f).coerceAtLeast(0f))
+        val boardWidth = worldViewport.width - boxInset
         // TBL-009: in landscape the Stack (over the battlefields' right end, STK-007) fits between the hands
         val stackScale = appearance.size(CardArea.STACK).let { size -> if (!landscape) size
             else minOf(size, ((worldViewport.height - 24f) / hudHeight).coerceAtLeast(.5f)) }
         val stackWidth = hudWidth * stackScale
         val stackPadding = 12f
         val stackHeight = hudHeight * stackScale
-        val panelArea = worldViewport.copy(x = 0f, width = tableRight)
+        // WEB-016: on the desktop table under the other player's seat box, as under their seat header before
+        val panelArea = if (desktop == null) worldViewport.copy(x = 0f, width = tableRight)
+            else TableBounds(0f, DesktopTable.FLOAT + 4f, tableRight, (worldViewport.bottom - DesktopTable.FLOAT - 4f).coerceAtLeast(1f))
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
         // TBL-004, TBL-053 (Arena style): each battlefield lays itself out from the game state: its groups (stacks, cards with
         // what is attached to them) in its land row and upper band; the group the viewer opened lies with its members side by side
         val groups = BattlefieldLayout.groups(BattlefieldLayout.cards(play.board, definitions, computed), ui.paying)
         val expanded = ui.expandedGroup?.takeIf { key -> groups.any { it.key == key && it.members.size > 1 } }
         // TBL-004: the upper band's right end at 1×: the battlefield's own width on the screen left of the Stack pinned at its
-        // right edge (STK-007), so the non-creatures lying from there leftwards aren't under it in the opening view
-        val rowWidth = ((worldViewport.width - stackWidth - 2 * stackPadding) / battlefieldScale - 32f)
+        // right edge (STK-007), so the non-creatures lying from there leftwards aren't under it in the opening view (WEB-016: on
+        // the desktop table from right of the seat boxes)
+        val rowWidth = ((boardWidth - stackWidth - 2 * stackPadding) / battlefieldScale - 32f)
             .coerceAtLeast(BattlefieldLayout.SLOT)
         val spots = players.associate { player -> container(player.accountId, PlayZone.BATTLEFIELD).id.let { id ->
             id to BattlefieldLayout.place(groups.filter { it.field == id }, rowWidth, expanded) } }
@@ -598,16 +638,17 @@ object TablePresentation {
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
         // TBL-121: an untouched camera in landscape opens on the battlefields' whole height
         val opening = landscape && landscapeHome && ui.camera == TableCamera()
-        val combatX = (worldViewport.width - combat.width) / 2
+        // WEB-016: the lanes centred in the battlefields' width right of the desktop table's seat boxes
+        val combatX = (boardWidth - combat.width) / 2
         val worldLeft = minOf(0f, combatX)
-        val worldRight = maxOf(worldViewport.width, (logicalRight + 32f) * battlefieldScale, combatX + combat.width)
+        val worldRight = maxOf(boardWidth, (logicalRight + 32f) * battlefieldScale, combatX + combat.width)
         val contentBounds = TableBounds(worldLeft, logicalFields.first().y,
             worldRight - worldLeft,
             logicalFields.last().bottom - logicalFields.first().y)
         // Empty columns are navigable without making Fit table zoom out to include unused space.
         val world = TableWorld(worldViewport, contentBounds,
             contentBounds.copy(x = worldLeft - 3 * columnPitch, width = contentBounds.width + 6 * columnPitch),
-            clipViewport = shownViewport.takeIf { desktop != null })
+            clipViewport = shownViewport.takeIf { desktop != null }, leftInset = boxInset)
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         // TBL-121: [landscapeHome] (the table screen): an untouched camera in landscape opens on the whole height
         val camera = if (opening) world.landscapeHome() else world.normalize(ui.camera)
@@ -695,26 +736,25 @@ object TablePresentation {
         }
         // Opponent block on top, own block at the bottom; in landscape (TBL-009) the opponent's in the top bar, yours in the
         // bottom bar, left of the controls
-        // WEB-016: on the desktop table the other player's seat header lies on their battlefield, at the top; yours floats at the
-        // bottom left over yours (owner playtest 2026-11-15), its life square and piles in its lower part
-        val dockRowY = if (desktop != null) listOf(0f, floorY - DesktopTable.SEAT)
+        // WEB-016: on the desktop table each seat box's life square and piles lie in its lower part, the avatar and name over
+        // them: the other player's box at the top left (owner notes 2026-11-16), yours at the bottom left (owner playtest
+        // 2026-11-15)
+        val dockRowY = if (desktop != null) listOf(DesktopTable.FLOAT - DesktopTable.SEAT, floorY - DesktopTable.SEAT)
             else if (landscape) listOf(0f, height - controlsHeight) else listOf(HEADER, ownDockY)
         val dockRowHeights = if (desktop != null) listOf(DesktopTable.SEAT, DesktopTable.SEAT)
             else if (landscape) listOf(HEADER, controlsHeight) else listOf(dockRow, ownDockRow)
-        // WEB-016: your seat header floating at the bottom left of the desktop table
-        var ownPlate: TableBounds? = null
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
-            // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles
-            val dungeon = play.engine?.let { org.asyncttwiz.automatum.EngineProjection.dungeon(it.state, player.accountId) }
-            val places = if (dungeon != null) 4 else 3
-            // TRN-053, TRN-072, TRN-069 (owner gallery review 2026-11-10): the room of the player's dungeon, what the rules keep for
-            // the player and their emblems, as round chips in one row
-            val emblemTexts = EmblemChips.texts(play.board, player.accountId)
-            val stateChips = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let(::roomChip)) +
-                play.engine?.let { org.asyncttwiz.automatum.PlayerStates.of(it.state, player.accountId) }.orEmpty()
-            val stateRow = PlayerChips.wanted(stateChips.size + EmblemChips.chipCount(emblemTexts.size))
-            val emblems = emblemTexts.isNotEmpty() || stateChips.isNotEmpty()
+            // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles; TRN-053, TRN-072, TRN-069
+            // (owner gallery review 2026-11-10): the room of the player's dungeon, what the rules keep for the player and their
+            // emblems, as round chips in one row
+            val seatRow = seatRows.getValue(player.accountId)
+            val dungeon = seatRow.dungeon
+            val places = seatRow.places
+            val emblemTexts = seatRow.emblemTexts
+            val stateChips = seatRow.stateChips
+            val stateRow = seatRow.stateRow
+            val emblems = seatRow.emblems
             val hand = container(player.accountId, PlayZone.HAND).let { hand ->
                 // UI review round 2 #9 (decided for the owner): with Automatum on a spell cast from a hand leaves it at once:
                 // its card isn't drawn in the hand while its entry is on the Stack (the card stays there, STK-001)
@@ -727,10 +767,7 @@ object TablePresentation {
             val desktopFan = fan && desktop != null
             // WEB-016 (owner playtest 2026-11-15): on the desktop table your seat header floats at the bottom left, as narrow as its
             // life square, piles and chips let it be
-            val plateRight = if (desktop != null && ownSide)
-                DesktopTable.rowRight(tableRight, true, places, emblems, stateRow, start = DesktopTable.PLATE_PAD) + DesktopTable.PLATE_PAD
-                else 0f
-            if (desktop != null && ownSide) ownPlate = TableBounds(0f, floorY - DesktopTable.FLOAT, plateRight, DesktopTable.FLOAT)
+            val plateRight = plates[player.accountId]?.right ?: 0f
             // WEB-015: on the desktop table your hand is a fan at the bottom centre, between your seat header and the action area
             val normalHandBounds = if (desktop != null) TableBounds(0f, 0f, 0f, 0f) // the fans' places are worked out below
             else if (!ownSide) {
@@ -872,12 +909,11 @@ object TablePresentation {
             val portraitCounters = (width - portraitDock).coerceAtLeast(0f)
             val shrink = portraitCounters >= MIN_SHRUNK_COUNTER_GRID
             // TBL-009: in landscape the row starts after the turn header in the top bar, or at the bottom bar's left end
-            // WEB-016: on the desktop table after the seat header's avatar and name (yours floating at the bottom left has them
-            // over its life square)
-            val dockX = if (desktop != null) (if (ownSide) DesktopTable.PLATE_PAD else DesktopTable.NAME)
+            // WEB-016: on the desktop table at the seat box's left, under the avatar and name
+            val dockX = if (desktop != null) DesktopTable.PLATE_PAD
                 else if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
             // TRN-053, TRN-072: chips always have their room in the row: where the piles don't leave it they scroll under it
-            val dockWidth = if (desktop != null) DesktopTable.rowRight(tableRight, ownSide, places, emblems, stateRow,
+            val dockWidth = if (desktop != null) DesktopTable.rowRight(tableRight, places, emblems, stateRow,
                     fan = if (desktopFan) fanWidth else 0f, start = dockX) - dockX
                 else if (landscape) Landscape.rowRight(width, ownSide, places, emblems, stateRow) - dockX
                 else (if (portraitCounters >= gridWidth) width - gridWidth
@@ -1081,11 +1117,12 @@ object TablePresentation {
         }.toMap()
         return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = stackRegion, world = world, appearance = appearance, desktop = desktop != null,
-            desktopPlate = ownPlate,
-            // WEB-015, WEB-016, WEB-018, WEB-021: your seat header in your colour, the action area (and in timeline mode the
-            // strip) in the bars' colour, floating over the battlefields' bottom
-            floats = if (desktop == null) emptyList() else listOfNotNull(
-                ownPlate?.let { it to seatHeaderColor(viewer, viewer, reviewing) },
+            desktopPlates = plates,
+            // WEB-015, WEB-016, WEB-018, WEB-021: each seat header in its player's colour (the other player's at the top left,
+            // yours at the bottom left), the action area (and in timeline mode the strip) in the bars' colour, floating over the
+            // battlefields
+            floats = if (desktop == null) emptyList() else plates.map { (owner, plate) -> plate to seatHeaderColor(owner, viewer, reviewing) } +
+                listOfNotNull(
                 TableBounds(width - DesktopTable.ACTIONS, height - desktopBand, DesktopTable.ACTIONS, desktopBand) to
                     tableBarColor(play.board, viewer, reviewing),
                 TableBounds(0f, floorY, width - DesktopTable.ACTIONS, height - floorY).takeIf { it.height > 0f }?.let {
@@ -1206,3 +1243,14 @@ fun combatChipStep(board: BoardState, viewer: String): Boolean =
 /** The combat phase of [board]: its target chips fade in once per combat, never again as its steps go on (CMB-001, owner
  * playtest 2026-11-16: they faded in anew at the damage). */
 fun combatBandKey(board: BoardState): String = "${board.turn.number}/${board.turn.phase}"
+
+/** TRN-069, TRN-053, TRN-072: what a player's life and pile row holds besides their life square and piles: their [dungeon]
+ * (a fourth place after the piles) and their round chips (their emblems' [emblemTexts] and their [stateChips], the dungeon's
+ * room among them). */
+private class SeatRow(val dungeon: org.asyncttwiz.automatum.EngineProjection.ShownDungeon?, val emblemTexts: List<String>,
+    val stateChips: List<org.asyncttwiz.automatum.StateChip>) {
+    val places get() = if (dungeon != null) 4 else 3
+    /** The room the chips would like in one row. */
+    val stateRow get() = PlayerChips.wanted(stateChips.size + EmblemChips.chipCount(emblemTexts.size))
+    val emblems get() = emblemTexts.isNotEmpty() || stateChips.isNotEmpty()
+}

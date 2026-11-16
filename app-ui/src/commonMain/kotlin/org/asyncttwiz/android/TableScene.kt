@@ -543,15 +543,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
             val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
             val pressGlow = rememberPressGlow(pressedId)
-            if (desktopGeometry != null) {
-                // WEB-016: the other player's seat header in their colour across their battlefield (yours, the action area and
-                // the timeline strip float over the battlefields' bottom, drawn with the table: [TableScene.floats])
-                for (port in scene.viewports.filter { it.id.startsWith("dock/") && it.id.count { c -> c == '/' } == 1 && it.id != "dock/$accountId" }) {
-                    val owner = port.id.substringAfter("dock/")
-                    Box(Modifier.offset(0.dp, port.bounds.y.dp).size(desktopGeometry.tableRight.dp, DesktopTable.SEAT.dp)
-                        .background(seatHeaderColor(owner, accountId, runtime.reviewing)))
-                }
-            } else {
+            // WEB-016: on the desktop table both seat boxes, the action area and the timeline strip float over the battlefields,
+            // drawn with the table ([TableScene.floats])
+            if (desktopGeometry == null) {
             Box(Modifier.fillMaxWidth().height(48.dp).then(bars))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape, runtime.timelineOpen).dp)
                 .then(bars))

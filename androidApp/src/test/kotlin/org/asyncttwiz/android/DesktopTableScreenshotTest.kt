@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
 
 /**
  * The desktop table (docs/specs/web-client.md §7.2, wireframes D1–D5) at 1440 × 900: the same game table as the phone's
- * arranged for a large window: the global top row with the phase track, each player's seat header on their battlefield,
+ * arranged for a large window: the global top row with the phase track, each player's seat header a box floating over their battlefield,
  * the Stack at the battlefields' right edge beside the right dock with the docked chat, your hand centred in the bottom band, the action area at the
  * bottom right, and panels as a strip bottom-centre or a centred overlay over the dimmed table.
  */
@@ -86,9 +86,10 @@ class DesktopTableScreenshotTest {
     }
 
     /** Alice's scene of her desktop table (the surface under the top row: 1440 × 844). */
-    private fun scene(kit: EngineTableKit, pictures: Boolean = false, appearance: CardAppearance = DesktopCardAppearance): TableScene =
+    private fun scene(kit: EngineTableKit, pictures: Boolean = false, appearance: CardAppearance = DesktopCardAppearance,
+        layout: TableLayoutState = kit.toolkit.layoutState.value): TableScene =
         kit.alice.play().let { if (pictures) pictured(it) else it }.let { play ->
-            TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.topRow(1440f), true, kit.toolkit.layoutState.value,
+            TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.topRow(1440f), true, layout,
                 appearance = appearance, landscapeHome = true, handRow = HandRow.cards(play, kit.f.a), desktop = DesktopFrame())
         }
 
@@ -318,11 +319,13 @@ class DesktopTableScreenshotTest {
         compose.runOnIdle { assertEquals(1 to 1, holds to taps, "the left click tapped it") }
     }
 
-    // WEB-015, WEB-016, WEB-018, WEB-022, WEB-017, STK-007, TBL-012: the desktop table's arrangement: the battlefields end at
-    // the dock and reach the window's bottom, laid out above what floats over their bottom (owner playtest 2026-11-15); the other
-    // player's seat header is at the top with their hand as a small fan of backs; yours floats at the bottom left, as tall as the
-    // action area at the bottom right; your hand is a fan between them, its cards partly below the window's bottom, the part in
-    // view as tall as the action area; the Stack is the HUD at the battlefields' right edge, left of the dock
+    // WEB-015, WEB-016, WEB-018, WEB-022, WEB-017, STK-007, TBL-012, TBL-121: the desktop table's arrangement: the battlefields
+    // end at the dock and reach from the top row to the window's bottom, laid out above what floats over their bottom (owner
+    // playtest 2026-11-15); the other player's seat header is a box floating at the top left (owner notes 2026-11-16) with their
+    // hand as a small fan of backs; yours floats at the bottom left, each as tall as the action area at the bottom right, the
+    // battlefields' column 0 just right of both in the opening view; your hand is a fan between yours and the action area, its
+    // cards partly below the window's bottom, the part in view as tall as the action area; the Stack is the HUD at the
+    // battlefields' right edge, left of the dock
     @Test fun theSceneLaysOutSeatHeadersHandAndBattlefieldsForTheDock() {
         val kit = EngineTableKit()
         kit.opening()
@@ -332,28 +335,39 @@ class DesktopTableScreenshotTest {
         val laidOut = world.viewport
         assertTrue(laidOut.right <= 1440f - DesktopTable.DOCK, "the battlefields end at the dock: $laidOut")
         assertEquals(height, assertNotNull(world.clipViewport).bottom, .5f, "drawn down to the window's bottom")
+        assertEquals(0f, world.clipViewport!!.y, "drawn up to the top row")
         assertTrue(laidOut.bottom <= height - DesktopTable.FLOAT, "laid out (fitted, TBL-012) above the floats: $laidOut")
+        assertTrue(laidOut.y <= 4f, "the rows take the room up to the top row (no strip across the top): $laidOut")
         val bobLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.b }.bounds
         val aliceLife = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == kit.f.a }.bounds
         val margin = (DesktopTable.SEAT - DesktopTable.LIFE) / 2
-        assertEquals(margin, bobLife.y, "Bob's seat header at the top, its life square in its middle")
+        assertEquals(DesktopTable.FLOAT - DesktopTable.SEAT + margin, bobLife.y, "Bob's life square at the bottom of his box at the top")
+        assertEquals(DesktopTable.PLATE_PAD, bobLife.x, "his avatar and name over it")
         assertEquals(height - DesktopTable.SEAT + margin, aliceLife.y, "Alice's life square at the bottom of her seat header")
         assertEquals(DesktopTable.PLATE_PAD, aliceLife.x, "her avatar and name over it")
         assertEquals(DesktopTable.LIFE, aliceLife.height)
-        val plate = assertNotNull(scene.desktopPlate)
+        val plate = assertNotNull(scene.desktopPlates[kit.f.a])
         assertEquals(TableBounds(0f, height - DesktopTable.FLOAT, DesktopTable.pilesRight(DesktopTable.PLATE_PAD, 3) + DesktopTable.PLATE_PAD,
             DesktopTable.FLOAT), plate, "her seat header floating at the bottom left, as tall as the action area")
-        assertEquals(2, scene.floats.size, "her seat header and the action area float with backgrounds of their own")
+        val bobsHandItem = scene.items.single { it.kind == TableItemKind.HAND && it.owner == kit.f.b }
+        val bobsPlate = assertNotNull(scene.desktopPlates[kit.f.b])
+        assertEquals(TableBounds(0f, 0f, bobsHandItem.bounds.right + DesktopTable.PLATE_PAD, DesktopTable.FLOAT), bobsPlate,
+            "his seat header a box at the top left, as wide as its contents (his life square, piles and hand's fan), as tall as hers")
+        assertEquals(3, scene.floats.size, "both seat headers and the action area float with backgrounds of their own")
+        assertTrue(scene.floats.any { it.first == bobsPlate } && scene.floats.any { it.first == plate }, "the seat boxes: ${scene.floats}")
         assertTrue(scene.floats.any { it.first == TableBounds(1440f - DesktopTable.ACTIONS, height - DesktopTable.FLOAT, DesktopTable.ACTIONS,
             DesktopTable.FLOAT) }, "the action area: ${scene.floats}")
-        assertTrue(laidOut.y >= DesktopTable.SEAT, "the battlefields under Bob's seat header: $laidOut")
+        // TBL-121: the opening view puts the battlefields' column 0 just right of both boxes
+        val boxes = maxOf(plate.right, bobsPlate.right)
+        assertTrue(scene.fields.all { kotlin.math.abs(it.originX - boxes) < .5f }, "column 0 right of the boxes at $boxes: ${scene.fields.map { it.originX }}")
         // WEB-016, WEB-022: the piles twice the landscape bar row's 32 dp, inside their seat header with their count bubbles
         val piles = scene.items.filter { it.kind == TableItemKind.PILE && it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
         assertEquals(6, piles.size)
         assertTrue(piles.all { it.bounds.height == DesktopTable.PILE_HEIGHT }, "piles 64 tall: ${piles.map { it.bounds }}")
-        val bobsPiles = piles.filter { it.bounds.y < DesktopTable.SEAT }
-        assertTrue(bobsPiles.size == 3 && bobsPiles.all { it.pileCountBubble(DesktopTable.PILE_BADGE).y >= 0f && it.bounds.bottom <= DesktopTable.SEAT },
-            "Bob's piles and their bubbles inside his seat header: ${bobsPiles.map { it.bounds }}")
+        val bobsPiles = piles.filter { it.bounds.y < DesktopTable.FLOAT }
+        assertTrue(bobsPiles.size == 3 && bobsPiles.all { it.pileCountBubble(DesktopTable.PILE_BADGE).y >= DesktopTable.FLOAT - DesktopTable.SEAT &&
+                it.bounds.bottom <= DesktopTable.FLOAT },
+            "Bob's piles and their bubbles inside his seat header's row: ${bobsPiles.map { it.bounds }}")
         // WEB-022: battlefield cards 2× (before the opening zoom, TBL-121)
         assertEquals(2f * 28f, scene.cardWidth / scene.camera.zoom, .5f)
         // WEB-015 (owner playtest 2026-11-15): her hand a fan at 5.2×, centred between her seat header and the action area,
@@ -406,7 +420,8 @@ class DesktopTableScreenshotTest {
         assertEquals(turned.cardId, raisedScene.hit(TablePoint(raised.bounds.center.x, height - DesktopTable.FLOAT - 30f))?.cardId,
             "the popped-out card above the fan")
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
-        assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.y >= 0f && it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
+        assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.y >= DesktopTable.FLOAT - DesktopTable.SEAT && it.bounds.bottom <= DesktopTable.FLOAT },
+            "Bob's hand in his seat header's row")
         // WEB-016, ZON-001 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): Bob's hand is
         // the phone's small fan of card backs after his piles, its cards the piles' size times FAN_CARD, turned and overlapping,
         // its count at its right
@@ -461,7 +476,7 @@ class DesktopTableScreenshotTest {
         compose.onAllNodesWithText("Bob").onFirst().assertExists()
         compose.onNodeWithText("You").assertExists()
         captureShot("$SCREENSHOTS/desktop/table.png",
-            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header at the top with his hand as a small fan of card backs after his piles, as on the phone, and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the empty Stack at the battlefields' right edge and the game chat docked beside it at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
+            "Alice's desktop table at her first main phase: the top row with her turn, the move pill and the phase track, Bob's seat header in a box at the top left with his hand as a small fan of card backs after his piles, as on the phone, and hers above her larger hand, where the Mountain she may play glows in cyan as on the phone, the empty Stack at the battlefields' right edge and the game chat docked beside it at the right, and at the bottom right the quick actions over a row of Undo, a real button a third of it wide, and the main button in the other two thirds, lined up.")
     }
 
     /** Bob casts Storm Spark at Alice's Ember Cub in his turn and she holds priority over it. */
@@ -479,15 +494,48 @@ class DesktopTableScreenshotTest {
     }
 
     // WEB-017, WEB-016, STK-007, STK-057, STK-058 (D1): Bob casts Storm Spark at Alice's Ember Cub and she holds priority: the
-    // Spark is on the Stack at the battlefields' right edge (never in the dock), its arrow to the Cub, the band under Bob's seat
-    // header says what it does, the main button reads Resolve
+    // Spark is on the Stack at the battlefields' right edge (never in the dock), its arrow to the Cub, the band at the
+    // battlefields' top beside Bob's seat box says what it does, the main button reads Resolve
     @Test fun respondingShowsTheStackOnTheField() {
         render(respondingKit())
         compose.onNodeWithText("STACK · 1").assertDoesNotExist()
         compose.onNodeWithContentDescription("Stack, 1 entries").assertExists()
         compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast Storm Spark · deals 3 damage to Ember Cub"))
         captureShot("$SCREENSHOTS/desktop/table-responding.png",
-            "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the Spark is on the Stack at the battlefields' right edge with its arrow to the Cub, the band under Bob's seat header says what it does, and the main button at the bottom right reads Resolve.")
+            "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the Spark is on the Stack at the battlefields' right edge with its arrow to the Cub, the band at the battlefields' top beside Bob's seat box says what it does, and the main button at the bottom right reads Resolve.")
+    }
+
+    // WEB-016, TBL-121, TBL-012, TRN-066, STK-057 (owner notes 2026-11-16: "An opponent's life, hand etc could sit in a similar box
+    // as yours. Default camera pan could be so that these are on the left side of the 'pos 0' so that they don't obstruct cards
+    // played"): with Bob's Mountains and Alice's Mountain and Ember Cub out, Bob's seat header is a box at the top left like
+    // hers at the bottom left; the table opens with every battlefield card just right of both boxes, the rows reaching up beside
+    // Bob's box, and fitted (F) it still shows them all right of the boxes; the band saying what Bob's Spark does lies at the
+    // battlefields' top beside his box
+    @Test fun theSeatBoxesCoverNoCardInTheOpeningViewOrTheFittedTable() {
+        val kit = respondingKit()
+        val opening = scene(kit)
+        val fitted = scene(kit, layout = kit.toolkit.layoutState.value.copy(camera = assertNotNull(opening.world).fit()))
+        for ((view, shown) in listOf("opening" to opening, "fitted" to fitted)) {
+            val boxes = shown.desktopPlates.values
+            assertEquals(2, boxes.size, "both seat boxes ($view)")
+            val cards = shown.items.filter { it.battlefieldCard }
+            assertTrue(cards.any { it.owner == kit.f.b } && cards.any { it.owner == kit.f.a }, "both players' cards out ($view): ${cards.map { it.label }}")
+            assertTrue(cards.all { card -> boxes.none { it.intersection(card.bounds) != null } },
+                "no card under a seat box ($view): ${cards.map { it.label.substringBefore(",") to it.bounds }}, boxes $boxes")
+            val bobsTop = cards.filter { it.owner == kit.f.b }.minOf { it.bounds.y }
+            assertTrue(bobsTop < DesktopTable.FLOAT, "Bob's rows reach up beside his box ($view): $bobsTop")
+        }
+        render(kit)
+        val box = compose.onAllNodesWithTag(DESKTOP_SEAT_BOX_TAG).fetchSemanticsNodes().map { it.boundsInRoot }.minBy { it.top }
+        val band = compose.onNodeWithTag("wait-band").fetchSemanticsNode().boundsInRoot
+        assertEquals(box.right, band.left, 1f, "the band beside Bob's box: $band, box $box")
+        assertEquals(box.top, band.top, 1f, "at the battlefields' top")
+        captureShot("$SCREENSHOTS/desktop/opponent-box.png",
+            "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority, the table as it opens: Bob's avatar, name, life, piles and hand's fan sit in a box at the top left like Alice's at the bottom left, the battlefields reach up to the top row beside it, every card lies just right of both boxes, and the band saying what the Spark does runs along the battlefields' top beside Bob's box.")
+        compose.runOnIdle { assertNotNull(kit.toolkit.fitTable).invoke() }
+        compose.waitForIdle()
+        captureShot("$SCREENSHOTS/desktop/opponent-box-fitted.png",
+            "The same table after Alice pressed F to fit it: the whole table zoomed to fit the room right of the two seat boxes, every card still clear of them.")
     }
 
     // WEB-017, STK-007 (owner playtest 2026-11-15: "push it to the side"): with the chat dock open the battlefields narrow and the

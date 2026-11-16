@@ -496,10 +496,10 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         onIntent = toolkit::handle, toolkit = toolkit, runtime = hooks)
                 }
                 // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the
-                // battlefields' top, under the other player's seat header
+                // battlefields' top, centred over them (the other player's seat box floats at their top left, WEB-016)
                 Box(if (desktopFrame == null) Modifier.matchParentSize()
                     else Modifier.width((maxWidth.value - desktopFrame.dockWidth).coerceAtLeast(0f).dp).fillMaxHeight()
-                        .padding(top = (DesktopTable.SEAT + 4f).dp)) {
+                        .padding(top = 4.dp)) {
                     EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
                         flashes = toolkit.choiceFlashes)
                     TurnBannerOverlay(routes.banners, shown.show != null, accountId, names, Modifier.align(Alignment.Center))

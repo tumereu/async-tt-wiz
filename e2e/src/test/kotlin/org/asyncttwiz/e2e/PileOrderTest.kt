@@ -24,7 +24,11 @@ class PileOrderTest : E2e() {
 
     // TBL-053, TBL-027, TBL-130, TBL-054
     @Test fun tappedMembersLieOnTopAndOnlyCreaturesStayApart() {
-        startGame(deck, deck, deal = { a, _ -> hand(a).count { it == "Mountain" } >= 2 && hand(a).count { it == "Ash Pup" } >= 2 })
+        // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
+        // as playing along through his turn he plays one if he holds it, else his cleanup's discard waits for him
+        startGame(deck, deck, deal = { a, b ->
+            hand(a).count { it == "Mountain" } >= 2 && hand(a).count { it == "Ash Pup" } >= 2 && "Mountain" in hand(b)
+        })
         bothOpen()
         bothKeep(bobAway = false)
         alice.playFromHand("Mountain", this)

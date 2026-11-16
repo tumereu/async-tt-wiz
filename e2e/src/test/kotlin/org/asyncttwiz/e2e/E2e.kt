@@ -256,6 +256,15 @@ abstract class E2e {
         try { return block() } finally { inStep--; restoreAutoAdvance() }
     }
 
+    /**
+     * The phones' frames' clock now (ms; the Compose test clock: animations, a combat's hold): inside [clockInStep] the time
+     * to measure what animates by. The main thread's clock (`SystemClock.uptimeMillis`) runs ahead of it there: each look at
+     * the screen (a node fetch waiting for idle) moves Robolectric's clock on by a frame or so, and a round of a few looks
+     * by over 100 ms, while the frames move on only by the real time between rounds (CombatAnimationTest, 2026-11-16: its
+     * "1500 ms" after the combat was 50-100 ms of frames, and the defender's band, closing as the wait ended, wasn't seen to).
+     */
+    internal fun framesMillis(): Long = compose.mainClock.currentTime
+
     /** The frames' clock back to advancing by itself, unless inside [clockInStep]. */
     private fun restoreAutoAdvance() { compose.mainClock.autoAdvance = inStep == 0 }
 

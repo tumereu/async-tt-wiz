@@ -153,6 +153,12 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
     ScreenBackHandler { controller.back() }
     // TRN-065 (owner, 2026-11-09): a concession or an accepted suggestion leaves both players at the table until both OKs stand
     val atTable = state.detail?.takeIf { it.lifecycle == GameLifecycle.ACTIVE || controller.tableHeldAtEnd(it) }
+    // TRN-065 (owner, prod 0.2.0: a player left the table after a concession): which of the table and the lobby shows, and
+    // why, on every change
+    val where = state.detail?.let { d -> "${if (atTable != null) "table" else "lobby"} of ${d.id.take(8)} (${d.lifecycle}, revision " +
+        "${d.revision}, result owed by ${d.resultNotice?.unseen?.joinToString { if (it == accountId) "this player" else "the other player" } ?: "none"}, " +
+        "table held at the end ${controller.tableHeldAtEnd(d)})" }
+    LaunchedEffect(where?.substringBefore(" ("), state.detail?.lifecycle) { where?.let { AppLog.info("lobby", "Open game shows the $it") } }
     if (atTable != null) {
         val reconnecting = atTable.id in state.reconnectingGames
         var dismissedReconnect by remember(atTable.id, reconnecting) { mutableStateOf(false) }

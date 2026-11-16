@@ -9,6 +9,7 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
 import org.asyncttwiz.android.AppLog
+import org.asyncttwiz.android.CHOICE_SOURCE_TAG
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertContains
@@ -27,9 +28,13 @@ import kotlin.test.assertTrue
 class RewindToOpenChoiceTest : E2e() {
     private val inPanel = hasAnyAncestor(hasContentDescription("Automatum choice"))
 
-    /** Both keep, live; Alice, in her Main 1, casts an Ember Dread: it resolves and Manifest which card? waits for her. */
+    /** Both keep, live; Alice, in her Main 1, casts an Ember Dread: it resolves and Manifest which card? waits for her, among
+     * an Ember Dread and a Mountain (the deal's random streams are per player since 336be95d5, so it is asked for: one card
+     * named as the panel's source at its right, the other not). */
     private fun aliceCastsADread(): Decision.ChooseObjects {
-        startGame(TestDeck.dreads(), TestDeck.dreads(), deal = { a, _ -> "Mountain" in hand(a) && "Ember Dread" in hand(a) })
+        startGame(TestDeck.dreads(), TestDeck.dreads(), deal = { a, _ ->
+            "Mountain" in hand(a) && "Ember Dread" in hand(a) && library(a).take(2).toSet() == setOf("Ember Dread", "Mountain")
+        })
         bothOpen()
         bothKeep(bobAway = false)
         alice.playFromHand("Ember Dread", this)
@@ -56,9 +61,9 @@ class RewindToOpenChoiceTest : E2e() {
         val card = assertNotNull(alice.state.obj(choice.options[index])).card
         val other = assertNotNull(alice.state.obj(choice.options[1 - index])).card
         val name = nameOf(choice.options[index])
-        // Two of one name are side by side in the options' order
+        // Two of one name are side by side in the options' order; the source at the panel's right (an Ember Dread too) is no option
         val at = choice.options.take(index).count { nameOf(it) == name }
-        alice.nodes(hasContentDescription(name) and inPanel)[at].performClick()
+        alice.nodes(hasContentDescription(name) and inPanel and !hasTestTag(CHOICE_SOURCE_TAG))[at].performClick()
         waitUntil("the card picked") { alice.shows(hasContentDescription("$name, chosen") and inPanel) }
         alice.text("OK").performClick()
         waitUntil("the choice made, on the server, or refused", along = listOf(bob)) {

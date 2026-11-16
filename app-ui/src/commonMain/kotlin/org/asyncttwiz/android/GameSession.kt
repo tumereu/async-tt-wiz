@@ -216,9 +216,12 @@ class GameSession(private val connection: GameConnection, private val credential
         val notice = message.summary.resultNotice?.takeIf { message.summary.lifecycle == GameLifecycle.LOBBY }
         val owed = notice?.unseen.orEmpty()
         if (notice == null || !engineLoad(message.gameId) || game.shown == null || game.loadFailed) {
-            releaseEnd(message.gameId, if (notice == null) "both OKs stand (revision ${message.resultRevision}, " +
+            val why = if (notice == null) "both OKs stand (revision ${message.resultRevision}, " +
                 "${if (message.author == (account ?: accountId())) "own request" else "the other player's request"})"
-                else "the device can't hold the table (open ${engineLoad(message.gameId)}, failed ${game.loadFailed})")
+                else "the device can't hold the table (open ${engineLoad(message.gameId)}, shown ${game.shown != null}, failed ${game.loadFailed})"
+            // TRN-065 (owner, prod 0.2.0): a play ended here without its table held is said too, not only a held one let go
+            if (message.gameId !in endHeld) AppLog.info("game", "End of game at revision ${message.resultRevision}: to the lobby: $why")
+            releaseEnd(message.gameId, why)
             return false
         }
         if (endHeld.add(message.gameId)) {
@@ -226,10 +229,31 @@ class GameSession(private val connection: GameConnection, private val credential
                 owed.joinToString { if (it == (account ?: accountId())) "this player" else "the other player" })
             game.holdEnd(message) { releaseEnd(message.gameId, "the device can't show the end") }
         }
-        install(message.summary, message.resultRevision, message.preparation)
+        install(message.summary, message.resultRevision, message.preparation, "the revision that ended the play")
         return true
     }
     fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
+
+    /**
+     * TRN-065, LOB-046 (owner, prod 0.2.0: a player was taken to the lobby after a concession instead of staying at the table
+     * until both OKs): [summary], read from a head or a list, says the play open at this table ended with a result, ahead of
+     * the revision that ended it (a heartbeat's head or a list read is read as soon as asked for, a revision is published up to
+     * a moment after its commit). Whether it waits for that revision: only the revision plays the end at the table and holds it
+     * there ([holdEnd]); installed first, the summary showed the lobby and fenced the revision off. The revisions after the
+     * table's are asked for, so the end comes even if the one on its way went missing.
+     */
+    private fun endAheadOfRevision(summary: GameSummary, source: String): Boolean {
+        val game = engineGames[summary.id] ?: return false
+        if (summary.lifecycle != GameLifecycle.LOBBY || summary.resultNotice == null || summary.id in endHeld) return false
+        if (!engineLoad(summary.id) || game.shown == null || game.loadFailed) return false
+        val received = game.revision ?: return false
+        if (GameWire.ordinal(summary.revision) <= GameWire.ordinal(received)) return false
+        AppLog.info("game", "End of game ahead of its revision: $source at revision ${summary.revision} says the play ended " +
+            "(${summary.resultNotice?.ending}), the table is at revision $received: it stays, the revisions after it asked for " +
+            "(${if (summary.id in headAsked) "already asked" else "asking now"})")
+        askHead(summary.id)
+        return true
+    }
 
     /** The newest engine head of a game that isn't loaded, kept until it opens (switchreview #11: only the open game loads
      * on the engine thread; the list needs only the summary). */
@@ -296,7 +320,7 @@ class GameSession(private val connection: GameConnection, private val credential
      * history catch-up, whose server routes are gone (switchreview #1). */
     private fun awaitEngineHead(message: GameRevision) {
         engineHeads.remove(message.gameId)
-        install(message.summary, message.resultRevision, message.preparation)
+        install(message.summary, message.resultRevision, message.preparation, "a revision before the engine head")
         if (acceptedRevisions[message.gameId]?.let { newerOrEqual(it, message.resultRevision) } != true)
             acceptedRevisions[message.gameId] = message.resultRevision
         if (engineLoad(message.gameId)) askHead(message.gameId)
@@ -356,7 +380,7 @@ class GameSession(private val connection: GameConnection, private val credential
             if (holdEnd(game, message)) return
             engineGames.remove(message.gameId)?.close()
             if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
-            else install(message.summary, message.resultRevision, message.preparation)
+            else install(message.summary, message.resultRevision, message.preparation, "a revision")
             return
         }
         game.assumeReveals(message.summary.assumeReveals)
@@ -426,7 +450,7 @@ class GameSession(private val connection: GameConnection, private val credential
     fun watch(games: List<GameSummary>) {
         checkAccount()
         for (game in games) {
-            install(game, game.revision, null)
+            if (!endAheadOfRevision(game, "a list read")) install(game, game.revision, null, "a list read")
             streams.getOrPut(game.id) { SessionStream() }
         }
         tick()
@@ -653,7 +677,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     message.statuses.map { it.requestId }.toSet() == stream.recoveryIds.toSet())
                 message.ended?.let {
                     require(it.id == message.gameId && ended(it))
-                    install(it, it.revision, null)
+                    install(it, it.revision, null, "a stream ready")
                 }
                 // Successful ordinary stream authorization is fresh evidence of availability;
                 // a list/head omission alone was never a fabricated cancellation revision.
@@ -693,14 +717,15 @@ class GameSession(private val connection: GameConnection, private val credential
                 else if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.play == null) {
                     // A summary head (switch-review #11: every heartbeat, and a game in the list): the summary and presence;
                     // the open game asks for its engine head when this one is past what it received (switch-review #10)
-                    install(message.summary, message.revision, message.preparation)
+                    install(message.summary, message.revision, message.preparation, "a head")
                     streams[message.gameId]?.head = true
                     val loaded = engineGames[message.gameId]?.takeIf { it.base.id == message.summary.playId }
                     if (engineLoad(message.gameId) && loaded?.revision?.let { GameWire.ordinal(message.revision) > GameWire.ordinal(it) } == true)
                         askHead(message.gameId)
                 }
+                else if (endAheadOfRevision(message.summary, "a head")) streams[message.gameId]?.head = true
                 else {
-                    install(message.summary, message.revision, message.preparation)
+                    install(message.summary, message.revision, message.preparation, "a head")
                     streams[message.gameId]?.head = true
                     // A play without engine state can't be played on this device (no history is downloaded any more)
                     if (message.play != null && message.summary.lifecycle == GameLifecycle.ACTIVE)
@@ -715,6 +740,10 @@ class GameSession(private val connection: GameConnection, private val credential
                 // Duplicate accepted deliveries can still correlate exact originals, but cannot
                 // advance/replace storage or start recovery against an obsolete through-revision.
                 if (acceptedRevisions[message.gameId]?.let { GameWire.ordinal(message.resultRevision) <= GameWire.ordinal(it) } == true) {
+                    // TRN-065 (owner, prod 0.2.0): the revision that ended the open play, come after its revision was accepted
+                    if (message.summary.lifecycle != GameLifecycle.ACTIVE && engineGames[message.gameId] != null && message.gameId !in endHeld)
+                        AppLog.info("game", "End of game: revision ${message.resultRevision} came after revision " +
+                            "${acceptedRevisions[message.gameId]} was accepted: the table isn't held")
                     correlateSelections(message)
                     flush(); statusChanged(); return
                 }
@@ -728,7 +757,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 // I-D56: every play is engine state; one this device hasn't loaded waits for its engine head
                 if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
-                else install(message.summary, message.resultRevision, message.preparation)
+                else install(message.summary, message.resultRevision, message.preparation, "a revision")
                 correlateSelections(message)
             }
             is GameResult -> result(message)
@@ -767,7 +796,7 @@ class GameSession(private val connection: GameConnection, private val credential
         recoveryReady()
         statusChanged()
     }
-    private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?) {
+    private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?, source: String = "") {
         require(game.revision == revision); GameWire.ordinal(revision)
         // An HTTP summary can lead the actual replica. It must not prevent catching that replica up.
         if (acceptedRevisions[game.id]?.let { !newerOrEqual(revision, it) } == true) return
@@ -780,7 +809,7 @@ class GameSession(private val connection: GameConnection, private val credential
         // TRN-065 (owner, 2026-11-09): logged fully: when an OK on a result becomes owed, and when both stand (the lobby free)
         if (old != null && old.resultNotice != game.resultNotice && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) {
             val me = account ?: accountId()
-            AppLog.info("game", "Result notice at revision $revision: " + (game.resultNotice?.let { notice ->
+            AppLog.info("game", "Result notice at revision $revision${if (source.isEmpty()) "" else " from $source"}: " + (game.resultNotice?.let { notice ->
                 "${notice.ending}, OK owed by ${notice.unseen.joinToString { if (it == me) "this player" else "the other player" }}" }
                 ?: "both OKs stand, to the lobby${if (endHeld.contains(game.id)) " (from the table)" else ""}"))
         }

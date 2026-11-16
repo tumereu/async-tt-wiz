@@ -28,8 +28,10 @@ class CombatHoldTest : E2e() {
 
     /** Alice has a Pup ready and is on her second turn's declaration, with [millis] as both phones' time. */
     private fun aliceDeclaring(millis: Long) {
+        // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
+        // as playing along through his turn he plays one if he holds it, else his cleanup's discard waits for him
         startGame(pups, pups, bobSettings = org.asyncttwiz.protocol.game.PlaySettings(),
-            deal = { a, _ -> "Ash Pup" in hand(a) && "Mountain" in hand(a) })
+            deal = { a, b -> "Ash Pup" in hand(a) && "Mountain" in hand(a) && "Mountain" in hand(b) })
         val context = ApplicationProvider.getApplicationContext<Context>()
         for (player in listOf(alice, bob)) HistoryPlaybackPreferences(AppPlatform.current, player.id).showPlaysMillis = millis
         bothOpen()

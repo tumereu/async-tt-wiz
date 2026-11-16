@@ -40,7 +40,9 @@ class SecretChoiceTest : E2e() {
     // TBL-133, HIS-091, HIS-062, SYS-039 (owner 2026-11-16; CR 607.2d, CR 118.3): a secret choice shows only to its chooser until the rules reveal
     // it; the event that reveals it names it on both tables
     @Test fun aSecretChoiceStaysHiddenFromTheOtherPlayerUntilItIsRevealed() {
-        startGame(lineups, pups, bobSettings = PlaySettings(), deal = { a, _ -> "Ember Lineup" in hand(a) })
+        // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
+        // as playing along through his turn he plays one if he holds it, else his cleanup's discard waits for him
+        startGame(lineups, pups, bobSettings = PlaySettings(), deal = { a, b -> "Ember Lineup" in hand(a) && "Mountain" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)
         alice.playFromHand("Ember Lineup", this)

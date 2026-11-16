@@ -149,7 +149,9 @@ fun PodPickView(
             return@Listen true
         }
         fun apply(effects: List<DesktopFingerKey.Effect>) {
-            if (effects.isNotEmpty()) AppLog.info("pod", "Finger key ${key.key} ${if (key.down) "down" else "up"}${hovered?.let { " over $it" }.orEmpty()}: ${effects.joinToString()}")
+            // WEB-025 (prod report 96PB2X): a release the page never sent says why it came
+            val how = if (key.down) "down" else key.lost?.let { "let go ($it)" } ?: "up"
+            if (effects.isNotEmpty()) AppLog.info("pod", "Finger key ${key.key} $how${hovered?.let { " over $it" }.orEmpty()}: ${effects.joinToString()}")
             for (effect in effects) when (effect) {
                 is DesktopFingerKey.Effect.Inspect -> copies[effect.cardId]?.let { inspect(it, true) }
                 DesktopFingerKey.Effect.Close -> inspected = null

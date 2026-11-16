@@ -64,15 +64,21 @@ private fun jsVibrate(millis: Int): Unit = js("""{
  * The desktop layout's keyboard (docs/specs/web-client.md §5, §6; WEB-024): every key press and release on the page goes to
  * [key] (its name, down or up, time, a held key's repeat, the modifiers), which says whether the app took it (and asks
  * [jsTyping] whether a text field has the keyboard); a taken Alt keeps the browser's own Alt handling (its menu bar) off.
- * When the window loses the focus every key still down is let go, so a held finger key never sticks.
+ * WEB-025 (prod report 96PB2X, 2026-11-16: Alt's key-up never came, the table stayed paused): a key down is let go when its
+ * key-up can't come any more ([lost], the reason): the window loses the focus, the page is hidden, a text field takes the
+ * keyboard ([jsTyping] after a focus move; the app lets only the finger keys go then). A pointer event whose modifiers say
+ * a modifier the page saw go down isn't held any more goes to [modifiers] (only then: not every move crosses into the app).
  */
-internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boolean, Boolean, Boolean) -> Boolean): Unit = js("""{
-    const held = new Set();
+internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boolean, Boolean, Boolean) -> Boolean,
+    lost: (String, Boolean) -> Unit, modifiers: (Boolean, Boolean, Boolean, Boolean, String) -> Unit): Unit = js("""{
+    // The modifiers seen going down and not up, for the pointer events' check
+    const mods = new Set();
     // WEB-031: the keys whose press a hotkey took: their release is the app's too
     const taken = new Set();
+    const modifierNames = ['Alt', 'Shift', 'Control', 'Meta'];
     const send = (event, down) => {
         if (typeof event.key !== 'string') return;
-        if (down) held.add(event.key); else held.delete(event.key);
+        if (modifierNames.includes(event.key)) { if (down) mods.add(event.key); else mods.delete(event.key); }
         const took = key(event.key, down, event.timeStamp, event.repeat === true, event.altKey, event.shiftKey, event.ctrlKey,
             event.metaKey);
         if (took && event.cancelable && event.key === 'Alt') event.preventDefault();
@@ -88,8 +94,28 @@ internal fun jsListenKeys(key: (String, Boolean, Double, Boolean, Boolean, Boole
     };
     window.addEventListener('keydown', (event) => send(event, true), true);
     window.addEventListener('keyup', (event) => send(event, false), true);
-    window.addEventListener('blur', () => {
-        for (const name of Array.from(held)) key(name, false, performance.now(), false, false, false, false, false);
-        held.clear();
+    window.addEventListener('blur', () => { mods.clear(); lost('the window lost the focus', true); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') { mods.clear(); lost('the page was hidden', true); }
     });
+    // A text field took the keyboard (Compose's input lives in a shadow root: its focus moves come out retargeted)
+    window.addEventListener('focusin', () => {
+        let element = document.activeElement;
+        while (element && element.shadowRoot && element.shadowRoot.activeElement) element = element.shadowRoot.activeElement;
+        const typing = !!element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable === true);
+        if (typing && (mods.has('Alt') || mods.has('Shift'))) {
+            mods.delete('Alt'); mods.delete('Shift');
+            lost('a text field took the keyboard', false);
+        }
+    }, true);
+    const pointer = (what) => (event) => {
+        if (mods.size === 0) return;
+        const flags = { Alt: event.altKey, Shift: event.shiftKey, Control: event.ctrlKey, Meta: event.metaKey };
+        let stale = false;
+        for (const name of Array.from(mods)) if (!flags[name]) { mods.delete(name); stale = true; }
+        if (stale) modifiers(event.altKey, event.shiftKey, event.ctrlKey, event.metaKey, what);
+    };
+    window.addEventListener('pointerdown', pointer('a pointer press'), true);
+    window.addEventListener('pointermove', pointer('a pointer move'), true);
+    window.addEventListener('pointerup', pointer('a pointer release'), true);
 }""")

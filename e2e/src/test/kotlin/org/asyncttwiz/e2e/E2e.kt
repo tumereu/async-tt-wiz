@@ -170,6 +170,10 @@ abstract class E2e {
         return E2ePlayer(player.account, compose, engineWorker).also { players += it; it.launch() }
     }
 
+    /** [player]'s second device (the same account, their phone beside a browser): its app launched beside the first one,
+     * signed in on the main menu. */
+    internal fun secondDevice(player: E2ePlayer): E2ePlayer = E2ePlayer(player.account, compose).also { players += it; it.launch() }
+
     /** Both players Ready: the game starts (the server's start revision reaches both phones). */
     fun ready() {
         game = prepared.ready()

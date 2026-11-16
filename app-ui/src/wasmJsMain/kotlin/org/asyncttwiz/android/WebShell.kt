@@ -92,9 +92,12 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         // WEB-058: the hand over what can be clicked, the text cursor over text fields
         jsHoverCursor()
         // WEB-024: the page's keys reach the desktop table (the finger key) and, from step 5c, its hotkeys
-        jsListenKeys { key, down, time, repeat, alt, shift, ctrl, meta ->
+        // WEB-025: keys whose key-up can't come any more are let go (the window lost the focus, a text field took the keyboard,
+        // a pointer event without the modifier)
+        jsListenKeys({ key, down, time, repeat, alt, shift, ctrl, meta ->
             DesktopKeyboard.dispatch(DesktopKey(key, down, time.toLong(), repeat, alt, shift, ctrl, meta, textField = jsTyping()))
-        }
+        }, lost = { why, all -> if (all) DesktopKeyboard.focusLost(why) else DesktopKeyboard.textFieldTookKeyboard() },
+            modifiers = { alt, shift, ctrl, meta, what -> DesktopKeyboard.modifiers(alt, shift, ctrl, meta, what) })
         unlockSound()
         val auth = AuthViewModel(AppServices.current)
         val shell = WebShell(auth, services.activityDelivery.notifications, build.accountOrigin)

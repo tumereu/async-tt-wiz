@@ -685,7 +685,7 @@ class GameDevice(
             is CombatHold -> "combat ${m.kind::class.simpleName} ${m.event.take(8)}"
         } }
         return "status $what, main button ${if (s == Status.YourMove || s == Status.Drafting || s is Status.Stopped) "shown" else "none"}, " +
-            "move ${move?.value?.take(8)}, holds $holds, catch-up $catchUp, pausing $pausing, buffered ${session.buffered.size}, ${where()}"
+            "move ${move?.value?.take(8)}, holds $holds, catch-up $catchUp, playback paused by a tap $pausing, buffered ${session.buffered.size}, ${where()}"
     }
 
     /** Why [step] last showed nothing while events waited (the record says each reason once, until playback moves on). */
@@ -882,6 +882,14 @@ class GameDevice(
             val goneShows = showsOpen.filter { it.event !in ids }
             showsOpen.removeAll(goneShows)
             goneShows.forEach { revealsSeen.remove(it.event) }
+            // HIS-112 (prod report 3LL6UZ, 2026-11-16: a play shown stayed in the middle after the board went past it): a play
+            // shown whose entry has left the Stack on the board shown now (resolved, countered: what showed it moved on, say
+            // on another device of the player's) is done
+            val left = showsOpen.filter { it is PlayShow && it.entry !in model.engine.stack }
+            if (left.isNotEmpty()) {
+                showsOpen.removeAll(left)
+                remember("plays shown closed, their entries left the Stack at ${tip?.take(8)}: ${left.map { it.event.take(8) }}, holds left ${showsOpen.size}")
+            }
         }
         val fresh = ArrayList<GameEvent>()
         for (i in line.indices.reversed()) {
@@ -1106,6 +1114,9 @@ class GameDevice(
      */
     fun advance(now: Long) {
         this.now = now
+        // HIS-095 (prod report 3UQ9DY): a pause of playback ends once nothing waits to be played back, however the head was
+        // reached
+        if (pausing && !session.behind) { pausing = false; remember("playback pause ended: nothing left to play back") }
         settleQueuedUndo()
         retryTable()
         redeclare()
@@ -2636,10 +2647,23 @@ class GameDevice(
     private fun followServer() {
         val server = heads[me] ?: return
         val at = session.indexOf(server) ?: return
-        while (session.behind && (session.indexOf(session.localHead) ?: return) < at && !session.drafting) {
+        var followed = 0
+        while (session.behind && (session.indexOf(session.localHead) ?: Int.MAX_VALUE) < at && !session.drafting) {
             session.showNext()
             catchUp = false
+            followed++
         }
+        if (followed == 0) return
+        // HIS-112, HIS-113, HIS-095 (prod reports 3LL6UZ, 3UQ9DY, 2026-11-16: the player went on in the game on their phone
+        // too): what this device held its view on (a play shown, a combat's hold) or paused playback for was watched and
+        // answered on another device of the player's: it holds the view no more, and the pause ends
+        syncReveals()
+        if (showsOpen.isNotEmpty()) {
+            remember("view holds closed, the server moved this player's head on by $followed events (another device of theirs): " +
+                showsOpen.map { it.event.take(8) })
+            showsOpen.clear()
+        }
+        if (pausing) { pausing = false; remember("playback pause ended: the server moved this player's head on by $followed events") }
     }
 
     /** Forgets events well before both local heads (the device keeps [KEPT_EVENTS] of them for undo and previews); once

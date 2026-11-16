@@ -67,10 +67,13 @@ sealed interface MouseButton {
 /**
  * A key press or release on the desktop layout (the web page's keyboard events): [key] as the browser names it ("Alt",
  * "Shift", "a", " "), [time] the event's time (ms, comparable only with other keys'), [repeat] a held key's repeats,
- * [textField] whether a text field has the focus (hotkeys never act then, §6).
+ * [textField] whether a text field has the focus (hotkeys never act then, §6). [lost]: a release the page never sent, made
+ * by [DesktopKeyboard.letGo] because the key can't be down any more, and why (the window lost the focus, a text field took
+ * the keyboard, a later event said the key isn't down); null for the page's own key-up.
  */
 data class DesktopKey(val key: String, val down: Boolean, val time: Long, val repeat: Boolean = false, val alt: Boolean = false,
-    val shift: Boolean = false, val ctrl: Boolean = false, val meta: Boolean = false, val textField: Boolean = false)
+    val shift: Boolean = false, val ctrl: Boolean = false, val meta: Boolean = false, val textField: Boolean = false,
+    val lost: String? = null)
 
 /**
  * The desktop layout's keyboard (§6): the page hands every key press and release here ([dispatch], the web platform's
@@ -79,19 +82,108 @@ data class DesktopKey(val key: String, val down: Boolean, val time: Long, val re
  *
  * WEB-031 (owner, 2026-11-14): while a text field has the keyboard ([DesktopKey.textField]) every key press goes only to it,
  * as typing: no listener hears it (but one waiting for a key to bind, `whileTyping`), so no hotkey, "?" included, ever acts
- * on a typed key. Releases still reach every listener, so a key held before the field took the keyboard is let go.
+ * on a typed key. Releases still reach every listener (each of them, whichever takes it), so a key held before the field
+ * took the keyboard is let go.
+ *
+ * WEB-025 (prod report 96PB2X, 2026-11-16: Alt's key-up never came and the table stayed paused): a key the page said went
+ * down is let go ([letGo]) when its key-up can't come any more: the window loses the focus or the page is hidden
+ * ([focusLost]), a text field takes the keyboard (the finger keys, Alt and Shift), or a later key or pointer event says the
+ * modifier isn't held ([modifiers]). Every listener hears such a release, with its reason ([DesktopKey.lost]).
  */
 object DesktopKeyboard {
     private class Entry(val whileTyping: Boolean, val listener: (DesktopKey) -> Boolean)
     private val listeners = mutableListOf<Entry>()
+    private val focusListeners = mutableListOf<(String) -> Unit>()
+    private val down = LinkedHashSet<String>()
+    /** The keys down that were pressed while a text field had the keyboard (typing, not hotkeys or the finger). */
+    private val typedDown = HashSet<String>()
+    private var lastTime = 0L
 
-    /** Hands [event] to the listeners, the newest first, until one takes it; whether one did (the page then keeps the
-     * browser's own handling of the key off). A press while a text field has the keyboard reaches only `whileTyping` ones. */
+    /** The keys the page said are down now (pressed, with no key-up or [letGo] since), oldest first. */
+    val keysDown: Set<String> get() = down.toSet()
+
+    /** Hands [event] to the listeners, the newest first, until one takes a press; a release reaches every listener. Whether
+     * one took it (the page then keeps the browser's own handling of the key off). A press while a text field has the
+     * keyboard reaches only `whileTyping` ones. */
     fun dispatch(event: DesktopKey): Boolean {
+        lastTime = event.time
+        if (event.lost == null) staleModifiers(event.key, event.alt, event.shift, event.ctrl, event.meta,
+            // A typed character is never named (the field may be a password's)
+            "${if (event.key.length > 1) event.key else "a key"} ${if (event.down) "pressed" else "let go"}")
         val typing = event.down && event.textField
-        if (typing) heldBack(event) else if (event.down) typingNoted = null
-        return listeners.asReversed().toList().any { (!typing || it.whileTyping) && it.listener(event) }
+        if (typing) {
+            heldBack(event)
+            // A finger key held from before the field had the keyboard (one pressed while typing, Shift for a capital, never
+            // was the finger)
+            val fingers = down.filterTo(HashSet()) { it in FINGER_KEYS && it != event.key && it !in typedDown }
+            if (fingers.isNotEmpty()) letGo("a text field has the keyboard", fingers)
+        } else if (event.down) typingNoted = null
+        if (event.down) down += event.key else down -= event.key
+        if (typing) typedDown += event.key else typedDown -= event.key
+        return hand(event, typing)
     }
+
+    private fun hand(event: DesktopKey, typing: Boolean): Boolean {
+        val heard = listeners.asReversed().toList()
+        if (!event.down) return heard.map { it.listener(event) }.any { it }
+        return heard.any { (!typing || it.whileTyping) && it.listener(event) }
+    }
+
+    /**
+     * Lets go of every key down ([keysDown]; only those in [only] when given) whose key-up the page can no longer send
+     * ([why]): every listener hears its release, with [DesktopKey.lost] set. Logged with what was let go.
+     */
+    fun letGo(why: String, only: Set<String>? = null) {
+        val keys = down.filter { only == null || it in only }
+        if (keys.isEmpty()) return
+        AppLog.info("keys", "Keys let go without their key-up ($why): ${keys.joinToString()}")
+        for (key in keys) {
+            down -= key
+            typedDown -= key
+            hand(DesktopKey(key, false, lastTime, lost = why), false)
+        }
+    }
+
+    /** The window lost the focus or the page was hidden ([why]): every key down is let go ([letGo]), and whatever else is
+     * held only while the page has the input (the left button held on the table) hears it ([OnFocusLost]). */
+    fun focusLost(why: String) {
+        letGo(why)
+        focusListeners.toList().forEach { it(why) }
+    }
+
+    /** A text field took the keyboard (the focus moved into one): the finger keys down are let go. */
+    fun textFieldTookKeyboard() = letGo("a text field took the keyboard", FINGER_KEYS)
+
+    /** A pointer event (or any other event that carries the modifiers) with these modifiers held ([what] names it in the
+     * log, "a click"): a modifier the page said is down that isn't any more is let go. */
+    fun modifiers(alt: Boolean, shift: Boolean, ctrl: Boolean, meta: Boolean, what: String) =
+        staleModifiers(null, alt, shift, ctrl, meta, what)
+
+    private fun staleModifiers(key: String?, alt: Boolean, shift: Boolean, ctrl: Boolean, meta: Boolean, what: String) {
+        if (down.isEmpty()) return
+        val stale = down.filterTo(HashSet()) { held -> held != key && when (held) {
+            "Alt" -> !alt
+            "Shift" -> !shift
+            "Control" -> !ctrl
+            "Meta" -> !meta
+            else -> false
+        } }
+        if (stale.isNotEmpty()) letGo("$what without it: its key-up was lost", stale)
+    }
+
+    /** Hears [focusLost] (its reason) while composed and [enabled]. */
+    @Composable
+    fun OnFocusLost(enabled: Boolean, listener: (String) -> Unit) {
+        val current by rememberUpdatedState(listener)
+        DisposableEffect(enabled) {
+            val entry: (String) -> Unit = { current(it) }
+            if (enabled) focusListeners += entry
+            onDispose { focusListeners -= entry }
+        }
+    }
+
+    /** The finger keys (WEB-024), let go when a text field takes the keyboard. */
+    private val FINGER_KEYS = setOf("Alt", "Shift")
 
     /** Whether anything listens (a desktop table is shown). */
     val listening: Boolean get() = listeners.isNotEmpty()

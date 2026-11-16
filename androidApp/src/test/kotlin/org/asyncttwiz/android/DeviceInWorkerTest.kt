@@ -274,12 +274,16 @@ class DeviceInWorkerTest {
     @Test fun theWorkersLogReachesThePagesAppLog() {
         val (_, remote) = pair()
         AppLog.forward = null
-        val before = AppLog.text().length
+        // A marker, not the log's length: the log keeps a bounded size, so once full (earlier tests' lines) its length stays
+        val marker = "DeviceInWorkerTest: before the worker's log ${kotlin.random.Random.nextLong()}"
+        AppLog.info("test", marker)
         host.forwardLogs()
         remote.logBoard()
         pump()
         AppLog.forward = null
-        assertTrue("[worker]" in AppLog.text().drop(before), "the worker's board log reached the page's log")
+        val text = AppLog.text()
+        assertTrue(marker in text, "the marker still in the log")
+        assertTrue("[worker]" in text.substringAfterLast(marker), "the worker's board log reached the page's log")
     }
 
     // Web client step 4c part 3: a request for a game the worker doesn't hold fails, and its callback still runs; a game

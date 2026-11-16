@@ -180,6 +180,12 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         for (action in device(p).take(now)) handle(p, action)
     }
 
+    /** What [device], another device of [p]'s beside [device] (`device(p)` is their first), has to send goes to the server
+     * as [p]'s (its own deliveries aren't kept: the server's answers reach `device(p)`). */
+    fun flushOther(p: PlayerId, device: GameDevice) {
+        for (action in device.take(now)) handle(p, action)
+    }
+
     private fun broadcast(events: List<GameEvent>, target: String? = null, confirmed: String? = null, rewoundBy: String? = null) {
         val update = EngineUpdate(emptyList(), target, server.heads.mapKeys { it.key.value }, server.lines, server.request, confirmed,
             rewoundBy = rewoundBy, modes = modes(), assumes = assumes())

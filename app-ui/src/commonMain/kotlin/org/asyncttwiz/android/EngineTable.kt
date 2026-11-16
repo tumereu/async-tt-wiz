@@ -867,6 +867,19 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
                 if (peekSwipe?.moved(dx, dy) != true) peekScroll?.holdPreviewScroll(step, peekHeight)
             }) { ended -> stackAnimation.land(ended); game.dismissShow(ended); routes.pump() }
     }
+    // TRN-065 (owner, prod 0.2.0: a player left the table after a concession): whether the result's dialog shows at this table
+    // and why not, on every change once the game is over
+    val endDialog = (status as? GameDevice.Status.Over)?.let { over ->
+        when { reviewing -> "hidden: the timeline is open"; reveal != null -> "hidden: a reveal first"
+            over.final && over.ownOk -> "gone: this player's OK was the last"; else -> "shown" } +
+            " (final ${over.final}, own OK ${over.ownOk}, ended by ${over.endedBy?.value?.take(8)}, ${over.ending})"
+    }
+    val endDialogSeen = remember(game) { mutableStateOf<String?>(null) }
+    LaunchedEffect(endDialog) {
+        if (endDialog != null || endDialogSeen.value != null) AppLog.info("game", "Result dialog at the table of " +
+            "${routes.viewer.take(8)}: ${endDialog ?: "none, the board shown isn't over (status ${status::class.simpleName})"}")
+        endDialogSeen.value = endDialog
+    }
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         else -> if (reveal != null) Unit else when (status) {

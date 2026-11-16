@@ -31,6 +31,9 @@ class GameEndDialogTest : E2e() {
         shows(dialog) && texts.all { shows(hasText(it) and hasAnyAncestor(dialog)) }
     private fun E2ePlayer.inLobby() = lobby.state.detail?.lifecycle == GameLifecycle.LOBBY && shows(hasTestTag("lobby-history-tab"))
     private fun E2ePlayer.atTable() = !shows(hasTestTag("lobby-history-tab")) && shows(dialog)
+    /** What [atTable] reads of this player's screen now, for a failure's message. */
+    private fun E2ePlayer.where() = "$name: lobby ${shows(hasTestTag("lobby-history-tab"))}, dialog ${shows(dialog)}, " +
+        "status ${game?.shown?.status}, lifecycle ${lobby.state.detail?.lifecycle}"
 
     /** Presses OK once it isn't greyed any more (its first moments, TRN-065). */
     private fun E2ePlayer.pressOk(vararg along: E2ePlayer) {
@@ -162,7 +165,7 @@ class GameEndDialogTest : E2e() {
         }
         waitUntil("the game over on the server") { alice.lobby.state.detail?.lifecycle == GameLifecycle.LOBBY }
         run(skip = java.time.Duration.ofSeconds(3))
-        assertTrue(alice.atTable() && bob.atTable(), "both stay at the table")
+        assertTrue(alice.atTable() && bob.atTable(), "both stay at the table: ${alice.where()}; ${bob.where()}")
         assertFalse(alice.shows(hasTestTag(GAME_END_OK_TAG)) || alice.showsText("Take back OK"), "nothing for the conceder to press")
         assertTrue(bob.shows(hasTestTag(GAME_END_OK_TAG)), "Bob's OK")
         // Alice leaves for the Games list and comes back: the dialog over the lobby, which takes nothing
@@ -182,6 +185,31 @@ class GameEndDialogTest : E2e() {
         bob.pressOk(alice)
         waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
         assertFalse(alice.shows(hasTestTag("result-unseen")) || bob.shows(hasTestTag("result-unseen")), "nobody owes one")
+    }
+
+    // TRN-064, TRN-065, LOB-046 (owner, prod 0.2.0: a player was taken to the lobby right after a concession; the full e2e run
+    // of 2026-11-16 caught it in aConcederWaitsAtTheTableForTheOtherPlayersOk): the game's head, read after Alice's concession,
+    // reaches both phones before the revision that ended the play (a head is read as soon as asked for, a revision published
+    // up to a moment after its commit): both still stay at the table with the dialog, and Bob's OK takes them both to the lobby
+    @Test fun aHeadAheadOfTheConcessionTakesNobodyToTheLobby() {
+        startGame()
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.connection.holdRevisions(anyHead = true)
+        bob.connection.holdRevisions(anyHead = true)
+        concede(alice)
+        waitUntil("the game over on the server") { ServerSetup.head(aliceAccount, game.id).summary.lifecycle == GameLifecycle.LOBBY }
+        alice.askHead()
+        bob.askHead()
+        waitUntil("the heads having overtaken the concession") { alice.connection.overtaken && bob.connection.overtaken }
+        waitUntil("both results", along = listOf(bob)) {
+            bob.showsDialog("You won", "${alice.name} conceded") && alice.showsDialog("You lost", "You conceded", waitingForBob)
+        }
+        run(skip = java.time.Duration.ofSeconds(3))
+        assertTrue(alice.atTable() && bob.atTable(), "both stay at the table: ${alice.where()}; ${bob.where()}")
+        assertTrue(bob.shows(hasTestTag(GAME_END_OK_TAG)), "Bob's OK")
+        bob.pressOk(alice)
+        waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
     }
 
     // TRN-065, LOB-046 (the race behind aConcederWaitsAtTheTableForTheOtherPlayersOk's failures, 2026-11-10): the lobby's
@@ -244,7 +272,7 @@ class GameEndDialogTest : E2e() {
             alice.showsDialog("You won", "Agreed: Infinite combo") && bob.showsDialog("You lost", "Agreed: Infinite combo", waitingForAlice)
         }
         run(skip = java.time.Duration.ofSeconds(3))
-        assertTrue(alice.atTable() && bob.atTable(), "both stay at the table")
+        assertTrue(alice.atTable() && bob.atTable(), "both stay at the table: ${alice.where()}; ${bob.where()}")
         assertFalse(bob.shows(hasTestTag(GAME_END_OK_TAG)), "the player who accepted has given his OK")
         alice = restart(alice)
         alice.openLobby()
@@ -270,7 +298,7 @@ class GameEndDialogTest : E2e() {
         alice.link.releaseOutgoing()
         waitUntil("Alice's result") { alice.showsDialog("You won", "${bob.name} conceded") }
         run(skip = java.time.Duration.ofSeconds(3))
-        assertTrue(alice.atTable() && bob.atTable(), "both stay at the table")
+        assertTrue(alice.atTable() && bob.atTable(), "both stay at the table: ${alice.where()}; ${bob.where()}")
         alice.pressOk(bob)
         waitUntil("both in the lobby") { alice.inFreeLobby() && bob.inFreeLobby() }
         assertEquals(GameLifecycle.LOBBY, alice.lobby.state.detail?.lifecycle)

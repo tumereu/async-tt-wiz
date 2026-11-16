@@ -428,7 +428,12 @@ internal class HeadFirstConnection(private val real: org.asyncttwiz.android.Game
     @Volatile var overtaken = false
         private set
 
-    @Synchronized fun holdRevisions() { holding = true; overtaken = false }
+    /** Whether a head without engine state (a summary head: an ended play's, say) also lets the held revisions follow. */
+    private var anyHead = false
+
+    /** From now, the game's revisions wait here until a head with engine state has been handed on ([anyHead]: any head,
+     * a summary head too, as the one of a play that has just ended), then follow it. */
+    @Synchronized fun holdRevisions(anyHead: Boolean = false) { holding = true; overtaken = false; this.anyHead = anyHead }
 
     private var holdAfter: ((org.asyncttwiz.protocol.GameRevision) -> Boolean)? = null
     private var listener: org.asyncttwiz.android.GameConnection.Listener? = null
@@ -460,7 +465,7 @@ internal class HeadFirstConnection(private val real: org.asyncttwiz.android.Game
                 if (message is org.asyncttwiz.protocol.GameRevision && holdAfter?.invoke(message) == true) {
                     holdAfter = null; holding = true; afterHeld = true
                 }
-                if (holding && !afterHeld && message is org.asyncttwiz.protocol.GameHead && message.engine != null) {
+                if (holding && !afterHeld && message is org.asyncttwiz.protocol.GameHead && (message.engine != null || anyHead)) {
                     holding = false
                     held.forEach(listener::message)
                     held.clear()

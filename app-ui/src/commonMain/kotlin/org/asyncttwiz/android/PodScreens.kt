@@ -63,8 +63,10 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
     // WEB-004: in the browser Esc leaves the draft as Back does, once nothing is open over it
     LeaveScreenBackHandler(pickTab) { controller.back() }
     Box(Modifier.fillMaxSize()) {
-        // WEB-038: on the desktop layout the pods list keeps a readable width
-        Column((if (state.selected == null && state.creating == null) Modifier.desktopReadable() else Modifier).fillMaxSize()) {
+        // WEB-038 (owner playtest 2026-11-16): on the desktop layout the pods list, New pod and a pod's setup keep a readable width
+        // centred in their room; a started pod (or one still loading) takes the whole room
+        val readable = state.creating != null || state.selected == null || state.detail?.phase == PodPhase.SETUP
+        Column((if (readable) Modifier.desktopReadable() else Modifier).fillMaxSize()) {
             if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
                 if (state.selected == null && state.creating == null) {
                     ScreenCreateAction("New pod", "add", { controller.newPod() }, Modifier.testTag("new-pod"))
@@ -422,16 +424,34 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         controller.tab(next)
         true
     }
-    Column(Modifier.fillMaxSize()) {
-        PodPlayHeader(detail, navigation) {
-            // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included.
-            if (detail.settings.mode.packPassing) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
-            PodChatButton(controller, detail.id, accountId)
-            PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
-                historyColumns.takeIf { detail.settings.mode.packPassing })
-        }
-        PodDraftTabs(tabs, selected, controller::tab) {
+    val icons: @Composable () -> Unit = {
+        // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included.
+        if (detail.settings.mode.packPassing) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
+        PodChatButton(controller, detail.id, accountId)
+        PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
+            historyColumns.takeIf { detail.settings.mode.packPassing })
+    }
+    val tabRow: @Composable (Modifier) -> Unit = { tabsModifier ->
+        PodDraftTabs(tabs, selected, controller::tab, tabsModifier) {
             PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
+        }
+    }
+    Column(Modifier.fillMaxSize()) {
+        // WEB-062 (owner playtest 2026-11-16): on the desktop layout the tabs share the header's row (tabs left, avatars in the
+        // middle, the icons right) where they fit; elsewhere, and on the phone, they have their own row under it (DRF-076)
+        val desktop = desktopLayout()
+        val iconCount = if (detail.settings.mode.packPassing) 3 else 2
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val oneRow = desktop && podHeaderOneRow(maxWidth, tabs.size, detail.members.size, iconCount, navigation != null)
+            LaunchedEffect(desktop, oneRow) {
+                if (desktop) AppLog.info("pod", "Pod header on the desktop layout: ${if (oneRow) "the tabs in the header's row"
+                    else "the tabs on their own row"} at ${maxWidth.value.toInt()} wide, ${detail.members.size} members")
+            }
+            if (oneRow) PodPlayHeader(detail, navigation, tabs = { tabRow(Modifier.width(podHeaderTabsWidth(tabs.size))) }, trailing = icons)
+            else Column(Modifier.fillMaxWidth()) {
+                PodPlayHeader(detail, navigation, trailing = icons)
+                tabRow(Modifier.fillMaxWidth())
+            }
         }
         // DRF-160: Winston, Winchester and Grid show each opponent's picks on request.
         if (selected == PodTab.DRAFT && podHasPicksView(detail.settings.mode))
@@ -466,9 +486,10 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
 }
 
 @Composable
-fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit, overflow: @Composable () -> Unit) {
+fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit, modifier: Modifier = Modifier.fillMaxWidth(),
+    overflow: @Composable () -> Unit) {
     Surface {
-        Row(Modifier.fillMaxWidth().testTag("pod-tabs"), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier.testTag("pod-tabs"), verticalAlignment = Alignment.CenterVertically) {
             TabRow(tabs.indexOf(selected), Modifier.weight(1f)) {
                 tabs.forEach { tab -> Tab(selected == tab, { select(tab) },
                     text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
@@ -483,15 +504,47 @@ fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit,
 
 val PodPlayHeaderHeight = 48.dp
 
-/** Hamburger (modal drawer), a very small pod title, the readiness avatars under it and a trailing view settings cog. */
+/** WEB-062: the width of the desktop header's [tabs] tabs (the pod ⋮ beside them included). */
+fun podHeaderTabsWidth(tabs: Int): Dp = PodHeaderTabWidth * tabs + PodHeaderOverflowWidth
+
+/**
+ * WEB-062 (owner playtest 2026-11-16): whether a started pod's desktop header of [width] holds its [tabs] tabs on its own row
+ * between the hamburger ([navigation]) and the [members]' avatars, with the [icons] header icons at the end; otherwise the tabs
+ * fall back to their own row under it.
+ */
+fun podHeaderOneRow(width: Dp, tabs: Int, members: Int, icons: Int, navigation: Boolean): Boolean {
+    val avatars = maxOf(PodHeaderAvatarStep * members, PodHeaderMiddleMinWidth) + PodHeaderMiddleGap * 2
+    return (if (navigation) 48.dp else 8.dp) + podHeaderTabsWidth(tabs) + avatars + PodHeaderIconWidth * icons <= width
+}
+
+private val PodHeaderTabWidth = 104.dp
+private val PodHeaderOverflowWidth = 40.dp
+private val PodHeaderAvatarStep = 36.dp
+private val PodHeaderMiddleMinWidth = 120.dp
+private val PodHeaderMiddleGap = 16.dp
+private val PodHeaderIconWidth = 48.dp
+
+/** Hamburger (modal drawer), a very small pod title, the readiness avatars under it and a trailing view settings cog. With
+ * [tabs] (the desktop layout's one-row header, WEB-062) the tabs follow the hamburger and the title and avatars are centred
+ * between them and the icons. */
 @Composable
-fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailing: @Composable () -> Unit = {}) {
+fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, tabs: (@Composable () -> Unit)? = null,
+    trailing: @Composable () -> Unit = {}) {
     Surface {
         Row(Modifier.fillMaxWidth().height(PodPlayHeaderHeight).testTag("pod-play-header"),
             verticalAlignment = Alignment.CenterVertically) {
             if (navigation != null) HoldTip("Open navigation") { IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") } }
             else Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
+            if (tabs != null) {
+                tabs()
+                Box(Modifier.weight(1f).padding(horizontal = PodHeaderMiddleGap), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(detail.name, Modifier.height(16.dp).testTag("pod-play-title"), style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        PodDraftMemberRow(detail, Modifier)
+                    }
+                }
+            } else Column(Modifier.weight(1f)) {
                 Text(detail.name, Modifier.height(16.dp).testTag("pod-play-title"), style = MaterialTheme.typography.labelSmall,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 PodDraftMemberRow(detail)
@@ -503,9 +556,9 @@ fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailing: @Compo
 
 /** Readiness badges only while drafting; afterwards the avatars just show who is in the pod. */
 @Composable
-fun PodDraftMemberRow(detail: PodDetail) {
+fun PodDraftMemberRow(detail: PodDetail, modifier: Modifier = Modifier.fillMaxWidth()) {
     val drafting = detail.phase == PodPhase.DRAFTING
-    Row(Modifier.fillMaxWidth().height(28.dp).horizontalScroll(rememberScrollState()).testTag("pod-draft-members"),
+    Row(modifier.height(28.dp).horizontalScroll(rememberScrollState()).testTag("pod-draft-members"),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         detail.members.forEach { member ->
             // Picks the member can make in a row if nobody else acts, next-round packs (Grid: grids) they open included.

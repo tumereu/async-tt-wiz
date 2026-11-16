@@ -251,8 +251,8 @@ number	item	screenshot	catalog	decisions	sequence
 250	Desktop: Hide search folds the search into the Search rail, the deck taking the width	desktop/deck-editor-search-hidden.png	WEB-040		Desktop screens
 251	Desktop: Stats graphs in two columns	desktop/stats-graphs.png	WEB-042 LOB-132		Desktop screens
 252	Desktop: Settings' groups as cards in two columns	desktop/settings.png	WEB-043 WEB-035		Desktop screens
-253	Desktop: the draft pick, click keeps and right-click burns, trays and Confirm at the bottom	desktop/draft-pick.png	WEB-044 WEB-036 DRF-056		Desktop screens
-254	Desktop: Build with a card's edge zones under the pointer, no review	desktop/build-edge-zones.png	WEB-045		Desktop screens
+253	Desktop: the draft pick, click keeps and right-click burns, the trays at the bottom with Confirm at the end of their row, the tabs in the header's row	desktop/draft-pick.png	WEB-044 WEB-036 WEB-062 DRF-056		Desktop screens
+254	Desktop: Build's overlapping columns with a card's edge zones under the pointer, no review	desktop/build-edge-zones.png	WEB-045 WEB-063		Desktop screens
 255	Web: Settings → This browser, notifications on with their kinds, and Install app	web/browser-settings.png	WEB-050 WEB-051 WEB-054		Browser notifications
 256	Web: notifications refused by the browser, the switch back off	web/browser-notifications-blocked.png	WEB-050		Browser notifications
 257	Web: the Games list's hint to turn notifications on	web/games-hint.png	WEB-053		Browser notifications
@@ -278,7 +278,7 @@ number	item	screenshot	catalog	decisions	sequence
 277	Picking on the table: a stack a tap spreads open glows as a pile holding choices; spread, each member has the targeting glow	table-pick/sacrifice-spread.png	TBL-117 TBL-130 STK-047
 278	An uncrewed Vehicle: "Crew 2" before its P/T in its bottom text	battlefield/vehicle-crew.png	TBL-137
 279	Desktop draft pick in the owner's 1920 × 919 window: keep and burn marks and the trays' count chips half as large again	desktop/draft-pick-marks-1920.png	WEB-044 DRF-061 DRF-065
-280	Desktop: the pod's Stats at a readable width in two columns, the deck's numbers left, colours, notes and counters right	desktop/stats.png	WEB-061 DRF-111 DRF-114 DRF-118
+280	Desktop: the pod's Stats at a readable width centred in two columns, the deck's numbers left, colours, notes and counters right	desktop/stats.png	WEB-061 DRF-111 DRF-114 DRF-118		
 281	Desktop table: the chat dock open, the Stack on the field at the battlefields' right edge beside it, never under it	desktop/stack-beside-chat.png	WEB-017 STK-007 WEB-020		
 282	Desktop table: the hand a fan at the bottom, partly below the window; the card under the mouse risen whole into view over the others	desktop/hand-fan.png	WEB-015 WEB-016 WEB-018 WEB-022 WEB-027		
 283	Desktop table: a centred panel with its go-on (Cast) in its bottom right corner as well as on the main button	desktop/panel-go-on.png	WEB-019 TRN-063		
@@ -286,3 +286,5 @@ number	item	screenshot	catalog	decisions	sequence
 285	Desktop Inspect by Alt held: a keyword change shows its source and what the keyword means under it, without a click	desktop/inspect-explained.png	WEB-024 TBL-132		
 286	A card printed under another name on the table: titled by its printed name	printed-name/table.png	TBL-138 LOB-150		Printed names
 287	Inspect of a card printed under another name: its printed name, the Oracle name labelled at the bottom of its picture	printed-name/inspect.png	TBL-138 TBL-104		Printed names
+288	Desktop: Build, the card under the pointer brought to the front of its overlapping column, whole and in place	desktop/build-hovered-card.png	WEB-063 WEB-045		Desktop draft 11-16
+289	Desktop: in a narrow window with eight players the pod's tabs fall back to their own row under the header	desktop/pod-header-narrow.png	WEB-062 DRF-076		Desktop draft 11-16

@@ -346,8 +346,12 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
     fun moveOne(target: DeckSection) = apply { CardListEdits.move(it, tile.digest, section, target, 1) }
     var choosing by remember(key) { mutableStateOf(false) }
     LaunchedEffect(menus.open == key) { if (menus.open != key) choosing = false }
+    // WEB-045 (owner playtest 2026-11-16): on the desktop layout a Shift+click on an edge zone moves every copy, and the menu
+    // keeps only its own actions (+1, −1, Remove all): Move to… is the edge zones'
+    val desktop = desktopLayout()
     SwipeDeckCard(tile, key, "editor-card-$key", section.saved().sectionLabel(), { right -> targets.getValue(right).saved() }, enabled, menus,
         capture = { right -> { moveOne(targets.getValue(right)) } }, onHold = onHold, onHoldScroll = onHoldScroll,
+        captureAll = { right -> { apply { CardListEdits.move(it, tile.digest, section, targets.getValue(right)) } } },
         actions = targets.values.distinct().map { target ->
             CustomAccessibilityAction("Move one $name to ${target.saved().sectionLabel()}") { enabled && moveOne(target) }
         }) { close ->
@@ -360,7 +364,7 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
             })
             DropdownMenuItem(text = { Text("−1") }, leadingIcon = { Icon(Icons.Outlined.Remove, null) }, enabled = enabled, onClick = { close(); apply { CardListEdits.change(it, tile.digest, section, -1) } })
             DropdownMenuItem(text = { Text("Remove all") }, leadingIcon = { Icon(screenIcon("delete"), null) }, enabled = enabled, onClick = { close(); apply { CardListEdits.removeAll(it, tile.digest, section) } })
-            DropdownMenuItem(text = { Text("Move to…") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, null) }, enabled = enabled, onClick = { choosing = true })
+            if (!desktop) DropdownMenuItem(text = { Text("Move to…") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, null) }, enabled = enabled, onClick = { choosing = true })
         } else editor.kind.sections.filter { it != section }.forEach { target ->
             DropdownMenuItem(text = { Text(if (tile.quantity > 1) "All ${tile.quantity} to ${target.saved().sectionLabel()}"
                 else "To ${target.saved().sectionLabel()}", color = target.saved().sectionColor()) }, enabled = enabled,

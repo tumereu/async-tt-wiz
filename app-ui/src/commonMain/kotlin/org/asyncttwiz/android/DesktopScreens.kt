@@ -1,8 +1,11 @@
 package org.asyncttwiz.android
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -34,11 +37,12 @@ object DesktopScreens {
     val Gutter = 24.dp
 }
 
-/** WEB-038: in the desktop layout a list or form keeps a readable width at the left of its room, with a wider gutter; on the
- * phone layout nothing changes. */
+/** WEB-038 (owner playtest 2026-11-16): in the desktop layout a list or form keeps a readable width centred in its room, with a
+ * wider gutter; on the phone layout nothing changes. */
 @Composable
 fun Modifier.desktopReadable(max: Dp = DesktopScreens.ListMaxWidth): Modifier =
-    if (desktopLayout()) this.widthIn(max = max).padding(horizontal = DesktopScreens.Gutter) else this
+    if (desktopLayout()) this.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = max)
+        .padding(horizontal = DesktopScreens.Gutter) else this
 
 /** WEB-042: how many columns of at least [min] fit [width]: at least one. */
 fun desktopColumns(width: Dp, min: Dp): Int = (width / min).toInt().coerceAtLeast(1)

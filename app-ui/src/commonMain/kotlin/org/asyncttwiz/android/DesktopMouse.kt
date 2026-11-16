@@ -185,6 +185,10 @@ object DesktopKeyboard {
     /** The finger keys (WEB-024), let go when a text field takes the keyboard. */
     private val FINGER_KEYS = setOf("Alt", "Shift")
 
+    /** WEB-045 (owner playtest 2026-11-16): whether Shift is held now, as the keys down say (a Shift+click on an edge zone
+     * moves every copy); a lost Shift key-up is let go as every finger key is ([letGo]). */
+    val shiftHeld: Boolean get() = "Shift" in down
+
     /** Whether anything listens (a desktop table is shown). */
     val listening: Boolean get() = listeners.isNotEmpty()
 

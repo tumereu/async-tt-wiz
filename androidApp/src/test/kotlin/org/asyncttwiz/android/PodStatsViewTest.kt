@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
@@ -228,6 +229,20 @@ class PodStatsViewTest {
         compose.runOnIdle { build.value = PodDeckBuild(basics = PodDeckBasics(forest = 17)); dark.value = true }
         compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("17 sources · 100%")).assertIsDisplayed()
         assertEquals(before, compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot())
+    }
+
+    // DRF-114 (owner playtest 2026-11-16): the rows of colours the Main cards have no pips of are faded out, still shown; a half
+    // pip (hybrid) counts as pips
+    @Test fun aColourWithoutPipsIsFadedOut() {
+        val card = CardDefinition("Hybrid", listOf(DefinitionFace("front", "Hybrid", typeLine = "Creature", manaCost = "{W/U}{B}")))
+        compose.setContent { MaterialTheme {
+            PodStatsView(PodDeckBuild(listOf(PodDeckCopy("copy")), PodDeckBasics(mountain = 5)),
+                mapOf("copy" to DraftCopy("copy", "digest")), mapOf("digest" to card))
+        } }
+        val faded = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "No pips")
+        for (color in listOf("R", "G")) compose.onNodeWithTag("pod-stats-mana-$color").performScrollTo().assertIsDisplayed().assert(faded)
+        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("5 sources · 100%"))
+        for (color in listOf("W", "U", "B")) compose.onNodeWithTag("pod-stats-mana-$color").assert(!faded)
     }
 
     // DRF-114: shares of the whole, nothing scaled to the largest: 3 Forests and 1 Island read 75% and 25%, and a colour

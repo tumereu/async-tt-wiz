@@ -288,10 +288,11 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
     logout: () -> Unit = {}, auth: AuthController? = null, pods: PodController? = null,
     push: (ShellDestination) -> Unit = navigate) {
-    // WEB-038, WEB-043: on the desktop layout lists and Settings keep a readable width at the left of their room
+    // WEB-038, WEB-042, WEB-043 (owner playtest 2026-11-16): on the desktop layout lists, Stats and Settings keep a readable width
+    // centred in their room
     val readable = when (destination) {
         ShellDestination.GAMES, ShellDestination.CONTACTS -> Modifier.desktopReadable()
-        ShellDestination.SETTINGS -> Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth)
+        ShellDestination.SETTINGS, ShellDestination.STATS -> Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth)
         else -> Modifier
     }
     Column(readable.fillMaxSize()) {

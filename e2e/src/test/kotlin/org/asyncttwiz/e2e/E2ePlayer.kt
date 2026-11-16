@@ -347,6 +347,11 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     fun openGame(summary: GameSummary, e2e: E2e) {
         e2e.waitUntil("$name's menu") { shows(hasTestTag("menu-GAMES")) }
         tagged("menu-GAMES").performClick()
+        // The Games screen drawn, the Menu gone: the Menu lists the game too (its quick continue), and inside
+        // [E2e.clockInStep] no frame need have run since the tap. A click on the Menu's row then met the frame its own
+        // injection ran, which put the Games screen in its place and cancelled the press: the game never opened
+        // (FingerKeyLetGoTest, full e2e runs 2026-11-16)
+        e2e.waitUntil("$name's Games screen") { shows(hasTestTag("new-game")) && !shows(hasTestTag("menu-GAMES")) }
         e2e.waitUntil("$name's game in the Games list") { shows(hasText(summary.gameName)) }
         // In landscape the side menu lists the game too (LOB-018): the Games list's row is the last
         nodes(hasText(summary.gameName)).onLast().performScrollTo().performClick()

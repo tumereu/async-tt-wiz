@@ -131,8 +131,8 @@ data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll:
     /** STK-024: the sources paying the open payment: they lie in a pile of their own, to the right of their stack; the
      * viewer's own. */
     val paying: Set<String> = emptySet(),
-    /** WEB-015 (owner playtest 2026-11-15): the viewer's hand card the mouse is on on the desktop table: it rises whole into
-     * view out of the fan; the viewer's own. */
+    /** WEB-015 (owner 2026-11-16): the viewer's hand card the mouse is on on the desktop table: it is drawn over the others
+     * where it lies in the fan; the viewer's own. */
     val hovered: String? = null)
 /** This layout state without its camera: equal while only the camera changes (a pan or zoom step), so what composition
  * reads of it through this recomposes nothing then (web frame rate, 2026-11-15). */
@@ -220,6 +220,9 @@ data class TableItem(
      * rest that is its own (from its left edge to the next card's, down to the window's bottom), which the mouse finds it by
      * even while it, or the card beside it, has risen out of the fan; null for every other item. */
     val handSlot: TableBounds? = null,
+    /** TBL-139 (owner 2026-11-16): a hand or battlefield card drawn as its whole printed picture ([artwork] is the whole card)
+     * with only the app's overlays it needs, by the Settings of the layout. */
+    val fullPicture: Boolean = false,
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else NativeColors.DKGRAY
@@ -657,6 +660,10 @@ object TablePresentation {
                 if (a.basePower != null && a.baseToughness != null) "${a.basePower}/${a.baseToughness}" else null }
             // STK-046: an ability on the Stack names itself as an ability, with its text
             val ability = if (zone == PlayZone.STACK && projection && !hidden) StackAbilities.of(play, viewId, viewer) else null
+            // TBL-139 (owner 2026-11-16): hand and battlefield cards as their whole printed picture, as the layout's Settings say
+            val artwork = art(card, hidden)
+            val fullPicture = artwork != null && artwork.customUrl == null &&
+                (zone == PlayZone.HAND && appearance.handFullPicture || zone == PlayZone.BATTLEFIELD && appearance.battlefieldFullPicture)
             val label = if (ability != null) "${ability.kind}, ${ability.line}, controller ${name(CombatStackRules.controller(play.board, viewId) ?: card.owner)}"
                 // TBL-133: a card's states read aloud too, as the chip shows them
                 else "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
@@ -674,7 +681,8 @@ object TablePresentation {
                 damage = if (!values) "" else card.damage, eotCorner = if (!values || autoCorner != null) "" else card.eotCorner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token,
-                   typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
+                   typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()),
+                    artwork = if (fullPicture) artwork?.fullPicture() else artwork, fullPicture = fullPicture,
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = if (autoCorner != null) false
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
@@ -740,14 +748,17 @@ object TablePresentation {
             if (desktop != null && ownSide) {
                 // WEB-015 (owner playtest 2026-11-15: "in a fan shape with hovered card rendering always over others"): your hand
                 // as a fan at the bottom centre of the battlefields, between your seat header and the action area, its cards
-                // partly below the window's bottom; the card the mouse is on and a raised one (ZON-079) rise whole into view and
-                // are drawn over the others. ZON-079: your cards from other zones at its right end, after a gap with a divider
+                // partly below the window's bottom. Owner 2026-11-16: the card the mouse is on is only drawn over the others, as a
+                // draft card is, not moved or turned; a raised one (ZON-079) pops out of the fan along its own turn, keeping it,
+                // until it is whole in view. ZON-079: your cards from other zones at its right end, after a gap with a divider
                 val extras = if (reviewing) emptyList()
                     else handRow.filter { it.cardId in byId && it.cardId !in hand.cards && it.cardId !in castFromHand }
                 val ids = hand.cards + extras.map { it.cardId }
                 val count = ids.size
-                val left = plateRight + 8f
-                val right = (handRight - 8f - FAN_COUNT).coerceAtLeast(left + handWidth)
+                // Owner 2026-11-16 (the fan was cut at its left): the room an end card's turn and pop-out take beside the fan
+                val edge = (handHeight * kotlin.math.sin(toRadians(DesktopTable.FAN_MAX_TURN.toDouble()))).toFloat()
+                val left = plateRight + 8f + edge
+                val right = (handRight - 8f - FAN_COUNT - edge).coerceAtLeast(left + handWidth)
                 val gap = if (extras.isNotEmpty() && hand.cards.isNotEmpty()) handWidth * (1f - DesktopTable.FAN_PITCH) + HAND_ROW_DIVIDER else 0f
                 val pitch = if (count <= 1) 0f
                     else minOf(handWidth * DesktopTable.FAN_PITCH, (right - left - handWidth - gap) / (count - 1)).coerceAtLeast(4f)
@@ -757,10 +768,28 @@ object TablePresentation {
                 val restTop = floorY - shown
                 val turnStep = if (count <= 1) 0f else minOf(DesktopTable.FAN_TURN, 2 * DesktopTable.FAN_MAX_TURN / (count - 1))
                 fun cardX(n: Int) = start + n * pitch + if (n >= hand.cards.size) gap else 0f
+                // Each card turned about a point below the fan (its middle dropped as it turns); raised, moved out along its turn
+                // until its lowest corner is [DesktopTable.FAN_LIFT] above the window's bottom
+                val faces = List(count) { n -> TableCardTransform(handWidth, handHeight, (n - (count - 1) / 2f) * turnStep) }
+                val rests = List(count) { n ->
+                    val radians = toRadians(faces[n].rotation.toDouble())
+                    val drop = (DesktopTable.FAN_PIVOT * handHeight * (1 - kotlin.math.cos(radians))).toFloat()
+                    TablePoint(cardX(n) + handWidth / 2, restTop + handHeight / 2 + drop)
+                }
+                fun raisedCentre(n: Int): TablePoint {
+                    val rest = rests[n]
+                    val radians = toRadians(faces[n].rotation.toDouble())
+                    val lift = ((faces[n].bounds(rest).bottom - (floorY - DesktopTable.FAN_LIFT)) / kotlin.math.cos(radians).toFloat())
+                        .coerceAtLeast(0f)
+                    return TablePoint(rest.x + lift * kotlin.math.sin(radians).toFloat(), rest.y - lift * kotlin.math.cos(radians).toFloat())
+                }
                 val fanBounds = TableBounds(start, restTop, span + FAN_COUNT, shown)
-                // Its port reaches up to a risen card's top, so nothing of a card is cut off
-                val top = floorY - DesktopTable.FAN_LIFT - handHeight - 4f
-                val hp = port(hand.id, TableBounds(fanBounds.x, top, fanBounds.width, floorY - top), fanBounds.width, bar = true)
+                // Its port holds every card at rest and popped out, so nothing of a card is cut off
+                val reach = (0 until count).flatMap { n -> listOf(faces[n].bounds(rests[n]), faces[n].bounds(raisedCentre(n))) }
+                val portLeft = (reach.minOfOrNull { it.x } ?: fanBounds.x).coerceAtMost(fanBounds.x) - 2f
+                val portRight = (reach.maxOfOrNull { it.right } ?: fanBounds.right).coerceAtLeast(fanBounds.right) + 2f
+                val top = minOf(reach.minOfOrNull { it.y } ?: restTop, restTop) - 4f
+                val hp = port(hand.id, TableBounds(portLeft, top, portRight - portLeft, floorY - top), portRight - portLeft, bar = true)
                 items += TableItem(hand.id, fanBounds, handLabel, hand.cards.size.toString(),
                     player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id, handFan = true,
                     handDivider = if (gap > 0f) (cardX(hand.cards.size - 1) + handWidth + cardX(hand.cards.size)) / 2 else null)
@@ -771,15 +800,9 @@ object TablePresentation {
                     val c = byId[id] ?: continue
                     val extra = extras.getOrNull(n - hand.cards.size)
                     val raised = !reviewing && id == ui.raised
-                    val lifted = raised || id == ui.hovered
                     val x = cardX(n)
-                    val turn = if (lifted) 0f else (n - (count - 1) / 2f) * turnStep
-                    val radians = toRadians(turn.toDouble())
-                    val drop = if (lifted) 0f else (DesktopTable.FAN_PIVOT * handHeight * (1 - kotlin.math.cos(radians))).toFloat()
-                    val centre = TablePoint(x + handWidth / 2,
-                        if (lifted) floorY - DesktopTable.FAN_LIFT - handHeight / 2 else restTop + handHeight / 2 + drop)
-                    val face = TableCardTransform(handWidth, handHeight, turn)
-                    val b = face.bounds(centre)
+                    val face = faces[n]
+                    val b = face.bounds(if (raised) raisedCentre(n) else rests[n])
                     val slotRight = if (n + 1 < count) cardX(n + 1) else x + handWidth
                     val slot = TableBounds(x, restTop, slotRight - x, floorY - restTop)
                     val item = card(c, b, b, player.accountId, PlayZone.HAND, hp.id, known = extra != null)

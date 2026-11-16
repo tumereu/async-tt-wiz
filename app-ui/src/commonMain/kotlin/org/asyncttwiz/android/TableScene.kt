@@ -37,7 +37,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     modifier: Modifier = Modifier, connected: Boolean = false, onIntent: ((TableIntent) -> Boolean)? = null,
     placements: Map<String, TablePlacement> = emptyMap(), toolkit: TableToolkitController? = null,
     runtime: TableRuntimeHooks = TableRuntimeHooks()) {
-    PrefetchGameArtwork(play, accountId)
+    // TBL-139: with hand or battlefield cards drawn as full pictures, their whole printed cards are warmed too
+    val prefetchAppearance = rememberCardAppearance()
+    PrefetchGameArtwork(play, accountId, prefetchAppearance.handFullPicture || prefetchAppearance.battlefieldFullPicture)
     // HIS-113 (full e2e run 2026-11-15): when a table is made and let go reaches the app log; one made anew mid-game drops
     // its gestures (a held finger), its animation and what it remembers
     DisposableEffect(Unit) {
@@ -157,7 +159,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         toolkit?.hoveredAbility = null
     } }
     val mouse = remember(coordinator) { DesktopTableMouse(coordinator, { p -> presentation?.invoke()?.hit(p) }, mouseScope) }
-    // WEB-015 (owner playtest 2026-11-15): the viewer's hand card the mouse is on, which rises out of the fan, and stays up while
+    // WEB-015 (owner 2026-11-16): the viewer's hand card the mouse is on, which is drawn over the others, and stays so while
     // the pointer is on its chips (WEB-027) (read so only a change of it rebuilds the scene, not every item the pointer passes)
     val handHover by remember(mouse, desktopHover, accountId) { derivedStateOf {
         mouse.hovered?.takeIf { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == accountId }?.cardId
@@ -295,7 +297,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         // STK-024: what pays the open payment lies in its own pile, to the right of its stack
         val paying = if (runtime.reviewing) emptySet() else toolkit?.paySources().orEmpty()
         val shownLayout = layoutShown.value
-        // WEB-015 (owner playtest 2026-11-15): on the desktop table the hand card the mouse is on rises out of the fan
+        // WEB-015 (owner 2026-11-16): on the desktop table the hand card the mouse is on is drawn over the others in the fan
         val laid = (if (paying.isEmpty()) shownLayout else shownLayout.copy(paying = paying))
             .let { if (desktop != null && handHover != it.hovered) it.copy(hovered = handHover) else it }
         // ZON-079 (owner, 2026-11-12): your cards from other zones a permission lets you cast or play, at your hand row's end

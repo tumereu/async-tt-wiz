@@ -34,24 +34,31 @@ fun DefinitionFace.artwork(index: Int, size: String = "normal"): ArtworkReferenc
 
 enum class TableArtworkMode { TYPE_ICON, ART_CROP, CUSTOM_CARD }
 
-/** A failed or pending custom image keeps the ordinary name/icon/corner fallback. */
-fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Boolean): TableArtworkMode = when {
+/** A failed or pending custom image keeps the ordinary name/icon/corner fallback; so does a pending or failed full picture
+ * ([fullPicture], TBL-139), which is otherwise drawn whole as a custom image is. */
+fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Boolean, fullPicture: Boolean = false): TableArtworkMode = when {
     reference == null || !imageAvailable -> TableArtworkMode.TYPE_ICON
-    reference.customUrl != null -> TableArtworkMode.CUSTOM_CARD
+    reference.customUrl != null || fullPicture -> TableArtworkMode.CUSTOM_CARD
     else -> TableArtworkMode.ART_CROP
 }
 
-/** Exactly what the table (art crop, or a custom full card) and then the inspector (large) request for
- * every face, in definition order: all table images first, since they are what a player sees first. */
-fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List<ArtworkReference> {
+/** TBL-139: the whole printed card picture of a table card drawn as a full picture (Scryfall's "normal"). */
+fun ArtworkReference.fullPicture() = copy(size = "normal")
+
+/** Exactly what the table (art crop, or a custom full card; with [fullPictures] the whole printed card too, TBL-139) and then
+ * the inspector (large) request for every face, in definition order: all table images first, since they are what a player
+ * sees first. */
+fun gameArtworkReferences(definitions: List<SubmittedDefinition>, fullPictures: Boolean = false): List<ArtworkReference> {
     val faces = definitions.flatMap { submitted ->
         submitted.definition.faces.mapIndexedNotNull { index, face -> face.tableArtwork(index) }
     }
-    return (faces.map { it.forTable() } + faces.map { it.copy(size = "large") }).distinct()
+    val table = faces.flatMap { listOfNotNull(it.forTable(), it.fullPicture().takeIf { fullPictures }) }
+    return (table + faces.map { it.copy(size = "large") }).distinct()
 }
 
-/** The viewer's hand, then their battlefield, then the shared battlefield/Stack, then everything else. */
-fun gameArtworkReferences(play: TableBoard, viewer: String): List<ArtworkReference> {
+/** The viewer's hand, then their battlefield, then the shared battlefield/Stack, then everything else ([fullPictures]: the
+ * whole printed cards too, TBL-139). */
+fun gameArtworkReferences(play: TableBoard, viewer: String, fullPictures: Boolean = false): List<ArtworkReference> {
     val byDigest = play.definitions.associateBy { it.digest }
     val cards = play.board.cards.associateBy { it.id }
     fun rank(container: PlayContainer) = when {
@@ -62,17 +69,20 @@ fun gameArtworkReferences(play: TableBoard, viewer: String): List<ArtworkReferen
     }
     val ordered = play.board.containers.sortedBy(::rank).flatMap { it.cards }.mapNotNull { cards[it]?.definition } +
         play.definitions.map { it.digest }
-    return gameArtworkReferences(ordered.distinct().mapNotNull(byDigest::get))
+    return gameArtworkReferences(ordered.distinct().mapNotNull(byDigest::get), fullPictures)
 }
 
-/** Warm the retained game definitions in the background queue while this game is open. */
+/** Warm the retained game definitions in the background queue while this game is open ([fullPictures]: hand or battlefield
+ * cards are drawn as full pictures, TBL-139, so the whole printed cards are warmed too). */
 @Composable
-fun PrefetchGameArtwork(play: TableBoard, viewer: String) {
+fun PrefetchGameArtwork(play: TableBoard, viewer: String, fullPictures: Boolean = false) {
     val context = LocalPlatformContext.current
     // Ordered by the board when the game opens (or its definitions change), not on every move.
-    val references = remember(play.gameId, viewer, play.definitions) { gameArtworkReferences(play, viewer) }
+    val references = remember(play.gameId, viewer, play.definitions, fullPictures) { gameArtworkReferences(play, viewer, fullPictures) }
     DisposableEffect(play.gameId, references) {
         val tag = "game:${play.gameId}"
+        AppLog.info("artwork", "Game ${play.gameId.take(8)} pictures warmed: ${references.size}" +
+            (if (fullPictures) ", whole printed cards included (full pictures on)" else ""))
         PublicArtwork.prefetch(context, tag, references)
         onDispose { PublicArtwork.cancelPrefetch(tag) }
     }

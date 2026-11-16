@@ -1,0 +1,1 @@
+With "Battlefield cards: full picture" turned on in Settings, the battlefield cards on Alice's desktop table show their whole printed card pictures with a thin border in their owner's colour while she responds to Bob's spell, which keeps the app's frame on the Stack; her hand's cards are full pictures too, as by default on the desktop layout.

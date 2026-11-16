@@ -120,6 +120,39 @@ class TableArtworkTest {
         assertEquals(play.definitions.size, order.size)
     }
 
+    // TBL-139 (owner 2026-11-16): with "Hand cards: full picture" on, the viewer's hand cards ask for their whole printed card
+    // and are drawn whole (the app's frame while it loads or fails); the battlefield keeps its art crops until its own switch
+    // is on; covered cards (the other player's hand) stay hidden; the game's warm-up then takes the whole cards too
+    @Test fun fullPicturesAskForTheWholePrintedCardOfTheirZone() {
+        val definition = TableFixture.definition.copy(faces = TableFixture.definition.faces.map { it.copy(scryfallId = printing) })
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        val initial = TableFixture.play(board = 2, hand = 2)
+        val play = initial.copy(definitions = listOf(submitted), board = initial.board.copy(cards = initial.board.cards.map {
+            it.copy(definition = submitted.digest)
+        }))
+        fun cards(appearance: CardAppearance, zone: PlayZone) = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 412f, 820f,
+            false, appearance = appearance).items.filter { it.kind == TableItemKind.CARD && it.zone == zone && !it.covered }
+        val hand = cards(CardAppearance(handFullPicture = true), PlayZone.HAND)
+        assertTrue(hand.isNotEmpty() && hand.all { it.fullPicture && it.artwork?.size == "normal" && it.artwork?.printing == printing },
+            "the hand's whole printed cards: ${hand.map { it.artwork }}")
+        val fieldBefore = cards(CardAppearance(handFullPicture = true), PlayZone.BATTLEFIELD)
+        assertTrue(fieldBefore.isNotEmpty() && fieldBefore.all { !it.fullPicture && it.artwork?.size == "art_crop" })
+        val field = cards(CardAppearance(battlefieldFullPicture = true), PlayZone.BATTLEFIELD)
+        assertTrue(field.isNotEmpty() && field.all { it.fullPicture && it.artwork?.size == "normal" })
+        val covered = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 412f, 820f, false,
+            appearance = CardAppearance(handFullPicture = true)).items.filter { it.kind == TableItemKind.CARD && it.covered }
+        assertTrue(covered.isNotEmpty() && covered.all { it.artwork == null && !it.fullPicture }, "the other player's hand stays hidden")
+        assertEquals(TableArtworkMode.CUSTOM_CARD, tableArtworkMode(full, true, fullPicture = true))
+        assertEquals(TableArtworkMode.TYPE_ICON, tableArtworkMode(full, false, fullPicture = true), "the frame while it loads or fails")
+        val warmed = gameArtworkReferences(listOf(submitted), fullPictures = true)
+        assertEquals(listOf("art_crop", "normal", "large"), warmed.map { it.size })
+        assertEquals(listOf("art_crop", "large"), gameArtworkReferences(listOf(submitted)).map { it.size })
+        assertTrue(hand.all { it.artwork in warmed }, "the very pictures the hand asks for are warmed")
+        // The desktop layout's defaults: its hand's on, its battlefield's off (WEB-022)
+        assertTrue(DesktopCardAppearance.handFullPicture && !DesktopCardAppearance.battlefieldFullPicture)
+        assertTrue(!CardAppearance().handFullPicture && !CardAppearance().battlefieldFullPicture)
+    }
+
     @Test fun sceneRequestsTableVariantsWhileInspectionKeepsFullImagesAndCoveredCardsStayHidden() {
         for (imageUri in listOf(null, custom.customUrl)) {
             val definition = TableFixture.definition.copy(faces = TableFixture.definition.faces.map {

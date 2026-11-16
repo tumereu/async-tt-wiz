@@ -59,13 +59,14 @@ class DesktopTableScreenshotTest {
 
     /** Alice's table of [kit]'s game drawn as [EngineTableScreen] draws it in the desktop layout: the top row over the table
      * surface with the desktop frame, the dock holding the docked chat of [lobby] while [dockOpen] (read as state). */
-    private fun render(kit: EngineTableKit, lobby: LobbyController = chatLobby(kit), dockOpen: () -> Boolean = { true }) {
+    private fun render(kit: EngineTableKit, lobby: LobbyController = chatLobby(kit), dockOpen: () -> Boolean = { true },
+        pictures: Boolean = false) {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop, LocalEngineRoutes provides kit.routes,
                         LocalDesktopFrame provides DesktopFrame(dockOpen())) {
-                        val play = kit.alice.play()
+                        val play = kit.alice.play().let { if (pictures) pictured(it) else it }
                         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
                             DesktopTopRow(kit.f.game, play, kit.f.a, kit.toolkit, reviewing = false, navigation = {}, returnCurrent = null,
                                 changes = null, dockOpen = dockOpen(), toggleDock = {}, chat = null, chatUnread = 0)
@@ -85,9 +86,18 @@ class DesktopTableScreenshotTest {
     }
 
     /** Alice's scene of her desktop table (the surface under the top row: 1440 × 844). */
-    private fun scene(kit: EngineTableKit): TableScene = kit.alice.play().let { play ->
-        TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.topRow(1440f), true, kit.toolkit.layoutState.value,
-            appearance = DesktopCardAppearance, landscapeHome = true, handRow = HandRow.cards(play, kit.f.a), desktop = DesktopFrame())
+    private fun scene(kit: EngineTableKit, pictures: Boolean = false, appearance: CardAppearance = DesktopCardAppearance): TableScene =
+        kit.alice.play().let { if (pictures) pictured(it) else it }.let { play ->
+            TablePresentation.scene(kit.f.game, play, kit.f.a, 1440f, 900f - DesktopTable.topRow(1440f), true, kit.toolkit.layoutState.value,
+                appearance = appearance, landscapeHome = true, handRow = HandRow.cards(play, kit.f.a), desktop = DesktopFrame())
+        }
+
+    private val picturedBoards = java.util.IdentityHashMap<TableBoard, TableBoard>()
+    /** TBL-139: [play] with every card face given a printing of the test pictures ([PlaceholderArtwork]), as real cards have:
+     * the engine fixture's cards have none, so they keep the app's frame. */
+    private fun pictured(play: TableBoard): TableBoard = picturedBoards.getOrPut(play) {
+        play.copy(definitions = play.definitions.map { submitted -> submitted.copy(definition = submitted.definition.copy(
+            faces = submitted.definition.faces.map { it.copy(scryfallId = it.scryfallId ?: placeholderPrinting(it.name)) })) })
     }
 
     /** The mouse moved over [item] of Alice's desktop table (its surface lies under the top row). */
@@ -219,22 +229,68 @@ class DesktopTableScreenshotTest {
         kit.playOn("the Kit cast with offspring") { kit.state().stack.isNotEmpty() || card in kit.field(Choices.KIT).map(kit::atw) }
     }
 
-    // WEB-015 (owner playtest 2026-11-15, as in MTG Arena): Alice's hand is a fan at the bottom of her desktop table between her
-    // seat header and the action area, its cards partly below the window's bottom; the mouse on her Mountain raises it whole
-    // into view, upright and over the others, its Play chip faded above it
-    @Test fun theHandIsAFanAndTheHoveredCardRises() {
+    // WEB-015, TBL-139 (owner playtest 2026-11-15, as in MTG Arena; owner 2026-11-16): Alice's hand is a fan at the bottom of her
+    // desktop table between her seat header and the action area, its cards partly below the window's bottom, drawn as their
+    // printed pictures; the mouse on her Mountain only draws it over the others where it lies, its Play chip faded above it; a
+    // click raises it (ZON-079): it pops out of the fan along its own turn, keeping it, whole in view, its Play chip above it
+    @Test fun theHandIsAFanTheHoveredCardComesToTheFrontAndARaisedOnePopsOut() {
         val kit = EngineTableKit()
         kit.opening()
-        render(kit)
-        val mountain = scene(kit).items.first { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.label.startsWith("Mountain") }
-        hover(mountain.copy(bounds = mountain.handSlot!!))
-        compose.waitForIdle()
-        val risen = compose.onAllNodes(hasContentDescription("Mountain, owner", substring = true)).fetchSemanticsNodes()
-            .map { it.boundsInRoot }.minBy { it.top }
-        assertTrue(risen.bottom <= 900f - DesktopTable.FAN_LIFT + 1f && risen.top < 900f - DesktopTable.FLOAT - 40f,
-            "the Mountain whole in view: $risen")
+        render(kit, pictures = true)
+        val cards = scene(kit, pictures = true).items.filter { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.label.startsWith("Mountain") }
+        val mountain = cards.firstOrNull { it.cardTransform!!.rotation != 0f } ?: cards.first()
+        assertTrue(mountain.fullPicture, "the desktop hand's cards drawn as full pictures by default")
+        val top = DesktopTable.topRow(1440f)
+        fun shown() = compose.onAllNodes(hasContentDescription("Mountain, owner", substring = true)).fetchSemanticsNodes()
+            .map { it.boundsInRoot }.filter { it.top > 900f - DesktopTable.FLOAT - 120f }.minBy { kotlin.math.abs(it.center.x - mountain.bounds.center.x) }
         captureShot("$SCREENSHOTS/desktop/hand-fan.png",
-            "Alice's hand on the desktop table is a fan at the bottom between her seat header and the action area, its cards turned a little and partly below the window; with the mouse on her Mountain it rose whole into view, upright and over the others, its Play chip faded above it and, as the mouse rested there, its quick look beside it.")
+            "Alice's hand on the desktop table at the start of her turn is a fan of printed card pictures at the bottom between her seat header and the action area, its cards turned a little either way, overlapping and partly below the window, the whole fan in view at its sides.")
+        hover(mountain.copy(bounds = mountain.handSlot!!))
+        // Before its quick look (WEB-026) would cover the fan
+        compose.mainClock.advanceTimeBy(QUICK_LOOK_MILLIS / 2)
+        compose.waitForIdle()
+        assertEquals(mountain.bounds.y + top, shown().top, 1f, "the hovered Mountain where it lay")
+        captureShot("$SCREENSHOTS/desktop/hand-hover.png",
+            "With the mouse on Alice's Mountain in her desktop table's hand fan, the Mountain is drawn over its neighbours where it lies, neither moved nor turned, its Play chip faded above it.")
+        compose.onAllNodes(isRoot()).onFirst().performMouseInput {
+            click(androidx.compose.ui.geometry.Offset(mountain.handSlot!!.center.x, mountain.handSlot!!.center.y + top))
+        }
+        compose.waitForIdle()
+        // The mouse leaves for the empty battlefield: the Mountain stays out
+        compose.onAllNodes(isRoot()).onFirst().performMouseInput { moveTo(androidx.compose.ui.geometry.Offset(600f, 400f)) }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(mountain.cardId, kit.toolkit.hand.raised, "the click raised the Mountain") }
+        val raised = shown()
+        assertTrue(raised.top < mountain.bounds.y + top - 40f && raised.bottom <= 900f - DesktopTable.FAN_LIFT + 1f,
+            "popped out whole into view: $raised")
+        captureShot("$SCREENSHOTS/desktop/hand-raised.png",
+            "Alice clicked her Mountain in the desktop table's hand fan and moved the mouse away: it popped out of the fan along its own turn, keeping its angle, whole in view and over the others, its Play chip above it.")
+    }
+
+    // TBL-139 (owner 2026-11-16): with "Battlefield cards: full picture" on in the desktop layout's Settings, Alice's battlefield
+    // shows its cards as their printed pictures with a thin border in her colour, while the Stack and her piles keep the app's
+    // frame
+    @Test fun battlefieldCardsAsFullPictures() {
+        val preferences = CardAppearancePreferences(org.asyncttwiz.appui.AppPlatform.current, AppLayout.Desktop)
+        preferences.fullPicture(hand = false, enabled = true)
+        try {
+            val kit = respondingKit()
+            val appearance = preferences.read()
+            assertTrue(appearance.battlefieldFullPicture && appearance.handFullPicture, "both on: $appearance")
+            val items = scene(kit, pictures = true, appearance = appearance).items.filter { it.kind == TableItemKind.CARD && it.artwork != null }
+            val field = items.filter { it.zone == PlayZone.BATTLEFIELD }
+            assertTrue(field.isNotEmpty() && field.all { it.fullPicture && it.artwork?.size == "normal" }, "battlefield full pictures: $field")
+            val stack = items.filter { it.zone == PlayZone.STACK }
+            assertTrue(stack.isNotEmpty() && stack.none { it.fullPicture }, "the Stack keeps the app's frame: $stack")
+            render(kit, pictures = true)
+            compose.mainClock.advanceTimeBy(1000)
+            compose.waitForIdle()
+            captureShot("$SCREENSHOTS/desktop/full-picture-battlefield.png",
+                "With \"Battlefield cards: full picture\" turned on in Settings, the battlefield cards on Alice's desktop table show their whole printed card pictures with a thin border in their owner's colour while she responds to Bob's spell, which keeps the app's frame on the Stack; her hand's cards are full pictures too, as by default on the desktop layout.")
+        } finally {
+            preferences.fullPicture(hand = false, enabled = false)
+        }
     }
 
     // WEB-028 (§5): on the desktop layout a right-click on a control does its hold action and never its tap; a left click
@@ -309,20 +365,42 @@ class DesktopTableScreenshotTest {
         val centre = hand[3]
         assertEquals(height - DesktopTable.FLOAT, centre.bounds.y, 1f, "the part in view as tall as the action area")
         assertTrue(hand.all { it.bounds.bottom > height }, "partly below the window's bottom")
-        // The card the mouse is on rises whole into view, upright, and is drawn over the others; the mouse finds each card by
-        // its own part of the fan, risen or not
-        val raisedScene = TablePresentation.scene(kit.f.game, kit.alice.play(), kit.f.a, 1440f, height, true,
-            kit.toolkit.layoutState.value.copy(hovered = centre.cardId), appearance = DesktopCardAppearance, landscapeHome = true,
-            handRow = HandRow.cards(kit.alice.play(), kit.f.a), desktop = DesktopFrame())
-        val risen = raisedScene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.a }
-        assertEquals(centre.cardId, risen.last().cardId, "drawn over the others")
-        assertEquals(0f, risen.last().cardTransform!!.rotation)
-        assertEquals(height - DesktopTable.FAN_LIFT, risen.last().bounds.bottom, .5f, "whole in view")
-        val neighbour = hand[4]
+        // Owner 2026-11-16 (the fan was cut at its left): every card shows whole at the fan's sides, its turned corners too
+        assertEquals(hand.first().bounds.x, hand.first().visible.minOf { it.x }, .5f, "the leftmost card's turned corner in view")
+        assertTrue(hand.first().bounds.x >= plate.right, "clear of her seat header: ${hand.first().bounds}")
+        // The card the mouse is on is only drawn over the others (owner 2026-11-16), neither moved nor turned
+        fun desktopScene(layout: TableLayoutState) = TablePresentation.scene(kit.f.game, kit.alice.play(), kit.f.a, 1440f, height, true,
+            layout, appearance = DesktopCardAppearance, landscapeHome = true, handRow = HandRow.cards(kit.alice.play(), kit.f.a),
+            desktop = DesktopFrame())
+        fun handOf(shown: TableScene) = shown.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.a }
+        val hoveredScene = desktopScene(kit.toolkit.layoutState.value.copy(hovered = centre.cardId))
+        val hovered = handOf(hoveredScene)
+        assertEquals(centre.cardId, hovered.last().cardId, "drawn over the others")
+        assertEquals(centre.bounds, hovered.last().bounds, "not moved")
+        assertEquals(centre.cardTransform, hovered.last().cardTransform, "not turned")
+        // ZON-079 (owner 2026-11-16): a raised card pops out of the fan along its own turn, keeping it, until it is whole in view
+        val turned = hand[1]
+        val raisedScene = desktopScene(kit.toolkit.layoutState.value.copy(raised = turned.cardId, hovered = centre.cardId))
+        val raisedHand = handOf(raisedScene)
+        val raised = raisedHand.single { it.cardId == turned.cardId }
+        assertTrue(raised.raised)
+        assertEquals(centre.cardId, raisedHand.last().cardId, "the hovered card over the raised one")
+        assertEquals(turned.cardId, raisedHand[raisedHand.lastIndex - 1].cardId, "the raised card over the rest")
+        assertEquals(turned.cardTransform, raised.cardTransform, "still turned as in the fan")
+        assertTrue(turned.cardTransform!!.rotation < 0f)
+        assertEquals(height - DesktopTable.FAN_LIFT, raised.bounds.bottom, .5f, "whole in view")
+        val dx = raised.bounds.center.x - turned.bounds.center.x
+        val dy = raised.bounds.center.y - turned.bounds.center.y
+        val radians = Math.toRadians(turned.cardTransform!!.rotation.toDouble())
+        assertTrue(dy < -40f, "popped out upwards: $dy")
+        assertEquals(kotlin.math.tan(radians).toFloat(), -dx / dy, .01f, "along its own turn")
+        assertEquals(raised.bounds, raised.visible.single(), "whole, uncut")
+        // The mouse finds each card by its own part of the fan, popped out or not, and a popped-out card above the fan too
+        val neighbour = hand[2]
         assertEquals(neighbour.cardId, raisedScene.hit(TablePoint(neighbour.handSlot!!.center.x, height - 20f))?.cardId,
             "the card beside it is still found by its part of the fan")
-        assertEquals(centre.cardId, raisedScene.hit(TablePoint(centre.handSlot!!.center.x, height - DesktopTable.FLOAT - 30f))?.cardId,
-            "the risen card above the fan")
+        assertEquals(turned.cardId, raisedScene.hit(TablePoint(raised.bounds.center.x, height - DesktopTable.FLOAT - 30f))?.cardId,
+            "the popped-out card above the fan")
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
         assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.y >= 0f && it.bounds.bottom <= DesktopTable.SEAT }, "Bob's hand in his seat header")
         // WEB-016, ZON-001 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): Bob's hand is

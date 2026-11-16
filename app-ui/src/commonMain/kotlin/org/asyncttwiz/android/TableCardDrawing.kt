@@ -213,6 +213,10 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         val x = 0f; val y = 0f
         val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else i.bounds.width / 28f
         val cardWidth = 28f * z; val cardHeight = 40f * z
+        // WEB-022 (owner 2026-11-16): on the desktop hand's large cards the name row, the P/T row and the border don't grow
+        // past a sensible size: [tz] scales their text, [ez] the border and the frame around the art (elsewhere both are [z])
+        val tz = if (i.handSlot != null) minOf(z, DESKTOP_HAND_TEXT_SCALE) else z
+        val ez = if (i.handSlot != null) minOf(z, DESKTOP_HAND_EDGE_SCALE) else z
         val corner = if (i.eotCorner.isEmpty() && !i.cornerHourglass) i.corner else "⌛${i.corner}"
         // TBL-137 (owner notes 2026-11-14): an uncrewed Vehicle's "Crew N", one short line on a white chip just above its P/T
         // at the art's bottom right, where it fits the card's width
@@ -266,13 +270,19 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         val art = i.artwork?.key?.let(artwork::get)
-        val mode = tableArtworkMode(i.artwork, art != null)
+        val mode = tableArtworkMode(i.artwork, art != null, i.fullPicture)
+        // TBL-139 (owner 2026-11-16): a full picture is the printed card, its own P/T printed on it: the app's P/T badge only
+        // when it says something else (a changed P/T, a loyalty or other counter count)
+        val fullPicture = !i.covered && i.fullPicture && mode == TableArtworkMode.CUSTOM_CARD
         if (!i.covered && mode == TableArtworkMode.CUSTOM_CARD) clipPath(outline) {
             drawTableArtwork(requireNotNull(art), TableBounds(x, y, cardWidth, cardHeight))
-            cornerBadge()
+            if (!fullPicture || fullPictureCorner(i)) cornerBadge()
         }
+        // TBL-139: a full picture's owner-colour border is thin, whatever the card's size
+        val edge = if (fullPicture) FULL_PICTURE_EDGE else 1.5f * ez
+        val dash = if (fullPicture) edge / 1.5f else z
         drawPath(outline, color,
-            style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
+            style = Stroke(edge * density, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * dash, 3 * density * dash)) else null))
         if (i.covered) {
             // Only a public face-down Battlefield card carries values while covered (rules v23).
             cornerBadge(); damageBadge(); cardAnnotations(i, x, y, z)
@@ -294,27 +304,30 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             return@translate
         }
         if (mode == TableArtworkMode.CUSTOM_CARD) { damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }
-        paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
-        val titleInset = if (i.token) cardWidth * .22f else 2 * z
+        paint.textSize = 7 * titleScale * tz * density; paint.isFakeBoldText = true
+        val titleInset = if (i.token) cardWidth * .22f else 2 * ez
         val textColor = paint.color
         if (i.enteredThisTurn) paint.color = i.titleColor
-        fittedText(title, x + titleInset, y + (1 + 7 * titleScale) * z, cardWidth - 2 * titleInset)
+        fittedText(title, x + titleInset, y + (1 + 7 * titleScale) * tz, cardWidth - 2 * titleInset)
         paint.color = textColor
         paint.isFakeBoldText = false
-        if (mode == TableArtworkMode.ART_CROP && artBottom > titleBand) drawTableArtwork(requireNotNull(art),
-            TableBounds(x + 2 * z, y + titleBand * z, cardWidth - 4 * z, (artBottom - titleBand) * z))
-        else if (artBottom > titleBand) {
+        // The art between the name row and the P/T row (each [tz] tall in card units), inside the frame ([ez])
+        val artTop = y + titleBand * tz
+        val artEnd = y + cardHeight - (40f - artBottom) * tz
+        if (mode == TableArtworkMode.ART_CROP && artEnd > artTop) drawTableArtwork(requireNotNull(art),
+            TableBounds(x + 2 * ez, artTop, cardWidth - 4 * ez, artEnd - artTop))
+        else if (artEnd > artTop) {
             paint.textSize = 17 * z * density
-            clipRect(x * density, (y + titleBand * z) * density, (x + cardWidth) * density, (y + artBottom * z) * density) {
+            clipRect(x * density, artTop * density, (x + cardWidth) * density, artEnd * density) {
                 text(i.typeIcon, x + (cardWidth - cache.measure(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)
             }
         }
-        paint.textSize = 7 * valueScale * z * density
+        paint.textSize = 7 * valueScale * tz * density
         val previousColor = paint.color
         if (i.cornerColor != null) paint.color = i.cornerColor
         else if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
         else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
-        fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
+        fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * tz, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor
         crewLine()
         damageBadge()
@@ -366,6 +379,19 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
 val AbilityTokenColor = Color(0xff2e2838)
 val AbilityTokenArtColor = Color(0xff4a4259)
 val AbilityTokenTextColor = Color(0xffe8e2f0)
+
+/** WEB-022 (owner 2026-11-16): the largest scale of the desktop hand's cards' name and P/T rows, and of their border and the
+ * frame around their art (the hand's cards are 5.2 times the phone's; the battlefield's 2). */
+const val DESKTOP_HAND_TEXT_SCALE = 2.4f
+const val DESKTOP_HAND_EDGE_SCALE = 2f
+
+/** TBL-139: a full picture's border width (dp), thin at any card size. */
+const val FULL_PICTURE_EDGE = 1.5f
+
+/** TBL-139: whether a full picture ([TableItem.fullPicture]) shows the app's P/T badge over the printed card: only when it
+ * says what the printed card doesn't: a changed P/T, or a count (loyalty and other counters) rather than a P/T. */
+fun fullPictureCorner(i: TableItem): Boolean = i.corner.isNotEmpty() &&
+    (i.cornerColor != null || i.eotCorner.isNotEmpty() || i.cornerHourglass || i.changedPowerToughness || '/' !in i.corner)
 
 /** How far a state's word on a card's chip may shrink to fit (TBL-133). */
 private const val MIN_STATE_TEXT = .72f

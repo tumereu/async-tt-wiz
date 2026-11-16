@@ -1,5 +1,7 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -11,6 +13,8 @@ import androidx.compose.ui.test.performTextInput
 import arcanum.api.TurnStep
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.android.DESKTOP_UNDO_TAG
+import org.asyncttwiz.android.FULL_PICTURE_BATTLEFIELD_TAG
+import org.asyncttwiz.android.FULL_PICTURE_HAND_TAG
 import org.asyncttwiz.android.HOTKEY_SHEET_TAG
 import org.asyncttwiz.android.HotkeyAction
 import org.asyncttwiz.android.INSPECT_LIST_TAG
@@ -200,35 +204,42 @@ class DesktopTableTest : E2e() {
         return minOf(green, blue) - red
     }
 
-    /** WEB-015: the mouse on Alice's hand card [name]: it rises whole into view out of the fan, upright; its bounds then. */
-    private fun hoverInHand(name: String): androidx.compose.ui.geometry.Rect {
+    /** WEB-015 (owner 2026-11-16): the mouse on Alice's hand card [name] (the [index]th from the left): it is drawn over the
+     * others where it lies, neither moved nor turned; its bounds then, and where it lay before. */
+    private fun hoverInHand(name: String, index: Int = 0): Pair<androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect> {
         waitUntil("Alice's game settled") { alice.settled(this) }
-        alice.handCard(name).performMouseInput { moveTo(center) }
-        waitUntil("$name risen out of Alice's fan") {
-            alice.settled(this) && alice.handCard(name).fetchSemanticsNode().boundsInRoot.let { it.bottom <= 900f && it.height > it.width }
-        }
+        val resting = alice.handCard(name, index).fetchSemanticsNode().boundsInWindow
+        alice.handCard(name, index).performMouseInput { moveTo(center) }
         repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
-        return alice.handCard(name).fetchSemanticsNode().boundsInWindow
+        waitUntil("Alice's game settled with the mouse on $name") { alice.settled(this) }
+        return alice.handCard(name, index).fetchSemanticsNode().boundsInWindow to resting
     }
 
     // TBL-117 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
     // are highlight?"), WEB-022, WEB-015: at Alice's Main 1 with no land out, her Mountain may be played and glows around it as
-    // on the phone, as far from the card for its size; her Ember Cub, which she can't pay for, doesn't. Each is looked at risen
-    // out of the fan with the mouse on it (owner playtest 2026-11-15), upright at the desktop's 5.2x
+    // on the phone, as far from the card for its size; her Ember Cub, which she can't pay for, doesn't. Each is looked at with
+    // the mouse on it, drawn over the others where it lies in the fan (owner 2026-11-16: hovering moves nothing), just above
+    // its top; the Cub dealt with no Mountain beside it, whose glow would reach there
     @Test fun onlyThePlayableHandCardGlowsAsOnThePhone() {
-        start()
+        fun lonelyCub(hand: List<String>) = hand.indices.firstOrNull { i ->
+            hand[i] == "Ember Cub" && hand.getOrNull(i - 1) != "Mountain" && hand.getOrNull(i + 1) != "Mountain" }
+        startGame(aliceDesktop = true, deal = { a, _ -> "Mountain" in hand(a) && lonelyCub(hand(a)) != null })
+        bothOpen()
         keep()
-        fun glow(name: String): Pair<Int, Int> {
-            val card = hoverInHand(name)
-            assertEquals(28f * 5.2f, card.width, 1f, "the desktop's hand card at 5.2x, upright: $card")
+        val hand = alice.state.player(alice.me).hand.map { id -> alice.state.obj(id)?.definition?.faces?.first()?.name.orEmpty() }
+        val cubIndex = hand.take(lonelyCub(hand) ?: error("no Cub apart from the Mountains: $hand")).count { it == "Ember Cub" }
+        fun glow(name: String, index: Int = 0): Pair<Int, Int> {
+            val (card, resting) = hoverInHand(name, index)
+            assertEquals(resting.top, card.top, 1f, "hovering moves nothing: $resting -> $card")
             val picture = alice.picture()
-            val y = card.top - card.width * .1f
+            // Just above the card's top in its middle (its turn keeps its edge a little lower there than its corner)
+            val y = card.top - 4f
             // The battlefield's own colour at the same height at the window's left, away from the cards
-            return cyanAt(picture, card.left + card.width * .1f, y) to cyanAt(picture, 20f, y)
+            return cyanAt(picture, card.center.x, y) to cyanAt(picture, 20f, y)
         }
         val (mountain, field) = glow("Mountain")
         assertTrue(mountain - field >= 10, "the Mountain glows: $mountain over $field")
-        val (cub, cubField) = glow("Ember Cub")
+        val (cub, cubField) = glow("Ember Cub", cubIndex)
         assertTrue(cub - cubField <= 3, "the Cub doesn't glow: $cub over $cubField")
     }
 
@@ -269,8 +280,8 @@ class DesktopTableTest : E2e() {
     }
 
     // WEB-015, WEB-016, WEB-018, WEB-019, WEB-024, WEB-031 (owner playtest 2026-11-15): Alice's hand is a fan at the bottom of her
-    // desktop table, its cards partly below the window's bottom: the mouse on a Mountain raises it whole into view, a click
-    // keeps it up and a second plays it from the fan. Her Ember Burst's cast panel has its Cast in its bottom right corner as on
+    // desktop table, its cards partly below the window's bottom: a click on a Mountain raises it and a second plays it from the
+    // fan. Her Ember Burst's cast panel has its Cast in its bottom right corner as on
     // the main button, which casts it. Held, Ctrl keeps her in Control mode and let go puts back her mode; with another key it
     // is that key's chord. In her next turn her second Mountain stacks on the first: Alt over them lists both one under the
     // other, and the wheel scrolls the list while Alt is held
@@ -283,8 +294,6 @@ class DesktopTableTest : E2e() {
         val resting = alice.handCard("Mountain").fetchSemanticsNode().boundsInRoot
         // The card's part in view (its semantics end at the window's bottom) is shorter than a card
         assertTrue(resting.bottom >= 899f && resting.height < resting.width * 1.3f, "partly below the window's bottom: $resting")
-        val risen = hoverInHand("Mountain")
-        assertTrue(risen.top < resting.top - 40f, "risen whole into view: $resting -> $risen")
         clickFromHand("Mountain")
         waitUntil("the Mountain played from the fan", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
         // WEB-019: the cast panel's go-on in its corner, as the main button says it
@@ -348,6 +357,77 @@ class DesktopTableTest : E2e() {
         alice.key("Alt", false)
         waitUntil("the Inspect closed with Alt let go") { !alice.shows(hasTestTag("card-inspection")) }
         assertTrue(!alice.refusalSeen, "nothing refused")
+        assertEquals(emptyList(), alice.leaks.leaks)
+    }
+
+    // WEB-015, ZON-079 (owner 2026-11-16: "a raised card on the desktop hand isn't indicated at all"; hovering is to bring a card
+    // to the front only, as on a draft card, and a raised card pops out as a hovered one did, keeping its turn in the fan): the
+    // mouse on Alice's Mountain moves nothing; a click raises it: it pops out of the fan, still turned, and stays out after the
+    // mouse leaves; a click on her battlefield lowers it back into the fan
+    @Test fun aRaisedHandCardPopsOutOfTheFanAndAHoveredOneStays() {
+        // The Mountain away from the fan's middle, where a card isn't turned
+        startGame(aliceDesktop = true, deal = { a, _ ->
+            hand(a).let { h -> "Ember Cub" in h && h.indexOf("Mountain").let { it >= 0 && it != h.size / 2 } } })
+        bothOpen()
+        keep()
+        val (hovered, resting) = hoverInHand("Mountain")
+        assertEquals(resting.top, hovered.top, 1f, "hovering doesn't move the card: $resting -> $hovered")
+        assertEquals(null, alice.raisedInHand(), "nothing raised by the mouse on it")
+        alice.handCard("Mountain").performMouseInput { click() }
+        waitUntil("the Mountain raised in Alice's hand") { alice.raisedInHand() == "Mountain" && alice.settled(this) }
+        repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
+        val raised = alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow
+        assertTrue(raised.top < resting.top - 40f && raised.bottom < 900f, "popped out of the fan, whole in view: $resting -> $raised")
+        assertTrue(raised.width > 28f * 5.2f + 4f, "still turned as in the fan, not upright: $raised")
+        alice.tagged("phase-track").performMouseInput { moveTo(center) }
+        repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
+        assertEquals("Mountain", alice.raisedInHand(), "still out with the mouse gone")
+        alice.table().performMouseInput { click() }
+        waitUntil("the Mountain lowered into the fan") { alice.raisedInHand() == null && alice.settled(this) }
+        assertEquals(resting.top, alice.handCard("Mountain").fetchSemanticsNode().boundsInWindow.top, 1f, "back where it lay")
+        assertTrue(!alice.refusalSeen, "nothing refused")
+    }
+
+    /** How far [x], [y] of [picture] is from white towards a printed card's beige text box: its red over its blue (0 on white
+     * or grey). */
+    private fun beigeAt(picture: android.graphics.Bitmap, x: Float, y: Float): Int {
+        val pixel = picture.getPixel(x.toInt(), y.toInt())
+        return ((pixel shr 16) and 255) - (pixel and 255)
+    }
+
+    // TBL-139, WEB-022 (owner 2026-11-16): in her desktop layout's Settings Alice finds "Hand cards: full picture" on and
+    // "Battlefield cards: full picture" off; her Mountain on the battlefield shows the app's white frame. She turns the
+    // battlefield's on: back at the table the Mountain shows its whole printed card (the test pictures' beige text box low
+    // on the card, where the app's frame is white)
+    @Test fun theFullPictureSettings() {
+        start()
+        keep()
+        clickFromHand("Mountain")
+        waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) {
+            alice.field("Mountain").isNotEmpty() && alice.showsOnBattlefield("Mountain") && alice.inOwnMain() && alice.settled(this)
+        }
+        // The mouse away from the cards, so no quick look covers the Mountain
+        alice.tagged("phase-track").performMouseInput { moveTo(center) }
+        fun textBox(): Int {
+            repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
+            val card = alice.battlefieldCard("Mountain").fetchSemanticsNode().boundsInWindow
+            return beigeAt(alice.picture(), card.left + card.width * .2f, card.top + card.height * .85f)
+        }
+        val frame = textBox()
+        assertTrue(frame <= 4, "the app's white frame on the battlefield: $frame")
+        alice.pressKey("?", shift = true)
+        waitUntil("the list of keys") { sheetShown() }
+        alice.tagged("hotkey-sheet-settings").performClick()
+        waitUntil("Alice's settings") { alice.shows(hasTestTag(FULL_PICTURE_BATTLEFIELD_TAG)) && !sheetShown() }
+        alice.tagged(FULL_PICTURE_HAND_TAG).performScrollTo().assertIsOn()
+        alice.tagged(FULL_PICTURE_BATTLEFIELD_TAG).performScrollTo().assertIsOff()
+        alice.tagged(FULL_PICTURE_BATTLEFIELD_TAG).performClick()
+        waitUntil("the battlefield's switch on") { runCatching { alice.tagged(FULL_PICTURE_BATTLEFIELD_TAG).assertIsOn() }.isSuccess }
+        alice.activity.onBackPressedDispatcher.onBackPressed()
+        run()
+        if (!alice.shows(hasTestTag("phase-track"))) alice.openGame(game, this)
+        waitUntil("Alice's table") { alice.shows(hasTestTag("phase-track")) && alice.game?.shown != null && alice.settled(this) }
+        waitUntil("the Mountain's whole printed card on the battlefield") { textBox() >= 12 }
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 

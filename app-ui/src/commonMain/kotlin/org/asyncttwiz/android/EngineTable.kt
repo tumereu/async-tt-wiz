@@ -1238,7 +1238,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         if (landscape) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { lead(); text() }
         else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { lead(); text() }
         if (needsRequest == true) {
-            Text("$opponent has seen this or it showed you something new: they are asked first. The game waits meanwhile.",
+            Text("Undoing requires confirmation from $opponent.",
                 style = MaterialTheme.typography.bodySmall)
             ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)")
         }

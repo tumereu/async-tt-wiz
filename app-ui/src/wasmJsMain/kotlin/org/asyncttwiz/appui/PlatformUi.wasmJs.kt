@@ -24,6 +24,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.createFontFamilyResolver
 import androidx.compose.ui.unit.Density
@@ -168,24 +169,42 @@ actual fun edgeToEdgeDialogProperties(): DialogProperties = DialogProperties(use
 
 /**
  * The page's one font resolver: the screens' (the web shell provides it as their LocalFontFamilyResolver) and the table's
- * text here share it, so the fallback fonts preloaded into it at start draw in both.
+ * text here share it, so the fallback fonts preloaded into it at start draw in both. Replaced once by [useWebFontResolver]
+ * when a fallback font that comes later (the full emoji font, WEB-062) has been preloaded into a new one: a state, so every
+ * text the screens show, and the table's drawn text that reads it ([measurer]), is laid out again with the new fonts.
  */
-internal val webFontResolver by lazy { createFontFamilyResolver() }
+internal val webFontResolver: FontFamily.Resolver get() = resolverState.value
+
+/** Made at first use: not before the drawing library's wasm has loaded (the resolver's font collection is its). */
+private val resolverState by lazy { mutableStateOf(createFontFamilyResolver()) }
+
+/** Text from now on is laid out with [resolver] (its fallback fonts preloaded): the table's remembered layouts are dropped. */
+internal fun useWebFontResolver(resolver: FontFamily.Resolver) {
+    measurers.clear()
+    tableTextLayouts.clear()
+    resolverState.value = resolver
+}
+
 /** The text measurers by density (measuring at density 1 and drawing at the screen's must not replace one another). */
 private val measurers = HashMap<Float, TextMeasurer>()
 
-private fun measurer(density: Float): TextMeasurer = measurers.getOrPut(density) {
-    if (measurers.size >= 4) measurers.clear()
-    TextMeasurer(webFontResolver, Density(density), LayoutDirection.Ltr)
+/** Reads [webFontResolver] (a state) first: a drawing that measures text is drawn again once the resolver is replaced. */
+private fun measurer(density: Float): TextMeasurer {
+    val resolver = webFontResolver
+    return measurers.getOrPut(density) {
+        if (measurers.size >= 4) measurers.clear()
+        TextMeasurer(resolver, Density(density), LayoutDirection.Ltr)
+    }
 }
 
 /**
- * The table's text layouts, by text, size, colour, weight and density: the table draws every card's title, values and
- * counts again on each frame of an animation, pan or zoom, and Compose's text measurer remembered only its last 8 layouts,
- * so every one was laid out (shaped) anew on every such frame (web frame rate, 2026-11-14). A hit here costs a lookup, not
- * the measurer's own input building and comparing.
+ * The table's text layouts, by text, size, colour, weight, density and font resolver: the table draws every card's title,
+ * values and counts again on each frame of an animation, pan or zoom, and Compose's text measurer remembered only its last 8
+ * layouts, so every one was laid out (shaped) anew on every such frame (web frame rate, 2026-11-14). A hit here costs a
+ * lookup, not the measurer's own input building and comparing.
  */
-private data class TableTextKey(val text: String, val size: Float, val color: Int, val bold: Boolean, val density: Float)
+private data class TableTextKey(val text: String, val size: Float, val color: Int, val bold: Boolean, val density: Float,
+    val fonts: FontFamily.Resolver)
 private val tableTextLayouts = boundedLruMap<TableTextKey, TextLayoutResult>(TABLE_TEXT_LAYOUTS)
 internal const val TABLE_TEXT_LAYOUTS = 512
 
@@ -198,8 +217,9 @@ private class BrowserTextPaint : NativeTextPaint {
     override var isFakeBoldText: Boolean = false
     override var textAlign: NativeTextPaint.TextAlign = NativeTextPaint.TextAlign.Left
 
+    /** The resolver (a state) read on every call, a hit too: the table is drawn again once it is replaced (WEB-062). */
     fun layout(text: String, density: Float = 1f): TextLayoutResult =
-        tableTextLayouts.getOrPut(TableTextKey(text, textSize, color, isFakeBoldText, density)) {
+        tableTextLayouts.getOrPut(TableTextKey(text, textSize, color, isFakeBoldText, density, webFontResolver)) {
             measurer(density).measure(text, TextStyle(color = Color(color), fontSize = (textSize / density).sp,
                 fontWeight = if (isFakeBoldText) FontWeight.Bold else FontWeight.Normal))
         }

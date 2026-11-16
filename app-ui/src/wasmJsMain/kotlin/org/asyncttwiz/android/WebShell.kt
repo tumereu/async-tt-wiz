@@ -111,10 +111,13 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         ComposeViewport(body, configure = { isA11YEnabled = true }) {
             // WEB-059: the mirror follows the screen again once a popup or dialog closes
             SemanticsMirrorRepair {
+                // WEB-062: the resolver is a state, replaced once the emoji font has come: every text is laid out again
                 CompositionLocalProvider(LocalFontFamilyResolver provides org.asyncttwiz.appui.webFontResolver) { shell.Content() }
             }
         }
         jsHideLoading()
+        // WEB-062: every emoji in colour, once the app shows (too big to hold up its start)
+        pageScope.launch { loadEmojiFont(platform, assetBase) }
     }
 }
 

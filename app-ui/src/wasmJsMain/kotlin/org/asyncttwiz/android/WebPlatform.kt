@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.createFontFamilyResolver
 import androidx.compose.ui.unit.dp
 import coil3.PlatformContext
 import kotlinx.coroutines.await
@@ -25,6 +27,7 @@ import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import kotlin.time.TimeSource
 import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.appui.Preferences
 import org.asyncttwiz.protocol.ActivityHint
@@ -37,10 +40,23 @@ import org.asyncttwiz.storage.CardCatalog
  * library's ✧, the hourglass, arrows, the timeline's and table actions' symbols, mathematical signs and the pick mark's 🔥.
  * Noto (webApp's resources/fonts, SIL OFL 1.1 beside them), each cut down to the Unicode blocks the shared UI draws from:
  * Symbols, Symbols 2 and Math to arrows, technical and geometric shapes, enclosed numbers, box drawing, miscellaneous
- * symbols, dingbats and mathematical operators; Noto Sans to Greek; Noto Color Emoji to 🔥.
+ * symbols, dingbats and mathematical operators; Noto Sans to Greek; Noto Color Emoji to 🔥. A character takes the first
+ * of them that has it.
  */
 internal val WEB_FALLBACK_FONTS = listOf("fonts/NotoColorEmoji-Atw.ttf", "fonts/NotoSansSymbols-Atw.ttf",
     "fonts/NotoSansSymbols2-Atw.ttf", "fonts/NotoSansMath-Atw.ttf", "fonts/NotoSansGreek-Atw.ttf")
+
+/**
+ * WEB-062: every emoji, in colour (Noto Color Emoji, its COLRv1 vector font, about 5 MB): what players write in chats, game
+ * and deck names and notes. Too big to hold up the page's start, it is fetched once the app shows ([loadEmojiFont]), from
+ * the build's folder, so the browser keeps it with the build's other files. It falls back after the pick mark's 🔥 and
+ * before the symbol fonts, so ❤ ⭐ ✨ show in colour as on a phone; the few symbols the app itself draws (the timeline's
+ * ↔ ↗ ↘ ♥ ♨ ⚔, the hourglass ⌛, the artifact glyph ⚙ and the skull ☠) are left out of it and keep the symbol fonts' plain
+ * glyphs. Made with fontTools' subsetter from Noto-COLRv1.ttf: every code point but those (U+2194 U+2197 U+2198 U+231B
+ * U+2620 U+2665 U+2668 U+2694 U+2699), all layout features (the sequences: flags, skin tones, families), all names, no
+ * hinting.
+ */
+internal const val WEB_EMOJI_FONT = "fonts/NotoColorEmojiFull-Atw.ttf"
 
 /** The app's bundled files the web shell fetches before the app starts (the shared UI reads them synchronously). */
 internal val WEB_ASSETS = listOf("release-notes.json", "fonts/keyrune.ttf", "fonts/keyrune-codes.txt") + WEB_FALLBACK_FONTS
@@ -51,22 +67,75 @@ internal val WEB_ASSETS = listOf("release-notes.json", "fonts/keyrune.ttf", "fon
  * preloaded there for a character its own font lacks.
  */
 internal suspend fun preloadFallbackFonts(platform: AppPlatform) {
-    val resolver = org.asyncttwiz.appui.webFontResolver
-    val registered = WEB_FALLBACK_FONTS.filter { path ->
+    val fonts = WEB_FALLBACK_FONTS.map { path -> path to { platform.assetFont(path) } }
+    val registered = registerFonts(org.asyncttwiz.appui.webFontResolver, fonts)
+    AppLog.info("web-page", "Fallback fonts registered: ${registered.joinToString { it.substringAfterLast('/') }}")
+}
+
+/**
+ * WEB-062: fetches [WEB_EMOJI_FONT] from [base] (the build's folder) and lays the page's text out again with it: a new font
+ * resolver gets the fallback fonts with the emoji font after the first ([WEB_FALLBACK_FONTS]) and replaces the page's
+ * ([org.asyncttwiz.appui.useWebFontResolver]). Until then, and if it can't be had, emojis other than 🔥 show as boxes.
+ */
+internal suspend fun loadEmojiFont(platform: AppPlatform, base: String) {
+    val started = TimeSource.Monotonic.markNow()
+    AppLog.info("web-page", "Emoji font: fetching ${WEB_EMOJI_FONT.substringAfterLast('/')}")
+    val bytes = try {
+        val response = fetchBytes(base + WEB_EMOJI_FONT, 16.0 * 1024 * 1024, "*/*").await<JsAny>()
+        check(responseStatus(response) == 200) { "HTTP ${responseStatus(response)}" }
+        readBytes(responseBytes(response))
+    } catch (failure: Throwable) {
+        AppLog.warn("web-page", "Emoji font not loaded after ${started.elapsedNow().inWholeMilliseconds} ms: emojis other " +
+            "than 🔥 show as boxes until the page is opened again", failure)
+        return
+    }
+    val fetched = started.elapsedNow().inWholeMilliseconds
+    val emoji = androidx.compose.ui.text.platform.Font(WEB_EMOJI_FONT, bytes)
+    val fonts = WEB_FALLBACK_FONTS.map { path -> path to { platform.assetFont(path) } }
+    val resolver = createFontFamilyResolver()
+    val registered = registerFonts(resolver, fonts.take(1) + (WEB_EMOJI_FONT to { emoji }) + fonts.drop(1))
+    if (WEB_EMOJI_FONT !in registered) return
+    org.asyncttwiz.appui.useWebFontResolver(resolver)
+    AppLog.info("web-page", "Emoji font registered (${bytes.size / 1024} KB, fetched in $fetched ms, ready in " +
+        "${started.elapsedNow().inWholeMilliseconds} ms): the page's text is laid out again with " +
+        registered.joinToString { it.substringAfterLast('/') })
+}
+
+/**
+ * Preloads [fonts] (path and font, in fallback order) into [resolver], where text it lays out falls back to them; the paths
+ * of those it took. Preloading loads only fonts fetched later: resolving each registers its in-memory font with the
+ * resolver's font cache, where text falls back to it. Text laid out by another resolver would not see it.
+ */
+private suspend fun registerFonts(resolver: FontFamily.Resolver, fonts: List<Pair<String, () -> Font>>): List<String> =
+    fonts.filter { (path, font) ->
         try {
-            val family = androidx.compose.ui.text.font.FontFamily(platform.assetFont(path))
+            val family = FontFamily(font())
             resolver.preload(family)
-            // Preloading loads only fonts fetched later: resolving it registers this in-memory font with the resolver's
-            // font cache, where text falls back to it. Text laid out by another resolver would not see it.
             resolver.resolve(family)
             true
         } catch (failure: Throwable) {
             AppLog.warn("web-page", "Fallback font $path not registered: its symbols may show as boxes", failure)
             false
         }
+    }.map { it.first }
+
+/** A fetched body's bytes ([fetchBytes]), read four at a time: a large one in a quarter of the calls into the page. */
+private fun readBytes(body: JsAny): ByteArray {
+    val size = bytesLength(body)
+    val bytes = ByteArray(size)
+    var index = 0
+    while (index + 4 <= size) {
+        val word = wordAt(body, index)
+        bytes[index] = word.toByte(); bytes[index + 1] = (word shr 8).toByte()
+        bytes[index + 2] = (word shr 16).toByte(); bytes[index + 3] = (word shr 24).toByte()
+        index += 4
     }
-    AppLog.info("web-page", "Fallback fonts registered: ${registered.joinToString { it.substringAfterLast('/') }}")
+    while (index < size) { bytes[index] = byteAt(body, index).toByte(); index++ }
+    return bytes
 }
+
+private fun wordAt(bytes: JsAny, index: Int): Int =
+    js("(bytes[index] | (bytes[index + 1] << 8) | (bytes[index + 2] << 16) | (bytes[index + 3] << 24))")
 
 /**
  * The shared UI's platform in the browser ([AppPlatform]): small settings in the page's local storage, the bundled files

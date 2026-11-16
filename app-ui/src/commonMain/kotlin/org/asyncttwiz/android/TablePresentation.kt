@@ -1180,5 +1180,6 @@ fun castSpellSources(board: BoardState): Set<String> =
 fun combatChipStep(board: BoardState, viewer: String): Boolean =
     board.turn.accountId == viewer && board.priority?.holder == null && TurnPosition.of(board.turn) == TurnPosition.DECLARE_ATTACKERS
 
-/** The declare attackers step of [board] (its chips fade in once per step, CMB-001). */
-fun combatBandKey(board: BoardState): String = "${board.turn.number}/${board.turn.phase}/${board.turn.step}"
+/** The combat phase of [board]: its target chips fade in once per combat, never again as its steps go on (CMB-001, owner
+ * playtest 2026-11-16: they faded in anew at the damage). */
+fun combatBandKey(board: BoardState): String = "${board.turn.number}/${board.turn.phase}"

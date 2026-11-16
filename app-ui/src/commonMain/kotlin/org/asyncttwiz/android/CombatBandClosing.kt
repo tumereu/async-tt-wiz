@@ -42,8 +42,11 @@ fun ClosingCombatBand(play: TableBoard, scene: TableScene, viewer: String, bound
         if (open) { closing = null; return@LaunchedEffect }
         val (before, board) = last.shown ?: return@LaunchedEffect
         last.shown = null
-        if (scene.combatLabels.isNotEmpty()) return@LaunchedEffect
-        AppLog.info("combat", "Combat band closed at ${play.nodeId}: ${before.combatLabels.size} lanes, " +
+        if (scene.combatLabels.isNotEmpty()) {
+            AppLog.info("combat", "Combat band closed to its chip row at ${play.nodeId.take(8)} for ${viewer.take(8)}: the chips stay")
+            return@LaunchedEffect
+        }
+        AppLog.info("combat", "Combat band closed at ${play.nodeId.take(8)} for ${viewer.take(8)}: ${before.combatLabels.size} lanes, " +
             "${before.items.count { it.viewport == "combat" }} copies and the damage shown (${before.combatDealt?.targets}) fade out")
         val fade = Animatable(1f)
         closing = ClosingBand(before, board, fade)

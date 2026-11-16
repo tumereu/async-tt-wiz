@@ -161,10 +161,14 @@ class MoveColourTest : E2e() {
     // her Ember Herald: Bob's pass held on its way while she presses Assume over it (her board goes on to her trigger before
     // her phone's own steps), her phone's server answers held back meanwhile and let through in a burst as the next board
     // animates; Bob answers the trigger. Neither phone's move flips.
+    // Her six Glimmers come in turn 1, each drawing a card: the deal has one in her hand at every cast (the deal's random
+    // streams are per player since 336be95d5, so it is asked for: four in hand and draws of Mountains and Heralds left her
+    // without a sixth).
     @Test fun theMoveNeverFlipsAtAlicesSpells() {
         startGame(TestDeck("Glimmers and Heralds", listOf(TestCards.mountain to 14, TestCards.glimmer to 16, TestCards.herald to 10)),
             TestDeck.glimmers(), deal = { a, b ->
-                "Mountain" in hand(a) && "Ember Herald" in hand(a) && hand(a).count { it == "Idle Glimmer" } >= 4 &&
+                "Mountain" in hand(a) && "Ember Herald" in hand(a) &&
+                    (0 until 6).all { cast -> (hand(a) + library(a).take(cast)).count { it == "Idle Glimmer" } > cast } &&
                     hand(b).count { it == "Idle Glimmer" } >= 2
             })
         bothOpen()

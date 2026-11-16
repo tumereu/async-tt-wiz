@@ -398,6 +398,13 @@ object TestCards {
      * our own: its printed values only, no draft text. */
     val librarian = card("Cogwork Librarian", "Artifact Creature — Construct", "{4}", power = "3", toughness = "3")
 
+    /** TBL-133, HIS-091: a free enchantment whose enters trigger makes three tokens and secretly chooses one of their creature
+     * types, revealed by its sacrifice ability's cost (A Killer Among Us's wording). */
+    val lineup = card("Ember Lineup", "Enchantment", "{0}",
+        "When this enchantment enters, create a 1/1 white Human creature token, a 1/1 blue Merfolk creature token, and a 1/1 red Goblin " +
+            "creature token. Then secretly choose Human, Merfolk, or Goblin.\nSacrifice this enchantment, Reveal the creature type you chose: " +
+            "If target attacking creature token is the chosen type, put three +1/+1 counters on it and it gains deathtouch until end of turn.")
+
     /** Every test card, by name (the catalog's collector numbers follow this order). */
     val all: List<TestCard> by lazy {
         TestCards::class.java.declaredFields.filter { TestCard::class.java.isAssignableFrom(it.type) }

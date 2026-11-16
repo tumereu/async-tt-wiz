@@ -286,3 +286,4 @@ number	item	screenshot	catalog	decisions	sequence
 285	Desktop Inspect by Alt held: a keyword change shows its source and what the keyword means under it, without a click	desktop/inspect-explained.png	WEB-024 TBL-132		
 286	A card printed under another name on the table: titled by its printed name	printed-name/table.png	TBL-138 LOB-150		Printed names
 287	Inspect of a card printed under another name: its printed name, the Oracle name labelled at the bottom of its picture	printed-name/inspect.png	TBL-138 TBL-104		Printed names
+288	Inspect of the other player's card keeping a secret choice: "Secret choice", never the value	states/secret-choice-inspect.png	TBL-133 TBL-104		

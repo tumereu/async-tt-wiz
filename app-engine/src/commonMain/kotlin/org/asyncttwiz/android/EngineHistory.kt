@@ -25,6 +25,37 @@ import org.asyncttwiz.appui.toBigIntegerOrNull
  */
 object EngineEventText {
     fun of(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
+        val text = acted(event, state, viewer, names)
+        // HIS-091, TBL-133 (owner 2026-11-16): a secret choice the event revealed is named to everyone, after what was done
+        // ("Bob activated Ember Lineup's ability · Bob revealed: Goblin"); before it, nobody but its chooser read its value
+        val reveals = org.asyncttwiz.automatum.SecretChoices.revealed(event.engine?.changes.orEmpty(), state)
+        if (reveals.isEmpty()) return text
+        val revealed = reveals.map { org.asyncttwiz.automatum.SecretChoices.text(it, state, viewer, names) }
+        val shown = (listOf(text).filter { it.isNotEmpty() } + revealed).joinToString(" · ")
+        // Once per event and viewer: the texts are asked for again and again (the strip, the chip, the Undo dialog)
+        if (firstReveal("${event.id}/$viewer")) {
+            AppLog.info("game", "Secret choice revealed in ${event.id} by ${event.author.take(8)}: " +
+                reveals.joinToString { "${it.source} ${it.key}=${it.value} known by ${it.player?.value?.take(8)}" } + "; reads \"$shown\" for ${viewer.take(8)}")
+        }
+        return shown
+    }
+
+    /** The events (by event and viewer) whose reveal was logged ([of]), the latest 64; read from any thread. */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private val revealsLogged = kotlin.concurrent.atomics.AtomicReference(emptyList<String>())
+
+    /** Whether [key]'s reveal is logged for the first time now (remembering it). */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private fun firstReveal(key: String): Boolean {
+        while (true) {
+            val logged = revealsLogged.load()
+            if (key in logged) return false
+            if (revealsLogged.compareAndSet(logged, (logged + key).takeLast(64))) return true
+        }
+    }
+
+    /** What [event]'s acting input did, from [viewer]'s side (HIS-091). */
+    private fun acted(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
         fun who(player: PlayerId) = if (player.value == viewer) "You" else names[player.value] ?: "The other player"
         fun author() = if (event.author == viewer) "You" else names[event.author] ?: "A player"
         fun card(id: ObjectId?): String = name(id, state, viewer) ?: "a card"

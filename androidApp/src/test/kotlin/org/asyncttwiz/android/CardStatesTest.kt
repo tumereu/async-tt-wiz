@@ -161,6 +161,58 @@ class CardStatesTest {
         assertTrue(changes(board, sentinel).none { "Hidden" in it.text }, "the engine's own memory stays its own")
     }
 
+    /** Alice's Sentinel keeping "type" (Goblin), secretly chosen by Alice ([known]: who knows it) when [secret]. */
+    private fun secretly(secret: Boolean = true, known: List<String> = listOf(f.a)): GameState.() -> Unit = {
+        mark(sentinel) { o ->
+            val memory = o.linked.with("type", NamedValue.SubtypeValue(arcanum.api.Subtype("Goblin")))
+            o.copy(linked = if (!secret) memory else memory.with(arcanum.engine.state.Secrets.markerKey("type"), NamedValue.Players(known.map(::PlayerId))))
+        }
+    }
+
+    // TBL-133 (owner 2026-11-16: A Killer Among Us): a secret choice shows its value only to who chose it; the other player reads
+    // "Secret choice"; revealed, it reads the same as any choice to everyone. 3+ players: each who knows it sees it
+    @Test fun aSecretChoiceShowsOnlyToWhoChoseIt() {
+        assertEquals(listOf("Chosen: Goblin (secret)"), changes(board(edit = secretly()), sentinel).map { it.text })
+        val bobs = changes(board(viewer = f.b, edit = secretly()), sentinel, f.b).map { it.text }
+        assertEquals(listOf("Secret choice"), bobs)
+        assertTrue(bobs.none { "Goblin" in it }, "never the value: $bobs")
+        assertEquals(listOf("Chosen: Goblin (secret)"), changes(board(viewer = f.b, edit = secretly(known = listOf(f.a, f.b))), sentinel, f.b).map { it.text })
+        for (viewer in listOf(f.a, f.b))
+            assertEquals(listOf("Chosen: Goblin"), changes(board(viewer = viewer, edit = secretly(secret = false)), sentinel, viewer).map { it.text })
+        // Nothing of it on the card's chip, for anyone
+        assertEquals(emptyList(), board(viewer = f.b, edit = secretly()).values!!.computed.cards.getValue(sentinel.id).states)
+    }
+
+    // TBL-133 (owner 2026-11-16): the other player's Inspect of a card keeping a secret choice says one was made, not what
+    @Test fun aSecretChoiceInTheOtherPlayersInspect() {
+        val table = board(viewer = f.b, edit = secretly())
+        val groups = gameInspectGroups(table, f.b, ManualInspection(f.game.id, f.initial.id, sentinel.id, listOf(sentinel.faceId)), sentinel, names)
+        assertEquals(listOf("Secret choice"), groups.first().changes.map { it.text })
+        compose.setContent { MaterialTheme { NoRipples { InspectContent(groups, ScrollState(0)) } } }
+        compose.waitForIdle()
+        captureShot("$SCREENSHOTS/states/secret-choice-inspect.png",
+            "Bob holds Alice's Meadow Sentinel, which keeps a creature type Alice chose secretly: the panel under the card says only " +
+                "\"Secret choice\", never the type.")
+    }
+
+    // HIS-091, TBL-133 (owner 2026-11-16): the event whose cost revealed the secret choice (sacrificing its keeper in the same
+    // event) names what was revealed, to both players; an event revealing nothing says nothing of it
+    @Test fun theEventThatRevealsASecretChoiceNamesIt() {
+        val state = board(edit = secretly()).engine!!.state
+        val kept = state.objects.getValue(id(sentinel))
+        val marker = arcanum.engine.state.Secrets.markerKey("type")
+        val revealedKept = kept.copy(linked = arcanum.engine.state.Bindings(kept.linked.values - marker))
+        val gone = revealedKept.copy(id = ObjectId.Card(CardId(sentinel.id), sentinel.zoneChanges + 1), zone = Zone.Graveyard, linked = arcanum.engine.state.Bindings())
+        val activate = arcanum.engine.input.Input.Activate(PlayerId(f.a), kept.id, arcanum.engine.view.AbilityOrigin.Printed(0, 0))
+        fun event(vararg changes: arcanum.engine.change.Change) = org.asyncttwiz.protocol.game.GameEvent("e", "p", f.a,
+            org.asyncttwiz.protocol.game.EnginePart(0, listOf(org.asyncttwiz.protocol.game.EngineStep(activate, changes.toList()))))
+        val revealing = event(arcanum.engine.change.Change.Memory(kept.id, marker, kept.linked[marker], null),
+            arcanum.engine.change.Change.ZoneChange(listOf(arcanum.engine.change.Move(revealedKept, gone, 0, 0))))
+        assertEquals("Alice activated Meadow Sentinel's ability · Alice revealed: Goblin", EngineEventText.of(revealing, state, f.b, names))
+        assertEquals("You activated Meadow Sentinel's ability · You revealed: Goblin", EngineEventText.of(revealing, state, f.a, names))
+        assertEquals("Alice activated Meadow Sentinel's ability", EngineEventText.of(event(), state, f.b, names))
+    }
+
     // TBL-134: what an effect tells a creature it can't do is a line in Inspect with its source, like a change line; not on the chip
     @Test fun anEffectsRestrictionIsAnInspectLineWithItsSource() {
         val board = board {

@@ -106,23 +106,36 @@ internal object CardStates {
             else -> add(EffectChange(word))
         }
         shown.protector?.let { add(EffectChange("Protector: ${who(it.value)}")) }
-        if (!o.faceDown || o.controller?.value == viewer) chosen(o, objectName).forEach { add(EffectChange(it)) }
+        if (!o.faceDown || o.controller?.value == viewer) chosen(o, viewer, names, objectName).forEach { add(EffectChange(it)) }
     }
 
     /** What was chosen for [o] and stays with it (CR 607.2d): a colour, a creature or card type, a card name, a permanent ("As
-     * this enters, choose a nonland permanent", owner 2026-11-12: Scheming Fence; the parser's "chosen" memory). */
-    private fun chosen(o: GameObject, objectName: (arcanum.engine.state.ObjectId) -> String?): List<String> =
-        o.linked.values.filterKeys { !it.startsWith("$") }.mapNotNull { (key, value) ->
+     * this enters, choose a nonland permanent", owner 2026-11-12: Scheming Fence; the parser's "chosen" memory). TBL-133: a
+     * secret choice ("secretly choose", [SecretChoices]) reads "Secret choice" to a player who doesn't know it and "Chosen:
+     * Goblin (secret)" to one who does, until it is revealed. */
+    private fun chosen(o: GameObject, viewer: String, names: Map<String, String>,
+        objectName: (arcanum.engine.state.ObjectId) -> String?): List<String> =
+        o.linked.values.filterKeys { !it.startsWith("$") && !SecretChoices.isMarker(it) }.mapNotNull { (key, value) ->
+            fun line(text: String) = (if (value is NamedValue.Name) "Named: " else "Chosen: ") + text
+            when {
+                !arcanum.engine.state.Secrets.isSecret(o, key) -> chosenValue(key, value, objectName)?.let(::line)
+                !SecretChoices.knows(o, key, viewer) -> SecretChoices.HIDDEN
+                else -> SecretChoices.valueText(key, value, names, objectName)?.let { line(it) + " (secret)" }
+            }
+        }
+
+    /** [value], a chosen value kept under [key], in Inspect's words ("blue", "Goblin", "Ember Cub"), or null for a memory that
+     * isn't a choice to show. */
+    internal fun chosenValue(key: String, value: NamedValue, objectName: (arcanum.engine.state.ObjectId) -> String?): String? =
         when (value) {
             is NamedValue.Objects -> if (!key.startsWith("chosen")) null
-                else value.ids.mapNotNull(objectName).takeIf { it.isNotEmpty() }?.let { "Chosen: " + it.joinToString(" and ") }
+                else value.ids.mapNotNull(objectName).takeIf { it.isNotEmpty() }?.joinToString(" and ")
             is NamedValue.Colors -> value.colors.joinToString(" and ") { color ->
                 when (color.symbol) { 'W' -> "white"; 'U' -> "blue"; 'B' -> "black"; 'R' -> "red"; else -> "green" }
-            }.takeIf { it.isNotEmpty() }?.let { "Chosen: $it" }
-            is NamedValue.SubtypeValue -> "Chosen: ${value.subtype.name}"
-            is NamedValue.CardTypeValue -> "Chosen: ${value.cardType.toString().lowercase()}"
-            is NamedValue.Name -> "Named: ${value.name}"
+            }.takeIf { it.isNotEmpty() }
+            is NamedValue.SubtypeValue -> value.subtype.name
+            is NamedValue.CardTypeValue -> value.cardType.toString().lowercase()
+            is NamedValue.Name -> value.name
             else -> null
         }
-    }
 }

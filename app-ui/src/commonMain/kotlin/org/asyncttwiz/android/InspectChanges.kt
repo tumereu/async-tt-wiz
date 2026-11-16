@@ -37,7 +37,9 @@ object InspectChanges {
         val states = computed.states(ids, viewer, names)
         val restrictions = computed.restrictions(ids, viewer, names)
         // TBL-104 (owner 2026-11-12: Scheming Fence): what Inspect lists of each card's effects, with their sources, for a problem report
-        AppLog.info("inspect", "Inspect of ${ids.joinToString()}: states $states, effects $effects, restrictions $restrictions")
+        // TBL-133 (owner 2026-11-16): secret choices with their values, whatever the viewer was shown of them
+        val secrets = computed.secrets(ids).takeIf { it.isNotEmpty() }?.let { ", secret choices $it" }.orEmpty()
+        AppLog.info("inspect", "Inspect of ${ids.joinToString()} by ${viewer.take(8)}: states $states, effects $effects, restrictions $restrictions$secrets")
         return exiled + spells + shown.associate { card ->
             card.id to buildList {
                 states[card.id].orEmpty().forEach { add(InspectChange(it.text, it.source)) }

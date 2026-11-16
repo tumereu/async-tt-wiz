@@ -223,7 +223,12 @@ object EngineProjection {
                 val name = item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name
                     ?: StackAbilityText.ruleName(item)
                     ?: (item.kind as? StackItemKind.SpellCopy)?.let { state.stackItems[it.copied]?.let { c -> (c.id as? ObjectId.Card)?.let { cid -> state.objects[cid]?.definition?.faces?.firstOrNull()?.name } } }
-                val definition = AtwTokens.ability(name, item.ability).also { definitions[it.digest] = it }
+                    // Its source as last known elsewhere (a token gone from the game, CR 111.7, seen as it left), or the card it is now
+                    ?: item.source?.let { arcanum.engine.Inspect.lastKnown(state, it) }?.characteristics?.name
+                    ?: (item.source as? ObjectId.Card)?.let { source -> state.objects.values.firstOrNull { it.card == source.card } }?.definition?.faces?.firstOrNull()?.name
+                // Prod faults K87CEQ, VHDZ2A, CV29AN: what the entry is and where its source went, when no name is found
+                val definition = AtwTokens.ability(name, item.ability, mapOf("entry" to "$id", "kind" to "${item.kind}", "origin" to "${item.origin}",
+                    "source" to "${item.source}", "snapshots" to item.snapshots.joinToString { "${it.id}" })).also { definitions[it.digest] = it }
                 val shown = PlayCard("ability:$id", definition.digest, item.controller.value, stackContainer.id,
                     definition.definition.faces.single().faceId, covered = false, token = true)
                 shownAbilities += shown

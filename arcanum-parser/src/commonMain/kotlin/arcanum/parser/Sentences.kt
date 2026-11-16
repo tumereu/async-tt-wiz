@@ -279,7 +279,15 @@ internal class Sentences(
         return listOf(Step.Do(Effect.CreateEmblem(listOf(with(OracleParser) { ability.withText(quoted) }), players = Players.You)))
     }
 
-    fun line(line: String): Ability? {
+    /**
+     * The ability [line] reads as, with [line] as its text ([OracleParser.withText]): a card's own line gets its printed text
+     * again where it is read, and an ability read inside another (a token's or a grant's quoted ability: 'a 1/1 Spirit
+     * creature token with "When this token dies, …"', 'creatures you control have "{T}: Add {G}."') keeps the words players
+     * read for it in a card menu or on the Stack (owner fault 2PTQG5); null when it can't be read.
+     */
+    fun line(line: String): Ability? = lineAbility(line)?.let { with(OracleParser) { it.withText(line) } }
+
+    private fun lineAbility(line: String): Ability? {
         mkmLine(line)?.let { return it } // mkm
         ltrLine(line)?.let { return it } // ltr
         woeLine(line)?.let { return it } // woe
@@ -12501,7 +12509,13 @@ internal class Sentences(
             val made = create.effect as? Effect.CreateToken ?: return null
             val defined = made.token as? arcanum.api.TokenSpec.Defined ?: return null
             if (made.count != Value.Fixed(1)) return null
-            return listOf(Step.Do(made.copy(token = defined.copy(face = defined.face.copy(name = name,
+            // Its quoted abilities keep the printed words, its name in them (owner fault 2PTQG5)
+            val printed = defined.face.abilities.map { ability ->
+                val text = when (ability) { is Ability.Activated -> ability.text; is Ability.Triggered -> ability.text; is Ability.Static -> ability.text
+                    else -> null } ?: return@map ability
+                with(OracleParser) { ability.withText(text.replace(Regex("^This token"), name).replace(" this token", " $name")) }
+            }
+            return listOf(Step.Do(made.copy(token = defined.copy(face = defined.face.copy(name = name, abilities = printed,
                 supertypes = defined.face.supertypes + arcanum.api.Supertype.Legendary)))))
         }
         // fra chunk 06: "You create a 3/3 green Forest Tentacle land creature token."
@@ -24542,7 +24556,8 @@ internal class Sentences(
         // msh chunk 07: 'Iron Fist gains "{T}: Iron Fist deals damage equal to his power to any other target" until end of turn.'
         Msh.GAINS_QUOTED_UNTIL_EOT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val quoted = mshSentence(ungendered(m.groupValues[2], self))
-            val granted = line(quoted) ?: return null
+            // its printed words stay its text (owner fault 2PTQG5)
+            val granted = with(OracleParser) { (line(quoted) ?: return null).withText(m.groupValues[2]) }
             return listOf(mshUntilEndOfTurn(Objects.Self, Mechanic.GainAbilities(listOf(granted))))
         }
         // msh chunk 07: "Iron Fist deals damage equal to his power to any other target", "he deals damage equal to the number of +1/+1
@@ -26039,7 +26054,11 @@ internal class Sentences(
             val moved = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
             if (moved.to.zone != Zone.Battlefield) return null
             val inner = Sentences(setOf("this creature"))
-            val abilities = listOf(m.groupValues[1], m.groupValues[2]).map { q -> val t = (if (q.endsWith(".")) q else "$q.").replace(", sacrifice it.", ", sacrifice this creature."); inner.line(t) ?: return null }
+            val abilities = listOf(m.groupValues[1], m.groupValues[2]).map { q ->
+                val printed = if (q.endsWith(".")) q else "$q."
+                // its printed words stay its text (owner fault 2PTQG5)
+                with(OracleParser) { (inner.line(printed.replace(", sacrifice it.", ", sacrifice this creature.")) ?: return null).withText(printed) }
+            }
             val bound = moved.postBind ?: "returned"
             return steps.dropLast(1) + Step.Do(moved.copy(postBind = bound)) +
                 spmApply(Objects.Bound(bound), arcanum.api.Duration.Indefinitely, Mechanic.GainAbilities(abilities))

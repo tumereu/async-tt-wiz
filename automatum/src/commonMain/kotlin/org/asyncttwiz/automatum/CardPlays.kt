@@ -137,7 +137,7 @@ class CardPlays private constructor(
                         !mine -> CardPlay.Refusal.NotYours
                         else -> refusal(state, view, Input.Activate(me, id, instance.origin), ability)
                     }
-                    add(id, CardPlay(kind(ability), text(o.definition, instance), legal, refusal))
+                    add(id, CardPlay(kind(ability), text(o.definition, instance, characteristics.name.orEmpty(), ids.atw(id.card)), legal, refusal))
                 }
                 // Special actions the characteristics don't show (a face-down card's way to turn face up, a door)
                 for (input in activations) if (input.source == id && input.ability !in listed) {
@@ -158,8 +158,10 @@ class CardPlays private constructor(
 
         /** The ability's printed text, or its keyword's ("Equip {1}"), or the words worked out from it (TBL-124: a mana
          * ability's mana in symbols, [AbilityText]). */
-        private fun text(definition: CardDefinition?, instance: AbilityInstance): String =
-            CastFlow.text(instance.ability) ?: CastFlow.abilityText(definition, instance.origin) ?: AbilityText.of(instance.ability, "CardPlays")
+        private fun text(definition: CardDefinition?, instance: AbilityInstance, name: String, card: String): String =
+            CastFlow.text(instance.ability) ?: CastFlow.abilityText(definition, instance.origin) ?: AbilityText.of(instance.ability, "CardPlays",
+                // Which card and where the ability came from (owner fault 2PTQG5: a token's ability without text)
+                mapOf("card" to "$name ($card)", "origin" to instance.origin.toString(), "printed faces" to definition?.faces?.joinToString(" // ") { it.name }.orEmpty()))
 
         /** Why the engine refuses [input] now: the refusal [Engine.perform] gives before anything is done, asked without
          * performing it ([CastScreen.refusal], engine-responsiveness R3, on [view], [state]'s view); one it may still begin

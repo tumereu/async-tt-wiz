@@ -11,7 +11,6 @@ import arcanum.api.HasCost
 import arcanum.api.Keyword
 import arcanum.api.KeywordKind
 import arcanum.api.Layout
-import arcanum.api.PredefinedTokens
 import arcanum.api.PrintedNumber
 import arcanum.api.Supertype
 import kotlinx.serialization.json.jsonObject
@@ -34,10 +33,11 @@ internal object AtwTokens {
     private const val NAMESPACE = "2e9b7c41-6d0a-4f3e-8b52-91c7a4d0e6f8"
 
     /** I-D13: the card data an ability-only Stack entry shows (`StackAction.AddAbility`): one face named after its
-     * source ([source], "Ability" when unknown) with the ability's own text as its rules text. */
-    fun ability(source: String?, ability: Ability?): SubmittedDefinition {
+     * source ([source], "Ability" when unknown, reported with [details]) with the ability's own text as its rules text. */
+    fun ability(source: String?, ability: Ability?, details: Map<String, String> = emptyMap()): SubmittedDefinition {
         val name = source?.takeIf { it.isNotBlank() }
-            ?: Faults.placeholder("AtwTokens", "ability entry without its source's name", "Ability", mapOf("ability" to ability?.let(::text).orEmpty()))
+            ?: Faults.placeholder("AtwTokens", "ability entry without its source's name", "Ability",
+                details + ("ability" to (ability?.let(::text) ?: ability?.toString()?.take(300)).orEmpty()))
         val text = ability?.let(::text).orEmpty()
         val face = DefinitionFace(CommandIds.uuidV5(NAMESPACE, "ability/$name/$text"), name, typeLine = "Ability", rulesText = text)
         val card = AtwCard(name, listOf(face), token = true)
@@ -84,11 +84,11 @@ internal object AtwTokens {
      * The face's rules text as oracle text writes it, so players see what a token does (and play it by hand), and ATW's
      * own parse of the card data (I-D2) reads its abilities back: the text each ability was parsed from; keywords by
      * name (runs of plain keywords on one line, "Flying, haste"), with their number or mana cost; a predefined token's
-     * ability as CR 111.10 words it. An ability with no text of its own (a keyword with another kind of value, an
-     * ability an effect built) is left out: the token's ledger still holds the engine's whole definition.
+     * ability as CR 111.10 words it ([arcanum.api.PredefinedTokens] gives each its text). An ability with no text of its own (a keyword with another
+     * kind of value, an ability an effect built) is left out, reported unless a keyword: the token's ledger still holds the engine's whole
+     * definition.
      */
     fun rulesText(face: FaceDefinition): String {
-        PredefinedTokens.names.firstOrNull { PredefinedTokens.face(it) == face }?.let { name -> return PREDEFINED[name].orEmpty() }
         val lines = mutableListOf<String>()
         var keywords = mutableListOf<String>()
         fun flush() {
@@ -98,7 +98,12 @@ internal object AtwTokens {
         for (ability in face.abilities) {
             if (ability is Keyword && ability is KeywordKind) { keywords += ability.text; continue }
             flush()
-            text(ability)?.let { lines += it }
+            val text = text(ability)
+            if (text != null) lines += text
+            // A predefined token's ability carries CR 111.10's words and a parsed one its oracle text (owner fault 2PTQG5): one without is
+            // reported, so the next report names the token and the ability players couldn't read
+            else if (ability !is Keyword) Faults.report("AtwTokens", "token ability without text left out of its rules text",
+                mapOf("face" to face.name, "ability" to ability.toString().take(300)))
         }
         flush()
         return lines.joinToString("\n")
@@ -119,17 +124,6 @@ internal object AtwTokens {
         is Ability.Unparsed -> ability.text
         else -> null
     }
-
-    /** The predefined tokens' abilities (CR 111.10), by [PredefinedTokens] name. */
-    private val PREDEFINED = mapOf(
-        "Treasure" to "{T}, Sacrifice this token: Add one mana of any color.",
-        "Food" to "{2}, {T}, Sacrifice this token: You gain 3 life.",
-        "Gold" to "Sacrifice this token: Add one mana of any color.",
-        "Shard" to "{2}, Sacrifice this token: Scry 1, then draw a card.",
-        "Clue" to "{2}, Sacrifice this token: Draw a card.",
-        "Blood" to "{1}, {T}, Discard a card, Sacrifice this token: Draw a card.",
-        "Mutagen" to "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery.",
-    )
 
     private fun number(value: PrintedNumber?): String = when (value) {
         null -> ""

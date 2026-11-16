@@ -56,6 +56,47 @@ class KeywordExpansionsTest {
         }
     }
 
+    // CR 111.10: every ability of a predefined token (and one it grants, a Role's) carries the words CR 111.10 gives it,
+    // so a player reads what it does as on a card made from oracle text
+    @Test
+    fun predefinedTokenAbilitiesCarryTheirText() {
+        val expected = mapOf(
+            "Treasure" to listOf("{T}, Sacrifice this token: Add one mana of any color."),
+            "Food" to listOf("{2}, {T}, Sacrifice this token: You gain 3 life."),
+            "Gold" to listOf("Sacrifice this token: Add one mana of any color."),
+            "Walker" to emptyList(),
+            "Shard" to listOf("{2}, Sacrifice this token: Scry 1, then draw a card."),
+            "Clue" to listOf("{2}, Sacrifice this token: Draw a card."),
+            "Blood" to listOf("{1}, {T}, Discard a card, Sacrifice this token: Draw a card."),
+            "Heartwood" to listOf("{T}: Add {R} or {G}."),
+            "Mutagen" to listOf("{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery."),
+            "Lander" to listOf("{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."),
+            "Incubator" to listOf("{2}: Transform this token."),
+            "Map" to listOf("{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery."),
+            "Powerstone" to listOf("{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."),
+            "Cursed Role" to listOf("Enchanted creature has base power and toughness 1/1."),
+            "Monster Role" to listOf("Enchanted creature gets +1/+1 and has trample."),
+            "Royal Role" to listOf("Enchanted creature gets +1/+1 and has ward {1}."),
+            "Sorcerer Role" to listOf("Enchanted creature gets +1/+1 and has \"Whenever this creature attacks, scry 1.\"", "Whenever this creature attacks, scry 1."),
+            "Virtuous Role" to listOf("Enchanted creature gets +1/+1 for each enchantment you control."),
+            "Wicked Role" to listOf("Enchanted creature gets +1/+1.", "When this token is put into a graveyard from the battlefield, each opponent loses 1 life."),
+            "Young Hero Role" to listOf("Enchanted creature has \"Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it.\"",
+                "Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it."),
+        )
+        assertEquals(PredefinedTokens.names.toSet(), expected.keys)
+        fun texts(ability: Ability): List<String?> = when (ability) {
+            is Keyword -> emptyList()
+            is Ability.Activated -> listOf(ability.text)
+            is Ability.Triggered -> listOf(ability.text)
+            is Ability.Static -> listOf(ability.text) + ability.mechanics.filterIsInstance<Mechanic.GainAbilities>().flatMap { it.abilities.flatMap(::texts) }
+            else -> listOf(null)
+        }
+        PredefinedTokens.names.forEach { name ->
+            val faces = listOfNotNull(PredefinedTokens.face(name), PredefinedTokens.back(name))
+            assertEquals(expected.getValue(name), faces.flatMap { it.abilities.flatMap(::texts) }, name)
+        }
+    }
+
     // CR 701.16a, 701.39a, 701.50a
     @Test
     fun keywordActionsExpandCleanly() {

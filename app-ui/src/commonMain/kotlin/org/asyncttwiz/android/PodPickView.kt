@@ -206,15 +206,29 @@ fun PodPickView(
                 }
             }
         }
-        PodPickTrays(marks.keeps, burnIds, rules, baseRules, copies, definitions, unmark, inspect,
-            onInspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
-            librarianSlots = settings.librarians > 0,
-            spent = marks.librarians, librarians = librarians,
-            spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },
-            refund = refund, desktop = desktop)
-        Button(onClick = confirm, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
-            ButtonLabel("ready", if (marks.librarians.isEmpty()) "Confirm" else
-                "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
+        val trays: @Composable () -> Unit = {
+            PodPickTrays(marks.keeps, burnIds, rules, baseRules, copies, definitions, unmark, inspect,
+                onInspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
+                librarianSlots = settings.librarians > 0,
+                spent = marks.librarians, librarians = librarians,
+                spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },
+                refund = refund, desktop = desktop)
+        }
+        val confirmButton: @Composable (Modifier) -> Unit = { buttonModifier ->
+            Button(onClick = confirm, enabled = rules.canConfirm(marks, busy), modifier = buttonModifier.testTag("pod-pick-confirm")) {
+                ButtonLabel("ready", if (marks.librarians.isEmpty()) "Confirm" else
+                    "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
+            }
+        }
+        // WEB-044 (owner playtest 2026-11-16): on the desktop layout Confirm sits at the end of the trays' row, leaving the cards
+        // more of the height; the phone's is full width under the trays (DRF-056)
+        if (desktop) Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) {
+            Box(Modifier.weight(1f)) { trays() }
+            confirmButton(Modifier.width(PodPickDesktopConfirmWidth).height(56.dp))
+        } else {
+            trays()
+            confirmButton(Modifier.fillMaxWidth())
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }

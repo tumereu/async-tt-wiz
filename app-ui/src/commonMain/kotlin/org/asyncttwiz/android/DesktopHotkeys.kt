@@ -160,8 +160,10 @@ data class FixedKey(val keys: String, val label: String, val place: HotkeyPlace)
         val cards: List<FixedKey> = listOf(
             FixedKey("←", "Move one copy to its left edge zone's section", HotkeyPlace.Cards),
             FixedKey("→", "Move one copy to its right edge zone's section", HotkeyPlace.Cards),
-            FixedKey("↓", "Open its menu", HotkeyPlace.Cards),
-            FixedKey("Alt (held)", "Show it large while held (Shift works too)", HotkeyPlace.Cards))
+            // WEB-045 (owner playtest 2026-11-16): moving every copy, the only thing Build's and Prepare's menus did besides
+            FixedKey("Shift+click", "On an edge zone: move every copy there", HotkeyPlace.Cards),
+            FixedKey("↓", "Open its menu (the editor's cards)", HotkeyPlace.Cards),
+            FixedKey("Alt (held)", "Show it large while held", HotkeyPlace.Cards))
     }
 }
 

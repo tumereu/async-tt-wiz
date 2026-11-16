@@ -61,7 +61,8 @@ class DesktopCardsTest {
     private fun assertMark(id: String, mark: String) = pickCard(id).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, mark))
 
     // WEB-044, WEB-028, WEB-036, DRF-060: a click keeps (again: unmarks), a right-click burns, K on the hovered card keeps it, the
-    // hovered card's ⋯ opens its menu, Enter confirms; the trays and Confirm stay at the bottom
+    // hovered card's ⋯ opens its menu, Enter confirms; the trays stay at the bottom with Confirm at the end of their row (owner
+    // playtest 2026-11-16)
     @Test fun theDraftPickByClicksAndKeys() {
         var confirmed: Pair<List<String>, List<String>>? = null
         compose.setContent { Desktop { PodPickView(pack, DraftSettings(keep = 1, burn = 1), definitions, false, { keep, burn -> confirmed = keep to burn }) } }
@@ -92,10 +93,10 @@ class DesktopCardsTest {
         compose.onNodeWithText("Unmark").performClick()
         assertMark("4", "Unmarked")
         pickCard("4").performMouseInput { moveTo(center); press(androidx.compose.ui.test.MouseButton.Secondary); release(androidx.compose.ui.test.MouseButton.Secondary) }
-        // The trays and Confirm lie under the cards
+        // The trays lie under the cards, Confirm at the end of their row
         val confirm = compose.onNodeWithText("Confirm").fetchSemanticsNode().boundsInRoot
         val tray = compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot
-        assertTrue(tray.bottom <= confirm.top + 1f && confirm.bottom > 850f, "trays above Confirm at the bottom: $tray $confirm")
+        assertTrue(confirm.left >= tray.right && confirm.top < tray.bottom && confirm.bottom > 850f, "Confirm beside the trays at the bottom: $tray $confirm")
         assertTrue(!press("Enter", textField = true), "not while typing")
         assertEquals(null, confirmed)
         assertTrue(press("Enter"))
@@ -115,7 +116,8 @@ class DesktopCardsTest {
     private val tile = PodBuildTile("digest", listOf("first", "second"), card, emptySet())
 
     // WEB-045, WEB-046, DRF-099: a Build card's edge zones: hovering its left quarter tints "◂ Side", a click there moves one copy to
-    // Side, its right quarter to Maybe, its middle opens the menu; ← / → / ↓ do the same; Alt held shows it large
+    // Side, its right quarter to Maybe; ← / → do the same; Alt held shows it large (Shift doesn't). Owner playtest 2026-11-16: the
+    // card has no menu on the desktop layout, so a click in its middle and ↓ do nothing; a Shift+click moves every copy
     @Test fun aBuildCardMovesByItsEdgeZonesAndKeys() {
         val moves = mutableListOf<Pair<String, PodDeckCategory>>()
         val inspected = mutableListOf<Boolean>()
@@ -134,8 +136,15 @@ class DesktopCardsTest {
         node.performMouseInput { click(Offset(width * .9f, height / 2f)) }
         compose.runOnIdle { assertEquals("first" to PodDeckCategory.MAYBE, moves.last()) }
         node.performMouseInput { click(center) }
-        compose.onNodeWithText("→ Maybe").assertIsDisplayed()
-        compose.onNodeWithText("→ Maybe").performClick()
+        compose.onNodeWithText("→ Maybe").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(2, moves.size, "a click in the middle moves nothing") }
+        moves.clear()
+        // Shift+click on the left zone: both copies to Side
+        compose.runOnIdle { DesktopKeyboard.dispatch(DesktopKey("Shift", true, ++keyTime, shift = true)) }
+        node.performMouseInput { click(Offset(width * .1f, height / 2f)) }
+        compose.runOnIdle { DesktopKeyboard.dispatch(DesktopKey("Shift", false, ++keyTime)) }
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE, "second" to PodDeckCategory.SIDE), moves) }
+        compose.runOnIdle { assertEquals(emptyList(), inspected, "Shift shows no preview") }
         moves.clear()
         node.performMouseInput { moveTo(center) }
         assertTrue(press("ArrowLeft"))
@@ -146,10 +155,11 @@ class DesktopCardsTest {
         compose.runOnIdle { DesktopKeyboard.dispatch(DesktopKey("Alt", false, ++keyTime)) }
         compose.runOnIdle { assertEquals(listOf(true, false), inspected) }
         assertTrue(press("ArrowDown"))
-        compose.onNodeWithText("→ Side").assertIsDisplayed()
+        compose.onNodeWithText("→ Side").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(2, moves.size) }
     }
 
-    // WEB-045: a submitted deck's card has no edge zones; a click opens its menu
+    // WEB-045: a submitted deck's card has no edge zones; a click does nothing (owner playtest 2026-11-16: no menu on the desktop)
     @Test fun aCardThatCantMoveHasNoEdgeZones() {
         val moves = mutableListOf<Pair<String, PodDeckCategory>>()
         compose.setContent { Desktop {
@@ -160,8 +170,37 @@ class DesktopCardsTest {
         compose.onNodeWithTag("edge-zone-left").assertDoesNotExist()
         compose.onNodeWithTag("edge-zone-left-active").assertDoesNotExist()
         node.performMouseInput { click(Offset(width * .1f, height / 2f)) }
-        compose.onNodeWithText("→ Side").assertIsDisplayed()
+        compose.onNodeWithText("→ Side").assertDoesNotExist()
         compose.runOnIdle { assertTrue(moves.isEmpty()) }
+    }
+
+    // WEB-063 (owner playtest 2026-11-16): a Build column's cards overlap, only their name strips showing; the card under the
+    // pointer comes to the front, whole and in place, and its edge zones work; the strips below it still take the pointer
+    @Test fun buildColumnsOverlapAndTheHoveredCardComesToTheFront() {
+        val moves = mutableListOf<Pair<String, PodDeckCategory>>()
+        val ids = (1..4).map { "c$it" }
+        val cards = ids.associateWith { CardDefinition("Card $it", listOf(DefinitionFace("front", "Card $it", typeLine = "Creature", manaCost = "{1}{G}"))) }
+        compose.setContent { Desktop {
+            PodBuildView(PodDeckBuild(ids.map { PodDeckCopy(it) }), ids.associateWith { DraftCopy(it, it) }, cards,
+                null, true, false, { id, to -> moves += id to to }, { _, _ -> }, {})
+        } }
+        fun bounds(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val column = ids.map { bounds("pod-build-card-$it") }.sortedBy { it.top }
+        val strip = column[1].top - column[0].top
+        assertTrue(strip > 0f && strip < column[0].height * .2f, "only a name strip of each covered card shows: $column")
+        val first = ids.first { bounds("pod-build-card-$it").top == column[0].top }
+        val second = ids.first { bounds("pod-build-card-$it").top == column[1].top }
+        // The covered card takes the pointer only on its strip
+        compose.onNodeWithTag("pod-build-strip-$first").performMouseInput { moveTo(Offset(width * .9f, height / 2f)) }
+        compose.onNodeWithTag("edge-zone-right-active").assertIsDisplayed()
+        assertEquals(column[0], bounds("pod-build-card-$first"), "brought to the front in place")
+        compose.onNodeWithTag("pod-build-strip-$first").performMouseInput { click(Offset(width * .9f, height / 2f)) }
+        compose.runOnIdle { assertEquals(listOf(first to PodDeckCategory.MAYBE), moves) }
+        // The next strip down lies under the front card's picture, yet takes the pointer and the click
+        compose.onNodeWithTag("pod-build-strip-$second").performMouseInput { moveTo(Offset(width * .1f, height / 2f)) }
+        compose.onNodeWithTag("edge-zone-left-active").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-strip-$second").performMouseInput { click(Offset(width * .1f, height / 2f)) }
+        compose.runOnIdle { assertEquals(second to PodDeckCategory.SIDE, moves.last()) }
     }
 
     // WEB-045, DRF-107: Build has no one-by-one review on the desktop layout
@@ -176,7 +215,8 @@ class DesktopCardsTest {
         compose.onAllNodes(hasTestTag("pod-build-feed-label-MAIN-0") or hasTestTag("pod-build-feed-label-MAIN-1")).assertCountEquals(0)
     }
 
-    // WEB-045, LOB-048: with two sections (deck preparation, Prepare cube) only the right zone shows
+    // WEB-045, LOB-048: with two sections (deck preparation, Prepare cube) only the right zone shows; a card with a desktop menu
+    // (the editor's) opens it by a click in its middle
     @Test fun twoSectionsHaveOnlyARightZone() {
         var moved = 0
         compose.setContent { Desktop {
@@ -192,6 +232,30 @@ class DesktopCardsTest {
         node.performMouseInput { click(Offset(width * .1f, height / 2f)) }
         compose.onNodeWithText("Move all").assertIsDisplayed()
         compose.runOnIdle { assertEquals(1, moved) }
+    }
+
+    // WEB-045, LOB-048 (owner playtest 2026-11-16): a deck preparation card has no menu on the desktop layout: a click on its edge
+    // zone moves one copy, a Shift+click every copy, a click in its middle nothing
+    @Test fun aPreparationCardMovesAllByAShiftClick() {
+        var one = 0
+        var all = 0
+        compose.setContent { Desktop {
+            Box(Modifier.width(200.dp)) {
+                SwipeDeckCard(PreparationTile("d", card, 3), "k", "prep-card", "Mainboard", { SavedDeckSection.SIDEBOARD }, true,
+                    remember { PodCardMenuOwner() }, capture = { { one++; true } }, onHold = {}, onHoldScroll = {},
+                    captureAll = { { all++; true } }, desktopMenu = false) { Text("Move all") }
+            }
+        } }
+        val node = compose.onNodeWithTag("prep-card")
+        node.performMouseInput { click(Offset(width * .9f, height / 2f)) }
+        compose.runOnIdle { assertEquals(1 to 0, one to all) }
+        compose.runOnIdle { DesktopKeyboard.dispatch(DesktopKey("Shift", true, ++keyTime, shift = true)) }
+        node.performMouseInput { click(Offset(width * .9f, height / 2f)) }
+        compose.runOnIdle { DesktopKeyboard.dispatch(DesktopKey("Shift", false, ++keyTime)) }
+        compose.runOnIdle { assertEquals(1 to 1, one to all) }
+        node.performMouseInput { click(center) }
+        compose.onNodeWithText("Move all").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(1 to 1, one to all) }
     }
 
     // WEB-048: Enter presses a dialog's main button; not a red one, not while typing

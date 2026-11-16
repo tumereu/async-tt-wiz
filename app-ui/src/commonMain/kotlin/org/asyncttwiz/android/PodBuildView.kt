@@ -21,6 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -144,6 +150,8 @@ fun PodBuildView(
         if (settle > 0) { delay(PodBuildSettleMillis + 150L); sliding = false; arriving = emptySet() }
     }
     val origin = remember { PodBuildAnchor() }
+    // WEB-063 (desktop layout): the card under the pointer ("<section>/<digest>"), drawn in front of its column
+    var front by remember { mutableStateOf<String?>(null) }
     val move: (String, PodDeckCategory) -> Unit = { id, destination ->
         if (editable) {
             feedback = PodBuildFeedback(++feedbackId, "→ ${destination.podBuildLabel()}")
@@ -232,12 +240,30 @@ fun PodBuildView(
                                             fontSize = 10.sp, lineHeight = 12.sp, textAlign = TextAlign.Center,
                                             color = if (reviewable) sectionColor.copy(alpha = .8f) else MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    PodBuildGrid(sideBySide.count) {
+                                    // WEB-063 (owner playtest 2026-11-16): on the desktop layout a column's cards overlap, only
+                                    // their name strips showing, and the one under the pointer comes to the front, whole
+                                    // (drawn again over the column, not raised: the cards under it keep the pointer on their
+                                    // strips, as only the drawing moves to the front)
+                                    val drawn = remember { PodBuildFrontDrawing() }
+                                    PodBuildGrid(sideBySide.count, overlap = desktop, overlay = { drawn.draw(this, front) }) {
+                                        val lastRow = (bucket.size - 1) / sideBySide.count
                                         // Keyed by card, not copy, so a stack that loses one copy stays in place.
-                                        bucket.forEach { tile -> key(tile.digest) {
+                                        bucket.forEachIndexed { index, tile -> key(tile.digest) {
                                             val tileKey = tile.copyIds.first()
-                                            Box(Modifier.podBuildSlide(sliding)) {
-                                                PodBuildCard(tile, category, editable, move, onInspect = { open ->
+                                            val frontKey = "$category/${tile.digest}"
+                                            val layer = if (desktop) rememberGraphicsLayer() else null
+                                            val place = remember { PodBuildPlace() }
+                                            if (layer != null && front == frontKey) SideEffect { drawn.show(frontKey, layer, place) }
+                                            Box(Modifier.podBuildSlide(sliding).onPlaced { place.at = it.positionInParent() }
+                                                .then(if (layer == null) Modifier else Modifier.drawWithContent {
+                                                    layer.record { this@drawWithContent.drawContent() }
+                                                    if (front != frontKey) drawLayer(layer)
+                                                })) {
+                                                PodBuildCard(tile, category, editable, move,
+                                                    covered = desktop && index / sideBySide.count < lastRow,
+                                                    onHover = { over ->
+                                                        if (over) front = frontKey else if (front == frontKey) front = null
+                                                    }, onInspect = { open ->
                                                     val card = tile.definition?.takeIf { it.faces.isNotEmpty() }
                                                         ?.let { InspectedCard.retained(it) }
                                                     if (open && card != null) {
@@ -355,19 +381,55 @@ internal fun PodBuildCoverThumbnail(card: CardDefinition?, modifier: Modifier = 
     }
 }
 
-/** Lays its cards out [perRow] wide, row-major, all of one width with [PodBuildCardGap] between them.
+/** WEB-063: the share of a card's height that shows of a covered card in the desktop layout's overlapping columns: its name
+ * strip (the title row). */
+const val PodBuildStripFraction = .11f
+
+/** WEB-063: where a Build card lies in its column's grid. */
+@Stable
+private class PodBuildPlace { var at by mutableStateOf(Offset.Zero) }
+
+/**
+ * WEB-063: the card of a column drawn in front of the others: its picture ([layer], recorded as it draws) drawn again over the
+ * column at its place. Only the drawing comes forward, so the cards lying over it keep taking the pointer on their strips
+ * (a raised card would take it over its whole picture, and its art's surfaces would hide the strips below from the mouse).
+ */
+@Stable
+private class PodBuildFrontDrawing {
+    private var key by mutableStateOf<String?>(null)
+    private var layer by mutableStateOf<GraphicsLayer?>(null)
+    private var place by mutableStateOf<PodBuildPlace?>(null)
+
+    fun show(key: String, layer: GraphicsLayer, place: PodBuildPlace) {
+        this.key = key; this.layer = layer; this.place = place
+    }
+
+    /** Draws the card [front] names in [scope], if it is this column's. */
+    fun draw(scope: DrawScope, front: String?) {
+        val shown = layer ?: return
+        val at = place?.at ?: return
+        if (front == null || front != key) return
+        scope.translate(at.x, at.y) { drawLayer(shown) }
+    }
+}
+
+/** Lays its cards out [perRow] wide, row-major, all of one width with [PodBuildCardGap] between them; with [overlap] (WEB-063,
+ * the desktop layout) each row covers the one above it but for that row's name strips ([PodBuildStripFraction]).
  * A single layout parent keeps keyed cards (and their slide animation) when they change rows. */
 @Composable
-private fun PodBuildGrid(perRow: Int, content: @Composable () -> Unit) {
-    Layout(content, Modifier.fillMaxWidth()) { measurables, constraints ->
+private fun PodBuildGrid(perRow: Int, overlap: Boolean = false, overlay: DrawScope.() -> Unit = {}, content: @Composable () -> Unit) {
+    Layout(content, Modifier.fillMaxWidth().drawWithContent { drawContent(); overlay() }) { measurables, constraints ->
         val gap = PodBuildCardGap.roundToPx()
         val width = constraints.maxWidth
         val cardWidth = podBuildCardWidth(width, perRow, gap)
         val placeables = measurables.map { it.measure(Constraints.fixedWidth(cardWidth)) }
         val rows = placeables.chunked(perRow)
         val heights = rows.map { row -> row.maxOf { it.height } }
-        val tops = heights.runningFold(0) { top, height -> top + height + gap }
-        layout(width, (heights.sum() + gap * (rows.size - 1)).coerceAtLeast(0)) {
+        // Overlapping, a row's next one starts under its name strip; the last row shows whole
+        val strides = heights.map { height -> if (overlap) podBuildStrip(height) else height + gap }
+        val tops = strides.runningFold(0) { top, stride -> top + stride }
+        val total = if (rows.isEmpty()) 0 else tops[rows.size - 1] + heights.last()
+        layout(width, total.coerceAtLeast(0)) {
             placeables.forEachIndexed { index, placeable ->
                 val (row, column) = podBuildGridSlot(index, perRow)
                 placeable.place(column * (cardWidth + gap), tops[row])
@@ -375,6 +437,9 @@ private fun PodBuildGrid(perRow: Int, content: @Composable () -> Unit) {
         }
     }
 }
+
+/** WEB-063: how much of a covered card [height] px tall shows: its name strip, at least one px. */
+fun podBuildStrip(height: Int): Int = (height * PodBuildStripFraction).roundToInt().coerceAtLeast(1)
 
 /** While [enabled], a changed position within the parent slides from the old place instead of jumping. */
 private fun Modifier.podBuildSlide(enabled: Boolean): Modifier = composed {
@@ -455,6 +520,11 @@ fun PodBuildCard(
     menus: PodCardMenuOwner = remember { PodCardMenuOwner() },
     fadeIn: Boolean = false,
     onLeave: (Rect) -> Unit = {},
+    /** WEB-063 (desktop layout): the card lies under the next one of its column, only its name strip showing, which alone
+     * takes the mouse. */
+    covered: Boolean = false,
+    /** WEB-063 (desktop layout): the mouse came onto the card (true) or left it. */
+    onHover: (Boolean) -> Unit = {},
 ) {
     val key = tile.copyIds.first()
     // The card stays in place; a projection follows the finger and snaps back below the threshold.
@@ -471,6 +541,8 @@ fun PodBuildCard(
     val latestInspect by rememberUpdatedState(onInspect)
     val latestInspectScroll by rememberUpdatedState(onInspectScroll)
     val latestCopies by rememberUpdatedState(tile.copyIds.size)
+    val latestCopyIds by rememberUpdatedState(tile.copyIds)
+    val latestHover by rememberUpdatedState(onHover)
     val threshold = with(LocalDensity.current) { 20.dp.toPx() }
     val right = PodDeckRules.swipe(category, PodDeckSwipe.RIGHT)
     val left = PodDeckRules.swipe(category, PodDeckSwipe.LEFT)
@@ -482,20 +554,24 @@ fun PodBuildCard(
         }
         latestMove(key, destination)
     }
-    // WEB-045, WEB-046 (desktop layout): the edge zones are the swipes' destinations (DRF-099)
+    // WEB-045 (owner playtest 2026-11-16): a Shift+click on an edge zone moves every copy; the whole card leaves its place
+    val confirmAll: (PodDeckCategory) -> Unit = { destination ->
+        anchor.coordinates?.takeIf { it.isAttached }?.let { latestLeave(Rect(it.positionInRoot(), it.size.toSize())) }
+        latestCopyIds.forEach { latestMove(it, destination) }
+    }
+    // WEB-045, WEB-046 (desktop layout): the edge zones are the swipes' destinations (DRF-099); the card has no menu there
+    // (owner playtest 2026-11-16: its two moves are the edge zones', moving all copies a Shift+click on one)
     val zones = rememberEdgeZones("$name (${category.podBuildLabel()})",
-        left = EdgeTarget(left.podBuildLabel(), left.podBuildColor()) { confirm(left) }.takeIf { editable },
-        right = EdgeTarget(right.podBuildLabel(), right.podBuildColor()) { confirm(right) }.takeIf { editable },
-        menu = { menus.open = key }, hold = { latestInspect(it) })
-    BoxWithConstraints(Modifier.fillMaxWidth().testTag("pod-build-card-$key")) {
-        val density = LocalDensity.current
-        val width = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
-        val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
-        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }
-        Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
-            .onGloballyPositioned { anchor.coordinates = it }
-            .graphicsLayer { alpha = appear.value }
-            .edgeZoneHover(zones)
+        left = EdgeTarget(left.podBuildLabel(), left.podBuildColor(), moveAll = { confirmAll(left) }) { confirm(left) }.takeIf { editable },
+        right = EdgeTarget(right.podBuildLabel(), right.podBuildColor(), moveAll = { confirmAll(right) }) { confirm(right) }.takeIf { editable },
+        menu = null, hold = { latestInspect(it) })
+    val hovered = zones?.at != null
+    LaunchedEffect(hovered) { latestHover(hovered) }
+    // The part taking the pointer changes (or the card goes): it no longer hears the pointer leave, so it counts as gone
+    LaunchedEffect(covered) { zones?.at = null }
+    DisposableEffect(Unit) { onDispose { latestHover(false) } }
+    // The mouse and touch: on the whole card, or only on its name strip while the next card covers the rest (WEB-063)
+    val input = Modifier.edgeZoneHover(zones)
             // Same recognizer as the pick screen: tap menu, horizontal swipe, release-to-close hold.
             .pointerInput(key, category, threshold, editable, zones) {
                 podPickGestures(onTap = { menus.open = key },
@@ -517,18 +593,29 @@ fun PodBuildCard(
             }
             .semantics {
                 contentDescription = "$name, ${tile.copyIds.size} copies, ${category.podBuildLabel()}"
-                onClick("Card menu") { menus.open = key; true }
-            }) {
+                if (zones == null) onClick("Card menu") { menus.open = key; true }
+            }
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("pod-build-card-$key")) {
+        val density = LocalDensity.current
+        val width = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
+        val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
+        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }
+        Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
+            .onGloballyPositioned { anchor.coordinates = it }
+            .graphicsLayer { alpha = appear.value }
+            .then(if (covered) Modifier else input)) {
             CardArtwork(reference, name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(name) })
             if (tile.copyIds.size > 1) Surface(Modifier.align(Alignment.TopEnd), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Text("×${tile.copyIds.size}", Modifier.padding(2.dp), fontSize = 11.sp)
             }
             EdgeZoneOverlay(zones)
+            if (covered) Box(Modifier.align(Alignment.TopStart).fillMaxWidth().fillMaxHeight(PodBuildStripFraction)
+                .testTag("pod-build-strip-$key").then(input))
         }
         podBuildSwipeTarget(category, drag)?.let { target ->
             PodBuildSwipeCopy(key, reference, name, width, drag, (abs(drag) / threshold).coerceIn(0f, 1f), target)
         }
-        PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {
+        if (zones == null) PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {
             listOf(right, left).forEach { destination ->
                 DropdownMenuItem(text = { Text("→ ${destination.podBuildLabel()}") }, enabled = editable, onClick = {
                     menus.open = null

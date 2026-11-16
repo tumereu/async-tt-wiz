@@ -1,1 +1,1 @@
-Alex opened Settings on the desktop layout: its groups as cards in two columns, Profile, Games, Table and the rest on the left, About & account and Keyboard on the right.
+Alex opened Settings on the desktop layout: its groups as cards in two columns at a readable width centred beside the side menu, Profile, Games, Table and the rest on the left, About & account and Keyboard on the right.

@@ -1,0 +1,1 @@
+Alice's Glimpse pick on the desktop layout in an 800 × 600 window with eight players: the tabs, eight avatars and the header's icons don't fit one row, so the tabs have their own row under the header, as on the phone.

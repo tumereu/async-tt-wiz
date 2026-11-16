@@ -85,7 +85,7 @@ class DesktopScreensScreenshotTest {
     }
 
     // WEB-037, WEB-038, LOB-018, LOB-023, LOB-024 (D7): the Games screen with the side menu always open and the list at its
-    // readable width, each row one line of columns
+    // readable width, centred in its room (owner playtest 2026-11-16), each row one line of columns
     @Test fun gamesList() {
         fixtures.configure("play")
         signedIn(ShellDestination.GAMES)
@@ -98,12 +98,15 @@ class DesktopScreensScreenshotTest {
         val line = compose.onNodeWithText("vs riley · In play", substring = true, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertEquals(row.left, line.left, 1f, "the vs line under the name, beside the avatar")
         val title = compose.onNodeWithTag("destination-title").fetchSemanticsNode().boundsInRoot
-        assertTrue(title.right <= 280f + 980f + 1f, "the list keeps its readable width: $title")
+        // The room right of the side menu is 1160 wide: the 980 list leaves 90 on each side
+        val room = 1440f - 280f
+        assertTrue(title.left >= 280f + (room - 980f) / 2f - 1f, "the list centred in its room: $title")
+        assertTrue(row.right <= 280f + (room + 980f) / 2f + 1f, "the list keeps its readable width: $row")
         captureShot("$SCREENSHOTS/desktop/games.png",
-            "Alex opened Games on the desktop layout: the side menu stays open at the left, and the games list keeps a readable width, each row the avatar, the name over its vs line, the move chip or Accept and Decline, and the chevron.")
+            "Alex opened Games on the desktop layout: the side menu stays open at the left, and the games list keeps a readable width centred in the room beside it, each row the avatar, the name over its vs line, the move chip or Accept and Decline, and the chevron.")
     }
 
-    // WEB-038, LOB-028 (D7): Contacts at the list's readable width
+    // WEB-038, LOB-028 (D7): Contacts at the list's readable width, centred
     @Test fun contacts() {
         fixtures.configure("contacts")
         signedIn(ShellDestination.CONTACTS)
@@ -111,10 +114,10 @@ class DesktopScreensScreenshotTest {
         compose.waitForIdle()
         assertSideMenu()
         captureShot("$SCREENSHOTS/desktop/contacts.png",
-            "Alex opened Contacts on the desktop layout: the side menu at the left and riley and morgan listed at the list's readable width.")
+            "Alex opened Contacts on the desktop layout: the side menu at the left and riley and morgan listed at the list's readable width, centred in the room beside it.")
     }
 
-    // WEB-038, DRF-012 (D7): the Pods list at the list's readable width
+    // WEB-038, DRF-012 (D7): the Pods list at the list's readable width, centred
     @Test fun podsList() {
         pods.seed(PodState(loaded = true, pods = listOf(
             PodSummary("p1", "Friday cube", PodPhase.DRAFTING, ScreenFixtures.alex, listOf(ScreenFixtures.alex, ScreenFixtures.riley),
@@ -126,7 +129,7 @@ class DesktopScreensScreenshotTest {
         compose.waitForIdle()
         assertSideMenu()
         captureShot("$SCREENSHOTS/desktop/pods.png",
-            "Alex opened Pods on the desktop layout: the side menu at the left and his two pods listed at the list's readable width.")
+            "Alex opened Pods on the desktop layout: the side menu at the left and his two pods listed at the list's readable width, centred in the room beside it.")
     }
 
     // WEB-038, LOB-055: Manage decks' saved decks as tiles in columns
@@ -258,7 +261,8 @@ class DesktopScreensScreenshotTest {
         assertEquals("Training deck", plans.single().name)
     }
 
-    // WEB-042, LOB-130, LOB-132: the Stats screen's graphs in columns
+    // WEB-042, LOB-130, LOB-132: the Stats screen's graphs in two columns at Settings' readable width, centred in its room (owner
+    // playtest 2026-11-16)
     @Test fun statsGraphs() {
         fixtures.lobby.history.stats = HistoryList(records)
         fixtures.lobby.history.choice = StatsChoice(graphs = true)
@@ -268,8 +272,11 @@ class DesktopScreensScreenshotTest {
         val first = compose.onNodeWithTag("graph-Record over time").fetchSemanticsNode().boundsInRoot
         val second = compose.onNodeWithTag("graph-Win % on the play vs on the draw").fetchSemanticsNode().boundsInRoot
         assertEquals(first.top, second.top, 1f, "the graphs lie side by side")
+        val room = 1440f - 280f
+        assertTrue(first.left >= 280f + (room - 1120f) / 2f - 1f && second.right <= 280f + (room + 1120f) / 2f + 1f,
+            "Settings' readable width, centred: $first, $second")
         captureShot("$SCREENSHOTS/desktop/stats-graphs.png",
-            "Alex opened Stats on the desktop layout and chose Graphs: the six tiles across the top and the graphs under them in two columns.")
+            "Alex opened Stats on the desktop layout and chose Graphs: at Settings' readable width centred beside the side menu, the six tiles across the top and the graphs under them in two columns.")
     }
 
     private class FakeSettings : AccountSettingsSource {
@@ -278,7 +285,7 @@ class DesktopScreensScreenshotTest {
         override suspend fun set(settings: AccountSettings) = Unit
     }
 
-    // WEB-043, WEB-035 (D10): Settings' groups as cards in two columns at Settings' readable width, beside the side menu
+    // WEB-043, WEB-035 (D10): Settings' groups as cards in two columns at Settings' readable width, centred beside the side menu
     @Test fun settingsRows() {
         signedIn(ShellDestination.SETTINGS)
         compose.setContent { Desktop {
@@ -301,6 +308,6 @@ class DesktopScreensScreenshotTest {
         val keyboard = compose.onNodeWithText("Keyboard").fetchSemanticsNode().boundsInRoot
         assertTrue(keyboard.left > table.right, "Keyboard right of Timeline playback: $table $keyboard")
         captureShot("$SCREENSHOTS/desktop/settings.png",
-            "Alex opened Settings on the desktop layout: its groups as cards in two columns, Profile, Games, Table and the rest on the left, About & account and Keyboard on the right.")
+            "Alex opened Settings on the desktop layout: its groups as cards in two columns at a readable width centred beside the side menu, Profile, Games, Table and the rest on the left, About & account and Keyboard on the right.")
     }
 }

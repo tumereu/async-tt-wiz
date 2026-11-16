@@ -88,10 +88,16 @@ object DesktopKeyboard {
     /** Hands [event] to the listeners, the newest first, until one takes it; whether one did (the page then keeps the
      * browser's own handling of the key off). A press while a text field has the keyboard reaches only `whileTyping` ones. */
     fun dispatch(event: DesktopKey): Boolean {
+        shiftHeld = if (event.key == "Shift") event.down else event.shift
         val typing = event.down && event.textField
         if (typing) heldBack(event) else if (event.down) typingNoted = null
         return listeners.asReversed().toList().any { (!typing || it.whileTyping) && it.listener(event) }
     }
+
+    /** WEB-045 (owner playtest 2026-11-16): whether Shift is held now, as the page's last key said (a Shift+click on an edge
+     * zone moves every copy). The page lets every held key go when the window loses the focus. */
+    var shiftHeld: Boolean = false
+        private set
 
     /** Whether anything listens (a desktop table is shown). */
     val listening: Boolean get() = listeners.isNotEmpty()

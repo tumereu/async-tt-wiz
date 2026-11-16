@@ -28,14 +28,16 @@ import androidx.compose.ui.unit.sp
 
 // The edge zones of a card in Build, Prepare and the deck and cube editor on the desktop layout (docs/specs/web-client.md §5,
 // wireframe D8; WEB-045, WEB-046): the mouse can't swipe, so a card's left and right quarters move one copy where a swipe that
-// way would (SYS-083), a click in its middle opens its menu as a tap does, and ← / → / ↓ do the same for the card under the
-// pointer. Holding Alt (or Shift) over it previews it as holding a finger on it does. Nothing of this exists on the phone layout.
+// way would (SYS-083), and every copy with Shift held (owner playtest 2026-11-16); a click in its middle opens the menu of a card
+// that keeps one on the desktop (the editor's), and ← / → / ↓ do the same for the card under the pointer. Holding Alt over it
+// previews it as holding a finger on it does. Nothing of this exists on the phone layout.
 
 /** WEB-045: the share of a card's width each edge zone takes (a quarter, §5). */
 const val EDGE_ZONE_FRACTION = .25f
 
-/** WEB-045: one edge zone's destination: the section's [label] ("Side"), its [color], and moving one copy there ([move]). */
-class EdgeTarget(val label: String, val color: Color, val move: () -> Unit)
+/** WEB-045: one edge zone's destination: the section's [label] ("Side"), its [color], moving one copy there ([move]) and every
+ * copy of the card there ([moveAll], a Shift+click; null: one copy then too). */
+class EdgeTarget(val label: String, val color: Color, val moveAll: (() -> Unit)? = null, val move: () -> Unit)
 
 /** Where on a card the pointer is: its left or right edge zone, or the middle. */
 sealed interface EdgeZone {
@@ -72,25 +74,35 @@ class EdgeZones internal constructor() {
     /** The zone under the pointer, null when it is off the card. */
     val zone: EdgeZone? get() = at?.let { EdgeZone.at(it, left != null, right != null) }
 
-    /** A click at [fraction] of the card's width: moves one copy to that edge zone's section, or opens the menu. */
-    fun click(fraction: Float) = act(EdgeZone.at(fraction, left != null, right != null), "Click")
+    /** A click at [fraction] of the card's width: moves one copy to that edge zone's section (with Shift held, [all], every
+     * copy), or opens the menu. */
+    fun click(fraction: Float, all: Boolean = DesktopKeyboard.shiftHeld) =
+        act(EdgeZone.at(fraction, left != null, right != null), if (all) "Shift+click" else "Click", all)
 
-    private fun act(zone: EdgeZone, how: String): Boolean {
+    private fun act(zone: EdgeZone, how: String, all: Boolean = false): Boolean {
         val target = when (zone) {
             EdgeZone.Left -> left
             EdgeZone.Right -> right
-            EdgeZone.Middle -> { val open = menu ?: return false; AppLog.info("cards", "$how on $name: its menu"); open(); return true }
-        } ?: return false
-        AppLog.info("cards", "$how on $name's ${if (zone == EdgeZone.Left) "left" else "right"} edge zone: one copy to ${target.label}")
-        target.move()
+            EdgeZone.Middle -> {
+                val open = menu
+                if (open == null) { AppLog.info("cards", "$how on $name's middle: nothing, it has no menu on the desktop layout"); return false }
+                AppLog.info("cards", "$how on $name: its menu"); open(); return true
+            }
+        }
+        if (target == null) { AppLog.info("cards", "$how on $name: no edge zone there (it can't move now)"); return false }
+        val every = target.moveAll.takeIf { all }
+        AppLog.info("cards", "$how on $name's ${if (zone == EdgeZone.Left) "left" else "right"} edge zone: " +
+            "${if (every != null) "every copy" else "one copy"} to ${target.label}")
+        if (every != null) every() else target.move()
         return true
     }
 
     /** WEB-046: a key while the pointer is on the card: ← / → move one copy to that edge zone's section, ↓ opens the menu;
-     * Alt (Shift too) held previews the card. Whether the card took it. Never while a text field has the keyboard. */
+     * Alt held previews the card (not Shift, which is the edge zones' "every copy", WEB-045). Whether the card took it. Never
+     * while a text field has the keyboard. */
     internal fun key(key: DesktopKey): Boolean {
         if (key.textField) return false
-        if (key.key == "Alt" || key.key == "Shift") {
+        if (key.key == "Alt") {
             if (key.repeat) return true
             if (key.down != holding) {
                 holding = key.down
@@ -99,8 +111,8 @@ class EdgeZones internal constructor() {
             }
             return true
         }
-        // Another key with Shift held (Shift+Tab, "?") is that key's: the preview Shift opened closes
-        if (key.down && holding) { holding = false; AppLog.info("cards", "${key.key} pressed over $name: the preview closed"); hold(false) }
+        // Another key with Alt held is that key's: the preview Alt opened closes
+        if (key.down && holding && key.key != "Shift") { holding = false; AppLog.info("cards", "${key.key} pressed over $name: the preview closed"); hold(false) }
         if (!key.down || key.alt || key.ctrl || key.meta || key.shift) return false
         val zone = when (key.key) {
             "ArrowLeft" -> EdgeZone.Left
@@ -109,7 +121,7 @@ class EdgeZones internal constructor() {
             else -> return false
         }
         if (key.repeat) return true
-        if (!act(zone, "Key ${KeyChord(key.key).label}")) AppLog.info("cards", "Key ${KeyChord(key.key).label} on $name: no edge zone there")
+        act(zone, "Key ${KeyChord(key.key).label}")
         return true
     }
 
@@ -122,7 +134,7 @@ class EdgeZones internal constructor() {
 /**
  * WEB-045, WEB-046: the edge zones of the card [name] on the desktop layout (null on the phone layout, where nothing changes):
  * [left] and [right] its destinations (null: no zone on that side, as for a card that can't move now), [menu] what a click in
- * its middle and ↓ do, [hold] the preview Alt shows while held. The card puts [edgeZoneHover] on itself, gives its gesture's
+ * its middle and ↓ do (null: nothing, a card without a menu on the desktop), [hold] the preview Alt shows while held. The card puts [edgeZoneHover] on itself, gives its gesture's
  * mouse clicks to [EdgeZones.click] and draws [EdgeZoneOverlay] over its picture.
  */
 @Composable

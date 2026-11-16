@@ -6,6 +6,8 @@ import androidx.compose.ui.unit.dp
 val PodPickTrayCardWidth = 48.dp / 1.4f
 private val TrayPadding = 8.dp
 val PodPickTrayGap = 4.dp
+/** WEB-044: the desktop layout's Confirm at the end of the trays' row. */
+val PodPickDesktopConfirmWidth = 240.dp
 
 /** A one-card keep tray is hard to pan once Librarian slots join it. */
 fun podPickKeepSlots(requiredKeeps: Int, librarians: Boolean): Int =

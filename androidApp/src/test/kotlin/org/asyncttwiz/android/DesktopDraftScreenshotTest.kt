@@ -24,7 +24,8 @@ import kotlin.test.assertTrue
 
 /**
  * A started pod on the desktop layout (docs/specs/web-client.md §7.6, wireframe D9; step 6b) at 1440 × 900: the draft pick with
- * its keep and burn trays and Confirm at the bottom, and Build with a card's edge zones under the pointer. Invented cards.
+ * its keep and burn trays and Confirm at the bottom, the header with the tabs in its row, and Build's overlapping columns with a
+ * card's edge zones under the pointer. Invented cards.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -87,7 +88,8 @@ class DesktopDraftScreenshotTest {
         compose.waitForIdle()
     }
 
-    // WEB-044, WEB-036, DRF-056, DRF-057, DRF-061, DRF-065 (D9): the pick by clicks and keys, the trays and Confirm at the bottom
+    // WEB-044, WEB-036, WEB-062, DRF-056, DRF-057, DRF-061, DRF-065 (D9): the pick by clicks and keys, the trays at the bottom with
+    // Confirm at the end of their row (owner playtest 2026-11-16), the tabs in the header's row between the hamburger and avatars
     @Test fun draftPick() {
         val head = DraftPrivatePack("pack-a", 1, (0..13).map { copy(it) }, 2, "bob")
         val members = listOf(PodMember(alice, packsWaiting = 2), PodMember(bob, packsWaiting = 1), PodMember(carol))
@@ -113,8 +115,37 @@ class DesktopDraftScreenshotTest {
         compose.onNodeWithText("Confirm").assertIsEnabled()
         val tray = compose.onNodeWithTag("pod-pick-burn-tray").fetchSemanticsNode().boundsInRoot
         assertTrue(tray.bottom > 780f, "the trays at the bottom: $tray")
+        val confirm = compose.onNodeWithTag("pod-pick-confirm").fetchSemanticsNode().boundsInRoot
+        assertTrue(confirm.left >= tray.right && confirm.top < tray.bottom && confirm.bottom > tray.top, "Confirm on the trays' row: $confirm, $tray")
+        val header = compose.onNodeWithTag("pod-play-header").fetchSemanticsNode().boundsInRoot
+        val tabs = compose.onNodeWithTag("pod-tabs").fetchSemanticsNode().boundsInRoot
+        val avatars = compose.onNodeWithTag("pod-draft-members").fetchSemanticsNode().boundsInRoot
+        assertTrue(tabs.top >= header.top && tabs.bottom <= header.bottom && tabs.right <= avatars.left, "tabs in the header's row, left of the avatars: $tabs, $avatars")
         captureShot("$SCREENSHOTS/desktop/draft-pick.png",
-            "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full above the full-width Confirm; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
+            "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full with Confirm at the end of their row; the header holds the tabs at its left, the pod's name and avatars in its middle and its icons at the right; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
+    }
+
+    // WEB-062 (owner playtest 2026-11-16): a desktop window too narrow for the tabs, eight avatars and the icons on one row puts the
+    // tabs on their own row under the header, as the phone does
+    @Test @Config(qualifiers = "w800dp-h600dp-land-mdpi") fun draftPickNarrowHeader() {
+        val head = DraftPrivatePack("pack-a", 1, (0..13).map { copy(it) }, 2, "bob")
+        val others = (1..7).map { PodMember(AccountIdentity("player$it", "Player $it"), packsWaiting = it % 3) }
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.glimpse(), listOf(PodMember(alice, packsWaiting = 2)) + others)
+            .copy(draft = DraftPrivateView("alice", head, 1, emptyList(), queuedPacks = emptyList(), round = 1, rounds = 9))
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
+        val header = compose.onNodeWithTag("pod-play-header").fetchSemanticsNode().boundsInRoot
+        val tabs = compose.onNodeWithTag("pod-tabs").fetchSemanticsNode().boundsInRoot
+        assertTrue(tabs.top >= header.bottom, "the tabs on their own row: $tabs, $header")
+        captureShot("$SCREENSHOTS/desktop/pod-header-narrow.png",
+            "Alice's Glimpse pick on the desktop layout in an 800 × 600 window with eight players: the tabs, eight avatars and the header's icons don't fit one row, so the tabs have their own row under the header, as on the phone.")
+    }
+
+    // WEB-062: the tabs share the header's row only where they, the avatars and the icons fit
+    @Test fun theHeaderRowFitsTheTabsWhereThereIsRoom() {
+        assertTrue(podHeaderOneRow(androidx.compose.ui.unit.Dp(1440f), 3, 3, 3, navigation = true))
+        assertTrue(podHeaderOneRow(androidx.compose.ui.unit.Dp(1024f), 3, 8, 3, navigation = true))
+        assertTrue(!podHeaderOneRow(androidx.compose.ui.unit.Dp(800f), 3, 8, 3, navigation = true))
+        assertTrue(!podHeaderOneRow(androidx.compose.ui.unit.Dp(1024f), 3, 16, 3, navigation = true))
     }
 
     // WEB-044, DRF-061, DRF-065 (owner playtest 2026-11-15): in the owner's 1920 × 919 window the marks on the pack cards (their
@@ -179,7 +210,7 @@ class DesktopDraftScreenshotTest {
         inside("pod-stats-notes", right)
         inside("pod-stats-counter-7", right)
         captureShot("$SCREENSHOTS/desktop/stats.png",
-            "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the colours donut, notes and tally counters in the right.")
+            "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width centred in the window, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the colours donut, notes and tally counters in the right.")
     }
 
     // WEB-061: a desktop window too narrow for two columns shows Stats in one, as the phone does
@@ -191,7 +222,8 @@ class DesktopDraftScreenshotTest {
         compose.onNodeWithTag("pod-stats-curve").assertIsDisplayed()
     }
 
-    // WEB-045 (D8, D9): Build with the pointer on a Main card's right quarter: "Maybe ▸" tinted strongly, "◂ Side" faintly
+    // WEB-045, WEB-063 (D8, D9): Build with the pointer on a Main card's right quarter: "Maybe ▸" tinted strongly, "◂ Side" faintly;
+    // the columns overlap, only the cards' name strips showing above the last of each column
     @Test fun buildEdgeZones() {
         val main = (0..15).map { copy(it) } + copy(9, 1)
         val side = listOf(16, 17).map { copy(it) }
@@ -202,10 +234,27 @@ class DesktopDraftScreenshotTest {
             build = build)
         show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.BUILD))
         compose.onNodeWithText("Review ›").assertDoesNotExist()
-        compose.onNodeWithTag("pod-build-card-c15-0").performMouseInput { moveTo(Offset(width * .88f, height * .6f)) }
+        compose.onNodeWithTag("pod-build-card-c4-0").performMouseInput { moveTo(Offset(width * .88f, height * .6f)) }
         compose.waitForIdle()
         compose.onNodeWithTag("edge-zone-right-active").assertIsDisplayed()
         captureShot("$SCREENSHOTS/desktop/build-edge-zones.png",
-            "Alice's Build on the desktop layout with the pointer on Brass Courier's right quarter: that quarter is tinted Maybe's amber with \"Maybe ▸\" and the left one faintly Side's blue with \"◂ Side\", where a click moves one copy; the section headers have no Review, as Build has no one-by-one review on the desktop.")
+            "Alice's Build on the desktop layout, each column's cards overlapping so only their name strips show above its last card, with the pointer on Tidecall Adept's right quarter, the last card of its column: that quarter is tinted Maybe's amber with \"Maybe ▸\" and the left one faintly Side's blue with \"◂ Side\", where a click moves one copy and a Shift+click every copy; the section headers have no Review, as Build has no one-by-one review on the desktop.")
+    }
+
+    // WEB-063 (owner playtest 2026-11-16): the pointer on the name strip of a card high in its column brings that card to the front,
+    // whole and in place, over the cards below it; its edge zones show
+    @Test fun buildHoveredCardInFront() {
+        val main = (0..15).map { copy(it) } + copy(9, 1)
+        val build = PodDeckBuild(main.map { PodDeckCopy(it.id) }, PodDeckBasics(plains = 6, mountain = 5, forest = 6))
+        val detail = detail(PodPhase.DRAFTED, DraftSettings.booster(), listOf(PodMember(alice, building = true),
+            PodMember(bob, submitted = true), PodMember(carol, building = true))).copy(draft = DraftPrivateView("alice", null, 0, main),
+            build = build)
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.BUILD))
+        // Dawnward Sentry lies second in the MV 2 column, covered by the cards after it but for its name strip
+        compose.onNodeWithTag("pod-build-strip-c0-0").performMouseInput { moveTo(Offset(width * .12f, height / 2f)) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("edge-zone-left-active").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/desktop/build-hovered-card.png",
+            "Alice's Build on the desktop layout with the pointer on Dawnward Sentry's name strip, high in its overlapping column: the card comes to the front whole, in its place, over the cards below it, its left quarter tinted Side's blue with \"◂ Side\" under the pointer.")
     }
 }

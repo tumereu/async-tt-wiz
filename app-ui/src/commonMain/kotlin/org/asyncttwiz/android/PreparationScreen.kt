@@ -293,8 +293,10 @@ private fun PreparationCard(tile: PreparationTile, key: String, tag: String, tit
     val name = tile.name
     val target = opposite.label()
     fun move(all: Boolean) = currentMove(all)
+    // WEB-045 (owner playtest 2026-11-16): on the desktop layout no menu, its moves being the edge zone's: a click one copy,
+    // a Shift+click all
     SwipeDeckCard(tile, key, tag, title, { opposite }, enabled, menus,
-        capture = { _ -> currentCapture() },
+        capture = { _ -> currentCapture() }, captureAll = { _ -> { move(true) } }, desktopMenu = false,
         onHold = onHold, onHoldScroll = onHoldScroll,
         actions = listOf(CustomAccessibilityAction("Move one $name to $target") { enabled && move(false) },
             CustomAccessibilityAction("Move all $name to $target") { enabled && move(true) })) { close ->
@@ -309,14 +311,18 @@ private fun PreparationCard(tile: PreparationTile, key: String, tag: String, tit
  * A deck tile that moves: tap opens its [menu], a short hold inspects the card until release, a horizontal swipe
  * either way past the Build threshold commits the action [capture] returned for its direction (right or not) when the
  * swipe started (one copy to that direction's [target], [SectionSwipe]). Only a real release commits; a cancelled
- * gesture never moves. Shared by game preparation, the card list editor and Prepare cube.
+ * gesture never moves. Shared by game preparation, the card list editor and Prepare cube. On the desktop layout (WEB-045)
+ * its edge zones move one copy ([capture]) or, Shift+clicked, all of them ([captureAll]); with [desktopMenu] false it has no
+ * menu there.
  */
 @Composable
 fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String, target: (right: Boolean) -> SavedDeckSection,
     enabled: Boolean, menus: PodCardMenuOwner, capture: (right: Boolean) -> (() -> Boolean)?,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit, actions: List<CustomAccessibilityAction> = emptyList(),
+    captureAll: ((right: Boolean) -> (() -> Boolean)?)? = null, desktopMenu: Boolean = true,
     menu: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     val currentCapture by rememberUpdatedState(capture)
+    val currentCaptureAll by rememberUpdatedState(captureAll)
     val currentHold by rememberUpdatedState(onHold)
     val currentHoldScroll by rememberUpdatedState(onHoldScroll)
     var drag by remember { mutableFloatStateOf(0f) }
@@ -329,10 +335,12 @@ fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String
     // WEB-045, WEB-046 (desktop layout): the right zone is a swipe right's section, the left a swipe left's when it differs
     // (two sections: only the right zone, §5)
     fun edge(right: Boolean) = target(right).let { section ->
-        EdgeTarget(section.shortLabel(), section.sectionColor()) { currentCapture(right)?.invoke() }
+        EdgeTarget(section.shortLabel(), section.sectionColor(),
+            moveAll = currentCaptureAll?.let { { currentCaptureAll?.invoke(right)?.invoke() } }) { currentCapture(right)?.invoke() }
     }
     val zones = rememberEdgeZones("$name ($title)", left = edge(false).takeIf { enabled && target(false) != target(true) },
-        right = edge(true).takeIf { enabled }, menu = { menus.open = key }, hold = { currentHold(it) })
+        right = edge(true).takeIf { enabled }, menu = if (desktopMenu) ({ menus.open = key }) else null, hold = { currentHold(it) })
+    val menuShown = zones == null || desktopMenu
     BoxWithConstraints(Modifier.fillMaxWidth().testTag(tag)) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
         val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }
@@ -358,14 +366,14 @@ fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String
             }
             .clearAndSetSemantics {
                 contentDescription = "$name, ${tile.quantity} copies, $title"
-                onClick("Actions for $name") { menus.open = key; true }
+                if (menuShown) onClick("Actions for $name") { menus.open = key; true }
                 if (actions.isNotEmpty()) customActions = actions
             }) { PreparationTileFace(tile, width, reference); EdgeZoneOverlay(zones) }
         if (drag != 0f) target(drag > 0f).let { to ->
             PodBuildSwipeCopy(key, reference, name, width, drag, preparationSwipeProgress(drag, threshold), to.category(),
                 tint = to.sectionFill(), label = to.shortLabel())
         }
-        PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {
+        if (menuShown) PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {
             menu { if (menus.open == key) menus.open = null }
         }
     }

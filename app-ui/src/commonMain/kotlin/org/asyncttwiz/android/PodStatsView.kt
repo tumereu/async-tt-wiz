@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -90,7 +92,7 @@ fun PodStatsView(
             PodStatsColors(stats, Modifier.widthIn(max = 240.dp).fillMaxWidth())
         }
     }
-    // WEB-061 (owner playtest 2026-11-15): on the desktop layout Stats keeps Settings' readable width at the left of its room
+    // WEB-061 (owner playtests 2026-11-15, 2026-11-16): on the desktop layout Stats keeps Settings' readable width, centred in its room
     val desktop = desktopLayout()
     Box(modifier.fillMaxSize()) {
         BoxWithConstraints((if (desktop) Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth) else Modifier).fillMaxSize()) {
@@ -131,6 +133,12 @@ fun PodStatsView(
         }
     }
 }
+
+/** DRF-114: how strongly a pips and sources row of a colour without pips is drawn. */
+const val PodStatsFadedAlpha = .38f
+
+/** DRF-114 (owner playtest 2026-11-16): whether [color]'s pips and sources row is faded out: the Main cards have no pip of it. */
+fun podStatsRowFaded(stats: PodStats, color: DraftColor): Boolean = (stats.pips[color] ?: 0.0) == 0.0
 
 /** WEB-061: the narrowest room in which the desktop layout's Stats lies in two columns (Settings' own, WEB-043). */
 val PodStatsDesktopColumnsWidth = 720.dp
@@ -227,8 +235,11 @@ private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
                 PodStatsBarKey(light, PodStatsSourceBarHeight, "Others")
             }
         }
+        // DRF-114 (owner playtest 2026-11-16): a colour without pips keeps its row, faded out
         for (color in DraftColor.entries) Row(Modifier.fillMaxWidth().testTag("pod-stats-mana-${color.name}")
-            .semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+            .alpha(if (podStatsRowFaded(stats, color)) PodStatsFadedAlpha else 1f)
+            .semantics(mergeDescendants = true) { if (podStatsRowFaded(stats, color)) stateDescription = "No pips" },
+            verticalAlignment = Alignment.CenterVertically) {
             val share = shares.getValue(color)
             CardText("{${color.name}}", Modifier.width(32.dp), style = MaterialTheme.typography.titleMedium)
             Column(Modifier.widthIn(min = 104.dp)) {

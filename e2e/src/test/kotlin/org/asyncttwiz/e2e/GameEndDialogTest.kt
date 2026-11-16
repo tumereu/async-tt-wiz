@@ -286,7 +286,8 @@ class GameEndDialogTest : E2e() {
     // the concession stands, her move is refused without trouble, and she sees "You won" with OK; Bob waits at the table
     // until it, then both go to the lobby
     @Test fun aMoveInFlightWhenTheOtherPlayerConcedes() {
-        startGame()
+        // The deal follows each run's random account ids (per-player random streams since 336be95d5): her Mountain is asked for
+        startGame(deal = { a, _ -> "Mountain" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)
         alice.link.holdOutgoing()

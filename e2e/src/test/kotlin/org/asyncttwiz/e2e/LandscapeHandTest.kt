@@ -19,7 +19,9 @@ class LandscapeHandTest : E2e() {
     // plays it, a double tap plays a land
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun theHandInTheBottomBarPlaysAsInPortrait() {
-        startGame(deal = { a, _ -> hand(a).count { it == "Mountain" } >= 2 })
+        // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
+        // as playing along through his turn he plays one if he holds it, else his cleanup's discard waits for him
+        startGame(deal = { a, b -> hand(a).count { it == "Mountain" } >= 2 && "Mountain" in hand(b) })
         bothOpen()
         alice.tap("Keep")
         bob.tap("Keep")

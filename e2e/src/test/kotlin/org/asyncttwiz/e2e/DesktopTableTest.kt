@@ -317,8 +317,10 @@ class DesktopTableTest : E2e() {
     // is that key's chord. In her next turn her second Mountain stacks on the first: Alt over them lists both one under the
     // other, and the wheel scrolls the list while Alt is held
     @Test fun theHandFanPanelCornerAndHeldKeys() {
+        // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
+        // as playing along through his turn he plays one if he holds it, else his cleanup's discard waits for him
         startGame(TestDeck.bursts(), aliceDesktop = true,
-            deal = { a, _ -> hand(a).count { it == "Mountain" } >= 2 && "Ember Burst" in hand(a) })
+            deal = { a, b -> hand(a).count { it == "Mountain" } >= 2 && "Ember Burst" in hand(a) && "Mountain" in hand(b) })
         bothOpen()
         keep()
         waitUntil("Alice's game settled") { alice.settled(this) }

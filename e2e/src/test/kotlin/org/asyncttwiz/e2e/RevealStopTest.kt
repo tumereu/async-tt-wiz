@@ -159,7 +159,9 @@ class RevealStopTest : E2e() {
     @Test fun aRevealUntilALandShowsEveryCardTurnedOverToBothPlayers() {
         startGame(TestDeck.thirds(), TestDeck("Scouts", listOf(TestCards.mountain to 8, TestCards.scouting to 16, TestCards.spark to 16)), bobStarts = true,
             bobSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
-            deal = { _, b -> "Ember Scouting" in hand(b) })
+            // A card before the land, so every run turns over more than one (the deal follows each run's random account ids:
+            // per-player random streams since 336be95d5)
+            deal = { _, b -> "Ember Scouting" in hand(b) && library(b).first() != "Mountain" })
         bothOpen()
         alice.tap("Keep")
         bob.tap("Keep")

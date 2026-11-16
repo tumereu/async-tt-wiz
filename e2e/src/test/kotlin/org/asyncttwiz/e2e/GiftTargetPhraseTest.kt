@@ -38,13 +38,11 @@ abstract class GiftTargetPhraseFlow(private val desktop: Boolean) : E2e() {
         waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
         for (name in listOf("Ash Pup", "Ember Quarrel")) {
             waitUntil("Alice's game settled") { alice.settled(this) }
-            // WEB-015: on the desktop's fan the mouse first rests on the card, which rises whole out of the fan (a click on a
-            // card half under its neighbour would be its neighbour's)
+            // WEB-015: on the desktop's fan the mouse first rests on the card, which comes to the front where it lies (a click on
+            // a card half under its neighbour would otherwise be its neighbour's)
             if (desktop) {
                 alice.handCard(name).performMouseInput { moveTo(center) }
-                waitUntil("$name risen out of Alice's fan") {
-                    alice.settled(this) && alice.handCard(name).fetchSemanticsNode().boundsInRoot.let { it.bottom <= 900f && it.height > it.width }
-                }
+                waitUntil("$name hovered in Alice's fan") { alice.settled(this) }
             }
             alice.press(alice.handCard(name))
             waitUntil("$name raised in Alice's hand") { alice.raisedInHand() == name && alice.settled(this) }

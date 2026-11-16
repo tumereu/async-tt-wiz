@@ -274,12 +274,15 @@ class DeviceInWorkerTest {
     @Test fun theWorkersLogReachesThePagesAppLog() {
         val (_, remote) = pair()
         AppLog.forward = null
-        val before = AppLog.text().length
+        // A line of its own marks where the test starts: the log is a bounded ring (LogBuffer), so a length taken before
+        // points past its end once a trim drops its oldest quarter on the way (the whole suite logs that much)
+        val marker = "Worker log check ${DeviceRandom.uuid()}"
+        AppLog.info("test", marker)
         host.forwardLogs()
         remote.logBoard()
         pump()
         AppLog.forward = null
-        assertTrue("[worker]" in AppLog.text().drop(before), "the worker's board log reached the page's log")
+        assertTrue("[worker]" in AppLog.text().substringAfterLast(marker), "the worker's board log reached the page's log")
     }
 
     // Web client step 4c part 3: a request for a game the worker doesn't hold fails, and its callback still runs; a game

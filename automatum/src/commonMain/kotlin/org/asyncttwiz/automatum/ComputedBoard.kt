@@ -284,6 +284,18 @@ class ComputedBoard private constructor(
         }.toMap()
     }
 
+    /** TBL-133, for problem reports only (hidden information may be logged): [cardIds]' secret choices with their values and who
+     * knows them ("type=Goblin known by [alice]"), whoever the viewer is. */
+    fun secrets(cardIds: List<String>): Map<String, String> {
+        val state = state ?: return emptyMap()
+        return cardIds.filter { it in cards }.mapNotNull { card ->
+            val o = objectOf(card)?.let { state.obj(it) } ?: return@mapNotNull null
+            o.linked.values.keys.filter { !SecretChoices.isMarker(it) && arcanum.engine.state.Secrets.isSecret(o, it) }
+                .joinToString { key -> "$key=${o.linked[key]} known by ${arcanum.engine.state.Secrets.knownBy(o, key)?.map { it.value }}" }
+                .takeIf { it.isNotEmpty() }?.let { card to it }
+        }.toMap()
+    }
+
     /**
      * TBL-134: what continuous effects tell each of [cardIds] (on the Battlefield, or a spell on the Stack) it can't or must do,
      * from the board's own view ([Inspect.restrictions]): "Can't block until end of turn", with its source as [viewer] may see

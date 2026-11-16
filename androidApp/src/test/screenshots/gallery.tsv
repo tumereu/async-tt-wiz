@@ -291,3 +291,4 @@ number	item	screenshot	catalog	decisions	sequence
 290	Desktop table: the hand card under the mouse drawn over the others where it lies in the fan, not moved or turned, its Play chip faded above it	desktop/hand-hover.png	WEB-015 WEB-027		Desktop hand
 291	Desktop table: a clicked hand card popped out of the fan along its own turn, whole in view, its Play chip above it	desktop/hand-raised.png	WEB-015 ZON-079 ZON-080		Desktop hand
 292	Desktop table with "Battlefield cards: full picture" on: battlefield cards as their printed pictures with a thin owner-colour border, the hand too	desktop/full-picture-battlefield.png	TBL-139 WEB-022		Desktop hand
+293	Inspect of the other player's card keeping a secret choice: "Secret choice", never the value	states/secret-choice-inspect.png	TBL-133 TBL-104		

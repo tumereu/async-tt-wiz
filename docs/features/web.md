@@ -25,6 +25,7 @@ browser; the desktop layout arranges the same parts for a large window, a mouse 
 - **WEB-008** The "Your move" sound (LOB-146, TRN-075) plays in the browser, also in a background tab, once you have tapped or typed on the page after opening it (browsers allow sound only then). (r71)
 - **WEB-009** The card records (LOB-091) download into the browser's own storage, which is asked to keep them (persistent storage), and are used from there on later visits; if the browser deletes them (iOS Safari does after 7 days unvisited unless the site is installed), they download again. Sign-in is kept in the browser too, across reloads, until you log out. (r71)
 - **WEB-010** "Import from link" (LOB-061) reads Archidekt decks through the ATW server, since Archidekt answers no browser directly. (r71)
+- **WEB-064** Emojis show in colour in the browser wherever players' own words show (chat messages and the chat's draft, names, notes), typed, pasted or picked from the system's emoji picker, and are sent whole, so the other player sees them as written. The emoji font comes once the app shows (a few seconds on a first visit after an update, at once later); until it has come, emojis other than the pick mark's 🔥 show as empty boxes. The symbols the app itself draws (the cards' type glyphs, the hourglass, the timeline's symbols) keep their plain look. (r76)
 
 ### The table in the browser
 

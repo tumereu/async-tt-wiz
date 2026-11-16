@@ -168,10 +168,11 @@ class StaleTapTest : E2e() {
         assertEquals(bobLife, alice.state.player(bob.me).life, "her ability still not resolved")
     }
 
-    // HIS-109, SYS-012, SYS-011 (a full e2e run, 2026-11-08): Alice attacks; her phone shows the attack at once with Next on
-    // the main button, then folds her pass into the attack's event and assumes Bob's pass. Her tap of Next on the attack's own
-    // board reaches the phone after all that: the pass her phone made there by itself, so no "That wasn't taken" and no
-    // second pass; Bob's own Pass then confirms what her phone assumed
+    // HIS-109, SYS-012, SYS-011 (a full e2e run, 2026-11-08): Alice attacks; her phone shows the attack at once, then folds
+    // her pass into the attack's event and assumes Bob's pass. A Next made on the attack's own board (the main button's
+    // pass, as a tap racing that board makes it) reaches the phone after all that: the pass her phone made there by itself,
+    // so no "That wasn't taken" and no second pass; Bob's own Pass then confirms what her phone assumed. TRN-063 (owner,
+    // 2026-11-16): the attack's own board holds no Next on her main button, her phone passing there by itself
     @Test fun aNextTappedOnHerAttackAsHerPhonePassesByItselfGoesQuietly() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), aliceWorker = held,
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
@@ -203,8 +204,9 @@ class StaleTapTest : E2e() {
         // Her screen shows the attack's own board, not yet what her phone did after it
         held.releaseUntil { alice.state.combat?.attackers.orEmpty().isNotEmpty() }
         assertEquals(alice.me, alice.state.priority.holder, "her priority on the attack's own board")
-        assertEquals("Next", alice.stepArrow())
-        alice.tap("Next")
+        assertTrue(alice.shown.ownActionShown, "the attack's own board")
+        assertEquals(null, alice.stepArrow(), "no Next on her main button: her phone passes by itself")
+        pressOnTheBoardShown()
         held.release()
         waitUntil("Bob's stop at her assumption") {
             bob.settled(this) && (bob.status is GameDevice.Status.Stopped || bob.status == GameDevice.Status.YourMove) && bob.stepArrow() == "Pass"
@@ -222,9 +224,11 @@ class StaleTapTest : E2e() {
     }
 
     // HIS-109, SYS-011 (the same run's race, one step earlier): Alice casts a spell Bob, with an empty hand, can only pass over,
-    // so her pass and his fold into the cast's event and it resolves in it, back in her Main 1. Her tap of Resolve on the
-    // cast's own board reaches the phone while that board is still the newest it has published: it is the pass made there,
-    // never a pass of the Main 1 she hasn't seen it come back to
+    // so her pass and his fold into the cast's event and it resolves in it, back in her Main 1. A Resolve made on the cast's
+    // own board (the main button's pass, as a tap racing that board makes it) reaches the phone while that board is still the
+    // newest it has published: it is the pass made there, never a pass of the Main 1 she hasn't seen it come back to.
+    // TRN-063, STK-029 (owner, 2026-11-16): the cast's own board holds no Resolve on her main button, her phone passing there
+    // by itself
     @Test fun aResolveTappedWhileHerCastIsBeingFinishedPassesNothingMore() {
         startGame(deck, TestDeck("Martyrs", listOf(TestCards.martyr to 40)), bobStarts = true, aliceWorker = held,
             deal = { a, _ -> "Ember Martyr" in hand(a) })
@@ -249,10 +253,10 @@ class StaleTapTest : E2e() {
         held.holdingFollowUps = true
         waitUntil("nothing on its way on Alice's phone") { alice.current() }
         alice.game!!.send(cast)
-        waitUntil("the cast's own board on her screen") {
-            alice.shown.ownActionShown && alice.state.stack.size == 1 && alice.state.priority.holder == alice.me && alice.stepArrow() == "Resolve"
+        waitUntil("the cast's own board on her screen, with no Resolve on her main button") {
+            alice.shown.ownActionShown && alice.state.stack.size == 1 && alice.state.priority.holder == alice.me && alice.stepArrow() == null
         }
-        alice.tap("Resolve")
+        pressOnTheBoardShown()
         assertTrue(AppLog.text().lines().any { "Own pass on board" in it && "already done" in it }, "the tap taken as the same press")
         held.releaseFollowUps()
         repeat(5) { run(skip = java.time.Duration.ofMillis(500)) }
@@ -262,6 +266,17 @@ class StaleTapTest : E2e() {
         assertEquals(turn to TurnStep.PrecombatMain, alice.state.turn.number to alice.state.turn.step, "still her Main 1")
         assertEquals(GameDevice.Status.YourMove, alice.status)
         assertEquals(cast + listOf<Input>(Input.PassPriority(alice.me), Input.PassPriority(bob.me)), inputsInEvents(before), "the cast and its passes only")
+    }
+
+    /**
+     * The main button's pass (what a tap of Resolve or Next makes, [org.asyncttwiz.android.EngineGame.pass]) made on the board
+     * Alice's screen shows, as a tap racing it would make it: the board holds no press itself (TRN-063), but a tap drawn on the
+     * board before can reach the phone on it. Taken as the press her phone made there by itself.
+     */
+    private fun pressOnTheBoardShown() {
+        var acted: GameDevice.Acted? = null
+        alice.game!!.pass { acted = it }
+        assertEquals(GameDevice.Acted.Confirmed, acted, "the pass taken as the press her phone made there")
     }
 
     /** Every input on Alice's phone's line after [from], oldest first, the ones folded into an event too. */

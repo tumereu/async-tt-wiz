@@ -214,6 +214,21 @@ fun ScreenTextField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Un
         decorationBox = { field -> ScreenTextFieldDecoration(value.text.isEmpty(), singleLine, null, null, field) })
 }
 
+/**
+ * [ScreenTextField] over a [TextFieldState], whose edits (the app's own too, a line break put in by a key handler) apply at
+ * once to the text the next key types into (WEB-017's chat field). Up to [maxLines] lines tall, then it scrolls.
+ */
+@Composable
+fun ScreenTextField(state: androidx.compose.foundation.text.input.TextFieldState, modifier: Modifier = Modifier,
+    placeholder: String? = null, maxLines: Int = Int.MAX_VALUE, keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    onKeyboardAction: androidx.compose.foundation.text.input.KeyboardActionHandler? = null,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge) {
+    BasicTextField(state, modifier.heightIn(min = 48.dp), keyboardOptions = keyboardOptions, onKeyboardAction = onKeyboardAction,
+        lineLimits = androidx.compose.foundation.text.input.TextFieldLineLimits.MultiLine(maxHeightInLines = maxLines),
+        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+        decorator = { field -> ScreenTextFieldDecoration(state.text.isEmpty(), false, placeholder, null, field) })
+}
+
 @Composable
 private fun ScreenTextFieldDecoration(empty: Boolean, singleLine: Boolean, placeholder: String?,
     trailingIcon: (@Composable () -> Unit)?, field: @Composable () -> Unit) {

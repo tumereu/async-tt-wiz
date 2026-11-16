@@ -1,0 +1,1 @@
+fix: In the browser on a computer, Enter sends a chat message; Shift+Enter or Ctrl+Enter starts a new line.

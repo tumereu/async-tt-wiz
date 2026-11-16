@@ -24,6 +24,10 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -313,18 +317,60 @@ private fun ChatTranscript(list: LazyListState, description: String, content: an
         verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom), content = content)
 }
 
-/** The message field and Send; the keyboard's Send key sends like the button, a [stale] draft only closes the keyboard and has Clear. */
+/** The message field and Send; the keyboard's Send key sends like the button, a [stale] draft only closes the keyboard and has Clear.
+ * In the desktop layout (WEB-017) Enter sends too, and Shift+Enter or Ctrl+Enter breaks the line. */
 @Composable
 private fun ChatComposer(draft: String, compose: (String) -> Unit, send: () -> Unit, maySend: Boolean, stale: Boolean,
     clear: () -> Unit, inputModifier: Modifier = Modifier, description: String = "Chat message draft") {
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ScreenTextField(draft, compose, Modifier.weight(1f).then(inputModifier)
-            .semantics { contentDescription = description }, singleLine = false, placeholder = "Message", maxLines = 4,
+        val fieldModifier = Modifier.weight(1f).then(inputModifier).semantics { contentDescription = description }
+        if (desktopLayout()) DesktopChatField(draft, compose, send, !stale && maySend, fieldModifier)
+        else ScreenTextField(draft, compose, fieldModifier, singleLine = false, placeholder = "Message", maxLines = 4,
             keyboardOptions = imeOptions(ImeAction.Send),
             keyboardActions = submitKeyboardActions(!stale && maySend, keepKeyboard = true, submit = send))
         if (stale) ScreenIconButton("Clear draft", "delete", clear)
         else ScreenIconButton("Send", "send", send, enabled = maySend)
     }
+}
+
+/**
+ * WEB-017 (owner's report, desktop web, 2026-11-16): the desktop layout's chat field: Enter sends the [draft] when [maySend]
+ * (nothing otherwise), Shift+Enter or Ctrl+Enter breaks the line where the cursor is. The field's text lives in a
+ * [TextFieldState], so the line break is in the text the next key types into (put into a value-based field by the key
+ * handler, the browser's next key dropped it); what is typed goes to [compose], and a [draft] changed elsewhere (sent,
+ * cleared, another chat's) replaces the text, the cursor at its end.
+ */
+@Composable
+private fun DesktopChatField(draft: String, compose: (String) -> Unit, send: () -> Unit, maySend: Boolean, modifier: Modifier) {
+    val state = remember { TextFieldState(draft) }
+    val latestDraft by rememberUpdatedState(draft)
+    val latestCompose by rememberUpdatedState(compose)
+    // The text both sides last agreed on: a change of the field's goes to the draft, a change of the draft's to the field
+    val agreed = remember { mutableListOf(draft) }
+    LaunchedEffect(state) {
+        snapshotFlow { state.text.toString() }.collect { text ->
+            if (text != agreed[0]) { agreed[0] = text; if (text != latestDraft) latestCompose(text) }
+        }
+    }
+    LaunchedEffect(state) {
+        snapshotFlow { latestDraft }.collect { text ->
+            if (text != agreed[0]) { agreed[0] = text; if (text != state.text.toString()) state.setTextAndPlaceCursorAtEnd(text) }
+        }
+    }
+    ScreenTextField(state, modifier.onPreviewKeyEvent { event ->
+        if (event.key != Key.Enter && event.key != Key.NumPadEnter) return@onPreviewKeyEvent false
+        if (event.type == KeyEventType.KeyDown) when {
+            event.isShiftPressed || event.isCtrlPressed -> {
+                state.edit { val at = selection.min; replace(at, selection.max, "\n"); selection = TextRange(at + 1) }
+                AppLog.info("chat", "${if (event.isShiftPressed) "Shift" else "Ctrl"}+Enter broke the line of the draft " +
+                    "(${state.text.lines().size} lines)")
+            }
+            maySend -> { AppLog.info("chat", "Enter sent the message (${state.text.lines().size} lines)"); send() }
+            else -> AppLog.info("chat", "Enter did nothing: the draft can't be sent now")
+        }
+        true
+    }, placeholder = "Message", maxLines = 4, keyboardOptions = imeOptions(ImeAction.Send),
+        onKeyboardAction = { if (maySend) send() })
 }
 
 /** LOB-067 (owner, 2026-11-14): a message's row: its author, text, delivery or Read [status] and its small [time] ("14:05"),

@@ -610,13 +610,16 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // LOB-136, LOB-137 (owner, 2026-11-08): chat messages as speech bubbles at the life squares, over what lies there;
             // last here, so a tap on the other player's takes that tap from the table and its chips
             runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight) }
+            // WEB-026: the quick look of the card the mouse rests on, in a scope of its own: its coming and going recomposes only
+            // it. Inside the table's own box, whose mouse and gestures get every move and click over it: nothing to press, it
+            // never takes them from the table (as a box over it, the mouse moving onto it kept it shown and a click on the card
+            // under it was lost, e2e GiftTargetPhraseDesktopTest)
+            if (desktopGeometry != null && toolkit != null) QuickLookHost(mouse) { item ->
+                DesktopQuickLook(play, accountId, item, toolkit, desktopGeometry.tableRight, tableHeight)
+            }
         }
         CompositionLocalProvider(LocalDesktopGeometry provides desktopGeometry) {
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered, sceneNow)
-        // WEB-026: the quick look of the card the mouse rests on, in a scope of its own: its coming and going recomposes only it
-        if (desktopGeometry != null && toolkit != null) QuickLookHost(mouse) { item ->
-            DesktopQuickLook(play, accountId, item, toolkit, desktopGeometry.tableRight, tableHeight)
-        }
         // WEB-020: on the desktop table the top row is the screen's, above the table
         if (desktopGeometry == null) TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)

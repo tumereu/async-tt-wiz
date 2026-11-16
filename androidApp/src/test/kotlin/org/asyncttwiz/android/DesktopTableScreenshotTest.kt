@@ -234,6 +234,32 @@ class DesktopTableScreenshotTest {
         kit.playOn("the Kit cast with offspring") { kit.state().stack.isNotEmpty() || card in kit.field(Choices.KIT).map(kit::atw) }
     }
 
+    // WEB-026 (e2e GiftTargetPhraseDesktopTest: with the battlefields' column 0 right of the seat boxes, WEB-016, a hand card's
+    // quick look lay over Alice's creature and took the mouse: her click on the creature under it was lost): the quick look has
+    // nothing to press; a click on the card under it reaches the table as a tap on that card
+    @Test fun aClickOnACardUnderTheQuickLookReachesTheTable() {
+        val kit = EngineTableKit()
+        kit.toReadyCub()
+        render(kit)
+        val shown = scene(kit)
+        val cub = shown.items.single { it.battlefieldCard && it.owner == kit.f.a && it.value == "Ember Cub" }
+        // The hand card whose quick look (above it, centred on it) covers the Cub's middle
+        val card = shown.items.filter { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.owner == kit.f.a }
+            .minBy { kotlin.math.abs(it.bounds.center.x - cub.bounds.center.x) }
+        hover(card)
+        compose.mainClock.advanceTimeBy(QUICK_LOOK_MILLIS + 50)
+        compose.waitForIdle()
+        val look = compose.onNodeWithTag(QUICK_LOOK_TAG).fetchSemanticsNode().boundsInRoot
+        val at = androidx.compose.ui.geometry.Offset(cub.bounds.center.x, cub.bounds.center.y + DesktopTable.topRow(1440f))
+        assertTrue(look.contains(at), "the quick look over the Cub's middle: $look, Cub ${cub.bounds}")
+        assertEquals(null, kit.toolkit.popupItem)
+        compose.onAllNodes(isRoot()).onFirst().performMouseInput { moveTo(at); press(); release() }
+        // A tap is a tap once no second one followed it
+        compose.mainClock.advanceTimeBy(DOUBLE_TAP_MILLIS + 100)
+        compose.waitForIdle()
+        assertEquals(cub.id, kit.toolkit.popupItem?.id, "the click a tap on the Cub (its menu open)")
+    }
+
     // WEB-015, TBL-139 (owner playtest 2026-11-15, as in MTG Arena; owner 2026-11-16): Alice's hand is a fan at the bottom of her
     // desktop table between her seat header and the action area, its cards partly below the window's bottom, drawn as their
     // printed pictures; the mouse on her Mountain only draws it over the others where it lies, its Play chip faded above it; a

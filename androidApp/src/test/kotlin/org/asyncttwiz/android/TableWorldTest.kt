@@ -180,6 +180,38 @@ class TableWorldTest {
         }
     }
 
+    // WEB-016, TBL-121, TBL-012, SYS-041 (owner notes 2026-11-16): on the desktop table the seat boxes cover the viewport's left
+    // [inset]: the opening view puts column 0 just right of them, fitting the table fits it into the room right of them, and
+    // both views are within the pan bounds, which still let the table pan under the boxes
+    @Test fun aLeftInsetMovesTheOpeningViewAndTheFitRightOfIt() {
+        val viewport = TableBounds(6f, 4f, 1100f, 600f)
+        val inset = 380f
+        for (width in listOf(700f, 1100f, 2600f)) for (height in listOf(300f, 700f)) {
+            val bounds = TableBounds(0f, 0f, width, height)
+            val world = TableWorld(viewport, bounds, bounds.copy(x = -3 * 84f, width = width + 6 * 84f), leftInset = inset)
+            val home = world.landscapeHome()
+            assertEquals(viewport.x + inset, world.screen(TablePoint(0f, 0f), home).x, .01f, "column 0 right of the boxes ($width × $height)")
+            val fit = world.fit()
+            val fitted = world.screen(bounds, fit)
+            val room = viewport.width - inset
+            // Centred in the room right of the boxes (the pan bounds don't move it), inside it where it fits there at all
+            assertEquals(viewport.x + inset + room / 2, fitted.center.x, .01f, "fitted right of the boxes ($width × $height): $fitted")
+            if (width * TablePresentation.MIN_ZOOM <= room)
+                assertTrue(fitted.x >= viewport.x + inset - .01f && fitted.right <= viewport.right + .01f, "inside the room: $fitted")
+            assertEquals(home.x, world.clamp(home).x, .01f, "the opening view within the pan bounds ($width × $height)")
+            // Panned left as far as it goes, the table's right end (and its empty columns) still reach the viewport's right edge,
+            // its left end under the boxes
+            val left = world.clamp(TableCamera(10000f, zoom = fit.zoom))
+            val panned = world.screen(world.panBounds, left)
+            if (panned.width > viewport.width) assertEquals(viewport.right, panned.right, .01f)
+        }
+        // Without an inset nothing changes: column 0 at the left edge, the fit centred in the whole viewport
+        val bounds = TableBounds(0f, 0f, 2600f, 300f)
+        val plain = TableWorld(viewport, bounds, bounds.copy(x = -252f, width = 2600f + 504f))
+        assertEquals(viewport.x, plain.screen(TablePoint(0f, 0f), plain.landscapeHome()).x, .01f)
+        assertEquals(viewport.center.x, plain.screen(bounds, plain.fit()).center.x, .01f)
+    }
+
     @Test fun portraitStackOccludesWorldDrawingSelectionAndDropsAtEveryZoom() {
         for (zoom in listOf(.65f, 1f, 2f)) {
             val scene = TableFixture.scene(ui = TableLayoutState(TableCamera(zoom = zoom)))

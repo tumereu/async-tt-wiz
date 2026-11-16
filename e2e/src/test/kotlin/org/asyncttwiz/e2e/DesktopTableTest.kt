@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import arcanum.api.TurnStep
 import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.android.DESKTOP_SEAT_BOX_TAG
 import org.asyncttwiz.android.DESKTOP_UNDO_TAG
 import org.asyncttwiz.android.FULL_PICTURE_BATTLEFIELD_TAG
 import org.asyncttwiz.android.FULL_PICTURE_HAND_TAG
@@ -161,6 +162,36 @@ class DesktopTableTest : E2e() {
         assertTrue(cards.all { it.left > exile.right && it.center.y > life.top && it.center.y < life.bottom },
             "in his seat header after his piles: $cards, exile $exile, life $life")
         assertTrue(cards.zipWithNext().all { (a, b) -> b.left < a.right }, "fanned, each card over the one before: $cards")
+        assertEquals(emptyList(), alice.leaks.leaks)
+    }
+
+    // WEB-016, WEB-015, TBL-121 (owner notes 2026-11-16: "An opponent's life, hand etc could sit in a similar box as yours.
+    // Default camera pan could be so that these are on the left side of the 'pos 0' so that they don't obstruct cards played"):
+    // on Alice's desktop table Bob's seat header is a box at the top left like hers at the bottom left; once she has played her
+    // Mountain and cast her Ember Cub, the table as it opened (untouched) has no card under either box, her cards just right of
+    // both, and Bob's battlefield reaches up to the top row beside his box
+    @Test fun theTableOpensWithNoCardUnderEitherSeatBox() {
+        start()
+        keep()
+        clickFromHand("Mountain")
+        waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        clickFromHand("Ember Cub")
+        waitUntil("the Cub on Alice's battlefield", along = listOf(bob)) {
+            alice.field("Ember Cub").isNotEmpty() && alice.showsOnBattlefield("Ember Cub") && alice.inOwnMain() && alice.settled(this)
+        }
+        run()
+        val boxes = alice.nodes(hasTestTag(DESKTOP_SEAT_BOX_TAG)).fetchSemanticsNodes().map { it.boundsInRoot }.sortedBy { it.top }
+        assertEquals(2, boxes.size, "both seat boxes: ${alice.screen()}")
+        val (bobs, alices) = boxes
+        val bobLife = alice.described("${bob.name}, life 20", substring = true).fetchSemanticsNode().boundsInRoot
+        assertTrue(bobs.contains(bobLife.center) && bobs.left <= 1f && alices.left <= 1f && bobs.bottom < alices.top,
+            "Bob's box at the top left holding his life square, Alice's at the bottom left: $bobs, $alices, life $bobLife")
+        val cards = listOf("Mountain", "Ember Cub").map { alice.battlefieldCard(it).fetchSemanticsNode().boundsInRoot }
+        assertTrue(cards.all { card -> boxes.none { it.overlaps(card) } }, "no card under a seat box: $cards, boxes $boxes")
+        val right = maxOf(bobs.right, alices.right)
+        assertTrue(cards.all { it.left >= right && it.left < right + it.width }, "her cards just right of both boxes ($right): $cards")
+        val bobsField = alice.battlefieldBounds(bob)
+        assertTrue(bobsField.top < bobs.bottom, "Bob's battlefield reaching up beside his box: $bobsField, box $bobs")
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 

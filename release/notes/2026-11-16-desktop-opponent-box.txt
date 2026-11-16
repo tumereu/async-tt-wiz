@@ -1,0 +1,1 @@
+mod: In the browser's desktop layout, the other player's life, piles and hand sit in a box at the top left like yours, and the table opens with every card beside the two boxes, giving the battlefields more room.

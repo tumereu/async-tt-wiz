@@ -63,7 +63,8 @@ object DesktopTable {
     const val DOCK = 320f
     /** The action area's width at the bottom right (WEB-018), under the dock, whether the dock is open or not. */
     const val ACTIONS = 320f
-    /** A seat header's height (WEB-016): its piles ([PILE_HEIGHT]) with their count bubbles above them inside it. */
+    /** A seat header's life and pile row's height (WEB-016): its piles ([PILE_HEIGHT]) with their count bubbles above them
+     * inside it, at the bottom of its box ([FLOAT] tall), under the avatar and name. */
     const val SEAT = 84f
     /** A seat header's life square's side (the landscape bar row's 48 dp before 2026-11-14), its number drawn as much larger. */
     const val LIFE = 64f
@@ -74,8 +75,6 @@ object DesktopTable {
     const val PILE_GAP = 12f
     /** How much larger than the phone's a pile's count bubble is in a seat header, with its larger piles. */
     const val PILE_BADGE = 1.25f
-    /** The room before a seat header's life square: the player's avatar and name. */
-    const val NAME = 172f
     /** The seat header's avatar's side and the name's size (sp). */
     const val AVATAR = 36f
     const val NAME_TEXT = 17f
@@ -105,8 +104,9 @@ object DesktopTable {
      * ([FLOAT]); in timeline mode with the timeline strip under it (WEB-021). */
     fun band(timeline: Boolean): Float = FLOAT + if (timeline) TableTimelineHeight else 0f
 
-    /** WEB-016 (owner playtest 2026-11-15): your seat header floating at the bottom left: its life square this far from its
-     * left edge, your avatar and "You" over its life square and piles. */
+    /** WEB-016 (owner playtest 2026-11-15, owner notes 2026-11-16): each seat header floating as a box (yours at the bottom
+     * left, the other player's at the top left): its life square this far from its left edge, the avatar and name over its
+     * life square and piles. */
     const val PLATE_PAD = 10f
     /** WEB-015 (owner playtest 2026-11-15, as in MTG Arena): your hand as a fan at the bottom centre: each card this share of
      * its width from the one before at most (closer when they don't fit), turned [FAN_TURN] degrees from the one before at
@@ -122,12 +122,13 @@ object DesktopTable {
     /**
      * The right end of a seat header's life square, [places] piles, the other player's hand's fan ([fan] wide, ZON-001; 0 for
      * yours) and round chips ([emblems]: the player has chips; [wanted]: the room their chips would like) on a table
-     * [tableWidth] wide, the life square at [start]. The other player's always keeps the chips' room; yours has it only with
-     * chips (your seat header floats at the bottom left, as narrow as it can be).
+     * [tableWidth] wide, the life square at [start]. The chips have their room only while there are any: each seat header is a
+     * box floating over the battlefields, as narrow as it can be (yours at the bottom left, owner playtest 2026-11-15; the
+     * other player's at the top left, owner notes 2026-11-16).
      */
-    fun rowRight(tableWidth: Float, own: Boolean, places: Int, emblems: Boolean, wanted: Float, fan: Float = 0f, start: Float = NAME): Float {
+    fun rowRight(tableWidth: Float, places: Int, emblems: Boolean, wanted: Float, fan: Float = 0f, start: Float = PLATE_PAD): Float {
         val piles = pilesRight(start, places) + if (fan > 0f) TablePresentation.FAN_GAP + fan else 0f
-        if (own && !emblems) return piles
+        if (!emblems) return piles
         val fit = tableWidth - 10f - piles - 4f
         return piles + 4f + maxOf(TablePresentation.Landscape.EMBLEMS, wanted).coerceAtMost(fit).coerceAtLeast(TablePresentation.Landscape.MIN_EMBLEMS)
     }
@@ -431,31 +432,39 @@ fun DesktopDock(modifier: Modifier = Modifier, chat: @Composable (Modifier) -> U
     }
 }
 
+/** The test tag of each desktop seat box (WEB-016): its bounds are the box's. */
+const val DESKTOP_SEAT_BOX_TAG = "desktop-seat-box"
+
 /**
- * WEB-016 (owner, decision 27): each seat header's start: the player's avatar and name, before their life square, piles and
- * round chips (which the table scene lays out as the landscape bar row's). Drawn only: no input of its own.
+ * WEB-016 (owner, decision 27; owner playtest 2026-11-15, owner notes 2026-11-16): each seat box's avatar and name ("You" for
+ * yours) over its life square, piles and round chips (which the table scene lays out as the landscape bar row's): yours
+ * floating at the bottom left, the other player's at the top left. Drawn only: no input of its own.
  */
 @Composable
 fun SeatHeaderNames(game: GameSummary, scene: TableScene, viewer: String) {
-    for (life in scene.items.filter { it.kind == TableItemKind.LIFE }) {
-        val player = listOf(game.inviter, game.recipient).firstOrNull { it.accountId == life.owner } ?: continue
+    // WEB-016, TBL-121: where the boxes lie and how far right of the battlefields' left they put column 0, as they change, so
+    // a report of a covered card says what was laid out
+    val inset = scene.world?.leftInset
+    LaunchedEffect(scene.desktopPlates, inset) {
+        AppLog.info("table", "Desktop seat boxes: " + scene.desktopPlates.entries.joinToString { (owner, b) ->
+            "${if (owner == viewer) "yours" else "theirs"} ${b.x.roundToInt()},${b.y.roundToInt()} ${b.width.roundToInt()}×${b.height.roundToInt()}"
+        } + "; column 0 ${inset?.roundToInt()} dp right of the battlefields' left in the opening view")
+    }
+    for ((owner, plate) in scene.desktopPlates) {
+        val player = listOf(game.inviter, game.recipient).firstOrNull { it.accountId == owner } ?: continue
         val own = player.accountId == viewer
-        // WEB-016 (owner playtest 2026-11-15): your seat header floats at the bottom left, your avatar and "You" over its life
-        // square and piles
-        val plate = scene.desktopPlate?.takeIf { own }
-        val place = if (plate != null) Modifier.offset(plate.x.dp, plate.y.dp)
-                .size(plate.width.dp, (plate.height - DesktopTable.SEAT).coerceAtLeast(0f).dp).padding(start = DesktopTable.PLATE_PAD.dp)
-            else Modifier.offset((life.bounds.x - DesktopTable.NAME).dp, life.bounds.y.dp)
-                .size(DesktopTable.NAME.dp, life.bounds.height.dp).padding(start = 10.dp, end = 8.dp)
-        Row(place,
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Avatar(player, size = DesktopTable.AVATAR.dp)
-            Text(if (own) "You" else player.username, color = if (own) OwnTableColor else OpponentTableColor, fontSize = DesktopTable.NAME_TEXT.sp,
-                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(Modifier.offset(plate.x.dp, plate.y.dp).size(plate.width.dp, plate.height.dp).testTag(DESKTOP_SEAT_BOX_TAG)) {
+            Row(Modifier.fillMaxWidth().height((plate.height - DesktopTable.SEAT).coerceAtLeast(0f).dp)
+                    .padding(start = DesktopTable.PLATE_PAD.dp, end = DesktopTable.PLATE_PAD.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Avatar(player, size = DesktopTable.AVATAR.dp)
+                Text(if (own) "You" else player.username, color = if (own) OwnTableColor else OpponentTableColor,
+                    fontSize = DesktopTable.NAME_TEXT.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
 
-/** WEB-016: a seat header's background: the player's colour, grey in timeline mode (HIS-008). */
+/** WEB-016: a seat box's background: the player's colour, grey in timeline mode (HIS-008). */
 fun seatHeaderColor(owner: String, viewer: String, reviewing: Boolean): Color =
     if (reviewing) TimelineBarColor else battlefieldColor(owner, viewer, owner, lands = true)

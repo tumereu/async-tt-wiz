@@ -243,29 +243,50 @@ fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? =
 @Composable
 private fun TargetBar(cast: CastController, flow: CastShown, play: TableBoard, source: ChoiceCardData, viewer: String, names: Map<String, String>) {
     val pick = cast.pick ?: return
+    // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
+    val pieces = cast.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, viewer, names) }
+    CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
+        TablePickBar(pick, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), pick.decision), pieces, cast.picked.size,
+            cast.pickDone, cast::confirmTargets, source, play, "cast")
+    }
+}
+
+/**
+ * STK-047, STK-044, WEB-019: the slim bar of a pick on the table, one for every such pick: a cast's or activation's targets and
+ * costs ([TargetBar]) and a shared flow's (a trigger's targets, a choice of permanents while resolving), on the phone above the
+ * hand and on the desktop table as its strip ([AboveHand]): the title over the sentence it asks about ([line], or as picks name
+ * it, [pieces], the phrase picked now shining), how many are [picked], Done or None on the main button ([confirm], greyed until
+ * [done]), and the [source] at its right. Its words are logged under [log].
+ */
+@Composable
+fun TablePickBar(pick: TablePick, line: String?, pieces: List<PickPiece>?, picked: Int, done: Boolean, confirm: () -> Unit,
+    source: ChoiceCardData?, play: TableBoard, log: String) {
     val decision = pick.decision
-    val inspector = remember { ChoiceInspector() }
+    val inspector = remember(decision.id) { ChoiceInspector() }
+    val now = pieces?.firstOrNull { it.now }?.text
+    // STK-047 (owner, prod 0.2.0: a spell's phrase wasn't highlighted): what the bar shows, so a report of it explains itself
+    LaunchedEffect(decision.id, picked, now, pieces.isNullOrEmpty()) {
+        AppLog.info(log, "Pick bar \"${pick.title}\" for ${decision.id.value}: ${if (pieces.isNullOrEmpty()) "plain sentence, no phrase " +
+            "to highlight (${line?.take(80)})" else "phrase now ${now?.let { "\"$it\"" } ?: "none"}, ${pieces.size} pieces"}, $picked picked")
+    }
     // UI review #4, #9: docked above the hand like every Automatum panel, never over it; STK-044: the title says only the
     // choice, the card it is for sits at the right. D1: a cost of battlefield permanents (a sacrifice) is picked the same way
     AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
-        val pieces = cast.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, viewer, names) }
-        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
-            TargetBarTitle(pick.title, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision), pickCount(pick, cast.picked.size), pieces)
-        }
+        TargetBarTitle(pick.title, line, pickCount(pick, picked), pieces)
         // TRN-063 (owner playtest 2026-11-09): Done (None) is the main button
         if (pick.max != 1 || pick.min == 0) {
-            val none = cast.picked.isEmpty()
+            val none = picked == 0
             val onMain = MainButtonAction(MainAction(if (none) "None" else "Done", if (none) Icons.Outlined.Block else Icons.Outlined.Check,
-                refusal = PICK_INCOMPLETE.takeIf { !cast.pickDone }, tooltip = pick.title) {
-                AppLog.info("cast", "${if (none) "None" else "Done"} on the main button: ${cast.picked.size} picked for ${pick.title}")
-                cast.confirmTargets()
+                refusal = PICK_INCOMPLETE.takeIf { !done }, tooltip = pick.title) {
+                AppLog.info(log, "${if (none) "None" else "Done"} on the main button: $picked picked for ${pick.title} (${decision.id.value})")
+                confirm()
             })
-            if (!onMain) TextButton(cast::confirmTargets, enabled = cast.pickDone) { IconText(Icons.Outlined.Check, if (none) "None" else "Done") }
+            if (!onMain) BarButton(if (none) "None" else "Done", if (none) Icons.Outlined.Block else Icons.Outlined.Check,
+                enabled = done, onClick = confirm)
         }
-        ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
-        ChoiceInspection(inspector, play, viewer)
+        if (source != null) ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
+        ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
     }
 }
 

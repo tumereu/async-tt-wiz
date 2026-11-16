@@ -1,0 +1,1 @@
+fix: Picking the targets of a spell with a gift highlights the words you are choosing for in its text, as for other spells.

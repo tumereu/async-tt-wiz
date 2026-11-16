@@ -102,6 +102,62 @@ class PickTextTest {
         assertEquals("Whenever you cast a spell, <Elvish Seer> fights [target creature you don't control].", text(second))
     }
 
+    /** The text shown while each target of a sorcery [name] with [text] is picked, in order (the first candidate each time), a gift's
+     * promise answered with [promise]: the phrase picked now in [brackets], a chosen one as <names>. */
+    private fun pickedInTurn(name: String, text: String, promise: Boolean = false): List<String> {
+        val t = EngineTable()
+        val card = Cards.invent(name, "{0}", "Sorcery", text)
+        val (seer) = t.put(t.alice, Zone.Battlefield, "Elvish Seer")
+        val (elves) = t.put(t.bob, Zone.Battlefield, "Thicketwood Elves")
+        val (c) = t.put(t.alice, Zone.Hand, card)
+        val state = t.state()
+        val names = mapOf<TargetRef, String>(TargetRef.Object(t.obj(seer)) to "Elvish Seer", TargetRef.Object(t.obj(elves)) to "Thicketwood Elves")
+        var flow = CastFlow.start(t.source(state), t.alice, assertNotNull(t.plays(state).of(c).first().input), CastFlow.Seeds(t::seed))
+        val shown = mutableListOf<String>()
+        while (true) flow = when (val pending = flow.pending) {
+            is Decision.May -> flow.answer(Answer.YesNo(promise))
+            is Decision.Targets -> {
+                shown += assertNotNull(PickText.of(flow.state, assertNotNull(PickText.announcing(flow.call.pending?.continuation)), pending,
+                    emptyList()), "a text for ${pending.slot} of \"$text\"").shown { names[it] ?: "a player" }
+                flow.answer(Answer.Targets(listOf(pending.options.first())))
+            }
+            else -> break
+        }
+        return shown
+    }
+
+    // STK-047, CR 702.174a, 702.174j, 601.2c (owner, prod 0.2.0: a gift spell's two targets were picked with nothing highlighted):
+    // gift adds a spell ability of its own, without words, before the spell's; the spell's printed one is the text, promised
+    // or not, and both targets of its one sentence read as which pick is which
+    @Test fun aGiftSpellsTwoTargetsInOneSentence() {
+        val text = "Gift a tapped Fish (You may promise an opponent a gift as you cast this spell. If you do, they create a tapped 1/1 " +
+            "blue Fish creature token before its other effects.)\nChoose target creature you control and target creature you don't " +
+            "control. Put a +1/+1 counter on the creature you control if the gift was promised. Then those creatures fight each other."
+        val expected = listOf(
+            "Choose [target creature you control] and target creature you don't control. Put a +1/+1 counter on the creature you " +
+                "control if the gift was promised. Then those creatures fight each other.",
+            "Choose <Elvish Seer> and [target creature you don't control]. Put a +1/+1 counter on the creature you control if the " +
+                "gift was promised. Then those creatures fight each other.")
+        assertEquals(expected, pickedInTurn("Pick Quarrel", text, promise = true))
+        assertEquals(expected, pickedInTurn("Pick Quarrel", text, promise = false))
+    }
+
+    // STK-047, CR 601.2c: target wordings of other templates: the phrase picked now is the whole target phrase, after the
+    // card's name and in a sentence's subject alike
+    @Test fun targetWordingsOfSeveralTemplates() {
+        assertEquals(listOf("Pick Wording deals 3 damage to [target creature or planeswalker]. If you control a Raccoon, you may " +
+            "discard a card. If you do, draw a card."),
+            pickedInTurn("Pick Wording", "Pick Wording deals 3 damage to target creature or planeswalker. If you control a Raccoon, you may discard a " +
+                "card. If you do, draw a card."))
+        assertEquals(listOf("[Target creature you control] fights target creature you don't control.",
+            "<Elvish Seer> fights [target creature you don't control]."),
+            pickedInTurn("Pick Scuffle", "Target creature you control fights target creature you don't control."))
+        assertEquals(listOf("Choose [target creature you control] and target creature you don't control. Then those creatures fight each other.",
+            "Choose <Elvish Seer> and [target creature you don't control]. Then those creatures fight each other."),
+            pickedInTurn("Pick Duel", "Choose target creature you control and target creature you don't control. Then those creatures fight each other."))
+        assertEquals(listOf("[Target player] draws two cards."), pickedInTurn("Pick Lesson", "Target player draws two cards."))
+    }
+
     // A phrase nothing was chosen for reads as none of it
     @Test fun noneChosen() {
         assertEquals("no creature", PickText.none("up to one target creature"))

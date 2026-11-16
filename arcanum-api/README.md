@@ -25,7 +25,7 @@ The definition model (overview in `Definitions.kt`):
   null there (the engine then carries it out in its own code, or has it done by hand); ability labels (exhaust, boast, …)
   add their rules through `withLabelRules`; keyword actions expand through
   `KeywordExpansions.expand(action)`; `PredefinedTokens` defines Treasure, Food, Clue,
-  Blood and the other tokens of CR 111.10.
+  Blood and the other tokens of CR 111.10, each ability with CR 111.10's words as its `text`.
   Mechanics that are only a keyword's meaning are `Mechanic.KeywordOnly` and
   appear only there; `DefinitionChecks.problems` reports them in definitions.
 - Generic trigger events: `EventPattern.KeywordActionDone(action, players, objects)` for doing any keyword action (`KeywordActionKind`, with

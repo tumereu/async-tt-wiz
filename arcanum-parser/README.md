@@ -13,7 +13,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   unread line keeps all its spell text and casting costs unparsed, because a spell
   resolves as one object (CR 608.2b). A leveler's "LEVEL" band becomes one conditional static
   ability (CR 711.2), or stays unparsed as a whole. Each parsed ability keeps its printed lines as its `text`
-  (reminder text left out), each mode its "• " line (`Mode.text`), for engines to show players.
+  (reminder text left out), each mode its "• " line (`Mode.text`), for engines to show players; an ability quoted inside
+  another (a token's, a grant's, an emblem's) keeps its quoted words.
 - Target spans (`TargetSpans.kt`): each target slot of a parsed ability gets `TargetSlot.span`, where its phrase ("any
   target", "up to two target creatures", "another target creature you control", "one or two targets") sits in the
   ability's text (a mode's slot: in `Mode.text`). It is read from the text after parsing, so every wording gets spans:

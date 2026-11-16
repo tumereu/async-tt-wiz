@@ -376,6 +376,9 @@ object TestCards {
         TestFace("Trail", "Instant", "{2}{G}", "Draw a card."),
         TestFace("Blaze", "Instant", "{1}{R}{R}", "Blaze deals 3 damage to any target.")), layout = "split")
 
+    /** SYS-086 (owner fault 2PTQG5): a free sorcery making three tokens the rules define (CR 111.10a, b, f). */
+    val pantry = card("Ember Pantry", "Sorcery", "{0}", "Create a Food token, a Treasure token, and a Clue token.")
+
     /** Owner gallery review, 2026-11-06: rules text Automatum can't do (UnsupportedPodSourceTest). */
     val relic = card("Odd Relic", "Artifact", "{1}", "Whenever the moon is full, this artifact hums a slow tune.")
 

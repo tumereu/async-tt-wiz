@@ -2,83 +2,96 @@ package arcanum.api
 
 /**
  * The predefined tokens of CR 111.10, which [TokenSpec.Predefined] names: their full definitions, written in the
- * model. Tokens the rules don't define yet return null. A Role token is named by its kind and "Role" ("Monster Role", CR 111.10k);
+ * model, each ability with the words CR 111.10 gives it as its text, as a parsed card's abilities carry theirs. Tokens
+ * the rules don't define yet return null. A Role token is named by its kind and "Role" ("Monster Role", CR 111.10k);
  * its face is named by the kind alone ("Monster").
  */
 object PredefinedTokens {
     fun face(name: String): FaceDefinition? = when (name) {
         // CR 111.10a: "{T}, Sacrifice this token: Add one mana of any color."
         "Treasure" -> artifact("Treasure", Ability.Activated(Cost(listOf(CostPart.TapSelf, sacrificeSelf)),
-            steps(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))), players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+            steps(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))), players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+            text = "{T}, Sacrifice this token: Add one mana of any color."))
         // CR 111.10b: "{2}, {T}, Sacrifice this token: You gain 3 life."
         "Food" -> artifact("Food", Ability.Activated(Cost(listOf(mana("{2}"), CostPart.TapSelf, sacrificeSelf)),
-            steps(Effect.GainLife(Players.You, Value.Fixed(3))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+            steps(Effect.GainLife(Players.You, Value.Fixed(3))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+            text = "{2}, {T}, Sacrifice this token: You gain 3 life."))
         // CR 111.10c: "Sacrifice this token: Add one mana of any color."
         "Gold" -> artifact("Gold", Ability.Activated(Cost(listOf(sacrificeSelf)),
-            steps(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))), players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+            steps(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))), players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+            text = "Sacrifice this token: Add one mana of any color."))
         // CR 111.10d: a 2/2 black Zombie creature token named Walker
         "Walker" -> FaceDefinition("Walker", colorIndicator = listOf(Color.Black), types = listOf(CardType.Creature),
             subtypes = listOf(Subtype("Zombie")), power = PrintedNumber.Fixed(2), toughness = PrintedNumber.Fixed(2))
         // CR 111.10e: a Shard enchantment token with "{2}, Sacrifice this token: Scry 1, then draw a card."
         "Shard" -> FaceDefinition("Shard Token", colorIndicator = emptyList(), types = listOf(CardType.Enchantment),
             subtypes = listOf(Subtype("Shard")), abilities = listOf(Ability.Activated(Cost(listOf(mana("{2}"), sacrificeSelf)),
-                steps(Effect.Scry(Players.You, Value.Fixed(1)), Effect.Draw(Players.You, count = Value.Fixed(1))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))))
+                steps(Effect.Scry(Players.You, Value.Fixed(1)), Effect.Draw(Players.You, count = Value.Fixed(1))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+                text = "{2}, Sacrifice this token: Scry 1, then draw a card.")))
         // CR 111.10f: "{2}, Sacrifice this token: Draw a card."
-        "Clue" -> artifact("Clue", Ability.Activated(Cost(listOf(mana("{2}"), sacrificeSelf)), steps(Effect.Draw(Players.You, count = Value.Fixed(1))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        "Clue" -> artifact("Clue", Ability.Activated(Cost(listOf(mana("{2}"), sacrificeSelf)), steps(Effect.Draw(Players.You, count = Value.Fixed(1))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+            text = "{2}, Sacrifice this token: Draw a card."))
         // CR 111.10g: "{1}, {T}, Discard a card, Sacrifice this token: Draw a card."
         "Blood" -> artifact("Blood", Ability.Activated(
             Cost(listOf(mana("{1}"), CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, count = Value.Fixed(1))), sacrificeSelf)),
-            steps(Effect.Draw(Players.You, count = Value.Fixed(1))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+            steps(Effect.Draw(Players.You, count = Value.Fixed(1))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+            text = "{1}, {T}, Discard a card, Sacrifice this token: Draw a card."))
         // bro: CR 111.10h: a colorless Powerstone artifact token with "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."
         "Powerstone" -> artifact("Powerstone", Ability.Activated(Cost(listOf(CostPart.TapSelf)),
             steps(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!), restriction = ObjectFilter.Not(ObjectFilter.And(listOf(
                 ObjectFilter.Category(ObjectCategory.Spell), ObjectFilter.Not(ObjectFilter.Type(CardType.Artifact)))))), players = Players.You)),
-            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You), text = "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."))
         // fra: CR 111.10x: a red and green Heartwood artifact token with "{T}: Add {R} or {G}."
         "Heartwood" -> FaceDefinition("Heartwood Token", colorIndicator = listOf(Color.Red, Color.Green), types = listOf(CardType.Artifact),
             subtypes = listOf(Subtype("Heartwood")), abilities = listOf(Ability.Activated(Cost(listOf(CostPart.TapSelf)),
                 steps(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1), colors = listOf(ColorRef.Literal(Color.Red), ColorRef.Literal(Color.Green)))),
-                    players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))))
+                    players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You), text = "{T}: Add {R} or {G}.")))
         // tmt chunk 01: CR 111.10v: a Mutagen artifact token with "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target
         // creature. Activate only as a sorcery."
         "Mutagen" -> artifact("Mutagen", Ability.Activated(Cost(listOf(mana("{1}"), CostPart.TapSelf, sacrificeSelf)),
             Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))),
-            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You),
+            text = "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery."))
         // lci chunk 03: CR 111.10s: a Map artifact token with "{1}, {T}, Sacrifice this token: Target creature you control explores.
         // Activate only as a sorcery."
         "Map" -> artifact("Map", Ability.Activated(Cost(listOf(mana("{1}"), CostPart.TapSelf, sacrificeSelf)),
             Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
                 ObjectFilter.ControlledBy(PlayerFilter.You)))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.Action(KeywordAction.Explore(Objects.Target("creature")))))),
-            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You),
+            text = "{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery."))
         // eoe: CR 111.10u: a Lander artifact token with "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put
         // it onto the battlefield tapped, then shuffle."
         "Lander" -> artifact("Lander", Ability.Activated(Cost(listOf(mana("{2}"), CostPart.TapSelf, sacrificeSelf)), Instructions(steps = listOf(
             Step.Do(Effect.Search(Players.You, ObjectFilter.And(listOf(ObjectFilter.Super(Supertype.Basic), ObjectFilter.Type(CardType.Land))),
                 max = Value.Fixed(1), bind = "found", zones = listOf(Zone.Library), searcher = Players.You)),
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
-            Step.Do(Effect.Shuffle(Players.You)))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+            Step.Do(Effect.Shuffle(Players.You)))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+            text = "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."))
         // mom chunk 03: CR 111.10i: the front face of the double-faced Incubator token, a colorless Incubator artifact with
         // "{2}: Transform this token." (its back face is [back])
         "Incubator" -> artifact("Incubator", Ability.Activated(Cost(listOf(mana("{2}"))), steps(Effect.Transform(Objects.Self)),
-            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You), text = "{2}: Transform this token."))
         // woe chunk 01: the Role tokens, CR 111.10j–r: colorless Aura Role enchantment tokens named for their kind, with enchant creature;
         // CR 303.7a, 704.5z keeps only the newest Role a player controls on one permanent
-        "Cursed Role" -> role("Cursed", Mechanic.SetPowerToughness(Value.Fixed(1), Value.Fixed(1)))
-        "Monster Role" -> role("Monster", plusOne, Mechanic.GainAbilities(listOf(Keyword.Trample)))
-        "Royal Role" -> role("Royal", plusOne, Mechanic.GainAbilities(listOf(Keyword.Ward(Cost(listOf(mana("{1}")))))))
-        "Sorcerer Role" -> role("Sorcerer", plusOne, Mechanic.GainAbilities(listOf(Ability.Triggered(attacks, steps(Effect.Scry(Players.You, Value.Fixed(1)))))))
+        "Cursed Role" -> role("Cursed", "Enchanted creature has base power and toughness 1/1.", Mechanic.SetPowerToughness(Value.Fixed(1), Value.Fixed(1)))
+        "Monster Role" -> role("Monster", "Enchanted creature gets +1/+1 and has trample.", plusOne, Mechanic.GainAbilities(listOf(Keyword.Trample)))
+        "Royal Role" -> role("Royal", "Enchanted creature gets +1/+1 and has ward {1}.", plusOne, Mechanic.GainAbilities(listOf(Keyword.Ward(Cost(listOf(mana("{1}")))))))
+        "Sorcerer Role" -> role("Sorcerer", "Enchanted creature gets +1/+1 and has \"$SORCERER\"", plusOne,
+            Mechanic.GainAbilities(listOf(Ability.Triggered(attacks, steps(Effect.Scry(Players.You, Value.Fixed(1))), text = SORCERER))))
         "Virtuous Role" -> Value.Count(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Enchantment), ObjectFilter.ControlledBy(PlayerFilter.You)))))
-            .let { n -> role("Virtuous", Mechanic.ModifyPowerToughness(n, n)) }
+            .let { n -> role("Virtuous", "Enchanted creature gets +1/+1 for each enchantment you control.", Mechanic.ModifyPowerToughness(n, n)) }
         // "When this token is put into a graveyard from the battlefield, each opponent loses 1 life." (looks back in time, CR 603.10a)
-        "Wicked Role" -> role("Wicked", plusOne).let { f -> f.copy(abilities = f.abilities + Ability.Triggered(
+        "Wicked Role" -> role("Wicked", "Enchanted creature gets +1/+1.", plusOne).let { f -> f.copy(abilities = f.abilities + Ability.Triggered(
             Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)),
-            steps(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), Value.Fixed(1))))) }
+            steps(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), Value.Fixed(1))),
+            text = "When this token is put into a graveyard from the battlefield, each opponent loses 1 life.")) }
         // 'Enchanted creature has "Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it."' (CR 603.4)
-        "Young Hero Role" -> role("Young Hero", Mechanic.GainAbilities(listOf(Ability.Triggered(attacks,
+        "Young Hero Role" -> role("Young Hero", "Enchanted creature has \"$YOUNG_HERO\"", Mechanic.GainAbilities(listOf(Ability.Triggered(attacks,
             steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
-            interveningIf = Condition.Compare(Value.Of(NumericProperty.Toughness, Objects.Self, Combine.Single), Comparison.AtMost, Value.Fixed(3))))))
+            interveningIf = Condition.Compare(Value.Of(NumericProperty.Toughness, Objects.Self, Combine.Single), Comparison.AtMost, Value.Fixed(3)),
+            text = YOUNG_HERO))))
         else -> null
     }
 
@@ -97,10 +110,13 @@ object PredefinedTokens {
 
     private val plusOne = Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1))
     private val attacks = Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self)))
-    /** A Role token named [name] (CR 111.10j–r): enchant creature and one static ability giving the enchanted creature [mechanics]. */
-    private fun role(name: String, vararg mechanics: Mechanic) = FaceDefinition(name, colorIndicator = emptyList(), types = listOf(CardType.Enchantment),
+    private const val SORCERER = "Whenever this creature attacks, scry 1."
+    private const val YOUNG_HERO = "Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it."
+    /** A Role token named [name] (CR 111.10j–r): enchant creature and one static ability giving the enchanted creature [mechanics],
+     * which reads [text]. */
+    private fun role(name: String, text: String, vararg mechanics: Mechanic) = FaceDefinition(name, colorIndicator = emptyList(), types = listOf(CardType.Enchantment),
         subtypes = listOf(Subtype("Aura"), Subtype("Role")), abilities = listOf(Keyword.Enchant(TargetKind.Objects(ObjectFilter.Type(CardType.Creature))),
-            Ability.Static(mechanics.toList(), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))))
+            Ability.Static(mechanics.toList(), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)), text = text)))
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)

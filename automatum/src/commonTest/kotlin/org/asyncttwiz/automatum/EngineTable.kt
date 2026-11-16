@@ -55,17 +55,24 @@ internal class EngineTable {
 
     /** Puts cards named [names] into [player]'s [zone] (a library top first); returns their card ids. */
     fun put(player: String, zone: Zone, vararg names: String, tapped: Boolean = false): List<String> = names.map { name ->
-        val definition = Cards.definition(name)
-        val data = AtwTokens.submitted(definition, token = false)
+        add(player, zone, Cards.definition(name), token = false, tapped = tapped)
+    }
+
+    /** Puts a token made from the engine [definition] (a predefined token's, CR 111.10) onto [player]'s battlefield, with
+     * the card data the table makes of it ([AtwTokens.submitted]); returns its card id. */
+    fun putToken(player: String, definition: arcanum.api.CardDefinition): String = add(player, Zone.Battlefield, definition, token = true)
+
+    private fun add(player: String, zone: Zone, definition: arcanum.api.CardDefinition, token: Boolean, tapped: Boolean = false): String {
+        val data = AtwTokens.submitted(definition, token = token)
         submitted[data.digest] = data
         definitions[data.digest] = definition
         val id = ObjectId.Card(CardId("$player.${objects.size}"), 0)
         digests[id.card.value] = data.digest
         objects[id] = GameObject(id = id, owner = PlayerId(player), controller = PlayerId(player).takeIf { zone == Zone.Battlefield },
-            zone = zone, definition = definition, tapped = tapped, timestamp = ++clock,
+            zone = zone, definition = definition, tapped = tapped, timestamp = ++clock, token = token,
             controlSince = ControlSince(PlayerId(player), 0).takeIf { zone == Zone.Battlefield })
         zones.getOrPut(player to zone) { mutableListOf() } += id
-        id.card.value
+        return id.card.value
     }
 
     /** The engine object of the card [cardId] where it is. */

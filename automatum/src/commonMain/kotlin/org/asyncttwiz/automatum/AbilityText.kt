@@ -22,8 +22,9 @@ object AbilityText {
     /** [ability]'s printed text, its keyword's, or the words worked out from it ([of]); [area] names the caller in a report. */
     fun shown(ability: Ability, area: String): String = CastFlow.text(ability) ?: of(ability, area)
 
-    /** The words worked out for [ability], which has no text of its own. */
-    fun of(ability: Ability, area: String): String {
+    /** The words worked out for [ability], which has no text of its own; [details] (the card it is on, where it came from) go
+     * with the report of a stand-in. */
+    fun of(ability: Ability, area: String, details: Map<String, String> = emptyMap()): String {
         val cost = (ability as? Ability.Activated)?.cost?.let(::cost)?.takeIf { it.isNotEmpty() }
         if (ability.isManaAbility()) mana(ability)?.let { return listOfNotNull(cost, it).joinToString(": ") + "." }
         val kind = when {
@@ -34,7 +35,7 @@ object AbilityText {
             else -> "ability"
         }
         return Faults.placeholder(area, "$kind without text", cost?.let { "$it: …" } ?: kind.replaceFirstChar { it.uppercase() },
-            mapOf("ability" to ability.toString().take(300)))
+            details + ("ability" to ability.toString().take(300)))
     }
 
     /** A cost as printed: "{2}, {T}", "{T}, Sacrifice", "Pay 2 life". */

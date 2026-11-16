@@ -73,7 +73,7 @@ private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<
     // A station card's P/T box is part of its striation's ability (CR 722.2b, checked with the abilities), not the face's (CR 208.3)
     val pt = if (Keyword.Station in face.abilities) listOf(null, null) else listOf(printed.power, printed.toughness)
     assertEquals(pt + printed.loyalty, listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
-    assertEquals(expected, face.abilities.map(::withoutText), printed.name)
+    assertEquals(expected, face.abilities.mapIndexed { i, ability -> withoutTextUnstated(ability, expected.getOrNull(i)) }, printed.name)
     checkTexts(printed, face.abilities)
     checkSpans(printed.name, face.abilities)
     checkCostSpans(printed.name, face.abilities)
@@ -156,8 +156,33 @@ fun checkSpans(name: String, abilities: List<Ability>) {
     }
 }
 
-/** [ability] without its printed text, its modes' texts and the texts of the emblems it creates ([withoutEmblemTexts]). */
-fun withoutText(ability: Ability): Ability = withoutOwnText(withoutEmblemTexts(ability))
+/**
+ * [ability] without its own printed text and its modes' texts, and without what [expected] doesn't state of the abilities
+ * inside it (emblems', quoted ones: their texts and the places of their phrases), which [checkTexts] checks apart; what
+ * [expected] states of them is compared.
+ */
+private fun withoutTextUnstated(ability: Ability, expected: Ability?): Ability {
+    val own = withoutOwnText(ability)
+    if (expected == null || quoted(own).isEmpty()) return own
+    fun strip(actual: kotlinx.serialization.json.JsonElement, stated: kotlinx.serialization.json.JsonElement?): kotlinx.serialization.json.JsonElement =
+        when (actual) {
+            is kotlinx.serialization.json.JsonObject -> {
+                val e = stated as? kotlinx.serialization.json.JsonObject
+                kotlinx.serialization.json.JsonObject(actual.filterKeys { k ->
+                    val droppable = k == "span" || (k == "text" && texted(actual)) || (k == "spans" && "parts" in actual)
+                    !(droppable && e != null && k !in e)
+                }.mapValues { (k, v) -> strip(v, e?.get(k)) })
+            }
+            is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(actual.mapIndexed { i, v ->
+                strip(v, (stated as? kotlinx.serialization.json.JsonArray)?.getOrNull(i)) })
+            else -> actual
+        }
+    return definitionJson.decodeFromJsonElement(Ability.serializer(), strip(definitionJson.encodeToJsonElement(Ability.serializer(), own),
+        definitionJson.encodeToJsonElement(Ability.serializer(), expected)))
+}
+
+/** [ability] without its printed text, its modes' texts and the texts of the abilities inside it, emblems' and quoted ones ([withoutQuotedTexts]). */
+fun withoutText(ability: Ability): Ability = withoutOwnText(withoutQuotedTexts(ability))
 
 private fun withoutOwnText(ability: Ability): Ability = when (ability) {
     is Ability.Spell -> ability.copy(text = null, instructions = withoutText(ability.instructions))
@@ -215,20 +240,44 @@ private fun emblems(ability: Ability): List<kotlinx.serialization.json.JsonObjec
     return found
 }
 
-/** [ability] with the emblems it creates without their abilities' printed texts, which [checkTexts] checks apart. */
-private fun withoutEmblemTexts(ability: Ability): Ability {
-    if (emblems(ability).isEmpty()) return ability
-    fun strip(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+/** The serial names of the abilities that carry a printed text of their own. */
+private val TEXTED = setOf("spell", "activated", "triggered", "static", "special-action")
+
+/** Whether [e] is an ability that carries a printed text of its own ([TEXTED]). */
+private fun texted(e: kotlinx.serialization.json.JsonObject) =
+    (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content in TEXTED && ("instructions" in e || "mechanics" in e)
+
+/** The abilities inside [ability] (an emblem's, CR 114.2; a token's or a grant's quoted one, CR 113.1a, 111.4), through its
+ * JSON form (they sit at any depth of it). */
+private fun quoted(ability: Ability): List<kotlinx.serialization.json.JsonObject> {
+    val found = mutableListOf<kotlinx.serialization.json.JsonObject>()
+    fun walk(e: kotlinx.serialization.json.JsonElement, top: Boolean) {
+        when (e) {
+            is kotlinx.serialization.json.JsonObject -> {
+                if (!top && texted(e)) found += e
+                e.values.forEach { walk(it, false) }
+            }
+            is kotlinx.serialization.json.JsonArray -> e.forEach { walk(it, false) }
+            else -> {}
+        }
+    }
+    walk(definitionJson.encodeToJsonElement(Ability.serializer(), ability), true)
+    return found
+}
+
+/** [ability] with the abilities inside it (emblems', quoted ones: [quoted]) without their printed texts and the places of
+ * their phrases in them (target slots' and cost parts' spans), which [checkTexts] checks apart. */
+private fun withoutQuotedTexts(ability: Ability): Ability {
+    if (quoted(ability).isEmpty()) return ability
+    fun strip(e: kotlinx.serialization.json.JsonElement, top: Boolean): kotlinx.serialization.json.JsonElement = when (e) {
         is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(
-            if ((e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "emblem") e + ("abilities" to
-                kotlinx.serialization.json.JsonArray((e["abilities"] as kotlinx.serialization.json.JsonArray).map { a ->
-                    strip(kotlinx.serialization.json.JsonObject((a as kotlinx.serialization.json.JsonObject) - "text")) }))
-            else (e - "span").mapValues { strip(it.value) })
-        is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map(::strip))
+            (if (!top && texted(e)) e - "text" else e).let { o -> if ("parts" in o) o - "spans" else o }
+                .minus("span").mapValues { strip(it.value, false) })
+        is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { strip(it, false) })
         else -> e
     }
     return definitionJson.decodeFromJsonElement(Ability.serializer(),
-        strip(definitionJson.encodeToJsonElement(Ability.serializer(), ability)))
+        strip(definitionJson.encodeToJsonElement(Ability.serializer(), ability), true))
 }
 
 /**
@@ -246,6 +295,14 @@ private fun checkTexts(printed: OracleCard, abilities: List<Ability>) {
         // CR 114.3: an emblem of several abilities, 'with "[first]" and "[second]"'
         assertEquals(true, "emblem with \"$text\"" in printed.text || "\" and \"$text\"" in printed.text,
             "${printed.name}: emblem text \"$text\" isn't quoted on the card")
+    }
+    // CR 113.1a, 111.4 (owner fault 2PTQG5): an ability quoted inside another (a token's, a grant's) keeps words the card prints
+    // (an ability quoted inside a quoted one is in single quotes on the card, CR 113.1a)
+    val plain = printed.text.replace('\n', ' ').replace('\'', '"')
+    for (inner in abilities.flatMap(::quoted)) {
+        val text = (inner["text"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: continue
+        assertEquals(true, text.replace('\'', '"').removeSuffix(".").lines().all { it.trim().removeSuffix(".") in plain },
+            "${printed.name}: quoted ability text \"$text\" isn't words of the card")
     }
     abilities.forEach { ability ->
         val (text, instructions) = when (ability) {

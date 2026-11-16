@@ -274,13 +274,26 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     // ---- The keyboard (the desktop layout's, WEB-031): the page's keys as the browser hands them to the app
 
     private var keyTime = 0L
+    /** The modifier keys this player holds down on the page, which every key event carries as a browser's does. */
+    private val modifiersHeld = HashSet<String>()
 
-    /** The page's key [name] ("t", " ", "Alt", "?") goes down ([down]) or up, with [shift] / [ctrl] held; [at]: its time (ms,
-     * compared only with other keys'), else the phone's clock. Whether the app took it. */
-    fun key(name: String, down: Boolean, shift: Boolean = false, ctrl: Boolean = false, at: Long? = null): Boolean {
+    /** The page's key [name] ("t", " ", "Alt", "?") goes down ([down]) or up, with [shift] / [ctrl] held (and the modifiers
+     * held down before, as the browser says them); [textField]: a text field has the keyboard; [at]: its time (ms, compared
+     * only with other keys'), else the phone's clock. Whether the app took it. */
+    fun key(name: String, down: Boolean, shift: Boolean = false, ctrl: Boolean = false, at: Long? = null, textField: Boolean = false): Boolean {
         keyTime = at ?: maxOf(keyTime + 1, android.os.SystemClock.uptimeMillis())
-        return org.asyncttwiz.android.DesktopKeyboard.dispatch(org.asyncttwiz.android.DesktopKey(name, down, keyTime, shift = shift, ctrl = ctrl))
+        if (name in listOf("Alt", "Shift", "Control", "Meta")) { if (down) modifiersHeld += name else modifiersHeld -= name }
+        return org.asyncttwiz.android.DesktopKeyboard.dispatch(org.asyncttwiz.android.DesktopKey(name, down, keyTime,
+            alt = "Alt" in modifiersHeld, shift = shift || "Shift" in modifiersHeld, ctrl = ctrl || "Control" in modifiersHeld,
+            meta = "Meta" in modifiersHeld, textField = textField))
     }
+
+    /** WEB-025 (prod report 96PB2X): the key [name] is let go where the page never hears it (Alt+Tab to another window, the
+     * browser's own menu): no key-up reaches the app, and the browser's later events no longer carry it. */
+    fun keyUpLost(name: String) { modifiersHeld -= name }
+
+    /** WEB-025: the page's window loses the focus (or the page is hidden), as the browser tells it. */
+    fun windowLostFocus() = org.asyncttwiz.android.DesktopKeyboard.focusLost("the window lost the focus")
 
     /** The page's key [name] pressed and released (a tap of it), with [shift] / [ctrl] held. Not named `press`: a member
      * hides a test's own `E2ePlayer.press` extension (MoveColourTest's taps became keys nobody took). */

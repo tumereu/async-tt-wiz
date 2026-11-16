@@ -72,7 +72,9 @@ class TableGestureCoordinator(
     /** WEB-023 (§5): whether holding a card still inspects it (the phone); on the desktop table a held left button only
      * pauses the view, as Inspect is the finger key's (WEB-024). */
     var holdInspects: Boolean = true
-    private var fingerHeld = false
+    /** HIS-021: whether a finger (the desktop's left button) is held still on the table now ([onHeld] said true last). */
+    var fingerHeld = false
+        private set
     private fun held(now: Boolean) { if (now != fingerHeld) { fingerHeld = now; onHeld(now) } }
     /** The world this gesture navigates in: the scene's, with the open panel's room, holding a camera a closed panel
      * left beyond the usual bounds where it is until the gesture settles (D2). */

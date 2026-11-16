@@ -389,7 +389,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         val matches = KeyChord.holdOf(key) == chord
         when {
             matches && key.down && !key.repeat && !key.textField && !takingBack -> holdKey.press(key.key)
-            matches && !key.down -> holdKey.release("let go")
+            matches && !key.down -> holdKey.release(key.lost?.let { "let go ($it)" } ?: "let go")
             key.down && !key.repeat && !matches && holdKey.held -> holdKey.release("${key.key} pressed with it")
         }
         false

@@ -213,12 +213,36 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val card = fingerTargets.hovered ?: mouse.hovered?.let { item ->
             item.cardId ?: item.cards.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND } }
         val effects = if (key.down) fingerKey.press(key.key, card) else fingerKey.release(key.key)
-        if (effects.isNotEmpty()) AppLog.info("table", "Finger key ${key.key} ${if (key.down) "down" else "up"}${card?.let { " over $it" }.orEmpty()}: " +
+        // WEB-025 (prod report 96PB2X): a release the page never sent says why it came (the window lost the focus, a text field
+        // took the keyboard, a later event without the key held)
+        val how = if (key.down) "down" else key.lost?.let { "let go ($it)" } ?: "up"
+        if (effects.isNotEmpty()) AppLog.info("table", "Finger key ${key.key} $how${card?.let { " over $it" }.orEmpty()}: " +
             effects.joinToString { it.toString() })
         applyFinger(effects)
+        // A pause the finger key left on with nothing held any more (its key-up went to a table made before this one): a
+        // release of a finger key always ends it
+        if (!key.down && !fingerKey.held && currentViewPause?.key == true) {
+            AppLog.info("table", "Finger key ${key.key} $how: the pause it had left on ends (no finger key held here)")
+            currentViewPause?.key = false
+        }
         effects.isNotEmpty() || fingerKey.held
     }
     DisposableEffect(viewPause) { onDispose { viewPause?.key = false } }
+    // WEB-025: a finger key held as this table goes (the table made anew) leaves no pause on: the new one doesn't know it's held
+    DisposableEffect(fingerKey) { onDispose {
+        if (fingerKey.held && viewPause?.key == true) {
+            AppLog.info("table", "Finger key held as the table went: the pause it held ends")
+            viewPause.key = false
+        }
+    } }
+    // WEB-025, HIS-021: the left button held still on the table pauses the view; the window losing the focus lets it go (its
+    // button-up may never come)
+    DesktopKeyboard.OnFocusLost(desktopFrame != null) { why ->
+        if (coordinator.fingerHeld) {
+            AppLog.info("table", "Left button held on the table let go ($why): the pause it held ends")
+            coordinator.cancel()
+        }
+    }
     DisposableEffect(coordinator) { onDispose { coordinator.cancel() } }
     LaunchedEffect(coordinator) {
         // Tick only an active recognition window, not an always-running animation at an idle table.

@@ -253,6 +253,36 @@ class PlayShowTest {
         assertTrue(alices.openShows.isEmpty())
     }
 
+    // HIS-112, HIS-095 (prod reports 3LL6UZ, 3UQ9DY, 2026-11-16): while Bob's cast still shows on Alice's browser (and she
+    // paused its playback), her phone, the same account, plays on past it: the server moves her head on, and her browser
+    // follows it with the play shown done (the Warden left the Stack) and the pause ended, never left over a board past it
+    @Test
+    fun anotherDeviceOfTheirsGoingOnEndsTheShowAndThePause() {
+        val sim = sim()
+        sim.bobToMain()
+        sim.aliceLive()
+        sim.bobCasts(warden)
+        sim.settle()
+        val browser = sim.device(sim.alice)
+        val show = assertNotNull(browser.show)
+        assertTrue(browser.session.behind, "his later events wait on her browser")
+        browser.pausing = true
+        assertTrue(browser.pausing)
+        // Her phone, opened beside the browser, plays to the head and tells the server
+        val phone = sim.load(sim.alice)
+        sim.devices[sim.alice] = browser
+        phone.play()
+        phone.playToStop()
+        assertEquals(sim.server.head, phone.session.localHead, "her phone at the head")
+        sim.flushOther(sim.alice, phone)
+        sim.deliver(sim.alice)
+        assertEquals(sim.server.head, browser.session.localHead, "her browser followed the server")
+        assertTrue(show.entry !in browser.model.engine.stack, "the Warden left the Stack on her browser")
+        assertNull(browser.show, "the play shown done")
+        assertTrue(browser.openMoments.isEmpty(), "nothing holds her view")
+        assertTrue(!browser.pausing, "the pause ended")
+    }
+
     // HIS-112: turning the shows off closes the open one
     @Test
     fun turnedOffTheOpenShowCloses() {

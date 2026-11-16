@@ -1,6 +1,5 @@
 package org.asyncttwiz.e2e
 
-import android.os.SystemClock
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import arcanum.api.TurnStep
@@ -23,12 +22,12 @@ import kotlin.test.assertTrue
 class CombatAnimationTest : E2e() {
     private val pups = TestDeck("Pups", listOf(TestCards.mountain to 20, TestCards.pup to 20))
 
-    /** What a player's screen showed in one round: when (the phones' clock), where the other player's Mountain on their
-     * battlefield was drawn (it moves with that battlefield as the band opens and closes), whether any target chip was drawn
-     * and whether the band was open. */
+    /** What a player's screen showed in one round: when (the phones' frames' clock, [E2e.framesMillis]), where the other
+     * player's Mountain on their battlefield was drawn (it moves with that battlefield as the band opens and closes), whether
+     * any target chip was drawn and whether the band was open. */
     private class Sample(val at: Long, val otherTop: Float, val chips: Boolean, val open: Boolean)
 
-    private fun E2ePlayer.sample(other: E2ePlayer) = Sample(SystemClock.uptimeMillis(),
+    private fun E2ePlayer.sample(other: E2ePlayer) = Sample(framesMillis(),
         nodes(hasContentDescription("Mountain, owner ${other.name}, ", substring = true)).fetchSemanticsNodes()
             .first().boundsInRoot.top,
         shows(hasTestTag("combat-target-chip")), bandOpen())
@@ -117,9 +116,10 @@ class CombatAnimationTest : E2e() {
                 alice.state.turn.step == TurnStep.PostcombatMain && alice.shown.combatHold == null && bob.shown.combatHold == null &&
                     bob.state.turn.step == TurnStep.PostcombatMain && alice.settled(this) && bob.settled(this)
             }
-            // What the close animates has time to play out
-            val end = SystemClock.uptimeMillis() + 1500
-            while (SystemClock.uptimeMillis() < end) { run(); java.util.concurrent.locks.LockSupport.parkNanos(2_000_000) }
+            // What the close animates has time to play out, by the frames' clock (the defender's band closes in the very board
+            // that ends the wait above; the main thread's clock runs far ahead of the frames here, E2e.framesMillis)
+            val end = framesMillis() + 1500
+            while (framesMillis() < end) { run(); java.util.concurrent.locks.LockSupport.parkNanos(2_000_000) }
             everyRun.clear()
             assertEquals(life - 1, alice.state.player(bob.me).life, "the damage dealt")
             assertEquals(emptyList(), synchronized(made) { made.toList() }, "no table made anew during the combat")

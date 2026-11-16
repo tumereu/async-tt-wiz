@@ -417,28 +417,11 @@ private fun FlowPayBar(flows: SharedFlowController, flow: SharedShown, play: Tab
 @Composable
 private fun FlowTargetBar(flows: SharedFlowController, flow: SharedShown, play: TableBoard, pick: TablePick,
     source: ChoiceCardData?, names: Map<String, String>) {
-    val decision = pick.decision
-    val inspector = remember(decision.id) { ChoiceInspector() }
     // D1: a choice of battlefield permanents (an edict's sacrifice, "choose a creature") is picked as targets are
-    AutomatumDockBar(pick.description, eye = true) {
-        // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
-        val pieces = flows.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, LocalChoiceFrame.current.viewer, names) }
-        TargetBarTitle(pick.title, askedLine(flows, flow, play, decision, source), pickCount(pick, flows.picked.size), pieces)
-        // TRN-063 (owner playtest 2026-11-09): Done (None) is the main button
-        if (pick.max != 1 || pick.min == 0) {
-            val none = flows.picked.isEmpty()
-            val onMain = MainButtonAction(MainAction(if (none) "None" else "Done", if (none) Icons.Outlined.Block else Icons.Outlined.Check,
-                refusal = PICK_INCOMPLETE.takeIf { !flows.pickDone }, tooltip = pick.title) {
-                AppLog.info("decision", "${if (none) "None" else "Done"} on the main button: ${flows.picked.size} picked for ${decision.id.value}")
-                flows.confirmTargets()
-            })
-            if (!onMain) BarButton(if (none) "None" else "Done", if (none) Icons.Outlined.Block else Icons.Outlined.Check,
-                enabled = flows.pickDone, onClick = flows::confirmTargets)
-        }
-        if (source != null) ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
-        ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
-    }
+    // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
+    val pieces = flows.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, LocalChoiceFrame.current.viewer, names) }
+    TablePickBar(pick, askedLine(flows, flow, play, pick.decision, source), pieces, flows.picked.size, flows.pickDone, flows::confirmTargets,
+        source, play, "decision")
 }
 
 // ---- Words

@@ -2458,6 +2458,33 @@
      "toughness": "1"
     },
     {
+     "uuid": "24568da3-ef46-39ec-9769-8201d306495e",
+     "name": "Ember Quarrel",
+     "setCode": "E2E",
+     "number": "67",
+     "language": "English",
+     "layout": "normal",
+     "type": "Sorcery",
+     "colors": [],
+     "colorIdentity": [],
+     "rarity": "common",
+     "availability": [
+      "paper"
+     ],
+     "legalities": {
+      "commander": "Legal",
+      "legacy": "Legal",
+      "modern": "Legal",
+      "vintage": "Legal",
+      "pauper": "Not Legal"
+     },
+     "identifiers": {
+      "scryfallOracleId": "fb07e040-e7d1-37d1-91f8-2fd74a0cd529"
+     },
+     "manaCost": "{0}",
+     "text": "Gift a tapped Fish (You may promise an opponent a gift as you cast this spell. If you do, they create a tapped 1/1 blue Fish creature token before its other effects.)\nChoose target creature you control and target creature you don't control. Put a +1/+1 counter on the creature you control if the gift was promised. Then those creatures fight each other."
+    },
+    {
      "uuid": "34738590-bd3e-3e79-94fe-317f15013634",
      "name": "Ember Racer",
      "setCode": "E2E",

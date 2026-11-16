@@ -249,7 +249,11 @@ data class PickText(val parts: List<Part>, val roles: List<Pair<TargetRef, Strin
                 return when (what) {
                     is Announced.Spell -> {
                         val abilities = abilitiesOf(what.card)
-                        val spell = abilities.firstNotNullOfOrNull { it.ability as? Ability.Spell }
+                        // The spell ability printed as its text: a keyword may add one of its own before it, without words (gift's
+                        // "they get the gift before its other effects", CR 702.174j; owner, prod 0.2.0: a gift spell's two targets
+                        // were picked with no phrase highlighted, the gift's wordless ability taken for the spell's text)
+                        val spells = abilities.mapNotNull { it.ability as? Ability.Spell }
+                        val spell = spells.firstOrNull { !it.text.isNullOrBlank() } ?: spells.firstOrNull()
                         What(spell?.text?.takeIf { it.isNotBlank() }, spell?.instructions, null, null, abilities, rulesText)
                     }
                     is Announced.Ability -> ability(what.ability, what.origin, abilitiesOf(what.source), rulesText)

@@ -291,6 +291,11 @@ object TestCards {
     val vigil = card("Ember Vigil", "Creature — Vampire", "{0}", "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.", "0", "1")
     /** Free Equipment whose equip cost sacrifices a creature (owner, 2026-11-11: which pick is which, the target or the sacrifice). */
     val hauberk = card("Ember Hauberk", "Artifact — Equipment", "{0}", "Equipped creature gets +4/+2.\nEquip—Sacrifice a creature.")
+    /** A free gift sorcery with two targets in one sentence (owner, prod 0.2.0: picking its targets highlighted no phrase, STK-047). */
+    val quarrel = card("Ember Quarrel", "Sorcery", "{0}", "Gift a tapped Fish (You may promise an opponent a gift as you cast this spell. " +
+        "If you do, they create a tapped 1/1 blue Fish creature token before its other effects.)\nChoose target creature you control and " +
+        "target creature you don't control. Put a +1/+1 counter on the creature you control if the gift was promised. Then those " +
+        "creatures fight each other.")
     /** A free enchantment whose trigger begins its controller's upkeep (no input before it in the step). */
     val chime = card("Ember Chime", "Enchantment", "{0}", "At the beginning of your upkeep, you gain 1 life.")
     /** Owner playtest 2026-11-15 ("you may pay" asked before its trigger reached the Stack): its trigger goes on the Stack in its

@@ -23,10 +23,12 @@ while read -r old new ref; do
 EOF
         continue
     fi
-    cat >&2 <<EOF
+    cat >&2 <<'EOF'
 Refused: master moves only through the merge gate, which tests the merge first:
     scripts/merge-gate.sh <branch>
 Commit on a branch and gate it (docs-only changes take about a minute). Emergency only: ATW_MASTER_OVERRIDE=1.
+A refused merge or fast-forward leaves its changes in this checkout: undo them with `git merge --abort` (a merge) or
+`git reset --merge` (a fast-forward); both keep your own uncommitted changes. A refused commit leaves them staged.
 EOF
     status=1
 done

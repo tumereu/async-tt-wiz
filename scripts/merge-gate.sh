@@ -144,7 +144,7 @@ stage() { # stage <name> <gradle arguments...>
     [ $rc = 0 ] && return 0
     {
         echo "---- $out (failed tests and Gradle's reason; the whole log is there)"
-        grep -E ' FAILED$|^[A-Za-z].*Test > .* FAILED|^\* What went wrong|^e: |^> ' "$out" | head -40
+        grep -E ' FAILED$|^e: ' "$out" | grep -v '^> Task' | head -40
         sed -n '/^\* What went wrong:/,/^\* Try:/p' "$out" | head -30
         [ "$name" = e2e ] && echo "e2e failure screens and app logs: $wt/e2e/build/e2e/failures/"
     } | tee -a "$log"

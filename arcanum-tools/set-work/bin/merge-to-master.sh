@@ -12,10 +12,10 @@
 #                                       compiles already): in the gate, the parser and engine Wasm compiles
 # After merging, set/<code> is fast-forwarded to the merge (its tree is master's) and the base snapshot is retaken from
 # it, so the next chunk's comparison shows only its changes.
-# Run from the set's worktree root. Exit 0 merged; 2 usage or setup; 3 master or its checkout not ready (retry in a few minutes); 4 conflict
-# with master (resolve it through sync-master.sh, rerun set-tests.sh --full, or the close checks in full mode, then run
-# this again); 5 checks failed on the merge (fix them on the branch; the gate's log names them); 1 merged, but the
-# snapshot failed (sync-master.sh retakes it).
+# Run from the set's worktree root. Exit 0 merged; 2 usage or setup; 3 master or its checkout not ready (retry in a few
+# minutes); 4 conflict with master (resolve it through sync-master.sh, rerun set-tests.sh --full, or the close checks in
+# full mode, then run this again); 5 checks failed on the merge (fix them on the branch; the gate's log names them);
+# 1 merged, but the snapshot failed (sync-master.sh retakes it).
 set -u
 mode=full
 case "$#:${2:-}" in 1:) ;; 2:--chunk) mode=chunk ;; *) echo "Usage: merge-to-master.sh <code> [--chunk]" >&2; exit 2 ;; esac

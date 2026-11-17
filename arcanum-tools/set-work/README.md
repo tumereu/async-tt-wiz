@@ -143,8 +143,9 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
     - Accept: every check green, every changed supported card named with a reason, nothing left in `fixes.md`. Then merge
       `set/<code>` to master by the project's merge rule (here: sets merge as soon as they are accepted) with
       `bin/merge-to-master.sh <code>` (in `<wt>`; it also runs `:automatum:jvmTest` and the parser and engine Wasm tests,
-      then merges through the merge gate, which reruns the set's checks and the app's on the merge with master). Write `<plan>/DONE` (one line: merge
-      commit, date, set, card counts; `set-tests.sh` stops watching the set's cards) and remove the worktree.
+      then merges through the merge gate, which reruns the set's checks and the app's on the merge with master). Write
+      `<plan>/DONE` (one line: merge commit, date, set, card counts; `set-tests.sh` stops watching the set's cards) and
+      remove the worktree.
 
 ## While it runs
 - **Time.** A chunk takes 10-80 minutes: test-only chunks about 10-25, heavy parser chunks 45-80. A 300-card set takes

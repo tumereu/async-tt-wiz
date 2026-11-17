@@ -15,9 +15,9 @@ import kotlin.test.assertTrue
 /**
  * Owner problem report WDKHSB (2026-11-07): catch-up playback stopped at the other player's spell where the player could
  * not respond; toggling playback's Control on and off made it go on by itself. The data showed his response mode was
- * Normal (which stops at the other player's spells and abilities, STK-036), while the toggle's off set Quick. Owner
+ * Normal (which stops at the other player's spells and abilities, STK-036, STK-171, STK-173), while the toggle's off set Quick. Owner
  * decisions: a new response mode applies only from the next point on (the stop the player stands at stays until they
- * answer it, live and in playback alike), and playback's mode cell is live play's (TRN-059).
+ * answer it, live and in playback alike), and playback's mode cell is live play's (TRN-059, TRN-121).
  *
  * The game mirrors the report's shapes with invented cards: Alice holds only lands (nothing she could do); Bob casts a
  * free artifact creature and then activates its "Sacrifice this creature: Draw a card." ability.
@@ -67,7 +67,7 @@ class ModeChangeAtStopTest {
         return sim
     }
 
-    // STK-036, HIS-095, SYS-063 (report WDKHSB): at the other player's spell and at their activated ability on top of the
+    // STK-036, STK-171, STK-172, HIS-095, SYS-063 (report WDKHSB): at the other player's spell and at their activated ability on top of the
     // Stack, a player holding only lands (no card they could cast, no ability that does anything) is stopped by Normal
     // (their pause) and not by Quick (judged on their own hand: nothing they could respond with)
     @Test
@@ -91,7 +91,7 @@ class ModeChangeAtStopTest {
         assertEquals(true to false, judged(), "Bob's ability: Normal stops, Quick passes")
     }
 
-    // STK-036, TRN-059 (owner 2026-11-07, report WDKHSB): in live play Alice, in Normal, stands at her stop at Bob's spell;
+    // STK-036, STK-173, TRN-059 (owner 2026-11-07, report WDKHSB): in live play Alice, in Normal, stands at her stop at Bob's spell;
     // she switches to Quick, which would pass there: the stop stays until she answers it (her phone passes nothing by
     // itself, and Bob's assumption of her pass, made now that her Quick would pass, stops her table as well); the next
     // point, Bob's ability, follows Quick: her phone passes by itself

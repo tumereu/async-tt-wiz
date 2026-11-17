@@ -147,7 +147,7 @@ class EngineSharedStagingTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // CMB-043 (follow-up to problem reports WCRF3Q, R8XVPA): a block declared at Bob's stop at Alice's "Assume no blockers"
+    // CMB-043, CMB-081 (follow-up to problem reports WCRF3Q, R8XVPA): a block declared at Bob's stop at Alice's "Assume no blockers"
     // (another answer: a branch) ends the shared block staging with it, so no staging is left for a later combat
     @Test fun aBlockDeclaredAtAStopEndsTheStaging() {
         val blocks = blockStaged()
@@ -160,7 +160,7 @@ class EngineSharedStagingTest {
         assertTrue(sim.line().any { e -> e.engine?.steps.orEmpty().any { it.input == block } }, "his block is on the main line")
     }
 
-    // CMB-043 (follow-up to problem reports WCRF3Q, R8XVPA): no blockers declared at that stop (confirming Alice's
+    // CMB-043, CMB-081 (follow-up to problem reports WCRF3Q, R8XVPA): no blockers declared at that stop (confirming Alice's
     // assumption) also ends the staging, in an event of its own after the confirmation
     @Test fun noBlockersDeclaredAtAStopEndsTheStaging() {
         blockStaged()

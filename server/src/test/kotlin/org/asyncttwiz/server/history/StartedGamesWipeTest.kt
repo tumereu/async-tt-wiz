@@ -17,14 +17,14 @@ class StartedGamesWipeTest {
         w.runtime.transaction { connection -> connection.createStatement().use { it.execute(text) } }
     }
 
-    // LOB-133: started games go, a list read since before learns it for both players; a game that never started stays, a
+    // LOB-133, LOB-182: started games go, a list read since before learns it for both players; a game that never started stays, a
     // finished match's record stays, and a match in play leaves none
     @Test fun `V74 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V74)
 
-    // LOB-133: the same for the engine API rework's wipe
+    // LOB-133, LOB-182: the same for the engine API rework's wipe
     @Test fun `V85 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V85)
 
-    // LOB-133, HIS-042, HIS-192: the same for the per-player random streams' wipe (owner 2026-11-15)
+    // LOB-133, LOB-182, HIS-042, HIS-192: the same for the per-player random streams' wipe (owner 2026-11-15)
     @Test fun `V89 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V89)
 
     private fun removesStartedGames(migration: String) = HistoryWorld.run { w ->

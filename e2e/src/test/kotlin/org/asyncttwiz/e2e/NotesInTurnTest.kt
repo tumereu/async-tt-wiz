@@ -13,7 +13,7 @@ class NotesInTurnTest : E2e() {
     private val branched = "responded"
     private val notTaken = "That wasn't taken"
 
-    // SYS-078, HIS-097, SYS-012: Alice plays on while Bob is away; Bob comes back and answers her Herald with an Idle
+    // SYS-078, HIS-097, SYS-012, SYS-138: Alice plays on while Bob is away; Bob comes back and answers her Herald with an Idle
     // Glimmer (a branch) while her pass on the line he discarded is on its way to the server, which refuses it: her table
     // tells the branch first and keeps it shown, then "That wasn't taken" (before, the second replaced the first at once)
     @Test fun aBranchNoteThenARefusalShowOneAfterTheOther() {

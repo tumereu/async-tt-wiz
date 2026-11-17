@@ -17,7 +17,7 @@ class DamageDivisionTest : E2e() {
     /**
      * Taps [player]'s main button while it passes or goes on (also at a stop at an assumption about them, HIS-095), once
      * their game has [settled]: until then a board their own pass shows may still be taken back by the other device's
-     * assumption about them winning the race to the server (HIS-096), and a tap on it isn't taken (SYS-012).
+     * assumption about them winning the race to the server (HIS-096), and a tap on it isn't taken (SYS-012, SYS-138).
      */
     private fun goOn(player: E2ePlayer) {
         if (!player.settled(this)) return
@@ -27,7 +27,7 @@ class DamageDivisionTest : E2e() {
         }
     }
 
-    // CMB-033, STK-033, CR 702.19b
+    // CMB-033, CMB-093, STK-033, STK-101, CR 702.19b
     @Test fun aTrampleDivisionIsMadeInThePanelWithWhatTramplesOver() {
         startGame(TestDeck("Brutes", listOf(TestCards.mountain to 20, TestCards.brute to 20)),
             TestDeck("Pups", listOf(TestCards.mountain to 10, TestCards.pup to 30)),
@@ -64,7 +64,7 @@ class DamageDivisionTest : E2e() {
             waitUntil("Pup ${n + 1} blocking") { bob.stepArrow() == "Block (${n + 1})" }
         }
         bob.declare("Block (3)", this)
-        // CMB-033: Alice's division opens attached to the band: a row per Pup (lethal 1 each in turn: two red, one grey)
+        // CMB-033, CMB-092, CMB-093: Alice's division opens attached to the band: a row per Pup (lethal 1 each in turn: two red, one grey)
         // and what tramples over to Bob on the bottom line
         // Once the game has settled: after Bob's blocks the point is his (HIS-096, HIS-175), so his phone assumes Alice's pass at once
         // while her own device passes too; when his assumption reaches the server first, her board (with the division

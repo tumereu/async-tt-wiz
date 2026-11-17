@@ -63,7 +63,7 @@ class TableAnimationTest {
                 assertTrue(animation.retarget(target, 1f))
                 fun at(millis: Float) = animation.frame(millis / animation.durationMillis).single { it.item.cardId == survivor }
                 assertEquals(start, at(0f).bounds)
-                // ZON-001: measured at the centre, as the other player's fanned cards turn as they slide
+                // ZON-001, ZON-125: measured at the centre, as the other player's fanned cards turn as they slide
                 assertEquals(start.center.x + (end.center.x - start.center.x) * .75f, at(110f).bounds.center.x, .001f)
                 assertNotEquals(end, at(200f).bounds)
                 assertEquals(end, at(220f).bounds)
@@ -189,10 +189,10 @@ class TableAnimationTest {
         }
     }
 
-    // TBL-002
+    // TBL-002, TBL-143
     @Test fun adjacentGroupsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
         // Three different cards, each a group of its own one slot apart (the upper band's row nearest the middle from the right,
-        // the first rightmost; the 2nd and 4th cards lie behind them, TBL-004); tapping never moves a group
+        // the first rightmost; the 2nd and 4th cards lie behind them, TBL-004, TBL-140); tapping never moves a group
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f)) {
                 val initial = TableFixture.apart(TableFixture.play(board = 5))
                 fun scene(mask: Int): TableScene {
@@ -237,7 +237,7 @@ class TableAnimationTest {
         stackEffects = ids.map { StackEffect(it, source) }, containers = state.board.containers.map {
             if (it.zone == PlayZone.STACK) it.copy(cards = ids) else it }))
 
-    // STK-006
+    // STK-006, STK-120
     @Test fun stackGhostFliesFromRealCardAndBackWithUndoRedoWithoutMovingRealDrawing() {
         for (landscape in listOf(false, true)) for (zone in listOf(PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.BATTLEFIELD)) {
             val sourceId = "a/HAND/0"

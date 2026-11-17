@@ -14,7 +14,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 
 /**
- * STK-024 (owner playtest 2026-11-09): a tap on a source adds it with its sensible way (the first, in the order serving what the
+ * STK-024, STK-159, STK-161 (owner playtest 2026-11-09): a tap on a source adds it with its sensible way (the first, in the order serving what the
  * spell cares about in colours, after which the rest can still be paid), or takes it out; a way chosen with its corner chip is
  * kept exactly. Here the engine is a stand-in: a cost of {W}{U} paid by a Ford ({W} or {U}) and a Plains.
  */

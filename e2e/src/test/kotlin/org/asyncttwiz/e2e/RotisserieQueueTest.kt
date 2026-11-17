@@ -10,9 +10,9 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import java.util.UUID
 
-/** Rotisserie pick queue (DRF-164): queued cards are taken when your turn comes; a queued card taken by another clears it. */
+/** Rotisserie pick queue (DRF-164, DRF-217, DRF-218): queued cards are taken when your turn comes; a queued card taken by another clears it. */
 class RotisserieQueueTest : E2e() {
-    // DRF-164, DRF-153: the waiting player queues four cards on the phone; when their two picks in a row come, the first
+    // DRF-164, DRF-217, DRF-218, DRF-153: the waiting player queues four cards on the phone; when their two picks in a row come, the first
     // two queued cards are taken at once and the rest stays queued; the other player then takes a queued card, which
     // clears the queue with a note, and the next turn waits for the queue's owner
     @Test fun queuedCardsAreTakenWhenTheTurnComesAndATakenOneClearsTheQueue() {

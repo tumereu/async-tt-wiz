@@ -24,7 +24,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * ZON-079, ZON-080, TBL-117, TBL-128 (owner, 2026-11-12) on Alice's table: a card with an ability she may use from her graveyard
+ * ZON-079, ZON-105, ZON-107, ZON-080, TBL-117, TBL-128 (owner, 2026-11-12) on Alice's table: a card with an ability she may use from her graveyard
  * (unearth; "{R}: Return this card from your graveyard to your hand") is in her hand row as a card she may cast is, and behaves
  * as a hand card: it glows while one of its uses can be done now, a tap raises it with its chips (one per cast way and ability,
  * greyed when not usable now) and never shakes while it glows.
@@ -62,7 +62,7 @@ class HandRowOffZoneAbilitiesTest {
 
     private fun graveyard(): List<String> = kit.state().player(kit.me).graveyard.map(kit::atw)
 
-    // ZON-079, CR 702.84a: Alice casts her free Ember Ghoul and sacrifices it; in her graveyard it is in her hand row, glowing
+    // ZON-079, ZON-105, ZON-107, CR 702.84a: Alice casts her free Ember Ghoul and sacrifices it; in her graveyard it is in her hand row, glowing
     // with her untapped Mountain (TBL-117); a tap raises it with its one chip, "Unearth {R}", and the chip unearths it
     @Test fun anUnearthCardIsUsedFromTheHandRow() {
         kit.opening()
@@ -84,7 +84,7 @@ class HandRowOffZoneAbilitiesTest {
         assertNull(kit.scene().items.firstOrNull { it.id == "handRow/$ghoul" }, "on the battlefield: out of the hand row")
     }
 
-    // ZON-079, ZON-080, TBL-128, CR 702.34a: Alice's free Ember Reprise in her graveyard, one Mountain untapped: its flashback
+    // ZON-079, ZON-107, ZON-080, TBL-128, CR 702.34a: Alice's free Ember Reprise in her graveyard, one Mountain untapped: its flashback
     // {R}{R} can't be paid but its "{R}: Return this card from your graveyard to your hand" can; it glows, a tap raises it
     // without a shake, with a greyed Flashback chip and a live ability chip, which returns it to her hand
     @Test fun aCardItCantBeCastButWhoseAbilityCanBeUsedGlowsAndRaises() {
@@ -109,7 +109,7 @@ class HandRowOffZoneAbilitiesTest {
         assertTrue(kit.alice.play().board.cards.single { it.id == mountain }.tapped, "Autotap tapped the Mountain")
     }
 
-    // ZON-079, TBL-128: with no Mountain the Ghoul in her graveyard is still in her hand row, dull, and a tap only shakes it
+    // ZON-079, ZON-107, TBL-128: with no Mountain the Ghoul in her graveyard is still in her hand row, dull, and a tap only shakes it
     @Test fun withNothingUsableNowItShowsDullAndShakes() {
         kit.opening()
         val ghoul = kit.atw(kit.hand(Choices.GHOUL).first())

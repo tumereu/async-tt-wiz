@@ -24,7 +24,7 @@ class CardListSupportTest {
         parserVersion = 21, engineVersion = 3)
     private fun submitted(vararg definitions: CardDefinition) = definitions.map { SubmittedDefinition(DeckJson.digest(it), it) }
 
-    // LOB-115: the cards whose printings the card catalog doesn't mark as supported, and a card without a printing
+    // LOB-115, LOB-221: the cards whose printings the card catalog doesn't mark as supported, and a card without a printing
     @Test fun aListNamesItsCardsTheCatalogDoesntSupport() {
         assertEquals(CardListSupport(21, engineVersion = 3), check.support(submitted(plain)))
         assertEquals(CardListSupport(21, listOf("Banded Cub", "Broken Cub", "Odd Cub"), 3), check.support(submitted(plain, odd, banded, unreadable)))

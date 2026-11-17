@@ -62,7 +62,7 @@ class EngineTableGesturesTest {
         }
     }
 
-    // ZON-004, TBL-044: double-tapping a hand card plays it through Automatum (a land onto the battlefield,
+    // ZON-004, ZON-104, TBL-044: double-tapping a hand card plays it through Automatum (a land onto the battlefield,
     // untapped); a hand card is never turned
     @Test fun aHandDoubleTapPlaysThroughAutomatumAndNeverTaps() {
         kit.opening()
@@ -76,7 +76,7 @@ class EngineTableGesturesTest {
         assertEquals(kit.scenario.sim.head, kit.alice.device.session.head, "through Automatum: the server took the land")
     }
 
-    // ZON-078, ZON-093, TBL-118: the other player's library whose top card Automatum offers nothing for shakes on a
+    // ZON-078, ZON-130, ZON-093, TBL-118: the other player's library whose top card Automatum offers nothing for shakes on a
     // tap and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; ZON-033: an empty Graveyard shakes
     @Test fun aLibraryTapShakesAndADoubleTapDrawsNothing() {
         kit.opening()
@@ -101,7 +101,7 @@ class EngineTableGesturesTest {
         assertNull(toolkit.panel, "no menu")
     }
 
-    // ZON-077, ZON-004: a hand card dragged onto the Battlefield is played as with a double-tap; a drag that starts on a
+    // ZON-077, ZON-134, ZON-004: a hand card dragged onto the Battlefield is played as with a double-tap; a drag that starts on a
     // Battlefield card (toward the Graveyard) pans the table: nothing is lifted, said or sent
     @Test fun aDragIsWhatItMeansToAutomatum() {
         kit.opening()
@@ -125,7 +125,7 @@ class EngineTableGesturesTest {
         assertTrue(land in kit.field("Mountain").map(kit::atw))
     }
 
-    // SYS-012, SYS-069 (owner, 2026-11-08): a refusal of Alice's own action shakes the card it was made on, without a
+    // SYS-012, SYS-139, SYS-069 (owner, 2026-11-08): a refusal of Alice's own action shakes the card it was made on, without a
     // message; one made on the main button (or on a card the table doesn't show) shakes the main button
     @Test fun aRefusalShakesWhatItWasMadeOn() {
         kit.opening()
@@ -139,7 +139,7 @@ class EngineTableGesturesTest {
         assertNull(toolkit.error, "no message")
     }
 
-    // ZON-079, TBL-118: a tap raises a hand card Automatum lets Alice cast, with the Mountain Autotap would tap
+    // ZON-079, ZON-101, ZON-103, ZON-102, TBL-118: a tap raises a hand card Automatum lets Alice cast, with the Mountain Autotap would tap
     // outlined; a tap elsewhere lowers it; the raised card's second tap casts it; a card she can't cast now only shakes
     @Test fun aTapRaisesAHandCardAndItsSecondTapCastsIt() {
         kit.opening()
@@ -162,7 +162,7 @@ class EngineTableGesturesTest {
         assertNull(toolkit.hand.raised)
     }
 
-    // TBL-122, TBL-120: one tap on an untapped Mountain adds {R} to Alice's pool at once (no menu, she keeps priority);
+    // TBL-122, TBL-155, TBL-120: one tap on an untapped Mountain adds {R} to Alice's pool at once (no menu, she keeps priority);
     // a tap on a tapped Mountain opens its menu
     @Test fun oneTapActivatesAManaAbility() {
         kit.opening()
@@ -177,7 +177,7 @@ class EngineTableGesturesTest {
         assertNotNull(toolkit.capture, "the tapped Mountain opens its menu")
     }
 
-    // TBL-117: the cards Alice can do something with now glow: Storm Spark with a Mountain untapped; a land whose only use
+    // TBL-117, TBL-171: the cards Alice can do something with now glow: Storm Spark with a Mountain untapped; a land whose only use
     // is its mana ability doesn't, Bob's cards never do; nothing glows during the opening or on the timeline
     @Test fun playableCardsGlow() {
         assertEquals(emptySet(), toolkit.playable(kit.alice.play()), "nothing glows during the opening")
@@ -193,7 +193,7 @@ class EngineTableGesturesTest {
         assertEquals(emptySet(), toolkit.playable(kit.alice.play()), "nothing glows on the timeline")
     }
 
-    // CMB-001, CMB-028: the combat area appears when an attacker is staged for Automatum's declaration and Automatum closes
+    // CMB-001, CMB-053, CMB-028: the combat area appears when an attacker is staged for Automatum's declaration and Automatum closes
     // it when combat is over; nobody opens or closes it by hand
     @Test fun theCombatAreaOpensForStagingAndAutomatumClosesIt() {
         val cub = kit.toReadyCub()

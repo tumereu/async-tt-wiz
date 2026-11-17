@@ -27,7 +27,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** STK-024 (owner notes 2026-11-14): mana from a source whose cost uses other cards is produced on the board, never chosen by name. */
+/** STK-024, STK-162 (owner notes 2026-11-14): mana from a source whose cost uses other cards is produced on the board, never chosen by name. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -59,7 +59,7 @@ class BoardManaTest {
 
     private fun refresh() { version++; compose.waitForIdle() }
 
-    // STK-024 (owner notes 2026-11-14): with no payment chosen for her (Autotap off), Alice's Blue Note ({U}) with her Hearth Elders
+    // STK-024, STK-162, STK-163 (owner notes 2026-11-14): with no payment chosen for her (Autotap off), Alice's Blue Note ({U}) with her Hearth Elders
     // ("Tap two untapped creatures you control: Add one mana of any color.") and Ash Pups out: the cast panel offers no chip naming
     // the Elders or the creatures its cost taps; it says "Still owed {U}: produce the mana on the board."; a tap on the Elders on the
     // table pays it and Cast is enabled

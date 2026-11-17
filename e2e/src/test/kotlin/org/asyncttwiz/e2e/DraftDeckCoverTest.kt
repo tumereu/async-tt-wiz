@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 
 /** A draft deck's cover: chosen in Build, kept by the server, on the draft deck once submitted. */
 class DraftDeckCoverTest : E2e() {
-    // DRF-166, LOB-058: Alice taps the thumbnail beside the deck's name in Build and picks a card that isn't the default; the
+    // DRF-166, DRF-229, LOB-058: Alice taps the thumbnail beside the deck's name in Build and picks a card that isn't the default; the
     // server keeps it, her submitted draft deck has it, and a later choice in Build reaches the draft deck too
     @Test fun aCoverChosenInBuildGoesToTheDraftDeck() {
         launchPlayers()

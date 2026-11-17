@@ -19,7 +19,7 @@ class ReplacementOrderTest : E2e() {
     private val mindtrap = "Replacement: If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards."
     private val amplifier = "Replacement: If a source you control would deal damage to a permanent or player, it deals double that damage instead."
 
-    // STK-030, CR 616.1, 616.1e: the affected player orders the effects; the order taken is the list's
+    // STK-030, STK-183, STK-184, CR 616.1, 616.1e: the affected player orders the effects; the order taken is the list's
     @Test fun theAffectedPlayerOrdersTheReplacements() {
         val deck = TestDeck("Traps", listOf(TestCards.mountain to 16, TestCards.amplifier to 8, TestCards.mindtrap to 8, TestCards.spark to 8))
         startGame(deck, deal = { a, _ -> listOf("Mountain", "Ember Amplifier", "Ember Mindtrap", "Storm Spark").all { it in hand(a) } })

@@ -66,7 +66,7 @@ class EngineGameTest {
         assertNotNull(game.device.indicator(), "still tentative: Bob hasn't seen them")
     }
 
-    // SYS-012 (abreview #1): the player's own action that the game moved on from before it reached the server is told
+    // SYS-012, SYS-138 (abreview #1): the player's own action that the game moved on from before it reached the server is told
     // ("That wasn't taken…"), never dropped silently; the table goes back to the server's. TRN-027, SYS-077 (2026-11-04):
     // a declaration the server refused because the other player's event came first waits for that event and is made
     // again on it while it is still asked; here Bob conceded, so it isn't, and it is told
@@ -87,7 +87,7 @@ class EngineGameTest {
         assertTrue(game.device.session.pending.isEmpty(), "her keep isn't made again")
     }
 
-    // SYS-012 (problem report N7FU6Y; owner 2026-11-08): an own action the server refuses for any other reason (the
+    // SYS-012, SYS-139 (problem report N7FU6Y; owner 2026-11-08): an own action the server refuses for any other reason (the
     // engine's) is never a silent snap back: it shakes (no note text) what it was made on, here the main button (a keep),
     // and the app log says once which board was taken back and why
     @Test fun anOwnActionTheEngineRefusesShakesAndIsLogged() {

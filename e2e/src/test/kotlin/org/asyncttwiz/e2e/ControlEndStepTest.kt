@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  * read "End turn" and its tap went past the end step. Now it reads "End step" and stops there, with them holding priority.
  */
 class ControlEndStepTest : E2e() {
-    // TRN-063, STK-036 (owner bug 2026-11-07): Alice in Control taps her way to her second main phase, where the arrow reads
+    // TRN-063, TRN-111, STK-036 (owner bug 2026-11-07): Alice in Control taps her way to her second main phase, where the arrow reads
     // "To end step"; its tap stops at her own end step with her holding priority, Bob's phone (Assume: Never) waiting there
     // meanwhile; she casts an Idle Glimmer at her end step
     @Test fun controlStopsAtYourOwnEndStep() {
@@ -35,7 +35,7 @@ class ControlEndStepTest : E2e() {
                     ?.let { arrow -> alice.once { said += alice.mainWords(); alice.tap(arrow) } }
             there && quiet()
         }
-        // TRN-063 (owner gallery note 22, 2026-11-11): a step move names where it goes: Control stops at the beginning of combat
+        // TRN-063, TRN-112 (owner gallery note 22, 2026-11-11): a step move names where it goes: Control stops at the beginning of combat
         assertTrue("To attackers" in said, "Next at the beginning of combat says where it goes: $said")
         assertEquals("End step", alice.stepArrow(), "in Control the second main phase's arrow goes on to the end step")
         assertEquals("To end step", alice.mainWords(), "and says so")

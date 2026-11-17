@@ -390,7 +390,7 @@ class AuthorityTest {
         assertEquals(GameResult.Won(alice), Engine.result(server.state().engine))
     }
 
-    // TRN-065 (owner, 2026-11-09): each player's OK is their own, needs a result, and can be taken back; nothing makes a
+    // TRN-065, TRN-137 (owner, 2026-11-09): each player's OK is their own, needs a result, and can be taken back; nothing makes a
     // result final by one player's word any more
     @Test
     fun anOkIsTheAuthorsOwnAndNeedsAResult() {
@@ -514,7 +514,7 @@ class AuthorityTest {
         assertEquals(1, server.state().engine.stack.size, "the spell waits on the Stack again")
     }
 
-    // SYS-053: the server refuses an action the rules don't allow (a second land in a turn) with a message saying why,
+    // SYS-053, SYS-171: the server refuses an action the rules don't allow (a second land in a turn) with a message saying why,
     // never taking it silently; the device's options, which the app offers, don't list it
     @Test
     fun anActionTheRulesDontAllowIsRefusedWithItsReason() {
@@ -552,7 +552,7 @@ class AuthorityTest {
         assertEquals(Triple(2, alice, TurnStep.Untap), Triple(change.after.number, change.after.active, change.after.step))
     }
 
-    // TRN-060 (CR 104.4b): abilities that keep triggering without anyone getting priority (two Mirror Motes, each
+    // TRN-060, TRN-101 (CR 104.4b): abilities that keep triggering without anyone getting priority (two Mirror Motes, each
     // targeting the other whenever it becomes a target) stop after 200 rounds with the same loop choice, "Possible loop:
     // …", for the player who would get priority; Draw makes the game a draw
     @Test

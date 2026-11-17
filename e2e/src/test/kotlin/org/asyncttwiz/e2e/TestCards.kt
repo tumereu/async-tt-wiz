@@ -109,12 +109,12 @@ object TestCards {
     /** Makes a token copy of itself as it enters (when cast), drawn with a picture of its own (an invented art id). */
     val twin = card("Ember Twin", "Creature — Elemental", "{R}", "When this creature enters, if you cast it, create a token that's a copy of it.",
         "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
-    /** Two different enters triggers (STK-030: their order is always asked). */
+    /** Two different enters triggers (STK-030, STK-185: their order is always asked). */
     val twinherald = card("Ember Twinherald", "Creature — Elemental", "{R}",
         "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.", "1", "1")
-    /** An X spell (STK-023): X damage to any target, X paid by its caster's mana. */
+    /** An X spell (STK-023, STK-138): X damage to any target, X paid by its caster's mana. */
     val burst = card("Ember Burst", "Sorcery", "{X}", "Ember Burst deals X damage to any target.")
-    /** A spell whose text is taller than half the table in a target bar (STK-047; the bar shows the text without reminder text,
+    /** A spell whose text is taller than half the table in a target bar (STK-047, STK-144; the bar shows the text without reminder text,
      * so it is long by its own sentences). */
     val cascade = card("Ember Cascade", "Instant", "{R}", "Ember Cascade deals 3 damage to any target." + " You gain 1 life.".repeat(160))
     /** A bestow creature whose bestow needs collect evidence (owner playtest 2026-11-05 evening: its Bestow chip was missing
@@ -175,7 +175,7 @@ object TestCards {
     /** Counters unless paid, for free. */
     val freeTax = card("Free Tax", "Instant", "{0}", "Counter target spell unless its controller pays {1}.")
     val emberStone = card("Ember Stone", "Artifact", "{0}", "{T}: Add {C}.")
-    /** A free source with a second ability it can't use early on (TBL-124): its chips open even with only the mana usable. */
+    /** A free source with a second ability it can't use early on (TBL-124, TBL-153): its chips open even with only the mana usable. */
     /** A spell with convoke and something to do (STK-024: its panel always opens). */
     val rally = card("Ember Rally", "Sorcery", "{2}{R}", "Convoke\nDraw a card.")
     val cairn = card("Ember Cairn", "Artifact", "{0}", "{T}: Add {R}.\n{5}: You gain 1 life.")
@@ -198,13 +198,13 @@ object TestCards {
     val racer = card("Ember Racer", "Creature — Goblin Pilot", "{0}",
         "Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)",
         "1", "1")
-    /** A free creature with offspring {R} (ZON-080: its "Cast" and "Cast with offspring {R}" chips). */
+    /** A free creature with offspring {R} (ZON-080, ZON-108: its "Cast" and "Cast with offspring {R}" chips). */
     val kit = card("Ember Kit", "Creature — Elemental Fox", "{0}",
         "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)",
         "1", "1")
     /** A free creature with a pump ability. */
     val ashHound = card("Ash Hound", "Creature — Elemental Dog", "{0}", "{R}: This creature gets +1/+0 until end of turn.", "1", "1")
-    /** LOB-150, TBL-138: a free creature printed under another name (as Secret Lair and Universes Within printings are):
+    /** LOB-150, TBL-138, TBL-197: a free creature printed under another name (as Secret Lair and Universes Within printings are):
      * the table and Inspect show "Sparkfang the Kitten", Automatum plays it as Ember Pyreling. */
     val pyreling = card("Ember Pyreling", "Creature — Elemental Cat", "{0}", power = "1", toughness = "1",
         flavorName = "Sparkfang the Kitten")
@@ -216,10 +216,10 @@ object TestCards {
     val hauler = card("Zinc Hauler", "Artifact Creature — Construct", "{0}", power = "4", toughness = "3")
     /** Free Equipment with a free equip. */
     val blade = card("Ember Blade", "Artifact — Equipment", "{0}", "Equipped creature gets +1/+0.\nEquip {0}")
-    /** A sorcery too dear for one Mountain that cycles for {R} (ZON-080: its Cycling chip). */
+    /** A sorcery too dear for one Mountain that cycles for {R} (ZON-080, ZON-108: its Cycling chip). */
     val musing = card("Ember Musing", "Sorcery", "{3}{R}", "Draw two cards.\nCycling {R} ({R}, Discard this card: Draw a card.)")
     /** An instant milling fourteen that cycles for {R} with a "when you cycle" trigger (owner playtest 2026-11-07: worded
-     * as a real cycling card with a cycle trigger, STK-057). */
+     * as a real cycling card with a cycle trigger, STK-057, STK-129). */
     val reason = card("Shattered Reason", "Instant", "{1}{U}{U}",
         "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\nWhen you cycle this card, each opponent mills four cards.")
     /** A free instant dealing 1 damage to any target (a targeted spell that needs no mana). */
@@ -254,7 +254,7 @@ object TestCards {
     val glance = card("Ember Glance", "Sorcery", "{0}", "Look at target player's hand.")
     /** A free sorcery revealing the target player's hand (LOB-135: held back unless "Allow assumes that reveal hands"). */
     val exposure = card("Ember Exposure", "Sorcery", "{0}", "Target player reveals their hand.")
-    /** A free sorcery whose caster chooses a card from the other player's revealed hand for them to discard (STK-030, ZON-001). */
+    /** A free sorcery whose caster chooses a card from the other player's revealed hand for them to discard (STK-030, ZON-001, ZON-127). */
     val extraction = card("Ember Extraction", "Sorcery", "{0}",
         "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.")
     /** A free sorcery revealing the target player's top two library cards (LOB-135: let through by default). */
@@ -291,7 +291,7 @@ object TestCards {
     val vigil = card("Ember Vigil", "Creature — Vampire", "{0}", "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life.", "0", "1")
     /** Free Equipment whose equip cost sacrifices a creature (owner, 2026-11-11: which pick is which, the target or the sacrifice). */
     val hauberk = card("Ember Hauberk", "Artifact — Equipment", "{0}", "Equipped creature gets +4/+2.\nEquip—Sacrifice a creature.")
-    /** A free gift sorcery with two targets in one sentence (owner, prod 0.2.0: picking its targets highlighted no phrase, STK-047). */
+    /** A free gift sorcery with two targets in one sentence (owner, prod 0.2.0: picking its targets highlighted no phrase, STK-047, STK-142). */
     val quarrel = card("Ember Quarrel", "Sorcery", "{0}", "Gift a tapped Fish (You may promise an opponent a gift as you cast this spell. " +
         "If you do, they create a tapped 1/1 blue Fish creature token before its other effects.)\nChoose target creature you control and " +
         "target creature you don't control. Put a +1/+1 counter on the creature you control if the gift was promised. Then those " +
@@ -301,14 +301,14 @@ object TestCards {
     /** Owner playtest 2026-11-15 ("you may pay" asked before its trigger reached the Stack): its trigger goes on the Stack in its
      * controller's upkeep, which the other player's End turn may reach, and asks them to pay as it resolves. */
     val bell = card("Ember Toll Bell", "Enchantment", "{0}", "At the beginning of your upkeep, you may pay {1}. If you do, draw a card.")
-    /** CMB-044: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
+    /** CMB-044, CMB-074: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
     val bulwark = card("Ember Bulwark", "Enchantment", "{0}",
         "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control.")
     /** A free Aura (D1: an enchanted creature beside an identical one, told apart on the table). */
     val mantle = card("Ember Mantle", "Enchantment — Aura", "{0}", "Enchant creature\nEnchanted creature gets +1/+1.")
     /** A free edict (D1: the other player picks their creature to sacrifice on the table). */
     val edict = card("Ember Edict", "Sorcery", "{0}", "Each opponent sacrifices a creature of their choice.")
-    /** A free instant with two targets (TBL-130: targets picked from one battlefield group). */
+    /** A free instant with two targets (TBL-130, TBL-166: targets picked from one battlefield group). */
     /** A free sorcery that ends a game by the rules (TRN-065: the other player's life reaches 0). */
     val ruin = card("Ember Ruin", "Sorcery", "{0}", "Each opponent loses 20 life.")
     val snare = card("Frost Snare", "Instant", "{0}", "Tap up to two target creatures.")
@@ -334,17 +334,17 @@ object TestCards {
         "When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.",
         "1", "1")
 
-    /** A free source of two colours (STK-024: its ways to pay). */
+    /** A free source of two colours (STK-024, STK-161: its ways to pay). */
     val fork = card("Ember Fork", "Artifact", "{0}", "{T}: Add {R} or {U}.")
-    /** STK-024 (owner, 2026-11-14): a free creature whose mana ability taps other creatures (worded as a real such card). */
+    /** STK-024, STK-162 (owner, 2026-11-14): a free creature whose mana ability taps other creatures (worded as a real such card). */
     val elders = card("Hearth Elders", "Creature — Human Citizen", "{0}", "Tap two untapped creatures you control: Add one mana of any color.", "1", "1")
     /** A free Vehicle with crew 2 (CR 702.122a). */
     val cart = card("Ember Cart", "Artifact — Vehicle", "{0}", "Crew 2", "3", "3")
-    /** CMB-050: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */
+    /** CMB-050, CMB-089: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */
     val leech = card("Ember Leech", "Creature — Elemental Leech", "{0}", "Lifelink\nHaste", "2", "2")
-    /** TBL-124 (owner, 2026-11-12): a dual land with only reminder text: its two mana abilities come from its land types (CR 305.6). */
+    /** TBL-124, TBL-157 (owner, 2026-11-12): a dual land with only reminder text: its two mana abilities come from its land types (CR 305.6). */
     val ridge = card("Ember Ridge", "Land — Mountain Forest", rulesText = "({T}: Add {R} or {G}.)")
-    /** TBL-104 (owner, 2026-11-12: Scheming Fence): a free creature that has the activated abilities of a permanent chosen as it
+    /** TBL-104, TBL-183 (owner, 2026-11-12: Scheming Fence): a free creature that has the activated abilities of a permanent chosen as it
      * enters. */
     val schemer = card("Scheming Warden", "Creature — Human Rogue", "{0}", "As this creature enters, you may choose a nonland permanent.\n" +
         "Activated abilities of the chosen permanent can't be activated.\n" +
@@ -358,15 +358,15 @@ object TestCards {
     val trinket = card("Ember Trinket", "Artifact", "{0}", "Sacrifice this artifact: Draw a card.")
     val recall = card("Ember Recall", "Sorcery", "{0}", "Return target card from your graveyard to your hand.")
     val revival = card("Ember Revival", "Sorcery", "{0}", "Return target artifact card from your graveyard to the battlefield.")
-    /** ZON-079: a free sorcery with flashback {R}: from the graveyard it is cast from its owner's hand row. */
+    /** ZON-079, ZON-105: a free sorcery with flashback {R}: from the graveyard it is cast from its owner's hand row. */
     val flare = card("Ember Flare", "Sorcery", "{0}",
         "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)")
-    /** ZON-079: a free creature that sacrifices itself, with unearth {R}: from the graveyard it is unearthed from its owner's
+    /** ZON-079, ZON-105: a free creature that sacrifices itself, with unearth {R}: from the graveyard it is unearthed from its owner's
      * hand row. */
     val ghoul = card("Ember Ghoul", "Creature — Zombie", "{0}", "Sacrifice this creature: You gain 1 life.\n" +
         "Unearth {R} ({R}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
         "2", "2")
-    /** ZON-079: a free sorcery with flashback {R}{R} and "{R}: Return this card from your graveyard to your hand.": with one
+    /** ZON-079, ZON-105: a free sorcery with flashback {R}{R} and "{R}: Return this card from your graveyard to your hand.": with one
      * Mountain only its ability can be used from the graveyard. */
     val reprise = card("Ember Reprise", "Sorcery", "{0}",
         "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand.")
@@ -406,7 +406,7 @@ object TestCards {
      * our own: its printed values only, no draft text. */
     val librarian = card("Cogwork Librarian", "Artifact Creature — Construct", "{4}", power = "3", toughness = "3")
 
-    /** TBL-133, HIS-091, HIS-124: a free enchantment whose enters trigger makes three tokens and secretly chooses one of their creature
+    /** TBL-133, TBL-193, HIS-091, HIS-124: a free enchantment whose enters trigger makes three tokens and secretly chooses one of their creature
      * types, revealed by its sacrifice ability's cost (A Killer Among Us's wording). */
     val lineup = card("Ember Lineup", "Enchantment", "{0}",
         "When this enchantment enters, create a 1/1 white Human creature token, a 1/1 blue Merfolk creature token, and a 1/1 red Goblin " +

@@ -241,7 +241,7 @@ class GridEngineTest {
         }
     }
 
-    // DRF-079
+    // DRF-079, DRF-213
     @Test fun normalTurnsFollowDraftmancersOrders() {
         // Seat indices per grid: two players alternate the starter; three go through all six orders; four through the
         // four rotations and then the four reversed ones.

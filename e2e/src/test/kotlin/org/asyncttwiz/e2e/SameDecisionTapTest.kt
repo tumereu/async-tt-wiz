@@ -22,9 +22,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * SYS-011 (owner, 2026-11-04; moved from the interim SameDecisionTapTest): an own action tapped on a board the phone
+ * SYS-011, SYS-135, SYS-137 (owner, 2026-11-04; moved from the interim SameDecisionTapTest): an own action tapped on a board the phone
  * has already moved on from (the other player's event arrived, not on screen yet) is made on the newer board when the
- * same decision still waits for the player there, and refused with SYS-012's note when the board changed in a way that
+ * same decision still waits for the player there, and refused with SYS-012, SYS-138's note when the board changed in a way that
  * matters. Alice's phone holds what its engine thread shows ([HeldWorker]) while the newer board arrives. The rules of
  * sameness themselves, the server race with the refusal arriving before the revision (an order one socket never
  * delivers) and a move lost to the other player's concession (on the server it ends the play and the table closes, so
@@ -100,7 +100,7 @@ class SameDecisionTapTest : E2e() {
     private fun watchNotes() { (alice.game ?: alice.last)?.notes?.forEach { if (seenNotes.add(it)) told += it } }
     private val notes: List<GameDevice.Note> get() { watchNotes(); return told.toList() }
 
-    // SYS-011: Alice taps To combat (her pass) in her main phase while Bob's confirmation of the passes assumed for him
+    // SYS-011, SYS-135: Alice taps To combat (her pass) in her main phase while Bob's confirmation of the passes assumed for him
     // arrives and rebuilds her board: the same decision still waits for her there, so her pass is made on the newer board
     @Test fun aPassTappedWhileTheOpponentsPassArrivesIsMade() {
         start()
@@ -117,7 +117,7 @@ class SameDecisionTapTest : E2e() {
         assertFalse(alice.refusalSeen)
     }
 
-    // SYS-011: Alice casts Storm Spark while his revision arrives that changes nothing in the game: the cast, its target and
+    // SYS-011, SYS-135: Alice casts Storm Spark while his revision arrives that changes nothing in the game: the cast, its target and
     // its payment are the same decision on the newer board, so it is made there
     @Test fun aCastWhileTheOpponentsMoveChangesNothingRelevantIsMade() {
         start()
@@ -134,7 +134,7 @@ class SameDecisionTapTest : E2e() {
             .any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Cast } } }
     }
 
-    // SYS-011, TRN-070 (analysis 2026-11-05; flaky AssumeBySettingTest): Alice casts Storm Spark while Bob is away, so her
+    // SYS-011, SYS-135, TRN-070 (analysis 2026-11-05; flaky AssumeBySettingTest): Alice casts Storm Spark while Bob is away, so her
     // table waits for him with Assume; the server's confirmation of her cast reaches her phone's engine (a board published
     // again, the same game) but not her screen yet when she taps Assume: the board she tapped on was never moved past, so
     // her Assume is made, with no note
@@ -163,7 +163,7 @@ class SameDecisionTapTest : E2e() {
         assertFalse(alice.refusalSeen)
     }
 
-    // SYS-012, TRN-070 (analysis 2026-11-05): both live; Alice casts Storm Spark and waits for Bob with Assume; Bob's own
+    // SYS-012, SYS-138, TRN-070 (analysis 2026-11-05): both live; Alice casts Storm Spark and waits for Bob with Assume; Bob's own
     // pass (Resolve) reaches her phone's engine but not her screen yet when she taps Assume: what she meant to assume is
     // what he did, so her tap goes quietly, like her phone's own assumption losing that race (it said "That wasn't taken")
     @Test fun anAssumeTappedAsTheSameRealPassArrivesGoesQuietly() {
@@ -194,7 +194,7 @@ class SameDecisionTapTest : E2e() {
         assertTrue(alice.state.stack.isEmpty(), "the Spark resolved on his pass")
     }
 
-    // SYS-011, SYS-012: Alice casts Storm Spark on her main phase while Bob's real answer arrives instead of a pass her
+    // SYS-011, SYS-137, SYS-012, SYS-138: Alice casts Storm Spark on her main phase while Bob's real answer arrives instead of a pass her
     // phone assumed for him (he casts an Idle Glimmer there): a branch, the board she tapped on is gone; refused with the note
     @Test fun aCastOnABoardThatChangedInAWayThatMattersIsRefusedWithTheNote() {
         start(bobGlimmer = true)
@@ -219,7 +219,7 @@ class SameDecisionTapTest : E2e() {
             e.engine?.steps.orEmpty().any { it.input is Input.Cast } }, "her Storm Spark not cast")
     }
 
-    // SYS-011 (switchreview #6 kept): a fast second tap of the arrow on the still-shown board would pass at a point Alice
+    // SYS-011, SYS-137 (switchreview #6 kept): a fast second tap of the arrow on the still-shown board would pass at a point Alice
     // never saw (Full control: her beginning of combat); a different decision, so it isn't taken
     @Test fun aFastSecondPassIsNotMadeAtAPointNeverShown() {
         start()
@@ -256,7 +256,7 @@ class SameDecisionTapTest : E2e() {
         waitUntil("her turn ended") { alice.state.let { s -> s.turn.number > turn && s.turn.active != alice.me } }
     }
 
-    // SYS-076, SYS-012 (smoke 2026-11-04): a second End turn on Alice's turn after the first one already took the game into
+    // SYS-076, SYS-012, SYS-138 (smoke 2026-11-04): a second End turn on Alice's turn after the first one already took the game into
     // Bob's turn is another decision: not taken, and the note comes with a board of its own, so the table (which reads
     // notes when a board arrives) tells it at once
     @Test fun endTurnOnABoardOfAnEndedTurnIsRefusedWithTheNoteAtOnce() {
@@ -284,7 +284,7 @@ class SameDecisionTapTest : E2e() {
      * hearing nothing from him, taps Assume and her phone assumes that pass, the Glimmer resolves and she is back in her
      * main phase, where she makes [move]. Her assumption and her move reach the server after his pass: her assumption is
      * the same event as his pass, so the server drops it as its duplicate and takes her move on his pass (owner
-     * 2026-11-07, SYS-077), and her phone puts his pass in place of her assumption with her board as it is.
+     * 2026-11-07, SYS-077, SYS-134), and her phone puts his pass in place of her assumption with her board as it is.
      */
     private fun race(move: () -> Unit) {
         start()
@@ -311,7 +311,7 @@ class SameDecisionTapTest : E2e() {
     private fun made(input: (Input) -> Boolean): Boolean = alice.engine { device.session.events + device.session.pending }
         .any { e: GameEvent -> e.author == alice.id && e.engine?.steps.orEmpty().any { it.assumedBy == null && it.input?.let(input) == true } }
 
-    // SYS-077 (owner 2026-11-07): the server took Bob's pass before Alice's own pass made on her phone's assumption of it;
+    // SYS-077, SYS-134 (owner 2026-11-07): the server took Bob's pass before Alice's own pass made on her phone's assumption of it;
     // her assumption is the same event as his pass, so his pass takes its place and her pass stands on it, taken by the
     // server without a note and without being made again (his revision first)
     @Test fun aPassMadeOnTheAssumptionOfTheOpponentsSamePassIsTaken() {
@@ -323,7 +323,7 @@ class SameDecisionTapTest : E2e() {
         assertNotEquals(TurnStep.PrecombatMain, alice.state.turn.step, "her main 1 is over")
     }
 
-    // SYS-077 (owner 2026-11-07): the same with a Mountain played and Storm Spark cast on it (its target and payment as she
+    // SYS-077, SYS-134 (owner 2026-11-07): the same with a Mountain played and Storm Spark cast on it (its target and payment as she
     // chose them): both taken as she made them
     @Test fun aCastMadeOnTheAssumptionOfTheOpponentsSamePassIsTaken() {
         race {

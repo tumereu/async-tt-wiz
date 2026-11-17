@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * Problem report KX8GYS (owner, prod): a spell that costs less on a tapped creature (Banish from Edoras, four lands in play,
  * a tapped creature on the other side) couldn't be cast: its card didn't count as playable, since the check took the
- * cost before the target was chosen. And the report's log didn't say which cards were in play: LOB-089's plain game log.
+ * cost before the target was chosen. And the report's log didn't say which cards were in play: LOB-089, LOB-229's plain game log.
  */
 class CostFallsByTargetTest : E2e() {
     private val aliceDeck = TestDeck("Banishings", listOf(TestCards.mountain to 15, TestCards.banishing to 10, TestCards.pup to 10, TestCards.drowsy to 10, TestCards.glimmer to 15))
@@ -50,7 +50,7 @@ class CostFallsByTargetTest : E2e() {
         assertEquals(1, alice.field("Ash Pup").size, "the other creature stays")
     }
 
-    // LOB-089 (KX8GYS): the log names the cards shown: the board at opening, what is played and drawn, and a report adds the
+    // LOB-089, LOB-229 (KX8GYS): the log names the cards shown: the board at opening, what is played and drawn, and a report adds the
     // board with what can be done on it, without the other player's hand
     @Test fun theLogSaysWhichCardsWereInHandAndPlayed() {
         start()

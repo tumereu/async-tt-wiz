@@ -89,7 +89,7 @@ class AutomatumFinalCastReviewTest {
         compose.onNodeWithText("OK").assertIsNotEnabled()
     }
 
-    // STK-041, finalreview-cast #1 (I-D27, CR 201.3): "choose a card name" is a name field with suggestions from the device's card
+    // STK-041, STK-193, finalreview-cast #1 (I-D27, CR 201.3): "choose a card name" is a name field with suggestions from the device's card
     // catalog; the engine's listed names (the game's cards, the other player's hidden hand among them) are never shown
     @Test fun cardNameIsTypedWithCatalogSuggestions() {
         val answers = object : FlowQuestions by Answers() {
@@ -111,7 +111,7 @@ class AutomatumFinalCastReviewTest {
         assertEquals(listOf<Answer>(Answer.CardName("Velvet Fern")), answers.given)
     }
 
-    // STK-041, finalreview-cast #1 (I-D27, CR 205.3m): "choose a creature type" offers every creature type of the rules, found by
+    // STK-041, STK-194, finalreview-cast #1 (I-D27, CR 205.3m): "choose a creature type" offers every creature type of the rules, found by
     // typing, never only the types of the game's cards
     @Test fun creatureTypeFromEveryType() {
         val answers = Answers()

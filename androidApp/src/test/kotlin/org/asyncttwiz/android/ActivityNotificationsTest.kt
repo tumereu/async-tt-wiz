@@ -6,7 +6,7 @@ import org.asyncttwiz.protocol.ActivityKind
 import java.time.Instant
 
 class ActivityNotificationsTest {
-    // LOB-072
+    // LOB-072, LOB-183, LOB-184
     @Test fun gameTextUsesAuthenticatedNamesMoveFlagChatAndOpponentEventTimestamp() {
         val content = org.asyncttwiz.protocol.GameNoticeContent("Friday", "Alex", "2026-10-27T12:34:56+02:00", true)
         val text = gameNotificationText(content)
@@ -17,7 +17,7 @@ class ActivityNotificationsTest {
         assertEquals("Alex is waiting for you", gameNotificationText(content.copy(reminder = true)).text)
         assertEquals("Friday · vs Alex", gameNotificationText(content.copy(reminder = true)).title)
     }
-    // LOB-072 (I-D57): where the recipient would resume, in the turn square's words, and their own deck in the header
+    // LOB-072, LOB-183 (I-D57): where the recipient would resume, in the turn square's words, and their own deck in the header
     @Test fun gameTextNamesWhereYouWouldResumeAndYourDeck() {
         val content = org.asyncttwiz.protocol.GameNoticeContent("Friday", "Alex", "2026-10-27T12:34:56+02:00", true,
             resumeAt = org.asyncttwiz.protocol.ResumePoint(5, false, org.asyncttwiz.protocol.TurnPosition.END_STEP), deckName = "Elves")
@@ -67,7 +67,7 @@ class ActivityNotificationsTest {
         assertEquals("Friday · vs Alex", gameNotificationText(content).title)
     }
 
-    // LOB-078
+    // LOB-078, LOB-188
     @Test fun podsOnlyUsersCanEnableAlertsWithExistingPromptGuards() {
         for (destination in listOf(ShellDestination.PODS, ShellDestination.GAMES)) {
             fun prompt(sdk: Int = 33, signedIn: Boolean = true, asked: Boolean = false,

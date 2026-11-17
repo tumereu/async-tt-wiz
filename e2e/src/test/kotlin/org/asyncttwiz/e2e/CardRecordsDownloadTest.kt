@@ -21,7 +21,7 @@ import kotlin.test.assertFalse
  * works, with his message there.
  */
 class CardRecordsDownloadTest : E2e() {
-    // LOB-091, LOB-093, LOB-095, LOB-096
+    // LOB-091, LOB-233, LOB-093, LOB-095, LOB-096, LOB-235
     @Test fun theAppDownloadsItsCardRecordsOnStartAndStaysUsableMeanwhile() {
         startGame(aliceCatalog = true, holdAliceCatalog = true)
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-SETTINGS")) }

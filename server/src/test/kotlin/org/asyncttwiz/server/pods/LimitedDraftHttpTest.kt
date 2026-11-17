@@ -104,7 +104,7 @@ class LimitedDraftHttpTest {
         Fixture(db).use(test)
     }
 
-    // DRF-035, DRF-036, DRF-037, DRF-150, DRF-163: Start, arming and settings changes follow the engine's player limit.
+    // DRF-035, DRF-036, DRF-037, DRF-150, DRF-163, DRF-203: Start, arming and settings changes follow the engine's player limit.
     @Test fun `player limits refuse start and arming and a settings change over the limit disarms auto start`() = fixture { f ->
         val pod = f.create(DraftSettings.booster().copy(packsPerPlayer = 1, cardsPerPack = 10))
         f.join(pod, f.b, f.c, f.players[3], f.players[4])
@@ -251,7 +251,7 @@ class LimitedDraftHttpTest {
         assertEquals(5, done.pool.size)
     }
 
-    // DRF-164, DRF-136: a private pick queue kept on the server: when the turn comes its first card is taken at once
+    // DRF-164, DRF-217, DRF-218, DRF-136: a private pick queue kept on the server: when the turn comes its first card is taken at once
     // (no "Your pick"), a queued card taken by another clears the queue with a note, and a turn that comes back after
     // queued picks notifies again.
     @Test fun `Rotisserie HTTP pick queue takes queued cards when the turn comes and clears when one is taken`() = fixture { f ->
@@ -290,7 +290,7 @@ class LimitedDraftHttpTest {
         assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
     }
 
-    // DRF-154, DRF-155, DRF-139: open packs are public, later rounds stay hidden, picks follow each pack's snake order.
+    // DRF-154, DRF-214, DRF-155, DRF-139: open packs are public, later rounds stay hidden, picks follow each pack's snake order.
     @Test fun `Rochester HTTP open packs hidden rounds parallel picks and end`() = fixture { f ->
         val pod = f.create(DraftSettings.rochester().copy(packsPerPlayer = 2, cardsPerPack = 6))
         f.join(pod, f.b)
@@ -329,7 +329,7 @@ class LimitedDraftHttpTest {
         }
     }
 
-    // DRF-156, DRF-157, DRF-139: Winston piles are hidden until looked at and stay visible to whoever looked.
+    // DRF-156, DRF-220, DRF-157, DRF-139: Winston piles are hidden until looked at and stay visible to whoever looked.
     @Test fun `Winston HTTP hides unseen piles keeps seen cards face up and plays to the end`() = fixture { f ->
         val pod = f.create(DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10))
         f.join(pod, f.b)
@@ -400,7 +400,7 @@ class LimitedDraftHttpTest {
         assertTrue(f.get(seating[0], pod).limited!!.picks.all { take -> take.cards.all { it != null } })
     }
 
-    // DRF-158, DRF-023: Winchester tables, each with its own stack, piles and turn order one seat later; both players pick
+    // DRF-158, DRF-224, DRF-023, DRF-193: Winchester tables, each with its own stack, piles and turn order one seat later; both players pick
     // at once, a move names its table, and the draft ends when every table is empty.
     @Test fun `Winchester HTTP tables split the cards and let both players pick at once`() = fixture { f ->
         assertEquals("invalid_settings", f.code(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Limited pod", f.cube.cube.id,
@@ -439,7 +439,7 @@ class LimitedDraftHttpTest {
         for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
     }
 
-    // DRF-156, DRF-023: Winston tables, each with its own stack, piles and turn order one seat later; each player looks
+    // DRF-156, DRF-221, DRF-023, DRF-193: Winston tables, each with its own stack, piles and turn order one seat later; each player looks
     // at their own table's pile 1 only, both play at once, a move names its table, and the draft ends when every table is empty.
     @Test fun `Winston HTTP tables split the cards and let both players play at once`() = fixture { f ->
         assertEquals("invalid_settings", f.code(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Limited pod", f.cube.cube.id,

@@ -37,7 +37,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.width
 
 /**
- * STK-030 (owner playtest 2026-11-06): every question panel shows, without holding, the sentence it asks about and any
+ * STK-030, STK-181, STK-182 (owner playtest 2026-11-06): every question panel shows, without holding, the sentence it asks about and any
  * cost in its symbols. One picture per decision kind the app shows in an open choice's panel ([DecisionPanelContent])
  * that no game screenshot covers: the panel as Alice sees it above her hand, its source a Storm Spark of hers, asking
  * the question of an invented sentence. The kinds a game reaches are pictured elsewhere: May, ChooseOption,
@@ -56,7 +56,7 @@ class QuestionPanelsTest {
 
     /** The questions of a panel: the engine's state, the answers given, the listed answers and the mana picked. */
     private class Questions(override val engine: GameState, private val listed: List<Answer> = emptyList(),
-        /** The payment a "you may pay" goes on to (STK-049), its suggestion picked as with Autotap on. */
+        /** The payment a "you may pay" goes on to (STK-049, STK-168), its suggestion picked as with Autotap on. */
         private val payment: Decision.ManaPayment? = null) : FlowQuestions {
         val answers = mutableListOf<Answer>()
         var preference: List<ReplacementOption>? = null
@@ -108,9 +108,9 @@ class QuestionPanelsTest {
         listOf(ManaUse.Ability(mountain, arcanum.engine.view.AbilityOrigin.Printed(0, 0), arcanum.api.Color.Red)),
         listOf(ManaUse.Ability(mountain, arcanum.engine.view.AbilityOrigin.Printed(0, 0), arcanum.api.Color.Red)))
 
-    // STK-030, CR 118.12 (owner gallery review, 2026-11-06, bug: no decline): the choice panel's own form of "unless its controller
+    // STK-030, STK-187, CR 118.12 (owner gallery review, 2026-11-06, bug: no decline): the choice panel's own form of "unless its controller
     // pays {R}": "Pay {R}" with the sources Autotap picks already tapped (changeable) and "Don't pay" beside Pay. On the table such a
-    // payment is the slim bar with its sources tapped there (STK-049, owner playtest 2026-11-09: PayOnTableTest)
+    // payment is the slim bar with its sources tapped there (STK-049, STK-168, owner playtest 2026-11-09: PayOnTableTest)
     @Test fun aCostYouMayPayOrDecline() {
         kit.opening()
         kit.playLand()
@@ -144,7 +144,7 @@ class QuestionPanelsTest {
         assertEquals(1, q.answers.size)
     }
 
-    // STK-030: choosing a colour: the sentence, then a swatch button per colour
+    // STK-030, STK-181: choosing a colour: the sentence, then a swatch button per colour
     @Test fun aColour() {
         kit.opening()
         val line = "Choose a color. Creatures you control of the chosen color get +1/+1 until end of turn."
@@ -155,7 +155,7 @@ class QuestionPanelsTest {
         assertEquals(listOf<Answer>(Answer.ColorChoice(arcanum.api.Color.Green)), q.answers)
     }
 
-    // STK-030, STK-041: a creature type: the sentence, a field narrowing every creature type of the rules
+    // STK-030, STK-181, STK-041, STK-194: a creature type: the sentence, a field narrowing every creature type of the rules
     @Test fun aCreatureType() {
         kit.opening()
         val line = "As this creature enters, choose a creature type."
@@ -164,7 +164,7 @@ class QuestionPanelsTest {
             "Choosing a creature type: the panel is titled \"Choose a creature type\" with the sentence under it, a field to narrow the list and the rules' creature types to tap.")
     }
 
-    // STK-030: one of listed types (a basic land type): the sentence, a button per type
+    // STK-030, STK-181: one of listed types (a basic land type): the sentence, a button per type
     @Test fun aListedType() {
         kit.opening()
         val line = "Choose a basic land type. This land becomes that type until end of turn."
@@ -175,7 +175,7 @@ class QuestionPanelsTest {
             "Choosing a basic land type: the panel is titled \"Choose a type\" with the sentence under it and a button for each of the five basic land types.")
     }
 
-    // STK-030: a card type: the sentence, a button per type
+    // STK-030, STK-181: a card type: the sentence, a button per type
     @Test fun aCardType() {
         kit.opening()
         val line = "Choose a card type. Reveal the top card of your library; if it's the chosen type, put it into your hand."
@@ -190,7 +190,7 @@ class QuestionPanelsTest {
         listOf("Spark Elemental", "Spark Lantern", "Sparkwing Drake", "Storm Spark", "Mountain Sprite").filter { it.contains(text, ignoreCase = true) }
     }
 
-    // STK-030, STK-041, CR 201.4 (owner gallery review, 2026-11-06): naming a card is a search field autocompleting card
+    // STK-030, STK-041, STK-193, CR 201.4 (owner gallery review, 2026-11-06): naming a card is a search field autocompleting card
     // names, never free text: Alice's own library first (a card-stack icon), then cards she sees (an eye), then every card;
     // the effect's "nonland" leaves out the Mountains; OK only once a name is chosen
     @Test fun aCardName() {
@@ -220,7 +220,7 @@ class QuestionPanelsTest {
         assertEquals(listOf<Answer>(Answer.CardName("Storm Spark")), q.answers)
     }
 
-    // STK-041, CR 201.4 (owner gallery review, 2026-11-06): a name only written, not one of the cards, isn't taken
+    // STK-041, STK-193, CR 201.4 (owner gallery review, 2026-11-06): a name only written, not one of the cards, isn't taken
     @Test fun aWrittenNameMustBeACard() {
         kit.opening()
         show(Decision.ChooseCardName(id("card-name"), kit.me, spark(), arcanum.api.ObjectFilter.Any), null, catalog = catalog)
@@ -252,7 +252,7 @@ class QuestionPanelsTest {
             "Naming a card in landscape while typing: the panel at the table's left holds the search field with \"sp\" and the names to tap: Storm Spark from Alice's library with a card-stack icon first, then every card's names; OK waits for a tap.")
     }
 
-    // STK-030: a number: the sentence, − value +, OK; the value's area keeps its width for up to 4 digits (owner gallery
+    // STK-030, STK-186, STK-181: a number: the sentence, − value +, OK; the value's area keeps its width for up to 4 digits (owner gallery
     // review, 2026-11-06)
     @Test fun aNumber() {
         kit.opening()
@@ -262,7 +262,7 @@ class QuestionPanelsTest {
             "Choosing a number: the panel is titled \"Choose a number\" with the sentence under it, − 0 + with the 0 in a box wide enough for four digits, and OK.")
     }
 
-    // STK-023, STK-030 (owner gallery review, 2026-11-06): a tap on the number opens a numeric input in its place for any
+    // STK-023, STK-139, STK-030, STK-186 (owner gallery review, 2026-11-06): a tap on the number opens a numeric input in its place for any
     // value; − and + stay where they are up to 4 digits
     @Test fun aNumberIsTyped() {
         kit.opening()
@@ -280,7 +280,7 @@ class QuestionPanelsTest {
         assertEquals(listOf<Answer>(Answer.Number(1234)), q.answers)
     }
 
-    // STK-023, STK-030: a written number outside the range isn't taken: the range says why
+    // STK-023, STK-139, STK-030, STK-186: a written number outside the range isn't taken: the range says why
     @Test fun aNumberOutOfRangeIsRefused() {
         assertEquals("At most 5.", numberProblem("7", 0, 5))
         assertEquals("At least 1.", numberProblem("0", 1, null))
@@ -290,7 +290,7 @@ class QuestionPanelsTest {
         assertEquals("0 or more", numberRange(0, null))
     }
 
-    // STK-030: a player: the sentence, a button per player with their avatar
+    // STK-030, STK-186: a player: the sentence, a button per player with their avatar
     @Test fun aPlayer() {
         kit.opening()
         val line = "Choose a player. That player draws two cards."
@@ -314,7 +314,7 @@ class QuestionPanelsTest {
             "Dividing a spell's damage: the panel is titled \"Divide 3\" with the sentence under it, a row for Bob with 2 and one for Alice with 1, each with − and +, and OK.")
     }
 
-    // STK-030, CR 616.1 (owner gallery review, 2026-11-06): which replacement effects apply first is a drag-to-reorder
+    // STK-030, STK-183, STK-184, CR 616.1 (owner gallery review, 2026-11-06): which replacement effects apply first is a drag-to-reorder
     // preference list, each row its card and whole text with a handle, in the engine's order at first; dragging the second
     // above the first and OK gives that order
     @Test fun aReplacementOrder() {
@@ -350,7 +350,7 @@ class QuestionPanelsTest {
         assertEquals(null, preferred.preferred(listOf(ReplacementOption(0, x, "X"), ReplacementOption(1, z, "W")), preference))
     }
 
-    // STK-030, CR 704.5j: the legend rule: no source, its sentence its instruction, the cards to keep one of
+    // STK-030, STK-186, CR 704.5j: the legend rule: no source, its sentence its instruction, the cards to keep one of
     @Test fun theLegendRule() {
         kit.opening()
         // Owner gallery review (2026-11-06, bug): the picture showed one card; its fixture took two Mountains of a hand
@@ -364,7 +364,7 @@ class QuestionPanelsTest {
             "The legend rule: the panel is titled \"Legend rule\", says \"Tap the Mountain to keep; the others go to the graveyard.\", shows the two cards and Keep.")
     }
 
-    // STK-030, STK-023, STK-047: a spell's question shows its sentences naming what is chosen, else its whole text
+    // STK-030, STK-181, STK-023, STK-136, STK-047, STK-142: a spell's question shows its sentences naming what is chosen, else its whole text
     @Test fun aSpellsQuestionShowsTheSentenceItAsksAbout() {
         val text = "Ember Burst deals X damage to any target.\nYou gain 1 life."
         val x = Decision.Announce(id("x"), kit.me, null, "X", 0)

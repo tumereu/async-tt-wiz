@@ -30,7 +30,7 @@ class MainPhaseStaysTest : E2e() {
     private fun logged(text: String) = AppLog.text().lines().filter { "seat ${alice.id.take(8)}" in it && text in it }
 
     // TRN-057, STK-036, STK-053: the race with Bob's End turn, a long sit in her Main 1, and she is still there with
-    // nothing sent; LOB-089: her tap and her hold of the main button are in the app log with what it said and the step, and
+    // nothing sent; LOB-089, LOB-230: her tap and her hold of the main button are in the app log with what it said and the step, and
     // her phone's own passes on the way never read as a press or as a pass of her main phase
     @Test fun herMainPhaseWaitsForHerPressAfterTheRaceWithHisEndTurn() {
         startGame(TestDeck.thirds(), herald, bobStarts = true, aliceSettings = PlaySettings(),

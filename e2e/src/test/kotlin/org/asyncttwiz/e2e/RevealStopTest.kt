@@ -71,7 +71,7 @@ class RevealStopTest : E2e() {
         waitUntil("Bob's own panel gone, Alice's still open") { !bob.showsRevealOk() && alice.showsText(title) }
         bobPlaysOn()
         repeat(3) { run(skip = Duration.ofSeconds(2)) }
-        // SYS-077: when her phone passed on the Insight itself (her own pass resolving it, the panel on her pending event)
+        // SYS-077, SYS-134: when her phone passed on the Insight itself (her own pass resolving it, the panel on her pending event)
         // and Bob's assumption of that pass reached the server first, his same event took her event's place: the same board
         val held = alice.engine { device.adoptedAs(at) } ?: at
         assertEquals(held, alice.shown.tip, "Alice's table still at the reveal")

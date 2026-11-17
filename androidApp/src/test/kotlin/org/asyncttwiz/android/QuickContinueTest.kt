@@ -140,7 +140,7 @@ class QuickContinueTest {
         assertNotNull(quickContinuePods(emptyList(), invitations).first().invitation)
     }
 
-    // DRF-012, DRF-013, LOB-018, LOB-022
+    // DRF-012, DRF-013, DRF-189, LOB-018, LOB-022
     @Test fun sharedPodOrderIsYourPicksAndBuildsLongestWaitingThenInvitationsNewestThenTheRestNewest() {
         val pods = listOf(pod("pick-new", 9, PodAttention.YOUR_PICK), pod("build-old", 2, PodAttention.BUILD, PodPhase.DRAFTED),
             pod("setup-new", 8, phase = PodPhase.SETUP), pod("drafting-old", 3), pod("submitted", 5, phase = PodPhase.DRAFTED))

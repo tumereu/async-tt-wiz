@@ -85,12 +85,12 @@ class CardAppearanceTest {
             for (temp in scene.items.filter { landscape && it.temp }) assertTrue(temp.bounds.height <= 44f, temp.id)
             for (item in scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND ||
                     it.kind == TableItemKind.PILE && !(landscape && it.temp) }) {
-                // TBL-009: in landscape the piles fit their bar row, at most 32 dp tall, and the Stack the room between the hands
+                // TBL-009, TBL-145: in landscape the piles fit their bar row, at most 32 dp tall, and the Stack the room between the hands
                 val barPile = landscape && item.zone != PlayZone.HAND && item.zone != PlayZone.STACK
                 val pileScale = if (barPile) minOf(scale, .8f) else scale
                 val fan = item.cardTransform
                 if (fan != null) {
-                    // ZON-001: the other player's hand in portrait is a fan in their row, its cards the piles' size times FAN_CARD
+                    // ZON-001, ZON-125: the other player's hand in portrait is a fan in their row, its cards the piles' size times FAN_CARD
                     assertTrue(!landscape && item.owner != f.a, item.id)
                     assertEquals(28f * scale * TablePresentation.FAN_CARD, fan.width, .001f, item.id)
                     assertEquals(40f * scale * TablePresentation.FAN_CARD, fan.height, .001f, item.id)

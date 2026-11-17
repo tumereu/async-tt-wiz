@@ -33,7 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The division of combat damage panel (CMB-033, STK-033; owner playtest 2026-11-06): the dealing creature at the top left
+ * The division of combat damage panel (CMB-033, CMB-091, CMB-092, CMB-093, STK-033; owner playtest 2026-11-06): the dealing creature at the top left
  * as its card with its power and the keywords that change damage; each recipient's damage as a chip, red with ☠ when it
  * is lethal (deathtouch: 1), grey when not; with trample a last row for the attacked player that never moves.
  */
@@ -74,7 +74,7 @@ class CombatDivisionPanelTest {
         return draft
     }
 
-    // CMB-033, STK-033, CR 702.19b (owner playtest 2026-11-06): Alice's 4-power trampler blocked by two of Bob's
+    // CMB-033, CMB-093, CMB-092, STK-033, STK-101, CR 702.19b (owner playtest 2026-11-06): Alice's 4-power trampler blocked by two of Bob's
     // creatures: in order each gets lethal damage (red ☠ chips); what tramples over is no row but a chip on the panel's
     // bottom line by the eye, "Tramples 1 → Bob", grey (not lethal to him)
     @Test fun whatTramplesOverShowsOnTheBottomLine() {
@@ -96,7 +96,7 @@ class CombatDivisionPanelTest {
             "Alice divides her 4-power trampler's damage between Bob's two blockers: her creature at the top left with its power 4 and a trample chip, the title Divide 4 damage, in order both blockers get lethal damage as red ☠ chips, and on the bottom line by the eye a grey chip says it tramples 1 over to Bob.")
     }
 
-    // CMB-033 (owner playtest 2026-11-06): trample lethal to the defender: the bottom line's chip is red with ☠
+    // CMB-033, CMB-093 (owner playtest 2026-11-06): trample lethal to the defender: the bottom line's chip is red with ☠
     @Test fun tramplingOverLethalDamageShowsARedChip() {
         val blockers = field(f.b).take(1)
         val attacker = dealer(f.a, blockers)
@@ -110,7 +110,7 @@ class CombatDivisionPanelTest {
             "Alice's trampler with lifelink deals 1 to its one blocker (a red ☠ chip) and tramples over the rest, as much as Bob's life: the bottom line's chip is red with ☠, \"Tramples $life → Bob\".")
     }
 
-    // CMB-033, STK-033, CR 702.2c (owner playtest 2026-11-06): with deathtouch 1 damage is lethal: a 1-power attacker
+    // CMB-033, CMB-092, STK-033, STK-101, CR 702.2c (owner playtest 2026-11-06): with deathtouch 1 damage is lethal: a 1-power attacker
     // with deathtouch and first strike blocked by two creatures gives the first 1 (red ☠) and the second nothing
     @Test fun withDeathtouchOneIsLethal() {
         val blockers = field(f.b).take(2)
@@ -126,7 +126,7 @@ class CombatDivisionPanelTest {
             "Alice divides the first-strike damage of her 1-power attacker with deathtouch between two blockers: deathtouch and first strike chips under the title, the first blocker gets 1 as a red ☠ chip (1 is lethal with deathtouch), the second 0 as a grey chip.")
     }
 
-    // CMB-033, STK-033, CR 510.1d (owner playtest 2026-11-06): Bob's creature blocking two of Alice's attackers divides
+    // CMB-033, CMB-092, STK-033, CR 510.1d (owner playtest 2026-11-06): Bob's creature blocking two of Alice's attackers divides
     // its damage among them; in Free the chips sit between − and +, and moving 1 changes which is lethal
     @Test fun aBlockerDividesAmongTheAttackersItBlocksInFree() {
         val attackers = field(f.a).take(2)

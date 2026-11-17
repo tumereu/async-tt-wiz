@@ -42,7 +42,7 @@ class TableArtworkTest {
     private val full = ArtworkReference(printing, 0)
     private val custom = full.copy(customUrl = "https://example.com/card.png")
 
-    // TBL-019
+    // TBL-019, TBL-149
     @Test fun tableUsesArtCropButCustomUrlTakesPrecedenceOverPrinting() {
         assertEquals("art_crop", full.forTable().size)
         assertEquals(TableArtworkMode.ART_CROP, tableArtworkMode(full.forTable(), true))
@@ -54,7 +54,7 @@ class TableArtworkTest {
         assertNotEquals(CardArtworkRequest(full, 100, 140).key, CardArtworkRequest(full.forTable(), 100, 140).key)
     }
 
-    // LOB-097: one picture per printing, face and size, whichever card definition or screen asks for it.
+    // LOB-097, LOB-236: one picture per printing, face and size, whichever card definition or screen asks for it.
     @Test fun twoDefinitionsOfOnePrintingShareTheirPicture() {
         val face = DefinitionFace("front", "Front", scryfallId = printing)
         val first = CardDefinition("Card", listOf(face))
@@ -120,7 +120,7 @@ class TableArtworkTest {
         assertEquals(play.definitions.size, order.size)
     }
 
-    // TBL-139 (owner 2026-11-16): with "Hand cards: full picture" on, the viewer's hand cards ask for their whole printed card
+    // TBL-139, TBL-146, TBL-148 (owner 2026-11-16): with "Hand cards: full picture" on, the viewer's hand cards ask for their whole printed card
     // and are drawn whole (the app's frame while it loads or fails); the battlefield keeps its art crops until its own switch
     // is on; covered cards (the other player's hand) stay hidden; the game's warm-up then takes the whole cards too
     @Test fun fullPicturesAskForTheWholePrintedCardOfTheirZone() {

@@ -22,7 +22,7 @@ class RefusedLobbyActionTest : E2e() {
 
     private fun E2ePlayer.shownReady() = lobby.state.preparation?.players?.single { it.accountId == id }?.ready == true
 
-    // LOB-046, TRN-065: Bob concedes and his app starts again in the lobby before Alice's OK; his Ready goes to the server,
+    // LOB-046, TRN-065, TRN-143: Bob concedes and his app starts again in the lobby before Alice's OK; his Ready goes to the server,
     // which refuses it (no Ready before both OKs): his phone then shows him not Ready, as the server has him
     @Test fun aRefusedReadyIsTakenBack() {
         startGame()

@@ -96,7 +96,7 @@ class CatalogControllerTest {
         } finally { directory.deleteRecursively() }
     }
 
-    // LOB-091: a failed download is tried once more by itself, then the failure shows with Retry
+    // LOB-091, LOB-234: a failed download is tried once more by itself, then the failure shows with Retry
     @Test fun aFailedDownloadIsTriedOnceMoreThenRetryInstallsIt() {
         val directory = createTempDirectory("catalog-controller").toFile()
         try {

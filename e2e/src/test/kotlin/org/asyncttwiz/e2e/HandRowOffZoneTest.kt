@@ -14,7 +14,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * ZON-079 (owner, 2026-11-12) on two phones: a card its player may cast from another zone (flashback from the graveyard), or
+ * ZON-079, ZON-105, ZON-106, ZON-107 (owner, 2026-11-12) on two phones: a card its player may cast from another zone (flashback from the graveyard), or
  * whose ability they may use there (unearth), shows at the right end of their hand row with its zone's badge and is used from
  * there as a hand card is, its chips included; the other player's table shows no such card.
  */
@@ -23,7 +23,7 @@ class HandRowOffZoneTest : E2e() {
     private val ghoulInRow get() = "Ember Ghoul, owner ${alice.name}, untapped, from graveyard"
     private val repriseInRow get() = "Ember Reprise, owner ${alice.name}, untapped, from graveyard"
 
-    // ZON-079, CR 702.34a: Alice casts her Ember Flare from her hand, then from her graveyard by its flashback through her hand
+    // ZON-079, ZON-105, ZON-107, CR 702.34a: Alice casts her Ember Flare from her hand, then from her graveyard by its flashback through her hand
     // row: two taps, Autotap tapping her Mountain; it is exiled and she gained 2 life twice
     @Test fun aFlashbackCardIsCastFromTheHandRow() {
         startGame(TestDeck("Flashback", listOf(TestCards.mountain to 20, TestCards.flare to 20)), TestDeck.glimmers(), deal = { a, _ ->
@@ -65,7 +65,7 @@ class HandRowOffZoneTest : E2e() {
         alice.playFromHand(name, this)
     }
 
-    // ZON-079, ZON-080, TBL-117, CR 702.84a: Alice's Ember Ghoul, cast and sacrificed, is in her hand row from her graveyard,
+    // ZON-079, ZON-105, ZON-107, ZON-080, TBL-117, CR 702.84a: Alice's Ember Ghoul, cast and sacrificed, is in her hand row from her graveyard,
     // glowing (her Mountain pays its unearth); a tap raises it with its Unearth {R} chip, and the chip unearths it: the Ghoul is
     // on the battlefield on both phones, out of her hand row
     @Test fun anUnearthCardIsUnearthedFromTheHandRow() {
@@ -101,7 +101,7 @@ class HandRowOffZoneTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal or shake: ${alice.shownTexts}")
     }
 
-    // ZON-079, ZON-080, TBL-128, CR 702.34a: Alice's Ember Reprise in her graveyard with one Mountain: its flashback {R}{R} can't
+    // ZON-079, ZON-107, ZON-080, TBL-128, CR 702.34a: Alice's Ember Reprise in her graveyard with one Mountain: its flashback {R}{R} can't
     // be paid, its "{R}: Return this card from your graveyard to your hand" can. It glows; a tap raises it, no shake, with the
     // greyed Flashback chip and the live ability chip, which returns it to her hand
     @Test fun aCardWhoseCastCantBePaidButWhoseAbilityCanRaisesWithBothChips() {

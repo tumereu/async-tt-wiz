@@ -47,7 +47,7 @@ class PodSettingsRangesTest {
         assertNull(PodSetting.TABLE_OPEN.apply(DraftSettings.rochester().copy(tablePacksOpen = 3), null).tablePacksOpen)
     }
 
-    // DRF-022, DRF-024: each engine's tiles, the pack size only where the source doesn't fix it.
+    // DRF-022, DRF-191, DRF-193, DRF-194, DRF-024: each engine's tiles, the pack size only where the source doesn't fix it.
     @Test fun eachEngineShowsItsOwnTiles() {
         val cube = PodSource("Cube", 540)
         val recipe = PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED)
@@ -56,10 +56,10 @@ class PodSettingsRangesTest {
         assertEquals(listOf(PodSetting.PACKS, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester(), recipe))
         // DRF-182: Rotisserie's pool and picks per player, set apart
         assertEquals(listOf(PodSetting.POOL_EACH, PodSetting.PICKS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.rotisserie(), recipe))
-        // DRF-156: Winston has the same Tables tile, 1–4, default 1.
+        // DRF-156, DRF-221: Winston has the same Tables tile, 1–4, default 1.
         assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.PILES, PodSetting.TABLES, PodSetting.SIDEBOARD), fields(DraftSettings.winston()))
         assertEquals(1..4, PodSetting.TABLES.range(DraftSettings.winston()))
-        // DRF-158: Winchester's Tables tile, 1–4, default 1.
+        // DRF-158, DRF-224: Winchester's Tables tile, 1–4, default 1.
         assertEquals(listOf(PodSetting.PACKS, PodSetting.PILES, PodSetting.TABLES, PodSetting.SIDEBOARD), fields(DraftSettings.winchester(), recipe))
         assertEquals(1..4, PodSetting.TABLES.range(DraftSettings.winchester()))
         assertEquals(1, PodSetting.TABLES.value(DraftSettings.winchester()))

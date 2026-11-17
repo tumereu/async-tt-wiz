@@ -16,7 +16,7 @@ import kotlin.test.assertFalse
  * keeps the second and the first goes to her graveyard.
  */
 class LegendRuleTest : E2e() {
-    // STK-030, CR 704.5j: every permanent with the name shows; the one tapped is kept
+    // STK-030, STK-186, CR 704.5j: every permanent with the name shows; the one tapped is kept
     @Test fun theLegendRuleShowsEveryCardWithTheName() {
         startGame(TestDeck("Sovereigns", listOf(TestCards.mountain to 20, TestCards.sovereign to 20)),
             deal = { a, _ -> hand(a).count { it == "Ember Sovereign" } >= 2 })

@@ -34,7 +34,7 @@ class CardListSupportHttpTest {
         return json.decodeFromString(request(settings, "POST", "/sessions", json.encodeToString(CreateSession("$name@example.invalid", "password😀"))).body())
     }
 
-    // LOB-124, DRF-161
+    // LOB-124, DRF-161, DRF-187
     @Test fun `support is worked out from the catalog's marks whenever a list is read and nothing can store it`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

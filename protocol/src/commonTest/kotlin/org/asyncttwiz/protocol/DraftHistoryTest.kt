@@ -2,7 +2,7 @@ package org.asyncttwiz.protocol
 
 import kotlin.test.*
 
-/** The viewer's draft history (DRF-165): each pick's pack as it came, keeps and burns, and what a wheel lost meanwhile. */
+/** The viewer's draft history (DRF-165, DRF-207, DRF-208): each pick's pack as it came, keeps and burns, and what a wheel lost meanwhile. */
 class DraftHistoryTest {
     private val seed = RandomV1.encodeSeed(ByteArray(32) { (it * 5 + 2).toByte() })
     private val librarian = CardDefinition("Cogwork Librarian", listOf(DefinitionFace("face", "Cogwork Librarian")))
@@ -19,7 +19,7 @@ class DraftHistoryTest {
         assertNotNull(DraftEngine.pick(state, DraftPick(player, head(state, player).id, keep, burn, librarians)).state)
     private fun ids(cards: List<DraftCopy>) = cards.map { it.id }.toSet()
 
-    // DRF-165: every pick in order with the pack as it came and the keep; a pack coming round again lists the cards taken
+    // DRF-165, DRF-205, DRF-207, DRF-208, DRF-211: every pick in order with the pack as it came and the keep; a pack coming round again lists the cards taken
     // since it was passed, and nothing of packs the viewer never saw
     @Test fun picksInOrderWithTheirPacksAndTheCardsTakenSince() {
         var state = start()
@@ -44,7 +44,7 @@ class DraftHistoryTest {
         assertEquals(1 to 3, wheel.pack to wheel.pick)
         assertEquals(setOf(first[1], first[2], first[4]), ids(wheel.cards))
         assertEquals(setOf(first[3]), ids(wheel.takenSince))
-        // DRF-165: the pack came back to x, a second time in its round; the first two were new to x
+        // DRF-165, DRF-209: the pack came back to x, a second time in its round; the first two were new to x
         assertEquals(listOf(false, false, true), DraftEngine.history(state, x).map { it.returning })
         // y's history is y's own: never x's keeps beyond what y's packs show
         val theirs = DraftEngine.history(state, y)
@@ -54,7 +54,7 @@ class DraftHistoryTest {
         assertFailsWith<IllegalArgumentException> { DraftEngine.history(state, "nobody") }
     }
 
-    // DRF-165: burns are listed with the pick; automatic awards are picks too, marked so
+    // DRF-165, DRF-207: burns are listed with the pick; automatic awards are picks too, marked so
     @Test fun burnsAndAutomaticAwards() {
         var state = start(size = 4, burn = 1)
         val (x, y) = state.seating
@@ -80,7 +80,7 @@ class DraftHistoryTest {
         assertEquals(awarded.cards.map { it.id }, awarded.kept)
     }
 
-    // DRF-165, DRF-053: a spent Librarian joins the pack it was spent on; the next player sees it as a pack card
+    // DRF-165, DRF-207, DRF-053: a spent Librarian joins the pack it was spent on; the next player sees it as a pack card
     @Test fun spentLibrariansShowInThePackTheyWereSpentOn() {
         var state = start(size = 6, librarians = 1)
         val (x, y) = state.seating
@@ -98,7 +98,7 @@ class DraftHistoryTest {
         assertTrue(theirs.librarians.isEmpty())
     }
 
-    // DRF-165: each pick names its pack's round (rounds pass in turn: next seat, previous seat), and a pack is returning
+    // DRF-165, DRF-206, DRF-209: each pick names its pack's round (rounds pass in turn: next seat, previous seat), and a pack is returning
     // only when it came to the viewer before in that round
     @Test fun picksNameTheirRoundAndWhetherThePackCameBack() {
         var state = DraftEngine.startWithPacks(listOf("a", "b"), List(4) { pack -> List(3) { DraftCopy("$pack-$it", "d$pack-$it") } },

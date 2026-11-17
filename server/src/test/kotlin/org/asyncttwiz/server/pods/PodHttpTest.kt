@@ -307,7 +307,7 @@ class PodHttpTest {
         assertEquals(PodPhase.DRAFTING, f.start(third).phase)
     }
 
-    // DRF-013
+    // DRF-013, DRF-189
     @Test fun `pod list puts pods needing you first longest waiting first then the rest newest first`() = fixture { f ->
         val settings = DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0)
         fun pod(): String = f.create(DraftMode.GLIMPSE).id.also { f.join(it); f.configure(it, settings) }
@@ -560,7 +560,7 @@ class PodHttpTest {
         f.send(f.c, "PUT", "/v1/pods/$pod/draft/marks", SetPodDraftMarks(attempt, other.id), 404)
     }
 
-    // DRF-165: the draft history is the caller's own picks with the packs as they came, named, a wheel's cards taken since,
+    // DRF-165, DRF-207, DRF-208, DRF-211: the draft history is the caller's own picks with the packs as they came, named, a wheel's cards taken since,
     // and only for members of a Booster or Glimpse draft
     @Test fun `draft history lists the caller's picks with their packs and what a wheel lost`() = fixture { f ->
         val pod = f.create().id
@@ -588,7 +588,7 @@ class PodHttpTest {
         // B kept one and burned one of A's pack: both are gone since A passed it
         assertEquals(2, mine.picks[2].takenSince.size)
         assertEquals((mine.picks.flatMap { it.cards + it.takenSince }).map { it.definition }.toSet(), mine.definitions.map { it.digest }.toSet())
-        // DRF-165, DRF-043: with the draft's seating, as the server keeps it, for the round headers and the seat ring
+        // DRF-165, DRF-210, DRF-211, DRF-043: with the draft's seating, as the server keeps it, for the round headers and the seat ring
         assertEquals(storedDraft<DraftState>(f, pod).seating, mine.seating)
         assertEquals(setOf(f.a.account.accountId, f.b.account.accountId), mine.seating.toSet())
         // B's history is B's own two picks and the last card of A's pack, given automatically
@@ -1194,7 +1194,7 @@ class PodHttpTest {
         finishGrid(f, pod, listOf(f.a, f.b))
     }
 
-    // DRF-079
+    // DRF-079, DRF-213
     @Test fun `three player Grid HTTP refills follows Draftmancer's turn order and completes parallel rounds`() = fixture { f ->
         val pod = f.create(DraftMode.GRID).id; f.join(pod); f.join(pod, f.c)
         f.configure(pod, DraftSettings.grid().copy(grids = 5, gridsOpenAtOnce = 2))
@@ -1396,7 +1396,7 @@ class PodHttpTest {
         f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), setCode = "TWL", cubeId = f.cube.cube.id), 400)
     }
 
-    // DRF-090 (owner, 2026-11-11): a set pod's cards are printings of the pack's own set, from the packs through the pool
+    // DRF-090, DRF-185, DRF-186 (owner, 2026-11-11): a set pod's cards are printings of the pack's own set, from the packs through the pool
     // and Build to the saved draft deck; Test Bear and Test Bolt also have printings in other sets (OFF, DCK), never used
     @Test fun `a set pod's cards are its own set's printings from the packs to the saved draft deck`() = fixture { f ->
         val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Printings", setCode = "TST"), 201)).id
@@ -1506,7 +1506,7 @@ class PodHttpTest {
         assertEquals(listOf("TWL"), f.get(f.a, pod).source.packSets)
     }
 
-    // DRF-162, SYS-082 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
+    // DRF-162, DRF-188, SYS-082, SYS-204 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
     // marks, and a set its catalog doesn't have to draft
     @Test fun `a set the catalog's marks say can't be drafted is refused`() = fixture { f ->
         fun refused(input: CreatePod, status: Int, code: String) =
@@ -1527,7 +1527,7 @@ class PodHttpTest {
         assertEquals("Bonus Sheet Set", f.get(f.a, pod).source.setName)
     }
 
-    // DRF-161, DRF-162: a source chosen in setup replaces the support kept with the pod, the one Start draft reads (found
+    // DRF-161, DRF-162, DRF-188: a source chosen in setup replaces the support kept with the pod, the one Start draft reads (found
     // building multiset drafting, 2026-11-10: setup's source change didn't write it): cube → set → cube → set
     @Test fun `a source change in setup refreshes the support kept with the pod`() = fixture { f ->
         fun stored(pod: String): CardListSupport? = f.db.connection().use { connection ->
@@ -1636,7 +1636,7 @@ class PodHttpTest {
         })
     }
 
-    // DRF-170 (owner, 2026-11-10): a message notifies no one: no notice for the other members (nor its author), so nothing
+    // DRF-170, DRF-237 (owner, 2026-11-10): a message notifies no one: no notice for the other members (nor its author), so nothing
     // reaches a phone's notifications; the chat's unread count still tells it
     @Test fun `a pod chat message notifies no one`() = fixture { f ->
         val pod = f.create().id

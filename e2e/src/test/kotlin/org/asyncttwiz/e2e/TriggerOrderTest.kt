@@ -20,7 +20,7 @@ class TriggerOrderTest : E2e() {
     private val life = "Trigger: When this creature enters, you gain 1 life."
     private val draw = "Trigger: When this creature enters, draw a card."
 
-    // STK-030, STK-036, SYS-063, CR 603.3b: the order of two different triggers is asked in Auto-skip too, as a list
+    // STK-030, STK-185, STK-183, STK-036, STK-172, SYS-063, CR 603.3b: the order of two different triggers is asked in Auto-skip too, as a list
     // dragged into the order they resolve
     @Test fun twoTriggersAreOrderedInAutoSkip() {
         startGame(TestDeck.thirds(TestCards.twinherald), deal = { a, _ -> "Mountain" in hand(a) && "Ember Twinherald" in hand(a) })

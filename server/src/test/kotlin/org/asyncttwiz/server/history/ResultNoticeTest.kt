@@ -23,13 +23,13 @@ import arcanum.engine.setup.GameResult as EngineResult
 import org.asyncttwiz.protocol.game.ResultSuggestion as TableSuggestion
 
 /**
- * TRN-065, LOB-046 (owner 2026-11-07): the server keeps each player's OK of a match's result: the player whose own action
+ * TRN-065, TRN-140, TRN-143, LOB-046 (owner 2026-11-07): the server keeps each player's OK of a match's result: the player whose own action
  * ended it has seen it; the other sees it until they tap OK, and the next game starts only once both have.
  */
 class ResultNoticeTest {
     private fun id() = UUID.randomUUID().toString()
 
-    // TRN-065, TRN-064, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Bob concedes: the
+    // TRN-065, TRN-140, TRN-143, TRN-064, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Bob concedes: the
     // match is final and recorded at once, the result kept for Alice (Alice won, Bob conceded), not for Bob; neither can get
     // Ready before her OK (both are still at the table); after it the result is gone and both Readies start the next game
     @Test fun `a concession is kept for the other player until their OK and the next game waits for it`() = HistoryWorld.run { w ->
@@ -55,7 +55,7 @@ class ResultNoticeTest {
         assertEquals(GameLifecycle.ACTIVE, m.summary().lifecycle, "the next game started")
     }
 
-    // TRN-065, LOB-046 (owner, 2026-11-09): while Alice's OK on Bob's concession is still to come, the lobby takes nothing
+    // TRN-065, TRN-143, LOB-046 (owner, 2026-11-09): while Alice's OK on Bob's concession is still to come, the lobby takes nothing
     // from either player: decks, the starting player, Show deck, Ready, cancelling the game; the
     // conceder's own OK (another device of his) changes nothing. Once hers comes, all of it works again
     @Test fun `the lobby takes nothing until both OKs stand`() = HistoryWorld.run { w ->
@@ -104,7 +104,7 @@ class ResultNoticeTest {
         assertEquals(1L, w.number("SELECT count(*) FROM match_record"))
     }
 
-    // TRN-065, TRN-047: Alice suggests her win, Bob accepts: the match ends at once, and the result (agreed, with its reason)
+    // TRN-065, TRN-140, TRN-047, TRN-134: Alice suggests her win, Bob accepts: the match ends at once, and the result (agreed, with its reason)
     // is Alice's to see; an OK from a second device of hers changes nothing more
     @Test fun `an accepted suggestion ends the match at once and is kept for the suggester`() = HistoryWorld.run { w ->
         val a = w.account("AgreeNoticeAlice"); val b = w.account("AgreeNoticeBob")
@@ -125,7 +125,7 @@ class ResultNoticeTest {
         assertNull(m.summary().resultNotice)
     }
 
-    // TRN-065, LOB-126, LOB-046 (owner, 2026-11-09): a result the rules gave (Bob draws from his empty library, CR 704.5b): one
+    // TRN-065, TRN-137, TRN-138, LOB-126, LOB-046 (owner, 2026-11-09): a result the rules gave (Bob draws from his empty library, CR 704.5b): one
     // OK leaves the match in play, with no record and the OK taken back at will; both OKs end it and nobody owes another
     @Test fun `a result the rules gave ends the match only on both OKs`() = HistoryWorld.run { w ->
         val a = w.account("RulesOkAlice"); val b = w.account("RulesOkBob")

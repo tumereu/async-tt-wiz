@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 
 /** Owner, beta9 notes: a sentence too long for the target bar can be read whole, and that leaves the rest of the bar alone. */
 class TargetBarSentenceTest : E2e() {
-    // STK-047: the sentence stops at 4 lines; a tap shows it whole, scrolling past half the table's height, another tap
+    // STK-047, STK-142, STK-144: the sentence stops at 4 lines; a tap shows it whole, scrolling past half the table's height, another tap
     // goes back, and meanwhile the table's targets take their taps as usual
     @Test fun aLongSentenceOpensWholeOnATapAndTheCastGoesOn() {
         startGame(TestDeck.thirds(TestCards.cascade), deal = { a, _ -> "Mountain" in hand(a) && "Ember Cascade" in hand(a) })

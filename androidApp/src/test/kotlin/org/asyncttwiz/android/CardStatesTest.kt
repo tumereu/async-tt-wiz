@@ -120,7 +120,7 @@ class CardStatesTest {
         assertEquals(emptyList(), scene(board).items.first { it.sourceId == river.id && it.zone == PlayZone.BATTLEFIELD }.automatumMarks)
     }
 
-    // TBL-133: every state with its own word; the words a face-down permanent keeps to itself aren't among them
+    // TBL-133, TBL-190, TBL-192: every state with its own word; the words a face-down permanent keeps to itself aren't among them
     @Test fun eachStatesWordAndWhatStaysHidden() {
         val marks = listOf(ObjectMark.Renowned to "Renowned", ObjectMark.Suspected to "Suspected", ObjectMark.Saddled to "Saddled",
             ObjectMark.Solved to "Solved", ObjectMark.Prepared to "Prepared", ObjectMark.Harnessed to "Harnessed",
@@ -134,7 +134,7 @@ class CardStatesTest {
         assertEquals(emptyList(), changes(board, sentinel, f.b).map { it.text }, "nothing tells the opponent how it came face down")
     }
 
-    // TBL-133: Inspect says what a Ring-bearer gets at the Ring's current level, with the Ring as its source; TBL-132 explains it
+    // TBL-133, TBL-191: Inspect says what a Ring-bearer gets at the Ring's current level, with the Ring as its source; TBL-132 explains it
     @Test fun aRingBearersInspectLineFollowsTheRingsLevel() {
         fun line(level: Int) = changes(board {
             mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer)) }
@@ -147,7 +147,7 @@ class CardStatesTest {
         assertEquals("Ring-bearer", RulesGlossary.first(line(1).text)?.name)
     }
 
-    // TBL-133: goaded names who goaded it in the viewer's words; a battle's protector and what was chosen for a permanent show too
+    // TBL-133, TBL-191, TBL-192: goaded names who goaded it in the viewer's words; a battle's protector and what was chosen for a permanent show too
     @Test fun goadedProtectorAndChosenValuesInInspect() {
         val edit: GameState.() -> Unit = {
             mark(sentinel) { it.copy(statuses = listOf(arcanum.engine.state.ObjectStatus.Goaded(listOf(PlayerId(f.b))), arcanum.engine.state.ObjectStatus.Protector(PlayerId(f.a))),
@@ -169,7 +169,7 @@ class CardStatesTest {
         }
     }
 
-    // TBL-133 (owner 2026-11-16: A Killer Among Us): a secret choice shows its value only to who chose it; the other player reads
+    // TBL-133, TBL-193 (owner 2026-11-16: A Killer Among Us): a secret choice shows its value only to who chose it; the other player reads
     // "Secret choice"; revealed, it reads the same as any choice to everyone. 3+ players: each who knows it sees it
     @Test fun aSecretChoiceShowsOnlyToWhoChoseIt() {
         assertEquals(listOf("Chosen: Goblin (secret)"), changes(board(edit = secretly()), sentinel).map { it.text })
@@ -183,7 +183,7 @@ class CardStatesTest {
         assertEquals(emptyList(), board(viewer = f.b, edit = secretly()).values!!.computed.cards.getValue(sentinel.id).states)
     }
 
-    // TBL-133 (owner 2026-11-16): the other player's Inspect of a card keeping a secret choice says one was made, not what
+    // TBL-133, TBL-193 (owner 2026-11-16): the other player's Inspect of a card keeping a secret choice says one was made, not what
     @Test fun aSecretChoiceInTheOtherPlayersInspect() {
         val table = board(viewer = f.b, edit = secretly())
         val groups = gameInspectGroups(table, f.b, ManualInspection(f.game.id, f.initial.id, sentinel.id, listOf(sentinel.faceId)), sentinel, names)
@@ -195,7 +195,7 @@ class CardStatesTest {
                 "\"Secret choice\", never the type.")
     }
 
-    // HIS-091, HIS-124, TBL-133 (owner 2026-11-16): the event whose cost revealed the secret choice (sacrificing its keeper in the same
+    // HIS-091, HIS-124, TBL-133, TBL-193 (owner 2026-11-16): the event whose cost revealed the secret choice (sacrificing its keeper in the same
     // event) names what was revealed, to both players; an event revealing nothing says nothing of it
     @Test fun theEventThatRevealsASecretChoiceNamesIt() {
         val state = board(edit = secretly()).engine!!.state
@@ -226,7 +226,7 @@ class CardStatesTest {
         assertEquals(emptyList(), scene(board).items.first { it.sourceId == sentinel.id && it.zone == PlayZone.BATTLEFIELD }.automatumMarks)
     }
 
-    // TBL-134: a Ring-bearer's rule from the Ring is its own line, not a line of its own again
+    // TBL-134, TBL-198: a Ring-bearer's rule from the Ring is its own line, not a line of its own again
     @Test fun theRingsRestrictionIsNotListedTwice() {
         val board = board {
             mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer)) }
@@ -269,7 +269,7 @@ class CardStatesTest {
         setup.command.add(crypt)
     }
 
-    // TRN-072: a player's states as chips, in their order, by the rules' words; each round chip shows its state's own icon with
+    // TRN-072, TRN-130, TRN-131: a player's states as chips, in their order, by the rules' words; each round chip shows its state's own icon with
     // its current level where it has one (owner notes 2026-11-14); a counter with no icon of its own keeps letters
     @Test fun aPlayersStatesInOrder() {
         val state = board { playerStates() }.engine!!.state
@@ -307,7 +307,7 @@ class CardStatesTest {
         }
     }
 
-    // TRN-072: in portrait the round chips sit right of the piles, before the emblems, clear of the hands, on a narrow screen too
+    // TRN-072, TRN-132, TRN-126: in portrait the round chips sit right of the piles, before the emblems, clear of the hands, on a narrow screen too
     @Test fun portraitChipsKeepClear() {
         val play = withEmblems(f.initial)
         for (width in listOf(412f, 360f)) assertClear(scene(board(play) { playerStates() }, width = width), width, 892f)
@@ -315,7 +315,7 @@ class CardStatesTest {
         assertClear(scene(board(play) { playerStates(); dungeon() }, width = 360f), 360f, 892f)
     }
 
-    // TRN-072, TRN-053, TRN-069 (owner gallery review 2026-11-09, gallery 157): on any width, a dungeon's fourth pile or not, each
+    // TRN-072, TRN-132, TRN-053, TRN-126, TRN-128, TRN-069 (owner gallery review 2026-11-09, gallery 157): on any width, a dungeon's fourth pile or not, each
     // player's chips, emblems and room stay in their own row, clear of the hands and of the piles as drawn: what doesn't fit folds
     // into "+N", which stands for the rest
     @Test fun chipsStayInTheirRowOnAnyWidth() {
@@ -335,7 +335,7 @@ class CardStatesTest {
         }
     }
 
-    // TRN-072, TRN-069, TRN-053 (owner gallery review 2026-11-10, gallery 157): on the 320 dp phone, where the opponent's fourth
+    // TRN-072, TRN-069, TRN-053, TRN-126 (owner gallery review 2026-11-10, gallery 157): on the 320 dp phone, where the opponent's fourth
     // pile leaves the least room, each player's room, states and emblems are round chips over two lines, all of them shown
     @Test fun roundChipsFitTwoLinesWhereTheDungeonLeavesTheLeastRoom() {
         val all = scene(board(withEmblems(f.initial)) { playerStates(); dungeon() }, width = 320f)
@@ -348,7 +348,7 @@ class CardStatesTest {
         assertEquals(2, own.emblemChips.size)
     }
 
-    // TRN-072, TRN-053 (owner gallery review 2026-11-10, gallery 157): many states at once on a narrow phone: the round chips shrink,
+    // TRN-072, TRN-132, TRN-053, TRN-128 (owner gallery review 2026-11-10, gallery 157): many states at once on a narrow phone: the round chips shrink,
     // then the states' last chip reads "+N" for those left out, never overlapping; the emblems keep their chips
     @Test fun manyStatesFoldIntoPlusN() {
         val many = board(withEmblems(f.initial)) {
@@ -371,7 +371,7 @@ class CardStatesTest {
         }
     }
 
-    // TRN-072: in landscape right after the piles in the bar row; what doesn't fit is a "+N" chip that stands for the rest
+    // TRN-072, TRN-132, TRN-127: in landscape right after the piles in the bar row; what doesn't fit is a "+N" chip that stands for the rest
     @Test fun landscapeChipsKeepClearAndFold() {
         val play = withEmblems(f.initial)
         for ((width, height) in listOf(892f to 412f, 800f to 360f, 640f to 360f)) {
@@ -430,7 +430,7 @@ class CardStatesTest {
                 "starting with the door of their dungeon room, the emblems last; the moon chip for Night sits above the Stack.")
     }
 
-    // LOB-136, TRN-072 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
+    // LOB-136, LOB-166, TRN-072, TRN-132 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
     // used to lie under the life square): the bubble under the square lies clear of them; a tap on it reads it, holding opens the chat
     @Config(qualifiers = "w320dp-h640dp-port-mdpi")
     @Test fun aChatBubbleLiesClearOfStateChipsOnANarrowPhone() {
@@ -460,7 +460,7 @@ class CardStatesTest {
                 "over two lines right of their piles (which scroll under them), none overlapping and all shown, clear of the hands.")
     }
 
-    // TRN-072, TBL-132: holding a chip explains it until the finger lifts; a tap does nothing
+    // TRN-072, TRN-133, TBL-132: holding a chip explains it until the finger lifts; a tap does nothing
     @Test fun holdingAChipExplainsIt() {
         render(shotPlay, allStates())
         compose.mainClock.autoAdvance = false
@@ -538,7 +538,7 @@ class CardStatesTest {
                 "untap until Bob's next turn.")
     }
 
-    // TBL-132: pinned, a state's line explains the state on a tap, with its source
+    // TBL-132, TBL-195: pinned, a state's line explains the state on a tap, with its source
     @Test fun pinnedAStatesLineExplainsIt() {
         val groups = listOf(InspectGroup("card", emptyList(), listOf(InspectChange("Goaded by Bob: attacks each combat if able, and not Bob if it can"),
             InspectChange("Ring-bearer: legendary, can't be blocked by creatures with greater power", "The Ring"))))

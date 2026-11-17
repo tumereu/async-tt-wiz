@@ -33,7 +33,7 @@ class MatchStatsTest {
         assertEquals(0, none.record.matches); assertNull(none.averageTurns); assertNull(none.current)
     }
 
-    // LOB-132: record over time, play/draw, how matches end, match length
+    // LOB-132, LOB-177, LOB-178: record over time, play/draw, how matches end, match length
     @Test fun graphs() {
         assertEquals(listOf(1 to 0, 1 to 1, 2 to 1, 3 to 1, 3 to 1, 4 to 1), MatchStats.running(records, me))
         val (play, draw) = MatchStats.playDraw(records, me)
@@ -44,7 +44,7 @@ class MatchStatsTest {
         assertEquals("—", MatchStats.Rate(0, 0).text)
     }
 
-    // LOB-132: your decks, your decks vs theirs (hidden decks pooled as "Deck"), colours, extras
+    // LOB-132, LOB-179, LOB-180: your decks, your decks vs theirs (hidden decks pooled as "Deck"), colours, extras
     @Test fun decksColoursAndExtras() {
         assertEquals(listOf("Ember rush" to "3–1–0", "Quiet grove" to "1–0–1"), MatchStats.decks(records, me).map { it.name to it.record.text })
         val grid = MatchStats.grid(MatchStats.with(records, me, riley.accountId), me)
@@ -65,7 +65,7 @@ class MatchStatsTest {
         assertEquals(6, weeks.sumOf { it.second })
     }
 
-    // DRF-121: a pod's standings: each member's W–L–D in the pod's finished matches, best first, members without one at 0–0–0
+    // DRF-121, DRF-235: a pod's standings: each member's W–L–D in the pod's finished matches, best first, members without one at 0–0–0
     @Test fun podStandings() {
         val pod = listOf(
             MatchHistoryFixtures.record(10, riley, SuggestedResult.WIN, 8, 2),
@@ -78,7 +78,7 @@ class MatchStatsTest {
             standings.map { it.account.username to it.record.text })
     }
 
-    // LOB-130, LOB-131: how a match ended, in a row and in its details
+    // LOB-130, LOB-176, LOB-131: how a match ended, in a row and in its details
     @Test fun endingTexts() {
         val byRules = records.single { it.id == "r2" }
         assertEquals("Life 0", matchEndText(byRules))

@@ -67,7 +67,7 @@ class TableStatesScreenshotTest {
             } }))
     }
 
-    /** TBL-021, TBL-135 (owner, 2026-11-11: counters as visuals): Bob's Ash Oracle planeswalker with 4 loyalty counters, his
+    /** TBL-021, TBL-135, TBL-196 (owner, 2026-11-11: counters as visuals): Bob's Ash Oracle planeswalker with 4 loyalty counters, his
      * creature with a -1/-1 counter and 3 oil counters, Alice's with two +1/+1 counters, a shield and a stun counter. */
     private val countersState = f.initial.let { play ->
         val sentinel = f.source(f.a, "1/3")
@@ -174,7 +174,7 @@ class TableStatesScreenshotTest {
                 assertTrue(oracle.label.endsWith(", loyalty counter ×4"), oracle.label)
                 assertEquals(listOf("2", "1", "1"), scene.items.single { it.sourceId == f.source(f.a, "1/3").id && it.zone == PlayZone.BATTLEFIELD }
                     .counterBubbles.map { CounterBubbles.look(it).text })
-                // TBL-135 (owner, 2026-11-12): a counter without a designed colour is a plain bubble with only its number
+                // TBL-135, TBL-196 (owner, 2026-11-12): a counter without a designed colour is a plain bubble with only its number
                 assertEquals(listOf("1", "3"), scene.items.single { it.sourceId == f.source(f.b, "2/3").id && it.zone == PlayZone.BATTLEFIELD }
                     .counterBubbles.map { CounterBubbles.look(it).text })
             }

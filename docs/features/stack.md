@@ -1,0 +1,85 @@
+# Stack
+
+Putting cards on the Stack, how the Stack and its entries look, ability tokens, target arrows, the Stack list, and the
+plays shown of the other player's casts and triggers.
+
+## How it works
+
+Every spell or ability put on the Stack becomes an entry there that points at the real card, which stays where it is.
+The Stack is a small fixed box at the battlefields' right edge that shows only its top entry; tapping it opens a list of
+every entry. A spell is drawn as its card and an ability as a small ability token with its source's art; holding either
+inspects it, with what was chosen for it. When the other player casts a spell or activates an ability, or a trigger goes
+on the Stack, your table first shows it large in the middle of the board and then flies it to the Stack. While an entry
+with targets is on top, arrows grow from the Stack to each target, and when the entry is the other player's, the band
+under their hand says in words what it does. Automatum resolves the Stack, and its order can't be changed.
+
+## Putting cards on the Stack
+
+- **STK-001** Every way of putting a card on the Stack (from battlefield, hand, graveyard, exile or library) adds a Stack entry pointing at the real card; the real card stays where it is. Several entries may come from the same card. (r17)
+- **STK-002** A hand card's entry is shown face up to both players while it is on the Stack. (r2)
+- **STK-045** A hand card whose spell is on the Stack isn't drawn in its hand, nor counted in it, while the spell is there: it shows only as its Stack entry, for both players (it stays in the hand underneath, STK-001, and shows again if the spell goes back to the hand). (r43)
+- **STK-003** Stack entries are always upright and can't be tapped. (r35)
+- **STK-006** Adding an entry shows a ghost card flying from the card to the Stack. As it leaves the Stack, a spell's card flies to where it really goes (the graveyard, exile, a hand, a library; a permanent spell to the battlefield). A hand card's spell (STK-045) flies from the hand to the Stack and then from its entry to its place, drawn once all the way. (r74)
+- **STK-120** An entry that goes nowhere as it leaves the Stack (an ability, a trigger or a copy of a spell, whether it resolves, is countered or is removed) never flies back to its source: it rises a little and fades out where it is, as from a pile, in about 0.3 s at Card move speed 1× (scaled by it, TBL-038). Undo reverses what was shown (an entry that faded out falls back into its place, fading in). (r74)
+- **STK-022** Automatum puts an ability whose source isn't on the table (a delayed trigger of a spell copy, an emblem's ability, an ability of a token that's gone) on the Stack as an entry of its own, drawn as an ability token (STK-046). An ability the rules give a player, with no source (speed's increase, the initiative's), goes by the rule's name where a source's name would ("Speed's ability"), with the ability's own text. (r52)
+
+## How the Stack looks
+
+- **STK-007** In the phone layout and on the desktop table (at its size, WEB-022) the Stack is a fixed-size HUD pinned at the battlefields' right edge, vertically mid-screen, in portrait and landscape alike (over the battlefields' right end; on the desktop table left of the chat dock while it is open, WEB-017); in landscape it is at most as tall as fits between the hands. (r74)
+- **STK-008** The Stack area has a ~3dp very dark purple border and a soft shadow (floating look), a fixed 12dp inset, and its count on the top-left corner of the border. Only the top entry is shown, at single-card size. (r14)
+- **STK-027** The player holding priority with something on the Stack sees its top entry on the Stack (an ability as its token) and Resolve on the main button (STK-029); no panel covers the board. When the entry is the other player's, a line over the battlefield says who cast it and what it does (STK-057), and its targets have arrows (STK-058). Responding is casting or activating the usual way, with no time limit. (r58)
+
+## Ability tokens
+
+- **STK-046** An ability on the Stack never looks like a card: it is an ability token, smaller than a card, dark with the controller's outline, the source's art filling it (its type glyph while the art is missing) and a small violet chip at its bottom: "T" for a triggered ability, "A" for an activated one, whatever its kind (a cycling trigger's chip is "T"); no name or text (Inspect and the Stack list show them and its kind, STK-050, STK-018). (r58)
+- **STK-121** The same ability token stands for the ability in the Stack list (also when a target is picked from it, STK-048) and at a panel's right (STK-044). Spells, spell copies and face-down entries stay drawn as cards. (r58)
+
+## Inspecting a Stack entry
+
+- **STK-050** Holding an ability on the Stack inspects it (TBL-104) in a panel of its own (STK-122) that names its kind under the source's art, by the kind chip: "Triggered ability" or "Activated ability", or what Automatum knows it as: "Cycling trigger" for a "when you cycle" trigger, a keyword's own trigger or ability by its keyword ("Offspring trigger", "Cycling ability"). (r58)
+- **STK-122** An inspected ability's panel is dark and rounded with the controller's outline, as wide as an inspected card and as tall as its content (not card-shaped; taller than the screen it scrolls, in landscape its art gives way first). It shows first only the source's art crop (no border, title or text box), then under it the kind chip and its kind, then the source's name, the ability's whole text and what was chosen for it; nothing else, no picture of the source card. (r58)
+- **STK-123** An inspected ability's text is its whole text (a keyword's own trigger, such as offspring's, its keyword's printed line with its reminder text: "Offspring {2} (You may pay an additional {2} …)"), with X filled in and each chosen target named where it names it, in its controller's colour, as the Stack line does (STK-057: "… put a +1/+1 counter on Meadow Sentinel"; a card the viewer can't see reads "a card"). (r58)
+- **STK-124** Under its text, an inspected ability lists what was chosen for it ("Mode: …", "X = 2", "Targets: Bob, Meadow Sentinel" only for targets its text doesn't name; a card the viewer can't see reads "a hidden card"). Holding a spell on the Stack shows what was chosen for it the same way, as lines under its card (TBL-104), every target included (its card's text stays as printed). (r58)
+
+## Plays shown
+
+- **HIS-112** Plays shown: when the other player casts a spell, activates an ability or one of their triggers goes on the Stack, and when one of your own triggers does, your table shows it large in the middle of the board for a moment and then it moves to the Stack. The same whether it resolves by itself right away, is assumed, or is passed by a player or a phone, live and in catch-up playback alike. (r74)
+- **HIS-143** Your own casts and activations aren't shown: their card makes one move from your hand (or its source) to its Stack entry. (r74)
+- **HIS-132** Until a play lands on the Stack its entry isn't drawn anywhere on your table (the Stack, its count) and nothing else moves to the Stack for it: a spell's card leaves the hand or pile it was cast from as the play flies out of it, and nothing of its event after it (its resolution) plays meanwhile. (r74)
+- **HIS-133** A play first flies in from where its source is on the table, growing from small to large, in about 0.25 s at Card move speed 1× (scaled by it, TBL-038): from a battlefield card (one panned out of sight: from the board's edge in its direction), the pile it is in or was cast from, the other player's hand fan (a spell cast from their hand), or the emblem's chip by its owner's life square (where the table shows none, it grows where it shows). (r74)
+- **HIS-134** Several put on the Stack in one go (in one event: two triggers of one event, a spell and the triggers its cast makes) start flying in about 50 ms apart in the order they go on the Stack and pile up large in the middle, the last on top, each a little offset; a finger held then keeps the pile there. Then they show one at a time, top first, the next already waiting large underneath as the one before flies off. (r74)
+- **HIS-135** What shows: a spell as its card (the face cast; a face-down spell as a face-down card, HIS-062), an ability as its ability token (STK-046) enlarged. Under it a line names it as the Stack line does (STK-057): "Bob cast Storm Spark · deals 3 damage to Ember Cub", or the source's name with the ability's kind ("Cycling trigger", STK-050) and its text with its targets named. (r74)
+- **HIS-144** While a play shows, the Stack line and the wait's words (STK-057, TRN-066) give way. Its card has a content description naming it. (r74)
+- **HIS-136** A play shows for the "Show plays and combat" time (LOB-082; at 0 none shows), then its line goes and it flies into its entry's place (the Stack's top card, or the Stack itself while it is empty) in the same time as its fly-in (HIS-133), speeding up as it goes, shrinking to its size and fading out over the flight's second half; on the phone and the desktop table alike. (r74)
+- **HIS-137** A play is gone from the screen the moment it lands, and its entry appears there at that moment, in its place with no move of its own (the list shifting only then). Then, when an entry with targets is the top entry, its arrows grow (STK-058). (r74)
+- **HIS-138** The same ability from the same kind of source (the source's name and the ability's text, whoever controls it) shown again in one chain (each play showing within a second after the one before landed; a board wipe's "whenever a creature dies" triggers) shows 35% shorter each time, down to 0.15 s (never longer than the setting), its flight likewise down to 0.1 s at 1×. The first keeps the whole time, and a spell is never a repeat. (r74)
+- **HIS-139** Only the play being shown takes touches and has its line. A double tap on it ends it at once (the next one under it shows); a tap on the table right after one on it, the play gone from under the finger, does nothing. A single tap on it does nothing; holding it inspects it (TBL-104) and pauses it until lifted (HIS-126). (r74)
+- **HIS-140** While a play shows, your view waits (HIS-128): the other player's later events are held as at a playback stop, and your phone makes none of its own steps (its passes and assumptions) until it is done, so the board under it stays as it was. (r74)
+- **HIS-141** Plays put on the Stack at different times show one after another, in order: the next flies in once the one before has landed and the top entry's arrows (STK-058) have grown and been read. They come in order with the turn banner (TRN-074), and a reveal panel (HIS-110) comes before them. (r74)
+- **HIS-142** A play shown ends when it is taken back (an undo, a branch, a rewind), when its entry has left the Stack on the board your table shows (it went on past it, say as you played on in the same game on another device of yours), or when you enter timeline mode. When you went on past them on another device, every play shown and combat hold of the events you passed there ends. (r74)
+- **HIS-145** Plays shown are kept only on this phone: a game opened again shows none of what was shown before. The table's log names each step's start and length. (r74)
+
+## Target arrows
+
+- **STK-058** While a spell or ability with targets is the top Stack entry, both players' tables (whoever holds priority or decides, for your own entries too) draw a straight arrow from the Stack to each of its targets on the table, as a block's arrow (CMB-031) but a little wider with a thin white edge: a battlefield card, a player's life square, the Graveyard or Exile pile holding a card. (r74)
+- **STK-125** Each target of the top entry has a soft highlight. Arrows and highlights are in the entry's controller's colour (green for yours, red for the other player's), never the violet of picking targets (STK-047). (r74)
+- **STK-126** A target that is another Stack entry rings the Stack instead (the Stack list says which, STK-018); a target in a hidden zone has no arrow. Lower entries' targets show only in the Stack list. Arrows are hidden while you pick targets yourself (STK-047). The arrows and highlights pass under the Stack's and the piles' count bubbles, which stay on top. Drawn only: taps reach the table. (r74)
+- **STK-127** The arrows grow whenever such an entry becomes the top entry (it goes on the Stack, after its play shown lands, HIS-112, or after your own cast's move there; or the entry above it leaves), before anyone has passed: each grows from the Stack to its target in about 0.25 s at Card move speed 1× (scaled by it, TBL-038), several about 80 ms apart, each target's highlight fading in as its arrow arrives. (r74)
+- **HIS-230** Once grown, the arrows are drawn for about 0.4 s, and only then does anything after the entry play (its resolution, the next event or play): the entry stays on the Stack as long as its arrows and then as long as the game waits (a priority stop, an assumption, a choice), the arrows drawn meanwhile. (r74)
+- **STK-128** The same ability again in one chain grows and reads shorter each time by the repeat rule of plays shown (HIS-138), its growth down to about 0.1 s and its reading down to about 0.15 s. A held finger or Alt pauses the growth (HIS-126, WEB-025); a double tap on the table or a double click skips it while the move isn't yours (WEB-030). As the entry resolves its arrows fade out with its effect (TBL-125). On a board opened, taken back to or looked at in timeline mode they are simply drawn. (r74)
+
+## The Stack line
+
+- **STK-057** When the other player's spell or ability is the top Stack entry and you hold priority (live and in catch-up playback; not in timeline mode, under the catch-up's centre text, HIS-094, or while a play is shown, HIS-112), the band under their hand says what it is, in the wait's place and look (TRN-066: it takes no touch). Never for your own entries. (r62)
+- **STK-129** The Stack line has who did what as its main line (up to 3 lines) and what it does under it in small text (up to 8 lines), each cut with … beyond; here written with " · " between them: a spell "Bob cast Shattered Reason · each opponent mills 14 cards", an ability by its source and its kind (STK-050) "Shattered Reason's cycling trigger · each opponent mills 4 cards". (r62)
+- **STK-130** What it does is its text in short: reminder text, an ability's cost and trigger condition and the source's own name in front left out, numbers as digits, X filled in ("deals 4 damage to any target"); its chosen modes instead when it has them; an X its text doesn't mention as "X = 2". A permanent spell without text of its own shows only who cast it. (r62)
+- **STK-131** Each target is named where the text names it, in place of its phrase ("Bob cast Storm Spark · deals 3 damage to Ember Herald"; "any target", "target creature you control", "up to two target creatures", …), several for one phrase as "Ember Cub and Ash Pup", players by name and you as "you", each name in its controller's colour (yours green, the other player's red, lightened on the band; a player in their own). (r62)
+- **STK-132** A target whose phrase isn't known (a keyword action that targets, as earthbend) follows the text of what it does instead, "→ Ember Herald". A phrase nothing was chosen for stays as printed. A card the viewer can't see reads "a card", a face-down spell "Bob cast a card" (HIS-062). (r62)
+
+## The Stack list
+
+- **STK-018** Tapping or double-tapping the Stack (its card or count) opens "Stack · N" with every entry, top first ("Top", "2", …), each with art and name (an ability as its token, "<source>'s ability", its kind in violet as Inspect names it, "Cycling trigger", STK-050, and its text; a spell with text of its own, its text). It is only for looking (except picking a target from it, STK-048), and only as tall as its entries (it scrolls when they don't fit). (r58)
+- **STK-133** In the Stack list an entry's text has X filled in and each chosen target named where it names it, in its controller's colour, as the Stack line does (STK-057: "Storm Spark deals 3 damage to Ember Herald."; a card the viewer can't see reads "a card"), then what was chosen for it as Inspect lists it ("Mode: …", "X = 2", "Target: Ember Herald" only for targets its text doesn't name; a card the viewer can't see reads "a hidden card"). (r58)
+- **STK-134** In the Stack list an entry another entry targets is softly highlighted in that entry's controller's colour with "Targeted by Top" (STK-058). (r58)
+- **STK-021** The Stack order can't be changed: there is no reordering. Holding an entry in the Stack list inspects it above the list. (r45)
+- **STK-035** Automatum resolves the Stack: tapping it opens the Stack list (STK-018), and there are no Stack bubbles, text marks or buttons on the list's entries (TBL-119). (r45)

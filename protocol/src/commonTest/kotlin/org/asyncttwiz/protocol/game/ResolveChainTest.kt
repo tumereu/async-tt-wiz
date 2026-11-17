@@ -13,7 +13,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Owner playtest 2026-11-07 (TRN-017, STK-029, TRN-070): holding Resolve or a Stack wait's Assume is the whole chain:
+ * Owner playtest 2026-11-07 (TRN-017, TRN-107, TRN-108, STK-029, TRN-070, TRN-158): holding Resolve or a Stack wait's Assume is the whole chain:
  * the device presses Resolve at each of the player's priority points and Assume at each of the other player's, whatever
  * the player's response mode, until the Stack is empty ([GameDevice.startChain]); the other player's real input is never
  * passed over: when it reaches the server before the chain's presses they aren't taken, and the player gets priority
@@ -100,7 +100,7 @@ class ResolveChainTest {
         return b
     }
 
-    // TRN-017, TRN-070, STK-029 (owner 2026-11-07): Alice holds Assume over her trigger: her phone assumes Bob's pass (the
+    // TRN-017, TRN-107, TRN-070, TRN-158, STK-029 (owner 2026-11-07): Alice holds Assume over her trigger: her phone assumes Bob's pass (the
     // trigger resolves), presses Resolve for her over her ability and assumes Bob's pass again, where a tap would have
     // stopped at Bob's next wait: the whole Stack resolves and the chain ends with it
     @Test
@@ -120,7 +120,7 @@ class ResolveChainTest {
         assertTrue(a.session.pending.isEmpty(), "all taken")
     }
 
-    // TRN-017, STK-029, STK-036 (owner 2026-11-07): whatever her response mode: in Control she holds Resolve over her
+    // TRN-017, TRN-107, STK-029, STK-036 (owner 2026-11-07): whatever her response mode: in Control she holds Resolve over her
     // trigger; where her own priority over her ability stops for her, the chain presses Resolve there too
     @Test
     fun holdingResolvePressesResolveWhereHerModeWouldStop() {
@@ -132,7 +132,7 @@ class ResolveChainTest {
         assertTrue(sim.device(alice).model.engine.stack.isEmpty(), "the whole Stack resolved")
     }
 
-    // TRN-017, SYS-077, HIS-109 (owner 2026-11-07): Bob, live in Normal, casts an Idle Glimmer over her trigger while her
+    // TRN-017, TRN-108, SYS-077, HIS-109 (owner 2026-11-07): Bob, live in Normal, casts an Idle Glimmer over her trigger while her
     // phone makes the chain; his cast reaches the server first: none of her chain's presses is taken, the chain is over,
     // and Alice (Normal) has priority with his Glimmer on top: nothing of hers passed over it
     @Test
@@ -158,7 +158,7 @@ class ResolveChainTest {
         assertGlimmerOnTopForAlice(sim)
     }
 
-    // TRN-017, HIS-109, HIS-187 (owner 2026-11-07): the other order: her chain's presses reach the server first, then Bob's Glimmer
+    // TRN-017, TRN-108, HIS-109, HIS-187 (owner 2026-11-07): the other order: her chain's presses reach the server first, then Bob's Glimmer
     // made where her phone assumed his pass: his answer there branches; her table goes back and she has priority with his
     // Glimmer on top, nothing of hers passed over it
     @Test
@@ -201,7 +201,7 @@ class ResolveChainTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // TRN-017: the player's own action ends a chain going on
+    // TRN-017, TRN-107: the player's own action ends a chain going on
     @Test
     fun anOwnActionEndsTheChain() {
         val sim = twoOfHersOnTheStack()

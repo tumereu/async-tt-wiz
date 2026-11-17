@@ -71,7 +71,7 @@ class DungeonStartTest {
         }
     }
 
-    // LOB-117 (owner 2026-11-10: card data from the server's catalog): the server brings its catalog's dungeons with the Ready
+    // LOB-117, LOB-225 (owner 2026-11-10: card data from the server's catalog): the server brings its catalog's dungeons with the Ready
     // of a deck that ventures; a deck needs the ones its cards ask for (a plain venture can't enter the Undercity)
     @Test fun `a deck that ventures needs its dungeons, and its Ready brings the catalog's`() = withService { runtime ->
         val f = Fixture(runtime, "n")

@@ -106,7 +106,7 @@ class EngineAbReviewTest {
             listOf(TableChange.EarlyAnswered("k$n", null, EarlyAnswer(this.alice, "k$n", Answer.YesNo(true)))))))
     }
 
-    // abreview #6 (I-D56 §7, §18.11; LOB-073, LOB-075): the head waits for Bob's real input; while Alice waits she
+    // abreview #6 (I-D56 §7, §18.11; LOB-073, LOB-186, LOB-075): the head waits for Bob's real input; while Alice waits she
     // moves things on her side (table-only events). Bob's wait is the same one, so he is notified once and its time
     // stays that of the event it began at. Today each table-only event moves his next stop to the new head event: a
     // new "your move" notification each time and the move time (reminders) reset

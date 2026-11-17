@@ -7,7 +7,7 @@ import org.junit.Test
 import kotlin.test.assertFalse
 
 /**
- * Owner-reported 2026-11-11 (CMB-044): a cost to attack whose X the board defines ("pays {X} for each creature they control
+ * Owner-reported 2026-11-11 (CMB-044, CMB-074): a cost to attack whose X the board defines ("pays {X} for each creature they control
  * that's attacking you, where X is the number of enchantments you control") showed the letter X on its chip. It shows its
  * amount, on the attacker's phone and the defender's alike.
  */
@@ -17,7 +17,7 @@ class AttackCostXTest : E2e() {
 
     private fun E2ePlayer.showsCost(label: String) = shows(hasContentDescription("Pays $label", substring = true))
 
-    // CMB-044 (CR 508.1h): Bob has an Ember Bulwark and an Ember Chime, two enchantments; Alice, with two Mountains, stages her Pup and its chip
+    // CMB-044, CMB-074 (CR 508.1h): Bob has an Ember Bulwark and an Ember Chime, two enchantments; Alice, with two Mountains, stages her Pup and its chip
     // reads {2} on both phones, never {X}
     @Test fun aCostToAttackWithXShowsItsAmountOnBothPhones() {
         startGame(pups, wards, bobSettings = org.asyncttwiz.protocol.game.PlaySettings(),

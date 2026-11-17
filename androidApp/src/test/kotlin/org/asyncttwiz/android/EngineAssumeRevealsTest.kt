@@ -14,7 +14,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * LOB-135 on Alice's phone: the game's assume reveal settings reach her engine game from the game's summary
+ * LOB-135, LOB-154 on Alice's phone: the game's assume reveal settings reach her engine game from the game's summary
  * ([EngineGame.assumeReveals]) and her device's information rule follows them at once.
  */
 class EngineAssumeRevealsTest {
@@ -44,7 +44,7 @@ class EngineAssumeRevealsTest {
 
     private fun EngineGame.waitsForHiddenCards() = (device.status as? GameDevice.Status.Waiting)?.reason == GameDevice.Wait.HiddenCards
 
-    // LOB-135, TRN-071: with the game's defaults a reveal of Bob's library top is assumed through, a reveal of his hand waits;
+    // LOB-135, LOB-152, LOB-153, LOB-154, TRN-071: with the game's defaults a reveal of Bob's library top is assumed through, a reveal of his hand waits;
     // the host turning "Allow assumes that reveal hands" on lets that wait go on at once (Bob's pass assumed, the spell
     // resolved)
     @Test fun theGamesSettingsDecideTheWaitAndAChangeCountsAtOnce() {
@@ -58,7 +58,7 @@ class EngineAssumeRevealsTest {
         assertTrue(exposure.device.session.pending.any { it.assumed != null })
     }
 
-    // LOB-135: with the library setting off, the Augury's reveal waits as well
+    // LOB-135, LOB-152: with the library setting off, the Augury's reveal waits as well
     @Test fun withTheLibrarySettingOffALibraryRevealWaits() {
         assertTrue(casts(EngineGameFixture.Choices.AUGURY, AssumeReveals.NONE).waitsForHiddenCards())
     }

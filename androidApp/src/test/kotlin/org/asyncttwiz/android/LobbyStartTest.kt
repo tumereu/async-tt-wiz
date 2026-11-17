@@ -257,7 +257,7 @@ class LobbyStartTest {
                 // Every special pile occupies exactly one card, including when empty.
                 assertEquals(1, piles.filter { it.zone != PlayZone.STACK }.map { it.footprint.width to it.footprint.height }.distinct().size)
                 for (pile in piles) {
-                    // TBL-009: landscape's piles in the bars are at most 32 dp tall
+                    // TBL-009, TBL-145: landscape's piles in the bars are at most 32 dp tall
                     val scale = if (landscape && pile.zone != PlayZone.STACK) .8f else 1f
                     assertEquals(28f * scale, pile.footprint.width, .001f)
                     assertEquals(40f * scale, pile.footprint.height, .001f)

@@ -120,7 +120,7 @@ class EngineBoardTest {
         assertNull(zoneOf(after, soldier), "the token is gone")
     }
 
-    // SYS-074, TBL-053: a merged permanent's other card (mutate, CR 731.2) lies on its Battlefield as a card attached to it;
+    // SYS-074, SYS-155, TBL-053, TBL-179: a merged permanent's other card (mutate, CR 731.2) lies on its Battlefield as a card attached to it;
     // merged on top, the card in front shows the top card's picture
     @Test fun aMergedPermanentsOtherCardLiesAttachedToIt() {
         val (bear, ogre) = table.put(alice, Zone.Battlefield, "Stout Bear", "Hill Ogre")

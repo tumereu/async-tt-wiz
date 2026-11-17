@@ -8,9 +8,9 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import java.util.UUID
 
-/** Winchester tables (DRF-158, DRF-159): a two-player, two-table Winchester draft where both pick at the same time. */
+/** Winchester tables (DRF-158, DRF-224, DRF-159, DRF-226): a two-player, two-table Winchester draft where both pick at the same time. */
 class WinchesterTablesTest : E2e() {
-    // DRF-158, DRF-159: each phone opens on the table where it's its player's pick, both take a pile at once, each screen
+    // DRF-158, DRF-224, DRF-159, DRF-226: each phone opens on the table where it's its player's pick, both take a pile at once, each screen
     // moves on to the table that came round to them, and the draft plays to its end
     @Test fun bothPlayersPickAtTheirOwnTablesAtOnce() {
         launchPlayers()

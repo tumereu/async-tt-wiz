@@ -39,7 +39,7 @@ class DeckEditorTest {
     private fun editor(worker: Worker, resolve: (String) -> DeckImportResult = { error("Opening a saved deck needs no lookup") }) =
         DeckImportController(resolve, worker) { it() }.also { it.cardRecords = records }
 
-    // LOB-057, SYS-084
+    // LOB-057, SYS-084, SYS-200
     @Test fun aSavedDeckOpensFromTheCardRecordsAndSavesItsPrintingsSectionsQuantitiesAndCover() {
         val worker = Worker()
         val editor = editor(worker)
@@ -106,7 +106,7 @@ class DeckEditorTest {
         assertEquals(maybe.saved.entries, plan!!.saved())
     }
 
-    // SYS-084, LOB-115: a card without a printing, and one the card records don't have, stay as they are: their names
+    // SYS-084, SYS-201, LOB-115: a card without a printing, and one the card records don't have, stay as they are: their names
     // alone, never the cover, saved as the deck holds them
     @Test fun cardsTheRecordsCantBuildAreKeptByTheirNameOrPrinting() {
         val unknown = card("Unknown Printing")

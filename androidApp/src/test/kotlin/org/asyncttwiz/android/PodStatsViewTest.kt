@@ -131,7 +131,7 @@ class PodStatsViewTest {
             "line and the pip counts as chips flowing in rows.")
     }
 
-    // DRF-180, DRF-113 (owner, 2026-11-11): under the type row a row counts the Main cards' subtypes, basics' land types
+    // DRF-180, DRF-231, DRF-113 (owner, 2026-11-11): under the type row a row counts the Main cards' subtypes, basics' land types
     // included, most common first: the first six, then "+4 more", whose tap shows the rest with "Fewer" after them
     @Test
     @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
@@ -157,7 +157,7 @@ class PodStatsViewTest {
         assertEquals(6, shownSubtypes().size)
     }
 
-    // DRF-111
+    // DRF-111, DRF-230
     @Test
     @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
     fun curveToggleStacksByColorKeepingTheChartAndRemembersTheChoice() {
@@ -190,7 +190,7 @@ class PodStatsViewTest {
         assertFalse(PodStatsCurveChoice(preferences).byColor)
     }
 
-    // DRF-111 (owner playtest 2026-11-09): in Type view a bar's number reads "creatures · noncreatures"; in Color view its total
+    // DRF-111, DRF-230 (owner playtest 2026-11-09): in Type view a bar's number reads "creatures · noncreatures"; in Color view its total
     @Test fun aTypeBarReadsCreaturesAndNoncreaturesAColorBarItsTotal() {
         assertEquals("5 · 3", podStatsCurveBarLabel(listOf(5, 3), byColor = false))
         assertEquals("0 · 1", podStatsCurveBarLabel(listOf(0, 1), byColor = false))
@@ -231,7 +231,7 @@ class PodStatsViewTest {
         assertEquals(before, compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot())
     }
 
-    // DRF-114 (owner playtest 2026-11-16): the rows of colours the Main cards have no pips of are faded out, still shown; a half
+    // DRF-114, DRF-232 (owner playtest 2026-11-16): the rows of colours the Main cards have no pips of are faded out, still shown; a half
     // pip (hybrid) counts as pips
     @Test fun aColourWithoutPipsIsFadedOut() {
         val card = CardDefinition("Hybrid", listOf(DefinitionFace("front", "Hybrid", typeLine = "Creature", manaCost = "{W/U}{B}")))
@@ -245,7 +245,7 @@ class PodStatsViewTest {
         for (color in listOf("W", "U", "B")) compose.onNodeWithTag("pod-stats-mana-$color").assert(!faded)
     }
 
-    // DRF-114: shares of the whole, nothing scaled to the largest: 3 Forests and 1 Island read 75% and 25%, and a colour
+    // DRF-114, DRF-232: shares of the whole, nothing scaled to the largest: 3 Forests and 1 Island read 75% and 25%, and a colour
     // with a share of 0 keeps its row (the bars themselves show in pod-stats-types.png)
     @Test fun sharesAddUpToTheWholeAndAColourWithNoneKeepsItsRow() {
         compose.setContent { MaterialTheme { PodStatsView(PodDeckBuild(basics = PodDeckBasics(forest = 3, island = 1)), emptyMap(), emptyMap()) } }
@@ -254,7 +254,7 @@ class PodStatsViewTest {
         compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("0 pips · 0%")).assert(hasText("0 sources · 0%")).assertIsDisplayed()
     }
 
-    // DRF-114, DRF-116
+    // DRF-114, DRF-233, DRF-116
     @Test fun pipListEndsWithCardsWithoutColoredPipsAndColorlessLandsAreNamed() {
         val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Instant", manaCost = "{1}{U}")))
         val rock = CardDefinition("Rock", listOf(DefinitionFace("front", "Rock", typeLine = "Artifact", manaCost = "{2}")))

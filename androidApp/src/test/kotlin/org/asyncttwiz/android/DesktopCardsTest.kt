@@ -60,7 +60,7 @@ class DesktopCardsTest {
     private fun pickCard(id: String) = compose.onNodeWithTag("pod-pick-card-$id")
     private fun assertMark(id: String, mark: String) = pickCard(id).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, mark))
 
-    // WEB-044, WEB-028, WEB-036, DRF-060: a click keeps (again: unmarks), a right-click burns, K on the hovered card keeps it, the
+    // WEB-044, WEB-093, WEB-028, WEB-036, DRF-060: a click keeps (again: unmarks), a right-click burns, K on the hovered card keeps it, the
     // hovered card's ⋯ opens its menu, Enter confirms; the trays stay at the bottom with Confirm at the end of their row (owner
     // playtest 2026-11-16)
     @Test fun theDraftPickByClicksAndKeys() {
@@ -103,7 +103,7 @@ class DesktopCardsTest {
         compose.runOnIdle { assertEquals(listOf("3") to listOf("4"), confirmed) }
     }
 
-    // WEB-044: the desktop layout starts at eight cards to a row, kept apart from the phone's orientations
+    // WEB-044, WEB-094: the desktop layout starts at eight cards to a row, kept apart from the phone's orientations
     @Test fun theDraftPickStartsWithEightToARow() {
         compose.setContent { Desktop { PodPickView(pack.copy(cards = (1..12).map { DraftCopy("$it", "definition-1") }), DraftSettings(),
             definitions, false, { _, _ -> }) } }
@@ -115,7 +115,7 @@ class DesktopCardsTest {
     private val card = CardDefinition("Test card", listOf(DefinitionFace("front", "Test card", typeLine = "Creature", manaCost = "{1}")))
     private val tile = PodBuildTile("digest", listOf("first", "second"), card, emptySet())
 
-    // WEB-045, WEB-046, DRF-099: a Build card's edge zones: hovering its left quarter tints "◂ Side", a click there moves one copy to
+    // WEB-045, WEB-112, WEB-095, WEB-046, WEB-114, DRF-099: a Build card's edge zones: hovering its left quarter tints "◂ Side", a click there moves one copy to
     // Side, its right quarter to Maybe; ← / → do the same; Alt held shows it large (Shift doesn't). Owner playtest 2026-11-16: the
     // card has no menu on the desktop layout, so a click in its middle and ↓ do nothing; a Shift+click moves every copy
     @Test fun aBuildCardMovesByItsEdgeZonesAndKeys() {
@@ -159,7 +159,7 @@ class DesktopCardsTest {
         compose.runOnIdle { assertEquals(2, moves.size) }
     }
 
-    // WEB-045: a submitted deck's card has no edge zones; a click does nothing (owner playtest 2026-11-16: no menu on the desktop)
+    // WEB-045, WEB-113: a submitted deck's card has no edge zones; a click does nothing (owner playtest 2026-11-16: no menu on the desktop)
     @Test fun aCardThatCantMoveHasNoEdgeZones() {
         val moves = mutableListOf<Pair<String, PodDeckCategory>>()
         compose.setContent { Desktop {
@@ -174,7 +174,7 @@ class DesktopCardsTest {
         compose.runOnIdle { assertTrue(moves.isEmpty()) }
     }
 
-    // WEB-063 (owner playtest 2026-11-16): a Build column's cards overlap, only their name strips showing; the card under the
+    // WEB-063, WEB-111 (owner playtest 2026-11-16): a Build column's cards overlap, only their name strips showing; the card under the
     // pointer comes to the front, whole and in place, and its edge zones work; the strips below it still take the pointer
     @Test fun buildColumnsOverlapAndTheHoveredCardComesToTheFront() {
         val moves = mutableListOf<Pair<String, PodDeckCategory>>()
@@ -203,7 +203,7 @@ class DesktopCardsTest {
         compose.runOnIdle { assertEquals(second to PodDeckCategory.SIDE, moves.last()) }
     }
 
-    // WEB-045, DRF-107: Build has no one-by-one review on the desktop layout
+    // WEB-045, WEB-096, DRF-107: Build has no one-by-one review on the desktop layout
     @Test fun buildHasNoReviewOnTheDesktopLayout() {
         compose.setContent { Desktop {
             PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first"))), mapOf("first" to DraftCopy("first", "a")), mapOf("a" to card),
@@ -215,7 +215,7 @@ class DesktopCardsTest {
         compose.onAllNodes(hasTestTag("pod-build-feed-label-MAIN-0") or hasTestTag("pod-build-feed-label-MAIN-1")).assertCountEquals(0)
     }
 
-    // WEB-045, LOB-048: with two sections (deck preparation, Prepare cube) only the right zone shows; a card with a desktop menu
+    // WEB-045, WEB-113, WEB-095, LOB-048: with two sections (deck preparation, Prepare cube) only the right zone shows; a card with a desktop menu
     // (the editor's) opens it by a click in its middle
     @Test fun twoSectionsHaveOnlyARightZone() {
         var moved = 0
@@ -234,7 +234,7 @@ class DesktopCardsTest {
         compose.runOnIdle { assertEquals(1, moved) }
     }
 
-    // WEB-045, LOB-048 (owner playtest 2026-11-16): a deck preparation card has no menu on the desktop layout: a click on its edge
+    // WEB-045, WEB-112, WEB-095, LOB-048 (owner playtest 2026-11-16): a deck preparation card has no menu on the desktop layout: a click on its edge
     // zone moves one copy, a Shift+click every copy, a click in its middle nothing
     @Test fun aPreparationCardMovesAllByAShiftClick() {
         var one = 0

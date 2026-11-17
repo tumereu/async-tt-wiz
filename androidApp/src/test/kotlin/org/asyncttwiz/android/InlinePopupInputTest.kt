@@ -43,7 +43,7 @@ class InlinePopupInputTest {
     }
 
 
-    // SYS-042
+    // SYS-042, SYS-176
     @Test fun emptyCellAndGapDismissAndRelayBothPressAndReleaseButControlSwipeChangesPage() {
         val open = mutableStateOf(true)
         val downs = mutableListOf<Offset>()

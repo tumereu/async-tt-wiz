@@ -89,7 +89,7 @@ class WebNotificationsTest {
         assertTrue(again.state.on); assertFalse(again.state.showHint)
     }
 
-    // WEB-050: refused, the switch goes back off and says where it is blocked; a dismissed prompt just leaves it off; a
+    // WEB-050, WEB-098: refused, the switch goes back off and says where it is blocked; a dismissed prompt just leaves it off; a
     // browser without notifications and a server without them say so
     @Test fun refusedDismissedUnsupportedAndNotSetUp() = runBlocking {
         val denied = notifications(Browser(answer = BrowserPermission.Denied), Server()).also { it.session(owner); it.turnOn() }
@@ -146,7 +146,7 @@ class WebNotificationsTest {
         assertFalse(notifications(Browser(), Server(), preferences).state.showHint)
     }
 
-    // WEB-054: Install app uses the browser's prompt where there is one
+    // WEB-054, WEB-116: Install app uses the browser's prompt where there is one
     @Test fun installUsesTheBrowsersPrompt() = runBlocking {
         val browser = Browser()
         val web = notifications(browser, Server())

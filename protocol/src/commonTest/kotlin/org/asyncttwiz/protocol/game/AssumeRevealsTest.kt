@@ -21,7 +21,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * LOB-135 (owner 2026-11-07): the game's assume reveal settings relax the information rule (TRN-067, TRN-071): with
+ * LOB-135, LOB-152, LOB-153 (owner 2026-11-07): the game's assume reveal settings relax the information rule (TRN-067, TRN-071): with
  * "Allow assumes that reveal the opponent's library" (on by default) the other player's library cards don't hold back an
  * assumption, with "Allow assumes that reveal hands" (off by default) their hand cards don't either; face-down cards and
  * random results are held back regardless. The device and the server's check honour the same settings.
@@ -70,7 +70,7 @@ class AssumeRevealsTest {
     private fun waitsForHiddenCards(sim: DeviceSim): Boolean =
         sim.device(sim.bob).status == GameDevice.Status.Waiting(GameDevice.Wait.HiddenCards) && sim.server.state().engine.stack.isNotEmpty()
 
-    // LOB-135, TRN-067, TRN-071: with the library setting on (the game's default) Bob's device assumes Alice's pass over
+    // LOB-135, LOB-152, TRN-067, TRN-071: with the library setting on (the game's default) Bob's device assumes Alice's pass over
     // his spell that reveals her library's top cards; with it off that assumption waits, as going on would show them
     @Test
     fun anOpponentsLibraryRevealIsAssumedOnlyWithTheLibrarySetting() {
@@ -78,7 +78,7 @@ class AssumeRevealsTest {
         assertTrue(waitsForHiddenCards(bobCasts(augury, AssumeReveals(library = false))))
     }
 
-    // LOB-135, TRN-067, TRN-071: a reveal of her hand waits by default (hands off) and is assumed with the hands setting on,
+    // LOB-135, LOB-153, LOB-154, TRN-067, TRN-071: a reveal of her hand waits by default (hands off) and is assumed with the hands setting on,
     // also when the host turns it on during that wait (the change counts at once, outside undo)
     @Test
     fun anOpponentsHandRevealIsAssumedOnlyWithTheHandsSetting() {
@@ -90,7 +90,7 @@ class AssumeRevealsTest {
         assertTrue(assumedThrough(bobCasts(exposure, AssumeReveals(hands = true))))
     }
 
-    // LOB-135: a card of her hand shown at random (a random pick among her hand) counts as her hand's, not as a random
+    // LOB-135, LOB-153: a card of her hand shown at random (a random pick among her hand) counts as her hand's, not as a random
     // result: it waits by default and is assumed with the hands setting on
     @Test
     fun aRandomCardOfHerHandFollowsTheHandsSetting() {
@@ -98,13 +98,13 @@ class AssumeRevealsTest {
         assertTrue(assumedThrough(bobCasts(gamble, AssumeReveals(hands = true))))
     }
 
-    // LOB-135, TRN-067: a random result (a coin flip) is held back whatever the settings
+    // LOB-135, LOB-153, TRN-067: a random result (a coin flip) is held back whatever the settings
     @Test
     fun aRandomResultWaitsWhateverTheSettings() {
         assertTrue(waitsForHiddenCards(bobCasts(toss, AssumeReveals(library = true, hands = true))))
     }
 
-    // LOB-135, TRN-067: a face-down card is held back whatever the settings; the other player's library and hand cards
+    // LOB-135, LOB-153, TRN-067: a face-down card is held back whatever the settings; the other player's library and hand cards
     // follow them, and the viewer's own library is never held back
     @Test
     fun faceDownCardsAreHeldBackWhateverTheSettings() {
@@ -125,7 +125,7 @@ class AssumeRevealsTest {
         assertEquals(setOf(cardOf(faceDown)), shown(AssumeReveals(library = true, hands = true)))
     }
 
-    // LOB-135, TRN-067: the server checks the same: an assumed pass whose outcome reveals her library's top cards is
+    // LOB-135, LOB-152, LOB-154, TRN-067, TRN-159: the server checks the same: an assumed pass whose outcome reveals her library's top cards is
     // refused with the library setting off and taken with it on
     @Test
     fun theServersCheckHonoursTheSettings() {

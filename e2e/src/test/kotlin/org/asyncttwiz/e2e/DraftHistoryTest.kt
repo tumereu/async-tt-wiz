@@ -11,9 +11,9 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import java.util.UUID
 
-/** Booster draft history (DRF-165): each player's own picks with the packs as they came and a wheel's cards taken since. */
+/** Booster draft history (DRF-165, DRF-207, DRF-208): each player's own picks with the packs as they came and a wheel's cards taken since. */
 class DraftHistoryTest : E2e() {
-    // DRF-165, DRF-160: two players draft a few picks; each phone's History shows that player's picks in order, keeps
+    // DRF-165, DRF-205, DRF-207, DRF-208, DRF-160: two players draft a few picks; each phone's History shows that player's picks in order, keeps
     // marked, and the pack that came round again with the card the other player took from it
     @Test fun historyShowsEachPlayersPicksAndTheWheel() {
         launchPlayers()
@@ -82,7 +82,7 @@ class DraftHistoryTest : E2e() {
         kotlin.test.assertEquals(viewOf(hasTestTag(dialog)).windowToken, parent, "Inspect's window hangs on the dialog's, so it draws over the dialog")
     }
 
-    // DRF-165 (owner, beta9): holding a card in the draft history shows it over the dialog, not behind it
+    // DRF-165, DRF-211 (owner, beta9): holding a card in the draft history shows it over the dialog, not behind it
     @Test fun holdingACardInTheHistoryShowsItOverTheDialog() {
         launchPlayers()
         val name = "E2E History hold ${UUID.randomUUID().toString().take(6)}"
@@ -111,7 +111,7 @@ class DraftHistoryTest : E2e() {
         }
     }
 
-    // DRF-165 (owner, beta9): with the draft over, the History button is in the pod's header on the tabs a builder uses, and
+    // DRF-165, DRF-208 (owner, beta9): with the draft over, the History button is in the pod's header on the tabs a builder uses, and
     // the history still says what was taken from a pack that came round again: what the opponent may be building
     @Test fun historyIsThereWhileBuildingAndAfter() {
         launchPlayers()
@@ -149,7 +149,7 @@ class DraftHistoryTest : E2e() {
         waitUntil("the history closed, back at Build") { !alice.shows(hasTestTag("pod-history-dialog")) && alice.shows(hasTestTag("pod-history")) }
     }
 
-    // DRF-165, DRF-043 (owner, 2026-11-10 and 2026-11-11): the history shows a header per round naming where its packs
+    // DRF-165, DRF-206, DRF-209, DRF-210, DRF-043 (owner, 2026-11-10 and 2026-11-11): the history shows a header per round naming where its packs
     // went and a seat ring of the pod's real seating; Returning packs only leaves just the packs that came back to you in a
     // round (here the first pack's last card, given automatically), and stays on for this pod when the history opens again
     @Test fun historyHasRoundHeadersAndReturningPacksOnly() {

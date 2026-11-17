@@ -89,7 +89,7 @@ class CombatSlotsTest : E2e() {
 
     /** Alice stages one Cub by a tap and drags the other onto the slot of her active lane, and declares; Bob reaches his blocks. */
     private fun aliceAttacksWithBothCubs(declare: () -> Unit = {}) {
-        // CMB-001: collapsed, no slot; CMB-028: the band open, the active lane has one
+        // CMB-001: collapsed, no slot; CMB-028, CMB-069: the band open, the active lane has one
         assertTrue(alice.slots().isEmpty(), "no slot in the collapsed band")
         alice.stageAttacker("Ember Cub", this)
         waitUntil("the first Cub staged") { alice.shown.board.engine!!.table.attackDraft.orEmpty().size == 1 && alice.slots().size == 1 }
@@ -103,7 +103,7 @@ class CombatSlotsTest : E2e() {
         alice.declare("Attack (2)", this)
     }
 
-    // CMB-028, CMB-034, CMB-007, CMB-012: the attacker's slot takes a drop; each attacker has a blocker's slot for the whole
+    // CMB-028, CMB-069, CMB-034, CMB-077, CMB-078, CMB-007, CMB-012: the attacker's slot takes a drop; each attacker has a blocker's slot for the whole
     // step with the words on the band; the creature picked brightens them; a tap on a slot blocks, a drop on one blocks, each
     // slot going as it fills and the words with the first block; the blocks are declared and the combat goes on
     @Test fun attackersAndBlockersGoIntoTheSlots() {
@@ -143,7 +143,7 @@ class CombatSlotsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty(), "${alice.leaks.leaks} ${bob.leaks.leaks}")
     }
 
-    // CMB-040: waiting for Bob's blocks Alice has the same look on her lanes: the slots, the words, a tap on a slot placing the
+    // CMB-040, CMB-083, CMB-084: waiting for Bob's blocks Alice has the same look on her lanes: the slots, the words, a tap on a slot placing the
     // creature she picked; only her Assume button assumes
     @Test fun assumeModeHasTheSameLook() {
         aliceDeclaring()

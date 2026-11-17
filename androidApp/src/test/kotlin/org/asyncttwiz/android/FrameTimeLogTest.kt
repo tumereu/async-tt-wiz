@@ -4,7 +4,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-// WEB-057: the web table's frame times in the app log
+// WEB-057, WEB-067, WEB-068: the web table's frame times in the app log
 class FrameTimeLogTest {
     private val lines = mutableListOf<String>()
     private val log = FrameTimeLog(lines::add, windowMs = 10_000.0)

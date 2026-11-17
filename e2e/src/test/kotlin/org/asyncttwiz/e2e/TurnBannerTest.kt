@@ -17,7 +17,7 @@ class TurnBannerTest : E2e() {
 
     private val E2ePlayer.cues get() = banners(YOUR_MOVE_CUE)
 
-    // TRN-075, TRN-058, TRN-063: the move passing to Alice from Bob: one cue on her phone, and none on his; her own chain of
+    // TRN-075, TRN-103, TRN-058, TRN-063: the move passing to Alice from Bob: one cue on her phone, and none on his; her own chain of
     // steps (To combat, her phone on to her declaration) brings none, nor does her action just before his answer; in playback
     // one only at the stop at a decision of hers
     @Test fun theMovePassingToYouCuesOnce() {

@@ -8,7 +8,7 @@ import org.asyncttwiz.storage.CatalogPrinting
 import org.junit.Test
 import kotlin.test.assertEquals
 
-/** The card records' names for "choose a card name" (STK-041): each name of a card apart (CR 709.4a, 201.4b, 201.4d). */
+/** The card records' names for "choose a card name" (STK-041, STK-192): each name of a card apart (CR 709.4a, 201.4b, 201.4d). */
 class CatalogNamesTest {
     private fun printing(card: String, face: String?, type: String, token: Boolean = false) = CatalogPrinting(
         id = "$card/$face", name = card, set = "AAA", number = "1", language = "English", side = if (face == null) "" else "a", scryfallId = null,
@@ -27,7 +27,7 @@ class CatalogNamesTest {
         assertEquals(listOf("Dusk"), catalogNames(listOf(split), "dus", ObjectFilter.Any))
     }
 
-    // STK-041: what spans the two names reaches the card, offering each of its names by itself, never the whole
+    // STK-041, STK-192: what spans the two names reaches the card, offering each of its names by itself, never the whole
     @Test
     fun whatIsWrittenAcrossBothNamesOffersEachName() {
         assertEquals(listOf("Dawn", "Dusk"), catalogNames(listOf(split), "Dawn //", ObjectFilter.Any))

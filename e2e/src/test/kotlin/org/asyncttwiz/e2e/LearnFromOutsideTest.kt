@@ -98,7 +98,7 @@ class LearnFromOutsideTest : E2e() {
         }
         val choice = assertIs<Decision.ChooseObjects>(alice.state.pending?.decision)
         assertEquals((side + maybe).toSet(), choice.options.map(::atw).toSet(), "the Lessons of Side and Maybe, none of the Side's basics")
-        // The two Lessons, and the spell itself as the panel's source (STK-044), which is a copy of the same card
+        // The two Lessons, and the spell itself as the panel's source (STK-044, STK-178), which is a copy of the same card
         assertEquals(3, alice.nodes(hasContentDescription("Ember Lecture") and inPanel).fetchSemanticsNodes().size)
 
         // The source comes first, in the panel's heading

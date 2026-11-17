@@ -26,7 +26,7 @@ class PodChatTest : E2e() {
     private val podTab = hasTestTag("chat-tab-pod")
     private val gameTab = hasTestTag("chat-tab-game")
 
-    // DRF-170, DRF-012, DRF-171, LOB-145, LOB-066, LOB-136
+    // DRF-170, DRF-237, DRF-012, DRF-171, LOB-145, LOB-169, LOB-170, LOB-066, LOB-163, LOB-136
     @Test fun aPodMessageShowsOnThePodScreensAndInAPodGamesChat() {
         launchPlayers()
         val name = "E2E pod chat ${UUID.randomUUID().toString().take(6)}"
@@ -91,7 +91,7 @@ class PodChatTest : E2e() {
         assertFalse(bob.shows(gameTab and newMessages), "the tapped bubble's message counts as seen: ${bob.screen()}")
     }
 
-    // DRF-170, DRF-012 (owner, 2026-11-10): a pod message sends no notification: the server records no notice for the other
+    // DRF-170, DRF-237, DRF-012 (owner, 2026-11-10): a pod message sends no notification: the server records no notice for the other
     // member, so nothing reaches their phone's notifications, while the in-app dot on the Pods list still shows it
     @Test fun aPodMessageSendsNoNotification() {
         launchPlayers()

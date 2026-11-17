@@ -8,9 +8,9 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import java.util.UUID
 
-/** Winston tables (DRF-156, DRF-157): a two-player, two-table Winston draft where both play at the same time. */
+/** Winston tables (DRF-156, DRF-221, DRF-157, DRF-223): a two-player, two-table Winston draft where both play at the same time. */
 class WinstonTablesTest : E2e() {
-    // DRF-156, DRF-157: each phone opens on the table where it's its player's turn, both take pile 1 at once, each screen
+    // DRF-156, DRF-221, DRF-157, DRF-223: each phone opens on the table where it's its player's turn, both take pile 1 at once, each screen
     // moves on to the table that came round to them, and the draft plays to its end
     @Test fun bothPlayersPlayAtTheirOwnTablesAtOnce() {
         launchPlayers()

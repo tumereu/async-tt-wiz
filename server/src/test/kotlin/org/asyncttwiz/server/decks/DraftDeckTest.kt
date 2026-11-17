@@ -84,7 +84,7 @@ class DraftDeckTest {
         }
     }
 
-    // DRF-166, LOB-058: chosen from Main and Side only, private to the member; the draft deck takes it and follows later choices
+    // DRF-166, DRF-229, LOB-058: chosen from Main and Side only, private to the member; the draft deck takes it and follows later choices
     @Test fun `the private cover is chosen from Main and Side and the draft deck follows it`() = fixture { f ->
         val pod = f.pod()
         val built = f.build(f.a, pod)
@@ -123,7 +123,7 @@ class DraftDeckTest {
         assertEquals(printing(definition.getValue(built.build!!.copies[0].copyId)), f.drafts(f.a).single().cover!!.definition)
     }
 
-    // LOB-055: Main, Side (with the Side basics) and the Build's Maybe as its own section
+    // LOB-055, LOB-210: Main, Side (with the Side basics) and the Build's Maybe as its own section
     @Test fun `submitting saves a private read-only draft deck of the whole pool that follows the private name`() = fixture { f ->
         val pod = f.pod()
         val built = f.build(f.a, pod)

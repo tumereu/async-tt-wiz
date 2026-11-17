@@ -180,7 +180,7 @@ class CatalogCardSearchTest {
         assertEquals("Tide Watcher // Deep Horror", dawnCard.shownName)
     }
 
-    // LOB-142: what a listed card's filter needs and its record doesn't hold; nothing for what search doesn't know
+    // LOB-142, LOB-218: what a listed card's filter needs and its record doesn't hold; nothing for what search doesn't know
     @Test fun searchDataGivesEachPrintingsCardAsSearchKnowsIt() {
         val stray = CatalogPrinting("stray", "Stray", "AAA", "1", "English", "", null, false, emptyList(), "{}")
         assertTrue(repo().searchData(listOf(stray)).isEmpty(), "no card records yet")
@@ -219,7 +219,7 @@ class CatalogCardSearchTest {
         assertEquals(DeckImportResolver(repository).resolve("1 Delver of Secrets").entries.single().faces, delver.faces)
     }
 
-    // STK-041, CR 201.4b, 201.4d: a card's names one by one, each with its own part's type line; a quoted half finds its card
+    // STK-041, STK-192, CR 201.4b, 201.4d: a card's names one by one, each with its own part's type line; a quoted half finds its card
     @Test fun aCardsNamesComeApartWithTheirTypeLines() {
         val repository = install()
         val fire = page(repository, "\"ice\"").cards.first { it.name == "Fire // Ice" }

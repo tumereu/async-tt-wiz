@@ -23,7 +23,7 @@ import org.asyncttwiz.server.pods.PodService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
-/** SYS-052: one stored row the current code can't read (say, after an incompatible upgrade) stays contained
+/** SYS-052, SYS-175: one stored row the current code can't read (say, after an incompatible upgrade) stays contained
  * to its own game, pod, preset or deck cover: lists, startup, game workers and other players carry on. */
 class StoredDataContainmentTest {
     private val json = DeckJson.format
@@ -154,7 +154,7 @@ class StoredDataContainmentTest {
 
                 val presets = PodPresetService(runtime).list(a)
                 assertEquals(200, presets.status, "One unreadable preset must not break the presets list")
-                // The account's own Glimpse (DRF-031) and the readable one
+                // The account's own Glimpse (DRF-031, DRF-200) and the readable one
                 assertEquals(listOf("Glimpse", "Readable preset"), json.decodeFromString<PodPresetList>(presets.body).presets.map { it.name })
                 assertTrue(s.goodPreset in json.decodeFromString<PodPresetList>(presets.body).presets.map { it.id })
 
@@ -171,7 +171,7 @@ class StoredDataContainmentTest {
         }
     }
 
-    // SYS-052
+    // SYS-052, SYS-175
     @Test fun `startup and the game workers carry on past an unreadable game and an unreadable pending request`() {
         FreshDatabase().start().use { db ->
             val s = seed(db)

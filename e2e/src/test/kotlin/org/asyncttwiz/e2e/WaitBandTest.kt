@@ -19,7 +19,7 @@ class WaitBandTest : E2e() {
     private val band = hasTestTag("wait-band")
     private fun E2ePlayer.bandSays(text: String) = shows(hasText(text) and hasAnyAncestor(band))
 
-    // HIS-075, HIS-166, TRN-066, TRN-027: Alice keeps while Bob decides: the band says so as long as it lasts, the chip goes
+    // HIS-075, HIS-166, TRN-066, TRN-151, TRN-027: Alice keeps while Bob decides: the band says so as long as it lasts, the chip goes
     @Test fun theMulliganWaitStaysInTheBandWhileTheChipFades() {
         startGame()
         bothOpen()
@@ -31,7 +31,7 @@ class WaitBandTest : E2e() {
         waitUntil("the band gone with the wait", along = listOf(bob)) { !alice.bandSays(words) }
     }
 
-    // TRN-066 (owner, 2026-11-09): Bob is away; with "Assume resolves" at Always Alice ends her turn, going ahead of him on
+    // TRN-066, TRN-152, TRN-150 (owner, 2026-11-09): Bob is away; with "Assume resolves" at Always Alice ends her turn, going ahead of him on
     // assumptions about his passes: in his turn the band doesn't just say "Waiting for Bob" but where he is, still in her
     // first turn; the band runs edge to edge
     @Test fun waitingForThePlayerBehindSaysWhereTheyAre() {
@@ -54,7 +54,7 @@ class WaitBandTest : E2e() {
         assertTrue(width >= 411f, "edge to edge: $width px")
     }
 
-    // TRN-066, HIS-112, HIS-143: Bob away, Alice's spell waits for him: "may respond" in the band, nothing over the middle of the board
+    // TRN-066, TRN-151, HIS-112, HIS-143: Bob away, Alice's spell waits for him: "may respond" in the band, nothing over the middle of the board
     @Test fun mayRespondIsInTheBand() {
         startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), bobSettings = PlaySettings(mode = ResponseMode.Normal),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })

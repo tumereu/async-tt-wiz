@@ -286,7 +286,7 @@ class TableGesturesTest {
         }
     }
 
-    // SYS-041, TBL-001 (D2): with a panel open the board pans up past it by the panel's height; once it closes the table
+    // SYS-041, SYS-150, TBL-001 (D2): with a panel open the board pans up past it by the panel's height; once it closes the table
     // stays where it is (a tap moves nothing, nothing pans by itself) until the next pan, which settles in the usual bounds
     @Test fun panPastAnOpenPanelThenStayUntilTheNextPan() {
         val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, 400f, 800f))
@@ -353,7 +353,7 @@ class TableGesturesTest {
         f.events.clear()
         f.gestures.down(point, 500); f.gestures.up(point, 520)
         f.gestures.down(point, 600); f.gestures.tick(1100) // Holding the second tap must not become a peek.
-        // A small vertical drag: three rows each (TBL-003) nearly fill the screen at 1.4× (ZON-001: taller without the other
+        // A small vertical drag: three rows each (TBL-003) nearly fill the screen at 1.4× (ZON-001, ZON-125: taller without the other
         // player's hand row), so the pan bounds stop a larger one
         val end = TablePoint(point.x + 42, point.y - 7)
         f.gestures.move(end, 1120)
@@ -372,7 +372,7 @@ class TableGesturesTest {
         val point = TablePoint(scene.world!!.viewport.center.x, scene.world!!.viewport.center.y)
         assertNull(scene.hit(point))
         val f = Fixture(scene)
-        // A small vertical drag: three rows each (TBL-003) nearly fill the screen at 1.4× (ZON-001: taller without the other
+        // A small vertical drag: three rows each (TBL-003) nearly fill the screen at 1.4× (ZON-001, ZON-125: taller without the other
         // player's hand row), so the pan bounds stop a larger one
         val end = TablePoint(point.x + 42, point.y - 7)
         f.gestures.down(point, 0); f.gestures.move(end, 40); f.gestures.up(end, 60)
@@ -391,7 +391,7 @@ class TableGesturesTest {
         val f = Fixture(scene)
         val centroid = TablePoint(world.viewport.center.x - 60, world.viewport.center.y + 12)
         val pan = TablePoint(20f, -5f)
-        // ZON-001: at 2× the battlefields overfill the taller viewport (no hand row of the other player's), so nothing clamps
+        // ZON-001, ZON-125: at 2× the battlefields overfill the taller viewport (no hand row of the other player's), so nothing clamps
         f.gestures.transform(pan, 2f, centroid)
         val camera = f.events.filterIsInstance<TableIntent.Camera>().single().camera
         val anchor = TablePoint(world.viewport.width / 2 + centroid.x - pan.x - world.viewport.center.x,
@@ -416,7 +416,7 @@ class TableGesturesTest {
         f.gestures.down(point, 600); f.gestures.up(point, 620)
         assertTrue(f.events.none { it is TableIntent.Actions })
         f.events.clear()
-        // ZON-077: a drag from the battlefield card pans the table
+        // ZON-077, ZON-134: a drag from the battlefield card pans the table
         val end = TablePoint(350f, f.scene.fields.last().bounds.center.y)
         f.gestures.down(point, 1000, f.item().cardId); f.gestures.move(end, 1080); f.gestures.up(end, 1100)
         assertTrue(f.events.any { it is TableIntent.Camera } && f.events.none { it is TableIntent.Move })
@@ -479,7 +479,7 @@ class TableGesturesTest {
         }
     }
 
-    // TBL-131 (owner 2026-11-06): while inspecting, a drag to the left is the pinned swipe's (measured in dp from where the
+    // TBL-131, TBL-186 (owner 2026-11-06): while inspecting, a drag to the left is the pinned swipe's (measured in dp from where the
     // hold began, nothing scrolls meanwhile); once the finger has scrolled up or down, sideways movement stays the scroll's
     @Test fun aHeldDragToTheLeftIsThePinnedSwipeUnlessScrollingBegan() {
         for (scrollFirst in listOf(false, true)) {
@@ -543,7 +543,7 @@ class TableGesturesTest {
             val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
             for (field in scene.fields.filter { it.owner == owner }) {
                 val band = assertNotNull(field.landsBounds(field.owner == "a", scene.camera).intersection(field.bounds))
-                // Left of the Stack, pinned at the right edge over the battlefields (STK-007, TBL-009)
+                // Left of the Stack, pinned at the right edge over the battlefields (STK-007, TBL-009, TBL-145)
                 val end = TablePoint(minOf(field.bounds.right, scene.stackRegion!!.x) - 24, band.center.y)
                 val events = mutableListOf<TableIntent>()
                 val gesture = TableGestureCoordinator(events::add)
@@ -558,7 +558,7 @@ class TableGesturesTest {
     }
 
 
-    // CMB-028
+    // CMB-028, CMB-067
     @Test fun combatDragBindsOnlyTheRequestedOccurrenceAndCancellingDoesNotCreatePairs() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -584,7 +584,7 @@ class TableGesturesTest {
         }
     }
 
-    // CMB-003, TBL-044
+    // CMB-003, CMB-063, TBL-044
     @Test fun combatTapGoesToTheToolkitDoubleTapDoesNothingAndHoldInspects() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -606,8 +606,8 @@ class TableGesturesTest {
         assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
     }
 
-    // CMB-007 (owner playtest 2026-11-06: the band takes combat drops; its end drops reach past the lanes to the band's
-    // ends), CMB-028: between pairs there is no drop of its own (no new pair at a divider), only the lanes
+    // CMB-007, CMB-056 (owner playtest 2026-11-06: the band takes combat drops; its end drops reach past the lanes to the band's
+    // ends), CMB-028, CMB-067: between pairs there is no drop of its own (no new pair at a divider), only the lanes
     @Test fun combatDropEndsReachThePanelsEdgesAndPreviewIsUprightAtLanding() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -708,7 +708,7 @@ class TableGesturesTest {
             assertEquals(1, events.count { it == TableIntent.DismissTapUi })
         }
     }
-    // ZON-077: nothing is placed by hand: a drag that starts on a battlefield card pans the table, even onto a hand
+    // ZON-077, ZON-134: nothing is placed by hand: a drag that starts on a battlefield card pans the table, even onto a hand
     @Test fun battlefieldDragPansTheTableInsteadOfMovingTheCard() {
         val scene = TableFixture.scene(TableFixture.play(board = 1, hand = 2))
         val events = mutableListOf<TableIntent>()
@@ -790,7 +790,7 @@ class TableGesturesTest {
         val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", 640f, 260f, true,
             TableLayoutState(TableCamera(zoom = 2f)))
         val f = Fixture(scene)
-        // The battlefield's empty room just left of the Stack (pinned at the right edge, TBL-009) pans the camera.
+        // The battlefield's empty room just left of the Stack (pinned at the right edge, TBL-009, TBL-145) pans the camera.
         val background = TablePoint(scene.stackRegion!!.x - 4f, scene.stackRegion!!.center.y)
         f.gestures.down(background, 0)
         f.gestures.transform(TablePoint(0f, -60f), 1f, background)

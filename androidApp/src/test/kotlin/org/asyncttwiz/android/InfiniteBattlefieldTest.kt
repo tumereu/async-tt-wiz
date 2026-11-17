@@ -78,7 +78,7 @@ class InfiniteBattlefieldTest {
             val plain = scene(base, width, height, landscape)
             val wide = scene(wideRow(base, 61), width, height, landscape)
             assertEquals(-3 * pitch, wide.world!!.panBounds.x, .001f)
-            // Three creatures and 61 more, each in a slot of its own, from the left in two-slot columns (TBL-004)
+            // Three creatures and 61 more, each in a slot of its own, from the left in two-slot columns (TBL-004, TBL-140)
             assertEquals(32 * pitch + 32f + 3 * pitch, wide.world!!.panBounds.right, .001f)
             assertTrue(wide.world!!.panBounds.right > plain.world!!.panBounds.right)
             val last = wide.items.single { it.cardId == "a/BATTLEFIELD/x60" }

@@ -13,7 +13,7 @@ class WebPushDeliveryTest {
     private fun subscription(games: Boolean = true, invitations: Boolean = true) =
         WebPushSubscription("https://fcm.googleapis.com/fcm/send/${id()}", browserKey, "A".repeat(22), invitations, games, true)
 
-    // WEB-052, LOB-072, LOB-077: an invitation and a game's move reach the browser as notifications with their words, its
+    // WEB-052, LOB-072, LOB-183, LOB-185, LOB-077: an invitation and a game's move reach the browser as notifications with their words, its
     // tag and the address a click opens; Android installations still get their opaque hint beside it
     @Test fun `a browser gets the same notifications as Android, ready-made, beside Firebase`() {
         ActivityFixture().use { f ->

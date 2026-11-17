@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test
 /**
  * LOB-141: in a constructed game a player's cards outside the game (what wishes, learn and the like can fetch) are their
  * deck's Side and Maybe, never in the library; a Maybe card the server can't read keeps the deck out of games as a Side
- * card does (LOB-118). Invented cards only.
+ * card does (LOB-118, LOB-223). Invented cards only.
  */
 class OutsideTheGameStartTest {
     private fun id() = UUID.randomUUID().toString()
@@ -92,7 +92,7 @@ class OutsideTheGameStartTest {
         assertNotNull(org.asyncttwiz.protocol.game.GameCards.parse(org.asyncttwiz.server.TestPrintings.definition(wish)).definition)
     }
 
-    // LOB-141, LOB-118: a Maybe card Automatum can't play (the catalog's marks, LOB-124) keeps the deck out of the game
+    // LOB-141, LOB-118, LOB-223: a Maybe card Automatum can't play (the catalog's marks, LOB-124) keeps the deck out of the game
     @Test fun `a Maybe card Automatum can't play keeps the deck out of the game`() = withService { runtime ->
         val f = Fixture(runtime, "u", listOf(SavedDeckSection.MAINBOARD to (forest to 40), SavedDeckSection.MAYBEBOARD to ("Odd Relic" to 1)),
             selected = "automatumUnsupported")

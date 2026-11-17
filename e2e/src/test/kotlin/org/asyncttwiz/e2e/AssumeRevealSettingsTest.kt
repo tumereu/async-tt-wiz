@@ -14,7 +14,7 @@ import java.time.Duration
 import kotlin.test.assertEquals
 
 /**
- * Owner, 2026-11-07 (LOB-135): the game's assume reveal settings. With the defaults (the other player's library allowed,
+ * Owner, 2026-11-07 (LOB-135, LOB-152, LOB-153, LOB-154): the game's assume reveal settings. With the defaults (the other player's library allowed,
  * hands not), Alice's phone assumes Bob's pass over her spell that reveals the top of his library; over one that reveals
  * his hand the wait's Assume stays greyed until Alice, the game's host, turns "Allow assumes that reveal hands" on from
  * Table actions → Game settings: then her phone goes on, and the server takes it.
@@ -34,7 +34,7 @@ class AssumeRevealSettingsTest : E2e() {
 
     private val assume = hasTestTag("engine-wait-action") and hasContentDescription("Assume resolves")
 
-    // LOB-135, TRN-067, HIS-096, HIS-178: with the game's defaults Bob's pass over the Augury (revealing his library's top two
+    // LOB-135, LOB-152, TRN-067, HIS-096, HIS-178: with the game's defaults Bob's pass over the Augury (revealing his library's top two
     // cards) is assumed, at once or from the wait's Assume, and the Augury resolves with Bob away (on master the wait's
     // Assume was greyed: going on would show hidden cards)
     @Test fun anAssumptionOverTheOtherPlayersLibraryRevealGoesOnByDefault() {
@@ -51,7 +51,7 @@ class AssumeRevealSettingsTest : E2e() {
         waitUntil("the server's game past the Augury") { serverGame()?.let { snapshot -> snapshot.headId == alice.engine { device.session.head } } == true }
     }
 
-    // LOB-135, TRN-067, TRN-071, TRN-010: with "Allow assumes that reveal hands" off (the default) the wait over Alice's
+    // LOB-135, LOB-153, LOB-154, TRN-067, TRN-071, TRN-160, TRN-010: with "Allow assumes that reveal hands" off (the default) the wait over Alice's
     // Exposure keeps its Assume greyed; Alice (the host) turns it on from Table actions → Game settings, and her phone
     // assumes Bob's pass: the Exposure resolves and the server takes it
     @Test fun anAssumptionOverAHandRevealWaitsUntilTheHostAllowsIt() {

@@ -48,7 +48,7 @@ class AppLayoutTest {
         assertEquals(LayoutChoice.Automatic, LayoutChoice.of("something else"))
     }
 
-    // WEB-022, TBL-034: card sizes are kept for each layout, every slider starting at 1×; the desktop layout draws its cards
+    // WEB-022, WEB-084, TBL-034: card sizes are kept for each layout, every slider starting at 1×; the desktop layout draws its cards
     // larger at the same slider sizes (battlefield 2×, hand 5.2×, piles 1.6×, the Stack and panels 2×), the sliders scaling
     // on top, and changing them leaves the phone layout's as they were
     @Test fun cardSizesAreKeptPerLayout() {

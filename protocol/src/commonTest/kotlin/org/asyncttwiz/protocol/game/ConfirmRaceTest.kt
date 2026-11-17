@@ -18,7 +18,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * A matching answer that crossed the other device's assumption of it on the wire (owner 2026-11-07, SYS-077, HIS-109, HIS-211):
+ * A matching answer that crossed the other device's assumption of it on the wire (owner 2026-11-07, SYS-077, SYS-134, HIS-109, HIS-211):
  * the other player's event reaches the server first and is the player's own pending event but for who made it, so the
  * server drops the player's event as its duplicate (a confirmation, no new event, nothing refused) and takes what they
  * made on it on that event; the player's phone puts the other player's event in its place with the board, the later
@@ -85,7 +85,7 @@ class ConfirmRaceTest {
 
     private class Crossed(val sim: DeviceSim, val mine: List<GameEvent>, val assumption: GameEvent)
 
-    // SYS-077, HIS-109, HIS-211, SYS-009 (owner 2026-11-07): Bob's assumption of Alice's pass reaches her phone while her own pass,
+    // SYS-077, SYS-134, HIS-109, HIS-211, SYS-009 (owner 2026-11-07): Bob's assumption of Alice's pass reaches her phone while her own pass,
     // which opened her discard, is still on its way: her board and the open discard stay exactly as they are (no take-back,
     // nothing made again); on the server her pass is the assumption's confirmation: no new event, nothing refused
     @Test
@@ -127,7 +127,7 @@ class ConfirmRaceTest {
         assertTrue(sim.equivalence().isEmpty())
     }
 
-    // SYS-077, SYS-009 (owner 2026-11-07): the same with her discard made on her pass before his assumption reached her: her
+    // SYS-077, SYS-134, SYS-009 (owner 2026-11-07): the same with her discard made on her pass before his assumption reached her: her
     // discard stays on her board, made on his event instead of her pass, and the server takes it there (not stale)
     @Test
     fun aMoveMadeOnTheMatchingAnswerIsTakenOnTheAssumption() {
@@ -157,7 +157,7 @@ class ConfirmRaceTest {
         assertTrue(sim.equivalence().isEmpty())
     }
 
-    // SYS-077, SYS-011 (e2e CombatHoldTest, 2026-11-10): the same, but the server refuses her pass and her discard made on it
+    // SYS-077, SYS-011, SYS-135 (e2e CombatHoldTest, 2026-11-10): the same, but the server refuses her pass and her discard made on it
     // in the race instead of taking them on his assumption (as when her phone's own events and his device's assumptions of
     // them cross at the start of her turn). Her phone had already put his event in her pass's place, so her discard was
     // made on that very board: it is made again there at once, quietly, never left waiting for an event that isn't coming
@@ -186,7 +186,7 @@ class ConfirmRaceTest {
         assertTrue(sim.equivalence().isEmpty())
     }
 
-    // SYS-077, SYS-012 (owner 2026-11-07): the other way round: Alice presses Assume on Bob's pause at her spell while his
+    // SYS-077, SYS-134, SYS-012, SYS-138 (owner 2026-11-07): the other way round: Alice presses Assume on Bob's pause at her spell while his
     // own pass by hand reaches the server first: her assumption is its duplicate, dropped quietly (nothing refused), and
     // her phone keeps its board with his pass in place of her assumption
     @Test

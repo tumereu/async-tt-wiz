@@ -141,7 +141,7 @@ class EngineCastAnimationTest {
         }
     }
 
-    // TBL-125 (owner playtest 2026-11-04): a cast publishes its own board at once and then one more with all that followed;
+    // TBL-125, TBL-151 (owner playtest 2026-11-04): a cast publishes its own board at once and then one more with all that followed;
     // the panels (whose move, the waiting bar) change once, never to an in-between state
     @Test fun aCastShowsItsOutcomeWithoutAnInBetweenWait() {
         val published = mutableListOf<EngineGame.Shown>()

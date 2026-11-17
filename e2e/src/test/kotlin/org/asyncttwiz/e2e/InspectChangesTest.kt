@@ -61,7 +61,7 @@ class InspectChangesTest : E2e() {
             if (androidx.compose.ui.semantics.SemanticsProperties.Text in node.config)
                 node.config[androidx.compose.ui.semantics.SemanticsProperties.Text].map { it.text } else emptyList() }
 
-    // TBL-104, TBL-111 (owner 2026-11-06): holding the equipped Hound shows the Hound with its changes under it (the pump
+    // TBL-104, TBL-181, TBL-183, TBL-111 (owner 2026-11-06): holding the equipped Hound shows the Hound with its changes under it (the pump
     // until end of turn, the Blade's +1/+0, both without their source, entered this turn), a line, then the Blade with what
     // it is attached to; Bob, holding Alice's Hound, sees the same changes
     @Test fun holdingACardListsWhatChangedOnIt() {
@@ -84,7 +84,7 @@ class InspectChangesTest : E2e() {
         }
     }
 
-    // TBL-131 (owner 2026-11-06): pinned Inspect: holding the Hound and dragging left keeps Inspect open after release with a
+    // TBL-131, TBL-186, TBL-187 (owner 2026-11-06): pinned Inspect: holding the Hound and dragging left keeps Inspect open after release with a
     // close button; a tap on a change names its source; Close closes it
     @Test fun aDragToTheLeftPinsInspect() {
         aliceEquipsHerPumpedHound()

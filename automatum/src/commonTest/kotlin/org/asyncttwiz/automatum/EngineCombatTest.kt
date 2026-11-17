@@ -114,7 +114,7 @@ class EngineCombatTest {
             divided.working.objects[it]?.zone == Zone.Battlefield }, "the Bear took the Ogre's 3 damage")
     }
 
-    // CMB-050 (owner playtest 2026-11-10; CR 510.2, 702.15b): the combat damage dealt stays readable until the combat ends:
+    // CMB-050, CMB-088, CMB-089 (owner playtest 2026-11-10; CR 510.2, 702.15b): the combat damage dealt stays readable until the combat ends:
     // the defending player's net total (life lost to it minus life gained at the same moment), what each attacker dealt to
     // its own target (not to its blockers), and the life each player gained with it
     @Test fun theCombatDamageDealtIsKeptUntilTheCombatEnds() {
@@ -135,7 +135,7 @@ class EngineCombatTest {
         assertNull(CombatFlow.dealt(passUntil(end) { it.turn.step == TurnStep.PostcombatMain }), "gone with the combat")
     }
 
-    // CMB-050, HIS-113, HIS-147 (owner notes 2026-11-14 evening: the damage's hold showed no splashes or skulls on the creatures; CR 510.2,
+    // CMB-050, CMB-090, HIS-113, HIS-147 (owner notes 2026-11-14 evening: the damage's hold showed no splashes or skulls on the creatures; CR 510.2,
     // 704.5g): right after the damage, before the state-based actions, each creature dealt combat damage has its amount and those
     // with lethal damage are dying; once they are gone the survivors keep their amounts until the combat ends
     @Test fun theCreaturesDealtCombatDamageAndThoseDying() {
@@ -166,7 +166,7 @@ class EngineCombatTest {
         assertEquals(2, CombatFlow.dealt(after)?.creatures?.get(ogre))
     }
 
-    // CMB-044 (CR 508.1h): a cost to attack shows on the staged attacker ("{2}"); declared with Autotap its mana is paid
+    // CMB-044, CMB-075 (CR 508.1h): a cost to attack shows on the staged attacker ("{2}"); declared with Autotap its mana is paid
     // by itself, otherwise the payment is the attacker's open choice
     @Test fun aManaCostToAttackIsShownAndAutotapped() {
         val prison = Cards.invent("Mistward Prison", "{2}{W}", "Enchantment",
@@ -187,7 +187,7 @@ class EngineCombatTest {
         assertTrue(plains.all { paid.objects.getValue(table.obj(it)).tapped }, "both Plains pay")
     }
 
-    // CMB-044 (owner-reported 2026-11-11; CR 508.1h): a cost whose X the board defines shows its amount, worked out again
+    // CMB-044, CMB-074 (owner-reported 2026-11-11; CR 508.1h): a cost whose X the board defines shows its amount, worked out again
     // when the board changes it: {2} with two enchantments, {3} with three, never "{X}"; the defender reads the same
     @Test fun aCostToAttackWithXShowsItsAmount() {
         val bulwark = Cards.invent("Sanctum Bulwark", "{4}{W}", "Enchantment",
@@ -229,7 +229,7 @@ class EngineCombatTest {
     }
 
     // CMB-036 (CR 702.154a): an attacker with enlist may enlist the attacking player's untapped creatures without summoning
-    // sickness; CMB-038 (CR 702.22): a creature with banding may attack in a band
+    // sickness; CMB-038, CMB-073 (CR 702.22): a creature with banding may attack in a band
     @Test fun enlistAndBandingAreTheAttackersChoices() {
         val sergeant = Cards.invent("Drillmaster Vey", "{1}{W}", "Creature — Human Soldier",
             "Enlist (As this creature attacks, you may tap a nonattacking creature you control without summoning sickness. " +

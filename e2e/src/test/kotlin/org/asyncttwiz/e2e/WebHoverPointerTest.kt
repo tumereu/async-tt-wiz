@@ -39,7 +39,7 @@ class WebHoverPointerTest : E2e() {
         }
     }
 
-    // WEB-018, WEB-019, WEB-020, WEB-058 (found 2026-11-14: the mirror put the 1.3× top row, action area and panels where they
+    // WEB-018, WEB-019, WEB-080, WEB-082, WEB-020, WEB-058 (found 2026-11-14: the mirror put the 1.3× top row, action area and panels where they
     // would be at 1×, Table actions at x ≈ 1052 instead of about 1399): on Alice's desktop table in her browser the mirror
     // places a top-row control, an action-area button and a panel's card where they are drawn; the hand shows over them and
     // taps through the mirror hit them: the dock folds away and back, two mulligans open the Keep / Bottom overlay, a card
@@ -76,7 +76,7 @@ class WebHoverPointerTest : E2e() {
                     }
                 }
                 waitUntil("the Keep / Bottom overlay", timeoutSeconds = 60) { web.shows(panel) }
-                // A panel (WEB-019): the centred overlay, 560 wide, over the battlefields left of the dock; measured once its
+                // A panel (WEB-019, WEB-080, WEB-082): the centred overlay, 560 wide, over the battlefields left of the dock; measured once its
                 // opening animation has ended (two reads alike)
                 var settled = web.box(panel)
                 waitUntil("the overlay settled") { web.box(panel).let { box -> (show(box) == show(settled)).also { settled = box } } }

@@ -35,9 +35,9 @@ import kotlin.test.assertTrue
 
 /**
  * Owner-approved casting rework (2026-11-07) on Alice's table: a raised hand card's chips are its complete ways to cast it
- * (ZON-080), a chip's tap casts at once, a tap on the raised card opens the cast panel when the card has any choice (the
+ * (ZON-080, ZON-111), a chip's tap casts at once, a tap on the raised card opens the cast panel when the card has any choice (the
  * chips flash) and casts one without any; in the panel the payment shows and is chosen by tapping sources on the table
- * (STK-024). Her deck: Ember Kits (free, offspring {R}), Ember Shards (a free mana rock), Mountains and Ember Broodraiders
+ * (STK-024, STK-156, STK-158). Her deck: Ember Kits (free, offspring {R}), Ember Shards (a free mana rock), Mountains and Ember Broodraiders
  * (eight complete ways).
  */
 @RunWith(RobolectricTestRunner::class)
@@ -91,7 +91,7 @@ class CastChipsTest {
         assertNotNull(toolkit.hand.chips, "its chips")
     }
 
-    // ZON-080 (owner 2026-11-07): an offspring creature's chips are its two complete ways, "Cast" and "Cast with offspring {R}";
+    // ZON-080, ZON-108, ZON-111 (owner 2026-11-07): an offspring creature's chips are its two complete ways, "Cast" and "Cast with offspring {R}";
     // a tap on the second casts it at once with Autotap: the Mountain taps and the Kit enters with its token copy
     @Test fun aChipTapCastsThatWayAtOnce() {
         kit.opening()
@@ -108,7 +108,7 @@ class CastChipsTest {
         assertTrue(tapped(mountain), "Autotap tapped the Mountain")
     }
 
-    // ZON-079, ZON-080 (owner 2026-11-07): a tap on the raised Kit (two ways) opens the cast panel with its way and its extra
+    // ZON-079, ZON-102, ZON-080 (owner 2026-11-07): a tap on the raised Kit (two ways) opens the cast panel with its way and its extra
     // (offspring) instead of picking a chip, and the chips flash; nothing is sent
     @Test fun aTapOnTheRaisedCardOpensThePanelAndFlashesTheChips() {
         kit.opening()
@@ -126,7 +126,7 @@ class CastChipsTest {
         assertEquals(tip, kit.alice.device.session.tip, "nothing sent")
     }
 
-    // ZON-079 (owner 2026-11-07): a card without any choice (the Shard: one way, nothing to ask) is cast by the tap on the
+    // ZON-079, ZON-102 (owner 2026-11-07): a card without any choice (the Shard: one way, nothing to ask) is cast by the tap on the
     // raised card, no panel; the chips don't flash
     @Test fun aRetapCastsACardWithoutAnyChoice() {
         kit.opening()
@@ -140,7 +140,7 @@ class CastChipsTest {
         kit.playOn("the Shard on the battlefield") { shard in kit.field(Choices.SHARD).map(kit::atw) && kit.aliceMain() }
     }
 
-    // ZON-080 (owner 2026-11-07): holding a chip outlines the sources Autotap would tap for it, without casting: none for the
+    // ZON-080, ZON-111 (owner 2026-11-07): holding a chip outlines the sources Autotap would tap for it, without casting: none for the
     // free "Cast", one source for "Cast with offspring"
     @Test fun holdingAChipPreviewsItsSources() {
         val (mountain, shard) = twoSources()
@@ -157,7 +157,7 @@ class CastChipsTest {
         assertEquals(card, toolkit.hand.raised)
     }
 
-    // ZON-080 (owner 2026-11-07): the Broodraider's eight complete ways show as one "Cast…" chip with its cheapest cost the
+    // ZON-080, ZON-110 (owner 2026-11-07): the Broodraider's eight complete ways show as one "Cast…" chip with its cheapest cost the
     // mana pays (dash {R}); its tap opens the panel with both ways and both extras
     @Test fun moreThanFourWaysAreOneCastChip() {
         deck = listOf(Choices.BROODRAIDER, Choices.SHARD, "Mountain")
@@ -180,7 +180,7 @@ class CastChipsTest {
         assertEquals(1, hand.way, "the first way the mana pays: Dash")
     }
 
-    // STK-024 (owner 2026-11-08, partial override): in the Kit's panel with offspring on, Autotap's source pays and is outlined; a tap
+    // STK-024, STK-158, STK-156 (owner 2026-11-08, partial override): in the Kit's panel with offspring on, Autotap's source pays and is outlined; a tap
     // on it takes it out and Autotap fills in with the other; taking that out too leaves nothing (Cast greyed, not paid), a tap on it
     // picks it again; Cast pays with the source picked, the one taken out isn't used again
     @Test fun thePanelsPaymentIsChosenOnTheTable() {
@@ -227,7 +227,7 @@ class CastChipsTest {
         assertEquals(setOf(mountain), toolkit.cast.paySources())
     }
 
-    // STK-024, TBL-053 (owner, 2026-11-09): a source picked in a payment leaves its stack for a pile of its own, right of it, and
+    // STK-024, STK-156, TBL-053, TBL-178 (owner, 2026-11-09): a source picked in a payment leaves its stack for a pile of its own, right of it, and
     // goes back when it is taken out
     @Test fun aPickedSourceLiesInItsOwnPileToTheRightOfItsStack() {
         kit.opening()
@@ -261,7 +261,7 @@ class CastChipsTest {
         assertEquals(1, piles().size, "taken out, back in its stack")
     }
 
-    // STK-024 (owner notes 2026-11-14): a closed pile of several paying sources carries one chip with all the mana it produces,
+    // STK-024, STK-160 (owner notes 2026-11-14): a closed pile of several paying sources carries one chip with all the mana it produces,
     // not a chip per card
     @Test fun aPileOfPayingSourcesShowsOneCombinedChip() {
         deck = listOf(Choices.BROODRAIDER, Choices.SHARD, "Mountain")
@@ -293,7 +293,7 @@ class CastChipsTest {
             "Alice opened her Ember Broodraider's cast panel ({2}{R}) with Autotap off, panned the table up and tapped her Ember Shards twice: the two Shards paying lie in their own pile with one amber chip at its corner, \"{R}{R}\", all the mana the pile produces.")
     }
 
-    // ZON-080 (owner 2026-11-07): the screenshots: the Kit's chips, the Broodraider's "Cast…" chip, and the Kit's panel
+    // ZON-080, ZON-110 (owner 2026-11-07): the screenshots: the Kit's chips, the Broodraider's "Cast…" chip, and the Kit's panel
     // paying with the hand-picked Shard (outlined) with Cast enabled, then greyed with the reason while nothing pays
     @Test fun screenshots() {
         val (_, shard) = twoSources()
@@ -307,7 +307,7 @@ class CastChipsTest {
         kit.tap(kit.item(card, PlayZone.HAND))
         assertTrue(toolkit.cast.handExtra(0))
         refresh()
-        // STK-024 (owner 2026-11-07; owner notes 2026-11-14): unpanned, the portrait cast panel covers her land row: the source
+        // STK-024, STK-157 (owner 2026-11-07; owner notes 2026-11-14): unpanned, the portrait cast panel covers her land row: the source
         // Autotap chose can't be seen, and the panel names no source even then (the eye and panning show it)
         assertEquals(1, toolkit.cast.paySources().size)
         compose.onNodeWithText("Out of view", substring = true).assertDoesNotExist()
@@ -326,7 +326,7 @@ class CastChipsTest {
         refresh()
         assertEquals(setOf(shard), toolkit.cast.paySources())
         compose.onNodeWithContentDescription("Payment: Paid with ${Choices.SHARD}").assertExists()
-        // STK-024 (owner gallery review 2026-11-09, gallery 102): what pays reads from the table's outline: no sentence naming it
+        // STK-024, STK-156, STK-157 (owner gallery review 2026-11-09, gallery 102): what pays reads from the table's outline: no sentence naming it
         compose.onNodeWithText("Paid with", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Out of view", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Outlined sources pay. Tap sources on the table to change them.").assertExists()

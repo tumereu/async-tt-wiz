@@ -12,7 +12,7 @@ import org.junit.Test
 class AutomatumQuickActionIconsTest {
     private val fallback = Icons.AutoMirrored.Outlined.DriveFileMove
 
-    /** Automatum's quick actions (CMB-048, CMB-034) and toggles (TRN-059) each have their own icon, none the generic
+    /** Automatum's quick actions (CMB-048, CMB-034, CMB-079) and toggles (TRN-059) each have their own icon, none the generic
      * fallback (UI review 2026-11-03 #8). */
     @Test fun everyAutomatumQuickActionHasItsOwnIcon() {
         val vectors = listOf("Clear", "Control", "Skip if no choice", "Autotap mana", "Keep", "Mull N")
@@ -27,14 +27,14 @@ class AutomatumQuickActionIconsTest {
         assertTrue(swordsIcon("Declare + tap"))
     }
 
-    /** TRN-063 (UI review round 2 #10): the step arrow draws the combat quick actions' crossed swords for To combat and
+    /** TRN-063, TRN-111, TRN-113 (UI review round 2 #10): the step arrow draws the combat quick actions' crossed swords for To combat and
      * Attack (N), never a gavel; Pass and Next have icons of their own. */
     @Test fun theStepArrowsIconsMatchWhatTheyDo() {
         assertTrue(AutomatumStep.ToCombat.swords)
         assertTrue(AutomatumStep.Attack(2).swords)
         assertFalse(AutomatumStep.Attack(0).swords)
         assertNotEquals(AutomatumStep.Pass.icon, AutomatumStep.Next.icon)
-        // TRN-063: Control's End step has its own icon, not End turn's
+        // TRN-063, TRN-111: Control's End step has its own icon, not End turn's
         assertNotEquals(AutomatumStep.EndTurn.icon, AutomatumStep.ToEndStep.icon)
         val all = listOf(AutomatumStep.Pass, AutomatumStep.Next, AutomatumStep.ToCombat, AutomatumStep.EndTurn, AutomatumStep.ToEndStep, AutomatumStep.Resolve,
             AutomatumStep.Attack(0), AutomatumStep.Attack(1), AutomatumStep.Block(0), AutomatumStep.Block(1))

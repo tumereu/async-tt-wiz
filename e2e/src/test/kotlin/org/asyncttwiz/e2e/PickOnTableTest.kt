@@ -21,9 +21,9 @@ import kotlin.test.assertTrue
 
 /**
  * Owner playtest, 2026-11-09: a source with several ways to pay pays the sensible one when tapped, and its corner chip changes it
- * (STK-024); the step button is the cast panel's Cast and every panel's OK, a quick second tap ignored (TRN-063, STK-052); whatever
+ * (STK-024); the step button is the cast panel's Cast and every panel's OK, a quick second tap ignored (TRN-063, TRN-114, TRN-117, STK-052); whatever
  * is on the battlefield is picked on the battlefield with the slim bar, its OK on the step button: a payment while something resolves
- * (STK-049), a sacrifice, crew (STK-047, STK-030).
+ * (STK-049), a sacrifice, crew (STK-047, STK-151, STK-152, STK-030, STK-187).
  */
 class PickOnTableTest : E2e() {
     private fun deck(vararg cards: Pair<TestCard, Int>) = TestDeck("Picks", cards.toList())
@@ -62,7 +62,7 @@ class PickOnTableTest : E2e() {
 
     private val bar = hasContentDescription("Choose on the table")
 
-    // STK-024 (owner playtest 2026-11-09), CR 601.2h: with Autotap off, a tap on Alice's Ember Fork ({R} or {U}) for Blue Note ({U})
+    // STK-024, STK-159, STK-160, STK-161 (owner playtest 2026-11-09), CR 601.2h: with Autotap off, a tap on Alice's Ember Fork ({R} or {U}) for Blue Note ({U})
     // takes {U}, the way that leaves nothing unpaid, though {R} is listed first; its corner chip opens its ways: {R} leaves {U} unpaid,
     // {U} pays again; Cast on the step button casts it
     @Test fun aSourceTappedPaysTheSensibleWayAndItsCornerChipChangesIt() {
@@ -96,7 +96,7 @@ class PickOnTableTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // TRN-063, STK-052 (owner playtest 2026-11-09): Cast is the step button; a quick double tap on it casts once, the second tap
+    // TRN-063, TRN-114, TRN-117, STK-052 (owner playtest 2026-11-09): Cast is the step button; a quick double tap on it casts once, the second tap
     // ignored whatever the button says by then
     @Test fun castIsTheStepButtonAndAQuickDoubleTapCastsOnce() {
         start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 1, "Red Flash" to 1), PlaySettings(autotap = false))
@@ -127,7 +127,7 @@ class PickOnTableTest : E2e() {
         assertTrue(PickLog.count() > logged, "the second tap (on \"$second\") was ignored, and the log says so")
     }
 
-    // STK-049, STK-024 (owner playtest 2026-11-09), CR 118.12: "you may pay {1}" while Ember Tollkeeper's trigger resolves is the slim
+    // STK-049, STK-168, STK-024 (owner playtest 2026-11-09), CR 118.12: "you may pay {1}" while Ember Tollkeeper's trigger resolves is the slim
     // bar "Pay {1}", the Mountain Autotap chose outlined on the table; a tap there takes it out (not paid), another puts it back; Pay is
     // the step button
     @Test fun aPaymentWhileResolvingIsPaidOnTheTable() {
@@ -157,8 +157,8 @@ class PickOnTableTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-047, STK-030 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
-    // both Pups glowing (their closed stack framed whole, TBL-117); a tap on one sacrifices it, Autotap pays and it resolves
+    // STK-047, STK-151, STK-152, STK-030, STK-187 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
+    // both Pups glowing (their closed stack framed whole, TBL-117, TBL-173); a tap on one sacrifices it, Autotap pays and it resolves
     @Test fun aSacrificeIsPickedOnTheTable() {
         start(deck(TestCards.shard to 14, TestCards.offering to 13, TestCards.pup to 13),
             mapOf("Ember Shard" to 1, "Altar Offering" to 1, "Ash Pup" to 2))
@@ -167,14 +167,14 @@ class PickOnTableTest : E2e() {
         alice.playFromHand("Altar Offering", this)
         waitUntil("the sacrifice asked on the table: ${alice.screen()}") { alice.shows(bar) }
         assertFalse(alice.shows(hasContentDescription("Cast panel")), "no panel: ${alice.screen()}")
-        // TBL-117 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"; owner notes 2026-11-14): the Pups'
+        // TBL-117, TBL-173 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"; owner notes 2026-11-14): the Pups'
         // closed stack, which a tap spreads open, shows as pickable as a whole with the glow of a pile holding choices, both members
         waitUntil("both Pups of the closed stack glow as choices inside: ${alice.marks("Ash Pup")}, ${alice.marks("Ash Pup", 1)}") {
             "choices inside" in alice.marks("Ash Pup") && "choices inside" in alice.marks("Ash Pup", 1)
         }
         alice.battlefieldCard("Ash Pup").performClick()
         if (alice.shows(bar) && alice.field("Ash Pup").size == 2) {
-            // TBL-130: a tap on a stack of identical Pups opens it first; a tap on a member picks it
+            // TBL-130, TBL-165, TBL-166: a tap on a stack of identical Pups opens it first; a tap on a member picks it
             waitUntil("the Pups opened") { alice.marks("Ash Pup", 1).contains("target") }
             alice.battlefieldCard("Ash Pup", index = 1).performClick()
         }
@@ -184,7 +184,7 @@ class PickOnTableTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-047, STK-030 (owner playtest 2026-11-09), CR 702.122a: crewing Ember Cart (crew 2) with two 1/1 Pups is picked on the table:
+    // STK-047, STK-151, STK-152, STK-030 (owner playtest 2026-11-09), CR 702.122a: crewing Ember Cart (crew 2) with two 1/1 Pups is picked on the table:
     // the slim bar with the count, Done on the step button greyed until the Pups' power reaches 2; Done crews it
     @Test fun crewIsPickedOnTheTableWithDoneOnTheStepButton() {
         start(deck(TestCards.cart to 14, TestCards.pup to 26), mapOf("Ember Cart" to 1, "Ash Pup" to 2))
@@ -195,7 +195,7 @@ class PickOnTableTest : E2e() {
         waitUntil("None on the main button, greyed") { alice.shows(hasTestTag("main-button") and hasContentDescription("None") and isNotEnabled()) }
         alice.battlefieldCard("Ash Pup").performClick()
         if (alice.marks("Ash Pup").none { it == "picked" } && alice.marks("Ash Pup", 1).none { it == "picked" }) {
-            // TBL-130: the first tap on the Pups' stack opened it
+            // TBL-130, TBL-165: the first tap on the Pups' stack opened it
             waitUntil("the Pups opened") { "target" in alice.marks("Ash Pup", 1) }
             alice.battlefieldCard("Ash Pup").performClick()
         }
@@ -216,7 +216,7 @@ class PickOnTableTest : E2e() {
     }
 }
 
-/** What the app log says of ignored quick second taps on the main button (TRN-063). */
+/** What the app log says of ignored quick second taps on the main button (TRN-063, TRN-117). */
 private object PickLog {
     fun count(): Int = E2ePlayer.log().split('\n').count { "a quick second tap on" in it }
 }

@@ -154,7 +154,7 @@ class EngineBoardShownTest {
         assertTrue(cub in back.containers.single { it.zone == PlayZone.HAND && it.accountId == kit.f.a }.cards)
     }
 
-    // TRN-027, TRN-062, TRN-066, TRN-070: Alice's turn-1 controls wait while Bob (online) is still deciding on a mulligan:
+    // TRN-027, TRN-124, TRN-062, TRN-066, TRN-070, TRN-161: Alice's turn-1 controls wait while Bob (online) is still deciding on a mulligan:
     // no step arrow, Assume keep in its place (her phone never assumes his keep by itself, HIS-096, HIS-183); once he keeps she
     // plays her first turn
     // TRN-004: the step arrow shows only while the viewer may act
@@ -177,7 +177,7 @@ class EngineBoardShownTest {
         assertTrue(kit.routes.arrowShown())
     }
 
-    // TRN-023, TRN-062, HIS-083: a quick action is one Undo step however many changes it makes: Alice's Mulligan (her hand
+    // TRN-023, TRN-062, TRN-125, HIS-083: a quick action is one Undo step however many changes it makes: Alice's Mulligan (her hand
     // back, a shuffle, seven drawn, its count) is undone by one Undo (a request: it showed her new cards, I-D56 §10)
     @Test fun aMulliganIsOneUndo() {
         val kit = EngineTableKit()

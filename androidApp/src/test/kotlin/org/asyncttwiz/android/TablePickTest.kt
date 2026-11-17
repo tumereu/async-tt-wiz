@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
 
 /**
  * D1 (owner playtest 2026-11-07): a cost or choice whose every candidate is a battlefield permanent is picked on the table
- * as targets are (STK-047): the slim bar with the question, the candidates glowing, a group of identical ones opening on a
+ * as targets are (STK-047, STK-151, STK-152, STK-153): the slim bar with the question, the candidates glowing, a group of identical ones opening on a
  * tap; a choice among cards elsewhere (a discard from the hand) keeps its panel.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -58,7 +58,7 @@ class TablePickTest {
         playOn("$name on the battlefield") { card in field(name).map(::atw) && aliceMain() }
     }
 
-    // D1, STK-047, STK-044, STK-023: Alice taps her Ember Altar ("{T}, Sacrifice another creature: …"): the creature
+    // D1, STK-047, STK-151, STK-152, STK-044, STK-178, STK-023: Alice taps her Ember Altar ("{T}, Sacrifice another creature: …"): the creature
     // to sacrifice is picked on the table, not in a panel: the slim bar says "Sacrifice" over the ability's text, the Altar at
     // its right, her two Ash Pups glow violet (the Altar doesn't); a tap on a Pup sacrifices it and the ability goes on the
     // Stack
@@ -80,7 +80,7 @@ class TablePickTest {
         render(kit)
         compose.onNode(hasText("Sacrifice") and isHeading()).assertExists()
         compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
-        // TBL-117, TBL-130 (owner notes 2026-11-14): the Pups' closed stack, which a tap spreads open rather than picks from, glows
+        // TBL-117, TBL-173, TBL-130, TBL-165 (owner notes 2026-11-14): the Pups' closed stack, which a tap spreads open rather than picks from, glows
         // as a pile holding choices, both members, not framed as a target
         val spread = compose.onAllNodes(hasContentDescription("${Choices.PUP}, owner", substring = true) and
             SemanticsMatcher("glowing as choices inside") { "choices inside" in it.config.getOrElse(TableMarks) { emptySet() } }).fetchSemanticsNodes()
@@ -92,7 +92,7 @@ class TablePickTest {
             "Alice tapped her Ember Altar, whose cost sacrifices another creature: the slim bar above her hand says \"Sacrifice\" over " +
                 "the ability's text with the ability at its right, and the closed stack of her two Ash Pups, which a tap spreads open, " +
                 "glows pulsing violet as a pile holding choices.")
-        // Owner notes 2026-11-14: spread open (as a tap on the closed stack opens it, TBL-130), each Pup has the normal targeting glow
+        // Owner notes 2026-11-14: spread open (as a tap on the closed stack opens it, TBL-130, TBL-165, TBL-173), each Pup has the normal targeting glow
         val group = kit.scene().battlefieldGroups.single { it.members.containsAll(pups) }
         kit.toolkit.layoutState.value = kit.toolkit.layoutState.value.copy(expandedGroup = group.key)
         compose.waitForIdle()
@@ -111,7 +111,7 @@ class TablePickTest {
         assertEquals(22, kit.state().player(kit.me).life.toInt(), "the ability resolved: Alice gained 2")
     }
 
-    // STK-047 (owner 2026-11-11, which pick is which), CR 702.6a, 601.2c, 601.2h: Alice taps her Ember Hauberk ("Equip—Sacrifice a
+    // STK-047, STK-143, STK-148, STK-142 (owner 2026-11-11, which pick is which), CR 702.6a, 601.2c, 601.2h: Alice taps her Ember Hauberk ("Equip—Sacrifice a
     // creature."): its target, picked first, has no phrase of its own, so "Equip" shines; then the sacrifice's "a creature"
     // shines, the target named after "Equip" in brackets, and the picked Pup carries an "Equip" chip on the table
     @Test fun theEquipsTargetAndSacrificeShowWhichPickIsWhich() {
@@ -137,7 +137,7 @@ class TablePickTest {
                 "creature.\" with \"a creature\" lit in violet as the pick now, and the Pup carries a violet \"Equip\" chip on the table.")
     }
 
-    // STK-047 (owner, 2026-11-12: "tap me, your choices are inside"): Alice casts a Hedge Study, then a Hedge Recall ("Return
+    // STK-047, STK-147 (owner, 2026-11-12: "tap me, your choices are inside"): Alice casts a Hedge Study, then a Hedge Recall ("Return
     // target card from your graveyard to your hand"): her graveyard, holding the Study, glows over its whole face, pulsing,
     // and says so to accessibility services; her exile and library, holding nothing to pick, don't
     @Test fun aPileHoldingATargetGlows() {
@@ -163,7 +163,7 @@ class TablePickTest {
                 "your choices are inside\".")
     }
 
-    // D1, STK-030, STK-047: an engine choice of battlefield permanents is a table pick, its candidates as targets and its
+    // D1, STK-030, STK-187, STK-047, STK-151, STK-153: an engine choice of battlefield permanents is a table pick, its candidates as targets and its
     // answer the chosen cards; a choice of cards in the hand (a discard) keeps its panel
     @Test fun onlyAChoiceAmongBattlefieldPermanentsIsPickedOnTheTable() {
         val kit = EngineTableKit()
@@ -176,7 +176,7 @@ class TablePickTest {
         assertNull(TablePick.of(discard.copy(min = 1, max = 1, text = "Choose to exile a card"), kit.state()))
     }
 
-    // D1, STK-047: a table pick of permanents answers with the chosen cards, its candidates being their objects as targets
+    // D1, STK-047, STK-151: a table pick of permanents answers with the chosen cards, its candidates being their objects as targets
     @Test fun aPickOfPermanentsAnswersWithTheChosenCards() {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.PUP))))
         kit.opening()

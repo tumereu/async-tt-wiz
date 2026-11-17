@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 /**
  * Owner problem report WDKHSB (2026-11-07): "asked to resolve an action, had nothing to react with. toggling control
  * mode on and off autoresolved it". His response mode was Normal (recorded on his own events and the other player's
- * assumptions about him), which stops at the other player's spells and abilities (STK-036); playback's quick actions
+ * assumptions about him), which stops at the other player's spells and abilities (STK-036, STK-171, STK-173); playback's quick actions
  * showed only a white "Control" toggle, whose off set Quick, which then passed the stop by itself. Owner decisions: the
  * playback's mode cell is live play's (its name and colour, a tap going on to the next mode), and a new mode applies from
  * the next point on: the stop you stand at stays until you answer it.
@@ -24,7 +24,7 @@ class ModeAtStopTest : E2e() {
     private fun E2ePlayer.modeCell(): String? = described("Response mode").fetchSemanticsNode().config
         .getOrNull(SemanticsProperties.StateDescription)
 
-    // HIS-095, HIS-163, TRN-059, STK-036 (report WDKHSB): Bob, in Normal, holds nothing he could respond with while Alice casts
+    // HIS-095, HIS-163, TRN-059, TRN-121, STK-036, STK-173 (report WDKHSB): Bob, in Normal, holds nothing he could respond with while Alice casts
     // an Ember Herald with him away. His playback stops at her spell (Normal stops there) and his quick actions show the
     // mode it stops by, Normal, as live play does. He switches to Quick there: the stop stays, live, until his Resolve;
     // the next point, her Herald's trigger, follows Quick: playback goes on past it to live play with no other stop

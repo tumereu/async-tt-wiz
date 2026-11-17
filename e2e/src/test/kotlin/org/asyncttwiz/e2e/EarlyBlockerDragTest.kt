@@ -103,7 +103,7 @@ class EarlyBlockerDragTest : E2e() {
         }
     }
 
-    // CMB-034, CMB-040 (owner, 2026-11-10): Bob's creatures can't be dragged as blockers before his declare blockers step: not
+    // CMB-034, CMB-080, CMB-040 (owner, 2026-11-10): Bob's creatures can't be dragged as blockers before his declare blockers step: not
     // while Alice stages her attack (onto her staged Cub's copy, or into the blockers' row under it), nor in the declare
     // attackers step after her attack; nothing of it reaches Automatum. In his declare blockers step the same drag blocks
     @Test fun theDefendersCreaturesWaitForTheirDeclareBlockersStep() {

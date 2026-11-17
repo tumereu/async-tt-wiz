@@ -62,7 +62,7 @@ class DeckVisibilityTest {
             owner.execute(GameAction.Ready); other.execute(GameAction.Ready)
             assertEquals(GameLifecycle.ACTIVE, games.head(owner.actor, owner.gameId).summary.lifecycle)
             assertEquals("accepted", other.execute(games.concession(other.actor, other.gameId)).outcome)
-            // TRN-065: the next play starts only once the owner too tapped OK on the result
+            // TRN-065, TRN-143: the next play starts only once the owner too tapped OK on the result
             assertEquals("accepted", owner.execute(GameAction.AcknowledgeResult).outcome)
         }
     }
@@ -148,7 +148,7 @@ class DeckVisibilityTest {
         f.select(a2, x); assertTrue(f.shown(a2))
     }
 
-    // SYS-052
+    // SYS-052, SYS-175
     @Test fun `finishing a game still reveals decks when another lobby game of the pair can't be read`() = fixture { f ->
         val x = f.deck(f.a, "Deck X"); val bDeck = f.deck(f.b, "Deck B")
         val (a1, b1) = f.game(f.a, f.b)

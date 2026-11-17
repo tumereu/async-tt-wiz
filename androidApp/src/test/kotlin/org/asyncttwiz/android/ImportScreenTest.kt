@@ -71,7 +71,7 @@ class ImportScreenTest {
         } finally { controller.close() }
     }
 
-    // LOB-061, LOB-059
+    // LOB-061, LOB-059, LOB-213
     @Test fun deckPasteIconImportsAtOnceTypedLinksWaitForImportAndTheResultIsAnEditablePasteList() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val controller = DeckImportController({ resolved(it) }, worker) { it() }
@@ -99,7 +99,7 @@ class ImportScreenTest {
             assertEquals(listOf("456"), fetched)
             compose.onNodeWithTag("deck-url").assertDoesNotExist()
             compose.runOnIdle { assertEquals(listOf(2L, 1L), listOf(DeckSection.MAINBOARD, DeckSection.SIDEBOARD).map(controller.state.result!!::count)) }
-            // LOB-059: the Text tab shows no counts.
+            // LOB-059, LOB-213: the Text tab shows no counts.
             compose.onNodeWithText("2 main · 1 side").assertDoesNotExist()
             compose.onNodeWithTag("deck-name").assertTextEquals("Site deck 456")
             compose.onNodeWithTag("deck-list").assertTextContains("2 Rune Bear", substring = true)
@@ -156,7 +156,7 @@ class ImportScreenTest {
         } finally { controller.close() }
     }
 
-    // LOB-059, LOB-060
+    // LOB-059, LOB-213, LOB-060
     @Test fun deckSaveIsEnabledOnlyForANamedResolvedListAndPasteIconOnlyFillsTheList() {
         val worker = Worker()
         val controller = DeckImportController({ text ->
@@ -173,7 +173,7 @@ class ImportScreenTest {
             assertTrue(worker.queue.isEmpty())
             compose.mainClock.advanceTimeBy(500)
             compose.runOnIdle { worker.drain(); assertTrue(controller.state.result!!.resolved) }
-            compose.onNodeWithText("2 main · 1 side").assertDoesNotExist() // LOB-059: no counts on the Text tab.
+            compose.onNodeWithText("2 main · 1 side").assertDoesNotExist() // LOB-059, LOB-213: no counts on the Text tab.
             compose.onNodeWithTag("save-deck").assertIsNotEnabled() // No name yet.
             compose.onNodeWithTag("deck-name").performTextInput("Bears")
             compose.onNodeWithTag("save-deck").assertIsEnabled()
@@ -230,7 +230,7 @@ class ImportScreenTest {
         } finally { controller.close(); worker.drain() }
     }
 
-    // DRF-008, DRF-009, LOB-059
+    // DRF-008, DRF-009, LOB-059, LOB-213
     @Test fun cubePasteIconImportsAtOnceWhileTypedLinksWaitForImportAndSaveNeedsAName() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val result = DeckImportResult("1 Rune Bear", listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing), listOf(1))),
@@ -257,7 +257,7 @@ class ImportScreenTest {
             assertEquals(listOf("typed"), fetched)
             compose.onNodeWithTag("cube-url").assertDoesNotExist()
             compose.runOnIdle { assertTrue(controller.state.result!!.resolved) }
-            compose.onNodeWithText("1 card").assertDoesNotExist() // LOB-059: no counts on the Text tab.
+            compose.onNodeWithText("1 card").assertDoesNotExist() // LOB-059, LOB-213: no counts on the Text tab.
             compose.onNodeWithTag("cube-name").assertTextEquals("typed")
             compose.onNodeWithTag("cube-list").assertTextContains("1 Rune Bear", substring = true)
             compose.onNodeWithTag("save-cube").assertIsEnabled()
@@ -302,7 +302,7 @@ class ImportScreenTest {
         } finally { compose.mainClock.autoAdvance = true; controller.close(); worker.drain() }
     }
 
-    // DRF-010, LOB-057: Edit is the only button above a saved cube; Delete cube is in its editor, confirmed first.
+    // DRF-010, DRF-183, LOB-057, LOB-212: Edit is the only button above a saved cube; Delete cube is in its editor, confirmed first.
     @Test fun savedCubeShowsPicturesUnderEditAndDraftThisCubeAndItsEditorDeletesItConfirmed() {
         val worker = Worker()
         val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")), printingId = "00000000-0000-4000-8000-000000000201")

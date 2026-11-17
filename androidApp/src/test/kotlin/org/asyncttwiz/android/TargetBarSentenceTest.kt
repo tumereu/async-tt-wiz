@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertTrue
 
-/** The target bar's sentence (STK-047): 4 lines, then whole on a tap, scrolling past half the table's height. */
+/** The target bar's sentence (STK-047, STK-142, STK-144): 4 lines, then whole on a tap, scrolling past half the table's height. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -30,13 +30,13 @@ class TargetBarSentenceTest {
     }
     private fun sentence(line: String) = compose.onNodeWithContentDescription("Question: $line", useUnmergedTree = true)
 
-    // STK-047: a sentence that fits takes no taps
+    // STK-047, STK-144: a sentence that fits takes no taps
     @Test fun aSentenceThatFitsTakesNoTaps() {
         bar(short)
         compose.onNode(hasClickAction() and hasAnyDescendant(hasContentDescription("Question: $short")), useUnmergedTree = true).assertDoesNotExist()
     }
 
-    // STK-047: cut at 4 lines, a tap shows it whole and another goes back
+    // STK-047, STK-144, STK-142: cut at 4 lines, a tap shows it whole and another goes back
     @Test fun aLongSentenceStopsAtFourLinesAndOpensOnATap() {
         bar(long)
         val fourLines = sentence(long).fetchSemanticsNode().boundsInRoot.height

@@ -83,7 +83,7 @@ class EngineDeclaringAttackersTest {
         return hound to kit.atw(kit.field("Ash Oracle", kit.other).single())
     }
 
-    // CMB-028, CMB-047, STK-036, TBL-122, CMB-015, CMB-012: Control stops at the beginning of combat (the arrow reads Next)
+    // CMB-028, CMB-066, CMB-047, STK-036, TBL-122, TBL-155, CMB-015, CMB-012: Control stops at the beginning of combat (the arrow reads Next)
     // and one tap there activates the Hound's ability; while attackers are chosen nothing can be activated and a tap on
     // the Hound only stages or unstages it (at the lane made active by its header); dragging its copy between lanes
     // retargets it; the arrow attacks the Oracle
@@ -99,7 +99,7 @@ class EngineDeclaringAttackersTest {
         assertEquals(kit.me, kit.state().priority.holder)
         assertEquals(GameDevice.Status.YourMove, kit.alice.device.status)
         assertEquals(AutomatumStep.Next, AutomatumStep.of(kit.alice.play()))
-        // TRN-063 (owner gallery note 22, 2026-11-11): the step move names where it goes
+        // TRN-063, TRN-112 (owner gallery note 22, 2026-11-11): the step move names where it goes
         assertEquals("To attackers", AutomatumStep.of(kit.alice.play()).words(kit.alice.play()))
 
         // Before attacks: one tap activates the Hound's pump (TBL-122), Autotap paying; it resolves and Alice is back there
@@ -173,7 +173,7 @@ class EngineDeclaringAttackersTest {
         assertEquals(life, kit.state().player(kit.other).life, "the Oracle took the damage, not Bob")
     }
 
-    // STK-036, CMB-028: in Normal there is no stop at the beginning of combat: To combat goes on to declaring attackers
+    // STK-036, STK-171, CMB-028: in Normal there is no stop at the beginning of combat: To combat goes on to declaring attackers
     @Test fun normalGoesStraightToDeclaringAttackers() {
         toReadyHound()
         kit.alice.settings(kit.alice.shown!!.settings.copy(mode = ResponseMode.Normal))

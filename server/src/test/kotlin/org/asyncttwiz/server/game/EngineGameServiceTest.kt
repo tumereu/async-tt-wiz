@@ -210,7 +210,7 @@ class EngineGameServiceTest {
         assertTrue(codec.decodeModel(f.snapshot().state).engine.turn.number == 1)
     }
 
-    // SYS-077, HIS-109, HIS-211 (owner 2026-11-07): Bob's keep crosses Alice's assumption of it on the wire, with a move of his made
+    // SYS-077, SYS-134, HIS-109, HIS-211 (owner 2026-11-07): Bob's keep crosses Alice's assumption of it on the wire, with a move of his made
     // on it right behind: the keep is the assumption's confirmation (accepted, no new event, his local head past it) and
     // his next move, made on his keep, is taken on the assumption instead of refused as stale
     @Test fun `a matching answer that crossed the assumption confirms it and the moves made on it are taken`() = withService { runtime ->
@@ -533,8 +533,8 @@ class EngineGameServiceTest {
         assertNotNull(f.snapshot(f.b).rewindRequest)
     }
 
-    // I-D56 §13, TRN-059 (owner 2026-11-10: the Assume setting is shared): a player's play settings are their own, kept on
-    // the server; the other player's phone learns only their response mode (STK-036) and "Assume resolves" (both snapshots
+    // I-D56 §13, TRN-059, TRN-123 (owner 2026-11-10: the Assume setting is shared): a player's play settings are their own, kept on
+    // the server; the other player's phone learns only their response mode (STK-036, STK-174) and "Assume resolves" (both snapshots
     // and every revision name each player's), never the rest (Autotap) or the settings as a whole
     @Test fun `play settings are private but the assume setting is shared`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "s")
@@ -549,7 +549,7 @@ class EngineGameServiceTest {
         assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).let { text -> text.contains("\"assume\":{") || text.contains("autotap") } })
     }
 
-    // TRN-059, STK-036 (owner 2026-11-10): a change of either shared setting with no move reaches the other seat at once:
+    // TRN-059, TRN-123, STK-036, STK-174 (owner 2026-11-10): a change of either shared setting with no move reaches the other seat at once:
     // its revision, as the socket publishes it to the other player (GameService.publicationState), carries both players'
     // response modes and Assume settings and nothing else of the engine (no event, no local head moved), never Autotap.
     // First Bob's Assume setting alone, then his response mode alone.
@@ -582,7 +582,7 @@ class EngineGameServiceTest {
         assertEquals(mapOf(a to mine.assume, b to always), modeOnly.assumes)
     }
 
-    // STK-036, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside
+    // STK-036, STK-174, STK-175, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside
     // undo and history: both snapshots name it, and a change reaches the other player at once (its revision carries every
     // player's mode); the rest of the settings stay the player's own. An event keeps the mode its submission recorded.
     @Test fun `the response mode is shared at once and events record theirs`() = withService { runtime ->
@@ -604,7 +604,7 @@ class EngineGameServiceTest {
         assertEquals(ResponseMode.Normal, event.mode)
     }
 
-    // LOB-135, TRN-067 (owner 2026-11-07): the assume reveal settings are the game's, the defaults until changed (library
+    // LOB-135, LOB-154, TRN-067, TRN-159 (owner 2026-11-07): the assume reveal settings are the game's, the defaults until changed (library
     // on, hands off), changed by its host only and seen by both players; the server's information rule check honours
     // them as they are when a submission comes: Alice's assumed pass over her spell revealing Bob's library top is
     // refused with the library setting off and taken once she turns it on
@@ -658,7 +658,7 @@ class EngineGameServiceTest {
         assertTrue(f.codec().decodeModel(f.snapshot().state).engine.stack.isEmpty(), "the Augury resolved")
     }
 
-    // LOB-113 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account
+    // LOB-113, LOB-228 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account
     @Test fun `a new game starts with the account's defaults`() = withService { runtime ->
         val defaults = PlaySettings(ResponseMode.Normal, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false)
         val f = Fixture(runtime, engine = true, tag = "d", bobDefaults = defaults)
@@ -667,7 +667,7 @@ class EngineGameServiceTest {
         assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
     }
 
-    // TRN-059, LOB-113, HIS-096 (single version, owner 2026-11-08): V71 keeps "Assume resolves" as one value instead of
+    // TRN-059, LOB-113, LOB-228, HIS-096 (single version, owner 2026-11-08): V71 keeps "Assume resolves" as one value instead of
     // three flags, in a game's seat settings and in the account's defaults alike; every stored combination becomes the
     // value the app read from it (Always first, then When they have no mana, then Never, else Normal), the rest kept
     @Test fun `V71 turns the three stored assume flags into one value`() = withDatabase { db, runtime ->

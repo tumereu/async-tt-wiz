@@ -152,7 +152,7 @@ internal fun E2ePlayer.pickBlocker(name: String, e2e: E2e, index: Int = 0) {
 }
 
 /**
- * Taps the main button's declaration [label] ("Attack (2)", "Block (1)", CMB-028, CMB-034) once the game has [settled]
+ * Taps the main button's declaration [label] ("Attack (2)", "Block (1)", CMB-028, CMB-034, CMB-079) once the game has [settled]
  * (the staging that made it on the server) and the table has worked out the combat on the board it shows.
  */
 internal fun E2ePlayer.declare(label: String, e2e: E2e) {
@@ -176,22 +176,22 @@ internal fun E2ePlayer.showsOnBattlefield(name: String, owner: E2ePlayer = this)
 }.getOrDefault(false)
 
 /** A control (button, quick action, the step arrow) by what it says; the step arrow also by its kind ([stepArrow]: "Next",
- * "Pass", "End step"), whatever destination it names (TRN-063). */
+ * "Pass", "End step"), whatever destination it names (TRN-063, TRN-112). */
 internal fun E2ePlayer.control(label: String): SemanticsNodeInteraction = node(saying(label) and hasClickAction())
 internal fun E2ePlayer.showsControl(label: String): Boolean = shows(saying(label) and hasClickAction())
 private fun saying(label: String) =
     hasContentDescription(label) or androidx.compose.ui.test.SemanticsMatcher.expectValue(org.asyncttwiz.android.MainButtonStep, label)
 
 /** Taps the control [label]. A main button press within [org.asyncttwiz.android.MainButtonGuard.MILLIS] of this phone's last one is
- * ignored as the second tap of a double tap (TRN-063): the phone's clock first moves past it, as a player's finger would be later. */
+ * ignored as the second tap of a double tap (TRN-063, TRN-117): the phone's clock first moves past it, as a player's finger would be later. */
 internal fun E2ePlayer.tap(label: String) { pastMainGuard(); control(label).performClick() }
 
-/** HIS-110, HIS-151, TRN-063 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
+/** HIS-110, HIS-151, TRN-063, TRN-114 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
 internal val REVEAL_OK = hasTestTag("main-button") and hasContentDescription("OK")
 internal fun E2ePlayer.showsRevealOk(): Boolean = game?.shown?.reveal != null && shows(REVEAL_OK)
 internal fun E2ePlayer.revealOk() { pastMainGuard(); node(REVEAL_OK).performClick() }
 
-/** Moves this phone's clock past the main button's guard against a quick second tap (TRN-063), when its last press was that recent. */
+/** Moves this phone's clock past the main button's guard against a quick second tap (TRN-063, TRN-117), when its last press was that recent. */
 internal fun E2ePlayer.pastMainGuard() {
     val pressed = (game ?: last)?.lastPressAt ?: return
     val wait = pressed + org.asyncttwiz.android.MainButtonGuard.MILLIS - android.os.SystemClock.uptimeMillis()
@@ -201,7 +201,7 @@ internal fun E2ePlayer.pastMainGuard() {
 /** Holds the control [label] (a long press: the step arrow's End turn, Undo's earlier points). */
 internal fun E2ePlayer.hold(label: String) { control(label).performTouchInput { longClick() } }
 
-/** What the main button says now (its words, TRN-063: "To draw step", "Cast"), null while none shows. */
+/** What the main button says now (its words, TRN-063, TRN-112, TRN-114: "To draw step", "Cast"), null while none shows. */
 internal fun E2ePlayer.mainWords(): String? = nodes(hasTestTag("main-button")).fetchSemanticsNodes().firstOrNull()?.description()
 
 /** The step arrow's kind now ([org.asyncttwiz.android.AutomatumStep] labels, the main button's
@@ -258,7 +258,7 @@ internal fun E2ePlayer.openTimeline(e2e: E2e) {
     text("Timeline").performClick()
 }
 
-/** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079). */
+/** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079, ZON-102). */
 internal fun E2ePlayer.playFromHand(name: String, e2e: E2e) {
     // On a settled game: a board taken back between the two taps lowers the raised card, and the second tap only raises it.
     // Except while they hold priority over their own spell or ability (Control, STK-036): then they cast on at once, as a
@@ -276,7 +276,7 @@ private fun E2ePlayer.holdsOverOwn(): Boolean = game?.shown?.engine?.let { s ->
     s.priority.holder == me && s.stack.lastOrNull()?.let { top -> s.stackItems[top]?.controller ?: s.obj(top)?.controller } == me
 } == true
 
-/** The name of the hand card drawn raised above the hand row (ZON-079), if any. On the desktop table's fan (WEB-015) its turned
+/** The name of the hand card drawn raised above the hand row (ZON-079), if any. On the desktop table's fan (WEB-015, WEB-074, WEB-103) its turned
  * cards' tops differ a little, a raised (or hovered) card's by much more: a sixth of a card's height tells them apart. */
 internal fun E2ePlayer.raisedInHand(): String? = runCatching {
     val field = battlefieldBounds()

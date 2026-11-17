@@ -24,7 +24,7 @@ class XCastTest : E2e() {
     private fun E2ePlayer.castButton(): androidx.compose.ui.semantics.SemanticsNode =
         nodes(hasClickAction() and hasAnyDescendant(hasText("Cast"))).fetchSemanticsNodes().minBy { it.size.width * it.size.height }
 
-    // STK-023, STK-052: X bounded by the mana (one Mountain: at most 1), no OK and no Cancel; Cast answers X and asks the target
+    // STK-023, STK-138, STK-052, STK-140: X bounded by the mana (one Mountain: at most 1), no OK and no Cancel; Cast answers X and asks the target
     @Test fun anXCastHasNoOkAndStopsAtWhatTheManaPays() {
         startGame(TestDeck.bursts(), deal = { a, _ -> "Mountain" in hand(a) && "Ember Burst" in hand(a) })
         bothOpen()
@@ -52,7 +52,7 @@ class XCastTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-023, STK-052 (owner gallery review, 2026-11-06): a tap on X opens a numeric input; a value past what the mana pays
+    // STK-023, STK-139, STK-052, STK-140 (owner gallery review, 2026-11-06): a tap on X opens a numeric input; a value past what the mana pays
     // isn't taken (its check greyed, the reason shown), one it pays is; Cast goes on with it
     @Test fun xIsTypedInTheNumericInput() {
         startGame(TestDeck.bursts(), deal = { a, _ -> "Mountain" in hand(a) && "Ember Burst" in hand(a) })
@@ -80,12 +80,12 @@ class XCastTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    /** How many of [this] player's table cards are outlined as paying the open cast (STK-024's amber outline). */
+    /** How many of [this] player's table cards are outlined as paying the open cast (STK-024, STK-156's amber outline). */
     private fun E2ePlayer.outlinedSources(): Int =
         nodes(androidx.compose.ui.test.SemanticsMatcher("source") { "source" in it.config.getOrElse(org.asyncttwiz.android.TableMarks) { emptySet() } })
             .fetchSemanticsNodes().size
 
-    // STK-024 (owner notes 2026-11-14 evening: changing X while casting didn't change the outlined sources): with three Ember
+    // STK-024, STK-164 (owner notes 2026-11-14 evening: changing X while casting didn't change the outlined sources): with three Ember
     // Shards out, the outline follows X as it is set: none at X = 0, one at 1, two at 2, one again at 1; Cast pays with them
     @Test fun theOutlineFollowsX() {
         startGame(TestDeck("Shard bursts", listOf(TestCards.shard to 20, TestCards.burst to 20)),

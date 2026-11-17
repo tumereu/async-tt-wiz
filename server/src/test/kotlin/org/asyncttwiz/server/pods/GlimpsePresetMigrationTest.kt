@@ -9,7 +9,7 @@ import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
-/** DRF-031 (owner, 2026-11-14): V88 gives every existing account the Glimpse preset as an ordinary preset of its own. */
+/** DRF-031, DRF-200 (owner, 2026-11-14): V88 gives every existing account the Glimpse preset as an ordinary preset of its own. */
 class GlimpsePresetMigrationTest {
     private val json = DeckJson.format
     private fun id() = UUID.randomUUID().toString()
@@ -20,7 +20,7 @@ class GlimpsePresetMigrationTest {
         }
     }
 
-    // DRF-031: each account gets Glimpse (DraftSettings.glimpse(), no source); one that already has a preset of that name
+    // DRF-031, DRF-200: each account gets Glimpse (DraftSettings.glimpse(), no source); one that already has a preset of that name
     // keeps its own, and other presets stay as they were
     @Test fun `every existing account gets the Glimpse preset`() {
         FreshDatabase(migrated = false).start().use { db ->

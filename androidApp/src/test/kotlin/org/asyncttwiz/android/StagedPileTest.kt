@@ -78,7 +78,7 @@ class StagedPileTest {
     private fun cubs(): BattlefieldGroup = k.field("Ember Cub").map(k::atw).toSet().let { cubs ->
         k.scene().battlefieldGroups.single { g -> g.members.any { it in cubs } } }
 
-    // CMB-047, CMB-028, TBL-130, TBL-053 (owner playtest 2026-11-07): a tap on the stack stages its topmost unstaged Cub; the
+    // CMB-047, CMB-071, CMB-070, CMB-028, TBL-130, TBL-163, TBL-053, TBL-178 (owner playtest 2026-11-07): a tap on the stack stages its topmost unstaged Cub; the
     // stack keeps its members (it doesn't regroup), the staged Cubs lie at its right end in the order they were staged with
     // the staged look, the unstaged ones stay exactly where they were, the ×N counting those left
     @Test fun tapsOnAStackStageItsMembersOneByOne() {

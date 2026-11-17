@@ -11,11 +11,11 @@ import org.junit.Test
 import kotlin.test.assertEquals
 
 /**
- * Owner, 2026-11-14 (DRF-031, DRF-033): Glimpse is a preset every account starts with, an ordinary one: it fills the New pod
+ * Owner, 2026-11-14 (DRF-031, DRF-200, DRF-033): Glimpse is a preset every account starts with, an ordinary one: it fills the New pod
  * form like any preset, and it can be deleted.
  */
 class GlimpsePresetTest : E2e() {
-    // DRF-031, DRF-032, DRF-033: Alice's new account has Glimpse on the server; on New pod it loads 9 packs that burn 2,
+    // DRF-031, DRF-200, DRF-032, DRF-033: Alice's new account has Glimpse on the server; on New pod it loads 9 packs that burn 2,
     // and its delete button (confirmed) removes it from her presets
     @Test fun everyAccountHasAGlimpsePresetThatCanBeDeleted() {
         launchPlayers()

@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  * doesn't change (HIS-097, HIS-186).
  */
 class BranchNoteTest : E2e() {
-    // HIS-097, HIS-186, HIS-096, HIS-180, TRN-070: Bob plays a Mountain and an Ash Hound in his first turn; Alice plays a Mountain and an
+    // HIS-097, HIS-186, HIS-096, HIS-180, TRN-070, TRN-157: Bob plays a Mountain and an Ash Hound in his first turn; Alice plays a Mountain and an
     // Ember Dasher (haste) and attacks with it, her phone assuming Bob's pass right after the attack (never a wait) so
     // that she waits for his blocks; Bob pumps his Hound at that point instead. Alice's table goes back to her attack
     // with the note "Bob responded" (no take-back clause: only the assumed pass went), without the take-back's rewind

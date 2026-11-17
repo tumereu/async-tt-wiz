@@ -90,7 +90,7 @@ class PodChatScreenshotTest {
         listOf(PodMember(alice, submitted = true), PodMember(bob, submitted = true), PodMember(carol, building = true)),
         emptyList(), draftAttemptId = "attempt", updatedAt = "2026-11-08T00:00:00Z", submitted = true)
 
-    // DRF-170: a started pod's header has the chat button, with a dot while other members' messages wait unread
+    // DRF-170, DRF-237: a started pod's header has the chat button, with a dot while other members' messages wait unread
     @Test fun podHeaderChatButton() {
         showPod(detail(PodPhase.DRAFTED), PodTab.GAMES, chatOpen = false, readThrough = 1)
         compose.onNodeWithTag("pod-chat-unread", useUnmergedTree = true).assertExists()
@@ -99,7 +99,7 @@ class PodChatScreenshotTest {
             "before the view settings cogwheel, has a dot because Carol's message in the pod's chat is unread.")
     }
 
-    // DRF-170: the chat button opens "Pod chat" as a side panel: each member's messages with their names, Alice's own tinted;
+    // DRF-170, DRF-238, DRF-237: the chat button opens "Pod chat" as a side panel: each member's messages with their names, Alice's own tinted;
     // seeing them reads them, and the dot goes
     @Test fun podChatPanel() {
         showPod(detail(PodPhase.DRAFTED), PodTab.GAMES, chatOpen = false, readThrough = 1)
@@ -131,7 +131,7 @@ class PodChatScreenshotTest {
         settle()
     }
 
-    // LOB-145: in a pod game the chat has Game and Pod tabs; on Game, the Pod tab has a dot while the pod's chat holds a
+    // LOB-145, LOB-169: in a pod game the chat has Game and Pod tabs; on Game, the Pod tab has a dot while the pod's chat holds a
     // message Alice hasn't seen
     @Test fun podGameChatOnTheGameTab() {
         showTable(ChatTab.GAME, gameUnread = 0, readThrough = 2)
@@ -142,7 +142,7 @@ class PodChatScreenshotTest {
             "messages, and a dot after Pod because Carol's message in the pod's chat is unread.")
     }
 
-    // LOB-145: on the Pod tab the pod's messages show with their authors (reading them), and Game has a dot while a game message
+    // LOB-145, LOB-169: on the Pod tab the pod's messages show with their authors (reading them), and Game has a dot while a game message
     // waits unseen
     @Test fun podGameChatOnThePodTab() {
         showTable(ChatTab.POD, gameUnread = 1, readThrough = 2)

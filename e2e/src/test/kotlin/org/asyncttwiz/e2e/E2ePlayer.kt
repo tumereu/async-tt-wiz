@@ -188,7 +188,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     /** Whether the screen showed a short-lived text containing [text] ([shownTexts]). */
     fun told(text: String): Boolean = shownTexts.any { text in it }
 
-    /** Whether the screen showed SYS-012's refusal note ("That wasn't taken: ...") or a refused action's shake. */
+    /** Whether the screen showed SYS-012, SYS-138, SYS-139's refusal note ("That wasn't taken: ...") or a refused action's shake. */
     val refusalSeen: Boolean get() = told("wasn't taken") || told(org.asyncttwiz.android.REFUSAL_SHAKEN)
 
     private var onceAt = -1L
@@ -204,7 +204,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
      * Whether the board on the screen is the newest one of the game: the engine thread's queued work done (an own
      * action's follow-up, the server's events the main thread handed it) and every board it published taken in by the
      * main thread, none of them newer. A tap on a board the engine thread has already moved on from is not taken
-     * (SYS-011, SYS-012's "That wasn't taken: the game moved on first"), as a person's tap on a board just replaced: a
+     * (SYS-011, SYS-137, SYS-012, SYS-138's "That wasn't taken: the game moved on first"), as a person's tap on a board just replaced: a
      * helper that taps by itself waits for this rather than tapping a board on its way out.
      */
     fun current(): Boolean {
@@ -288,11 +288,11 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
             meta = "Meta" in modifiersHeld, textField = textField))
     }
 
-    /** WEB-025 (prod report 96PB2X): the key [name] is let go where the page never hears it (Alt+Tab to another window, the
+    /** WEB-025, WEB-087 (prod report 96PB2X): the key [name] is let go where the page never hears it (Alt+Tab to another window, the
      * browser's own menu): no key-up reaches the app, and the browser's later events no longer carry it. */
     fun keyUpLost(name: String) { modifiersHeld -= name }
 
-    /** WEB-025: the page's window loses the focus (or the page is hidden), as the browser tells it. */
+    /** WEB-025, WEB-087: the page's window loses the focus (or the page is hidden), as the browser tells it. */
     fun windowLostFocus() = org.asyncttwiz.android.DesktopKeyboard.focusLost("the window lost the focus")
 
     /** The page's key [name] pressed and released (a tap of it), with [shift] / [ctrl] held. Not named `press`: a member

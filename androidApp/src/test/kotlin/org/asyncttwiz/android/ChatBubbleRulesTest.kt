@@ -4,14 +4,14 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import kotlin.test.*
 
-/** The chat bubbles' rules (LOB-136, LOB-137, LOB-138): which message the other player's bubble shows and its "k/n", the
+/** The chat bubbles' rules (LOB-136, LOB-167, LOB-137, LOB-138): which message the other player's bubble shows and its "k/n", the
  * read mark, the own sent message, and where a bubble goes. */
 class ChatBubbleRulesTest {
     private val game = "g"
     private fun message(revision: Int, author: String, text: String = "Message $revision") =
         ChatMessage("m$revision", game, "p", author, text, revision.toString(), "date")
 
-    // LOB-136: the other player's oldest unread message, "k/n" among this stretch's unread; your own never
+    // LOB-136, LOB-167: the other player's oldest unread message, "k/n" among this stretch's unread; your own never
     @Test fun theOtherPlayersOldestUnreadMessageShowsWithItsPlace() {
         val messages = listOf(message(1, "b"), message(2, "a"), message(3, "b"), message(4, "b"))
         assertNull(ChatBubbleRules.incoming(messages, "a", 4, 4), "nothing unread")
@@ -29,7 +29,7 @@ class ChatBubbleRulesTest {
         it.accept(ChatReadState(game, readThrough, "5", unread, peer))
     }
 
-    // LOB-136, LOB-066: each tap (a read) shows the next with its k/n; the last one leaves no bubble and no unread dot
+    // LOB-136, LOB-167, LOB-066, LOB-163: each tap (a read) shows the next with its k/n; the last one leaves no bubble and no unread dot
     @Test fun readingTheBubbleAdvancesAndTheLastReadClearsTheDot() {
         val messages = IndexedChatMessages().upsert(listOf(message(1, "a"), message(2, "b", "Thinking…"), message(3, "b", "GG")))
         val chat = chat(unread = 2, readThrough = "1")

@@ -190,7 +190,7 @@ class EngineOwnActionSequenceTest {
         } finally { OwnActionProbes.remove(heard) }
     }
 
-    // TRN-063, STK-029, SYS-025 (owner, 2026-11-16): her Spark's early board, shown before her phone (Quick) folds her own
+    // TRN-063, TRN-119, STK-029, SYS-025 (owner, 2026-11-16): her Spark's early board, shown before her phone (Quick) folds her own
     // pass over her own spell into the cast's event, holds no press on the main button (its own step held): before, it said
     // "Resolve" there for a few ms
     @Test fun anEarlyBoardHoldsTheMainButtonWhenHerOwnPassFollows() {

@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 
 /** Owner, 2026-11-14 (DRF-152): Rotisserie has separate settings for the pool per player and the picks per player. */
 class RotisseriePoolTest : E2e() {
-    // DRF-152, DRF-022, DRF-023, DRF-153: in pod setup Alice makes a Rotisserie of 5 picks each from a pool of 6 each; the
+    // DRF-152, DRF-022, DRF-023, DRF-194, DRF-153: in pod setup Alice makes a Rotisserie of 5 picks each from a pool of 6 each; the
     // server keeps both; the draft lays out 12 cards for the two of them, takes 10 turns and ends with 2 cards left untaken
     @Test fun thePoolAndThePicksPerPlayerAreSetApart() {
         launchPlayers()

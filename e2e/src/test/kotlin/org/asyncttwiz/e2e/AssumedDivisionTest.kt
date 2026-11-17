@@ -54,7 +54,7 @@ class AssumedDivisionTest : E2e() {
         }
         bob.hold("To combat")
         waitUntil("Alice's second Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.state.turn.number >= 3 }
-        // Both in Normal: the blocks are a pause for both (STK-036), so Alice's phone waits for her own pass there (in Quick
+        // Both in Normal: the blocks are a pause for both (STK-036, STK-171, STK-172), so Alice's phone waits for her own pass there (in Quick
         // it would pass for her and Bob's phone would assume it, playing the combat out on his side), and with Bob away
         // her table then waits for his pass with Assume
         alice.game!!.settings(alice.shown.settings.copy(mode = ResponseMode.Normal))

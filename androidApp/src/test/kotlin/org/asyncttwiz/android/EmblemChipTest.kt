@@ -24,7 +24,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** TRN-053 (I-D25; owner gallery review 2026-11-06): a player's emblems show as round chips by the life square; holding
+/** TRN-053, TRN-129 (I-D25; owner gallery review 2026-11-06): a player's emblems show as round chips by the life square; holding
  * one inspects all that player's emblems. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -65,8 +65,8 @@ class EmblemChipTest {
         assertTrue(own.stateChips.isEmpty() && opponent.stateChips.isEmpty(), "no state chips without states or a dungeon room")
     }
 
-    // TRN-053: in portrait the round chips sit in a row at the right of the room right of the piles, clear of both hands;
-    // in landscape right after the piles in the player's bar row (TBL-009)
+    // TRN-053, TRN-126, TRN-127: in portrait the round chips sit in a row at the right of the room right of the piles, clear of both hands;
+    // in landscape right after the piles in the player's bar row (TBL-009, TBL-145)
     @Test fun chipsSitInARowByTheLifeSquareClearOfTheHands() {
         val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 412f, 892f, false)
         val hands = scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds }
@@ -82,7 +82,7 @@ class EmblemChipTest {
             }
             assertTrue(life.emblemChips.zipWithNext().all { (a, b) -> a.right < b.x && a.y == b.y }, "one row")
         }
-        // TBL-009: in landscape right after the piles in the player's bar row (the opponent's top bar, your bottom bar),
+        // TBL-009, TBL-144, TBL-145: in landscape right after the piles in the player's bar row (the opponent's top bar, your bottom bar),
         // inside the row, clear of the hands and of the controls in the bottom bar's right half; on a narrow screen your
         // row gives way to your hand in the bar (owner, 2026-11-08): there its chips shrink and take two lines where the bar is
         // tall enough (owner gallery review 2026-11-10: the player's round chips in lines, never overlapping)
@@ -139,7 +139,7 @@ class EmblemChipTest {
                 "bar, before your hand).")
     }
 
-    // TRN-053: holding any emblem chip inspects all that player's emblems with their full text; the release closes it
+    // TRN-053, TRN-129: holding any emblem chip inspects all that player's emblems with their full text; the release closes it
     @Test fun holdingAnEmblemInspectsThemAll() {
         render()
         compose.mainClock.autoAdvance = false

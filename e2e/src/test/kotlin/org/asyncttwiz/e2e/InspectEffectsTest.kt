@@ -29,7 +29,7 @@ class InspectEffectsTest : E2e() {
     private fun marked(player: E2ePlayer, name: String) = player.shows(hasContentDescription("$name, owner ${alice.name}, ", substring = true) and
         hasContentDescription(", changed by effects", substring = true))
 
-    // TBL-104, TBL-133, TBL-134, TBL-136 (owner 2026-11-12: Scheming Fence): holding the Warden lists what was chosen for it and the
+    // TBL-104, TBL-183, TBL-133, TBL-192, TBL-134, TBL-136 (owner 2026-11-12: Scheming Fence): holding the Warden lists what was chosen for it and the
     // abilities it has from the Cairn; holding the Cairn lists that its abilities can't be activated; both carry the effects
     // marker, on Bob's table too
     @Test fun inspectListsGainedAbilitiesAndWhatWasChosen() {

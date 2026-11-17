@@ -81,7 +81,7 @@ class GameResultLifecycleTest {
             Fixture(db).use { f ->
                 fun end(): LobbyPreparation {
                     assertEquals("accepted", f.other.execute(f.concession()).outcome)
-                    // TRN-065: the next play starts only once the other player tapped OK on the result
+                    // TRN-065, TRN-143: the next play starts only once the other player tapped OK on the result
                     assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.AcknowledgeResult, GameScope(f.game.id))).outcome)
                     return f.games.head(f.b, f.game.id).preparation!!
                 }
@@ -142,7 +142,7 @@ class GameResultLifecycleTest {
                 // The lobby toggle is not a gameplay action: an active game refuses it.
                 assertEquals("lifecycleEnded", f.other.execute(GameAction.ShowDeck(true)).reason)
                 assertEquals("accepted", f.other.execute(f.concession()).outcome)
-                // TRN-065: the owner taps OK on the result before getting Ready
+                // TRN-065, TRN-143: the owner taps OK on the result before getting Ready
                 assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.AcknowledgeResult, GameScope(f.game.id))).outcome)
                 assertEquals(setOf(false), shown().values.toSet(), "Hidden by default")
                 assertFalse("deckShown" in GameWire.encode(f.games.head(f.a, f.game.id)))
@@ -159,7 +159,7 @@ class GameResultLifecycleTest {
                 assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, f.game.id).summary.lifecycle)
                 assertEquals("accepted", f.other.execute(f.concession()).outcome)
                 assertTrue(shown().getValue(bId))
-                // TRN-065 (owner, 2026-11-09): the lobby takes nothing before both OKs
+                // TRN-065, TRN-143 (owner, 2026-11-09): the lobby takes nothing before both OKs
                 assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.AcknowledgeResult, GameScope(f.game.id))).outcome)
                 // It can be switched off again.
                 assertEquals("accepted", f.other.execute(GameAction.ShowDeck(false)).outcome)

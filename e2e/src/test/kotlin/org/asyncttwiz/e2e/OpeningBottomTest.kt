@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
 class OpeningBottomTest : E2e() {
     private val bottomScreen = hasContentDescription("Keep or bottom")
 
-    // TRN-062, STK-043, CR 103.5 (problem report 5DDSKK): Bob keeps; Alice mulligans twice (the first one free), puts one
+    // TRN-062, TRN-125, STK-043, CR 103.5 (problem report 5DDSKK): Bob keeps; Alice mulligans twice (the first one free), puts one
     // card on the bottom in the Keep / Bottom screen that opens after the second, with Mulligan and Keep greyed meanwhile;
     // then Keep goes straight on to her first turn with six cards, no second bottom screen
     @Test fun keepAfterTheBottomOfASecondMulliganOnlyKeeps() {
@@ -56,7 +56,7 @@ class OpeningBottomTest : E2e() {
         waitUntil("the card picked for the bottom") {
             alice.state.player(alice.me).hand.size == 6 || alice.shows(androidx.compose.ui.test.hasText("Bottom · 1") and hasAnyAncestor(panels))
         }
-        // TRN-063 (owner playtest 2026-11-09): the screen's OK is the main button
+        // TRN-063, TRN-114 (owner playtest 2026-11-09): the screen's OK is the main button
         if (alice.state.player(alice.me).hand.size == 7) alice.tap("OK")
         waitUntil("six cards in Alice's hand") { alice.state.player(alice.me).hand.size == 6 && !alice.shows(panels) }
         alice.tap("Keep")

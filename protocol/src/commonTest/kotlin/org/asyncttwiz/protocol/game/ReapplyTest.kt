@@ -17,7 +17,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The first turn during the other player's mulligans (HIS-115, HIS-194, HIS-116, TRN-027): Alice keeps, assumes Bob's keep and
+ * The first turn during the other player's mulligans (HIS-115, HIS-194, HIS-116, TRN-027, TRN-124): Alice keeps, assumes Bob's keep and
  * plays turn 1; each opening move of Bob's at the assumed keep makes her line again on top of it, standing as far as it
  * comes out the same as she could tell, and branching from the first event that doesn't.
  */
@@ -81,7 +81,7 @@ class ReapplyTest {
 
     private fun mulligan(@Suppress("UNUSED_PARAMETER") d: Decision, @Suppress("UNUSED_PARAMETER") m: GameModel) = Answer.Option("Mulligan")
 
-    // HIS-115, HIS-193, HIS-116, TRN-027: Mountain, Ember Cub, Ember Spark to Bob's face, End turn: Bob's free mulligan, his mulligan to
+    // HIS-115, HIS-193, HIS-116, TRN-027, TRN-124: Mountain, Ember Cub, Ember Spark to Bob's face, End turn: Bob's free mulligan, his mulligan to
     // six and a bottom choice other than the stand-in each make it again and it all stands; Bob's Keep then confirms it
     @Test
     fun aTurnThatDoesntReadTheOpponentsHandStandsThroughEveryMulligan() {
@@ -444,7 +444,7 @@ class ReapplyTest {
         assertTrue(sim.equivalence().isEmpty(), sim.equivalence().toString())
     }
 
-    // HIS-115, HIS-195, SYS-012 (§3.5): Alice's land play is on its way when Bob's mulligan brings him an Ember Vanguard: her whole
+    // HIS-115, HIS-195, SYS-012, SYS-138 (§3.5): Alice's land play is on its way when Bob's mulligan brings him an Ember Vanguard: her whole
     // turn is taken back, the land no longer applies there (his opening-hand action waits) and is dropped with the note
     @Test
     fun aMoveOnItsWayThatNoLongerAppliesIsDropped() {

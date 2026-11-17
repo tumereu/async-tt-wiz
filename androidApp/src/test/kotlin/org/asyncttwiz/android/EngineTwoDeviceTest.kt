@@ -186,7 +186,7 @@ class EngineTwoDeviceTest {
         val me = d.me
         if (rnd.nextInt(25) == 0 && d.undoTarget() != null) return undo(game, rnd)
         if (s.turn.number == 0) {
-            // TRN-062: the opening's Mulligan and Keep (the first mulligan is free; later ones put cards on the bottom right
+            // TRN-062, TRN-125: the opening's Mulligan and Keep (the first mulligan is free; later ones put cards on the bottom right
             // after them, problem report 5DDSKK)
             val owed = AutomatumOpening.bottomOwed(s, me.value)
             val hand = s.player(me).hand.mapNotNull { (it as? ObjectId.Card)?.card?.value }

@@ -25,7 +25,7 @@ class PodLimitedModelsTest {
         assertEquals(cards.map { it.name }, names("t:(")) // an unreadable query filters nothing
     }
 
-    // DRF-071, DRF-153
+    // DRF-071, DRF-204, DRF-153
     @Test fun turnTextsNameWhoseTurnItIs() {
         val members = listOf(AccountIdentity("a", "Ann"), AccountIdentity("b", "Bob"))
         assertEquals("Your pick", podTurnText("a", "a", members))
@@ -69,7 +69,7 @@ class PodLimitedModelsTest {
         assertEquals("Your pick · Stack: 0 cards", podPileTurnText(view, members))
     }
 
-    // DRF-160: each opponent's picks newest first, unseen cards as backs; Grid from its public log.
+    // DRF-160, DRF-227: each opponent's picks newest first, unseen cards as backs; Grid from its public log.
     @Test fun opponentPicksNewestFirstWithUnseenCardsHidden() {
         val members = listOf("a", "b", "c").map { PodMember(AccountIdentity(it, it.uppercase())) }
         val c = (0..5).map { DraftCopy("c$it", "d$it") }

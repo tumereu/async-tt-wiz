@@ -55,7 +55,7 @@ class CombatLifeGainTest {
         compose.waitForIdle()
     }
 
-    // CMB-050 (owner playtest 2026-11-11; CR 510.1, CR 702.15b): the attacker's lifelink gain shows on the band's edge facing
+    // CMB-050, CMB-089, CMB-088 (owner playtest 2026-11-11; CR 510.1, CR 702.15b): the attacker's lifelink gain shows on the band's edge facing
     // her battlefield with the life-gain heart, and as "+2" at her life square; Bob's chip shows his total; nothing per lane
     @Test fun anAttackersLifelinkGainShowsOnTheBand() {
         k.opening()

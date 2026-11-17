@@ -85,7 +85,7 @@ class AssumeModeTest {
 
     private val modes = listOf<ResponseMode>(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
 
-    // HIS-096, HIS-176, HIS-177, HIS-181, TRN-070, STK-036 (owner 2026-11-06, 2026-11-07: Bob's spell, his point): at the other player's pause where their real hand
+    // HIS-096, HIS-176, HIS-177, HIS-181, TRN-070, STK-036, STK-172, STK-174 (owner 2026-11-06, 2026-11-07: Bob's spell, his point): at the other player's pause where their real hand
     // can't respond: Never and Normal wait unless their mode would pass (Quick does: nothing to respond with); When they
     // have no mana and Always assume at once (no mana shown)
     @Test
@@ -109,7 +109,7 @@ class AssumeModeTest {
         }
     }
 
-    // HIS-096, HIS-179, HIS-180, HIS-182, STK-036 (owner 2026-11-06): at their priority that is no pause of theirs (your main phase, empty Stack):
+    // HIS-096, HIS-179, HIS-180, HIS-182, STK-036, STK-174 (owner 2026-11-06): at their priority that is no pause of theirs (your main phase, empty Stack):
     // Never waits only against Control (Normal and Quick pass there); every other setting assumes it, as Normal mode passes
     @Test
     fun atTheirPriorityThatIsNoPause() {
@@ -305,7 +305,7 @@ class AssumeModeTest {
         return sim
     }
 
-    // STK-036, HIS-096, HIS-176 (owner 2026-11-07): Alice in Control casts a spell and keeps priority: a point she began, so Bob's
+    // STK-036, STK-174, HIS-096, HIS-176 (owner 2026-11-07): Alice in Control casts a spell and keeps priority: a point she began, so Bob's
     // device waits for her whatever his setting (Always too); her second spell is simply taken: no branch, nothing assumed
     @Test
     fun aSecondSpellWhileHoldingPriorityIsSimplyTaken() {
@@ -328,7 +328,7 @@ class AssumeModeTest {
         }
     }
 
-    // STK-036, HIS-096, HIS-109, HIS-187, SYS-077 (owner 2026-11-06, 2026-11-07): Alice in Control casts a spell and keeps priority;
+    // STK-036, STK-174, HIS-096, HIS-109, HIS-187, SYS-077, SYS-133 (owner 2026-11-06, 2026-11-07): Alice in Control casts a spell and keeps priority;
     // Bob presses Assume by hand there (still offered at her point); her second spell, sent before that assumption reached
     // her, is her answer at it: not refused, it branches (HIS-097), and Bob's device goes back with the branch note
     @Test

@@ -114,7 +114,7 @@ class RevealStopTest {
             "playback went on past the reveal")
     }
 
-    // HIS-110, HIS-153, SYS-077 (full e2e run 2026-11-07): Alice's phone passes on Bob's Insight itself, so her own pending pass
+    // HIS-110, HIS-153, SYS-077, SYS-134 (full e2e run 2026-11-07): Alice's phone passes on Bob's Insight itself, so her own pending pass
     // resolves it and opens the panel; Bob's assumption of that pass reaches the server first and then her phone, taking
     // her event's place (the same board): the panel stays open, now at his event, and her table stays there while he
     // plays on, until her OK
@@ -306,7 +306,7 @@ class RevealStopTest {
         return server.line().last().also { assertEquals(Input.PassPriority(alice), it.assumed?.input, "Bob assumed her pass") }
     }
 
-    // HIS-110, HIS-154, SYS-077 (full e2e run 2026-11-09): Alice taps OK on the panel of her own pending pass; Bob's same assumption then
+    // HIS-110, HIS-154, SYS-077, SYS-134 (full e2e run 2026-11-09): Alice taps OK on the panel of her own pending pass; Bob's same assumption then
     // takes its place: a reveal she dismissed stays dismissed: nothing asks her twice, and the view isn't held
     @Test
     fun aDismissedRevealStaysDismissedWhenTheOtherPlayersSameEventTakesItsPlace() {

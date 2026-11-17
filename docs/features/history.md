@@ -1,17 +1,17 @@
 # History
 
-The game timeline: how the other player's moves play back on your table (live and when catching up), plays shown,
-combat holds and reveals, event texts, timeline mode, assumed answers and branches, lines of play, and undo.
+The game timeline: what an event is and how it reads, how the other player's moves play back on your table (live and
+when catching up), where playback stops, the event text chip, timeline mode and the playback settings.
 
 ## How it works
 
 Everything that happens in a game is recorded as events, one for each point where someone acted. Your table plays the
-other player's events back as animations, one at a time, whether you watch live or come back later to catch up. It
-waits on what you need to see (a spell or ability going on the Stack, a combat, a reveal) and stops where you have to
-decide. To keep the game moving, your device may assume the other player's answer (usually a pass); when their real
-answer differs, the game branches: what came after is taken back and play goes on from their answer. Timeline mode is
-a read-only viewer for looking back through the game. Undo takes back your own latest action: freely when it touched
-nothing the other player did and showed you nothing new, otherwise only with their approval.
+other player's events back as animations, one at a time, whether you watch live or come back later to catch up; a
+finger held on the table pauses what your view is waiting on. Catching up starts only when you tap the text in the
+middle of the board, and it stops wherever you have to decide. A short text at the top says what just happened.
+Timeline mode is a read-only viewer for looking back through the whole game. What a play shown, a combat hold or a
+reveal looks like is described with the Stack, combat and choices; assumed answers and branches in async-play.md; undo
+in undo.md.
 
 ## Events
 
@@ -51,15 +51,6 @@ nothing the other player did and showed you nothing new, otherwise only with the
 - **HIS-127** A finger held on a card also inspects it, and a pinned Inspect (TBL-131) keeps the pause until it is closed. While paused, a pause icon shows in the board's top-right corner, fading in and out quickly. (r74)
 - **HIS-128** Only your view waits, never the game: while your view waits (a held finger, a play shown, a combat's hold) your phone makes none of its own steps, and the other player's phone goes on. (r74)
 - **HIS-129** The held-finger pause doesn't touch what isn't timed for your view: a card already moving, the turn banner (TRN-074), a branch's take-back, the catch-up's centre text or a stop. Timeline mode's Auto keeps its own pause (HIS-017). (r74)
-
-## Plays shown
-
-
-## Combat holds
-
-
-## Reveals
-
 
 ## Coming back to a game: catch-up
 
@@ -122,18 +113,6 @@ nothing the other player did and showed you nothing new, otherwise only with the
 - **HIS-028** Playback settings live in Settings under "Timeline playback" and in a dialog from the timeline's gear: "History playback pause", "Rewind pause" and Card move speed; Settings' group also has "Show plays and combat" (HIS-112, HIS-113), the gear's dialog doesn't. There are no auto-rewind switches. (r58)
 - **HIS-174** The History playback pause paces only timeline mode's Auto and the event chip's fade (HIS-077); live and catch-up playback use the playback delay (HIS-021). (r61)
 - **HIS-022** The "Rewind pause", 0.1 s by default, adjustable from 0.02 s to 2 s, paces a take-back after a branch or a rewind (HIS-106, HIS-099); there is no rewinding in timeline mode. (r49)
-
-## Assumed answers
-
-
-## Branches and lines of play
-
-
-## Playing on an assumed keep in the opening
-
-
-## Undo
-
-
-## The Undo dialog and undo requests
+- **LOB-240** The History playback pause is 1 s by default, adjustable from 0.1 s to 10 s. (r74)
+- **LOB-082** "Show plays and combat" is 1.2 s by default, adjustable from 0 to 3 s in 0.1 s steps (shown as "<n> s each"); 0 reads "Off": no play shows and no combat holds (HIS-112, HIS-113). It is how long a play shown holds in the middle, not scaled by Card move speed (TBL-038). (r74)
 

@@ -8,7 +8,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * Stack animation (owner spec 2026-11-14; HIS-112, HIS-132, HIS-141, STK-058, TBL-125): a board's steps stop where a play shown went on the
+ * Stack animation (owner spec 2026-11-14; HIS-112, HIS-132, HIS-141, STK-058, HIS-230, TBL-125): a board's steps stop where a play shown went on the
  * Stack while it shows (nothing after it, its resolution, plays under it), and while an entry's arrows play a newer board
  * waits (never a take-back).
  */
@@ -51,7 +51,7 @@ class StackMotionTest {
         assertEquals("resolved", queue.board(3, steps, live).nodeId)
     }
 
-    // STK-058, TBL-125: while the top entry's arrows play a newer board waits; a take-back never does
+    // STK-058, HIS-230, TBL-125: while the top entry's arrows play a newer board waits; a take-back never does
     @Test fun aNewerBoardWaitsForTheArrowsButATakeBackDoesNot() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EngineWorker.Direct)
         val live = game.shown!!.board

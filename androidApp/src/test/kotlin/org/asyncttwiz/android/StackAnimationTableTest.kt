@@ -27,7 +27,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Stack animation (owner spec 2026-11-14; HIS-112, HIS-133, HIS-136, HIS-137, STK-058, TBL-125): Bob casts Storm Spark at Alice's Ember Cub. On her
+ * Stack animation (owner spec 2026-11-14; HIS-112, HIS-133, HIS-136, HIS-137, STK-058, STK-127, HIS-230, TBL-125): Bob casts Storm Spark at Alice's Ember Cub. On her
  * table it flies in from his hand, holds in the middle and flies to the Stack, and only as it lands does its Stack entry
  * show, in place (owner playtest 2026-11-14: a play flew to the middle and at the same time straight to the Stack); then,
  * the top entry with a target, its arrow grows to the Cub and stays while the game waits. Time on the test clock.
@@ -76,7 +76,7 @@ class StackAnimationTableTest {
 
     private fun advance(millis: Long) { compose.mainClock.advanceTimeBy(millis); compose.waitForIdle() }
 
-    // HIS-112, HIS-132, HIS-137, STK-058 (spec steps 1–4): until the Spark lands its entry isn't on Alice's Stack (the device has it there), and
+    // HIS-112, HIS-132, HIS-137, STK-058, STK-127, HIS-230 (spec steps 1–4): until the Spark lands its entry isn't on Alice's Stack (the device has it there), and
     // nothing of it moves to the Stack but the play shown; it appears in the flying card's place as it lands, and its arrow
     // to the Cub then grows (0.25 s) and stays drawn while she holds priority over it
     @Test fun theEntryShowsOnlyAsThePlayLandsThenItsArrowGrows() {
@@ -130,7 +130,7 @@ class StackAnimationTableTest {
         assertEquals(kit.me, kit.state().priority.holder, "she holds priority over the Spark")
     }
 
-    // STK-058, TBL-125 (spec step 5): the Spark resolving takes it off her Stack; its arrow fades as its effect plays
+    // STK-058, STK-128, HIS-230, TBL-125 (spec step 5): the Spark resolving takes it off her Stack; its arrow fades as its effect plays
     @Test fun theResolutionComesAfterTheArrows() {
         val (kit, _) = bobsSparkShown()
         val resolved = ArrayList<List<String>>()

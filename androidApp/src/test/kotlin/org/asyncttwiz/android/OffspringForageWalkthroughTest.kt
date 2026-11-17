@@ -30,7 +30,7 @@ import org.asyncttwiz.appui.AppPlatform
 /**
  * Owner playtest 2026-11-06 (Bushy Bodyguard): a creature with offspring and "When this creature enters, you may forage. If
  * you do, put two +1/+1 counters on it." cast with offspring, every step on Alice's table: ordering the two enter
- * triggers, the Stack's inspect of each ability (STK-050), the token copy's own trigger, the forage question with its
+ * triggers, the Stack's inspect of each ability (STK-050, STK-123), the token copy's own trigger, the forage question with its
  * sentence and cost, forage's choice of way, the cards to exile, and declining the original's forage. Engine side:
  * arcanum's BlbOffspringForageWalkthroughTest.
  */
@@ -131,7 +131,7 @@ class OffspringForageWalkthroughTest {
         compose.onNodeWithText(row).assertDoesNotExist()
     }
 
-    // STK-030, STK-044, STK-050, CR 702.175a, CR 603.3b, CR 603.4, CR 701.61a, CR 118.12 (owner playtest 2026-11-06):
+    // STK-030, STK-044, STK-050, STK-123, CR 702.175a, CR 603.3b, CR 603.4, CR 701.61a, CR 118.12 (owner playtest 2026-11-06):
     // Alice casts Hollowroot Sentry with offspring; both enter triggers are hers to order, each named by its sentence (the
     // offspring trigger by its keyword's printed line); while the forage trigger asks, holding the offspring trigger on the
     // Stack shows its line; the forage question shows its sentence and its cost without holding; forage asks which way and
@@ -184,7 +184,7 @@ class OffspringForageWalkthroughTest {
         captureShot("$SCREENSHOTS/questions/may-forage.png",
             "The Sentry's forage trigger resolves: the panel above Alice's hand is titled \"You may pay\", says \"You may forage. If you do, put two +1/+1 counters on it.\" with a \"Cost\" chip reading Forage, the trigger's token at its right, and No and Yes at its bottom.")
         // Meanwhile holding the offspring trigger on the Stack shows its kind (owner playtest 2026-11-07) and its keyword's
-        // line (STK-050)
+        // line (STK-050, STK-123)
         holdInStackList("2 · ${Choices.SENTRY}'s ability", "Offspring {R}", "$SCREENSHOTS/questions/offspring-stack-inspect.png",
             "While the forage question is open, Alice holds the Sentry's offspring trigger waiting under it in the Stack list: Inspect shows the Sentry's art, \"Offspring trigger\" and its offspring line with the reminder text.",
             kind = "Offspring trigger")

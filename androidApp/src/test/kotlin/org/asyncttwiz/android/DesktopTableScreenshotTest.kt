@@ -191,7 +191,7 @@ class DesktopTableScreenshotTest {
         assertEquals(changed, mode(), "a mode changed meanwhile is kept")
     }
 
-    // WEB-027, ZON-080, WEB-026 (§5): with a Mountain and an Ember Shard out, the mouse rests on Alice's Ember Kit in hand: its
+    // WEB-027, ZON-080, ZON-111, WEB-026 (§5): with a Mountain and an Ember Shard out, the mouse rests on Alice's Ember Kit in hand: its
     // two chips show faded above it and its quick look beside it, nothing outlined for its free regular way; on the "Cast with
     // offspring" chip that chip turns solid and its one source is outlined in amber;
     // a click on the faded "Cast with offspring" chip casts it that way at once

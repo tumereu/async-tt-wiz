@@ -46,7 +46,7 @@ class DesktopTableTest : E2e() {
         assertTrue(alice.shows(hasTestTag("phase-track")), "Alice's table in the desktop layout: ${alice.screen()}")
     }
 
-    /** WEB-023, ZON-079: a click raises Alice's hand card [name], a click on the raised card plays it. */
+    /** WEB-023, ZON-079, ZON-102: a click raises Alice's hand card [name], a click on the raised card plays it. */
     private fun clickFromHand(name: String) {
         waitUntil("Alice's game settled") { alice.settled(this) }
         alice.handCard(name).performMouseInput { click() }
@@ -393,7 +393,7 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
-    // WEB-015, ZON-079 (owner 2026-11-16: "a raised card on the desktop hand isn't indicated at all"; hovering is to bring a card
+    // WEB-015, ZON-079, ZON-103 (owner 2026-11-16: "a raised card on the desktop hand isn't indicated at all"; hovering is to bring a card
     // to the front only, as on a draft card, and a raised card pops out as a hovered one did, keeping its turn in the fan): the
     // mouse on Alice's Mountain moves nothing; a click raises it: it pops out of the fan, still turned, and stays out after the
     // mouse leaves; a click on her battlefield lowers it back into the fan

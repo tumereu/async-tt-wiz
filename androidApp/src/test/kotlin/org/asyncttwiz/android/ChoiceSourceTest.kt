@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
 /**
  * STK-044 (owner 2026-11-05): every Automatum panel and target bar names its source by the card, not by text: the title
  * says only the choice and the source sits at the panel's right as a small card (an ability as its Stack ability token,
- * STK-046); holding it inspects it (TBL-104). Alice's decks are free invented cards whose casting, resolving or triggers
+ * STK-046, STK-121); holding it inspects it (TBL-104). Alice's decks are free invented cards whose casting, resolving or triggers
  * ask Automatum's choices ([EngineGameFixture.Choices]).
  */
 @RunWith(RobolectricTestRunner::class)
@@ -74,7 +74,7 @@ class ChoiceSourceTest {
         assertTrue(card.left >= heading.right, "right of the title: $card, title $heading")
     }
 
-    /** The source is drawn as an ability token with its [marker] ("Triggered ability", "Activated ability"), STK-046. */
+    /** The source is drawn as an ability token with its [marker] ("Triggered ability", "Activated ability"), STK-046, STK-121. */
     private fun sourceIsAnAbilityToken(marker: String) {
         compose.onNode(hasContentDescription(marker) and hasAnyAncestor(hasTestTag(CHOICE_SOURCE_TAG)), useUnmergedTree = true).assertExists()
     }
@@ -93,7 +93,7 @@ class ChoiceSourceTest {
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
     }
 
-    // STK-023, STK-044: Alice casts Cinder Charm (a mode to choose): the cast panel's title says what is done with which
+    // STK-023, STK-135, STK-044: Alice casts Cinder Charm (a mode to choose): the cast panel's title says what is done with which
     // card, "Cast Cinder Charm", and the Charm is the small card at the panel's right; holding it inspects it
     @Test fun theCastPanelShowsTheCardAtItsRight() {
         val kit = kit(Choices.CHARM, "Mountain")
@@ -107,7 +107,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.CHARM)
     }
 
-    // STK-047, STK-044: choosing the Charm's damage mode turns the panel into the target bar: "Choose any target", with
+    // STK-047, STK-142, STK-044: choosing the Charm's damage mode turns the panel into the target bar: "Choose any target", with
     // the Charm at its right
     @Test fun theTargetBarShowsTheSpellAtItsRight() {
         val kit = kit(Choices.CHARM, "Mountain")
@@ -124,7 +124,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.CHARM)
     }
 
-    // STK-047, STK-044, STK-046: activating Spark Totem's ability ({T}: 1 damage to any target) asks for its target in the
+    // STK-047, STK-044, STK-046, STK-121: activating Spark Totem's ability ({T}: 1 damage to any target) asks for its target in the
     // target bar, its source the ability as its token (the Totem's art with the "A" chip), not the card
     @Test fun anActivationsTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.TOTEM, "Mountain")
@@ -203,7 +203,7 @@ class ChoiceSourceTest {
             "In landscape Alice's Ember Divination resolves and she scries 2: the panel at the left above her hand is titled only \"Scry 2\" and the Divination sits at the panel's right as a small card.")
     }
 
-    // STK-030, STK-044, STK-046: Alice's Spark Seer enters; its trigger's target is her open choice, in the target bar:
+    // STK-030, STK-044, STK-046, STK-121: Alice's Spark Seer enters; its trigger's target is her open choice, in the target bar:
     // "Choose any target" with the trigger as its ability token (the Seer's art, the "T" chip) at the right
     @Test fun aTriggersTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.SEER, "Mountain")
@@ -259,7 +259,7 @@ class ChoiceSourceTest {
             kit.state().stackItems.getValue(quench).targets.values.flatten(), "the Quench targets the lower Charm")
     }
 
-    // STK-023: a long card name in the cast panel's title wraps onto a second line and is then cut with …
+    // STK-023, STK-135: a long card name in the cast panel's title wraps onto a second line and is then cut with …
     @Test fun aLongCastTitleWrapsOnceThenEllipsizes() {
         val title = "Cast Thalindra, Keeper of the Unending Ember Archive of the Western Wastes and Beyond"
         compose.setContent {

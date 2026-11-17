@@ -55,7 +55,7 @@ class PanelInspectTest : E2e() {
         assertEquals(card, mountain.fetchSemanticsNode().boundsInRoot, "still put after release")
     }
 
-    // TBL-127, STK-044, STK-050 (owner playtest 2026-11-06): on a phone too low for the Trail ability's Inspect (a small
+    // TBL-127, STK-044, STK-050, STK-122 (owner playtest 2026-11-06): on a phone too low for the Trail ability's Inspect (a small
     // phone with the largest system text), holding it at the panel's right and moving the finger up scrolls the Inspect,
     // as on the table
     @Config(qualifiers = "w360dp-h640dp-port-mdpi", fontScale = 2f)

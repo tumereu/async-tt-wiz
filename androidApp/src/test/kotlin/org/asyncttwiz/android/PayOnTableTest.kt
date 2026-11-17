@@ -32,8 +32,8 @@ import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner playtest, 2026-11-09, on Alice's table: a source with several ways to pay pays the sensible one when tapped and carries
- * its corner chip, which opens its ways (STK-024); Cast is the main button (STK-052, TRN-063); a payment while something
- * resolves is the slim bar, its sources tapped on the table and Pay the main button (STK-049).
+ * its corner chip, which opens its ways (STK-024, STK-160, STK-161); Cast is the main button (STK-052, TRN-063); a payment while something
+ * resolves is the slim bar, its sources tapped on the table and Pay the main button (STK-049, STK-168).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -71,7 +71,7 @@ class PayOnTableTest {
 
     private fun pending(): Decision? = kit.state().pending?.decision
 
-    // STK-024, STK-052, TRN-063 (owner playtest 2026-11-09), CR 601.2h: with Autotap off, a tap on the Ember Fork ({R} or {U}) for Blue
+    // STK-024, STK-159, STK-160, STK-161, STK-052, TRN-063 (owner playtest 2026-11-09), CR 601.2h: with Autotap off, a tap on the Ember Fork ({R} or {U}) for Blue
     // Note ({U}) takes {U}; its corner chip says so and opens its ways; Cast is the main button, the panel has none
     @Test fun aSourceOfTwoColoursPaysTheSensibleWayAndItsChipOpensItsWays() {
         kit.opening()
@@ -102,7 +102,7 @@ class PayOnTableTest {
         compose.onNode(hasTestTag("main-button") and hasContentDescription("Cast")).assertIsNotEnabled()
     }
 
-    // STK-049, TRN-063 (owner playtest 2026-11-09), CR 118.12: Ember Tollkeeper's "you may pay {1}" is the slim bar "Pay {1}" with Don't
+    // STK-049, STK-168, TRN-063 (owner playtest 2026-11-09), CR 118.12: Ember Tollkeeper's "you may pay {1}" is the slim bar "Pay {1}" with Don't
     // pay, Autotap's Mountain outlined on the table, and Pay the main button
     @Test fun aPaymentWhileResolvingIsTheSlimBarWithPayOnTheMainButton() {
         deck = listOf(Choices.TOLLKEEPER, "Mountain")

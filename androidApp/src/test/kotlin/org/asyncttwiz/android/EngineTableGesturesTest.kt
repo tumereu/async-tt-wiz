@@ -62,7 +62,7 @@ class EngineTableGesturesTest {
         }
     }
 
-    // ZON-004, TBL-044: double-tapping a hand card plays it through Automatum (a land onto the battlefield,
+    // ZON-004, ZON-104, TBL-044: double-tapping a hand card plays it through Automatum (a land onto the battlefield,
     // untapped); a hand card is never turned
     @Test fun aHandDoubleTapPlaysThroughAutomatumAndNeverTaps() {
         kit.opening()
@@ -139,7 +139,7 @@ class EngineTableGesturesTest {
         assertNull(toolkit.error, "no message")
     }
 
-    // ZON-079, TBL-118: a tap raises a hand card Automatum lets Alice cast, with the Mountain Autotap would tap
+    // ZON-079, ZON-101, ZON-103, ZON-102, TBL-118: a tap raises a hand card Automatum lets Alice cast, with the Mountain Autotap would tap
     // outlined; a tap elsewhere lowers it; the raised card's second tap casts it; a card she can't cast now only shakes
     @Test fun aTapRaisesAHandCardAndItsSecondTapCastsIt() {
         kit.opening()

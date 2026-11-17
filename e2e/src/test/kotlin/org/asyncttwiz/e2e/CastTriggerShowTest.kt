@@ -122,7 +122,7 @@ class CastTriggerShowTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty(), "${alice.leaks.leaks} ${bob.leaks.leaks}")
     }
 
-    // HIS-112, HIS-134, HIS-137, STK-058, TBL-125 (owner playtest 2026-11-15)
+    // HIS-112, HIS-134, HIS-137, STK-058, STK-127, HIS-230, TBL-125 (owner playtest 2026-11-15)
     @Test fun aSpellAndTheTriggerItsCastMakesLandOnTheStackAndTheSpellsArrowGrowsOnceBeforeItResolves() {
         toTheFlicksTarget(PlaySettings(assume = AssumeResolves.Always))
         clockInStep {
@@ -132,7 +132,7 @@ class CastTriggerShowTest : E2e() {
         assertTheOrder()
     }
 
-    // HIS-112, HIS-137, STK-058, TBL-125, STK-027 (owner 2026-11-15): Bob plays in Control and Alice assumes none of his passes. On his
+    // HIS-112, HIS-137, STK-058, STK-127, HIS-230, TBL-125, STK-027 (owner 2026-11-15): Bob plays in Control and Alice assumes none of his passes. On his
     // table both plays show and land, and his phone stops with the trigger on top and the Flick under it, his main button
     // offering his response (the trigger has no target, so no arrows yet). He passes: the trigger resolves, the Flick becomes
     // the top entry and its arrow grows, once, and stays drawn while his phone stops again; he passes again and the Flick

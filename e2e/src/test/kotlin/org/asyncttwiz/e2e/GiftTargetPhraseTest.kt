@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
  * Owner, prod 0.2.0 (desktop, 2026-11-16): casting a gift sorcery with two targets in one sentence ("Choose target creature you
  * control and target creature you don't control. …"), the target bar showed its text with no phrase highlighted, though other
  * spells' phrases shone. Gift adds a wordless spell ability of its own before the spell's, and that one was read as the
- * spell's text: no phrase to highlight, on the phone as on the desktop (both draw the same bar, STK-047, WEB-019).
+ * spell's text: no phrase to highlight, on the phone as on the desktop (both draw the same bar, STK-047, STK-142, WEB-019).
  */
 abstract class GiftTargetPhraseFlow(private val desktop: Boolean) : E2e() {
     private val rest = ". Put a +1/+1 counter on the creature you control if the gift was promised. Then those creatures fight each other."
@@ -21,7 +21,7 @@ abstract class GiftTargetPhraseFlow(private val desktop: Boolean) : E2e() {
     private fun E2ePlayer.press(node: androidx.compose.ui.test.SemanticsNodeInteraction) =
         if (desktop) node.performMouseInput { click() } else node.performClick()
 
-    // STK-047, WEB-019, CR 702.174j, 601.2c: Bob has an Ash Pup, Alice an Ash Pup; she casts Ember Quarrel without the gift: its
+    // STK-047, STK-142, STK-143, WEB-019, CR 702.174j, 601.2c: Bob has an Ash Pup, Alice an Ash Pup; she casts Ember Quarrel without the gift: its
     // bar shows the spell's sentence with "target creature you control" shining, then, her Pup picked, her Pup named in its
     // place and "target creature you don't control" shining; Bob's Pup picked, the Quarrel resolves (the Pups fight)
     @Test fun aGiftSpellsTargetsShowWhichPickIsWhich() {

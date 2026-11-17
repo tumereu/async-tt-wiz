@@ -56,7 +56,7 @@ class QuestionPanelsTest {
 
     /** The questions of a panel: the engine's state, the answers given, the listed answers and the mana picked. */
     private class Questions(override val engine: GameState, private val listed: List<Answer> = emptyList(),
-        /** The payment a "you may pay" goes on to (STK-049), its suggestion picked as with Autotap on. */
+        /** The payment a "you may pay" goes on to (STK-049, STK-168), its suggestion picked as with Autotap on. */
         private val payment: Decision.ManaPayment? = null) : FlowQuestions {
         val answers = mutableListOf<Answer>()
         var preference: List<ReplacementOption>? = null
@@ -110,7 +110,7 @@ class QuestionPanelsTest {
 
     // STK-030, CR 118.12 (owner gallery review, 2026-11-06, bug: no decline): the choice panel's own form of "unless its controller
     // pays {R}": "Pay {R}" with the sources Autotap picks already tapped (changeable) and "Don't pay" beside Pay. On the table such a
-    // payment is the slim bar with its sources tapped there (STK-049, owner playtest 2026-11-09: PayOnTableTest)
+    // payment is the slim bar with its sources tapped there (STK-049, STK-168, owner playtest 2026-11-09: PayOnTableTest)
     @Test fun aCostYouMayPayOrDecline() {
         kit.opening()
         kit.playLand()
@@ -262,7 +262,7 @@ class QuestionPanelsTest {
             "Choosing a number: the panel is titled \"Choose a number\" with the sentence under it, − 0 + with the 0 in a box wide enough for four digits, and OK.")
     }
 
-    // STK-023, STK-030 (owner gallery review, 2026-11-06): a tap on the number opens a numeric input in its place for any
+    // STK-023, STK-139, STK-030 (owner gallery review, 2026-11-06): a tap on the number opens a numeric input in its place for any
     // value; − and + stay where they are up to 4 digits
     @Test fun aNumberIsTyped() {
         kit.opening()
@@ -280,7 +280,7 @@ class QuestionPanelsTest {
         assertEquals(listOf<Answer>(Answer.Number(1234)), q.answers)
     }
 
-    // STK-023, STK-030: a written number outside the range isn't taken: the range says why
+    // STK-023, STK-139, STK-030: a written number outside the range isn't taken: the range says why
     @Test fun aNumberOutOfRangeIsRefused() {
         assertEquals("At most 5.", numberProblem("7", 0, 5))
         assertEquals("At least 1.", numberProblem("0", 1, null))
@@ -364,7 +364,7 @@ class QuestionPanelsTest {
             "The legend rule: the panel is titled \"Legend rule\", says \"Tap the Mountain to keep; the others go to the graveyard.\", shows the two cards and Keep.")
     }
 
-    // STK-030, STK-023, STK-047: a spell's question shows its sentences naming what is chosen, else its whole text
+    // STK-030, STK-023, STK-136, STK-047, STK-142: a spell's question shows its sentences naming what is chosen, else its whole text
     @Test fun aSpellsQuestionShowsTheSentenceItAsksAbout() {
         val text = "Ember Burst deals X damage to any target.\nYou gain 1 life."
         val x = Decision.Announce(id("x"), kit.me, null, "X", 0)

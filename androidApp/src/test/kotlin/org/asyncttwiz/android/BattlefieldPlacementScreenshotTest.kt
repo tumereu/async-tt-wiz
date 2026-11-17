@@ -283,7 +283,7 @@ class BattlefieldPlacementScreenshotTest {
     private fun picked(toolkit: TableToolkitController): List<String> = toolkit.cast.picked.map {
         (((it as arcanum.engine.state.TargetRef.Object).id) as arcanum.engine.state.ObjectId.Card).card.value }
 
-    // TBL-130, STK-047 (owner 2026-11-07): while Alice picks the Frost Snare's two targets, a tap on the stack of two identical
+    // TBL-130, STK-047, STK-146 (owner 2026-11-07): while Alice picks the Frost Snare's two targets, a tap on the stack of two identical
     // Cinder Hounds opens it in place (the identical cards no longer count as one), each Hound glowing as a target; a tap
     // on a Hound picks it and the group stays open, a second tap unpicks it; the two Hounds are picked one tap each, and
     // once the targets are chosen the group closes
@@ -388,12 +388,12 @@ class BattlefieldPlacementScreenshotTest {
                 "creatures, dimmed; the Hound stack behind it stays, the tokens moved along to the right.")
     }
 
-    // TBL-130, TBL-002, STK-047: while targets are picked, a tap on Alice's stack of six identical Cinder Hounds (one of
+    // TBL-130, TBL-002, STK-047, STK-146: while targets are picked, a tap on Alice's stack of six identical Cinder Hounds (one of
     // them tapped) opens it in place, the six side by side, the tapped one turned in its own slot; a tap on one picks it
     // and the group stays open
     @Test fun whileTargetsArePickedAnOpenedGroupOfSix() = groupOfSix(landscape = false)
 
-    // TBL-130, TBL-002, STK-047: the same in landscape
+    // TBL-130, TBL-002, STK-047, STK-146: the same in landscape
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun whileTargetsArePickedAnOpenedGroupOfSixLandscape() =
         groupOfSix(landscape = true)
 
@@ -406,7 +406,7 @@ class BattlefieldPlacementScreenshotTest {
         compose.runOnIdle {
             assertEquals(listOf("a-hound-4"), picked(toolkit))
             assertEquals("stack:a-hound-2", toolkit.expandedGroup, "it stays open while targets are picked from it")
-            // STK-047: the picked member is drawn picked, every member framed, as cards alone
+            // STK-047, STK-146: the picked member is drawn picked, every member framed, as cards alone
             assertEquals(setOf("a-hound-4"), toolkit.cast.pickedGlow(engineTableBoard(play, "a")))
             assertTrue((2..7).all { "a-hound-$it" in toolkit.cast.glow(engineTableBoard(play, "a")) }, "every Hound framed")
         }
@@ -418,7 +418,7 @@ class BattlefieldPlacementScreenshotTest {
                 "the right." + if (landscape) " The target bar covers the left of her land row (her Mountains)." else "")
     }
 
-    // STK-047 (owner 2026-11-07): a card alone shows the same marks as an opened group's member: framed in violet as a
+    // STK-047, STK-146 (owner 2026-11-07): a card alone shows the same marks as an opened group's member: framed in violet as a
     // target, and once picked also filled violet with a white check
     @Test fun whileTargetsArePickedAPickedCardAloneIsMarked() {
         play = f.play(snare = true, hounds = 1)

@@ -31,7 +31,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertTrue
 
 /**
- * Owner playtest 2026-11-05 evening: a battlefield card's ability chips (TBL-124) and a hand card's way chips (ZON-080)
+ * Owner playtest 2026-11-05 evening: a battlefield card's ability chips (TBL-124) and a hand card's way chips (ZON-080, ZON-109)
  * wrap long texts onto more rows instead of cutting them, and mana and tap symbols are drawn as symbols wherever text
  * shows them (the chips, a card menu's rows).
  */
@@ -104,7 +104,7 @@ class ChipTextTest {
             "A land's four ability chips in the fewest rows, each cost first as on the card: an untap ability with Phyrexian and snow symbols (the untap symbol purple) and, moved up beside it, \"{T}, Pay 1 life: Add\" G; then a long search ability whose cost ({2}{G}, tap arrow, sacrifice) comes before its effect wrapped onto several rows, and the tap arrow then \"Add\" G.")
     }
 
-    // ZON-080: a long way name wraps too
+    // ZON-080, ZON-109: a long way name wraps too
     @OptIn(ExperimentalLayoutApi::class)
     @Test fun aLongWayChipWraps() {
         val cast = Input.Cast(PlayerId("a"), ObjectId.Card(CardId("c"), 0))
@@ -122,7 +122,7 @@ class ChipTextTest {
         assertTrue(lines("Cast") == 1)
     }
 
-    // ZON-080 (batch B 2026-11-06; owner 2026-11-07: no chosen chip, a tap uses it): abilities used from the hand are chips
+    // ZON-080, ZON-108, ZON-112 (batch B 2026-11-06; owner 2026-11-07: no chosen chip, a tap uses it): abilities used from the hand are chips
     // after the casts, as plot and foretell are: Cycling that can be paid now, Channel greyed
     @OptIn(ExperimentalLayoutApi::class)
     @Test fun handAbilitiesAreChips() {
@@ -141,7 +141,7 @@ class ChipTextTest {
             }
         }
         compose.onNodeWithText("Cycling").assertExists()
-        // ZON-080: a plain "cost: effect" ability reads as on the card, cost first
+        // ZON-080, ZON-108: a plain "cost: effect" ability reads as on the card, cost first
         compose.onNodeWithText("{1}, Discard this card:").assertExists()
         compose.onNodeWithText("You gain 2 life").assertExists()
         compose.onNodeWithTag("chips").captureShot("$SCREENSHOTS/chips/hand-ability-chips.png",

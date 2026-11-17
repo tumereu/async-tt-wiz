@@ -509,7 +509,7 @@ class EngineTableScreenshotTest {
             "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\", \"Triggered ability\" in violet and the trigger's text.")
     }
 
-    // STK-050, TBL-104 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,
+    // STK-050, STK-122, TBL-104 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,
     // not card-shaped (shorter than a card of its width), with the source's art crop and under it the source's name and
     // the ability's text, and nothing else: no source card picture after it
     @Test fun holdingAnAbilityOnTheStackShowsOnlyItsTile() {

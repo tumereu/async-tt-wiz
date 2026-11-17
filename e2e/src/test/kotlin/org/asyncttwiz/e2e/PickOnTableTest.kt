@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
  * Owner playtest, 2026-11-09: a source with several ways to pay pays the sensible one when tapped, and its corner chip changes it
  * (STK-024); the step button is the cast panel's Cast and every panel's OK, a quick second tap ignored (TRN-063, STK-052); whatever
  * is on the battlefield is picked on the battlefield with the slim bar, its OK on the step button: a payment while something resolves
- * (STK-049), a sacrifice, crew (STK-047, STK-030).
+ * (STK-049), a sacrifice, crew (STK-047, STK-151, STK-152, STK-030).
  */
 class PickOnTableTest : E2e() {
     private fun deck(vararg cards: Pair<TestCard, Int>) = TestDeck("Picks", cards.toList())
@@ -62,7 +62,7 @@ class PickOnTableTest : E2e() {
 
     private val bar = hasContentDescription("Choose on the table")
 
-    // STK-024 (owner playtest 2026-11-09), CR 601.2h: with Autotap off, a tap on Alice's Ember Fork ({R} or {U}) for Blue Note ({U})
+    // STK-024, STK-159, STK-160, STK-161 (owner playtest 2026-11-09), CR 601.2h: with Autotap off, a tap on Alice's Ember Fork ({R} or {U}) for Blue Note ({U})
     // takes {U}, the way that leaves nothing unpaid, though {R} is listed first; its corner chip opens its ways: {R} leaves {U} unpaid,
     // {U} pays again; Cast on the step button casts it
     @Test fun aSourceTappedPaysTheSensibleWayAndItsCornerChipChangesIt() {
@@ -127,7 +127,7 @@ class PickOnTableTest : E2e() {
         assertTrue(PickLog.count() > logged, "the second tap (on \"$second\") was ignored, and the log says so")
     }
 
-    // STK-049, STK-024 (owner playtest 2026-11-09), CR 118.12: "you may pay {1}" while Ember Tollkeeper's trigger resolves is the slim
+    // STK-049, STK-168, STK-024 (owner playtest 2026-11-09), CR 118.12: "you may pay {1}" while Ember Tollkeeper's trigger resolves is the slim
     // bar "Pay {1}", the Mountain Autotap chose outlined on the table; a tap there takes it out (not paid), another puts it back; Pay is
     // the step button
     @Test fun aPaymentWhileResolvingIsPaidOnTheTable() {
@@ -157,7 +157,7 @@ class PickOnTableTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-047, STK-030 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
+    // STK-047, STK-151, STK-152, STK-030 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
     // both Pups glowing (their closed stack framed whole, TBL-117); a tap on one sacrifices it, Autotap pays and it resolves
     @Test fun aSacrificeIsPickedOnTheTable() {
         start(deck(TestCards.shard to 14, TestCards.offering to 13, TestCards.pup to 13),
@@ -184,7 +184,7 @@ class PickOnTableTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-047, STK-030 (owner playtest 2026-11-09), CR 702.122a: crewing Ember Cart (crew 2) with two 1/1 Pups is picked on the table:
+    // STK-047, STK-151, STK-152, STK-030 (owner playtest 2026-11-09), CR 702.122a: crewing Ember Cart (crew 2) with two 1/1 Pups is picked on the table:
     // the slim bar with the count, Done on the step button greyed until the Pups' power reaches 2; Done crews it
     @Test fun crewIsPickedOnTheTableWithDoneOnTheStepButton() {
         start(deck(TestCards.cart to 14, TestCards.pup to 26), mapOf("Ember Cart" to 1, "Ash Pup" to 2))

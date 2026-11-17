@@ -17,7 +17,7 @@ class CastDroppedOnRewindTest : E2e() {
     private val deck = TestDeck("Flicks", listOf(TestCards.mountain to 20, TestCards.flick to 20))
     private val targeting = hasContentDescription("Choose targets")
 
-    // STK-055, STK-025, HIS-099 (problem report RC3J4K): Alice plays a Mountain, then begins casting Ember Flick (its target
+    // STK-055, STK-210, STK-025, HIS-099 (problem report RC3J4K): Alice plays a Mountain, then begins casting Ember Flick (its target
     // bar open); Bob asks to go back to before her Mountain and she accepts: the table goes back and her open cast is dropped
     // at once, though Ember Flick could be cast there again
     @Test fun acceptingTheOtherPlayersUndoDropsTheOpenCast() {

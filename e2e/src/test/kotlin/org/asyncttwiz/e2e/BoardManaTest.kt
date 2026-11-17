@@ -12,12 +12,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Owner notes 2026-11-14 (STK-024): casting with a mana source whose cost taps other creatures ("Tap two untapped creatures you
+ * Owner notes 2026-11-14 (STK-024, STK-162, STK-163): casting with a mana source whose cost taps other creatures ("Tap two untapped creatures you
  * control: Add one mana of any color.") when no payment is chosen for you: the cast panel never offers a choice naming cards; it
  * says what is still owed and that the mana is produced on the board, where a tap on the source pays.
  */
 class BoardManaTest : E2e() {
-    // STK-024 (owner, 2026-11-14): Autotap off, Alice casts Blue Note ({U}) with her Hearth Elders and two Ash Pups out: the panel
+    // STK-024, STK-162, STK-163 (owner, 2026-11-14): Autotap off, Alice casts Blue Note ({U}) with her Hearth Elders and two Ash Pups out: the panel
     // says "Still owed {U}: produce the mana on the board." with no chip naming the Elders or the Pups; a tap on the Elders on the
     // table pays, and Cast on the main button casts it, two of her creatures tapped for it
     @Test fun aSourceTappingOtherCreaturesIsNeverAChoiceByName() {

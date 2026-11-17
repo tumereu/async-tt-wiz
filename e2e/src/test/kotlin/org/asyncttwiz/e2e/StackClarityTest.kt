@@ -36,7 +36,7 @@ class StackClarityTest : E2e() {
     private fun aliceHoldsOver(kind: (StackItemKind?) -> Boolean): Boolean = alice.status == GameDevice.Status.YourMove &&
         alice.state.let { s -> s.stack.isNotEmpty() && s.priority.holder == alice.me && kind(s.stackItems[s.stack.last()]?.kind) }
 
-    // STK-057, STK-058, STK-046, HIS-091, HIS-121 (owner playtest 2026-11-07)
+    // STK-057, STK-129, STK-058, STK-046, HIS-091, HIS-121 (owner playtest 2026-11-07)
     @Test fun theOtherPlayersSpellAndCyclingTriggerSayWhatTheyAre() {
         startGame(aliceDeck, bobDeck, aliceSettings = PlaySettings(mode = ResponseMode.Normal),
             deal = { a, b -> "Ash Pup" in hand(a) && "Mountain" in hand(b) && "Ember Flick" in hand(b) && "Shattered Reason" in hand(b) })
@@ -77,7 +77,7 @@ class StackClarityTest : E2e() {
         }
         assertTrue(!alice.shows(hasTestTag("stack-line")) && !alice.shows(hasTestTag("stack-target-arrows")), alice.screen())
 
-        // Bob cycles Shattered Reason from its chip in one tap (ZON-080): its cycling trigger goes on the Stack over the cycling
+        // Bob cycles Shattered Reason from its chip in one tap (ZON-080, ZON-111): its cycling trigger goes on the Stack over the cycling
         bob.handCard("Shattered Reason").performClick()
         waitUntil("the Reason's chips") { bob.shows(hasContentDescription("Way Cycling {R}")) }
         bob.node(hasContentDescription("Way Cycling {R}")).performClick()

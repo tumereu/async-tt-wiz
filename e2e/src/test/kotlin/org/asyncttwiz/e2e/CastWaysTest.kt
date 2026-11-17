@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 
 /**
  * Owner-approved casting rework (2026-11-07): a raised hand card's chips are its complete ways to cast it, a chip's tap
- * casts at once (ZON-080), and the cast panel shows what pays the cast, chosen by tapping sources on the table (STK-024).
+ * casts at once (ZON-080, ZON-111), and the cast panel shows what pays the cast, chosen by tapping sources on the table (STK-024, STK-156, STK-158).
  * Alice's deck: Mountains, Ember Shards (a free mana rock) and Ember Kits (free, offspring {R}).
  */
 class CastWaysTest : E2e() {
@@ -28,7 +28,7 @@ class CastWaysTest : E2e() {
 
     private fun E2ePlayer.tapped(name: String): Boolean = field(name).single().let { state.obj(it)?.tapped == true }
 
-    // ZON-080 (owner 2026-11-07): the raised Kit's "Cast with offspring {R}" chip casts it with offspring in one tap: no
+    // ZON-080, ZON-108, ZON-111 (owner 2026-11-07): the raised Kit's "Cast with offspring {R}" chip casts it with offspring in one tap: no
     // cast panel, Autotap taps the Mountain and the Kit enters with its token copy
     @Test fun anOffspringChipCastsInOneTap() {
         startGame(TestDeck.kits(), deal = { a, _ -> "Mountain" in hand(a) && "Ember Kit" in hand(a) })
@@ -48,7 +48,7 @@ class CastWaysTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-024 (owner 2026-11-08, partial override): in the Kit's cast panel with Offspring on, Alice takes Autotap's source out on
+    // STK-024, STK-158 (owner 2026-11-08, partial override): in the Kit's cast panel with Offspring on, Alice takes Autotap's source out on
     // the table (the panel hidden with its eye meanwhile, as it covers her lands in portrait): Autotap fills in with the other one;
     // Cast pays with it: it is tapped, the one she took out stays untapped
     @Test fun thePanelPaysWithAHandPickedSource() {
@@ -66,7 +66,7 @@ class CastWaysTest : E2e() {
         waitUntil("Autotap's source chosen") { alice.payment()?.startsWith("Payment: Paid with ") == true }
         val suggested = alice.payment()!!.removePrefix("Payment: Paid with ")
         val other = if (suggested == "Mountain") "Ember Shard" else "Mountain"
-        // STK-024 (owner gallery review 2026-11-09, gallery 102): what pays reads from the table's outlines, not a sentence of the
+        // STK-024, STK-156, STK-157 (owner gallery review 2026-11-09, gallery 102): what pays reads from the table's outlines, not a sentence of the
         // panel's; (owner notes 2026-11-14) not even a source under the panel is named: the eye and panning show it
         assertFalse(alice.showsText("Paid with", substring = true), "no sentence naming the sources: ${alice.screen()}")
         assertFalse(alice.showsText("Out of view", substring = true), "no source under the panel named: ${alice.screen()}")

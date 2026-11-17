@@ -26,7 +26,7 @@ class AndroidRegexDeviceTest {
         assertEquals("WUR", DeckColors.of(listOf(card)))
     }
 
-    // STK-057: the parser runs on the phone (I-D2); its target spans (parser v39) compile on Android too
+    // STK-057, STK-131: the parser runs on the phone (I-D2); its target spans (parser v39) compile on Android too
     @Test fun parserWithTargetSpansRunsOnAndroid() {
         val face = arcanum.parser.OracleParser.parse(arcanum.parser.OracleCard("Storm Spark", "{R}", "Instant", "Storm Spark deals 3 damage to any target."))
         assertTrue(face.toString(), face.toString().contains("span"))

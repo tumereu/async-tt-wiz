@@ -237,7 +237,7 @@ class TableAnimationTest {
         stackEffects = ids.map { StackEffect(it, source) }, containers = state.board.containers.map {
             if (it.zone == PlayZone.STACK) it.copy(cards = ids) else it }))
 
-    // STK-006
+    // STK-006, STK-120
     @Test fun stackGhostFliesFromRealCardAndBackWithUndoRedoWithoutMovingRealDrawing() {
         for (landscape in listOf(false, true)) for (zone in listOf(PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.BATTLEFIELD)) {
             val sourceId = "a/HAND/0"

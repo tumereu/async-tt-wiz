@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 /**
  * Owner playtest, 2026-11-07 (D1): picking a creature to sacrifice in a panel was hard: identical cards, with nothing of
  * their auras, counters or tapped state. Every cost or choice whose candidates are all battlefield permanents is now picked
- * on the table as targets are (STK-047): the slim bar with the question, the candidates glowing, Done; a sacrifice cost of
+ * on the table as targets are (STK-047, STK-151, STK-152): the slim bar with the question, the candidates glowing, Done; a sacrifice cost of
  * the caster's and an edict the other player answers alike.
  */
 class TablePickTest : E2e() {
@@ -37,7 +37,7 @@ class TablePickTest : E2e() {
         waitUntil("$name $count on Alice's battlefield", along = listOf(bob)) { alice.field(name).size == count && alice.inOwnMain() }
     }
 
-    // D1, STK-047, STK-023, CR 602.2b: Alice's Ember Altar ("{T}, Sacrifice another creature: …") with two identical Ash Pups
+    // D1, STK-047, STK-151, STK-152, STK-023, CR 602.2b: Alice's Ember Altar ("{T}, Sacrifice another creature: …") with two identical Ash Pups
     // on her battlefield, one wearing an Ember Mantle: tapping the Altar asks the sacrifice on the table (no panel), both
     // Pups glowing; a tap on the enchanted one sacrifices it (its Mantle goes too) and the ability resolves
     @Test fun aSacrificeCostIsPickedOnTheTable() {
@@ -86,7 +86,7 @@ class TablePickTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // D1, STK-047, STK-030, TBL-130: Bob has two identical Ash Pups (one stack); Alice's Ember Edict ("Each opponent sacrifices
+    // D1, STK-047, STK-151, STK-152, STK-030, TBL-130: Bob has two identical Ash Pups (one stack); Alice's Ember Edict ("Each opponent sacrifices
     // a creature of their choice") asks Bob on his table: the bar, his Pups glowing; a tap opens their stack, a tap on one
     // sacrifices it
     @Test fun anEdictIsAnsweredOnTheTable() {

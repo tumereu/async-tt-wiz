@@ -71,7 +71,7 @@ class EngineTableScreenTest {
     private fun redraw() { compose.runOnIdle { version++ }; compose.waitForIdle() }
 
     // STK-044, STK-047: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
-    // Alice's hand row, white; its eye hides it and shows it again (only the eye stays). STK-025: nothing reaches Bob
+    // Alice's hand row, white; its eye hides it and shows it again (only the eye stays). STK-025, STK-169: nothing reaches Bob
     // while the cast is open; the step arrow refuses with the card being cast shaking; the bar has no Cancel, Undo drops
     // the cast without a trace
     @Test fun theTargetBarSitsAboveTheHandWithItsEye() {
@@ -88,10 +88,10 @@ class EngineTableScreenTest {
         val density = compose.density.density
         assertEquals(hand.y, bar.bottom / density, 1f, "its bottom on the top of the hand row")
         assertEquals(0f, bar.left, 1f); assertEquals(412f, bar.right / density, 1f)
-        // STK-047 (owner playtest 2026-11-06): the Spark at the bar's right and the sentence its targets are for under the title
+        // STK-047, STK-142 (owner playtest 2026-11-06): the Spark at the bar's right and the sentence its targets are for under the title
         compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription("Storm Spark"))
         compose.onNodeWithContentDescription("Question: Storm Spark deals 3 damage to any target.").assertExists()
-            .assert(!hasClickAction()) // STK-047: a sentence that fits takes no taps
+            .assert(!hasClickAction()) // STK-047, STK-144: a sentence that fits takes no taps
         compose.onNodeWithContentDescription("Hide bar").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertDoesNotExist()
@@ -99,7 +99,7 @@ class EngineTableScreenTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertExists()
         compose.onNodeWithText("Hold").assertDoesNotExist()
-        // STK-025: the cast is Alice's alone; another action is refused without a message, the card being cast shaking
+        // STK-025, STK-169: the cast is Alice's alone; another action is refused without a message, the card being cast shaking
         compose.runOnIdle {
             assertTrue(kit.alice.take(kit.scenario.sim.now).none { it is GameAction.Submit }, "nothing went out")
             assertTrue(!toolkit.automatumStep(TableActionIntent.Next(kit.scope)))

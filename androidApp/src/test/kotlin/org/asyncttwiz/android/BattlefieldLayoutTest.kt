@@ -47,7 +47,7 @@ class BattlefieldLayoutTest {
         assertEquals(listOf(listOf("f1", "f4", "f2")), groups[0].units, "identical cards mean one thing")
     }
 
-    // STK-024, TBL-053 (owner, 2026-11-09): the sources paying the open payment leave their stack for a pile of their own, right
+    // STK-024, STK-156, TBL-053 (owner, 2026-11-09): the sources paying the open payment leave their stack for a pile of their own, right
     // after it, also with something between the stack's cards in arrival order; in the upper band it lies in the same row
     @Test fun payingSourcesLieInTheirOwnPileToTheRightOfTheirStack() {
         val same = StackIdentity("land", "f", false, "a", emptyList(), "", "", emptyList(), false, false)
@@ -246,7 +246,7 @@ class BattlefieldLayoutTest {
         assertTrue(none.expand.isEmpty() && none.playable.isEmpty())
     }
 
-    // STK-047, TBL-130, TBL-117 (owner 2026-11-07): while targets are picked the opened group's members glow exactly as cards
+    // STK-047, STK-146, TBL-130, TBL-117 (owner 2026-11-07): while targets are picked the opened group's members glow exactly as cards
     // alone: every legal target framed, the picked ones also drawn picked, the non-target unmarked; a closed group holding
     // a picked target shows picked as a whole
     @Test fun anOpenedGroupsMembersShowTargetAndPickedAsCardsAlone() {

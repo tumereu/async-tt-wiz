@@ -47,7 +47,7 @@ class TargetInGroupTest : E2e() {
         waitUntil("Alice's Pups opened side by side on Bob's screen") { opened() }
     }
 
-    // TBL-130, TBL-053, STK-047: Alice's three identical Ash Pups lie in one stack; Bob's Frost Snare ("Tap up to two target
+    // TBL-130, TBL-053, STK-047, STK-146: Alice's three identical Ash Pups lie in one stack; Bob's Frost Snare ("Tap up to two target
     // creatures") opens the stack on his first tap and picks two of the Pups one tap each: both are tapped, and the group
     // closes once the targets are chosen. His second Snare picks from the same group, now a tapped and an untapped Pup:
     // both are targeted, all three Pups end tapped

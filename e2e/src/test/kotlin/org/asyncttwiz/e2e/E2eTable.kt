@@ -258,7 +258,7 @@ internal fun E2ePlayer.openTimeline(e2e: E2e) {
     text("Timeline").performClick()
 }
 
-/** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079). */
+/** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079, ZON-102). */
 internal fun E2ePlayer.playFromHand(name: String, e2e: E2e) {
     // On a settled game: a board taken back between the two taps lowers the raised card, and the second tap only raises it.
     // Except while they hold priority over their own spell or ability (Control, STK-036): then they cast on at once, as a

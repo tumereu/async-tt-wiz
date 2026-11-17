@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  * strip's height. Everything the hand does stays.
  */
 class LandscapeHandTest : E2e() {
-    // TBL-009, ZON-079, ZON-004 (owner, 2026-11-08): in landscape Alice's hand sits in the bottom bar, after her piles and
+    // TBL-009, ZON-079, ZON-102, ZON-004, ZON-104 (owner, 2026-11-08): in landscape Alice's hand sits in the bottom bar, after her piles and
     // before Undo and the quick actions, the battlefield reaching down to the bar; a tap raises a card there and a second
     // plays it, a double tap plays a land
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")

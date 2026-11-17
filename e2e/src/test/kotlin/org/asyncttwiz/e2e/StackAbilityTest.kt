@@ -49,7 +49,7 @@ class StackAbilityTest : E2e() {
         assertTrue("Card image: Ember Herald" !in shown, "$where: no picture of the Herald: $shown")
     }
 
-    // TBL-104, STK-050, STK-046 (owner, 2026-11-05: not yet seen working on the phone; 2026-11-06: the tile alone): Bob's
+    // TBL-104, STK-050, STK-122, STK-046 (owner, 2026-11-05: not yet seen working on the phone; 2026-11-06: the tile alone): Bob's
     // playback stops at Alice's Herald trigger; holding the ability token on the Stack inspects it (its tile only);
     // lifting closes it; the Stack list names it as the Herald's ability
     @Test fun holdingAnAbilityOnTheStackInspectsIt() {
@@ -71,7 +71,7 @@ class StackAbilityTest : E2e() {
         waitUntil("the Stack list") { bob.showsText("Top · Ember Herald's ability") }
     }
 
-    // STK-046, HIS-091, TRN-066 (owner playtest 2026-11-04): an enters trigger on the Stack is drawn and named as its
+    // STK-046, STK-121, HIS-091, TRN-066 (owner playtest 2026-11-04): an enters trigger on the Stack is drawn and named as its
     // source's ability, for both players; the spell itself stays a card
     @Test fun anEntersTriggerShowsAsTheSourcesAbilityOnBothDevices() {
         val cast = aliceCastsAHeraldWhileBobIsAway()

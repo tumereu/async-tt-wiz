@@ -66,7 +66,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val SEER = "Spark Seer"
         const val QUENCH = "Quench Spark"
         const val TOTEM = "Spark Totem"
-        /** {X}: X damage to any target (STK-023: the X stepper, bounded by the mana). */
+        /** {X}: X damage to any target (STK-023, STK-138: the X stepper, bounded by the mana). */
         const val BURST = "Ember Burst"
         /** A fetch-style land: its ability searches its controller's library for a basic land card. */
         const val TRAIL = "Cinder Trail"
@@ -92,17 +92,17 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val INSIGHT = "Ember Insight"
         /** The Insight as a free instant: the other player's reveal in the viewer's own turn (HIS-110). */
         const val FORESIGHT = "Ember Foresight"
-        /** A free creature with offspring {R} (ZON-080: "Cast" and "Cast with offspring {R}" chips). */
+        /** A free creature with offspring {R} (ZON-080, ZON-108: "Cast" and "Cast with offspring {R}" chips). */
         const val KIT = "Ember Kit"
         /** A free mana rock: "{T}: Add {R}." (a second source beside a Mountain on turn one). */
         const val SHARD = "Ember Shard"
-        /** {2}{R} with kicker {1}, offspring {R} and dash {R}: eight complete ways, one "Cast…" chip (ZON-080). */
+        /** {2}{R} with kicker {1}, offspring {R} and dash {R}: eight complete ways, one "Cast…" chip (ZON-080, ZON-110). */
         const val BROODRAIDER = "Ember Broodraider"
         /** A free artifact whose ability's cost sacrifices another creature (D1: the creature picked on the table). */
         const val ALTAR = "Ember Altar"
         /** A free 1/1 creature with nothing to do: identical ones lie in one stack (TBL-053). */
         const val PUP = "Ash Pup"
-        /** Free Equipment whose equip cost sacrifices a creature (STK-047: which pick is which, the target or the sacrifice). */
+        /** Free Equipment whose equip cost sacrifices a creature (STK-047, STK-142: which pick is which, the target or the sacrifice). */
         const val HAUBERK = "Ember Hauberk"
         // Castability's screens (castability spec §6)
         const val REBUKE = "Ember Rebuke"
@@ -113,7 +113,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val OX_HUMAN = "Ox Human"
         const val GOAT = "Lone Goat"
         const val BLUE_NOTE = "Blue Note"
-        /** STK-024: a free source of two colours ({R} or {U}). */
+        /** STK-024, STK-161: a free source of two colours ({R} or {U}). */
         const val FORK = "Ember Fork"
         /** STK-049: "When this creature enters, you may pay {1}. If you do, draw a card." */
         const val TOLLKEEPER = "Ember Tollkeeper"
@@ -129,15 +129,15 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val CHIME = "Ember Chime"
         /** A free 2/2 with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage (CMB-050, CMB-089). */
         const val LEECH = "Ember Leech"
-        /** ZON-079: a free "You gain 2 life." sorcery with flashback {R}: from the graveyard it is cast from the hand row. */
+        /** ZON-079, ZON-105: a free "You gain 2 life." sorcery with flashback {R}: from the graveyard it is cast from the hand row. */
         const val FLARE = "Ember Flare"
-        /** ZON-079: a free creature with "Sacrifice this creature: You gain 1 life." and unearth {R}: sacrificed, it is unearthed
+        /** ZON-079, ZON-105: a free creature with "Sacrifice this creature: You gain 1 life." and unearth {R}: sacrificed, it is unearthed
          * from the hand row. */
         const val GHOUL = "Ember Ghoul"
-        /** ZON-079: a free "You gain 2 life." sorcery with flashback {R}{R} and "{R}: Return this card from your graveyard to your
+        /** ZON-079, ZON-105: a free "You gain 2 life." sorcery with flashback {R}{R} and "{R}: Return this card from your graveyard to your
          * hand.": with one Mountain only its ability can be used from the graveyard. */
         const val REPRISE = "Ember Reprise"
-        /** STK-024: a free creature whose mana ability taps other creatures: "Tap two untapped creatures you control: Add one
+        /** STK-024, STK-162: a free creature whose mana ability taps other creatures: "Tap two untapped creatures you control: Add one
          * mana of any color." (worded as a real such card). */
         const val ELDERS = "Hearth Elders"
         /** TBL-137: a free Vehicle with crew 2 (CR 702.122a). */

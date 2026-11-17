@@ -131,7 +131,7 @@ class StackRemovalFlightTest {
         stackEffects = listOf(StackEffect("effect", source, item = MtgStackItem(MtgRef.StackItem("t1"), MtgStackKind.Triggered, "a", timestamp = 1))),
         containers = state.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf("effect")) else it }))
 
-    // STK-006, TBL-038 (owner playtest 2026-11-15: "if it was not a permanent that entered, I don't think it should fly back to
+    // STK-006, STK-120, TBL-038 (owner playtest 2026-11-15: "if it was not a permanent that entered, I don't think it should fly back to
     // its permanent anymore. Perhaps just fly slightly up and fade out"): a trigger leaving the Stack rises a little and fades out
     // where it is, never flying to its source, over its time at the card move speed; taken back, it falls back in, fading in
     @Test fun anAbilityLeavingTheStackRisesAndFadesOutInPlace() {

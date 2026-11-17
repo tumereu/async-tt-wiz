@@ -112,7 +112,7 @@ class MainButtonQuietTest : E2e() {
         }
     }
 
-    /** WEB-023, ZON-079: a click raises Alice's hand card [name], a click on the raised card plays it. */
+    /** WEB-023, ZON-079, ZON-102: a click raises Alice's hand card [name], a click on the raised card plays it. */
     private fun clickFromHand(name: String) {
         waitUntil("Alice's game settled") { alice.settled(this) }
         alice.handCard(name).performMouseInput { click() }

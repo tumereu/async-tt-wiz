@@ -507,7 +507,7 @@ class DeviceInWorkerTest {
             .let { (it as arcanum.engine.state.ObjectId.Card).card.value }
     }
 
-    // Web client step 4e, STK-023: Ember Burst ({X}: X damage to any target) cast through a flow session in the worker beside
+    // Web client step 4e, STK-023, STK-138: Ember Burst ({X}: X damage to any target) cast through a flow session in the worker beside
     // Alice's device: its X step with the most her one Mountain pays, its target bar, then its payment and send give the page
     // the same panels (the values the worker answers, the page's copy of the board with the flow's changes) and the same inputs
     // as a session here; the worker's session log reaches the page's app log
@@ -578,7 +578,7 @@ class DeviceInWorkerTest {
         c.view?.version, c.mana, c.paid, c.payment, c.answering?.id, c.paying, c.paySources(), c.payableSources(), c.listedAnswers(),
         c.pick?.options, c.busy, c.view?.state?.let { codecOf.codec.encodeModel(org.asyncttwiz.protocol.game.GameModel(it, org.asyncttwiz.protocol.game.TableState())) })
 
-    // Web client step 4e, STK-049 (CR 118.12): Alice's Ember Tollkeeper enters and asks "you may pay {1}": the shared flow's
+    // Web client step 4e, STK-049, STK-168 (CR 118.12): Alice's Ember Tollkeeper enters and asks "you may pay {1}": the shared flow's
     // panel through a session in the worker beside her device gives the same panel as one here (the question, Autotap's
     // Mountain, Paid), the Mountain tapped out and back on the table the same payment, and Pay the same inputs; a step for a
     // session the worker doesn't hold, or on a board it no longer holds, is refused as stale

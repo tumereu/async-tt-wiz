@@ -50,7 +50,7 @@ class AssumeNoManaTest : E2e() {
         assertTrue(offers.isEmpty(), "no wait with Assume: $offers")
     }
 
-    // HIS-096, HIS-181, TRN-059, TRN-070: in her first turn Bob has no mana source: her Spark's pause for him is assumed at once;
+    // HIS-096, HIS-181, TRN-059, TRN-070, TRN-153: in her first turn Bob has no mana source: her Spark's pause for him is assumed at once;
     // in her next turn he has an untapped Mountain: her Spark waits for him with "Assume resolves"
     @Test fun aSpellIsAssumedAtOnceOnlyWhileTheyHaveNoMana() {
         startGame(TestDeck.sparks(), TestDeck.sparks(), aliceSettings = PlaySettings().assuming(AssumeResolves.WhenNoMana),

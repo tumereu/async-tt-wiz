@@ -14,7 +14,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
- * Owner problem report E48RDE (HIS-109, HIS-189, SYS-012, SYS-011): a tap made on a board the device has moved past is the same
+ * Owner problem report E48RDE (HIS-109, HIS-189, SYS-012, SYS-011, SYS-136): a tap made on a board the device has moved past is the same
  * press as the device's own step right after that board when the device made that step by itself with the same input
  * (its pass for the player by their mode, its assumption of the other player's answer): [GameDevice.pressedByItself].
  * A tap with another input, at a later point, or after a step the player's own tap made, isn't.
@@ -99,7 +99,7 @@ class SamePressTest {
 
     // HIS-109, HIS-189 (E48RDE): the other order: Alice's tap of Resolve comes first; her phone's own steps then make no second pass
     // of hers there, and her ability still waits for Bob. That pass was her tap's, so a second tap made on the same board
-    // is not the same press (SYS-011: a quick second tap is told)
+    // is not the same press (SYS-011, SYS-137: a quick second tap is told)
     @Test
     fun aTapOfResolveFirstLeavesNothingMoreForTheDeviceToPress() {
         val sim = twoOfHersOnTheStack()

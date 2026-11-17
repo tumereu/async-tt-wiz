@@ -24,7 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * TRN-066, STK-057, STK-129 (owner gallery review 2026-11-10, gallery 79: "white text ends up on a largely faded area"): the band stays
+ * TRN-066, TRN-150, STK-057, STK-129 (owner gallery review 2026-11-10, gallery 79: "white text ends up on a largely faded area"): the band stays
  * edge to edge with fading sides, but every line of its words, the longest main line and 8 lines of effect text alike, lies on
  * its solid middle, in portrait on a narrow phone and in landscape.
  */

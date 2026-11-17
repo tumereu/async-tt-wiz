@@ -17,7 +17,7 @@ class DamageDivisionTest : E2e() {
     /**
      * Taps [player]'s main button while it passes or goes on (also at a stop at an assumption about them, HIS-095), once
      * their game has [settled]: until then a board their own pass shows may still be taken back by the other device's
-     * assumption about them winning the race to the server (HIS-096), and a tap on it isn't taken (SYS-012).
+     * assumption about them winning the race to the server (HIS-096), and a tap on it isn't taken (SYS-012, SYS-138).
      */
     private fun goOn(player: E2ePlayer) {
         if (!player.settled(this)) return

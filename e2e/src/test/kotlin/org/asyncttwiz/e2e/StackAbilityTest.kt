@@ -71,7 +71,7 @@ class StackAbilityTest : E2e() {
         waitUntil("the Stack list") { bob.showsText("Top · Ember Herald's ability") }
     }
 
-    // STK-046, STK-121, HIS-091, TRN-066 (owner playtest 2026-11-04): an enters trigger on the Stack is drawn and named as its
+    // STK-046, STK-121, HIS-091, TRN-066, TRN-151 (owner playtest 2026-11-04): an enters trigger on the Stack is drawn and named as its
     // source's ability, for both players; the spell itself stays a card
     @Test fun anEntersTriggerShowsAsTheSourcesAbilityOnBothDevices() {
         val cast = aliceCastsAHeraldWhileBobIsAway()

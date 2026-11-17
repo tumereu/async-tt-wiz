@@ -35,7 +35,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertTrue
 
 /**
- * TRN-063, TRN-070 (owner playtest 2026-11-05 evening): the main button has room for two lines, and every name it shows
+ * TRN-063, TRN-070, TRN-153, TRN-161 (owner playtest 2026-11-05 evening): the main button has room for two lines, and every name it shows
  * reads whole on at most two lines under its icon, at the width it has on a phone in portrait (and a narrow one), also with
  * large system text.
  */
@@ -54,7 +54,7 @@ class MainButtonLabelsTest {
         AutomatumStep.Attack(0) to "No attack", AutomatumStep.Block(1) to "Block (1)", AutomatumStep.Block(0) to "No blocks",
         AutomatumStep.Resolve to "Resolve")
 
-    /** Every name the main button shows: the step arrow's, a combat division's OK, the waits' (TRN-063, TRN-113, TRN-070). */
+    /** Every name the main button shows: the step arrow's, a combat division's OK, the waits' (TRN-063, TRN-113, TRN-070, TRN-153, TRN-161). */
     private val labels = steps.map { it.second }.distinct() + listOf("OK", "Assume resolves", "Assume pass", "Assume no blockers",
         "Assume blockers", "Assume keep", "Cancel request")
 
@@ -96,7 +96,7 @@ class MainButtonLabelsTest {
         }
     }
 
-    // TRN-063, TRN-111, TRN-112, TRN-113, STK-029, TRN-070: at the portrait phone's main button width every name reads whole, under its kind's icon (owner
+    // TRN-063, TRN-111, TRN-112, TRN-113, STK-029, TRN-070, TRN-153, TRN-161: at the portrait phone's main button width every name reads whole, under its kind's icon (owner
     // gallery note 22, 2026-11-11: play for Resolve, crossed swords for To combat and Attack, a shield for Block, a turn arrow
     // for End turn, a tick for OK; the step moves name where they go)
     @Test fun everyNameReadsOnTwoLines() {
@@ -117,7 +117,7 @@ class MainButtonLabelsTest {
             "The main button's names on a narrow phone with large system text: each reads whole on at most two lines (Assume pass and Assume no blockers on two), drawn a little smaller where needed.")
     }
 
-    // TRN-063, TRN-110, TRN-070 (owner, 2026-11-10): the main button tells an assumption from your own action at a glance: your own
+    // TRN-063, TRN-110, TRN-070, TRN-154 (owner, 2026-11-10): the main button tells an assumption from your own action at a glance: your own
     // actions (Resolve, Cast, Cancel request) are white with the dark teal words; an Assume is filled violet with white words
     // and the Assume icon; a greyed Assume stays greyed
     @Test fun anAssumptionReadsApartFromYourOwnAction() {

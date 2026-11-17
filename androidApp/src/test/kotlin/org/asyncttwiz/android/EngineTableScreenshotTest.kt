@@ -223,8 +223,8 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("main-button-working").assertDoesNotExist()
     }
 
-    // TRN-066, TRN-070, TRN-062, TRN-027, TRN-124, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
-    // says so and the main button holds Assume keep (TRN-004; her phone never assumes his keep by itself, HIS-096, HIS-183)
+    // TRN-066, TRN-151, TRN-070, TRN-161, TRN-062, TRN-027, TRN-124, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
+    // says so and the main button holds Assume keep (TRN-004, TRN-161; her phone never assumes his keep by itself, HIS-096, HIS-183)
     @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
@@ -441,7 +441,7 @@ class EngineTableScreenshotTest {
             "At the opening Alice opened her own Library's menu and tapped View deck, then Still in library: her deck's cards without the seven in her hand, in type groups as in the deck views, at the Panels card size with copies counted on each card, and a borderless X at the top right that closes the panel.")
     }
 
-    // STK-028, TRN-070, HIS-096, HIS-178 (owner 2026-11-05): with "Assume resolves" Normal, after Alice's Storm Spark the game
+    // STK-028, TRN-070, TRN-153, HIS-096, HIS-178 (owner 2026-11-05): with "Assume resolves" Normal, after Alice's Storm Spark the game
     // waits for Bob (away or online); "Assume resolves" is the main button and assumes he lets it resolve
     @Test fun assumeIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.Normal, alwaysAssume = false)
@@ -456,7 +456,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
 
-    // TRN-067, TRN-070, TRN-071 (owner gallery review, 2026-11-06): Alice casts Ember Glance ("Look at target player's
+    // TRN-067, TRN-070, TRN-154, TRN-071, TRN-160 (owner gallery review, 2026-11-06): Alice casts Ember Glance ("Look at target player's
     // hand.") at Bob; assuming his pass would show her his hidden hand, so the wait's Assume is greyed: a tap does nothing,
     // holding it says why
     @Test fun assumeIsGreyedWhereItWouldShowHiddenCards() {

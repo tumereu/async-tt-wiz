@@ -13,7 +13,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Owner playtest 2026-11-07 (TRN-017, TRN-107, TRN-108, STK-029, TRN-070): holding Resolve or a Stack wait's Assume is the whole chain:
+ * Owner playtest 2026-11-07 (TRN-017, TRN-107, TRN-108, STK-029, TRN-070, TRN-158): holding Resolve or a Stack wait's Assume is the whole chain:
  * the device presses Resolve at each of the player's priority points and Assume at each of the other player's, whatever
  * the player's response mode, until the Stack is empty ([GameDevice.startChain]); the other player's real input is never
  * passed over: when it reaches the server before the chain's presses they aren't taken, and the player gets priority
@@ -100,7 +100,7 @@ class ResolveChainTest {
         return b
     }
 
-    // TRN-017, TRN-107, TRN-070, STK-029 (owner 2026-11-07): Alice holds Assume over her trigger: her phone assumes Bob's pass (the
+    // TRN-017, TRN-107, TRN-070, TRN-158, STK-029 (owner 2026-11-07): Alice holds Assume over her trigger: her phone assumes Bob's pass (the
     // trigger resolves), presses Resolve for her over her ability and assumes Bob's pass again, where a tap would have
     // stopped at Bob's next wait: the whole Stack resolves and the chain ends with it
     @Test

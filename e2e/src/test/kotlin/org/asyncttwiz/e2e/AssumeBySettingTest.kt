@@ -27,7 +27,7 @@ class AssumeBySettingTest : E2e() {
         return offers
     }
 
-    // HIS-096, HIS-178, HIS-181, TRN-070, STK-028: Bob is away; Alice's Ember Herald waits for him with Assume on the main button (nothing
+    // HIS-096, HIS-178, HIS-181, TRN-070, TRN-153, TRN-157, STK-028: Bob is away; Alice's Ember Herald waits for him with Assume on the main button (nothing
     // under the Stack), however long he stays away; Assume goes on (her trigger waits the same way); with "Assume
     // resolves" set to Always from her quick actions her End turn goes past his pause at her end step at once
     @Test fun aPauseWaitsWithAssumeUnlessAlwaysAssumeResolves() {
@@ -75,7 +75,7 @@ class AssumeBySettingTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // CMB-040, CMB-084, HIS-096, HIS-180, HIS-178, TRN-070 (owner, 2026-11-05, 2026-11-06): Alice attacks while Bob is away, "Assume resolves"
+    // CMB-040, CMB-084, HIS-096, HIS-180, HIS-178, TRN-070, TRN-153, TRN-161, TRN-157 (owner, 2026-11-05, 2026-11-06): Alice attacks while Bob is away, "Assume resolves"
     // Normal (the default): his pause right after her attack is assumed at once and his blockers wait in assume mode on the lanes with
     // "Assume no blockers" on the main button; nothing is assumed by itself, however long he stays away; the button
     // assumes no blocks; his priority after the blocks waits with "Assume pass" (the setting); her End turn then

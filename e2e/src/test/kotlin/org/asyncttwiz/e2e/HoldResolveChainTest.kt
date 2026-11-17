@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Owner playtest 2026-11-07 (TRN-017, TRN-107, TRN-108, STK-029, TRN-070): holding Resolve, or a Stack wait's Assume, resolves the whole
+ * Owner playtest 2026-11-07 (TRN-017, TRN-107, TRN-108, STK-029, TRN-070, TRN-158): holding Resolve, or a Stack wait's Assume, resolves the whole
  * Stack: the phone presses Resolve at each of the player's priority points and Assume at each of the other player's,
  * whatever their response mode, until the Stack is empty; the other player's real input is never passed over (it ends
  * the chain, and the player gets priority with it on top).
@@ -63,7 +63,7 @@ class HoldResolveChainTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // TRN-017, TRN-107, TRN-070 (owner 2026-11-07): Bob away; Alice taps Resolve once and her phone waits for Bob with "Assume
+    // TRN-017, TRN-107, TRN-070, TRN-158 (owner 2026-11-07): Bob away; Alice taps Resolve once and her phone waits for Bob with "Assume
     // resolves"; holding it assumes his pass, passes for her (Control would stop) and assumes his pass again: the whole
     // Stack resolves
     @Test fun holdingAssumeResolvesTheWholeStack() {

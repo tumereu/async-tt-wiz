@@ -444,7 +444,7 @@ class ReapplyTest {
         assertTrue(sim.equivalence().isEmpty(), sim.equivalence().toString())
     }
 
-    // HIS-115, HIS-195, SYS-012 (§3.5): Alice's land play is on its way when Bob's mulligan brings him an Ember Vanguard: her whole
+    // HIS-115, HIS-195, SYS-012, SYS-138 (§3.5): Alice's land play is on its way when Bob's mulligan brings him an Ember Vanguard: her whole
     // turn is taken back, the land no longer applies there (his opening-hand action waits) and is dropped with the note
     @Test
     fun aMoveOnItsWayThatNoLongerAppliesIsDropped() {

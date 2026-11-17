@@ -96,7 +96,7 @@ class StableDecisionIdTest : E2e() {
         waitUntil("Bob's early answer on the server") { bob.engine { device.session.pending.isEmpty() } }
     }
 
-    // SYS-011, problem report GXKJSE (owner, 2026-11-05: stable decision identity): Alice casts Storm Spark (its target
+    // SYS-011, SYS-135, problem report GXKJSE (owner, 2026-11-05: stable decision identity): Alice casts Storm Spark (its target
     // and payment answered on the board her screen shows) while her phone, not her screen yet, has had Bob answer early
     // and take that back (his free undo: a new line is due). Nothing but table-only events changed, so her cast
     // is made on the newer board, where its event starts the new line with the libraries' reshuffle first: her answers

@@ -328,7 +328,7 @@ class AssumeModeTest {
         }
     }
 
-    // STK-036, STK-174, HIS-096, HIS-109, HIS-187, SYS-077 (owner 2026-11-06, 2026-11-07): Alice in Control casts a spell and keeps priority;
+    // STK-036, STK-174, HIS-096, HIS-109, HIS-187, SYS-077, SYS-133 (owner 2026-11-06, 2026-11-07): Alice in Control casts a spell and keeps priority;
     // Bob presses Assume by hand there (still offered at her point); her second spell, sent before that assumption reached
     // her, is her answer at it: not refused, it branches (HIS-097), and Bob's device goes back with the branch note
     @Test

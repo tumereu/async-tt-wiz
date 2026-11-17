@@ -135,7 +135,7 @@ class StackLineTest {
         assertEquals(emptyList(), StackLine.split(listOf(StackTextPiece("Bob cast Ember Cub"))).second)
     }
 
-    // TRN-066 (owner, 2026-11-09): the wait for a player who is behind says where they are, "your" in the viewer's own turn
+    // TRN-066, TRN-152 (owner, 2026-11-09): the wait for a player who is behind says where they are, "your" in the viewer's own turn
     @Test fun aPlayerBehindIsAtTheirTurnAndStep() {
         assertEquals("Bob is at turn 5 · their combat", behindText(org.asyncttwiz.protocol.game.GameDevice.OpponentAt(5,
             arcanum.api.TurnStep.DeclareBlockers, PlayerId(f.b)), f.a, "Bob"))

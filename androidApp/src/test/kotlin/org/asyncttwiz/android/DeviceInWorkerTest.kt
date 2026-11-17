@@ -16,8 +16,8 @@ import kotlin.test.assertTrue
  * behind its [EngineGame] on the page ([DeviceChannel], [RemoteDevice]), every message crossing as a JSON string and
  * delivered later, as the browser delivers it. The page gets the same boards, notes and results as a device on the page
  * (Android's in-process one, here inline) given the same actions and server events, in the same order: an own action's
- * early board before its result (SYS-025), a tap on a board the device has moved on from refused as stale (SYS-011,
- * SYS-012), the worker's log lines in the page's app log.
+ * early board before its result (SYS-025), a tap on a board the device has moved on from refused as stale (SYS-011, SYS-137,
+ * SYS-012, SYS-138), the worker's log lines in the page's app log.
  */
 class DeviceInWorkerTest {
     private val f = EngineGameFixture()
@@ -250,7 +250,7 @@ class DeviceInWorkerTest {
         play.definitions.single { it.digest == card.definition }.definition.faces.single()
     }
 
-    // SYS-011, SYS-012 across the boundary: a press made on a board the worker's device has moved on from (the page hadn't
+    // SYS-011, SYS-137, SYS-012, SYS-138 across the boundary: a press made on a board the worker's device has moved on from (the page hadn't
     // shown its newer board yet) is checked against the board the page showed, and refused as stale with its note
     @Test fun aTapOnABoardTheDeviceMovedOnFromIsStale() {
         val (_, remote) = pair()

@@ -531,7 +531,7 @@ class DesktopTableScreenshotTest {
             "Bob cast Storm Spark at Alice's Ember Cub in his turn and she holds priority: the Spark is on the Stack at the battlefields' right edge with its arrow to the Cub, the band at the battlefields' top beside Bob's seat box says what it does, and the main button at the bottom right reads Resolve.")
     }
 
-    // WEB-016, TBL-121, TBL-012, TRN-066, STK-057 (owner notes 2026-11-16: "An opponent's life, hand etc could sit in a similar box
+    // WEB-016, TBL-121, TBL-012, TRN-066, TRN-150, STK-057 (owner notes 2026-11-16: "An opponent's life, hand etc could sit in a similar box
     // as yours. Default camera pan could be so that these are on the left side of the 'pos 0' so that they don't obstruct cards
     // played"): with Bob's Mountains and Alice's Mountain and Ember Cub out, Bob's seat header is a box at the top left like
     // hers at the bottom left; the table opens with every battlefield card just right of both boxes, the rows reaching up beside

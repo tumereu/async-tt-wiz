@@ -210,7 +210,7 @@ class EngineGameServiceTest {
         assertTrue(codec.decodeModel(f.snapshot().state).engine.turn.number == 1)
     }
 
-    // SYS-077, HIS-109, HIS-211 (owner 2026-11-07): Bob's keep crosses Alice's assumption of it on the wire, with a move of his made
+    // SYS-077, SYS-134, HIS-109, HIS-211 (owner 2026-11-07): Bob's keep crosses Alice's assumption of it on the wire, with a move of his made
     // on it right behind: the keep is the assumption's confirmation (accepted, no new event, his local head past it) and
     // his next move, made on his keep, is taken on the assumption instead of refused as stale
     @Test fun `a matching answer that crossed the assumption confirms it and the moves made on it are taken`() = withService { runtime ->
@@ -604,7 +604,7 @@ class EngineGameServiceTest {
         assertEquals(ResponseMode.Normal, event.mode)
     }
 
-    // LOB-135, TRN-067 (owner 2026-11-07): the assume reveal settings are the game's, the defaults until changed (library
+    // LOB-135, LOB-154, TRN-067, TRN-159 (owner 2026-11-07): the assume reveal settings are the game's, the defaults until changed (library
     // on, hands off), changed by its host only and seen by both players; the server's information rule check honours
     // them as they are when a submission comes: Alice's assumed pass over her spell revealing Bob's library top is
     // refused with the library setting off and taken once she turns it on

@@ -158,7 +158,7 @@ class GameDeviceTest {
         assertEquals(emptyList(), reports(sim, alice), "the server took it")
     }
 
-    // TRN-027, TRN-124, TRN-070, HIS-096, HIS-183 (owner, 2026-11-15): the starting player's device never assumes the other player's opening
+    // TRN-027, TRN-124, TRN-070, TRN-161, HIS-096, HIS-183 (owner, 2026-11-15): the starting player's device never assumes the other player's opening
     // keep by itself, with "Always assume resolves" on or off: it waits for it with Assume keep on the main button, and turn
     // 1 begins on their own keep
     @Test
@@ -622,7 +622,7 @@ class GameDeviceTest {
         settle()
     }
 
-    // SYS-012 (owner, 2026-11-08): a refused own action names what it was made on, the card played here, so the table
+    // SYS-012, SYS-139 (owner, 2026-11-08): a refused own action names what it was made on, the card played here, so the table
     // shakes that card; a pass names nothing (the main button shakes)
     @Test
     fun aRefusedActionNamesWhatItWasMadeOn() {
@@ -746,7 +746,7 @@ class GameDeviceTest {
         assertTrue(alice.pressedInAction(parent, pass), "still that press on the main line")
     }
 
-    // HIS-109, HIS-189, SYS-011: in Control nothing folds into her attack's event: she holds priority, and her tap is her own pass
+    // HIS-109, HIS-189, SYS-011, SYS-136: in Control nothing folds into her attack's event: she holds priority, and her tap is her own pass
     @Test fun nothingFoldedIntoHerActionLeavesHerPressHers() {
         val sim = seers()
         val seer = sim.seersToThirdTurn()
@@ -937,7 +937,7 @@ class GameDeviceTest {
         return m.battlefield.first { m.obj(it)?.controller == alice && m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }
     }
 
-    // HIS-096, HIS-180, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause right after your
+    // HIS-096, HIS-180, TRN-070, TRN-157 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause right after your
     // attack is assumed at once (no wait with Assume before their blocks); the priority after their blocks keeps the
     // setting (a wait with Assume); their catch-up playback still stops at the pass assumed after the attack (HIS-095)
     @Test
@@ -975,7 +975,7 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-096, HIS-180, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause at your end step is
+    // HIS-096, HIS-180, TRN-070, TRN-157 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause at your end step is
     // assumed at once: Alice's End turn goes on into Bob's turn while he is away
     @Test
     fun theirPauseAtYourEndStepIsAssumedAtOnce() {

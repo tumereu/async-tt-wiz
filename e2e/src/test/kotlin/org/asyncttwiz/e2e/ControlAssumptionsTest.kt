@@ -131,7 +131,7 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // HIS-096, HIS-180, HIS-182, HIS-178, TRN-070 (owner 2026-11-07, scenarios 2 and 4; regression): Bob is away in Control; Alice's points follow her
+    // HIS-096, HIS-180, HIS-182, HIS-178, TRN-070, TRN-157 (owner 2026-11-07, scenarios 2 and 4; regression): Bob is away in Control; Alice's points follow her
     // "Assume resolves" Normal: her Ember Dasher on the Stack is his pause (Normal and Control both stop: a wait); after it
     // resolved, his priority as she passes her main phase and at her beginning of combat is assumed (Normal passes there),
     // so is his pause right after her attack and at her end step (Normal's own); after the blocks (none: he has no creature) it waits
@@ -165,7 +165,7 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // HIS-096, HIS-179, HIS-182, TRN-070, TRN-058 (owner 2026-11-07, scenarios 3 and 4; regression): the same with "Assume resolves" Never:
+    // HIS-096, HIS-179, HIS-182, TRN-070, TRN-157, TRN-058 (owner 2026-11-07, scenarios 3 and 4; regression): the same with "Assume resolves" Never:
     // each of Bob's priorities in her turn is a wait (Never and his Control both stop), also as she passes her main phase
     // after her spell, right after her attack and at her end step; while it waits it is Bob's move
     @Test fun neverWaitsAtYourPointsAgainstControl() {
@@ -532,7 +532,7 @@ class ControlAssumptionsTest : E2e() {
 
     // ---- Late moves branch
 
-    // STK-036, SYS-077, HIS-097, HIS-109, HIS-187 (owner 2026-11-07, scenario 11): Bob casts an Idle Glimmer; Alice, live in Quick
+    // STK-036, SYS-077, SYS-133, HIS-097, HIS-109, HIS-187 (owner 2026-11-07, scenario 11): Bob casts an Idle Glimmer; Alice, live in Quick
     // with a Glimmer of her own, may respond (her phone stops; his, on Never, waits); his phone goes to Always and assumes
     // her pass at the moment she casts her Glimmer, before that assumption reached her: her response is taken as a branch
     // (his note), never "That wasn't taken"

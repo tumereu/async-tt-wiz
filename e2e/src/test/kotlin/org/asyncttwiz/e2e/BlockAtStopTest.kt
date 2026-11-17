@@ -123,7 +123,7 @@ class BlockAtStopTest : E2e() {
      * staging left on the table), every combat copy is a card the board has, and neither phone crashed. */
     private fun theNextAttackShowsNoOldBlock() {
         // Each plays along only on a settled game: Bob's declaration at the stop takes back the board Alice's own play had
-        // moved on to, and her tap on that board while his declaration is on its way isn't taken (SYS-011)
+        // moved on to, and her tap on that board while his declaration is on its way isn't taken (SYS-011, SYS-137)
         waitUntil("no block staging left on either table") {
             goOn(alice)
             for (player in listOf(alice, bob)) if (player.settled(this)) player.playAlong()

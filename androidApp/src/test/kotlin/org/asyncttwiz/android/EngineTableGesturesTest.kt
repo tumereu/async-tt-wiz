@@ -125,7 +125,7 @@ class EngineTableGesturesTest {
         assertTrue(land in kit.field("Mountain").map(kit::atw))
     }
 
-    // SYS-012, SYS-069 (owner, 2026-11-08): a refusal of Alice's own action shakes the card it was made on, without a
+    // SYS-012, SYS-139, SYS-069 (owner, 2026-11-08): a refusal of Alice's own action shakes the card it was made on, without a
     // message; one made on the main button (or on a card the table doesn't show) shakes the main button
     @Test fun aRefusalShakesWhatItWasMadeOn() {
         kit.opening()

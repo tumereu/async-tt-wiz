@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 class InformationRuleAssumeTest : E2e() {
     private val why get() = "Assuming this would show you hidden cards or a random result: wait for ${bob.name}."
 
-    // TRN-067, TRN-070, TRN-071: the greyed Assume, its tap refused, its hold's reason; the real pass goes on
+    // TRN-067, TRN-070, TRN-154, TRN-071, TRN-160: the greyed Assume, its tap refused, its hold's reason; the real pass goes on
     @Test fun assumeIsGreyedWhereItWouldShowHiddenCards() {
         startGame(TestDeck("Glances", listOf(TestCards.mountain to 20, TestCards.glance to 20)), deal = { a, _ -> "Ember Glance" in hand(a) })
         bothOpen()

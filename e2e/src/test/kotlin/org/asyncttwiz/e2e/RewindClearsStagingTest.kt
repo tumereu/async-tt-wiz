@@ -56,7 +56,7 @@ class RewindClearsStagingTest : E2e() {
         alice.field("Ember Cub").any { s.obj(it)?.tapped == false && view[it]?.summoningSick == false }
     }
 
-    // CMB-043, CMB-082, SYS-058, HIS-099
+    // CMB-043, CMB-082, SYS-058, SYS-140, HIS-099
     @Test fun aRewindBackOutOfTheDeclarationClearsTheStaging() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.cub),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })

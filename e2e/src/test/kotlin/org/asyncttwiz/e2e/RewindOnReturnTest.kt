@@ -306,6 +306,61 @@ class RewindOnReturnTest : E2e() {
         assertUndoWaitedThenShown(seen, cast)
     }
 
+    // HIS-205, HIS-158, HIS-035 (owner, prod 0.2.1, 2026-11-17: "if an opponent undoes while I'm away the app rewinds instantly
+    // instead of telling me this happened"): Alice undid her cast Bob had seen while his app was in the background with the
+    // game open, his phone still connected; he just brings the app back (no notification, no reopening): his table, kept as
+    // he left it, waits for his tap, then goes back from the cast
+    @Test fun anUndoHeardInTheBackgroundWaitsForATapWhenTheAppComesBack() {
+        val (cast, seen) = aliceUndoesWhatBobSaw(connected = true)
+        returns(seen) { bob }
+        bob.back()
+        assertUndoWaitedThenShown(seen, cast)
+        assertFalse(seen.reopened, "the open game's table stays")
+    }
+
+    // HIS-205, HIS-158, HIS-035 (owner, prod 0.2.1, 2026-11-17): as above, but his phone slept (it hears the undo only when the app
+    // is back, the game still open)
+    @Test fun anUndoWhileAsleepWaitsForATapWhenTheAppComesBack() {
+        val (cast, seen) = aliceUndoesWhatBobSaw(connected = false)
+        returns(seen) { bob }
+        bob.back()
+        assertUndoWaitedThenShown(seen, cast)
+        assertFalse(seen.reopened, "the open game's table stays")
+    }
+
+    // HIS-205, HIS-158, HIS-035 (owner, prod 0.2.1, 2026-11-17): as above, but after her undo Alice ends her turn, and the game's
+    // head reaches his phone ahead of the revisions (a head is read as soon as asked for, a revision published up to a moment
+    // after its commit; a phone back after more revisions than a resubscription replays gets the head alone): the game loads
+    // again from a head that holds her undo, and still waits for his tap, which plays the undo, then her new moves
+    @Test fun anUndoReachingASleepingPhoneAsAHeadWaitsForATapWhenTheAppComesBack() {
+        val (cast, seen) = aliceUndoesWhatBobSaw(connected = false)
+        alice.hold("To combat")
+        waitUntil("Alice's turn over") { alice.state.turn.active == bob.me }
+        waitUntil("all of Alice's on the server") { alice.engine { device.session.pending.isEmpty() } }
+        bob.connection.holdRevisions()
+        returns(seen) { bob }
+        bob.back()
+        waitUntil("the head having overtaken the revisions") { bob.connection.overtaken }
+        waitsForTheTap(seen, bob, "${alice.name} undid moves · Tap to watch") { where(it.board, cast.herald) == "STACK" }
+        assertUndoPlayedAfterTheTap(seen, cast)
+        assertFalse(seen.reopened, "the open game's table stays")
+    }
+
+    /** HIS-108, HIS-205: after Bob's tap his table went back from the cast he had seen in one backward animation, with "Alice undid:
+     * cast Ember Herald" (her moves after it then play back). */
+    private fun assertUndoPlayedAfterTheTap(seen: Seen, cast: HeraldCast) {
+        fun undo(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == false && it.backward.isNotEmpty() } == true }
+        waitUntil("Bob's table going back from the cast") { undo() >= 0 }
+        waitUntil("Bob told") { bob.told("${alice.name} undid: cast Ember Herald") }
+        assertTrue(undo() >= seen.tapped, "the undo only after his tap")
+        val t = assertNotNull(seen.boards[undo()].transition)
+        assertFalse(t.jump, "an undo animates, never jumps")
+        assertTrue(t.backward.any { it.id == cast.cast.id }, "the cast goes back")
+        assertTrue(seen.applied.any { (applied, opened) -> applied.serial == t.serial && !opened },
+            "his table went back from the board he had seen: ${seen.applied.map { (a, o) -> "${a.serial}/${a.undone}/$o" }}")
+        assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
+    }
+
     // HIS-108, HIS-205, HIS-106, HIS-191 (owner 2026-11-07): live, Bob watching at his stop at her cast, Alice's undo plays at once on his
     // table, with no centre text
     @Test fun anUndoWhileWatchingPlaysAtOnce() {

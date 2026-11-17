@@ -127,6 +127,8 @@ class GameSession(private val connection: GameConnection, private val credential
     fun background() {
         backgrounded = true; resumePending = true; resumePing = null; reconnectTrace.stepAll("lifecycleBackground")
         // HIS-035: leaving the app pauses every open table's playback at once
+        if (engineGames.isNotEmpty()) AppLog.info("game", "App away: ${engineGames.size} open game(s) pause: " +
+            engineGames.values.joinToString { "${it.gameId.take(8)} at revision ${it.revision}" })
         engineGames.values.forEach { it.away() }
     }
     fun foreground() {
@@ -137,6 +139,11 @@ class GameSession(private val connection: GameConnection, private val credential
         if (backgrounded || resumePending) {
             resumePending = true; resumePing = null
             if (connected && welcome) randomUuid().let { resumePing = it; send(GamePing(it)) }
+            // HIS-035, HIS-205: the open tables stay away until everything the server had is in (the ping's answer, or a new
+            // socket's welcome and the game's head)
+            if (engineGames.isNotEmpty()) AppLog.info("game", "App back: the open game(s) stay away until the server's backlog is in (" +
+                "${if (connected && welcome) "ping sent on the open socket" else "waiting for a new connection"}): " +
+                engineGames.values.joinToString { "${it.gameId.take(8)} at revision ${it.revision}" })
         }
         backgrounded = false
         tick()
@@ -292,6 +299,11 @@ class GameSession(private val connection: GameConnection, private val credential
             }
             reloadAsked.remove(head.gameId)
         } else following = true
+        // HIS-205, HIS-035: every engine head of an open game, from where to where and what it did (a head past the revisions
+        // is how a take-back can reach a phone back from sleep)
+        if (existing != null) AppLog.info("engine", "Head of game ${head.gameId.take(8)}: revision ${existing.revision} → ${head.revision}, " +
+            "head ${snapshot.headId.take(8)}${snapshot.undoneBy?.let { ", an undo by $it took back ${snapshot.takenBack.size} seen events" } ?: ""}" +
+            ", app ${if (existing.awayPaused) "away" else "here"}: ${if (following) "nothing new, the game follows the revisions" else "the game loaded again from it"}")
         // A head the game didn't load from says nothing of the revisions up to it that are still on their way (it can be
         // read before they are published): they carry the confirmations of the device's own events and the local heads,
         // and must not be fenced off as already received
@@ -409,7 +421,10 @@ class GameSession(private val connection: GameConnection, private val credential
     fun engineTick(gameId: String) {
         val game = engineGame(gameId) ?: return
         // HIS-035, HIS-006: back, with everything the server had: live again unless there is something to catch up on
-        if (game.awayPaused && caughtUp(gameId)) game.returned()
+        if (game.awayPaused && caughtUp(gameId)) {
+            AppLog.info("game", "Game ${gameId.take(8)} back: the server's backlog is in (stream ready with its head), revision ${game.revision}")
+            game.returned()
+        }
         game.tick(now())
         pumpEngine(gameId)
         statusChanged()
@@ -790,7 +805,10 @@ class GameSession(private val connection: GameConnection, private val credential
             is GamePresenceUpdate -> if (message.gameId in streams && available(message.gameId))
                 presence(message.gameId, message.opponent)
             is GameChatReadUpdate -> if (message.gameId in streams && available(message.gameId)) chats.readChanged(message.gameId)
-            is GamePong -> if (message.correlationId == resumePing) { resumePing = null; resumePending = false }
+            is GamePong -> if (message.correlationId == resumePing) {
+                resumePing = null; resumePending = false
+                if (engineGames.isNotEmpty()) AppLog.info("game", "App back: the ping's answer came, what the open socket held is in")
+            }
         }
         flush()
         recoveryReady()

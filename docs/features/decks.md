@@ -7,7 +7,7 @@ The deck library, the deck and cube editor, saving card lists, and preparing a d
 Manage decks keeps your saved decks and cubes, and a read-only draft deck for every pod deck you submit. A saved list
 opens in a read-only picture view; Edit opens the editor that decks and cubes share, with a Cards tab of pictures and a
 Text tab holding the raw list. A list can be typed, pasted or imported from an Archidekt link, and cards are added from
-a search page that understands Scryfall-style search terms. Saved lists hold each card by its printing and always show
+a search page that understands search terms (LOB-108). Saved lists hold each card by its printing and always show
 it with the current card catalog's text. A deck holding a card Automatum can't play yet carries an amber warning and
 can't start a game. Before a game, Prepare deck moves cards between Mainboard and Sideboard for that game alone; the
 saved deck never changes.
@@ -45,7 +45,7 @@ saved deck never changes.
 
 - **LOB-105** The Cards tab shows the list as pictures by section (decks Main / Side / Maybe, cubes Main / Maybe), empty sections too, grouped in the shared type order (SYS-051) with ×N badges. Each section header ends in a + in its section's colour that opens search with that section chosen. (r62)
 - **LOB-215** On the Cards tab, swipe a card to move one copy to another section: right one section up, left one down, wrapping (SYS-083; a cube's two sections either way to the other); tap it for +1, −1, Remove all and Move to…, each with its icon; hold to inspect (SYS-049). (r62)
-- **LOB-216** On the Cards tab a swipe either way moves one copy to the next section (Maybe wraps to Main); "Move to…" lists the other sections and moves every copy. (r35)
+- **LOB-216** On the Cards tab "Move to…" lists the other sections and moves every copy; a swipe moves one copy by the swipe rule (LOB-215, SYS-083). (r35)
 - **LOB-107** A line like "60 main · 15 side · 2 maybe" sits beside the Cards tab's columns control (decks 3, cubes 5 in portrait and 8 in landscape); while the list is looked up or has problems the tab says so ("Fix them in the Text tab") and the + buttons are off; a Cards change rewrites the Text tab in section order. (r35)
 - **LOB-120** A round floating Undo button at the bottom left of the Cards tab (not on the search page), shown only when there is something to undo, takes back Cards tab and search changes one at a time (as in preparation, LOB-049), up to 50, bringing back a cover the change removed; it starts over after a Text tab edit or a link import. (r35)
 - **LOB-142** The first thing above the Cards tab's pictures, scrolling away with them, is a filter: a field ("Filter cards, e.g. t:goblin mv<=2", with an ✕ to clear it) and the chips of search (LOB-108, LOB-119), starting empty for each edit and staying through the search page and the tabs. (r61)
@@ -60,7 +60,7 @@ saved deck never changes.
 - **LOB-122** Search results follow about 0.35 s after typing, sorted by name, 3 columns (5 in landscape), loading more while scrolling; with nothing typed or chosen the page shows a hint. (r35)
 - **LOB-220** Another printing of a card already in the section adds to it; Done counts this visit's change ("Done" when none); adding past the limit says "A deck holds at most 1000 cards."; the search is kept for the next visit in the same edit session. (r35)
 - **LOB-119** Search chips are W U B R G C, mana value 0–6+ and Creature, Planeswalker, Instant, Sorcery, Artifact, Enchantment, Land: within a row any chosen chip matches, and rows and typed text all apply. Colour chips are the mana symbols as drawn in card text, mana value chips generic mana symbols with the number; chips are 32 dp tall, 4 dp apart. (r35)
-- **LOB-108** Search understands Scryfall-style syntax: name words, `t:` type, `o:` rules text, `c:`/`c=`/`c<=` colours, `id:` colour identity, `mv`/`cmc` mana value (from the mana cost), `pow`/`tou`/`loy`, `r:` rarity, `f:` format legality, `s:` set, `is:` layout (e.g. `is:dfc`), comparisons (`mv<=3`), `-` negation, `or` and parentheses. (r35)
+- **LOB-108** Search understands these terms: name words, `t:` type, `o:` rules text, `c:`/`c=`/`c<=` colours, `id:` colour identity, `mv`/`cmc` mana value (from the mana cost), `pow`/`tou`/`loy`, `r:` rarity, `f:` format legality, `s:` set, `is:` layout (e.g. `is:dfc`), comparisons (`mv<=3`), `-` negation, `or` and parentheses. (r35)
 - **LOB-109** Search rules not taken from Scryfall's documentation: */X/? power or toughness counts as 0; a double-faced card's colours count per face; `!name` also matches a face name; rarities order common < uncommon < rare < special < mythic < bonus; `f:` counts restricted cards as legal; planes, schemes and vanguards show only with `include:extras`; Alchemy cards are included. (r35)
 
 ## Saving and card data

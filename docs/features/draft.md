@@ -41,7 +41,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 ## Sources Automatum can't play yet
 
-- **DRF-161** Cubes and draft sets get the deck warning icon (LOB-115) when Automatum can't play any card in them yet (the same words): in the Cubes tab, the saved cube view, the cube editor, the Source dialog's tabs, and by the source in New pod and pod setup (a cube there only when chosen from your cubes). (r57)
+- **DRF-161** Cubes and draft sets get the deck warning icon (LOB-115) when even one of their cards is one Automatum can't play yet (LOB-144; the same words): in the Cubes tab, the saved cube view, the cube editor, the Source dialog's tabs, and by the source in New pod and pod setup (a cube there only when chosen from your cubes). (r57)
 - **DRF-187** A cube's result (for the warning and for starting) is worked out by the server like a deck's, from its cards' marks when the cube is chosen (LOB-124); a set's is the card catalog's mark (SYS-082); both are known at once, and they are the same on the phone and the server. (r57)
 - **DRF-162** A source with the warning (DRF-161) can't start a pod or draft: New pod's Create and pod setup's Start draft and auto-start are greyed with "Automatum can't play every card of this source yet. Hold the warning sign to see which."
 - **DRF-188** The server refuses creating a pod from, or switching it to, a cube or set Automatum can't play every card of, keeps the result with the pod, and refuses Start draft, auto-start and challenges from it; a set the catalog doesn't list for drafting is refused too.

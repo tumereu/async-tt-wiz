@@ -6,7 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
 import org.junit.After
@@ -88,7 +88,7 @@ class DesktopDraftScreenshotTest {
         compose.waitForIdle()
     }
 
-    // WEB-044, WEB-036, WEB-062, DRF-056, DRF-057, DRF-061, DRF-065 (D9): the pick by clicks and keys, the trays at the bottom with
+    // WEB-044, WEB-093, WEB-036, WEB-062, DRF-056, DRF-057, DRF-061, DRF-065 (D9): the pick by clicks and keys, the trays at the bottom with
     // Confirm at the end of their row (owner playtest 2026-11-16), the tabs in the header's row between the hamburger and avatars
     @Test fun draftPick() {
         val head = DraftPrivatePack("pack-a", 1, (0..13).map { copy(it) }, 2, "bob")
@@ -148,7 +148,7 @@ class DesktopDraftScreenshotTest {
         assertTrue(!podHeaderOneRow(androidx.compose.ui.unit.Dp(1024f), 3, 16, 3, navigation = true))
     }
 
-    // WEB-044, DRF-061, DRF-065 (owner playtest 2026-11-15): in the owner's 1920 × 919 window the marks on the pack cards (their
+    // WEB-044, WEB-094, DRF-061, DRF-065 (owner playtest 2026-11-15): in the owner's 1920 × 919 window the marks on the pack cards (their
     // borders and badges) and the trays' count chips are drawn 1.5 times the phone's size; the ⋯ sits under a marked card's badge
     @Test @Config(qualifiers = "w1920dp-h919dp-land-mdpi") fun draftPickMarks() {
         val head = DraftPrivatePack("pack-a", 1, (0..13).map { copy(it) }, 2, "bob")
@@ -189,7 +189,7 @@ class DesktopDraftScreenshotTest {
             draft = DraftPrivateView("alice", null, 0, main + copy(16)), build = build)
     }
 
-    // WEB-061, DRF-111, DRF-114, DRF-117, DRF-118 (owner playtest 2026-11-15): the pod's Stats on the desktop layout keeps
+    // WEB-061, WEB-110, DRF-111, DRF-114, DRF-117, DRF-118 (owner playtest 2026-11-15): the pod's Stats on the desktop layout keeps
     // Settings' readable width, the deck's numbers in the left column and the colours, notes and counters in the right
     @Test fun stats() {
         val detail = statsDetail()
@@ -241,7 +241,7 @@ class DesktopDraftScreenshotTest {
             "Alice's Build on the desktop layout, each column's cards overlapping so only their name strips show above its last card, with the pointer on Tidecall Adept's right quarter, the last card of its column: that quarter is tinted Maybe's amber with \"Maybe ▸\" and the left one faintly Side's blue with \"◂ Side\", where a click moves one copy and a Shift+click every copy; the section headers have no Review, as Build has no one-by-one review on the desktop.")
     }
 
-    // WEB-063 (owner playtest 2026-11-16): the pointer on the name strip of a card high in its column brings that card to the front,
+    // WEB-063, WEB-111 (owner playtest 2026-11-16): the pointer on the name strip of a card high in its column brings that card to the front,
     // whole and in place, over the cards below it; its edge zones show
     @Test fun buildHoveredCardInFront() {
         val main = (0..15).map { copy(it) } + copy(9, 1)

@@ -34,7 +34,7 @@ class DesktopHotkeysTest {
         assertEquals("←", KeyChord("ArrowLeft").label)
     }
 
-    // WEB-031 (§6): the default keys: Space the main button, Shift+Space its hold, Ctrl+Z Undo, T timeline mode, …
+    // WEB-031, WEB-108, WEB-089 (§6): the default keys: Space the main button, Shift+Space its hold, Ctrl+Z Undo, T timeline mode, …
     @Test fun theDefaultKeysAreTheSpecs() {
         val keys = KeyBindings()
         assertEquals(HotkeyAction.Main, hotkeyOf(key(" "), keys))
@@ -51,14 +51,14 @@ class DesktopHotkeysTest {
         assertEquals(defaults.size, defaults.toSet().size, "no two hotkeys share a default")
     }
 
-    // WEB-031 (§6): keys never act while a text field has the keyboard, nor on their release
+    // WEB-031, WEB-090 (§6): keys never act while a text field has the keyboard, nor on their release
     @Test fun keysNeverActWhileTyping() {
         assertNull(hotkeyOf(key(" ", typing = true), KeyBindings()))
         assertNull(hotkeyOf(key("c", typing = true), KeyBindings()))
         assertNull(hotkeyOf(key(" ", down = false), KeyBindings()))
     }
 
-    // WEB-035: taking a key another hotkey has leaves that one without a key; the bindings keep only what differs from the
+    // WEB-035, WEB-092: taking a key another hotkey has leaves that one without a key; the bindings keep only what differs from the
     // defaults; "Reset all" restores them
     @Test fun takingAUsedKeyLeavesTheOtherWithout() {
         val bound = KeyBindings().bind(HotkeyAction.Timeline, KeyChord("C"))
@@ -82,7 +82,7 @@ class DesktopHotkeysTest {
         assertEquals(KeyBindings(), KeyBindings().bind(HotkeyAction.Main, KeyChord("Space")).bindings)
     }
 
-    // WEB-035 (§6): Esc, Enter, 1–9 and ? can't be taken; Ctrl with a digit can
+    // WEB-035, WEB-092 (§6): Esc, Enter, 1–9 and ? can't be taken; Ctrl with a digit can
     @Test fun theFixedKeysCantBeTaken() {
         for (chord in listOf(KeyChord("Escape"), KeyChord("Enter"), KeyChord("1"), KeyChord("9"), KeyChord("?")))
             assertTrue(KeyBindings.refusal(chord) != null, chord.text)
@@ -123,7 +123,7 @@ class DesktopHotkeysTest {
         assertEquals(listOf("mode 3", "mode 1", "way 2!"), chosen)
     }
 
-    // WEB-024, WEB-031: Shift held is the finger, but with another key it is a chord (Shift+Space): the Inspect it opened closes,
+    // WEB-024, WEB-086, WEB-031: Shift held is the finger, but with another key it is a chord (Shift+Space): the Inspect it opened closes,
     // the view goes on, its release does nothing more; Alt with another key stays the finger
     @Test fun shiftWithAnotherKeyIsAChordNotTheFinger() {
         val key = DesktopFingerKey()
@@ -139,7 +139,7 @@ class DesktopHotkeysTest {
         assertEquals(listOf(Effect.Pause(false), Effect.Close), key.release("Alt"))
     }
 
-    // WEB-031, WEB-035 (owner playtest 2026-11-15): the hold key for Control mode: Ctrl (or ⌘) alone, or a key without
+    // WEB-031, WEB-088, WEB-035 (owner playtest 2026-11-15): the hold key for Control mode: Ctrl (or ⌘) alone, or a key without
     // modifiers; Ctrl with another key is that key's chord, never the hold key; it is listed with the table's hotkeys,
     // rebindable, its default Ctrl
     @Test fun theHoldKeyIsCtrlAloneOrAPlainKey() {
@@ -156,7 +156,7 @@ class DesktopHotkeysTest {
         assertEquals(KeyChord("M"), bound.bindings.keyOf(HotkeyAction.ControlHold))
     }
 
-    // WEB-031: held alone past its delay the hold begins (Control mode) and its release ends it, back to what it was; let go
+    // WEB-031, WEB-088: held alone past its delay the hold begins (Control mode) and its release ends it, back to what it was; let go
     // sooner, or with another key pressed meanwhile (a chord), nothing begins
     @Test fun theHoldKeyBeginsAfterItsDelayAndEndsOnRelease() = kotlinx.coroutines.runBlocking {
         val log = mutableListOf<String>()

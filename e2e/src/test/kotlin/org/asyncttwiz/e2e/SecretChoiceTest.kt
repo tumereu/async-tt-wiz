@@ -37,7 +37,7 @@ class SecretChoiceTest : E2e() {
     private fun bobsTexts(): List<String> = bob.shownTexts.toList() + bob.engine { device.session.events.toList() }
         .map { EngineEventText.of(it, bob.shown.engine, bob.id, names()) }
 
-    // TBL-133, HIS-091, HIS-062, SYS-039 (owner 2026-11-16; CR 607.2d, CR 118.3): a secret choice shows only to its chooser until the rules reveal
+    // TBL-133, TBL-193, HIS-091, HIS-124, HIS-062, SYS-039 (owner 2026-11-16; CR 607.2d, CR 118.3): a secret choice shows only to its chooser until the rules reveal
     // it; the event that reveals it names it on both tables
     @Test fun aSecretChoiceStaysHiddenFromTheOtherPlayerUntilItIsRevealed() {
         // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,

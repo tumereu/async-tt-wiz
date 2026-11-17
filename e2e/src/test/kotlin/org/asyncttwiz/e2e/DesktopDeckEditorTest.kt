@@ -22,7 +22,7 @@ class DesktopDeckEditorTest : E2e() {
     private val deck = TestDeck("E2E Desktop", listOf(TestCards.mountain to 20, TestCards.cub to 10))
     private fun result(name: String) = hasTestTag("search-result-$name")
 
-    // WEB-037, WEB-039, WEB-040, WEB-041, LOB-105, LOB-121: from the side menu to the saved deck and its editor; a click on a
+    // WEB-037, WEB-039, WEB-097, WEB-040, WEB-041, LOB-105, LOB-219, LOB-121: from the side menu to the saved deck and its editor; a click on a
     // search result adds a copy to the section chosen in Add to; Hide search folds the search into its rail and the rail
     // opens it again with the same search; Ctrl+S saves the deck with the added cards
     @Test fun buildADeckInTheTwoPaneEditor() {
@@ -38,7 +38,7 @@ class DesktopDeckEditorTest : E2e() {
         waitUntil("the saved deck") { alice.showsText("Edit") && alice.showsText("Mainboard · 30") }
         alice.text("Edit").performClick()
 
-        // WEB-039: the list and the search side by side
+        // WEB-039, WEB-097: the list and the search side by side
         waitUntil("the two-pane editor") { alice.shows(hasTestTag("card-search-pane")) && alice.shows(hasTestTag("card-list-cards")) }
         alice.tagged("card-search-field").performTextInput("spark")
         waitUntil("Storm Spark found") { alice.shows(result("Storm Spark")) }

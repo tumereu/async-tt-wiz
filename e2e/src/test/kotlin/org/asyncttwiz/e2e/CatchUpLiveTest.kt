@@ -23,7 +23,7 @@ class CatchUpLiveTest : E2e() {
         bob.status is GameDevice.Status.Stopped
     }
 
-    // HIS-094, HIS-095, HIS-105, TRN-059, STK-029 (owner 2026-11-05: resolving at a playback stop didn't work): Bob comes
+    // HIS-094, HIS-159, HIS-160, HIS-095, HIS-163, HIS-105, TRN-059, TRN-121, STK-029 (owner 2026-11-05: resolving at a playback stop didn't work): Bob comes
     // back to Alice's Ember Herald played while he was away; his table looks like live play with the centre text and the
     // playback's quick actions (live play's response mode cell, Assume resolves greyed and Autotap mana); a tap starts playback, which stops at her spell (he holds an Idle Glimmer, so he could
     // respond); Resolve on the main button there confirms and playback goes on (stopping again at her trigger) until his
@@ -37,7 +37,7 @@ class CatchUpLiveTest : E2e() {
         assertTrue(!bob.showsTimelineLook(), "no timeline look")
         assertTrue(!bob.showsText("Catching up"), "no catching-up label")
         assertTrue(bob.showsControl("Response mode") && bob.showsControl("Autotap mana"), bob.screen())
-        // TRN-059 (owner playtest 2026-11-12): Assume resolves stays in its place, greyed (the device assumes nothing while catching up)
+        // TRN-059, TRN-121 (owner playtest 2026-11-12): Assume resolves stays in its place, greyed (the device assumes nothing while catching up)
         assertTrue(bob.shows(androidx.compose.ui.test.hasContentDescription("Assume resolves setting") and androidx.compose.ui.test.isNotEnabled()), bob.screen())
 
         bobWatchesToAStop("Bob's playback stopping at Alice's spell")
@@ -78,12 +78,12 @@ class CatchUpLiveTest : E2e() {
             serverGame() != null && alice.engine { device.session.events }.any { e -> e.author == bob.id &&
                 e.engine?.steps.orEmpty().any { (it.input as? Input.Cast)?.card?.let(::atw) == glimmer } }
         }
-        // HIS-097's note on Alice's table (shown for a few seconds)
+        // The branch note (HIS-097, HIS-185) on Alice's table (shown for a few seconds)
         waitUntil("Alice told") { alice.told("${bob.name} responded — your End turn was taken back") }
-        // HIS-106: her table stops at the branch point; her tap plays Bob's answer back
+        // HIS-106, HIS-190: her table stops at the branch point; her tap plays Bob's answer back
         alice.continuesPastBranchStop(this)
         assertTrue(alice.engine { device.session.events }.none { it.id == cast.next.id }, "the assumed line is discarded")
-        // HIS-096 point ownership (owner 2026-11-07: the rule exactly as specified): once his Glimmer resolves, Bob has
+        // HIS-096, HIS-175, HIS-176, HIS-177 point ownership (owner 2026-11-07: the rule exactly as specified): once his Glimmer resolves, Bob has
         // priority with her Herald still on the Stack. The last real input before that point was his Glimmer (passes don't
         // count), so the point is his: only his response mode decides, his Quick mode stops there (he could still respond),
         // and Alice's phone waits for him there instead of assuming his pass by her Assume: Always
@@ -111,7 +111,7 @@ class CatchUpLiveTest : E2e() {
         assertTrue(bob.leaks.leaks.isEmpty() && alice.leaks.leaks.isEmpty())
     }
 
-    // HIS-095: Bob can't respond to anything of Alice's turn (no Glimmer), so his playback would run to the newest event;
+    // HIS-095, HIS-165: Bob can't respond to anything of Alice's turn (no Glimmer), so his playback would run to the newest event;
     // a tap on the table while it runs pauses it at the next point where he gets priority (where Full control would stop),
     // live there, with the centre text back; the centre text resumes it
     @Test fun aTapOnTheTablePausesAtTheNextPriorityPoint() {

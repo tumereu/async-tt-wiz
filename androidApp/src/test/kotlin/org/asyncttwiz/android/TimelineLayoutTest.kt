@@ -5,8 +5,8 @@ import org.junit.Test
 import kotlin.test.*
 
 class TimelineLayoutTest {
-    // HIS-001, HIS-007: play mode's bottom bar is only the controls; timeline mode's panel adds its strip in portrait, the
-    // HUD sitting right above either; in landscape both are one row, your hand in it (TBL-009), and nothing moves
+    // HIS-001, HIS-007, HIS-169: play mode's bottom bar is only the controls; timeline mode's panel adds its strip in portrait, the
+    // HUD sitting right above either; in landscape both are one row, your hand in it (TBL-009, TBL-144), and nothing moves
     @Test fun theHudSitsAboveThePlayBarOrTheTimelinePanelInBothOrientationsAtEveryZoom() {
         for ((width, height, landscape) in listOf(Triple(360f, 640f, false), Triple(412f, 892f, false),
             Triple(640f, 360f, true), Triple(892f, 412f, true))) for (zoom in listOf(.65f, 1f, 2f)) {

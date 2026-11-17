@@ -36,7 +36,7 @@ class DesktopDraftTest : E2e() {
     private fun marked(id: String, mark: String) =
         alice.shows(hasTestTag("pod-pick-card-$id") and SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, mark))
 
-    // WEB-044, WEB-028, WEB-036, DRF-060: a right-click burns a card, a click keeps another, K over a third keeps it instead,
+    // WEB-044, WEB-093, WEB-028, WEB-036, DRF-060: a right-click burns a card, a click keeps another, K over a third keeps it instead,
     // Enter confirms: the server takes the third card into Alice's pool. Owner playtest 2026-11-16: Confirm sits at the end of the
     // trays' row, not full width under them; WEB-062: the tabs share the header's row
     @Test fun aPickByClicksAndKeys() {
@@ -52,7 +52,7 @@ class DesktopDraftTest : E2e() {
         waitUntil("a right-click burned the first card") { marked(burned, "Burn") }
         card(clicked).performMouseInput { click() }
         waitUntil("a click kept the second") { marked(clicked, "Keep") }
-        // WEB-044 (owner playtest 2026-11-15): the marks and the trays' chips half as large again as the phone's
+        // WEB-044, WEB-094 (owner playtest 2026-11-15): the marks and the trays' chips half as large again as the phone's
         fun height(matcher: SemanticsMatcher) = alice.nodes(matcher).onFirst().fetchSemanticsNode().boundsInRoot.height
         for (id in listOf(burned, clicked)) {
             val badge = height(hasTestTag("pod-pick-badge") and hasAnyAncestor(hasTestTag("pod-pick-card-$id")))
@@ -81,7 +81,7 @@ class DesktopDraftTest : E2e() {
         assertTrue(ServerSetup.pod(alice.account, pod).draft?.pool.orEmpty().none { it.id == clicked || it.id == burned }, "only the kept card")
     }
 
-    // WEB-061, DRF-118 (owner playtest 2026-11-15): Alice's Stats keeps a readable width in two columns, the curve and the
+    // WEB-061, WEB-110, DRF-118 (owner playtest 2026-11-15): Alice's Stats keeps a readable width in two columns, the curve and the
     // mana table left, the donut, notes and counters right, where she writes a note and raises a counter
     @Test fun statsInTwoColumnsWithNotes() {
         launchPlayers(aliceDesktop = true)
@@ -109,7 +109,7 @@ class DesktopDraftTest : E2e() {
         }
     }
 
-    // WEB-045, WEB-046, DRF-099: a click on a Main card's left edge zone moves it to Side; → over another Main card moves it to Maybe.
+    // WEB-045, WEB-112, WEB-095, WEB-046, DRF-099: a click on a Main card's left edge zone moves it to Side; → over another Main card moves it to Maybe.
     // Owner playtest 2026-11-16: a click in a card's middle opens no menu and moves nothing
     @Test fun buildCardsMoveByTheirEdgeZones() {
         launchPlayers(aliceDesktop = true)
@@ -136,7 +136,7 @@ class DesktopDraftTest : E2e() {
         assertTrue(!alice.showsText("Review ›"), "no one-by-one review on the desktop layout")
     }
 
-    // WEB-063, WEB-045 (owner playtest 2026-11-16): Build's columns overlap, only the covered cards' name strips showing; the
+    // WEB-063, WEB-111, WEB-045, WEB-112 (owner playtest 2026-11-16): Build's columns overlap, only the covered cards' name strips showing; the
     // pointer on a strip brings that card to the front with its edge zones; a Shift+click on an edge zone moves every copy
     @Test fun buildColumnsOverlapAndShiftClickMovesEveryCopy() {
         launchPlayers(aliceDesktop = true)

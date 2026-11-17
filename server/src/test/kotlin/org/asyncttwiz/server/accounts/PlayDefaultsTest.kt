@@ -9,7 +9,7 @@ import org.asyncttwiz.server.history.HistoryWorld
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** LOB-113, HIS-096 (owner, 2026-11-09): "No mana" is Assume's default in new games, for every account; games in play keep theirs. */
+/** LOB-113, LOB-228, HIS-096 (owner, 2026-11-09): "No mana" is Assume's default in new games, for every account; games in play keep theirs. */
 class PlayDefaultsTest {
     private fun json(settings: PlaySettings) = GameWire.json.encodeToString(PlaySettings.serializer(), settings)
 

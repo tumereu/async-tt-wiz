@@ -43,7 +43,7 @@ class TablePresentationTest {
     // the rows' left ends where they were; portrait, and a camera the player moved, are left alone
     @Test fun landscapeOpensOnBothBattlefieldsWholeHeight() {
         val play = TableFixture.play(board = 3, hand = 2)
-        // TBL-009 (owner, 2026-11-08): with your hand in the bottom bar the battlefields are taller: cards a little larger
+        // TBL-009, TBL-144 (owner, 2026-11-08): with your hand in the bottom bar the battlefields are taller: cards a little larger
         // than before don't fit at 1×
         fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true, size: Float = .85f) =
             TablePresentation.scene(TableFixture.game, tableBoard(play), "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
@@ -68,7 +68,7 @@ class TablePresentationTest {
         assertEquals(moved, scene(true, TableLayoutState(moved)).camera)
     }
 
-    // TBL-009: in landscape every pile size setting fits the bar rows: the piles at most 32 dp tall, each with its own
+    // TBL-009, TBL-145: in landscape every pile size setting fits the bar rows: the piles at most 32 dp tall, each with its own
     // whole 48 dp touch target inside its row, nothing scrolling sideways
     @Test fun landscapeBarRowsFitAllPileSizesAndGlobalCardSizeFallbacksWithoutScrolling() {
         val sizes = (5..30).map { it / 10f }
@@ -105,7 +105,7 @@ class TablePresentationTest {
         }
     }
 
-    // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar, after your life square and piles, up to
+    // TBL-009, TBL-144 (owner, 2026-11-08): in landscape your hand sits in the bottom bar, after your life square and piles, up to
     // the bar's fixed-width right end (the controls); no hand strip above the bar: the battlefields reach the bar. Portrait
     // keeps its hand row above the bottom bar
     @Test fun landscapeHandSitsInTheBottomBarBeforeTheControls() {
@@ -132,7 +132,7 @@ class TablePresentationTest {
         assertTrue(hand.bottom <= portrait.viewports.single { it.id == "dock/a" }.bounds.y, "portrait: above the own piles row: $hand")
     }
 
-    // TBL-009, STK-007 (owner, 2026-11-07): in landscape the opponent's life square and piles sit in the top bar after the
+    // TBL-009, TBL-144, TBL-145, STK-007 (owner, 2026-11-07): in landscape the opponent's life square and piles sit in the top bar after the
     // turn header, yours in the bottom bar left of the controls; the battlefields take the whole width and the Stack is
     // pinned at the right edge, mid-screen, as in portrait
     @Test fun landscapeRowsSitInTheBarsWithTheStackAtTheRightEdge() {
@@ -197,7 +197,7 @@ class TablePresentationTest {
                     // TBL-003: three rows, the land row by the player's own edge
                     assertEquals(field.gridBounds.height / 3, lands.height, .001f)
                     assertEquals(lands, lands.intersection(field.gridBounds))
-                    // CMB-007: the combat band lies between the battlefields, never over their outer lands rows
+                    // CMB-007, CMB-056: the combat band lies between the battlefields, never over their outer lands rows
                     assertNull(lands.intersection(lane))
                     val camera = scene.world!!.clamp(TableCamera(y = if (field.owner == "a") 10000f else -10000f))
                     val panned = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", w, h, true,
@@ -205,7 +205,7 @@ class TablePresentationTest {
                     val land = panned.items.single { it.cardId == "${field.owner}/BATTLEFIELD/0" }
                     val pannedLands = panned.fields.single { it.owner == field.owner }.landsBounds(field.owner == "a")
                     assertTrue(land.visible.any { it.intersection(pannedLands) != null })
-                    // CMB-007 (owner, 2026-11-05): an open band pushes the battlefields apart, so on a low screen they are
+                    // CMB-007, CMB-054 (owner, 2026-11-05): an open band pushes the battlefields apart, so on a low screen they are
                     // panned to (above); without combat their middle shows at once
                     if (!combat) assertTrue(scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/2" }.visible.isNotEmpty())
                 }
@@ -244,7 +244,7 @@ class TablePresentationTest {
             val cards = scene.items.filter { it.kind == TableItemKind.CARD }
             assertTrue(cards.isNotEmpty())
             cards.forEach { c ->
-                // ZON-001: the other player's hand in portrait is a fan of smaller, turned cards: their faces are measured
+                // ZON-001, ZON-125: the other player's hand in portrait is a fan of smaller, turned cards: their faces are measured
                 val scale = if (c.zone == PlayZone.BATTLEFIELD) zoom else if (c.cardTransform != null) TablePresentation.FAN_CARD else 1f
                 val face = c.faceTransform()
                 assertEquals(28 * scale, minOf(face.width, face.height), .001f)
@@ -255,15 +255,15 @@ class TablePresentationTest {
                     assertTrue(c.bounds.y >= c.footprint.y && c.bounds.bottom <= c.footprint.bottom)
                 }
             }
-            // TBL-009: landscape's piles fit their bar row, a little smaller
+            // TBL-009, TBL-145: landscape's piles fit their bar row, a little smaller
             scene.items.filter { it.kind == TableItemKind.PILE }.forEach {
                 assertTrue(it.bounds.width >= if (landscape && it.zone != PlayZone.STACK) 28f * .8f - .001f else 28f) }
         }
     }
 
-    // TBL-002
+    // TBL-002, TBL-143
     @Test fun battlefieldGroupsHaveFixed42DpSlotsAndRotateAroundTheSameCenter() {
-        // The 1st and 3rd cards lie side by side in the upper band's row nearest the middle (the 2nd behind the 1st, TBL-004)
+        // The 1st and 3rd cards lie side by side in the upper band's row nearest the middle (the 2nd behind the 1st, TBL-004, TBL-140)
         val play = TableFixture.apart(TableFixture.play(board = 3))
         for (tapped in listOf(false, true)) {
             val state = play.copy(board = play.board.copy(cards = play.board.cards.map { it.copy(tapped = tapped) }))
@@ -349,7 +349,7 @@ class TablePresentationTest {
             for (owner in listOf("a", "b")) {
                 val id = TableFixture.container(owner, PlayZone.HAND)
                 if (!landscape && owner == "b") {
-                    // ZON-001: the other player's hand in portrait is a fan in their row after their piles: every card there, in
+                    // ZON-001, ZON-125: the other player's hand in portrait is a fan in their row after their piles: every card there, in
                     // the hand's order
                     val row = scene.viewports.single { it.id == "dock/b" }.bounds
                     val fan = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == "b" }
@@ -388,7 +388,7 @@ class TablePresentationTest {
             val stack = scene.items.single { it.zone == PlayZone.STACK }
             val dock = scene.viewports.single { it.id == "dock/a" }
             assertEquals(TableFixture.scene(p, landscape).viewports.single { it.id == dock.id }.maxScroll, dock.maxScroll)
-            // STK-007: pinned at the right edge in both orientations (TBL-009)
+            // STK-007: pinned at the right edge in both orientations (TBL-009, TBL-145)
             assertEquals(if (landscape) 900f else 412f, scene.stackRegion!!.right, .001f)
             if (!landscape) assertEquals(410f, stack.bounds.center.y)
             val end = TableFixture.scene(p, landscape, TableLayoutState(TableCamera(zoom = 2f),
@@ -434,7 +434,7 @@ class TablePresentationTest {
             assertTrue(stack.bounds.center.y > opponent.bounds.center.y)
             assertTrue(stack.bounds.center.y < own.bounds.center.y)
             assertNotNull(scene.stackRegion)
-            // STK-007, TBL-009: pinned at the right edge in both orientations
+            // STK-007, TBL-009, TBL-145: pinned at the right edge in both orientations
             assertEquals(if (landscape) 900f else 412f, scene.stackRegion!!.right, .001f)
             if (!landscape) assertEquals(410f, stack.bounds.center.y)
             }
@@ -464,7 +464,7 @@ class TablePresentationTest {
                     val bottomHand = scene.items.single { it.id == "a/HAND" }.bounds
                     val stack = scene.items.single { it.id == "stack" }
                     val region = assertNotNull(scene.stackRegion)
-                    // ZON-001: the other player's hand is a fan in their row; the battlefields start under that row
+                    // ZON-001, ZON-125: the other player's hand is a fan in their row; the battlefields start under that row
                     assertEquals(topCounters?.bottom ?: topDock.bottom, scene.world!!.viewport.y, .001f)
                     assertTrue(topHand.y >= topDock.y && topHand.bottom <= topDock.bottom, "$topHand in $topDock")
                     assertEquals(bottomHand.bottom, bottomDock.y, .001f)
@@ -498,7 +498,7 @@ class TablePresentationTest {
         }
     }
 
-    // CMB-001, CMB-007 (owner playtest 2026-11-06): the band between the battlefields is always there, collapsed to its
+    // CMB-001, CMB-053, CMB-007, CMB-054 (owner playtest 2026-11-06): the band between the battlefields is always there, collapsed to its
     // chip row (also with a combat area nobody attacks in); once an attacker is in the area it opens by itself, pushing
     // the battlefields apart to hold its lanes
     @Test fun theCombatBandIsAlwaysThereAndOpensWithAnAttacker() {
@@ -535,7 +535,7 @@ class TablePresentationTest {
         for (review in listOf(false, true)) {
             val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(LiveTableFixture.play()), "a", 412f, 892f, false, reviewing = review)
             assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.y, scene.world!!.viewport.bottom, .01f)
-            // ZON-001: the other player's hand is a fan in their row: the battlefields reach up to it
+            // ZON-001, ZON-125: the other player's hand is a fan in their row: the battlefields reach up to it
             assertEquals(scene.viewports.single { it.id == "dock/b" }.bounds.bottom, scene.world!!.viewport.y, .01f)
             assertTrue(scene.fields.first().bounds.height > 100f)
         }
@@ -553,7 +553,7 @@ class TablePresentationTest {
         assertEquals("Covered card", TablePresentation.inspection(tableBoard(uncovered), "a", "b/HAND/0")!!.name)
     }
 
-    // ZON-001, ZON-073
+    // ZON-001, ZON-127, ZON-073
     @Test fun handStripMenuPreviewAndInspectionAgreeForHolderAndOpponentRegardlessOfCoverFlag() {
         for (covered in listOf(false, true)) {
             val p = TableFixture.play(hand = 1).let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->

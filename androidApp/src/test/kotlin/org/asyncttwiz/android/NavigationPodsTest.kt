@@ -5,7 +5,7 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -120,7 +120,7 @@ class NavigationPodsTest {
         compose.onNodeWithText("Invitation only").assertDoesNotExist()
     }
 
-    // LOB-018, DRF-013
+    // LOB-018, DRF-013, DRF-189
     @Test fun drawerPodsFollowTheSharedPodOrder() {
         fun at(pod: PodSummary, hour: Int, attention: PodAttention) = pod.copy(attention = attention, updatedAt = "2026-10-27T0$hour:00:00Z")
         val entries = listOf(at(pod("old-other"), 1, PodAttention.NONE), at(pod("new-pick"), 4, PodAttention.YOUR_PICK),
@@ -145,7 +145,7 @@ class NavigationPodsTest {
         compose.onNodeWithText("Pods").assertIsSelected()
     }
 
-    // DRF-010
+    // DRF-010, DRF-183
     @Test fun draftThisCubeOpensNewPodWithThatCubeChosen() {
         val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")), printingId = "00000000-0000-4000-8000-000000000201")
         val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 3), listOf(SavedCubeEntry(card.printingId, card.name, 3)))

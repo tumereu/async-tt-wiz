@@ -14,7 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.unit.dp
@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 
-/** CMB-029 (owner playtest 2026-11-06): the damage preview's one badge per creature, at the sizes a card's zoom gives it,
+/** CMB-029, CMB-086 (owner playtest 2026-11-06): the damage preview's one badge per creature, at the sizes a card's zoom gives it,
  * drawn at a phone's density so the pictures show how readable the numbers are. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -34,7 +34,7 @@ import kotlin.test.assertEquals
 class DamageBadgeTest {
     @get:Rule val compose = createComposeRule()
 
-    // CMB-029: a red splash with the number when the creature survives, a black skull with the number inside when it
+    // CMB-029, CMB-086, CMB-087: a red splash with the number when the creature survives, a black skull with the number inside when it
     // dies, the same at every size; the badge keeps its size for two or three digits, the number drawn smaller to fit
     // and centred in the splash or the skull's cranium (owner gallery review 2026-11-07)
     @Test fun aSplashWhenItSurvivesASkullWhenItDies() {
@@ -71,7 +71,7 @@ class DamageBadgeTest {
             "The damage preview's badges at three sizes, smallest first: a red splash with 3 for a creature that survives, a black skull with 2 in its cranium for one that dies, a plain skull for one that dies without damage, then a splash with 12, a skull with 10 and a splash with 120, every badge the same size with the longer numbers drawn smaller to fit.")
     }
 
-    // CMB-029 (owner gallery review 2026-11-07): two-digit damage on cards as large as the table's: the badge keeps its
+    // CMB-029, CMB-087 (owner gallery review 2026-11-07): two-digit damage on cards as large as the table's: the badge keeps its
     // size over the card's middle and its number fits inside, centred
     @Test fun twoDigitDamageOnCards() {
         compose.setContent {

@@ -41,7 +41,7 @@ class EngineSharedStagingTest {
     private fun creatures(s: GameState, player: PlayerId, ready: Boolean) = scenario.creatures(s, player, ready)
     private fun until(done: (GameState) -> Boolean) = scenario.until(done)
 
-    // CMB-043 (I-D54 §8): the staging is shared as the declaring player makes it and ends with the declaration
+    // CMB-043, HIS-122 (I-D54 §8): the staging is shared as the declaring player makes it and ends with the declaration
     @Test fun attackAndBlockStagingAreShared() {
         val me = PlayerId(f.a)
         val other = PlayerId(f.b)
@@ -80,7 +80,7 @@ class EngineSharedStagingTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-031, HIS-030: a change shown on the table flashes from the engine's own changes; a load is a jump
+    // HIS-031, HIS-131, HIS-030: a change shown on the table flashes from the engine's own changes; a load is a jump
     @Test fun lifeLostFlashesAndTheLoadIsAJump() {
         alice.play()
         assertTrue(alice.transition!!.jump)
@@ -147,7 +147,7 @@ class EngineSharedStagingTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // CMB-043 (follow-up to problem reports WCRF3Q, R8XVPA): a block declared at Bob's stop at Alice's "Assume no blockers"
+    // CMB-043, CMB-081 (follow-up to problem reports WCRF3Q, R8XVPA): a block declared at Bob's stop at Alice's "Assume no blockers"
     // (another answer: a branch) ends the shared block staging with it, so no staging is left for a later combat
     @Test fun aBlockDeclaredAtAStopEndsTheStaging() {
         val blocks = blockStaged()
@@ -160,7 +160,7 @@ class EngineSharedStagingTest {
         assertTrue(sim.line().any { e -> e.engine?.steps.orEmpty().any { it.input == block } }, "his block is on the main line")
     }
 
-    // CMB-043 (follow-up to problem reports WCRF3Q, R8XVPA): no blockers declared at that stop (confirming Alice's
+    // CMB-043, CMB-081 (follow-up to problem reports WCRF3Q, R8XVPA): no blockers declared at that stop (confirming Alice's
     // assumption) also ends the staging, in an event of its own after the confirmation
     @Test fun noBlockersDeclaredAtAStopEndsTheStaging() {
         blockStaged()

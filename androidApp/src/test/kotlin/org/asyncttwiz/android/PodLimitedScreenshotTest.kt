@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import coil3.asImage
 import coil3.memory.MemoryCache
 import org.asyncttwiz.protocol.*
@@ -116,7 +116,7 @@ class PodLimitedScreenshotTest {
         compose.onRoot().captureShot(File(SCREENSHOTS, "$name.png").path, caption)
     }
 
-    // DRF-153, DRF-085
+    // DRF-153, DRF-216, DRF-085
     @Test fun rotisseriePoolWithPicksAndASelection() {
         val board = copies.take(12).mapIndexed { index, copy ->
             LimitedSlot(copy, when (index) { 0 -> "bob"; 4 -> "carol"; 7 -> "alice"; else -> null })
@@ -137,7 +137,7 @@ class PodLimitedScreenshotTest {
             "\"Pick Serra Angel\".")
     }
 
-    // DRF-153, DRF-164: on another's turn a tap frames a free card and "Queue <card>" adds it to the end of your queue;
+    // DRF-153, DRF-216, DRF-164, DRF-218: on another's turn a tap frames a free card and "Queue <card>" adds it to the end of your queue;
     // the strip lists the queue in order with removes, queued cards carry their number, and a cleared queue shows its note.
     @Test fun rotisseriePickQueueStripAndQueueButton() {
         val board = copies.take(12).mapIndexed { index, copy -> LimitedSlot(copy, if (index == 4) "bob" else null) }
@@ -173,7 +173,7 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-rotisserie-queue").assertDoesNotExist()
     }
 
-    // DRF-155, DRF-085
+    // DRF-155, DRF-215, DRF-085
     @Test fun rochesterOpenPacksWithHeadersAndPicks() {
         fun pack(index: Int, opener: String, current: String?, picked: Map<Int, String>): LimitedPackView {
             val cards = copies.drop(index * 6).take(6)
@@ -223,7 +223,7 @@ class PodLimitedScreenshotTest {
             "pile 3 framed, and \"Take pile 3 (3 cards)\" below.")
     }
 
-    // DRF-158, DRF-159: several tables get a chip row; the screen opens on a table where it is your pick, shows only that
+    // DRF-158, DRF-224, DRF-159, DRF-225, DRF-226: several tables get a chip row; the screen opens on a table where it is your pick, shows only that
     // table's piles, and moves to another such table once the server's answer to your take shows.
     @Test fun winchesterTablesChipRowOpensOnYourPick() {
         val first = listOf(listOf(copies[0], copies[1]), listOf(copies[2]), listOf(copies[3]))
@@ -262,7 +262,7 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-limited-confirm").assertDoesNotExist()
     }
 
-    // DRF-156, DRF-157: Winston tables get the same chip row ("Bob looks" as its pile line says); the screen opens on the
+    // DRF-156, DRF-221, DRF-157, DRF-222, DRF-223: Winston tables get the same chip row ("Bob looks" as its pile line says); the screen opens on the
     // table where it is your pick, a pass keeps it there and a take moves on to a table where it is your pick.
     @Test fun winstonTablesChipRowOpensOnYourPick() {
         val first = listOf(listOf(null, null), listOf<DraftCopy?>(null), listOf<DraftCopy?>(null))
@@ -293,7 +293,7 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithText("Pile 1 · 2 cards · you look at it").assertIsDisplayed()
     }
 
-    // DRF-158: one table shows no chip row.
+    // DRF-158, DRF-225: one table shows no chip row.
     @Test fun winchesterOneTableHasNoChipRow() {
         val piles = listOf(listOf(copies[0]), listOf(copies[1]))
         val view = LimitedView(DraftMode.WINCHESTER, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
@@ -305,7 +305,7 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithText("Your pick · Stack: 10 cards").assertIsDisplayed()
     }
 
-    // DRF-165, DRF-043: the draft history lists your picks in order, each pack as it came with keeps green and burns red, a
+    // DRF-165, DRF-206, DRF-207, DRF-208, DRF-209, DRF-210, DRF-211, DRF-043: the draft history lists your picks in order, each pack as it came with keeps green and burns red, a
     // wheel's cards taken since greyed under their own line, a header per round naming where its packs went ("Round 2 ·
     // passed to Carol · counter-clockwise") with a divider between rounds, and the seat ring at the top; "Returning packs
     // only" leaves only the packs that came back and is remembered per pod; a failure offers Retry
@@ -370,7 +370,7 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-history-retry").assertExists()
     }
 
-    // DRF-160
+    // DRF-160, DRF-227
     @Test fun picksDialogShowsSeenCardsAndBacksNewestFirst() {
         val picks = listOf(PodOpponentPicks(bob, listOf(null, copies[0], copies[1], null, copies[2])), PodOpponentPicks(carol, emptyList()))
         show({ "pod-picks-${it.id}" }, copies.take(3)) {
@@ -381,7 +381,7 @@ class PodLimitedScreenshotTest {
             "first: cards Alice saw face up, the others as card backs, with a chip per opponent.")
     }
 
-    // DRF-160: holding a card shows it in a window of the dialog, and so over it, not in the app's window behind it
+    // DRF-160, DRF-227: holding a card shows it in a window of the dialog, and so over it, not in the app's window behind it
     @Test fun holdingACardInThePicksDialogShowsItOverTheDialog() {
         val picks = listOf(PodOpponentPicks(bob, listOf(copies[0])))
         show({ "pod-picks-${it.id}" }, copies.take(1)) { PodPicksDialog(picks, definitions) {} }

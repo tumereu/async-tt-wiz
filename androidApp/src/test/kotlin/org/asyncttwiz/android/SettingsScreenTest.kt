@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CompletableDeferred
@@ -127,7 +127,7 @@ class SettingsScreenTest {
         }
     }
 
-    // LOB-113 (I-D56 §7, §13; owner 2026-11-09): new games start in Quick with Assume resolves When they have no mana and Autotap on; without an
+    // LOB-113, LOB-228 (I-D56 §7, §13; owner 2026-11-09): new games start in Quick with Assume resolves When they have no mana and Autotap on; without an
     // account (signed out) the device keeps them per account
     @Test fun automatumPlayDefaults() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

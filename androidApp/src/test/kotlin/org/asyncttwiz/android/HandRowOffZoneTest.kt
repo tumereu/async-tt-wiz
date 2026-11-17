@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.asyncttwiz.protocol.PlayZone
@@ -23,7 +23,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * ZON-079 (owner, 2026-11-12) on Alice's table: a card she may cast from her graveyard (Ember Flare, a free sorcery with
+ * ZON-079, ZON-105, ZON-106, ZON-107 (owner, 2026-11-12) on Alice's table: a card she may cast from her graveyard (Ember Flare, a free sorcery with
  * flashback {R}) shows at her hand row's right end after a thin divider with a Graveyard badge, while its pile still holds it;
  * it glows and casts as a hand card when she can cast it now, and is dull and shakes when she can't.
  */
@@ -64,7 +64,7 @@ class HandRowOffZoneTest {
 
     private fun rowItem(card: String): TableItem = kit.scene().items.single { it.id == "handRow/$card" }
 
-    // ZON-079: the flashback card in her graveyard is in her hand row, after her hand's cards and a divider, with the
+    // ZON-079, ZON-105, ZON-106, ZON-107: the flashback card in her graveyard is in her hand row, after her hand's cards and a divider, with the
     // Graveyard badge; the graveyard still holds it; with an untapped Mountain it glows (TBL-117) and two taps cast it from
     // there by its flashback cost, Autotap tapping the Mountain, as a hand card is cast
     @Test fun aFlashbackCardInTheGraveyardIsCastFromTheHandRow() {
@@ -94,7 +94,7 @@ class HandRowOffZoneTest {
         assertNull(kit.scene().items.firstOrNull { it.id == "handRow/$flare" }, "exiled: out of the hand row")
     }
 
-    // ZON-079, TBL-128: without mana the flashback card still shows in her hand row, dull, and a tap only shakes it
+    // ZON-079, ZON-107, ZON-106, TBL-128: without mana the flashback card still shows in her hand row, dull, and a tap only shakes it
     @Test fun withoutManaItShowsDullAndShakes() {
         kit.opening()
         val flare = flareInGraveyard()
@@ -105,7 +105,7 @@ class HandRowOffZoneTest {
         assertEquals(flare, toolkit.shaking?.id, "it shakes")
     }
 
-    // ZON-079: the other player's table shows nothing of Alice's flashback card in a hand row
+    // ZON-079, ZON-106: the other player's table shows nothing of Alice's flashback card in a hand row
     @Test fun theOtherPlayersRowHasNone() {
         kit.opening()
         val flare = flareInGraveyard()

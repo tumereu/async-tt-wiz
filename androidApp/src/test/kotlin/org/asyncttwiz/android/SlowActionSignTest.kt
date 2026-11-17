@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import org.junit.Rule
@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** TRN-063 (owner, 2026-11-06): when the main button's working sign shows, on the controlled test clock. */
+/** TRN-063, TRN-118 (owner, 2026-11-06): when the main button's working sign shows, on the controlled test clock. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class SlowActionSignTest {
@@ -32,7 +32,7 @@ class SlowActionSignTest {
     /** The action's result arrives ([value] false) or a new one is pressed: the change is applied before time goes on. */
     private fun pending(value: Boolean) { compose.runOnIdle { pending.value = value }; compose.waitForIdle() }
 
-    // TRN-063: a result within 150 ms: nothing shows at any frame
+    // TRN-063, TRN-118: a result within 150 ms: nothing shows at any frame
     @Test fun aQuickResultShowsNothing() {
         start()
         pending(true)
@@ -41,7 +41,7 @@ class SlowActionSignTest {
         repeat(30) { compose.mainClock.advanceTimeBy(16); sign(false) }
     }
 
-    // TRN-063: still pending after 150 ms: the sign shows until the result arrives
+    // TRN-063, TRN-118: still pending after 150 ms: the sign shows until the result arrives
     @Test fun aSlowResultShowsTheSignUntilItArrives() {
         start()
         pending(true)
@@ -52,7 +52,7 @@ class SlowActionSignTest {
         compose.mainClock.advanceTimeBy(32); sign(false)
     }
 
-    // TRN-063: once shown, at least 300 ms, however soon the result arrives
+    // TRN-063, TRN-118: once shown, at least 300 ms, however soon the result arrives
     @Test fun theSignStaysAtLeast300Ms() {
         start()
         pending(true)

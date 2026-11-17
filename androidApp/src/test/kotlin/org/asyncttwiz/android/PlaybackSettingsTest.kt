@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
@@ -70,7 +70,7 @@ class PlaybackSettingsTest {
     }
 
 
-    // HIS-028, LOB-082, HIS-112, HIS-113: Timeline playback holds the two pauses and the time a play shows and a combat holds (1.2 s by default, 0 reads
+    // HIS-028, LOB-082, LOB-240, HIS-112, HIS-136, HIS-113: Timeline playback holds the two pauses and the time a play shows and a combat holds (1.2 s by default, 0 reads
     // "Off"); there are no auto-pause switches
     @Test fun settingsShowsThePlaybackPausesAndThePlaysTime() {
         HistoryPlaybackPreferences(AppPlatform.current, "settings")

@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
 class LibrarySearchTest : E2e() {
     private val inPanel = hasAnyAncestor(hasContentDescription("Automatum choice"))
 
-    // STK-056, STK-044: the search panel: the Trail's ability at its right, "Search your library for a basic land card",
+    // STK-056, STK-190, STK-044, STK-178, STK-176: the search panel: the Trail's ability at its right, "Search your library for a basic land card",
     // the Mountains to pick, the other cards under "Other cards"; the pick survives hiding the panel; OK finds the Mountain
     @Test fun aFetchLandsSearchShowsItsSourceAndKeepsItsPick() {
         startGame(TestDeck.trails(), deal = { a, _ -> "Cinder Trail" in hand(a) })
@@ -54,7 +54,7 @@ class LibrarySearchTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-056 (owner, 2026-11-12: Recruiter of the Guard showed no other cards): a trigger's "you may search your library for
+    // STK-056, STK-190 (owner, 2026-11-12: Recruiter of the Guard showed no other cards): a trigger's "you may search your library for
     // …" is a search too: titled by what is searched, the library's other cards under "Other cards", dimmed and unselectable
     @Test fun aSearchInsideATriggersSentenceShowsTheOtherCards() {
         startGame(TestDeck("Recruiters", listOf(TestCards.mountain to 14, TestCards.recruiter to 13, TestCards.spark to 13)),

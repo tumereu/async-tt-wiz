@@ -42,7 +42,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The browser's table plays (docs/specs/web-client.md §1 item 3, §11 step 4; WEB-007): a board's hand plays and card
+ * The browser's table plays (docs/specs/web-client.md §1 item 3, §11 step 4; WEB-007, WEB-070): a board's hand plays and card
  * menus' plays asked of the engine's Web Worker ([EngineBoundary.remote]) arrive later as its answers, the same as worked
  * out in-process; nothing waits for good (a newer board, a lost worker); Android keeps working them out in-process.
  * The worker here is the engine side of the boundary ([EnginePlanner]) behind the page's message channel, answering
@@ -68,7 +68,7 @@ class WebEnginePlaysTest {
         EngineProjection.Board(BoardState(emptyList(), emptyList(), emptyList(), TurnState(alice)), emptyList()), "game", state,
         model.view(), model.visible(PlayerId(alice)), EngineWorker.Direct, table)
 
-    // WEB-007
+    // WEB-007, WEB-070
     @Test fun theWorkersPlaysArriveLaterAndAreThoseWorkedOutInProcess() {
         val inProcess = values()
         val hand = inProcess.handPlays()
@@ -100,7 +100,7 @@ class WebEnginePlaysTest {
         assertTrue(posted.isEmpty())
     }
 
-    // WEB-007
+    // WEB-007, WEB-070
     @Test fun aNewerBoardEndsTheWaitOfTheOneBefore() {
         EngineBoundary.useRemote(channel)
         val older = values()
@@ -117,7 +117,7 @@ class WebEnginePlaysTest {
         assertNotNull(newer.cardPlays)
     }
 
-    // WEB-007
+    // WEB-007, WEB-070
     @Test fun aLostWorkerEndsTheWaitAndThePageWorksThePlaysOut() {
         EngineBoundary.useRemote(channel)
         val board = values()
@@ -134,7 +134,7 @@ class WebEnginePlaysTest {
         assertFalse(next.askPlays())
     }
 
-    // WEB-007: Android (no worker) works the hand plays out with the board, in-process
+    // WEB-007, WEB-070: Android (no worker) works the hand plays out with the board, in-process
     @Test fun withoutAWorkerThePlaysAreWorkedOutWithTheBoard() {
         val board = values()
         assertFalse(board.askPlays())

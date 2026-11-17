@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 
 /**
  * Prod reports 96PB2X, 3LL6UZ and 3UQ9DY (owner, 2026-11-16, Firefox on Windows): Alice held Alt on the desktop table (the
- * finger held, WEB-025) and its key-up never reached the app (another window, the browser's menu, the chat field): the pause
+ * finger held, WEB-025, WEB-087) and its key-up never reached the app (another window, the browser's menu, the chat field): the pause
  * stayed on, the other player's play shown stood in the middle of her table with no way to end it, and once she went on in
  * the game on her phone too, it stayed there over a board long past it. Alice plays in the desktop layout, Bob on his phone
  * casts Ember Glints assuming her pass, so his phone goes on.
@@ -59,7 +59,7 @@ class FingerKeyLetGoTest : E2e() {
         waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
     }
 
-    // WEB-025, HIS-021 (prod report 96PB2X): Alt let go in another window (Alt+Tab): its key-up never comes, but the window
+    // WEB-025, WEB-087, HIS-021, HIS-126 (prod report 96PB2X): Alt let go in another window (Alt+Tab): its key-up never comes, but the window
     // losing the focus lets it go, so the pause ends and the held play goes on
     @Test fun theWindowLosingTheFocusLetsAltGo() {
         start()
@@ -72,7 +72,7 @@ class FingerKeyLetGoTest : E2e() {
         }
     }
 
-    // WEB-025 (prod report 96PB2X: the chat opened, typed in): a text field taking the keyboard lets Alt go
+    // WEB-025, WEB-087 (prod report 96PB2X: the chat opened, typed in): a text field taking the keyboard lets Alt go
     @Test fun typingInATextFieldLetsAltGo() {
         start()
         clockInStep {
@@ -85,7 +85,7 @@ class FingerKeyLetGoTest : E2e() {
         }
     }
 
-    // WEB-025: a later key or click whose modifiers no longer hold Alt says its key-up was lost: Alt is let go
+    // WEB-025, WEB-087: a later key or click whose modifiers no longer hold Alt says its key-up was lost: Alt is let go
     @Test fun aKeyWithoutAltLetsAltGo() {
         start()
         clockInStep {
@@ -98,7 +98,7 @@ class FingerKeyLetGoTest : E2e() {
         }
     }
 
-    // HIS-112, HIS-095 (prod reports 3LL6UZ, 3UQ9DY): with Alt still held on her desktop, Alice watches on her phone too (her
+    // HIS-112, HIS-142, HIS-095 (prod reports 3LL6UZ, 3UQ9DY): with Alt still held on her desktop, Alice watches on her phone too (her
     // second device, the same account) and it plays on past the Glint: the server moves her on, and her desktop table follows
     // it with the play shown gone (its entry left the Stack), not standing in the middle over a board past it
     @Test fun anotherDeviceGoingOnEndsAPlayShownHeldHere() {

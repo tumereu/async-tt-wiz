@@ -5,7 +5,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
@@ -58,7 +58,7 @@ class GameSettingsUiTest {
         assertEquals(listOf(AssumeReveals(library = true, hands = true), AssumeReveals(library = false, hands = true)), sent)
     }
 
-    // LOB-135: the other player sees the current values, greyed, under who can change them; a change of the host's shows
+    // LOB-135, LOB-154: the other player sees the current values, greyed, under who can change them; a change of the host's shows
     @Test fun theOtherPlayerSeesTheSettingsGreyed() {
         val sent = mutableListOf<AssumeReveals>()
         val game = lobbyCards({ it.recipient.accountId }, sent)

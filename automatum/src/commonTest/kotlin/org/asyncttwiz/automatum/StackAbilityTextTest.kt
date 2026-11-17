@@ -27,7 +27,7 @@ class StackAbilityTextTest {
                 modes = modes, timestamp = 1)) { MtgRef.StackItem("S1") }
         }
 
-    // STK-050: holding an ability on the Stack names its chosen modes on the ability's tile (Inspect shows every face)
+    // STK-050, STK-124: holding an ability on the Stack names its chosen modes on the ability's tile (Inspect shows every face)
     @Test fun aTriggeredAbilityNamesItsChosenModes() {
         assertEquals(listOf("Untap target nonland permanent."), StackAbilityText.modes(entry(listOf(1))))
         assertTrue(StackAbilityText.modes(entry(emptyList())).isEmpty())
@@ -54,7 +54,7 @@ class StackAbilityTextTest {
         assertEquals("you gain 2 life", StackAbilityText.short("At the beginning of your upkeep, you gain two life.", triggered = true))
     }
 
-    // STK-046, STK-050, HIS-091 (owner playtest 2026-11-07, CR 702.29a, CR 702.29c): cycling a card with a "when you cycle"
+    // STK-046, STK-050, HIS-091, HIS-121 (owner playtest 2026-11-07, CR 702.29a, CR 702.29c): cycling a card with a "when you cycle"
     // trigger puts the cycling ability and on it the cycling trigger on the Stack, each named by its kind; the spell's own
     // effect reads short
     @Test fun aCyclingTriggerAndItsCyclingAreNamedByKind() {

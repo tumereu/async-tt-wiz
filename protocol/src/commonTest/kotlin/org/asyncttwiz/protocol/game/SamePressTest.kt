@@ -14,7 +14,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
- * Owner problem report E48RDE (HIS-109, SYS-012, SYS-011): a tap made on a board the device has moved past is the same
+ * Owner problem report E48RDE (HIS-109, HIS-189, SYS-012, SYS-011, SYS-136): a tap made on a board the device has moved past is the same
  * press as the device's own step right after that board when the device made that step by itself with the same input
  * (its pass for the player by their mode, its assumption of the other player's answer): [GameDevice.pressedByItself].
  * A tap with another input, at a later point, or after a step the player's own tap made, isn't.
@@ -64,7 +64,7 @@ class SamePressTest {
         return sim
     }
 
-    // HIS-109, SYS-012 (E48RDE): Alice presses Assume over her trigger (it resolves), then her phone passes for her by
+    // HIS-109, HIS-189, SYS-012 (E48RDE): Alice presses Assume over her trigger (it resolves), then her phone passes for her by
     // itself over her ability (Quick): her tap of Resolve made on the board in between is that very press; any other input
     // there, her Assume made by her own tap, and anything at the later point (her ability's own wait) are not
     @Test
@@ -97,9 +97,9 @@ class SamePressTest {
         assertTrue(a.pressedByItself(assumed, Input.PassPriority(alice)), "still the same press on the main line")
     }
 
-    // HIS-109 (E48RDE): the other order: Alice's tap of Resolve comes first; her phone's own steps then make no second pass
+    // HIS-109, HIS-189 (E48RDE): the other order: Alice's tap of Resolve comes first; her phone's own steps then make no second pass
     // of hers there, and her ability still waits for Bob. That pass was her tap's, so a second tap made on the same board
-    // is not the same press (SYS-011: a quick second tap is told)
+    // is not the same press (SYS-011, SYS-137: a quick second tap is told)
     @Test
     fun aTapOfResolveFirstLeavesNothingMoreForTheDeviceToPress() {
         val sim = twoOfHersOnTheStack()
@@ -119,7 +119,7 @@ class SamePressTest {
         assertFalse(a.pressedByItself(assumed, Input.PassPriority(alice)), "her own tap's pass")
     }
 
-    // HIS-109, TRN-070 (E48RDE): with Assume resolves Always her phone assumes Bob's passes by itself: a tap of Assume
+    // HIS-109, HIS-189, TRN-070 (E48RDE): with Assume resolves Always her phone assumes Bob's passes by itself: a tap of Assume
     // made on the board before such an assumption is that very press, and never the press at the next Stack item
     @Test
     fun theDevicesOwnAssumptionIsTheSamePressAsATapOfAssumeThere() {

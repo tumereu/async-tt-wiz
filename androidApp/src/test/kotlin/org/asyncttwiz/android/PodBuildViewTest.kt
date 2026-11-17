@@ -10,7 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
@@ -52,7 +52,7 @@ class PodBuildViewTest {
         assertEquals(6, moves.size)
     }
 
-    // DRF-099, DRF-092 (SYS-054: Maybe in the card list sections' amber, its swipe tint their brighter yellow)
+    // DRF-099, DRF-092 (SYS-054, SYS-178: Maybe in the card list sections' amber, its swipe tint their brighter yellow)
     @Test fun swipeProjectionTargetAndColourFollowTheSwipeTable() {
         assertEquals(PodPickGreen, PodDeckCategory.MAIN.podBuildColor())
         assertEquals(PodBuildBlue, PodDeckCategory.SIDE.podBuildColor())

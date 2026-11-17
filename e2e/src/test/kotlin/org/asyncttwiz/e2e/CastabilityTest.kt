@@ -101,7 +101,7 @@ class CastabilityTest : E2e() {
         alice.handCard("Ember Rebuke").performClick()
     }
 
-    // ZON-080, ZON-079, TBL-117, CR 601.2f (spec §6.1): enough for both, a tapped and an untapped creature: the chip shows the smallest +
+    // ZON-080, ZON-109, ZON-079, ZON-101, TBL-117, CR 601.2f (spec §6.1): enough for both, a tapped and an untapped creature: the chip shows the smallest +
     // {?}, the outline is for the minimum; both are offered; the cheap one taps two sources, the others stay
     @Test fun enoughForBothTheCheapOneTapsOnlyItsSources() {
         rebukeBoard(4)
@@ -130,7 +130,7 @@ class CastabilityTest : E2e() {
         assertEquals(4, alice.tappedCount("Ember Shard"))
     }
 
-    // TBL-118, STK-047, CR 601.2f (spec §6.2, report KX8GYS): exact mana for the cheap one: only it is offered, the other shakes
+    // TBL-118, STK-047, STK-149, CR 601.2f (spec §6.2, report KX8GYS): exact mana for the cheap one: only it is offered, the other shakes
     @Test fun exactManaForTheCheapOneOnlyItIsOffered() {
         rebukeBoard(2)
         waitUntil("the chip") { alice.chipShown("Cast {1}{R} + {?}") }
@@ -146,7 +146,7 @@ class CastabilityTest : E2e() {
         assertEquals(2, alice.tappedCount("Ember Shard"))
     }
 
-    // STK-047, CR 601.2c, 601.2f (spec §6.3, the owner's example): {R}{R} for each creature type among the targets, 6 mana: a 4-type creature
+    // STK-047, STK-149, STK-150, CR 601.2c, 601.2f (spec §6.3, the owner's example): {R}{R} for each creature type among the targets, 6 mana: a 4-type creature
     // can't be picked; with a 2-type one picked another 2-type one with other types can't, 1-type ones can, and one sharing its types can;
     // unselecting opens them again; Done only on a payable selection
     @Test fun theOwnersMultiTargetExampleNarrowsAsTheyArePicked() {
@@ -182,7 +182,7 @@ class CastabilityTest : E2e() {
         assertEquals(3, alice.tappedCount("Ember Geode"), "6 mana")
     }
 
-    // STK-047, CR 601.2f (spec §6.4): {5}, {1} less for each target, three sources: one target doesn't pay: Done greyed until the second
+    // STK-047, STK-149, STK-150, STK-145, CR 601.2f (spec §6.4): {5}, {1} less for each target, three sources: one target doesn't pay: Done greyed until the second
     @Test fun aCostFallingWithMoreTargetsKeepsDoneGreyUntilItPays() {
         start(deck(TestCards.shard to 16, TestCards.hush to 8, TestCards.pup to 8, TestCards.ashHound to 8), mapOf("Ember Shard" to 3, "Ember Hush" to 1, "Ash Pup" to 1, "Ash Hound" to 1))
         plays(alice, "Ember Shard", "Ember Shard", "Ember Shard", "Ash Pup", "Ash Hound")
@@ -204,7 +204,7 @@ class CastabilityTest : E2e() {
         assertEquals(3, alice.tappedCount("Ember Shard"))
     }
 
-    // STK-047, CR 601.2f (spec §6.5): a rising cost per target (strive's template): with 3 mana a second target can be picked, a third can't
+    // STK-047, STK-149, CR 601.2f (spec §6.5): a rising cost per target (strive's template): with 3 mana a second target can be picked, a third can't
     @Test fun aRisingCostPerTargetStopsWhatCanBePicked() {
         start(deck(TestCards.shard to 12, TestCards.striving to 8, TestCards.pup to 7, TestCards.ashHound to 7, TestCards.drowsy to 6),
             mapOf("Ember Shard" to 3, "Ember Striving" to 1, "Ash Pup" to 1, "Ash Hound" to 1, "Drowsy Pup" to 1))
@@ -221,7 +221,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Striving resolved", along = listOf(bob)) { alice.inOwnMain() && alice.engine { device.session.pending.isEmpty() } && alice.tappedCount("Ember Shard") == 3 }
     }
 
-    // STK-047, CR 601.2f (spec §6.5): "spells that target this cost more" on the other side: with one source it isn't offered
+    // STK-047, STK-149, CR 601.2f (spec §6.5): "spells that target this cost more" on the other side: with one source it isn't offered
     @Test fun aCreatureThatTaxesTargetingIsNotOfferedWithoutTheMana() {
         start(deck(TestCards.shard to 20, TestCards.spark to 20), mapOf("Ember Shard" to 1, "Storm Spark" to 1),
             bobDeck = deck(TestCards.wardedPup to 20, TestCards.pup to 20), bobHolds = mapOf("Warded Pup" to 1, "Ash Pup" to 1), bobStarts = true)
@@ -235,7 +235,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Pup dead", along = listOf(bob)) { alice.field("Ash Pup", bob.me).isEmpty() && alice.inOwnMain() }
     }
 
-    // STK-023, CR 601.2b, 601.2c, 601.2f (spec §6.6): X and a reduction read from the target: X's most assumes the cheapest target (3 sources,
+    // STK-023, STK-138, CR 601.2b, 601.2c, 601.2f (spec §6.6): X and a reduction read from the target: X's most assumes the cheapest target (3 sources,
     // {X}{R} on a tapped creature: X = 2), and that X then leaves only the cheap target
     @Test fun xComesBeforeTargetsAndIsNeverADeadEnd() {
         start(deck(TestCards.shard to 16, TestCards.cleave to 8, TestCards.pup to 8, TestCards.drowsy to 8), mapOf("Ember Shard" to 3, "Ember Cleave" to 1, "Ash Pup" to 1, "Drowsy Pup" to 1))
@@ -257,7 +257,7 @@ class CastabilityTest : E2e() {
         assertEquals(3, alice.tappedCount("Ember Shard"))
     }
 
-    // TBL-117, TBL-122, STK-024 (spec §1.2, §6.7): floated mana counts and is spent first; the check doesn't look for "tap this first":
+    // TBL-117, TBL-169, TBL-170, TBL-122, STK-024, STK-155 (spec §1.2, §6.7): floated mana counts and is spent first; the check doesn't look for "tap this first":
     // tapping your Sprite makes it the tapped target and the card then glows and can be cast
     @Test fun tappingYourCreatureFirstMakesItTheTappedTargetAndTheCardThenCasts() {
         start(deck(TestCards.shard to 14, TestCards.rebuke to 13, TestCards.sprite to 13), mapOf("Ember Shard" to 1, "Ember Rebuke" to 1, "Ember Sprite" to 1))
@@ -294,7 +294,7 @@ class CastabilityTest : E2e() {
     }
 
     // STK-059, CR 605.3a (spec §6.8): with Autotap off each mana kind is picked by hand at a payment: an Ancient Tomb style source, one removing a
-    // counter, and a sacrifice altar with the creature it takes (tapped on the table: owner notes 2026-11-14, STK-024, never a chip
+    // counter, and a sacrifice altar with the creature it takes (tapped on the table: owner notes 2026-11-14, STK-024, STK-162, never a chip
     // naming the creature); mana left over floats
     @Test fun everyManaKindPaysByHandAtAPayment() {
         start(deck(TestCards.engineRock to 7, TestCards.tomb to 7, TestCards.chargeStone to 7, TestCards.bloodAltar to 7, TestCards.pup to 12),
@@ -311,7 +311,7 @@ class CastabilityTest : E2e() {
         assertEquals(start - 2 + 3, alice.state.player(alice.me).life, "the Tomb's damage, the life gained")
     }
 
-    // STK-059, CR 605.3a, 118.3 (spec §6.8): a pain source's coloured ability picked by hand: its damage comes with the mana
+    // STK-059, STK-165, CR 605.3a, 118.3 (spec §6.8): a pain source's coloured ability picked by hand: its damage comes with the mana
     @Test fun aPainSourcesColouredAbilityPaysByHand() {
         start(deck(TestCards.painStone to 20, TestCards.redFlash to 20), mapOf("Pain Stone" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
         plays(alice, "Pain Stone")
@@ -323,7 +323,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Flash resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() && alice.state.player(alice.me).life == 19 }
     }
 
-    // STK-059, CR 605.1b, CR 106.1 (spec §6.8): a Signet fed by a Shard, picked in either order; a two-colour filter; a colour choice; triggered mana
+    // STK-059, STK-166, CR 605.1b, CR 106.1 (spec §6.8): a Signet fed by a Shard, picked in either order; a two-colour filter; a colour choice; triggered mana
     @Test fun aSignetChainAndTheColourKindsPayByAutotapAndByHand() {
         start(deck(TestCards.signet to 8, TestCards.shard to 8, TestCards.filter to 8, TestCards.prism to 8, TestCards.blueNote to 8),
             mapOf("Ember Signet" to 1, "Ember Shard" to 2, "Filter Stone" to 1, "Ember Prism" to 1, "Blue Note" to 2))
@@ -344,7 +344,7 @@ class CastabilityTest : E2e() {
         assertTrue(alice.state.player(alice.me).manaPool.isEmpty())
     }
 
-    // STK-059, STK-049, CR 605.3a, 118.12 (spec §4, §6.8): a payment during resolution takes every mana ability, picked on the table (owner
+    // STK-059, STK-049, STK-168, CR 605.3a, 118.12 (spec §4, §6.8): a payment during resolution takes every mana ability, picked on the table (owner
     // playtest 2026-11-09): Autotap's source taken out, an Ancient Tomb style one fills in, whose extra mana floats; then the pool pays;
     // then a Signet picked is fed by a Shard
     @Test fun aPaymentDuringResolutionTakesEveryManaAbility() {
@@ -383,7 +383,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-024 (spec §4, §6.9): partial override: a picked source stays and Autotap fills in the rest; one taken out isn't used again; picking
+    // STK-024, STK-158 (spec §4, §6.9): partial override: a picked source stays and Autotap fills in the rest; one taken out isn't used again; picking
     // everything overrides completely
     @Test fun aPickedSourceStaysAndAutotapFillsInTheRest() {
         start(deck(TestCards.brood to 8, TestCards.shard to 11, TestCards.emberStone to 11, TestCards.sprite to 10), mapOf("Ember Brood" to 1, "Ember Shard" to 1, "Ember Stone" to 1, "Ember Sprite" to 1))
@@ -412,7 +412,7 @@ class CastabilityTest : E2e() {
         assertEquals(1, alice.tappedCount("Ember Sprite"))
     }
 
-    // STK-024 (spec §4, §6.9): when the cost changes the picks stay and Autotap's are worked out again (kicker turned on in the panel)
+    // STK-024, STK-163 (spec §4, §6.9): when the cost changes the picks stay and Autotap's are worked out again (kicker turned on in the panel)
     @Test fun whenTheCostChangesPicksStayAndAutotapsAreWorkedOutAgain() {
         start(deck(TestCards.clan to 10, TestCards.shard to 10, TestCards.emberStone to 10, TestCards.sprite to 10), mapOf("Ember Clan" to 1, "Ember Shard" to 1, "Ember Stone" to 1, "Ember Sprite" to 1))
         plays(alice, "Ember Shard", "Ember Stone", "Ember Sprite")
@@ -425,8 +425,8 @@ class CastabilityTest : E2e() {
         waitUntil("{2}: the pick stays, Autotap adds one: ${alice.payment()}") { alice.payment()?.contains("Ember Sprite") == true && alice.payment()!!.split(", ").size == 2 }
     }
 
-    // STK-024 (spec §6.9): with Autotap off the panel opens after the targets, and only what you pick pays
-    // TBL-117, STK-024 (spec §4, §6.14): a cast asking only targets goes out at once after its last target: floated mana pays it, not the
+    // STK-024, STK-155 (spec §6.9): with Autotap off the panel opens after the targets, and only what you pick pays
+    // TBL-117, STK-024, STK-155 (spec §4, §6.14): a cast asking only targets goes out at once after its last target: floated mana pays it, not the
     // sources Autotap would take; with Autotap off the panel opens after the targets
     @Test fun aCastAskingOnlyTargetsGoesOutAtOnceAndFloatedManaPaysIt() {
         start(deck(TestCards.spark to 13, TestCards.shard to 13, TestCards.mountain to 14), mapOf("Storm Spark" to 1, "Ember Shard" to 1, "Mountain" to 1))
@@ -454,7 +454,7 @@ class CastabilityTest : E2e() {
         waitUntil("resolved", along = listOf(bob)) { alice.state.player(bob.me).life == 17 && alice.inOwnMain() }
     }
 
-    // STK-024 (spec §6.10): Autotap prefers damage-free sources; a pain source only when needed
+    // STK-024, STK-154 (spec §6.10): Autotap prefers damage-free sources; a pain source only when needed
     @Test fun autotapPrefersDamageFreeSourcesAndAPainSourceOnlyWhenNeeded() {
         start(deck(TestCards.painStone to 14, TestCards.shard to 13, TestCards.engineRock to 13), mapOf("Pain Stone" to 1, "Ember Shard" to 1, "Ember Engine" to 1))
         plays(alice, "Pain Stone", "Ember Shard", "Ember Engine")
@@ -464,7 +464,7 @@ class CastabilityTest : E2e() {
         activatesEngine(null) { alice.tappedCount("Pain Stone") == 1 }
     }
 
-    // STK-024, STK-059, TRN-065, HIS-084, CR 605.3a, 704.3, 704.5a (spec §5, §6.10): a lethal source only when it's the only way: the cast finishes, the
+    // STK-024, STK-154, STK-059, STK-165, TRN-065, TRN-137, HIS-084, HIS-200, CR 605.3a, 704.3, 704.5a (spec §5, §6.10): a lethal source only when it's the only way: the cast finishes, the
     // game ends when priority would next come, and Undo reaches back from there
     @Test fun aLethalSourceOnlyWhenItIsTheOnlyWayThenUndoReachesBack() {
         start(deck(TestCards.doom to 20, TestCards.spark to 20), mapOf("Doom Stone" to 1, "Storm Spark" to 1))
@@ -480,7 +480,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-024, TBL-117 (spec §1.3, §6.11): a way exists but Autotap finds none: the panel opens and you pay by hand
+    // STK-024, TBL-117, TBL-170 (spec §1.3, §6.11): a way exists but Autotap finds none: the panel opens and you pay by hand
     @Test fun aWayAutotapDoesNotFindOpensThePanel() {
         start(deck(TestCards.shard to 14, TestCards.xStone to 13, TestCards.blueNote to 13), mapOf("Ember Shard" to 1, "Measure Stone" to 1, "Blue Note" to 1))
         plays(alice, "Ember Shard", "Measure Stone")
@@ -494,7 +494,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Note resolved", along = listOf(bob)) { alice.tappedCount("Measure Stone") == 1 && alice.tappedCount("Ember Shard") == 1 && alice.inOwnMain() && alice.state.stack.isEmpty() }
     }
 
-    // STK-059, CR 601.2g, 601.2h (spec §1, §6.12): a land tapped for mana is then sacrificed as the cost: one Mountain pays "{R}, sacrifice a land"
+    // STK-059, STK-167, CR 601.2g, 601.2h (spec §1, §6.12): a land tapped for mana is then sacrificed as the cost: one Mountain pays "{R}, sacrifice a land"
     @Test fun aLandTappedForManaIsThenSacrificedAsTheCost() {
         start(deck(TestCards.mountain to 20, TestCards.landEater to 20), mapOf("Mountain" to 1, "Land Eater" to 1))
         plays(alice, "Mountain")
@@ -504,7 +504,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-059, CR 601.2g, 601.2h (spec §1, §6.12): the creature the cost taps doesn't also tap for mana: Autotap takes the other one
+    // STK-059, STK-167, CR 601.2g, 601.2h (spec §1, §6.12): the creature the cost taps doesn't also tap for mana: Autotap takes the other one
     @Test fun autotapAvoidsTheCreatureTheCostTaps() {
         start(deck(TestCards.sprite to 13, TestCards.whisp to 13, TestCards.tapPact to 14), mapOf("Ember Sprite" to 1, "Ember Whisp" to 1, "Tap Pact" to 1))
         plays(alice, "Ember Sprite", "Ember Whisp")
@@ -516,7 +516,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-059, CR 601.2g, 601.2h, 119.4 (spec §1, §6.12): a pain source's damage comes before a paid-life cost: at 20 life they combine
+    // STK-059, STK-167, CR 601.2g, 601.2h, 119.4 (spec §1, §6.12): a pain source's damage comes before a paid-life cost: at 20 life they combine
     @Test fun aPainSourceAndAPaidLifeCostCombine() {
         start(deck(TestCards.painStone to 20, TestCards.bloodPact to 20), mapOf("Pain Stone" to 1, "Blood Pact" to 1))
         plays(alice, "Pain Stone")
@@ -524,7 +524,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Pact resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() && alice.state.player(alice.me).life == 17 }
     }
 
-    // STK-059, CR 601.2g, 601.2h (spec §1, §6.12): a creature sacrificed for mana can't also be sacrificed for the cost: two creatures do both
+    // STK-059, STK-167, CR 601.2g, 601.2h (spec §1, §6.12): a creature sacrificed for mana can't also be sacrificed for the cost: two creatures do both
     @Test fun aCreatureSacrificedForManaIsNotAlsoTheCost() {
         start(deck(TestCards.bloodAltar to 10, TestCards.pup to 10, TestCards.ashHound to 10, TestCards.offering to 10), mapOf("Blood Altar" to 1, "Ash Pup" to 1, "Ash Hound" to 1, "Altar Offering" to 1))
         plays(alice, "Blood Altar", "Ash Pup", "Ash Hound")
@@ -536,7 +536,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-047, STK-059, CR 601.2c, 601.2h (spec §3): a cost's choice of objects is narrowed by the payment: the Sprite, the only mana, can't be tapped for the cost
+    // STK-047, STK-149, STK-059, STK-167, CR 601.2c, 601.2h (spec §3): a cost's choice of objects is narrowed by the payment: the Sprite, the only mana, can't be tapped for the cost
     @Test fun aCostsChoiceOfObjectsIsNarrowedByThePayment() {
         start(deck(TestCards.sprite to 13, TestCards.pup to 13, TestCards.tapPact to 14), mapOf("Ember Sprite" to 1, "Ash Pup" to 1, "Tap Pact" to 1))
         plays(alice, "Ember Sprite", "Ash Pup")
@@ -552,7 +552,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-059, CR 601.2g, 601.2h (spec §1): a mana ability doesn't sacrifice the creature the cost taps: Autotap's suggestion takes the other one
+    // STK-059, STK-167, CR 601.2g, 601.2h (spec §1): a mana ability doesn't sacrifice the creature the cost taps: Autotap's suggestion takes the other one
     @Test fun autotapDoesNotSacrificeTheCreatureTheCostTaps() {
         start(deck(TestCards.bloodAltar to 10, TestCards.pup to 10, TestCards.ashHound to 10, TestCards.oneTap to 10), mapOf("Blood Altar" to 1, "Ash Pup" to 1, "Ash Hound" to 1, "One Tap" to 1))
         plays(alice, "Blood Altar", "Ash Pup", "Ash Hound")
@@ -564,7 +564,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-059, CR 605.1b, 605.3b, 605.4a (spec §1): triggered mana of a chosen colour: one Mountain with the Aura pays {R}{U}, Autotap saying the colour; nothing goes on the Stack
+    // STK-059, STK-166, CR 605.1b, 605.3b, 605.4a (spec §1): triggered mana of a chosen colour: one Mountain with the Aura pays {R}{U}, Autotap saying the colour; nothing goes on the Stack
     @Test fun aTriggeredManaAbilityOfAnyColourPaysAtOnce() {
         start(deck(TestCards.mountain to 14, TestCards.bounty to 13, TestCards.redBlue to 13), mapOf("Mountain" to 1, "Ember Bounty" to 1, "Red Blue" to 1))
         plays(alice, "Mountain")
@@ -577,7 +577,7 @@ class CastabilityTest : E2e() {
         assertTrue(alice.state.player(alice.me).manaPool.isEmpty())
     }
 
-    // TBL-122, TBL-124 (owner, 2026-11-09): a card with two or more activated abilities (a mana ability counts) opens its chips
+    // TBL-122, TBL-153, TBL-124, TBL-160 (owner, 2026-11-09): a card with two or more activated abilities (a mana ability counts) opens its chips
     // even with only one usable now, the other greyed with why, activating nothing; a source with one ability stays one tap
     @Test fun aCardWithTwoAbilitiesOpensItsChipsEvenWithOneUsableAndOneAbilityStaysOneTap() {
         start(deck(TestCards.cairn to 20, TestCards.shard to 20), mapOf("Ember Cairn" to 1, "Ember Shard" to 1))
@@ -598,7 +598,7 @@ class CastabilityTest : E2e() {
         waitUntil("the mana chip activated") { alice.state.player(alice.me).manaPool.size == 2 && alice.tappedCount("Ember Cairn") == 1 && !alice.shows(add) }
     }
 
-    // TBL-124 (owner, 2026-11-12: chips said only "Mana ability"): a dual land's two mana abilities, given by its land types (CR
+    // TBL-124, TBL-157 (owner, 2026-11-12: chips said only "Mana ability"): a dual land's two mana abilities, given by its land types (CR
     // 305.6) with no printed text, read as the mana they make; no chip says "Mana ability"
     @Test fun aDualLandsChipsNameTheManaTheyMake() {
         start(deck(TestCards.ridge to 40), mapOf("Ember Ridge" to 1))
@@ -612,7 +612,7 @@ class CastabilityTest : E2e() {
         waitUntil("the green chip activated") { alice.state.player(alice.me).manaPool.size == 1 && alice.tappedCount("Ember Ridge") == 1 }
     }
 
-    // TBL-122, TBL-124, STK-024 (owner, 2026-11-09): during a payment a tap on a source with two abilities still only picks it
+    // TBL-122, TBL-154, TBL-124, STK-024, STK-158 (owner, 2026-11-09): during a payment a tap on a source with two abilities still only picks it
     @Test fun duringAPaymentATapPicksTheSourceWithoutItsChips() {
         start(deck(TestCards.cairn to 20, TestCards.redFlash to 20), mapOf("Ember Cairn" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
         plays(alice, "Ember Cairn")
@@ -625,7 +625,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Flash resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() }
     }
 
-    // TBL-124, TBL-123 (owner playtest 2026-11-10): a tap on the other player's permanent whose abilities you may not activate
+    // TBL-124, TBL-162, TBL-161, TBL-123 (owner playtest 2026-11-10): a tap on the other player's permanent whose abilities you may not activate
     // shows none of them (no chips, no menu), and no chips while targets are picked, on your own permanents or theirs
     @Test fun noAbilityChipsWhileTargetingOrOnTheOtherPlayersPermanents() {
         start(deck(TestCards.cairn to 20, TestCards.flick to 20), mapOf("Ember Cairn" to 1, "Ember Flick" to 1),
@@ -655,7 +655,7 @@ class CastabilityTest : E2e() {
 
     private fun E2ePlayer.shardStack(n: Int) = hasContentDescription("Ember Shard, owner $name,", substring = true) and hasContentDescription("stack of $n", substring = true)
 
-    // STK-024, TBL-053 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on, and goes out only
+    // STK-024, STK-156, TBL-053, TBL-178 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on, and goes out only
     // with Cast; what pays it, Autotap's picks too, lies in its own pile to the right of its stack
     @Test fun aConvokeSpellAlwaysOpensThePanelAndWhatPaysItLiesInItsOwnPile() {
         start(deck(TestCards.shard to 20, TestCards.rally to 20), mapOf("Ember Shard" to 4, "Ember Rally" to 1))
@@ -671,7 +671,7 @@ class CastabilityTest : E2e() {
         waitUntil("the stack whole again") { alice.shows(alice.shardStack(4)) }
     }
 
-    // STK-024, TBL-130 (owner, 2026-11-09): in any payment a picked card moves into its own pile: picked by hand from a stack it
+    // STK-024, STK-156, STK-158, TBL-130, TBL-163 (owner, 2026-11-09): in any payment a picked card moves into its own pile: picked by hand from a stack it
     // leaves, a tap on it there takes it out and back; a partial override with Autotap on moves the same way
     @Test fun aPickedSourceMovesIntoItsOwnPileAndATapTakesItBack() {
         start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 3, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
@@ -702,7 +702,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Flash cast without a panel", along = listOf(bob)) { alice.tappedCount("Ember Shard") == 1 && alice.state.stack.isEmpty() && alice.inOwnMain() }
     }
 
-    // TBL-122, STK-025, CR 605.3a (spec §6.12): during a cast non-mana abilities are refused: they shake, nothing happens
+    // TBL-122, TBL-154, STK-025, STK-169, CR 605.3a (spec §6.12): during a cast non-mana abilities are refused: they shake, nothing happens
     @Test fun nonManaAbilitiesAreRefusedDuringACast() {
         start(deck(TestCards.engineRock to 10, TestCards.brood to 10, TestCards.shard to 10, TestCards.emberStone to 10), mapOf("Ember Engine" to 1, "Ember Brood" to 1, "Ember Shard" to 1, "Ember Stone" to 1))
         plays(alice, "Ember Shard", "Ember Stone", "Ember Engine")

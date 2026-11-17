@@ -19,9 +19,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * SYS-011, SYS-012 (owner, 2026-11-05: one "same board" rule for every action): Assume, Undo and the table's own actions
+ * SYS-011, SYS-135, SYS-137, SYS-012, SYS-138 (owner, 2026-11-05: one "same board" rule for every action): Assume, Undo and the table's own actions
  * tapped on a board the device has moved on from are made on the newer board when the same decision still waits for the
- * player there (only table-only events in between), as casts and passes are, and refused with SYS-012's note when an
+ * player there (only table-only events in between), as casts and passes are, and refused with SYS-012, SYS-138's note when an
  * input arrived. Alice's table is held ([HeldMain]): her device publishes the newer board, her screen still shows the
  * older one.
  */
@@ -135,7 +135,7 @@ class SameBoardRuleTest {
 
     private fun refusedNotes(game: EngineGame) = game.notes.count { it == GameDevice.Note.Refused("stale") }
 
-    // SYS-011: Assume tapped while Bob's table-only early answer arrived (not on Alice's screen yet): the same decision, made there
+    // SYS-011, SYS-135: Assume tapped while Bob's table-only early answer arrived (not on Alice's screen yet): the same decision, made there
     @Test fun anAssumeOnABoardChangedOnlyByATableOnlyEventIsMade() {
         val game = aliceWaitsWithAssume()
         val before = assumedByAlice(game)
@@ -149,7 +149,7 @@ class SameBoardRuleTest {
         assertEquals(before + 1, assumedByAlice(game), "Bob's pass assumed")
     }
 
-    // SYS-011, SYS-012: Assume tapped while Bob's Spark arrived (an input): another decision, not taken, with the note
+    // SYS-011, SYS-137, SYS-012, SYS-138: Assume tapped while Bob's Spark arrived (an input): another decision, not taken, with the note
     @Test fun anAssumeOnABoardWhereAnInputArrivedIsRefusedWithTheNote() {
         val game = aliceWaitsWithAssume()
         val before = assumedByAlice(game)
@@ -161,7 +161,7 @@ class SameBoardRuleTest {
         assertEquals(before, assumedByAlice(game), "nothing assumed")
     }
 
-    // SYS-011, HIS-084: Undo tapped while Bob's table-only early answer arrived: the same decision, made there (her land taken back)
+    // SYS-011, SYS-135, HIS-084: Undo tapped while Bob's table-only early answer arrived: the same decision, made there (her land taken back)
     @Test fun anUndoOnABoardChangedOnlyByATableOnlyEventIsMade() {
         val game = aliceInMainWithBobsLand()
         val shown = assertNotNull(game.shown).version
@@ -173,7 +173,7 @@ class SameBoardRuleTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // SYS-011, HIS-107 (owner problem report 2026-11-05): Undo tapped on the board of her own cast while her device had
+    // SYS-011, SYS-135, HIS-107 (owner problem report 2026-11-05): Undo tapped on the board of her own cast while her device had
     // published its later outcome (the server's confirmation, then Bob's pass assumed: the Spark resolved): moved on only
     // by her own events, so it takes back her cast, with no note
     @Test fun anUndoOnABoardMovedOnOnlyByHerOwnEventsTakesBackHerAction() {
@@ -197,7 +197,7 @@ class SameBoardRuleTest {
         assertEquals(cast.parentId, sim.head)
     }
 
-    // SYS-011, SYS-012: Undo tapped while Bob's Spark arrived (an input): another decision, not taken, with the note
+    // SYS-011, SYS-137, SYS-012, SYS-138: Undo tapped while Bob's Spark arrived (an input): another decision, not taken, with the note
     @Test fun anUndoOnABoardWhereAnInputArrivedIsRefusedWithTheNote() {
         val game = aliceWaitsWithAssume()
         held.holding = true

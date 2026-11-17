@@ -18,7 +18,7 @@ import java.util.UUID
  * one down, in the order Main, Side, Maybe, wrapping; with two sections either way to the other.
  */
 class SectionSwipeTest : E2e() {
-    // SYS-083, LOB-105: in the deck editor a swipe right on a Main card moves one copy to Maybe (up, wrapping), a swipe left on
+    // SYS-083, LOB-105, LOB-215: in the deck editor a swipe right on a Main card moves one copy to Maybe (up, wrapping), a swipe left on
     // a Main card one to Side, and a swipe right on that Side card back to Main
     @Test fun theDeckEditorSwipesUpRightAndDownLeft() {
         val deck = TestDeck("E2E Swipes", listOf(TestCards.mountain to 20, TestCards.cub to 10, TestCards.spark to 10))

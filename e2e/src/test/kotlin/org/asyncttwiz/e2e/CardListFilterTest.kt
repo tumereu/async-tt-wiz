@@ -21,7 +21,7 @@ class CardListFilterTest : E2e() {
         hasContentDescription(section, substring = true))
     private val summary get() = alice.screen()
 
-    // LOB-142, LOB-105, LOB-120, LOB-108, LOB-119: typed text and chips narrow the sections; the counts stay the whole
+    // LOB-142, LOB-217, LOB-218, LOB-105, LOB-215, LOB-120, LOB-108, LOB-119: typed text and chips narrow the sections; the counts stay the whole
     // list's; a swipe, Undo and the section's + work while filtered; the Text tab and the saved deck keep every card
     @Test fun filteringShowsOnlyMatchesAndEditingKeepsTheWholeList() {
         val saved = ServerSetup.deck(ServerSetup.accounts().first, deck)

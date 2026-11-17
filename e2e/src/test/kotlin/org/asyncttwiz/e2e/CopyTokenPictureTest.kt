@@ -8,11 +8,11 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Owner, 2026-11-05 (SYS-072): a token that is a copy of a card (offspring, populate, embalm, myriad, encore, …) shows the
+ * Owner, 2026-11-05 (SYS-072, SYS-151): a token that is a copy of a card (offspring, populate, embalm, myriad, encore, …) shows the
  * copied card's picture, not a token picture.
  */
 class CopyTokenPictureTest : E2e() {
-    // SYS-072: Alice casts an Ember Twin, which enters and makes a token copy of itself: on both tables the token is
+    // SYS-072, SYS-151, SYS-152: Alice casts an Ember Twin, which enters and makes a token copy of itself: on both tables the token is
     // drawn with the Twin's own picture, still as a token
     @Test fun aTokenCopyOfACardShowsTheCardsPicture() {
         startGame(TestDeck.thirds(TestCards.twin), deal = { a, _ -> "Mountain" in hand(a) && "Ember Twin" in hand(a) })

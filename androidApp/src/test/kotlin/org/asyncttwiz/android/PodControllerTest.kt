@@ -297,7 +297,7 @@ class PodControllerTest {
         }
     }
 
-    // LOB-052, LOB-055: the server gives the draft deck its basics; a submission sends no card data
+    // LOB-052, LOB-055, LOB-210: the server gives the draft deck its basics; a submission sends no card data
     @Test fun submissionSendsNoCardData() = Fixture(PodPhase.DRAFTED).use { f ->
         f.open(); f.controller.submit(); f.deliver()
         val input = f.api.calls.single { it.first == "submit" }.second as SubmitPodDeck
@@ -569,7 +569,29 @@ class PodControllerTest {
         assertTrue(f.mainTimers.isEmpty(), "stopped")
     }
 
-    // DRF-161, section 3.9: the sets' support comes from the card catalog's marks; a set Automatum can't play every card
+    // DRF-068 (PodReopenTest's intermittent, backlog 2026-11-10): a pick made while a re-read is on its way, when the
+    // connection has gone, goes out as soon as that re-read fails and shows unconfirmed with Retry; it doesn't wait for
+    // the next re-read (10 s away; it never came in the e2e harness while re-reads ran on the frame clock)
+    @Test fun aPickQueuedBehindAFailingReReadGoesOutWhenTheReadFails() = Fixture().use { f ->
+        f.open()
+        f.controller.watch("pod $id")
+        f.tickMain()
+        f.api.readFailure = "network"; f.api.pickFailure = "network"
+        val pack = f.controller.state.detail!!.draft!!.head!!
+        f.controller.pick(listOf(pack.cards.first().id), emptyList())
+        assertEquals(emptyList(), f.api.calls.map { it.first }, "queued behind the re-read")
+        f.deliver()
+        assertEquals(listOf("pick"), f.api.calls.map { it.first }.distinct())
+        assertEquals(1, f.api.calls.map { it.second }.distinct().size, "the one pick, retried as itself")
+        assertTrue(f.controller.state.uncertain)
+        assertFalse(f.controller.state.loading)
+        f.api.readFailure = null; f.api.pickFailure = null
+        f.controller.retry(); f.deliver()
+        assertFalse(f.controller.state.uncertain)
+        assertEquals(nextPack.id, f.controller.state.detail!!.draft!!.head!!.id)
+    }
+
+    // DRF-161, DRF-187, section 3.9: the sets' support comes from the card catalog's marks; a set Automatum can't play every card
     // of can't be chosen
     @Test fun setSupportComesFromTheMarksAndAnUnsupportedSetCantBeChosen() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver(); f.controller.chooseSet(); f.deliver()
@@ -588,7 +610,7 @@ class PodControllerTest {
     private fun gridSource(packs: List<String>) = PodSource(kind = PodSourceKind.SET, setCode = packs.first(), setName = "Test set",
         packSets = packs)
 
-    // DRF-177, DRF-178: New pod's pack grid: a row label, a column label and a cell each choose a set for their packs; the
+    // DRF-177, DRF-195, DRF-178: New pod's pack grid: a row label, a column label and a cell each choose a set for their packs; the
     // grid goes to the server as the list of set codes, read row by row
     @Test fun newPodsPackGridShortcutsSetTheirPacksAndCreateSendsTheGrid() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
@@ -626,7 +648,7 @@ class PodControllerTest {
     }
 
     // DRF-178, DRF-177: in setup the creator's grid edits show at once and are sent as the grid; a preset saves it and
-    // brings it back (DRF-032)
+    // brings it back (DRF-032, DRF-202)
     @Test fun setupPackGridEditsSaveAndAPresetKeepsTheGrid() = Fixture(PodPhase.SETUP).use { f ->
         f.api.saved = f.api.saved.copy(source = gridSource(listOf("TST")))
         f.open()
@@ -1318,7 +1340,7 @@ class PodControllerTest {
         assertEquals(DraftMode.BOOSTER, f.controller.state.creating!!.mode)
     }
 
-    // DRF-031, DRF-032, DRF-033 (owner, 2026-11-14): Glimpse is an ordinary preset of the account's: without a source it keeps
+    // DRF-031, DRF-200, DRF-032, DRF-202, DRF-033 (owner, 2026-11-14): Glimpse is an ordinary preset of the account's: without a source it keeps
     // the chosen one, its settings are its own, and it is replaced, renamed and deleted like any other
     @Test fun glimpseIsAnOrdinaryPreset() = Fixture().use { f ->
         f.api.presets += preset("Glimpse", DraftSettings.glimpse())

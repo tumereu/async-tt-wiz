@@ -29,7 +29,7 @@ on the way: see "Protecting existing features").
 | `e2e/` | End-to-end tests: feature flows and every owner-reported app bug (see Rules) |
 | `arcanum-api/`, `arcanum-parser/`, `arcanum-engine/` | Arcanum Automatum: generic MTG rules libraries (card definitions, oracle-text parser, engine); spec `docs/specs/arcanum-automatum.md` |
 | `arcanum-tools/` | JVM developer tools for Arcanum (oracle-text pattern frequencies, supported-set check) |
-| `docs/features/` | **Feature catalog**: every current behaviour, one line each, with IDs (`TBL-012`) |
+| `docs/features/` | **Feature catalog**: every current behaviour, one short fact per line, with IDs (`TBL-012`); files by feature, see its README |
 | `docs/roadmap.md` | Long-term product direction |
 | `docs/backlog.md` | Approved changes not built yet; an item you build is deleted there in the same commit |
 | `docs/specs/` | Specs of larger approved changes not built yet; deleted once built |

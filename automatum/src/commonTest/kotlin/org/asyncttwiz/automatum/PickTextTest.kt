@@ -34,7 +34,7 @@ class PickTextTest {
         }
     }
 
-    // STK-047, CR 601.2c: a spell's targets in the order its text names them: the first while it is chosen, then in its place
+    // STK-047, STK-142, STK-143, CR 601.2c: a spell's targets in the order its text names them: the first while it is chosen, then in its place
     // what was chosen while the second is chosen
     @Test fun targetsChosenNowAndBefore() {
         val brawl = Cards.invent("Pick Brawl", "{0}", "Sorcery", "Target creature you control fights target creature you don't control.")
@@ -51,7 +51,7 @@ class PickTextTest {
         assertEquals(listOf<Pair<TargetRef, String>>(TargetRef.Object(table.obj(seer)) to "Target"), second.roles)
     }
 
-    // STK-047, CR 702.6a, 601.2c, 601.2h: Equip—Sacrifice a creature: the equip target has no phrase of its own, so the keyword's
+    // STK-047, STK-143, CR 702.6a, 601.2c, 601.2h: Equip—Sacrifice a creature: the equip target has no phrase of its own, so the keyword's
     // name is highlighted while it is chosen and the name follows it in brackets; then the sacrifice's phrase is chosen
     @Test fun anEquipTargetThenItsSacrifice() {
         val hauberkText = "Equipped creature gets +4/+2.\nEquip—Sacrifice a creature."
@@ -75,7 +75,7 @@ class PickTextTest {
         assertEquals("Sacrificed", withPicked?.roles?.toMap()?.get(TargetRef.Object(table.obj(elves))))
     }
 
-    // STK-047, CR 603.3d (found 2026-11-12, C3a): a trigger with two target slots, its targets chosen as it is put on the
+    // STK-047, STK-143, CR 603.3d (found 2026-11-12, C3a): a trigger with two target slots, its targets chosen as it is put on the
     // Stack: while the second is chosen, the first phrase reads as what was chosen for it
     @Test fun aTriggersSecondTargetShowsTheFirstAsChosen() {
         val instigator = Cards.invent("Pick Instigator", "{0}", "Enchantment",
@@ -126,7 +126,7 @@ class PickTextTest {
         return shown
     }
 
-    // STK-047, CR 702.174a, 702.174j, 601.2c (owner, prod 0.2.0: a gift spell's two targets were picked with nothing highlighted):
+    // STK-047, STK-142, CR 702.174a, 702.174j, 601.2c (owner, prod 0.2.0: a gift spell's two targets were picked with nothing highlighted):
     // gift adds a spell ability of its own, without words, before the spell's; the spell's printed one is the text, promised
     // or not, and both targets of its one sentence read as which pick is which
     @Test fun aGiftSpellsTwoTargetsInOneSentence() {
@@ -142,7 +142,7 @@ class PickTextTest {
         assertEquals(expected, pickedInTurn("Pick Quarrel", text, promise = false))
     }
 
-    // STK-047, CR 601.2c: target wordings of other templates: the phrase picked now is the whole target phrase, after the
+    // STK-047, STK-142, CR 601.2c: target wordings of other templates: the phrase picked now is the whole target phrase, after the
     // card's name and in a sentence's subject alike
     @Test fun targetWordingsOfSeveralTemplates() {
         assertEquals(listOf("Pick Wording deals 3 damage to [target creature or planeswalker]. If you control a Raccoon, you may " +

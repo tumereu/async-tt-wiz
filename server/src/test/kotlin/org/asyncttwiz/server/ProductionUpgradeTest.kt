@@ -313,7 +313,7 @@ class ProductionUpgradeTest {
             for ((table, rows) in tables)
                 if (table in droppedWithRows) continue
                 else if (table in dropped) assertTrue(rows.all { wiped(table, it.jsonObject) }, "$table held only wiped rows")
-                // DRF-031: V88 adds a Glimpse preset to every account (none of the fixture's has one of that name)
+                // DRF-031, DRF-200: V88 adds a Glimpse preset to every account (none of the fixture's has one of that name)
                 else assertEquals(rows.count { !wiped(table, it.jsonObject) } + (if (table == "pod_preset") tables.getValue("account").size else 0),
                     query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(), "$table rows after upgrade")
 
@@ -349,7 +349,7 @@ class ProductionUpgradeTest {
                 assertEquals(e<List<String>>("decks"), json.decodeFromString<DeckList>(get("/v1/decks", ann)).decks.map { it.name }.sorted())
                 assertEquals(e<List<String>>("draftDecks"), json.decodeFromString<DeckList>(get("/v1/decks?drafts=true", ann)).decks.map { it.name }.sorted())
                 assertEquals(e<List<String>>("cubes"), json.decodeFromString<CubeList>(get("/v1/cubes", ann)).cubes.map { it.name })
-                // DRF-031: V88 gives every account the Glimpse preset (9×15) beside its own
+                // DRF-031, DRF-200: V88 gives every account the Glimpse preset (9×15) beside its own
                 assertEquals(e<Map<String, Int>>("presets") + ("Glimpse" to 15), json.decodeFromString<PodPresetList>(get("/v1/pod-presets", ann)).presets.associate { it.name to it.settings.cardsPerPack })
                 get("/activity", ann); get("/activity", ben)
             }
@@ -365,7 +365,7 @@ class ProductionUpgradeTest {
                 assertTrue(games.head(ann, e<String>("waiting")).preparation!!.players.single { it.accountId == e<String>("ann") }.deckShown)
                 val benDeck = json.decodeFromString<DeckList>(decks.list(ben, null).body).decks.single()
                 // V80 (owner 2026-11-10): the recorded decks' card data has no printing, so their cards are cards without a
-                // printing, which Automatum can't play (LOB-115): choosing one is refused
+                // printing, which Automatum can't play (LOB-115, LOB-223): choosing one is refused
                 assertEquals("automatumUnsupported", Stream(games, ben, e<String>("waiting")).attempt(GameAction.SelectDeck(benDeck.id, benDeck.revision)).reason)
                 Stream(games, ben, e<String>("podGame")).execute(GameAction.AcceptInvitation)
 

@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 class WayChipsTest : E2e() {
     private val greyed = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "can't be paid now")
 
-    // ZON-080: the Bestow chip shows, greyed, while its collect evidence can't be paid
+    // ZON-080, ZON-112: the Bestow chip shows, greyed, while its collect evidence can't be paid
     @Test fun aBestowNeedingEvidenceShowsItsChipGreyed() {
         startGame(TestDeck.larks(), deal = { a, _ -> "Mountain" in hand(a) && "Cinder Lark" in hand(a) })
         bothOpen()

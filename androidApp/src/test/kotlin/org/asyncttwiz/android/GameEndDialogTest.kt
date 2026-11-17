@@ -6,7 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.LossCause
 import org.asyncttwiz.protocol.MatchEnding
 import org.asyncttwiz.protocol.game.GameDevice
@@ -36,7 +36,7 @@ class GameEndDialogTest {
     private fun text(winner: String?, ending: MatchEnding, causes: Map<String, LossCause> = emptyMap(), viewer: String = "a") =
         GameEndText.of(winner, ending, causes, viewer, names)
 
-    // TRN-065, LOB-126: the title from the viewer's side and the reason for each way a game ends
+    // TRN-065, TRN-135, LOB-126, LOB-175: the title from the viewer's side and the reason for each way a game ends
     @Test fun eachEndingSaysWhoWonAndWhy() {
         assertEquals(GameEndText("You won", "Bob's life reached 0"), text("a", MatchEnding.ByRules, mapOf("b" to LossCause.ZeroLife)))
         assertEquals(GameEndText("You lost", "Your life reached 0"), text("a", MatchEnding.ByRules, mapOf("b" to LossCause.ZeroLife), "b"))
@@ -51,7 +51,7 @@ class GameEndDialogTest {
         assertEquals(GameEndText("Draw", "An endless loop"), text(null, MatchEnding.Draw(loop = true)))
     }
 
-    // TRN-065 (owner, 2026-11-09): with the player's OK standing, the dialog says who it waits for, and Take back OK takes OK's place
+    // TRN-065, TRN-137 (owner, 2026-11-09): with the player's OK standing, the dialog says who it waits for, and Take back OK takes OK's place
     @Test fun anOkThatStandsShowsWhoItWaitsForAndCanBeTakenBack() {
         var taken = 0
         compose.setContent { MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
@@ -67,7 +67,7 @@ class GameEndDialogTest {
         assertEquals(1, taken)
     }
 
-    // TRN-065, TRN-064: Bob concedes in Alice's first turn: her table shows "You won" and "Bob conceded" in a dialog in the
+    // TRN-065, TRN-135, TRN-064: Bob concedes in Alice's first turn: her table shows "You won" and "Bob conceded" in a dialog in the
     // middle of the screen with the eye and OK; the eye hides it (only the eye stays) and brings it back
     @Test fun theOtherPlayersConcessionShowsTheDialogOverTheBoard() {
         val kit = EngineTableKit()
@@ -90,7 +90,7 @@ class GameEndDialogTest {
         compose.onNode(hasText("You won") and hasAnyAncestor(dialog), useUnmergedTree = true).assertIsDisplayed()
         val reason = compose.onAllNodes(hasText("conceded", substring = true) and hasAnyAncestor(dialog), useUnmergedTree = true)
         reason.assertCountEquals(1)
-        // TRN-065: OK is greyed for the dialog's first moments, so a misplaced tap can't accept it
+        // TRN-065, TRN-136: OK is greyed for the dialog's first moments, so a misplaced tap can't accept it
         val ok = compose.onNodeWithTag(GAME_END_OK_TAG, useUnmergedTree = true)
         ok.assertIsNotEnabled()
         compose.mainClock.advanceTimeBy(OK_GREY_MILLIS)
@@ -106,7 +106,7 @@ class GameEndDialogTest {
         compose.onNode(hasText("OK") and hasAnyAncestor(dialog), useUnmergedTree = true).assertExists()
     }
 
-    // TRN-065, TRN-064, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Alice concedes in
+    // TRN-065, TRN-141, TRN-140, TRN-135, TRN-064, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Alice concedes in
     // her first turn: her own table shows "You lost" and "You conceded" with "Waiting for Bob to acknowledge" and no button:
     // her concession was her OK, final, nothing to take back
     @Test fun theConcederWaitsAtTheTableForTheOtherPlayersOk() {

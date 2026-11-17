@@ -27,7 +27,7 @@ class MatchHistoryTest : E2e() {
         player.text("Concede").performClick()
     }
 
-    /** TRN-065 (owner, 2026-11-09): nobody goes to the lobby until both have pressed OK: Bob presses his once it isn't greyed. */
+    /** TRN-065, TRN-141, TRN-136 (owner, 2026-11-09): nobody goes to the lobby until both have pressed OK: Bob presses his once it isn't greyed. */
     private fun bobOk() {
         val ok = hasTestTag(org.asyncttwiz.android.GAME_END_OK_TAG) and androidx.compose.ui.test.isEnabled()
         waitUntil("Bob's OK no longer greyed") { bob.shows(ok) }
@@ -53,14 +53,14 @@ class MatchHistoryTest : E2e() {
         }
     }
 
-    // LOB-126, LOB-129, LOB-130 (TRN-064): Alice concedes in turn 1; both see the match in the lobby's History tab and on Stats,
+    // LOB-126, LOB-129, LOB-130, LOB-176 (TRN-064): Alice concedes in turn 1; both see the match in the lobby's History tab and on Stats,
     // Alice a loss, Bob a win
     @Test fun aConcededMatchShowsInTheLobbyHistoryAndOnStats() {
         startGame()
         bothOpen()
         bothKeep(bobAway = false)
         concede(alice)
-        // TRN-065 (owner, 2026-11-09): both stay at the table until Bob's OK
+        // TRN-065, TRN-141 (owner, 2026-11-09): both stay at the table until Bob's OK
         bobOk()
         lobbyHistory(alice, "Loss", 1)
         lobbyHistory(bob, "Win", 1)
@@ -68,7 +68,7 @@ class MatchHistoryTest : E2e() {
         stats(bob, "Win", 1)
     }
 
-    // LOB-132: the same match on the Graphs tab: the tiles, its length in the 1-4 range, its deck's colours as a mana symbol
+    // LOB-132, LOB-178, LOB-179: the same match on the Graphs tab: the tiles, its length in the 1-4 range, its deck's colours as a mana symbol
     @Test fun graphsShowTheMatchsLengthRangeAndColours() {
         startGame()
         bothOpen()
@@ -85,7 +85,7 @@ class MatchHistoryTest : E2e() {
         waitUntil("the deck's colours as a symbol") { alice.shows(hasTestTag("stats-colors-R") and hasText("{R}")) }
     }
 
-    // DRF-121, LOB-126: a pod match ends by Alice's concession; the pod's Games tab shows it in its matches, without decks,
+    // DRF-121, DRF-235, DRF-236, LOB-126: a pod match ends by Alice's concession; the pod's Games tab shows it in its matches, without decks,
     // and in the standings (Bob 1–0–0 first, Alice 0–1–0)
     @Test fun aPodMatchShowsInThePodGamesTabWithoutDecks() {
         launchPlayers()
@@ -93,7 +93,7 @@ class MatchHistoryTest : E2e() {
         val game = ServerSetup.readyBoth(alice.account, bob.account, ServerSetup.podGame(alice.account, bob.account, name))
         alice.openGame(game, this)
         concede(alice)
-        // TRN-065 (owner, 2026-11-09): she waits at the table for Bob's OK, and leaves for other screens as usual
+        // TRN-065, TRN-142 (owner, 2026-11-09): she waits at the table for Bob's OK, and leaves for other screens as usual
         waitUntil("Alice's result, waiting for Bob") { alice.showsText("Waiting for ${bob.name} to acknowledge") }
         alice.auth.navigate(ShellDestination.MENU)
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }

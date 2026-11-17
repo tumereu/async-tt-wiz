@@ -42,7 +42,7 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 - Subtypes and ability words are accepted only from the lists in the pinned
   Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c; the subtypes are public as `OracleParser.subtypes`, for
   hosts offering "choose a creature type"). Exhaust, Boast, Max speed,
-  Power-up and Solved become ability labels.
+  Power-up, Solved and Forecast become ability labels.
 - Set tests (`commonTest/…/sets/<code>/`): every card of a set with invented names. Duskmourn (`dsk`): all 276
   cards parse.
   Bloomburrow (`blb`): all 279 cards parse.
@@ -102,6 +102,11 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   nouns, values and conditions) and the `ltr*` functions of `Sentences.kt`, tried first; "the amassed Army" names the Army the amass
   step chose, "whenever you scry" makes "it" the source, a modal trigger's header may be "choose one and [this] gets +1/+1 until end of
   turn" (the pump in each mode), and `OracleParser` also reads nonbasic landwalk.
+  The other supported sets (`arcanum-tools/src/main/resources/arcanum/tools/supported-sets.txt`), added by set work: The Brothers' War
+  (`bro`), Dominaria Remastered (`dmr`), Dominaria United (`dmu`), Foundations (`fdn`), Innistrad Remastered (`inr`), Innistrad (`isd`),
+  The Lost Caverns of Ixalan (`lci`), Modern Horizons 3 (`mh3`), Murders at Karlov Manor (`mkm`), March of the Machine (`mom`), Phyrexia:
+  All Will Be One (`one`), Outlaws of Thunder Junction (`otj`), Ravnica Remastered (`rvr`), Star Trek (`trk`) and Wilds of Eldraine
+  (`woe`); each set's rules are in its `<Code>Wordings.kt` and the `<code>*` functions of `Sentences.kt`.
 - Mechanics that used to be by hand (`MechanicWordings.kt`, tried first; `MechanicWordingsTest`, one test per wording): the Ring tempting
   you (the effect, "whenever the Ring tempts you", "[this] is your Ring-bearer", "you don't control a Ring-bearer", "you chose a creature
   other than [this] as your Ring-bearer"), soulbond's "As long as [this] is paired with another creature, both creatures have …" /
@@ -132,8 +137,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   copy of [the chosen creature / enchanted creature]" and "Other creatures you control are copies of enchanted creature."; the keyword
   actions explore ("it", a target, "each …"), monstrosity N/X with "as long as this creature is monstrous", adapt, support (other
   targets on a permanent), learn, discover, manifest / cloak the top card(s) of your library, time travel and goad ("goad it" is the
-  object just targeted, never this permanent). Siege reminder text was already dropped and "this Siege" read. Not read: "whenever you
-  exert a creature" and "becomes monstrous" (no event pattern in the API).
+  object just targeted, never this permanent). Siege reminder text was already dropped and "this Siege" read. "Whenever you
+  exert a creature" and "becomes monstrous" are read by the keyword-action and mark rule (`ActionWordings.kt`, above).
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

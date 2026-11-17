@@ -123,7 +123,7 @@ class BlockAtStopTest : E2e() {
      * staging left on the table), every combat copy is a card the board has, and neither phone crashed. */
     private fun theNextAttackShowsNoOldBlock() {
         // Each plays along only on a settled game: Bob's declaration at the stop takes back the board Alice's own play had
-        // moved on to, and her tap on that board while his declaration is on its way isn't taken (SYS-011)
+        // moved on to, and her tap on that board while his declaration is on its way isn't taken (SYS-011, SYS-137)
         waitUntil("no block staging left on either table") {
             goOn(alice)
             for (player in listOf(alice, bob)) if (player.settled(this)) player.playAlong()
@@ -147,7 +147,7 @@ class BlockAtStopTest : E2e() {
         assertFalse(alice.refusalSeen || bob.refusalSeen, "no refusal")
     }
 
-    // CMB-034, CMB-040, CMB-043: Bob declares his staged block at the stop (a branch); the token dies in the combat
+    // CMB-034, CMB-040, CMB-043, CMB-081: Bob declares his staged block at the stop (a branch); the token dies in the combat
     @Test fun aBlockDeclaredAtAnAssumptionLeavesNoStagingForTheNextCombat() {
         toBobsStopWithHisStagedBlock()
         bob.tap("Block (1)")
@@ -155,7 +155,7 @@ class BlockAtStopTest : E2e() {
         theNextAttackShowsNoOldBlock()
     }
 
-    // CMB-034, CMB-040, CMB-043 (follow-up to WCRF3Q): at the stop Bob removes his staged block (on his phone only) and
+    // CMB-034, CMB-040, CMB-043, CMB-081 (follow-up to WCRF3Q): at the stop Bob removes his staged block (on his phone only) and
     // declares no blockers, confirming Alice's assumption; his token lives, and its old staged block, were it left on the
     // table, would show as a block when the same Brute attacks again
     @Test fun noBlockersDeclaredAtAnAssumptionLeavesNoPhantomBlockOfALivingBlocker() {

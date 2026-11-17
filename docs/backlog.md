@@ -8,26 +8,20 @@ Changes the owner wants but that are not built yet. The feature catalog
 - Building an entry deletes it from here and updates the catalog in the same commit.
 - A larger change has its spec in `docs/specs/`; building it moves the behaviour into the catalog and deletes the spec.
 
-## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
-
-2026-11-08: beta6 and beta7 batches all built (gameplay notes, draft notes, catalog review follow-ups, draft history / Winston tables / Rotisserie queue, Side + Maybe, single-version rest, invitation notifications).
-
-2026-11-08 beta7 playtest notes: start after the KX8GYS hotfix is deployed. Bug first, then the table batch; the draft stats and card states batches each have their own implementor. All merged, full suites and e2e green → prod release (owner approved in advance).
-
 ## Ready to build
 
-Desktop playtest notes (owner, 2026-11-14): high priority, right after web step 7, before the library upgrades; one worker at a time, in this order.
+Desktop playtest notes (owner, 2026-11-14): high priority.
 
 - Desktop battlefield cards at least twice today's size (the rest of the desktop default sizes is built, 2026-11-14): waits for the owner's choice, since at 4× the six battlefield rows don't fit a 1440 × 900 or 1920 × 1080 window even at the opening's 0.65× (TBL-121), so the table opens with both land rows out of view (gallery: desktop/table-battlefield-4x.png). Meanwhile, with the taller seat headers, hand band and top row, the 2× battlefield cards open smaller at 1440 × 900 than before (the rows fit: about 56 px tall, 72 before; at 1920 × 1080 about 78, 80 before). Options: the desktop opening shows your own battlefield whole (the other player's land row out of view); a lower least zoom on the desktop so the rows fit (cards then only as large as fit); fewer rows on the desktop; or the battlefield stays 2× (the Card size slider gives 4×) (WEB-022, TBL-121, TBL-010).
+- Desktop draft pick: the hover quick look of a pack card with every face (web-client.md §5, wireframe D9) is not built (step 6b left it out; WEB-026 covers the table only).
 
-Playtest and gallery notes (owner, 2026-11-11): one batch right after web-client step 2 (shared UI module), before the library upgrade step and web step 3. The web wireframes show the same changes.
+Playtest and gallery notes (owner, 2026-11-11):
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).
-- Client crash-safety pass (owner, 2026-11-11, after the WCRF3Q crash; right after the queued fixes, before the library upgrades): every `!!` (about 130 in app-ui, 27 in automatum and protocol, 48 in client-storage's Android side) and every throwing map lookup (`getValue`) in client main code either becomes provable by the types (reshape the data so the compiler knows) or gets a plain fallback that logs an error and reports it automatically (`Faults.placeholder`); behaviour otherwise unchanged. Then a build check: a new `!!` in client main code fails the build unless allow-listed with a reason. Split into fresh workers per module if large.
-- Crash-safety leftovers (2026-11-11, from the client pass): `!!` are gone from client code (checkClientNotNull), but not every throwing lookup was reviewed: app-ui's `BasicTableController`, `TablePresentation.cardForActions` and the `players.single` calls (these also assume two players; fix them for 3+ with the Commander work) and other `first()`/`single()`/`getValue`/`error()`/`check()` reachable from UI state. The table scene's own fallback keeps drawing safe meanwhile. Review them with the same rule (provable by types, or fallback + `Faults.report`).
+- Crash-safety leftovers (2026-11-11, from the client crash-safety pass, built): `!!` are gone from client code (checkClientNotNull), but not every throwing lookup was reviewed: app-ui's `BasicTableController`, `TablePresentation.cardForActions` and the `players.single` calls (these also assume two players; fix them for 3+ with the Commander work) and other `first()`/`single()`/`getValue`/`error()`/`check()` reachable from UI state. The table scene's own fallback keeps drawing safe meanwhile. Review them with the same rule (provable by types, or fallback + `Faults.report`).
 - Server and engine non-null hygiene (owner, 2026-11-11, lower priority): jOOQ code generation makes NOT NULL columns non-null types, removing most of the server's ~440 `row.get(...)!!`; the engine's ~107 `!!` are read in the owner's engine review (Needs discussion), not swept blindly.
 
-Queue (owner, 2026-11-09 evening): after the two running lanes (catalog step 1a; game ending + 5DDSKK), in any order: the 2026-11-09 playtest notes, the P2XUER/3WWPA8 bug, the small items, the Arcanum gap lists (by-hand leftovers, foretell, copies), the misread check, the old-form cleanups, and the two items waiting on a repro (investigate). The evidence selection's running total is not wanted for now (owner).
+Queue (owner, 2026-11-09 evening), in any order: the items below. The evidence selection's running total is not wanted for now (owner).
 
 Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):
 
@@ -40,23 +34,21 @@ Needs discussion, owner thinking (2026-11-09):
 Arcanum copies, found building copiable values (2026-11-09; can be done any time):
 
 - A token copy of a double-faced permanent that copies a multi-part card (a Room, a prepare creature) isn't double-faced (CR 707.8a): `CopiableValues` has one layout, so it can't hold two faces each with their own parts. The token has the copied layout; what it lacks is transforming between two identical faces. Holding it needs a layout per face.
+
 Parser report decisions (owner, 2026-11-09, relayed by session async-tt-wiz-74), queued after the engine items; not built ahead of them without asking the owner:
 
-- Support moves set by set (LOB entries on support, DRF-161, DRF-162, to be named when built): today `AutomatumSupport` treats any card the parser reads as fully supported, about 14,000 of them unaudited, and `supported-sets.txt` is used only by tools. Wanted: a card counts as supported if it is in a listed set, by any printing, or on a list of individually supported cards: a general, easily edited mechanism for marking single cards, not a cube special case, which has to reach the app. First use: Caleb Gannon's Powered Synergy Cube, which the owner and a friend want to play: `~/projects/atw-cache/arcanum-cube-cards.json` (500 distinct names; the list goes by name, so duplicate lands need nothing), minus Ineffable Blessing and Mons's Goblin Waiters, plus Enduring Innocence and Marwyn, the Clearcutter, also 500 names. Both additions are in supported sets; 432 of the rest go on the list. Compare with the owner's own edited prod cube when this is built, in case they change anything else. Run the real support check (`AutomatumSupport.handParts`) on the whole list: reading isn't playing fully, and anything it finds goes to the owner. Support by set doesn't ship before the cube's cards are on the list. Built in step 1a: the list (`arcanum-tools/src/main/resources/arcanum/tools/supported-cards.txt`, the 432) and the catalog's marks, which the server's set pods follow; `handParts` found nothing on the 500 cube cards. The app reads the marks (step 1b, built). Still to do: the comparison with the owner's prod cube, and the games and drafts already holding such cards. This changes what players can use: catalog entries change and e2e covers it. Check how a game or a draft already holding such cards behaves, and raise that with the owner rather than deciding.
+- Support set by set, the rest (SYS-082 is built: the catalog's marks count a card as supported by a printing in a supported set or on the single-card list, `arcanum-tools/src/main/resources/arcanum/tools/supported-cards.txt`, first the owner's Powered Synergy Cube; the server's set pods and the app follow them). Still to do: compare the list with the owner's own edited prod cube, in case they changed anything else; and check how a game or a draft already holding cards that are no longer supported behaves, raising that with the owner rather than deciding. This changes what players can use: catalog entries change and e2e covers it.
 
 Old forms only read now, found at the wipe (2026-11-09; read, not run; can be done any time after the wipe release):
 
 - `EngineEventText.hidden`'s line-only branch (a rewind's own line start): no game holds such an event after V74 and no caller found makes one. `GameDevice.finish` and `Authority.make` don't refuse one, though: a draft sent empty while a line is due would make it, so refuse that first. Its test `anOldRewindLineStartIsShownNowhere` names HIS-086, whose entry stays as it is; agree with the owner how that test goes.
 
-Playtest notes (owner, 2026-11-12): before web step 3 (after the engine API rework). The web wireframes show the same changes.
+## Waiting for a repro or more detail (owner playtests, from 2026-11-05)
 
-## Ready after the e2e framework (owner playtest, 2026-11-05)
-
-Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
+Each owner-reported bug gets an e2e test that fails before the fix.
 
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
 - Cost phrase highlight (STK-047; owner 2026-11-12, Demonmail Hauberk's "Sacrifice a creature" while picking the sacrifice): didn't reproduce on 2026-11-12 (the parser's spans and the pick bar light "a creature" as STK-047 says). Owner 2026-11-13: wait until it happens again; it may have been a misreading of the UI or a UX problem that further playtesting shows.
-- Intermittent (2 full runs, passes alone 3/3): e2e `PodReopenTest.aDraftingPodOpensAfterConnectionFailures` timed out "waiting for the pick unconfirmed" with Alice on the pod showing "Can't reach the server · retrying" and "All your picks are done" while Bob still had 3 packs. Investigate when it recurs: whether the unconfirmed pick is shown before the retry finishes, or the test's network hold releases too early.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
 
 ## Specified, not started

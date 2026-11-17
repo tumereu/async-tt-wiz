@@ -7,7 +7,9 @@ import kotlin.test.*
 class TurnMarksPresentationTest {
     private val card = PlayCard("card", "definition", "owner", "field", "face", corner = "1/1", eotCorner = "+2/+2")
 
-    // TBL-023: the table's P/T adds the until-end-of-turn change to the permanent value, in its own colour
+    // Pins the old teal until-end-of-turn corner (eotCorner), which nothing sets any more: its catalog entry was removed
+    // as dead code (catalog restructure 2026-11-17, reported to the owner). The table's P/T adds the until-end-of-turn
+    // change to the permanent value, in its own colour
     @Test fun effectivePowerToughnessKeepsDeltaSeparateFromPermanentValue() {
         assertEquals("3/3", effectiveCorner(card))
         assertEquals("0/1", effectiveCorner(card.copy(eotCorner = "-1/-0")))

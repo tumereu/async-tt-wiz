@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 /**
- * STK-024 (owner playtest 2026-11-09): a tap on a source with several ways to pay takes the sensible one: the way after which the
+ * STK-024, STK-159 (owner playtest 2026-11-09): a tap on a source with several ways to pay takes the sensible one: the way after which the
  * rest of the cost can still be paid (the engine's own fill of the payment with that way kept), and where the spell cares about
  * the colours spent on it, the way that serves that first.
  */

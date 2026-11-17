@@ -7,7 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.api.TurnStep
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.After
@@ -55,7 +55,7 @@ class CombatLifeGainTest {
         compose.waitForIdle()
     }
 
-    // CMB-050 (owner playtest 2026-11-11; CR 510.1, CR 702.15b): the attacker's lifelink gain shows on the band's edge facing
+    // CMB-050, CMB-089, CMB-088 (owner playtest 2026-11-11; CR 510.1, CR 702.15b): the attacker's lifelink gain shows on the band's edge facing
     // her battlefield with the life-gain heart, and as "+2" at her life square; Bob's chip shows his total; nothing per lane
     @Test fun anAttackersLifelinkGainShowsOnTheBand() {
         k.opening()

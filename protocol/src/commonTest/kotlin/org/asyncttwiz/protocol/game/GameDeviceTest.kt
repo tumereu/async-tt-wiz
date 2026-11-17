@@ -61,7 +61,7 @@ class GameDeviceTest {
         assertIs<GameDevice.Acted.Sent>(cast)
     }
 
-    // I-D56 §3, §4, §7, HIS-096, TRN-027: async: the starting player plays on the other player's own keep, assuming only
+    // I-D56 §3, §4, §7, HIS-096, HIS-183, TRN-027: async: the starting player plays on the other player's own keep, assuming only
     // their passes (an opening keep is never assumed); the other player's catch-up starts paused past the opening, and
     // their Auto-skip, which doesn't stop at passes they couldn't respond to, confirms them; the indicator empties
     @Test
@@ -158,7 +158,7 @@ class GameDeviceTest {
         assertEquals(emptyList(), reports(sim, alice), "the server took it")
     }
 
-    // TRN-027, TRN-070, HIS-096 (owner, 2026-11-15): the starting player's device never assumes the other player's opening
+    // TRN-027, TRN-124, TRN-070, TRN-161, HIS-096, HIS-183 (owner, 2026-11-15): the starting player's device never assumes the other player's opening
     // keep by itself, with "Always assume resolves" on or off: it waits for it with Assume keep on the main button, and turn
     // 1 begins on their own keep
     @Test
@@ -182,7 +182,7 @@ class GameDeviceTest {
         }
     }
 
-    // TRN-070, HIS-096, HIS-117: a press of Assume keep makes the assumed keep and the starting player's turn-1 controls
+    // TRN-070, HIS-096, HIS-183, HIS-117, HIS-197: a press of Assume keep makes the assumed keep and the starting player's turn-1 controls
     // follow at once; the other player's playback stops before it, and their Keep confirms it
     @Test
     fun assumeKeepIsAPressAndTheOtherPlayerStopsBeforeIt() {
@@ -203,7 +203,7 @@ class GameDeviceTest {
         assertTrue(sim.server.line().any { it.assumed != null })
     }
 
-    // HIS-095, STK-036 (owner, 2026-11-06): playback stops by the player's current response mode; set to Control
+    // HIS-095, HIS-163, STK-036, STK-174 (owner, 2026-11-06): playback stops by the player's current response mode; set to Control
     // (from the quick actions, live or in playback), which stops it at every assumed pass; the value is kept on the server for the game
     @Test
     fun fullControlStopsAtEveryAssumedPass() {
@@ -227,7 +227,7 @@ class GameDeviceTest {
         assertTrue(sim.take(sim.alice).any { it is org.asyncttwiz.protocol.GameAction.EngineSettings })
     }
 
-    // HIS-095 (I-D56 §27): pausing playback stops it at the next point where Full control would stop, even where the
+    // HIS-095, HIS-165 (I-D56 §27): pausing playback stops it at the next point where Full control would stop, even where the
     // player's own mode (Auto-skip) wouldn't; their answer there (playing on) ends the pause and playback goes on by
     // their mode
     @Test
@@ -279,7 +279,7 @@ class GameDeviceTest {
         assertEquals(alice, note.by)
         assertEquals(stop.event.id, note.discarded.id)
         assertTrue(note.takenBack.isNotEmpty())
-        // HIS-097 (problem report DY6VCM): only Bob's device's own passes and assumptions went: no action of his to name
+        // HIS-097, HIS-186 (problem report DY6VCM): only Bob's device's own passes and assumptions went: no action of his to name
         assertEquals(emptyList(), note.actions)
         // Bob's table is back at the branch point; Alice's cast is buffered and played back
         assertEquals(stop.event.parentId, sim.device(bob).session.localHead)
@@ -291,7 +291,7 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-094, HIS-095, HIS-035, HIS-033 (owner playtest 2026-11-06): at a stop for the player's own decision there is
+    // HIS-094, HIS-095, HIS-035, HIS-162, HIS-033 (owner playtest 2026-11-06): at a stop for the player's own decision there is
     // nothing to watch before it: leaving the app and coming back, and loading the game again, show that same stop live,
     // never the catch-up's paused start ("has made moves"), though the other player's events follow it
     @Test
@@ -362,7 +362,7 @@ class GameDeviceTest {
         assertEquals(bob, sim.server.line()[before].assumed?.assumedBy)
     }
 
-    // HIS-096 (owner, 2026-11-05): the other player's pause is a wait with "Assume resolves" (a tap assumes it) unless
+    // HIS-096, HIS-178, HIS-181 (owner, 2026-11-05): the other player's pause is a wait with "Assume resolves" (a tap assumes it) unless
     // "Always assume resolves" is on, which assumes it at once; their presence never decides it
     @Test
     fun aPauseWaitsWithAssumeUnlessAlwaysAssumeResolves() {
@@ -396,7 +396,7 @@ class GameDeviceTest {
             "the pass at Alice's pause was assumed at once")
     }
 
-    // HIS-096, TRN-059 (owner playtest 2026-11-05 evening): with "When they have no mana" the other player's pause is
+    // HIS-096, HIS-181, TRN-059 (owner playtest 2026-11-05 evening): with "When they have no mana" the other player's pause is
     // assumed at once while the table shows them no mana: nothing in their pool, nothing they could activate (Alice has
     // no permanent yet)
     @Test
@@ -413,8 +413,8 @@ class GameDeviceTest {
             "the pass at Alice's pause was assumed at once")
     }
 
-    // LOB-113, HIS-096 (owner, 2026-11-06): Normal is the default; each choice is stored so; a tap goes Never, Normal, No
-    // mana, Always
+    // LOB-113, HIS-096 (owner, 2026-11-06): PlaySettings() holds Normal (a new game starts with "No mana",
+    // PlaySettings.NEW_GAMES); each choice is stored so; a tap goes Never, Normal, No mana, Always
     @Test
     fun assumeResolvesSettingsMapFromTheirStoredForm() {
         val json = org.asyncttwiz.protocol.GameWire.json
@@ -555,7 +555,7 @@ class GameDeviceTest {
         assertTrue(bobs.model.sameAs(sim.server.stateAt(bobs.session.localHead)))
     }
 
-    // HIS-084, HIS-085, HIS-086 (I-D56 §10, report C9PVLM): Undo goes back to just before the player's latest own action,
+    // HIS-084, HIS-198, HIS-085, HIS-086 (I-D56 §10, report C9PVLM): Undo goes back to just before the player's latest own action,
     // past the passes their device made by itself after it; it only pops events (none of its own is added); it lands where
     // they hold priority and their device waits for them there; a second Undo takes back the action before; the next
     // event made there starts the new line (HIS-042)
@@ -622,7 +622,7 @@ class GameDeviceTest {
         settle()
     }
 
-    // SYS-012 (owner, 2026-11-08): a refused own action names what it was made on, the card played here, so the table
+    // SYS-012, SYS-139 (owner, 2026-11-08): a refused own action names what it was made on, the card played here, so the table
     // shakes that card; a pass names nothing (the main button shakes)
     @Test
     fun aRefusedActionNamesWhatItWasMadeOn() {
@@ -722,7 +722,7 @@ class GameDeviceTest {
         return seer
     }
 
-    // HIS-109, SYS-012 (a full e2e run, 2026-11-08): Alice's attack shows at once with her priority (act's performed point),
+    // HIS-109, HIS-189, SYS-012 (a full e2e run, 2026-11-08): Alice's attack shows at once with her priority (act's performed point),
     // then her pass by her mode folds into its event. A tap of the main button on that board is that very press, also once
     // the server has taken the event; on the board before the attack the same input is another move, and so is Bob's pass
     @Test fun aPassFoldedIntoHerActionIsThePressOnItsOwnBoard() {
@@ -746,7 +746,7 @@ class GameDeviceTest {
         assertTrue(alice.pressedInAction(parent, pass), "still that press on the main line")
     }
 
-    // HIS-109, SYS-011: in Control nothing folds into her attack's event: she holds priority, and her tap is her own pass
+    // HIS-109, HIS-189, SYS-011, SYS-136: in Control nothing folds into her attack's event: she holds priority, and her tap is her own pass
     @Test fun nothingFoldedIntoHerActionLeavesHerPressHers() {
         val sim = seers()
         val seer = sim.seersToThirdTurn()
@@ -764,7 +764,7 @@ class GameDeviceTest {
         assertFalse(alice.pressedInAction(parent, Input.PassPriority(sim.alice)))
     }
 
-    // HIS-113 (owner, 2026-11-08): the attackers hold Alice's view, her phone making none of its own steps, until done; then
+    // HIS-113, HIS-146 (owner, 2026-11-08): the attackers hold Alice's view, her phone making none of its own steps, until done; then
     // the damage holds it too; Off there are no holds; the game goes on for the other player (their events are never held)
     @Test fun aCombatHoldsTheViewOnTheAttackersAndOnTheDamage() {
         val sim = seers()
@@ -799,7 +799,7 @@ class GameDeviceTest {
         assertNull(alice.combatHold, "Off: none")
     }
 
-    // HIS-084, HIS-101, HIS-099 (owner, 2026-11-08): her press leaving her own main phase is an undo point, unlike the passes
+    // HIS-084, HIS-198, HIS-101, HIS-119, HIS-120, HIS-099 (owner, 2026-11-08): her press leaving her own main phase is an undo point, unlike the passes
     // after it: one Undo is back there, free, and her phone passes nothing there; her End turn's first pass records End turn
     @Test fun aPressLeavingTheMainPhaseIsAnUndoPoint() {
         val sim = seers()
@@ -821,7 +821,7 @@ class GameDeviceTest {
         assertTrue(ending.drop(1).all { it.press == null }, "its later passes stay plain: ${ending.map { it.press }}")
     }
 
-    // HIS-101 (owner, 2026-11-08): the mark says what was pressed: To end step from her second main phase in Control; no mark on
+    // HIS-101, HIS-119, HIS-120 (owner, 2026-11-08): the mark says what was pressed: To end step from her second main phase in Control; no mark on
     // her passes between them, nor on an assumed pass
     @Test fun onlyThePressIsMarked() {
         val sim = seers()
@@ -852,7 +852,7 @@ class GameDeviceTest {
         assertEquals(line.last { it.press != null }.id, bob.session.events.last { it.press != null }.id, "the other phone holds the same record")
     }
 
-    // HIS-101, SYS-077 (owner, 2026-11-08): a press lost in a race, made again on the other player's event, keeps its mark
+    // HIS-101, HIS-120, SYS-077 (owner, 2026-11-08): a press lost in a race, made again on the other player's event, keeps its mark
     @Test fun aPressMadeAgainAfterALostRaceKeepsItsMark() {
         val sim = seers()
         sim.seersToThirdTurn()
@@ -881,7 +881,7 @@ class GameDeviceTest {
         assertEquals(MainPress.ToCombat, bob.session.events.single { it.id == again.id }.press)
     }
 
-    // HIS-101 (owner, 2026-11-08): the event and its submission carry the mark: the server makes the same event from what the
+    // HIS-101, HIS-120 (owner, 2026-11-08): the event and its submission carry the mark: the server makes the same event from what the
     // device sends (Authority.make), through the stored form; an old event without the field decodes with no mark
     @Test fun theMarkTravelsAndOldEventsDecode() {
         val sim = seers()
@@ -937,7 +937,7 @@ class GameDeviceTest {
         return m.battlefield.first { m.obj(it)?.controller == alice && m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }
     }
 
-    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the default), the other player's pause right after your
+    // HIS-096, HIS-180, TRN-070, TRN-157 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause right after your
     // attack is assumed at once (no wait with Assume before their blocks); the priority after their blocks keeps the
     // setting (a wait with Assume); their catch-up playback still stops at the pass assumed after the attack (HIS-095)
     @Test
@@ -975,7 +975,7 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the default), the other player's pause at your end step is
+    // HIS-096, HIS-180, TRN-070, TRN-157 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause at your end step is
     // assumed at once: Alice's End turn goes on into Bob's turn while he is away
     @Test
     fun theirPauseAtYourEndStepIsAssumedAtOnce() {
@@ -1040,7 +1040,7 @@ class GameDeviceTest {
         }
     }
 
-    // I-D56 §3, §4, §12, CMB-040, TRN-065 (owner, 2026-11-09): declaring attackers leaves a wait with Assume blockers (the
+    // I-D56 §3, §4, §12, CMB-040, TRN-065, TRN-137, TRN-138 (owner, 2026-11-09): declaring attackers leaves a wait with Assume blockers (the
     // screen it opens, with "No blocks", assumes them); Alice's OK on the lethal damage's result works at once and stands
     // while Bob catches up; his playback always stops at assumed blocks, and the same blocks confirm; both OKs make it final
     @Test
@@ -1097,7 +1097,7 @@ class GameDeviceTest {
         return bobs
     }
 
-    // TRN-065 (owner, 2026-11-09): your OK can be taken back until the other player presses theirs; the other player's OK
+    // TRN-065, TRN-137, TRN-139 (owner, 2026-11-09): your OK can be taken back until the other player presses theirs; the other player's OK
     // or take-back reaches the table at once, never a playback in front of the dialog
     @Test
     fun anOkIsTakenBackUntilTheOtherPlayerPressesTheirsAndShowsAtOnce() {
@@ -1124,7 +1124,7 @@ class GameDeviceTest {
         assertEquals(GameDevice.Undo.Unavailable("final"), alices.undo(), "a final result stays")
     }
 
-    // TRN-065 (owner, 2026-11-09): opening the game on another device shows where the OK stands, and no catch-up for an OK
+    // TRN-065, TRN-139 (owner, 2026-11-09): opening the game on another device shows where the OK stands, and no catch-up for an OK
     @Test
     fun anOkShowsOnAnotherDeviceWithoutACatchUp() {
         val sim = seers()
@@ -1148,7 +1148,7 @@ class GameDeviceTest {
         assertEquals(true, bobs.catchUp, "still away")
     }
 
-    // TRN-065, HIS-084 (owner, 2026-11-09): Undo works until the result is final: past your own OK free as your action
+    // TRN-065, TRN-137, HIS-084, HIS-200 (owner, 2026-11-09): Undo works until the result is final: past your own OK free as your action
     // is; with the other player's OK on it, by the usual request; either way no OK stands afterwards
     @Test
     fun undoBeforeTheResultIsFinalClearsTheOks() {
@@ -1175,7 +1175,7 @@ class GameDeviceTest {
         assertEquals(emptySet(), bobs.model.table.resultOks)
     }
 
-    // TRN-065, LOB-075, LOB-076 (owner, 2026-11-09): a player who hasn't pressed OK is what the game waits for, seen or not;
+    // TRN-065, TRN-138, LOB-075, LOB-076 (owner, 2026-11-09): a player who hasn't pressed OK is what the game waits for, seen or not;
     // the player whose OK stands has nothing waiting
     @Test
     fun theServerWaitsForThePlayerWhoHasntPressedOk() {
@@ -1207,7 +1207,7 @@ class GameDeviceTest {
         assertEquals(1, sim.branches)
         val note = sim.device(alice).notes().filterIsInstance<GameDevice.Note.Branched>().single()
         assertEquals(Input.DeclareBlockers(bob, emptyList()), note.discarded.assumed?.input)
-        // HIS-097: her assumption and her passes to the damage are no action of hers
+        // HIS-097, HIS-186: her assumption and her passes to the damage are no action of hers
         assertEquals(emptyList(), note.actions)
         assertNull(Engine.result(sim.device(alice).model.engine))
         assertNull(Engine.result(sim.server.state().engine))
@@ -1242,7 +1242,7 @@ class GameDeviceTest {
         assertEquals(sim.server.head, bobs.session.tip, "the server's head is there too")
     }
 
-    // STK-036, STK-030, SYS-063, CR 603.3b (owner 2026-11-06): two different triggers of Bob's that go on the Stack at the
+    // STK-036, STK-172, STK-030, STK-185, SYS-063, CR 603.3b (owner 2026-11-06): two different triggers of Bob's that go on the Stack at the
     // same time are his to order in every response mode: his Auto-skip device asks him rather than ordering them itself
     @Test
     fun autoSkipAsksTheOrderOfTwoTriggers() {
@@ -1309,7 +1309,7 @@ class GameDeviceTest {
         assertTrue(decoded.log.any { it.startsWith("out Submit") })
     }
 
-    // LOB-089: the record keeps its newest entries up to its bound, and the bundle carries them all
+    // LOB-089, LOB-231: the record keeps its newest entries up to its bound, and the bundle carries them all
     @Test
     fun theRecordKeepsItsNewestEntries() {
         val sim = spells("Glance Ahead")

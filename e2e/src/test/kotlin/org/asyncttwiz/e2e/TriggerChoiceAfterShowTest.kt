@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
 /**
  * Owner playtest 2026-11-15: "'You may pay' for an effect was asked before the trigger had animated to its place on the
  * Stack." A trigger that asks its controller to pay as it resolves, put on the Stack by their own action or the other
- * player's: on their table its play shown (HIS-112) lands on the Stack first, and only then does the pay bar open (TBL-125):
+ * player's: on their table its play shown (HIS-112, HIS-140) lands on the Stack first, and only then does the pay bar open (TBL-125, TBL-152):
  * never while it still flies or shows in the middle.
  */
 class TriggerChoiceAfterShowTest : E2e() {
@@ -65,7 +65,7 @@ class TriggerChoiceAfterShowTest : E2e() {
                 "nothing leaves Alice's Stack before it landed there: $steps")
     }
 
-    // HIS-112, TBL-125, STK-030 (owner playtest 2026-11-15): Alice casts an Ember Tollkeeper ("When this creature enters, you
+    // HIS-112, HIS-140, TBL-125, TBL-152, STK-030 (owner playtest 2026-11-15): Alice casts an Ember Tollkeeper ("When this creature enters, you
     // may pay {1}. If you do, draw a card."), her phone assuming Bob's passes: it resolves and its trigger shows on her table
     // (her own trigger) and resolves at once, asking her to pay once it has landed
     @Test fun aChoiceOfYourOwnTriggerWaitsForItsPlayShownToLand() {
@@ -86,7 +86,7 @@ class TriggerChoiceAfterShowTest : E2e() {
         }
     }
 
-    // HIS-112, TBL-125, STK-030 (owner playtest 2026-11-15): Alice has an Ember Toll Bell ("At the beginning of your upkeep,
+    // HIS-112, HIS-140, TBL-125, TBL-152, STK-030 (owner playtest 2026-11-15): Alice has an Ember Toll Bell ("At the beginning of your upkeep,
     // you may pay {1}. If you do, draw a card.") and a Mountain; Bob ends his turn, his phone assuming her passes, so his End
     // turn reaches her upkeep, puts her Bell's trigger on the Stack and resolves it up to her choice, all in his one event. On
     // her table the trigger shows and lands first, and only then does the pay bar open

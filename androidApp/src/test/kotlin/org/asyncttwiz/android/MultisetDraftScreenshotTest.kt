@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.DraftableSet
 import org.junit.After
@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 
 /**
- * Multiset drafting for the owner's gallery: set symbols in the Sets tab (DRF-176) and the pack grid (DRF-177, DRF-178):
+ * Multiset drafting for the owner's gallery: set symbols in the Sets tab (DRF-176) and the pack grid (DRF-177, DRF-195, DRF-196, DRF-198, DRF-178):
  * one set by default with the Mix sets toggle, the open grid, back to one set, a cube's greyed toggle, a row label, a column label and a single cell chosen, Sealed's one row
  * and a preset saved with a grid. The creator's setup is shown from seeded pod state and driven by taps; nothing is sent
  * (the worker never runs requests). Real set names and symbols, so the symbols show as players see them.
@@ -102,7 +102,7 @@ class MultisetDraftScreenshotTest {
             "Duskmourn, greyed with the warning sign, can't be chosen.")
     }
 
-    // DRF-177, DRF-018: one set for every pack by default: the set button and the Mix sets toggle beside it; the toggle
+    // DRF-177, DRF-195, DRF-018: one set for every pack by default: the set button and the Mix sets toggle beside it; the toggle
     // opens the grid
     @Test fun oneSetThenTheOpenGrid() {
         show(detail(sixPacks, source("RTR")))
@@ -118,7 +118,7 @@ class MultisetDraftScreenshotTest {
             "to Round 3 down, every cell Return to Ravnica's symbol over its code.")
     }
 
-    // DRF-177: back in one set after mixing, the button says Mixed sets until a set is chosen there, which fills every pack
+    // DRF-177, DRF-196: back in one set after mixing, the button says Mixed sets until a set is chosen there, which fills every pack
     @Test fun backToOneSetAfterMixing() {
         show(detail(sixPacks, source("RTR")))
         tap("mix-sets")
@@ -142,7 +142,7 @@ class MultisetDraftScreenshotTest {
         assertEquals(listOf("DGM"), pods.state.setup!!.packSets ?: listOf(pods.state.setup!!.set!!.code))
     }
 
-    // DRF-177: a cube has no mixed packs: the toggle stays, greyed, and holding it says why
+    // DRF-177, DRF-198: a cube has no mixed packs: the toggle stays, greyed, and holding it says why
     @Test fun aCubeGreysTheToggle() {
         show(detail(sixPacks, PodSource("Runes", 540)))
         compose.onNodeWithTag("mix-sets").assertIsDisplayed().assertIsNotEnabled()
@@ -178,7 +178,7 @@ class MultisetDraftScreenshotTest {
         shot("multiset-cell", "Choosing Gatecrash there changes only that cell: round 3 is now Dragon's Maze then Gatecrash.")
     }
 
-    // DRF-177: Sealed's grid is one row
+    // DRF-177, DRF-195: Sealed's grid is one row
     @Test fun sealedOneRow() {
         show(detail(DraftSettings.sealed(), source("RTR", "RTR", "RTR", "GTC"), name = "Sealed league"))
         compose.onNodeWithTag("pack-row-0").assertTextEquals("All packs")
@@ -186,7 +186,7 @@ class MultisetDraftScreenshotTest {
             "1 to 3 from Return to Ravnica and 4 to 6 from Gatecrash; the source reads Mixed sets.")
     }
 
-    // DRF-032, DRF-177: a preset saved with a grid
+    // DRF-032, DRF-201, DRF-177: a preset saved with a grid
     @Test fun presetWithAGrid() {
         pods.presets.seed(PodPresetState(open = true, loaded = true, presets = listOf(
             PodPreset("1", "Friday cube", DraftSettings.booster(), cubeId = "runes", cubeName = "Runes", updatedAt = "2026-11-01T00:00:00Z"),

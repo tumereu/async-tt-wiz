@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
@@ -188,7 +188,7 @@ class PodScreensTest {
         assertEquals(names[0], names[1], "One stack width for every row lines the names up")
     }
 
-    // DRF-012, DRF-013
+    // DRF-012, DRF-013, DRF-189
     @Test fun invitationsSitBetweenPodsNeedingYouAndOtherPodsAndAreAnsweredInPlace() {
         val pick = PodSummary("pick", "Pick now", PodPhase.DRAFTING, alice, listOf(alice, bob),
             PodAttention.YOUR_PICK, 1, "2026-10-26T00:00:00Z")

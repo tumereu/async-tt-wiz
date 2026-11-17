@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.Engine
 import arcanum.engine.Host
 import arcanum.engine.decision.Answer
@@ -62,7 +62,7 @@ class EngineTableScreenshotTest {
                             val events = game.timeline.events(game, names)
                             val status = game.shown?.status
                             val playing = status is GameDevice.Status.Playing
-                            // HIS-094, HIS-095: catch-up playback looks like live play, with the centre text at its paused start
+                            // HIS-094, HIS-160, HIS-095, HIS-165: catch-up playback looks like live play, with the centre text at its paused start
                             // and at a stop its pause made
                             val watch = status == GameDevice.Status.CatchUp || (status as? GameDevice.Status.Stopped)?.paused == true
                             TableSurface(summary, reviewed ?: game.play(), viewer, landscape, Modifier.fillMaxSize(), connected = reviewed == null,
@@ -101,7 +101,7 @@ class EngineTableScreenshotTest {
         s.player(PlayerId(f.a)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
     }
 
-    // TRN-059, TRN-068, TRN-016, TRN-017: the private toggles, and the unconfirmed mark at the main button's corner (no
+    // TRN-059, TRN-122, TRN-068, TRN-016, TRN-017: the private toggles, and the unconfirmed mark at the main button's corner (no
     // count); the main button is 112 dp wide and the three toggles share the rest of the row equally
     @Test fun assumedAnswersAndPrivateToggles() {
         val game = aliceAtMain()
@@ -134,22 +134,22 @@ class EngineTableScreenshotTest {
         cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's Assume resolves quick action set to $state: $caption")
     }
 
-    // TRN-059, HIS-096 (owner playtest 2026-11-05 evening, 2026-11-06): the Assume resolves quick action shows its choice
+    // TRN-059, TRN-120, HIS-096, HIS-179 (owner playtest 2026-11-05 evening, 2026-11-06): the Assume resolves quick action shows its choice
     // of Never, Normal, When they have no mana and Always, filled deep blue, violet or amber as the response mode that
     // keeps as much control
     @Test fun theAssumeQuickActionShowsNever() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Never, "Never",
         "assume-never", "filled deep blue with white words, it reads \"Assume: Never\": her device waits wherever Bob gets priority.")
 
-    // TRN-059, HIS-096
+    // TRN-059, TRN-120, HIS-096, HIS-180
     @Test fun theAssumeQuickActionShowsNormal() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Normal, "Normal",
         "assume-normal", "filled violet with white words, it reads \"Assume: Normal\": her device goes on where Normal mode would and waits at Bob's pauses.")
 
-    // TRN-059, HIS-096
+    // TRN-059, TRN-120, HIS-096, HIS-181
     @Test fun theAssumeQuickActionShowsNoMana() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana,
         "When they have no mana", "assume-no-mana",
         "filled amber with white words, it reads \"Assume: No mana\": her device also goes on at Bob's pauses while the table shows him no mana.")
 
-    // TRN-059, HIS-096
+    // TRN-059, TRN-120, HIS-096, HIS-181
     @Test fun theAssumeQuickActionShowsAlways() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Always, "Always",
         "assume-always", "filled red-orange with white words, it reads \"Assume: Always\": her device goes on wherever Bob gets priority after something she did.")
 
@@ -164,20 +164,20 @@ class EngineTableScreenshotTest {
         cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's response mode quick action set to ${mode.label()}: $caption")
     }
 
-    // TRN-059 (owner playtest 2026-11-06): the response mode quick action reads Control, Normal or Quick, filled deep blue,
+    // TRN-059, TRN-120 (owner playtest 2026-11-06): the response mode quick action reads Control, Normal or Quick, filled deep blue,
     // violet or amber by how much control she keeps
     @Test fun theModeQuickActionShowsControl() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.FullControl, "mode-control",
         "filled deep blue with a white icon and \"Control\": her device stops wherever she gets priority.")
 
-    // TRN-059
+    // TRN-059, TRN-120
     @Test fun theModeQuickActionShowsNormal() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.Normal, "mode-normal",
         "filled violet with a white icon and \"Normal\": her device stops at her stops and pauses.")
 
-    // TRN-059
+    // TRN-059, TRN-120
     @Test fun theModeQuickActionShowsQuick() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.AutoSkip, "mode-quick",
         "filled amber with a white icon and \"Quick\": her device also goes on where she can't respond.")
 
-    // TRN-063 (owner, 2026-11-06): an own action whose result arrives at once looks as before: no working sign, frame by
+    // TRN-063, TRN-118 (owner, 2026-11-06): an own action whose result arrives at once looks as before: no working sign, frame by
     // frame on the test clock
     @Test fun anInstantActionShowsNoWorkingSign() {
         val game = aliceAtMain()
@@ -191,7 +191,7 @@ class EngineTableScreenshotTest {
         assertTrue(game.shown!!.engine.turn.step != arcanum.api.TurnStep.PrecombatMain, "the action was made")
     }
 
-    // TRN-063 (owner, 2026-11-06): an own action still being worked out 150 ms after the press shows the working sign on the
+    // TRN-063, TRN-118 (owner, 2026-11-06): an own action still being worked out 150 ms after the press shows the working sign on the
     // main button until its result arrives, at least 300 ms
     @Test fun aSlowActionShowsTheWorkingSign() {
         val game = aliceAtMain()
@@ -223,8 +223,8 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("main-button-working").assertDoesNotExist()
     }
 
-    // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
-    // says so and the main button holds Assume keep (TRN-004; her phone never assumes his keep by itself, HIS-096)
+    // TRN-066, TRN-151, TRN-070, TRN-161, TRN-062, TRN-027, TRN-124, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
+    // says so and the main button holds Assume keep (TRN-004, TRN-161; her phone never assumes his keep by itself, HIS-096, HIS-183)
     @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
@@ -254,7 +254,7 @@ class EngineTableScreenshotTest {
             "In landscape, Alice kept while Bob is online: the same dark band under his hand, running edge to edge and fading out toward both sides, says Bob is deciding on a mulligan.")
     }
 
-    // HIS-033, HIS-094 (§29.1, owner 2026-11-05): coming back after the opening, Bob's playback of what Alice did starts
+    // HIS-033, HIS-094, HIS-159 (§29.1, owner 2026-11-05): coming back after the opening, Bob's playback of what Alice did starts
     // paused: no dialog, his table as live play with the centre text "Alice has made moves · Tap to watch" (no Play/Pause,
     // no timeline look); a tap on it starts playback
     @Test fun catchUpStartsPaused() {
@@ -286,7 +286,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
         compose.onNodeWithContentDescription("Response mode").assertExists()
-        // TRN-059 (owner playtest 2026-11-12): the three cells stay in their places, Assume resolves greyed while catching up
+        // TRN-059, TRN-121 (owner playtest 2026-11-12): the three cells stay in their places, Assume resolves greyed while catching up
         compose.onNodeWithContentDescription("Assume resolves setting").assertIsNotEnabled()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
             "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana; nothing plays until he taps the text.")
@@ -296,7 +296,7 @@ class EngineTableScreenshotTest {
         }
     }
 
-    // HIS-021, CMB-007 (§29.6): Alice attacked while Bob was away; his playback shows the attack in the combat band
+    // HIS-021, HIS-030, CMB-007 (§29.6): Alice attacked while Bob was away; his playback shows the attack in the combat band
     // between the battlefields, as in live combat
     @Test fun anAttackPlaysBackInTheCombatArea() {
         val scenario = EngineCombatScenario()
@@ -335,7 +335,7 @@ class EngineTableScreenshotTest {
     }
 
     /** Alice at her main phase in [mode] casts Storm Spark at Bob ([alwaysAssume]: "Always assume resolves"). Bob is in
-     * Normal (HIS-096: in Quick, with nothing to respond with, his own mode would pass and her phone would assume it). */
+     * Normal (HIS-096, HIS-176: in Quick, with nothing to respond with, his own mode would pass and her phone would assume it). */
     private fun aliceCastsSpark(mode: org.asyncttwiz.protocol.game.ResponseMode, alwaysAssume: Boolean): EngineGame {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
         game.device.modes(mapOf(f.b to org.asyncttwiz.protocol.game.ResponseMode.Normal))
@@ -373,7 +373,7 @@ class EngineTableScreenshotTest {
             "A new game's opening: Alice's seven cards are in her hand and her quick actions are Mulligan and Keep; nothing covers the board or asks her anything else.")
     }
 
-    // TRN-062, STK-043, CR 103.5 (owner problem report 5DDSKK): right after Alice's second mulligan the Keep / Bottom screen
+    // TRN-062, TRN-125, STK-043, CR 103.5 (owner problem report 5DDSKK): right after Alice's second mulligan the Keep / Bottom screen
     // asks for the card it puts on the bottom, with Mulligan and Keep greyed; its OK puts it there and Keep then only keeps
     @Test fun theBottomOfASecondMulliganIsTheKeepBottomScreen() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
@@ -400,7 +400,7 @@ class EngineTableScreenshotTest {
         assertEquals(6, game.device.model.engine.player(PlayerId(f.a)).hand.size, "she keeps six")
     }
 
-    // STK-029, STK-027, TRN-063 (owner 2026-11-05): in the Control response mode Alice keeps priority after casting Storm Spark: it
+    // STK-029, STK-027, TRN-063, TRN-113, TRN-115 (owner 2026-11-05): in the Control response mode Alice keeps priority after casting Storm Spark: it
     // shows on the Stack and Resolve is the main button; nothing sits under the Stack and no panel says she cast it
     @Test fun resolveIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.FullControl, alwaysAssume = true)
@@ -416,7 +416,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }
 
-    // ZON-093 (owner 2026-11-07, 2026-11-08): your own Library's menu has View deck; its panel lists your deck in type
+    // ZON-093, ZON-131, ZON-132, ZON-133 (owner 2026-11-07, 2026-11-08): your own Library's menu has View deck; its panel lists your deck in type
     // groups at the Panels card size, All or Still in library (the seven cards in your opening hand left out), closed by
     // a borderless X
     @Test fun viewDeckListsYourDeck() {
@@ -441,7 +441,7 @@ class EngineTableScreenshotTest {
             "At the opening Alice opened her own Library's menu and tapped View deck, then Still in library: her deck's cards without the seven in her hand, in type groups as in the deck views, at the Panels card size with copies counted on each card, and a borderless X at the top right that closes the panel.")
     }
 
-    // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Assume resolves" Normal, after Alice's Storm Spark the game
+    // STK-028, TRN-070, TRN-153, HIS-096, HIS-178 (owner 2026-11-05): with "Assume resolves" Normal, after Alice's Storm Spark the game
     // waits for Bob (away or online); "Assume resolves" is the main button and assumes he lets it resolve
     @Test fun assumeIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.Normal, alwaysAssume = false)
@@ -456,7 +456,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
 
-    // TRN-067, TRN-070, TRN-071 (owner gallery review, 2026-11-06): Alice casts Ember Glance ("Look at target player's
+    // TRN-067, TRN-070, TRN-154, TRN-071, TRN-160 (owner gallery review, 2026-11-06): Alice casts Ember Glance ("Look at target player's
     // hand.") at Bob; assuming his pass would show her his hidden hand, so the wait's Assume is greyed: a tap does nothing,
     // holding it says why
     @Test fun assumeIsGreyedWhereItWouldShowHiddenCards() {
@@ -509,7 +509,7 @@ class EngineTableScreenshotTest {
             "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\", \"Triggered ability\" in violet and the trigger's text.")
     }
 
-    // STK-050, TBL-104 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,
+    // STK-050, STK-122, TBL-104, TBL-185 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,
     // not card-shaped (shorter than a card of its width), with the source's art crop and under it the source's name and
     // the ability's text, and nothing else: no source card picture after it
     @Test fun holdingAnAbilityOnTheStackShowsOnlyItsTile() {
@@ -560,7 +560,7 @@ class EngineTableScreenshotTest {
         return game to h
     }
 
-    // HIS-095, HIS-091, HIS-105 (owner playtest 2026-11-04 #1, #2): Bob's playback (his mode Control) stops at a pass
+    // HIS-095, HIS-091, HIS-123, HIS-105 (owner playtest 2026-11-04 #1, #2): Bob's playback (his mode Control) stops at a pass
     // Alice assumed for him in her upkeep: his table looks like any point of his, with no words saying it was assumed
     @Test fun aStopAtAnAssumptionLooksLikeYourOwnPoint() {
         val bob = bobCatchingUp()
@@ -577,7 +577,7 @@ class EngineTableScreenshotTest {
             "Bob's playback (his response mode Control) stopped at Alice's upkeep, where she had assumed his pass: his table is live there with his main button, as at any point of his; nothing says what Alice assumed.")
     }
 
-    // HIS-095 (owner 2026-11-05): Bob tapped the table while playback ran: it went on to Alice's upkeep, where Control
+    // HIS-095, HIS-165 (owner 2026-11-05): Bob tapped the table while playback ran: it went on to Alice's upkeep, where Control
     // would have stopped for him, and stopped there, live, with the centre text that resumes it
     @Test fun pausedPlaybackStopsWhereFullControlWould() {
         val bob = bobCatchingUp()
@@ -610,14 +610,14 @@ class EngineTableScreenshotTest {
         return alice
     }
 
-    /** HIS-099: the Undo dialog held open on [game]: its points, and the one it opened at. */
+    /** HIS-099, HIS-208: the Undo dialog held open on [game]: its points, and the one it opened at. */
     private fun undoDialogPoints(game: EngineGame): Pair<List<UndoPoint>, UndoPoint> {
         val points = undoPoints(game.shown!!, game.timeline.events(game, names))
         assertTrue(points.size >= 6, "several points: ${points.map { it.shown.description }}")
         return points to points.last { it.target == game.shown!!.undoTarget }
     }
 
-    // HIS-083, HIS-087, HIS-099 (owner 2026-11-06): holding Undo opens the Undo dialog at the point before her latest action:
+    // HIS-083, HIS-087, HIS-202, HIS-099, HIS-207, HIS-208, HIS-209 (owner 2026-11-06): holding Undo opens the Undo dialog at the point before her latest action:
     // the board there on top, under it the timeline's strip of the points (both players' events, with the turn and step
     // lines) with the chosen one in the centre and its text. Bob has only passed since her latest action, so Undo there is
     // free; tapping the chip of Bob's latest real input (his own cast) chooses the point before it, which takes it
@@ -645,13 +645,13 @@ class EngineTableScreenshotTest {
             "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, and Ask Bob with a message field, as going back there takes his action back.")
     }
 
-    // HIS-083, HIS-099
+    // HIS-083, HIS-099, HIS-207
     @Test fun undoDialogShowsTheBoardAboveTheTimelineStrip() = undoDialog(false, "rewind-dialog")
 
-    // HIS-083, HIS-099
+    // HIS-083, HIS-099, HIS-207
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun undoDialogInLandscape() = undoDialog(true, "rewind-dialog-landscape")
 
-    // HIS-099 (owner 2026-11-06): dragging the strip right chooses earlier points one event per step (snapping to them),
+    // HIS-099, HIS-208, HIS-207 (owner 2026-11-06): dragging the strip right chooses earlier points one event per step (snapping to them),
     // the text follows at once and the board once the choice rests; tapping an event chooses it
     @Test fun draggingTheUndoStripChoosesAnEarlierPoint() {
         val game = aliceFewTurnsIn { it.holdUndo() }
@@ -671,7 +671,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("undo-point").assertTextEquals(points.last().shown.description)
     }
 
-    // HIS-005 (owner 2026-11-06): timeline mode's strip shows a labelled line where the turn or step changed between two
+    // HIS-005, HIS-170, HIS-171 (owner 2026-11-06): timeline mode's strip shows a labelled line where the turn or step changed between two
     // events ("T3 · Main 1"), the newest change when several fell in between; a pass that only moved the game on is no event
     @Test fun timelineShowsTurnAndStepLines() {
         val game = aliceFewTurnsIn { r -> r.engine!!.timeline.events(r.engine!!, names).let { r.enterReview(it[it.size - 3].id) } }
@@ -739,7 +739,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { kotlin.test.assertNull(routes.review, "back where she was") }
     }
 
-    // HIS-015, TBL-009: in landscape too "Exit timeline" fits between Previous and Next, in the controls' place
+    // HIS-015, HIS-169, TBL-009, TBL-144: in landscape too "Exit timeline" fits between Previous and Next, in the controls' place
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun exitTimelineInLandscape() {
         val game = aliceAfterALand()
         val routes = render(game, f.a, landscape = true)

@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +47,7 @@ class TableChatButtonTest {
         return count
     }
 
-    // LOB-066 (on engine state, R4b)
+    // LOB-066, LOB-163 (on engine state, R4b)
     @Test fun chatButtonOpensGameChatSidePanelAndShowsADotOnlyWhileMessagesAreUnread() {
         val f = EngineLobbyFixture()
         val incoming = ChatMessage("incoming", f.game.id, f.game.playId!!, f.other, "Hello there", "1", "date")

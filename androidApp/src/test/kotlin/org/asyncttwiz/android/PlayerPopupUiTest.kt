@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -61,7 +61,7 @@ class PlayerPopupUiTest {
             compose.onNodeWithContentDescription("Set ${color.name.lowercase()} counter").assertDoesNotExist()
         compose.runOnIdle { assertEquals(owner, toolkit.player) }
         assertTrue(sent.isEmpty())
-        // LOB-139: only your own Life panel has the quick messages and Write
+        // LOB-139, LOB-172: only your own Life panel has the quick messages and Write
         val own = owner == "a"
         for (text in QuickChatMessages)
             assertEquals(own, compose.onAllNodesWithContentDescription(text).fetchSemanticsNodes().isNotEmpty(), text)
@@ -94,7 +94,7 @@ class PlayerPopupUiTest {
         assertTrue(sent.isEmpty(), "a chat message, no game action")
     }
 
-    // LOB-139, SYS-045: the icon-only Write opens the chat (holding it names it); greyed chips send nothing
+    // LOB-139, LOB-172, SYS-045: the icon-only Write opens the chat (holding it names it); greyed chips send nothing
     @Test fun writeOpensTheChatAndGreyedChipsSendNothing() {
         val (play, toolkit, _) = render(false, quickEnabled = false)
         openLife(play, "a", false)

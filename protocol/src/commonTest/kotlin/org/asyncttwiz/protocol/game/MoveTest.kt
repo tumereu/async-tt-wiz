@@ -121,7 +121,7 @@ class MoveTest {
         return moves
     }
 
-    // TRN-058, TRN-013, TRN-006, HIS-096 (owner playtest 2026-11-10: the move colour flipped back and forth): Bob ends his
+    // TRN-058, TRN-105, TRN-013, TRN-006, HIS-096 (owner playtest 2026-11-10: the move colour flipped back and forth): Bob ends his
     // turn while Alice is live; his device sends its passes and its assumptions of hers one event at a time, and they reach
     // her device one by one. Each head on the way is a point where the next step is made by itself (her mode passes, his
     // device assumes it): her move goes from Bob to herself once, at her main phase, never back and forth
@@ -147,7 +147,7 @@ class MoveTest {
         sim.assertMoves(mapOf(alice to alice, bob to alice), "Alice's main phase")
     }
 
-    // TRN-058, TRN-013, TRN-059, HIS-096 (owner 2026-11-10): Bob casts Storm Spark at Alice, who is live and could respond
+    // TRN-058, TRN-105, TRN-013, TRN-059, TRN-123, HIS-096 (owner 2026-11-10): Bob casts Storm Spark at Alice, who is live and could respond
     // (her Quick stops there); his device assumes her pass by his "Assume resolves" (Always), and his events reach her
     // device one by one while her playback is still behind them. Her device knows his setting (shared as his response mode
     // is): her priority after his cast is no move of hers, his assumption of her pass being on its way: Bob's move throughout
@@ -199,7 +199,7 @@ class MoveTest {
         assertEquals(alice, device.move, "the game waits for her at the head")
     }
 
-    // TRN-058, HIS-100: an open undo request is the other player's move for both; the answer ends it
+    // TRN-058, TRN-104, HIS-100, HIS-210: an open undo request is the other player's move for both; the answer ends it
     @Test
     fun anUndoRequestIsTheOtherPlayersMove() {
         val sim = spells("Glance Ahead")
@@ -231,7 +231,7 @@ class MoveTest {
         sim.assertMoves(mapOf(alice to before, bob to before), "declined: as before the request")
     }
 
-    // TRN-058, TRN-047, TRN-049: a waiting result suggestion locks the game for both: answering it is the other player's move
+    // TRN-058, TRN-104, TRN-047, TRN-049: a waiting result suggestion locks the game for both: answering it is the other player's move
     @Test
     fun aResultSuggestionIsTheOtherPlayersMove() {
         val sim = spells("Storm Spark")
@@ -325,7 +325,7 @@ class MoveTest {
         }
     }
 
-    // TRN-058, TRN-065 (owner, 2026-11-09): the result of Alice's line, reached while Bob is away, is the move of whoever
+    // TRN-058, TRN-104, TRN-065 (owner, 2026-11-09): the result of Alice's line, reached while Bob is away, is the move of whoever
     // hasn't pressed OK on it; Alice's OK leaves it Bob's, seen or not, and nobody's once both stand
     @Test
     fun aResultIsTheMoveOfWhoeverHasntPressedOk() {

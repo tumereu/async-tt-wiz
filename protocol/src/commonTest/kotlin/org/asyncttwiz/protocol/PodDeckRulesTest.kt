@@ -29,7 +29,7 @@ class PodDeckRulesTest {
         }
     }
 
-    // LOB-048, LOB-105, DRF-141 (owner, 2026-11-09): the same rule with two sections: either way goes to the other
+    // LOB-048, LOB-105, LOB-215, DRF-141 (owner, 2026-11-09): the same rule with two sections: either way goes to the other
     @Test fun twoSectionsSwipeEitherWayToTheOther() {
         for (right in listOf(true, false)) {
             assertEquals(SavedDeckSection.SIDEBOARD, SectionSwipe.target(SavedDeckSection.PREPARED, SavedDeckSection.MAINBOARD, right))

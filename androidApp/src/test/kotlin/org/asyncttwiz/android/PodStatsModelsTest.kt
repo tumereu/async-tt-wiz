@@ -44,7 +44,7 @@ class PodStatsModelsTest {
         assertEquals(1.5, pips[DraftColor.G])
     }
 
-    // DRF-114: each colour's bars are its share of all pips and of all sources, half pips counted as they are, a dual land
+    // DRF-114, DRF-232: each colour's bars are its share of all pips and of all sources, half pips counted as they are, a dual land
     // for both its colours so the source shares still add up to 100%.
     @Test fun manaSharesCountHalfPipsAndADualLandForBothColors() {
         val definitions = mapOf("dual" to card("Dual", "Land — Island Swamp"), "half" to card("Half", "Instant", "{2/U}{U}{B}{B}{B/R}"),
@@ -62,7 +62,7 @@ class PodStatsModelsTest {
         assertEquals("3 sources · 50%", podStatsSourceLine(stats.sources.getValue(DraftColor.U) + stats.otherSources.getValue(DraftColor.U), shares.getValue(DraftColor.U).sources))
     }
 
-    // DRF-114: both shares as percentages, and a colour with a share of 0 still reads
+    // DRF-114, DRF-232: both shares as percentages, and a colour with a share of 0 still reads
     @Test fun manaLinesNameTheirCountsAndPercentages() {
         assertEquals("9 pips · 34%", podStatsPipLine(9.0, .34))
         assertEquals("½ pip · 2%", podStatsPipLine(.5, .02))
@@ -83,7 +83,7 @@ class PodStatsModelsTest {
         assertEquals(PodStatsManaShare(1.0, 0.0, 0.0), noSources[DraftColor.R])
     }
 
-    // DRF-111: the Color view's slots, by each card's colour as in the donut: gold is more than one colour, 7+ groups
+    // DRF-111, DRF-230: the Color view's slots, by each card's colour as in the donut: gold is more than one colour, 7+ groups
     @Test fun curveByColorGroupsSlotsAndCountsGoldAndColorlessLeavingLandsOut() {
         val definitions = mapOf("red" to card("Red", "Instant", "{1}{R}"), "red2" to card("Red Two", "Creature", "{R}{R}"),
             "gold" to card("Gold", "Creature", "{U}{R}"), "rock" to card("Rock", "Artifact", "{2}"),
@@ -281,7 +281,7 @@ class PodStatsModelsTest {
         assertEquals(emptySet(), podStatsLandColors(land))
     }
 
-    // DRF-115, CR 605.1a, CR 605.5b: mana sources from Automatum's parsed mana abilities, lands and nonland permanents
+    // DRF-115, DRF-234, CR 605.1a, CR 605.5b: mana sources from Automatum's parsed mana abilities, lands and nonland permanents
     // apart; a card making several colours counts once for each; rituals and Treasure makers are not sources.
     @Test fun manaSourcesComeFromParsedManaAbilitiesOfLandsAndNonlandPermanents() {
         val definitions = mapOf(

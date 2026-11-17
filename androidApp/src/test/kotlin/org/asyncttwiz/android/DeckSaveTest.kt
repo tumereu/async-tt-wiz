@@ -131,7 +131,7 @@ class DeckSaveTest {
         controller.close()
     }
 
-    // LOB-097
+    // LOB-097, LOB-237
     @Test fun savedDeckHandsItsCardsToTheArtworkDownloads() {
         val worker = Worker(); val handed = mutableListOf<Pair<String, List<SubmittedDefinition>>>()
         val attempts = mutableListOf<DeckSave>()

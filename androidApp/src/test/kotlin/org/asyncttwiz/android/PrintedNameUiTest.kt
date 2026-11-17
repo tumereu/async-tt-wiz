@@ -6,7 +6,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -32,7 +32,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** TBL-138: a card printed under another name (LOB-150) shows that name on the table and in Inspect, which labels its picture
+/** TBL-138, TBL-197: a card printed under another name (LOB-150) shows that name on the table and in Inspect, which labels its picture
  * with the card's Oracle name; Automatum's card stays the Oracle one. Your Meadow Sentinel is printed as "Dawnbreak Warden". */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -88,7 +88,7 @@ class PrintedNameUiTest {
                 "\"Dawnbreak Warden\", the name its printing gives it, while Automatum plays it as the Meadow Sentinel.")
     }
 
-    // TBL-138, TBL-104: Inspect shows the printed name on the picture and labels it with the Oracle name at its bottom
+    // TBL-138, TBL-197, TBL-104: Inspect shows the printed name on the picture and labels it with the Oracle name at its bottom
     @Test fun inspectLabelsTheOracleName() {
         val table = board()
         val groups = gameInspectGroups(table, f.a, ManualInspection(f.game.id, play.id, sentinel.id, listOf(sentinel.faceId)), sentinel, names)

@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 class PrintedNameTest : E2e() {
     private val kitten = TestCards.pyreling.flavorName!!
 
-    // LOB-150, LOB-151, SYS-084: a list naming the printed name imports that printing and saves it by printing; the deck
+    // LOB-150, LOB-151, SYS-084, SYS-200: a list naming the printed name imports that printing and saves it by printing; the deck
     // view's card, built from Alice's card records, is the server's, showing the printed name; search finds it by it too
     @Test fun aListImportsAPrintingByItsPrintedName() {
         launchPlayers(aliceCatalog = true)
@@ -54,7 +54,7 @@ class PrintedNameTest : E2e() {
         assertEquals(listOf("Ember Pyreling" to TestCards.pyreling.printingId), found.cards.map { it.name to it.printing.id })
     }
 
-    // TBL-138, TBL-104: on both tables the card is named by its printed name, Automatum plays it as Ember Pyreling, and
+    // TBL-138, TBL-197, TBL-104: on both tables the card is named by its printed name, Automatum plays it as Ember Pyreling, and
     // holding it shows Inspect with its Oracle name labelled on its picture
     @Test fun theTableShowsThePrintedNameAndInspectTheOracleName() {
         startGame(TestDeck("Kittens", listOf(TestCards.mountain to 20, TestCards.pyreling to 20)),

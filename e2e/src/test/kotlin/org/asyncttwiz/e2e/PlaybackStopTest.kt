@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
  * stop. Alice casts an Ember Herald (an enters trigger, as the report's Squirrel) while Bob is away, her phone assumes
  * Bob lets it resolve and she plays on; Bob's playback stops with the spell on the Stack, nothing after it shown (board,
  * motion steps, local head), and his Resolve there confirms and plays on. (The report itself was Auto-skip working as
- * STK-036 says: the watcher couldn't respond to the spell, so playback confirmed it, and stopped at its enters trigger,
+ * STK-036, STK-172 says: the watcher couldn't respond to the spell, so playback confirmed it, and stopped at its enters trigger,
  * where they could.)
  */
 class PlaybackStopTest : E2e() {

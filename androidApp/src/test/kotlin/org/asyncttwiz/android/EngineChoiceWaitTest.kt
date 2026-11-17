@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.After
@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 
 /**
  * The other player's open choice on the two devices of the simulated server ([EngineTableKit]): the waiting player's
- * event text says it (in the wait's words, TRN-066) without fading, also with Event text off, and what they try meanwhile
+ * event text says it (in the wait's words, TRN-066, TRN-151) without fading, also with Event text off, and what they try meanwhile
  * shakes and flashes it; once the choice is made the event text goes back to its events. Each table is drawn as
  * [EngineTableScreen] draws it (the table and the event text over its top row).
  */
@@ -72,7 +72,7 @@ class EngineChoiceWaitTest {
 
     private fun redraw() { version++; compose.waitForIdle() }
 
-    // HIS-075, TRN-066, TBL-118, LOB-081 (owner, 2026-11-05, 2026-11-09): Alice kept while Bob (online) is still deciding on a
+    // HIS-075, HIS-166, HIS-167, TRN-066, TRN-151, TBL-118, LOB-081 (owner, 2026-11-05, 2026-11-09): Alice kept while Bob (online) is still deciding on a
     // mulligan: her event text says so in the wait's words, with Event text off too, and fades after a chip's time while the
     // wait band under his hand goes on saying it; her double-tap, drag and tap of a hand card are refused: the card shakes
     // and the event text flashes again, without a message; once Bob keeps, the event text is the events' again
@@ -125,7 +125,7 @@ class EngineChoiceWaitTest {
         assertEquals(flashes, toolkit.choiceFlashes)
     }
 
-    // HIS-075, STK-032, TRN-066: Alice discards to hand size (an Automatum choice of hers): Bob's event text says "Alice is
+    // HIS-075, HIS-166, STK-032, TRN-066, TRN-151: Alice discards to hand size (an Automatum choice of hers): Bob's event text says "Alice is
     // choosing" while the band under her hand stays; her own table says nothing of it
     @Test fun theOtherPlayersChoiceShowsInTheEventText() {
         kit.toAliceDiscard()

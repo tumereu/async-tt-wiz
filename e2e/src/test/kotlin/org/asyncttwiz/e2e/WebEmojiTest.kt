@@ -13,7 +13,7 @@ import org.junit.Test
  * layout at 1440 × 900) Alice reads Bob's message with emojis in colour, and writes one back that reaches Bob's phone whole.
  */
 class WebEmojiTest : E2e() {
-    // WEB-064, LOB-136: Alice's typed "Thanks 😀👍" is in her draft whole, goes with Send and reaches Bob's phone as typed;
+    // WEB-064, WEB-069, LOB-136: Alice's typed "Thanks 😀👍" is in her draft whole, goes with Send and reaches Bob's phone as typed;
     // Bob's "Good luck 😀🎉" and her own message show their emojis in colour in her chat (yellow faces where a plain message
     // of his has none)
     @Test fun emojisGoWholeAndShowInColour() {

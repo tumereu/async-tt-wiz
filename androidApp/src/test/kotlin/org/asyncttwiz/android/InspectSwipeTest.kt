@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 /** TBL-104 (owner 2026-11-06): pinned Inspect's swipe, measured in dp from where the hold began. */
 class InspectSwipeTest {
-    // TBL-131, TBL-104: a drag to the left past half way pins it on release; the swipe takes the movement (nothing scrolls)
+    // TBL-131, TBL-186, TBL-104: a drag to the left past half way pins it on release; the swipe takes the movement (nothing scrolls)
     @Test fun aDragLeftPastHalfWayPins() {
         val swipe = InspectSwipe()
         assertFalse(swipe.moved(-8f, 1f), "within the slop: the scroll's")
@@ -19,7 +19,7 @@ class InspectSwipeTest {
         assertEquals(1f, swipe.progress)
     }
 
-    // TBL-131, TBL-104: released before half way it closes as a plain hold does
+    // TBL-131, TBL-186, TBL-104: released before half way it closes as a plain hold does
     @Test fun lessThanHalfWayCloses() {
         val swipe = InspectSwipe()
         swipe.moved(-40f, 0f)
@@ -28,7 +28,7 @@ class InspectSwipeTest {
         assertEquals(0f, swipe.progress)
     }
 
-    // TBL-131, TBL-104, TBL-127 (owner 2026-11-06): once the finger has scrolled up or down, small sideways movement never starts
+    // TBL-131, TBL-186, TBL-104, TBL-127 (owner 2026-11-06): once the finger has scrolled up or down, small sideways movement never starts
     // the swipe
     @Test fun scrollingFirstNeverSwipes() {
         val swipe = InspectSwipe()
@@ -49,7 +49,7 @@ class InspectSwipeTest {
         assertTrue(right.pinned)
     }
 
-    // TBL-131, TBL-104: Close (or Back) closes a pinned Inspect; a new hold starts unpinned
+    // TBL-131, TBL-186, TBL-104: Close (or Back) closes a pinned Inspect; a new hold starts unpinned
     @Test fun closeAndANewHoldStartFresh() {
         var closed = 0
         val swipe = InspectSwipe().apply { onClose = { closed++ } }

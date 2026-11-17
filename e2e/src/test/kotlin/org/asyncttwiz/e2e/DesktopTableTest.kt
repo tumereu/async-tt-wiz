@@ -46,7 +46,7 @@ class DesktopTableTest : E2e() {
         assertTrue(alice.shows(hasTestTag("phase-track")), "Alice's table in the desktop layout: ${alice.screen()}")
     }
 
-    /** WEB-023, ZON-079: a click raises Alice's hand card [name], a click on the raised card plays it. */
+    /** WEB-023, ZON-079, ZON-102: a click raises Alice's hand card [name], a click on the raised card plays it. */
     private fun clickFromHand(name: String) {
         waitUntil("Alice's game settled") { alice.settled(this) }
         alice.handCard(name).performMouseInput { click() }
@@ -73,7 +73,7 @@ class DesktopTableTest : E2e() {
         alice.pressKey("?", shift = true)
         waitUntil("the list closed") { !sheetShown() }
         keep()
-        // WEB-018 (owner, desktop playtest 2026-11-14): under the quick actions Undo is a third of the row, the main button the
+        // WEB-018, WEB-079 (owner, desktop playtest 2026-11-14): under the quick actions Undo is a third of the row, the main button the
         // other two thirds, lined up with no room between them
         waitUntil("Alice's main button") { alice.settled(this) && alice.shows(hasTestTag("main-button")) }
         val undo = alice.tagged(DESKTOP_UNDO_TAG).fetchSemanticsNode().boundsInRoot
@@ -118,7 +118,7 @@ class DesktopTableTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // WEB-017, STK-007 (owner playtest 2026-11-15: "web chat pane now completely hides the stack? It should completely not hide
+    // WEB-017, WEB-078, STK-007 (owner playtest 2026-11-15: "web chat pane now completely hides the stack? It should completely not hide
     // the stack, i.e. push it to the side. Stack is better as a thing on the field, not in the chat pane at all"): Alice casts
     // her Ember Cub and waits for Bob: with the chat dock open the Cub is on the Stack at the battlefields' right edge, wholly
     // left of the dock, which holds only the chat; a click on the Stack opens the Stack list; folded away by the chat button,
@@ -149,7 +149,7 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
-    // ZON-001, WEB-016 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): on Alice's desktop
+    // ZON-001, ZON-126, WEB-016, WEB-076 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): on Alice's desktop
     // table Bob's hand is the phone's small fan of card backs in his seat header, after his piles and level with his life
     // square, its cards overlapping (a row of small cards side by side before)
     @Test fun theOtherPlayersHandIsAFanInTheirSeatHeader() {
@@ -165,7 +165,7 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
-    // WEB-016, WEB-015, TBL-121 (owner notes 2026-11-16: "An opponent's life, hand etc could sit in a similar box as yours.
+    // WEB-016, WEB-015, WEB-071, TBL-121 (owner notes 2026-11-16: "An opponent's life, hand etc could sit in a similar box as yours.
     // Default camera pan could be so that these are on the left side of the 'pos 0' so that they don't obstruct cards played"):
     // on Alice's desktop table Bob's seat header is a box at the top left like hers at the bottom left; once she has played her
     // Mountain and cast her Ember Cub, the table as it opened (untouched) has no card under either box, her cards just right of
@@ -195,7 +195,7 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
-    // WEB-017, LOB-066, WEB-031 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):
+    // WEB-017, WEB-078, LOB-066, LOB-162, LOB-163, WEB-031, WEB-089 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):
     // Alice folds the dock away; Bob's message lights the top row's chat button, whose click unfolds the dock to its chat,
     // ready to type, with no chat panel over the table (before: the side panel), and the message read there clears the dot.
     // Folded away again, C does the same
@@ -235,7 +235,7 @@ class DesktopTableTest : E2e() {
         return minOf(green, blue) - red
     }
 
-    /** WEB-015 (owner 2026-11-16): the mouse on Alice's hand card [name] (the [index]th from the left): it is drawn over the
+    /** WEB-015, WEB-074 (owner 2026-11-16): the mouse on Alice's hand card [name] (the [index]th from the left): it is drawn over the
      * others where it lies, neither moved nor turned; its bounds then, and where it lay before. */
     private fun hoverInHand(name: String, index: Int = 0): Pair<androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect> {
         waitUntil("Alice's game settled") { alice.settled(this) }
@@ -246,8 +246,8 @@ class DesktopTableTest : E2e() {
         return alice.handCard(name, index).fetchSemanticsNode().boundsInWindow to resting
     }
 
-    // TBL-117 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
-    // are highlight?"), WEB-022, WEB-015: at Alice's Main 1 with no land out, her Mountain may be played and glows around it as
+    // TBL-117, TBL-168 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
+    // are highlight?"), WEB-022, WEB-015, WEB-074: at Alice's Main 1 with no land out, her Mountain may be played and glows around it as
     // on the phone, as far from the card for its size; her Ember Cub, which she can't pay for, doesn't. Each is looked at with
     // the mouse on it, drawn over the others where it lies in the fan (owner 2026-11-16: hovering moves nothing), just above
     // its top; the Cub dealt with no Mountain beside it, whose glow would reach there
@@ -274,7 +274,7 @@ class DesktopTableTest : E2e() {
         assertTrue(cub - cubField <= 3, "the Cub doesn't glow: $cub over $cubField")
     }
 
-    // WEB-024, TBL-132, TBL-133 (owner 2026-11-15): on the desktop table nothing clicks a change, so Inspect by Alt held shows a
+    // WEB-024, WEB-107, TBL-132, TBL-195, TBL-133, TBL-191 (owner 2026-11-15): on the desktop table nothing clicks a change, so Inspect by Alt held shows a
     // change line's explanation at once with its source: Alice casts her Ash Pup, then Ember Beckoning has the Ring tempt her;
     // Alt held over the Pup shows its Ring-bearer line, "From The Ring" and what a Ring-bearer is, without any click
     @Test fun altInspectExplainsAChangeWithoutAClick() {
@@ -310,7 +310,7 @@ class DesktopTableTest : E2e() {
         assertTrue(!alice.refusalSeen, "nothing refused")
     }
 
-    // WEB-015, WEB-016, WEB-018, WEB-019, WEB-024, WEB-031 (owner playtest 2026-11-15): Alice's hand is a fan at the bottom of her
+    // WEB-015, WEB-073, WEB-016, WEB-018, WEB-019, WEB-081, WEB-024, WEB-085, WEB-031, WEB-088 (owner playtest 2026-11-15): Alice's hand is a fan at the bottom of her
     // desktop table, its cards partly below the window's bottom: a click on a Mountain raises it and a second plays it from the
     // fan. Her Ember Burst's cast panel has its Cast in its bottom right corner as on
     // the main button, which casts it. Held, Ctrl keeps her in Control mode and let go puts back her mode; with another key it
@@ -329,7 +329,7 @@ class DesktopTableTest : E2e() {
         assertTrue(resting.bottom >= 899f && resting.height < resting.width * 1.3f, "partly below the window's bottom: $resting")
         clickFromHand("Mountain")
         waitUntil("the Mountain played from the fan", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
-        // WEB-019: the cast panel's go-on in its corner, as the main button says it
+        // WEB-019, WEB-081: the cast panel's go-on in its corner, as the main button says it
         clickFromHand("Ember Burst")
         waitUntil("the Burst's cast panel with Cast in its corner") {
             alice.shows(hasContentDescription("Cast panel")) &&
@@ -348,7 +348,7 @@ class DesktopTableTest : E2e() {
         waitUntil("the Burst dealing 1 to Bob", along = listOf(bob)) {
             alice.state.player(bob.me).life == 19 && alice.inOwnMain() && alice.settled(this)
         }
-        // WEB-031: Ctrl held is Control mode until it is let go; Ctrl with another key is that key's chord
+        // WEB-031, WEB-088: Ctrl held is Control mode until it is let go; Ctrl with another key is that key's chord
         val mode = { alice.game?.shown?.settings?.mode }
         val own = mode()
         assertTrue(own != null && own != ResponseMode.FullControl, "Alice not in Control to begin with: $own")
@@ -367,7 +367,7 @@ class DesktopTableTest : E2e() {
         alice.key("Control", false)
         run()
         assertEquals(own, mode(), "Ctrl+K is a chord, never Control mode")
-        // WEB-024: the next turn her second Mountain stacks on the first; Alt held over them lists both, the wheel scrolls them
+        // WEB-024, WEB-085: the next turn her second Mountain stacks on the first; Alt held over them lists both, the wheel scrolls them
         alice.pastMainGuard()
         alice.pressKey(" ", shift = true)
         waitUntil("Alice's next Main 1", along = listOf(bob)) { alice.state.turn.number >= 3 && alice.inOwnMain() }
@@ -393,7 +393,7 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
-    // WEB-015, ZON-079 (owner 2026-11-16: "a raised card on the desktop hand isn't indicated at all"; hovering is to bring a card
+    // WEB-015, WEB-074, WEB-103, ZON-079, ZON-103 (owner 2026-11-16: "a raised card on the desktop hand isn't indicated at all"; hovering is to bring a card
     // to the front only, as on a draft card, and a raised card pops out as a hovered one did, keeping its turn in the fan): the
     // mouse on Alice's Mountain moves nothing; a click raises it: it pops out of the fan, still turned, and stays out after the
     // mouse leaves; a click on her battlefield lowers it back into the fan
@@ -428,7 +428,7 @@ class DesktopTableTest : E2e() {
         return ((pixel shr 16) and 255) - (pixel and 255)
     }
 
-    // TBL-139, WEB-022 (owner 2026-11-16): in her desktop layout's Settings Alice finds "Hand cards: full picture" on and
+    // TBL-139, TBL-146, WEB-022 (owner 2026-11-16): in her desktop layout's Settings Alice finds "Hand cards: full picture" on and
     // "Battlefield cards: full picture" off; her Ember Twin on the battlefield (with its token copy, the test cards' one card
     // with a picture) shows the app's white frame. She turns the battlefield's on: back at the table the Twin shows its whole
     // printed card (the test pictures' beige text box low on the card, where the app's frame is white)

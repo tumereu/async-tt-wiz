@@ -22,7 +22,7 @@ class EmblemInspectTest : E2e() {
     /** Inspect's emblem tiles [player] sees now (the chips aside). */
     private fun tiles(player: E2ePlayer) = player.nodes(emblem).fetchSemanticsNodes().size - player.nodes(chips).fetchSemanticsNodes().size
 
-    // TRN-053, SYS-066: the emblem's chip on both tables; holding it on either inspects Alice's emblems
+    // TRN-053, TRN-129, SYS-066: the emblem's chip on both tables; holding it on either inspects Alice's emblems
     @Test fun holdingAnEmblemChipInspectsTheEmblems() {
         startGame(TestDeck.sigils(), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> "Ember Sigil" in hand(a) })
@@ -41,7 +41,7 @@ class EmblemInspectTest : E2e() {
             assertTrue(alice.shows(hasContentDescription("Card inspection content")), alice.screen())
             assertEquals(1, tiles(alice), "the emblem's tile: ${alice.screen()}")
             assertTrue(alice.showsText("Emblem"), "its tile says what it is")
-            // TRN-053 (bug 2026-11-06): the emblem's tile shows its text, the quoted ability as printed
+            // TRN-053, TRN-129 (bug 2026-11-06): the emblem's tile shows its text, the quoted ability as printed
             assertTrue(alice.showsText(EMBLEM_TEXT, substring = true), "the emblem's text: ${alice.screen()}")
         }
         assertTrue(!alice.shows(hasContentDescription("Card inspection content")), "closed on release")

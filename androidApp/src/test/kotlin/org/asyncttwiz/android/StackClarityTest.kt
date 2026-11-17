@@ -6,7 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.state.GameState
 import arcanum.engine.state.StackItemKind
 import arcanum.engine.state.TargetRef
@@ -23,8 +23,8 @@ import kotlin.test.assertTrue
 
 /**
  * Owner playtest 2026-11-07 (Fractured Sanity: "is it the cast or the cycle effect?"): on Alice's table, what Bob's top
- * Stack entry is while she holds priority (STK-057), its target arrows (STK-058), the Stack list's choices (STK-018), an
- * ability's kind in Inspect (STK-050) and the cycling event text (HIS-091), on games played through the simulated server.
+ * Stack entry is while she holds priority (STK-057), its target arrows (STK-058), the Stack list's choices (STK-018, STK-133), an
+ * ability's kind in Inspect (STK-050) and the cycling event text (HIS-091, HIS-121), on games played through the simulated server.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -64,7 +64,7 @@ class StackClarityTest {
         }
     }
 
-    // STK-057, STK-058, STK-018 (owner playtest 2026-11-07): Bob casts Storm Spark at Alice's Ember Cub; at her pause a line
+    // STK-057, STK-131, STK-058, STK-125, STK-018, STK-133 (owner playtest 2026-11-07): Bob casts Storm Spark at Alice's Ember Cub; at her pause a line
     // says "Bob cast Storm Spark · deals 3 damage to Ember Cub" (the Cub's name in her colour, owner 2026-11-07) and an
     // arrow runs from the Stack to the Cub, highlighted in Bob's colour; the Stack list's row names the Cub in the Spark's text
     @Test fun anOpponentsTargetedSpellSaysWhatItDoesAndPointsAtItsTarget() {
@@ -86,7 +86,7 @@ class StackClarityTest {
             "Alice tapped the Stack holding Bob's Storm Spark: the list's row shows the Spark and, under its name, its text with Bob's target named in it, \"Storm Spark deals 3 damage to Ember Cub.\", the Cub's name in her green.")
     }
 
-    // STK-057, STK-018 (test and screenshots only): Bob casts Cinder Charm choosing its second mode; at Alice's pause the line
+    // STK-057, STK-130, STK-133, STK-018 (test and screenshots only): Bob casts Cinder Charm choosing its second mode; at Alice's pause the line
     // says the chosen mode, not the card's whole text, and the Stack list's row shows it
     @Test fun anOpponentsModalSpellShowsItsChosenMode() {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.CHARM, "Mountain"))))
@@ -106,7 +106,7 @@ class StackClarityTest {
             "Alice tapped the Stack holding Bob's Cinder Charm: its row shows the card's text and under it the chosen mode, \"Mode: You gain 2 life.\"")
     }
 
-    // STK-057, STK-018 (test and screenshots only): Bob casts Ember Burst with X = 1 at Alice; at her pause the line fills X in
+    // STK-057, STK-130, STK-133, STK-018 (test and screenshots only): Bob casts Ember Burst with X = 1 at Alice; at her pause the line fills X in
     // ("deals 1 damage to you") and the Stack list's row shows it with "X = 1"
     @Test fun anOpponentsXSpellShowsItsX() {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.BURST, "Mountain"))))
@@ -130,7 +130,7 @@ class StackClarityTest {
             "Alice tapped the Stack holding Bob's Ember Burst: its row shows \"Ember Burst deals 1 damage to you.\" with X filled in and \"X = 1\" under it.")
     }
 
-    // STK-057, STK-050, HIS-091 (owner playtest 2026-11-07, CR 702.29c): Bob cycles Shattered Reason; at Alice's pause the line
+    // STK-057, STK-129, STK-050, HIS-091, HIS-121 (owner playtest 2026-11-07, CR 702.29c): Bob cycles Shattered Reason; at Alice's pause the line
     // names the cycling trigger and what it does ("each opponent mills 4 cards"), not the spell; the Stack list names each
     // ability's kind and holding the trigger inspects it as "Cycling trigger"; the event reads "Bob cycled Shattered Reason"
     @Test fun anOpponentsCyclingTriggerIsNamedAsOne() {

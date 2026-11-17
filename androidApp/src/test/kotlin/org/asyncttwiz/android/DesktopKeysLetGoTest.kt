@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * WEB-025 (prod report 96PB2X, 2026-11-16: Alt's key-up never reached the app and the desktop table stayed paused): a key the
+ * WEB-025, WEB-087 (prod report 96PB2X, 2026-11-16: Alt's key-up never reached the app and the desktop table stayed paused): a key the
  * page said went down is let go when its key-up can't come any more, every listener hearing why.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -42,7 +42,7 @@ class DesktopKeysLetGoTest {
     private fun key(name: String, down: Boolean, alt: Boolean = false, shift: Boolean = false, textField: Boolean = false) =
         compose.runOnIdle { DesktopKeyboard.dispatch(DesktopKey(name, down, ++time, alt = alt, shift = shift, textField = textField)) }
 
-    // WEB-025: the window losing the focus (Alt+Tab) lets every key down go, and tells what else is held only while the
+    // WEB-025, WEB-087: the window losing the focus (Alt+Tab) lets every key down go, and tells what else is held only while the
     // page has the input (the left button held on the table)
     @Test fun theWindowLosingTheFocusLetsEveryKeyGo() {
         key("Alt", true, alt = true)
@@ -54,7 +54,7 @@ class DesktopKeysLetGoTest {
         assertEquals("Alt up", heard.last(), "the late key-up still reaches the listeners")
     }
 
-    // WEB-025: a later key whose modifiers no longer hold Alt says its key-up was lost; one that still holds it doesn't
+    // WEB-025, WEB-087: a later key whose modifiers no longer hold Alt says its key-up was lost; one that still holds it doesn't
     @Test fun aKeyWithoutTheModifierLetsItGo() {
         key("Alt", true, alt = true)
         key("Shift", true, alt = true, shift = true)
@@ -65,7 +65,7 @@ class DesktopKeysLetGoTest {
         assertEquals("Shift down", heard[4])
     }
 
-    // WEB-025: a pointer event without Alt held lets it go (a click ends a pause Alt left on)
+    // WEB-025, WEB-087: a pointer event without Alt held lets it go (a click ends a pause Alt left on)
     @Test fun aPointerEventWithoutTheModifierLetsItGo() {
         key("Alt", true, alt = true)
         compose.runOnIdle { DesktopKeyboard.modifiers(alt = true, shift = false, ctrl = false, meta = false, what = "a pointer move") }
@@ -74,7 +74,7 @@ class DesktopKeysLetGoTest {
         assertEquals(listOf("Alt down", "Alt up (a pointer press without it: its key-up was lost)"), heard)
     }
 
-    // WEB-025, WEB-031: a text field taking the keyboard lets the finger keys held from before go; Shift pressed while typing
+    // WEB-025, WEB-087, WEB-031, WEB-090: a text field taking the keyboard lets the finger keys held from before go; Shift pressed while typing
     // (a capital) was never the finger and stays
     @Test fun aTextFieldTakingTheKeyboardLetsTheFingerKeysGo() {
         key("Alt", true, alt = true)

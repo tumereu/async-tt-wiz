@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
  * attacker; its copy in the combat band shows the "flying" badge, and holding the badge explains flying in plain words.
  */
 class KeywordExplainerTest : E2e() {
-    // TBL-132, CMB-035: holding the flying badge of a staged attacker's copy shows what flying means
+    // TBL-132, CMB-035, CMB-064: holding the flying badge of a staged attacker's copy shows what flying means
     @Test fun holdingAKeywordBadgeExplainsIt() {
         startGame(TestDeck.larks(), deal = { a, _ -> "Mountain" in hand(a) && "Cinder Lark" in hand(a) })
         bothOpen()

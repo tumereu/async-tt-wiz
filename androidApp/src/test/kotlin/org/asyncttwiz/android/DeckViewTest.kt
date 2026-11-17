@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** ZON-093 (owner, 2026-11-07): View deck's lists: your deck as played, and the deck without the cards you have seen leave
+/** ZON-093, ZON-133 (owner, 2026-11-07): View deck's lists: your deck as played, and the deck without the cards you have seen leave
  * your library. */
 class DeckViewTest {
     private val f = TableStatesFixture
@@ -34,7 +34,7 @@ class DeckViewTest {
         assertEquals(own.size - 1L, total(DeckView.deck(withToken, f.a)))
     }
 
-    // ZON-093: a card drawn leaves "Still in library"; a card exiled face down from the library (seen by nobody) stays in it,
+    // ZON-093, ZON-133: a card drawn leaves "Still in library"; a card exiled face down from the library (seen by nobody) stays in it,
     // so the list never tells which card it was
     @Test fun stillInLibraryLeavesOutTheCardsYouSawLeave() {
         val board = f.initial.board

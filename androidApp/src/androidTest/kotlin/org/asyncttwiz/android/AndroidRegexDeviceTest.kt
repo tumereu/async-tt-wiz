@@ -20,13 +20,13 @@ class AndroidRegexDeviceTest {
         assertTrue(short, "3 damage to any target" in short)
     }
 
-    // LOB-126 (game history): a deck's colours from its mana symbols
+    // LOB-126, LOB-174 (game history): a deck's colours from its mana symbols
     @Test fun deckColorsReadManaSymbolsOnAndroid() {
         val card = CardDefinition("Ember Kit", listOf(DefinitionFace("face", "Ember Kit", typeLine = "Creature", manaCost = "{1}{R}{W/U}")))
         assertEquals("WUR", DeckColors.of(listOf(card)))
     }
 
-    // STK-057: the parser runs on the phone (I-D2); its target spans (parser v39) compile on Android too
+    // STK-057, STK-131: the parser runs on the phone (I-D2); its target spans (parser v39) compile on Android too
     @Test fun parserWithTargetSpansRunsOnAndroid() {
         val face = arcanum.parser.OracleParser.parse(arcanum.parser.OracleCard("Storm Spark", "{R}", "Instant", "Storm Spark deals 3 damage to any target."))
         assertTrue(face.toString(), face.toString().contains("span"))

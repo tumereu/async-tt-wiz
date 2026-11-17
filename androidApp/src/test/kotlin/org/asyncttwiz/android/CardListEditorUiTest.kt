@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
@@ -64,7 +64,7 @@ class CardListEditorUiTest {
         }
     }
 
-    // LOB-105, LOB-107, LOB-059, LOB-064, SYS-083
+    // LOB-105, LOB-215, LOB-107, LOB-216, LOB-059, LOB-064, SYS-083
     @Test fun cardsTabSwipesBetweenSectionsAndTheMenuEditsAndMovesCopies() {
         val editor = editor()
         lateinit var back: () -> Unit
@@ -129,7 +129,7 @@ class CardListEditorUiTest {
         compose.onNodeWithText("Remove all").performClick()
         compose.runOnIdle { assertEquals(0, count(editor, "Aegis Ward", DeckSection.MAINBOARD)) }
 
-        // LOB-059: the Text tab shows the rewritten list; Save keeps both tabs' changes.
+        // LOB-059, LOB-213: the Text tab shows the rewritten list; Save keeps both tabs' changes.
         compose.onNodeWithTag("card-list-tab-text").performClick()
         compose.onNodeWithTag("deck-list").assertTextContains("Maybeboard\n4 Meadow Sentinel", substring = true)
         compose.onNodeWithTag("save-deck").assertIsEnabled()
@@ -138,7 +138,7 @@ class CardListEditorUiTest {
         compose.onNodeWithText("Discard unsaved changes?").assertIsDisplayed()
     }
 
-    // LOB-105, LOB-106, LOB-122
+    // LOB-105, LOB-106, LOB-219, LOB-122, LOB-220
     @Test fun searchAddsToTheChosenSectionSquaresRemoveAndDoneKeepsTheChanges() {
         val editor = editor()
         connectSearch(editor, "Meadow Sentinel", "Rune Bear")
@@ -189,7 +189,7 @@ class CardListEditorUiTest {
         assertEquals(5, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD))
         assertTrue("1 Rune Bear (NEW) 9" in editor.state.text)
 
-        // LOB-105: search starts at the section whose + was tapped, and the search is kept for the session.
+        // LOB-105, LOB-219, LOB-220: search starts at the section whose + was tapped, and the search is kept for the session.
         compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-maybe"))
         compose.onNodeWithTag("add-cards-maybe").performClick()
         compose.mainClock.advanceTimeBy(500)
@@ -360,7 +360,7 @@ class CardListEditorUiTest {
         assertEquals(setOf(SearchManaValue.SIX), editor.search.state.values)
     }
 
-    // LOB-063, LOB-122: adding past the limit is refused with a reason.
+    // LOB-063, LOB-122, LOB-220: adding past the limit is refused with a reason.
     @Test fun searchRefusesCardsPastTheLimit() {
         val editor = editor()
         val full = editor.entries!!.map { if (it.printing.name == "Training Land") it.copy(quantity = 1000 - 60 - 15 + 48) else it }
@@ -387,7 +387,7 @@ class CardListEditorUiTest {
         compose.onNodeWithTag("add-cards-main").assertDoesNotExist()
     }
 
-    // LOB-059: the Text tab's box is full width with no counts; problems show in a fixed area under it and as a red error
+    // LOB-059, LOB-213: the Text tab's box is full width with no counts; problems show in a fixed area under it and as a red error
     // icon on the Text tab while they remain.
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun textTabIsFullWidthWithProblemsUnderItAndAnErrorIcon() {
         val editor = editor()
@@ -434,7 +434,7 @@ class CardListEditorUiTest {
         compose.runOnIdle { assertEquals(DeckSection.MAINBOARD, editor.destination) }
     }
 
-    // DRF-003, LOB-064, LOB-105, LOB-106: the cube editor is the same editor with Main | Maybe, and asks before discarding.
+    // DRF-003, LOB-064, LOB-105, LOB-215, LOB-106, LOB-219: the cube editor is the same editor with Main | Maybe, and asks before discarding.
     @Test fun cubeEditorUsesMainAndMaybeAndConfirmsDiscard() {
         val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")),
             printingId = "00000000-0000-4000-8000-000000000201")
@@ -497,7 +497,7 @@ class CardListEditorUiTest {
         compose.onNodeWithText("Delete draft deck").assertDoesNotExist()
     }
 
-    // LOB-057: a draft deck shows Delete draft deck beside Save as deck at the top right; deleting is confirmed.
+    // LOB-057, LOB-211: a draft deck shows Delete draft deck beside Save as deck at the top right; deleting is confirmed.
     @Test fun draftDeckShowsDeleteBesideSaveAsDeckAtTheTopRight() {
         val fixture = ScreenFixtures().apply { configure("draft-deck-detail") }
         compose.setContent { ScreenTheme { SavedDeckScreen(fixture.library, null, importDeck = {}) } }
@@ -515,7 +515,7 @@ class CardListEditorUiTest {
         assertEquals(DeckDialog.DELETE, fixture.library.state.dialog)
     }
 
-    // LOB-057: the editor of a saved deck has a red Delete deck at the top right, confirmed with "Deletion cannot be undone.";
+    // LOB-057, LOB-212: the editor of a saved deck has a red Delete deck at the top right, confirmed with "Deletion cannot be undone.";
     // a new import has none.
     @Test fun savedDeckEditorDeletesTheDeckAfterConfirmation() {
         val editor = editor()
@@ -684,7 +684,7 @@ class PodCubePreparationTest {
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = true
     }
 
-    // DRF-141, DRF-142: only the creator of a cube pod sees Prepare cube in setup, which opens over the pod screen.
+    // DRF-141, DRF-142, DRF-199: only the creator of a cube pod sees Prepare cube in setup, which opens over the pod screen.
     @Test fun setupOffersPrepareCubeToTheCreatorOfACubePod() {
         val alice = AccountIdentity("alice", "Alice")
         val cubes = Proxy.newProxyInstance(Cubes::class.java.classLoader, arrayOf(Cubes::class.java)) { _, method, _ ->

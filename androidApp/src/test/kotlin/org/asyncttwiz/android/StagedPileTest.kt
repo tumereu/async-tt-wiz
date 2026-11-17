@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.CombatRole
 import org.junit.After
 import org.junit.Rule
@@ -78,7 +78,7 @@ class StagedPileTest {
     private fun cubs(): BattlefieldGroup = k.field("Ember Cub").map(k::atw).toSet().let { cubs ->
         k.scene().battlefieldGroups.single { g -> g.members.any { it in cubs } } }
 
-    // CMB-047, CMB-028, TBL-130, TBL-053 (owner playtest 2026-11-07): a tap on the stack stages its topmost unstaged Cub; the
+    // CMB-047, CMB-071, CMB-070, CMB-028, TBL-130, TBL-163, TBL-053, TBL-178 (owner playtest 2026-11-07): a tap on the stack stages its topmost unstaged Cub; the
     // stack keeps its members (it doesn't regroup), the staged Cubs lie at its right end in the order they were staged with
     // the staged look, the unstaged ones stay exactly where they were, the ×N counting those left
     @Test fun tapsOnAStackStageItsMembersOneByOne() {

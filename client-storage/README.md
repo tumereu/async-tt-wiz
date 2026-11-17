@@ -18,12 +18,13 @@ as Android's index); and the picture repository (`BrowserArtworkRepository`). Be
 the game socket's logic (`GameSocketClient`: messages checked and decoded, closes and failures
 as causes, the ordered HTTP reads beside it) over a platform `GameSocketTransport` (Android:
 OkHttp; the browser: WebSocket and fetch), `SerialTasks` (the browser's single-thread executors
-as coroutine queues) and `Uuids` (java.util.UUID's texts). Uses `:core`;
+as coroutine queues) and `Uuids` (java.util.UUID's texts). Uses `:core`, `:protocol`,
+`:catalog` and `:arcanum-parser`;
 generated SQL types remain internal to this module, never part of the shared model or protocol.
 
 ## Build and test
 
-From the repository root with JDK 21 and Android SDK 36:
+From the repository root with JDK 21 and Android SDK 37:
 
 ```sh
 ./scripts/gradle.sh :client-storage:test :client-storage:verifySqlDelightMigration

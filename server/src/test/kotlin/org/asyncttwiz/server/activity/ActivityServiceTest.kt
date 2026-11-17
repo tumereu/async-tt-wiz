@@ -135,7 +135,7 @@ class ActivityServiceTest {
             val page = activity.page(f.b, "0")
             assertEquals(1, page.entries.size); assertFalse(page.summaryReset)
             assertEquals(ActivityKind.INVITATION, page.entries.single().kind)
-            // LOB-072: the notice names who invited and the game (the projection only, never the push hint)
+            // LOB-072, LOB-185: the notice names who invited and the game (the projection only, never the push hint)
             assertEquals(f.a.account.username, page.entries.single().opponentName)
             assertEquals(input.gameName, page.entries.single().resourceName)
             assertNull(page.entries.single().podId); assertFalse(page.entries.single().held)

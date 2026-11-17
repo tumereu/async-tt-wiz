@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** STK-050: the Inspect tile of an ability on the Stack names what was chosen for it, as far as the viewer may see. */
+/** STK-050, STK-124: the Inspect tile of an ability on the Stack names what was chosen for it, as far as the viewer may see. */
 class StackAbilityInspectTest {
     private val f = TableStatesFixture
 
@@ -17,7 +17,7 @@ class StackAbilityInspectTest {
             stackEffects = listOf(StackEffect("entry", source.id, item = item)))))
     }
 
-    // STK-050
+    // STK-050, STK-123, STK-124
     @Test fun anAbilitysTileNamesItsTargetsAsTheViewerSeesThem() {
         val blocker = f.source(f.b, "2/3")
         val name = f.initial.definitions.single { it.digest == blocker.definition }.definition.faces
@@ -33,7 +33,7 @@ class StackAbilityInspectTest {
         assertTrue(StackAbilities.details(board(emptyList()), "entry", f.a, names).isEmpty())
     }
 
-    // STK-050, TBL-104 (owner 2026-11-06): a spell on the Stack shows what was chosen for it as abilities do: X, then targets
+    // STK-050, STK-124, TBL-104, TBL-185 (owner 2026-11-06): a spell on the Stack shows what was chosen for it as abilities do: X, then targets
     @Test fun aSpellsChosenXAndTargetsAreListed() {
         val spell = f.source(f.a, "1/3")
         val item = MtgStackItem(MtgRef.Card(spell.id, 0), MtgStackKind.Spell, f.a, targets = mapOf("target" to listOf(MtgRef.Player(f.b))),

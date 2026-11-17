@@ -21,7 +21,7 @@ class TriggerSourceLeftTest : E2e() {
     private val martyr = "Trigger: When this creature dies, you gain 2 life."
     private val mourner = "Trigger: Whenever another creature you control dies, you gain 1 life."
 
-    // STK-030, CR 603.3b, CR 608.2h: a trigger whose source has left the battlefield is listed by that source's name and the
+    // STK-030, STK-183, CR 603.3b, CR 608.2h: a trigger whose source has left the battlefield is listed by that source's name and the
     // trigger's own text, as the other trigger is
     @Test fun aTriggerOfALeftSourceShowsItsSourceAndText() {
         startGame(TestDeck("Mourners", listOf(TestCards.mountain to 10, TestCards.altar to 10, TestCards.martyr to 10, TestCards.mourner to 10)),

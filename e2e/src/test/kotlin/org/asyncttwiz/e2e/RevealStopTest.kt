@@ -53,7 +53,7 @@ class RevealStopTest : E2e() {
         }
     }
 
-    // HIS-110, STK-044, TBL-104 (owner problem, prod playtest 2026-11-07): live, Alice's phone shows Bob's reveal in its
+    // HIS-110, HIS-153, HIS-154, STK-044, TBL-104 (owner problem, prod playtest 2026-11-07): live, Alice's phone shows Bob's reveal in its
     // panel and her table doesn't move past that event until she taps OK, while Bob's phone plays on unblocked (a Mountain,
     // the end of his turn, his phone assuming her passes); after OK her table plays on to his Mountain and her own turn.
     // Bob's own reveal opens his own panel, which waits for his OK alone
@@ -71,7 +71,7 @@ class RevealStopTest : E2e() {
         waitUntil("Bob's own panel gone, Alice's still open") { !bob.showsRevealOk() && alice.showsText(title) }
         bobPlaysOn()
         repeat(3) { run(skip = Duration.ofSeconds(2)) }
-        // SYS-077: when her phone passed on the Insight itself (her own pass resolving it, the panel on her pending event)
+        // SYS-077, SYS-134: when her phone passed on the Insight itself (her own pass resolving it, the panel on her pending event)
         // and Bob's assumption of that pass reached the server first, his same event took her event's place: the same board
         val held = alice.engine { device.adoptedAs(at) } ?: at
         assertEquals(held, alice.shown.tip, "Alice's table still at the reveal")
@@ -123,7 +123,7 @@ class RevealStopTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // HIS-110 (owner, 2026-11-12: a reveal's OK dismissed late): OK closes the panel at once, on Alice's phone alone, whatever
+    // HIS-110, HIS-153 (owner, 2026-11-12: a reveal's OK dismissed late): OK closes the panel at once, on Alice's phone alone, whatever
     // her engine thread is busy with: here nothing it publishes reaches her screen until released, and the panel is gone
     // before; then her table plays on
     @Test fun okClosesThePanelAtOnceWhileTheEngineThreadIsBusy() {
@@ -154,7 +154,7 @@ class RevealStopTest : E2e() {
         assertFalse(alice.showsText(title), "the panel stays closed")
     }
 
-    // HIS-110 (owner, 2026-11-09, a report's House Cartographer): a reveal until a land shows every card turned over, the land
+    // HIS-110, HIS-152, HIS-154 (owner, 2026-11-09, a report's House Cartographer): a reveal until a land shows every card turned over, the land
     // last, in the panel of both phones, each player's OK their own; while Bob's is open his own table's actions wait for it
     @Test fun aRevealUntilALandShowsEveryCardTurnedOverToBothPlayers() {
         startGame(TestDeck.thirds(), TestDeck("Scouts", listOf(TestCards.mountain to 8, TestCards.scouting to 16, TestCards.spark to 16)), bobStarts = true,
@@ -185,7 +185,7 @@ class RevealStopTest : E2e() {
         assertFalse(alice.showsRevealOk(), "Alice's stays dismissed")
     }
 
-    // HIS-110 (owner problem 2026-11-12): Alice casts Ember Exposure ("Target player reveals their hand") at Bob: her panel
+    // HIS-110, HIS-150, HIS-155 (owner problem 2026-11-12): Alice casts Ember Exposure ("Target player reveals their hand") at Bob: her panel
     // names who revealed, "Bob revealed · Ember Exposure", not "You revealed"; Bob revealed his own hand, cards he already
     // sees, so no panel opens on his phone
     @Test fun aRevealTheOtherPlayersSpellMakesNamesWhoRevealed() {

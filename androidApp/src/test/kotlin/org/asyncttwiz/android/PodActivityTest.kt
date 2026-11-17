@@ -25,7 +25,7 @@ class PodActivityTest {
         assertNull(ActivityRoute.parse(id, id, "FUTURE", id, identity))
     }
 
-    // DRF-137, LOB-072, DRF-122: invitation notices say who invited and to what; a challenge that waits for your deck says so
+    // DRF-137, LOB-072, LOB-185, DRF-122: invitation notices say who invited and to what; a challenge that waits for your deck says so
     // and opens its pod (its Games tab)
     @Test fun invitationNoticesNameTheInviterAndTheGameOrPod() {
         val game = ActivityHint("1", ActivityKind.INVITATION, id, identity, id, resourceName = "Friday game", opponentName = "Alex")

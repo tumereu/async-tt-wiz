@@ -7,7 +7,7 @@ class PodPackGridTest {
     private val booster = DraftSettings.booster()
     private val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
 
-    // DRF-177: one row per round, one cell per pack of that round, sized by the rounds and packs-per-round settings
+    // DRF-177, DRF-195: one row per round, one cell per pack of that round, sized by the rounds and packs-per-round settings
     @Test fun theGridHasARowPerRoundAndACellPerPackOfThatRound() {
         assertEquals(listOf(1, 1, 1), PodPackGrid.rows(booster))
         assertEquals(listOf(2, 2, 1), PodPackGrid.rows(booster.copy(packsPerPlayer = 5, packsOpenAtOnce = 2)))

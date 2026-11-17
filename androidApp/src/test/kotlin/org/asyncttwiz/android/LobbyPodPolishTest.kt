@@ -9,7 +9,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -61,7 +61,7 @@ class LobbyPodPolishTest {
         } finally { fixture.lobby.close() }
     }
 
-    // LOB-047, DRF-105, DRF-166 (owner, 2026-11-11): Prepare deck of a pod game has the deck's cover thumbnail and a pen in its
+    // LOB-047, LOB-226, DRF-105, DRF-166, DRF-229 (owner, 2026-11-11): Prepare deck of a pod game has the deck's cover thumbnail and a pen in its
     // header beside the private name: the cover lists the deck's Main and Side cards alphabetically, the pen opens the name
     @Test fun podPreparationRenamesTheDeckAndChoosesItsCover() {
         val fixture = ScreenFixtures().also { it.configure("prepare-deck-faded") }

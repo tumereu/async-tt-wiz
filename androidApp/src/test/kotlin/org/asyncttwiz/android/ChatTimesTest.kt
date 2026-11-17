@@ -6,7 +6,7 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.test.assertEquals
 
-/** LOB-067 (owner, 2026-11-14): a chat message's small time and the date line between days, in the device's zone. */
+/** LOB-067, LOB-164 (owner, 2026-11-14): a chat message's small time and the date line between days, in the device's zone. */
 class ChatTimesTest {
     private val helsinki = ZoneId.of("Europe/Helsinki")
     private val clock = Clock.fixed(Instant.parse("2026-11-14T20:30:00Z"), helsinki)
@@ -18,7 +18,7 @@ class ChatTimesTest {
         assertEquals("", chatTime("not a time", clock))
     }
 
-    // LOB-067: Today and Yesterday by the device's day (Helsinki's midnight, not UTC's), then the weekday and date, with the
+    // LOB-067, LOB-164: Today and Yesterday by the device's day (Helsinki's midnight, not UTC's), then the weekday and date, with the
     // year only before this one
     @Test fun theDayLineNamesTodayYesterdayOrTheDate() {
         assertEquals("Today", chatDay("2026-11-13T22:30:00Z", clock))

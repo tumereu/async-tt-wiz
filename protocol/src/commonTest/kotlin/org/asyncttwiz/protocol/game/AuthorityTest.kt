@@ -182,7 +182,7 @@ class AuthorityTest {
         assertEquals(0, server.lines)
     }
 
-    // HIS-042 (I-D56 §9): the k-th random answer of player X on line n is H(secret, n, X, k): the same on a line, new on
+    // HIS-042, HIS-192 (I-D56 §9): the k-th random answer of player X on line n is H(secret, n, X, k): the same on a line, new on
     // another line, and each player's own
     @Test
     fun randomAnswersAreDeterministicPerLineAndPlayer() {
@@ -196,7 +196,7 @@ class AuthorityTest {
         assertNotEquals(LineRandom.answer(secret, 2, alice, 5, kind), LineRandom.answer(LineRandom.secret(ByteArray(32)), 2, alice, 5, kind))
     }
 
-    // HIS-042 (first turn during mulligans §5): each player's random answers come from their own stream: Bob's mulligans
+    // HIS-042, HIS-192 (first turn during mulligans §5): each player's random answers come from their own stream: Bob's mulligans
     // (his shuffles) before Alice's draw never change the cards she draws
     @Test
     fun theOtherPlayersRandomAnswersDontMoveAPlayersOwn() {
@@ -283,7 +283,7 @@ class AuthorityTest {
     }
 
     // I-D56 §10: undo is free while everything after the target is your own and showed you nothing new
-    // HIS-087, ZON-026: undo is free until something new was shown (a scry's look makes it a request)
+    // HIS-087, HIS-203, ZON-026: undo is free until something new was shown (a scry's look makes it a request)
     @Test
     fun undoIsFreeUntilSomethingNewWasShown() {
         val server = spells("Glance Ahead")
@@ -334,7 +334,7 @@ class AuthorityTest {
         assertEquals("shown", server.rewindNeeds(bob, beforeCast))
     }
 
-    // HIS-087 (owner problem report VXSGKH: "undoing a pass should never need consent"): the other player's passes after the
+    // HIS-087, HIS-202, HIS-203 (owner problem report VXSGKH: "undoing a pass should never need consent"): the other player's passes after the
     // point never make undo a request, whether they passed themselves (a tap or their device) or confirmed the undoer's
     // assumption of their pass; a resolution their pass let through that shows the undoer a card still does
     @Test
@@ -390,7 +390,7 @@ class AuthorityTest {
         assertEquals(GameResult.Won(alice), Engine.result(server.state().engine))
     }
 
-    // TRN-065 (owner, 2026-11-09): each player's OK is their own, needs a result, and can be taken back; nothing makes a
+    // TRN-065, TRN-137 (owner, 2026-11-09): each player's OK is their own, needs a result, and can be taken back; nothing makes a
     // result final by one player's word any more
     @Test
     fun anOkIsTheAuthorsOwnAndNeedsAResult() {
@@ -514,7 +514,7 @@ class AuthorityTest {
         assertEquals(1, server.state().engine.stack.size, "the spell waits on the Stack again")
     }
 
-    // SYS-053: the server refuses an action the rules don't allow (a second land in a turn) with a message saying why,
+    // SYS-053, SYS-171: the server refuses an action the rules don't allow (a second land in a turn) with a message saying why,
     // never taking it silently; the device's options, which the app offers, don't list it
     @Test
     fun anActionTheRulesDontAllowIsRefusedWithItsReason() {
@@ -552,7 +552,7 @@ class AuthorityTest {
         assertEquals(Triple(2, alice, TurnStep.Untap), Triple(change.after.number, change.after.active, change.after.step))
     }
 
-    // TRN-060 (CR 104.4b): abilities that keep triggering without anyone getting priority (two Mirror Motes, each
+    // TRN-060, TRN-101 (CR 104.4b): abilities that keep triggering without anyone getting priority (two Mirror Motes, each
     // targeting the other whenever it becomes a target) stop after 200 rounds with the same loop choice, "Possible loop:
     // …", for the player who would get priority; Draw makes the game a draw
     @Test

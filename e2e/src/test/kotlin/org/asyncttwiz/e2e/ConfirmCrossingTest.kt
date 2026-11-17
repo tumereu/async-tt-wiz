@@ -18,7 +18,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Owner 2026-11-07 (SYS-077, HIS-109, SYS-009): Alice's own pass crosses Bob's assumption of it on the wire. Alice attacks
+ * Owner 2026-11-07 (SYS-077, SYS-134, HIS-109, HIS-211, SYS-009): Alice's own pass crosses Bob's assumption of it on the wire. Alice attacks
  * with her Cinder Brute (2/2, trample) and Bob blocks with three Ash Pups; at the blocks her phone (Normal) waits for her
  * and his waits for her with Assume. Her uplink is held ([NetworkLink.holdOutgoing]) while she passes, so her phone goes
  * on to her division of combat damage (CMB-033) with her pass still on its way; Bob presses Assume and his assumption of
@@ -43,7 +43,7 @@ class ConfirmCrossingTest : E2e() {
     /** Whether [shown]'s board has Alice's division of combat damage open. */
     private fun dividing(shown: EngineGame.Shown): Boolean = shown.engine.pending?.decision is Decision.Divide
 
-    // SYS-077, HIS-109, SYS-009, CMB-033
+    // SYS-077, SYS-134, HIS-109, HIS-211, SYS-009, CMB-033
     @Test fun aPassCrossingTheAssumptionOfItKeepsTheBoardAndTheOpenDivision() {
         startGame(TestDeck("Brutes", listOf(TestCards.mountain to 20, TestCards.brute to 20)),
             TestDeck("Pups", listOf(TestCards.mountain to 10, TestCards.pup to 30)),
@@ -62,7 +62,7 @@ class ConfirmCrossingTest : E2e() {
         }
         bob.hold("To combat")
         waitUntil("Alice's second Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.state.turn.number >= 3 }
-        // Alice in Normal: the blocks are her pause, so her phone waits for her there, and so does Bob's (STK-036, HIS-096)
+        // Alice in Normal: the blocks are her pause, so her phone waits for her there, and so does Bob's (STK-036, STK-171, HIS-096, HIS-176)
         alice.game!!.settings(alice.shown.settings.copy(mode = ResponseMode.Normal))
         waitUntil("Bob's phone knowing Alice's Normal") { bob.engine { device.opponentMode } == ResponseMode.Normal }
         // Turn 3: Alice attacks with the Brute, Bob blocks with the three Pups

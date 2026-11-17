@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.lifecycle.ViewModelStore
@@ -49,7 +49,7 @@ class NonGameplayBusyTest {
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(1)
     }
 
-    // LOB-096 (docs/specs/web-client.md section 3.6): while the card records install, controls that read them are greyed
+    // LOB-096, LOB-235 (docs/specs/web-client.md section 3.6): while the card records install, controls that read them are greyed
     // with "Card records updating · NN%"; the rest of the screen works and no busy pill covers it
     @Test fun whileCardRecordsInstallTheirControlsAreGreyedWithTheLine() {
         val fixtures = ScreenFixtures()

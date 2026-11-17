@@ -9,7 +9,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.unit.dp
 import kotlin.test.assertEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -66,7 +66,7 @@ class MatchHistoryScreenshotTest {
         compose.onNodeWithText("No finished matches yet.").assertIsDisplayed()
     }
 
-    // DRF-121: the pod's Games tab: members, then the standings and every match of the pod without decks
+    // DRF-121, DRF-235, DRF-236: the pod's Games tab: members, then the standings and every match of the pod without decks
     @Test fun podStandingsAndMatches() {
         val detail = PodDetail("pod", "Cube night", PodPhase.DRAFTED, alex, DraftSettings(), PodSource("Cube", 540), DraftSupply(90, 540),
             listOf(PodMember(alex, submitted = true), PodMember(riley, submitted = true), PodMember(morgan, submitted = true)), emptyList(),
@@ -83,7 +83,7 @@ class MatchHistoryScreenshotTest {
             "A pod's Games tab shows its members, the standings (morgan 1–0–0 first) and its matches: one in play at turn 4 and two finished, without decks.")
     }
 
-    // LOB-130: Stats' History with All chosen: every record newest first, the Unfinished one outlined
+    // LOB-130, LOB-176: Stats' History with All chosen: every record newest first, the Unfinished one outlined
     @Test fun statsHistory() {
         history.stats = HistoryList(records)
         compose.setContent { ScreenTheme { NoRipples { StatsContent(history, alex.accountId) {} } } }
@@ -106,7 +106,7 @@ class MatchHistoryScreenshotTest {
             "Tapping the agreed win against riley opens its details: reason, pod, play/draw, mulligans, final life, both decks and Open deck.")
     }
 
-    // LOB-132: Graphs with one opponent chosen: tiles, record over time (both players), and the decks against theirs
+    // LOB-132, LOB-177, LOB-179: Graphs with one opponent chosen: tiles, record over time (both players), and the decks against theirs
     @Test @Config(qualifiers = "w412dp-h2400dp-port-mdpi") fun statsGraphsOneOpponent() {
         history.stats = HistoryList(records)
         history.choice = StatsChoice(opponent = riley.accountId, graphs = true)
@@ -116,7 +116,7 @@ class MatchHistoryScreenshotTest {
             "The Graphs tab with riley chosen shows the tiles (3–1–1), both players' running wins and the decks against riley's.")
     }
 
-    // LOB-132: Graphs with All: your running wins and losses; no deck grid
+    // LOB-132, LOB-177: Graphs with All: your running wins and losses; no deck grid
     @Test @Config(qualifiers = "w412dp-h2400dp-port-mdpi") fun statsGraphsAll() {
         history.stats = HistoryList(records)
         history.choice = StatsChoice(graphs = true)
@@ -148,7 +148,7 @@ class MatchHistoryScreenshotTest {
         assertTilesFillTheWidth(3)
     }
 
-    // LOB-132: and all six in one row in landscape, beside the permanent side menu's 220 dp too; the match length in four-turn
+    // LOB-132, LOB-178, LOB-179: and all six in one row in landscape, beside the permanent side menu's 220 dp too; the match length in four-turn
     // ranges and the colours as mana symbols
     @Test @Config(qualifiers = "w892dp-h2400dp-port-mdpi") fun statsGraphsInLandscape() {
         history.stats = HistoryList(records)

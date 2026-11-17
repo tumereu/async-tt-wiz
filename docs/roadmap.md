@@ -6,7 +6,7 @@ Long-term direction, in order. Rough by design; the owner changes it as plans ch
 
 - Playtest changes and UI improvements as they come up.
 - More draft modes.
-- History of played games.
+- History of played games (built: the Stats screen and match records).
 - Possibly more game modes (Commander and others).
 
 ## Alongside 1: Arcanum Automatum
@@ -19,7 +19,7 @@ into the app phase by phase, before the web client. Spec:
 `docs/specs/arcanum-automatum.md`. Later: autoplay decisions (stored answers such
 as a fixed trigger order).
 
-## 2. Desktop web client
+## 2. Desktop web client (built; in prod since 0.2.0, 2026-11-15)
 
 Same game engine and server, its own UI: things are done the desktop way
 (mouse, keyboard, larger screen), not as a phone layout in a browser.

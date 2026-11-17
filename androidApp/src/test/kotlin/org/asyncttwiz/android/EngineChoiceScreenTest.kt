@@ -9,7 +9,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.decision.Decision
@@ -123,7 +123,7 @@ class EngineChoiceScreenTest {
         assertNull(kit.bobToolkit.error, "no message")
     }
 
-    // STK-033, CMB-033, STK-044, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division
+    // STK-033, STK-101, CMB-033, CMB-094, STK-044, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division
     // panel: a row per creature that may get damage, filled in with Automatum's suggestion (lethal damage to each in
     // turn); OK deals the combat damage. Alice's Ember Cub (2/1) is blocked by three of Bob's (with two, lethal damage to
     // each is the only in-order result: made without asking, STK-033)
@@ -157,7 +157,7 @@ class EngineChoiceScreenTest {
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "Attack (1)")
         fun bobBlocks() = Engine.options(kit.bob.device.model.engine, other, org.asyncttwiz.protocol.game.EnginePreferences.of(kit.bob.device.model.engine)).any { it is Input.DeclareBlockers }
         kit.playOn("Bob declaring blockers", bobActs = false) {
-            // Bob lets the attack go on to his blocks (his pass after it was assumed at once: he confirms it, HIS-096)
+            // Bob lets the attack go on to his blocks (his pass after it was assumed at once: he confirms it, HIS-096, HIS-180)
             (kit.bob.device.status as? GameDevice.Status.Stopped)?.let { kit.bob.act(it.assumed) }
             if (kit.bob.device.status == GameDevice.Status.YourMove && !bobBlocks() &&
                 kit.bob.device.model.engine.priority.holder == other) kit.bob.pass()
@@ -178,7 +178,7 @@ class EngineChoiceScreenTest {
         assertEquals(2, compose.onAllNodesWithContentDescription("Ember Cub: 1").fetchSemanticsNodes().size,
             "a row per blocker, lethal damage to each in turn")
         assertEquals(1, compose.onAllNodesWithContentDescription("Ember Cub: 0").fetchSemanticsNodes().size)
-        // CMB-033 (owner playtest 2026-11-06): the title says only the choice; the attacking Cub is the small card at the
+        // CMB-033, CMB-091 (owner playtest 2026-11-06): the title says only the choice; the attacking Cub is the small card at the
         // panel's top left; every row shows whole in the panel
         compose.onNode(hasText("Divide 2 damage") and isHeading()).assertExists()
         val panel = compose.onNodeWithContentDescription("Division of combat damage").fetchSemanticsNode().boundsInRoot
@@ -187,7 +187,7 @@ class EngineChoiceScreenTest {
         assertTrue(source.left - panel.left < 20f && source.top - panel.top < 20f, "the attacker at the panel's top left: $source in $panel")
         for (row in compose.onAllNodesWithContentDescription("Ember Cub: ", substring = true).fetchSemanticsNodes())
             assertTrue(row.boundsInRoot.bottom <= panel.bottom + .5f, "the row shows: ${row.boundsInRoot} in $panel")
-        // CMB-033 (owner, 2026-11-05): the panel opens attached to the combat band, not above the hand; its OK is the
+        // CMB-033, CMB-094 (owner, 2026-11-05): the panel opens attached to the combat band, not above the hand; its OK is the
         // main button
         assertNotNull(kit.scene().combatPanel, "the band is open")
         val hand = kit.scene().items.single { it.kind == TableItemKind.HAND && it.owner == f.a }.bounds

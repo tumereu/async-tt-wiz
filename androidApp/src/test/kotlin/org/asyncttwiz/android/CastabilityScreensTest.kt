@@ -8,7 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.asyncttwiz.protocol.PlayZone
@@ -91,12 +91,12 @@ class CastabilityScreensTest {
 
     private val rebukes = listOf(Choices.REBUKE, Choices.GEODE, Choices.PUP, Choices.DROWSY, Choices.GEODE, Choices.SHARD, Choices.SHARD)
 
-    // ZON-080: "{?}" is drawn as a symbol, our own notation
+    // ZON-080, ZON-109: "{?}" is drawn as a symbol, our own notation
     @Test fun theQuestionMarkIsASymbol() {
         assertEquals(listOf(CardTextPart.Symbol("R"), CardTextPart.Plain(" + "), CardTextPart.Symbol("?")), parseCardText("{R} + {?}"))
     }
 
-    // ZON-080, ZON-079, CR 601.2f: the smallest cost + {?}, outlined for the minimum
+    // ZON-080, ZON-109, ZON-079, ZON-101, CR 601.2f: the smallest cost + {?}, outlined for the minimum
     @Test fun theRaisedCardShowsItsSmallestCost() {
         dealt(rebukes, Choices.REBUKE, Choices.GEODE, Choices.GEODE, Choices.PUP, Choices.DROWSY)
         plays(Choices.GEODE, Choices.GEODE, Choices.PUP, Choices.DROWSY)
@@ -109,7 +109,7 @@ class CastabilityScreensTest {
             "Alice raised her Ember Rebuke ({3}{R}, {2} less on a tapped creature) with two Ember Geodes ({R}{R} each), a tapped and an untapped creature out: its chip shows the smallest cost, {1}{R} + {?}, and one Geode is outlined for that minimum.")
     }
 
-    // TBL-118, STK-047, CR 601.2f: exact mana for the cheap target: the other legal target doesn't glow
+    // TBL-118, STK-047, STK-149, CR 601.2f: exact mana for the cheap target: the other legal target doesn't glow
     @Test fun aLegalTargetYouCanNotPayForDoesNotGlow() {
         dealt(rebukes, Choices.REBUKE, Choices.GEODE, Choices.PUP, Choices.DROWSY)
         plays(Choices.GEODE, Choices.PUP, Choices.DROWSY)
@@ -123,7 +123,7 @@ class CastabilityScreensTest {
             "Alice cast her Ember Rebuke with one Ember Geode out: the target bar is open, her tapped Drowsy Pup glows as a target she can pay for, and her untapped Ash Pup doesn't glow, its {3}{R} being more than she has.")
     }
 
-    // STK-047, CR 601.2f: enough for both: both glow
+    // STK-047, STK-149, CR 601.2f: enough for both: both glow
     @Test fun bothTargetsGlowWithEnoughForBoth() {
         dealt(rebukes, Choices.REBUKE, Choices.GEODE, Choices.GEODE, Choices.PUP, Choices.DROWSY)
         plays(Choices.GEODE, Choices.GEODE, Choices.PUP, Choices.DROWSY)
@@ -136,7 +136,7 @@ class CastabilityScreensTest {
             "Alice cast her Ember Rebuke with two Ember Geodes out: the target bar is open and both creatures glow, the tapped Drowsy Pup at {1}{R} and the untapped Ash Pup at {3}{R}.")
     }
 
-    // STK-047, CR 601.2c, 601.2f: the owner's example: a selection narrows what can still be picked
+    // STK-047, STK-149, CR 601.2c, 601.2f: the owner's example: a selection narrows what can still be picked
     @Test fun aSelectionNarrowsWhatCanBePicked() {
         dealt(listOf(Choices.GEODE, Choices.TOLL, Choices.ELF_BEAR, Choices.OX_HUMAN, Choices.GOAT),
             Choices.TOLL, Choices.GEODE, Choices.GEODE, Choices.GEODE, Choices.ELF_BEAR, Choices.OX_HUMAN, Choices.GOAT)
@@ -173,7 +173,7 @@ class CastabilityScreensTest {
             "Alice cast her Blue Note ({U}) with Autotap off, the table panned up, and tapped her Ember Signet and an Ember Shard: both are outlined in amber on the table and the panel names neither, the Shard paying the Signet's {1} and the Signet's {U} the Note.")
     }
 
-    // STK-024 (owner 2026-11-08): a pick stays and Autotap fills in the rest
+    // STK-024, STK-158 (owner 2026-11-08): a pick stays and Autotap fills in the rest
     @Test fun aPartialOverride() {
         dealt(listOf(Choices.BROOD, Choices.SHARD, Choices.ELF, Choices.STONE), Choices.BROOD, Choices.SHARD, Choices.ELF, Choices.STONE)
         val (shard, elf, stone) = plays(Choices.SHARD, Choices.ELF, Choices.STONE)

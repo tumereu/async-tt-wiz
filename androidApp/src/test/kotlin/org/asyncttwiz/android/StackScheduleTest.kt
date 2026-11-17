@@ -6,14 +6,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Stack animation (owner spec 2026-11-14; HIS-112, STK-058, TBL-125, LOB-082, TBL-038): the steps a spell or ability plays on
+ * Stack animation (owner spec 2026-11-14; HIS-112, HIS-133, HIS-136, STK-058, STK-127, HIS-230, TBL-125, TBL-150, LOB-082, TBL-038): the steps a spell or ability plays on
  * its way to and through the Stack, in order, with their times: the fly-in, the middle hold and the flight to the Stack for
  * a play shown, the target arrows for an entry with targets, then its resolution (its effect's own animations).
  */
 class StackScheduleTest {
     private fun steps(schedule: List<StackStepTime>) = schedule.map { it.step }
 
-    // HIS-112, STK-058, TBL-125: the other player's Shock at your creature: 0.25 s in, the 1.2 s hold, 0.25 s to the Stack,
+    // HIS-112, HIS-133, HIS-136, STK-058, STK-127, HIS-230, TBL-125, TBL-150: the other player's Shock at your creature: 0.25 s in, the 1.2 s hold, 0.25 s to the Stack,
     // its arrow (0.25 s growing, then 0.4 s drawn), then the damage; its total before the damage about 2.35 s
     @Test fun theOtherPlayersPlayWithATargetHasAllFiveStepsInOrder() {
         val schedule = StackSchedule.of(shown = true, targets = 1, setting = 1_200, multiplier = 1f)
@@ -22,7 +22,7 @@ class StackScheduleTest {
         assertEquals(2_350L, schedule.sumOf { it.millis ?: 0L })
     }
 
-    // HIS-112: your own casts and activations skip the middle: one move to the Stack (the table's), then their arrows
+    // HIS-112, HIS-143: your own casts and activations skip the middle: one move to the Stack (the table's), then their arrows
     @Test fun ownCastsSkipTheMiddleButKeepTheirArrows() {
         val schedule = StackSchedule.of(shown = false, targets = 1, setting = 1_200, multiplier = 1f)
         assertEquals(listOf(StackStep.Targeting, StackStep.Resolution), steps(schedule))
@@ -44,7 +44,7 @@ class StackScheduleTest {
         assertEquals(listOf(1_000L, 3_000L, 1_000L, 2_600L, null), StackSchedule.of(true, 1, 3_000, .25f).map { it.millis })
     }
 
-    // STK-058: several targets' arrows start 80 ms apart, each growing in 0.25 s; then 0.4 s with all of them drawn
+    // STK-058, STK-127, HIS-230: several targets' arrows start 80 ms apart, each growing in 0.25 s; then 0.4 s with all of them drawn
     @Test fun severalArrowsGrowEightyMillisecondsApart() {
         assertEquals(250L + 2 * 80L + 400L, StackSchedule.targetingMillis(3, 1f))
         assertEquals(0f, StackSchedule.arrowProgress(0, 0, 1f))
@@ -56,7 +56,7 @@ class StackScheduleTest {
         assertEquals(.5f, StackSchedule.arrowProgress(63, 0, 2f), .02f, "at 2× it grows in 125 ms")
     }
 
-    // HIS-112, STK-058, TBL-125 (spec: chains): a repeat of the same ability in one chain holds, targets and resolves 35%
+    // HIS-112, HIS-138, STK-058, STK-128, TBL-125, TBL-150 (spec: chains): a repeat of the same ability in one chain holds, targets and resolves 35%
     // shorter each time, down to 0.15 s for the hold, 0.1 s for an arrow's growth and 0.15 s for the read
     @Test fun repeatsShortenTheHoldTheArrowsAndTheResolutionDownToTheirFloors() {
         assertEquals(listOf(1_200L, 780L, 507L), (0..2).map { StackSchedule.holdMillis(1_200, it) })
@@ -72,7 +72,7 @@ class StackScheduleTest {
         assertTrue((0 until 30).sumOf { StackSchedule.targetingMillis(1, 1f, it) } < 8_500)
     }
 
-    // HIS-112: the plays not landed yet are taken off the board; the ones this table ended show (Stack animation step 1)
+    // HIS-112, HIS-132, HIS-142: the plays not landed yet are taken off the board; the ones this table ended show (Stack animation step 1)
     @Test fun thePlaysNotLandedAreHidden() {
         val bob = arcanum.engine.state.PlayerId("bob")
         fun play(event: String, n: Int) = GameDevice.PlayShow(event, bob, arcanum.engine.state.ObjectId.StackItem("s$n"),

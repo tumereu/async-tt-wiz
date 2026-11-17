@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 class HandCyclingTest : E2e() {
     private val greyed = SemanticsMatcher("greyed") { "can't be paid now" in it.config.getOrElse(SemanticsProperties.StateDescription) { "" } }
 
-    // ZON-080 (owner 2026-11-07): the raised Musing shows Cast (greyed: one Mountain) and Cycling {R}; a tap on Cycling cycles
+    // ZON-080, ZON-108, ZON-111, ZON-112 (owner 2026-11-07): the raised Musing shows Cast (greyed: one Mountain) and Cycling {R}; a tap on Cycling cycles
     // it at once: the Musing goes to the graveyard and Alice draws a card
     @Test fun aCardCyclesFromItsChip() {
         startGame(TestDeck.musings(), deal = { a, _ -> "Mountain" in hand(a) && "Ember Musing" in hand(a) })

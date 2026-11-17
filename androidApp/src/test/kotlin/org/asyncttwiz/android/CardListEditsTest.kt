@@ -15,7 +15,7 @@ class CardListEditsTest {
     private fun entry(name: String, quantity: Int, section: DeckSection = DeckSection.MAINBOARD, id: String = name.lowercase().replace(' ', '-')) =
         ResolvedDeckEntry(section, quantity, listOf(printing(name, id)), listOf(1))
 
-    // LOB-106: tapping a result adds one copy to the chosen section; another printing of a listed card joins it.
+    // LOB-106, LOB-219, LOB-220: tapping a result adds one copy to the chosen section; another printing of a listed card joins it.
     @Test fun addGrowsTheSameCardInTheChosenSectionOrAppendsANewEntry() {
         val list = listOf(entry("Rune Bear", 2))
         val grown = CardListEdits.add(CardListKind.DECK, list, listOf(printing("Rune Bear", "other-printing")), DeckSection.MAINBOARD)
@@ -39,7 +39,7 @@ class CardListEditsTest {
         assertNull(CardListEdits.add(CardListKind.CUBE, full, listOf(printing("Rune Wall")), DeckSection.MAYBEBOARD).refused)
     }
 
-    // LOB-142, LOB-108: the filter reads a listed card as search does: the catalog's card down to the entry's own
+    // LOB-142, LOB-218, LOB-108: the filter reads a listed card as search does: the catalog's card down to the entry's own
     // printing, otherwise its definition, which holds no rarity or legalities
     @Test fun aListedCardMatchesTheFilterAsSearchReadsIt() {
         fun query(text: String) = (CardSearchQuery.parse(text) as CardSearchParse.Valid).query
@@ -57,7 +57,7 @@ class CardListEditsTest {
         for (text in listOf("r:rare", "s:bbb")) assertFalse(query(text).matches(catalog), "$text is another printing, not this entry's")
     }
 
-    // LOB-105: the card menu's +1, −1, Remove all and Move to…
+    // LOB-105, LOB-215: the card menu's +1, −1, Remove all and Move to…
     @Test fun menuEditsChangeOneEntryAndMovesJoinTheTargetSection() {
         val list = listOf(entry("Rune Bear", 2), entry("Rune Bolt", 1), entry("Rune Bear", 1, DeckSection.SIDEBOARD))
         assertEquals(listOf(3, 1, 1), CardListEdits.change(list, "rune-bear", DeckSection.MAINBOARD, 1).map { it.quantity })
@@ -71,7 +71,7 @@ class CardListEditsTest {
         assertEquals(listOf(1, 1, 1), CardListEdits.removeOne(list, "rune bear", DeckSection.MAINBOARD).map { it.quantity })
     }
 
-    // LOB-105, LOB-048 (owner, 2026-11-09): right moves a copy one section up, left one down, in the order Main, Side, Maybe,
+    // LOB-105, LOB-215, LOB-048 (owner, 2026-11-09): right moves a copy one section up, left one down, in the order Main, Side, Maybe,
     // wrapping; a cube's two sections either way to the other
     @Test fun swipesMoveUpRightAndDownLeft() {
         assertEquals(DeckSection.MAYBEBOARD, CardListKind.DECK.swipe(DeckSection.MAINBOARD, right = true))
@@ -86,7 +86,7 @@ class CardListEditsTest {
         }
     }
 
-    // LOB-059: lines with problems are underlined in red; general problems (line 0) and a changed text underline nothing.
+    // LOB-059, LOB-213: lines with problems are underlined in red; general problems (line 0) and a changed text underline nothing.
     @Test fun problemLinesUnderlineOnlyTheLinesALookupFlagged() {
         val text = "Deck\n4 Rune Bear\r\nBad line\n\n2 Unknown"
         val result = DeckImportResult(text, emptyList(), listOf(ImportIssue(3, "Bad"), ImportIssue(5, "Unknown"), ImportIssue(0, "Too many")), null)
@@ -100,8 +100,8 @@ class CardListEditsTest {
         assertTrue(shown.spanStyles.all { it.item.color == red && it.item.textDecoration == androidx.compose.ui.text.style.TextDecoration.Underline })
     }
 
-    // LOB-059: the Text tab shows a Cards tab edit in the same shape an existing list opens with (the same rewrite); a card
-    // without a printing is its name alone (SYS-084)
+    // LOB-059, LOB-213: the Text tab shows a Cards tab edit in the same shape an existing list opens with (the same rewrite); a card
+    // without a printing is its name alone (SYS-084, SYS-201)
     @Test fun textRewriteMatchesTheEditorSourceShape() {
         val faces = SavedCardFaces(emptyMap(), null)
         assertEquals("Deck\n2 Lost Bear\nSideboard", CardListEdits.text(CardListKind.DECK,
@@ -121,7 +121,7 @@ class CardListEditsTest {
             .let { assertIs<CardSearchParse.Valid>(it) }
     }
 
-    // LOB-106
+    // LOB-106, LOB-220
     @Test fun doneLabelCountsTheCardsAddedInThisVisit() {
         assertEquals("Done", cardSearchDoneLabel(0))
         assertEquals("Done · +1 card", cardSearchDoneLabel(1))

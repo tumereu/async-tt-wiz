@@ -13,7 +13,7 @@ import org.junit.Test
  * table and makes a move there. Not a Robolectric test: the app runs in Chrome.
  */
 class WebSmokeTest {
-    // WEB-001, WEB-002, WEB-005, WEB-007, WEB-009, WEB-011: load, sign in, list games; the address and the browser's Back
+    // WEB-001, WEB-100, WEB-002, WEB-005, WEB-007, WEB-009, WEB-011: load, sign in, list games; the address and the browser's Back
     // follow the screens, a refresh keeps the screen and the sign-in, and the card records are kept in the browser; a
     // started game opened by its address shows its table, where Alice keeps her opening hand (the server takes it), with
     // the browser's gestures off; its Back leaves for Games
@@ -48,7 +48,7 @@ class WebSmokeTest {
                     return count > 0;
                 }""", null, Page.WaitForFunctionOptions().setTimeout(60_000.0))
                 // WEB-007, TRN-062: a started game, opened by its address, shows its table: the opening's Keep among the quick
-                // actions (the main button greyed beside them, TRN-063)
+                // actions (the main button greyed beside them, TRN-063, TRN-116)
                 val before = ServerSetup.head(alice, started.id).engine?.localHeads?.get(alice.id)
                 page.navigate("$origin/games/${started.id}")
                 web.waitFor("#main-button", 120_000.0)

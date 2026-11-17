@@ -172,7 +172,7 @@ The definition model (overview in `Definitions.kt`):
   `Keyword.Devour.what` for "devour land 3"), the predefined Lander token (CR 111.10u), `AlternativeCost.from` (warp only from the
   hand), `MayPlay.costChange` and `landsEnterTapped` ("spells you cast this way cost {1} more", "lands you play this way enter
   tapped"), `CreateDelayedTrigger.laterTurn` ("its owner may play it for as long as it remains exiled" only after this turn) and
-  `Selector.WasPaid` counting alternative costs ("a spell was warped this turn"); `DefinitionChecks` allows comparing a count of what
+  `ObjectFilter.WasPaid` counting alternative costs ("a spell was warped this turn"); `DefinitionChecks` allows comparing a count of what
   your opponents control with a number (their total).
 - Tarkir: Dragonstorm (set `tdm`): `KeywordAction.Endure` names the objects that endure ("Anafenza endures 2", "it endures X" of the
   creature that entered; enduring 0 does nothing, CR 701.63b), `SharedQuality.CounterKind` ("three or more different kinds of counters
@@ -227,7 +227,7 @@ The definition model (overview in `Definitions.kt`):
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card
 definitions; the runtime types they describe (object ids, Stack items and
 sequences, effect objects, ledgers, tagged events, timestamps) belong to the engine
-API and are not built yet. `DefinitionChecks.problems` reports definitions the
+API (`arcanum-engine`). `DefinitionChecks.problems` reports definitions the
 types allow but the model forbids; `DefinitionChecks.unusedTargetSlots` lists an ability's
 target slots nothing in it reads (the parser leaves such a reading unread, CR 115.1a).
 Types are sealed hierarchies rather than enums with values (owner preference).

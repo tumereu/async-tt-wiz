@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.sun.net.httpserver.HttpServer
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkUrlPolicy
@@ -48,7 +48,7 @@ class ArtworkPrefetchStartTest {
     private fun awaitRequestFor(printing: String) =
         compose.waitUntil(20_000) { synchronized(requested) { requested.any { printing in it } } }
 
-    // LOB-097
+    // LOB-097, LOB-237
     @Test fun savingADeckAndOpeningAGameStartDownloadingTheirCardPictures() {
         install(service)
         val deckCard = UUID.randomUUID().toString()

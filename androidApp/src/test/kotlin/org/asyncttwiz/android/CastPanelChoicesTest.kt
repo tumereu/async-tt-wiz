@@ -6,7 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.junit.After
@@ -51,7 +51,7 @@ class CastPanelChoicesTest {
         compose.waitForIdle()
     }
 
-    // STK-023, STK-052 (owner playtest 2026-11-05 evening): an X cast has no OK of its own and no Cancel; − / + stop at the
+    // STK-023, STK-138, STK-052, STK-140 (owner playtest 2026-11-05 evening): an X cast has no OK of its own and no Cancel; − / + stop at the
     // least X and the most one Mountain pays; Cast answers X and the cast goes on to its target, then resolves
     @Test fun anXCastHasNoOkAndItsXIsBounded() {
         kit.opening()
@@ -60,7 +60,7 @@ class CastPanelChoicesTest {
         assertTrue(kit.toolkit.cast.start(burst), "the cast begins: ${kit.toolkit.error}")
         render()
         compose.onNodeWithContentDescription("Cast panel").assertExists()
-        // STK-023: the title names the card cast
+        // STK-023, STK-135: the title names the card cast
         compose.onNode(hasText("Cast Ember Burst") and isHeading()).assertExists()
         compose.onNodeWithContentDescription("Value 0").assertExists()
         compose.onNodeWithContentDescription("One less").assertIsNotEnabled()
@@ -84,7 +84,7 @@ class CastPanelChoicesTest {
         assertEquals(19, kit.state().player(PlayerId(kit.f.b)).life)
     }
 
-    // STK-023: with no mana at all X can only be 0 (Ember Burst costs nothing then); + stays greyed
+    // STK-023, STK-138: with no mana at all X can only be 0 (Ember Burst costs nothing then); + stays greyed
     @Test fun withNoManaXStaysAtItsLeast() {
         kit.opening()
         val burst = kit.atw(kit.hand(Choices.BURST).first())

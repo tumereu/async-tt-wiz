@@ -85,7 +85,7 @@ class AssumeModeTest {
 
     private val modes = listOf<ResponseMode>(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
 
-    // HIS-096, TRN-070, STK-036 (owner 2026-11-06, 2026-11-07: Bob's spell, his point): at the other player's pause where their real hand
+    // HIS-096, HIS-176, HIS-177, HIS-181, TRN-070, STK-036, STK-172, STK-174 (owner 2026-11-06, 2026-11-07: Bob's spell, his point): at the other player's pause where their real hand
     // can't respond: Never and Normal wait unless their mode would pass (Quick does: nothing to respond with); When they
     // have no mana and Always assume at once (no mana shown)
     @Test
@@ -99,7 +99,7 @@ class AssumeModeTest {
         }
     }
 
-    // HIS-096, TRN-070 (owner 2026-11-06): at their pause while their real hand holds a free instant: their Quick stops (it
+    // HIS-096, HIS-177, HIS-181, TRN-070 (owner 2026-11-06): at their pause while their real hand holds a free instant: their Quick stops (it
     // is judged on their real hand), so Never and Normal wait in every mode; When they have no mana ignores the hand
     @Test
     fun atTheirPauseWithAnInstantInHand() {
@@ -109,7 +109,7 @@ class AssumeModeTest {
         }
     }
 
-    // HIS-096, STK-036 (owner 2026-11-06): at their priority that is no pause of theirs (your main phase, empty Stack):
+    // HIS-096, HIS-179, HIS-180, HIS-182, STK-036, STK-174 (owner 2026-11-06): at their priority that is no pause of theirs (your main phase, empty Stack):
     // Never waits only against Control (Normal and Quick pass there); every other setting assumes it, as Normal mode passes
     @Test
     fun atTheirPriorityThatIsNoPause() {
@@ -119,7 +119,7 @@ class AssumeModeTest {
         }
     }
 
-    // HIS-096 (owner 2026-11-06): their pause at your end step is assumed with Normal whatever their mode; Never respects
+    // HIS-096, HIS-180, HIS-179 (owner 2026-11-06): their pause at your end step is assumed with Normal whatever their mode; Never respects
     // their mode only
     @Test
     fun atTheirPauseInYourEndStep() {
@@ -162,7 +162,7 @@ class AssumeModeTest {
         assertTrue(at(), "reached the point")
     }
 
-    // HIS-096 (owner 2026-11-07): Alice's upkeep, a point she began (nothing was input since the step began: the active
+    // HIS-096, HIS-175, HIS-176 (owner 2026-11-07): Alice's upkeep, a point she began (nothing was input since the step began: the active
     // player's, as with a beginning-of-step trigger): only her response mode decides; Bob's Assume setting doesn't count,
     // so against Control even Always waits (at a point Bob began, Always assumes every pass)
     @Test
@@ -265,7 +265,7 @@ class AssumeModeTest {
     /** Who began the point at the head of [p]'s device. */
     private fun DeviceSim.owner(p: PlayerId) = device(p).let { GameDevice.pointOwner(it.session.events + it.session.pending, it.model.engine) }
 
-    // HIS-096 (owner 2026-11-07): Bob attacks and Alice blocks: the point after it (her priority, a pause of hers) is hers,
+    // HIS-096, HIS-175, HIS-176 (owner 2026-11-07): Bob attacks and Alice blocks: the point after it (her priority, a pause of hers) is hers,
     // the block being the last real input (Bob's pass after it doesn't count), so only her mode decides: her Quick passes
     // (her Pups can't be cast now), Normal and Control wait, whatever Bob's Assume setting
     @Test
@@ -278,7 +278,7 @@ class AssumeModeTest {
         }
     }
 
-    // HIS-096 (owner 2026-11-07): the same point after a block Bob assumed himself (Assume blockers): his press began it,
+    // HIS-096, HIS-175 (owner 2026-11-07): the same point after a block Bob assumed himself (Assume blockers): his press began it,
     // so his setting counts too: When they have no mana (she shows no mana source) and Always assume her pass in any mode
     @Test
     fun afterBlocksYouAssumedYourSettingCounts() {
@@ -305,7 +305,7 @@ class AssumeModeTest {
         return sim
     }
 
-    // STK-036, HIS-096 (owner 2026-11-07): Alice in Control casts a spell and keeps priority: a point she began, so Bob's
+    // STK-036, STK-174, HIS-096, HIS-176 (owner 2026-11-07): Alice in Control casts a spell and keeps priority: a point she began, so Bob's
     // device waits for her whatever his setting (Always too); her second spell is simply taken: no branch, nothing assumed
     @Test
     fun aSecondSpellWhileHoldingPriorityIsSimplyTaken() {
@@ -328,7 +328,7 @@ class AssumeModeTest {
         }
     }
 
-    // STK-036, HIS-096, HIS-109, SYS-077 (owner 2026-11-06, 2026-11-07): Alice in Control casts a spell and keeps priority;
+    // STK-036, STK-174, HIS-096, HIS-109, HIS-187, SYS-077, SYS-133 (owner 2026-11-06, 2026-11-07): Alice in Control casts a spell and keeps priority;
     // Bob presses Assume by hand there (still offered at her point); her second spell, sent before that assumption reached
     // her, is her answer at it: not refused, it branches (HIS-097), and Bob's device goes back with the branch note
     @Test

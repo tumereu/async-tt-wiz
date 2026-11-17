@@ -2,7 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.Engine
 import arcanum.engine.input.Input
 import arcanum.engine.setup.GameResult
@@ -178,7 +178,7 @@ class EngineHistoryShownTest {
         assertIs<GameDevice.Status.Stopped>(again.device.status)
     }
 
-    // HIS-015, HIS-013: in timeline mode, going to the last event by hand stays in timeline mode; Auto reaching the end
+    // HIS-015, HIS-173, HIS-013: in timeline mode, going to the last event by hand stays in timeline mode; Auto reaching the end
     // returns to play mode
     @Test fun onlyAutoReachingTheEndLeavesTimelineMode() {
         val events = LiveTableFixture.timeline()

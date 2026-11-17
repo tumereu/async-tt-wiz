@@ -6,7 +6,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** The draft history's rounds (DRF-165, owner 2026-11-10 and 2026-11-11): headers naming where the packs went and the
+/** The draft history's rounds (DRF-165, DRF-206, DRF-209, owner 2026-11-10 and 2026-11-11): headers naming where the packs went and the
  * returning filter. */
 class PodHistoryRoundsTest {
     private fun pick(round: Int, pick: Int, returning: Boolean = false) =
@@ -14,7 +14,7 @@ class PodHistoryRoundsTest {
 
     private val names = mapOf("alice" to "Alice", "bob" to "Bob", "carol" to "Carol", "dave" to "Dave")
 
-    // DRF-165, DRF-043: round 1 passes to the next seat, the direction flipping each round; with two players the header
+    // DRF-165, DRF-206, DRF-043: round 1 passes to the next seat, the direction flipping each round; with two players the header
     // names only the player, with three or more also the way round
     @Test fun roundHeadersNameWhereThePacksWent() {
         val two = listOf("bob", "alice")
@@ -29,7 +29,7 @@ class PodHistoryRoundsTest {
         assertNull(podHistoryPassedTo(four, "eve", 1))
     }
 
-    // DRF-165: the seat ring follows the round of the item at the top of the list
+    // DRF-165, DRF-210: the seat ring follows the round of the item at the top of the list
     @Test fun eachListItemBelongsToItsRound() {
         fun copy(n: Int) = DraftCopy("c$n", "d$n")
         val picks = listOf(DraftHistoryPick(1, 1, listOf(copy(1), copy(2)), emptyList()),
@@ -40,7 +40,7 @@ class PodHistoryRoundsTest {
         assertEquals(List(9) { 1 } + List(3) { 2 }, podHistoryItemRounds(podHistoryRounds(picks, returningOnly = false)))
     }
 
-    // DRF-165: picks grouped by round in order, keeping their places; Returning packs only leaves only packs that came back,
+    // DRF-165, DRF-205, DRF-209: picks grouped by round in order, keeping their places; Returning packs only leaves only packs that came back,
     // and a round without one isn't shown
     @Test fun picksGroupByRoundAndTheFilterKeepsReturningPacks() {
         val picks = listOf(pick(1, 1), pick(1, 2), pick(1, 3, returning = true), pick(2, 1), pick(2, 2), pick(3, 1), pick(3, 3, returning = true))

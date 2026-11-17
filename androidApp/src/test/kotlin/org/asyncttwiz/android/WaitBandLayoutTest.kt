@@ -9,7 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
@@ -24,7 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * TRN-066, STK-057 (owner gallery review 2026-11-10, gallery 79: "white text ends up on a largely faded area"): the band stays
+ * TRN-066, TRN-150, STK-057, STK-129 (owner gallery review 2026-11-10, gallery 79: "white text ends up on a largely faded area"): the band stays
  * edge to edge with fading sides, but every line of its words, the longest main line and 8 lines of effect text alike, lies on
  * its solid middle, in portrait on a narrow phone and in landscape.
  */

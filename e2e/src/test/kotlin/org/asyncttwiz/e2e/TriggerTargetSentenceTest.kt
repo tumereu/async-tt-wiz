@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * Owner playtest, 2026-11-11: equipping Demonmail Hauberk ("Equip—Sacrifice a creature.") he chose the sacrifice and the equip
  * target the wrong way round; and Blood Artist, sacrificed to it, asked "Choose target player" for its death trigger with no
- * sentence saying what for, though every question shows the sentence it asks about (STK-030). The Artist had left the
+ * sentence saying what for, though every question shows the sentence it asks about (STK-030, STK-181). The Artist had left the
  * battlefield, so its trigger's source was taken for hidden (fixed with 3UE2NW's last known information, CR 608.2h).
  */
 class TriggerTargetSentenceTest : E2e() {
@@ -30,7 +30,7 @@ class TriggerTargetSentenceTest : E2e() {
         }
     }
 
-    // STK-047 (owner 2026-11-11, which pick is which), CR 702.6a, 601.2c, 601.2h: the bar shows the equip's whole line with the
+    // STK-047, STK-142, STK-143, STK-148 (owner 2026-11-11, which pick is which), CR 702.6a, 601.2c, 601.2h: the bar shows the equip's whole line with the
     // phrase picked now shining: the keyword's name for its target (it has no phrase of its own), then "a creature" for the
     // sacrifice with the target named after "Equip" in brackets; the picked Pup carries an "Equip" chip on the table
     @Test fun theEquipsTargetAndSacrificeShowWhichPickIsWhich() {
@@ -49,7 +49,7 @@ class TriggerTargetSentenceTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-030, STK-047, CR 603.3d, CR 608.2h: the trigger of a creature sacrificed as a cost asks its target with the trigger's
+    // STK-030, STK-181, STK-047, STK-142, CR 603.3d, CR 608.2h: the trigger of a creature sacrificed as a cost asks its target with the trigger's
     // whole text under the title, the phrase being chosen highlighted
     @Test fun aSacrificedCreaturesTriggerAsksItsTargetWithItsText() {
         aliceHasHerHauberk()

@@ -7,7 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.Avatar as AvatarIdentity
 import org.asyncttwiz.storage.CatalogAvatar
@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 
-/** LOB-149 (owner, 2026-11-14): the avatar choices name their cards, sit in a framed area that shows it scrolls, and use the
+/** LOB-149, LOB-160, LOB-161 (owner, 2026-11-14): the avatar choices name their cards, sit in a framed area that shows it scrolls, and use the
  * desktop's room. Invented card names; the art is the initial's placeholder. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -42,7 +42,7 @@ class AvatarChoicesTest {
         assertEquals("Cards matching “dra”: 12", avatarChoicesTitle(" dra ", 12))
     }
 
-    // LOB-149, LOB-013: search results on the phone's Edit profile: each named under its art, the framed area shaded at the
+    // LOB-149, LOB-160, LOB-013: search results on the phone's Edit profile: each named under its art, the framed area shaded at the
     // edge that hides more, the shade moving to the top once scrolled to the end; a tap chooses
     @Test @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi") fun phoneSearchResultsAreNamedAndFramed() {
         var chosen: AvatarIdentity? = null
@@ -67,7 +67,7 @@ class AvatarChoicesTest {
         compose.onNodeWithTag("avatar-choices-more-above").assertExists()
     }
 
-    // LOB-149: on the desktop the choices are larger and as many to a row as fit
+    // LOB-149, LOB-161: on the desktop the choices are larger and as many to a row as fit
     @Test @Config(sdk = [35], qualifiers = "w1440dp-h900dp-land-mdpi") fun desktopChoicesUseTheRoom() {
         val results = choices(14)
         compose.setContent { CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop) { ScreenTheme { NoRipples {

@@ -9,7 +9,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
@@ -43,7 +43,7 @@ class InlinePopupInputTest {
     }
 
 
-    // SYS-042
+    // SYS-042, SYS-176
     @Test fun emptyCellAndGapDismissAndRelayBothPressAndReleaseButControlSwipeChangesPage() {
         val open = mutableStateOf(true)
         val downs = mutableListOf<Offset>()

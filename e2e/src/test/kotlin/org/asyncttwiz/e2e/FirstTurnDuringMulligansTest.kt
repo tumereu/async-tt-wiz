@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The first turn during the other player's mulligans (owner, 2026-11-15; TRN-027, HIS-115, HIS-116, HIS-117): Alice keeps
+ * The first turn during the other player's mulligans (owner, 2026-11-15; TRN-027, TRN-124, HIS-115, HIS-193, HIS-194, HIS-116, HIS-117, HIS-197): Alice keeps
  * while Bob hasn't opened the game, presses Assume keep and plays her turn 1. Bob's game stays in his opening, showing
  * nothing of her turn, until he keeps; his Keep confirms her turn, his Mulligan makes it again on top of his new hand,
  * standing as far as it comes out the same for her and taken back from her first action that doesn't.
@@ -91,7 +91,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         waitUntil("all of Alice's on the server") { alice.engine { device.session.pending.isEmpty() } }
     }
 
-    // TRN-027, TRN-062, HIS-042 (spec §8 scenario 1): both open the game; Alice mulligans twice while Bob hasn't declared, each
+    // TRN-027, TRN-062, HIS-042, HIS-192 (spec §8 scenario 1): both open the game; Alice mulligans twice while Bob hasn't declared, each
     // new hand showing at once (the hand her own random stream deals); Bob mulligans once (his own stream's hand, whatever she
     // did); the events read in the order made, on both phones
     @Test fun eachPlayersMulligansAreTheirOwn() {
@@ -112,7 +112,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertNothingLeaked()
     }
 
-    // HIS-115, SYS-077 (spec §8 scenario 6): Alice's Mountain is on its way (her phone's sending held) when Bob's mulligan
+    // HIS-115, HIS-195, SYS-077 (spec §8 scenario 6): Alice's Mountain is on its way (her phone's sending held) when Bob's mulligan
     // reaches the server: the server refuses the land as stale, her phone makes it again on the event made from the one it
     // was made on, and it ends up played once, with no note
     @Test fun aLandOnItsWayDuringAReapplyIsPlayedOnce() {
@@ -142,7 +142,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertNothingLeaked()
     }
 
-    // HIS-115, HIS-084, HIS-087 (spec §8 scenario 7): Alice casts her Ember Cub on Bob's assumed keep; Bob mulligans and her
+    // HIS-115, HIS-193, HIS-084, HIS-087 (spec §8 scenario 7): Alice casts her Ember Cub on Bob's assumed keep; Bob mulligans and her
     // turn stands; her Undo then takes the Cub back at once, as any free undo (nothing of Bob's comes after it); Bob keeps and
     // his playback shows her Mountain, never the Cub
     @Test fun anUndoWhileBobDecides() {
@@ -170,7 +170,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertNothingLeaked()
     }
 
-    // HIS-115, HIS-116 (spec §8 scenario 9): Alice plays a Mountain and casts Ember Echo at Bob (seven cards in his hand: seven
+    // HIS-115, HIS-193, HIS-194, HIS-116 (spec §8 scenario 9): Alice plays a Mountain and casts Ember Echo at Bob (seven cards in his hand: seven
     // damage). His free mulligan keeps seven cards: her turn stands ("your turn stands"), his life still 13 on her table. His
     // mulligan to six: the Echo is taken back from its cast ("Bob took a mulligan — your Ember Echo was taken back"), the
     // Mountain stays, his life is 20 again; Bob, still deciding, sees none of it
@@ -196,7 +196,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertNothingLeaked()
     }
 
-    // HIS-115, CR 103.6a (spec §8 scenario 10): Bob's first hand has no Ember Vanguard; Alice assumes his keep and plays a
+    // HIS-115, HIS-194, CR 103.6a (spec §8 scenario 10): Bob's first hand has no Ember Vanguard; Alice assumes his keep and plays a
     // Mountain. Bob's mulligan brings him one: after the keep the game asks him whether it begins on the battlefield (a real
     // wait), so nothing of her turn comes out the same and all of it goes back ("Bob took a mulligan — your Mountain was
     // taken back"). Bob keeps and puts the Vanguard onto the battlefield; her turn 1 begins again with it there
@@ -226,7 +226,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertNothingLeaked()
     }
 
-    // HIS-115, HIS-087 (spec §3.6): Bob mulligans twice (the second owes a card to the bottom); Alice presses Assume keep and
+    // HIS-115, HIS-196, HIS-087, HIS-204 (spec §3.6): Bob mulligans twice (the second owes a card to the bottom); Alice presses Assume keep and
     // plays a Mountain and an Ember Cub; Bob puts a card on the bottom (her turn made again on it) and then taps Undo: free
     // (it showed him nothing new; her turn after it isn't taken back), he is at his bottom choice again, and her turn is made
     // again on that point and stands, her table not going back; he still sees nothing of it until he keeps
@@ -281,7 +281,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertNothingLeaked()
     }
 
-    // TRN-027, TRN-070, HIS-096, HIS-117: Bob keeps after Alice played: nothing is made again, her events stay, and her turn
+    // TRN-027, TRN-124, TRN-070, HIS-096, HIS-183, HIS-117, HIS-197: Bob keeps after Alice played: nothing is made again, her events stay, and her turn
     // reaches him only after his Keep
     @Test fun bobsKeepConfirmsTheTurnPlayedOnIt() {
         aliceAssumesBobsKeep(TestDeck.thirds()) { a, _ -> "Mountain" in hand(a) && "Ember Cub" in hand(a) }
@@ -299,7 +299,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertTrue(lag.isEmpty(), "Bob saw her turn before keeping: $lag")
     }
 
-    // HIS-115, HIS-116, HIS-117: Bob mulligans (the first is free): Alice's turn comes out the same and stands: her table
+    // HIS-115, HIS-193, HIS-116, HIS-117: Bob mulligans (the first is free): Alice's turn comes out the same and stands: her table
     // doesn't go back, "Bob took a mulligan · your turn stands"; Bob is in his opening again with a new hand and sees
     // nothing until he keeps
     @Test fun bobsMulliganLeavesTheTurnStanding() {
@@ -324,7 +324,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertTrue(lag.isEmpty(), "Bob saw her turn before keeping: $lag")
     }
 
-    // HIS-115, HIS-116, HIS-097, HIS-117: Alice plays a Mountain, then Ember Augury at Bob (she sees his top two cards). Bob
+    // HIS-115, HIS-194, HIS-116, HIS-097, HIS-117: Alice plays a Mountain, then Ember Augury at Bob (she sees his top two cards). Bob
     // mulligans: her table goes back only to the Augury ("Bob took a mulligan — your Ember Augury was taken back"), the
     // Mountain stays, the Augury is back in her hand; Bob never sees it
     @Test fun aRevealThatComesOutDifferentlyIsTakenBack() {

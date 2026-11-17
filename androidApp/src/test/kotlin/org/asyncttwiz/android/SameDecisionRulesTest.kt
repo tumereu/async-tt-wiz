@@ -24,9 +24,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * SYS-011 (owner, 2026-11-04): an own action tapped on a board the device has already moved on from (the other
+ * SYS-011, SYS-135, SYS-137 (owner, 2026-11-04): an own action tapped on a board the device has already moved on from (the other
  * player's event arrived, not on screen yet) is made on the newer board when the same decision still waits for the
- * player there, and refused with SYS-012's note when the board changed in a way that matters. The taps themselves play
+ * player there, and refused with SYS-012, SYS-138's note when the board changed in a way that matters. The taps themselves play
  * on the real server in e2e/ (SameDecisionTapTest); here are what makes two decisions the same, and the server's race
  * with the refusal reaching the device before the other player's revision, an order one socket never delivers but a
  * reconnect may.
@@ -94,7 +94,7 @@ class SameDecisionRulesTest {
         assertFalse(GameDevice.sameEndTurn(s, theirs, alice), "a Stack object of Bob's she never saw")
     }
 
-    // SYS-011: what makes a decision the same: nothing in the game differs but its record of what happened; a new Stack
+    // SYS-011, SYS-135, SYS-137: what makes a decision the same: nothing in the game differs but its record of what happened; a new Stack
     // object, another step or an object gone (a chosen target) make it another one
     @Test fun theSameDecisionIsTheSameGameApartFromItsRecord() {
         val game = aliceInMain(land = true)
@@ -162,7 +162,7 @@ class SameDecisionRulesTest {
      */
     private fun race(refusalsFirst: Boolean, there: (GameState) -> Boolean = { true }, bobsMove: (EngineGame) -> Unit = {},
         move: (EngineGame) -> GameDevice.Acted): EngineGame {
-        // Bob in Normal: his pause at her spark waits on her phone (HIS-096: in Quick, unable to respond, his own mode
+        // Bob in Normal: his pause at her spark waits on her phone (HIS-096, HIS-176: in Quick, unable to respond, his own mode
         // would pass it and her phone would assume that at once)
         sim.settings[f.b] = PlaySettings(mode = ResponseMode.Normal)
         val game = bothLiveTo(there)
@@ -241,9 +241,9 @@ class SameDecisionRulesTest {
         assertEquals(2, log.count { it.startsWith("remake PassPriority") }, "both made again: ${log.takeLast(25)}")
     }
 
-    // SYS-077, HIS-096 (e2e CombatBandTest, 2026-11-06; owner 2026-11-07): Bob passes at Alice's spell just as her device
+    // SYS-077, SYS-133, SYS-134, HIS-096 (e2e CombatBandTest, 2026-11-06; owner 2026-11-07): Bob passes at Alice's spell just as her device
     // assumes that pass for him (her Assume) and the server takes her assumption first: his pass is his answer at it
-    // (HIS-109), the same one, so it is simply the assumption's confirmation: her assumption takes its place on his phone
+    // (HIS-109, HIS-211), the same one, so it is simply the assumption's confirmation: her assumption takes its place on his phone
     // with his board as it is, and nothing is told, both reply orders
     @Test fun aPassTheOtherPlayerAssumedFirstIsMadeAlready() {
         for (refusalsFirst in listOf(false, true)) SameDecisionRulesTest().assumedFirst(refusalsFirst)
@@ -282,7 +282,7 @@ class SameDecisionRulesTest {
         assertTrue(bob.device.session.pending.isEmpty(), "refusals first $refusalsFirst: his pass taken as the confirmation")
     }
 
-    // SYS-077, SYS-012: Bob concedes after his pass, so the game Alice's move was made in is gone: not made again, and she
+    // SYS-077, SYS-012, SYS-138: Bob concedes after his pass, so the game Alice's move was made in is gone: not made again, and she
     // is told once, both reply orders
     @Test fun aMoveLostToAnOpponentsMoveThatChangedTheGameIsToldOnce() {
         for (refusalsFirst in listOf(false, true)) {

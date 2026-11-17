@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.DraftableSet
 import org.junit.After
@@ -122,7 +122,7 @@ class DraftGalleryScreenshotTest {
             "pod's status has a dot for unread chat messages.")
     }
 
-    // DRF-016, DRF-020, DRF-022, DRF-026, DRF-027, DRF-030, DRF-036, DRF-051, DRF-142 (a tall screen shows the whole form)
+    // DRF-016, DRF-020, DRF-022, DRF-026, DRF-027, DRF-030, DRF-036, DRF-051, DRF-142, DRF-199 (a tall screen shows the whole form)
     @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun boosterSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings(librarians = 1, sideboardLimit = 15),
             listOf(PodMember(alice), PodMember(bob))).copy(pendingInvitations = listOf(carol))
@@ -144,7 +144,7 @@ class DraftGalleryScreenshotTest {
             "30 picks per player as two tiles, then the sideboard limit.")
     }
 
-    // DRF-021, DRF-024, DRF-151
+    // DRF-021, DRF-192, DRF-024, DRF-151
     @Test fun sealedSetSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings.sealed(), listOf(PodMember(alice), PodMember(bob), PodMember(carol)),
             name = "Sealed league", source = PodSource(kind = PodSourceKind.SET, setCode = "EMR", setName = "Ember Reaches",
@@ -172,7 +172,7 @@ class DraftGalleryScreenshotTest {
             "first, with a search field; the two Automatum can't play every card of are greyed with the warning sign (invented set names).")
     }
 
-    // DRF-031, DRF-032
+    // DRF-031, DRF-032, DRF-201
     @Test fun presets() {
         val detail = detail(PodPhase.SETUP, DraftSettings.booster(), listOf(PodMember(alice), PodMember(bob)))
         pods.presets.seed(PodPresetState(open = true, loaded = true, presets = listOf(
@@ -221,7 +221,7 @@ class DraftGalleryScreenshotTest {
             "with a green border and ✓, also in the keep tray above Confirm.")
     }
 
-    // DRF-021, DRF-044, DRF-061, DRF-065
+    // DRF-021, DRF-200, DRF-044, DRF-061, DRF-065
     @Test fun glimpsePick() {
         val detail = boosterPick(DraftSettings.glimpse(), fourteen)
         show(opened(detail))
@@ -258,7 +258,7 @@ class DraftGalleryScreenshotTest {
             "\"2 packs will come back to you\", \"Round 2 of 3\") with the Main menu link under it.")
     }
 
-    // DRF-071, DRF-159, DRF-160
+    // DRF-071, DRF-204, DRF-159, DRF-160
     @Test fun winchesterWaiting() {
         val piles = listOf(listOf(copy(1), copy(6)), listOf(copy(11)), listOf(copy(16), copy(21), copy(26)), listOf(copy(29)))
         val members = listOf(PodMember(alice), PodMember(bob, packsWaiting = 1, picking = true))

@@ -33,7 +33,7 @@ class CombatAnimationTest : E2e() {
         shows(hasTestTag("combat-target-chip")), bandOpen())
 
     /**
-     * CMB-001 on [viewer]'s [samples] (the combat to its end, [open] the other player's Mountain's top with the band open): the band
+     * CMB-001, CMB-055, CMB-054 on [viewer]'s [samples] (the combat to its end, [open] the other player's Mountain's top with the band open): the band
      * collapses with its animation, the other battlefield taking places between open and closed, and what sat on it (the
      * target chips) fades out where it was, still drawn for a while after the collapse began.
      */
@@ -52,7 +52,7 @@ class CombatAnimationTest : E2e() {
         assertTrue(fadeMillis >= 100, "$viewer: the chips faded out where they were as the band closed ($fadeMillis ms drawn)")
     }
 
-    // CMB-001, CMB-050, HIS-113, TBL-125 (owner playtest 2026-11-16): the target chips fade in once in a combat, for the attacker
+    // CMB-001, CMB-052, CMB-055, CMB-050, HIS-113, TBL-125 (owner playtest 2026-11-16): the target chips fade in once in a combat, for the attacker
     // as she declares and for the defender as the attackers show, and never again (not at the damage); when the combat ends the
     // band collapses with its animation and its chips fade out where they were, on both phones, the attacker's too (the end
     // of combat came in the same board as her own step after the damage's hold)

@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import arcanum.api.TurnStep
@@ -33,7 +33,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** TRN-074 (owner, 2026-11-08): the turn banner: when it shows, in order with the plays shown, and what it looks like. */
+/** TRN-074, TRN-102 (owner, 2026-11-08): the turn banner: when it shows, in order with the plays shown, and what it looks like. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -65,7 +65,7 @@ class TurnBannerTest {
     private val entry = ObjectId.Card(CardId("c"), 0)
     private fun play(event: String) = GameDevice.PlayShow(event, b, entry, GameDevice.PlayKind.Triggered, CardId("c"))
 
-    // TRN-074, HIS-112: in order with the plays shown: an upkeep trigger after the turn change waits for the banner, a play made
+    // TRN-074, TRN-102, HIS-112, HIS-141: in order with the plays shown: an upkeep trigger after the turn change waits for the banner, a play made
     // before it shows first, and a banner holds nothing: it ends by itself
     @Test fun itFollowsThePlaysInOrder() {
         val queue = TurnBannerQueue()

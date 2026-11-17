@@ -1,7 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -14,7 +14,7 @@ import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
-/** LOB-148: a game's chat opens from the games list's row menu, which counts its unread messages. */
+/** LOB-148, LOB-173: a game's chat opens from the games list's row menu, which counts its unread messages. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -48,7 +48,7 @@ class GameListChatTest {
         override fun close() { lobby.close(); worker.drain() }
     }
 
-    // LOB-148, LOB-026, LOB-067: a game not open asks no read state until its row's menu opens; then the menu counts the other player's
+    // LOB-148, LOB-173, LOB-026, LOB-067: a game not open asks no read state until its row's menu opens; then the menu counts the other player's
     // unread messages, and its Chat opens the game's chat without opening the game, reading what shows
     @Test fun theRowMenusChatCountsUnreadAndOpensTheChatWithoutTheGame() = Fixture().use { f ->
         assertTrue(f.wire.reads.isEmpty(), "a game not open asks nothing")
@@ -73,7 +73,7 @@ class GameListChatTest {
         compose.onNodeWithText("Ok, done. Your turn").assertIsDisplayed()
         assertEquals(ReadChat("m3"), f.wire.reads.last().second, "the messages showing are read")
         assertNull(f.lobby.state.chatUnread[game.id])
-        // LOB-067: each message's time, and a date line above the first of each day (the tests' clock: 31 Oct, noon UTC)
+        // LOB-067, LOB-164: each message's time, and a date line above the first of each day (the tests' clock: 31 Oct, noon UTC)
         compose.onNodeWithText("Yesterday").assertIsDisplayed()
         compose.onNodeWithText("Today").assertIsDisplayed()
         compose.onNodeWithText(chatTime("2026-10-31T09:12:00Z")).assertIsDisplayed()

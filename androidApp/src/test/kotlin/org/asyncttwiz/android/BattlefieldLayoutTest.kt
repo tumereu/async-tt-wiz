@@ -14,7 +14,7 @@ class BattlefieldLayoutTest {
         attachedTo: String? = null, tapped: Boolean = false, field: String = "a/BATTLEFIELD") =
         BattlefieldCard(id, field, row, identity, attachedTo, tapped)
 
-    // TBL-004 (owner playtest 2026-11-07): every land in the land row, whatever its other types (an artifact land, a land
+    // TBL-004, TBL-140 (owner playtest 2026-11-07): every land in the land row, whatever its other types (an artifact land, a land
     // creature, a land an effect made a creature); every other creature with the creatures; the rest on the other side of
     // the upper band; face-down permanents with the creatures
     @Test fun everyLandLiesInTheLandRow() {
@@ -32,7 +32,7 @@ class BattlefieldLayoutTest {
         assertEquals(BattlefieldRow.Creatures, BattlefieldRow.of("Basic Land — Forest", true))
     }
 
-    // TBL-053: identical permanents form one stack, tapped and untapped together, the tapped on top; a difference that
+    // TBL-053, TBL-177, TBL-178: identical permanents form one stack, tapped and untapped together, the tapped on top; a difference that
     // matters splits it; a card that never stacks (face down, in combat, attached) stays alone; a stack is one battlefield's
     @Test fun identicalPermanentsStackAndDifferencesSplit() {
         val groups = BattlefieldLayout.groups(listOf(
@@ -47,7 +47,7 @@ class BattlefieldLayoutTest {
         assertEquals(listOf(listOf("f1", "f4", "f2")), groups[0].units, "identical cards mean one thing")
     }
 
-    // STK-024, TBL-053 (owner, 2026-11-09): the sources paying the open payment leave their stack for a pile of their own, right
+    // STK-024, STK-156, TBL-053, TBL-178 (owner, 2026-11-09): the sources paying the open payment leave their stack for a pile of their own, right
     // after it, also with something between the stack's cards in arrival order; in the upper band it lies in the same row
     @Test fun payingSourcesLieInTheirOwnPileToTheRightOfTheirStack() {
         val same = StackIdentity("land", "f", false, "a", emptyList(), "", "", emptyList(), false, false)
@@ -70,7 +70,7 @@ class BattlefieldLayoutTest {
         assertEquals(band.getValue("c1").x + BattlefieldLayout.SLOT, band.getValue("c2").x)
     }
 
-    // TBL-053, TBL-130 (owner, 2026-11-08): stacks merging or a new member joining never leave a tapped member in the middle:
+    // TBL-053, TBL-177, TBL-130, TBL-163 (owner, 2026-11-08): stacks merging or a new member joining never leave a tapped member in the middle:
     // the tapped lie on top in arrival order, the untapped under them; with none tapped, arrival order; a tap acts on the
     // top untapped member, and tapping from the top down keeps the order
     @Test fun tappedMembersLieOnTopOfAStack() {
@@ -105,7 +105,7 @@ class BattlefieldLayoutTest {
         assertFalse(BattlefieldRow.creature(null))
     }
 
-    // TBL-053: auras and equipment lie with the card they are attached to (also one attached to an attachment); a card
+    // TBL-053, TBL-179, TBL-178: auras and equipment lie with the card they are attached to (also one attached to an attachment); a card
     // with attachments never stacks with identical ones
     @Test fun attachmentsJoinTheirHostsGroup() {
         val groups = BattlefieldLayout.groups(listOf(
@@ -120,7 +120,7 @@ class BattlefieldLayoutTest {
         assertEquals(2, BattlefieldLayout.lifts(groups))
     }
 
-    // TBL-004, TBL-002 (owner playtest 2026-11-07): lands from the left in the land row; in the upper band creatures from
+    // TBL-004, TBL-140, TBL-141, TBL-002 (owner playtest 2026-11-07): lands from the left in the land row; in the upper band creatures from
     // the left and the other permanents from the right end, each side filling two-slot columns (the row nearest the middle
     // first, then the one behind it, then the next column inward), a column as wide as its wider group; each group takes
     // its slot, a land stack fans, every stack carries ×N
@@ -152,7 +152,7 @@ class BattlefieldLayoutTest {
         assertTrue(spots.getValue("t1").order < spots.getValue("t3").order, "a stack's later cards on top")
     }
 
-    // SYS-041, TBL-004 (owner playtest 2026-11-07): many creatures push the other permanents further right, a small margin
+    // SYS-041, TBL-004, TBL-141 (owner playtest 2026-11-07): many creatures push the other permanents further right, a small margin
     // always kept between the two sides; nothing is squeezed; a full land row grows to the right
     @Test fun manyCreaturesPushTheOtherPermanentsRight() {
         val bears = (1..20).map { card("c$it", identity = same.copy(definition = "c$it")) }
@@ -170,7 +170,7 @@ class BattlefieldLayoutTest {
         assertEquals(200f - slot, few.getValue("rock").x, "with room, at the right end")
     }
 
-    // TBL-053: attached cards lie behind their host, peeking out above it, the host drawn last
+    // TBL-053, TBL-179: attached cards lie behind their host, peeking out above it, the host drawn last
     @Test fun attachedCardsPeekOutAboveTheirHost() {
         val groups = BattlefieldLayout.groups(listOf(card("bear"), card("blade", BattlefieldRow.Others, null, attachedTo = "bear"),
             card("aura", BattlefieldRow.Others, null, attachedTo = "bear")))
@@ -181,7 +181,7 @@ class BattlefieldLayoutTest {
             spots.getValue(it).lifts == 2 })
     }
 
-    // TBL-122: an opened group lies with its members side by side and pushes the rest of its row along (its column widens;
+    // TBL-122, TBL-164: an opened group lies with its members side by side and pushes the rest of its row along (its column widens;
     // the group behind it in the same column stays)
     @Test fun anOpenedGroupLiesSideBySide() {
         val groups = BattlefieldLayout.groups(listOf(card("bear"), card("blade", BattlefieldRow.Others, null, attachedTo = "bear"),
@@ -193,7 +193,7 @@ class BattlefieldLayoutTest {
         assertEquals(slot, BattlefieldLayout.place(groups, 400f).getValue("imp").x, "closed, the host's slot only")
     }
 
-    // TBL-122, TBL-130: a tap on a group acts at once when it can mean one thing (identical cards count as one, the topmost
+    // TBL-122, TBL-155, TBL-130, TBL-163, TBL-164, TBL-167: a tap on a group acts at once when it can mean one thing (identical cards count as one, the topmost
     // able to, an untapped one first; owner playtest 2026-11-07), opens it when it could mean several, and is its top card's
     // tap when nothing in it is usable
     @Test fun aGroupsTapActsAtOnceOrOpensIt() {
@@ -211,7 +211,7 @@ class BattlefieldLayoutTest {
         assertEquals("bear", equipped.top)
     }
 
-    // TBL-130 (owner 2026-11-07): while targets are picked a tap on a group of several with a legal target in it always
+    // TBL-130, TBL-165, TBL-167 (owner 2026-11-07): while targets are picked a tap on a group of several with a legal target in it always
     // opens it, a stack of identical cards and a group with one target too; with no target in it, it is its top card's tap
     @Test fun whileTargetsArePickedAGroupsTapAlwaysOpensIt() {
         val pair = BattlefieldGroup("stack:c1", "a", BattlefieldRow.Creatures, listOf("c1", "c2"), BattlefieldGroup.Kind.Stack)
@@ -224,7 +224,7 @@ class BattlefieldLayoutTest {
         assertEquals(GroupTap.Act("bear"), GroupTap.of(alone, { true }, { false }, alwaysOpen = true), "one card alone")
     }
 
-    // TBL-117, TBL-122: a collapsed group glows as a whole: cyan (or the target frame) when its tap acts at once, the
+    // TBL-117, TBL-172, TBL-173, TBL-122: a collapsed group glows as a whole: cyan (or the target frame) when its tap acts at once, the
     // expand colour when it opens; one holding a legal target its tap picks framed whole; one holding a legal target its tap
     // spreads open glows as a pile holding choices (owner notes 2026-11-14), neither framed nor in the expand colour; cards
     // alone glow as themselves
@@ -246,7 +246,7 @@ class BattlefieldLayoutTest {
         assertTrue(none.expand.isEmpty() && none.playable.isEmpty())
     }
 
-    // STK-047, TBL-130, TBL-117 (owner 2026-11-07): while targets are picked the opened group's members glow exactly as cards
+    // STK-047, STK-146, TBL-130, TBL-165, TBL-117, TBL-173 (owner 2026-11-07): while targets are picked the opened group's members glow exactly as cards
     // alone: every legal target framed, the picked ones also drawn picked, the non-target unmarked; a closed group holding
     // a picked target shows picked as a whole
     @Test fun anOpenedGroupsMembersShowTargetAndPickedAsCardsAlone() {
@@ -267,7 +267,7 @@ class BattlefieldLayoutTest {
         assertEquals(setOf("h3"), noTaps.picked)
     }
 
-    // CMB-047, TBL-053 (owner playtest 2026-11-07): while attackers or blockers are declared a stack's staged members lie at
+    // CMB-047, CMB-070, TBL-053, TBL-178 (owner playtest 2026-11-07): while attackers or blockers are declared a stack's staged members lie at
     // its right end, side by side in the order they were taken (the topmost first), the others where they were, the ×N
     // counting those left; the stack's column widens, so the next column moves along
     @Test fun stagedMembersLieAtTheStacksRightEnd() {
@@ -287,7 +287,7 @@ class BattlefieldLayoutTest {
         assertEquals(stack + 2 * slot, BattlefieldLayout.width(cubs, false))
     }
 
-    // CMB-047, TBL-053: read from a board while attackers are declared (nobody holds priority): a staged attacker stays in
+    // CMB-047, CMB-070, TBL-053, TBL-178: read from a board while attackers are declared (nobody holds priority): a staged attacker stays in
     // its stack, marked staged; once declared (priority held) a card in combat never stacks
     @Test fun aStagedAttackerStaysInItsStackWhileDeclared() {
         val cub = CardDefinition("Cub", listOf(DefinitionFace("cub", "Cub", typeLine = "Creature — Cat")))
@@ -307,7 +307,7 @@ class BattlefieldLayoutTest {
         assertEquals(listOf(listOf("c1", "c2"), listOf("c3")), BattlefieldLayout.groups(declared).map { it.members })
     }
 
-    // TBL-004, TBL-053: read from a board: the type line it has now, a face-down card alone in the creature row, an aura
+    // TBL-004, TBL-140, TBL-053, TBL-179: read from a board: the type line it has now, a face-down card alone in the creature row, an aura
     // with its host, and the same state stacking
     @Test fun cardsAreReadFromTheBoard() {
         val forest = CardDefinition("Forest", listOf(DefinitionFace("forest", "Forest", typeLine = "Basic Land — Forest")))

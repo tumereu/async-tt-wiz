@@ -4,7 +4,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-// WEB-057 (owner, 2026-11-15: "Web FPS is still stuttery"): the browser's display refreshes made frames: a page with
+// WEB-057, WEB-101, WEB-067 (owner, 2026-11-15: "Web FPS is still stuttery"): the browser's display refreshes made frames: a page with
 // nothing to draw adds none, a stutter while something moves says why
 class DrawnFramesTest {
     private val lines = mutableListOf<String>()

@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.input.Input
@@ -70,8 +70,8 @@ class EngineTableScreenTest {
 
     private fun redraw() { compose.runOnIdle { version++ }; compose.waitForIdle() }
 
-    // STK-044, STK-047: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
-    // Alice's hand row, white; its eye hides it and shows it again (only the eye stays). STK-025: nothing reaches Bob
+    // STK-044, STK-176, STK-047: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
+    // Alice's hand row, white; its eye hides it and shows it again (only the eye stays). STK-025, STK-169: nothing reaches Bob
     // while the cast is open; the step arrow refuses with the card being cast shaking; the bar has no Cancel, Undo drops
     // the cast without a trace
     @Test fun theTargetBarSitsAboveTheHandWithItsEye() {
@@ -88,10 +88,10 @@ class EngineTableScreenTest {
         val density = compose.density.density
         assertEquals(hand.y, bar.bottom / density, 1f, "its bottom on the top of the hand row")
         assertEquals(0f, bar.left, 1f); assertEquals(412f, bar.right / density, 1f)
-        // STK-047 (owner playtest 2026-11-06): the Spark at the bar's right and the sentence its targets are for under the title
+        // STK-047, STK-142 (owner playtest 2026-11-06): the Spark at the bar's right and the sentence its targets are for under the title
         compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription("Storm Spark"))
         compose.onNodeWithContentDescription("Question: Storm Spark deals 3 damage to any target.").assertExists()
-            .assert(!hasClickAction()) // STK-047: a sentence that fits takes no taps
+            .assert(!hasClickAction()) // STK-047, STK-144: a sentence that fits takes no taps
         compose.onNodeWithContentDescription("Hide bar").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertDoesNotExist()
@@ -99,7 +99,7 @@ class EngineTableScreenTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertExists()
         compose.onNodeWithText("Hold").assertDoesNotExist()
-        // STK-025: the cast is Alice's alone; another action is refused without a message, the card being cast shaking
+        // STK-025, STK-169: the cast is Alice's alone; another action is refused without a message, the card being cast shaking
         compose.runOnIdle {
             assertTrue(kit.alice.take(kit.scenario.sim.now).none { it is GameAction.Submit }, "nothing went out")
             assertTrue(!toolkit.automatumStep(TableActionIntent.Next(kit.scope)))
@@ -130,7 +130,7 @@ class EngineTableScreenTest {
 
     // TBL-119, TRN-010: no virtual-tabletop controls: Table actions hold the timeline and the result (no dice, coins,
     // tokens or combat areas); card menus hold nothing below Automatum's rows (TBL-116: no Inspect or Other side, holding
-    // inspects; no "Attack →", the lanes pick targets, CMB-048) and a combat copy has no menu (CMB-003, owner 2026-11-06)
+    // inspects; no "Attack →", the lanes pick targets, CMB-048) and a combat copy has no menu (CMB-003, CMB-063, owner 2026-11-06)
     @Test fun noVirtualTabletopControls() {
         for (layout in CardMenuLayout.entries) assertEquals(emptyList(), CardRingPages.page(layout).actions)
         kit.opening()
@@ -163,7 +163,7 @@ class EngineTableScreenTest {
         }
     }
 
-    // STK-037, STK-029, TRN-063: with Bob's Storm Spark on the Stack the table is Alice's to act on: Resolve on the main
+    // STK-037, STK-029, TRN-063, TRN-113: with Bob's Storm Spark on the Stack the table is Alice's to act on: Resolve on the main
     // button, no time limit and no Hold; Resolve lets it resolve
     @Test fun atAStopResolveIsTheMainButton() {
         kit.opening()
@@ -186,7 +186,7 @@ class EngineTableScreenTest {
         assertTrue(kit.scenario.cards(kit.state(), kit.other, kit.state().player(kit.other).graveyard, "Storm Spark").isNotEmpty(), "it resolved")
     }
 
-    // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain (the main button's hold names it), never
+    // TRN-017, TRN-107, TRN-106, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain (the main button's hold names it), never
     // End turn; holding it resolves the Stack
     @Test fun holdingResolveIsTheResolveChain() {
         kit.opening()

@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Owner playtest 2026-11-10 (TRN-006, TRN-013, TRN-058, HIS-096, TRN-070, STK-036): the move colouring ("Your move" or
+ * Owner playtest 2026-11-10 (TRN-006, TRN-013, TRN-058, TRN-105, HIS-096, TRN-070, STK-036): the move colouring ("Your move" or
  * the other player's, the bars and the field holding the move) never flips back and forth. It comes only from the settled
  * board: the confirmed board with the device's own pending moves and its assumptions, never a board on the way to them.
  * Both phones' every published board's move and every move pill drawn are recorded through live back-and-forth play
@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  * between is a flip.
  *
  * The caster's "When they have no mana" or "Always" assuming the other player's pass where the other player's own mode
- * stops has a test of its own: the other phone knows that setting (TRN-059, owner 2026-11-10), so between the cast and the
+ * stops has a test of its own: the other phone knows that setting (TRN-059, TRN-123, owner 2026-11-10), so between the cast and the
  * assumption, which arrive as two events, it doesn't show its own player's move.
  */
 class MoveColourTest : E2e() {
@@ -156,7 +156,7 @@ class MoveColourTest : E2e() {
     private fun inMain(player: E2ePlayer, turn: Int = 1) = player.inOwnMain() && player.state.turn.number >= turn && quiet() &&
         player.current() && player.other.current()
 
-    // TRN-006, TRN-013, TRN-058, HIS-096, TRN-070, STK-036: Alice casts Idle Glimmers in her main phase against Bob in
+    // TRN-006, TRN-013, TRN-058, TRN-105, HIS-096, TRN-070, STK-036: Alice casts Idle Glimmers in her main phase against Bob in
     // Control (he responds with one of his own once), Normal and Quick, with her "Assume resolves" on Never and Normal; then
     // her Ember Herald: Bob's pass held on its way while she presses Assume over it (her board goes on to her trigger before
     // her phone's own steps), her phone's server answers held back meanwhile and let through in a burst as the next board
@@ -223,7 +223,7 @@ class MoveColourTest : E2e() {
         assertNoFlips()
     }
 
-    // TRN-006, TRN-013, TRN-058, HIS-096, STK-036: Alice (only Mountains: nothing to respond with) ends her turn; in Bob's
+    // TRN-006, TRN-013, TRN-058, TRN-105, HIS-096, STK-036: Alice (only Mountains: nothing to respond with) ends her turn; in Bob's
     // turn he casts Idle Glimmers against Alice in Control and Normal with his "Assume resolves" on Never and Normal, his
     // phone's answers held back during one and Alice's pass held on its way during another, and against her Quick (it
     // passes for her) with When they have no mana and Always. Neither phone's move flips.
@@ -271,7 +271,7 @@ class MoveColourTest : E2e() {
         assertNoFlips()
     }
 
-    // TRN-006, TRN-013, TRN-058, TRN-059, HIS-096 (owner 2026-11-10: the Assume setting is shared): Alice casts Idle
+    // TRN-006, TRN-013, TRN-058, TRN-105, TRN-059, TRN-123, HIS-096, HIS-181 (owner 2026-11-10: the Assume setting is shared): Alice casts Idle
     // Glimmers with her "Assume resolves" on When they have no mana (Bob has no mana source) and Always against Bob in
     // Normal, Control and Quick (his Glimmers let him respond, so each of his modes stops at her spell): her phone assumes
     // his pass at once, and his phone, knowing her setting, never shows his move between her cast and that assumption
@@ -312,7 +312,7 @@ class MoveColourTest : E2e() {
         assertTrue(E2ePlayer.log().contains("The other player's settings now: $log (a settings update, no event)"), "logged: $log")
     }
 
-    // TRN-059, TRN-058, HIS-096 (owner 2026-11-10): Alice changes her "Assume resolves" from Never to Always with no move:
+    // TRN-059, TRN-123, TRN-058, TRN-105, HIS-096 (owner 2026-11-10): Alice changes her "Assume resolves" from Never to Always with no move:
     // Bob's phone learns it at once, with no event. Before, it used her old setting: at her first Glimmer it waited for Bob
     // (his move, his Normal stopping there); after, at her next Glimmer, her phone assumes his pass and his phone never shows
     // his move. Neither phone's move flips.
@@ -345,7 +345,7 @@ class MoveColourTest : E2e() {
         assertNoFlips()
     }
 
-    // STK-036, TRN-059, HIS-096 (owner 2026-11-10): Alice (only Mountains: she can't respond) changes her response mode with
+    // STK-036, STK-174, TRN-059, TRN-123, HIS-096, HIS-176 (owner 2026-11-10): Alice (only Mountains: she can't respond) changes her response mode with
     // no move, in Bob's turn; at his Idle Glimmers (a point he began: only her mode decides, his "Assume resolves" Never)
     // Bob's phone predicts with her mode at once: in Quick she would pass, so his phone assumes it at once; after her change
     // to Normal it waits for her (her pause); after her change back to Quick it assumes at once again. Neither phone's move

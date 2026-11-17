@@ -913,10 +913,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                         watchFailing = cause
                     }
                     if (write == null && !requested && !firstLoad && transientServiceFailure(failure)) {
-                        // An automatic refresh of shown data: keep it and let the next poll retry.
+                        // An automatic refresh of shown data: keep it and let the next poll retry. A write the player made
+                        // meanwhile (a pick, a setting) goes out now, not at the next poll (DRF-068).
                         state = state.copy(unreachable = quietFailures.failed())
                         if (readCubes) cubesPending = true
                         render()
+                        sendQueuedAfterFailedRead(failure)
                         return@post
                     }
                     val uncertain = write != null && (transientServiceFailure(failure) || (failure as? PodFailure)?.code == "invalid_response")
@@ -943,11 +945,20 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                             else if (write?.setupRevision != null && !uncertain) "Settings not saved." else podError(failure))
                     if (readCubes) cubesPending = true
                     render()
-                    // Do not spin on failing reads. Explicit retry or the next visibility tick retries.
-                    if (write != null && !uncertain) pump()
+                    // Do not spin on failing reads. Explicit retry or the next visibility tick retries; only a write the
+                    // player queued during the read goes out now.
+                    if (write != null && !uncertain) pump() else if (write == null) sendQueuedAfterFailedRead(failure)
                 } }
             }
         }
+    }
+    /** After a failed read: the writes queued behind it are sent at once (they report their own failure), never left for
+     * the next re-read, which may be 10 s away or, with the screen gone, never. */
+    private fun sendQueuedAfterFailedRead(failure: Exception) {
+        val next = writes.firstOrNull() ?: return
+        AppLog.info("pods", "A read failed (${failureKind(failure)}) with ${writes.size} write(s) queued behind it; " +
+            "sending ${if (next.draftPick != null) "the pick of pack ${next.draftPick.packId}" else "the next one"} now")
+        pump()
     }
     override fun close() { closed = true; clear(); worker.execute { api.close(); cubes.close() }; worker.shutdown() }
 }

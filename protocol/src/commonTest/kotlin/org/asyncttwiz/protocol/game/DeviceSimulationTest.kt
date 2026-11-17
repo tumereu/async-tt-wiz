@@ -44,7 +44,7 @@ class DeviceSimulationTest {
         val rnd = Random(seed * 1_000_003 + mode.ordinal)
         val players = listOf(sim.alice, sim.bob)
         val online = players.associateWith { true }.toMutableMap()
-        // HIS-096: whether the other player's pauses are assumed at once is each player's setting, never their presence:
+        // HIS-096, HIS-178: whether the other player's pauses are assumed at once is each player's setting, never their presence:
         // live play waits at them (with Assume), async play goes on
         val starter = if (rnd.nextBoolean()) sim.alice else sim.bob
         val drawn = if (rnd.nextInt(4) == 0) ResponseMode.Normal else ResponseMode.AutoSkip

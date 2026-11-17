@@ -14,7 +14,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -139,7 +139,7 @@ class CombatBandTest {
 
     private fun slots() = compose.onAllNodesWithTag(COMBAT_SLOT_TAG, useUnmergedTree = true)
 
-    // CMB-034 (owner, 2026-11-08): for the whole declare blockers step each attacker has a dashed slot, brighter once the
+    // CMB-034, CMB-077, CMB-078 (owner, 2026-11-08): for the whole declare blockers step each attacker has a dashed slot, brighter once the
     // creature selected may block it; "Choose blockers" on the band until the first block; a tap on a slot blocks as a tap on
     // the attacker does and the slot goes
     @Test fun eachAttackerHasADashedBlockerSlot() {
@@ -164,7 +164,7 @@ class CombatBandTest {
         assertEquals(2, k.scene(k.f.b).combatSlots.count { it.role == CombatRole.BLOCKER }, "the filled slot gone")
     }
 
-    // CMB-034, CMB-007 (owner, 2026-11-08): the slots with several attackers in landscape
+    // CMB-034, CMB-077, CMB-007 (owner, 2026-11-08): the slots with several attackers in landscape
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun theBlockerSlotsInLandscape() {
         bobDeclaringAgainstThree()
@@ -174,7 +174,7 @@ class CombatBandTest {
             "In landscape Alice attacks with three Ember Cubs and Bob declares blockers: the band, zoomed with the battlefields, holds a dashed slot over each attacker and \"Choose blockers\" between the rows.")
     }
 
-    // CMB-028 (owner, 2026-11-08): declaring attackers, the active lane has the same dashed slot at its end, in room the lane
+    // CMB-028, CMB-069, CMB-058 (owner, 2026-11-08): declaring attackers, the active lane has the same dashed slot at its end, in room the lane
     // keeps for it: it moves on as attackers join; the collapsed band has none
     @Test fun theActiveLaneHasADashedAttackerSlot() {
         val attacker = aliceDeclaring()
@@ -193,7 +193,7 @@ class CombatBandTest {
             "Alice staged her Ember Cub: the band opened and the lane of her active target, Bob, has a dashed slot for the next attacker beside it.")
     }
 
-    // CMB-012, CMB-028 (owner playtest 2026-11-10): when the attack is declared and the slot goes the attackers stay put: the
+    // CMB-012, CMB-058, CMB-028, CMB-069 (owner playtest 2026-11-10): when the attack is declared and the slot goes the attackers stay put: the
     // slot takes no part in placing them, it only sits in the room the lane keeps after them
     @Test fun theAttackersStayPutWhenTheSlotGoes() {
         val cubs = aliceStagedThree()
@@ -249,7 +249,7 @@ class CombatBandTest {
     private fun step(viewer: String, which: (TableBoard) -> Boolean): TableBoard? =
         k.scenario.shown[viewer].orEmpty().flatMap { it.steps }.lastOrNull(which)
 
-    // CMB-050, HIS-113, CMB-034, CMB-040 (owner, 2026-11-10: gallery before the release that ships the damage on the band): the
+    // CMB-050, CMB-088, CMB-090, HIS-113, HIS-147, CMB-034, CMB-040 (owner, 2026-11-10: gallery before the release that ships the damage on the band): the
     // whole combat from both phones, one picture per pause: the attack shown, waiting for the blocks, the blocks shown, the
     // damage's hold with what it did on the band, and after the combat
     @Test fun theWholeCombatFromBothPhones() {
@@ -300,7 +300,7 @@ class CombatBandTest {
         // Her own action's steps, the damage's hold board among them (HIS-113)
         val aliceDealt = k.alice.transition?.steps.orEmpty().lastOrNull { it.damageDealt }
         k.playOn("the damage dealt on Alice's phone", bobActs = false) { k.state().turn.step == TurnStep.CombatDamage }
-        // CMB-050 (owner playtest 2026-11-11): Bob's net 4 on his chip and nothing per lane; no life gained, so no heart
+        // CMB-050, CMB-088, CMB-089 (owner playtest 2026-11-11): Bob's net 4 on his chip and nothing per lane; no life gained, so no heart
         k.scene().let { scene ->
             assertEquals(mapOf<String?, Int>(null to 4), scene.combatDealt?.targets)
             assertTrue(scene.combatDealt?.gained.orEmpty().isEmpty(), "no life gained")
@@ -308,7 +308,7 @@ class CombatBandTest {
         show(k.f.a, assertNotNull(aliceDealt ?: step(k.f.a) { it.damageDealt }, "the damage's hold board on Alice's phone"))
         compose.onAllNodes(hasContentDescription("combat damage to", substring = true), useUnmergedTree = true).assertCountEquals(0)
         compose.onAllNodes(hasContentDescription("on the band", substring = true), useUnmergedTree = true).assertCountEquals(0)
-        // CMB-050, HIS-113 (owner notes 2026-11-14 evening): the two Cubs that fought each carry a skull with the 2 they took
+        // CMB-050, CMB-090, HIS-113, HIS-147 (owner notes 2026-11-14 evening): the two Cubs that fought each carry a skull with the 2 they took
         compose.onAllNodes(hasContentDescription("Took 2 combat damage and dies"), useUnmergedTree = true).assertCountEquals(2)
         captureShot("$SCREENSHOTS/combat-sequence/4-damage-alice.png",
             "Alice's phone, 4 of 5, a forced hold (show plays and combat): the combat damage is dealt; Bob's chip carries a red splash with his total 4 (nothing per lane), and the two Cubs that fought still lie in the band, each with a skull holding the 2 it took, until the hold ends.")
@@ -335,7 +335,7 @@ class CombatBandTest {
 
     private fun bobName() = listOf(k.f.game.inviter, k.f.game.recipient).single { it.accountId == k.f.b }.username
 
-    // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): while Alice declares attackers with none staged the band
+    // CMB-001, CMB-051, CMB-013, CMB-028, CMB-066, CMB-068 (owner playtest 2026-11-06): while Alice declares attackers with none staged the band
     // stays collapsed at its chip row and shows a chip for Bob (crossed swords, his round avatar, his name), the active
     // target filled violet; the creatures that may attack glow red-orange; a tap on the chip keeps its target active and
     // stages nothing
@@ -362,7 +362,7 @@ class CombatBandTest {
         assertNull(k.scene().combatPanel)
     }
 
-    // CMB-001 (owner playtest 2026-11-16: the chips faded in again at the damage): the target chips fade in once per combat,
+    // CMB-001, CMB-052 (owner playtest 2026-11-16: the chips faded in again at the damage): the target chips fade in once per combat,
     // keyed by the combat itself, the same through all its steps; the next turn's combat fades them in anew
     @Test fun theChipsFadeInOncePerCombat() {
         val board = k.alice.play().board
@@ -374,7 +374,7 @@ class CombatBandTest {
         assertTrue(at("3", TurnPosition.DECLARE_ATTACKERS) != at("5", TurnPosition.DECLARE_ATTACKERS), "a new one for the next combat")
     }
 
-    // CMB-013 (owner playtest 2026-11-06): holding a chip shows the target's full name over it and highlights the
+    // CMB-013, CMB-059 (owner playtest 2026-11-06): holding a chip shows the target's full name over it and highlights the
     // player's life square while held
     @Test fun holdingAChipShowsTheFullNameAndHighlightsTheTarget() {
         aliceDeclaring()
@@ -389,7 +389,7 @@ class CombatBandTest {
         compose.onNodeWithContentDescription("Target: ${bobName()}").assertDoesNotExist()
     }
 
-    // TBL-117, CMB-028 (owner playtest 2026-11-06): while a finger is down on a glowing card its glow grows a little and
+    // TBL-117, TBL-176, CMB-028, CMB-068 (owner playtest 2026-11-06): while a finger is down on a glowing card its glow grows a little and
     // brightens
     @Test fun aFingerOnAGlowingCardGrowsItsGlow() {
         val attacker = aliceDeclaring()
@@ -406,8 +406,8 @@ class CombatBandTest {
         compose.mainClock.autoAdvance = true
     }
 
-    // CMB-001, CMB-042 (owner playtest 2026-11-06): staging the first attacker opens the band by itself, its copy in the
-    // lane under Bob's chip, exactly the battlefield cards' size; CMB-013 (owner gallery review 2026-11-06): Bob's life on
+    // CMB-001, CMB-053, CMB-042 (owner playtest 2026-11-06): staging the first attacker opens the band by itself, its copy in the
+    // lane under Bob's chip, exactly the battlefield cards' size; CMB-013, CMB-060 (owner gallery review 2026-11-06): Bob's life on
     // his chip
     @Test fun stagingTheFirstAttackerOpensTheBand() {
         val attacker = aliceDeclaring()
@@ -429,7 +429,7 @@ class CombatBandTest {
             "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing Bob's battlefield up while hers stayed where it was, with the Cub's copy at battlefield size in the lane under Bob's chip, his life on the chip after his name, and the main button reading Attack (1).")
     }
 
-    // CMB-007, CMB-001 (owner playtest 2026-11-11): the band opens away from the viewer's battlefield: Alice's stays where it
+    // CMB-007, CMB-054, CMB-001 (owner playtest 2026-11-11): the band opens away from the viewer's battlefield: Alice's stays where it
     // was with the collapsed band, her creatures with it, and Bob's goes up
     @Test fun theBandOpensAwayFromYourBattlefield() {
         val attacker = aliceDeclaring()
@@ -446,7 +446,7 @@ class CombatBandTest {
         assertEquals(open.fields.first().gridBounds.bottom, assertNotNull(open.combatPanel).y - 4f * open.camera.zoom, .01f)
     }
 
-    // CMB-001 (owner playtest 2026-11-11): as the band closes the battlefields slide together with their cards (Bob's down,
+    // CMB-001, CMB-054, CMB-055 (owner playtest 2026-11-11): as the band closes the battlefields slide together with their cards (Bob's down,
     // Alice's staying), and the copies on the band fade out where they were: drawn over what lies beneath them (covering
     // nothing), clipped to the table rather than the closed band, taking no touch
     @Test fun theBandClosesWithTheBattlefieldsAndItsCopiesFadeWhereTheyWere() {
@@ -475,7 +475,7 @@ class CombatBandTest {
         assertTrue(drawn.hit(copy.bounds.center)?.cardId != copy.cardId, "takes no touch")
     }
 
-    // CMB-044 (owner-reported 2026-11-11; CR 508.1h): Bob has an Ember Bulwark ("{X} for each creature attacking you, where X
+    // CMB-044, CMB-074 (owner-reported 2026-11-11; CR 508.1h): Bob has an Ember Bulwark ("{X} for each creature attacking you, where X
     // is the number of enchantments you control") and an Ember Chime; Alice stages her Cub and its amber chip reads {2}, on her
     // table and on Bob's, never {X}
     @Test fun aCostToAttackShowsItsAmountOnTheChip() {
@@ -537,7 +537,7 @@ class CombatBandTest {
             "In landscape Alice tapped her ready Ember Cub: the band between the battlefields (across the whole width, the Stack at its right end) holds its copy in the lane aimed at Bob, zoomed with the battlefields, and the main button reads Attack (1).")
     }
 
-    // CMB-007, ZON-001, TRN-034 (owner, 2026-11-11): on a smaller phone (393×851 dp) the open band pushes Bob's battlefield
+    // CMB-007, CMB-054, ZON-001, ZON-125, TRN-034 (owner, 2026-11-11): on a smaller phone (393×851 dp) the open band pushes Bob's battlefield
     // up; with his hand a fan in his life and pile row (no row of its own) and Alice's row trimmed, his land still shows whole
     // under his row (on master it ended partly under his hand row)
     @Config(qualifiers = "w393dp-h851dp-port-mdpi")
@@ -581,7 +581,7 @@ class CombatBandTest {
             "Bob declares blockers: in the band between the battlefields, mirrored for him, his Ember Cub's copy blocks Alice's attacking Cub with an arrow from blocker to attacker, the damage preview on both, and the main button reads Block (1).")
     }
 
-    // CMB-013, CMB-029 (owner gallery review 2026-11-06): while Bob declares blockers with none placed, his target chip shows
+    // CMB-013, CMB-061, CMB-029 (owner gallery review 2026-11-06): while Bob declares blockers with none placed, his target chip shows
     // what the damage preview would make of his life ("20 → 18") in red, the chip widened about its centre
     @Test fun theChipShowsTheDamagePreview() {
         val attacker = aliceDeclaring()
@@ -600,7 +600,7 @@ class CombatBandTest {
             "Bob declares blockers with none placed yet: his target chip at the bottom of the band, mirrored for him, reads his name and $life → ${life - 2} in red, what Alice's unblocked Ember Cub would do to his life.")
     }
 
-    // CMB-035 (owner notes 2026-11-14): zoomed all the way out, Alice's attacking Cub on the battlefield still carries its
+    // CMB-035, CMB-065 (owner notes 2026-11-14): zoomed all the way out, Alice's attacking Cub on the battlefield still carries its
     // "attacking" chip, its text scaled down with the card, and no chip says whom it attacks or deals damage to (its lane does)
     @Test fun combatChipsStayAtAnyZoomAndNoneNamesTheTarget() {
         val attacker = aliceDeclaring()
@@ -622,7 +622,7 @@ class CombatBandTest {
             "Bob declares blockers with his table zoomed all the way out: Alice's attacking Ember Cub on her battlefield keeps its grey \"attacking\" chip, scaled down with the card, and nothing under its copy names whom it attacks.")
     }
 
-    // CMB-040, CMB-049 (owner, 2026-11-05): Bob is away when Alice attacks; while she waits for his blocks her table is at
+    // CMB-040, CMB-083, CMB-084, CMB-049 (owner, 2026-11-05): Bob is away when Alice attacks; while she waits for his blocks her table is at
     // once in assume mode on the lanes: she places his Cub as a blocker by taps, as he would, and the main button assumes
     // exactly that ("Assume no blockers" before, "Assume blockers" after); nothing is assumed before she presses it
     @Test fun theAttackerPlacesBlocksToAssumeOnTheLanes() {
@@ -635,7 +635,7 @@ class CombatBandTest {
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
         k.settle()
         k.alice.tick(k.scenario.sim.now + 121_000)
-        // HIS-096 (owner, 2026-11-06): Bob's pause after her attack is assumed at once; his blockers are a wait with Assume
+        // HIS-096, HIS-180, HIS-178 (owner, 2026-11-06): Bob's pause after her attack is assumed at once; his blockers are a wait with Assume
         // on the main button
         val waiting = assertIs<GameDevice.Status.Waiting>(k.alice.device.status)
         assertEquals(GameDevice.Offer.AssumeBlockers, waiting.offer)
@@ -644,7 +644,7 @@ class CombatBandTest {
         render()
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume no blockers"))
         k.toolkit.combat.show(placed.board(k.alice.play()), AutomatumBoards.combat(placed.board(k.alice.play())))
-        // CMB-040 (owner, 2026-11-08): the slot and the words as the defender has them
+        // CMB-040, CMB-083 (owner, 2026-11-08): the slot and the words as the defender has them
         compose.waitForIdle()
         slots().assertCountEquals(1)
         compose.onNodeWithText(CHOOSE_BLOCKERS).assertExists()
@@ -658,7 +658,7 @@ class CombatBandTest {
         compose.waitForIdle()
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume blockers"))
         compose.onNodeWithContentDescription("Clear").assertExists()
-        // CMB-040 (owner, 2026-11-08): the same look: his creature that may block glows, and the words are gone with the first block
+        // CMB-040, CMB-083 (owner, 2026-11-08): the same look: his creature that may block glows, and the words are gone with the first block
         compose.onNodeWithText(CHOOSE_BLOCKERS).assertDoesNotExist()
         assertTrue(blocker in k.toolkit.combat.blockable(placed.board(k.alice.play()), k.f.a, assuming = true))
         assertTrue(k.toolkit.combat.blockable(placed.board(k.alice.play()), k.f.a, assuming = false).isEmpty())

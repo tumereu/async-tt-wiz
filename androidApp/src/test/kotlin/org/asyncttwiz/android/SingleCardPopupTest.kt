@@ -12,7 +12,7 @@ class SingleCardPopupTest {
         val play = f.initial.let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map { card ->
             if (card.containerId == f.id("b/BATTLEFIELD") && card.id == p.board.containers.single { it.id == f.id("b/BATTLEFIELD") }.cards.first())
                 card.copy(damage = "1") else card })) }
-        // Bob's table: a tap on another player's permanent opens nothing (TBL-124), his own lands open their menus
+        // Bob's table: a tap on another player's permanent opens nothing (TBL-124, TBL-162), his own lands open their menus
         val toolkit = TableToolkitController(f.b, { engineTableBoard(play, f.b) }, { true }, { _, _ -> true })
         lateinit var gestures: TableGestureCoordinator
         val opened = mutableListOf<String?>()

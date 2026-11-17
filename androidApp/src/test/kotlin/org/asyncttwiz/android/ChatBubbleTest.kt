@@ -8,7 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -19,7 +19,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** LOB-136, LOB-137, LOB-139 (owner, 2026-11-07, 2026-11-08): chat messages as speech bubbles on the table, and the
+/** LOB-136, LOB-165, LOB-166, LOB-167, LOB-137, LOB-139 (owner, 2026-11-07, 2026-11-08): chat messages as speech bubbles on the table, and the
  * composer's quick messages. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -64,7 +64,7 @@ class ChatBubbleTest {
     private lateinit var toolkit: TableToolkitController
     private val bubble = hasTestTag("chat-bubble")
 
-    // LOB-136: Bob's two unread messages: the bubble shows the oldest with 1/2; a tap reads it and shows the next, the
+    // LOB-136, LOB-167: Bob's two unread messages: the bubble shows the oldest with 1/2; a tap reads it and shows the next, the
     // last tap leaves no bubble
     @Test fun tappingTheBubbleReadsEachMessageInTurn() {
         val harness = Harness(listOf(message(1, "b", "Thinking…"), message(2, "a", "Sure"), message(3, "b", "Got a response")), 0)
@@ -78,7 +78,7 @@ class ChatBubbleTest {
         assertEquals(0, harness.presentation.unread, "the chat's dot clears")
     }
 
-    // LOB-136: holding the bubble opens the chat at its message
+    // LOB-136, LOB-166: holding the bubble opens the chat at its message
     @Test fun holdingTheBubbleOpensTheChatAtIt() {
         val harness = Harness(listOf(message(1, "b", "One sec")), 0)
         render(harness)
@@ -103,14 +103,14 @@ class ChatBubbleTest {
         assertEquals(null, harness.presentation.sent, "not shown again")
     }
 
-    // LOB-136 (owner, 2026-11-08): the bubble may lie over a card: a tap on it reads the message and doesn't touch the card
+    // LOB-136, LOB-166 (owner, 2026-11-08): the bubble may lie over a card: a tap on it reads the message and doesn't touch the card
     @Test fun aTapOnTheBubbleOverACardOnlyReadsIt() {
         val harness = Harness(listOf(message(1, "b", "Thinking… give me a moment, I have a lot of triggers to order here")), 0)
         render(harness)
         val at = compose.onNode(bubble).fetchSemanticsNode().boundsInRoot
         fun bobsCards() = compose.onAllNodes(hasContentDescription(", owner Bob, ", substring = true)).fetchSemanticsNodes()
             .map { it.boundsInRoot }
-        // ZON-001: Bob's hand is a fan in his row, clear of the bubble: the table is panned to bring a card of his
+        // ZON-001, ZON-125: Bob's hand is a fan in his row, clear of the bubble: the table is panned to bring a card of his
         // battlefield under it
         val card = bobsCards().first { it.top > at.bottom }
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(card.center.x - at.center.x, card.center.y - at.center.y))
@@ -124,7 +124,7 @@ class ChatBubbleTest {
         assertEquals(null, toolkit.peek, "nothing inspected")
     }
 
-    // LOB-136: the other player's bubble with 1/2 under their life square, over the top of their battlefield
+    // LOB-136, LOB-165, LOB-167: the other player's bubble with 1/2 under their life square, over the top of their battlefield
     @Test fun opponentBubbleShot() {
         render(Harness(listOf(message(1, "b", "Thinking… give me a moment, I have a lot of triggers to order here and then I " +
             "want to look at your graveyard again before I decide what to block with"),

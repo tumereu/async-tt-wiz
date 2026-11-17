@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.junit.Rule
 import org.asyncttwiz.protocol.HistoryIcon
 import org.junit.Test
@@ -32,7 +32,7 @@ class TimelineStripInteractionTest {
         assertTrue(pauses > 0)
     }
 
-    // HIS-005: a turn or step change shows as a labelled line in the gap before the event made after it; there are no
+    // HIS-005, HIS-170: a turn or step change shows as a labelled line in the gap before the event made after it; there are no
     // branch lines
     @Test fun aSeparatorSitsInTheGapBeforeTheEventAfterTheChange() {
         val events = (0..4).map { n ->

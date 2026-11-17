@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
@@ -44,7 +44,7 @@ internal fun transformedFixture(container: String = "a/BATTLEFIELD"): Pair<PlayS
     return play to play.board.cards.single { it.id == card.id }
 }
 
-/** Holding a card shows every face of it, only as pictures (TBL-104, TBL-106); hidden faces stay hidden. */
+/** Holding a card shows every face of it, only as pictures (TBL-104, TBL-180, TBL-106); hidden faces stay hidden. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -84,7 +84,7 @@ class CardFaceInspectionTest {
         compose.onNodeWithContentDescription("Next face").assertDoesNotExist()
     }
 
-    // TBL-104, TBL-106
+    // TBL-104, TBL-180, TBL-106
     @OptIn(ExperimentalRoborazziApi::class)
     @Test fun holdShowsEveryFaceOfADoubleFacedCardStackedWithItsShownFaceFirst() {
         val (play, card) = transformedFixture()
@@ -99,7 +99,7 @@ class CardFaceInspectionTest {
             "Owner holds their transformed double-faced battlefield card in portrait: Inspect shows only its card images, the back it shows on top and the front below, scrolled by the finger.")
     }
 
-    // TBL-104, TBL-106
+    // TBL-104, TBL-180, TBL-106
     @OptIn(ExperimentalRoborazziApi::class)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeHoldShowsTheFacesSideBySide() {

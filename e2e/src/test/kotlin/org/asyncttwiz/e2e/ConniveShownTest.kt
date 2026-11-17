@@ -25,7 +25,7 @@ import kotlin.test.assertTrue
 class ConniveShownTest : E2e() {
     private val ok = hasClickAction() and hasAnyDescendant(hasText("OK"))
 
-    // TRN-067, STK-044 (CR 701.50a): Alice's discard choice shows every card face up, the one she drew too; the card she
+    // TRN-067, STK-044, STK-189 (CR 701.50a): Alice's discard choice shows every card face up, the one she drew too; the card she
     // discards is face up in her graveyard on both tables
     @Test fun theDrawnCardIsShownFaceUpInTheDiscardChoice() {
         startGame(TestDeck.schemers(), deal = { a, _ -> "Ember Schemer" in hand(a) })

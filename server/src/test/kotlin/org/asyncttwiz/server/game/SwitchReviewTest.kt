@@ -120,7 +120,7 @@ class SwitchReviewTest {
         }
     }
 
-    // switchreview #2, I-D56 §7, LOB-022, LOB-024, LOB-072: every revision that isn't an engine action (chat here) carries
+    // switchreview #2, I-D56 §7, LOB-022, LOB-024, LOB-072, LOB-183: every revision that isn't an engine action (chat here) carries
     // the summary of `LobbyService.summary(sql, id)` without a viewer, whose move read from the play's starting
     // `PlayState` (its turn's player: the starter, forever). Bob's app takes that summary as the game's (the move chip and
     // game order), and Bob's chat notification says it isn't his move although he alone must act.
@@ -183,7 +183,7 @@ class SwitchReviewTest {
     }
 
     // switchreview #8, LOB-111: an agreed result must be recorded as the suggestion's, not as the rules' result, so the notice
-    // reads "<Alice> accepted the draw" ("… your win", "… your loss") instead of "Game over · Draw". TRN-065 (owner
+    // reads "<Alice> accepted the draw" ("… your win", "… your loss") instead of "Game over · Draw". TRN-065, TRN-140 (owner
     // 2026-11-07): accepting ends the play at once.
     @Test fun `an agreed result is recorded as the suggestion's, not the rules'`() = withService { runtime ->
         val f = Fixture(runtime)
@@ -205,7 +205,7 @@ class SwitchReviewTest {
         assertEquals(SuggestedResult.DRAW, recorded.outcome)
     }
 
-    // switchreview #12 (decided for the owner 2026-11-04, to confirm), LOB-072, HIS-100: an undo request is the other
+    // switchreview #12 (decided for the owner 2026-11-04, to confirm), LOB-072, LOB-183, HIS-100, HIS-210: an undo request is the other
     // player's move: listed and notified like one ("Your move"), so a request made while they are away doesn't freeze the
     // game unseen; the requester waits meanwhile, and cancelling it ends the other player's move again.
     @Test fun `an undo request is the other player's move until it is cancelled`() = withService { runtime ->

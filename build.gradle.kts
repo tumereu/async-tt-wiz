@@ -181,14 +181,14 @@ val checkArcanumTestSetup = tasks.register("checkArcanumTestSetup") {
     }
 }
 
-// The feature catalog (docs/features) is the list of behaviours the owner wants kept. This keeps its IDs unique and in
-// the right file, and fails when a test, a catalog entry or the backlog cites an ID that no longer exists, so removing
-// an entry forces a look at the tests that protect it. It also fails when an entry is cited by no test (except those in
-// gradle/catalog-uncited-allowlist.txt, which must stay exact: an entry that gets a test leaves the list), and when
-// fewer test files cite an entry than at the owner's last catalog approval (the catalog-approved tag; with a branch
-// older than the tag, where the branch left it) while the entry itself is unchanged since then: deleting a test or its
-// citation must come with a change of the entry. Without the tag (a fresh clone) that last part is skipped.
-// Runs before every test task (JVM and Kotlin/Wasm).
+// The feature catalog (docs/features) is the list of behaviours the owner wants kept. This keeps its IDs unique (an
+// entry may live in any catalog file: one feature, one place, whatever its ID's area), and fails when a test, a catalog
+// entry or the backlog cites an ID that no longer exists, so removing an entry forces a look at the tests that protect
+// it. It also fails when an entry is cited by no test (except those in gradle/catalog-uncited-allowlist.txt, which must
+// stay exact: an entry that gets a test leaves the list), and when fewer test files cite an entry than at the owner's
+// last catalog approval (the catalog-approved tag; with a branch older than the tag, where the branch left it) while the
+// entry's line is unchanged since then: deleting a test or its citation must come with a change of the entry. Without
+// the tag (a fresh clone) that last part is skipped. Runs before every test task (JVM and Kotlin/Wasm).
 val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
     // Hidden files (e.g. a .review.md the owner is filling in) are scratch notes, not catalog.
     val catalog = fileTree("docs/features") { include("*.md"); exclude("README.md", ".*") }
@@ -214,18 +214,15 @@ val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
     val marker = layout.buildDirectory.file("feature-catalog/checked")
     outputs.file(marker)
     doLast {
-        val prefixes = mapOf("table.md" to setOf("TBL"), "zones.md" to setOf("ZON"),
-            "turns-combat-stack.md" to setOf("TRN", "CMB", "STK"), "history.md" to setOf("HIS"),
-            "lobby.md" to setOf("LOB"), "draft.md" to setOf("DRF"), "rules.md" to setOf("SYS"), "web.md" to setOf("WEB"))
-        val id = Regex("""\b(?:${prefixes.values.flatten().joinToString("|")})-\d{3}\b""")
+        val prefixes = listOf("TBL", "ZON", "TRN", "CMB", "STK", "HIS", "LOB", "DRF", "SYS", "WEB")
+        val id = Regex("""\b(?:${prefixes.joinToString("|")})-\d{3}\b""")
         val entry = Regex("""^- \*\*([A-Z]{3}-\d{3})\*\* \S""")
         val problems = mutableListOf<String>()
         val defined = mutableMapOf<String, String>()
         catalog.files.sortedBy { it.name }.forEach { file ->
-            val allowed = prefixes[file.name] ?: emptySet<String>().also { problems += "${file.name}: not a known catalog file" }
             file.readLines().forEach { line ->
                 val found = entry.find(line)?.groupValues?.get(1) ?: return@forEach
-                if (found.substringBefore('-') !in allowed) problems += "${file.name}: $found has the wrong prefix for this file"
+                if (found.substringBefore('-') !in prefixes) problems += "${file.name}: $found has an unknown area"
                 defined.put(found, file.name)?.let { problems += "$found is defined in both $it and ${file.name}" }
             }
         }
@@ -256,8 +253,8 @@ val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
         val base = baseline.get()
         if (base.isNotEmpty()) {
             val pathspecs = testPatterns.map { ":(glob)$it" }.toTypedArray()
-            val grep = git("grep", "-I", "-E", "(${prefixes.values.flatten().joinToString("|")})-[0-9]{3}", base, "--", *pathspecs)
-            val entries = git("grep", "-h", "-E", """^- \*\*[A-Z]{3}-[0-9]{3}\*\* """, base, "--", ":(glob)docs/features/*.md")
+            val grep = git("grep", "-I", "-E", "(${prefixes.joinToString("|")})-[0-9]{3}", base, "--", *pathspecs)
+            val entries = git("grep", "-h", "-E", """^- \*\*[A-Z]{3}-[0-9]{3}\*\* """, base, "--", ":(glob)docs/features/*.md", ":(exclude)docs/features/README.md")
             if (grep != null && entries != null) {
                 val citingThen = mutableMapOf<String, MutableSet<String>>()
                 grep.lineSequence().filter { it.startsWith("$base:") }.forEach { line ->

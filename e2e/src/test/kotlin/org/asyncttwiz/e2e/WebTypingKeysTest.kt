@@ -14,7 +14,7 @@ import org.junit.Test
  * the keyboard is the browser's to say.
  */
 class WebTypingKeysTest {
-    // WEB-031, WEB-034: "?", Space (the main button: the opening's Keep) and T F S G X M C P (Shift+G, Shift+X too) typed
+    // WEB-031, WEB-090, WEB-034: "?", Space (the main button: the opening's Keep) and T F S G X M C P (Shift+G, Shift+X too) typed
     // into the problem report and the chat are only text
     @Test fun keysTypedIntoAFieldAreOnlyText() {
         val (alice, bob) = ServerSetup.fresh()

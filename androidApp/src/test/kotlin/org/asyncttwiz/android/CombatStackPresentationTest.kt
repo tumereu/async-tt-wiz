@@ -66,7 +66,7 @@ class CombatStackPresentationTest {
         val blockers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.BLOCKER }
         val attackers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.ATTACKER }
         assertTrue(blockers.maxOf { it.bounds.y + it.bounds.height } < attackers.minOf { it.bounds.y })
-        // CMB-028: only the area's two end gaps (both rows) take drops outside the pairs; none at a divider
+        // CMB-028, CMB-067: only the area's two end gaps (both rows) take drops outside the pairs; none at a divider
         assertEquals(4, geometry.destinations.count { it.destination.pairId == null })
         assertEquals(widths.sum(), geometry.width, .001f) // No reserved insertion slots.
         assertTrue(geometry.dividers.all { it > 0 && it < geometry.width })
@@ -99,12 +99,12 @@ class CombatStackPresentationTest {
             it.contains(TablePoint(1e20f, it.bounds.center.y)) })
         val populated = populated()
         val choices = CombatStackPresentation.combat(populated.board, 48f, 68f).destinations
-        // CMB-028: no drop between two cards (no reordering or swapping)
+        // CMB-028, CMB-067: no drop between two cards (no reordering or swapping)
         assertTrue(choices.none { it.destination.insertion == CombatInsertion.GAP })
         assertTrue(choices.all { it.destination.areaId == populated.board.combat!!.id && it.label.isNotBlank() })
     }
 
-    // CMB-028, CMB-034: a drop on a pair's card is that pair, never a place between its cards
+    // CMB-028, CMB-067, CMB-034: a drop on a pair's card is that pair, never a place between its cards
     @Test fun groupFacesAppendToTheirRow() {
         val state = populated()
         val geometry = CombatStackPresentation.combat(state.board, 48f, 68f)
@@ -128,7 +128,7 @@ class CombatStackPresentationTest {
             val pair = state.board.combat!!.pairs.first()
             val blockers = geometry.cards.filter { card -> pair.blockers.any { it.id == card.viewId } }.map { it.bounds }
             val attacker = geometry.cards.single { it.viewId == pair.attackers.single().id }.bounds
-            // The slot ends at the divider (a lane wider than its pairs, for its chip with the target's value, CMB-013, keeps
+            // The slot ends at the divider (a lane wider than its pairs, for its chip with the target's value, CMB-013, CMB-062, keeps
             // them in its middle, so the slot needn't start at the lane's edge)
             val slotCenter = geometry.dividers.single() - CombatStackPresentation.slotWidth(pair.blockers.size, pair.attackers.size, width) / 2
             assertEquals(slotCenter, attacker.center.x, .001f)

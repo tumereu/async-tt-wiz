@@ -26,7 +26,7 @@ class ViewDeckTest : E2e() {
         waitUntil("Still in library chosen") { alice.showsText("Still in library · $left") && alice.showsText("Lands · ", substring = true) }
     }
 
-    // ZON-093, ZON-078 (owner 2026-11-07): at the opening Alice's View deck shows her 40 cards, and Still in library
+    // ZON-093, ZON-133, ZON-078 (owner 2026-11-07): at the opening Alice's View deck shows her 40 cards, and Still in library
     // the 33 not in her opening hand; after she draws in her first turn (Bob starts) it shows 32. Nothing in the game changes.
     @Test fun viewDeckFollowsTheCardsLeavingTheLibrary() {
         startGame(bobStarts = true)
@@ -35,7 +35,7 @@ class ViewDeckTest : E2e() {
         openStillInLibrary(33)
         assertEquals(head, alice.engine { device.session.head }, "looking only: no event")
         pastPopupGuard()
-        // ZON-093 (owner 2026-11-08): a borderless X, its words only its description
+        // ZON-093, ZON-131 (owner 2026-11-08): a borderless X, its words only its description
         alice.described("Close").performClick()
         waitUntil("the panel closed") { !alice.shows(hasTestTag("deck-view")) }
         alice.tap("Keep")

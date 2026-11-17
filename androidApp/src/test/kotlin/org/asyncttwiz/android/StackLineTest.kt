@@ -17,7 +17,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * STK-057, STK-058, STK-018 (owner playtest 2026-11-07, Fractured Sanity): the line saying what the other player's top
+ * STK-057, STK-058, STK-125, STK-018, STK-134 (owner playtest 2026-11-07, Fractured Sanity): the line saying what the other player's top
  * Stack entry is, its target marks on the table and the Stack list's targeted entries, on boards made by hand.
  */
 class StackLineTest {
@@ -94,13 +94,13 @@ class StackLineTest {
     private fun name(card: PlayCard) = f.initial.definitions.single { it.digest == card.definition }.definition.faces
         .single { it.faceId == card.faceId }.name
 
-    // STK-057: the other player's spell names its caster and what it does, in short
+    // STK-057, STK-129, STK-130: the other player's spell names its caster and what it does, in short
     @Test fun aSpellSaysWhoCastItAndWhatItDoes() {
         assertEquals("Bob cast Shattered Reason · each opponent mills 14 cards",
             StackLine.text(board(reason, PlayZone.HAND, spell(reason)), f.a, names))
     }
 
-    // STK-057, STK-046: a cycling trigger is named as its source's cycling trigger, with what it does
+    // STK-057, STK-129, STK-046: a cycling trigger is named as its source's cycling trigger, with what it does
     @Test fun aCyclingTriggerIsNamedByItsKind() {
         val play = board(reason, PlayZone.GRAVEYARD, cycleTrigger)
         assertEquals("Shattered Reason's cycling trigger · each opponent mills 4 cards", StackLine.text(play, f.a, names))
@@ -108,7 +108,7 @@ class StackLineTest {
         assertEquals("Cycling trigger", StackAbilities.of(play, CombatStackRules.stack(play.board).cards.first(), f.a)?.kind)
     }
 
-    // STK-057 (owner 2026-11-07: "Lightning Bolt deals 3 damage to Llanowar Elves"): each target is named where the effect
+    // STK-057, STK-131, STK-130 (owner 2026-11-07: "Lightning Bolt deals 3 damage to Llanowar Elves"): each target is named where the effect
     // names it, players by name ("you" for the viewer), X filled in; the name carries its controller, which colours it
     @Test fun targetsAndXShowInTheEffect() {
         val sentinel = f.source(f.a, "1/3")
@@ -121,7 +121,7 @@ class StackLineTest {
         assertEquals(StackTextPiece("Bob", f.b), StackLine.pieces(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Player(f.b)))), f.a, names)!!.last())
     }
 
-    // STK-057 (owner, 2026-11-09): the band shows who cast what as its main line and what it does small under it; X and the
+    // STK-057, STK-129 (owner, 2026-11-09): the band shows who cast what as its main line and what it does small under it; X and the
     // targets that follow the effect stay with the effect
     @Test fun theBandSplitsTheLineIntoItsMainPartAndWhatItDoes() {
         val sentinel = f.source(f.a, "1/3")
@@ -135,7 +135,7 @@ class StackLineTest {
         assertEquals(emptyList(), StackLine.split(listOf(StackTextPiece("Bob cast Ember Cub"))).second)
     }
 
-    // TRN-066 (owner, 2026-11-09): the wait for a player who is behind says where they are, "your" in the viewer's own turn
+    // TRN-066, TRN-152 (owner, 2026-11-09): the wait for a player who is behind says where they are, "your" in the viewer's own turn
     @Test fun aPlayerBehindIsAtTheirTurnAndStep() {
         assertEquals("Bob is at turn 5 · their combat", behindText(org.asyncttwiz.protocol.game.GameDevice.OpponentAt(5,
             arcanum.api.TurnStep.DeclareBlockers, PlayerId(f.b)), f.a, "Bob"))
@@ -143,7 +143,7 @@ class StackLineTest {
             arcanum.api.TurnStep.PrecombatMain, PlayerId(f.a)), f.a, "Bob"))
     }
 
-    // STK-057: a target phrase that is its sentence's subject names the viewer by name, so the verb agrees ("Alice draws",
+    // STK-057, STK-131: a target phrase that is its sentence's subject names the viewer by name, so the verb agrees ("Alice draws",
     // never "you draws"); as an object the viewer stays "you"
     @Test fun theViewerAsASubjectIsNamed() {
         assertEquals("Bob cast Borrowed Insight · Alice draws 2 cards",
@@ -152,7 +152,7 @@ class StackLineTest {
             StackLine.text(board(insight, PlayZone.HAND, spell(insight, listOf(MtgRef.Player(f.b)))), f.a, names))
     }
 
-    // STK-057: two targets of one phrase are named together
+    // STK-057, STK-131: two targets of one phrase are named together
     @Test fun twoTargetsOfOnePhrase() {
         val sentinel = f.source(f.a, "1/3")
         val other = f.source(f.b, "2/3")
@@ -160,14 +160,14 @@ class StackLineTest {
             spell(snare, listOf(MtgRef.Card(sentinel.id, 0), MtgRef.Card(other.id, 0)))), f.a, names))
     }
 
-    // STK-057: a target whose phrase isn't known (here kept under another key) follows the effect, as before
+    // STK-057, STK-132: a target whose phrase isn't known (here kept under another key) follows the effect, as before
     @Test fun aTargetWithoutItsPhraseFollowsTheEffect() {
         val sentinel = f.source(f.a, "1/3")
         assertEquals("Bob cast Storm Spark · deals 3 damage to any target → ${name(sentinel)}",
             StackLine.text(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Card(sentinel.id, 0)), slot = "elsewhere")), f.a, names))
     }
 
-    // STK-057, HIS-062: a target the viewer can't see is "a card", never named
+    // STK-057, STK-132, HIS-062: a target the viewer can't see is "a card", never named
     @Test fun aHiddenTargetIsACard() {
         val hidden = f.initial.board.cards.first { it.containerId == f.id("b/HAND") }
         assertEquals("Bob cast Storm Spark · deals 3 damage to a card",
@@ -181,7 +181,7 @@ class StackLineTest {
         assertNull(StackLine.text(board(spark, PlayZone.HAND, spell(spark), holder = f.b), f.a, names), "Bob holds priority")
     }
 
-    // STK-058: the top entry's targets are marked where they are on the table: a battlefield card, a life square; in the
+    // STK-058, STK-125: the top entry's targets are marked where they are on the table: a battlefield card, a life square; in the
     // controller's colour (the other player's here)
     @Test fun theTopEntrysTargetsAreMarked() {
         val sentinel = f.source(f.a, "1/3")
@@ -196,7 +196,7 @@ class StackLineTest {
         assertNull(StackTargets.of(board(reason, PlayZone.HAND, spell(reason)), scene, f.a, names))
     }
 
-    // STK-058, STK-018: a target that is another Stack entry rings the Stack, and the Stack list says which entry targets it
+    // STK-058, STK-126, STK-018, STK-134: a target that is another Stack entry rings the Stack, and the Stack list says which entry targets it
     @Test fun aStackEntryTargetIsMarkedOnTheStack() {
         val sentinel = f.source(f.b, "2/3")
         val below = StackEffect(sentinel.id, sentinel.id, controller = f.a, item = MtgStackItem(MtgRef.Card(sentinel.id, 0),
@@ -210,19 +210,19 @@ class StackLineTest {
         assertEquals(mapOf(sentinel.id to listOf(top)), stackTargetedBy(play, CombatStackRules.stack(play.board).cards))
     }
 
-    // STK-018: the Stack list's rows show what was chosen for each entry (StackAbilities.details), here a spell's X and target
+    // STK-018, STK-133: the Stack list's rows show what was chosen for each entry (StackAbilities.details), here a spell's X and target
     @Test fun theStackListShowsTheChoices() {
         val play = board(burst, PlayZone.HAND, spell(burst, listOf(MtgRef.Player(f.a)), x = 4))
         val entry = CombatStackRules.stack(play.board).cards.first()
         assertEquals(listOf("X = 4", "Target: You"), StackAbilities.details(play, entry, f.a, names))
-        // STK-018, STK-050 (owner 2026-11-07): the entry's text names its targets and fills in X; its details then list only
+        // STK-018, STK-133, STK-050, STK-124 (owner 2026-11-07): the entry's text names its targets and fills in X; its details then list only
         // the targets the text doesn't name
         val text = requireNotNull(StackAbilities.text(play, entry, f.a, names))
         assertEquals("Ember Burst deals 4 damage to you.", text.pieces.plain())
         assertEquals(listOf("X = 4"), StackAbilities.details(play, entry, f.a, names, text))
     }
 
-    // STK-057, STK-018: the other player's modal spell says its chosen mode in the line, and the Stack list shows it
+    // STK-057, STK-130, STK-133, STK-018: the other player's modal spell says its chosen mode in the line, and the Stack list shows it
     @Test fun theChosenModeShowsInTheLineAndTheStackList() {
         val play = board(charm, PlayZone.HAND, spell(charm, modes = listOf(1)))
         assertEquals("Bob cast Cinder Charm · you gain 2 life", StackLine.text(play, f.a, names))

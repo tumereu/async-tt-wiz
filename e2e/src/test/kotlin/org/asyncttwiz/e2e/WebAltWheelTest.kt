@@ -12,7 +12,7 @@ import org.junit.Test
  * test: what the browser does with the wheel is the page's to stop.
  */
 class WebAltWheelTest {
-    // WEB-024: the wheel with Alt or Shift held never moves the browser through its history or scrolls the page
+    // WEB-024, WEB-085: the wheel with Alt or Shift held never moves the browser through its history or scrolls the page
     @Test fun theWheelWithAltHeldNeverLeavesTheTable() {
         val (alice, bob) = ServerSetup.fresh()
         val started = ServerSetup.prepare(alice, bob, TestDeck.thirds(), TestDeck.thirds(), name = "Alt wheel game").ready()

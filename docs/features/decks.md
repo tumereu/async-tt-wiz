@@ -7,7 +7,7 @@ The deck library, the deck and cube editor, saving card lists, and preparing a d
 Manage decks keeps your saved decks and cubes, and a read-only draft deck for every pod deck you submit. A saved list
 opens in a read-only picture view; Edit opens the editor that decks and cubes share, with a Cards tab of pictures and a
 Text tab holding the raw list. A list can be typed, pasted or imported from an Archidekt link, and cards are added from
-a search page that understands Scryfall-style search terms. Saved lists hold each card by its printing and always show
+a search page that understands search terms (LOB-108). Saved lists hold each card by its printing and always show
 it with the current card catalog's text. A deck holding a card Automatum can't play yet carries an amber warning and
 can't start a game. Before a game, Prepare deck moves cards between Mainboard and Sideboard for that game alone; the
 saved deck never changes.
@@ -60,7 +60,7 @@ saved deck never changes.
 - **LOB-122** Search results follow about 0.35 s after typing, sorted by name, 3 columns (5 in landscape), loading more while scrolling; with nothing typed or chosen the page shows a hint. (r35)
 - **LOB-220** Another printing of a card already in the section adds to it; Done counts this visit's change ("Done" when none); adding past the limit says "A deck holds at most 1000 cards."; the search is kept for the next visit in the same edit session. (r35)
 - **LOB-119** Search chips are W U B R G C, mana value 0–6+ and Creature, Planeswalker, Instant, Sorcery, Artifact, Enchantment, Land: within a row any chosen chip matches, and rows and typed text all apply. Colour chips are the mana symbols as drawn in card text, mana value chips generic mana symbols with the number; chips are 32 dp tall, 4 dp apart. (r35)
-- **LOB-108** Search understands Scryfall-style syntax: name words, `t:` type, `o:` rules text, `c:`/`c=`/`c<=` colours, `id:` colour identity, `mv`/`cmc` mana value (from the mana cost), `pow`/`tou`/`loy`, `r:` rarity, `f:` format legality, `s:` set, `is:` layout (e.g. `is:dfc`), comparisons (`mv<=3`), `-` negation, `or` and parentheses. (r35)
+- **LOB-108** Search understands these terms: name words, `t:` type, `o:` rules text, `c:`/`c=`/`c<=` colours, `id:` colour identity, `mv`/`cmc` mana value (from the mana cost), `pow`/`tou`/`loy`, `r:` rarity, `f:` format legality, `s:` set, `is:` layout (e.g. `is:dfc`), comparisons (`mv<=3`), `-` negation, `or` and parentheses. (r35)
 - **LOB-109** Search rules not taken from Scryfall's documentation: */X/? power or toughness counts as 0; a double-faced card's colours count per face; `!name` also matches a face name; rarities order common < uncommon < rare < special < mythic < bonus; `f:` counts restricted cards as legal; planes, schemes and vanguards show only with `include:extras`; Alchemy cards are included. (r35)
 
 ## Saving and card data

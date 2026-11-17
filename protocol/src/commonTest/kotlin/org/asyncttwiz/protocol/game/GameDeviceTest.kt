@@ -413,8 +413,8 @@ class GameDeviceTest {
             "the pass at Alice's pause was assumed at once")
     }
 
-    // LOB-113, HIS-096 (owner, 2026-11-06): Normal is the default; each choice is stored so; a tap goes Never, Normal, No
-    // mana, Always
+    // LOB-113, HIS-096 (owner, 2026-11-06): PlaySettings() holds Normal (a new game starts with "No mana",
+    // PlaySettings.NEW_GAMES); each choice is stored so; a tap goes Never, Normal, No mana, Always
     @Test
     fun assumeResolvesSettingsMapFromTheirStoredForm() {
         val json = org.asyncttwiz.protocol.GameWire.json
@@ -937,7 +937,7 @@ class GameDeviceTest {
         return m.battlefield.first { m.obj(it)?.controller == alice && m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }
     }
 
-    // HIS-096, HIS-180, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the default), the other player's pause right after your
+    // HIS-096, HIS-180, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause right after your
     // attack is assumed at once (no wait with Assume before their blocks); the priority after their blocks keeps the
     // setting (a wait with Assume); their catch-up playback still stops at the pass assumed after the attack (HIS-095)
     @Test
@@ -975,7 +975,7 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-096, HIS-180, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the default), the other player's pause at your end step is
+    // HIS-096, HIS-180, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the test games' setting), the other player's pause at your end step is
     // assumed at once: Alice's End turn goes on into Bob's turn while he is away
     @Test
     fun theirPauseAtYourEndStepIsAssumedAtOnce() {

@@ -184,19 +184,35 @@ val checkArcanumTestSetup = tasks.register("checkArcanumTestSetup") {
 // The feature catalog (docs/features) is the list of behaviours the owner wants kept. This keeps its IDs unique (an
 // entry may live in any catalog file: one feature, one place, whatever its ID's area), and fails when a test, a catalog
 // entry or the backlog cites an ID that no longer exists, so removing an entry forces a look at the tests that protect
-// it. Runs before every test task.
+// it. It also fails when an entry is cited by no test (except those in gradle/catalog-uncited-allowlist.txt, which must
+// stay exact: an entry that gets a test leaves the list), and when fewer test files cite an entry than at the owner's
+// last catalog approval (the catalog-approved tag; with a branch older than the tag, where the branch left it) while the
+// entry's line is unchanged since then: deleting a test or its citation must come with a change of the entry. Without
+// the tag (a fresh clone) that last part is skipped. Runs before every test task (JVM and Kotlin/Wasm).
 val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
     // Hidden files (e.g. a .review.md the owner is filling in) are scratch notes, not catalog.
     val catalog = fileTree("docs/features") { include("*.md"); exclude("README.md", ".*") }
     val backlog = file("docs/backlog.md")
+    val uncitedAllowlist = file("gradle/catalog-uncited-allowlist.txt")
+    val testPatterns = listOf("*/src/*Test/**/*.kt", "*/src/test/**/*.kt")
     val tests = fileTree(".") {
-        include("*/src/*Test/**/*.kt", "*/src/test/**/*.kt")
+        include(testPatterns)
         exclude("**/build/**")
     }
-    inputs.files(catalog, backlog, tests).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(catalog, backlog, uncitedAllowlist, tests).withPathSensitivity(PathSensitivity.RELATIVE)
+    val root = rootDir
+    fun git(vararg args: String): String? = runCatching {
+        val process = ProcessBuilder(listOf("git", "-C", root.path) + args).redirectErrorStream(false).start()
+        process.outputStream.close()
+        val out = process.inputStream.bufferedReader().readText()
+        process.errorStream.readAllBytes()
+        out.takeIf { process.waitFor() == 0 }
+    }.getOrNull()
+    // The approval the counts compare against: the tag, or where this branch left it. Changes when either moves.
+    val baseline = providers.provider { git("merge-base", "HEAD", "refs/tags/catalog-approved")?.trim().orEmpty() }
+    inputs.property("approvedBaseline", baseline)
     val marker = layout.buildDirectory.file("feature-catalog/checked")
     outputs.file(marker)
-    val root = rootDir
     doLast {
         val prefixes = listOf("TBL", "ZON", "TRN", "CMB", "STK", "HIS", "LOB", "DRF", "SYS", "WEB")
         val id = Regex("""\b(?:${prefixes.joinToString("|")})-\d{3}\b""")
@@ -215,6 +231,48 @@ val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
         }
         (catalog.files + backlog + tests.files).flatMap(::cited).forEach { (cite, where) ->
             if (cite !in defined) problems += "$where cites $cite, which is not in docs/features"
+        }
+        // Test files citing each ID, now (the working tree).
+        val citingNow = mutableMapOf<String, MutableSet<String>>()
+        tests.files.forEach { file ->
+            val path = file.relativeTo(root).invariantSeparatorsPath
+            id.findAll(file.readText()).forEach { citingNow.getOrPut(it.value) { mutableSetOf() } += path }
+        }
+        val allowlisted = uncitedAllowlist.readLines().map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
+        allowlisted.groupBy { it }.filterValues { it.size > 1 }.keys.forEach { problems += "${uncitedAllowlist.name}: $it is listed twice" }
+        allowlisted.toSet().forEach { listed ->
+            when {
+                listed !in defined -> problems += "${uncitedAllowlist.name}: $listed is not in docs/features (remove it from the list)"
+                listed in citingNow -> problems += "${uncitedAllowlist.name}: $listed is cited by ${citingNow.getValue(listed).sorted().first()} now: remove it from the list"
+            }
+        }
+        (defined.keys - citingNow.keys - allowlisted.toSet()).sorted().forEach {
+            problems += "$it (${defined.getValue(it)}) is cited by no test: add a test citing it (AGENTS.md: tests name the entry they protect)"
+        }
+        // Against the last approval: test files citing each ID then, and each entry's line then.
+        val base = baseline.get()
+        if (base.isNotEmpty()) {
+            val pathspecs = testPatterns.map { ":(glob)$it" }.toTypedArray()
+            val grep = git("grep", "-I", "-E", "(${prefixes.joinToString("|")})-[0-9]{3}", base, "--", *pathspecs)
+            val entries = git("grep", "-h", "-E", """^- \*\*[A-Z]{3}-[0-9]{3}\*\* """, base, "--", ":(glob)docs/features/*.md", ":(exclude)docs/features/README.md")
+            if (grep != null && entries != null) {
+                val citingThen = mutableMapOf<String, MutableSet<String>>()
+                grep.lineSequence().filter { it.startsWith("$base:") }.forEach { line ->
+                    val rest = line.removePrefix("$base:")
+                    val path = rest.substringBefore(':')
+                    id.findAll(rest.substringAfter(':')).forEach { citingThen.getOrPut(it.value) { mutableSetOf() } += path }
+                }
+                val entryThen = entries.lineSequence().mapNotNull { line -> entry.find(line)?.let { it.groupValues[1] to line } }.toMap()
+                val entryNow = catalog.files.flatMap { it.readLines() }.mapNotNull { line -> entry.find(line)?.let { it.groupValues[1] to line } }.toMap()
+                citingThen.toSortedMap().forEach { (cite, then) ->
+                    val now = citingNow[cite].orEmpty()
+                    if (now.size < then.size && cite in entryNow && entryThen[cite] == entryNow[cite]) {
+                        problems += "$cite is cited by ${now.size} test files, ${then.size} at the last catalog approval " +
+                            "(${base.take(9)}), and its entry is unchanged: no longer citing it: ${(then - now).sorted().joinToString()}. " +
+                            "Restore the test or its citation, or change the entry in the same commit (AGENTS.md)"
+                    }
+                }
+            }
         }
         check(problems.isEmpty()) { "Feature catalog check failed:\n" + problems.joinToString("\n") }
         marker.get().asFile.apply { parentFile.mkdirs(); writeText("${defined.size} entries\n") }
@@ -290,8 +348,9 @@ val checkClientNotNull = tasks.register("checkClientNotNull") {
     }
 }
 subprojects {
+    // Every test task: JVM (Test) and Kotlin/Wasm (KotlinJsTest, wasmJsNodeTest).
+    tasks.withType<AbstractTestTask>().configureEach { dependsOn(checkFeatureCatalog) }
     tasks.withType<Test>().configureEach {
-        dependsOn(checkFeatureCatalog)
         dependsOn(checkClientNotNull)
         dependsOn(checkArcanumTestSetup)
         // Test JVMs keep temp files in the module's build directory, not /tmp: here /tmp is a small in-memory disk,

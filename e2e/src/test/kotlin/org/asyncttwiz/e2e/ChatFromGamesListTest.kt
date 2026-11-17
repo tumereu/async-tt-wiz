@@ -11,11 +11,11 @@ import androidx.compose.ui.test.performTouchInput
 import org.junit.Test
 
 /**
- * Owner, 2026-11-14 (LOB-148): a game's chat opens from the Games list, from its row's menu, which counts the unread
+ * Owner, 2026-11-14 (LOB-148, LOB-173): a game's chat opens from the Games list, from its row's menu, which counts the unread
  * messages; it reads and sends as the table's chat does, without opening the game.
  */
 class ChatFromGamesListTest : E2e() {
-    // LOB-148, LOB-026, LOB-069, LOB-138: Alice writes; on Bob's Games list holding the game's row offers "Chat · 1 unread",
+    // LOB-148, LOB-173, LOB-026, LOB-069, LOB-138: Alice writes; on Bob's Games list holding the game's row offers "Chat · 1 unread",
     // which opens its chat (the game stays closed) and reads her message; Bob's answer from there reaches Alice's table
     @Test fun aGamesChatOpensFromItsRowsMenuWithItsUnreadCount() {
         startGame()

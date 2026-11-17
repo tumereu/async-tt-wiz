@@ -36,7 +36,7 @@ class GameEndDialogTest {
     private fun text(winner: String?, ending: MatchEnding, causes: Map<String, LossCause> = emptyMap(), viewer: String = "a") =
         GameEndText.of(winner, ending, causes, viewer, names)
 
-    // TRN-065, TRN-135, LOB-126: the title from the viewer's side and the reason for each way a game ends
+    // TRN-065, TRN-135, LOB-126, LOB-175: the title from the viewer's side and the reason for each way a game ends
     @Test fun eachEndingSaysWhoWonAndWhy() {
         assertEquals(GameEndText("You won", "Bob's life reached 0"), text("a", MatchEnding.ByRules, mapOf("b" to LossCause.ZeroLife)))
         assertEquals(GameEndText("You lost", "Your life reached 0"), text("a", MatchEnding.ByRules, mapOf("b" to LossCause.ZeroLife), "b"))

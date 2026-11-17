@@ -53,7 +53,7 @@ class MatchHistoryTest : E2e() {
         }
     }
 
-    // LOB-126, LOB-129, LOB-130 (TRN-064): Alice concedes in turn 1; both see the match in the lobby's History tab and on Stats,
+    // LOB-126, LOB-129, LOB-130, LOB-176 (TRN-064): Alice concedes in turn 1; both see the match in the lobby's History tab and on Stats,
     // Alice a loss, Bob a win
     @Test fun aConcededMatchShowsInTheLobbyHistoryAndOnStats() {
         startGame()
@@ -68,7 +68,7 @@ class MatchHistoryTest : E2e() {
         stats(bob, "Win", 1)
     }
 
-    // LOB-132: the same match on the Graphs tab: the tiles, its length in the 1-4 range, its deck's colours as a mana symbol
+    // LOB-132, LOB-178, LOB-179: the same match on the Graphs tab: the tiles, its length in the 1-4 range, its deck's colours as a mana symbol
     @Test fun graphsShowTheMatchsLengthRangeAndColours() {
         startGame()
         bothOpen()

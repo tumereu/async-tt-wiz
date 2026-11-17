@@ -13,7 +13,7 @@ class ActivityPresenceTest {
     private fun id() = UUID.randomUUID().toString()
     private val start = OffsetDateTime.parse("2026-10-27T12:00:00Z")
 
-    // LOB-073
+    // LOB-073, LOB-186
     @Test fun `recipient present suppresses actor left or expired is immediate and idle thresholds are exact`() {
         fun due(seconds: Long, yourMove: Boolean, actor: List<PresenceLease>, recipient: List<PresenceLease> = emptyList()) =
             ActivityTiming.due(actor, recipient, start, yourMove, start.plusSeconds(seconds))
@@ -34,7 +34,7 @@ class ActivityPresenceTest {
         assertFalse(due(60, false, listOf(PresenceLease(start.plusSeconds(60), start), PresenceLease(start.plusSeconds(60), start.plusSeconds(59)))))
     }
 
-    // LOB-073
+    // LOB-073, LOB-186
     @Test fun `durable presence gates scheduler and polling without holding the sync cursor and opening clears unseen`() {
         ActivityFixture().use { f ->
             val game = f.accept(f.create()); val clock = ActivityClock(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS))
@@ -90,13 +90,13 @@ class ActivityPresenceTest {
                 record(false)
                 service.heartbeat(f.a, actor.copy(left = true))
                 delivery.deliverDue(); assertEquals(2, sent.size)
-                // LOB-072 (owner, 2026-11-07): opening the game doesn't read the chat: the later notice still tells the message
+                // LOB-072, LOB-184 (owner, 2026-11-07): opening the game doesn't read the chat: the later notice still tells the message
                 assertTrue(service.page(f.b, delta.nextCursor).readyNotices!!.single().notice!!.newMessage)
             }
         }
     }
 
-    // LOB-073
+    // LOB-073, LOB-186
     @Test fun `sixty second idle and expiry are enforced by real queue scheduler`() {
         ActivityFixture().use { f ->
             val game = f.accept(f.create()); val clock = ActivityClock(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS)); val first = clock.time
@@ -189,7 +189,7 @@ class ActivityPresenceTest {
                     delivery.deliverDue()
                 }
                 assertTrue(p.sent.isEmpty())
-                // LOB-072 (owner, 2026-11-07): heartbeats see the moves but don't read the chat
+                // LOB-072, LOB-184 (owner, 2026-11-07): heartbeats see the moves but don't read the chat
                 assertEquals(1L, f.number("SELECT count(*) FROM activity_summary WHERE kind='GAME' AND new_message " +
                     "AND account_id='${f.b.account.accountId}'"))
                 p.at(31); p.service.heartbeat(f.b, p.recipient.copy(left = true))

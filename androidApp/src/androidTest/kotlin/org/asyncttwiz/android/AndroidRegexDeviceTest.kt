@@ -20,7 +20,7 @@ class AndroidRegexDeviceTest {
         assertTrue(short, "3 damage to any target" in short)
     }
 
-    // LOB-126 (game history): a deck's colours from its mana symbols
+    // LOB-126, LOB-174 (game history): a deck's colours from its mana symbols
     @Test fun deckColorsReadManaSymbolsOnAndroid() {
         val card = CardDefinition("Ember Kit", listOf(DefinitionFace("face", "Ember Kit", typeLine = "Creature", manaCost = "{1}{R}{W/U}")))
         assertEquals("WUR", DeckColors.of(listOf(card)))

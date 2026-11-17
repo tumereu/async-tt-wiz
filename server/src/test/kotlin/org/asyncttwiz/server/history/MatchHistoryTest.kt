@@ -30,7 +30,7 @@ class MatchHistoryTest {
     private fun HistoryWorld.records(viewer: AccountService.Principal) =
         sql { MatchRecords.forAccount(it, UUID.fromString(viewer.account.accountId)) }
 
-    // LOB-126, LOB-128 (game history §1.1, 1.2, 2.1, 2.2, 2.4; CR 104.3a): Bob concedes; both get the record (result, how it ended, turns,
+    // LOB-126, LOB-174, LOB-175, LOB-128 (game history §1.1, 1.2, 2.1, 2.2, 2.4; CR 104.3a): Bob concedes; both get the record (result, how it ended, turns,
     // starter, mulligans, life, decks); Bob hides his decks, so Alice's record reads no deck of his until he shows that deck
     // in another game, and then it stays shown, also after he hides it again; Alice's deck shows for Bob (Show after first
     // game revealed it at the end)
@@ -78,7 +78,7 @@ class MatchHistoryTest {
         assertEquals("Alice Red", w.records(a).single().player(a.account.accountId)!!.deck!!.name)
     }
 
-    // LOB-126 (game history §1.2; TRN-046, TRN-047, TRN-134, TRN-065, TRN-140): Alice suggests her win with a reason, Bob accepts, which ends the
+    // LOB-126, LOB-175 (game history §1.2; TRN-046, TRN-047, TRN-134, TRN-065, TRN-140): Alice suggests her win with a reason, Bob accepts, which ends the
     // match at once: an agreed result, its reason kept
     @Test fun `an agreed match keeps the suggestion's reason`() = HistoryWorld.run { w ->
         val a = w.account("AgreeAlice"); val b = w.account("AgreeBob")
@@ -101,7 +101,7 @@ class MatchHistoryTest {
         assertEquals(SuggestedResult.LOSS, record.player(b.account.accountId)!!.result)
     }
 
-    // LOB-126 (game history §1.2): by the rules, each loser's reason (CR 704.5a, 704.5b, 704.5c, 104.3e), and the draws: everyone
+    // LOB-126, LOB-175 (game history §1.2): by the rules, each loser's reason (CR 704.5a, 704.5b, 704.5c, 104.3e), and the draws: everyone
     // losing at once (CR 104.4a) and a loop (CR 104.4b); each written as its match's record from the engine's final state
     @Test fun `each way the rules end a match is recorded`() = HistoryWorld.run { w ->
         val a = w.account("RulesAlice"); val b = w.account("RulesBob")

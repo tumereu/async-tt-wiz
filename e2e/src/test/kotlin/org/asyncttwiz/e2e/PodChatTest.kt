@@ -26,7 +26,7 @@ class PodChatTest : E2e() {
     private val podTab = hasTestTag("chat-tab-pod")
     private val gameTab = hasTestTag("chat-tab-game")
 
-    // DRF-170, DRF-012, DRF-171, LOB-145, LOB-066, LOB-136
+    // DRF-170, DRF-012, DRF-171, LOB-145, LOB-169, LOB-170, LOB-066, LOB-163, LOB-136
     @Test fun aPodMessageShowsOnThePodScreensAndInAPodGamesChat() {
         launchPlayers()
         val name = "E2E pod chat ${UUID.randomUUID().toString().take(6)}"

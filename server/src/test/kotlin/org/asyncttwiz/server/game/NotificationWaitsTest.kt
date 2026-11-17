@@ -143,7 +143,7 @@ class NotificationWaitsTest {
         }
     }
 
-    // I-D57, LOB-072, LOB-076, TRN-058: Alice kept for real and waits for Bob instead of assuming his keep: the game waits for
+    // I-D57, LOB-072, LOB-183, LOB-076, TRN-058: Alice kept for real and waits for Bob instead of assuming his keep: the game waits for
     // Bob, so he is told "Your move", named where he would resume (still Mulliganing) and with his own deck, and his app's
     // reminders list the game; Alice's don't.
     @Test fun `a real wait tells the player waited for, with where they would resume and their deck`() = withService { runtime ->

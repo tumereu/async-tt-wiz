@@ -430,7 +430,7 @@ class CardStatesTest {
                 "starting with the door of their dungeon room, the emblems last; the moon chip for Night sits above the Stack.")
     }
 
-    // LOB-136, TRN-072, TRN-132 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
+    // LOB-136, LOB-166, TRN-072, TRN-132 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
     // used to lie under the life square): the bubble under the square lies clear of them; a tap on it reads it, holding opens the chat
     @Config(qualifiers = "w320dp-h640dp-port-mdpi")
     @Test fun aChatBubbleLiesClearOfStateChipsOnANarrowPhone() {

@@ -54,7 +54,7 @@ class PodChatTest {
         assertTrue(view.canSend("Hello"))
     }
 
-    // LOB-145, LOB-066: the chat opens on the tab last used in the game; before any, on Pod only when the pod alone has
+    // LOB-145, LOB-169, LOB-066, LOB-163: the chat opens on the tab last used in the game; before any, on Pod only when the pod alone has
     // unread messages; the other tab is highlighted while
     // it holds an unseen message; the table's chat button counts both
     @Test fun chatTabsOfAPodGame() {

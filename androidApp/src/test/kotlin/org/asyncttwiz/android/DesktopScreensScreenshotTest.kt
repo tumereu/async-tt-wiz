@@ -261,7 +261,7 @@ class DesktopScreensScreenshotTest {
         assertEquals("Training deck", plans.single().name)
     }
 
-    // WEB-042, LOB-130, LOB-132: the Stats screen's graphs in two columns at Settings' readable width, centred in its room (owner
+    // WEB-042, LOB-130, LOB-132, LOB-177, LOB-178, LOB-179, LOB-180: the Stats screen's graphs in two columns at Settings' readable width, centred in its room (owner
     // playtest 2026-11-16)
     @Test fun statsGraphs() {
         fixtures.lobby.history.stats = HistoryList(records)

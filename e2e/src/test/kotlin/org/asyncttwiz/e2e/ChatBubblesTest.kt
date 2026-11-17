@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 class ChatBubblesTest : E2e() {
     private val bubble = hasTestTag("chat-bubble")
 
-    // LOB-136, LOB-138, LOB-139, LOB-066, LOB-069
+    // LOB-136, LOB-167, LOB-138, LOB-139, LOB-066, LOB-163, LOB-069
     @Test fun bobsMessagesShowAsABubbleAliceReadsByTapping() {
         startGame()
         bothOpen()
@@ -60,7 +60,7 @@ class ChatBubblesTest : E2e() {
         waitUntil("Bob's chat showing both messages read") { bob.nodes(hasText("Read")).fetchSemanticsNodes().size == 2 }
     }
 
-    // LOB-136, LOB-137 (owner, 2026-11-08): the bubble lies at Bob's life square, over whatever card lies there on Alice's
+    // LOB-136, LOB-166, LOB-137 (owner, 2026-11-08): the bubble lies at Bob's life square, over whatever card lies there on Alice's
     // table, and a tap on it reads it without touching the card under it; Bob's own bubble lies above his square. ZON-001, ZON-125
     // (owner, 2026-11-11): Bob's hand is a fan in his row now, so the card under the bubble is his Mountain, Alice's table
     // panned to bring his land row up to his row
@@ -98,7 +98,7 @@ class ChatBubblesTest : E2e() {
         assertTrue(!alice.shows(hasContentDescription("Card action ring")), "no card's menu: ${alice.screen()}")
     }
 
-    // LOB-139 (owner, 2026-11-08): Write in the Life panel opens the chat ready to type: its input has the focus, and the
+    // LOB-139, LOB-172 (owner, 2026-11-08): Write in the Life panel opens the chat ready to type: its input has the focus, and the
     // text typed is the draft
     @Test fun writeOpensTheChatWithItsInputFocused() {
         startGame()

@@ -122,7 +122,7 @@ class GameChatTest {
             }
         }
     }
-    // LOB-138, LOB-072 (owner, 2026-11-07): the author learns the other player's read cursor; " · new message" stays through
+    // LOB-138, LOB-072, LOB-184 (owner, 2026-11-07): the author learns the other player's read cursor; " · new message" stays through
     // opening the game and goes only once the chat is read through
     @Test fun `peer read cursor reaches the author and reading through clears the new message notice`() {
         FreshDatabase().start().use { db ->

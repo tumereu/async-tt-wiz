@@ -131,7 +131,7 @@ class PodChatScreenshotTest {
         settle()
     }
 
-    // LOB-145: in a pod game the chat has Game and Pod tabs; on Game, the Pod tab has a dot while the pod's chat holds a
+    // LOB-145, LOB-169: in a pod game the chat has Game and Pod tabs; on Game, the Pod tab has a dot while the pod's chat holds a
     // message Alice hasn't seen
     @Test fun podGameChatOnTheGameTab() {
         showTable(ChatTab.GAME, gameUnread = 0, readThrough = 2)
@@ -142,7 +142,7 @@ class PodChatScreenshotTest {
             "messages, and a dot after Pod because Carol's message in the pod's chat is unread.")
     }
 
-    // LOB-145: on the Pod tab the pod's messages show with their authors (reading them), and Game has a dot while a game message
+    // LOB-145, LOB-169: on the Pod tab the pod's messages show with their authors (reading them), and Game has a dot while a game message
     // waits unseen
     @Test fun podGameChatOnThePodTab() {
         showTable(ChatTab.POD, gameUnread = 1, readThrough = 2)

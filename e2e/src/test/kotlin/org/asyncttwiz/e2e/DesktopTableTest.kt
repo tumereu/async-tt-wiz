@@ -195,7 +195,7 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
-    // WEB-017, LOB-066, WEB-031 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):
+    // WEB-017, LOB-066, LOB-162, LOB-163, WEB-031 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):
     // Alice folds the dock away; Bob's message lights the top row's chat button, whose click unfolds the dock to its chat,
     // ready to type, with no chat panel over the table (before: the side panel), and the message read there clears the dot.
     // Folded away again, C does the same

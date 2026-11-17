@@ -569,6 +569,28 @@ class PodControllerTest {
         assertTrue(f.mainTimers.isEmpty(), "stopped")
     }
 
+    // DRF-068 (PodReopenTest's intermittent, backlog 2026-11-10): a pick made while a re-read is on its way, when the
+    // connection has gone, goes out as soon as that re-read fails and shows unconfirmed with Retry; it doesn't wait for
+    // the next re-read (10 s away; it never came in the e2e harness while re-reads ran on the frame clock)
+    @Test fun aPickQueuedBehindAFailingReReadGoesOutWhenTheReadFails() = Fixture().use { f ->
+        f.open()
+        f.controller.watch("pod $id")
+        f.tickMain()
+        f.api.readFailure = "network"; f.api.pickFailure = "network"
+        val pack = f.controller.state.detail!!.draft!!.head!!
+        f.controller.pick(listOf(pack.cards.first().id), emptyList())
+        assertEquals(emptyList(), f.api.calls.map { it.first }, "queued behind the re-read")
+        f.deliver()
+        assertEquals(listOf("pick"), f.api.calls.map { it.first }.distinct())
+        assertEquals(1, f.api.calls.map { it.second }.distinct().size, "the one pick, retried as itself")
+        assertTrue(f.controller.state.uncertain)
+        assertFalse(f.controller.state.loading)
+        f.api.readFailure = null; f.api.pickFailure = null
+        f.controller.retry(); f.deliver()
+        assertFalse(f.controller.state.uncertain)
+        assertEquals(nextPack.id, f.controller.state.detail!!.draft!!.head!!.id)
+    }
+
     // DRF-161, section 3.9: the sets' support comes from the card catalog's marks; a set Automatum can't play every card
     // of can't be chosen
     @Test fun setSupportComesFromTheMarksAndAnUnsupportedSetCantBeChosen() = Fixture(PodPhase.SETUP).use { f ->

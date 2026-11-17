@@ -239,7 +239,7 @@ class PodChallengeTest {
     @Test fun `pod deck names are private head metadata never shared preparation or replay`() = fixture { f ->
         val pod = f.pod()
         val attempt = f.detail(f.a, pod).draftAttemptId!!
-        // DRF-166: a pod game's deck shows the member's chosen cover
+        // DRF-166, DRF-229: a pod game's deck shows the member's chosen cover
         val aCover = f.detail(f.a, pod).let { detail -> detail.draft!!.pool.first { it.id == detail.build!!.copies.last().copyId }.definition }
         assertEquals(200, f.pods.deckCover(f.a, pod, SetPodDeckCover(id(), attempt, aCover)).status)
         val aName = "Private white strategy"
@@ -270,7 +270,7 @@ class PodChallengeTest {
         checkHeads()
     }
 
-    // DRF-105, DRF-166, LOB-047, LOB-226 (owner, 2026-11-11): after submitting, the deck renamed or given another cover (from Prepare
+    // DRF-105, DRF-166, DRF-229, LOB-047, LOB-226 (owner, 2026-11-11): after submitting, the deck renamed or given another cover (from Prepare
     // deck in a pod game's lobby) changes the pod deck and every one of the member's games of the pod still in its lobby, the
     // cover as a revision of each game; the private name stays out of the revisions
     @Test fun `a submitted pod deck renamed or given another cover changes its games in the lobby`() = fixture(uniqueCards = true) { f ->

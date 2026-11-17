@@ -61,7 +61,7 @@ class PodPresetHttpTest {
                     json.encodeToString(CreateCube(id(), "Preset cube", listOf(org.asyncttwiz.server.TestPrintings.entry("Ash Pup", 40))))).body()).cube
 
                 assertEquals(401, request(null, "GET", "/v1/pod-presets").statusCode())
-                // DRF-031: a new account has the Glimpse preset, an ordinary one: renamed, replaced and deleted like any other
+                // DRF-031, DRF-200: a new account has the Glimpse preset, an ordinary one: renamed, replaced and deleted like any other
                 val starting = list(a).single()
                 assertEquals(PodPreset(starting.id, "Glimpse", DraftSettings.glimpse(), updatedAt = starting.updatedAt), starting)
                 val glimpsePath = "/v1/pod-presets/${starting.id}"
@@ -154,7 +154,7 @@ class PodPresetHttpTest {
                     packSets = listOf("RTR", "G T C")), 400)
 
                 // Limit on the number of presets; overwriting an existing one stays possible at the limit.
-                // b has Glimpse (DRF-031) and Cube night
+                // b has Glimpse (DRF-031, DRF-200) and Cube night
                 repeat(PodPresetValidation.MAX_PRESETS - 2) { save(b, SavePodPreset("Filler $it", DraftSettings()), 201) }
                 assertEquals("too_many_presets", json.decodeFromString<PodError>(save(b, SavePodPreset("One more", DraftSettings()), 409)).code)
                 save(b, SavePodPreset("filler 0", DraftSettings.grid(), overwrite = true), 200)

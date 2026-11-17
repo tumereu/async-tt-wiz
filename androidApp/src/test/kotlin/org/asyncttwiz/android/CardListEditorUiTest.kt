@@ -684,7 +684,7 @@ class PodCubePreparationTest {
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = true
     }
 
-    // DRF-141, DRF-142: only the creator of a cube pod sees Prepare cube in setup, which opens over the pod screen.
+    // DRF-141, DRF-142, DRF-199: only the creator of a cube pod sees Prepare cube in setup, which opens over the pod screen.
     @Test fun setupOffersPrepareCubeToTheCreatorOfACubePod() {
         val alice = AccountIdentity("alice", "Alice")
         val cubes = Proxy.newProxyInstance(Cubes::class.java.classLoader, arrayOf(Cubes::class.java)) { _, method, _ ->

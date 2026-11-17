@@ -11,7 +11,7 @@ import java.util.UUID
 
 /** Stats' mana sources from the cards' Automatum definitions (DRF-114, DRF-115). */
 class ManaSourcesTest : E2e() {
-    // DRF-114, DRF-115: Alice drafts a mana rock (Ember Shard, "{T}: Add {R}."); her Stats count it as another red source
+    // DRF-114, DRF-233, DRF-115: Alice drafts a mana rock (Ember Shard, "{T}: Add {R}."); her Stats count it as another red source
     // beside the (no) lands, and the total line says so
     @Test fun aDraftedManaRockCountsAsAnotherSource() {
         launchPlayers()

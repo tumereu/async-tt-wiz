@@ -137,7 +137,7 @@ class CatalogBuildTest {
         assertTrue(DeckValidation.definition(definition))
     }
 
-    // SYS-082, SYS-204, DRF-090: packs leave out a sheet from other sets holding an unsupported card, its slots filled from the main sheet
+    // SYS-082, SYS-204, DRF-090, DRF-184: packs leave out a sheet from other sets holding an unsupported card, its slots filled from the main sheet
     @Test fun `an unsupported bonus sheet from another set is left out of the packs`() {
         val recipe = catalog.recipe.getValue("BON")
         assertEquals(setOf("common", "reversible"), recipe.sheets.keys, "the special guest (Plain Bear, OFF) is left out")
@@ -185,7 +185,7 @@ class CatalogBuildTest {
         assertNull(CatalogSetSources.build(catalog, "NOPE"))
     }
 
-    // DRF-090 (owner, 2026-11-11): a set's packs hold its own printings, each card's data that printing's: the recipe's (TST)
+    // DRF-090, DRF-185 (owner, 2026-11-11): a set's packs hold its own printings, each card's data that printing's: the recipe's (TST)
     // and, without a recipe (OFF, approximate packs), the set's printings; Test Bear, printed in both, is each set's own
     @Test fun `a set's packs hold its own printings, never another set's`() {
         assertNull(catalog.recipe["OFF"])
@@ -200,7 +200,7 @@ class CatalogBuildTest {
         }
     }
 
-    // DRF-090 (owner, 2026-11-11): in a set without a recipe (OFF) a pack draws each card once, then one of the set's
+    // DRF-090, DRF-185 (owner, 2026-11-11): in a set without a recipe (OFF) a pack draws each card once, then one of the set's
     // printings of it at random: a double-faced card (listed once, never once per face) and a card printed twice (Listed
     // Lone, both printings drawn) come up about as often as a card of one face and one printing (Test Bear)
     @Test fun `an approximate pack draws each card once, then one of its printings`() {

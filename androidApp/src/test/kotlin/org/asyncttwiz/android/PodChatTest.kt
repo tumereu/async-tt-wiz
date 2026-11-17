@@ -17,7 +17,7 @@ class PodChatTest {
     private fun page(vararg messages: PodChatMessage, read: PodChatRead) =
         PodChatPage(pod, messages.toList(), listOf(AccountIdentity("a", "Alice"), AccountIdentity("b", "Bob")), read)
 
-    // DRF-170: unread counts the other members' messages after the cursor; seen messages count as read at once, before the
+    // DRF-170, DRF-237: unread counts the other members' messages after the cursor; seen messages count as read at once, before the
     // server knows; nothing is unread before the server's read state is known
     @Test fun unreadFollowsTheServerAndWhatTheViewerHasSeen() {
         assertEquals(0, PodChatView(pod, listOf(message(1))).unread("a"))
@@ -42,7 +42,7 @@ class PodChatTest {
         assertEquals(0, view.install(page(message(6, "a"), read = PodChatRead(pod, "6", "6", 0))).unread("a"))
     }
 
-    // DRF-170: a page merges by id in order; the server's copy of a sent message replaces its "Checking delivery…" row
+    // DRF-170, DRF-238: a page merges by id in order; the server's copy of a sent message replaces its "Checking delivery…" row
     @Test fun pagesMergeInOrderAndReplaceSendsOnTheirWay() {
         val sending = PodChatView(pod, outgoing = listOf(PodChatOutgoing("m2", "Message 2")))
         val view = sending.install(page(message(2, "a"), message(1), read = PodChatRead(pod, "2", "2", 1)))
@@ -108,7 +108,7 @@ class PodChatTest {
         override fun close() = Unit
     }
 
-    // DRF-170, DRF-171: the controller reads the newest page, then only what is newer; seen messages move the server's
+    // DRF-170, DRF-238, DRF-171: the controller reads the newest page, then only what is newer; seen messages move the server's
     // cursor; a send shows as being sent and then as the server's message; a refused chat is unavailable
     @Test fun controllerReadsSendsAndMovesTheCursor() {
         val server = FakeChat().apply { messages += listOf(message(1), message(2)) }

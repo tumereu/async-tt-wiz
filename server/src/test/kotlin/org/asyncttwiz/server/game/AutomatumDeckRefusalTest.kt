@@ -15,7 +15,7 @@ import org.asyncttwiz.server.pods.PodService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
-/** I-D52 (LOB-118, LOB-223, LOB-124, DRF-162): a deck or cube Automatum can't play fully, by the card catalog's marks, can't start a
+/** I-D52 (LOB-118, LOB-223, LOB-124, DRF-162, DRF-188): a deck or cube Automatum can't play fully, by the card catalog's marks, can't start a
  * game or pod. */
 class AutomatumDeckRefusalTest {
     private val json = GameWire.json
@@ -30,7 +30,7 @@ class AutomatumDeckRefusalTest {
         return accounts.authenticate(accounts.login("$name@example.invalid", "synthetic password")!!.token)!!
     }
 
-    // LOB-118, LOB-223, DRF-162
+    // LOB-118, LOB-223, DRF-162, DRF-188
     @Test fun `unsupported decks can't be chosen and unsupported cubes can't make a pod`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -66,7 +66,7 @@ class AutomatumDeckRefusalTest {
         }
     }
 
-    // LOB-118, LOB-223, LOB-124, DRF-162 (I-D52, pivot review #2): the server checks support again where a game or draft starts: a
+    // LOB-118, LOB-223, LOB-124, DRF-162, DRF-188 (I-D52, pivot review #2): the server checks support again where a game or draft starts: a
     // prepared deck holding a card the catalog's marks don't support (a lobby kept from before, when a deck without a
     // stored support passed) can't be readied, and a pod whose kept source support names cards starts no draft
     @Test fun `support is checked again when a player is Ready and when a draft starts`() {

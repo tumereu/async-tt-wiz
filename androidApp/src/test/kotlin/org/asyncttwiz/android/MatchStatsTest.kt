@@ -65,7 +65,7 @@ class MatchStatsTest {
         assertEquals(6, weeks.sumOf { it.second })
     }
 
-    // DRF-121: a pod's standings: each member's W–L–D in the pod's finished matches, best first, members without one at 0–0–0
+    // DRF-121, DRF-235: a pod's standings: each member's W–L–D in the pod's finished matches, best first, members without one at 0–0–0
     @Test fun podStandings() {
         val pod = listOf(
             MatchHistoryFixtures.record(10, riley, SuggestedResult.WIN, 8, 2),

@@ -85,7 +85,7 @@ class MatchHistoryTest : E2e() {
         waitUntil("the deck's colours as a symbol") { alice.shows(hasTestTag("stats-colors-R") and hasText("{R}")) }
     }
 
-    // DRF-121, LOB-126: a pod match ends by Alice's concession; the pod's Games tab shows it in its matches, without decks,
+    // DRF-121, DRF-235, DRF-236, LOB-126: a pod match ends by Alice's concession; the pod's Games tab shows it in its matches, without decks,
     // and in the standings (Bob 1–0–0 first, Alice 0–1–0)
     @Test fun aPodMatchShowsInThePodGamesTabWithoutDecks() {
         launchPlayers()

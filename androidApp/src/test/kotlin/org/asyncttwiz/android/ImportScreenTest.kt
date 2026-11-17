@@ -302,7 +302,7 @@ class ImportScreenTest {
         } finally { compose.mainClock.autoAdvance = true; controller.close(); worker.drain() }
     }
 
-    // DRF-010, LOB-057, LOB-212: Edit is the only button above a saved cube; Delete cube is in its editor, confirmed first.
+    // DRF-010, DRF-183, LOB-057, LOB-212: Edit is the only button above a saved cube; Delete cube is in its editor, confirmed first.
     @Test fun savedCubeShowsPicturesUnderEditAndDraftThisCubeAndItsEditorDeletesItConfirmed() {
         val worker = Worker()
         val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")), printingId = "00000000-0000-4000-8000-000000000201")

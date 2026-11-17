@@ -84,7 +84,7 @@ class DraftDeckTest {
         }
     }
 
-    // DRF-166, LOB-058: chosen from Main and Side only, private to the member; the draft deck takes it and follows later choices
+    // DRF-166, DRF-229, LOB-058: chosen from Main and Side only, private to the member; the draft deck takes it and follows later choices
     @Test fun `the private cover is chosen from Main and Side and the draft deck follows it`() = fixture { f ->
         val pod = f.pod()
         val built = f.build(f.a, pod)

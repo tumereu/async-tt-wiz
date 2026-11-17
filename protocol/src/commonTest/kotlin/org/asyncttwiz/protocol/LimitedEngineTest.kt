@@ -8,7 +8,7 @@ class LimitedEngineTest {
     private val otherSeed = RandomV1.encodeSeed(ByteArray(32) { (it * 7 + 1).toByte() })
     private fun cube(size: Int) = List(size) { DraftCubeEntry("card-" + it.toString().padStart(3, '0'), 1) }
 
-    // DRF-021, DRF-023, DRF-150: every engine's defaults, ranges and player limits.
+    // DRF-021, DRF-192, DRF-023, DRF-193, DRF-194, DRF-150: every engine's defaults, ranges and player limits.
     @Test fun defaultsRangesAndPlayerLimits() {
         assertEquals(DraftSettings(DraftMode.ROCHESTER, packsPerPlayer = 3, cardsPerPack = 15), DraftSettings.rochester())
         assertNull(DraftSettings.rochester().tablePacksOpen)
@@ -142,7 +142,7 @@ class LimitedEngineTest {
         assertEquals(6, LimitedEngine.view(state, two[0]).board.count { it.pickedBy == null })
     }
 
-    // DRF-164: a private pick queue; when your turn comes its first card is taken for you at once (also for picks in a row),
+    // DRF-164, DRF-217, DRF-218: a private pick queue; when your turn comes its first card is taken for you at once (also for picks in a row),
     // the rest stays queued; a queued card taken by someone else clears your whole queue, with a note naming it.
     @Test fun rotisseriePickQueueTakesTheFirstCardWhenYourTurnComes() {
         val two = players.take(2)
@@ -185,7 +185,7 @@ class LimitedEngineTest {
         assertEquals(LimitedRejection.WRONG_ACTION, LimitedEngine.queue(winston, x, emptyList()).reason)
     }
 
-    // DRF-164: queued picks play the draft to its end when everyone has queued enough.
+    // DRF-164, DRF-217: queued picks play the draft to its end when everyone has queued enough.
     @Test fun rotisseriePickQueuesCanFinishTheDraft() {
         val two = players.take(2)
         var state = LimitedEngine.startFromCube(two, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
@@ -218,7 +218,7 @@ class LimitedEngineTest {
         return state to pickers
     }
 
-    // DRF-154: packs face up, each picked in snake order from its rotating opener; the next round opens when all are empty.
+    // DRF-154, DRF-214: packs face up, each picked in snake order from its rotating opener; the next round opens when all are empty.
     @Test fun rochesterPicksEachOpenPackInSnakeOrderAndOpensRoundsTogether() {
         val three = players.take(3)
         val settings = DraftSettings.rochester().copy(packsPerPlayer = 2, cardsPerPack = 6)
@@ -259,7 +259,7 @@ class LimitedEngineTest {
         assertEquals(seating + seating, singleEnd.packs.map { it.opener })
     }
 
-    // DRF-156, DRF-157: piles stay hidden until looked at, and what you have seen stays face up for you.
+    // DRF-156, DRF-219, DRF-220, DRF-157: piles stay hidden until looked at, and what you have seen stays face up for you.
     @Test fun winstonPilesHiddenUntilLookedAtAndTurnsRunToTheEnd() {
         val two = players.take(2)
         var state = LimitedEngine.startFromCube(two, cube(20), DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10), seed)
@@ -349,7 +349,7 @@ class LimitedEngineTest {
         assertTrue(LimitedEngine.view(state, seating[1]).picks.all { take -> take.cards.all { it != null } })
     }
 
-    // DRF-158: with several tables the cards split evenly into independent tables, each dealing and taking by the normal
+    // DRF-158, DRF-224: with several tables the cards split evenly into independent tables, each dealing and taking by the normal
     // rules with its own turn order, one seat later per table; the draft ends when every table is empty.
     @Test fun winchesterTablesSplitTheCardsAndOffsetTheirTurnOrders() {
         val two = players.take(2)
@@ -395,7 +395,7 @@ class LimitedEngineTest {
         assertEquals(listOf(null, null), LimitedEngine.view(state, first).tables.map { it.currentPlayer })
     }
 
-    // DRF-158, DRF-023: more tables than players gives one table per player; one table is the plain Winchester draft.
+    // DRF-158, DRF-224, DRF-023, DRF-193: more tables than players gives one table per player; one table is the plain Winchester draft.
     @Test fun winchesterTablesAreAtMostOnePerPlayerAndOneTableIsUnchanged() {
         val two = players.take(2)
         val base = DraftSettings.winchester().copy(packsPerPlayer = 1, cardsPerPack = 5)
@@ -410,7 +410,7 @@ class LimitedEngineTest {
             three.queues)
     }
 
-    // DRF-156, DRF-023: Winston tables split the cards evenly into independent tables, each with its own stack, piles,
+    // DRF-156, DRF-221, DRF-023: Winston tables split the cards evenly into independent tables, each with its own stack, piles,
     // looked-at pile and turn order one seat later; both players play at once and the draft ends when every table is empty.
     @Test fun winstonTablesSplitTheCardsAndOffsetTheirTurnOrders() {
         val two = players.take(2)
@@ -462,7 +462,7 @@ class LimitedEngineTest {
         assertEquals(listOf(null, null), LimitedEngine.view(state, x).tables.map { it.currentPlayer })
     }
 
-    // DRF-156, DRF-023: more tables than players gives one per player; one table is the plain Winston draft, its single
+    // DRF-156, DRF-221, DRF-023, DRF-193: more tables than players gives one per player; one table is the plain Winston draft, its single
     // table view matching the first table's fields.
     @Test fun winstonTablesAreAtMostOnePerPlayerAndOneTableIsUnchanged() {
         val two = players.take(2)

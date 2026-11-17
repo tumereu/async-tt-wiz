@@ -12,7 +12,7 @@ import kotlin.test.assertNotNull
 
 /** Owner, 2026-11-14 (LOB-067, LOB-164): game and pod chat messages show a small time, with a date line between days. */
 class ChatTimestampTest : E2e() {
-    // LOB-067, LOB-164, LOB-145, DRF-170: Alice writes in their pod game's chat and in the pod's; in Bob's chat each message shows its
+    // LOB-067, LOB-164, LOB-145, DRF-170, DRF-238: Alice writes in their pod game's chat and in the pod's; in Bob's chat each message shows its
     // time, under its day's line, on the Game tab and on the Pod tab
     @Test fun gameAndPodMessagesShowTheirTimeUnderTheirDay() {
         launchPlayers()

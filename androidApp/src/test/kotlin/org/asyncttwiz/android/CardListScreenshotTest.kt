@@ -91,7 +91,7 @@ class CardListScreenshotTest {
     @Test fun cubeEditPortrait() = cubeEdit(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cubeEditLandscape() = cubeEdit(true)
 
-    // DRF-010, LOB-057: the saved cube view has Edit as its only top button, then the name and Draft this cube.
+    // DRF-010, DRF-183, LOB-057: the saved cube view has Edit as its only top button, then the name and Draft this cube.
     @Test fun savedCubePortrait() = cubeEdit(false, editing = false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun savedCubeLandscape() = cubeEdit(true, editing = false)
 

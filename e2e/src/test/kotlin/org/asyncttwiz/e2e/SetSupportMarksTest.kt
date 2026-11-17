@@ -19,7 +19,7 @@ import kotlin.test.assertNull
  * sign names that card; a supported set can be chosen.
  */
 class SetSupportMarksTest : E2e() {
-    // DRF-162, SYS-082, SYS-204, DRF-161
+    // DRF-162, DRF-188, SYS-082, SYS-204, DRF-161
     @Test fun theDraftSetSearchRefusesASetTheCardCatalogSaysCantBeDrafted() {
         launchPlayers(aliceCatalog = true)
         waitUntil("Alice's card records installed") { alice.catalog!!.state.ready }

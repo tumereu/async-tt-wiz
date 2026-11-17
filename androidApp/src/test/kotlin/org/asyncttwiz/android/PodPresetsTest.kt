@@ -17,18 +17,18 @@ class PodPresetsTest {
         preset("Bare"),
     )
 
-    // DRF-020, DRF-032: Glimpse is a preset of Booster; a preset saved as Glimpse also reads "Booster".
+    // DRF-020, DRF-190, DRF-032, DRF-201: Glimpse is a preset of Booster; a preset saved as Glimpse also reads "Booster".
     @Test fun summariesShowModeSourceAndSize() {
         assertEquals(listOf("Booster · Vintage cube · 3×15", "Booster · Dominaria United · 9 packs",
             "Grid · March of the Machine · 12 grids", "Booster · Cube missing · 3×15", "Booster · No source · 3×15"),
             presets.map(::podPresetSummary))
         assertEquals("Booster · DMU · 1 pack", podPresetSummary(preset("x", DraftSettings(packsPerPlayer = 1, packsOpenAtOnce = 1), setCode = "DMU")))
         assertEquals("Booster · Old cube · 3×15", podPresetSummary(preset("old", DraftSettings(mode = DraftMode.GLIMPSE), cubeName = "Old cube")))
-        // DRF-031: Glimpse is an ordinary preset without a source
+        // DRF-031, DRF-200, DRF-202: Glimpse is an ordinary preset without a source
         assertEquals("Booster · No source · 9×15", podPresetSummary(preset("Glimpse", DraftSettings.glimpse())))
         // Each engine's size in its own terms.
         assertEquals("Rotisserie · Cube · 45 cards each", podPresetSummary(DraftSettings.rotisserie(), "Cube", set = false))
-        // DRF-032, DRF-182: a pool larger than the picks
+        // DRF-032, DRF-201, DRF-182: a pool larger than the picks
         assertEquals("Rotisserie · Cube · 45 of 60 cards each",
             podPresetSummary(DraftSettings.rotisserie().copy(poolPerPlayer = 60), "Cube", set = false))
         assertEquals("Sealed · Cube · 45 cards each", podPresetSummary(DraftSettings.sealed(), "Cube", set = false))
@@ -37,7 +37,7 @@ class PodPresetsTest {
         assertEquals("Rochester · DMU · 3 packs", podPresetSummary(DraftSettings.rochester(), "DMU", set = true))
     }
 
-    // DRF-031 (owner, 2026-11-14): the list is the account's own presets, Glimpse among them (from the server); no built-ins
+    // DRF-031, DRF-200 (owner, 2026-11-14): the list is the account's own presets, Glimpse among them (from the server); no built-ins
     @Test fun theListIsTheAccountsOwnPresets() {
         assertEquals(presets.map { it.name }, PodPresetState(presets = presets).filtered.map { it.name })
         assertEquals(listOf("Glimpse night"), PodPresetState(presets = presets, query = "glimpse").filtered.map { it.name })

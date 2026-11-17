@@ -154,7 +154,7 @@ class StoredDataContainmentTest {
 
                 val presets = PodPresetService(runtime).list(a)
                 assertEquals(200, presets.status, "One unreadable preset must not break the presets list")
-                // The account's own Glimpse (DRF-031) and the readable one
+                // The account's own Glimpse (DRF-031, DRF-200) and the readable one
                 assertEquals(listOf("Glimpse", "Readable preset"), json.decodeFromString<PodPresetList>(presets.body).presets.map { it.name })
                 assertTrue(s.goodPreset in json.decodeFromString<PodPresetList>(presets.body).presets.map { it.id })
 

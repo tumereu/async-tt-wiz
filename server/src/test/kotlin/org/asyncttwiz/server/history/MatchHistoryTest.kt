@@ -148,7 +148,7 @@ class MatchHistoryTest {
         assertEquals(1L, w.number("SELECT count(*) FROM match_record"))
     }
 
-    // DRF-121 (game history §2.3, §3.2): every pod member sees every match of the pod, their own and the others', without any deck,
+    // DRF-121, DRF-236 (game history §2.3, §3.2): every pod member sees every match of the pod, their own and the others', without any deck,
     // and the pod's matches in play with the turn reached; someone outside the pod sees none
     @Test fun `pod members see the pod's matches without decks`() = HistoryWorld.run { w ->
         val a = w.account("PodAlice"); val b = w.account("PodBob"); val c = w.account("PodCarol"); val d = w.account("PodDave")

@@ -66,7 +66,7 @@ class MatchHistoryScreenshotTest {
         compose.onNodeWithText("No finished matches yet.").assertIsDisplayed()
     }
 
-    // DRF-121: the pod's Games tab: members, then the standings and every match of the pod without decks
+    // DRF-121, DRF-235, DRF-236: the pod's Games tab: members, then the standings and every match of the pod without decks
     @Test fun podStandingsAndMatches() {
         val detail = PodDetail("pod", "Cube night", PodPhase.DRAFTED, alex, DraftSettings(), PodSource("Cube", 540), DraftSupply(90, 540),
             listOf(PodMember(alex, submitted = true), PodMember(riley, submitted = true), PodMember(morgan, submitted = true)), emptyList(),

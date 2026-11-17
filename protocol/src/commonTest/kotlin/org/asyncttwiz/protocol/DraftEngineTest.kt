@@ -45,7 +45,7 @@ class DraftEngineTest {
         return state
     }
 
-    // DRF-020, DRF-021, DRF-023: Glimpse is a preset of Booster.
+    // DRF-020, DRF-190, DRF-021, DRF-200, DRF-023: Glimpse is a preset of Booster.
     @Test fun presetsAndSettingsBoundaries() {
         assertEquals(DraftSettings(DraftMode.BOOSTER, 3, 15, 1, 0, 0, 1, true, null), DraftSettings.booster())
         assertEquals(DraftSettings(DraftMode.BOOSTER, 9, 15, 1, 2, 0, 1, true, null), DraftSettings.glimpse())

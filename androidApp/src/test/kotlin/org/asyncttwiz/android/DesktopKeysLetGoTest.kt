@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule

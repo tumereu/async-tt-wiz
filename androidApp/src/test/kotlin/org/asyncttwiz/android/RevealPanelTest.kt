@@ -11,7 +11,7 @@ import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.Engine
 import arcanum.engine.Host
 import arcanum.engine.decision.Answer

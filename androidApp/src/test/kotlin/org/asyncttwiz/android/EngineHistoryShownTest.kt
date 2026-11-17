@@ -2,7 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.Engine
 import arcanum.engine.input.Input
 import arcanum.engine.setup.GameResult

@@ -147,7 +147,7 @@ class BlockAtStopTest : E2e() {
         assertFalse(alice.refusalSeen || bob.refusalSeen, "no refusal")
     }
 
-    // CMB-034, CMB-040, CMB-043: Bob declares his staged block at the stop (a branch); the token dies in the combat
+    // CMB-034, CMB-040, CMB-043, CMB-081: Bob declares his staged block at the stop (a branch); the token dies in the combat
     @Test fun aBlockDeclaredAtAnAssumptionLeavesNoStagingForTheNextCombat() {
         toBobsStopWithHisStagedBlock()
         bob.tap("Block (1)")
@@ -155,7 +155,7 @@ class BlockAtStopTest : E2e() {
         theNextAttackShowsNoOldBlock()
     }
 
-    // CMB-034, CMB-040, CMB-043 (follow-up to WCRF3Q): at the stop Bob removes his staged block (on his phone only) and
+    // CMB-034, CMB-040, CMB-043, CMB-081 (follow-up to WCRF3Q): at the stop Bob removes his staged block (on his phone only) and
     // declares no blockers, confirming Alice's assumption; his token lives, and its old staged block, were it left on the
     // table, would show as a block when the same Brute attacks again
     @Test fun noBlockersDeclaredAtAnAssumptionLeavesNoPhantomBlockOfALivingBlocker() {

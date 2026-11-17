@@ -47,7 +47,7 @@ class TableInteractionsScreenshotTest {
         captureShot(file.path, caption)
     }
 
-    /** Your Forest's menu (TBL-115: its mana ability its one row; a combat copy opens no menu any more, CMB-003) at
+    /** Your Forest's menu (TBL-115: its mana ability its one row; a combat copy opens no menu any more, CMB-003, CMB-063) at
      * [font] text size. */
     private fun menu(width: Float, height: Float, font: Float) {
         val play = LiveTableFixture.menuPlay()
@@ -74,7 +74,7 @@ class TableInteractionsScreenshotTest {
         assertTrue(sent.isEmpty())
     }
 
-    // CMB-003, TBL-116 (owner 2026-11-06): a combat copy opens no menu, not even when asked directly
+    // CMB-003, CMB-063, TBL-116 (owner 2026-11-06): a combat copy opens no menu, not even when asked directly
     @Test fun combatCopyOpensNoMenu() {
         val (toolkit, _) = render()
         compose.runOnIdle {

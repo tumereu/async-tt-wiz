@@ -27,7 +27,7 @@ class CardRingInteractionTest {
     @get:Rule val compose = createComposeRule()
     private val sent = mutableListOf<PlayAction>()
     /** The menu every test here opens: your Forest's, its mana ability its one row (TBL-115; a combat copy opens no menu
-     * any more, CMB-003). */
+     * any more, CMB-003, CMB-063). */
     private val play = LiveTableFixture.menuPlay()
     private val forest = play.board.cards.first { card -> card.containerId == "a/BATTLEFIELD" &&
         play.definitions.single { it.digest == card.definition }.definition.name == "Forest" }

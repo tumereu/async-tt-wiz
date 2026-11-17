@@ -558,7 +558,7 @@ class TableGesturesTest {
     }
 
 
-    // CMB-028
+    // CMB-028, CMB-067
     @Test fun combatDragBindsOnlyTheRequestedOccurrenceAndCancellingDoesNotCreatePairs() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -584,7 +584,7 @@ class TableGesturesTest {
         }
     }
 
-    // CMB-003, TBL-044
+    // CMB-003, CMB-063, TBL-044
     @Test fun combatTapGoesToTheToolkitDoubleTapDoesNothingAndHoldInspects() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -606,8 +606,8 @@ class TableGesturesTest {
         assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
     }
 
-    // CMB-007 (owner playtest 2026-11-06: the band takes combat drops; its end drops reach past the lanes to the band's
-    // ends), CMB-028: between pairs there is no drop of its own (no new pair at a divider), only the lanes
+    // CMB-007, CMB-056 (owner playtest 2026-11-06: the band takes combat drops; its end drops reach past the lanes to the band's
+    // ends), CMB-028, CMB-067: between pairs there is no drop of its own (no new pair at a divider), only the lanes
     @Test fun combatDropEndsReachThePanelsEdgesAndPreviewIsUprightAtLanding() {
         val f = TableStatesFixture
         val play = f.combat()

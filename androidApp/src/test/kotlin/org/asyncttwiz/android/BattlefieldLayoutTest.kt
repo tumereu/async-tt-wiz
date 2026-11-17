@@ -267,7 +267,7 @@ class BattlefieldLayoutTest {
         assertEquals(setOf("h3"), noTaps.picked)
     }
 
-    // CMB-047, TBL-053 (owner playtest 2026-11-07): while attackers or blockers are declared a stack's staged members lie at
+    // CMB-047, CMB-070, TBL-053 (owner playtest 2026-11-07): while attackers or blockers are declared a stack's staged members lie at
     // its right end, side by side in the order they were taken (the topmost first), the others where they were, the ×N
     // counting those left; the stack's column widens, so the next column moves along
     @Test fun stagedMembersLieAtTheStacksRightEnd() {
@@ -287,7 +287,7 @@ class BattlefieldLayoutTest {
         assertEquals(stack + 2 * slot, BattlefieldLayout.width(cubs, false))
     }
 
-    // CMB-047, TBL-053: read from a board while attackers are declared (nobody holds priority): a staged attacker stays in
+    // CMB-047, CMB-070, TBL-053: read from a board while attackers are declared (nobody holds priority): a staged attacker stays in
     // its stack, marked staged; once declared (priority held) a card in combat never stacks
     @Test fun aStagedAttackerStaysInItsStackWhileDeclared() {
         val cub = CardDefinition("Cub", listOf(DefinitionFace("cub", "Cub", typeLine = "Creature — Cat")))

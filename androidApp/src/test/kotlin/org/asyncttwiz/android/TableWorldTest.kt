@@ -119,7 +119,7 @@ class TableWorldTest {
                 }
                 val homeGap = home.fields.last().gridBounds.y - home.fields.first().gridBounds.bottom
                 assertEquals(homeGap * zoom, next.fields.last().gridBounds.y - next.fields.first().gridBounds.bottom, .001f)
-                // CMB-007, CMB-042 (owner, 2026-11-05): the combat band is world content: its panel and cards zoom with
+                // CMB-007, CMB-056, CMB-042 (owner, 2026-11-05): the combat band is world content: its panel and cards zoom with
                 // the battlefields
                 val panel = transformed(home.combatPanel!!)
                 val moved = assertNotNull(next.combatPanel)
@@ -142,7 +142,7 @@ class TableWorldTest {
         }
     }
 
-    // CMB-007 (owner, 2026-11-05): opening the combat band pushes the battlefields apart by its height; no row height or
+    // CMB-007, CMB-054 (owner, 2026-11-05): opening the combat band pushes the battlefields apart by its height; no row height or
     // HUD changes
     @Test fun openingCombatPushesTheFieldsApartButMovesNoHud() {
         val initial = TableFixture.play(board = 1)

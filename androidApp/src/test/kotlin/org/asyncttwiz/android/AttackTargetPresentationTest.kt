@@ -25,7 +25,7 @@ internal fun attackTargetState(): PlayState {
 }
 
 class AttackTargetPresentationTest {
-    // CMB-013 (owner gallery review 2026-11-06): a target's chip keeps its own size whatever the card and title sizes (it
+    // CMB-013, CMB-062 (owner gallery review 2026-11-06): a target's chip keeps its own size whatever the card and title sizes (it
     // zooms with the band), as wide as its name and value; the chip row sits above the area's cards
     @Test fun chipsKeepTheirSizeAboveTheCards() {
         val initial = TableFixture.play(board = 1, library = 0)
@@ -77,7 +77,7 @@ class AttackTargetPresentationTest {
         }
     }
 
-    // CMB-013 (owner playtest 2026-11-06): every chip shows the swords, the round avatar (the player's, or the card's
+    // CMB-013, CMB-059, CMB-062 (owner playtest 2026-11-06): every chip shows the swords, the round avatar (the player's, or the card's
     // art) and the name cut to its letters with "…" (the full name is kept for holding it); it fits its lane, which
     // widens rather than the chip shrinking
     @Test fun everyChipFitsItsLaneWithTheNameCutToItsLetters() {
@@ -213,7 +213,7 @@ class AttackTargetPresentationTest {
         assertNull(plain.artwork)
     }
 
-    // CMB-013 (owner gallery review 2026-11-07): each lane keeps room for the widest damage preview its chip can show,
+    // CMB-013, CMB-061 (owner gallery review 2026-11-07): each lane keeps room for the widest damage preview its chip can show,
     // negative results included ("3 → −2", "5 → −12", "20 → −88"), so the chip never outgrows its lane and nothing moves
     // when the preview appears
     @Test fun lanesKeepRoomForNegativePreviews() {

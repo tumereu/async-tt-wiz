@@ -7,7 +7,7 @@ import kotlin.test.*
 class CardMenuLayoutTest {
     private val f = TableStatesFixture
 
-    // TBL-071, CMB-003 (owner 2026-11-06: a combat copy has no menu)
+    // TBL-071, CMB-003, CMB-063 (owner 2026-11-06: a combat copy has no menu)
     @Test fun contextPicksTheLayoutFromTheTappedView() {
         val play = f.combat()
         val board = play.board

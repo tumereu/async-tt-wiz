@@ -140,7 +140,7 @@ class BranchOnReturnTest : E2e() {
         waitUntil("Alice's next Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.state.turn.number >= 3 }
         away(bob, alice)
 
-        // Alice attacks and assumes Bob's Herald blocks her Cub (CMB-040: placed on the lanes as he would)
+        // Alice attacks and assumes Bob's Herald blocks her Cub (CMB-040, CMB-083: placed on the lanes as he would)
         alice.tap("To combat")
         waitUntil("Alice declaring attackers") { alice.state.turn.step == TurnStep.DeclareAttackers }
         alice.stageAttacker("Ember Cub", this)

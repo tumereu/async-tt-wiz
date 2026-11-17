@@ -612,7 +612,7 @@ class DesktopTableScreenshotTest {
         } finally { preferences.setSize(1f); preferences.customizeAreas(false) }
     }
 
-    // WEB-015, CMB-001, CMB-028 (D2): Alice declares attackers: the combat band opens between the battlefields with her staged
+    // WEB-015, CMB-001, CMB-053, CMB-028 (D2): Alice declares attackers: the combat band opens between the battlefields with her staged
     // Cub, the main button reads Attack and the quick actions are the combat's
     @Test fun declaringAttackersKeepsTheCombatBand() {
         val kit = EngineTableKit()

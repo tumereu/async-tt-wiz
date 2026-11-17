@@ -72,11 +72,6 @@ nothing the other player did and showed you nothing new, otherwise only with the
 
 ## Combat holds
 
-- **HIS-113** A combat stays readable: whoever's combat it is, live and in catch-up playback, your view holds once when the attackers show and once on the damage (each combat damage step that deals any), each for the "Show plays and combat" time (LOB-082; at 0, Off, no hold). Declaring no attackers holds nothing. (r63)
-- **HIS-146** During a combat hold your view waits (HIS-128): the later events are held as at a playback stop and your phone makes none of its own steps until it is done. (r63)
-- **HIS-147** The damage's hold shows the board right after the damage is dealt: damage marked and life changed, what it did on the band and to each creature (CMB-050: a splash, or a skull on each it destroys), the creatures it destroys still on the battlefield; they die once the hold ends. Nothing shows for it but the board itself. (r63)
-- **HIS-148** A double tap on the table (the battlefields, the combat band, the cards and piles on them, not your hand) only skips a combat hold, with nothing else a double tap there does (no zoom to fit, TBL-012, no pile search), also if the hold ended between its two taps. A single tap there does nothing; a finger held there pauses it until lifted (HIS-126). (r63)
-- **HIS-149** When one board brings both, the attackers' step holds first (TBL-125). Combat holds and plays shown come in order. A combat hold ends when you enter timeline mode, when it is taken back, or when you went on past it on another device of yours. (r63)
 
 ## Reveals
 

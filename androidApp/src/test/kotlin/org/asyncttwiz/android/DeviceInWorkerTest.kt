@@ -639,7 +639,7 @@ class DeviceInWorkerTest {
         assertTrue("refused as stale" in AppLog.text().takeLast(20_000))
     }
 
-    // Web client step 4e, CMB-044, CMB-037 (CR 508.1h): Bob's Ember Bulwark and Chime make Alice's attack cost {2}; her Cub staged
+    // Web client step 4e, CMB-044, CMB-074, CMB-075, CMB-037 (CR 508.1h): Bob's Ember Bulwark and Chime make Alice's attack cost {2}; her Cub staged
     // on both copies of her game, what the table shows of combat (the cost's {2} on the drafted attacker) comes from the worker's
     // device as from the one here, and the step arrow's declaration, worked out in the worker's shared-flow session with its
     // cost paid by Autotap, sends the same inputs and gives the same boards

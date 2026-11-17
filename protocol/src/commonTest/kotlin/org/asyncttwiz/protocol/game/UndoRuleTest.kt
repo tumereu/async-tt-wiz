@@ -67,7 +67,7 @@ class UndoRuleTest {
         assertTrue(model.sameAs(expected))
     }
 
-    // CMB-043, SYS-058 (owner notes 2026-11-14 evening: after the other player's approved rewind the game came back to declare
+    // CMB-043, CMB-082, SYS-058 (owner notes 2026-11-14 evening: after the other player's approved rewind the game came back to declare
     // attackers with the attacker's earlier staging still there): a rewind keeps the other player's combat staging only while the
     // game still awaits the declaration it stages at the new head, so a rewind back out of the declare attackers step drops it
     @Test

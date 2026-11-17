@@ -75,7 +75,7 @@ class AssumeBySettingTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // CMB-040, HIS-096, HIS-180, HIS-178, TRN-070 (owner, 2026-11-05, 2026-11-06): Alice attacks while Bob is away, "Assume resolves"
+    // CMB-040, CMB-084, HIS-096, HIS-180, HIS-178, TRN-070 (owner, 2026-11-05, 2026-11-06): Alice attacks while Bob is away, "Assume resolves"
     // Normal (the default): his pause right after her attack is assumed at once and his blockers wait in assume mode on the lanes with
     // "Assume no blockers" on the main button; nothing is assumed by itself, however long he stays away; the button
     // assumes no blocks; his priority after the blocks waits with "Assume pass" (the setting); her End turn then

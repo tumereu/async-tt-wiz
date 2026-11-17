@@ -173,7 +173,7 @@ class TableMotionRuntimeTest {
         compose.mainClock.autoAdvance = true
     }
 
-    // CMB-007 (owner, 2026-11-05; owner playtest 2026-11-11): the combat band opens between the battlefields, pushing the other
+    // CMB-007, CMB-054 (owner, 2026-11-05; owner playtest 2026-11-11): the combat band opens between the battlefields, pushing the other
     // player's away from yours and back when it closes; yours stays, and nothing fixed-size (hands, the Stack) moves
     @Test fun combatOpeningAndClosingPushesTheBattlefieldsApartButMovesNoHud() {
         val initial = TableFixture.play(board = 1, hand = 1).let { play ->

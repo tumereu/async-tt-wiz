@@ -123,11 +123,11 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val STONE = "Ember Stone"
         /** A free "Return target card from your graveyard to your hand." sorcery (HIS-114: a card leaving a public pile). */
         const val RECALL = "Hedge Recall"
-        /** CMB-044: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
+        /** CMB-044, CMB-074: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
         const val BULWARK = "Ember Bulwark"
         /** A free enchantment whose trigger begins its controller's upkeep (another enchantment beside a Bulwark). */
         const val CHIME = "Ember Chime"
-        /** A free 2/2 with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage (CMB-050). */
+        /** A free 2/2 with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage (CMB-050, CMB-089). */
         const val LEECH = "Ember Leech"
         /** ZON-079: a free "You gain 2 life." sorcery with flashback {R}: from the graveyard it is cast from the hand row. */
         const val FLARE = "Ember Flare"

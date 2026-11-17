@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  * removes the blocker (also a blocker placed to assume), with no Combat menu in between.
  */
 class CombatCopyTapTest : E2e() {
-    // CMB-003, CMB-032, TBL-043: a double tap on a combat copy does nothing and says nothing
+    // CMB-003, CMB-063, CMB-032, TBL-043: a double tap on a combat copy does nothing and says nothing
     @Test fun doubleTappingACombatCopySaysNothing() {
         // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
         // as playing along through his turn he plays one if he holds it, else his cleanup's discard waits for him
@@ -64,7 +64,7 @@ class CombatCopyTapTest : E2e() {
         run(skip = Duration.ofSeconds(1))
     }
 
-    // CMB-003, CMB-032, CMB-028, CMB-034, CMB-040: Alice's staged attacker's copy is selected by a tap and unstaged by the
+    // CMB-003, CMB-063, CMB-032, CMB-028, CMB-034, CMB-040: Alice's staged attacker's copy is selected by a tap and unstaged by the
     // next; staged again, she attacks; in assume mode a blocker she placed for Bob is selected, then removed; Bob's own
     // blocker's copy likewise; nobody sees a Combat menu
     @Test fun aCopysFirstTapSelectsItTheNextRemovesIt() {
@@ -116,7 +116,7 @@ class CombatCopyTapTest : E2e() {
             }
             alice.showsControl("Assume no blockers") && bob.status == GameDevice.Status.YourMove && bob.stepArrow() == "No blocks"
         }
-        // CMB-040: Alice places Bob's Cub as a blocker to assume, then removes it by its copy: selected first, then gone
+        // CMB-040, CMB-083: Alice places Bob's Cub as a blocker to assume, then removes it by its copy: selected first, then gone
         alice.combatWorkedOut(this)
         singleTap(alice.battlefieldCard("Ember Cub", owner = bob))
         singleTap(copyOf(alice, "Ember Cub", alice))

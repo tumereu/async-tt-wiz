@@ -105,7 +105,7 @@ class CatchUpPlaybackTest : E2e() {
     }
 
     // HIS-104 (§29.6): Alice's combat with no attackers changes nothing Bob can see: its events go by at once in his
-    // playback; with playback's Full control on they keep the playback delay. CMB-001 (owner playtest 2026-11-06): the
+    // playback; with playback's Full control on they keep the playback delay. CMB-001, CMB-053 (owner playtest 2026-11-06): the
     // combat band never opens in it (nobody attacked)
     @Test fun anEmptyCombatIsSkipped() {
         aliceMulligansAndPlaysOn()
@@ -138,7 +138,7 @@ class CatchUpPlaybackTest : E2e() {
             "the band stayed collapsed")
     }
 
-    // HIS-021, HIS-030, CMB-001, CMB-007 (§29.6): Alice attacks while Bob is away (her phone assuming his pause after it); his
+    // HIS-021, HIS-030, CMB-001, CMB-053, CMB-007 (§29.6): Alice attacks while Bob is away (her phone assuming his pause after it); his
     // catch-up shows the attack in the combat band, which opens for it as in live combat, and keeps the playback delay
     // after it
     @Test fun anAttackPlaysBackInTheCombatArea() {

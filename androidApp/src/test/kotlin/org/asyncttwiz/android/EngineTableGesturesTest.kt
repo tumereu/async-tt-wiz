@@ -193,7 +193,7 @@ class EngineTableGesturesTest {
         assertEquals(emptySet(), toolkit.playable(kit.alice.play()), "nothing glows on the timeline")
     }
 
-    // CMB-001, CMB-028: the combat area appears when an attacker is staged for Automatum's declaration and Automatum closes
+    // CMB-001, CMB-053, CMB-028: the combat area appears when an attacker is staged for Automatum's declaration and Automatum closes
     // it when combat is over; nobody opens or closes it by hand
     @Test fun theCombatAreaOpensForStagingAndAutomatumClosesIt() {
         val cub = kit.toReadyCub()

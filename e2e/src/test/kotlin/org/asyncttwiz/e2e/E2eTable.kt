@@ -152,7 +152,7 @@ internal fun E2ePlayer.pickBlocker(name: String, e2e: E2e, index: Int = 0) {
 }
 
 /**
- * Taps the main button's declaration [label] ("Attack (2)", "Block (1)", CMB-028, CMB-034) once the game has [settled]
+ * Taps the main button's declaration [label] ("Attack (2)", "Block (1)", CMB-028, CMB-034, CMB-079) once the game has [settled]
  * (the staging that made it on the server) and the table has worked out the combat on the board it shows.
  */
 internal fun E2ePlayer.declare(label: String, e2e: E2e) {

@@ -22,7 +22,7 @@ class CombatLifeGainTest : E2e() {
     private val heart = hasContentDescription("Gained 2 life with the combat damage, on the band")
     private val perLane = hasContentDescription("in this lane", substring = true)
 
-    // CMB-050 (owner playtest 2026-11-11; CR 510.1, CR 702.15b), HIS-113, CMB-001
+    // CMB-050, CMB-089 (owner playtest 2026-11-11; CR 510.1, CR 702.15b), HIS-113, CMB-001, CMB-055
     @Test fun anAttackersLifelinkGainShowsOnTheBand() {
         startGame(leeches, leeches, bobSettings = org.asyncttwiz.protocol.game.PlaySettings(),
             deal = { a, _ -> "Ember Leech" in hand(a) })
@@ -63,7 +63,7 @@ class CombatLifeGainTest : E2e() {
             assertTrue(bob.shown.combatHold?.kind == GameDevice.CombatMoment.Damage && bob.shows(heart),
                 "the heart on Bob's band while the damage holds his view: ${bob.screen()}")
             assertFalse(bob.shows(perLane), "nothing per lane")
-            // The combat over, the band closed: the heart is gone with it (CMB-001: it fades out where it was)
+            // The combat over, the band closed: the heart is gone with it (CMB-001, CMB-055: it fades out where it was)
             waitUntil("the combat over on Alice's phone", along = listOf(bob)) {
                 alice.shown.combatHold == null && alice.state.turn.step != TurnStep.CombatDamage
             }

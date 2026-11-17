@@ -197,7 +197,7 @@ class TablePresentationTest {
                     // TBL-003: three rows, the land row by the player's own edge
                     assertEquals(field.gridBounds.height / 3, lands.height, .001f)
                     assertEquals(lands, lands.intersection(field.gridBounds))
-                    // CMB-007: the combat band lies between the battlefields, never over their outer lands rows
+                    // CMB-007, CMB-056: the combat band lies between the battlefields, never over their outer lands rows
                     assertNull(lands.intersection(lane))
                     val camera = scene.world!!.clamp(TableCamera(y = if (field.owner == "a") 10000f else -10000f))
                     val panned = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", w, h, true,
@@ -205,7 +205,7 @@ class TablePresentationTest {
                     val land = panned.items.single { it.cardId == "${field.owner}/BATTLEFIELD/0" }
                     val pannedLands = panned.fields.single { it.owner == field.owner }.landsBounds(field.owner == "a")
                     assertTrue(land.visible.any { it.intersection(pannedLands) != null })
-                    // CMB-007 (owner, 2026-11-05): an open band pushes the battlefields apart, so on a low screen they are
+                    // CMB-007, CMB-054 (owner, 2026-11-05): an open band pushes the battlefields apart, so on a low screen they are
                     // panned to (above); without combat their middle shows at once
                     if (!combat) assertTrue(scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/2" }.visible.isNotEmpty())
                 }
@@ -498,7 +498,7 @@ class TablePresentationTest {
         }
     }
 
-    // CMB-001, CMB-007 (owner playtest 2026-11-06): the band between the battlefields is always there, collapsed to its
+    // CMB-001, CMB-053, CMB-007, CMB-054 (owner playtest 2026-11-06): the band between the battlefields is always there, collapsed to its
     // chip row (also with a combat area nobody attacks in); once an attacker is in the area it opens by itself, pushing
     // the battlefields apart to hold its lanes
     @Test fun theCombatBandIsAlwaysThereAndOpensWithAnAttacker() {

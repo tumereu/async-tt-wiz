@@ -301,7 +301,7 @@ object TestCards {
     /** Owner playtest 2026-11-15 ("you may pay" asked before its trigger reached the Stack): its trigger goes on the Stack in its
      * controller's upkeep, which the other player's End turn may reach, and asks them to pay as it resolves. */
     val bell = card("Ember Toll Bell", "Enchantment", "{0}", "At the beginning of your upkeep, you may pay {1}. If you do, draw a card.")
-    /** CMB-044: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
+    /** CMB-044, CMB-074: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
     val bulwark = card("Ember Bulwark", "Enchantment", "{0}",
         "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control.")
     /** A free Aura (D1: an enchanted creature beside an identical one, told apart on the table). */
@@ -340,7 +340,7 @@ object TestCards {
     val elders = card("Hearth Elders", "Creature — Human Citizen", "{0}", "Tap two untapped creatures you control: Add one mana of any color.", "1", "1")
     /** A free Vehicle with crew 2 (CR 702.122a). */
     val cart = card("Ember Cart", "Artifact — Vehicle", "{0}", "Crew 2", "3", "3")
-    /** CMB-050: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */
+    /** CMB-050, CMB-089: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */
     val leech = card("Ember Leech", "Creature — Elemental Leech", "{0}", "Lifelink\nHaste", "2", "2")
     /** TBL-124 (owner, 2026-11-12): a dual land with only reminder text: its two mana abilities come from its land types (CR 305.6). */
     val ridge = card("Ember Ridge", "Land — Mountain Forest", rulesText = "({T}: Add {R} or {G}.)")

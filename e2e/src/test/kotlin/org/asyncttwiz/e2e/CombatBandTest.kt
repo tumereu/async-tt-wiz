@@ -65,7 +65,7 @@ class CombatBandTest : E2e() {
         waitUntil("Alice declaring attackers", along = listOf(bob)) {
             alice.state.turn.step == TurnStep.DeclareAttackers && alice.stepArrow() == "No attack"
         }
-        // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): the collapsed band shows Bob's target chip; a tap on it
+        // CMB-001, CMB-051, CMB-053, CMB-013, CMB-028, CMB-066 (owner playtest 2026-11-06): the collapsed band shows Bob's target chip; a tap on it
         // keeps him the active target and stages nothing; the band stays collapsed until an attacker is staged
         waitUntil("Bob's target chip in the band") { alice.showsControl("Attack ${bob.name}") }
         assertFalse(alice.bandOpen(), "collapsed")
@@ -82,7 +82,7 @@ class CombatBandTest : E2e() {
         }
         assertEquals("Attack (2)", alice.stepArrow())
         assertTrue(alice.bandOpen(), "the band opened by itself with the first attacker")
-        // CMB-007 (owner playtest 2026-11-11): it opened away from Alice's battlefield, which stayed where it was
+        // CMB-007, CMB-054 (owner playtest 2026-11-11): it opened away from Alice's battlefield, which stayed where it was
         waitUntil("the band open and settled") { alice.battlefieldBounds() == ownField }
         val life = alice.state.player(bob.me).life
         alice.declare("Attack (2)", this)

@@ -162,7 +162,7 @@ class EngineTableGesturesTest {
         assertNull(toolkit.hand.raised)
     }
 
-    // TBL-122, TBL-120: one tap on an untapped Mountain adds {R} to Alice's pool at once (no menu, she keeps priority);
+    // TBL-122, TBL-155, TBL-120: one tap on an untapped Mountain adds {R} to Alice's pool at once (no menu, she keeps priority);
     // a tap on a tapped Mountain opens its menu
     @Test fun oneTapActivatesAManaAbility() {
         kit.opening()
@@ -177,7 +177,7 @@ class EngineTableGesturesTest {
         assertNotNull(toolkit.capture, "the tapped Mountain opens its menu")
     }
 
-    // TBL-117: the cards Alice can do something with now glow: Storm Spark with a Mountain untapped; a land whose only use
+    // TBL-117, TBL-171: the cards Alice can do something with now glow: Storm Spark with a Mountain untapped; a land whose only use
     // is its mana ability doesn't, Bob's cards never do; nothing glows during the opening or on the timeline
     @Test fun playableCardsGlow() {
         assertEquals(emptySet(), toolkit.playable(kit.alice.play()), "nothing glows during the opening")

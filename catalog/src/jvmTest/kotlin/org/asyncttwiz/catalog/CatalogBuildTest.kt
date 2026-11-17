@@ -87,7 +87,7 @@ class CatalogBuildTest {
         assertEquals(listOf("Nobody Here"), build(setOf("Listed Lone", "Nobody Here")).unknownNames)
     }
 
-    // LOB-150, TBL-138: a printing that gives the card another name (MTGJSON flavorName, faceFlavorName per face) keeps it
+    // LOB-150, TBL-138, TBL-197: a printing that gives the card another name (MTGJSON flavorName, faceFlavorName per face) keeps it
     // beside the Oracle name; the card's face, and so what the rules read, stays the Oracle card's
     @Test fun `a printing under another name keeps its printed name, each face's too`() {
         val lance = catalog.printings.single { it.flavorName == "Thunder Lance" }

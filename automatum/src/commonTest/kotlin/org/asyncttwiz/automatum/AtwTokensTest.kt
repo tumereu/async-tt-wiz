@@ -23,7 +23,7 @@ class AtwTokensTest {
         assertEquals(listOf("Pale Pup", "Pale Howler"), card.faces.map { it.name })
     }
 
-    // SYS-080: a token with the halves of a Room is one physical face, as the card is, and reads both halves
+    // SYS-080, SYS-153: a token with the halves of a Room is one physical face, as the card is, and reads both halves
     @Test
     fun aTokenOfARoomIsOneFaceWithBothHalves() {
         val card = AtwTokens.submitted(CardDefinition(Layout.Split, listOf(face("Lantern Foyer", "Glows."), face("Quiet Pantry", "Hushes.")))).definition
@@ -34,7 +34,7 @@ class AtwTokensTest {
         assertTrue("Glows." in face.rulesText && "Hushes." in face.rulesText, face.rulesText)
     }
 
-    // SYS-080: what a token has in no face reads on the card, with both doors
+    // SYS-080, SYS-153: what a token has in no face reads on the card, with both doors
     @Test
     fun whatATokenHasInNoFaceIsReadOnIt() {
         val face = AtwTokens.submitted(CardDefinition(Layout.Split, listOf(face("Lantern Foyer", "Glows."), face("Quiet Pantry", "Hushes."))),

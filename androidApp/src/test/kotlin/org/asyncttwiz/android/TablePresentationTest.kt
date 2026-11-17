@@ -43,7 +43,7 @@ class TablePresentationTest {
     // the rows' left ends where they were; portrait, and a camera the player moved, are left alone
     @Test fun landscapeOpensOnBothBattlefieldsWholeHeight() {
         val play = TableFixture.play(board = 3, hand = 2)
-        // TBL-009 (owner, 2026-11-08): with your hand in the bottom bar the battlefields are taller: cards a little larger
+        // TBL-009, TBL-144 (owner, 2026-11-08): with your hand in the bottom bar the battlefields are taller: cards a little larger
         // than before don't fit at 1×
         fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true, size: Float = .85f) =
             TablePresentation.scene(TableFixture.game, tableBoard(play), "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
@@ -68,7 +68,7 @@ class TablePresentationTest {
         assertEquals(moved, scene(true, TableLayoutState(moved)).camera)
     }
 
-    // TBL-009: in landscape every pile size setting fits the bar rows: the piles at most 32 dp tall, each with its own
+    // TBL-009, TBL-145: in landscape every pile size setting fits the bar rows: the piles at most 32 dp tall, each with its own
     // whole 48 dp touch target inside its row, nothing scrolling sideways
     @Test fun landscapeBarRowsFitAllPileSizesAndGlobalCardSizeFallbacksWithoutScrolling() {
         val sizes = (5..30).map { it / 10f }
@@ -105,7 +105,7 @@ class TablePresentationTest {
         }
     }
 
-    // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar, after your life square and piles, up to
+    // TBL-009, TBL-144 (owner, 2026-11-08): in landscape your hand sits in the bottom bar, after your life square and piles, up to
     // the bar's fixed-width right end (the controls); no hand strip above the bar: the battlefields reach the bar. Portrait
     // keeps its hand row above the bottom bar
     @Test fun landscapeHandSitsInTheBottomBarBeforeTheControls() {
@@ -132,7 +132,7 @@ class TablePresentationTest {
         assertTrue(hand.bottom <= portrait.viewports.single { it.id == "dock/a" }.bounds.y, "portrait: above the own piles row: $hand")
     }
 
-    // TBL-009, STK-007 (owner, 2026-11-07): in landscape the opponent's life square and piles sit in the top bar after the
+    // TBL-009, TBL-144, TBL-145, STK-007 (owner, 2026-11-07): in landscape the opponent's life square and piles sit in the top bar after the
     // turn header, yours in the bottom bar left of the controls; the battlefields take the whole width and the Stack is
     // pinned at the right edge, mid-screen, as in portrait
     @Test fun landscapeRowsSitInTheBarsWithTheStackAtTheRightEdge() {
@@ -255,15 +255,15 @@ class TablePresentationTest {
                     assertTrue(c.bounds.y >= c.footprint.y && c.bounds.bottom <= c.footprint.bottom)
                 }
             }
-            // TBL-009: landscape's piles fit their bar row, a little smaller
+            // TBL-009, TBL-145: landscape's piles fit their bar row, a little smaller
             scene.items.filter { it.kind == TableItemKind.PILE }.forEach {
                 assertTrue(it.bounds.width >= if (landscape && it.zone != PlayZone.STACK) 28f * .8f - .001f else 28f) }
         }
     }
 
-    // TBL-002
+    // TBL-002, TBL-143
     @Test fun battlefieldGroupsHaveFixed42DpSlotsAndRotateAroundTheSameCenter() {
-        // The 1st and 3rd cards lie side by side in the upper band's row nearest the middle (the 2nd behind the 1st, TBL-004)
+        // The 1st and 3rd cards lie side by side in the upper band's row nearest the middle (the 2nd behind the 1st, TBL-004, TBL-140)
         val play = TableFixture.apart(TableFixture.play(board = 3))
         for (tapped in listOf(false, true)) {
             val state = play.copy(board = play.board.copy(cards = play.board.cards.map { it.copy(tapped = tapped) }))
@@ -388,7 +388,7 @@ class TablePresentationTest {
             val stack = scene.items.single { it.zone == PlayZone.STACK }
             val dock = scene.viewports.single { it.id == "dock/a" }
             assertEquals(TableFixture.scene(p, landscape).viewports.single { it.id == dock.id }.maxScroll, dock.maxScroll)
-            // STK-007: pinned at the right edge in both orientations (TBL-009)
+            // STK-007: pinned at the right edge in both orientations (TBL-009, TBL-145)
             assertEquals(if (landscape) 900f else 412f, scene.stackRegion!!.right, .001f)
             if (!landscape) assertEquals(410f, stack.bounds.center.y)
             val end = TableFixture.scene(p, landscape, TableLayoutState(TableCamera(zoom = 2f),
@@ -434,7 +434,7 @@ class TablePresentationTest {
             assertTrue(stack.bounds.center.y > opponent.bounds.center.y)
             assertTrue(stack.bounds.center.y < own.bounds.center.y)
             assertNotNull(scene.stackRegion)
-            // STK-007, TBL-009: pinned at the right edge in both orientations
+            // STK-007, TBL-009, TBL-145: pinned at the right edge in both orientations
             assertEquals(if (landscape) 900f else 412f, scene.stackRegion!!.right, .001f)
             if (!landscape) assertEquals(410f, stack.bounds.center.y)
             }

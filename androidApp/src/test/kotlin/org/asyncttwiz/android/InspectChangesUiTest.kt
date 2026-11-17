@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * TBL-104, TBL-111 (owner 2026-11-06): Inspect lists under each card only what changed on it, with a thin line between
+ * TBL-104, TBL-181, TBL-180, TBL-111 (owner 2026-11-06): Inspect lists under each card only what changed on it, with a thin line between
  * cards; pinned mode (a drag to the left) shrinks the cards and slides the changes beside them, with a close button, and a
  * tap on a change there names its source.
  */
@@ -48,7 +48,7 @@ class InspectChangesUiTest {
 
     private fun changes() = compose.onAllNodes(hasContentDescription("Card changes"), useUnmergedTree = true)
 
-    // TBL-104, TBL-111: the changes sit under each card on a dark panel as wide as the card; a line separates the cards
+    // TBL-104, TBL-181, TBL-180, TBL-111: the changes sit under each card on a dark panel as wide as the card; a line separates the cards
     @Test fun eachCardShowsOnlyItsChangesUnderIt() {
         val scroll = ScrollState(0)
         show(InspectSwipe(), scroll)
@@ -68,7 +68,7 @@ class InspectChangesUiTest {
             "\"Attached to Meadow Sentinel\" under it, with faint ‹‹ ›› marks at the left and right edges.")
     }
 
-    // TBL-131 (owner playtest 2026-11-07): an Inspect that can be pinned has faint ‹‹ ›› marks centred at its left and right
+    // TBL-131, TBL-188 (owner playtest 2026-11-07): an Inspect that can be pinned has faint ‹‹ ›› marks centred at its left and right
     // edges until it is pinned; one that can't (draft, decks) has none
     @Test fun anInspectThatCanBePinnedHintsAtTheSidewaysDrag() {
         val swipe = InspectSwipe()
@@ -90,7 +90,7 @@ class InspectChangesUiTest {
         compose.onAllNodesWithTag(INSPECT_PIN_HINT_TAG, useUnmergedTree = true).assertCountEquals(0)
     }
 
-    // TBL-131 (owner playtest 2026-11-07): pinned and through the slide, the line between the cards spans the whole width
+    // TBL-131, TBL-189 (owner playtest 2026-11-07): pinned and through the slide, the line between the cards spans the whole width
     // (it stops short only before the drag starts); the change blocks have the size they end with all through the slide
     @Test fun theLineSpansTheWidthAndTheBlocksKeepTheirLayoutThroughTheSlide() {
         val swipe = InspectSwipe()
@@ -126,7 +126,7 @@ class InspectChangesUiTest {
             "and a round close button growing in at the top right.")
     }
 
-    // TBL-131 (owner 2026-11-06): pinned, the cards take a little over half the width with their changes beside them and a
+    // TBL-131, TBL-187, TBL-186 (owner 2026-11-06): pinned, the cards take a little over half the width with their changes beside them and a
     // close button at the top right; tapping a change names its source; Close closes it
     @Test fun pinnedTheChangesSitBesideTheCardsAndNameTheirSourceOnATap() {
         var closed = false
@@ -137,7 +137,7 @@ class InspectChangesUiTest {
         val card = compose.onNodeWithContentDescription("Card image: Meadow Sentinel").getBoundsInRoot()
         val panel = changes()[0].getBoundsInRoot()
         assertTrue(panel.left >= card.right && panel.top < card.bottom, "beside the card: $panel, card $card")
-        // TBL-131 (owner playtest 2026-11-06): the card at the left edge; each change its own block
+        // TBL-131, TBL-187 (owner playtest 2026-11-06): the card at the left edge; each change its own block
         assertTrue(card.left.value <= 12f, "at the left edge: $card")
         compose.onAllNodes(hasText("+1/+1 counter ×2") or hasText("1 damage"), useUnmergedTree = true).assertCountEquals(2)
         compose.onNodeWithText("+3/+3 until end of turn").performClick()
@@ -150,7 +150,7 @@ class InspectChangesUiTest {
         compose.runOnIdle { assertTrue(closed) }
     }
 
-    // TBL-132 (owner gallery review 2026-11-06): pinned, a tap on a change line naming a keyword ("Flying") shows its source
+    // TBL-132, TBL-195 (owner gallery review 2026-11-06): pinned, a tap on a change line naming a keyword ("Flying") shows its source
     // and what the keyword means; a line naming none ("1 damage") explains nothing
     @Test fun pinnedAKeywordChangeExplainsTheKeyword() {
         val swipe = InspectSwipe()
@@ -166,7 +166,7 @@ class InspectChangesUiTest {
         compose.onAllNodes(hasContentDescription("Rule explanation"), useUnmergedTree = true).assertCountEquals(1)
     }
 
-    // WEB-024, TBL-132 (owner 2026-11-15): on the desktop layout, inspected by Alt held, nothing clicks a change: a line naming a
+    // WEB-024, TBL-132, TBL-195 (owner 2026-11-15): on the desktop layout, inspected by Alt held, nothing clicks a change: a line naming a
     // keyword ("Flying") shows its source and what the keyword means under it at once; a line naming none ("1 damage") only
     // its source, if it has one
     @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
@@ -191,7 +191,7 @@ class InspectChangesUiTest {
             "what flying means under it without any click, the +3/+3 change with its source, and the River Adept under it.")
     }
 
-    // TBL-131 (owner playtest 2026-11-06): pinned by a drag to the right, an unchanged card goes to the left edge with a faded
+    // TBL-131, TBL-187 (owner playtest 2026-11-06): pinned by a drag to the right, an unchanged card goes to the left edge with a faded
     // "No changes" in the middle of the room beside it
     @Test fun pinnedAnUnchangedCardSaysNoChanges() {
         val swipe = InspectSwipe()
@@ -208,7 +208,7 @@ class InspectChangesUiTest {
             "round close button at the top right.")
     }
 
-    // TBL-104: in landscape the cards stand side by side, each card's changes beside it, a line between cards
+    // TBL-104, TBL-180, TBL-181: in landscape the cards stand side by side, each card's changes beside it, a line between cards
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun inLandscapeTheChangesSitBesideEachCard() {
         val swipe = InspectSwipe()

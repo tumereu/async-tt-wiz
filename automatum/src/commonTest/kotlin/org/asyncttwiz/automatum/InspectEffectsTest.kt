@@ -36,9 +36,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * TBL-104 (owner, 2026-11-12: Scheming Fence): Inspect lists every effect on a card from the engine's view of its effects:
+ * TBL-104, TBL-183 (owner, 2026-11-12: Scheming Fence): Inspect lists every effect on a card from the engine's view of its effects:
  * what it copies, the abilities it has from another permanent, an ability it gained by its words; TBL-136: exactly those
- * cards carry the effects marker. TBL-124: an ability without words of its own reads as the mana it makes.
+ * cards carry the effects marker. TBL-124, TBL-157: an ability without words of its own reads as the mana it makes.
  */
 class InspectEffectsTest {
     init {
@@ -96,7 +96,7 @@ class InspectEffectsTest {
         assertEquals(emptySet(), board(Mechanic.GainAbilities(emptyList())).withEffects, "an effect that changes nothing marks nothing")
     }
 
-    // TBL-124: a mana ability without words of its own says the mana it makes, in symbols
+    // TBL-124, TBL-157: a mana ability without words of its own says the mana it makes, in symbols
     @Test fun aManaAbilityWithoutWordsSaysItsMana() {
         assertEquals("{T}: Add {G}.", AbilityText.of(mana(ManaKind.Fixed(ManaCost(listOf(ManaSymbol.Colored(Color.Green))))), "test"))
         assertEquals("{T}: Add {R} or {G}.", AbilityText.of(mana(ManaKind.Choose(Value.Fixed(1),

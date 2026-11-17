@@ -11,7 +11,7 @@ import org.junit.Test
  * Owner bug, prod 2026-11-07: the opponent cast a spell with two targets at the owner's two creatures lying in one
  * battlefield group (a stack, TBL-053) and couldn't target both: a tap on the group meant one creature (the identical cards
  * of a stack counting as one), and the next tap meant that same one again. Now, while targets are picked, a tap on a group
- * of several always opens it, and each member is picked by a tap of its own (TBL-130).
+ * of several always opens it, and each member is picked by a tap of its own (TBL-130, TBL-165, TBL-166).
  */
 class TargetInGroupTest : E2e() {
     /** Alice's Ash Pups on Bob's screen, from the left. */
@@ -47,7 +47,7 @@ class TargetInGroupTest : E2e() {
         waitUntil("Alice's Pups opened side by side on Bob's screen") { opened() }
     }
 
-    // TBL-130, TBL-053, STK-047, STK-146: Alice's three identical Ash Pups lie in one stack; Bob's Frost Snare ("Tap up to two target
+    // TBL-130, TBL-165, TBL-166, TBL-053, STK-047, STK-146: Alice's three identical Ash Pups lie in one stack; Bob's Frost Snare ("Tap up to two target
     // creatures") opens the stack on his first tap and picks two of the Pups one tap each: both are tapped, and the group
     // closes once the targets are chosen. His second Snare picks from the same group, now a tapped and an untapped Pup:
     // both are targeted, all three Pups end tapped

@@ -80,7 +80,7 @@ class TablePickTest {
         render(kit)
         compose.onNode(hasText("Sacrifice") and isHeading()).assertExists()
         compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
-        // TBL-117, TBL-130 (owner notes 2026-11-14): the Pups' closed stack, which a tap spreads open rather than picks from, glows
+        // TBL-117, TBL-173, TBL-130, TBL-165 (owner notes 2026-11-14): the Pups' closed stack, which a tap spreads open rather than picks from, glows
         // as a pile holding choices, both members, not framed as a target
         val spread = compose.onAllNodes(hasContentDescription("${Choices.PUP}, owner", substring = true) and
             SemanticsMatcher("glowing as choices inside") { "choices inside" in it.config.getOrElse(TableMarks) { emptySet() } }).fetchSemanticsNodes()
@@ -92,7 +92,7 @@ class TablePickTest {
             "Alice tapped her Ember Altar, whose cost sacrifices another creature: the slim bar above her hand says \"Sacrifice\" over " +
                 "the ability's text with the ability at its right, and the closed stack of her two Ash Pups, which a tap spreads open, " +
                 "glows pulsing violet as a pile holding choices.")
-        // Owner notes 2026-11-14: spread open (as a tap on the closed stack opens it, TBL-130), each Pup has the normal targeting glow
+        // Owner notes 2026-11-14: spread open (as a tap on the closed stack opens it, TBL-130, TBL-165, TBL-173), each Pup has the normal targeting glow
         val group = kit.scene().battlefieldGroups.single { it.members.containsAll(pups) }
         kit.toolkit.layoutState.value = kit.toolkit.layoutState.value.copy(expandedGroup = group.key)
         compose.waitForIdle()

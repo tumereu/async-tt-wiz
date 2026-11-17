@@ -33,7 +33,7 @@ class StackAbilityInspectTest {
         assertTrue(StackAbilities.details(board(emptyList()), "entry", f.a, names).isEmpty())
     }
 
-    // STK-050, STK-124, TBL-104 (owner 2026-11-06): a spell on the Stack shows what was chosen for it as abilities do: X, then targets
+    // STK-050, STK-124, TBL-104, TBL-185 (owner 2026-11-06): a spell on the Stack shows what was chosen for it as abilities do: X, then targets
     @Test fun aSpellsChosenXAndTargetsAreListed() {
         val spell = f.source(f.a, "1/3")
         val item = MtgStackItem(MtgRef.Card(spell.id, 0), MtgStackKind.Spell, f.a, targets = mapOf("target" to listOf(MtgRef.Player(f.b))),

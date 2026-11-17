@@ -98,7 +98,7 @@ class GroupPeekTest {
         release(toolkit)
     }
 
-    // TBL-111, TBL-053: an attached card's strip is no target of its own: holding it inspects the whole group, host first
+    // TBL-111, TBL-053, TBL-179, TBL-167: an attached card's strip is no target of its own: holding it inspects the whole group, host first
     @Test fun holdingAnAttachedCardInspectsTheWholeGroup() {
         val (play, members) = group()
         val toolkit = hold(play, f.a, members[2].id, members.first().id)

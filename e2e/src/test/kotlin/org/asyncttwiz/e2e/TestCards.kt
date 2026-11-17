@@ -175,7 +175,7 @@ object TestCards {
     /** Counters unless paid, for free. */
     val freeTax = card("Free Tax", "Instant", "{0}", "Counter target spell unless its controller pays {1}.")
     val emberStone = card("Ember Stone", "Artifact", "{0}", "{T}: Add {C}.")
-    /** A free source with a second ability it can't use early on (TBL-124): its chips open even with only the mana usable. */
+    /** A free source with a second ability it can't use early on (TBL-124, TBL-153): its chips open even with only the mana usable. */
     /** A spell with convoke and something to do (STK-024: its panel always opens). */
     val rally = card("Ember Rally", "Sorcery", "{2}{R}", "Convoke\nDraw a card.")
     val cairn = card("Ember Cairn", "Artifact", "{0}", "{T}: Add {R}.\n{5}: You gain 1 life.")
@@ -204,7 +204,7 @@ object TestCards {
         "1", "1")
     /** A free creature with a pump ability. */
     val ashHound = card("Ash Hound", "Creature — Elemental Dog", "{0}", "{R}: This creature gets +1/+0 until end of turn.", "1", "1")
-    /** LOB-150, TBL-138: a free creature printed under another name (as Secret Lair and Universes Within printings are):
+    /** LOB-150, TBL-138, TBL-197: a free creature printed under another name (as Secret Lair and Universes Within printings are):
      * the table and Inspect show "Sparkfang the Kitten", Automatum plays it as Ember Pyreling. */
     val pyreling = card("Ember Pyreling", "Creature — Elemental Cat", "{0}", power = "1", toughness = "1",
         flavorName = "Sparkfang the Kitten")
@@ -308,7 +308,7 @@ object TestCards {
     val mantle = card("Ember Mantle", "Enchantment — Aura", "{0}", "Enchant creature\nEnchanted creature gets +1/+1.")
     /** A free edict (D1: the other player picks their creature to sacrifice on the table). */
     val edict = card("Ember Edict", "Sorcery", "{0}", "Each opponent sacrifices a creature of their choice.")
-    /** A free instant with two targets (TBL-130: targets picked from one battlefield group). */
+    /** A free instant with two targets (TBL-130, TBL-166: targets picked from one battlefield group). */
     /** A free sorcery that ends a game by the rules (TRN-065: the other player's life reaches 0). */
     val ruin = card("Ember Ruin", "Sorcery", "{0}", "Each opponent loses 20 life.")
     val snare = card("Frost Snare", "Instant", "{0}", "Tap up to two target creatures.")
@@ -342,9 +342,9 @@ object TestCards {
     val cart = card("Ember Cart", "Artifact — Vehicle", "{0}", "Crew 2", "3", "3")
     /** CMB-050, CMB-089: a free creature with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage. */
     val leech = card("Ember Leech", "Creature — Elemental Leech", "{0}", "Lifelink\nHaste", "2", "2")
-    /** TBL-124 (owner, 2026-11-12): a dual land with only reminder text: its two mana abilities come from its land types (CR 305.6). */
+    /** TBL-124, TBL-157 (owner, 2026-11-12): a dual land with only reminder text: its two mana abilities come from its land types (CR 305.6). */
     val ridge = card("Ember Ridge", "Land — Mountain Forest", rulesText = "({T}: Add {R} or {G}.)")
-    /** TBL-104 (owner, 2026-11-12: Scheming Fence): a free creature that has the activated abilities of a permanent chosen as it
+    /** TBL-104, TBL-183 (owner, 2026-11-12: Scheming Fence): a free creature that has the activated abilities of a permanent chosen as it
      * enters. */
     val schemer = card("Scheming Warden", "Creature — Human Rogue", "{0}", "As this creature enters, you may choose a nonland permanent.\n" +
         "Activated abilities of the chosen permanent can't be activated.\n" +
@@ -406,7 +406,7 @@ object TestCards {
      * our own: its printed values only, no draft text. */
     val librarian = card("Cogwork Librarian", "Artifact Creature — Construct", "{4}", power = "3", toughness = "3")
 
-    /** TBL-133, HIS-091, HIS-124: a free enchantment whose enters trigger makes three tokens and secretly chooses one of their creature
+    /** TBL-133, TBL-193, HIS-091, HIS-124: a free enchantment whose enters trigger makes three tokens and secretly chooses one of their creature
      * types, revealed by its sacrifice ability's cost (A Killer Among Us's wording). */
     val lineup = card("Ember Lineup", "Enchantment", "{0}",
         "When this enchantment enters, create a 1/1 white Human creature token, a 1/1 blue Merfolk creature token, and a 1/1 red Goblin " +

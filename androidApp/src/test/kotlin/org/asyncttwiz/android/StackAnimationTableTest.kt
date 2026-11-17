@@ -130,7 +130,7 @@ class StackAnimationTableTest {
         assertEquals(kit.me, kit.state().priority.holder, "she holds priority over the Spark")
     }
 
-    // STK-058, STK-128, HIS-230, TBL-125 (spec step 5): the Spark resolving takes it off her Stack; its arrow fades as its effect plays
+    // STK-058, STK-128, HIS-230, TBL-125, TBL-150 (spec step 5): the Spark resolving takes it off her Stack; its arrow fades as its effect plays
     @Test fun theResolutionComesAfterTheArrows() {
         val (kit, _) = bobsSparkShown()
         val resolved = ArrayList<List<String>>()

@@ -33,7 +33,7 @@ class StagingFromStackTest : E2e() {
     /** The left edge of Alice's leftmost Pup on her screen (the stack's bottom card). */
     private fun bottomLeft(): Float = alice.battlefieldCard("Ash Pup").fetchSemanticsNode().boundsInRoot.left
 
-    // CMB-047, CMB-071, CMB-028, TBL-130, TBL-053: Alice's three identical Ash Pups lie in one stack; while she declares attackers
+    // CMB-047, CMB-071, CMB-028, TBL-130, TBL-163, TBL-053, TBL-178: Alice's three identical Ash Pups lie in one stack; while she declares attackers
     // two taps on the stack stage its two topmost Pups one after the other, the bottom Pup staying where it was
     @Test fun twoOfThreeIdenticalCreaturesAreStagedByTappingTheirStack() {
         startGame(TestDeck("Pups", listOf(TestCards.mountain to 10, TestCards.pup to 30)), TestDeck.thirds(TestCards.cub),

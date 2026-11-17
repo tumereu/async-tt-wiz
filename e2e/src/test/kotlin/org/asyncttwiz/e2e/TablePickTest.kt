@@ -86,7 +86,7 @@ class TablePickTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // D1, STK-047, STK-151, STK-152, STK-030, STK-187, TBL-130: Bob has two identical Ash Pups (one stack); Alice's Ember Edict ("Each opponent sacrifices
+    // D1, STK-047, STK-151, STK-152, STK-030, STK-187, TBL-130, TBL-165, TBL-166: Bob has two identical Ash Pups (one stack); Alice's Ember Edict ("Each opponent sacrifices
     // a creature of their choice") asks Bob on his table: the bar, his Pups glowing; a tap opens their stack, a tap on one
     // sacrifices it
     @Test fun anEdictIsAnsweredOnTheTable() {
@@ -108,7 +108,7 @@ class TablePickTest : E2e() {
             bob.state.pending?.decision is Decision.ChooseObjects && bob.shows(bar)
         }
         assertFalse(bob.shows(hasContentDescription("Automatum choice")), "no panel: ${bob.screen()}")
-        // TBL-130: the first tap opens the stack of identical Pups with nothing picked yet; a tap on a member picks it
+        // TBL-130, TBL-165, TBL-166: the first tap opens the stack of identical Pups with nothing picked yet; a tap on a member picks it
         bob.battlefieldCard("Ash Pup").performClick()
         waitUntil("Bob's Pups opened side by side") { !bob.shows(bar) || pupsOpened() }
         assertTrue(bob.shows(bar) && bob.field("Ash Pup").size == 2 && bob.state.pending?.decision is Decision.ChooseObjects,

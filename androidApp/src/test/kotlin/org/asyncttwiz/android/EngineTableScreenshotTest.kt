@@ -509,7 +509,7 @@ class EngineTableScreenshotTest {
             "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\", \"Triggered ability\" in violet and the trigger's text.")
     }
 
-    // STK-050, STK-122, TBL-104 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,
+    // STK-050, STK-122, TBL-104, TBL-185 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,
     // not card-shaped (shorter than a card of its width), with the source's art crop and under it the source's name and
     // the ability's text, and nothing else: no source card picture after it
     @Test fun holdingAnAbilityOnTheStackShowsOnlyItsTile() {
@@ -739,7 +739,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { kotlin.test.assertNull(routes.review, "back where she was") }
     }
 
-    // HIS-015, HIS-169, TBL-009: in landscape too "Exit timeline" fits between Previous and Next, in the controls' place
+    // HIS-015, HIS-169, TBL-009, TBL-144: in landscape too "Exit timeline" fits between Previous and Next, in the controls' place
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun exitTimelineInLandscape() {
         val game = aliceAfterALand()
         val routes = render(game, f.a, landscape = true)

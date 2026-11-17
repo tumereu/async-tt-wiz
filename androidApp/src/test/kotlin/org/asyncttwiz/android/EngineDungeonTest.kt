@@ -91,7 +91,7 @@ class EngineDungeonTest {
             "Alice cast Torch Map and ventured into the dungeon: her Lantern Crypt sits as a small card after her Library, Graveyard and Exile, and the round violet chip with a door beside it stands for the room the venture marker is in, Crypt Door, which a hold names.")
     }
 
-    // TRN-069, TBL-009: in landscape the dungeon takes the fourth place after the piles in the player's bar row, unscrolled
+    // TRN-069, TBL-009, TBL-145: in landscape the dungeon takes the fourth place after the piles in the player's bar row, unscrolled
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun theDungeonFitsTheLandscapeBarRow() {
         val game = ventured()
         val scene = TablePresentation.scene(f.game, game.play(), f.a, 892f, 412f, true)

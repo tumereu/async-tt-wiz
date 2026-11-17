@@ -120,7 +120,7 @@ class CardStatesTest {
         assertEquals(emptyList(), scene(board).items.first { it.sourceId == river.id && it.zone == PlayZone.BATTLEFIELD }.automatumMarks)
     }
 
-    // TBL-133: every state with its own word; the words a face-down permanent keeps to itself aren't among them
+    // TBL-133, TBL-190, TBL-192: every state with its own word; the words a face-down permanent keeps to itself aren't among them
     @Test fun eachStatesWordAndWhatStaysHidden() {
         val marks = listOf(ObjectMark.Renowned to "Renowned", ObjectMark.Suspected to "Suspected", ObjectMark.Saddled to "Saddled",
             ObjectMark.Solved to "Solved", ObjectMark.Prepared to "Prepared", ObjectMark.Harnessed to "Harnessed",
@@ -134,7 +134,7 @@ class CardStatesTest {
         assertEquals(emptyList(), changes(board, sentinel, f.b).map { it.text }, "nothing tells the opponent how it came face down")
     }
 
-    // TBL-133: Inspect says what a Ring-bearer gets at the Ring's current level, with the Ring as its source; TBL-132 explains it
+    // TBL-133, TBL-191: Inspect says what a Ring-bearer gets at the Ring's current level, with the Ring as its source; TBL-132 explains it
     @Test fun aRingBearersInspectLineFollowsTheRingsLevel() {
         fun line(level: Int) = changes(board {
             mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer)) }
@@ -147,7 +147,7 @@ class CardStatesTest {
         assertEquals("Ring-bearer", RulesGlossary.first(line(1).text)?.name)
     }
 
-    // TBL-133: goaded names who goaded it in the viewer's words; a battle's protector and what was chosen for a permanent show too
+    // TBL-133, TBL-191, TBL-192: goaded names who goaded it in the viewer's words; a battle's protector and what was chosen for a permanent show too
     @Test fun goadedProtectorAndChosenValuesInInspect() {
         val edit: GameState.() -> Unit = {
             mark(sentinel) { it.copy(statuses = listOf(arcanum.engine.state.ObjectStatus.Goaded(listOf(PlayerId(f.b))), arcanum.engine.state.ObjectStatus.Protector(PlayerId(f.a))),
@@ -169,7 +169,7 @@ class CardStatesTest {
         }
     }
 
-    // TBL-133 (owner 2026-11-16: A Killer Among Us): a secret choice shows its value only to who chose it; the other player reads
+    // TBL-133, TBL-193 (owner 2026-11-16: A Killer Among Us): a secret choice shows its value only to who chose it; the other player reads
     // "Secret choice"; revealed, it reads the same as any choice to everyone. 3+ players: each who knows it sees it
     @Test fun aSecretChoiceShowsOnlyToWhoChoseIt() {
         assertEquals(listOf("Chosen: Goblin (secret)"), changes(board(edit = secretly()), sentinel).map { it.text })
@@ -183,7 +183,7 @@ class CardStatesTest {
         assertEquals(emptyList(), board(viewer = f.b, edit = secretly()).values!!.computed.cards.getValue(sentinel.id).states)
     }
 
-    // TBL-133 (owner 2026-11-16): the other player's Inspect of a card keeping a secret choice says one was made, not what
+    // TBL-133, TBL-193 (owner 2026-11-16): the other player's Inspect of a card keeping a secret choice says one was made, not what
     @Test fun aSecretChoiceInTheOtherPlayersInspect() {
         val table = board(viewer = f.b, edit = secretly())
         val groups = gameInspectGroups(table, f.b, ManualInspection(f.game.id, f.initial.id, sentinel.id, listOf(sentinel.faceId)), sentinel, names)
@@ -195,7 +195,7 @@ class CardStatesTest {
                 "\"Secret choice\", never the type.")
     }
 
-    // HIS-091, HIS-124, TBL-133 (owner 2026-11-16): the event whose cost revealed the secret choice (sacrificing its keeper in the same
+    // HIS-091, HIS-124, TBL-133, TBL-193 (owner 2026-11-16): the event whose cost revealed the secret choice (sacrificing its keeper in the same
     // event) names what was revealed, to both players; an event revealing nothing says nothing of it
     @Test fun theEventThatRevealsASecretChoiceNamesIt() {
         val state = board(edit = secretly()).engine!!.state
@@ -226,7 +226,7 @@ class CardStatesTest {
         assertEquals(emptyList(), scene(board).items.first { it.sourceId == sentinel.id && it.zone == PlayZone.BATTLEFIELD }.automatumMarks)
     }
 
-    // TBL-134: a Ring-bearer's rule from the Ring is its own line, not a line of its own again
+    // TBL-134, TBL-198: a Ring-bearer's rule from the Ring is its own line, not a line of its own again
     @Test fun theRingsRestrictionIsNotListedTwice() {
         val board = board {
             mark(sentinel) { it.copy(marks = listOf(ObjectMark.RingBearer)) }
@@ -538,7 +538,7 @@ class CardStatesTest {
                 "untap until Bob's next turn.")
     }
 
-    // TBL-132: pinned, a state's line explains the state on a tap, with its source
+    // TBL-132, TBL-195: pinned, a state's line explains the state on a tap, with its source
     @Test fun pinnedAStatesLineExplainsIt() {
         val groups = listOf(InspectGroup("card", emptyList(), listOf(InspectChange("Goaded by Bob: attacks each combat if able, and not Bob if it can"),
             InspectChange("Ring-bearer: legendary, can't be blocked by creatures with greater power", "The Ring"))))

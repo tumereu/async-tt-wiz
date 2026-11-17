@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 class CountersShownTest : E2e() {
     private val deck = TestDeck("Counters", listOf(TestCards.mountain to 14, TestCards.sage to 13, TestCards.chargeStone to 13))
 
-    // TBL-021, TBL-135, TBL-104, TBL-113 (owner, 2026-11-11)
+    // TBL-021, TBL-135, TBL-104, TBL-182, TBL-113 (owner, 2026-11-11)
     @Test fun countersShowOnThePermanentsAndInInspect() {
         startGame(deck, deck, deal = { a, _ -> "Ember Sage" in hand(a) && "Charge Stone" in hand(a) })
         bothOpen()

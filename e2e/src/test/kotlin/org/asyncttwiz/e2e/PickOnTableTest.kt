@@ -158,7 +158,7 @@ class PickOnTableTest : E2e() {
     }
 
     // STK-047, STK-151, STK-152, STK-030, STK-187 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
-    // both Pups glowing (their closed stack framed whole, TBL-117); a tap on one sacrifices it, Autotap pays and it resolves
+    // both Pups glowing (their closed stack framed whole, TBL-117, TBL-173); a tap on one sacrifices it, Autotap pays and it resolves
     @Test fun aSacrificeIsPickedOnTheTable() {
         start(deck(TestCards.shard to 14, TestCards.offering to 13, TestCards.pup to 13),
             mapOf("Ember Shard" to 1, "Altar Offering" to 1, "Ash Pup" to 2))
@@ -167,14 +167,14 @@ class PickOnTableTest : E2e() {
         alice.playFromHand("Altar Offering", this)
         waitUntil("the sacrifice asked on the table: ${alice.screen()}") { alice.shows(bar) }
         assertFalse(alice.shows(hasContentDescription("Cast panel")), "no panel: ${alice.screen()}")
-        // TBL-117 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"; owner notes 2026-11-14): the Pups'
+        // TBL-117, TBL-173 (owner gallery review 2026-11-10, gallery 145: "I can't see the highlight here?"; owner notes 2026-11-14): the Pups'
         // closed stack, which a tap spreads open, shows as pickable as a whole with the glow of a pile holding choices, both members
         waitUntil("both Pups of the closed stack glow as choices inside: ${alice.marks("Ash Pup")}, ${alice.marks("Ash Pup", 1)}") {
             "choices inside" in alice.marks("Ash Pup") && "choices inside" in alice.marks("Ash Pup", 1)
         }
         alice.battlefieldCard("Ash Pup").performClick()
         if (alice.shows(bar) && alice.field("Ash Pup").size == 2) {
-            // TBL-130: a tap on a stack of identical Pups opens it first; a tap on a member picks it
+            // TBL-130, TBL-165, TBL-166: a tap on a stack of identical Pups opens it first; a tap on a member picks it
             waitUntil("the Pups opened") { alice.marks("Ash Pup", 1).contains("target") }
             alice.battlefieldCard("Ash Pup", index = 1).performClick()
         }
@@ -195,7 +195,7 @@ class PickOnTableTest : E2e() {
         waitUntil("None on the main button, greyed") { alice.shows(hasTestTag("main-button") and hasContentDescription("None") and isNotEnabled()) }
         alice.battlefieldCard("Ash Pup").performClick()
         if (alice.marks("Ash Pup").none { it == "picked" } && alice.marks("Ash Pup", 1).none { it == "picked" }) {
-            // TBL-130: the first tap on the Pups' stack opened it
+            // TBL-130, TBL-165: the first tap on the Pups' stack opened it
             waitUntil("the Pups opened") { "target" in alice.marks("Ash Pup", 1) }
             alice.battlefieldCard("Ash Pup").performClick()
         }

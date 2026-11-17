@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 class InspectChangesTest {
     private val f = TableStatesFixture
 
-    // TBL-104: counters (owner, 2026-11-11: every counter in words, loyalty too), damage, what it is attached to and the enter
+    // TBL-104, TBL-181, TBL-182: counters (owner, 2026-11-11: every counter in words, loyalty too), damage, what it is attached to and the enter
     // mark, in that order; an unchanged card and a card off the battlefield have none
     @Test fun aCardListsItsCountersDamageAttachmentAndEnterMark() {
         val creature = f.source(f.a, "1/3")
@@ -31,7 +31,7 @@ class InspectChangesTest {
         ), InspectChanges.of(play, f.a, shown, emptyMap()).mapValues { (_, lines) -> lines.map { it.text } })
     }
 
-    // ZON-091, TBL-104: a card in exile lists its counters (a suspended card's time counters, CR 702.62a), nothing else
+    // ZON-091, TBL-104, TBL-185: a card in exile lists its counters (a suspended card's time counters, CR 702.62a), nothing else
     @Test fun aCardInExileListsItsCounters() {
         val board = f.initial.board
         val exile = f.id("a/EXILE")

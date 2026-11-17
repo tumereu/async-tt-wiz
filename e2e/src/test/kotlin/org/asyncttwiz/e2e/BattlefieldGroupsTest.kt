@@ -29,7 +29,7 @@ class BattlefieldGroupsTest : E2e() {
         waitUntil("$name on Alice's battlefield", along = listOf(bob)) { alice.field(name).size > before && alice.inOwnMain() }
     }
 
-    // TBL-053, TBL-054, TBL-130, TBL-122: two identical Ember Shards lie in one stack (×2); a tap on the stack taps one of
+    // TBL-053, TBL-177, TBL-054, TBL-130, TBL-163, TBL-122: two identical Ember Shards lie in one stack (×2); a tap on the stack taps one of
     // them for its mana at once (no menu, no opening); the next tap taps the other, the untapped one; the two stay one stack
     @Test fun aTapOnAStackOfIdenticalCardsTapsOneOfThem() {
         startGame(TestDeck("Shards", listOf(TestCards.mountain to 20, TestCards.shard to 20)),
@@ -53,7 +53,7 @@ class BattlefieldGroupsTest : E2e() {
         waitUntil("the other Shard tapped too") { alice.tapped(shards) == 2 && alice.pool() == pool + 2 }
     }
 
-    // TBL-130, TBL-117, TBL-053: Alice's Ash Hound wears an Ember Blade; both have an ability she can use now (the pump,
+    // TBL-130, TBL-164, TBL-117, TBL-053, TBL-179: Alice's Ash Hound wears an Ember Blade; both have an ability she can use now (the pump,
     // the Equip), so the first tap on the Hound only opens the group (the Blade beside it, nothing used); the second tap on
     // the Hound pumps it, which closes the group again (the Blade back behind the Hound)
     @Test fun anEquippedCreatureOpensOnTheFirstTapAndActsOnTheSecond() {

@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Owner, 2026-11-08 (TBL-053): the tapped members of a stack lie on top, also where a new member joins or stacks merge, and
+ * Owner, 2026-11-08 (TBL-053, TBL-177): the tapped members of a stack lie on top, also where a new member joins or stacks merge, and
  * entered this turn splits only creatures. Alice taps her Mountain and plays another: it joins the stack at once, the
  * tapped one on top. Her Pup attacks (tapped) and a new Pup, entered this turn, lies apart until the turn ends; the two
  * then merge with the tapped one on top.
@@ -22,7 +22,7 @@ class PileOrderTest : E2e() {
     }
     private fun E2ePlayer.tapped(card: String) = state.battlefield.first { atw(it) == card }.let { state.obj(it)?.tapped == true }
 
-    // TBL-053, TBL-027, TBL-130, TBL-054
+    // TBL-053, TBL-177, TBL-027, TBL-130, TBL-054
     @Test fun tappedMembersLieOnTopAndOnlyCreaturesStayApart() {
         // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
         // as playing along through his turn he plays one if he holds it, else his cleanup's discard waits for him

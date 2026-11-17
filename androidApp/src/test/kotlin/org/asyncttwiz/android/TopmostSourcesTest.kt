@@ -8,7 +8,7 @@ import arcanum.engine.view.AbilityOrigin
 import org.junit.Test
 import kotlin.test.assertEquals
 
-/** Autotap's sources in a stack of identical permanents: the topmost members (TBL-130, STK-024, STK-158, ZON-079, ZON-101). */
+/** Autotap's sources in a stack of identical permanents: the topmost members (TBL-130, TBL-163, STK-024, STK-158, ZON-079, ZON-101). */
 class TopmostSourcesTest {
     private fun obj(id: String) = ObjectId.Card(CardId(id), 0)
     private val tap = AbilityOrigin.Printed(0, 0)
@@ -16,7 +16,7 @@ class TopmostSourcesTest {
     private val mountains = BattlefieldGroup("stack:m1", "a", BattlefieldRow.Lands, listOf("m1", "m2", "m3", "m4"), BattlefieldGroup.Kind.Stack)
     private val card: (ObjectId) -> String? = { (it as? ObjectId.Card)?.card?.value }
 
-    // TBL-130, STK-024, STK-158 (owner playtest 2026-11-07): the engine's suggestion takes the first Mountains; the table makes it
+    // TBL-130, TBL-163, STK-024, STK-158 (owner playtest 2026-11-07): the engine's suggestion takes the first Mountains; the table makes it
     // the topmost ones able to make the same mana, a source not offered (tapped) passed over; other uses stay as they are
     @Test fun autotapTakesTheTopmostMembersOfAStack() {
         val options = listOf(red("m1"), red("m2"), red("m3"), red("m4"), red("lone"), ManaUse.Pool(0))
@@ -28,7 +28,7 @@ class TopmostSourcesTest {
         assertEquals(listOf(red("m2")), TopmostSources.of(listOf(red("m2")), options, emptyList(), card), "no stacks: unchanged")
     }
 
-    // ZON-079, ZON-101, TBL-130: the outlined sources of a stack are its topmost untapped members, as many as Autotap takes
+    // ZON-079, ZON-101, TBL-130, TBL-163: the outlined sources of a stack are its topmost untapped members, as many as Autotap takes
     @Test fun theOutlinedSourcesAreTheTopmostUntapped() {
         assertEquals(setOf("m3", "m2", "lone"),
             TopmostSources.cards(setOf("m1", "m2", "lone"), listOf(mountains)) { it == "m4" })

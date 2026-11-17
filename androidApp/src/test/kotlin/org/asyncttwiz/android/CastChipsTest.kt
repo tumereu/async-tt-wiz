@@ -227,7 +227,7 @@ class CastChipsTest {
         assertEquals(setOf(mountain), toolkit.cast.paySources())
     }
 
-    // STK-024, STK-156, TBL-053 (owner, 2026-11-09): a source picked in a payment leaves its stack for a pile of its own, right of it, and
+    // STK-024, STK-156, TBL-053, TBL-178 (owner, 2026-11-09): a source picked in a payment leaves its stack for a pile of its own, right of it, and
     // goes back when it is taken out
     @Test fun aPickedSourceLiesInItsOwnPileToTheRightOfItsStack() {
         kit.opening()

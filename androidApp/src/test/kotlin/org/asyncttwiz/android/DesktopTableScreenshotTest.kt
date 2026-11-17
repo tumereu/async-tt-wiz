@@ -94,7 +94,7 @@ class DesktopTableScreenshotTest {
         }
 
     private val picturedBoards = java.util.IdentityHashMap<TableBoard, TableBoard>()
-    /** TBL-139: [play] with every card face given a printing of the test pictures ([PlaceholderArtwork]), as real cards have:
+    /** TBL-139, TBL-146: [play] with every card face given a printing of the test pictures ([PlaceholderArtwork]), as real cards have:
      * the engine fixture's cards have none, so they keep the app's frame. */
     private fun pictured(play: TableBoard): TableBoard = picturedBoards.getOrPut(play) {
         play.copy(definitions = play.definitions.map { submitted -> submitted.copy(definition = submitted.definition.copy(
@@ -260,7 +260,7 @@ class DesktopTableScreenshotTest {
         assertEquals(cub.id, kit.toolkit.popupItem?.id, "the click a tap on the Cub (its menu open)")
     }
 
-    // WEB-015, TBL-139 (owner playtest 2026-11-15, as in MTG Arena; owner 2026-11-16): Alice's hand is a fan at the bottom of her
+    // WEB-015, TBL-139, TBL-146 (owner playtest 2026-11-15, as in MTG Arena; owner 2026-11-16): Alice's hand is a fan at the bottom of her
     // desktop table between her seat header and the action area, its cards partly below the window's bottom, drawn as their
     // printed pictures; the mouse on her Mountain only draws it over the others where it lies, its Play chip faded above it; a
     // click raises it (ZON-079): it pops out of the fan along its own turn, keeping it, whole in view, its Play chip above it
@@ -299,7 +299,7 @@ class DesktopTableScreenshotTest {
             "Alice clicked her Mountain in the desktop table's hand fan and moved the mouse away: it popped out of the fan along its own turn, keeping its angle, whole in view and over the others, its Play chip above it.")
     }
 
-    // TBL-139 (owner 2026-11-16): with "Battlefield cards: full picture" on in the desktop layout's Settings, Alice's battlefield
+    // TBL-139, TBL-146, TBL-147 (owner 2026-11-16): with "Battlefield cards: full picture" on in the desktop layout's Settings, Alice's battlefield
     // shows its cards as their printed pictures with a thin border in her colour, while the Stack and her piles keep the app's
     // frame
     @Test fun battlefieldCardsAsFullPictures() {

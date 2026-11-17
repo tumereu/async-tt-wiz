@@ -31,7 +31,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertTrue
 
 /**
- * Owner playtest 2026-11-05 evening: a battlefield card's ability chips (TBL-124) and a hand card's way chips (ZON-080, ZON-109)
+ * Owner playtest 2026-11-05 evening: a battlefield card's ability chips (TBL-124, TBL-156, TBL-159) and a hand card's way chips (ZON-080, ZON-109)
  * wrap long texts onto more rows instead of cutting them, and mana and tap symbols are drawn as symbols wherever text
  * shows them (the chips, a card menu's rows).
  */
@@ -52,10 +52,10 @@ class ChipTextTest {
 
     private val long = "{2}{G}, {T}, Sacrifice this artifact: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
 
-    // TBL-124: an ability's chip reads as on the card, cost first in symbols ({T} a turning arrow), then the effect; a long
+    // TBL-124, TBL-156, TBL-159, TBL-158: an ability's chip reads as on the card, cost first in symbols ({T} a turning arrow), then the effect; a long
     // effect wraps onto more rows (none of it cut); the chips take the fewest rows (owner gallery review 2026-11-06): in
     // card order they would take three, so the third chip moves up beside the first
-    // TBL-124 (owner, 2026-11-09): an ability not usable now shows on its chip greyed, saying why; a tap on it activates nothing
+    // TBL-124, TBL-160 (owner, 2026-11-09): an ability not usable now shows on its chip greyed, saying why; a tap on it activates nothing
     @Test fun aGreyedAbilityChipSaysWhyAndOnlyShakes() {
         val add = "{T}: Add {R}."
         val gain = "{5}: You gain 1 life."
@@ -168,7 +168,7 @@ class ChipTextTest {
             "Three card menu rows whose ability texts draw their mana and tap symbols as symbols: the tap arrow for G, an X damage ability with a red-green hybrid and the tap arrow, and a greyed one with a blue Phyrexian and the untap symbol, the arrow mirrored.")
     }
 
-    // TBL-124: {T} is drawn as a turning arrow, as printed, and {Q} as the same arrow mirrored on a purple badge (owner
+    // TBL-124, TBL-159: {T} is drawn as a turning arrow, as printed, and {Q} as the same arrow mirrored on a purple badge (owner
     // gallery review 2026-11-06); the letters in the badges are optically centred
     @Test fun tapAndUntapSymbolsAreArrows() {
         compose.setContent {

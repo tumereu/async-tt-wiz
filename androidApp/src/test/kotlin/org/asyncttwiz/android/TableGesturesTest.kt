@@ -286,7 +286,7 @@ class TableGesturesTest {
         }
     }
 
-    // SYS-041, TBL-001 (D2): with a panel open the board pans up past it by the panel's height; once it closes the table
+    // SYS-041, SYS-150, TBL-001 (D2): with a panel open the board pans up past it by the panel's height; once it closes the table
     // stays where it is (a tap moves nothing, nothing pans by itself) until the next pan, which settles in the usual bounds
     @Test fun panPastAnOpenPanelThenStayUntilTheNextPan() {
         val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, 400f, 800f))
@@ -479,7 +479,7 @@ class TableGesturesTest {
         }
     }
 
-    // TBL-131 (owner 2026-11-06): while inspecting, a drag to the left is the pinned swipe's (measured in dp from where the
+    // TBL-131, TBL-186 (owner 2026-11-06): while inspecting, a drag to the left is the pinned swipe's (measured in dp from where the
     // hold began, nothing scrolls meanwhile); once the finger has scrolled up or down, sideways movement stays the scroll's
     @Test fun aHeldDragToTheLeftIsThePinnedSwipeUnlessScrollingBegan() {
         for (scrollFirst in listOf(false, true)) {
@@ -543,7 +543,7 @@ class TableGesturesTest {
             val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
             for (field in scene.fields.filter { it.owner == owner }) {
                 val band = assertNotNull(field.landsBounds(field.owner == "a", scene.camera).intersection(field.bounds))
-                // Left of the Stack, pinned at the right edge over the battlefields (STK-007, TBL-009)
+                // Left of the Stack, pinned at the right edge over the battlefields (STK-007, TBL-009, TBL-145)
                 val end = TablePoint(minOf(field.bounds.right, scene.stackRegion!!.x) - 24, band.center.y)
                 val events = mutableListOf<TableIntent>()
                 val gesture = TableGestureCoordinator(events::add)
@@ -790,7 +790,7 @@ class TableGesturesTest {
         val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", 640f, 260f, true,
             TableLayoutState(TableCamera(zoom = 2f)))
         val f = Fixture(scene)
-        // The battlefield's empty room just left of the Stack (pinned at the right edge, TBL-009) pans the camera.
+        // The battlefield's empty room just left of the Stack (pinned at the right edge, TBL-009, TBL-145) pans the camera.
         val background = TablePoint(scene.stackRegion!!.x - 4f, scene.stackRegion!!.center.y)
         f.gestures.down(background, 0)
         f.gestures.transform(TablePoint(0f, -60f), 1f, background)

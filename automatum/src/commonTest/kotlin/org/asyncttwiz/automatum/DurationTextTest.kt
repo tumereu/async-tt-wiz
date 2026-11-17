@@ -29,7 +29,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * TBL-104 (owner, 2026-11-07): Inspect says when each continuous effect ends in concrete words read from the effect's
+ * TBL-104, TBL-184 (owner, 2026-11-07): Inspect says when each continuous effect ends in concrete words read from the effect's
  * own data (the player, step, source, card or condition it names), never "until a later step" or "for as long as its
  * condition holds".
  */

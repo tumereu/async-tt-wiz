@@ -49,7 +49,7 @@ class StackAbilityTest : E2e() {
         assertTrue("Card image: Ember Herald" !in shown, "$where: no picture of the Herald: $shown")
     }
 
-    // TBL-104, STK-050, STK-122, STK-046 (owner, 2026-11-05: not yet seen working on the phone; 2026-11-06: the tile alone): Bob's
+    // TBL-104, TBL-185, STK-050, STK-122, STK-046 (owner, 2026-11-05: not yet seen working on the phone; 2026-11-06: the tile alone): Bob's
     // playback stops at Alice's Herald trigger; holding the ability token on the Stack inspects it (its tile only);
     // lifting closes it; the Stack list names it as the Herald's ability
     @Test fun holdingAnAbilityOnTheStackInspectsIt() {

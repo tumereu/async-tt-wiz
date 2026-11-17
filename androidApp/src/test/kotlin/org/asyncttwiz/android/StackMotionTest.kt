@@ -51,7 +51,7 @@ class StackMotionTest {
         assertEquals("resolved", queue.board(3, steps, live).nodeId)
     }
 
-    // STK-058, HIS-230, TBL-125: while the top entry's arrows play a newer board waits; a take-back never does
+    // STK-058, HIS-230, TBL-125, TBL-150: while the top entry's arrows play a newer board waits; a take-back never does
     @Test fun aNewerBoardWaitsForTheArrowsButATakeBackDoesNot() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EngineWorker.Direct)
         val live = game.shown!!.board

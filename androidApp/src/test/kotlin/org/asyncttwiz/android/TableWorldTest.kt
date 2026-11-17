@@ -9,7 +9,7 @@ class TableWorldTest {
     // bounds) doesn't count them
     @Test fun panExposesThreeEmptySlotsBeyondBothBattlefieldsWithoutChangingFitBounds() {
         val f = TableStatesFixture
-        // Sixty more creatures of Alice's, each different: her creatures (two rows of them, TBL-004) are wider than either
+        // Sixty more creatures of Alice's, each different: her creatures (two rows of them, TBL-004, TBL-140) are wider than either
         // screen at every zoom
         val combat = f.combat()
         val creature = f.source(f.a, "1/3")
@@ -55,7 +55,7 @@ class TableWorldTest {
             }
     }
 
-    // SYS-041, TBL-001 (D2): an open panel lets the world pan up by its height at every zoom, the bottom of small content
+    // SYS-041, SYS-150, TBL-001 (D2): an open panel lets the world pan up by its height at every zoom, the bottom of small content
     // too; holding a camera past the usual bounds extends them just enough to keep it where it is
     @Test fun anOpenPanelExtendsThePanBoundsUpwardByItsHeight() {
         val viewport = TableBounds(0f, 0f, 400f, 400f)

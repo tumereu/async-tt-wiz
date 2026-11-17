@@ -5,11 +5,11 @@ import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** TBL-124 (owner gallery review 2026-11-06): ability chips take the fewest rows in a stable order close to the card's. */
+/** TBL-124, TBL-158 (owner gallery review 2026-11-06): ability chips take the fewest rows in a stable order close to the card's. */
 class ChipRowsTest {
     private val gap = 4f
 
-    // TBL-124: card order wrapped as it comes when that already takes the fewest rows
+    // TBL-124, TBL-158: card order wrapped as it comes when that already takes the fewest rows
     @Test fun cardOrderStaysWhenItTakesTheFewestRows() {
         assertEquals(listOf(listOf(0, 1), listOf(2)), ChipRows.rows(listOf(100f, 100f, 100f), 250f, gap))
         assertEquals(listOf(listOf(0, 1, 2)), ChipRows.rows(listOf(60f, 80f, 90f), 250f, gap))
@@ -17,7 +17,7 @@ class ChipRowsTest {
         assertEquals(emptyList(), ChipRows.rows(emptyList(), 250f, gap))
     }
 
-    // TBL-124: when card order would take an extra row, the chips share rows differently, as close to card order as can be
+    // TBL-124, TBL-158: when card order would take an extra row, the chips share rows differently, as close to card order as can be
     @Test fun fewerRowsOutOfOrderWhenCardOrderTakesMore() {
         // In order: [150] [150, 90] [90], three rows; two rows can hold them
         assertEquals(listOf(listOf(0, 2), listOf(1, 3)), ChipRows.rows(listOf(150f, 150f, 90f, 90f), 250f, gap))
@@ -25,12 +25,12 @@ class ChipRowsTest {
         assertEquals(listOf(listOf(0, 2), listOf(1, 3)), ChipRows.rows(listOf(180f, 180f, 60f, 60f), 250f, gap))
     }
 
-    // TBL-124: a chip wider than a row has a row of its own
+    // TBL-124, TBL-158: a chip wider than a row has a row of its own
     @Test fun aChipWiderThanARowHasItsOwn() {
         assertEquals(listOf(listOf(0), listOf(1, 2)), ChipRows.rows(listOf(400f, 50f, 50f), 250f, gap))
     }
 
-    // TBL-124: deterministic, the fewest rows there can be, every chip once, each row fitting and in card order; card order
+    // TBL-124, TBL-158: deterministic, the fewest rows there can be, every chip once, each row fitting and in card order; card order
     // whenever it already takes the fewest rows (several chip-width sets)
     @Test fun alwaysTheFewestRowsAndTheSameRowsForTheSameWidths() {
         val random = Random(2026_11_06)

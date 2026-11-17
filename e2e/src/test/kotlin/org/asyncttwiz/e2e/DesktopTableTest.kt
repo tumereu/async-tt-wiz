@@ -246,7 +246,7 @@ class DesktopTableTest : E2e() {
         return alice.handCard(name, index).fetchSemanticsNode().boundsInWindow to resting
     }
 
-    // TBL-117 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
+    // TBL-117, TBL-168 (owner, desktop playtest 2026-11-14: "No 'playable card' highlight for hand cards like in mobile or all cards
     // are highlight?"), WEB-022, WEB-015: at Alice's Main 1 with no land out, her Mountain may be played and glows around it as
     // on the phone, as far from the card for its size; her Ember Cub, which she can't pay for, doesn't. Each is looked at with
     // the mouse on it, drawn over the others where it lies in the fan (owner 2026-11-16: hovering moves nothing), just above
@@ -274,7 +274,7 @@ class DesktopTableTest : E2e() {
         assertTrue(cub - cubField <= 3, "the Cub doesn't glow: $cub over $cubField")
     }
 
-    // WEB-024, TBL-132, TBL-133 (owner 2026-11-15): on the desktop table nothing clicks a change, so Inspect by Alt held shows a
+    // WEB-024, TBL-132, TBL-195, TBL-133, TBL-191 (owner 2026-11-15): on the desktop table nothing clicks a change, so Inspect by Alt held shows a
     // change line's explanation at once with its source: Alice casts her Ash Pup, then Ember Beckoning has the Ring tempt her;
     // Alt held over the Pup shows its Ring-bearer line, "From The Ring" and what a Ring-bearer is, without any click
     @Test fun altInspectExplainsAChangeWithoutAClick() {
@@ -428,7 +428,7 @@ class DesktopTableTest : E2e() {
         return ((pixel shr 16) and 255) - (pixel and 255)
     }
 
-    // TBL-139, WEB-022 (owner 2026-11-16): in her desktop layout's Settings Alice finds "Hand cards: full picture" on and
+    // TBL-139, TBL-146, WEB-022 (owner 2026-11-16): in her desktop layout's Settings Alice finds "Hand cards: full picture" on and
     // "Battlefield cards: full picture" off; her Ember Twin on the battlefield (with its token copy, the test cards' one card
     // with a picture) shows the app's white frame. She turns the battlefield's on: back at the table the Twin shows its whole
     // printed card (the test pictures' beige text box low on the card, where the app's frame is white)

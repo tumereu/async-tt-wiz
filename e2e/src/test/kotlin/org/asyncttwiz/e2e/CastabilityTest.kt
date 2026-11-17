@@ -257,7 +257,7 @@ class CastabilityTest : E2e() {
         assertEquals(3, alice.tappedCount("Ember Shard"))
     }
 
-    // TBL-117, TBL-122, STK-024, STK-155 (spec §1.2, §6.7): floated mana counts and is spent first; the check doesn't look for "tap this first":
+    // TBL-117, TBL-169, TBL-170, TBL-122, STK-024, STK-155 (spec §1.2, §6.7): floated mana counts and is spent first; the check doesn't look for "tap this first":
     // tapping your Sprite makes it the tapped target and the card then glows and can be cast
     @Test fun tappingYourCreatureFirstMakesItTheTappedTargetAndTheCardThenCasts() {
         start(deck(TestCards.shard to 14, TestCards.rebuke to 13, TestCards.sprite to 13), mapOf("Ember Shard" to 1, "Ember Rebuke" to 1, "Ember Sprite" to 1))
@@ -480,7 +480,7 @@ class CastabilityTest : E2e() {
         }
     }
 
-    // STK-024, TBL-117 (spec §1.3, §6.11): a way exists but Autotap finds none: the panel opens and you pay by hand
+    // STK-024, TBL-117, TBL-170 (spec §1.3, §6.11): a way exists but Autotap finds none: the panel opens and you pay by hand
     @Test fun aWayAutotapDoesNotFindOpensThePanel() {
         start(deck(TestCards.shard to 14, TestCards.xStone to 13, TestCards.blueNote to 13), mapOf("Ember Shard" to 1, "Measure Stone" to 1, "Blue Note" to 1))
         plays(alice, "Ember Shard", "Measure Stone")
@@ -577,7 +577,7 @@ class CastabilityTest : E2e() {
         assertTrue(alice.state.player(alice.me).manaPool.isEmpty())
     }
 
-    // TBL-122, TBL-124 (owner, 2026-11-09): a card with two or more activated abilities (a mana ability counts) opens its chips
+    // TBL-122, TBL-153, TBL-124, TBL-160 (owner, 2026-11-09): a card with two or more activated abilities (a mana ability counts) opens its chips
     // even with only one usable now, the other greyed with why, activating nothing; a source with one ability stays one tap
     @Test fun aCardWithTwoAbilitiesOpensItsChipsEvenWithOneUsableAndOneAbilityStaysOneTap() {
         start(deck(TestCards.cairn to 20, TestCards.shard to 20), mapOf("Ember Cairn" to 1, "Ember Shard" to 1))
@@ -598,7 +598,7 @@ class CastabilityTest : E2e() {
         waitUntil("the mana chip activated") { alice.state.player(alice.me).manaPool.size == 2 && alice.tappedCount("Ember Cairn") == 1 && !alice.shows(add) }
     }
 
-    // TBL-124 (owner, 2026-11-12: chips said only "Mana ability"): a dual land's two mana abilities, given by its land types (CR
+    // TBL-124, TBL-157 (owner, 2026-11-12: chips said only "Mana ability"): a dual land's two mana abilities, given by its land types (CR
     // 305.6) with no printed text, read as the mana they make; no chip says "Mana ability"
     @Test fun aDualLandsChipsNameTheManaTheyMake() {
         start(deck(TestCards.ridge to 40), mapOf("Ember Ridge" to 1))
@@ -612,7 +612,7 @@ class CastabilityTest : E2e() {
         waitUntil("the green chip activated") { alice.state.player(alice.me).manaPool.size == 1 && alice.tappedCount("Ember Ridge") == 1 }
     }
 
-    // TBL-122, TBL-124, STK-024, STK-158 (owner, 2026-11-09): during a payment a tap on a source with two abilities still only picks it
+    // TBL-122, TBL-154, TBL-124, STK-024, STK-158 (owner, 2026-11-09): during a payment a tap on a source with two abilities still only picks it
     @Test fun duringAPaymentATapPicksTheSourceWithoutItsChips() {
         start(deck(TestCards.cairn to 20, TestCards.redFlash to 20), mapOf("Ember Cairn" to 1, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
         plays(alice, "Ember Cairn")
@@ -625,7 +625,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Flash resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() }
     }
 
-    // TBL-124, TBL-123 (owner playtest 2026-11-10): a tap on the other player's permanent whose abilities you may not activate
+    // TBL-124, TBL-162, TBL-161, TBL-123 (owner playtest 2026-11-10): a tap on the other player's permanent whose abilities you may not activate
     // shows none of them (no chips, no menu), and no chips while targets are picked, on your own permanents or theirs
     @Test fun noAbilityChipsWhileTargetingOrOnTheOtherPlayersPermanents() {
         start(deck(TestCards.cairn to 20, TestCards.flick to 20), mapOf("Ember Cairn" to 1, "Ember Flick" to 1),
@@ -655,7 +655,7 @@ class CastabilityTest : E2e() {
 
     private fun E2ePlayer.shardStack(n: Int) = hasContentDescription("Ember Shard, owner $name,", substring = true) and hasContentDescription("stack of $n", substring = true)
 
-    // STK-024, STK-156, TBL-053 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on, and goes out only
+    // STK-024, STK-156, TBL-053, TBL-178 (owner, 2026-11-09): a spell with convoke always opens the panel, also with Autotap on, and goes out only
     // with Cast; what pays it, Autotap's picks too, lies in its own pile to the right of its stack
     @Test fun aConvokeSpellAlwaysOpensThePanelAndWhatPaysItLiesInItsOwnPile() {
         start(deck(TestCards.shard to 20, TestCards.rally to 20), mapOf("Ember Shard" to 4, "Ember Rally" to 1))
@@ -671,7 +671,7 @@ class CastabilityTest : E2e() {
         waitUntil("the stack whole again") { alice.shows(alice.shardStack(4)) }
     }
 
-    // STK-024, STK-156, STK-158, TBL-130 (owner, 2026-11-09): in any payment a picked card moves into its own pile: picked by hand from a stack it
+    // STK-024, STK-156, STK-158, TBL-130, TBL-163 (owner, 2026-11-09): in any payment a picked card moves into its own pile: picked by hand from a stack it
     // leaves, a tap on it there takes it out and back; a partial override with Autotap on moves the same way
     @Test fun aPickedSourceMovesIntoItsOwnPileAndATapTakesItBack() {
         start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 3, "Red Flash" to 1), aliceSettings = PlaySettings(autotap = false))
@@ -702,7 +702,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Flash cast without a panel", along = listOf(bob)) { alice.tappedCount("Ember Shard") == 1 && alice.state.stack.isEmpty() && alice.inOwnMain() }
     }
 
-    // TBL-122, STK-025, STK-169, CR 605.3a (spec §6.12): during a cast non-mana abilities are refused: they shake, nothing happens
+    // TBL-122, TBL-154, STK-025, STK-169, CR 605.3a (spec §6.12): during a cast non-mana abilities are refused: they shake, nothing happens
     @Test fun nonManaAbilitiesAreRefusedDuringACast() {
         start(deck(TestCards.engineRock to 10, TestCards.brood to 10, TestCards.shard to 10, TestCards.emberStone to 10), mapOf("Ember Engine" to 1, "Ember Brood" to 1, "Ember Shard" to 1, "Ember Stone" to 1))
         plays(alice, "Ember Shard", "Ember Stone", "Ember Engine")

@@ -189,10 +189,10 @@ class TableAnimationTest {
         }
     }
 
-    // TBL-002
+    // TBL-002, TBL-143
     @Test fun adjacentGroupsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
         // Three different cards, each a group of its own one slot apart (the upper band's row nearest the middle from the right,
-        // the first rightmost; the 2nd and 4th cards lie behind them, TBL-004); tapping never moves a group
+        // the first rightmost; the 2nd and 4th cards lie behind them, TBL-004, TBL-140); tapping never moves a group
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f)) {
                 val initial = TableFixture.apart(TableFixture.play(board = 5))
                 fun scene(mask: Int): TableScene {

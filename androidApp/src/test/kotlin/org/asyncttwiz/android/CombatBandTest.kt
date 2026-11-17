@@ -389,7 +389,7 @@ class CombatBandTest {
         compose.onNodeWithContentDescription("Target: ${bobName()}").assertDoesNotExist()
     }
 
-    // TBL-117, CMB-028, CMB-068 (owner playtest 2026-11-06): while a finger is down on a glowing card its glow grows a little and
+    // TBL-117, TBL-176, CMB-028, CMB-068 (owner playtest 2026-11-06): while a finger is down on a glowing card its glow grows a little and
     // brightens
     @Test fun aFingerOnAGlowingCardGrowsItsGlow() {
         val attacker = aliceDeclaring()

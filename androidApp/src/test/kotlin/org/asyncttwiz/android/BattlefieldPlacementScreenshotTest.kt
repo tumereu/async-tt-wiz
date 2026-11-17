@@ -40,7 +40,7 @@ internal object BattlefieldPlacementFixture {
     val elemental = invented("elemental", "Elemental", "Token Creature — Elemental", power = "1", toughness = "1", token = true)
     val totem = invented("totem", "Spark Totem", "Artifact", "{2}", "{T}: This artifact deals 1 damage to any target.")
     val banner = invented("banner", "Quiet Banner", "Enchantment", "{1}")
-    /** A free two-target spell, in Alice's hand only with [play]'s `snare` (TBL-130: targets in a group). */
+    /** A free two-target spell, in Alice's hand only with [play]'s `snare` (TBL-130, TBL-165: targets in a group). */
     val snare = invented("snare", "Frost Snare", "Instant", "{0}", "Tap up to two target creatures.")
     val ruins = invented("ruins", "Vault Ruins", "Artifact Land", text = "{T}: Add {C}.")
     val warden = invented("warden", "Grove Warden", "Land Creature — Forest Dryad", "{G}", "{T}: Add {G}.", "1", "1")
@@ -169,7 +169,7 @@ class BattlefieldPlacementScreenshotTest {
         compose.waitForIdle()
     }
 
-    // TBL-053, TBL-054, TBL-027 (owner, 2026-11-08): the Mountain played this turn joined its stack at once, under the tapped
+    // TBL-053, TBL-177, TBL-054, TBL-027 (owner, 2026-11-08): the Mountain played this turn joined its stack at once, under the tapped
     // ones, which lie on top
     @Test fun aNewLandJoinsItsStackUnderTheTappedOnes() {
         play = f.play().let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
@@ -188,7 +188,7 @@ class BattlefieldPlacementScreenshotTest {
                 "the two untapped Mountains lie under the two tapped ones, which are turned and on top.")
     }
 
-    // TBL-004, TBL-053, TBL-117, TBL-122: lands from the left in the land row by each player's edge; in the upper band
+    // TBL-004, TBL-140, TBL-142, TBL-053, TBL-177, TBL-179, TBL-117, TBL-172, TBL-122: lands from the left in the land row by each player's edge; in the upper band
     // creatures from the left and the other permanents from the right, two-slot columns filled nearest the middle first;
     // identical permanents in one stack (lands fanned with their tapped members turned, tokens tight with ×3); the Blade
     // and the Ward peek out above the Hound they're on; the Hounds' stack glows cyan (a tap acts at once), the equipped
@@ -202,7 +202,7 @@ class BattlefieldPlacementScreenshotTest {
         assertEquals(3, scene.items.single { it.cardId == "a-elemental-3" }.copies)
         val board = engineTableBoard(play, "a")
         assertEquals(GroupTap.Expand, toolkit.groupTap(board, groups.getValue("host:${f.HOST}")))
-        // TBL-130: the topmost member able to (the Mountains' top one is tapped)
+        // TBL-130, TBL-163: the topmost member able to (the Mountains' top one is tapped)
         assertEquals(GroupTap.Act("a-hound-3"), toolkit.groupTap(board, groups.getValue("stack:a-hound-2")))
         assertEquals(GroupTap.Act("a-mountain-3"), toolkit.groupTap(board, groups.getValue("stack:a-mountain-1")))
         compose.onRoot().captureShot("$SCREENSHOTS/battlefield/both-sides.png",
@@ -225,7 +225,7 @@ class BattlefieldPlacementScreenshotTest {
                 "two-Hound stack glowing cyan, and the ×3 Elemental tokens.")
     }
 
-    // TBL-004, TBL-003, TBL-120, SYS-041 (owner playtest 2026-11-07): every land in the land row, the artifact land and the
+    // TBL-004, TBL-140, TBL-141, TBL-003, TBL-120, SYS-041 (owner playtest 2026-11-07): every land in the land row, the artifact land and the
     // land creature too; in the upper band the creatures fill two-slot columns from the left (the row nearest the middle
     // first) and the other permanents from the right; the creatures need more room than the screen's width, so the others
     // lie further right, a small margin after the last creature column
@@ -253,7 +253,7 @@ class BattlefieldPlacementScreenshotTest {
                 "width, so the others lie past its right edge, a small gap after the creatures.")
     }
 
-    // TBL-122: the first tap on the equipped Hound opens its group in place, the Hound, the Blade and the Ward side by side
+    // TBL-122, TBL-164, TBL-167: the first tap on the equipped Hound opens its group in place, the Hound, the Blade and the Ward side by side
     // (the Hound and the Blade glowing cyan); the rest of the row moves along. A tap on the empty table closes it
     @Test fun aTapOpensAGroupThatCouldMeanSeveralThings() {
         val toolkit = render()
@@ -283,7 +283,7 @@ class BattlefieldPlacementScreenshotTest {
     private fun picked(toolkit: TableToolkitController): List<String> = toolkit.cast.picked.map {
         (((it as arcanum.engine.state.TargetRef.Object).id) as arcanum.engine.state.ObjectId.Card).card.value }
 
-    // TBL-130, STK-047, STK-146 (owner 2026-11-07): while Alice picks the Frost Snare's two targets, a tap on the stack of two identical
+    // TBL-130, TBL-165, TBL-166, STK-047, STK-146 (owner 2026-11-07): while Alice picks the Frost Snare's two targets, a tap on the stack of two identical
     // Cinder Hounds opens it in place (the identical cards no longer count as one), each Hound glowing as a target; a tap
     // on a Hound picks it and the group stays open, a second tap unpicks it; the two Hounds are picked one tap each, and
     // once the targets are chosen the group closes
@@ -352,7 +352,7 @@ class BattlefieldPlacementScreenshotTest {
         if (moved != null) assertTrue(gap() > gapBefore, "the row moved along")
     }
 
-    // TBL-130, TBL-002: while Alice picks the Frost Snare's targets, a tap on Bob's stack of two Ember Cubs opens it in
+    // TBL-130, TBL-165, TBL-002: while Alice picks the Frost Snare's targets, a tap on Bob's stack of two Ember Cubs opens it in
     // place on his side, the two Cubs side by side, each glowing as a target; his Elementals stay behind them
     @Test fun whileTargetsArePickedAnOpenedGroupOfTwo() {
         play = f.play(snare = true)
@@ -363,7 +363,7 @@ class BattlefieldPlacementScreenshotTest {
                 "on his side, the two Cubs side by side, each framed in violet as a target, his Elementals behind them.")
     }
 
-    // TBL-130, TBL-002: while targets are picked, a tap on Alice's stack of three identical Cinder Hounds opens it in place,
+    // TBL-130, TBL-165, TBL-002: while targets are picked, a tap on Alice's stack of three identical Cinder Hounds opens it in place,
     // the three side by side, each glowing as a target; her Elemental tokens move along
     @Test fun whileTargetsArePickedAnOpenedGroupOfThree() {
         play = f.play(snare = true, hounds = 3)
@@ -376,7 +376,7 @@ class BattlefieldPlacementScreenshotTest {
                 "along to the right.")
     }
 
-    // TBL-130: while targets are picked, a tap on Alice's equipped Cinder Hound opens its group though it holds one target:
+    // TBL-130, TBL-165: while targets are picked, a tap on Alice's equipped Cinder Hound opens its group though it holds one target:
     // the Hound glows as a target, its Ember Blade and Ember Ward (no creatures) are dimmed
     @Test fun whileTargetsArePickedAnOpenedGroupDimsWhatIsNoTarget() {
         play = f.play(snare = true)
@@ -388,12 +388,12 @@ class BattlefieldPlacementScreenshotTest {
                 "creatures, dimmed; the Hound stack behind it stays, the tokens moved along to the right.")
     }
 
-    // TBL-130, TBL-002, STK-047, STK-146: while targets are picked, a tap on Alice's stack of six identical Cinder Hounds (one of
+    // TBL-130, TBL-165, TBL-166, TBL-002, TBL-143, STK-047, STK-146: while targets are picked, a tap on Alice's stack of six identical Cinder Hounds (one of
     // them tapped) opens it in place, the six side by side, the tapped one turned in its own slot; a tap on one picks it
     // and the group stays open
     @Test fun whileTargetsArePickedAnOpenedGroupOfSix() = groupOfSix(landscape = false)
 
-    // TBL-130, TBL-002, STK-047, STK-146: the same in landscape
+    // TBL-130, TBL-165, TBL-166, TBL-002, TBL-143, STK-047, STK-146: the same in landscape
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun whileTargetsArePickedAnOpenedGroupOfSixLandscape() =
         groupOfSix(landscape = true)
 
@@ -437,7 +437,7 @@ class BattlefieldPlacementScreenshotTest {
                 "(her equipped Hound, her Elemental tokens, Bob's Cubs and Elementals) each glow pulsing violet as a pile holding choices, a tap spreading them open.")
     }
 
-    // TBL-130: while targets are picked a tap elsewhere closes the opened group: a pick from it stays picked, a tap on
+    // TBL-130, TBL-167, TBL-165: while targets are picked a tap elsewhere closes the opened group: a pick from it stays picked, a tap on
     // another group (Bob's two Ember Cubs) opens that one instead, and a tap on the empty table closes it, the target
     // choice going on
     @Test fun whileTargetsArePickedATapElsewhereClosesTheGroup() {

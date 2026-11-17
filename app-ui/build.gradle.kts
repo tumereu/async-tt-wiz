@@ -17,12 +17,16 @@ kotlin {
         compileSdk = 37
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        withHostTest {}
     }
-    // Kotlin/Wasm for the web client. Browser only: Compose's Skia runtime (Skiko) doesn't load in Node, so this module's
-    // wasm tests will need a browser (decided with the web tests, docs/specs/web-client.md §1 item 6).
+    // Kotlin/Wasm for the web client. Browser only: Compose's Skia runtime (Skiko) doesn't load in Node, so the common
+    // tests and the browser-only code's tests run in headless Chrome (wasmJsBrowserTest, through Karma: the installed
+    // google-chrome, or CHROME_BIN). On the JVM the common tests are the Android host tests (`test`).
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
-        browser { testTask { enabled = false } }
+        browser { testTask { useKarma { useChromeHeadless() } } }
+        // Only so the tests are bundled with Skiko's runtime (Compose's check, CMP-4906); the served build is :webApp's.
+        binaries.executable()
     }
     sourceSets {
         commonMain.dependencies {
@@ -71,5 +75,29 @@ kotlin {
             implementation(libs.navigationevent)
             implementation(libs.navigationevent.compose)
         }
+        // The common tests of the shared UI's logic (presentation, controllers, timeline), on the JVM (the Android host tests)
+        // and in the browser. src/testFixtures holds the test boards they share with :androidApp's tests (a source folder of
+        // both).
+        commonTest {
+            kotlin.srcDir("src/testFixtures/kotlin")
+            dependencies {
+                implementation(libs.kotlin.test)
+                implementation(libs.coroutines.test)
+            }
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(project.dependencies.platform(libs.junit.bom))
+            implementation(libs.junit.jupiter)
+            runtimeOnly(libs.junit.launcher)
+            implementation(libs.kotlin.test.junit5)
+        }
     }
+}
+
+tasks.withType<Test>().configureEach { useJUnitPlatform() }
+
+tasks.register("test") {
+    group = "verification"
+    description = "Runs app-ui's common tests on the JVM (testAndroidHostTest)."
+    dependsOn("testAndroidHostTest")
 }

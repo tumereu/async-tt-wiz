@@ -42,7 +42,7 @@ menu, dialog, button and card-list conventions.
 
 - **SYS-036** Gameplay is the rules': each player makes their own decisions (their casts, passes, answers, declarations); the other player's answers may only be assumed where HIS-096 allows, and are confirmed or branched by their real answer. Hidden information stays hidden. (r48)
 - **SYS-037** The only allowed differences between players: quick actions and defaults fit the acting player, and hidden information the opponent owns is not shown. (r48)
-- **SYS-038** These rules still hold: only game members act, you undo only back to your own actions (past the other player's, their passes aside, only by an undo request, HIS-099), and personal proposals belong to their author (withdrawing a result suggestion). (r48)
+- **SYS-038** These rules still hold: only game members act, an undo goes back to an earlier point and takes back everything after it, never one event from the middle (HIS-086); going back past the other player's real input (their passes don't count, HIS-202) needs their approval by an undo request (HIS-099), and personal proposals belong to their author (withdrawing a result suggestion). (r48)
 - **SYS-039** The app hides hidden information on screen only, a deliberate trust-the-client choice. Inspection never shows a hidden side, nor the value of the other player's secret choice before it is revealed (TBL-133). (r76)
 
 ## Connection

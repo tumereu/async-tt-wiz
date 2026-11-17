@@ -48,7 +48,7 @@ class CombatHoldTest : E2e() {
         alice.stageAttacker("Ash Pup", this)
     }
 
-    // HIS-113, LOB-082, HIS-112: both phones hold on the attackers, the game going on past Alice's hold on Bob's phone only as
+    // HIS-113, HIS-146, HIS-148, LOB-082, HIS-112: both phones hold on the attackers, the game going on past Alice's hold on Bob's phone only as
     // far as he is shown; a single tap does nothing, a double tap skips Alice's; then the damage holds both, each ended by
     // its time
     @Test fun aCombatHoldsBothViewsOnTheAttackersAndTheDamage() {
@@ -71,7 +71,7 @@ class CombatHoldTest : E2e() {
             val field = alice.battlefieldBounds()
             run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
             alice.doubleTapTable()
-            // Skipped, her phone goes on at once by itself (HIS-096: Bob's passes right after her attack are assumed, and he has
+            // Skipped, her phone goes on at once by itself (HIS-096, HIS-180: Bob's passes right after her attack are assumed, and he has
             // no blockers) to the damage, which may hold her view already
             waitUntil("Alice's hold skipped") { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
             assertTrue(!alice.refusalSeen)
@@ -97,7 +97,7 @@ class CombatHoldTest : E2e() {
             .fetchSemanticsNodes().any { field.contains(it.boundsInRoot.center) }
     }.getOrDefault(false)
 
-    // HIS-113, TBL-024 (owner playtest 2026-11-09: the view paused before the damage showed, and nothing paused on creatures
+    // HIS-113, HIS-147, TBL-024 (owner playtest 2026-11-09: the view paused before the damage showed, and nothing paused on creatures
     // about to die): Alice attacks with two Pups and Bob blocks one with his Pup. Alice's view holds on the damage right after
     // it is dealt: Bob's life down by one and the two blocked Pups still on the battlefields, each with its damage marked,
     // though the game already put them into the graveyards; once the hold ends they die on her screen. Bob's phone holds
@@ -177,7 +177,7 @@ class CombatHoldTest : E2e() {
         assertNotNull(alice.game)
     }
 
-    // HIS-113, HIS-021 (owner, 2026-11-08): a finger held on the table pauses the attackers' hold however long it stays,
+    // HIS-113, HIS-148, HIS-021, HIS-126, HIS-127, HIS-128 (owner, 2026-11-08): a finger held on the table pauses the attackers' hold however long it stays,
     // with the pause icon in the corner and nothing of Alice's own made meanwhile; lifted, the hold goes on and ends by itself.
     // Bob's phone is never held by it
     @Test fun aHeldFingerPausesTheCombatHold() {
@@ -199,7 +199,7 @@ class CombatHoldTest : E2e() {
         }
     }
 
-    // HIS-113, HIS-021 (full e2e run 2026-11-15): Alice's table stays the one she has as the attackers' hold begins and ends.
+    // HIS-113, HIS-021, HIS-126 (full e2e run 2026-11-15): Alice's table stays the one she has as the attackers' hold begins and ends.
     // It was made anew as the hold began, and a finger already down on it lost its hold and the pause (whether the finger
     // came down before or after that was timing: aHeldFingerPausesTheCombatHold failed only now and then)
     @Test fun theTableStaysTheSameThroughTheCombatHold() {

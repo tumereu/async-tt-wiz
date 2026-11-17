@@ -272,7 +272,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
 
     /**
      * Each deck in the order whose shuffle at the game's start deals what the fixture always dealt: the scenarios here were
-     * written on the libraries the game's single stream gave (I-D56 §9 before each player had their own, HIS-042), so the
+     * written on the libraries the game's single stream gave (I-D56 §9 before each player had their own, HIS-042, HIS-192), so the
      * fixture orders each deck so that its owner's own stream shuffles it into that same order (same cards, same ids).
      */
     private val dealt = decks.mapValues { (p, deck) -> singleStreamDeal(secret, p, listOf(startingPlayer, other).indexOf(p), deck) }
@@ -309,7 +309,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
 
     /** The snapshot a device loads at the start (both local heads at the start event); with [otherKept], after the other
      * player's [keep] (both local heads there): the starting player's keep then begins the first turn. By default the
-     * player plays on while the other is away: "Always assume resolves" on (HIS-096). */
+     * player plays on while the other is away: "Always assume resolves" on (HIS-096, HIS-181). */
     fun snapshot(settings: org.asyncttwiz.protocol.game.PlaySettings? = PLAYS_ON, otherKept: Boolean = false): EngineSnapshot =
         if (otherKept) EngineSnapshot(codec.encodeDefinitions(), f.id("root"), keep.id, codec.encodeModel(kept),
             localHeads = mapOf(a to keep.id, b to keep.id), settings = settings)
@@ -329,12 +329,12 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         engine = EngineUpdate(localHeads = heads))
 }
 
-/** A player who plays on while the other is away (HIS-096: the other player's pauses assumed at once). */
+/** A player who plays on while the other is away (HIS-096, HIS-181: the other player's pauses assumed at once). */
 internal val PLAYS_ON = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always)
 
 /**
  * [deck] (of [player], whose shuffle was the [k]-th random answer of the game's start) in the order whose shuffle by its
- * owner's own stream (HIS-042, 2026-11-15) deals what the game's single stream dealt before each player had their own: test
+ * owner's own stream (HIS-042, HIS-192, 2026-11-15) deals what the game's single stream dealt before each player had their own: test
  * scenarios written on those libraries keep the same cards in the same places (same ids).
  */
 internal fun <T> singleStreamDeal(secret: String, player: String, k: Int, deck: List<T>): List<T> {

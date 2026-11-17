@@ -48,7 +48,7 @@ class HoldToPauseTest : E2e() {
 
     private fun lifeOfBob(player: E2ePlayer) = player.state.player(bob.me).life
 
-    // HIS-112, HIS-021: held on the table a play shown stays however long the finger does, the icon in the corner and Alice's
+    // HIS-112, HIS-140, HIS-021, HIS-126, HIS-127, HIS-128: held on the table a play shown stays however long the finger does, the icon in the corner and Alice's
     // table at the cast, while Bob's phone goes on past it; lifted, it ends by itself and her table plays on
     @Test fun aFingerHeldOnTheTablePausesAPlayShown() {
         start()
@@ -74,7 +74,7 @@ class HoldToPauseTest : E2e() {
         }
     }
 
-    // HIS-112, TBL-104: holding the shown card inspects it and pauses it; lifted, the Inspect closes and it goes on
+    // HIS-112, HIS-139, TBL-104: holding the shown card inspects it and pauses it; lifted, the Inspect closes and it goes on
     @Test fun holdingTheShownCardInspectsItAndPausesIt() {
         start()
         // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
@@ -92,7 +92,7 @@ class HoldToPauseTest : E2e() {
         }
     }
 
-    // HIS-021, TBL-011: a pan is no pause: the finger stays down moving the table and the show ends by its time meanwhile
+    // HIS-021, HIS-126, TBL-011: a pan is no pause: the finger stays down moving the table and the show ends by its time meanwhile
     @Test fun aPanIsNoPause() {
         start()
         // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)

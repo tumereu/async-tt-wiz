@@ -36,7 +36,7 @@ class StackClarityTest : E2e() {
     private fun aliceHoldsOver(kind: (StackItemKind?) -> Boolean): Boolean = alice.status == GameDevice.Status.YourMove &&
         alice.state.let { s -> s.stack.isNotEmpty() && s.priority.holder == alice.me && kind(s.stackItems[s.stack.last()]?.kind) }
 
-    // STK-057, STK-058, STK-046, HIS-091 (owner playtest 2026-11-07)
+    // STK-057, STK-058, STK-046, HIS-091, HIS-121 (owner playtest 2026-11-07)
     @Test fun theOtherPlayersSpellAndCyclingTriggerSayWhatTheyAre() {
         startGame(aliceDeck, bobDeck, aliceSettings = PlaySettings(mode = ResponseMode.Normal),
             deal = { a, b -> "Ash Pup" in hand(a) && "Mountain" in hand(b) && "Ember Flick" in hand(b) && "Shattered Reason" in hand(b) })
@@ -86,7 +86,7 @@ class StackClarityTest : E2e() {
             description(alice, "stack-line") == "Shattered Reason's cycling trigger · each opponent mills 4 cards"
         }
         assertTrue(!alice.shows(hasTestTag("stack-target-arrows")), "no targets, no arrows: ${alice.screen()}")
-        // HIS-091: the event reads that Bob cycled it
+        // HIS-091, HIS-121: the event reads that Bob cycled it
         val cycled = alice.shown.line.last { e -> e.engine?.steps?.any { it.input is Input.Activate } == true }
         assertEquals("${bob.name} cycled Shattered Reason", EngineEventText.of(cycled, alice.state, alice.id, names()))
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty(), "${alice.leaks.leaks} ${bob.leaks.leaks}")

@@ -70,7 +70,7 @@ class PlaybackSettingsTest {
     }
 
 
-    // HIS-028, LOB-082, HIS-112, HIS-113: Timeline playback holds the two pauses and the time a play shows and a combat holds (1.2 s by default, 0 reads
+    // HIS-028, LOB-082, HIS-112, HIS-136, HIS-113: Timeline playback holds the two pauses and the time a play shows and a combat holds (1.2 s by default, 0 reads
     // "Off"); there are no auto-pause switches
     @Test fun settingsShowsThePlaybackPausesAndThePlaysTime() {
         HistoryPlaybackPreferences(AppPlatform.current, "settings")

@@ -406,7 +406,7 @@ object TestCards {
      * our own: its printed values only, no draft text. */
     val librarian = card("Cogwork Librarian", "Artifact Creature — Construct", "{4}", power = "3", toughness = "3")
 
-    /** TBL-133, HIS-091: a free enchantment whose enters trigger makes three tokens and secretly chooses one of their creature
+    /** TBL-133, HIS-091, HIS-124: a free enchantment whose enters trigger makes three tokens and secretly chooses one of their creature
      * types, revealed by its sacrifice ability's cost (A Killer Among Us's wording). */
     val lineup = card("Ember Lineup", "Enchantment", "{0}",
         "When this enchantment enters, create a 1/1 white Human creature token, a 1/1 blue Merfolk creature token, and a 1/1 red Goblin " +

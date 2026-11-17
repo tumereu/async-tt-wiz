@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 class PlayStartsAtOnceTest : E2e() {
     private val deck = TestDeck("Mountains", listOf(TestCards.mountain to 28, TestCards.spark to 12))
 
-    // HIS-094, HIS-023: Bob comes back to Alice's first turn played while he was away: paused with the centre text; one
+    // HIS-094, HIS-159, HIS-023: Bob comes back to Alice's first turn played while he was away: paused with the centre text; one
     // tap on it takes it away in the next frame, before his engine thread has answered, and the first board his engine
     // publishes after it already shows Alice's first event
     @Test fun theCentreTextGoesAtOnceAndTheFirstEventShowsWithTheFirstBoard() {

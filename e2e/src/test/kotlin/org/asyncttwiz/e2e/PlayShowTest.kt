@@ -54,7 +54,7 @@ class PlayShowTest : E2e() {
         return show
     }
 
-    // HIS-112, HIS-021: live, Bob's Glint shows on Alice's table; Bob's phone shows nothing and resolves it at once, while
+    // HIS-112, HIS-139, HIS-140, HIS-021, HIS-128: live, Bob's Glint shows on Alice's table; Bob's phone shows nothing and resolves it at once, while
     // her table stays at the cast (the Glint on her Stack, his life before it): a single tap on the shown card does nothing,
     // a double tap ends it and it plays on; his second Glint, left alone, ends by itself after its time and her table plays on
     @Test fun bobsSpellShowsOnAlicesTableWhileBobPlaysOn() {

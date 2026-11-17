@@ -271,7 +271,7 @@ class MoveColourTest : E2e() {
         assertNoFlips()
     }
 
-    // TRN-006, TRN-013, TRN-058, TRN-059, HIS-096 (owner 2026-11-10: the Assume setting is shared): Alice casts Idle
+    // TRN-006, TRN-013, TRN-058, TRN-059, HIS-096, HIS-181 (owner 2026-11-10: the Assume setting is shared): Alice casts Idle
     // Glimmers with her "Assume resolves" on When they have no mana (Bob has no mana source) and Always against Bob in
     // Normal, Control and Quick (his Glimmers let him respond, so each of his modes stops at her spell): her phone assumes
     // his pass at once, and his phone, knowing her setting, never shows his move between her cast and that assumption
@@ -345,7 +345,7 @@ class MoveColourTest : E2e() {
         assertNoFlips()
     }
 
-    // STK-036, TRN-059, HIS-096 (owner 2026-11-10): Alice (only Mountains: she can't respond) changes her response mode with
+    // STK-036, TRN-059, HIS-096, HIS-176 (owner 2026-11-10): Alice (only Mountains: she can't respond) changes her response mode with
     // no move, in Bob's turn; at his Idle Glimmers (a point he began: only her mode decides, his "Assume resolves" Never)
     // Bob's phone predicts with her mode at once: in Quick she would pass, so his phone assumes it at once; after her change
     // to Normal it waits for her (her pause); after her change back to Quick it assumes at once again. Neither phone's move

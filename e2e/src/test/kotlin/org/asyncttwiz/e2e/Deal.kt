@@ -19,7 +19,7 @@ import org.asyncttwiz.protocol.game.TableState
  * A game's deal as the server starts it (EngineGames.start, EngineDecks.seats): players seated by account id, each
  * library in deck order (Side and Maybe outside the game), the game's random [secret] shuffling them and drawing the opening hands, worked out here with
  * the same engine and protocol code. [hand] and [library] (top first) by card name; [mulliganHand] the hand a player
- * draws after their mulligans (HIS-042: from their own random stream, whatever the other player does meanwhile).
+ * draws after their mulligans (HIS-042, HIS-192: from their own random stream, whatever the other player does meanwhile).
  */
 class Deal private constructor(private val hands: Map<String, List<String>>, private val libraries: Map<String, List<String>>,
     private val started: GameModel, private val starter: PlayerId) {

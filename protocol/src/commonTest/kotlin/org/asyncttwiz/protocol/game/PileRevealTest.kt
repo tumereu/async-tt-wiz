@@ -54,7 +54,7 @@ class PileRevealTest {
 
     private fun DeviceSim.graveyard(player: PlayerId) = device(bob).model.engine.player(player).graveyard
 
-    // HIS-114, HIS-110: Bob's Recall returns his Study from his graveyard to his hand: Alice's phone opens one panel with that
+    // HIS-114, HIS-157, HIS-110: Bob's Recall returns his Study from his graveyard to his hand: Alice's phone opens one panel with that
     // card only, named as moved by Bob from his graveyard to his hand with the Recall as its source; her view waits there
     // until her OK. Bob's own phone opens none
     @Test

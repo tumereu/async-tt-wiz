@@ -65,7 +65,7 @@ class TurnBannerTest {
     private val entry = ObjectId.Card(CardId("c"), 0)
     private fun play(event: String) = GameDevice.PlayShow(event, b, entry, GameDevice.PlayKind.Triggered, CardId("c"))
 
-    // TRN-074, HIS-112: in order with the plays shown: an upkeep trigger after the turn change waits for the banner, a play made
+    // TRN-074, HIS-112, HIS-141: in order with the plays shown: an upkeep trigger after the turn change waits for the banner, a play made
     // before it shows first, and a banner holds nothing: it ends by itself
     @Test fun itFollowsThePlaysInOrder() {
         val queue = TurnBannerQueue()

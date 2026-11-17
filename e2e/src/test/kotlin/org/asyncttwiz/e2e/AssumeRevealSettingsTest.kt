@@ -34,7 +34,7 @@ class AssumeRevealSettingsTest : E2e() {
 
     private val assume = hasTestTag("engine-wait-action") and hasContentDescription("Assume resolves")
 
-    // LOB-135, TRN-067, HIS-096: with the game's defaults Bob's pass over the Augury (revealing his library's top two
+    // LOB-135, TRN-067, HIS-096, HIS-178: with the game's defaults Bob's pass over the Augury (revealing his library's top two
     // cards) is assumed, at once or from the wait's Assume, and the Augury resolves with Bob away (on master the wait's
     // Assume was greyed: going on would show hidden cards)
     @Test fun anAssumptionOverTheOtherPlayersLibraryRevealGoesOnByDefault() {

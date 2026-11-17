@@ -35,7 +35,7 @@ class StackAnimationTest : E2e() {
         StackAnimationProbe.resolving = null
     }
 
-    // HIS-112, STK-058, TBL-125 (owner playtest 2026-11-14)
+    // HIS-112, HIS-137, STK-058, TBL-125 (owner playtest 2026-11-14)
     @Test fun aPlayGoesOnTheStackOnceAndItsArrowsComeBeforeItsAssumedResolution() {
         startGame(aliceDeck, bobDeck, bobSettings = PlaySettings(assume = AssumeResolves.Always),
             deal = { a, b -> "Ash Pup" in hand(a) && "Mountain" in hand(b) && "Ember Flick" in hand(b) })

@@ -17,7 +17,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The first turn during the other player's mulligans (HIS-115, HIS-116, TRN-027): Alice keeps, assumes Bob's keep and
+ * The first turn during the other player's mulligans (HIS-115, HIS-194, HIS-116, TRN-027): Alice keeps, assumes Bob's keep and
  * plays turn 1; each opening move of Bob's at the assumed keep makes her line again on top of it, standing as far as it
  * comes out the same as she could tell, and branching from the first event that doesn't.
  */
@@ -36,7 +36,7 @@ class ReapplyTest {
     private fun hand(model: GameModel, p: PlayerId, name: String): ObjectId =
         model.engine.player(p).hand.first { model.engine.obj(it)?.definition?.faces?.first()?.name == name }
 
-    /** Alice keeps, then assumes Bob's keep (HIS-096: a press of Assume keep) and passes to her first main phase. */
+    /** Alice keeps, then assumes Bob's keep (HIS-096, HIS-183: a press of Assume keep) and passes to her first main phase. */
     private fun AsyncServer.keepAndPlay() {
         act(alice, Input.Answer(pending()!!.id, Answer.Option("Keep"))).getOrThrow()
         assumeKeep()
@@ -70,7 +70,7 @@ class ReapplyTest {
 
     /** Bob's opening [answer] at his local head (the assumed keep follows it): the server's result. */
     private fun AsyncServer.bob(answer: (Decision, GameModel) -> Answer): Acceptance.Result {
-        // His playback shows the opening up to the assumption about him (HIS-094: it is never played back)
+        // His playback shows the opening up to the assumption about him (HIS-094, HIS-161: it is never played back)
         MainLine.after(history, head, heads.getValue(bob))!!.takeWhile { it.assumed == null }.lastOrNull()?.let { seen(bob, it.id) }
         val at = heads.getValue(bob)
         val model = stateAt(at)
@@ -81,7 +81,7 @@ class ReapplyTest {
 
     private fun mulligan(@Suppress("UNUSED_PARAMETER") d: Decision, @Suppress("UNUSED_PARAMETER") m: GameModel) = Answer.Option("Mulligan")
 
-    // HIS-115, HIS-116, TRN-027: Mountain, Ember Cub, Ember Spark to Bob's face, End turn: Bob's free mulligan, his mulligan to
+    // HIS-115, HIS-193, HIS-116, TRN-027: Mountain, Ember Cub, Ember Spark to Bob's face, End turn: Bob's free mulligan, his mulligan to
     // six and a bottom choice other than the stand-in each make it again and it all stands; Bob's Keep then confirms it
     @Test
     fun aTurnThatDoesntReadTheOpponentsHandStandsThroughEveryMulligan() {
@@ -113,7 +113,7 @@ class ReapplyTest {
         assertEquals(0, server.lines, "no new line")
     }
 
-    // HIS-116, HIS-042: Ember Glimmer draws her a card and Ember Bounty draws one for each player: both stand (her library is
+    // HIS-116, HIS-212, HIS-042, HIS-192: Ember Glimmer draws her a card and Ember Bounty draws one for each player: both stand (her library is
     // her own stream's; Bob draws a hidden card either way)
     @Test
     fun drawsStand() {
@@ -160,7 +160,7 @@ class ReapplyTest {
         assertTrue(server.state().engine.battlefield.any { server.state().engine.obj(it)?.owner == server.alice }, "the land stands")
     }
 
-    // HIS-115, HIS-117, TRN-070: on the devices: Alice presses Assume keep and casts an Ember Cub; Bob's playback stops before
+    // HIS-115, HIS-193, HIS-117, TRN-070: on the devices: Alice presses Assume keep and casts an Ember Cub; Bob's playback stops before
     // the assumed keep (nothing of her turn shown), and his Mulligan there re-applies her line: her table doesn't go back
     // ("Bob took a mulligan · your turn stands"), her local head moves to the event made from hers, and his playback stops
     // before the assumption made again (his mulligan owes a card: its stand-in bottom choice first)
@@ -204,7 +204,7 @@ class ReapplyTest {
         assertTrue(sim.equivalence().isEmpty(), sim.equivalence().toString())
     }
 
-    // HIS-096, I-D56 §3: Assume keep only by the starting player once their own opening is done, and only as the keep (or
+    // HIS-096, HIS-183, HIS-184, I-D56 §3: Assume keep only by the starting player once their own opening is done, and only as the keep (or
     // the stand-in bottom) of Bob's open decision
     @Test
     fun assumeKeepIsRefusedWhereItIsntAllowed() {
@@ -228,7 +228,7 @@ class ReapplyTest {
         }.also { seen(alice, head) }
     }
 
-    // HIS-115, HIS-087 (spec §3.6): Bob mulligans twice, Alice assumes his keep (its stand-in bottom choice first) and plays a
+    // HIS-115, HIS-196, HIS-087, HIS-204 (spec §3.6): Bob mulligans twice, Alice assumes his keep (its stand-in bottom choice first) and plays a
     // Mountain and an Ember Cub; Bob's own bottom choice re-applies her line; his undo of that bottom choice (free: it showed
     // him nothing new, and her line counts for nothing) re-applies her line again on the point it lands on: it all stands,
     // the first event made starts the rewind's new line (HIS-042), her local head moves to the event made from hers, his stays
@@ -262,7 +262,7 @@ class ReapplyTest {
         assertEquals(r.reapply.events.first().id, server.nextStop(server.bob, ResponseMode.Normal)?.event)
     }
 
-    // HIS-115, HIS-116, HIS-087 (spec §3.6): Bob mulligans to six; Alice assumes his keep and casts Ember Echo at him (six
+    // HIS-115, HIS-196, HIS-194, HIS-116, HIS-087, HIS-203 (spec §3.6): Bob mulligans to six; Alice assumes his keep and casts Ember Echo at him (six
     // damage). His undo of that mulligan needs her approval (it showed him a new hand); approved, her line is made again on
     // his seven cards: the Mountain stands, the Echo (seven now) is taken back from its cast
     @Test
@@ -286,7 +286,7 @@ class ReapplyTest {
         assertEquals(first, server.heads[server.bob])
     }
 
-    // HIS-115, HIS-084 (spec §3.6): on the devices: Bob mulligans; Alice assumes his keep and casts an Ember Cub; Bob chooses his
+    // HIS-115, HIS-196, HIS-084, HIS-204 (spec §3.6): on the devices: Bob mulligans; Alice assumes his keep and casts an Ember Cub; Bob chooses his
     // bottom card; his Undo of that bottom choice is free on his phone (her line after it
     // isn't counted) and his playback stays before the assumed keep; Alice's phone follows the rewind without taking her
     // Cub back and without a note
@@ -360,7 +360,7 @@ class ReapplyTest {
         vanguards(if (free) 0 else 1) > 0
     }
 
-    // HIS-115, CR 103.6a: Alice assumes Bob's keep and plays a Mountain; Bob's mulligan brings him an Ember Vanguard, which
+    // HIS-115, HIS-194, CR 103.6a: Alice assumes Bob's keep and plays a Mountain; Bob's mulligan brings him an Ember Vanguard, which
     // may begin the game on the battlefield: after the assumed keep made again the engine asks him (a real wait), so nothing
     // of her turn comes out the same and it is all taken back (outcome 3). His keep then confirms the assumed keep, he puts
     // the Vanguard onto the battlefield and turn 1 begins again for her with it
@@ -424,7 +424,7 @@ class ReapplyTest {
         return a to b
     }
 
-    // HIS-115, SYS-077 (§3.5): Alice's land play is on its way when the server takes Bob's mulligan first: the land is refused
+    // HIS-115, HIS-195, SYS-077 (§3.5): Alice's land play is on its way when the server takes Bob's mulligan first: the land is refused
     // as stale, her phone makes it again on the event made from the one it was made on, and it ends up played once, with
     // no note
     @Test
@@ -444,7 +444,7 @@ class ReapplyTest {
         assertTrue(sim.equivalence().isEmpty(), sim.equivalence().toString())
     }
 
-    // HIS-115, SYS-012 (§3.5): Alice's land play is on its way when Bob's mulligan brings him an Ember Vanguard: her whole
+    // HIS-115, HIS-195, SYS-012 (§3.5): Alice's land play is on its way when Bob's mulligan brings him an Ember Vanguard: her whole
     // turn is taken back, the land no longer applies there (his opening-hand action waits) and is dropped with the note
     @Test
     fun aMoveOnItsWayThatNoLongerAppliesIsDropped() {

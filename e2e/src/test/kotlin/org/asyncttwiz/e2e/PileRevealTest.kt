@@ -60,7 +60,7 @@ class PileRevealTest : E2e() {
         assertTrue(bob.state.player(bob.me).graveyard.any { cardName(bob.state, it) == "Ember Trinket" }, "the Trinket in Bob's graveyard")
     }
 
-    // HIS-114, HIS-110, TRN-063: Bob returns his Trinket from his graveyard to the battlefield (no panel on Alice's phone),
+    // HIS-114, HIS-157, HIS-110, TRN-063: Bob returns his Trinket from his graveyard to the battlefield (no panel on Alice's phone),
     // sacrifices it again and returns it to his hand: Alice's phone opens the reveal panel, "Bob returned Ember Trinket from
     // their graveyard to their hand", the Trinket only, the Recall as its source, and her table waits there while Bob plays on
     // until her own OK on the main button. Bob's own phone opens no panel for his own move

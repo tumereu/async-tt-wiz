@@ -88,7 +88,7 @@ class TableChromeUiTest {
             compose.onNodeWithContentDescription(EXIT_TIMELINE).assertIsDisplayed()
             compose.onNode(hasContentDescription(events.last().description) and hasClickAction(), useUnmergedTree = true).assertIsSelected()
             val handAfter = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
-            // HIS-007: in landscape nothing moves; in portrait the hand moves up to sit above the taller timeline panel
+            // HIS-007, HIS-169: in landscape nothing moves; in portrait the hand moves up to sit above the taller timeline panel
             if (landscape) assertEquals(handBefore, handAfter, "HUD must not move on mode change")
             else assertTrue(handAfter.maxOf { it.bottom } <= pixels.height - tableBottomHeight(false, timeline = true),
                 "the HUD sits above the timeline panel: $handAfter")
@@ -96,7 +96,7 @@ class TableChromeUiTest {
             assertEquals(pixels.height - 4f, transport.bottom)
             val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
             compose.onRoot().captureShot(reviewOutput, "$situation, after choosing Table actions → Timeline: history at the latest event" +
-                // TBL-009, HIS-007
+                // TBL-009, HIS-007, HIS-169
                 if (landscape) "; the life square, piles and hand stay in the bottom bar, the event strip and Previous / Exit timeline / Next in the controls' place after them." else ".")
             val reviewPixels = ImageIO.read(File(reviewOutput))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
@@ -110,7 +110,7 @@ class TableChromeUiTest {
         compose.onNodeWithContentDescription(EXIT_TIMELINE).assertIsDisplayed()
     }
 
-    // HIS-001, HIS-004, HIS-007, HIS-008, TRN-013, TRN-015, TRN-016: no strip in play mode, Table actions → Timeline enters
+    // HIS-001, HIS-004, HIS-007, HIS-169, HIS-008, TRN-013, TRN-015, TRN-016: no strip in play mode, Table actions → Timeline enters
     // timeline mode, whose panel the HUD sits above
     @Test fun portraitBothPlayersTurnAndMoveMatrix() = chrome(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscapeBothPlayersTurnAndMoveMatrix() = chrome(true)

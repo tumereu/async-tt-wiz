@@ -50,7 +50,7 @@ class DesktopMouseTest {
         assertEquals(listOf(Effect.Pause(false)), key.release("Alt"))
     }
 
-    // WEB-025, HIS-021: on the desktop table the left button held still on a card pauses the view but never inspects (§5: no
+    // WEB-025, HIS-021, HIS-126: on the desktop table the left button held still on a card pauses the view but never inspects (§5: no
     // press-and-hold on desktop); the phone's hold still inspects (TBL-104)
     @Test fun theLeftButtonHeldStillPausesWithoutInspecting() {
         val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "", kind = TableItemKind.CARD, cardId = "a",
@@ -74,7 +74,7 @@ class DesktopMouseTest {
         assertEquals(listOf<TableIntent>(TableIntent.Peek("a"), TableIntent.Peek(null, released = true)), phone)
     }
 
-    // WEB-030, HIS-113: a double click on the table during a combat hold (two left clicks, as the phone's double tap) ends
+    // WEB-030, HIS-113, HIS-148: a double click on the table during a combat hold (two left clicks, as the phone's double tap) ends
     // the hold, and a single click does nothing more than a tap
     @Test fun aDoubleClickEndsACombatHold() {
         val world = TableWorld(TableBounds(0f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))

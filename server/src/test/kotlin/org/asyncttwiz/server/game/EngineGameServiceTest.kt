@@ -210,7 +210,7 @@ class EngineGameServiceTest {
         assertTrue(codec.decodeModel(f.snapshot().state).engine.turn.number == 1)
     }
 
-    // SYS-077, HIS-109 (owner 2026-11-07): Bob's keep crosses Alice's assumption of it on the wire, with a move of his made
+    // SYS-077, HIS-109, HIS-211 (owner 2026-11-07): Bob's keep crosses Alice's assumption of it on the wire, with a move of his made
     // on it right behind: the keep is the assumption's confirmation (accepted, no new event, his local head past it) and
     // his next move, made on his keep, is taken on the assumption instead of refused as stale
     @Test fun `a matching answer that crossed the assumption confirms it and the moves made on it are taken`() = withService { runtime ->
@@ -240,7 +240,7 @@ class EngineGameServiceTest {
         assertEquals(early.table, head.table)
     }
 
-    // HIS-115, HIS-117 (owner 2026-11-15): Bob's mulligan at Alice's assumed keep is made on his local head on the same line
+    // HIS-115, HIS-193, HIS-117 (owner 2026-11-15): Bob's mulligan at Alice's assumed keep is made on his local head on the same line
     // and her line is made again on top of it (the keep, his first mulligan being free): it stands, her local head
     // moves to the keep made again, no branch notice; the old line is kept, shown to nobody, and her inputs on it are stale
     @Test fun `another opening answer at the assumed keep makes the line again`() = withService { runtime ->
@@ -287,7 +287,7 @@ class EngineGameServiceTest {
         assertEquals("stale", f.owner.execute(GameAction.Submit(late)).reason)
     }
 
-    // HIS-115, HIS-087, HIS-042 (spec §3.6): Bob mulligans twice (the first is free), Alice assumes his keep (its stand-in
+    // HIS-115, HIS-196, HIS-087, HIS-204, HIS-042 (spec §3.6): Bob mulligans twice (the first is free), Alice assumes his keep (its stand-in
     // bottom choice, then the keep), Bob's own bottom choice re-applies her line; his undo of that bottom choice is free (it
     // showed him nothing new; her line isn't taken back) and makes her line again on the point it lands on: the first event
     // made starts the rewind's new line, her local head moves to the event made from hers, his stays at the undo's point
@@ -368,7 +368,7 @@ class EngineGameServiceTest {
         assertEquals(approved.headId, approved.localHeads[f.b.account.accountId])
     }
 
-    // HIS-108 (owner playtest 2026-11-07): Alice's free undo takes back her keep that Bob's device had shown: his local
+    // HIS-108, HIS-205 (owner playtest 2026-11-07): Alice's free undo takes back her keep that Bob's device had shown: his local
     // head goes to the undo's point and his snapshot keeps what he had been shown with who undid, so a device opening
     // the game shows the undo (where he left it, then the rewind as it is live); his device's report of that head (the
     // undo shown) clears it
@@ -423,7 +423,7 @@ class EngineGameServiceTest {
         }
     }
 
-    // HIS-111, HIS-099, HIS-108 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, no limit
+    // HIS-111, HIS-172, HIS-099, HIS-108, HIS-206 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, no limit
     // on how far back): a player reads the main line in pages from the head back to the game's first event (each at
     // most a checkpoint interval); an event not on it is refused, and so is anyone outside the game. An undo request to a
     // point more than 200 events back is approved and taken: the game goes back there, and the other player, who had seen

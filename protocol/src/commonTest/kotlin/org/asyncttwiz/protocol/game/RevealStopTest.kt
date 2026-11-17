@@ -16,7 +16,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * HIS-110 (owner playtest 2026-11-07, 2026-11-09): reveals stop the player's view until dismissed, the other player's and
+ * HIS-110, HIS-153, HIS-155, HIS-156 (owner playtest 2026-11-07, 2026-11-09): reveals stop the player's view until dismissed, the other player's and
  * their own: one panel per reveal, in order, holding the later events like a playback stop (live and in catch-up playback),
  * and closed when the reveal is taken back. Only the player's view waits: the game goes on for the other player. The
  * player's own choice among cards they already see isn't a reveal for them.
@@ -52,7 +52,7 @@ class RevealStopTest {
         .mapNotNull { ((it as? Change.Happened)?.event as? arcanum.engine.change.GameEvent.Revealed)?.ids }.flatten()
         .mapNotNull { (it as? ObjectId.Card)?.card }
 
-    // HIS-110, HIS-093: in catch-up playback Bob's reveal is a playback stop: Alice's table stays at its event, with the
+    // HIS-110, HIS-150, HIS-153, HIS-154, HIS-093: in catch-up playback Bob's reveal is a playback stop: Alice's table stays at its event, with the
     // panel naming Bob, the revealed card and the Insight, the later events held, until she dismisses it; then playback
     // goes on to the head. Bob dismisses his own panel on his own phone, Alice's waiting for nothing of his
     @Test
@@ -85,7 +85,7 @@ class RevealStopTest {
         assertEquals(sim.server.head, alices.session.localHead, "on to the head after the dismissal")
     }
 
-    // HIS-110: live, Alice's view waits at Bob's reveal while the game goes on for Bob (his turn ends and his device assumes
+    // HIS-110, HIS-153: live, Alice's view waits at Bob's reveal while the game goes on for Bob (his turn ends and his device assumes
     // her passes where her mode passes); her dismissal shows what followed
     @Test
     fun aLiveRevealHoldsTheViewWhileTheGameGoesOn() {
@@ -114,7 +114,7 @@ class RevealStopTest {
             "playback went on past the reveal")
     }
 
-    // HIS-110, SYS-077 (full e2e run 2026-11-07): Alice's phone passes on Bob's Insight itself, so her own pending pass
+    // HIS-110, HIS-153, SYS-077 (full e2e run 2026-11-07): Alice's phone passes on Bob's Insight itself, so her own pending pass
     // resolves it and opens the panel; Bob's assumption of that pass reaches the server first and then her phone, taking
     // her event's place (the same board): the panel stays open, now at his event, and her table stays there while he
     // plays on, until her OK
@@ -167,7 +167,7 @@ class RevealStopTest {
             "playback went on past the reveal")
     }
 
-    // HIS-110 (owner, 2026-11-09): Bob's own reveal of a card he couldn't see stops his own view until he dismisses it; Alice's
+    // HIS-110, HIS-154 (owner, 2026-11-09): Bob's own reveal of a card he couldn't see stops his own view until he dismisses it; Alice's
     // phone goes on regardless: her OK and his are each their own
     @Test
     fun anOwnRevealStopsTheOwnViewOnlyAndEachOkIsOwn() {
@@ -192,7 +192,7 @@ class RevealStopTest {
         assertNull(alices.reveal, "his OK isn't hers")
     }
 
-    // HIS-110 (owner, 2026-11-09): a player's own choice among cards they already see isn't a reveal: nothing asks them twice.
+    // HIS-110, HIS-155 (owner, 2026-11-09): a player's own choice among cards they already see isn't a reveal: nothing asks them twice.
     // A card chosen in a search, or revealed and then chosen among, opens no panel of theirs, nor their own hand; each still does on Alice's phone
     @Test
     fun ownChoiceAmongCardsTheySeeOpensNoPanelOfTheirs() {
@@ -306,7 +306,7 @@ class RevealStopTest {
         return server.line().last().also { assertEquals(Input.PassPriority(alice), it.assumed?.input, "Bob assumed her pass") }
     }
 
-    // HIS-110, SYS-077 (full e2e run 2026-11-09): Alice taps OK on the panel of her own pending pass; Bob's same assumption then
+    // HIS-110, HIS-154, SYS-077 (full e2e run 2026-11-09): Alice taps OK on the panel of her own pending pass; Bob's same assumption then
     // takes its place: a reveal she dismissed stays dismissed: nothing asks her twice, and the view isn't held
     @Test
     fun aDismissedRevealStaysDismissedWhenTheOtherPlayersSameEventTakesItsPlace() {
@@ -323,7 +323,7 @@ class RevealStopTest {
         assertNotNull(sim.device(sim.bob).reveal, "Bob's own panel")
     }
 
-    // HIS-110: a reveal is closed only by that player's OK, or by being taken back. Each OK is its own, both ways, and what
+    // HIS-110, HIS-154: a reveal is closed only by that player's OK, or by being taken back. Each OK is its own, both ways, and what
     // arrives meanwhile (the other player's reports of what they saw, a revision with nothing in it, a chat's, an undo request and
     // its cancelling, a suggestion and its withdrawing) leaves the panel open
     @Test
@@ -368,7 +368,7 @@ class RevealStopTest {
         assertNull(bobs.reveal, "and hers isn't his")
     }
 
-    // HIS-110: loaded again while the phone stays in the game (it couldn't follow the server, a reconnect past what it received),
+    // HIS-110, HIS-154, HIS-156: loaded again while the phone stays in the game (it couldn't follow the server, a reconnect past what it received),
     // an open panel stays open and a dismissed one stays dismissed; a game opened anew opens none, as ever
     @Test
     fun aRevealOutlivesTheGameLoadingAgain() {
@@ -394,7 +394,7 @@ class RevealStopTest {
         assertNull(third.reveal, "dismissed before, dismissed after")
     }
 
-    // HIS-110, TRN-065: Bob's concession while Alice's panel of his reveal is open: her table stays for her own OK, and the panel
+    // HIS-110, HIS-153, HIS-154, TRN-065: Bob's concession while Alice's panel of his reveal is open: her table stays for her own OK, and the panel
     // stays for its own: it comes first, then the result
     @Test
     fun aRevealStaysOpenWhenTheGameEndsAtTheTable() {
@@ -414,7 +414,7 @@ class RevealStopTest {
         assertNull(alices.reveal)
     }
 
-    // HIS-110: several reveals in a row open one panel each, in order
+    // HIS-110, HIS-156: several reveals in a row open one panel each, in order
     @Test
     fun severalRevealsOpenOnePanelEachInOrder() {
         val sim = sim()
@@ -440,7 +440,7 @@ class RevealStopTest {
         assertEquals(sim.server.head, alices.session.localHead)
     }
 
-    // HIS-110, HIS-099: a reveal taken back before Alice dismissed it (Bob's undo of his Insight, which she approves)
+    // HIS-110, HIS-156, HIS-099: a reveal taken back before Alice dismissed it (Bob's undo of his Insight, which she approves)
     // closes its panel
     @Test
     fun aRevealTakenBackClosesItsPanel() {

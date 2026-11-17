@@ -24,7 +24,7 @@ class StartedGamesWipeTest {
     // LOB-133: the same for the engine API rework's wipe
     @Test fun `V85 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V85)
 
-    // LOB-133, HIS-042: the same for the per-player random streams' wipe (owner 2026-11-15)
+    // LOB-133, HIS-042, HIS-192: the same for the per-player random streams' wipe (owner 2026-11-15)
     @Test fun `V89 removes started games, a changed-since read reports them gone and records stay`() = removesStartedGames(V89)
 
     private fun removesStartedGames(migration: String) = HistoryWorld.run { w ->

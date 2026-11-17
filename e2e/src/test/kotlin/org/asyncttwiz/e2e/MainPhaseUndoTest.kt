@@ -56,7 +56,7 @@ class MainPhaseUndoTest : E2e() {
         waitUntil("Alice past her Main 1 again") { alice.state.turn.step != TurnStep.PrecombatMain && alice.engine { device.session.tip } != still }
     }
 
-    // HIS-101, HIS-084, HIS-099, HIS-087: Bob away (he has seen nothing of it): the tap is on the timeline as "You went to
+    // HIS-101, HIS-119, HIS-084, HIS-099, HIS-087: Bob away (he has seen nothing of it): the tap is on the timeline as "You went to
     // combat"; one Undo goes back at once, free, to Alice's Main 1 in this turn, never to Bob's; he comes back to nothing to
     // redo
     @Test fun oneUndoReturnsToTheMainPhaseWhileTheOtherPlayerIsAway() {
@@ -79,7 +79,7 @@ class MainPhaseUndoTest : E2e() {
     }
 
 
-    // HIS-084, HIS-087, HIS-100 (owner problem report VXSGKH: passes never need consent): Bob live, having seen her
+    // HIS-084, HIS-087, HIS-202, HIS-100 (owner problem report VXSGKH: passes never need consent): Bob live, having seen her
     // assumption of his pass: one Undo still goes back at once, free, with no dialog; he has nothing to redo, and she
     // stands in her Main 1
     @Test fun whenTheOtherPlayerHasSeenItsPassesUndoIsStillFree() {
@@ -97,11 +97,11 @@ class MainPhaseUndoTest : E2e() {
         everyRun.clear()
         assertFalse(dialog, "free: no dialog")
         assertEquals(alice.me, bob.state.turn.active, "Alice's turn; Bob has nothing to redo")
-        // HIS-076: Bob's phone reads what she pressed from the record
+        // HIS-076, HIS-168: Bob's phone reads what she pressed from the record
         waitUntil("Bob told what she undid") { bob.told("${alice.name} undid: went to combat") }
     }
 
-    // HIS-101 (owner, 2026-11-08): the other player's press shows on your timeline only as what it led to, also now that it
+    // HIS-101, HIS-120 (owner, 2026-11-08): the other player's press shows on your timeline only as what it led to, also now that it
     // is on the record
     @Test fun theOtherPlayersTapIsNoEventOnYourTimeline() {
         aliceDrewInHerMain()
@@ -120,7 +120,7 @@ class MainPhaseUndoTest : E2e() {
         alice.openGame(game, this)
     }
 
-    // HIS-101, HIS-084, HIS-099 (owner, 2026-11-08): her press out of her main phase is on the game's record: after the app
+    // HIS-101, HIS-119, HIS-120, HIS-084, HIS-099 (owner, 2026-11-08): her press out of her main phase is on the game's record: after the app
     // starts again it is still on the timeline as "You went to combat", and one Undo still returns to that main phase
     @Test fun aTapLeavingTheMainPhaseIsStillAPointAfterTheAppStartsAgain() {
         val hand = aliceDrewInHerMain()
@@ -137,7 +137,7 @@ class MainPhaseUndoTest : E2e() {
         assertTrue(alice.told("Undid: went to combat"), alice.shownTexts.toString())
     }
 
-    // HIS-101, HIS-084, HIS-099, TRN-057 (owner, 2026-11-08): the same for End turn: after the app starts again it is one
+    // HIS-101, HIS-119, HIS-120, HIS-084, HIS-099, TRN-057 (owner, 2026-11-08): the same for End turn: after the app starts again it is one
     // point, "You ended the turn" (only its first pass; the others stay plain), and one Undo returns to the main phase,
     // not into the other player's turn
     @Test fun anEndTurnIsStillAPointAfterTheAppStartsAgain() {

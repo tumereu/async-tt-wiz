@@ -224,7 +224,7 @@ class NotificationWaitsTest {
         f.assertMoves(f.a, f.a, "after Bob's mulligan, made again")
     }
 
-    // TRN-058, HIS-100, switchreview #12: an open undo request waits for the other player's answer: their move for both;
+    // TRN-058, HIS-100, HIS-210, switchreview #12: an open undo request waits for the other player's answer: their move for both;
     // cancelling it gives the move back
     @Test fun `an undo request is the answering player's move for both`() = withService { runtime ->
         val f = Fixture(runtime)

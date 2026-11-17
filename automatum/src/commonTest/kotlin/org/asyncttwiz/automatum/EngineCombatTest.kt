@@ -135,7 +135,7 @@ class EngineCombatTest {
         assertNull(CombatFlow.dealt(passUntil(end) { it.turn.step == TurnStep.PostcombatMain }), "gone with the combat")
     }
 
-    // CMB-050, HIS-113 (owner notes 2026-11-14 evening: the damage's hold showed no splashes or skulls on the creatures; CR 510.2,
+    // CMB-050, HIS-113, HIS-147 (owner notes 2026-11-14 evening: the damage's hold showed no splashes or skulls on the creatures; CR 510.2,
     // 704.5g): right after the damage, before the state-based actions, each creature dealt combat damage has its amount and those
     // with lethal damage are dying; once they are gone the survivors keep their amounts until the combat ends
     @Test fun theCreaturesDealtCombatDamageAndThoseDying() {

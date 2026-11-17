@@ -23,7 +23,7 @@ class CombatBandTest : E2e() {
     }
 
     /** Taps [player]'s main button while it passes or goes on (not a declaration); also at a stop at the other
-     * player's assumption about them (HIS-095: Bob's pass after Alice's attack is assumed at once, HIS-096). */
+     * player's assumption about them (HIS-095: Bob's pass after Alice's attack is assumed at once, HIS-096, HIS-180). */
     private fun goOn(player: E2ePlayer) = player.once {
         if (player.status == GameDevice.Status.YourMove || player.status is GameDevice.Status.Stopped) player.stepArrow()?.takeIf { it in listOf("Pass", "Next", "Resolve") }?.let(player::tap)
     }

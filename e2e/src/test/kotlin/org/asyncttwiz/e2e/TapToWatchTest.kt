@@ -40,7 +40,7 @@ class TapToWatchTest : E2e() {
         bob.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped } && !bob.showsWatch()
     }
 
-    // HIS-094 (owner playtest 2026-11-06): a tap on the empty battlefield, away from the centre text, starts the playback
+    // HIS-094, HIS-159 (owner playtest 2026-11-06): a tap on the empty battlefield, away from the centre text, starts the playback
     @Test fun aTapOnTheTableStartsThePlayback() {
         bobComesBackToTheCatchUp()
         val head = bob.shown.localHead
@@ -49,7 +49,7 @@ class TapToWatchTest : E2e() {
         waitUntil("Alice's cast played back") { bob.shown.localHead != head }
     }
 
-    // HIS-094 (owner playtest 2026-11-06): a tap on the combat band between the battlefields starts the playback
+    // HIS-094, HIS-159 (owner playtest 2026-11-06): a tap on the combat band between the battlefields starts the playback
     @Test fun aTapOnTheCombatBandStartsThePlayback() {
         bobComesBackToTheCatchUp()
         val fields = listOf(bob.battlefieldBounds(alice), bob.battlefieldBounds()).sortedBy { it.top }
@@ -61,7 +61,7 @@ class TapToWatchTest : E2e() {
         bobWatches()
     }
 
-    // HIS-094 (owner playtest 2026-11-06): a tap on a battlefield card (Alice's Mountain) starts the playback; a tap on a
+    // HIS-094, HIS-159 (owner playtest 2026-11-06): a tap on a battlefield card (Alice's Mountain) starts the playback; a tap on a
     // hand card before it doesn't (the hand keeps its own taps: it raises the card, ZON-079)
     @Test fun aTapOnACardStartsThePlaybackButTheHandKeepsItsTaps() {
         bobComesBackToTheCatchUp()

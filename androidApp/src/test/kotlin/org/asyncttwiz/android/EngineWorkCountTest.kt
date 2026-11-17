@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
  * - Byte sizes may change only where the stored format changes; give the old and new sizes in the change's report, and
  *   growth over 5% needs the owner's approval.
  * - The boards are dealt as the game's single random stream dealt them ([BenchBoard], [singleStreamDeal]): other opening
- *   hands put other cards on the board and in hand, which moves the counts without any change in the code (HIS-042,
+ *   hands put other cards on the board and in hand, which moves the counts without any change in the code (HIS-042, HIS-192,
  *   2026-11-15: each player's own stream dealt other hands and moved every count here, down for End turn and the wipe, up
  *   for the cast; dealt as before, the counts were exactly as before). Per-player random indices in the stored line state
  *   added 75 to 107 bytes per scenario.

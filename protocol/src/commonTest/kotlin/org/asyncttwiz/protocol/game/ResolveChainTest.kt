@@ -158,7 +158,7 @@ class ResolveChainTest {
         assertGlimmerOnTopForAlice(sim)
     }
 
-    // TRN-017, HIS-109 (owner 2026-11-07): the other order: her chain's presses reach the server first, then Bob's Glimmer
+    // TRN-017, HIS-109, HIS-187 (owner 2026-11-07): the other order: her chain's presses reach the server first, then Bob's Glimmer
     // made where her phone assumed his pass: his answer there branches; her table goes back and she has priority with his
     // Glimmer on top, nothing of hers passed over it
     @Test

@@ -53,7 +53,7 @@ class EngineTwoDeviceTest {
         val players = listOf(f.a, f.b)
         val names = mapOf(f.a to "Alice", f.b to "Bob")
         val online = players.associateWith { true }.toMutableMap()
-        // HIS-096: whether the other player's pauses are assumed at once is each player's setting, never their presence
+        // HIS-096, HIS-178: whether the other player's pauses are assumed at once is each player's setting, never their presence
         for (p in players) sim.settings[p] = org.asyncttwiz.protocol.game.PlaySettings(assume = when (mode) {
             Mode.LIVE -> false; Mode.ASYNC -> true; Mode.MIXED -> seed % 2 == 0L }.let { if (it) org.asyncttwiz.protocol.game.AssumeResolves.Always else org.asyncttwiz.protocol.game.AssumeResolves.Normal })
         for (p in players) sim.load(p)

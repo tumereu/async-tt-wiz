@@ -42,7 +42,7 @@ class TableGesturesTest {
         assertEquals(listOf("nearMiss:cancelled"), diagnostics)
     }
 
-    // HIS-021, HIS-112, HIS-113: a finger held still is reported until it lifts, or a second finger makes it a pinch; a pan or
+    // HIS-021, HIS-126, HIS-112, HIS-113: a finger held still is reported until it lifts, or a second finger makes it a pinch; a pan or
     // a drag crosses the slop before the hold's time and is never a hold
     @Test fun onlyAFingerHeldStillIsReportedAsHeld() {
         val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
@@ -67,7 +67,7 @@ class TableGesturesTest {
         g.cancel()
     }
 
-    // HIS-113, TBL-012: while a combat holds the view a double tap on the table only skips it: no zoom to fit, nor when the
+    // HIS-113, HIS-148, TBL-012: while a combat holds the view a double tap on the table only skips it: no zoom to fit, nor when the
     // hold ended between its two taps; the hand keeps its own double tap
     @Test fun aDoubleTapSkipsAViewHoldInsteadOfWhatItOtherwiseDoes() {
         val world = TableWorld(TableBounds(0f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))

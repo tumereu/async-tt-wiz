@@ -72,7 +72,7 @@ class EngineChoiceWaitTest {
 
     private fun redraw() { version++; compose.waitForIdle() }
 
-    // HIS-075, TRN-066, TBL-118, LOB-081 (owner, 2026-11-05, 2026-11-09): Alice kept while Bob (online) is still deciding on a
+    // HIS-075, HIS-166, HIS-167, TRN-066, TBL-118, LOB-081 (owner, 2026-11-05, 2026-11-09): Alice kept while Bob (online) is still deciding on a
     // mulligan: her event text says so in the wait's words, with Event text off too, and fades after a chip's time while the
     // wait band under his hand goes on saying it; her double-tap, drag and tap of a hand card are refused: the card shakes
     // and the event text flashes again, without a message; once Bob keeps, the event text is the events' again
@@ -125,7 +125,7 @@ class EngineChoiceWaitTest {
         assertEquals(flashes, toolkit.choiceFlashes)
     }
 
-    // HIS-075, STK-032, TRN-066: Alice discards to hand size (an Automatum choice of hers): Bob's event text says "Alice is
+    // HIS-075, HIS-166, STK-032, TRN-066: Alice discards to hand size (an Automatum choice of hers): Bob's event text says "Alice is
     // choosing" while the band under her hand stays; her own table says nothing of it
     @Test fun theOtherPlayersChoiceShowsInTheEventText() {
         kit.toAliceDiscard()

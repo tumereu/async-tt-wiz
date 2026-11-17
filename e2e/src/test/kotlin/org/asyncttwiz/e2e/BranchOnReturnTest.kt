@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  * her phone she was told "Bob has made moves · Tap to watch", which didn't say her line was taken back. Owner
  * 2026-11-07 (catch-up rules): coming back to a game whose line the other player's real answer branched while she was
  * away opens it as she left it with "Bob responded differently · Tap to watch"; her tap shows the branch (HIS-097,
- * HIS-106): the take-back to the branch point with its note; owner 2026-11-08: it stops there ("Bob responded differently
+ * HIS-106, HIS-190, HIS-191): the take-back to the branch point with its note; owner 2026-11-08: it stops there ("Bob responded differently
  * from here · Tap to continue"), and her next tap plays Bob's new events back.
  */
 class BranchOnReturnTest : E2e() {
@@ -54,7 +54,7 @@ class BranchOnReturnTest : E2e() {
         return seen
     }
 
-    /** HIS-097, HIS-106, HIS-094 (owner 2026-11-07): back, Alice's table waited as she left it ([discarded] shown) with
+    /** HIS-097, HIS-106, HIS-190, HIS-191, HIS-094, HIS-158 (owner 2026-11-07): back, Alice's table waited as she left it ([discarded] shown) with
      * "Bob responded differently · Tap to watch", nothing moving; her tap took it back to the branch point (the take-back,
      * with timeline mode's look) with [note] and stopped there (owner 2026-11-08), her next tap played Bob's new events
      * back ([theirs]), and she is live at the new head; [discarded] is gone. */
@@ -71,7 +71,7 @@ class BranchOnReturnTest : E2e() {
         fun takeBack(): Int = seen.boards.indexOfFirst { it.transition?.undone?.branch == true && it.transition!!.backward.isNotEmpty() }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
         waitUntil("Alice told") { alice.told(note) }
-        // HIS-106 (owner 2026-11-08): the take-back stops at the branch point until her next tap
+        // HIS-106, HIS-190 (owner 2026-11-08): the take-back stops at the branch point until her next tap
         alice.waitsAtBranchStop(this, bob) { seen.boards.any { s -> s.held.any(theirs) } }
         val stopped = seen.boards.size
         alice.tapToWatch()
@@ -92,7 +92,7 @@ class BranchOnReturnTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // HIS-097, HIS-106, CMB-040, CMB-049 (owner playtest 2026-11-06): Alice attacks with her Ember Cub while Bob is away,
+    // HIS-097, HIS-185, HIS-106, HIS-191, CMB-040, CMB-049 (owner playtest 2026-11-06): Alice attacks with her Ember Cub while Bob is away,
     // assumes his Ember Herald blocks it ("Assume blockers") and plays on to his turn; she leaves the app; Bob comes back
     // and, at his playback's stop at the assumed blocks, declares no blocks. Alice comes back: her table as she left it
     // with "Bob responded differently · Tap to watch"; her tap shows the branch, with "Bob blocked differently — your End
@@ -103,7 +103,7 @@ class BranchOnReturnTest : E2e() {
         assertBranchShown(seen, "${bob.name} blocked differently — your End turn was taken back", assumed, noBlocks)
     }
 
-    // HIS-097, HIS-106, HIS-033 (owner 2026-11-07): as above, but Alice's app starts again and she opens the game from the
+    // HIS-097, HIS-185, HIS-106, HIS-191, HIS-033, HIS-162 (owner 2026-11-07): as above, but Alice's app starts again and she opens the game from the
     // Games list (loaded anew): her table opens where she left it and waits for her tap, as above (a device loaded anew
     // doesn't know her End turn: the note names none)
     @Test fun assumedBlocksAnsweredDifferentlyWaitForATapWhenTheGameOpensAgain() {
@@ -186,7 +186,7 @@ class BranchOnReturnTest : E2e() {
         return assumed to ::noBlocks
     }
 
-    // HIS-097, HIS-106, HIS-105: Alice casts an Ember Herald while Bob is away, assumes his pass ("Always assume
+    // HIS-097, HIS-185, HIS-106, HIS-191, HIS-105: Alice casts an Ember Herald while Bob is away, assumes his pass ("Always assume
     // resolves") and ends her turn; she leaves the app; Bob comes back and, at his playback's stop at her spell, casts an
     // Idle Glimmer instead of letting it resolve. Alice comes back: her table as she left it with "Bob responded
     // differently · Tap to watch"; her tap shows the branch, with "Bob responded — your End turn was taken back"

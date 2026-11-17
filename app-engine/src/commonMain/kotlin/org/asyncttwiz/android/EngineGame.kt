@@ -274,11 +274,23 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             else { opened = true; r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Open(it, me, base, snapshot, showPlays) } }
             return
         }
+        // Whether the app was away when the head came, read here on the calling thread: the app's return can be told before
+        // the engine thread gets to this load ([revision] likewise)
+        val away = awayPaused
         worker.run {
             // HIS-106, HIS-108: opened for the first time, where another player's branch or undo took back what the player
-            // had seen: the table shows where they left it until they tap (the take-back held, [hold])
+            // had seen: the table shows where they left it until they tap (the take-back held, [hold]). HIS-205, HIS-191
+            // (owner, prod 0.2.1, 2026-11-17: "if an opponent undoes while I'm away the app rewinds instantly"): so does the
+            // open game loading again while the app is away (a head past the revisions it received, as a phone back from
+            // sleep can get: more revisions than a resubscription replays, or the head read before they were published).
+            // Live, a take-back the head brings plays at once, as a live revision's does
             val first = !this::device.isInitialized
-            val (loaded, json) = try { GameDevice.load(snapshot, PlayerId(me), takenBack = first, ids = ids) } catch (failure: Exception) {
+            val holdTakeBack = first || away
+            AppLog.info("engine", "Game ${gameId.take(8)} ${if (first) "opens" else "loads again"} from head ${snapshot.headId.take(8)}" +
+                " (server's local head of this player ${snapshot.localHeads[me]?.take(8)}, ${snapshot.takenBack.size} seen events taken back" +
+                "${snapshot.undoneBy?.let { " by an undo of $it" } ?: ""}): ${if (holdTakeBack) "a take-back of what the player saw waits " +
+                "for their tap (${if (first) "opened" else "the app away"})" else "live, a take-back plays at once"}")
+            val (loaded, json) = try { GameDevice.load(snapshot, PlayerId(me), takenBack = holdTakeBack, ids = ids) } catch (failure: Exception) {
                 // The table says the game can't be opened instead of waiting for a board that never comes
                 AppLog.error("engine", "Engine game failed to load", failure)
                 worker.main { loadFailed = true; onShown() }
@@ -302,7 +314,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                 // with no centre-text pause. Loaded again while away or paused, the catch-up's pause stays (HIS-033, HIS-035)
                 val why = when {
                     !live -> "a load not from the open game's stream (a reopening)"
-                    awayPaused -> "the app away"
+                    away -> "the app away"
                     device.holding -> "a take-back held"
                     device.catchUp -> "in the catch-up's pause or timeline mode"
                     else -> null
@@ -336,6 +348,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             heldRevisions.clear(); heldWork = null
             if (undo != null || branch.isNotEmpty()) {
                 device.branchOnLoad = emptyList(); device.undoOnLoad = null
+                AppLog.info("engine", "Take-back held on the load: ${if (undo != null) "undo to ${undo.target?.take(8)} by ${undo.rewoundBy}" else "branch"}, " +
+                    "the table stays at ${device.session.tip.take(8)}, ${branch.size} events of the main line wait with it")
                 hold(Held(undo?.rewoundBy ?: branch.firstOrNull()?.author ?: device.opponent.value, undo = undo != null)) { received(branch, undo) }
             }
             publish()
@@ -371,6 +385,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * the note; an undo's one backward animation), then the other player's new events as catch-up playback with its stops
      * (engine thread). */
     private fun releaseHeld() {
+        AppLog.info("game", "Take-back held released by the tap: ${heldWork?.let { "${if (it.undo) "undo" else "branch"} by ${it.by}" }}, " +
+            "${heldRevisions.size} revisions play from tip ${device.session.tip.take(8)}")
         val work = heldRevisions.toList()
         heldRevisions.clear(); heldWork = null
         device.holding = false
@@ -1145,18 +1161,35 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** An accepted revision of this play: its engine events in order and the rest of what it changed. */
     fun revision(message: GameRevision) {
+        val from = revision
         revision = message.resultRevision
         val update = message.engine
         val texts = listOfNotNull(message.engineEvent) + update?.events.orEmpty()
         if (texts.isEmpty() && update == null) return
         remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Revision(it, message) }; return }
+        // HIS-205, HIS-035 (owner, prod 0.2.1, 2026-11-17): whether the app was away when the revision came, read here on the
+        // calling thread: the app's return ([returned]) can be told before the engine thread gets to this revision, and the
+        // undo it brought then played at once instead of waiting for the tap
+        val away = awayPaused
         worker.run {
             val events = texts.map(codec::decodeEvent)
             // HIS-106, HIS-108, HIS-035 (owner 2026-11-07): coming back to a branch or undo of what the player had seen,
             // the table stays as they left it until their tap; what follows it waits with it
-            val kind = if (awayPaused && heldWork == null && takesBackShown(events, update))
+            val takesBack = takesBackShown(events, update)
+            val kind = if (away && heldWork == null && takesBack)
                 Held(update?.rewoundBy ?: events.firstOrNull()?.author ?: device.opponent.value, undo = update?.target != null) else null
             val held = kind ?: heldWork
+            // Undo, rewinds and the return are logged in full (AGENTS.md); ordinary live revisions aren't (the log's room)
+            if (away || held != null || takesBack || update?.target != null) AppLog.info("engine", "Revision $from → " +
+                "${message.resultRevision}: ${events.size} events${events.firstOrNull()?.let { " ${it.id.take(8)}..${events.last().id.take(8)} on ${it.parentId.take(8)}" } ?: ""}" +
+                (update?.target?.let { " (rewind to ${it.take(8)} by ${update.rewoundBy})" } ?: "") +
+                ", shown tip ${device.session.tip.take(8)}: ${when {
+                    kind != null -> "takes back what the player saw while the app is away: held for their tap (${if (kind.undo) "undo" else "branch"} by ${kind.by})"
+                    held != null -> "waits behind the take-back already held (${held.by})"
+                    takesBack -> "takes back what the player saw, live: plays at once"
+                    away -> "the app away, nothing taken back: the catch-up pause keeps it"
+                    else -> "live"
+                }}")
             if (held != null) {
                 hold(held) { received(events, update) }
                 publish()
@@ -1490,7 +1523,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     fun away() {
         awayPaused = true
         remote?.let { r -> r.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Away(it) }; return }
-        worker.run { device.away(); publish() }
+        worker.run {
+            device.away()
+            AppLog.info("game", "App away: game ${gameId.take(8)} pauses at revision $revision, ${device.viewState()}")
+            publish()
+        }
     }
 
     /** HIS-035, HIS-006: back, with everything the server had received ([GameDevice.returned]). */
@@ -1501,6 +1538,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         worker.run {
             val before = device.status
             device.returned()
+            AppLog.info("game", "App back with everything the server had: game ${gameId.take(8)} at revision $revision, " +
+                (heldWork?.let { "a take-back held for the tap (${if (it.undo) "undo" else "branch"} by ${it.by}, ${heldRevisions.size} revisions), " } ?: "") +
+                device.viewState())
             // HIS-106: a branch whose playback the app's leaving paused plays on now, to its end (its stop at the branch
             // point still waits for the tap)
             if (takingBack && !branchStop) device.play()

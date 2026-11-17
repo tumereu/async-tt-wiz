@@ -47,6 +47,8 @@ what you see first, then what you do, then the edge cases.
 ```
 
 - One fact per entry, one line, plain words: what a player sees or can do.
+- An entry says the behaviour in its own words, never by pointing at another app ("as in MTG Arena",
+  "Scryfall-style"): other apps change. File formats we read (an export, a link) may be named.
 - Aim for at most 300 characters; over 500 only for a single rule that can't be cut (a list, say). A longer
   description splits into several entries.
 - Each exact number the owner chose (sizes, delays, limits, defaults) lives in one entry; other entries name the

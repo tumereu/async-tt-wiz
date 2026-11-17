@@ -1,6 +1,6 @@
 package org.asyncttwiz.android
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.sun.net.httpserver.HttpServer
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkUrlPolicy

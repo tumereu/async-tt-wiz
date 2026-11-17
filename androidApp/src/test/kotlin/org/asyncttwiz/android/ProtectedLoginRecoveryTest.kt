@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import android.content.Context
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.AccountIdentity
 import org.asyncttwiz.protocol.SessionCreated

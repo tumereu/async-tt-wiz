@@ -2,7 +2,7 @@ package org.asyncttwiz.android
 
 import android.content.Context
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CrashReport

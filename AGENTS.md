@@ -128,7 +128,24 @@ you update the catalog to match; everywhere else the catalog wins.
   `AndroidRegexCheckTest` (in `:androidApp:testDebugUnitTest`) fails on regex braces Android's ICU rejects but the JVM accepts.
   While implementing, run the tasks relevant to what you changed. After a batch
   of implementations is merged, all the tasks above run together on the merged
-  result, and failures are fixed before the batch is done.
+  result, and failures are fixed before the batch is done:
+  `scripts/full-verify.sh <log folder>` runs them all plus the full e2e on master
+  in its own worktree; the coordinator runs it whenever the machine is idle.
+- **Merging to master:** master moves only through `scripts/merge-gate.sh <branch>`
+  (set work: `arcanum-tools/set-work/bin/merge-to-master.sh`, which uses it). It
+  merges the branch into master in a separate worktree, runs the JVM suites of the
+  changed modules and their dependents, `:androidApp:testDebugUnitTest`, the
+  on-device tests' compile, the web build and an e2e smoke set there, and moves
+  master to exactly that tested merge only if all pass (documentation-only merges:
+  the catalog check). Workers never merge to master. A git hook refuses every other
+  update of master (a plain merge, fast-forward or commit on master); enable it once
+  per clone with `git config core.hooksPath "$(git rev-parse --show-toplevel)/.githooks"`
+  in the main checkout. Emergency override, coordinator only:
+  `ATW_MASTER_OVERRIDE=1 <git command>`.
+- `checkFeatureCatalog` (before every test task) fails when an entry is cited by no
+  test (except the shrinking list in `gradle/catalog-uncited-allowlist.txt`), and
+  when fewer test files cite an entry than at the `catalog-approved` tag while the
+  entry is unchanged.
 - If a check fails, fix the cause. If the same failure persists after two real
   attempts, or the failure is environmental (network, Docker, emulator), stop
   and report it instead of retrying.

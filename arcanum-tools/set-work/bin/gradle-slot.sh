@@ -20,6 +20,7 @@ while :; do
     if flock -n 9; then
       # waits over a minute go to slot-wait.log, so a coordinator can tell whether more slots or fewer workers would help
       ((SECONDS - begin > 60)) && echo "$(date -Is) waited $((SECONDS - begin))s for slot $n of $slots: $PWD" >>"$L/slot-wait.log"
+      ((SECONDS - begin > 0)) && echo "gradle-slot: waited $((SECONDS - begin))s for a build slot" >&2
       ./scripts/gradle.sh "$@"; rc=$?; flock -u 9; exit $rc
     fi
   done

@@ -1,0 +1,32 @@
+# Feature catalog entries no test cites yet (checkFeatureCatalog, build.gradle.kts). Every other entry needs a test that
+# names it; a new entry is not added here. An entry that gets a test leaves this list in the same commit (the check fails
+# while a listed entry is cited). One ID per line.
+CMB-045
+CMB-046
+DRF-001
+DRF-011
+DRF-017
+HIS-009
+HIS-074
+LOB-009
+LOB-014
+LOB-109
+LOB-143
+LOB-147
+STK-054
+SYS-001
+SYS-031
+SYS-040
+SYS-048
+SYS-068
+SYS-075
+TBL-020
+TBL-101
+TBL-102
+TBL-129
+WEB-008
+WEB-010
+WEB-012
+ZON-023
+ZON-024
+ZON-031

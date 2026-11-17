@@ -73,7 +73,7 @@ fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: TableBoar
             ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
             if (runtime.chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp).background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))
         }
-        // HIS-020, TRN-049: open while a suggestion blocks game actions, for its Timeline (its other entries greyed)
+        // HIS-020, TRN-049: open while a suggestion blocks game actions, every entry usable (owner, 2026-11-17)
         if (!runtime.reviewing) ActionSquare("Table actions", "", toolkit != null,
             Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("grid") },
             onClick = { toolkit?.tableMenu() })

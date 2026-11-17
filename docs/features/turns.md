@@ -33,7 +33,7 @@ and nobody goes back to the lobby until both have tapped its OK.
 - **TRN-007** In the phone layout the step button in the top bar is a square in the current phase's colour with the step's icon and its short name, as in the phase dialog (TRN-008), with no border colour or turn number. It flashes on a step change and opens the phase dialog. (r35)
 - **TRN-008** The phase dialog is a real dialog titled with the step and its phase ("Combat · Declare attackers"), then "Your turn" / "<name>'s turn"; phase labels sit above rows of step squares, the current one outlined in the turn player's colour. Square names fit on one line on a phone: Untap, Upkeep, Draw · Main 1 · Begin, Attackers, Blockers, Damage, End · Main 2 · End, Cleanup ("1st strike" while a combat has it, TRN-056). (r37)
 - **TRN-009** The phase dialog only shows where the turn is: its step squares do nothing and it has no buttons; the game moves on only with the main button (TRN-063). (r47)
-- **TRN-010** The top bar's Table actions button opens a dialog with Timeline (the only way into timeline mode, HIS-004), Suggest game end (or Accept result while the opponent's suggestion waits), Concede (TRN-064), Send problem report (Settings' "Report a problem" with its optional description, sent without leaving the game) and Game settings (LOB-135), each an icon and its name. Nothing in it changes the board by hand (TBL-119). (r58)
+- **TRN-010** The top bar's Table actions button opens a dialog with Timeline (the only way into timeline mode, HIS-004), Suggest game end (usable whenever you are at the table, your move or not; TRN-162 while a suggestion waits), Concede (TRN-064), Send problem report (Settings' "Report a problem" with its optional description, sent without leaving the game) and Game settings (LOB-135), each an icon and its name. Nothing in it changes the board by hand (TBL-119). (r58)
 
 ## Whose turn and whose move
 
@@ -118,8 +118,9 @@ and nobody goes back to the lobby until both have tapped its OK.
 - **TRN-134** Accepting a suggestion makes an agreed result, which ends the game at once: the player accepting waits at the table for the author's OK on the result dialog (TRN-065). (r60)
 - **TRN-048** Decline and Withdraw are their own events, not undos. (r18)
 - **TRN-051** The suggestion panel appears once the board shown to you includes its event (in catch-up playback when it is reached, TRN-049), and its buttons work from then on. (r60)
-- **TRN-049** While a suggestion waits, every other game action is blocked for a player once the board shown to them includes it; chat, timeline browsing and holding to inspect still work. (r48)
-- **HIS-020** A pending win/loss/draw suggestion never blocks the timeline: Table actions still opens, with Timeline usable and its other entries greyed. It locks play only once the board shown to you (your local head) includes it (TRN-049). (r55)
+- **TRN-049** While a suggestion waits, every other game action is blocked for a player once the board shown to them includes it; chat, timeline browsing, holding to inspect and Table actions (HIS-020) still work. (r48)
+- **HIS-020** A pending win/loss/draw suggestion never blocks Table actions: it still opens with every entry usable for either player (Timeline, Suggest game end, Concede, Send problem report, Game settings). It locks play only once the board shown to you (your local head) includes it (TRN-049). (r55)
+- **TRN-162** While a suggestion waits, Suggest game end makes a new suggestion that replaces the waiting one, whoever made it: the author changes theirs, the other player answers with their own. (r55)
 - **TRN-050** A suggestion left behind on a discarded line (an earlier real answer of the other player's branched, HIS-097) no longer locks anything. (r48)
 
 ## Conceding and endings

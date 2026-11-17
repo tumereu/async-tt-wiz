@@ -13,15 +13,15 @@ import org.asyncttwiz.appui.screenWidthDp
 import org.asyncttwiz.appui.screenHeightDp
 
 /** The Table actions dialog (TRN-010): the timeline, the game's result and a problem report (I-D52: nothing that
- * changes the board by hand, no tokens, combat area, dice or coins). */
+ * changes the board by hand, no tokens, combat area, dice or coins). Every entry stays usable while a result suggestion
+ * waits (owner, 2026-11-17: "concede and suggest game end should be always available to either player"; HIS-020). */
 @Composable
 fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismiss: () -> Unit,
-    pendingSuggestionId: String? = null, mayAccept: Boolean = false,
     perform: (TableActionIntent) -> Boolean = controller::perform,
     names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null,
     reportToken: () -> String? = DebugCrashes::sessionToken,
-    /** TRN-049: a waiting suggestion blocks every entry but Timeline (HIS-020). */
-    blocked: Boolean = false,
+    /** TRN-047: a result suggestion waits; a new one suggested here replaces it (TRN-046). */
+    suggestionWaits: Boolean = false,
     /** LOB-135: the game's settings (null: Game settings greyed, as in tests of the table alone). */
     settings: GameSettingsAccess? = null) {
     val scope = TableActionScope(play.gameId, play.playId)
@@ -31,20 +31,22 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     var reporting by remember(scope) { mutableStateOf(false) }
     var setting by remember(scope) { mutableStateOf(false) }
     val landscape = screenWidthDp() > screenHeightDp()
-    val enabled = controller.enabled(scope) && !blocked
-    // TRN-064, CR 104.3a: also while it isn't the viewer's move
-    val concedable = controller.concedeEnabled(scope) && !blocked
-    val endingEntry = if (pendingSuggestionId == null) MenuControl("Suggest game end", enabled) { ending = true }
-        else MenuControl("Accept result", enabled && mayAccept) {
-            if (perform(TableActionIntent.Ending(scope, EndingTool.ACCEPT, pendingSuggestionId))) onDismiss()
-        }
-    // CR 104.3a (I-D52): conceding needs nobody's agreement, also while a suggestion waits
-    val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
-        listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", concedable) { conceding = true } +
+    val enabled = controller.suggestEnabled(scope)
+    // TRN-064, CR 104.3a: also while it isn't the viewer's move, and while a suggestion waits
+    val concedable = controller.concedeEnabled(scope)
+    LaunchedEffect(scope, suggestionWaits) {
+        AppLog.info("game", "Table actions opened${if (suggestionWaits) " while a result suggestion waits" else ""}: " +
+            "Suggest game end ${if (enabled) "usable" else "greyed"}, Concede ${if (concedable) "usable" else "greyed"}")
+    }
+    // TRN-046 (owner, 2026-11-17): while a suggestion waits a new one replaces it, whoever made it
+    val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() },
+        MenuControl("Suggest game end", enabled) { ending = true },
+        // CR 104.3a (I-D52): conceding needs nobody's agreement, also while a suggestion waits
+        MenuControl("Concede", concedable) { conceding = true },
         // The same report as Settings' "Report a problem", without leaving the game (N7FU6Y)
-        MenuControl("Send problem report", !blocked) { reporting = true } +
+        MenuControl("Send problem report", true) { reporting = true },
         // LOB-135: both players see the game's settings; only its host changes them
-        MenuControl("Game settings", settings != null && !blocked) { setting = true }
+        MenuControl("Game settings", settings != null) { setting = true })
     if (reporting) ProblemReportDialog(reportToken) { reporting = false; onDismiss() }
     if (setting && settings != null) GameSettingsPanel(settings.game, settings.accountId, settings.change) { setting = false; onDismiss() }
     if (!ending && !conceding && !reporting && !setting) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
@@ -64,7 +66,10 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     }
     outcome?.let { chosen ->
         var note by remember(chosen) { mutableStateOf("") }
-        val confirm = { if (perform(TableActionIntent.Ending(scope, chosen.second, note = ResultNoteInput.clean(note)))) onDismiss() }
+        val confirm = {
+            if (suggestionWaits) AppLog.info("game", "Suggest game end (${chosen.second}) while a result suggestion waits: it replaces the waiting one")
+            if (perform(TableActionIntent.Ending(scope, chosen.second, note = ResultNoteInput.clean(note)))) onDismiss()
+        }
         ScreenDialog({ outcome = null }, title = "Suggest ${chosen.first.lowercase().removeSuffix(" game")}?", actions = {
             DialogCancelButton("Cancel", { outcome = null })
             DialogMainButton("Confirm", confirm, enabled = enabled)

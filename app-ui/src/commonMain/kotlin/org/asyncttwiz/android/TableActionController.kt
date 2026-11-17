@@ -34,7 +34,7 @@ sealed interface TableActionIntent {
 }
 
 /** [canAct]: the viewer may act on the table now (their move); [atTable]: they are at the table at all, whoever's move it is
- * (TRN-064, CR 104.3a: a concession needs nobody's agreement, any time). */
+ * (TRN-064, CR 104.3a: a concession needs nobody's agreement, any time; owner, 2026-11-17: a game end suggestion too). */
 class TableActionController(private val state: () -> TableBoard?, private val canAct: () -> Boolean,
     private val routes: TableActionRoutes, private val atTable: () -> Boolean = canAct) {
 
@@ -45,14 +45,17 @@ class TableActionController(private val state: () -> TableBoard?, private val ca
     fun enabled(scope: TableActionScope) = current(scope) != null
     /** TRN-064: Concede works whenever the viewer is at the table, also while it isn't their move. */
     fun concedeEnabled(scope: TableActionScope) = current(scope, atTable) != null
+    /** TRN-010, HIS-020 (owner, 2026-11-17: "concede and suggest game end should be always available to either player"):
+     * Suggest game end works whenever the viewer is at the table, as Concede does, also while a suggestion waits (TRN-162). */
+    fun suggestEnabled(scope: TableActionScope) = concedeEnabled(scope)
 
     fun perform(intent: TableActionIntent): Boolean {
-        val concession = intent is TableActionIntent.Ending && intent.tool == EndingTool.CONCEDE
-        if (current(intent.scope, if (concession) atTable else canAct) == null) {
-            if (concession) AppLog.warn("game", "Concede not taken: not at the table")
+        val ending = (intent as? TableActionIntent.Ending)?.tool?.let { if (it == EndingTool.CONCEDE) "Concede" else "Ending $it" }
+        if (current(intent.scope, if (ending != null) atTable else canAct) == null) {
+            if (ending != null) AppLog.warn("game", "$ending not taken: not at the table")
             return false
         }
-        if (concession) AppLog.info("game", "Concede pressed" + if (canAct()) "" else " while it isn't the player's move")
+        if (ending != null) AppLog.info("game", "$ending pressed" + if (canAct()) "" else " while it isn't the player's move")
         when (intent) {
             is TableActionIntent.Next, is TableActionIntent.End -> return routes.automatumStep(intent)
             is TableActionIntent.OpeningMulligan, is TableActionIntent.Keep -> return routes.opening(intent)

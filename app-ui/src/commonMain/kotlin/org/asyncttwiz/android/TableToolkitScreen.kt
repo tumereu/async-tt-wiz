@@ -50,7 +50,7 @@ fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: 
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss, names = names)
         "table" -> {
             TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline,
-                blocked = gameActionsBlocked, settings = toolkit.assumeReveals?.let { change -> GameSettingsAccess(game, toolkit.viewer, change) })
+                suggestionWaits = gameActionsBlocked, settings = toolkit.assumeReveals?.let { change -> GameSettingsAccess(game, toolkit.viewer, change) })
         }
         "deck" -> DeckViewPanel(play, toolkit.viewer, toolkit::dismiss)
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit::dismiss, names = names)

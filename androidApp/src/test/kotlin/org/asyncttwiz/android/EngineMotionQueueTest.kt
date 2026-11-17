@@ -49,7 +49,7 @@ class EngineMotionQueueTest {
         assertEquals(true, heard, "the wait heard that the steps ended")
     }
 
-    // HIS-113 (owner playtest 2026-11-09): while the damage holds, the steps stop at the board right after the damage is
+    // HIS-113, HIS-147 (owner playtest 2026-11-09): while the damage holds, the steps stop at the board right after the damage is
     // dealt, the creatures it destroys still on it; a board published again on the way or meanwhile keeps the steps, and the
     // hold's end publishes the board again and the steps go on from there to the end (they die), instead of ending at once
     @Test fun theDamageHoldStopsTheStepsAtTheDamageDealtAndTheyGoOnAfterIt() {
@@ -88,7 +88,7 @@ class EngineMotionQueueTest {
     private fun stacked(board: TableBoard, vararg entries: String) = board.copy(board = board.board.copy(containers =
         board.board.containers.map { if (it.zone == org.asyncttwiz.protocol.PlayZone.STACK) it.copy(cards = entries.toList()) else it }))
 
-    // HIS-112, TBL-125 (owner playtest 2026-11-15, report VSVLSK: the plays landed on a Stack their entries had already left,
+    // HIS-112, HIS-132, TBL-125 (owner playtest 2026-11-15, report VSVLSK: the plays landed on a Stack their entries had already left,
     // with no arrows): the same board published again while its steps play toward a play shown not landed yet (its status,
     // the other player's presence) keeps the steps, instead of jumping to the end of the event under the play
     @Test fun aBoardPublishedAgainKeepsTheStepsTowardAPlayShown() {
@@ -112,7 +112,7 @@ class EngineMotionQueueTest {
         assertEquals(cast, queue.board(4, event, live, plays = plays), "still there while it shows")
     }
 
-    // HIS-112, TBL-125 (owner playtest 2026-11-15, report VSVLSK: the caster's own trigger shown over a Stack its event had
+    // HIS-112, HIS-132, HIS-137, TBL-125 (owner playtest 2026-11-15, report VSVLSK: the caster's own trigger shown over a Stack its event had
     // already resolved): the board drawn before has the entry of a play shown not landed yet, and the event's first step
     // already takes it off the Stack: that board stays drawn until the play has landed, then the steps play
     @Test fun aFirstStepTakingAPlaysEntryOffTheStackWaitsForThePlay() {

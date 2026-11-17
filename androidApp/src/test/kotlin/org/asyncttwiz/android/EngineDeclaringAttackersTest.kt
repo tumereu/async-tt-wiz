@@ -89,7 +89,7 @@ class EngineDeclaringAttackersTest {
     // retargets it; the arrow attacks the Oracle
     @Test fun fullControlActsBeforeAttacksAndTapsOnlyStageAtTheLanesTarget() {
         val (hound, oracle) = toReadyHound()
-        // HIS-096: with Bob away, Alice plays on
+        // HIS-096, HIS-181: with Bob away, Alice plays on
         kit.alice.settings(kit.alice.shown!!.settings.copy(mode = ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         kit.scenario.online[f.b] = false
         assertEquals(AutomatumStep.ToCombat, AutomatumStep.of(kit.alice.play()))

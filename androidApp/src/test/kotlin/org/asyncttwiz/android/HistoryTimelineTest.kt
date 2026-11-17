@@ -24,7 +24,7 @@ class HistoryTimelineTest {
         assertEquals(999, HistoryTimelineLayout.selectedAfterDrag(999,-240f,24f,1000))
     }
 
-    // HIS-005: a separator's line sits in the gap's centre before its event; where labels would overlap, the newest
+    // HIS-005, HIS-170, HIS-171: a separator's line sits in the gap's centre before its event; where labels would overlap, the newest
     // change keeps its label (the lines all show)
     @Test fun separatorsSitInTheGapAndTheNewestLabelWins() {
         assertEquals(88f, HistoryTimelineLayout.separatorX(100f, 24f))

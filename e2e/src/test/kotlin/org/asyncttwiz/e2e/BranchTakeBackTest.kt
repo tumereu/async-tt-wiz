@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
  * plays the other player's new events back as catch-up playback.
  */
 class BranchTakeBackTest : E2e() {
-    // HIS-097, HIS-022, HIS-106: Alice casts an Ember Herald while Bob is away and plays on ("Always assume resolves");
+    // HIS-097, HIS-186, HIS-022, HIS-106, HIS-190: Alice casts an Ember Herald while Bob is away and plays on ("Always assume resolves");
     // Bob comes back and, at his playback's stop at her spell (he could respond), casts an Idle Glimmer instead of
     // letting it resolve: Alice's table, open and live, rewinds to the branch point with timeline mode's look (a backward
     // transition with its steps, the note), meanwhile a tap on the table doesn't pause it and Back does nothing; it stops
@@ -63,7 +63,7 @@ class BranchTakeBackTest : E2e() {
         run()
         assertNotNull(alice.game, "still at the table")
         assertTrue(!alice.shown.pausing, "a tap on the table doesn't pause the take-back")
-        // HIS-106 (owner 2026-11-08): it stops at the branch point until her tap
+        // HIS-106, HIS-190 (owner 2026-11-08): it stops at the branch point until her tap
         alice.waitsAtBranchStop(this, bob) { bobsCast() >= 0 }
         assertTrue(timelineLook, "the take-back went back with timeline mode's look")
         val stopped = boards.size

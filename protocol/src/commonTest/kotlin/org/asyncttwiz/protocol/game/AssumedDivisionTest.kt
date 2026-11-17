@@ -97,7 +97,7 @@ class AssumedDivisionTest {
         assertEquals(emptyList(), sim.equivalence())
     }
 
-    // JVPJ8Y (I-D56 §13): the gate's own rule, on the same board: the author's automatic answer folds into their assumed
+    // HIS-118, JVPJ8Y (I-D56 §13): the gate's own rule, on the same board: the author's automatic answer folds into their assumed
     // event, any other answer of theirs to that decision doesn't (it is a real input: its own event)
     @Test
     fun onlyTheAutomaticDivisionFoldsIntoAnAssumedEvent() {

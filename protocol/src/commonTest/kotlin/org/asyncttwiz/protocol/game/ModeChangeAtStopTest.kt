@@ -124,7 +124,7 @@ class ModeChangeAtStopTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-095, TRN-059 (owner 2026-11-07, report WDKHSB): Alice, in Normal, catches up on Bob's turn played while she was
+    // HIS-095, HIS-163, TRN-059 (owner 2026-11-07, report WDKHSB): Alice, in Normal, catches up on Bob's turn played while she was
     // away; her playback stops at the pass assumed for her at his spell although she can't respond (Normal stops at his
     // spells); switching to Quick there leaves the stop until she answers it (it went on by itself before), and the next
     // point, his ability, follows Quick: playback goes on past it

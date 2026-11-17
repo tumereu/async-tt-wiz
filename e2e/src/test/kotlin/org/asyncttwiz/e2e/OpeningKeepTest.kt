@@ -10,10 +10,10 @@ import kotlin.test.assertTrue
 /**
  * Found by the e2e framework (owner, 2026-11-05): a phone that opened the game before the other player arrived assumed
  * their opening keep at once, and went on to turn 1 without them, even after they came. The starting player's phone
- * never assumes the other player's keep by itself (owner, 2026-11-15: only a press of Assume keep does, HIS-096).
+ * never assumes the other player's keep by itself (owner, 2026-11-15: only a press of Assume keep does, HIS-096, HIS-183).
  */
 class OpeningKeepTest : E2e() {
-    // TRN-027, TRN-070, HIS-096: Alice (the starting player) opens the game first and keeps while Bob hasn't
+    // TRN-027, TRN-070, HIS-096, HIS-183: Alice (the starting player) opens the game first and keeps while Bob hasn't
     // opened it; long past any grace her phone still waits for his keep with Assume keep on the main button, assumes
     // nothing by itself, and her turn 1 begins on his own keep
     @Test fun theStartingPlayerWaitsForTheOtherPlayersKeepWhenOpeningFirst() {

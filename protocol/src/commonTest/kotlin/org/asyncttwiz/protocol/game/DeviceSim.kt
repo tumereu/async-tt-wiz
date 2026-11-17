@@ -57,7 +57,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     fun device(p: PlayerId): GameDevice = devices.getValue(p)
 
     /** Starts the game (the server's own first event) and loads both devices. Each player plays on while the other is
-     * away: "Always assume resolves" on, unless [alwaysAssume] is false (HIS-096: then the other player's pauses wait,
+     * away: "Always assume resolves" on, unless [alwaysAssume] is false (HIS-096, HIS-178: then the other player's pauses wait,
      * with Assume). */
     fun start(starter: PlayerId = alice, mode: ResponseMode = ResponseMode.AutoSkip, handSizes: Map<PlayerId, Int> = emptyMap(),
         alwaysAssume: Boolean = true) {

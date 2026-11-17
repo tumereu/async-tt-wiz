@@ -51,7 +51,7 @@ class UndoDialogTest : E2e() {
         repeat(kotlin.math.abs(to - from)) { drag(player, earlier = to < from) }
     }
 
-    // HIS-099, HIS-083, HIS-087 (owner 2026-11-06): Alice plays a Mountain and casts an Ember Herald (Bob away, her phone
+    // HIS-099, HIS-208, HIS-083, HIS-087 (owner 2026-11-06): Alice plays a Mountain and casts an Ember Herald (Bob away, her phone
     // assuming he lets it resolve); holding Undo opens the dialog at the point before her cast; dragging the strip one
     // event right chooses her Mountain, and Undo takes both back at once, free (nothing after it is Bob's)
     @Test fun dragTheUndoStripToAnOlderOwnEvent() {
@@ -76,7 +76,7 @@ class UndoDialogTest : E2e() {
         assertTrue(!alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // HIS-099, HIS-084, SYS-038 (owner 2026-11-06): Alice plays a Mountain and ends her turn; Bob plays his Mountain;
+    // HIS-099, HIS-208, HIS-209, HIS-084, SYS-038 (owner 2026-11-06): Alice plays a Mountain and ends her turn; Bob plays his Mountain;
     // Alice holds Undo and drags the strip to Bob's land: going back to just before it asks Bob ("Ask Bob", with a
     // message), and when he accepts his Mountain is back in his hand
     @Test fun undoBeforeTheOtherPlayersEventIsARequest() {

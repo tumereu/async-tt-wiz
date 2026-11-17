@@ -39,7 +39,7 @@ class PassesAndUndoTest : E2e() {
         return shown
     }
 
-    // HIS-101, HIS-075, HIS-099, HIS-084 (§29.2, owner 2026-11-04): across turns full of passes no timeline
+    // HIS-101, HIS-119, HIS-075, HIS-099, HIS-084 (§29.2, owner 2026-11-04): across turns full of passes no timeline
     // or event chip text says anyone passed (assumed or not): a pass reads only as what it led to, one that led to nothing
     // shows nowhere; the Undo dialog lists no pass (an End turn's first pass is "You ended the turn", her tap leaving her main
     // phase "You went to combat", owner 2026-11-08), and Undo goes back to just before that tap, then past it to her cast
@@ -54,7 +54,7 @@ class PassesAndUndoTest : E2e() {
         val next = alice.engine { (device.session.events + device.session.pending)[before] }
         assertTrue(EngineEventText.pass(next), "the Next tap is a pass")
         waitUntil("Alice's own stop after it") { alice.status == GameDevice.Status.YourMove && alice.state.turn.step != TurnStep.PrecombatMain }
-        // HIS-084, HIS-101 (owner 2026-11-08): her tap leaving her main phase is the target, not the assumed passes after it
+        // HIS-084, HIS-101, HIS-119 (owner 2026-11-08): her tap leaving her main phase is the target, not the assumed passes after it
         waitUntil("her tap on the server: the target") { alice.shown.undoTarget == next.parentId }
         alice.hold(alice.stepArrow()!!)
         waitUntil("Alice's phone on in Bob's turn, all of it on the server") {
@@ -73,7 +73,7 @@ class PassesAndUndoTest : E2e() {
             val timeline = game.timeline.events(game, names)
             assertTrue(timeline.none { "passed" in it.description || "assumed" in it.description && "pass" in it.description },
                 "${player.name}: ${timeline.map { it.description }}")
-            // HIS-005: a pass shows on the timeline only as a resolution or an own End turn; the new turn and steps it led
+            // HIS-005, HIS-170, HIS-119: a pass shows on the timeline only as a resolution or an own End turn; the new turn and steps it led
             // to are the separators between events
             val byId = line.associateBy { it.id }
             assertTrue(timeline.none { t -> byId[t.id]!!.let { EngineEventText.pass(it) && EngineEventText.ownPress(it, player.id) == null &&
@@ -109,7 +109,7 @@ class PassesAndUndoTest : E2e() {
         assertTrue(texts.count { it == "You ended the turn" } <= 1, texts.toString())
     }
 
-    // HIS-084, TRN-057 (analysis 2026-11-05): Alice ends her turn (Bob away, "Always assume resolves"), then Undo takes the
+    // HIS-084, HIS-198, TRN-057 (analysis 2026-11-05): Alice ends her turn (Bob away, "Always assume resolves"), then Undo takes the
     // End turn back: she lands in her main phase, and her next action there (a Mountain played) is only that; her
     // taken-back End turn passes nothing more for her (it carried the game on to Bob's turn after the Mountain)
     @Test fun anUndoneEndTurnPassesNothingAfterTheNextAction() {
@@ -133,7 +133,7 @@ class PassesAndUndoTest : E2e() {
         assertEquals(GameDevice.Status.YourMove, alice.status)
     }
 
-    // HIS-030, HIS-108, HIS-087, TBL-040 (§29.4, owner 2026-11-04 and 2026-11-05): Alice undoes her cast that Bob had seen
+    // HIS-030, HIS-108, HIS-087, HIS-202, TBL-040 (§29.4, owner 2026-11-04 and 2026-11-05): Alice undoes her cast that Bob had seen
     // (free: after it only his passes, owner problem report VXSGKH): on both phones the board goes back in one animation
     // (the Herald from the battlefield straight back to her hand, no board in between, no jump) with "Undid: cast Ember
     // Herald" for her and "Alice undid: cast Ember Herald" for Bob
@@ -163,7 +163,7 @@ class PassesAndUndoTest : E2e() {
         assertEquals("HAND", where(alice.shown.board, herald))
     }
 
-    // HIS-084, HIS-099, SYS-025 (full suites 2026-11-08): Alice's phone hasn't heard yet that Bob made a real move after
+    // HIS-084, HIS-099, HIS-208, HIS-209, SYS-025 (full suites 2026-11-08): Alice's phone hasn't heard yet that Bob made a real move after
     // her End turn (his Mountain in his turn) when she taps Undo, so it shows the undo at once; the server finds it needs
     // Bob's approval, her game loads again and the Undo dialog opens at the point before her End turn (never at the newest
     // point), its Undo waiting until that point's board is in; she asks, Bob accepts and the server goes back there

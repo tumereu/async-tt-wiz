@@ -186,7 +186,7 @@ private fun saying(label: String) =
  * ignored as the second tap of a double tap (TRN-063): the phone's clock first moves past it, as a player's finger would be later. */
 internal fun E2ePlayer.tap(label: String) { pastMainGuard(); control(label).performClick() }
 
-/** HIS-110, TRN-063 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
+/** HIS-110, HIS-151, TRN-063 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
 internal val REVEAL_OK = hasTestTag("main-button") and hasContentDescription("OK")
 internal fun E2ePlayer.showsRevealOk(): Boolean = game?.shown?.reveal != null && shows(REVEAL_OK)
 internal fun E2ePlayer.revealOk() { pastMainGuard(); node(REVEAL_OK).performClick() }
@@ -217,7 +217,7 @@ internal fun E2ePlayer.showsWatch(): Boolean = shows(hasTestTag("centre-action")
 internal fun E2ePlayer.tapToWatch() { node(hasTestTag("centre-action")).performClick() }
 
 /**
- * HIS-106 (owner 2026-11-08): a branch's rewind stops at the branch point as playback stops: this player's table waits
+ * HIS-106, HIS-190 (owner 2026-11-08): a branch's rewind stops at the branch point as playback stops: this player's table waits
  * there, live, without timeline mode's look, with "<[by]> responded differently from here · Tap to continue", and their
  * new events ([theirsShown]) don't play while it waits. The caller taps the centre text next.
  */
@@ -230,7 +230,7 @@ internal fun E2ePlayer.waitsAtBranchStop(e2e: E2e, by: E2ePlayer, theirsShown: (
     kotlin.test.assertTrue(showsWatch() && !showsTimelineLook(), "stopped at the branch point: the centre text, no timeline look")
 }
 
-/** HIS-106 (owner 2026-11-08): after a branch's note, taps the centre text of its stop at the branch point when the table
+/** HIS-106, HIS-190 (owner 2026-11-08): after a branch's note, taps the centre text of its stop at the branch point when the table
  * stops there (the other player's new events follow it), so they play on; nothing when the branch made no stop. */
 internal fun E2ePlayer.continuesPastBranchStop(e2e: E2e) {
     e2e.waitUntil("$name's table stopped at the branch point, or past it") {
@@ -239,13 +239,13 @@ internal fun E2ePlayer.continuesPastBranchStop(e2e: E2e) {
     if (game?.shown?.branchStop == true) tapToWatch()
 }
 
-/** A tap on the middle of this player's own battlefield (HIS-095: while playback runs it pauses it). */
+/** A tap on the middle of this player's own battlefield (HIS-095, HIS-165: while playback runs it pauses it). */
 internal fun E2ePlayer.tapTable() { table().performClick() }
 
 /** This player's own battlefield, to touch (its middle). */
 internal fun E2ePlayer.table() = node(hasContentDescription("$name Battlefield,", substring = true))
 
-/** A double tap on the middle of this player's own battlefield (HIS-113: while a combat holds the view it skips that). */
+/** A double tap on the middle of this player's own battlefield (HIS-113, HIS-148: while a combat holds the view it skips that). */
 internal fun E2ePlayer.doubleTapTable() { table().performTouchInput { doubleClick() } }
 
 /** Whether the table has timeline mode's look (HIS-008: grey bars, the dimmed board's "Timeline mode" label). */

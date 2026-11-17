@@ -32,7 +32,7 @@ class EngineAsyncViewTest {
         return alice to EngineGame(f.game.id, f.b, f.base, snapshot)
     }
 
-    // HIS-091 (owner playtest 2026-11-04 #1, #2): only the assumer reads an assumed answer as assumed; the player it was
+    // HIS-091, HIS-123 (owner playtest 2026-11-04 #1, #2): only the assumer reads an assumed answer as assumed; the player it was
     // assumed about reads it as their own ("You: no blocks"), never "(assumed)"; §29.2: an assumed pass reads as neither,
     // only as what it led to. Alice attacks with an Ember Cub while Bob is away and assumes his "No blocks".
     @Test fun onlyTheAssumerReadsAnAssumedAnswerAsAssumed() {
@@ -96,7 +96,7 @@ class EngineAsyncViewTest {
         if (draw != null) assertFalse(EnginePlaybackPace.quiet(draw))
     }
 
-    // HIS-104 (owner 2026-11-07: a manual resolve is indistinguishable): under Full control a player's pass right after
+    // HIS-104, HIS-130 (owner 2026-11-07: a manual resolve is indistinguishable): under Full control a player's pass right after
     // their own cast goes by at once too, as the pass a lower mode makes inside the cast's event; after their pass, after
     // an assumption or after the other player's event it keeps the delay
     @Test fun aPassRightAfterTheSamePlayersCastGoesByAtOnce() {
@@ -114,7 +114,7 @@ class EngineAsyncViewTest {
         assertEquals(330L, playbackWait(pass, 330, ResponseMode.FullControl))
     }
 
-    // HIS-097 (problem report DY6VCM): a branch that took back none of Alice's own actions (only her phone's passes and
+    // HIS-097, HIS-185, HIS-186 (problem report DY6VCM): a branch that took back none of Alice's own actions (only her phone's passes and
     // assumptions) says just "Bob responded"; one that took back actions of hers names the first ("your attack was
     // taken back"; an End turn's first pass: "your End turn")
     @Test fun theBranchNoteNamesTheFirstOwnActionTakenBack() {
@@ -141,7 +141,7 @@ class EngineAsyncViewTest {
         assertEquals(1_320L, playbackDelay(.25f))
     }
 
-    // HIS-095 (§27): pausing playback (a tap on the table) goes on to the next point where Full control would stop (here
+    // HIS-095, HIS-165 (§27): pausing playback (a tap on the table) goes on to the next point where Full control would stop (here
     // Alice's assumed pass in her upkeep, which Bob's Auto-skip goes past), stops there for good until he plays on
     @Test fun pausingStopsAtTheNextFullControlPoint() {
         val (_, bob) = aliceAndBob()

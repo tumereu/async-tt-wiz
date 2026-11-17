@@ -66,7 +66,7 @@ class DamageDivisionTest : E2e() {
         bob.declare("Block (3)", this)
         // CMB-033: Alice's division opens attached to the band: a row per Pup (lethal 1 each in turn: two red, one grey)
         // and what tramples over to Bob on the bottom line
-        // Once the game has settled: after Bob's blocks the point is his (HIS-096), so his phone assumes Alice's pass at once
+        // Once the game has settled: after Bob's blocks the point is his (HIS-096, HIS-175), so his phone assumes Alice's pass at once
         // while her own device passes too; when his assumption reaches the server first, her board (with the division
         // already open on it) is taken back and the division opens again on his line
         waitUntil("Alice's division, the game settled", along = listOf(bob)) {

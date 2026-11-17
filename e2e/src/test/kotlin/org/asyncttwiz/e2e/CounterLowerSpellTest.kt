@@ -119,7 +119,7 @@ class CounterLowerSpellTest : E2e() {
         assertTrue(!alice.told("Idle Glimmer resolved"), "${alice.shownTexts}")
     }
 
-    // STK-048, HIS-096, HIS-095, HIS-097, HIS-106: Bob away; Alice's device assumes his passes, so B and then A resolve;
+    // STK-048, HIS-096, HIS-095, HIS-097, HIS-186, HIS-106, HIS-190: Bob away; Alice's device assumes his passes, so B and then A resolve;
     // Bob comes back, his playback stops before the assumed pass with both on the Stack, and his Quench at A there is a
     // branch: Alice's table goes back to it and plays it back; then B resolves and A is countered
     @Test fun bobCountersLaterWhileAwayBranchesAndTakesBack() {
@@ -144,7 +144,7 @@ class CounterLowerSpellTest : E2e() {
             boards.any { it.transition?.undone?.branch == true && it.transition!!.backward.isNotEmpty() }
         }
         assertTrue(alice.told("${bob.name} responded") && !alice.told("taken back"), "HIS-097's note: only her phone's passes were taken back")
-        // HIS-106: her table stops at the branch point; her tap plays Bob's Quench back
+        // HIS-106, HIS-190: her table stops at the branch point; her tap plays Bob's Quench back
         alice.continuesPastBranchStop(this)
         waitUntil("Bob's Quench played back on Alice's table") { stack(alice) == listOf("Idle Glimmer", "Ember Glint", "Quench Spark") }
         aCounteredAndBResolved(hand)

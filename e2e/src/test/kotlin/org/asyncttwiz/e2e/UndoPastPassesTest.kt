@@ -60,7 +60,7 @@ class UndoPastPassesTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // HIS-087, HIS-084 (owner problem report VXSGKH): Alice casts an Ember Herald while Bob is at the table; he lets it and
+    // HIS-087, HIS-202, HIS-084 (owner problem report VXSGKH): Alice casts an Ember Herald while Bob is at the table; he lets it and
     // its trigger resolve by tapping his passes himself (Control: his phone passes nothing for him, Alice's assumes
     // nothing). Her Undo is free: no dialog, and both tables go back to before her cast
     @Test fun undoPastTheOtherPlayersTappedPassesIsFree() {
@@ -76,7 +76,7 @@ class UndoPastPassesTest : E2e() {
         aliceUndoesFreely(herald, cast)
     }
 
-    // HIS-087, HIS-084 (owner problem report VXSGKH): the same with Bob's passes made without his taps (Auto-skip, nothing
+    // HIS-087, HIS-202, HIS-084 (owner problem report VXSGKH): the same with Bob's passes made without his taps (Auto-skip, nothing
     // he could respond with: his phone passes for him, or Alice's assumes it as his mode would), and Bob having seen them:
     // no request either
     @Test fun undoPastTheOtherPlayersAutomaticPassesIsFree() {
@@ -92,7 +92,7 @@ class UndoPastPassesTest : E2e() {
         aliceUndoesFreely(herald, cast)
     }
 
-    // HIS-087, HIS-084 (owner problem report VXSGKH): Alice casts an Ember Herald while Bob is away, her phone assuming his
+    // HIS-087, HIS-202, HIS-084 (owner problem report VXSGKH): Alice casts an Ember Herald while Bob is away, her phone assuming his
     // passes; Bob comes back and his phone confirms them (he watches it all). Her Undo is still free
     @Test fun undoPastAssumedPassesTheOtherPlayerConfirmedIsFree() {
         val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false, bobCanRespond = false)
@@ -105,7 +105,7 @@ class UndoPastPassesTest : E2e() {
         aliceUndoesFreely(cast.herald, cast.cast)
     }
 
-    // HIS-087, HIS-099 (owner problem report VXSGKH): a real input of the other player's after the point still makes Undo
+    // HIS-087, HIS-099, HIS-209 (owner problem report VXSGKH): a real input of the other player's after the point still makes Undo
     // a request: Alice plays a Mountain and ends her turn, Bob plays his Mountain; her Undo opens the Undo dialog asking him
     @Test fun undoPastTheOtherPlayersRealInputIsStillARequest() {
         startGame(deal = { a, b -> "Mountain" in hand(a) && "Mountain" in hand(b) })

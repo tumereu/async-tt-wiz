@@ -15,10 +15,10 @@ import kotlin.test.assertTrue
  * pass right after the attack; Bob pumped his creature there instead. Her phone said "Bob responded — your later
  * actions were taken back" though nothing of hers but that assumed pass was taken back. A branch that takes back only
  * the phone's own passes and assumptions says just "Bob responded", with no rewind animation when the board shown
- * doesn't change (HIS-097).
+ * doesn't change (HIS-097, HIS-186).
  */
 class BranchNoteTest : E2e() {
-    // HIS-097, HIS-096, TRN-070: Bob plays a Mountain and an Ash Hound in his first turn; Alice plays a Mountain and an
+    // HIS-097, HIS-186, HIS-096, HIS-180, TRN-070: Bob plays a Mountain and an Ash Hound in his first turn; Alice plays a Mountain and an
     // Ember Dasher (haste) and attacks with it, her phone assuming Bob's pass right after the attack (never a wait) so
     // that she waits for his blocks; Bob pumps his Hound at that point instead. Alice's table goes back to her attack
     // with the note "Bob responded" (no take-back clause: only the assumed pass went), without the take-back's rewind
@@ -72,7 +72,7 @@ class BranchNoteTest : E2e() {
         }
 
         waitUntil("Alice told Bob responded") { alice.told("${bob.name} responded") }
-        // HIS-106: her table stops at the branch point; her tap plays Bob's pump back
+        // HIS-106, HIS-190: her table stops at the branch point; her tap plays Bob's pump back
         alice.continuesPastBranchStop(this)
         waitUntil("Bob's pump shown on Alice's table") { alice.shown.held.any(::pump) && !alice.shown.behind }
         assertFalse(alice.told("taken back"), "no take-back clause: only her phone's assumed pass was taken back: ${alice.shownTexts}")

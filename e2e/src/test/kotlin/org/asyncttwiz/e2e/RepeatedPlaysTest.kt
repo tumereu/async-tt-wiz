@@ -31,7 +31,7 @@ class RepeatedPlaysTest : E2e() {
 
     @After fun forgetProbe() { PlayShowProbe.listener = null }
 
-    // HIS-112, HIS-021: the first Martyr trigger shows for the whole 1.2 s, the second 35% shorter, the third shorter again,
+    // HIS-112, HIS-138, HIS-021, HIS-125: the first Martyr trigger shows for the whole 1.2 s, the second 35% shorter, the third shorter again,
     // their flights likewise; the wipe (a spell) keeps its whole time; and the three resolve on her table as on his
     @Test fun repeatedTriggersShowFasterEachTime() {
         // Alice holds only lands: she has nothing to answer with, so her table plays Bob's moves on without stopping

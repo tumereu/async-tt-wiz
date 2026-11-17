@@ -38,7 +38,7 @@ import kotlin.test.assertTrue
 class MainButtonQuietTest : E2e() {
     @After fun noProbe() { EngineShownProbe.all = null }
 
-    // TRN-063, STK-029, HIS-112, TRN-004, TRN-015, SYS-025: no "Resolve" on Alice's main button from her cast on (its own board
+    // TRN-063, STK-029, HIS-112, HIS-140, TRN-004, TRN-015, SYS-025: no "Resolve" on Alice's main button from her cast on (its own board
     // too) while her own trigger shows and her phone is about to pass by itself; then the quiet waiting status in its place
     // while Bob acts in his main phase
     @Test fun noPressTheDeviceMakesItselfAndAQuietWait() {

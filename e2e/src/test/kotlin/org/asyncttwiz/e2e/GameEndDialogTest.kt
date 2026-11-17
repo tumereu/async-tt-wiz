@@ -108,7 +108,7 @@ class GameEndDialogTest : E2e() {
         waitUntil("both in the lobby", along = listOf(bob)) { alice.inLobby() && bob.inLobby() && !alice.shows(dialog) && !bob.shows(dialog) }
     }
 
-    // TRN-065, HIS-084: with Bob's OK on the result, Alice's Undo asks him as usual; on his yes the result and every OK go,
+    // TRN-065, HIS-084, HIS-200: with Bob's OK on the result, Alice's Undo asks him as usual; on his yes the result and every OK go,
     // and the game goes on from before her Ruin
     @Test fun undoBeforeTheResultIsFinalTakesTheOksWithIt() {
         aliceWinsByTheRules()

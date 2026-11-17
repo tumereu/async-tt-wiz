@@ -44,7 +44,7 @@ class SimultaneousTriggersShowTest : E2e() {
             listOf(shown.single(), waiting.single()).all { it.words().isNotBlank() }
     }
 
-    // HIS-112, HIS-021, CR 603.3b: both Twinherald triggers show large on both tables, piled in the middle, then one at a
+    // HIS-112, HIS-134, HIS-021, HIS-125, CR 603.3b: both Twinherald triggers show large on both tables, piled in the middle, then one at a
     // time for the whole time each (different abilities: neither is a repeat), and both resolve
     @Test fun twoTriggersFromOneEventBothShowLarge() {
         startGame(TestDeck.thirds(TestCards.twinherald), TestDeck("Mountains", listOf(TestCards.mountain to 40)),

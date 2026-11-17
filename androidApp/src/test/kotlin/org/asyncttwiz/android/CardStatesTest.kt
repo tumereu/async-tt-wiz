@@ -195,7 +195,7 @@ class CardStatesTest {
                 "\"Secret choice\", never the type.")
     }
 
-    // HIS-091, TBL-133 (owner 2026-11-16): the event whose cost revealed the secret choice (sacrificing its keeper in the same
+    // HIS-091, HIS-124, TBL-133 (owner 2026-11-16): the event whose cost revealed the secret choice (sacrificing its keeper in the same
     // event) names what was revealed, to both players; an event revealing nothing says nothing of it
     @Test fun theEventThatRevealsASecretChoiceNamesIt() {
         val state = board(edit = secretly()).engine!!.state

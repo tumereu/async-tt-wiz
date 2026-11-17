@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** HIS-101, HIS-099, HIS-076 (owner, 2026-11-08): a main button press on the record is an event of its player's timeline, in words. */
+/** HIS-101, HIS-119, HIS-120, HIS-099, HIS-076, HIS-168 (owner, 2026-11-08): a main button press on the record is an event of its player's timeline, in words. */
 class MainExitTextTest {
     private fun pass(press: MainPress? = null) =
         GameEvent("e", "p", "a", EnginePart(0, listOf(EngineStep(Input.PassPriority(PlayerId("a")), emptyList()))), press = press)

@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  * and untapped, nothing of the cast sent and nothing else taken back.
  */
 class UndoMidCastTest : E2e() {
-    // STK-025, HIS-084: Undo with the target bar open drops the cast; the Mountain played before it stays
+    // STK-025, HIS-084, HIS-199: Undo with the target bar open drops the cast; the Mountain played before it stays
     @Test fun undoWithACastOpenGoesBackToJustBeforeIt() {
         startGame(TestDeck.sparks(), deal = { a, _ -> "Mountain" in hand(a) && "Storm Spark" in hand(a) })
         bothOpen()

@@ -28,7 +28,7 @@ class AttackHoldEndsTest : E2e() {
 
     @After fun noProbe() { EngineShownProbe.listener = null }
 
-    // HIS-113, HIS-021, TRN-063, problem report QVERHX: Alice empties her hand (Empty Thoughts), so Bob's attack, its damage
+    // HIS-113, HIS-146, HIS-021, TRN-063, problem report QVERHX: Alice empties her hand (Empty Thoughts), so Bob's attack, its damage
     // and his Main 2 come in one event; her phone holds on it, at her card move speed 0.25×, and the server's next board
     // arrives before the attack's first step has played (as on a phone over the internet at 1×). The holds end by their
     // time, and when Bob ends his turn her phone plays on into her own turn by itself and stops in her Main 1 with the main

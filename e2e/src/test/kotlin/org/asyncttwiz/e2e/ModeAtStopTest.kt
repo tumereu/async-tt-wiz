@@ -24,7 +24,7 @@ class ModeAtStopTest : E2e() {
     private fun E2ePlayer.modeCell(): String? = described("Response mode").fetchSemanticsNode().config
         .getOrNull(SemanticsProperties.StateDescription)
 
-    // HIS-095, TRN-059, STK-036 (report WDKHSB): Bob, in Normal, holds nothing he could respond with while Alice casts
+    // HIS-095, HIS-163, TRN-059, STK-036 (report WDKHSB): Bob, in Normal, holds nothing he could respond with while Alice casts
     // an Ember Herald with him away. His playback stops at her spell (Normal stops there) and his quick actions show the
     // mode it stops by, Normal, as live play does. He switches to Quick there: the stop stays, live, until his Resolve;
     // the next point, her Herald's trigger, follows Quick: playback goes on past it to live play with no other stop

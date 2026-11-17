@@ -59,7 +59,7 @@ class FingerKeyLetGoTest : E2e() {
         waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
     }
 
-    // WEB-025, HIS-021 (prod report 96PB2X): Alt let go in another window (Alt+Tab): its key-up never comes, but the window
+    // WEB-025, HIS-021, HIS-126 (prod report 96PB2X): Alt let go in another window (Alt+Tab): its key-up never comes, but the window
     // losing the focus lets it go, so the pause ends and the held play goes on
     @Test fun theWindowLosingTheFocusLetsAltGo() {
         start()
@@ -98,7 +98,7 @@ class FingerKeyLetGoTest : E2e() {
         }
     }
 
-    // HIS-112, HIS-095 (prod reports 3LL6UZ, 3UQ9DY): with Alt still held on her desktop, Alice watches on her phone too (her
+    // HIS-112, HIS-142, HIS-095 (prod reports 3LL6UZ, 3UQ9DY): with Alt still held on her desktop, Alice watches on her phone too (her
     // second device, the same account) and it plays on past the Glint: the server moves her on, and her desktop table follows
     // it with the play shown gone (its entry left the Stack), not standing in the middle over a board past it
     @Test fun anotherDeviceGoingOnEndsAPlayShownHeldHere() {

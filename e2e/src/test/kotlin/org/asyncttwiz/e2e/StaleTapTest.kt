@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
 /**
  * Owner problem report E48RDE (prod 0.2.0-beta2, 2026-11-07): with several of his abilities on the Stack, a tap of the main
  * button said "That wasn't taken". His Assume resolved the top one and his phone, in Quick, then passed for him over the
- * ability below (HIS-109: exactly a press of Resolve); his own tap of Resolve on the board in between (his priority, made
+ * ability below (HIS-109, HIS-189: exactly a press of Resolve); his own tap of Resolve on the board in between (his priority, made
  * on board v404) reached the phone after it had published that pass (v405) and was refused. A tap whose input is the very
  * press the phone made there by itself is that press: it goes quietly, with nothing made again (never the next ability's
  * resolution). Alice's phone holds what its engine thread shows ([Stepped]): the board in between reaches her screen, the
@@ -128,7 +128,7 @@ class StaleTapTest : E2e() {
         line.drop(line.indexOfFirst { it.id == from } + 1).mapNotNull { e -> e.engine?.steps?.firstNotNullOfOrNull { it.input } }
     }
 
-    // HIS-109, SYS-012, SYS-011 (owner problem report E48RDE): Alice's Altar ability and her Martyr's death trigger on the
+    // HIS-109, HIS-189, SYS-012, SYS-011 (owner problem report E48RDE): Alice's Altar ability and her Martyr's death trigger on the
     // Stack, Bob away; she taps Assume (the trigger resolves) and then Resolve on the board where she holds priority over
     // her ability, as her phone (Quick) passes there by itself: the same press, so no "That wasn't taken", no second pass,
     // and her ability still waits for Bob (never resolved by the tap)
@@ -168,7 +168,7 @@ class StaleTapTest : E2e() {
         assertEquals(bobLife, alice.state.player(bob.me).life, "her ability still not resolved")
     }
 
-    // HIS-109, SYS-012, SYS-011 (a full e2e run, 2026-11-08): Alice attacks; her phone shows the attack at once, then folds
+    // HIS-109, HIS-189, HIS-211, SYS-012, SYS-011 (a full e2e run, 2026-11-08): Alice attacks; her phone shows the attack at once, then folds
     // her pass into the attack's event and assumes Bob's pass. A Next made on the attack's own board (the main button's
     // pass, as a tap racing that board makes it) reaches the phone after all that: the pass her phone made there by itself,
     // so no "That wasn't taken" and no second pass; Bob's own Pass then confirms what her phone assumed. TRN-063 (owner,
@@ -223,7 +223,7 @@ class StaleTapTest : E2e() {
         assertEquals(life - 2, alice.state.player(bob.me).life, "the Cub's damage, once")
     }
 
-    // HIS-109, SYS-011 (the same run's race, one step earlier): Alice casts a spell Bob, with an empty hand, can only pass over,
+    // HIS-109, HIS-189, SYS-011 (the same run's race, one step earlier): Alice casts a spell Bob, with an empty hand, can only pass over,
     // so her pass and his fold into the cast's event and it resolves in it, back in her Main 1. A Resolve made on the cast's
     // own board (the main button's pass, as a tap racing that board makes it) reaches the phone while that board is still the
     // newest it has published: it is the pass made there, never a pass of the Main 1 she hasn't seen it come back to.

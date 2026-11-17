@@ -33,7 +33,7 @@ class AssumeNoManaTest : E2e() {
         alice.node(hasContentDescription("${bob.name}, life", substring = true)).performClick()
     }
 
-    // LOB-113, HIS-096 (owner, 2026-11-09): "No mana" is the default: a new account that chose nothing starts its game with
+    // LOB-113, HIS-096, HIS-181 (owner, 2026-11-09): "No mana" is the default: a new account that chose nothing starts its game with
     // it: Bob has no mana source, so Alice's Spark's pause for him is assumed at once, and Settings says so
     @Test fun aNewGameOfAnAccountThatChoseNothingAssumesWhenTheyHaveNoMana() {
         startGame(TestDeck.sparks(), TestDeck.sparks(), aliceChoseNothing = true,
@@ -50,7 +50,7 @@ class AssumeNoManaTest : E2e() {
         assertTrue(offers.isEmpty(), "no wait with Assume: $offers")
     }
 
-    // HIS-096, TRN-059, TRN-070: in her first turn Bob has no mana source: her Spark's pause for him is assumed at once;
+    // HIS-096, HIS-181, TRN-059, TRN-070: in her first turn Bob has no mana source: her Spark's pause for him is assumed at once;
     // in her next turn he has an untapped Mountain: her Spark waits for him with "Assume resolves"
     @Test fun aSpellIsAssumedAtOnceOnlyWhileTheyHaveNoMana() {
         startGame(TestDeck.sparks(), TestDeck.sparks(), aliceSettings = PlaySettings().assuming(AssumeResolves.WhenNoMana),

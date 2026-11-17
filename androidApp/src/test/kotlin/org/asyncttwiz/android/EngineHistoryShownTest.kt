@@ -178,7 +178,7 @@ class EngineHistoryShownTest {
         assertIs<GameDevice.Status.Stopped>(again.device.status)
     }
 
-    // HIS-015, HIS-013: in timeline mode, going to the last event by hand stays in timeline mode; Auto reaching the end
+    // HIS-015, HIS-173, HIS-013: in timeline mode, going to the last event by hand stays in timeline mode; Auto reaching the end
     // returns to play mode
     @Test fun onlyAutoReachingTheEndLeavesTimelineMode() {
         val events = LiveTableFixture.timeline()

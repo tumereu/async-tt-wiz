@@ -199,7 +199,7 @@ class MoveTest {
         assertEquals(alice, device.move, "the game waits for her at the head")
     }
 
-    // TRN-058, HIS-100: an open undo request is the other player's move for both; the answer ends it
+    // TRN-058, HIS-100, HIS-210: an open undo request is the other player's move for both; the answer ends it
     @Test
     fun anUndoRequestIsTheOtherPlayersMove() {
         val sim = spells("Glance Ahead")

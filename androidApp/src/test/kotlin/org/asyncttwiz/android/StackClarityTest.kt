@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 /**
  * Owner playtest 2026-11-07 (Fractured Sanity: "is it the cast or the cycle effect?"): on Alice's table, what Bob's top
  * Stack entry is while she holds priority (STK-057), its target arrows (STK-058), the Stack list's choices (STK-018), an
- * ability's kind in Inspect (STK-050) and the cycling event text (HIS-091), on games played through the simulated server.
+ * ability's kind in Inspect (STK-050) and the cycling event text (HIS-091, HIS-121), on games played through the simulated server.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -130,7 +130,7 @@ class StackClarityTest {
             "Alice tapped the Stack holding Bob's Ember Burst: its row shows \"Ember Burst deals 1 damage to you.\" with X filled in and \"X = 1\" under it.")
     }
 
-    // STK-057, STK-050, HIS-091 (owner playtest 2026-11-07, CR 702.29c): Bob cycles Shattered Reason; at Alice's pause the line
+    // STK-057, STK-050, HIS-091, HIS-121 (owner playtest 2026-11-07, CR 702.29c): Bob cycles Shattered Reason; at Alice's pause the line
     // names the cycling trigger and what it does ("each opponent mills 4 cards"), not the spell; the Stack list names each
     // ability's kind and holding the trigger inspects it as "Cycling trigger"; the event reads "Bob cycled Shattered Reason"
     @Test fun anOpponentsCyclingTriggerIsNamedAsOne() {

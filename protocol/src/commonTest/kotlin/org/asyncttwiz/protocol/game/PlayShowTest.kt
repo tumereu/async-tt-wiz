@@ -14,7 +14,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * HIS-112 (owner 2026-11-07, MTG Arena as the reference): the other player's casts, activations and triggers, and the
+ * HIS-112, HIS-140, HIS-141, HIS-142, HIS-143 (owner 2026-11-07, MTG Arena as the reference): the other player's casts, activations and triggers, and the
  * player's own triggers (never their own casts), are shown on the player's table for a moment before they move to the
  * Stack; while one shows only the player's view holds (the later events wait, their device makes none of its own), live
  * and in catch-up playback alike, one after another, after any reveal panel (HIS-110), and gone when taken back.
@@ -64,7 +64,7 @@ class PlayShowTest {
         assertIs<GameDevice.Acted.Sent>(cast)
     }
 
-    // HIS-112: live, Bob's cast shows on Alice's table at its event, the Warden still on the Stack; the game goes on for
+    // HIS-112, HIS-140, HIS-143: live, Bob's cast shows on Alice's table at its event, the Warden still on the Stack; the game goes on for
     // Bob (his phone assumes her pass and it resolves on the server) while her view and her device wait; done, her table
     // plays on. Bob's own cast shows nothing on his
     @Test
@@ -98,7 +98,7 @@ class PlayShowTest {
         assertTrue(alices.model.engine.battlefield.any { name(alices.model, it) == warden })
     }
 
-    // HIS-112, HIS-110: Bob's Muster with a Warden out: on Alice's table the cast shows, then the Muster's reveal panel
+    // HIS-112, HIS-141, HIS-143, HIS-110: Bob's Muster with a Warden out: on Alice's table the cast shows, then the Muster's reveal panel
     // comes first, then the Warden's trigger from the same event; on Bob's own table his cast shows nothing, his trigger does
     @Test
     fun revealFirstThenTheTriggerAndYourOwnTriggerToo() {
@@ -143,7 +143,7 @@ class PlayShowTest {
         assertEquals(sim.server.head, alices.session.localHead)
     }
 
-    // HIS-112: two Wardens' triggers going on the Stack at once (Bob orders them, STK-030) are open in the order they went
+    // HIS-112, HIS-134, HIS-141: two Wardens' triggers going on the Stack at once (Bob orders them, STK-030) are open in the order they went
     // on the Stack, holding the view until both are done; put on the Stack in one go they show top first (owner
     // 2026-11-12), so the later one may end before the earlier
     @Test
@@ -181,7 +181,7 @@ class PlayShowTest {
         assertNull(alices.show)
     }
 
-    // HIS-112, HIS-021: in catch-up playback Bob's cast shows at its event, holding the later events until done
+    // HIS-112, HIS-140, HIS-021: in catch-up playback Bob's cast shows at its event, holding the later events until done
     @Test
     fun aCastShowsInCatchUpPlayback() {
         val sim = sim()
@@ -205,7 +205,7 @@ class PlayShowTest {
         assertEquals(sim.server.head, alices.session.localHead, "on to the head")
     }
 
-    // HIS-112, LOB-082: at 0 s (off) nothing shows and playback plays straight on
+    // HIS-112, HIS-136, LOB-082: at 0 s (off) nothing shows and playback plays straight on
     @Test
     fun offShowsNothing() {
         val sim = sim()
@@ -225,7 +225,7 @@ class PlayShowTest {
         assertNull(again.show, "nothing of what was shown before the load")
     }
 
-    // HIS-112, HIS-099: Bob's cast taken back before Alice's show was done (his undo: free, as it showed him nothing new,
+    // HIS-112, HIS-142, HIS-099: Bob's cast taken back before Alice's show was done (his undo: free, as it showed him nothing new,
     // or approved by her) ends it
     @Test
     fun aPlayTakenBackEndsItsShow() {
@@ -253,7 +253,7 @@ class PlayShowTest {
         assertTrue(alices.openShows.isEmpty())
     }
 
-    // HIS-112, HIS-095 (prod reports 3LL6UZ, 3UQ9DY, 2026-11-16): while Bob's cast still shows on Alice's browser (and she
+    // HIS-112, HIS-142, HIS-095, HIS-165 (prod reports 3LL6UZ, 3UQ9DY, 2026-11-16): while Bob's cast still shows on Alice's browser (and she
     // paused its playback), her phone, the same account, plays on past it: the server moves her head on, and her browser
     // follows it with the play shown done (the Warden left the Stack) and the pause ended, never left over a board past it
     @Test
@@ -283,7 +283,7 @@ class PlayShowTest {
         assertTrue(!browser.pausing, "the pause ended")
     }
 
-    // HIS-112: turning the shows off closes the open one
+    // HIS-112, HIS-136: turning the shows off closes the open one
     @Test
     fun turnedOffTheOpenShowCloses() {
         val sim = sim()

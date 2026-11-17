@@ -17,8 +17,8 @@ import kotlin.test.assertTrue
 
 /**
  * Owner 2026-11-07 (catch-up rules, replacing the rewind on return that played by itself): coming back to a game whose
- * events the player had seen were taken back while they were away, by a branch (HIS-097, HIS-106) or by the other
- * player's undo (HIS-108), opens the game exactly as they left it, and nothing moves until they tap: the centre text says
+ * events the player had seen were taken back while they were away, by a branch (HIS-097, HIS-106, HIS-191) or by the other
+ * player's undo (HIS-108, HIS-205), opens the game exactly as they left it, and nothing moves until they tap: the centre text says
  * what waits ("Bob responded differently · Tap to watch", "Alice undid moves · Tap to watch"), and the tap plays the
  * take-back (a branch step by step with timeline mode's look and the note, then the other player's new events played
  * back; an undo in one backward animation with "<name> undid: <action>"). The same whether the phone heard it in the
@@ -98,7 +98,7 @@ class RewindOnReturnTest : E2e() {
     }
 
     /**
-     * HIS-106, HIS-108, HIS-035 (owner 2026-11-07): back, [player]'s table stays exactly as they left it ([asLeft]) with
+     * HIS-106, HIS-191, HIS-108, HIS-205, HIS-035 (owner 2026-11-07): back, [player]'s table stays exactly as they left it ([asLeft]) with
      * the centre text [text], and nothing moves while they wait (no take-back, no playback); then they tap it.
      */
     private fun waitsForTheTap(seen: Seen, player: E2ePlayer, text: String, asLeft: (EngineGame.Shown) -> Boolean) {
@@ -143,7 +143,7 @@ class RewindOnReturnTest : E2e() {
         return Triple(cast.next, ::bobsCast, seen)
     }
 
-    /** HIS-097, HIS-106: back, Alice's table waited as she left it (her assumed pass shown) with "Bob responded
+    /** HIS-097, HIS-106, HIS-190, HIS-191: back, Alice's table waited as she left it (her assumed pass shown) with "Bob responded
      * differently · Tap to watch"; her tap took it back to the branch point step by step with timeline mode's look and
      * the note and stopped there (owner 2026-11-08: "Bob responded differently from here · Tap to continue"); her next
      * tap played Bob's new events ([theirs]) back, and she is live at the new head. */
@@ -152,7 +152,7 @@ class RewindOnReturnTest : E2e() {
         fun takeBack(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == true && it.backward.isNotEmpty() } == true }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
         waitUntil("Alice told") { alice.told("${bob.name} responded") }
-        // HIS-106 (owner 2026-11-08): the take-back stops at the branch point until her next tap
+        // HIS-106, HIS-190 (owner 2026-11-08): the take-back stops at the branch point until her next tap
         alice.waitsAtBranchStop(this, bob) { seen.boards.any { s -> s.held.any(theirs) } }
         val stopped = seen.boards.size
         alice.tapToWatch()
@@ -176,7 +176,7 @@ class RewindOnReturnTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // HIS-097, HIS-106, LOB-078 (owner 2026-11-07): Bob's response branched away from Alice's assumed pass while she was
+    // HIS-097, HIS-106, HIS-191, LOB-078 (owner 2026-11-07): Bob's response branched away from Alice's assumed pass while she was
     // away, her phone still connected (the branch reached it in the background); she taps the game's notification: her
     // table, kept as she left it, waits for her tap, then goes back to the branch point with the note and plays Bob's
     // Glimmer back
@@ -187,7 +187,7 @@ class RewindOnReturnTest : E2e() {
         assertFalse(seen.reopened, "the open game's table stays: the notification doesn't load its screen anew")
     }
 
-    // HIS-097, HIS-106, LOB-078 (owner 2026-11-07): as above, but her phone slept (it hears the branch only when she is
+    // HIS-097, HIS-106, HIS-191, LOB-078 (owner 2026-11-07): as above, but her phone slept (it hears the branch only when she is
     // back): the same
     @Test fun aBranchWhileAsleepWaitsForATapFromANotification() {
         val (discarded, theirs, seen) = bobRespondsWhileAliceIsAway(connected = false)
@@ -196,7 +196,7 @@ class RewindOnReturnTest : E2e() {
         assertFalse(seen.reopened, "the open game's table stays: the notification doesn't load its screen anew")
     }
 
-    // HIS-097, HIS-106, LOB-078 (owner 2026-11-07): as above, but the notification starts the app anew (the process had
+    // HIS-097, HIS-106, HIS-191, LOB-078 (owner 2026-11-07): as above, but the notification starts the app anew (the process had
     // ended): the table opens where she left it and waits for her tap
     @Test fun aBranchWhileAwayWaitsForATapFromANotificationOnAColdStart() {
         val (discarded, theirs, seen) = bobRespondsWhileAliceIsAway(connected = false)
@@ -237,7 +237,7 @@ class RewindOnReturnTest : E2e() {
         return cast to seen
     }
 
-    /** HIS-108, HIS-076: Bob's table went back from the cast he had seen to before it in one backward animation (never
+    /** HIS-108, HIS-076, HIS-168: Bob's table went back from the cast he had seen to before it in one backward animation (never
      * a jump to the board after), with "Alice undid: cast Ember Herald", and is live there. */
     private fun assertUndoShown(seen: Seen, cast: HeraldCast) {
         fun undo(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == false && it.backward.isNotEmpty() } == true }
@@ -258,7 +258,7 @@ class RewindOnReturnTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    /** HIS-108, HIS-033 (owner 2026-11-07): back, Bob's table waited as he left it (the cast on the Stack: the stop of his
+    /** HIS-108, HIS-205, HIS-033, HIS-162 (owner 2026-11-07): back, Bob's table waited as he left it (the cast on the Stack: the stop of his
      * that the undo took back doesn't open live) with "Alice undid moves · Tap to watch"; his tap played the undo. */
     private fun assertUndoWaitedThenShown(seen: Seen, cast: HeraldCast) {
         waitsForTheTap(seen, bob, "${alice.name} undid moves · Tap to watch") { where(it.board, cast.herald) == "STACK" }
@@ -267,7 +267,7 @@ class RewindOnReturnTest : E2e() {
         assertTrue(undo >= seen.tapped, "the undo only after his tap")
     }
 
-    // HIS-108, HIS-076, LOB-078 (owner 2026-11-07): Alice undid her cast Bob had seen while he was away, his phone still
+    // HIS-108, HIS-205, HIS-076, HIS-168, LOB-078 (owner 2026-11-07): Alice undid her cast Bob had seen while he was away, his phone still
     // connected (the undo reached it in the background); he taps the game's notification: his table, kept as he left it,
     // waits for his tap, then goes back from the cast with "Alice undid: cast Ember Herald"
     @Test fun anUndoHeardInTheBackgroundWaitsForATapFromANotification() {
@@ -277,14 +277,14 @@ class RewindOnReturnTest : E2e() {
         assertFalse(seen.reopened, "the open game's table stays: the notification doesn't load its screen anew")
     }
 
-    // HIS-108, HIS-076, LOB-078 (owner 2026-11-07): as above, but his phone slept (it hears the undo only when he is back)
+    // HIS-108, HIS-205, HIS-076, HIS-168, LOB-078 (owner 2026-11-07): as above, but his phone slept (it hears the undo only when he is back)
     @Test fun anUndoWhileAsleepWaitsForATapFromANotification() {
         val (cast, seen) = aliceUndoesWhatBobSaw(connected = false)
         comesBackByNotification(seen, { bob }, { bob = it }, coldStart = false)
         assertUndoWaitedThenShown(seen, cast)
     }
 
-    // HIS-108, HIS-076, LOB-078 (owner 2026-11-07): as above, but the notification starts the app anew: the table opens
+    // HIS-108, HIS-205, HIS-076, HIS-168, LOB-078 (owner 2026-11-07): as above, but the notification starts the app anew: the table opens
     // with the cast where he left it and waits for his tap
     @Test fun anUndoWhileAwayWaitsForATapFromANotificationOnAColdStart() {
         val (cast, seen) = aliceUndoesWhatBobSaw(connected = false)
@@ -294,7 +294,7 @@ class RewindOnReturnTest : E2e() {
         assertUndoWaitedThenShown(seen, cast)
     }
 
-    // HIS-108, HIS-033 (owner 2026-11-07): as above, but Bob opens the game from the Games list of an app started anew:
+    // HIS-108, HIS-205, HIS-033, HIS-162 (owner 2026-11-07): as above, but Bob opens the game from the Games list of an app started anew:
     // the same
     @Test fun anUndoWhileAwayWaitsForATapWhenTheGameOpensAgain() {
         val (cast, seen) = aliceUndoesWhatBobSaw(connected = false)
@@ -306,7 +306,7 @@ class RewindOnReturnTest : E2e() {
         assertUndoWaitedThenShown(seen, cast)
     }
 
-    // HIS-108, HIS-106 (owner 2026-11-07): live, Bob watching at his stop at her cast, Alice's undo plays at once on his
+    // HIS-108, HIS-205, HIS-106, HIS-191 (owner 2026-11-07): live, Bob watching at his stop at her cast, Alice's undo plays at once on his
     // table, with no centre text
     @Test fun anUndoWhileWatchingPlaysAtOnce() {
         val (cast, seen) = aliceUndoesWhatBobSaw(connected = true, away = false)

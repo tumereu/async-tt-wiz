@@ -87,7 +87,7 @@ class RewindToOpenChoiceTest : E2e() {
         }
     }
 
-    // HIS-042, HIS-087, STK-056 (report DH3QX6): Alice manifests dread, goes back to her open choice with Bob's approval,
+    // HIS-042, HIS-087, HIS-203, STK-056 (report DH3QX6): Alice manifests dread, goes back to her open choice with Bob's approval,
     // and chooses again: the panel shows the same two cards, and OK manifests the one she taps
     @Test fun aRewindToAnOpenChoiceAmongTheTopCardsLetsThePlayerChooseAgain() {
         val first = aliceCastsADread()

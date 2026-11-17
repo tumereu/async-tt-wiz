@@ -105,7 +105,7 @@ class TableChangesScreenshotTest {
     }
 
 
-    // HIS-031
+    // HIS-031, HIS-131
     @Test fun realStackEntryHighlightsDrawInBothPlaybackDirections() = stackFeedback(projection = false)
 
     @Test fun projectedStackEntryHighlightsDrawInBothPlaybackDirections() = stackFeedback(projection = true)

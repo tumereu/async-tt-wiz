@@ -249,7 +249,7 @@ class CombatBandTest {
     private fun step(viewer: String, which: (TableBoard) -> Boolean): TableBoard? =
         k.scenario.shown[viewer].orEmpty().flatMap { it.steps }.lastOrNull(which)
 
-    // CMB-050, HIS-113, CMB-034, CMB-040 (owner, 2026-11-10: gallery before the release that ships the damage on the band): the
+    // CMB-050, HIS-113, HIS-147, CMB-034, CMB-040 (owner, 2026-11-10: gallery before the release that ships the damage on the band): the
     // whole combat from both phones, one picture per pause: the attack shown, waiting for the blocks, the blocks shown, the
     // damage's hold with what it did on the band, and after the combat
     @Test fun theWholeCombatFromBothPhones() {
@@ -308,7 +308,7 @@ class CombatBandTest {
         show(k.f.a, assertNotNull(aliceDealt ?: step(k.f.a) { it.damageDealt }, "the damage's hold board on Alice's phone"))
         compose.onAllNodes(hasContentDescription("combat damage to", substring = true), useUnmergedTree = true).assertCountEquals(0)
         compose.onAllNodes(hasContentDescription("on the band", substring = true), useUnmergedTree = true).assertCountEquals(0)
-        // CMB-050, HIS-113 (owner notes 2026-11-14 evening): the two Cubs that fought each carry a skull with the 2 they took
+        // CMB-050, HIS-113, HIS-147 (owner notes 2026-11-14 evening): the two Cubs that fought each carry a skull with the 2 they took
         compose.onAllNodes(hasContentDescription("Took 2 combat damage and dies"), useUnmergedTree = true).assertCountEquals(2)
         captureShot("$SCREENSHOTS/combat-sequence/4-damage-alice.png",
             "Alice's phone, 4 of 5, a forced hold (show plays and combat): the combat damage is dealt; Bob's chip carries a red splash with his total 4 (nothing per lane), and the two Cubs that fought still lie in the band, each with a skull holding the 2 it took, until the hold ends.")
@@ -635,7 +635,7 @@ class CombatBandTest {
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
         k.settle()
         k.alice.tick(k.scenario.sim.now + 121_000)
-        // HIS-096 (owner, 2026-11-06): Bob's pause after her attack is assumed at once; his blockers are a wait with Assume
+        // HIS-096, HIS-180, HIS-178 (owner, 2026-11-06): Bob's pause after her attack is assumed at once; his blockers are a wait with Assume
         // on the main button
         val waiting = assertIs<GameDevice.Status.Waiting>(k.alice.device.status)
         assertEquals(GameDevice.Offer.AssumeBlockers, waiting.offer)

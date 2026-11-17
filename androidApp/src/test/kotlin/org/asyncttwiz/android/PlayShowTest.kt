@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 import org.asyncttwiz.appui.AppPlatform
 
 /**
- * HIS-112 (owner 2026-11-07, MTG Arena as the reference): on Alice's table Bob's plays show large in the middle of the board
+ * HIS-112, HIS-136, HIS-139, HIS-140 (owner 2026-11-07, MTG Arena as the reference): on Alice's table Bob's plays show large in the middle of the board
  * for the "Show plays and combat" time, her view held at their event meanwhile, then they fly to the Stack; a double tap
  * ends one at once (a single tap does nothing, a held finger pauses it, owner 2026-11-08), and at 0 none shows. Games played through the simulated server; time on the test clock.
  */
@@ -57,7 +57,7 @@ class PlayShowTest {
         }
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
-        // HIS-112 (owner 2026-11-12): a play shown flies in from its source first
+        // HIS-112, HIS-133 (owner 2026-11-12): a play shown flies in from its source first
         if (kit.alice.shown?.show != null) { compose.mainClock.advanceTimeBy(PLAY_SHOW_FLIGHT_MILLIS + 100L); compose.waitForIdle() }
     }
 
@@ -73,7 +73,7 @@ class PlayShowTest {
         return kit to assertNotNull(kit.alice.shown?.show)
     }
 
-    // HIS-112, HIS-021: Bob's Storm Spark at Alice's Cub shows as its card in the middle of her board with "Bob cast Storm
+    // HIS-112, HIS-135, HIS-140, HIS-021, HIS-125: Bob's Storm Spark at Alice's Cub shows as its card in the middle of her board with "Bob cast Storm
     // Spark · deals 3 damage to Ember Cub" under it, her table held at the cast (the Spark on the Stack, the Cub alive)
     // for the 1.2 s default on the test clock; then it moves to the Stack and the table plays on
     @Test fun theOtherPlayersSpellShowsForItsTimeThenTheTablePlaysOn() {
@@ -105,7 +105,7 @@ class PlayShowTest {
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
     }
 
-    // HIS-112 (owner, 2026-11-08): a single tap on the shown card does nothing; a double tap ends it at once
+    // HIS-112, HIS-139 (owner, 2026-11-08): a single tap on the shown card does nothing; a double tap ends it at once
     @Test fun aDoubleTapEndsTheShowAtOnceASingleTapDoesNothing() {
         val (kit, _) = bobsSparkShown()
         compose.mainClock.autoAdvance = false
@@ -120,7 +120,7 @@ class PlayShowTest {
         assertEquals(kit.me, kit.state().priority.holder, "she holds priority over the Spark, live")
     }
 
-    // HIS-112, HIS-021, TBL-104 (owner, 2026-11-08): a finger held on the shown card inspects it and pauses its time, the pause
+    // HIS-112, HIS-139, HIS-021, HIS-126, HIS-127, TBL-104 (owner, 2026-11-08): a finger held on the shown card inspects it and pauses its time, the pause
     // icon in the corner; lifted, the show goes on with the time left: 0.6 s and the hold's own time had gone of its 1.2 s
     @Test fun aHeldFingerPausesTheShowWithTheTimeLeftAndInspectsIt() {
         val (kit, _) = bobsSparkShown()
@@ -150,7 +150,7 @@ class PlayShowTest {
         compose.runOnIdle { assertNull(kit.alice.shown?.show, "over with the time left, not a whole new time") }
     }
 
-    // HIS-021, HIS-112 (owner, 2026-11-08): a finger held on the table beside the shown play pauses it, the icon in the corner
+    // HIS-021, HIS-126, HIS-127, HIS-112 (owner, 2026-11-08): a finger held on the table beside the shown play pauses it, the icon in the corner
     @Test fun aHeldFingerOnTheTableShowsThePauseIcon() {
         val (kit, _) = bobsSparkShown()
         compose.mainClock.autoAdvance = false
@@ -166,7 +166,7 @@ class PlayShowTest {
         compose.waitForIdle()
     }
 
-    // HIS-112, STK-046, STK-050: Bob cycles Shattered Reason: Alice's table shows the cycling ability, then the cycling
+    // HIS-112, HIS-135, STK-046, STK-050: Bob cycles Shattered Reason: Alice's table shows the cycling ability, then the cycling
     // trigger, each as its ability token enlarged with its source and kind named under it
     @Test fun anAbilityAndATriggerShowAsTheirTokens() {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.REASON, "Mountain"))))
@@ -192,7 +192,7 @@ class PlayShowTest {
             "Bob cycled Shattered Reason: after its cycling ability, Alice's table shows his cycling trigger as its ability token enlarged in the middle of the board (the card's art, the \"T\" chip), with \"Shattered Reason's cycling trigger · each opponent mills 4 cards\" under it.")
     }
 
-    // HIS-112, HIS-021 (owner 2026-11-12): Bob's cycling ability and its cycling trigger go on the Stack in one go: on Alice's
+    // HIS-112, HIS-134, HIS-021 (owner 2026-11-12): Bob's cycling ability and its cycling trigger go on the Stack in one go: on Alice's
     // table both fly in and pile up large in the middle, the trigger (the last on the Stack) on top and shown with its line,
     // the cycling ability waiting large under it; once the trigger is done the ability shows
     @Test fun playsPutOnTheStackTogetherPileUpAndShowTopFirst() {
@@ -223,7 +223,7 @@ class PlayShowTest {
         compose.runOnIdle { assertEquals(activation, kit.alice.shown?.show, "the trigger done, the ability still shown") }
     }
 
-    // HIS-112, LOB-082: at 0 s ("Off") nothing shows: Bob's Spark goes to the Stack and resolves on Alice's table as before
+    // HIS-112, HIS-136, LOB-082: at 0 s ("Off") nothing shows: Bob's Spark goes to the Stack and resolves on Alice's table as before
     @Test fun offShowsNothing() {
         val kit = EngineTableKit()
         val cub = kit.toReadyCub()
@@ -243,7 +243,7 @@ class PlayShowTest {
         assertNull(kit.alice.shown?.show)
     }
 
-    // HIS-112 (owner playtest 2026-11-07): the flight to the Stack takes about 0.25 s at Card move speed 1×, scaled by it;
+    // HIS-112, HIS-136 (owner playtest 2026-11-07): the flight to the Stack takes about 0.25 s at Card move speed 1×, scaled by it;
     // the card is whole over its first half and fades out over the second
     @Test fun theFlightIsAQuarterSecondScaledByCardMoveSpeedAndFadesInItsSecondHalf() {
         assertEquals(250, playShowFlightMillis(1f))
@@ -255,7 +255,7 @@ class PlayShowTest {
         assertEquals(0f, playShowFlightAlpha(1f))
     }
 
-    // HIS-112 (owner playtest 2026-11-11): the same ability shown again in one chain shows 35% shorter each time, down to
+    // HIS-112, HIS-138 (owner playtest 2026-11-11): the same ability shown again in one chain shows 35% shorter each time, down to
     // 0.15 s (never longer than the setting), its flight likewise down to 0.1 s at Card move speed 1×; the first the whole time
     @Test fun aRepeatedAbilityShowsFasterEachTimeDownToAFloor() {
         assertEquals(listOf(1_200L, 780L, 507L, 330L, 214L, 150L, 150L), (0..6).map { playShowMillis(1_200, it) })
@@ -266,7 +266,7 @@ class PlayShowTest {
         assertEquals(listOf(125, 81, 53, 50), (0..3).map { playShowFlightMillis(2f, it) })
     }
 
-    // HIS-112: a chain is plays each showing within a second after the one before landed; in it each ability counts its own
+    // HIS-112, HIS-138: a chain is plays each showing within a second after the one before landed; in it each ability counts its own
     // repeats (another ability between doesn't end it); a spell is never a repeat; after a rest the next begins a chain
     @Test fun aChainCountsEachAbilityAndEndsAfterARest() {
         val pace = PlayShowPace()
@@ -282,7 +282,7 @@ class PlayShowTest {
         assertEquals(0 to null, pace.begin(martyr, 7_100))
     }
 
-    // HIS-112 (owner playtest 2026-11-07, 2026-11-12): it flies in from its source (Bob's hand), then shows with its line;
+    // HIS-112, HIS-133, HIS-136, HIS-137 (owner playtest 2026-11-07, 2026-11-12): it flies in from its source (Bob's hand), then shows with its line;
     // after its time the line goes as the flight starts, the card flies to the Stack's top card and is gone from the screen
     // as it lands, without waiting for the device (here its dismissal never comes)
     @Test fun theShowLeavesTheScreenWhenItLandsWithoutWaitingForTheDevice() {
@@ -316,7 +316,7 @@ class PlayShowTest {
         assertEquals(1, done)
     }
 
-    // HIS-112 (owner 2026-11-12): the plays put on the Stack in one go show together, in Stack order; a combat's hold first,
+    // HIS-112, HIS-134, HIS-141, HIS-142, HIS-149 (owner 2026-11-12): the plays put on the Stack in one go show together, in Stack order; a combat's hold first,
     // or plays of a later event, wait; plays this table ended are passed over
     @Test fun thePlaysOfOneEventShowTogether() {
         val bob = arcanum.engine.state.PlayerId("bob")
@@ -331,7 +331,7 @@ class PlayShowTest {
         assertEquals(listOf(a1), playShowGroup(listOf(a1, GameDevice.CombatHold("e1", GameDevice.CombatMoment.Damage), a2), emptyList()))
     }
 
-    // HIS-112 (owner 2026-11-12): a play flies in from its source where the board shows it; from one out of sight (a
+    // HIS-112, HIS-133 (owner 2026-11-12): a play flies in from its source where the board shows it; from one out of sight (a
     // battlefield card panned away) it flies in from the board's edge in its direction, at its size
     @Test fun aSourceOutOfSightStartsAtTheBoardsEdgeInItsDirection() {
         val board = TableBounds(0f, 100f, 400f, 600f)

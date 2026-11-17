@@ -60,7 +60,7 @@ class ReturnPausesTest : E2e() {
             if (bob.status is GameDevice.Status.Stopped) bob.playAlong()
             !bob.shown.behind && bob.status !is GameDevice.Status.Playing
         }
-        // HIS-006: away and back with nothing new: live again, nothing waits for Play
+        // HIS-006, HIS-035: away and back with nothing new: live again, nothing waits for Play
         bob.away()
         run()
         bob.back()

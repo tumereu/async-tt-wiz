@@ -89,7 +89,7 @@ class PlaybackStopReturnTest : E2e() {
     /** Lets the phones' clock run several seconds (anything that would start or move playback by itself would). */
     private fun settle() = repeat(3) { run(skip = Duration.ofSeconds(2)) }
 
-    // HIS-094, HIS-095, HIS-105, HIS-035, HIS-033 (owner playtest 2026-11-06): nothing of Alice's after Bob's stop: away
+    // HIS-094, HIS-095, HIS-105, HIS-035, HIS-162, HIS-033 (owner playtest 2026-11-06): nothing of Alice's after Bob's stop: away
     // and back, then the game opened again from the Games list, his table is at the same stop, live, never with the
     // centre text; Resolve there confirms
     @Test fun aStopStaysLiveAfterLeavingAndReopeningWithNothingAfterIt() {
@@ -110,7 +110,7 @@ class PlaybackStopReturnTest : E2e() {
         assertTrue(bob.leaks.leaks.isEmpty() && alice.leaks.leaks.isEmpty())
     }
 
-    // HIS-094, HIS-095, HIS-105, HIS-035, HIS-033 (owner playtest 2026-11-06): Bob leaves the app at his stop and Alice
+    // HIS-094, HIS-095, HIS-105, HIS-035, HIS-162, HIS-033 (owner playtest 2026-11-06): Bob leaves the app at his stop and Alice
     // plays on past it (she ends her turn); back, and then with the app started
     // again and the game opened from the Games list, his table is at the same stop, live, never with the centre text;
     // Resolve there confirms and playback goes on by itself

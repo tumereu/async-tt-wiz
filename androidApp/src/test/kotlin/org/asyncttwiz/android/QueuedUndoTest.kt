@@ -23,10 +23,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * HIS-107 (owner problem report 2026-11-05: attack, then a quick Undo): an Undo tapped while the player's own action is
+ * HIS-107, HIS-201 (owner problem report 2026-11-05: attack, then a quick Undo): an Undo tapped while the player's own action is
  * still on its way to the server waits for it and then takes back that action, the one they last made when they tapped
  * (by its event), never one made or arriving after; it ends moves waiting to be made again after a lost race (SYS-077);
- * when it is no longer free it opens the Undo dialog (HIS-099). HIS-084: the device holds at the point a free undo landed
+ * when it is no longer free it opens the Undo dialog (HIS-099). HIS-084, HIS-198: the device holds at the point a free undo landed
  * on while only table-only events arrive. Both devices on [EngineAppSim]; what Alice's device sends waits until
  * [EngineAppSim.flush]ed, what the server says until [EngineAppSim.deliver]ed.
  */
@@ -179,7 +179,7 @@ class QueuedUndoTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-107, HIS-087, HIS-099, SYS-025: the server has her cast and Bob has answered it (a Storm Spark of his in response:
+    // HIS-107, HIS-087, HIS-202, HIS-099, SYS-025: the server has her cast and Bob has answered it (a Storm Spark of his in response:
     // a real input, not a pass, which wouldn't count, owner problem report VXSGKH) before her Undo arrives, while her device
     // hasn't heard back: her table shows the undo at once, the server finds it isn't free, so her game loads again from the
     // server's line and the Undo dialog opens with the point before her cast chosen
@@ -201,7 +201,7 @@ class QueuedUndoTest {
         assertEquals(GameDevice.Status.Reload, game.device.status, "her game loads again")
     }
 
-    // HIS-107, SYS-077: the server took Bob's real pass (with an early answer of his in the same event: not the same event
+    // HIS-107, HIS-201, SYS-077: the server took Bob's real pass (with an early answer of his in the same event: not the same event
     // as her assumption of his bare pass, owner 2026-11-07) before Alice's assumption of it and her land played on it; the
     // refusal comes first, so her land waits to be made again on his pass. Her Undo then takes the land back: it is not
     // made again (and nothing tells her it wasn't taken)
@@ -240,7 +240,7 @@ class QueuedUndoTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-084: after a free undo her device waits for her where she acted, also after Bob's table-only events arrive there
+    // HIS-084, HIS-198: after a free undo her device waits for her where she acted, also after Bob's table-only events arrive there
     // (it held only while the tip was that point's event: then her Auto-skip passed her beginning of combat by itself)
     @Test fun theUndoPointHoldsWhenTableOnlyEventsArrive() {
         val game = aliceInMain()

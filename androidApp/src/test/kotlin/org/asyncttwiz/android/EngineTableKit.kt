@@ -143,7 +143,7 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
         }
     }
 
-    /** HIS-096 (owner 2026-11-06): Alice's phone takes Bob for Normal until his next event says his mode (the simulated
+    /** HIS-096, HIS-176 (owner 2026-11-06): Alice's phone takes Bob for Normal until his next event says his mode (the simulated
      * server sends no modes): his pause at her next spell waits for him, where his Quick, unable to respond, would let her
      * phone assume it at once. */
     fun bobKnownAsNormal() = alice.device.modes(mapOf(f.b to org.asyncttwiz.protocol.game.ResponseMode.Normal))

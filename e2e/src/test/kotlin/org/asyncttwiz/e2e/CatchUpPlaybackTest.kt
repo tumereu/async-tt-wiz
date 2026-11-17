@@ -71,7 +71,7 @@ class CatchUpPlaybackTest : E2e() {
         return shown
     }
 
-    // HIS-033, HIS-094 (§29.1): coming back during the other player's opening, there is no playback of it: Alice's
+    // HIS-033, HIS-094, HIS-161 (§29.1): coming back during the other player's opening, there is no playback of it: Alice's
     // mulligan and keep with its bottom card show at once (one board); past the opening the catch-up starts paused, no
     // dialog, nothing played until the centre text is tapped
     @Test fun theOpeningShowsAtOnceThenTheCatchUpWaitsPausedForPlay() {
@@ -138,7 +138,7 @@ class CatchUpPlaybackTest : E2e() {
             "the band stayed collapsed")
     }
 
-    // HIS-021, CMB-001, CMB-007 (§29.6): Alice attacks while Bob is away (her phone assuming his pause after it); his
+    // HIS-021, HIS-030, CMB-001, CMB-007 (§29.6): Alice attacks while Bob is away (her phone assuming his pause after it); his
     // catch-up shows the attack in the combat band, which opens for it as in live combat, and keeps the playback delay
     // after it
     @Test fun anAttackPlaysBackInTheCombatArea() {

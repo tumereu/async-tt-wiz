@@ -18,7 +18,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * A matching answer that crossed the other device's assumption of it on the wire (owner 2026-11-07, SYS-077, HIS-109):
+ * A matching answer that crossed the other device's assumption of it on the wire (owner 2026-11-07, SYS-077, HIS-109, HIS-211):
  * the other player's event reaches the server first and is the player's own pending event but for who made it, so the
  * server drops the player's event as its duplicate (a confirmation, no new event, nothing refused) and takes what they
  * made on it on that event; the player's phone puts the other player's event in its place with the board, the later
@@ -85,7 +85,7 @@ class ConfirmRaceTest {
 
     private class Crossed(val sim: DeviceSim, val mine: List<GameEvent>, val assumption: GameEvent)
 
-    // SYS-077, HIS-109, SYS-009 (owner 2026-11-07): Bob's assumption of Alice's pass reaches her phone while her own pass,
+    // SYS-077, HIS-109, HIS-211, SYS-009 (owner 2026-11-07): Bob's assumption of Alice's pass reaches her phone while her own pass,
     // which opened her discard, is still on its way: her board and the open discard stay exactly as they are (no take-back,
     // nothing made again); on the server her pass is the assumption's confirmation: no new event, nothing refused
     @Test

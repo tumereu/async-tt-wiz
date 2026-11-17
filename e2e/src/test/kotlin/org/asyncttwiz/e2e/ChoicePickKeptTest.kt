@@ -90,7 +90,7 @@ class ChoicePickKeptTest : E2e() {
         okFindsTheMountain(mountains)
     }
 
-    // STK-030, STK-056, HIS-096, TRN-070: Bob stops at Alice's ability and is away, so she taps Assume and chooses on what she
+    // STK-030, STK-056, HIS-096, HIS-178, TRN-070: Bob stops at Alice's ability and is away, so she taps Assume and chooses on what she
     // assumed; he comes back and passes while she is choosing: the card she tapped stays picked, and OK takes it
     @Test fun aPickStaysWhenTheOtherPlayersOwnPassComesInWhileSheChoosesOnAnAssumption() {
         startGame(TestDeck.trails(), bobSettings = PlaySettings(mode = ResponseMode.Normal), deal = { a, _ -> "Cinder Trail" in hand(a) })

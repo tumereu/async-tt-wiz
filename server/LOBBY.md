@@ -9,8 +9,9 @@ HTTP creates the first invitation; existing-game mutations use the
 | `GET /v1/users?username=...` | Literal normalized username prefix, at most 50 results excluding self; no email search/projection |
 | `GET /v1/contacts?after=UUID` | Own unilateral contacts |
 | `POST /v1/contacts` | `{requestId,accountId}`; add another real account idempotently, without reciprocal approval |
+| `DELETE /v1/contacts/{accountId}` | Remove one of your own contacts |
 | `POST /v1/invitations` | `{requestId,recipient,gameName}`; recipient must be a contact; atomically create game, preparation and first invitation |
-| `GET /v1/games?after=UUID` | Own games as inviter or accepted recipient, including pending/declined inviter lobbies |
+| `GET /v1/games?after=UUID` | Own games as inviter or accepted recipient, including pending/declined inviter lobbies; with `since=<token>` only the games changed since an earlier read |
 | `GET /v1/invitations?after=UUID` | Recipient's pending invitations; no age expiry |
 | `GET /v1/games/{id}/head` | Current username-only metadata for inviter/accepted recipient; missing/foreign contexts give the same 404 |
 

@@ -1,13 +1,13 @@
 # Play with a friend
 
 This runs one server and PostgreSQL on your own Linux/Docker host. Both Android
-devices connect to the same **HTTPS origin**; gameplay also needs WebSocket
-upgrades at `/v1/socket`. No registry, push service or Google services are required.
-The server is a manual tabletop, not a rules engine.
+devices (or browsers, for the web client) connect to the same **HTTPS origin**;
+gameplay also needs WebSocket upgrades at `/v1/socket`. No registry, push service or Google services are required.
+The server runs the rules engine (Arcanum Automatum) for every game.
 
 ## 1. Build and configure
 
-Requirements: JDK 21, Android SDK platform 36, Bash, OpenSSL, Docker with Compose,
+Requirements: JDK 21, Android SDK platform 37, Bash, OpenSSL, Docker with Compose,
 and enough disk space for Gradle/Docker plus the phone's public card catalog.
 Run commands from the repository root. The image build uses a disposable
 Testcontainers PostgreSQL for jOOQ generation, not your deployment database.
@@ -116,9 +116,9 @@ docker compose -f deploy/compose.yml --env-file deploy/.env exec server \
 docker compose -f deploy/compose.yml --env-file deploy/.env logs --tail=50 migrate server
 ```
 
-The API root intentionally returns 404; it is not a health endpoint. HTTPS can
-be checked with `curl -i https://YOUR-HOST/account` (401 is expected without a
-token). Test a two-device game to verify the proxy's WebSocket path as well.
+The root serves the web client when `deploy/web-app` holds a build, else 404; it
+is not a health endpoint. HTTPS can be checked with `curl -i https://YOUR-HOST/account`
+(401 is expected without a token). Test a two-device game to verify the proxy's WebSocket path as well.
 
 ## 4. Build and share the APK
 
@@ -133,8 +133,8 @@ Android's install-from-this-source permission to sideload it (Android 10+).
 Both origins must be HTTPS origins without paths, queries or trailing slashes.
 The reset origin defaults to the API origin. No trust bypass or HTTP fallback is
 added. Configure `atwArtContact` in your user Gradle properties with an operator
-contact URL/email before using the public artwork provider; catalog/art traffic
-goes directly from phones to MTGJSON/Scryfall, never through your server.
+contact URL/email before using the public artwork provider; the card catalog comes from
+your server, while artwork traffic goes directly from phones to Scryfall, never through your server.
 
 Signing follows the existing Gradle inputs (all four or none):
 
@@ -164,7 +164,7 @@ reset form; reset emails are not needed to create accounts or start a game.
 Each player registers and signs in; the app installs the server's card catalog on
 start. Import and save a decklist, then add the other player's username in Contacts.
 Create a named invitation, accept it on the other phone, select decks, choose a
-starter and press Ready on both devices. Missing artwork falls back to text. The app records manual actions and history.
+starter and press Ready on both devices. Missing artwork falls back to text. Automatum plays the game by the rules; the app records the moves and history.
 
 ## Stop, upgrade and preserve data
 
@@ -200,7 +200,7 @@ install later with `adb install -r androidApp/build/outputs/apk/personalTest/and
 - `scripts/test-env.sh status` / `logs`: inspect readiness and follow server logs.
 - `scripts/test-env.sh down`: stop only test processes/containers and the hidden
   Windows WSL keep-alive; retain data, secrets and the Tailscale listener.
-- API: `https://desktop-b2kalvm.tail27cccc.ts.net:10443` (tailnet only).
+- API and web client: `https://desktop-b2kalvm.tail27cccc.ts.net:10443` (tailnet only).
   Only Serve port 10443 is updated; existing 443/8443 listeners are untouched.
 - Local readiness: `http://127.0.0.1:18091/health/ready`; Mailpit:
   `http://127.0.0.1:18026`; PostgreSQL: `127.0.0.1:55433/atw_test`.
@@ -217,4 +217,5 @@ For local verification without changing Serve or installing on a phone:
 Push notifications: put `google-services-test.json`, `google-services-prod.json` and
 `fcm-service-account.json` in `~/.config/atw-firebase` (mode 600). `test-env.sh` and
 `prod-release.sh` then build the FCM flavor, and the test server sends pushes. Without
-those files, builds and servers stay on polling only.
+those files, the phone app stays on polling only; browser notifications use the test
+server's own web-push key either way.

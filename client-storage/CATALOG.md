@@ -10,8 +10,9 @@ reads `GET /v1/catalog` and `GET /v1/catalog/{checksum}` from the app's API orig
 `CatalogInstaller` downloads the gzip file, indexes it record by record into an unpublished generation (each printing as
 the record the app keeps, its search traits, the sets with their support marks and the supported printings), checks the
 file's checksum while reading, validates the index and atomically publishes the generation pointer. A failure leaves
-the previous records readable. Accepted deck/game definitions remain independent snapshots, never resolved again
-through newer records.
+the previous records readable. Saved decks and cubes hold their cards by printing and are built from the current records
+whenever they are shown, edited or chosen; a game's card data is made when its deck is chosen and is not resolved
+again through newer records (feature catalog SYS-084).
 
 The app (`CatalogController`) compares the installed records with its catalog on start and installs it when they
 differ, trying a failed download once more by itself before offering Retry. Nothing waits for it but the controls that

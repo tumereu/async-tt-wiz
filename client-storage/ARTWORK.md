@@ -23,16 +23,17 @@ is intentionally absent so it cannot bypass the validated repository/decoder.
   or automatic redirects. Public HTTPS/443 only; vet DNS and every redirect (max
   three), rejecting private/local/link-local/metadata/special-use addresses. Actual
   connection DNS uses the vetted addresses with normal TLS hostname verification.
-- Global five requests/second throttle, coalesced in-flight requests and persisted
-  cooldown/backoff. Honor `Retry-After`; cache 404 for 24 hours and transient failure
-  for 1 minute, then 5 minutes, then 1 hour. Retry on demand, not per frame.
+- Provider API (metadata) requests spaced 100 ms apart, at most six downloads at once,
+  coalesced in-flight requests and persisted cooldown/backoff. Honor `Retry-After`; a
+  failure (404 included) waits 1 second, doubling up to 30 seconds. Retry on demand,
+  not per frame.
 - Metadata max 1 MiB/depth 32, image max 10 MiB, network chain deadline 30 seconds.
   Accept PNG/JPEG/WebP signatures, not HTML/SVG. Check max 4096 pixels/dimension
   and 16 million pixels before allocation; decode at requested scene size.
-- Atomic encoded bytes/validators use a 256 MiB disk LRU; interrupted writes are
-  cleaned on reopen. Revalidation uses ETag/Last-Modified and retains good bytes
-  during outages. Coil decoded memory is bounded to min(64 MiB, one-eighth heap)
-  and trimmed on memory/background callbacks. Eviction never reaches private data.
+- Atomic encoded bytes use a 1 GiB disk LRU; interrupted writes are cleaned on
+  reopen. Art once downloaded is kept as it is, never requested again. Coil decoded
+  memory is bounded to min(64 MiB, one-eighth heap) and trimmed on memory/background
+  callbacks. Eviction never reaches private data.
 
 Default source: `https://api.scryfall.com/cards/`. Supply
 `-PatwArtContact=<operator contact URL/email>` for the app's identifying User-Agent

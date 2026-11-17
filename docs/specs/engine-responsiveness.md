@@ -1,13 +1,13 @@
 # Engine responsiveness and the old model's removal (architecture check, 2026-11-04)
 
-Status: **approved by the owner (2026-11-04), not started.** Comes from the architecture check after the I-D54/I-D56
-switch-over. Tasks R1–R4, R6, R7 below, built in that order (R1 first: its measurements may reorder R2–R3; R6 after R2, R7 any
-time). R5 (working out the step arrow's pass ahead of time) is optional and decided later (`docs/backlog.md`, "Needs
-discussion").
+Status: **built** (R1–R4, R6, R7; approved by the owner 2026-11-04). Comes from the architecture check after the
+I-D54/I-D56 switch-over. Code comments cite its tasks (R1–R4, R4a–R4d for R4's commits) as the design reference. R5
+(working out the step arrow's pass ahead of time) is not built: optional and decided later (`docs/backlog.md`, "Needs
+discussion"). "Why" below describes the code as it was before R1.
 
 ## Why
 
-SYS-025 asks for an own action's local result in under 20 ms (80 ms ceiling). On the phone it takes 25–68 ms today. The
+SYS-025 asks for an own action's local result in under 20 ms (80 ms ceiling). On the phone it took 25–68 ms (2026-11-04). The
 rules engine's own work is a small part of that (a typical `Engine.perform` was ~1–2 ms median on the Pi, engine-state
 §9). The rest is the host around it:
 - **Layers worked out again and again:** `Engine.view` keeps nothing between calls. One own action works out the
@@ -69,12 +69,8 @@ rules engine's own work is a small part of that (a typical `Engine.perform` was 
   plays) instead of `EngineProjection`'s `PlayState` with `BoardState.engine` attached. The cast, choice and combat
   controllers read the engine state and table state directly, not through `EngineState.from` / `EngineCall` /
   `HostPriority`.
-- Then delete what only the old model reached: the app's
-  old table path and history machinery, the I-D41 UI, `HistoryText`, the play replica in `GameSession`; protocol's old
-  play actions, `GameplayRules`/`HistoryContinuation`/`AutomatumOnly`/`GameplayTree`/`TreeSync`/`RetainedIndex` and
-  `PlayState`'s game fields; automatum's `EngineBatch`, `StepFlow`/`PausePoints` passing for others, `HostPriority`,
-  `EngineState.from`'s building; a migration dropping the old model's empty tables (`gameplay_mutation`,
-  `gameplay_group`, `gameplay_tree_control`, `gameplay_endpoint_*`, `game_play_mutation`; deletes no game).
+- Then delete what only the old model reached (built: its app, protocol and automatum code is gone, and
+  `V62__drop_old_gameplay_model.sql` dropped its empty tables without deleting a game).
 - Tests citing entries that still hold on engine state (e.g. LOB-066, HIS-018–HIS-020) get engine-path replacements in
   the same commit as the deletion, not just deletion. Screenshots re-recorded where the table's drawing changes.
 - Catalog: HIS-063–HIS-069, SYS-004, SYS-010, SYS-061 (today's model's texts and batches) go with their code; every

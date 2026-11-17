@@ -1,14 +1,22 @@
 # Android app
 
-Native Kotlin/Compose two-player manual tabletop (Android 10/API 29+). The app
-provides account entry/reset, contacts and invitations, saved deck import/management,
-preparation, gameplay, chat and history/review. It uses `:core`/`:protocol` for shared
-state/wire behavior and `:client-storage` for SQLite/catalog/art adapters. Shared
-game state is server-authoritative; selection, camera and review position are local.
+The Android shell (Android 10/API 29+) of the two-player MTG client: every game is
+played by the rules through the Arcanum Automatum engine, which works out the board
+and asks the players only for decisions (feature catalog SYS-001, SYS-069). The
+screens live in the shared Compose UI `:app-ui` (also used by the desktop web
+client, `webApp/`) and the device's game on engine state in `:app-engine`; this
+module holds the Android entry points (activity, application, storage startup,
+notifications, app update) and the unit/screenshot tests of the shared UI; the
+Android-specific parts of the shared UI (protected session store, catalog
+controller) are in `:app-ui`'s `androidMain`. It uses
+`:core`/`:protocol` for shared state/wire behavior and `:client-storage` for
+SQLite/catalog/art adapters. Shared game state is server-authoritative; selection,
+camera and review position are local. What the app does is listed in the
+[feature catalog](../docs/features/README.md).
 
 ## Configure, build and test
 
-Use JDK 21 and Android SDK platform 36, from the repository root:
+Use JDK 21 and Android SDK platform 37, from the repository root:
 
 ```sh
 ./scripts/gradle.sh -PatwApiOrigin=https://tabletop.example.com \
@@ -63,7 +71,7 @@ an operator-owned `assetlinks.json` for the actual package/signing certificate;
 otherwise the server's HTTPS browser form remains available.
 
 Game commands use authenticated `/v1/socket` WebSockets; the proxy must pass upgrades.
-Receipts mean admitted, results correlate original outcomes, and revisions/baselines
-advance accepted state. Predictions and uncertain requests remain separate from
+Receipts mean admitted, results correlate original outcomes, and revisions and
+heads advance accepted state. Predictions and uncertain requests remain separate from
 the accepted replica. See [server game notes](../server/GAMES.md) and
 [client storage](../client-storage/README.md) for recovery/data boundaries.

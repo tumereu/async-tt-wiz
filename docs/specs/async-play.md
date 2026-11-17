@@ -29,13 +29,13 @@ once nothing is left.
 ## Assumptions, confirmation and branches
 
 9. One-answer questions that depend on the other player's hidden cards are real waits for the acting device; the other
-   player's own device answers them under Auto-skip (STK-036, SYS-063).
+   player's own device answers them under Quick (STK-036, SYS-063).
 10. Order-free combat damage divisions are made automatically for every player, whatever their response mode
     (STK-033).
 11. A confirmation compares only the decider's first input with the assumed one; the rest of their answer is their next
     action (HIS-105).
 12. Accepted tell: the assumer's unconfirmed mark (TRN-068) goes away when the other player's playback confirms, which
-    shows where their Auto-skip stopped (the async form of I-D18's live timing).
+    shows where their response mode stopped (the async form of I-D18's live timing).
 13. A concession made while behind discards the line beyond the conceder's local head (TRN-064).
 14. Discarded lines are shown to nobody (kept only for problem reports) and the game tree dialog is gone (HIS-043).
 15. A draft (a cast or combat staging in progress) survives the other player's events arriving, but a branch, a rewind
@@ -49,7 +49,7 @@ once nothing is left.
 
 ## Response modes, settings and the move
 
-18. Response mode per player per game, default Auto-skip; Autotap is private like the response mode, not a shared
+18. Response mode per player per game, default Quick; Autotap is private like the response mode, not a shared
     table setting (TRN-059, SYS-005).
 19. Your device's passes by your response mode are your own inputs, folded into the event that reached them (HIS-092).
 20. The move is never passed by hand: it is whom the game waits for (TRN-006, TRN-058). A waiting result suggestion is
@@ -73,5 +73,5 @@ once nothing is left.
 
 26. Early answers are keyed per creature's division for the turn; the key doesn't tell the first-strike and regular
     combat damage steps apart (STK-034).
-27. Pass / End turn latency: revisit now that R1–R3 of `engine-responsiveness.md` are built.
+27. Pass / End turn latency: revisit now that R1–R4 and R6 of `engine-responsiveness.md` are built.
 28. Whether async rounds per game dropped compared with before (the server logs them).

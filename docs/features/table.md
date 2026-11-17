@@ -66,7 +66,7 @@ Nothing on the table can be changed by hand: no notes, dice or hand-made tokens.
 - **TBL-136** A battlefield card a continuous effect other than counters applies to (gained or lost abilities, a copy, "can't block", a P/T, type, colour or controller changed by an effect: whatever Inspect lists as an effect or a can't/must line, TBL-104, TBL-134, a suspected creature's "Can't block" too; a state alone, such as goaded or monstrous, isn't one) shows a small violet sparkle in its top-left corner (inside a token's cut corner), on both players' tables, and reads "changed by effects" aloud. (r71)
 - **TBL-027** A card that came onto the battlefield this turn shows its name in blue (#1A56DB), also after changing sides and for new tokens and clones; combat copies follow their card; full-image cards show no mark. Only a creature's mark keeps it out of its identical stack (TBL-053). (r61)
 - **TBL-028** Face-down battlefield cards show the card back with a "?" name on a white chip, blue when the card arrived this turn. (r30)
-- **TBL-029** Face-down battlefield cards' P/T and damage are visible to both players; they start as 2/2, and when one is turned face up Automatum works out its P/T (TBL-112). (r45)
+- **TBL-029** Face-down battlefield cards' P/T and damage are visible to both players. Automatum works out a face-down permanent's P/T by the rules (usually 2/2, CR 708.2a) and again when it is turned face up, shown like any P/T (TBL-112). (r45)
 - **TBL-030** Hidden cards (opponent's hand, face-down outside the battlefield) show no P/T. (r45)
 - **TBL-031** Every tap on a card shows a short press border, so both taps of a double tap are visible; it rotates with the card, also mid-animation. (r45)
 

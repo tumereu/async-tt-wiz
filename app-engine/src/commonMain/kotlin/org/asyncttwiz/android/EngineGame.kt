@@ -423,11 +423,19 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** Publishes what changed (engine thread): the board projected anew, the notes drained, then the main thread told;
      * the board published. [timing]: the own action whose board this is (its probe times the building and hears when it
      * is shown); the board's plays are then promised ([EngineBoardValues.promisePlays]): the caller works them out next
-     * ([playsOf]). */
-    private fun publish(drained: List<GameDevice.Note> = emptyList(), timing: OwnActionTiming? = null): TableBoard {
+     * ([playsOf]). [stepsFollow]: the device's own steps after it are made next ([after]): when the first is a step of the
+     * player's own, the main button holds no press on this board ([GameDevice.ownStepNext], TRN-119). */
+    private fun publish(drained: List<GameDevice.Note> = emptyList(), timing: OwnActionTiming? = null, stepsFollow: Boolean = false): TableBoard {
         timing?.boardStart = clock()
         val notes = drained + device.notes()
         val status = device.status
+        // TRN-063, TRN-119 (owner, 2026-11-17): the board of the player's own action (their Assume, a Resolve tap) published before
+        // the device's own steps after it, when the first of them is a step of the player's own (their Quick pass over their
+        // own ability next on the Stack): it said "Resolve" for a moment before the device passed by itself
+        val stepNext = stepsFollow && status == GameDevice.Status.YourMove && !device.ownStepHeld && device.ownStepNext
+        if (stepNext) AppLog.info("game", "Own action's board before the device's own steps: the main button holds no press, the " +
+            "player's own step follows by itself (${device.settings.mode::class.simpleName}, stack ${device.model.engine.stack.size})")
+        stepAwaited = stepNext
         val attention = when (status) {
             GameDevice.Status.YourMove, GameDevice.Status.Drafting, is GameDevice.Status.Stopped -> me
             is GameDevice.Status.Waiting -> device.opponent.value
@@ -478,7 +486,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             device.needsReload, device.pausing, takingBack,
             device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold,
             opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null, moments = device.openMoments,
-            ownStepHeld = status == GameDevice.Status.YourMove && device.ownStepHeld, engine = engine)
+            ownStepHeld = status == GameDevice.Status.YourMove && device.ownStepHeld || stepNext, engine = engine)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -2040,7 +2048,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             if (timing != null) { timing.after(start, clock(), informationNanos() - info); afterDone(timing) }
             return@run
         }
-        val shownBoard = publish(timing = timing)
+        val shownBoard = publish(timing = timing, stepsFollow = true)
         val info = informationNanos()
         try {
             // Its plays now, before the device's own steps
@@ -2056,17 +2064,24 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     }
 
     /** [after] the board of an own action not shown early: the device's own steps, and the board again when they changed
-     * anything. Engine thread. */
+     * anything, or when that board held the main button for a step of the player's own that wasn't made ([stepAwaited]).
+     * Engine thread. */
     private fun afterBoard() {
         val tip = device.session.tip
         val status = device.status
         val request = device.request
         val pending = device.session.pending.size
+        val awaited = stepAwaited
         device.advance(now)
         val drained = device.notes()
-        if (device.session.tip != tip || device.status != status || device.request != request || device.session.pending.size != pending ||
-            drained.isNotEmpty()) publish(drained)
+        val changed = device.session.tip != tip || device.status != status || device.request != request || device.session.pending.size != pending
+        if (awaited && !changed) AppLog.warn("game", "The player's own step the main button waited for wasn't made by the device: board published again")
+        if (changed || drained.isNotEmpty() || awaited) publish(drained)
     }
+
+    /** TRN-119: the board published last holds the main button for the device's own step after the player's action
+     * ([publish]'s stepsFollow). Engine thread. */
+    private var stepAwaited = false
 
     // ---- The own-action probe (SYS-025, SYS-030, engine-responsiveness R1)
 

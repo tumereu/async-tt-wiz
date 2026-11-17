@@ -59,7 +59,7 @@ class ChipTextTest {
     @Test fun aGreyedAbilityChipSaysWhyAndOnlyShakes() {
         val add = "{T}: Add {R}."
         val gain = "{5}: You gain 1 life."
-        val why = chipRefusal(org.asyncttwiz.automatum.CardPlay.Refusal.Other, org.asyncttwiz.automatum.CardPlay.Kind.Ability, "Ember Cairn", emptyMap())
+        val why = chipRefusal(org.asyncttwiz.automatum.CardPlay.Refusal.Other(), org.asyncttwiz.automatum.CardPlay.Kind.Ability, "Ember Cairn", emptyMap())
         var taps = 0
         compose.setContent {
             MaterialTheme {

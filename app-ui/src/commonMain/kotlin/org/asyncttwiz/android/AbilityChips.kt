@@ -61,7 +61,7 @@ fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, sce
                 offered.forEachIndexed { index, ability ->
                     AbilityChip(ability.text, { toolkit.activateChip(index) },
                         { hold -> toolkit.heldAbility = if (hold) index else null },
-                        refusal = ability.refusal?.takeIf { !ability.legal }?.let { chipRefusal(it, ability.kind, name, names) })
+                        refusal = ability.refusal?.takeIf { !ability.legal }?.let { chipRefusal(it, ability.kind, name, names, cardId, ability.text) })
                 }
             }
         }
@@ -106,7 +106,7 @@ fun HoveredAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene
                     if (over) toolkit.hoveredAbility = index else if (toolkit.hoveredAbility == index) toolkit.hoveredAbility = null
                 }) {
                     AbilityChip(ability.text, { toolkit.activateChip(index, cardId) }, {},
-                        refusal = ability.refusal?.takeIf { !ability.legal }?.let { chipRefusal(it, ability.kind, name, names) })
+                        refusal = ability.refusal?.takeIf { !ability.legal }?.let { chipRefusal(it, ability.kind, name, names, cardId, ability.text) })
                 }
             }
         }
@@ -131,11 +131,29 @@ fun abilityParts(text: String): Pair<String, String?> {
     return effect to (if (colon > 0) text.substring(0, colon).trim() else null)
 }
 
-/** TBL-124: why an ability's chip is greyed: the menu's words (TBL-123), its catch-all shorter on a chip. */
+/** TBL-124: why an ability's chip is greyed: the menu's words (TBL-123), its catch-all shorter on a chip (reported as
+ * [catchAllRefusal] says, with [cardId] and the ability's [text]). */
 fun chipRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind, name: String,
-    names: Map<String, String>): String =
-    if (refusal == org.asyncttwiz.automatum.CardPlay.Refusal.Other) "Not now: a cost it can't pay, or nothing to target."
-    else engineRefusal(refusal, kind, name, names)
+    names: Map<String, String>, cardId: String? = null, text: String? = null): String =
+    if (refusal is org.asyncttwiz.automatum.CardPlay.Refusal.Other)
+        catchAllRefusal("chip", CHIP_CATCH_ALL, refusal, kind, name, cardId, text)
+    else engineRefusal(refusal, kind, name, names, cardId, text)
+
+/** TBL-160: the chip's catch-all reason. */
+const val CHIP_CATCH_ALL = "Not now: a cost it can't pay, or nothing to target."
+
+/**
+ * LOB-090, TBL-123, TBL-160 (owner, 2026-11-17): a catch-all reason ([shown]) is still what the player sees, and it is also an
+ * error, logged and reported by itself as placeholder text is ([org.asyncttwiz.protocol.Faults.placeholder]), with what a
+ * specific reason needs: the card [name] and [cardId], the ability's [text] and [kind], and the engine's own refusal
+ * ([refusal]'s detail, none when the engine would begin it and only its options leave it out). Once per card and ability per
+ * run (a repeated tap, or the menu drawn again, reports nothing more; the app sends at most a few such reports a run).
+ */
+fun catchAllRefusal(where: String, shown: String, refusal: org.asyncttwiz.automatum.CardPlay.Refusal.Other,
+    kind: org.asyncttwiz.automatum.CardPlay.Kind, name: String, cardId: String?, text: String?): String =
+    org.asyncttwiz.protocol.Faults.placeholder("Refusal", "catch-all reason for $name: ${text.orEmpty()}", shown, mapOf(
+        "where" to where, "card" to "$name (${cardId.orEmpty()})", "ability" to text.orEmpty(), "kind" to (kind::class.simpleName ?: "?"),
+        "engine" to (refusal.detail ?: "none: the engine would begin it, its options leave it out (a target or a cost it can't have)")))
 
 /** An ability's chip; with [refusal] greyed, saying why under its words: a tap only shakes it. */
 @Composable

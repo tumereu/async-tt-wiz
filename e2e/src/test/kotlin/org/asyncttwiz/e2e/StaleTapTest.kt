@@ -129,9 +129,11 @@ class StaleTapTest : E2e() {
     }
 
     // HIS-109, HIS-189, SYS-012, SYS-138, SYS-011, SYS-136 (owner problem report E48RDE): Alice's Altar ability and her Martyr's death trigger on the
-    // Stack, Bob away; she taps Assume (the trigger resolves) and then Resolve on the board where she holds priority over
-    // her ability, as her phone (Quick) passes there by itself: the same press, so no "That wasn't taken", no second pass,
-    // and her ability still waits for Bob (never resolved by the tap)
+    // Stack, Bob away; she taps Assume (the trigger resolves) and then Resolve is pressed on the board where she holds priority
+    // over her ability (the main button's pass, as a tap racing that board makes it), as her phone (Quick) passes there by
+    // itself: the same press, so no "That wasn't taken", no second pass, and her ability still waits for Bob (never resolved
+    // by the tap). TRN-063, TRN-119 (owner, 2026-11-17): that board, after her Assume, holds no Resolve on her main button,
+    // her phone passing there by itself
     @Test fun aResolveTappedAsHerPhonePassesByItselfGoesQuietly() {
         startGame(deck, TestDeck.sparks(), aliceWorker = held, bobSettings = PlaySettings(mode = ResponseMode.Normal),
             deal = { a, _ -> "Ember Altar" in hand(a) && "Ember Martyr" in hand(a) })
@@ -153,8 +155,8 @@ class StaleTapTest : E2e() {
         }
         // Her screen shows the board after her Assume (her priority over her ability), not yet her phone's own pass
         held.releaseUntil { alice.state.stack.size == 1 && alice.state.priority.holder == alice.me }
-        assertEquals("Resolve", alice.stepArrow())
-        alice.tap("Resolve")
+        assertEquals(null, alice.stepArrow(), "no Resolve on her main button: her phone passes by itself")
+        pressOnTheBoardShown()
         held.release()
         repeat(5) { run(skip = java.time.Duration.ofMillis(500)) }
 

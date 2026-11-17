@@ -60,8 +60,10 @@ data class CardPlay(
         @Serializable @SerialName("used") data object Used : Refusal
         /** The card belongs to (or is controlled by) another player: only they may play it. */
         @Serializable @SerialName("not-yours") data object NotYours : Refusal
-        /** Anything else: a cost that can't be paid, no legal target, a condition not met. */
-        @Serializable @SerialName("other") data object Other : Refusal
+        /** Anything else: a cost that can't be paid, no legal target, a condition not met. [detail]: the engine's own refusal,
+         * or null when it would begin it and the engine's options still leave it out (a target or a cost it can't have), for
+         * the report a catch-all reason makes (LOB-090, TBL-123). */
+        @Serializable @SerialName("other") data class Other(val detail: String? = null) : Refusal
     }
 }
 
@@ -170,13 +172,13 @@ class CardPlays private constructor(
             val player = when (input) { is Input.Activate -> input.player; is Input.Cast -> input.player; is Input.PlayLand -> input.player; else -> null }
             // Every cast, land play, activation and special action needs priority (CR 117.1, 116.2)
             if (state.priority.holder != player) return CardPlay.Refusal.Priority(state.priority.holder?.value)
-            val message = CastScreen.refusal(state, input, view) ?: return CardPlay.Refusal.Other
+            val message = CastScreen.refusal(state, input, view) ?: return CardPlay.Refusal.Other()
             val loyalty = (ability as? Ability.Activated)?.cost?.parts?.any { it is CostPart.Loyalty } == true
             return when {
                 loyalty && "loyalty ability" in message -> CardPlay.Refusal.Loyalty
                 "as a sorcery" in message || "main phase" in message || "sorcery" in message -> CardPlay.Refusal.Timing
                 "time(s) each turn" in message || "only once" in message || "no land plays left" in message -> CardPlay.Refusal.Used
-                else -> CardPlay.Refusal.Other
+                else -> CardPlay.Refusal.Other(message.take(300))
             }
         }
     }

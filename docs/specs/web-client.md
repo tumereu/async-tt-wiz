@@ -1,7 +1,9 @@
 # Web client: desktop and phone browsers (owner, 2026-11-07)
 
-Status: **ready for owner review (2026-11-07), not started.** Roadmap item 2 ("Desktop web client"), started before the Android client is
-finished because Automatum shrank the set of player actions. Decisions marked **(owner)** are agreed; everything marked
+Status: **built** (steps 0–8, 2026-11-07 to 2026-11-15; prod serves the web client with the server and the Android app
+since 0.2.0, 2026-11-15). The behaviour is in the catalog (`docs/features/web.md` and the shared entries); what is left
+of this spec is in `docs/backlog.md`. Code comments cite its sections as the design reference. Roadmap item 2 ("Desktop
+web client"), started before the Android client was finished because Automatum shrank the set of player actions. Decisions marked **(owner)** are agreed; everything marked
 **(proposal)** is Claude's and waits for the owner. The feasibility test (section 11, step 0) reported on 2026-11-07:
 the shared route works on desktop. Phone browsers aren't measured: the web client is built for desktop, phones have the
 native app, and phone-web speed is optimised later only if people use it (owner). Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
@@ -372,14 +374,7 @@ action without a key and says so on its row; Esc, Enter and the mouse can't be r
 
 Each step is one implementor batch (or a few, where noted), ends merged on master with its suites green, and follows
 AGENTS.md (catalog entries in the same commit, release notes for visible changes, e2e coverage of new flows). Order and
-what may run side by side:
-
-```
-playtest batch ─► library upgrades ─► 3 web shell ─► 4 web table ─┬─► 5 desktop table (wireframes reviewed)
-                                                                  ├─► 6 desktop screens
-                                       3 ─► 7 notifications, install (any time after 3)
-                                                                  └─► 8 web e2e + prod
-```
+what ran side by side:
 
 ### Step 0: feasibility test (done)
 
@@ -412,27 +407,19 @@ Desktop results are in section 1. No phone-browser run (decision 20).
 - The pin names MTGJSON 5.3.0+20261109; `setSupport` and a model comparison against the old file found no change on
   supported cards. Steps 1a–1c go to prod together, before any web work (owner approves that release as usual).
 
-### Before step 3 (owner, 2026-11-11)
-
-Step 2 (the shared UI module, `app-ui`) is built: the UI is in `app-ui`'s commonMain and compiles for Android and wasm.
-Two batches come first, in this order:
-- The 2026-11-11 playtest and gallery notes (`docs/backlog.md`, "Ready to build").
-- Library upgrades, kept apart from step 2 (owner): the newest compose-bom with its matching Compose Multiplatform,
-  CMP Material3 no longer held at 1.9.0, the androidx.savedstate 1.3.3 pin in `androidApp/build.gradle.kts` removed,
-  a Coil built for current CMP (check that Coil links for wasm), other due updates; changed screenshots re-recorded and
-  added to the gallery for the owner; locks written plain and with the Firebase identifiers.
-
 ### Step 3: web shell (phone layout) (built)
 
 - Built in 3a–3c (2026-11-12): browser storage, card records and pictures; the browser socket and single-thread paths;
-  the `webApp` module and the served build (`WEB_APP_DIR`, set nowhere in prod yet), the Archidekt proxy, stale-tab
+  the `webApp` module and the served build (`WEB_APP_DIR`; prod sets it since step 8), the Archidekt proxy, stale-tab
   reload, first load, addresses, history, on-screen Back, Esc and the close watcher; behaviour in
   `docs/features/web.md`. The browser smoke is e2e's `WebSmokeTest` (Chrome through Playwright).
 - Left for later steps: the chat side panel's close button and browser chrome on the table and draft screens (§8.3,
   §8.5: step 4 and the draft's step), haptics (§8.7), the engine in a Web Worker (step 4; it runs on the page's thread
   meanwhile, for a game's lobby).
 
-### Step 4: the game table on the web (phone layout)
+### Step 4: the game table on the web (phone layout) (built)
+
+Built in parts 4a–4e (2026-11-13); each part's "Not yet" below was built by the parts after it.
 
 - The engine in a Web Worker behind the message boundary (section 1.3); Android uses the same boundary on its
   background thread. The table, hand, panels, combat band, timeline, chat in the browser; browser chrome kept off the
@@ -534,7 +521,7 @@ Two batches come first, in this order:
   No step of the table's flows runs on the page any more; the page reads its copy of each board's state for names and what
   is shown.
 
-### Step 5: desktop table
+### Step 5: desktop table (built)
 
 - The wireframe review is done (owner, 2026-11-13); one question is left for this step (section 12, item 11).
 - Layout choice and the Layout setting (section 4); the desktop table (section 7.2): global top row with phase track,
@@ -576,7 +563,7 @@ Two batches come first, in this order:
   `DesktopTableTest`. Left for step 6: Ctrl+S and ← / → / ↓ in Build, Prepare and the editors (no edge zones yet), Enter
   in dialogs and the draft's Confirm.
 
-### Step 6: desktop lobby, decks, drafts
+### Step 6: desktop lobby, decks, drafts (built)
 
 - Permanent side menu shell, wider lists, two-pane deck and cube editor (list left, search right, the Cards tab
   filter, Hide search, D8), draft pick with click keep / right-click burn, trays and Confirm at the bottom, no picks
@@ -604,7 +591,7 @@ Two batches come first, in this order:
   hover quick look in the draft (§5's "hover gives the quick look"); Alt over a card-screen card shows it only while held
   (no pin).
 
-### Step 7: notifications, install, tab title
+### Step 7: notifications, install, tab title (built)
 
 - Web Push (server VAPID keys and subscriptions, sending alongside Firebase), the Settings switch and per-kind switches,
   the Games-list hint, notification clicks opening the right route; web manifest, icons, service worker, Install app;
@@ -619,23 +606,23 @@ Two batches come first, in this order:
   nothing. Tests: `WebPushTest`, `WebPushDeliveryTest`, `WebNotificationsTest`, `WebNotificationsScreenshotTest`, e2e
   `WebNotificationsTest`.
 
-### Step 8: complete, then prod
+### Step 8: complete, then prod (built)
 
 - Full suites including the browser smoke and e2e, a manual session of the owner on desktop and phone web, the review
   gates (`scripts/review.sh` catalog and screenshots), then the first prod deploy of server + web + Android together.
+- Built: `scripts/prod-release.sh` builds `webDist` from the released commit and the playbook installs it beside the
+  server (2026-11-15); prod 0.2.0 (2026-11-15) was the first release serving it.
 
 ### Risks
 
 - Phone browsers may be slow for comfortable play; accepted (decision 20), optimised later if people use phone web.
 - Compose for web is Beta: upgrades may need small fixes; iOS Safari is untested (no device).
-- Step 2 is large and collides with any concurrent Android work.
 - Bandwidth from the Pi: the app (~3.8 MB) and catalog (~12–13 MB) per new device or version, cached by Cloudflare under
   content-hashed names.
 - Web e2e on a canvas: kept small by testing shared UI in the JVM harness and only smoke-testing the real browser.
 
 ### Possible follow-ups (not planned)
 
-- The server works out card definitions from its own catalog instead of storing the ones clients upload with decks.
 - A desktop layout for Android tablets and Chromebooks.
 - A keyboard-driven Build review on desktop (Space keeps, other keys move) if the owner wants it after testing.
 - Phone-web speed work (measure, then optimise the engine's hot spots such as `ObjectId.Card.equals`).

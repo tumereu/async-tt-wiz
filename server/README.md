@@ -1,13 +1,14 @@
 # Server
 
 JDK 21 Spring Boot service with PostgreSQL, explicit Flyway migrations and generated
-jOOQ bindings. Uses `:core` for game rules/state and `:protocol` for wire types.
+jOOQ bindings. Uses `:core` and the Arcanum engine (`:arcanum-api`, `:arcanum-engine`) for
+game rules/state, `:catalog` for the card catalog and `:protocol` for wire types.
 Accounts, saved decks, contacts, invitations, ordered game commands, history and
 chat are server-authoritative. HTTPS terminates at an external proxy.
 
 ## Build and test
 
-From the repository root, with JDK 21, Android SDK 36 and Docker available:
+From the repository root, with JDK 21, Android SDK 37 and Docker available:
 
 ```sh
 ./scripts/gradle.sh :server:installDist
@@ -47,6 +48,8 @@ without automatic clean, repair or baseline. Add migrations; do not edit deploye
 | `RESET_MAIL_KEY_FILE` | Canonical base64 of 32 random bytes; retain across restarts |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_TLS` | Required relay configuration; TLS mode `starttls` or `tls` |
 | `SMTP_USERNAME_FILE`, `SMTP_PASSWORD_FILE` | Optional paired file secrets |
+| `CATALOG_DIR`, `WEB_APP_DIR`, `APP_RELEASE_DIR` | Optional directories: the card catalog, the web client build, the Android app update (`/app/latest`, `/app/apk`) |
+| `WEB_PUSH_KEY_FILE`, `FCM_SERVICE_ACCOUNT_FILE` | Optional notification keys: browser push (VAPID PEM), Firebase service account |
 
 `local-plaintext` SMTP is only for isolated synthetic development, without credentials.
 The CLI has no disabled-mail mode, but SMTP outage does not block readiness or play.
@@ -55,8 +58,8 @@ JDBC URLs, environment values, SQL parameters, reset queries or mail bodies.
 
 Only the health listener serves `/health/live` and `/health/ready`: liveness is
 process-only, readiness requires valid schema, writer ownership and recovered
-workers. Both return plain text, 200 or (for unready) 503. The public root/health
-paths return 404. Forwarded headers are not trusted.
+workers. Both return plain text, 200 or (for unready) 503. The public health paths
+return 404; the public root serves the web client when `WEB_APP_DIR` holds a build, else 404. Forwarded headers are not trusted.
 
 One writer holds a PostgreSQL session advisory lock and advances a persisted epoch
 on acquisition. Mutations enter `ServiceRuntime.transaction()` and its epoch fence,
@@ -76,6 +79,9 @@ bytes with strict UTF-8 and typed fields. Shared types are in
 | `POST /accounts` (`username,email,password`) | 201 safe identity; does not sign in |
 | `POST /sessions` (`email,password`) | 201 opaque bearer token and safe identity |
 | `GET /account` | 200 current identity (no email) |
+| `PUT /account/username` (`username`) | 200 identity; 409 `username_taken` |
+| `PUT /account/avatar` (`avatar`) | 200 identity |
+| `GET`/`PUT /account/settings` | 200 account settings |
 | `DELETE /session` | 204; revokes only this token, idempotent |
 | `POST /password-reset-requests` (`email`) | 202 for known and unknown email |
 | `POST /password-reset-links` (`token`) | 204 usable link; read-only preflight |

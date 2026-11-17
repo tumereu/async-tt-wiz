@@ -1,14 +1,22 @@
 # Async Tabletop Wizards
 
-A native Android shared tabletop for two cooperative players to play card games
-manually, together or asynchronously. Magic: The Gathering is the first use case;
-the app records and presents what happened, the players interpret the rules
-(in the spirit of Cockatrice, without rules enforcement).
+Two-player Magic: The Gathering games, live or asynchronous, on Android and in a
+desktop browser. Every game is played by the rules: the Arcanum Automatum engine
+works out the board, costs, targets, priority, resolution and triggers, the server
+decides the game state, and each player makes only their own decisions; nothing is
+changed by hand (feature catalog SYS-001, SYS-069). Decks, cubes and pod drafts
+are built in the app.
 
-- **Android app** — Kotlin, Jetpack Compose (`androidApp/`)
+- **Android app** — Kotlin, Jetpack Compose (`androidApp/`, the shell)
+- **Desktop web client** — Kotlin/Wasm, served by the server (`webApp/`)
+- **Shared UI** — the Compose screens of both clients (`app-ui/`), the device's
+  game on engine state (`app-engine/`)
 - **Server** — Spring Boot, PostgreSQL, Flyway, jOOQ (`server/`)
-- **Shared** — Kotlin Multiplatform game model and protocol (`core/`, `protocol/`)
+- **Shared** — Kotlin Multiplatform game model and protocol (`core/`, `protocol/`),
+  the mapping onto the rules engine (`automatum/`), the card catalog (`catalog/`)
 - **Client storage** — SQLDelight, card catalog and art download (`client-storage/`)
+- **Arcanum Automatum** — generic MTG rules libraries: card definitions, oracle-text
+  parser, engine (`arcanum-api/`, `arcanum-parser/`, `arcanum-engine/`)
 
 ## Docs
 
@@ -17,20 +25,24 @@ the app records and presents what happened, the players interpret the rules
 
 ## Build and test
 
-Requires JDK 21, the Android SDK (platform 36) and Docker (server tests use
+Requires JDK 21, the Android SDK (platform 37) and Docker (server tests use
 Testcontainers PostgreSQL).
 
 ```sh
 ./scripts/gradle.sh :protocol:jvmTest :client-storage:test :server:test :androidApp:testDebugUnitTest
 ./scripts/gradle.sh :androidApp:assembleDebug
+./scripts/gradle.sh :webApp:webDist        # the desktop web client, into webApp/build/web
 ```
+
+`AGENTS.md` lists the full set of test tasks.
 
 `scripts/gradle.sh` wraps `./gradlew` and applies a WSL networking workaround.
 
 ## Play with a friend (self-hosting)
 
 See the [self-hosting guide](deploy/README.md) for the Docker stack, HTTPS setup
-and an APK you can both sideload. Public-domain and private Tailscale setups work.
+an APK you can both sideload and the desktop web client the server serves.
+Public-domain and private Tailscale setups work.
 
 ## Run locally
 
@@ -45,12 +57,15 @@ downloads are used.
 # Or select devices: ./scripts/dev-app.sh emulator-5554 emulator-5556
 ```
 
-API: http://127.0.0.1:8080 (root returns 404); readiness:
+API and web client: http://127.0.0.1:8080 (the web client once built with
+`:webApp:webDist`; an unknown path returns 404); readiness:
 http://127.0.0.1:8081/health/ready; captured reset mail:
-http://127.0.0.1:18025. The app uses a tiny synthetic prism/v1 catalog at
-http://127.0.0.1:18081/api/v5/, including Scryfall metadata and art. The adapter
+http://127.0.0.1:18025. The server's card catalog is built from a tiny synthetic
+prism/v1 set of invented cards; the app reads it at http://127.0.0.1:8080/v1/catalog
+and its Scryfall metadata and art from http://127.0.0.1:18081/api/v5/. The adapter
 rebinds art URLs without modifying the checked-in catalog/gzip/checksum.
-Use two emulators and register two accounts in the app for a two-player session.
+Use two emulators (or an emulator and the web client) and register two accounts
+for a two-player session.
 
 `up` reuses the database and any running server; after server changes, run `down`
 then `up` to rebuild. Logs, PID files and generated secrets live in gitignored
@@ -67,5 +82,5 @@ device. Reset mail is captured, never sent externally. Its HTTPS link host
 the captured link in the app with
 `adb -s SERIAL shell am start -a android.intent.action.VIEW -d 'FULL_LINK' org.asyncttwiz.android`.
 
-Magic: The Gathering and Cockatrice are references for game compatibility and
-interaction design, not claims of affiliation.
+Magic: The Gathering is a reference for game compatibility, not a claim of
+affiliation.

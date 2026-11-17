@@ -182,7 +182,7 @@ committed once done (D58) and redone with its answers when it waits (D29): the s
 chooser, or chosen by a player a host-answered die roll picks, CR 103.1); companion reveals in turn order when the deck
 meets the condition (CR 103.2b); the host's shuffles (D25); opening hands; mulligans (CR 103.5: declarations in turn
 order, mulligans at once, then each puts as many cards on the bottom as mulligans taken, the first free in multiplayer,
-103.5c; actions "any time you could mulligan", 103.5b, and starting hand sizes, 103.5a: see Status); opening-hand actions
+103.5c, or as `StartOptions.freeFirstMulligan` says; actions "any time you could mulligan", 103.5b, and starting hand sizes, 103.5a: see Status); opening-hand actions
 (CR 103.6a); turn 1 from its upkeep with priority.
 
 With `StartOptions.simultaneousMulligans` (a host variant for players who don't sit together) each player's mulligans
@@ -538,6 +538,10 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   "tap a land for {C}" seen as its mana is added; the target an effect moved found as the new object (CR 400.7j); attachments of a
   host that left as it last existed; damage kept in cleanup; a batch trigger's "that many" counting its events; and a land
   adventurer played from exile after its Adventure (CR 716.3d).
+- Done, the other supported sets, added by set work (`arcanum-tools/set-work/`; scenarios in `commonTest/…/sets/<code>/`; every card
+  passes `:arcanum-tools:setSupport`): The Brothers' War, Dominaria Remastered, Dominaria United, Foundations, Innistrad Remastered,
+  Innistrad, The Lost Caverns of Ixalan, Modern Horizons 3, Murders at Karlov Manor, March of the Machine, Phyrexia: All Will Be One,
+  Outlaws of Thunder Junction, Ravnica Remastered, Star Trek and Wilds of Eldraine.
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action; what can change its cost and timing is in its
@@ -656,7 +660,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
     are read since the third round; exert, costs to attack and block, "any time you could mulligan", starting hand sizes, "is a
     copy of" / "are copies of" and the keyword actions explore, monstrosity, adapt, support, learn, discover, manifest, cloak,
     time travel and goad since the lane wordings round, played parsed in `casting/ReadLaneWordingsScenariosTest`; "whenever you
-    exert a creature" and "becomes monstrous" have no event pattern yet).
+    exert a creature" and "becomes monstrous" since the generic trigger events, `EventPattern.KeywordActionDone` and `GotMark`).
 - Not yet, around the game:
   team and other variant starts; restarting a game (CR 104.1).
 

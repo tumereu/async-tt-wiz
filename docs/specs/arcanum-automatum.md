@@ -1,9 +1,11 @@
 # Arcanum Automatum — design draft
 
-**Status: phase 0 approved (2026-11-01).** Developed alongside the Android
-improvements, before the web client (roadmap). Phase 0 builds the libraries in this
-repository without integrating them into ATW. Each later phase, and every new shared
-state or catalog change, needs the owner's go-ahead.
+**Status: built and in use.** Phase 0 (approved 2026-11-01) built the libraries in this
+repository; the later phases integrated them into ATW, where every game is played
+with them (feature catalog SYS-001, SYS-055). The libraries' current interface and
+status are in their READMEs (`arcanum-api/`, `arcanum-parser/`, `arcanum-engine/`);
+code comments cite this file's sections as the design reference. New shared state or
+catalog changes still need the owner's go-ahead.
 
 **Status of the ATW parts (2026-11-04):** the library design (§4–§7.8, §7.10, most
 decisions) holds. What this draft says about ATW's side is superseded: Automatum is
@@ -11,9 +13,12 @@ always on and nothing changes the game by hand (I-D52), the engine's state is th
 state and the server runs the engine (I-D54), and each player decides only for
 themselves, with a few answers assumed (I-D56). So §1's "optional layer on a manual
 table", the non-goal "not a rules referee", D1, D2's and D7's switch, D4, D11, D20,
-D32, P1, P2's manual fixes, P4, P7, P8, §7.9, §8, §9, §10, §11 and the switch rows of
-§13 no longer describe ATW; `arcanum-atw-integration.md` and the feature catalog do. They
-are marked where they stand.
+D32, P1, P2's manual fixes, P4, P7, P8 and the switch rows of §13 no longer describe
+ATW; the feature catalog does. They are marked where they stand. The old sections §7.9
+(deciding for another player), §8 (new shared state), §9 (turns and priority), §10
+(toggles), §11 (fit with existing rules) and §14 (catalog entries this would change)
+described only the replaced ATW model and are removed; they are in git history
+(`git show 98ca19610:docs/specs/arcanum-automatum.md`).
 
 ## 1. What it is
 
@@ -520,22 +525,6 @@ with several colours, and sources with conditions or extra costs (treasures,
 suggestion in the cast dialog. Mana that is added but not spent at once (rituals) is
 kept in a visible **mana pool** until it empties at the end of the step (P2).
 
-### 7.9 Deciding for another player (D11)
-
-*Superseded by I-D56: nobody decides for the other player; see the catalog (SYS-036, HIS-096).*
-
-Every pending decision is shown to the player it belongs to, and the other player can
-open and answer it too, like any manual action:
-- The UI makes clear you are acting on someone else's behalf (who the decision belongs
-  to, and that you are making it for them) before you confirm.
-- History records it as your action made for them ("Chose Grizzly Bears as the target
-  for bob's trigger").
-- By default it pauses the other player's automatic playback at that event, so they
-  see what was decided for them.
-- A decision that needs hidden information of the other player (e.g. which card they
-  discard from their hand) needs the same extra step to reach that information as
-  today (SYS-036): it is never shown to you by default.
-
 ### 7.10 Autoplay decisions (later, D12)
 
 A player can store answers to decisions ahead of time, so they are made even while
@@ -569,65 +558,6 @@ target choice for an ability).
 - **Visibility to the opponent:** which stored answers (and which details of them) the
   opponent can see is worked out in playtesting (§15).
 
-## 8. New shared state in ATW
-
-*Historical: ATW's own model of these is replaced by the engine's state and the table state (I-D54); there is no
-switch (I-D52), and pending decisions are answered only by their player (I-D56).*
-
-Each of these is a rules-version bump (SYS-031) and needs owner approval of its
-catalog entries.
-
-| Object | Purpose |
-|---|---|
-| Automatum setting per game | The one on/off switch (D20); an event, so both players see the same board. |
-| Structured Stack entry | Which ability of which card, chosen modes, X, targets by named slot, controller. Today's text marks (STK-016) stay for manual entries. |
-| Effect objects | Continuous effects with source, affected objects, layer, timestamp and duration; shown on the cards they affect (D19). Whether they can be removed by hand while Automatum is on is open (D20). |
-| Card memory | Chosen colour/type/name, "exiled with ~", attached-to, kicked, etc. |
-| Pending decisions | Triggers waiting for a choice, and choices made during resolution, each with the player it belongs to. Answered asynchronously, by that player or on their behalf (§7.9). |
-| Autoplay decisions | Answers a player stored ahead of time (§7.10), later phase. |
-| Mana pool | Mana added but not yet spent (§7.8). |
-| Typed counters | +1/+1, −1/−1, loyalty, named counters (§7.1). |
-| Automation flag on events | Marks an action batch as produced by automation, for history texts ("Lightning Bolt dealt 3 damage to Grizzly Bears"). |
-
-## 9. Turns and priority
-
-*Decided by I-D56 (now in the catalog): response modes, assumed answers and decision stops; no response windows.*
-
-- **Async play (D4):** today's Stack and attention flow. No new priority system.
-- **Live play: open.** Options discussed:
-  1. No response window: the caster resolves when they like; the opponent responds
-     by rewinding (live branch rewind exists).
-  2. A short window while the opponent is present: a countdown with a "Wait!" button
-     that holds the Stack; no reaction lets it resolve.
-  3. A player who doesn't react in time continues in timeline mode at that point and
-     can still respond by branching (builds on the existing auto-rewind settings).
-  Leaning: 2 + 3, window length a setting. Needs playtesting.
-
-## 10. Toggles
-
-*Superseded by I-D52: there is no switch.*
-
-- **Automatum on/off** (shared, one per game, D20). Off: everything behaves as today.
-  On: computed values, effect objects, structured Stack entries, automatic triggers,
-  state-based actions, the cast dialog and automatic resolution. What happens to
-  stored effect objects and Stack entries when it is switched, and which manual
-  actions are restricted while it is on, is decided when this part is built.
-
-## 11. Fit with existing rules
-
-*Historical: history, undo and player access are now in the catalog (SYS-036, HIS-087, HIS-097).*
-
-- **History, undo, branches:** unchanged, because results are ordinary actions (P1).
-  Undo of an automated batch is one Undo (SYS-004, SYS-010).
-- **No full replay (SYS-026):** the derived view is computed from the current state
-  only; triggers look at one event's before and after.
-- **Speed (SYS-025):** the derived view for a typical board and a resolution are small
-  computations; the engine must meet the 20 ms budget and is covered by the existing
-  slow-action reports.
-- **Rule versions (SYS-031):** recorded events never depend on definitions.
-- **Player access (SYS-036/037):** every assisted action and every decision is
-  available to both players on any card, like manual actions ("phone test", §7.9).
-
 ## 12. Licences (summary)
 
 - MTGJSON is MIT; card text belongs to Wizards (Fan Content Policy): no change from today.
@@ -655,32 +585,12 @@ Phase 0 is fixed; the order and content of later phases may change as work goes 
 
 Parser coverage grows alongside every phase, in frequency order.
 
-## 14. Catalog and spec entries this would change
-
-*Historical: done (the catalog describes the app).*
-
-- **SYS-001** "no rules referee … the app never works out costs, targets or
-  resolution" — would allow an optional assistant that does.
-- **SYS-002** "Nothing is guessed from card names or rules text" — definitions come
-  from rules text (parsed, not guessed).
-- **P-056** (the old product contract, since deleted) "No authoring UI/executable rules".
-- **TBL-021–024, TBL-078–079, TBL-082, TBL-085–086** — P/T, counters, durations and
-  keywords when automation is on (§7.1).
-- **ZON-004 / STK-004** — double tap becomes Cast (§7.2).
-
-Exact new entry texts are written per phase and approved by the owner before building.
-
 ## 15. Open questions (to settle in playtesting, D10)
 
-1. Live-play response windows (§9).
-2. Whether every entry with nothing left to decide resolves by itself like STK-004,
-   with going back as the way to respond (§7.3).
+2. Whether every entry with nothing left to decide resolves by itself, with going back
+   as the way to respond (§7.3).
 3. Whether a single legal target counts as "nothing to decide" for automatic
    acceptance (§7.2).
-4. Manual P/T edits as a layer-7b "set" effect, typed counters next to colour
-   counters, keywords from notes (§7.1).
-5. Turning game automation off mid-game: write computed values into the manual
-   fields so nothing jumps, or fall back to the stored manual values.
 6. Where the parser runs: a developer tool producing a data set, or a server job on
    catalog import.
 7. Autoplay decisions: exact rules and scenarios for what the opponent can see of

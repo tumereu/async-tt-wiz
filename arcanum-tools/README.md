@@ -19,6 +19,9 @@ Adding a set to Arcanum: follow [set-work/README.md](set-work/README.md).
   for a small spell through a payment by hand on a test board, each cost reducer is tried on test boards; all are listed in
   `build/arcanum/mana-check.tsv` (`pays` / `FAILS`, `lowers` / `look`: a reducer whose condition the boards don't meet is to be read, not a
   failure). Fails when a mana ability doesn't pay. `./scripts/gradle.sh :arcanum-tools:manaCheck [-Psets=LTR,BLB]`
+- `viewerKeyFuzz`: seeded random turns with the supported sets' cards (from the same pinned file) on twin boards that differ only in the
+  opponent's hidden cards; fails where a player's `Host.loopKey(state, viewer)` stays equal while what they may see differs.
+  `./scripts/gradle.sh :arcanum-tools:viewerKeyFuzz [-Psets=LTR,BLB] [-Pgames=N]` (20 games per set by default)
 - `parserDiff`: the parser migration's gate. `--args=snapshot` writes a canonical model of every local card (all faces, one card per
   line, sorted by name; equal parsers give equal files) outside the repository; the default `--args=compare` compares a snapshot with the current
   parser. It exits 1 on a changed model in a supported set or a cube card and on any card that stops being read; held-out

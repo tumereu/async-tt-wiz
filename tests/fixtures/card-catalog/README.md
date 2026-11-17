@@ -1,7 +1,7 @@
 # Test cards for the card catalog
 
 A small, invented MTGJSON AllPrintings file (no real card data) and its support lists, built into a card catalog
-(`:catalog:catalogCommand build --no-pin`) for the catalog's own tests, the server tests and the e2e stack.
+(`:catalog:catalogCommand build --no-pin`) for the catalog's own tests, the client storage tests, the server tests and the e2e stack.
 
 - `TST` Test Set: supported cards, a token maker with its token, a Play Booster recipe.
 - `TWL` Thornwall Crossing: a meld pair (problem report 7ZZC89) and twenty commons, as `MeldSetSourceTest` uses.

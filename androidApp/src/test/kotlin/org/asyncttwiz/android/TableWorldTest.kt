@@ -180,7 +180,7 @@ class TableWorldTest {
         }
     }
 
-    // WEB-016, TBL-121, TBL-012, SYS-041 (owner notes 2026-11-16): on the desktop table the seat boxes cover the viewport's left
+    // WEB-016, WEB-071, TBL-121, TBL-012, SYS-041 (owner notes 2026-11-16): on the desktop table the seat boxes cover the viewport's left
     // [inset]: the opening view puts column 0 just right of them, fitting the table fits it into the room right of them, and
     // both views are within the pan bounds, which still let the table pan under the boxes
     @Test fun aLeftInsetMovesTheOpeningViewAndTheFitRightOfIt() {

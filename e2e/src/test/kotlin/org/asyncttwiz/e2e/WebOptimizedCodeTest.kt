@@ -13,7 +13,7 @@ import org.junit.Test
  * use the optimizing compiler for every function from its first call, so the test doesn't wait for a function to get hot.
  */
 class WebOptimizedCodeTest {
-    // WEB-056, WEB-007: with every function optimized, Alice's browser loads, signs in and opens a started game's table,
+    // WEB-056, WEB-007, WEB-070: with every function optimized, Alice's browser loads, signs in and opens a started game's table,
     // where her device parses the game's cards (the engine's Web Worker) and she keeps her opening hand (the server takes it)
     @Test fun aTableOpensWithEveryFunctionOptimized() {
         val (alice, bob) = ServerSetup.fresh()

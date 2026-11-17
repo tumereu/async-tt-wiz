@@ -53,7 +53,7 @@ class DesktopHotkeysScreenshotTest {
         override suspend fun set(settings: AccountSettings) { writes += settings; server = settings }
     }
 
-    // WEB-031, WEB-034 (D6), WEB-024: on the real table screen in the desktop layout T turns timeline mode on and off; "?"
+    // WEB-031, WEB-089, WEB-090, WEB-034, WEB-091 (D6), WEB-024, WEB-086: on the real table screen in the desktop layout T turns timeline mode on and off; "?"
     // (Shift held, which lifts Shift's Inspect: a chord) shows the list of keys over the table, every key acting on nothing
     // meanwhile; "?" again closes it; a key in the chat's text field does nothing
     @Test fun theHotkeysActOnTheTableAndQuestionMarkListsThem() {
@@ -104,7 +104,7 @@ class DesktopHotkeysScreenshotTest {
         } finally { f.close() }
     }
 
-    // WEB-035, WEB-033 (D10): Settings → Keyboard → Keyboard shortcuts in the desktop layout: a click on Timeline mode's key
+    // WEB-035, WEB-092, WEB-033 (D10): Settings → Keyboard → Keyboard shortcuts in the desktop layout: a click on Timeline mode's key
     // waits for a key, C makes it Timeline mode's and leaves Write in chat without one, saying so on its row; Esc cancels a
     // wait, Enter can't be taken, Reset all restores the defaults; each change saved for the account and applied at once
     @Test fun rebindingAKeyInSettings() {
@@ -144,7 +144,7 @@ class DesktopHotkeysScreenshotTest {
         }
     }
 
-    // WEB-031, WEB-034 (owner, 2026-11-14): while a text field has the keyboard no listener hears a press, "?" and Space
+    // WEB-031, WEB-090, WEB-034 (owner, 2026-11-14): while a text field has the keyboard no listener hears a press, "?" and Space
     // included, the "?" sheet's opener among them; only one waiting for a key to bind does. Releases reach every listener
     @Test fun typedKeysReachNoHotkey() {
         val heard = mutableListOf<String>()

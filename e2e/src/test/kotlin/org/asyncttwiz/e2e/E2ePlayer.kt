@@ -288,11 +288,11 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
             meta = "Meta" in modifiersHeld, textField = textField))
     }
 
-    /** WEB-025 (prod report 96PB2X): the key [name] is let go where the page never hears it (Alt+Tab to another window, the
+    /** WEB-025, WEB-087 (prod report 96PB2X): the key [name] is let go where the page never hears it (Alt+Tab to another window, the
      * browser's own menu): no key-up reaches the app, and the browser's later events no longer carry it. */
     fun keyUpLost(name: String) { modifiersHeld -= name }
 
-    /** WEB-025: the page's window loses the focus (or the page is hidden), as the browser tells it. */
+    /** WEB-025, WEB-087: the page's window loses the focus (or the page is hidden), as the browser tells it. */
     fun windowLostFocus() = org.asyncttwiz.android.DesktopKeyboard.focusLost("the window lost the focus")
 
     /** The page's key [name] pressed and released (a tap of it), with [shift] / [ctrl] held. Not named `press`: a member

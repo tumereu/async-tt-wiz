@@ -12,7 +12,7 @@ import org.junit.Test
  * Frame rates themselves are never asserted (no timing tests): only that the frames were timed and summarised.
  */
 class WebFrameTimesTest {
-    // WEB-057, WEB-004: the table's frame times as it opens, as a problem report is sent from it and as Esc leaves it
+    // WEB-057, WEB-068, WEB-004: the table's frame times as it opens, as a problem report is sent from it and as Esc leaves it
     @Test fun theTablesFrameTimesReachTheAppLog() {
         val (alice, bob) = ServerSetup.fresh()
         val started = ServerSetup.prepare(alice, bob, TestDeck.thirds(), TestDeck.thirds(), name = "Frame times game").ready()
@@ -35,7 +35,7 @@ class WebFrameTimesTest {
                 assertTrue("; graphics " in opened, "the graphics the browser draws with: $opened")
                 // A few seconds of the table drawing (the opening's Keep waits), the mouse moving over it meanwhile
                 for (step in 0 until 60) { page.mouse().move(300.0 + step * 12.0, 450.0); page.waitForTimeout(50.0) }
-                // WEB-057: a problem report sent from the table carries the frames so far (Table actions → Send problem report)
+                // WEB-057, WEB-068: a problem report sent from the table carries the frames so far (Table actions → Send problem report)
                 web.tap("[aria-label='Table actions']")
                 web.waitForText("Send problem report")
                 web.tap("div[role=button]:has-text('Send problem report')")

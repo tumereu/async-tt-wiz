@@ -132,7 +132,7 @@ class DesktopScreensScreenshotTest {
             "Alex opened Pods on the desktop layout: the side menu at the left and his two pods listed at the list's readable width, centred in the room beside it.")
     }
 
-    // WEB-038, LOB-055: Manage decks' saved decks as tiles in columns
+    // WEB-038, WEB-109, LOB-055: Manage decks' saved decks as tiles in columns
     @Test fun decksGrid() {
         fixtures.configure("decks")
         fixtures.library.seed(fixtures.library.state.copy(selected = null, detail = null,
@@ -164,7 +164,7 @@ class DesktopScreensScreenshotTest {
         }
     }
 
-    // WEB-039, WEB-040, LOB-059, LOB-105, LOB-219, LOB-121 (D8): the two-pane editor: the list left, the search right; a click on a
+    // WEB-039, WEB-097, WEB-040, LOB-059, LOB-105, LOB-219, LOB-121 (D8): the two-pane editor: the list left, the search right; a click on a
     // result adds a copy to the chosen section; Hide search folds it into the rail, the list taking the width, and the rail
     // opens it again as it was left
     @Test fun deckEditorTwoPanes() {
@@ -195,7 +195,7 @@ class DesktopScreensScreenshotTest {
         compose.onNodeWithTag("search-result-Moss Stalker").assertIsDisplayed()
     }
 
-    // WEB-049, LOB-121: a search result dragged onto the Mainboard header goes into Main though Add to is on Side; dropped back on
+    // WEB-049, WEB-115, LOB-121: a search result dragged onto the Mainboard header goes into Main though Add to is on Side; dropped back on
     // the search pane it adds nothing
     @Test fun aSearchResultDraggedIntoASection() {
         val editor = editor("Moss Stalker")

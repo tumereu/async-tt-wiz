@@ -38,7 +38,7 @@ abstract class GiftTargetPhraseFlow(private val desktop: Boolean) : E2e() {
         waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
         for (name in listOf("Ash Pup", "Ember Quarrel")) {
             waitUntil("Alice's game settled") { alice.settled(this) }
-            // WEB-015: on the desktop's fan the mouse first rests on the card, which comes to the front where it lies (a click on
+            // WEB-015, WEB-074, WEB-103: on the desktop's fan the mouse first rests on the card, which comes to the front where it lies (a click on
             // a card half under its neighbour would otherwise be its neighbour's)
             if (desktop) {
                 alice.handCard(name).performMouseInput { moveTo(center) }

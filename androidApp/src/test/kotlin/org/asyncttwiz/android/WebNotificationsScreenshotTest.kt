@@ -51,7 +51,7 @@ class WebNotificationsScreenshotTest {
         }
     }
 
-    // WEB-050, WEB-051, WEB-054: Settings → This browser, notifications turned on with its kinds, and Install app
+    // WEB-050, WEB-051, WEB-054, WEB-116: Settings → This browser, notifications turned on with its kinds, and Install app
     @Test fun settingsRowsWithNotificationsOn() {
         val server = Server()
         val web = web(BrowserPermission.Granted, server)
@@ -69,7 +69,7 @@ class WebNotificationsScreenshotTest {
             "Settings in a browser: Browser notifications turned on (the browser allowed them), its three kinds with Game activity switched off, and Install app with the browser's prompt.")
     }
 
-    // WEB-050: the browser refused: the switch is back off with where to change it
+    // WEB-050, WEB-098: the browser refused: the switch is back off with where to change it
     @Test fun blockedNotifications() {
         val web = web(BrowserPermission.Denied)
         compose.setContent { ScreenTheme { CompositionLocalProvider(LocalWebNotifications provides web) {

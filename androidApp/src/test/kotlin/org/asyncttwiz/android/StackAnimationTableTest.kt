@@ -150,7 +150,7 @@ class StackAnimationTableTest {
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
     }
 
-    // HIS-112, HIS-136, WEB-017, STK-007 (spec step 3; owner playtest 2026-11-15: the Stack on the field, never in the chat pane): on the
+    // HIS-112, HIS-136, WEB-017, WEB-078, STK-007 (spec step 3; owner playtest 2026-11-15: the Stack on the field, never in the chat pane): on the
     // desktop table the play shown flies into the Stack at the battlefields' right edge, left of the open chat dock, as on the
     // phone; the Stack shows the entry only as it lands
     @Config(qualifiers = "w1440dp-h900dp-land-mdpi")

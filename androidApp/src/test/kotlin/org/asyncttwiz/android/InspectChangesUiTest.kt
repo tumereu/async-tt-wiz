@@ -166,7 +166,7 @@ class InspectChangesUiTest {
         compose.onAllNodes(hasContentDescription("Rule explanation"), useUnmergedTree = true).assertCountEquals(1)
     }
 
-    // WEB-024, TBL-132, TBL-195 (owner 2026-11-15): on the desktop layout, inspected by Alt held, nothing clicks a change: a line naming a
+    // WEB-024, WEB-107, TBL-132, TBL-195 (owner 2026-11-15): on the desktop layout, inspected by Alt held, nothing clicks a change: a line naming a
     // keyword ("Flying") shows its source and what the keyword means under it at once; a line naming none ("1 damage") only
     // its source, if it has one
     @Config(qualifiers = "w1440dp-h900dp-land-mdpi")

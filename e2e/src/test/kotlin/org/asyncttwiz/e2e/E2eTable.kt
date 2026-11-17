@@ -276,7 +276,7 @@ private fun E2ePlayer.holdsOverOwn(): Boolean = game?.shown?.engine?.let { s ->
     s.priority.holder == me && s.stack.lastOrNull()?.let { top -> s.stackItems[top]?.controller ?: s.obj(top)?.controller } == me
 } == true
 
-/** The name of the hand card drawn raised above the hand row (ZON-079), if any. On the desktop table's fan (WEB-015) its turned
+/** The name of the hand card drawn raised above the hand row (ZON-079), if any. On the desktop table's fan (WEB-015, WEB-074, WEB-103) its turned
  * cards' tops differ a little, a raised (or hovered) card's by much more: a sixth of a card's height tells them apart. */
 internal fun E2ePlayer.raisedInHand(): String? = runCatching {
     val field = battlefieldBounds()

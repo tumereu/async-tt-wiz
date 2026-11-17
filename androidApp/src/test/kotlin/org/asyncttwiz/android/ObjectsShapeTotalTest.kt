@@ -9,11 +9,11 @@ import arcanum.engine.state.PlayerId
 import org.junit.Test
 import kotlin.test.assertEquals
 
-/** STK-061: the hint of a choice up to a total says the total; "at least 1" would read as if one card were enough. */
+/** STK-061, STK-191: the hint of a choice up to a total says the total; "at least 1" would read as if one card were enough. */
 class ObjectsShapeTotalTest {
     private fun hint(total: Total?) = ObjectsShape.of(Decision.ChooseObjects(DecisionId("d"), PlayerId("a"), null, emptyList(), 1, null, "Exile", total)).instruction
 
-    // STK-061, CR 701.59a
+    // STK-061, STK-191, CR 701.59a
     @Test fun aManaValueTotalIsRead() =
         assertEquals("Tap cards with total mana value 8 or more, then OK.", hint(Total(NumericProperty.ManaValue, Value.Fixed(8))))
 

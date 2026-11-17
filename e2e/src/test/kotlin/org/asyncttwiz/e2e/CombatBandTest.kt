@@ -35,7 +35,7 @@ class CombatBandTest : E2e() {
         waitUntil("the Cub on Alice's battlefield", along = listOf(bob)) { alice.field("Ember Cub").size == before + 1 && alice.inOwnMain() }
     }
 
-    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, TRN-063
+    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, TRN-063, TRN-113
     @Test fun attackersAreStagedInTheBandAndBlockedOnItsLanes() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Mountain" in hand(a) && hand(a).count { it == "Ember Cub" } >= 2 && "Mountain" in hand(b) &&

@@ -62,7 +62,7 @@ class ConfirmCrossingTest : E2e() {
         }
         bob.hold("To combat")
         waitUntil("Alice's second Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.state.turn.number >= 3 }
-        // Alice in Normal: the blocks are her pause, so her phone waits for her there, and so does Bob's (STK-036, HIS-096, HIS-176)
+        // Alice in Normal: the blocks are her pause, so her phone waits for her there, and so does Bob's (STK-036, STK-171, HIS-096, HIS-176)
         alice.game!!.settings(alice.shown.settings.copy(mode = ResponseMode.Normal))
         waitUntil("Bob's phone knowing Alice's Normal") { bob.engine { device.opponentMode } == ResponseMode.Normal }
         // Turn 3: Alice attacks with the Brute, Bob blocks with the three Pups

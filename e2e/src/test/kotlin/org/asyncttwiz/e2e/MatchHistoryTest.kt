@@ -27,7 +27,7 @@ class MatchHistoryTest : E2e() {
         player.text("Concede").performClick()
     }
 
-    /** TRN-065 (owner, 2026-11-09): nobody goes to the lobby until both have pressed OK: Bob presses his once it isn't greyed. */
+    /** TRN-065, TRN-141, TRN-136 (owner, 2026-11-09): nobody goes to the lobby until both have pressed OK: Bob presses his once it isn't greyed. */
     private fun bobOk() {
         val ok = hasTestTag(org.asyncttwiz.android.GAME_END_OK_TAG) and androidx.compose.ui.test.isEnabled()
         waitUntil("Bob's OK no longer greyed") { bob.shows(ok) }
@@ -60,7 +60,7 @@ class MatchHistoryTest : E2e() {
         bothOpen()
         bothKeep(bobAway = false)
         concede(alice)
-        // TRN-065 (owner, 2026-11-09): both stay at the table until Bob's OK
+        // TRN-065, TRN-141 (owner, 2026-11-09): both stay at the table until Bob's OK
         bobOk()
         lobbyHistory(alice, "Loss", 1)
         lobbyHistory(bob, "Win", 1)
@@ -93,7 +93,7 @@ class MatchHistoryTest : E2e() {
         val game = ServerSetup.readyBoth(alice.account, bob.account, ServerSetup.podGame(alice.account, bob.account, name))
         alice.openGame(game, this)
         concede(alice)
-        // TRN-065 (owner, 2026-11-09): she waits at the table for Bob's OK, and leaves for other screens as usual
+        // TRN-065, TRN-142 (owner, 2026-11-09): she waits at the table for Bob's OK, and leaves for other screens as usual
         waitUntil("Alice's result, waiting for Bob") { alice.showsText("Waiting for ${bob.name} to acknowledge") }
         alice.auth.navigate(ShellDestination.MENU)
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }

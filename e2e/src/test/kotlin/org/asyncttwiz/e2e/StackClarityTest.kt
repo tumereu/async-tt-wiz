@@ -32,7 +32,7 @@ class StackClarityTest : E2e() {
     private fun description(player: E2ePlayer, tag: String): String? = player.nodes(hasTestTag(tag)).fetchSemanticsNodes().firstOrNull()
         ?.config?.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
 
-    /** Alice holds priority over Bob's top Stack entry of [kind] (her Normal mode stops there, STK-036). */
+    /** Alice holds priority over Bob's top Stack entry of [kind] (her Normal mode stops there, STK-036, STK-171). */
     private fun aliceHoldsOver(kind: (StackItemKind?) -> Boolean): Boolean = alice.status == GameDevice.Status.YourMove &&
         alice.state.let { s -> s.stack.isNotEmpty() && s.priority.holder == alice.me && kind(s.stackItems[s.stack.last()]?.kind) }
 

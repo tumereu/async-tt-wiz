@@ -158,7 +158,7 @@ class GameDeviceTest {
         assertEquals(emptyList(), reports(sim, alice), "the server took it")
     }
 
-    // TRN-027, TRN-070, HIS-096, HIS-183 (owner, 2026-11-15): the starting player's device never assumes the other player's opening
+    // TRN-027, TRN-124, TRN-070, HIS-096, HIS-183 (owner, 2026-11-15): the starting player's device never assumes the other player's opening
     // keep by itself, with "Always assume resolves" on or off: it waits for it with Assume keep on the main button, and turn
     // 1 begins on their own keep
     @Test
@@ -203,7 +203,7 @@ class GameDeviceTest {
         assertTrue(sim.server.line().any { it.assumed != null })
     }
 
-    // HIS-095, HIS-163, STK-036 (owner, 2026-11-06): playback stops by the player's current response mode; set to Control
+    // HIS-095, HIS-163, STK-036, STK-174 (owner, 2026-11-06): playback stops by the player's current response mode; set to Control
     // (from the quick actions, live or in playback), which stops it at every assumed pass; the value is kept on the server for the game
     @Test
     fun fullControlStopsAtEveryAssumedPass() {
@@ -1040,7 +1040,7 @@ class GameDeviceTest {
         }
     }
 
-    // I-D56 §3, §4, §12, CMB-040, TRN-065 (owner, 2026-11-09): declaring attackers leaves a wait with Assume blockers (the
+    // I-D56 §3, §4, §12, CMB-040, TRN-065, TRN-137, TRN-138 (owner, 2026-11-09): declaring attackers leaves a wait with Assume blockers (the
     // screen it opens, with "No blocks", assumes them); Alice's OK on the lethal damage's result works at once and stands
     // while Bob catches up; his playback always stops at assumed blocks, and the same blocks confirm; both OKs make it final
     @Test
@@ -1097,7 +1097,7 @@ class GameDeviceTest {
         return bobs
     }
 
-    // TRN-065 (owner, 2026-11-09): your OK can be taken back until the other player presses theirs; the other player's OK
+    // TRN-065, TRN-137, TRN-139 (owner, 2026-11-09): your OK can be taken back until the other player presses theirs; the other player's OK
     // or take-back reaches the table at once, never a playback in front of the dialog
     @Test
     fun anOkIsTakenBackUntilTheOtherPlayerPressesTheirsAndShowsAtOnce() {
@@ -1124,7 +1124,7 @@ class GameDeviceTest {
         assertEquals(GameDevice.Undo.Unavailable("final"), alices.undo(), "a final result stays")
     }
 
-    // TRN-065 (owner, 2026-11-09): opening the game on another device shows where the OK stands, and no catch-up for an OK
+    // TRN-065, TRN-139 (owner, 2026-11-09): opening the game on another device shows where the OK stands, and no catch-up for an OK
     @Test
     fun anOkShowsOnAnotherDeviceWithoutACatchUp() {
         val sim = seers()
@@ -1148,7 +1148,7 @@ class GameDeviceTest {
         assertEquals(true, bobs.catchUp, "still away")
     }
 
-    // TRN-065, HIS-084, HIS-200 (owner, 2026-11-09): Undo works until the result is final: past your own OK free as your action
+    // TRN-065, TRN-137, HIS-084, HIS-200 (owner, 2026-11-09): Undo works until the result is final: past your own OK free as your action
     // is; with the other player's OK on it, by the usual request; either way no OK stands afterwards
     @Test
     fun undoBeforeTheResultIsFinalClearsTheOks() {
@@ -1175,7 +1175,7 @@ class GameDeviceTest {
         assertEquals(emptySet(), bobs.model.table.resultOks)
     }
 
-    // TRN-065, LOB-075, LOB-076 (owner, 2026-11-09): a player who hasn't pressed OK is what the game waits for, seen or not;
+    // TRN-065, TRN-138, LOB-075, LOB-076 (owner, 2026-11-09): a player who hasn't pressed OK is what the game waits for, seen or not;
     // the player whose OK stands has nothing waiting
     @Test
     fun theServerWaitsForThePlayerWhoHasntPressedOk() {
@@ -1242,7 +1242,7 @@ class GameDeviceTest {
         assertEquals(sim.server.head, bobs.session.tip, "the server's head is there too")
     }
 
-    // STK-036, STK-030, SYS-063, CR 603.3b (owner 2026-11-06): two different triggers of Bob's that go on the Stack at the
+    // STK-036, STK-172, STK-030, STK-185, SYS-063, CR 603.3b (owner 2026-11-06): two different triggers of Bob's that go on the Stack at the
     // same time are his to order in every response mode: his Auto-skip device asks him rather than ordering them itself
     @Test
     fun autoSkipAsksTheOrderOfTwoTriggers() {

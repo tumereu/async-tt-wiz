@@ -29,7 +29,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * STK-044 (owner 2026-11-05): every Automatum panel and target bar names its source by the card, not by text: the title
+ * STK-044, STK-177, STK-178 (owner 2026-11-05): every Automatum panel and target bar names its source by the card, not by text: the title
  * says only the choice and the source sits at the panel's right as a small card (an ability as its Stack ability token,
  * STK-046, STK-121); holding it inspects it (TBL-104). Alice's decks are free invented cards whose casting, resolving or triggers
  * ask Automatum's choices ([EngineGameFixture.Choices]).
@@ -93,7 +93,7 @@ class ChoiceSourceTest {
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
     }
 
-    // STK-023, STK-135, STK-044: Alice casts Cinder Charm (a mode to choose): the cast panel's title says what is done with which
+    // STK-023, STK-135, STK-044, STK-177, STK-178: Alice casts Cinder Charm (a mode to choose): the cast panel's title says what is done with which
     // card, "Cast Cinder Charm", and the Charm is the small card at the panel's right; holding it inspects it
     @Test fun theCastPanelShowsTheCardAtItsRight() {
         val kit = kit(Choices.CHARM, "Mountain")
@@ -107,7 +107,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.CHARM)
     }
 
-    // STK-047, STK-142, STK-044: choosing the Charm's damage mode turns the panel into the target bar: "Choose any target", with
+    // STK-047, STK-142, STK-044, STK-177, STK-178: choosing the Charm's damage mode turns the panel into the target bar: "Choose any target", with
     // the Charm at its right
     @Test fun theTargetBarShowsTheSpellAtItsRight() {
         val kit = kit(Choices.CHARM, "Mountain")
@@ -124,7 +124,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.CHARM)
     }
 
-    // STK-047, STK-044, STK-046, STK-121: activating Spark Totem's ability ({T}: 1 damage to any target) asks for its target in the
+    // STK-047, STK-044, STK-178, STK-046, STK-121: activating Spark Totem's ability ({T}: 1 damage to any target) asks for its target in the
     // target bar, its source the ability as its token (the Totem's art with the "A" chip), not the card
     @Test fun anActivationsTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.TOTEM, "Mountain")
@@ -150,7 +150,7 @@ class ChoiceSourceTest {
         return assertIs<Decision.ChooseObjects>(kit.state().pending?.decision)
     }
 
-    // STK-030, STK-044: Alice's Ember Divination resolves: the open choice's title is only "Scry 2" and the Divination is
+    // STK-030, STK-044, STK-177, STK-178: Alice's Ember Divination resolves: the open choice's title is only "Scry 2" and the Divination is
     // the small card at the panel's right; holding it inspects it
     @Test fun anOpenChoiceShowsItsSpellAtTheRight() {
         val kit = kit(Choices.DIVINATION, "Mountain")
@@ -163,7 +163,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.DIVINATION)
     }
 
-    // STK-044, TBL-038 (owner playtest 2026-11-06): panel cards have the hand's 28 × 40 dp base size; a tapped card slides
+    // STK-044, STK-179, STK-180, TBL-038 (owner playtest 2026-11-06): panel cards have the hand's 28 × 40 dp base size; a tapped card slides
     // from Top to Bottom at the card move speed instead of jumping there, and the card left behind slides into the gap
     @Test fun aTappedPanelCardSlidesToItsNewPlace() {
         val kit = kit(Choices.DIVINATION, "Mountain")
@@ -192,7 +192,7 @@ class ChoiceSourceTest {
         assertTrue(bounds(card(stays)).left <= left.left, "closed the gap")
     }
 
-    // STK-044: in landscape the panel is at most 420 dp wide from the left edge; the source is at its right all the same
+    // STK-044, STK-178: in landscape the panel is at most 420 dp wide from the left edge; the source is at its right all the same
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun anOpenChoiceShowsItsSpellAtTheRightInLandscape() {
         val kit = kit(Choices.DIVINATION, "Mountain")
@@ -203,7 +203,7 @@ class ChoiceSourceTest {
             "In landscape Alice's Ember Divination resolves and she scries 2: the panel at the left above her hand is titled only \"Scry 2\" and the Divination sits at the panel's right as a small card.")
     }
 
-    // STK-030, STK-044, STK-046, STK-121: Alice's Spark Seer enters; its trigger's target is her open choice, in the target bar:
+    // STK-030, STK-044, STK-178, STK-046, STK-121: Alice's Spark Seer enters; its trigger's target is her open choice, in the target bar:
     // "Choose any target" with the trigger as its ability token (the Seer's art, the "T" chip) at the right
     @Test fun aTriggersTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.SEER, "Mountain")
@@ -219,7 +219,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.SEER)
     }
 
-    // STK-048, STK-018, STK-044: in the Control response mode Alice casts two Cinder Charms, then Quench Spark: the lower Charm is a legal
+    // STK-048, STK-018, STK-044, STK-178: in the Control response mode Alice casts two Cinder Charms, then Quench Spark: the lower Charm is a legal
     // target, so tapping the Stack opens it in place as its list, both Charms glowing as legal targets, while the target bar
     // stays above her hand with the Quench at its right; tapping the lower Charm picks it
     @Test fun theStackOpensAsItsListToPickATargetBelowTheTop() {

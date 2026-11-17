@@ -109,7 +109,7 @@ object TestCards {
     /** Makes a token copy of itself as it enters (when cast), drawn with a picture of its own (an invented art id). */
     val twin = card("Ember Twin", "Creature — Elemental", "{R}", "When this creature enters, if you cast it, create a token that's a copy of it.",
         "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
-    /** Two different enters triggers (STK-030: their order is always asked). */
+    /** Two different enters triggers (STK-030, STK-185: their order is always asked). */
     val twinherald = card("Ember Twinherald", "Creature — Elemental", "{R}",
         "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.", "1", "1")
     /** An X spell (STK-023, STK-138): X damage to any target, X paid by its caster's mana. */

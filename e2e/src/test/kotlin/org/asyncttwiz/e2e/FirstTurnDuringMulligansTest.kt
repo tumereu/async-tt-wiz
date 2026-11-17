@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The first turn during the other player's mulligans (owner, 2026-11-15; TRN-027, HIS-115, HIS-193, HIS-194, HIS-116, HIS-117, HIS-197): Alice keeps
+ * The first turn during the other player's mulligans (owner, 2026-11-15; TRN-027, TRN-124, HIS-115, HIS-193, HIS-194, HIS-116, HIS-117, HIS-197): Alice keeps
  * while Bob hasn't opened the game, presses Assume keep and plays her turn 1. Bob's game stays in his opening, showing
  * nothing of her turn, until he keeps; his Keep confirms her turn, his Mulligan makes it again on top of his new hand,
  * standing as far as it comes out the same for her and taken back from her first action that doesn't.
@@ -281,7 +281,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertNothingLeaked()
     }
 
-    // TRN-027, TRN-070, HIS-096, HIS-183, HIS-117, HIS-197: Bob keeps after Alice played: nothing is made again, her events stay, and her turn
+    // TRN-027, TRN-124, TRN-070, HIS-096, HIS-183, HIS-117, HIS-197: Bob keeps after Alice played: nothing is made again, her events stay, and her turn
     // reaches him only after his Keep
     @Test fun bobsKeepConfirmsTheTurnPlayedOnIt() {
         aliceAssumesBobsKeep(TestDeck.thirds()) { a, _ -> "Mountain" in hand(a) && "Ember Cub" in hand(a) }

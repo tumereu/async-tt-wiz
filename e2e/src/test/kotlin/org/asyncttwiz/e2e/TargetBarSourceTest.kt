@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  * it; the cast then goes on as usual.
  */
 class TargetBarSourceTest : E2e() {
-    // STK-044, STK-047, STK-142, TBL-104: the target bar's title is only the choice, the spell is the card at its right, and
+    // STK-044, STK-177, STK-178, STK-047, STK-142, TBL-104: the target bar's title is only the choice, the spell is the card at its right, and
     // holding that card shows Inspect with the Spark's picture until released
     @Test fun aTargetedSpellsBarShowsItsCardAtTheRight() {
         startGame(TestDeck.sparks(), deal = { a, _ -> "Mountain" in hand(a) && "Storm Spark" in hand(a) })

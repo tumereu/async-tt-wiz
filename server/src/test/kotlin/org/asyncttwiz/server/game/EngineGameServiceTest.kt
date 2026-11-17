@@ -533,8 +533,8 @@ class EngineGameServiceTest {
         assertNotNull(f.snapshot(f.b).rewindRequest)
     }
 
-    // I-D56 §13, TRN-059 (owner 2026-11-10: the Assume setting is shared): a player's play settings are their own, kept on
-    // the server; the other player's phone learns only their response mode (STK-036) and "Assume resolves" (both snapshots
+    // I-D56 §13, TRN-059, TRN-123 (owner 2026-11-10: the Assume setting is shared): a player's play settings are their own, kept on
+    // the server; the other player's phone learns only their response mode (STK-036, STK-174) and "Assume resolves" (both snapshots
     // and every revision name each player's), never the rest (Autotap) or the settings as a whole
     @Test fun `play settings are private but the assume setting is shared`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "s")
@@ -549,7 +549,7 @@ class EngineGameServiceTest {
         assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).let { text -> text.contains("\"assume\":{") || text.contains("autotap") } })
     }
 
-    // TRN-059, STK-036 (owner 2026-11-10): a change of either shared setting with no move reaches the other seat at once:
+    // TRN-059, TRN-123, STK-036, STK-174 (owner 2026-11-10): a change of either shared setting with no move reaches the other seat at once:
     // its revision, as the socket publishes it to the other player (GameService.publicationState), carries both players'
     // response modes and Assume settings and nothing else of the engine (no event, no local head moved), never Autotap.
     // First Bob's Assume setting alone, then his response mode alone.
@@ -582,7 +582,7 @@ class EngineGameServiceTest {
         assertEquals(mapOf(a to mine.assume, b to always), modeOnly.assumes)
     }
 
-    // STK-036, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside
+    // STK-036, STK-174, STK-175, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside
     // undo and history: both snapshots name it, and a change reaches the other player at once (its revision carries every
     // player's mode); the rest of the settings stay the player's own. An event keeps the mode its submission recorded.
     @Test fun `the response mode is shared at once and events record theirs`() = withService { runtime ->

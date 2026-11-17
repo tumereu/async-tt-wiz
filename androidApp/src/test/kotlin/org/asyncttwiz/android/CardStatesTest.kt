@@ -269,7 +269,7 @@ class CardStatesTest {
         setup.command.add(crypt)
     }
 
-    // TRN-072: a player's states as chips, in their order, by the rules' words; each round chip shows its state's own icon with
+    // TRN-072, TRN-130, TRN-131: a player's states as chips, in their order, by the rules' words; each round chip shows its state's own icon with
     // its current level where it has one (owner notes 2026-11-14); a counter with no icon of its own keeps letters
     @Test fun aPlayersStatesInOrder() {
         val state = board { playerStates() }.engine!!.state
@@ -307,7 +307,7 @@ class CardStatesTest {
         }
     }
 
-    // TRN-072: in portrait the round chips sit right of the piles, before the emblems, clear of the hands, on a narrow screen too
+    // TRN-072, TRN-132, TRN-126: in portrait the round chips sit right of the piles, before the emblems, clear of the hands, on a narrow screen too
     @Test fun portraitChipsKeepClear() {
         val play = withEmblems(f.initial)
         for (width in listOf(412f, 360f)) assertClear(scene(board(play) { playerStates() }, width = width), width, 892f)
@@ -315,7 +315,7 @@ class CardStatesTest {
         assertClear(scene(board(play) { playerStates(); dungeon() }, width = 360f), 360f, 892f)
     }
 
-    // TRN-072, TRN-053, TRN-069 (owner gallery review 2026-11-09, gallery 157): on any width, a dungeon's fourth pile or not, each
+    // TRN-072, TRN-132, TRN-053, TRN-126, TRN-128, TRN-069 (owner gallery review 2026-11-09, gallery 157): on any width, a dungeon's fourth pile or not, each
     // player's chips, emblems and room stay in their own row, clear of the hands and of the piles as drawn: what doesn't fit folds
     // into "+N", which stands for the rest
     @Test fun chipsStayInTheirRowOnAnyWidth() {
@@ -335,7 +335,7 @@ class CardStatesTest {
         }
     }
 
-    // TRN-072, TRN-069, TRN-053 (owner gallery review 2026-11-10, gallery 157): on the 320 dp phone, where the opponent's fourth
+    // TRN-072, TRN-069, TRN-053, TRN-126 (owner gallery review 2026-11-10, gallery 157): on the 320 dp phone, where the opponent's fourth
     // pile leaves the least room, each player's room, states and emblems are round chips over two lines, all of them shown
     @Test fun roundChipsFitTwoLinesWhereTheDungeonLeavesTheLeastRoom() {
         val all = scene(board(withEmblems(f.initial)) { playerStates(); dungeon() }, width = 320f)
@@ -348,7 +348,7 @@ class CardStatesTest {
         assertEquals(2, own.emblemChips.size)
     }
 
-    // TRN-072, TRN-053 (owner gallery review 2026-11-10, gallery 157): many states at once on a narrow phone: the round chips shrink,
+    // TRN-072, TRN-132, TRN-053, TRN-128 (owner gallery review 2026-11-10, gallery 157): many states at once on a narrow phone: the round chips shrink,
     // then the states' last chip reads "+N" for those left out, never overlapping; the emblems keep their chips
     @Test fun manyStatesFoldIntoPlusN() {
         val many = board(withEmblems(f.initial)) {
@@ -371,7 +371,7 @@ class CardStatesTest {
         }
     }
 
-    // TRN-072: in landscape right after the piles in the bar row; what doesn't fit is a "+N" chip that stands for the rest
+    // TRN-072, TRN-132, TRN-127: in landscape right after the piles in the bar row; what doesn't fit is a "+N" chip that stands for the rest
     @Test fun landscapeChipsKeepClearAndFold() {
         val play = withEmblems(f.initial)
         for ((width, height) in listOf(892f to 412f, 800f to 360f, 640f to 360f)) {
@@ -430,7 +430,7 @@ class CardStatesTest {
                 "starting with the door of their dungeon room, the emblems last; the moon chip for Night sits above the Stack.")
     }
 
-    // LOB-136, TRN-072 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
+    // LOB-136, TRN-072, TRN-132 (owner gallery review 2026-11-09): on a narrow phone too the other player's chips stay in their row (they
     // used to lie under the life square): the bubble under the square lies clear of them; a tap on it reads it, holding opens the chat
     @Config(qualifiers = "w320dp-h640dp-port-mdpi")
     @Test fun aChatBubbleLiesClearOfStateChipsOnANarrowPhone() {
@@ -460,7 +460,7 @@ class CardStatesTest {
                 "over two lines right of their piles (which scroll under them), none overlapping and all shown, clear of the hands.")
     }
 
-    // TRN-072, TBL-132: holding a chip explains it until the finger lifts; a tap does nothing
+    // TRN-072, TRN-133, TBL-132: holding a chip explains it until the finger lifts; a tap does nothing
     @Test fun holdingAChipExplainsIt() {
         render(shotPlay, allStates())
         compose.mainClock.autoAdvance = false

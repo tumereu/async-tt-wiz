@@ -21,9 +21,9 @@ import kotlin.test.assertTrue
 
 /**
  * Owner playtest, 2026-11-09: a source with several ways to pay pays the sensible one when tapped, and its corner chip changes it
- * (STK-024); the step button is the cast panel's Cast and every panel's OK, a quick second tap ignored (TRN-063, STK-052); whatever
+ * (STK-024); the step button is the cast panel's Cast and every panel's OK, a quick second tap ignored (TRN-063, TRN-114, TRN-117, STK-052); whatever
  * is on the battlefield is picked on the battlefield with the slim bar, its OK on the step button: a payment while something resolves
- * (STK-049), a sacrifice, crew (STK-047, STK-151, STK-152, STK-030).
+ * (STK-049), a sacrifice, crew (STK-047, STK-151, STK-152, STK-030, STK-187).
  */
 class PickOnTableTest : E2e() {
     private fun deck(vararg cards: Pair<TestCard, Int>) = TestDeck("Picks", cards.toList())
@@ -96,7 +96,7 @@ class PickOnTableTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // TRN-063, STK-052 (owner playtest 2026-11-09): Cast is the step button; a quick double tap on it casts once, the second tap
+    // TRN-063, TRN-114, TRN-117, STK-052 (owner playtest 2026-11-09): Cast is the step button; a quick double tap on it casts once, the second tap
     // ignored whatever the button says by then
     @Test fun castIsTheStepButtonAndAQuickDoubleTapCastsOnce() {
         start(deck(TestCards.shard to 20, TestCards.redFlash to 20), mapOf("Ember Shard" to 1, "Red Flash" to 1), PlaySettings(autotap = false))
@@ -157,7 +157,7 @@ class PickOnTableTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-047, STK-151, STK-152, STK-030 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
+    // STK-047, STK-151, STK-152, STK-030, STK-187 (owner playtest 2026-11-09), CR 601.2b: Altar Offering's sacrifice is picked on the table, no panel: the slim bar,
     // both Pups glowing (their closed stack framed whole, TBL-117); a tap on one sacrifices it, Autotap pays and it resolves
     @Test fun aSacrificeIsPickedOnTheTable() {
         start(deck(TestCards.shard to 14, TestCards.offering to 13, TestCards.pup to 13),
@@ -216,7 +216,7 @@ class PickOnTableTest : E2e() {
     }
 }
 
-/** What the app log says of ignored quick second taps on the main button (TRN-063). */
+/** What the app log says of ignored quick second taps on the main button (TRN-063, TRN-117). */
 private object PickLog {
     fun count(): Int = E2ePlayer.log().split('\n').count { "a quick second tap on" in it }
 }

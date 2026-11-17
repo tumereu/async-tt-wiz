@@ -68,7 +68,7 @@ class ChoicePickKeptTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-030, STK-056, STK-044, HIS-087: Bob asks to go back while Alice is choosing, then takes his request back: each is
+    // STK-030, STK-188, STK-056, STK-044, HIS-087: Bob asks to go back while Alice is choosing, then takes his request back: each is
     // a new board asking the same choice (whose move it is changes): the panel stays and the card stays picked, and OK takes it
     @Test fun aPickStaysWhenTheOtherPlayerAsksToGoBackWhileSheChooses() {
         aliceWithHerTrail()
@@ -90,7 +90,7 @@ class ChoicePickKeptTest : E2e() {
         okFindsTheMountain(mountains)
     }
 
-    // STK-030, STK-056, HIS-096, HIS-178, TRN-070: Bob stops at Alice's ability and is away, so she taps Assume and chooses on what she
+    // STK-030, STK-188, STK-056, HIS-096, HIS-178, TRN-070: Bob stops at Alice's ability and is away, so she taps Assume and chooses on what she
     // assumed; he comes back and passes while she is choosing: the card she tapped stays picked, and OK takes it
     @Test fun aPickStaysWhenTheOtherPlayersOwnPassComesInWhileSheChoosesOnAnAssumption() {
         startGame(TestDeck.trails(), bobSettings = PlaySettings(mode = ResponseMode.Normal), deal = { a, _ -> "Cinder Trail" in hand(a) })
@@ -115,7 +115,7 @@ class ChoicePickKeptTest : E2e() {
         okFindsTheMountain(mountains)
     }
 
-    // STK-030, STK-056, TRN-047: the other player's event beside the game (his result suggestion, table-only) while Alice is
+    // STK-030, STK-188, STK-056, TRN-047: the other player's event beside the game (his result suggestion, table-only) while Alice is
     // choosing: the same choice stays open, so the card she tapped stays picked, and OK takes it
     @Test fun aPickStaysWhenTheOtherPlayerSuggestsAResultWhileSheChooses() {
         aliceWithHerTrail()

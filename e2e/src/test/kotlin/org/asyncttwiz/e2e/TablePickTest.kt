@@ -86,7 +86,7 @@ class TablePickTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // D1, STK-047, STK-151, STK-152, STK-030, TBL-130: Bob has two identical Ash Pups (one stack); Alice's Ember Edict ("Each opponent sacrifices
+    // D1, STK-047, STK-151, STK-152, STK-030, STK-187, TBL-130: Bob has two identical Ash Pups (one stack); Alice's Ember Edict ("Each opponent sacrifices
     // a creature of their choice") asks Bob on his table: the bar, his Pups glowing; a tap opens their stack, a tap on one
     // sacrifices it
     @Test fun anEdictIsAnsweredOnTheTable() {

@@ -219,7 +219,7 @@ class CatalogCardSearchTest {
         assertEquals(DeckImportResolver(repository).resolve("1 Delver of Secrets").entries.single().faces, delver.faces)
     }
 
-    // STK-041, CR 201.4b, 201.4d: a card's names one by one, each with its own part's type line; a quoted half finds its card
+    // STK-041, STK-192, CR 201.4b, 201.4d: a card's names one by one, each with its own part's type line; a quoted half finds its card
     @Test fun aCardsNamesComeApartWithTheirTypeLines() {
         val repository = install()
         val fire = page(repository, "\"ice\"").cards.first { it.name == "Fire // Ice" }

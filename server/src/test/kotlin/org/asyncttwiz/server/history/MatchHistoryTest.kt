@@ -78,7 +78,7 @@ class MatchHistoryTest {
         assertEquals("Alice Red", w.records(a).single().player(a.account.accountId)!!.deck!!.name)
     }
 
-    // LOB-126 (game history §1.2; TRN-046, TRN-047, TRN-065): Alice suggests her win with a reason, Bob accepts, which ends the
+    // LOB-126 (game history §1.2; TRN-046, TRN-047, TRN-134, TRN-065, TRN-140): Alice suggests her win with a reason, Bob accepts, which ends the
     // match at once: an agreed result, its reason kept
     @Test fun `an agreed match keeps the suggestion's reason`() = HistoryWorld.run { w ->
         val a = w.account("AgreeAlice"); val b = w.account("AgreeBob")

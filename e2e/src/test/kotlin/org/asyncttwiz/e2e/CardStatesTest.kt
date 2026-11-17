@@ -19,7 +19,7 @@ class CardStatesTest : E2e() {
     private val explained = hasContentDescription("Rule explanation")
     private val line = "Ring-bearer: legendary, can't be blocked by creatures with greater power"
 
-    // TRN-072, TRN-053 (owner gallery review 2026-11-09, gallery 157): on a screen too narrow for the old room right of the piles, a
+    // TRN-072, TRN-132, TRN-133, TRN-053 (owner gallery review 2026-11-09, gallery 157): on a screen too narrow for the old room right of the piles, a
     // player's chip stays in their row beside the life square, on both tables, and never goes over the hand row; a hold still explains it.
     // Owner gallery review 2026-11-10 (gallery 157: "display them like emblems"): the chip is a round one like an emblem's, not a text pill
     @Config(qualifiers = "w280dp-h892dp-port-mdpi")

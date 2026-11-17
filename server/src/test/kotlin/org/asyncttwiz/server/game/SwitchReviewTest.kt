@@ -183,7 +183,7 @@ class SwitchReviewTest {
     }
 
     // switchreview #8, LOB-111: an agreed result must be recorded as the suggestion's, not as the rules' result, so the notice
-    // reads "<Alice> accepted the draw" ("… your win", "… your loss") instead of "Game over · Draw". TRN-065 (owner
+    // reads "<Alice> accepted the draw" ("… your win", "… your loss") instead of "Game over · Draw". TRN-065, TRN-140 (owner
     // 2026-11-07): accepting ends the play at once.
     @Test fun `an agreed result is recorded as the suggestion's, not the rules'`() = withService { runtime ->
         val f = Fixture(runtime)

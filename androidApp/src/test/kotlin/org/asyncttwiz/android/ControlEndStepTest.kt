@@ -54,7 +54,7 @@ class ControlEndStepTest {
         fail("Alice's second main phase: ${kit.state().turn}; ${kit.alice.device.status}")
     }
 
-    // TRN-063, STK-036 (owner bug 2026-11-07): in Control the second main phase's arrow reads "To end step" (owner gallery note
+    // TRN-063, TRN-111, STK-036 (owner bug 2026-11-07): in Control the second main phase's arrow reads "To end step" (owner gallery note
     // 22, 2026-11-11: naming where it goes); its tap stops at Alice's own end step with her holding priority, where the arrow
     // reads "End turn" and its tap hands the turn over
     @Test fun controlTapsFromTheSecondMainPhaseToTheEndStep() {
@@ -71,7 +71,7 @@ class ControlEndStepTest {
         assertEquals(kit.other, kit.state().turn.active, "the end step's tap hands the turn over")
     }
 
-    // TRN-017, TRN-057: holding the arrow in Control's second main phase is still End turn, past Alice's end step
+    // TRN-017, TRN-106, TRN-057: holding the arrow in Control's second main phase is still End turn, past Alice's end step
     @Test fun holdingTheArrowInControlStillEndsTheTurn() {
         toMain2(ResponseMode.FullControl)
         assertTrue(toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
@@ -79,10 +79,10 @@ class ControlEndStepTest {
         assertEquals(kit.other, kit.state().turn.active, "the turn ended without stopping at Alice's end step")
     }
 
-    // TRN-063, TRN-057: in Normal the second main phase's arrow reads "End turn" and its tap ends the turn, as before
+    // TRN-063, TRN-111, TRN-057: in Normal the second main phase's arrow reads "End turn" and its tap ends the turn, as before
     @Test fun normalTapsEndTheTurnFromTheSecondMainPhase() = endsTurnFromMain2(ResponseMode.Normal)
 
-    // TRN-063, TRN-057: in Quick the second main phase's arrow reads "End turn" and its tap ends the turn, as before
+    // TRN-063, TRN-111, TRN-057: in Quick the second main phase's arrow reads "End turn" and its tap ends the turn, as before
     @Test fun quickTapsEndTheTurnFromTheSecondMainPhase() = endsTurnFromMain2(ResponseMode.AutoSkip)
 
     private fun endsTurnFromMain2(mode: ResponseMode) {

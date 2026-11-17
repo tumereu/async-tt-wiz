@@ -24,7 +24,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** TRN-053 (I-D25; owner gallery review 2026-11-06): a player's emblems show as round chips by the life square; holding
+/** TRN-053, TRN-129 (I-D25; owner gallery review 2026-11-06): a player's emblems show as round chips by the life square; holding
  * one inspects all that player's emblems. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -65,7 +65,7 @@ class EmblemChipTest {
         assertTrue(own.stateChips.isEmpty() && opponent.stateChips.isEmpty(), "no state chips without states or a dungeon room")
     }
 
-    // TRN-053: in portrait the round chips sit in a row at the right of the room right of the piles, clear of both hands;
+    // TRN-053, TRN-126, TRN-127: in portrait the round chips sit in a row at the right of the room right of the piles, clear of both hands;
     // in landscape right after the piles in the player's bar row (TBL-009)
     @Test fun chipsSitInARowByTheLifeSquareClearOfTheHands() {
         val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 412f, 892f, false)
@@ -139,7 +139,7 @@ class EmblemChipTest {
                 "bar, before your hand).")
     }
 
-    // TRN-053: holding any emblem chip inspects all that player's emblems with their full text; the release closes it
+    // TRN-053, TRN-129: holding any emblem chip inspects all that player's emblems with their full text; the release closes it
     @Test fun holdingAnEmblemInspectsThemAll() {
         render()
         compose.mainClock.autoAdvance = false

@@ -131,7 +131,7 @@ class OffspringForageWalkthroughTest {
         compose.onNodeWithText(row).assertDoesNotExist()
     }
 
-    // STK-030, STK-044, STK-050, STK-123, CR 702.175a, CR 603.3b, CR 603.4, CR 701.61a, CR 118.12 (owner playtest 2026-11-06):
+    // STK-030, STK-185, STK-181, STK-182, STK-044, STK-050, STK-123, CR 702.175a, CR 603.3b, CR 603.4, CR 701.61a, CR 118.12 (owner playtest 2026-11-06):
     // Alice casts Hollowroot Sentry with offspring; both enter triggers are hers to order, each named by its sentence (the
     // offspring trigger by its keyword's printed line); while the forage trigger asks, holding the offspring trigger on the
     // Stack shows its line; the forage question shows its sentence and its cost without holding; forage asks which way and
@@ -164,7 +164,7 @@ class OffspringForageWalkthroughTest {
         compose.onNodeWithText(forage).assertExists()
         captureShot("$SCREENSHOTS/questions/offspring-order-triggers.png",
             "Alice's Hollowroot Sentry, cast with offspring, has entered: the panel above her hand is titled \"Order triggers\" and lists the Sentry twice as rows numbered 1 and 2, each with a drag handle, one with its offspring line and one with its forage line, the top one resolving first.")
-        // STK-030 (owner gallery review, 2026-11-06): a drag-to-reorder list; forage moves to the top (it resolves first),
+        // STK-030, STK-183 (owner gallery review, 2026-11-06): a drag-to-reorder list; forage moves to the top (it resolves first),
         // offspring below it (first on the Stack, resolves last)
         val forageRow = compose.onNodeWithContentDescription("Trigger: $forage")
         forageRow.fetchSemanticsNode().config.getOrElse(androidx.compose.ui.semantics.SemanticsActions.CustomActions) { emptyList() }

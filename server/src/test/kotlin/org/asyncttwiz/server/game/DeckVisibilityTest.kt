@@ -62,7 +62,7 @@ class DeckVisibilityTest {
             owner.execute(GameAction.Ready); other.execute(GameAction.Ready)
             assertEquals(GameLifecycle.ACTIVE, games.head(owner.actor, owner.gameId).summary.lifecycle)
             assertEquals("accepted", other.execute(games.concession(other.actor, other.gameId)).outcome)
-            // TRN-065: the next play starts only once the owner too tapped OK on the result
+            // TRN-065, TRN-143: the next play starts only once the owner too tapped OK on the result
             assertEquals("accepted", owner.execute(GameAction.AcknowledgeResult).outcome)
         }
     }

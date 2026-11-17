@@ -120,7 +120,7 @@ class RevealPanelTest {
     private fun mainButton(): SemanticsNodeInteraction =
         compose.onNode(hasTestTag("main-button") or hasTestTag("engine-wait-action"))
 
-    /** HIS-110, HIS-151, TRN-063 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
+    /** HIS-110, HIS-151, TRN-063, TRN-114 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
     private fun revealOk(): SemanticsNodeInteraction = compose.onNode(hasTestTag("main-button") and hasContentDescription("OK"))
 
     /** What holding the main button says, or null when it says none of [reasons]. */
@@ -134,7 +134,7 @@ class RevealPanelTest {
         return said
     }
 
-    // HIS-110, HIS-150, HIS-151, HIS-153, STK-044, TBL-104: Bob's playback stops right after Alice's reveal: the panel above his hand names her and the
+    // HIS-110, HIS-150, HIS-151, HIS-153, STK-044, STK-178, TBL-104: Bob's playback stops right after Alice's reveal: the panel above his hand names her and the
     // Insight, shows the revealed card face up and the Insight at its right; the table stays there (the later events held)
     // until OK, after which playback goes on
     @Test fun theOtherPlayersRevealStopsPlaybackUntilOk() {
@@ -161,7 +161,7 @@ class RevealPanelTest {
         assertTrue(bob.device.session.localHead != held, "playback went on after OK: ${bob.shown?.status} behind=${bob.device.session.behind} buffered=${bob.device.session.buffered.size}")
     }
 
-    // HIS-110, HIS-151, TRN-063, STK-029 (owner playtest 2026-11-09): while the reveal panel is open the main button is its OK (Resolve
+    // HIS-110, HIS-151, TRN-063, TRN-114, STK-029 (owner playtest 2026-11-09): while the reveal panel is open the main button is its OK (Resolve
     // waits); a tap on it dismisses the reveal, and the main button is Resolve again and acts
     @Test fun theMainButtonIsTheRevealsOk() {
         // Bob starts (Control: he holds priority wherever he gets it) with free Ember Glints, Alice holds free Ember Foresights
@@ -207,7 +207,7 @@ class RevealPanelTest {
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
         assertEquals(null, holdingMainButtonSays(REVEAL_BUSY), "no longer greyed")
         val before = bob.shown?.version
-        // TRN-063: a tap right after the OK would be ignored as the second tap of a double tap
+        // TRN-063, TRN-117: a tap right after the OK would be ignored as the second tap of a double tap
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(MainButtonGuard.MILLIS))
         compose.onNodeWithTag("main-button").performClick()
         compose.runOnIdle { assertTrue(bob.shown?.version != before, "the main button acted after OK") }
@@ -234,7 +234,7 @@ class RevealPanelTest {
         card.assertWidthIsEqualTo(42.dp).assertHeightIsEqualTo(60.dp)
     }
 
-    // HIS-114, HIS-157, HIS-110, STK-044 (owner playtest 2026-11-09): Alice casts a Hedge Study and then a Hedge Recall returning the
+    // HIS-114, HIS-157, HIS-110, STK-044, STK-178 (owner playtest 2026-11-09): Alice casts a Hedge Study and then a Hedge Recall returning the
     // Study from her graveyard to her hand; Bob's playback stops there with the reveal panel naming the move and showing only
     // the Study, the Recall at its right, until his OK. Alice's own move opens nothing of hers
     @Test fun theOtherPlayersCardLeavingTheirGraveyardForTheirHandShowsAsAReveal() {

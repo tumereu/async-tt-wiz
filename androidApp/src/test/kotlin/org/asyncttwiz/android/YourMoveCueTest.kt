@@ -40,17 +40,17 @@ class YourMoveCueTest {
         assertFalse(board(GameDevice.Status.YourMove, input("2", me)), "your own step")
     }
 
-    // TRN-075: opening the game at your move brings none
+    // TRN-075, TRN-103: opening the game at your move brings none
     @Test fun openingAGameDoesNot() { yourMove() }
 
-    // TRN-075: your own chain of steps, your assumptions of their passes on the way, brings none
+    // TRN-075, TRN-103: your own chain of steps, your assumptions of their passes on the way, brings none
     @Test fun yourOwnChainDoesNot() {
         yourMove()
         assertFalse(board(GameDevice.Status.Waiting(GameDevice.Wait.Sending), input("1", me)))
         assertFalse(board(GameDevice.Status.YourMove, input("2", other, assumedBy = other).copy(author = me), input("3", me)))
     }
 
-    // TRN-075: their answer just after your own action: you have just acted; a while later it counts
+    // TRN-075, TRN-103: their answer just after your own action: you have just acted; a while later it counts
     @Test fun notWhenYouHaveJustActed() {
         yourMove()
         assertFalse(board(waiting, input("1", me)))
@@ -59,7 +59,7 @@ class YourMoveCueTest {
         assertTrue(board(GameDevice.Status.YourMove, input("4", other), wait = YourMoveCue.JUST_ACTED_MILLIS), "they took their time")
     }
 
-    // TRN-075, HIS-095: in playback only when you stop at a decision: never while it runs, never at a stop your pause made
+    // TRN-075, TRN-103, HIS-095: in playback only when you stop at a decision: never while it runs, never at a stop your pause made
     @Test fun inPlaybackOnlyAtADecision() {
         board(GameDevice.Status.CatchUp)
         assertFalse(board(playing, input("1", other)))
@@ -69,7 +69,7 @@ class YourMoveCueTest {
         assertTrue(board(GameDevice.Status.Stopped(assumed, Input.PassPriority(PlayerId(me)))), "a decision of yours")
     }
 
-    // TRN-075: while a play or a combat holds your view it waits, and comes when that is done
+    // TRN-075, TRN-103: while a play or a combat holds your view it waits, and comes when that is done
     @Test fun itWaitsForWhatHoldsTheView() {
         board(waiting)
         assertFalse(board(GameDevice.Status.YourMove, input("1", other), held = true))

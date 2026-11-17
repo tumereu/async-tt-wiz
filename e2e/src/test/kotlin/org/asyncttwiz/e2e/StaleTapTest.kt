@@ -171,7 +171,7 @@ class StaleTapTest : E2e() {
     // HIS-109, HIS-189, HIS-211, SYS-012, SYS-011 (a full e2e run, 2026-11-08): Alice attacks; her phone shows the attack at once, then folds
     // her pass into the attack's event and assumes Bob's pass. A Next made on the attack's own board (the main button's
     // pass, as a tap racing that board makes it) reaches the phone after all that: the pass her phone made there by itself,
-    // so no "That wasn't taken" and no second pass; Bob's own Pass then confirms what her phone assumed. TRN-063 (owner,
+    // so no "That wasn't taken" and no second pass; Bob's own Pass then confirms what her phone assumed. TRN-063, TRN-119 (owner,
     // 2026-11-16): the attack's own board holds no Next on her main button, her phone passing there by itself
     @Test fun aNextTappedOnHerAttackAsHerPhonePassesByItselfGoesQuietly() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), aliceWorker = held,
@@ -227,7 +227,7 @@ class StaleTapTest : E2e() {
     // so her pass and his fold into the cast's event and it resolves in it, back in her Main 1. A Resolve made on the cast's
     // own board (the main button's pass, as a tap racing that board makes it) reaches the phone while that board is still the
     // newest it has published: it is the pass made there, never a pass of the Main 1 she hasn't seen it come back to.
-    // TRN-063, STK-029 (owner, 2026-11-16): the cast's own board holds no Resolve on her main button, her phone passing there
+    // TRN-063, TRN-119, STK-029 (owner, 2026-11-16): the cast's own board holds no Resolve on her main button, her phone passing there
     // by itself
     @Test fun aResolveTappedWhileHerCastIsBeingFinishedPassesNothingMore() {
         startGame(deck, TestDeck("Martyrs", listOf(TestCards.martyr to 40)), bobStarts = true, aliceWorker = held,
@@ -270,7 +270,7 @@ class StaleTapTest : E2e() {
 
     /**
      * The main button's pass (what a tap of Resolve or Next makes, [org.asyncttwiz.android.EngineGame.pass]) made on the board
-     * Alice's screen shows, as a tap racing it would make it: the board holds no press itself (TRN-063), but a tap drawn on the
+     * Alice's screen shows, as a tap racing it would make it: the board holds no press itself (TRN-063, TRN-119), but a tap drawn on the
      * board before can reach the phone on it. Taken as the press her phone made there by itself.
      */
     private fun pressOnTheBoardShown() {

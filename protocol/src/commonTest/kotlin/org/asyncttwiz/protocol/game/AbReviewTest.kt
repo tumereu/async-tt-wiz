@@ -310,7 +310,7 @@ class AbReviewTest {
         assertTrue(server.act(alice, Input.PassPriority(bob), assumed = true).isSuccess)
     }
 
-    // TRN-065 (owner, 2026-11-09; was abreview #11): an OK isn't tied to what the other player saw: it stands on the head
+    // TRN-065, TRN-137 (owner, 2026-11-09; was abreview #11): an OK isn't tied to what the other player saw: it stands on the head
     @Test
     fun anOkStandsWhateverTheOtherPlayerHasSeen() {
         val server = AsyncServer(EngineGames(9))

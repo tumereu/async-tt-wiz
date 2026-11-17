@@ -60,16 +60,6 @@ nothing the other player did and showed you nothing new, otherwise only with the
 
 ## Reveals
 
-- **HIS-110** Reveal stop: when cards are revealed (from a hand or library, a card a search found, a top card, each card a "reveal until" turns over: any reveal, whoever's spell, ability or action made it), each player's table stops at that event, live or in catch-up playback, the revealing player's too, and a panel above your hand (STK-044) shows them. (r62)
-- **HIS-150** The reveal panel is titled "<name> revealed · <source>", naming who revealed as the card says: the player whose hand or library the cards came from ("Bob revealed · Ember Exposure" when Alice's spell makes Bob reveal his hand; "You revealed · <source>" for your own; only "<name> revealed" when nothing made it). (r62)
-- **HIS-151** The reveal panel shows the revealed cards as cards at the Hand card size (TBL-034), wrapping onto more rows and scrolling when they don't fit (holding one inspects it, TBL-104), the source's card at its right at the Panels size, and the eye. Its OK is the main button (TRN-063) while it is open. (r62)
-- **HIS-152** While a reveal panel is open, game actions are refused as while a choice is open (STK-032: what they were made on shakes, nothing glows, menu rows are greyed); holding a greyed menu row says "Dismiss the reveal first: tap OK.". Looking, inspecting and Undo still work. (r62)
-- **HIS-153** Until you tap OK the other player's later events wait as at a playback stop and then play on as before. Only your view waits: unlike a play shown, your device still makes its own steps, and the game is never held for the other player. The panel comes before any choice panel of yours (that shows after OK). OK closes the panel at once on your phone, whatever your device is still working out. (r62)
-- **HIS-154** Each player's OK is their own: dismissing it closes it only for them. Nothing else closes it but the reveal being taken back: not the other player's OK or reports, a chat message, an undo request, a suggestion, the game loading again or ending at the table. What you dismissed never opens again. (r62)
-- **HIS-155** Your own choice among cards you already see isn't a reveal for you: a card you chose in a search, cards you chose among, cards you already saw (your hand) open no panel of yours, while the other player still gets theirs. (r62)
-- **HIS-156** Several reveals open one panel each, in order; a reveal taken back before your OK (an undo, a branch, a rewind) closes its panel. Reveal panels are kept only on this phone: a game opened again opens none for what was shown before. (r62)
-- **HIS-114** Cards leaving a public pile: when the other player's spell, ability or action moves cards out of a graveyard or exile (face up) into a hand or library you can't see, your table shows it as a reveal (HIS-110), live and in catch-up playback alike, with only the cards that left the pile (nothing else of the hand or library) and the reveal's stops, refusals and OK of your own. Not for moves to the battlefield, the Stack or another public pile, into your own hand, nor for your own moves. (r62)
-- **HIS-157** The panel for cards leaving a public pile is titled "Bob returned Storm Spark from their graveyard to their hand" ("… from exile …", "Bob put Storm Spark from their graveyard into their library", "2 cards" for several; "your" for your own pile, and a third player's by name, "Carol's graveyard"), with the source's card at its right and its OK the main button (TRN-063). (r62)
 
 ## Coming back to a game: catch-up
 
@@ -126,7 +116,6 @@ nothing the other player did and showed you nothing new, otherwise only with the
 - **HIS-017** Hold-inspect works on every face-up card in timeline mode too, and there holding a card stops Auto, which stays off after the release. (r61)
 - **HIS-018** "Return to current" in the top bar, and Back, leave timeline mode to where you were: live play, or the catch-up paused with its centre text (HIS-094). (r53)
 - **HIS-019** Leaving timeline mode never asks a question; the timeline has no branching action (a branch happens only when your real answer differs from an assumed one, HIS-097). (r48)
-- **HIS-020** A pending win/loss/draw suggestion never blocks the timeline: Table actions still opens, with Timeline usable and its other entries greyed. It locks play only once the board shown to you (your local head) includes it (TRN-049). (r55)
 
 ## Playback settings
 

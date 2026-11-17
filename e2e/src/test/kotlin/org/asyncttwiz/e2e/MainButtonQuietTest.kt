@@ -38,7 +38,7 @@ import kotlin.test.assertTrue
 class MainButtonQuietTest : E2e() {
     @After fun noProbe() { EngineShownProbe.all = null }
 
-    // TRN-063, STK-029, HIS-112, HIS-140, TRN-004, TRN-015, SYS-025: no "Resolve" on Alice's main button from her cast on (its own board
+    // TRN-063, TRN-119, STK-029, HIS-112, HIS-140, TRN-004, TRN-015, SYS-025: no "Resolve" on Alice's main button from her cast on (its own board
     // too) while her own trigger shows and her phone is about to pass by itself; then the quiet waiting status in its place
     // while Bob acts in his main phase
     @Test fun noPressTheDeviceMakesItselfAndAQuietWait() {
@@ -50,7 +50,7 @@ class MainButtonQuietTest : E2e() {
         alice.playFromHand("Mountain", this)
         waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
         castTheHeraldWithNoPress { alice.playFromHand("Ember Herald", this) }
-        // TRN-017: holding the main button in her main phase ends her turn
+        // TRN-017, TRN-106: holding the main button in her main phase ends her turn
         alice.hold(assertNotNull(alice.stepArrow()))
         waitUntil("Bob in his main phase, Alice waiting on him") {
             bob.inOwnMain() && alice.status is GameDevice.Status.Waiting
@@ -63,7 +63,7 @@ class MainButtonQuietTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // TRN-063, STK-029, SYS-025, WEB-018: the same on the desktop table: no "Resolve" on Alice's main button from the click
+    // TRN-063, TRN-119, STK-029, SYS-025, WEB-018: the same on the desktop table: no "Resolve" on Alice's main button from the click
     // that casts her Herald on, its own board too
     @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
     @Test fun noPressTheDeviceMakesItselfOnTheDesktopTable() {
@@ -85,7 +85,7 @@ class MainButtonQuietTest : E2e() {
      * board, shown before her phone's pass is folded into its event, too) puts "Resolve" on her main button.
      */
     private fun castTheHeraldWithNoPress(cast: () -> Unit) {
-        // What the main button says on each board: a step press only on her move with no step of her own held (TRN-063)
+        // What the main button says on each board: a step press only on her move with no step of her own held (TRN-063, TRN-119)
         val boards = Collections.synchronizedList(mutableListOf<String>())
         clockInStep {
             val from = alice.shownTexts.size

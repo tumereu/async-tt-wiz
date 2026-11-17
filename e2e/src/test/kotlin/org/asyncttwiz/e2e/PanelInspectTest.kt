@@ -38,7 +38,7 @@ class PanelInspectTest : E2e() {
         run(skip = java.time.Duration.ofMillis(500))
     }
 
-    // TBL-104, STK-056 (owner playtest 2026-11-06): holding a Mountain in the search panel inspects it and nothing in the
+    // TBL-104, STK-056, STK-180 (owner playtest 2026-11-06): holding a Mountain in the search panel inspects it and nothing in the
     // panel moves meanwhile: the card held and the panel's title stay where they were
     @Test fun holdingACardInAPanelLeavesThePanelStill() {
         aliceSearches()
@@ -55,7 +55,7 @@ class PanelInspectTest : E2e() {
         assertEquals(card, mountain.fetchSemanticsNode().boundsInRoot, "still put after release")
     }
 
-    // TBL-127, STK-044, STK-050, STK-122 (owner playtest 2026-11-06): on a phone too low for the Trail ability's Inspect (a small
+    // TBL-127, STK-044, STK-178, STK-050, STK-122 (owner playtest 2026-11-06): on a phone too low for the Trail ability's Inspect (a small
     // phone with the largest system text), holding it at the panel's right and moving the finger up scrolls the Inspect,
     // as on the table
     @Config(qualifiers = "w360dp-h640dp-port-mdpi", fontScale = 2f)

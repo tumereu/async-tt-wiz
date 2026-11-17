@@ -18,7 +18,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * TRN-065, TRN-064, LOB-046 (owner playtest 2026-11-07: the result was "auto-dismissed" when the other player pressed OK
+ * TRN-065, TRN-136, TRN-137, TRN-140, TRN-141, TRN-064, LOB-046 (owner playtest 2026-11-07: the result was "auto-dismissed" when the other player pressed OK
  * first; owner 2026-11-09: "I could not press OK because it was saying waiting for X to catch up ... I should not be taken
  * back until I acknowledge it -- one player acknowledging is insufficient"): OK works whenever the dialog shows, after its
  * first greyed moments; a result the rules gave takes both OKs, each can be taken back until then; after a concession or an
@@ -35,7 +35,7 @@ class GameEndDialogTest : E2e() {
     private fun E2ePlayer.where() = "$name: lobby ${shows(hasTestTag("lobby-history-tab"))}, dialog ${shows(dialog)}, " +
         "status ${game?.shown?.status}, lifecycle ${lobby.state.detail?.lifecycle}"
 
-    /** Presses OK once it isn't greyed any more (its first moments, TRN-065). */
+    /** Presses OK once it isn't greyed any more (its first moments, TRN-065, TRN-136). */
     private fun E2ePlayer.pressOk(vararg along: E2ePlayer) {
         val armed = hasTestTag(GAME_END_OK_TAG) and isEnabled()
         waitUntil("$name's OK no longer greyed", along = along.toList()) { shows(armed) }
@@ -64,7 +64,7 @@ class GameEndDialogTest : E2e() {
     private val waitingForBob get() = "Waiting for ${bob.name} to acknowledge"
     private val waitingForAlice get() = "Waiting for ${alice.name} to acknowledge"
 
-    // TRN-065 (owner, 2026-11-09, the report's two bugs): Bob is away and hasn't seen Alice's win: her OK works all the same,
+    // TRN-065, TRN-137, TRN-138 (owner, 2026-11-09, the report's two bugs): Bob is away and hasn't seen Alice's win: her OK works all the same,
     // and she stays at the table waiting for him; Bob comes back to the result, his dialog not dismissed by her OK, and only
     // his OK takes them both to the lobby, where nobody owes an OK any more
     @Test fun okWorksBeforeTheOtherPlayerHasSeenTheResultAndOnlyBothOksEndIt() {
@@ -90,7 +90,7 @@ class GameEndDialogTest : E2e() {
         assertFalse(alice.shows(hasTestTag("result-unseen")) || bob.shows(hasTestTag("result-unseen")), "nobody owes one")
     }
 
-    // TRN-065: Alice takes her OK back before Bob's: Bob's OK then doesn't end it; hers again does. Reopening shows where
+    // TRN-065, TRN-137, TRN-139: Alice takes her OK back before Bob's: Bob's OK then doesn't end it; hers again does. Reopening shows where
     // the OK stands: Bob's app starts again and he sees his own OK waiting for hers, on the table
     @Test fun anOkIsTakenBackUntilTheOtherPlayerPressesTheirs() {
         aliceWinsByTheRules()
@@ -108,7 +108,7 @@ class GameEndDialogTest : E2e() {
         waitUntil("both in the lobby", along = listOf(bob)) { alice.inLobby() && bob.inLobby() && !alice.shows(dialog) && !bob.shows(dialog) }
     }
 
-    // TRN-065, HIS-084, HIS-200: with Bob's OK on the result, Alice's Undo asks him as usual; on his yes the result and every OK go,
+    // TRN-065, TRN-137, HIS-084, HIS-200: with Bob's OK on the result, Alice's Undo asks him as usual; on his yes the result and every OK go,
     // and the game goes on from before her Ruin
     @Test fun undoBeforeTheResultIsFinalTakesTheOksWithIt() {
         aliceWinsByTheRules()
@@ -150,7 +150,7 @@ class GameEndDialogTest : E2e() {
     /** Whether [player] is Ready in the open game's lobby. */
     private fun ready(player: E2ePlayer) = player.lobby.state.preparation?.players?.any { it.accountId == player.id && it.ready } == true
 
-    // TRN-064, TRN-065, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Alice concedes: the
+    // TRN-064, TRN-065, TRN-140, TRN-141, TRN-142, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Alice concedes: the
     // game is over and recorded at once, but she stays at the table with "Waiting for Bob to acknowledge" and no button (her
     // concession was her OK); Bob sees "You won" with "Alice conceded". Alice leaves for the Games list; opening the game
     // again shows the same dialog over the lobby, which takes no touch (her Ready tap does nothing). Bob's OK takes them both
@@ -187,7 +187,7 @@ class GameEndDialogTest : E2e() {
         assertFalse(alice.shows(hasTestTag("result-unseen")) || bob.shows(hasTestTag("result-unseen")), "nobody owes one")
     }
 
-    // TRN-064, TRN-065, LOB-046 (owner, prod 0.2.0: a player was taken to the lobby right after a concession; the full e2e run
+    // TRN-064, TRN-065, TRN-141, LOB-046 (owner, prod 0.2.0: a player was taken to the lobby right after a concession; the full e2e run
     // of 2026-11-16 caught it in aConcederWaitsAtTheTableForTheOtherPlayersOk): the game's head, read after Alice's concession,
     // reaches both phones before the revision that ended the play (a head is read as soon as asked for, a revision published
     // up to a moment after its commit): both still stay at the table with the dialog, and Bob's OK takes them both to the lobby
@@ -212,7 +212,7 @@ class GameEndDialogTest : E2e() {
         waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
     }
 
-    // TRN-065, LOB-046 (the race behind aConcederWaitsAtTheTableForTheOtherPlayersOk's failures, 2026-11-10): the lobby's
+    // TRN-065, TRN-142, LOB-046 (the race behind aConcederWaitsAtTheTableForTheOtherPlayersOk's failures, 2026-11-10): the lobby's
     // background sync read the lists while Alice was at the table, and its answer came only after she had left the game and
     // opened it again: the game is still there, and she sees the dialog over its lobby (it said "no longer available" and
     // left her on the Games list)
@@ -248,7 +248,7 @@ class GameEndDialogTest : E2e() {
         waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
     }
 
-    // TRN-047, TRN-065, LOB-046: Alice suggests her win ("Infinite combo"); Bob's Accept, greyed at first, ends the game: he
+    // TRN-047, TRN-134, TRN-065, TRN-135, TRN-136, TRN-141, TRN-142, LOB-046: Alice suggests her win ("Infinite combo"); Bob's Accept, greyed at first, ends the game: he
     // stays at the table with "Waiting for Alice to acknowledge", and Alice sees "You won" with "Agreed: Infinite combo"; on
     // another device (her app started again) the same dialog shows over the lobby, with OK: it takes them both to the lobby
     @Test fun theAcceptorWaitsAtTheTableForTheSuggestersOk() {
@@ -282,7 +282,7 @@ class GameEndDialogTest : E2e() {
         waitUntil("both in the lobby", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
     }
 
-    // TRN-064, TRN-065 (owner, 2026-11-09): Alice's Mountain is still on its way (her uplink slow) when Bob's concession lands:
+    // TRN-064, TRN-065, TRN-141 (owner, 2026-11-09): Alice's Mountain is still on its way (her uplink slow) when Bob's concession lands:
     // the concession stands, her move is refused without trouble, and she sees "You won" with OK; Bob waits at the table
     // until it, then both go to the lobby
     @Test fun aMoveInFlightWhenTheOtherPlayerConcedes() {
@@ -306,7 +306,7 @@ class GameEndDialogTest : E2e() {
         assertTrue(alice.lobby.state.preparation?.players?.none { it.ready } == true, "both Ready cleared")
     }
 
-    // TRN-065, LOB-046 (owner, 2026-11-09): every way into the next game waits for both OKs: after Bob's concession neither
+    // TRN-065, TRN-142, TRN-143, LOB-046 (owner, 2026-11-09): every way into the next game waits for both OKs: after Bob's concession neither
     // can get Ready (Alice's dialog stands over her lobby on her second device, her Ready request refused if it is sent), and
     // Bob's second device (his app started again) shows the same waiting dialog over the lobby. Alice's OK clears it on every
     // device; then both Readies start the next game

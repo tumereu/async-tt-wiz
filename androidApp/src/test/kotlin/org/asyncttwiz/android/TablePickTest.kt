@@ -58,7 +58,7 @@ class TablePickTest {
         playOn("$name on the battlefield") { card in field(name).map(::atw) && aliceMain() }
     }
 
-    // D1, STK-047, STK-151, STK-152, STK-044, STK-023: Alice taps her Ember Altar ("{T}, Sacrifice another creature: …"): the creature
+    // D1, STK-047, STK-151, STK-152, STK-044, STK-178, STK-023: Alice taps her Ember Altar ("{T}, Sacrifice another creature: …"): the creature
     // to sacrifice is picked on the table, not in a panel: the slim bar says "Sacrifice" over the ability's text, the Altar at
     // its right, her two Ash Pups glow violet (the Altar doesn't); a tap on a Pup sacrifices it and the ability goes on the
     // Stack
@@ -163,7 +163,7 @@ class TablePickTest {
                 "your choices are inside\".")
     }
 
-    // D1, STK-030, STK-047, STK-151, STK-153: an engine choice of battlefield permanents is a table pick, its candidates as targets and its
+    // D1, STK-030, STK-187, STK-047, STK-151, STK-153: an engine choice of battlefield permanents is a table pick, its candidates as targets and its
     // answer the chosen cards; a choice of cards in the hand (a discard) keeps its panel
     @Test fun onlyAChoiceAmongBattlefieldPermanentsIsPickedOnTheTable() {
         val kit = EngineTableKit()

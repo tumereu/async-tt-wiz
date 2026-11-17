@@ -23,8 +23,8 @@ import kotlin.test.assertTrue
 
 /**
  * Owner playtest 2026-11-05 evening (a fetch land): the library search panel shows its source at the right as other
- * choice panels do (STK-044), says what is searched, keeps its selection while hidden with the eye, and shows the
- * searched library's other cards in an unselectable "Other cards" section (STK-056). Alice's deck holds Cinder Trails
+ * choice panels do (STK-044, STK-176), says what is searched, keeps its selection while hidden with the eye, and shows the
+ * searched library's other cards in an unselectable "Other cards" section (STK-056, STK-190). Alice's deck holds Cinder Trails
  * (a fetch-style land), Mountains and Ember Divinations.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -87,7 +87,7 @@ class LibrarySearchPanelTest {
     private fun card(name: String, chosen: Boolean = false) =
         compose.onAllNodes(hasContentDescription(if (chosen) "$name, chosen" else name) and inPanel, useUnmergedTree = true)
 
-    // STK-056, STK-044: the fetch land's search: titled by what is searched, the Trail's ability (sacrificed to pay for it)
+    // STK-056, STK-190, STK-044, STK-178: the fetch land's search: titled by what is searched, the Trail's ability (sacrificed to pay for it)
     // at the panel's right as its token, the basic lands to pick, then the library's other cards, unselectable
     @Test fun aSearchShowsItsSourceWhatIsSearchedAndTheOtherCards() {
         val kit = search()
@@ -108,7 +108,7 @@ class LibrarySearchPanelTest {
             "Alice activated her Cinder Trail (sacrificed to pay for it): the panel above her hand is titled \"Search your library for a basic land card\", the Trail's ability sits at its right as its token, the five Mountains are hers to pick and the library's other cards follow dimmed under \"Other cards\".")
     }
 
-    // STK-056, STK-044: a picked card stays picked while the panel is hidden with the eye and shown again; OK finds it
+    // STK-056, STK-044, STK-176: a picked card stays picked while the panel is hidden with the eye and shown again; OK finds it
     @Test fun aSearchKeepsItsPickWhileHidden() {
         val kit = search()
         render(kit)

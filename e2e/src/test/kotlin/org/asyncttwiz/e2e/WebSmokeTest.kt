@@ -48,7 +48,7 @@ class WebSmokeTest {
                     return count > 0;
                 }""", null, Page.WaitForFunctionOptions().setTimeout(60_000.0))
                 // WEB-007, TRN-062: a started game, opened by its address, shows its table: the opening's Keep among the quick
-                // actions (the main button greyed beside them, TRN-063)
+                // actions (the main button greyed beside them, TRN-063, TRN-116)
                 val before = ServerSetup.head(alice, started.id).engine?.localHeads?.get(alice.id)
                 page.navigate("$origin/games/${started.id}")
                 web.waitFor("#main-button", 120_000.0)

@@ -206,7 +206,7 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // HIS-096, HIS-175, HIS-179, STK-036, TRN-058 (owner 2026-11-06, spec test 2; scenario 12; regression): Alice is in Control and has an
+    // HIS-096, HIS-175, HIS-179, STK-036, STK-174, TRN-058 (owner 2026-11-06, spec test 2; scenario 12; regression): Alice is in Control and has an
     // Ember Warden; Bob ("Assume resolves" Never) casts an Idle Glimmer and her Warden's trigger goes on top: with Alice
     // holding priority over it (a point Bob's cast began) his phone waits with Assume (Never respects her Control), and the
     // game is her move: the server names her, with a "your move" notification
@@ -278,7 +278,7 @@ class ControlAssumptionsTest : E2e() {
 
     // ---- At a point they began: only their mode
 
-    // HIS-096, HIS-176, STK-036 (owner 2026-11-06, 2026-11-07): Alice is in Control and Bob's phone is on Never: after her own
+    // HIS-096, HIS-176, STK-036, STK-174 (owner 2026-11-06, 2026-11-07): Alice is in Control and Bob's phone is on Never: after her own
     // cast, with her priority kept (a point she began), his phone waits for her instead of assuming her pass
     @Test fun neverWaitsForYourPassAfterYourOwnCastInControl() {
         startGame(TestDeck.glimmers(), TestDeck.thirds(), aliceSettings = PlaySettings(mode = ResponseMode.FullControl),
@@ -297,7 +297,7 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // STK-036, HIS-096, HIS-175, HIS-176, HIS-109 (owner 2026-11-07, scenario 5; replaces 2026-11-06's branch test here): Bob in Control casts
+    // STK-036, STK-174, HIS-096, HIS-175, HIS-176, HIS-109 (owner 2026-11-07, scenario 5; replaces 2026-11-06's branch test here): Bob in Control casts
     // an Idle Glimmer and keeps priority: a point he began, so Alice's phone, though on Always, waits for him (only his
     // mode decides there); his second Glimmer is simply taken: no branch, nothing refused, nothing assumed
     @Test fun aSecondSpellWhileHoldingPriorityIsSimplyTaken() {
@@ -371,10 +371,10 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // HIS-096, HIS-175, HIS-176, STK-036, TRN-063 (owner 2026-11-07, scenarios 7c and 8): Bob in Control, Alice on Always. At Bob's end step
+    // HIS-096, HIS-175, HIS-176, STK-036, STK-174, TRN-063, TRN-111 (owner 2026-11-07, scenarios 7c and 8): Bob in Control, Alice on Always. At Bob's end step
     // with an empty Stack (his own step, nothing input in it yet: his point; his main 2 arrow taps on to it) Alice's phone
     // waits for him; so at his next upkeep with his Ember Chime's trigger on the Stack and him holding priority. Once he is
-    // in Quick and holds nothing he could use there, his end step goes on by itself: no wait with Assume. STK-036 (owner
+    // in Quick and holds nothing he could use there, his end step goes on by itself: no wait with Assume. STK-036, STK-173 (owner
     // 2026-11-07, report WDKHSB): the switch to Quick, made at his trigger, applies from the next point on: the trigger
     // waits for his Resolve
     @Test fun theirOwnStepsWaitForTheirMode() {
@@ -423,7 +423,7 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // HIS-096, HIS-177, HIS-175, SYS-063, TRN-067 (owner 2026-11-07, scenario 13; regression): Bob is in Quick and holds another Idle Glimmer;
+    // HIS-096, HIS-177, HIS-175, SYS-063, SYS-120, TRN-067 (owner 2026-11-07, scenario 13; regression): Bob is in Quick and holds another Idle Glimmer;
     // his Glimmer puts Alice's Warden trigger on top with him holding priority: his point and his pause, where his Quick
     // stops (judged on his real hand, as his own phone does: it stops for him); Alice's phone waits with Assume, and
     // nothing of his hand shows on her table
@@ -564,7 +564,7 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // STK-036, HIS-097, HIS-109, HIS-187 (owner 2026-11-07, scenario 14): Bob in Control casts an Idle Glimmer and keeps priority;
+    // STK-036, STK-174, HIS-097, HIS-109, HIS-187 (owner 2026-11-07, scenario 14): Bob in Control casts an Idle Glimmer and keeps priority;
     // Alice's phone waits (his point) and she presses Assume by hand there; Bob then casts a second Glimmer: his line
     // branches from her assumption (her note), nothing refused
     @Test fun aSecondSpellAfterAnAssumeByHandBranches() {

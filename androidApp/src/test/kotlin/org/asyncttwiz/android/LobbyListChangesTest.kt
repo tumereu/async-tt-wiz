@@ -90,7 +90,7 @@ class LobbyListChangesTest {
         } finally { controller.close(); worker.drain() }
     }
 
-    // TRN-065, LOB-046 (e2e GameEndDialogTest.aConcederWaitsAtTheTableForTheOtherPlayersOk, 2026-11-10): a changes read
+    // TRN-065, TRN-142, LOB-046 (e2e GameEndDialogTest.aConcederWaitsAtTheTableForTheOtherPlayersOk, 2026-11-10): a changes read
     // that began with the game open (its head not asked for) lands after the player left the game and opened it again,
     // its detail not read back yet: the game is still there, so it opens (the dialog over its lobby), not "no longer
     // available" with the player back on the Games list

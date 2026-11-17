@@ -57,7 +57,7 @@ class CollectEvidenceSelectionTest : E2e() {
         waitUntil("$chosen cards picked") { alice.nodes(hasContentDescription("Storm Spark, chosen") and inPanel).fetchSemanticsNodes().size == chosen }
     }
 
-    // STK-061, CR 701.59a: the panel takes any number of the cards; OK is greyed below the total and enabled from it on, for more cards too;
+    // STK-061, STK-191, CR 701.59a: the panel takes any number of the cards; OK is greyed below the total and enabled from it on, for more cards too;
     // they are exiled together and the card is drawn
     @Test fun okWaitsForTheTotalAndMoreCardsMayBePicked() {
         startGame(TestDeck.witnesses(), deal = { a, _ ->

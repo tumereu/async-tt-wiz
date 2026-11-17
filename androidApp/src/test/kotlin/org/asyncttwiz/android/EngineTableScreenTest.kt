@@ -70,7 +70,7 @@ class EngineTableScreenTest {
 
     private fun redraw() { compose.runOnIdle { version++ }; compose.waitForIdle() }
 
-    // STK-044, STK-047: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
+    // STK-044, STK-176, STK-047: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
     // Alice's hand row, white; its eye hides it and shows it again (only the eye stays). STK-025, STK-169: nothing reaches Bob
     // while the cast is open; the step arrow refuses with the card being cast shaking; the bar has no Cancel, Undo drops
     // the cast without a trace
@@ -163,7 +163,7 @@ class EngineTableScreenTest {
         }
     }
 
-    // STK-037, STK-029, TRN-063: with Bob's Storm Spark on the Stack the table is Alice's to act on: Resolve on the main
+    // STK-037, STK-029, TRN-063, TRN-113: with Bob's Storm Spark on the Stack the table is Alice's to act on: Resolve on the main
     // button, no time limit and no Hold; Resolve lets it resolve
     @Test fun atAStopResolveIsTheMainButton() {
         kit.opening()
@@ -186,7 +186,7 @@ class EngineTableScreenTest {
         assertTrue(kit.scenario.cards(kit.state(), kit.other, kit.state().player(kit.other).graveyard, "Storm Spark").isNotEmpty(), "it resolved")
     }
 
-    // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain (the main button's hold names it), never
+    // TRN-017, TRN-107, TRN-106, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain (the main button's hold names it), never
     // End turn; holding it resolves the Stack
     @Test fun holdingResolveIsTheResolveChain() {
         kit.opening()

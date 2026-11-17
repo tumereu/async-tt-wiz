@@ -464,7 +464,7 @@ class CastabilityTest : E2e() {
         activatesEngine(null) { alice.tappedCount("Pain Stone") == 1 }
     }
 
-    // STK-024, STK-154, STK-059, STK-165, TRN-065, HIS-084, HIS-200, CR 605.3a, 704.3, 704.5a (spec §5, §6.10): a lethal source only when it's the only way: the cast finishes, the
+    // STK-024, STK-154, STK-059, STK-165, TRN-065, TRN-137, HIS-084, HIS-200, CR 605.3a, 704.3, 704.5a (spec §5, §6.10): a lethal source only when it's the only way: the cast finishes, the
     // game ends when priority would next come, and Undo reaches back from there
     @Test fun aLethalSourceOnlyWhenItIsTheOnlyWayThenUndoReachesBack() {
         start(deck(TestCards.doom to 20, TestCards.spark to 20), mapOf("Doom Stone" to 1, "Storm Spark" to 1))

@@ -14,7 +14,7 @@ class LastKnownTest {
     private val alice get() = table.alice
     private val bob get() = table.bob
 
-    // CR 608.2h, CR 400.7, STK-030: a creature that died was public on the battlefield, so it is shown by what it was (its
+    // CR 608.2h, CR 400.7, STK-030, STK-183: a creature that died was public on the battlefield, so it is shown by what it was (its
     // death trigger to order names it); a card that left the hand (a hidden zone) isn't, nor is an object that still exists
     @Test fun aCreatureThatDiedIsPublicACardThatLeftTheHandIsNot() {
         val martyr = Cards.invent("Lingering Martyr", "{0}", "Creature — Elemental", "When this creature dies, you gain 2 life.", "1/1")

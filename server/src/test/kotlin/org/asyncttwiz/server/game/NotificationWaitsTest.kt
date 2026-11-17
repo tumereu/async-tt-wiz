@@ -224,7 +224,7 @@ class NotificationWaitsTest {
         f.assertMoves(f.a, f.a, "after Bob's mulligan, made again")
     }
 
-    // TRN-058, HIS-100, HIS-210, switchreview #12: an open undo request waits for the other player's answer: their move for both;
+    // TRN-058, TRN-104, HIS-100, HIS-210, switchreview #12: an open undo request waits for the other player's answer: their move for both;
     // cancelling it gives the move back
     @Test fun `an undo request is the answering player's move for both`() = withService { runtime ->
         val f = Fixture(runtime)
@@ -240,7 +240,7 @@ class NotificationWaitsTest {
         f.assertMoves(f.a, f.a, "cancelled")
     }
 
-    // TRN-058, TRN-047, TRN-049, TRN-065: a result suggestion waits for the other player's answer (their move for both);
+    // TRN-058, TRN-104, TRN-047, TRN-134, TRN-049, TRN-065, TRN-140: a result suggestion waits for the other player's answer (their move for both);
     // accepting it ends the game at once (owner 2026-11-07): back in its lobby, with the result for Alice to see
     @Test fun `a suggestion and a result not seen yet are the move of the player who must answer or see it`() = withService { runtime ->
         val f = Fixture(runtime)

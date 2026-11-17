@@ -101,7 +101,7 @@ class EngineTableScreenshotTest {
         s.player(PlayerId(f.a)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
     }
 
-    // TRN-059, TRN-068, TRN-016, TRN-017: the private toggles, and the unconfirmed mark at the main button's corner (no
+    // TRN-059, TRN-122, TRN-068, TRN-016, TRN-017: the private toggles, and the unconfirmed mark at the main button's corner (no
     // count); the main button is 112 dp wide and the three toggles share the rest of the row equally
     @Test fun assumedAnswersAndPrivateToggles() {
         val game = aliceAtMain()
@@ -134,22 +134,22 @@ class EngineTableScreenshotTest {
         cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's Assume resolves quick action set to $state: $caption")
     }
 
-    // TRN-059, HIS-096, HIS-179 (owner playtest 2026-11-05 evening, 2026-11-06): the Assume resolves quick action shows its choice
+    // TRN-059, TRN-120, HIS-096, HIS-179 (owner playtest 2026-11-05 evening, 2026-11-06): the Assume resolves quick action shows its choice
     // of Never, Normal, When they have no mana and Always, filled deep blue, violet or amber as the response mode that
     // keeps as much control
     @Test fun theAssumeQuickActionShowsNever() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Never, "Never",
         "assume-never", "filled deep blue with white words, it reads \"Assume: Never\": her device waits wherever Bob gets priority.")
 
-    // TRN-059, HIS-096, HIS-180
+    // TRN-059, TRN-120, HIS-096, HIS-180
     @Test fun theAssumeQuickActionShowsNormal() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Normal, "Normal",
         "assume-normal", "filled violet with white words, it reads \"Assume: Normal\": her device goes on where Normal mode would and waits at Bob's pauses.")
 
-    // TRN-059, HIS-096, HIS-181
+    // TRN-059, TRN-120, HIS-096, HIS-181
     @Test fun theAssumeQuickActionShowsNoMana() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana,
         "When they have no mana", "assume-no-mana",
         "filled amber with white words, it reads \"Assume: No mana\": her device also goes on at Bob's pauses while the table shows him no mana.")
 
-    // TRN-059, HIS-096, HIS-181
+    // TRN-059, TRN-120, HIS-096, HIS-181
     @Test fun theAssumeQuickActionShowsAlways() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Always, "Always",
         "assume-always", "filled red-orange with white words, it reads \"Assume: Always\": her device goes on wherever Bob gets priority after something she did.")
 
@@ -164,20 +164,20 @@ class EngineTableScreenshotTest {
         cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's response mode quick action set to ${mode.label()}: $caption")
     }
 
-    // TRN-059 (owner playtest 2026-11-06): the response mode quick action reads Control, Normal or Quick, filled deep blue,
+    // TRN-059, TRN-120 (owner playtest 2026-11-06): the response mode quick action reads Control, Normal or Quick, filled deep blue,
     // violet or amber by how much control she keeps
     @Test fun theModeQuickActionShowsControl() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.FullControl, "mode-control",
         "filled deep blue with a white icon and \"Control\": her device stops wherever she gets priority.")
 
-    // TRN-059
+    // TRN-059, TRN-120
     @Test fun theModeQuickActionShowsNormal() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.Normal, "mode-normal",
         "filled violet with a white icon and \"Normal\": her device stops at her stops and pauses.")
 
-    // TRN-059
+    // TRN-059, TRN-120
     @Test fun theModeQuickActionShowsQuick() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.AutoSkip, "mode-quick",
         "filled amber with a white icon and \"Quick\": her device also goes on where she can't respond.")
 
-    // TRN-063 (owner, 2026-11-06): an own action whose result arrives at once looks as before: no working sign, frame by
+    // TRN-063, TRN-118 (owner, 2026-11-06): an own action whose result arrives at once looks as before: no working sign, frame by
     // frame on the test clock
     @Test fun anInstantActionShowsNoWorkingSign() {
         val game = aliceAtMain()
@@ -191,7 +191,7 @@ class EngineTableScreenshotTest {
         assertTrue(game.shown!!.engine.turn.step != arcanum.api.TurnStep.PrecombatMain, "the action was made")
     }
 
-    // TRN-063 (owner, 2026-11-06): an own action still being worked out 150 ms after the press shows the working sign on the
+    // TRN-063, TRN-118 (owner, 2026-11-06): an own action still being worked out 150 ms after the press shows the working sign on the
     // main button until its result arrives, at least 300 ms
     @Test fun aSlowActionShowsTheWorkingSign() {
         val game = aliceAtMain()
@@ -223,7 +223,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("main-button-working").assertDoesNotExist()
     }
 
-    // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
+    // TRN-066, TRN-070, TRN-062, TRN-027, TRN-124, I-D56 §4, §14: after Alice's keep the game waits for Bob's; the band under his hand
     // says so and the main button holds Assume keep (TRN-004; her phone never assumes his keep by itself, HIS-096, HIS-183)
     @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
@@ -286,7 +286,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
         compose.onNodeWithContentDescription("Response mode").assertExists()
-        // TRN-059 (owner playtest 2026-11-12): the three cells stay in their places, Assume resolves greyed while catching up
+        // TRN-059, TRN-121 (owner playtest 2026-11-12): the three cells stay in their places, Assume resolves greyed while catching up
         compose.onNodeWithContentDescription("Assume resolves setting").assertIsNotEnabled()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
             "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana; nothing plays until he taps the text.")
@@ -373,7 +373,7 @@ class EngineTableScreenshotTest {
             "A new game's opening: Alice's seven cards are in her hand and her quick actions are Mulligan and Keep; nothing covers the board or asks her anything else.")
     }
 
-    // TRN-062, STK-043, CR 103.5 (owner problem report 5DDSKK): right after Alice's second mulligan the Keep / Bottom screen
+    // TRN-062, TRN-125, STK-043, CR 103.5 (owner problem report 5DDSKK): right after Alice's second mulligan the Keep / Bottom screen
     // asks for the card it puts on the bottom, with Mulligan and Keep greyed; its OK puts it there and Keep then only keeps
     @Test fun theBottomOfASecondMulliganIsTheKeepBottomScreen() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
@@ -400,7 +400,7 @@ class EngineTableScreenshotTest {
         assertEquals(6, game.device.model.engine.player(PlayerId(f.a)).hand.size, "she keeps six")
     }
 
-    // STK-029, STK-027, TRN-063 (owner 2026-11-05): in the Control response mode Alice keeps priority after casting Storm Spark: it
+    // STK-029, STK-027, TRN-063, TRN-113, TRN-115 (owner 2026-11-05): in the Control response mode Alice keeps priority after casting Storm Spark: it
     // shows on the Stack and Resolve is the main button; nothing sits under the Stack and no panel says she cast it
     @Test fun resolveIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.FullControl, alwaysAssume = true)

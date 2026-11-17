@@ -53,7 +53,7 @@ class NameACardTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-041, CR 709.4a, 201.4b, 201.4d: each name of a card is offered by itself, never both together, the restriction judged by
+    // STK-041, STK-192, CR 709.4a, 201.4b, 201.4d: each name of a card is offered by itself, never both together, the restriction judged by
     // that part alone: a split card's second half can be named, and of an instant with a land for a back only the instant's name is nonland
     @Test fun eachNameOfACardIsOfferedApart() {
         startGame(TestDeck("Muzzles", listOf(TestCards.mountain to 13, TestCards.muzzle to 13, TestCards.trailBlaze to 7, TestCards.pathCrag to 7)),

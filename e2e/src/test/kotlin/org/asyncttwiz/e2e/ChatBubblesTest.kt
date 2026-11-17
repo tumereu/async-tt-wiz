@@ -61,7 +61,7 @@ class ChatBubblesTest : E2e() {
     }
 
     // LOB-136, LOB-137 (owner, 2026-11-08): the bubble lies at Bob's life square, over whatever card lies there on Alice's
-    // table, and a tap on it reads it without touching the card under it; Bob's own bubble lies above his square. ZON-001
+    // table, and a tap on it reads it without touching the card under it; Bob's own bubble lies above his square. ZON-001, ZON-125
     // (owner, 2026-11-11): Bob's hand is a fan in his row now, so the card under the bubble is his Mountain, Alice's table
     // panned to bring his land row up to his row
     @Test fun aBubbleOverACardIsReadByATapThatTouchesNoCard() {

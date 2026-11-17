@@ -52,7 +52,7 @@ class PodBuildViewTest {
         assertEquals(6, moves.size)
     }
 
-    // DRF-099, DRF-092 (SYS-054: Maybe in the card list sections' amber, its swipe tint their brighter yellow)
+    // DRF-099, DRF-092 (SYS-054, SYS-178: Maybe in the card list sections' amber, its swipe tint their brighter yellow)
     @Test fun swipeProjectionTargetAndColourFollowTheSwipeTable() {
         assertEquals(PodPickGreen, PodDeckCategory.MAIN.podBuildColor())
         assertEquals(PodBuildBlue, PodDeckCategory.SIDE.podBuildColor())

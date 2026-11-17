@@ -1,36 +1,61 @@
 # Cross-cutting rules
 
-Rules that every feature follows: what the product is, who decides game state, how sync, errors and performance behave, version compatibility, the player-access policy and shared UI conventions.
+Rules every feature follows: product scope and principles, server authority and sync, connection and errors,
+performance, versions, the player access policy and the shared UI rules.
 
-### Product scope and principles
+## How it works
 
-- **SYS-001** A two-player cooperative tabletop for Android, Magic: The Gathering first, played by the rules: Automatum works out costs, targets, priority and resolution in every game (SYS-055), the server decides the game state, and each player makes only their own decisions, live or asynchronously (SYS-036). The app shows what happened and what each player may do now. (r49)
+Async Tabletop Wizards is a two-player tabletop for Magic: The Gathering, on Android and in a browser. Automatum plays
+every game by the rules, and each player makes only their own decisions, live or at their own pace. The server decides
+everything shared; your device shows your own actions at once as a prediction and only animates the real difference when
+the server corrects it. Edits save by themselves, connection trouble stays out of sight until it really holds up an
+action, and nothing ever rebuilds a long game from its start. Only one version of the app and the server works at a
+time: an older app only asks to be updated. Hidden information is hidden on screen, and every screen follows the same
+menu, dialog, button and card-list conventions.
+
+## Product scope and principles
+
+- **SYS-001** A two-player cooperative tabletop for Android and the web client, Magic: The Gathering first, played by the rules: Automatum works out costs, targets, priority and resolution in every game (SYS-055), the server decides the game state, and each player makes only their own decisions, live or asynchronously (SYS-036). The app shows what happened and what each player may do now. (r49)
+- **SYS-055** Every game is played with Automatum: there is no Automatum switch, and every play of every game, pod challenges included, has Automatum from its first state (both opening hands drawn, TRN-062); cards show the values Automatum works out (TBL-112, TBL-113). (r45)
 - **SYS-002** Change only what was requested: a player's action does what the rules make of it and nothing more, and a card's name never decides anything. (r49)
 - **SYS-003** Finished edits save and sync automatically. There is no Send button (chat messages excepted), no required explanation and no routine confirmation. (r1)
 - **SYS-004** Each history event is one acting point (HIS-092): one player action with everything that then happens by itself; it undoes as one (HIS-085). (r49)
-- **SYS-005** Personal UI state stays on the device and is never shared: camera, open menus, timeline review position, playback and card-size settings. Kept on the server for you alone: your local head (HIS-032) and your Assume resolves and Autotap (TRN-059); your response mode (also as changed in playback) is kept there too, and the other player's phone learns it (STK-036). (r57)
 
-### Server authority and sync
+## Server authority and sync
 
 - **SYS-007** The server decides all shared game, lobby and history state, Undo and undo requests included. The app applies your own actions locally right away as a prediction; an undo request's answer is never local. (r48)
 - **SYS-008** The app sends actions in order and keeps several in flight without waiting for replies; the server takes them in arrival order. A refused action also drops the player's later actions made on top of it: the board shows where the game is and the player acts again (SYS-012). (r49)
 - **SYS-009** When the server corrects a prediction, only the real difference animates. Accepted moves and still-valid local moves stay where they are, with no visible rewind and replay. (r1)
 - **SYS-010** A player action that needs several engine inputs (a cast with its choices and payment) goes to the server as one submission, taken or refused whole, and becomes one event (HIS-092). (r49)
+- **SYS-073** The server takes gameplay only as engine inputs (each player's own, the assumed answers HIS-096 allows, engine-automatic answers, random answers checked against the line's stream, HIS-042) and table changes (combat staging, result suggestions and their answers, each player's OK on a result the rules gave and its take-back (TRN-065), your own early answers). (r48)
+- **SYS-170** Undo, undo requests and their answers, chat and conceding reach the server as separate requests; conceding (TRN-064) needs nobody's agreement and is always taken. (r48)
+- **SYS-053** The server refuses any action the rules don't allow, never ignoring it silently. (r62)
+- **SYS-171** The app doesn't offer actions the rules don't allow: what you can do, or seem to be able to do, glows (TBL-117) and the rest is greyed or shakes (TBL-118); something that only seemed possible is said at its last step, in the cast panel with Cast greyed (STK-024); a refusal that still happens shakes what it was made on (SYS-012). (r62)
 
-### A move made on an out-of-date board
+## What stays personal
 
+- **SYS-005** Personal UI state stays on the device and is never shared: camera, open menus, timeline review position, playback and card-size settings. (r57)
+- **SYS-172** Kept on the server for you alone: your local head (HIS-032) and your Autotap setting (TRN-059). (r57)
+- **SYS-173** Your Assume resolves setting (TRN-059) is kept on the server and sent to the other player's device, which uses it to work out whose move it is and never shows it; Autotap is not sent. Your response mode (also as changed in playback) is kept there too, and the other player's phone learns it (STK-036). (r57)
 
-### Connection
+## Player access policy
+
+- **SYS-036** Gameplay is the rules': each player makes their own decisions (their casts, passes, answers, declarations); the other player's answers may only be assumed where HIS-096 allows, and are confirmed or branched by their real answer. Hidden information stays hidden. (r48)
+- **SYS-037** The only allowed differences between players: quick actions and defaults fit the acting player, and hidden information the opponent owns is not shown. (r48)
+- **SYS-038** These rules still hold: only game members act, you undo only back to your own actions (past the other player's, their passes aside, only by an undo request, HIS-099), and personal proposals belong to their author (withdrawing a result suggestion). (r48)
+- **SYS-039** The app hides hidden information on screen only, a deliberate trust-the-client choice. Inspection never shows a hidden side, nor the value of the other player's secret choice before it is revealed (TBL-133). (r76)
+
+## Connection
 
 - **SYS-013** Playing and viewing a game need a connection; there is no offline queue of actions and no offline mode. An action made while the connection is briefly lost waits up to 3 s and is sent once, as soon as the connection is back. (r1)
+- **SYS-016** Losing the connection shows nothing by itself. Only when an action has waited that long (SYS-013) for the server does "Reconnecting…" / "Game actions unavailable." appear, with a "Back to games list" button; from then on actions are refused until the connection is back. The dialog can be dismissed; you stay on the table and actions are still refused. (r1)
 - **SYS-014** After a reconnect, actions that were already sent are recovered automatically: no duplicates and no manual resend. If the app process dies, it restarts from the server's state, and actions it had not sent yet may be lost. (r1)
 - **SYS-015** Recovery from missed updates is automatic. There is no manual "download history" or resync button. (r15)
-- **SYS-016** Losing the connection shows nothing by itself. Only when an action has waited 3 s for the server does "Reconnecting…" / "Game actions unavailable." appear, with a "Back to games list" button; from then on actions are refused until the connection is back. The dialog can be dismissed; you stay on the table and actions are still refused. (r1)
 - **SYS-017** Opening a game shows "Loading table…" until the table loads or really fails. It never flashes "Table unavailable" first. A game this device can't load says "This game can't be opened on this device. Send a problem report from the menu." instead of reconnecting over and over. (r50)
 - **SYS-018** Lobby buttons stay enabled while the app reconnects. A tap waits for the connection and then goes through. (r21)
 - **SYS-019** Coming back from the background never bounces or jumps the layout, and the interruption itself shows no error. (r7)
 
-### Connection failures and errors
+## Failures and errors
 
 - **SYS-020** Automatic refreshes of data already on screen fail silently and keep the shown data. After 30 s of continuous failures, a calm "Can't reach the server · retrying" note appears; taps pass through it, and it disappears on the next success. (r22)
 - **SYS-021** A first load (nothing on screen yet) keeps its loading indicator and retries quietly for about 10 s before it shows Retry. (r22)
@@ -38,52 +63,54 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-023** Background checks never show loaders or spinners that push content around. Player edits such as settings hide the wait: no views are disabled while saving. (r17)
 - **SYS-024** Real errors appear as a floating message, never as inline red text that shifts the layout (fixed form slots excepted). A first load shows a full-area placeholder, the layout keeps the same geometry when its state changes, and list order stays stable. (r15)
 
-### Performance
+## Performance
 
 - **SYS-025** Every action, Undo included, shows its result locally before the server answers: under 20 ms from input to applied state, with 80 ms as the hard ceiling. Waiting on the server for a visible result is a bug (an undo request's answer comes from the other player). (r48)
 - **SYS-026** Games reach 10,000+ actions. Normal play, sync, navigation, undo and saving never replay or rebuild from the start of the game: a state comes from the nearest checkpoint (at most 63 events back) and the events after it. (r48)
 - **SYS-027** Every event stores exactly how to apply and revert it, checked against the current values. Timeline stepping, undo and opponent animations move step by step from the current position. (r6)
 - **SYS-028** Background lobby refreshes never redraw the open game table. (r30)
-- **SYS-075** The games list is kept current from lightweight summaries: the first read and each return to the app read the whole list, and between them only the games changed since the last read are fetched (ended or declined games drop out). While a game is open nothing else of the list is read, and only the open game is loaded as a game on the device; the others are summaries until opened. (r50)
+- **SYS-075** The games list is kept current from lightweight summaries: the first read and each return to the app read the whole list, and between them only the games changed since the last read are fetched (ended or declined games drop out). (r50)
+- **SYS-174** While a game is open nothing else of the games list is read, and only the open game is loaded as a game on the device; the others are summaries until opened. (r50)
 - **SYS-029** Every single-tap menu opens immediately, without waiting out the double-tap window. (r8)
-- **SYS-030** Test and debug builds record every action that took over 20 ms or had to wait for the server, plus stutters and reconnects, and upload them as reports. Production builds do the same only after the player turned reports on (LOB-104). (r35)
+- **SYS-030** Test and debug builds record every action that took longer than SYS-025's target or had to wait for the server, plus stutters and reconnects, and upload them as reports. Production builds do the same only after the player turned reports on (LOB-104). (r35)
 
-### Versions and compatibility
+## Versions and compatibility
 
-- **SYS-031** Games carry no rules version: events are stored in the engine's own format, which the one current app and server read (SYS-033); a format change that old games can't be read in removes them, only with the owner's permission. Event texts and icons are made by the app (HIS-091, HIS-070). (r49)
-- **SYS-032** Only the current app and server work together (SYS-033): an app older than the server shows only the update screen (LOB-084; in a game first "Update the app to continue this game"), and an app newer than the server (a release not yet installed on it) shows "Server update pending" and retries every 30 s. (r60)
 - **SYS-033** Only one compatible set of apps and server is kept working: the server serves only the current app protocol and rules, so a server change may require the newest app, and older apps then only show the update screen (SYS-032). (r35)
+- **SYS-032** Only the current app and server work together (SYS-033): an app older than the server shows only the update screen (LOB-084; in a game first "Update the app to continue this game"), and an app newer than the server (a release not yet installed on it) shows "Server update pending" and retries every 30 s. (r60)
+- **SYS-031** Games carry no rules version: events are stored in the engine's own format, which the one current app and server read (SYS-033); a format change that old games can't be read in removes them, only with the owner's permission. Event texts and icons are made by the app (HIS-091, HIS-070). (r49)
 - **SYS-034** An event kind or icon the app can't show never crashes it; it shows a fallback (HIS-074). (r60)
 - **SYS-035** If local data was written by a newer app, the app says "Local data needs a newer app. Update the app without uninstalling." It never erases local data when storage fails to open. (r1)
-- **SYS-052** If the server can't read one saved game, pod, pod preset or card (e.g. after an update changed its format), or one saved game fails its damage check at startup, only that item is affected: it is left out of its list, opening it fails like a temporary server problem, and an unreadable pending action is refused. The server still starts, everything else carries on, nothing is deleted or rewritten, and the item is logged. (r35)
-- **SYS-053** The server refuses any action the rules don't allow, never ignoring it silently. The app doesn't offer such actions: what you can do, or seem to be able to do, glows (TBL-117) and the rest is greyed or shakes (TBL-118); something that only seemed possible is said at its last step, in the cast panel with Cast greyed (STK-024); a refusal that still happens shakes what it was made on (SYS-012). (r62)
+- **SYS-052** If the server can't read one saved game, pod, pod preset or card (e.g. after an update changed its format), or one saved game fails its damage check at startup, only that item is affected: it is left out of its list, opening it fails like a temporary server problem, and an unreadable pending action is refused. (r35)
+- **SYS-175** With such an unreadable or damaged item the server still starts, everything else carries on, nothing is deleted or rewritten, and the item is logged. (r35)
 
-### Automatum
+## Menus and popups
 
-- **SYS-055** Every game is played with Automatum: there is no Automatum switch, and every play of every game, pod challenges included, has Automatum from its first state (both opening hands drawn, TRN-062); cards show the values Automatum works out (TBL-112, TBL-113). (r45)
-- **SYS-073** The server takes gameplay only as engine inputs (each player's own, the assumed answers HIS-096 allows, engine-automatic answers, random answers checked against the line's stream, HIS-042) and table changes (combat staging, result suggestions and their answers, each player's OK on a result the rules gave and its take-back (TRN-065), your own early answers). Undo, undo requests and their answers, chat and conceding are separate requests; conceding (TRN-064) needs nobody's agreement and is always taken. (r48)
-
-### Player access policy
-
-- **SYS-036** Gameplay is the rules': each player makes their own decisions (their casts, passes, answers, declarations); the other player's answers may only be assumed where HIS-096 allows, and are confirmed or branched by their real answer. Hidden information stays hidden. (r48)
-- **SYS-037** The only allowed differences between players: quick actions and defaults fit the acting player, and hidden information the opponent owns is not shown. (r48)
-- **SYS-038** These rules still hold: only game members act, you undo only back to your own actions (past the other player's, their passes aside, only by an undo request, HIS-099), and personal proposals belong to their author (withdrawing a result suggestion). (r48)
-- **SYS-039** The app hides hidden information on screen only, a deliberate trust-the-client choice. Inspection never shows a hidden side, nor the value of the other player's secret choice before it is revealed (TBL-133). (r76)
-- **SYS-040** Menu actions are always shown and are disabled when they don't apply. An action is replaced only by its state twin (Mute ↔ Unmute, Hide ↔ Show). Each menu context has one fixed layout with no hidden buttons and no empty slots. (r28)
-
-### Shared UI rules
-
-- **SYS-042** Every context menu on the game table is one floating popup: square, opaque, bordered buttons with a light shadow on the board, with no sheet, title or Close button. Tapping outside or pressing Back dismisses it; only buttons and chips count as inside (gaps are outside), and outside taps also pass through to the table. The phase dialog (TRN-008) is a dialog instead. Menus outside a game (lobby, pods) are ordinary drop-down menus. (r11)
+- **SYS-042** Every context menu on the game table is one floating popup: square, opaque, bordered buttons with a light shadow on the board, with no sheet, title or Close button. The phase dialog (TRN-008) is a dialog instead. Menus outside a game (lobby, pods) are ordinary drop-down menus. (r11)
+- **SYS-176** Tapping outside a game table popup or pressing Back dismisses it; only buttons and chips count as inside (gaps are outside), and outside taps also pass through to the table. (r11)
 - **SYS-043** Only one popup can be open at a time; tapping with several fingers never opens more. (r19)
+- **SYS-040** Fixed menus (Table actions and the like) always show their actions, disabled when they don't apply; an action is replaced only by its state twin (Mute ↔ Unmute, Hide ↔ Show). Each such menu context has one fixed layout with no hidden buttons and no empty slots. (r28)
+- **SYS-177** A card menu that would hold nothing opens no menu (TBL-116), and a tap on another player's permanent opens nothing unless Automatum lets you activate one of its abilities now (TBL-124). (r28)
+
+## Buttons, dialogs and gestures
+
 - **SYS-044** Every custom button shows press feedback. (r4)
 - **SYS-045** Holding a short-label button shows its full name in a tooltip above the button (below it near the top edge), never under the finger. (r3)
 - **SYS-046** Value controls everywhere use "− [value] +" with one square value field. (r13)
 - **SYS-047** Input dialogs focus their field, select its text and show the keyboard. The keyboard's Enter key does what the screen's main button does (sign in, search, send a chat message, save a name or a value); where search runs as you type, it just closes the keyboard. (r24)
 - **SYS-048** Dialogs on regular screens share one style: a title, a close button and Cancel/main action buttons, never a lone left button. Gameplay, inspect and special popups are excluded. (r21)
-- **SYS-049** Every hold to inspect behaves like the in-game one (TBL-104): it opens at once, closes on release (unless pinned in a game, TBL-131), and early finger movement goes to the scroll or swipe underneath. (r55)
+- **SYS-049** Every hold to inspect behaves like the in-game one (TBL-104): it opens after a short still hold, not at once (in a game after TBL-047's hold, elsewhere after DRF-063's), closes on release (unless pinned in a game, TBL-131), and early finger movement goes to the scroll or swipe underneath. (r55)
 - **SYS-050** System Back first closes open menus, dialogs, panels and modes. It never undoes game actions. On the bare table, leaving needs a second Back within 2 s ("Press back again to leave"). Top-level menu destinations reset the back stack. (r30)
+
+## Card lists
+
 - **SYS-051** Shared card type order: Creatures, Planeswalkers, Battles, Instants, Sorceries, Artifacts, Enchantments, Lands, Other. A card joins the first type its front type line names. Every grouping of cards by type uses it: deck preparation (LOB-047), saved decks and cubes (LOB-056), the card list editor (LOB-105), Prepare cube (DRF-141) and the graveyard/exile view (ZON-037). (r35)
-- **SYS-054** Each card list section has one colour everywhere it appears (section headers, the destination buttons, the search result squares and swipe tints): Main green and Side blue, as in the preparation headers (LOB-047), and Maybe yellow, a darker amber where yellow text would be hard to read on a light background. Amber is used for Maybe text, outlines and chips; yellow only for the translucent swipe tint. (r35)
-- **SYS-083** One swipe rule wherever cards move between sections (the card list editor LOB-105, deck preparation LOB-048, Build DRF-099 and its review DRF-108, Prepare cube DRF-141): a swipe right moves a card one section up and a swipe left one down, in the order Main, Side, Maybe, wrapping (right from Main goes to Maybe, left from Maybe to Main); with two sections either way goes to the other. The draft pick screen's keep / burn swipes (DRF-058) are no section moves. (r62)
+- **SYS-054** Each card list section has one colour everywhere it appears (section headers, the destination buttons, the search result squares and swipe tints): Main green and Side blue, as in the preparation headers (LOB-047), and Maybe yellow, a darker amber where yellow text would be hard to read on a light background. (r35)
+- **SYS-178** For Maybe, amber is used for text, outlines and chips; yellow only for the translucent swipe tint. (r35)
+- **SYS-083** One swipe rule wherever cards move between sections (the card list editor LOB-105, deck preparation LOB-048, Build DRF-099 and its review DRF-108, Prepare cube DRF-141): a swipe right moves a card one section up and a swipe left one down, in the order Main, Side, Maybe, wrapping (right from Main goes to Maybe, left from Maybe to Main); with two sections either way goes to the other. (r62)
+- **SYS-179** The draft pick screen's keep / burn swipes (DRF-058) are no section moves. (r62)
+
+## Screen edges
+
 - **SYS-079** The status bar is always hidden. On a phone that uses button navigation (three or two buttons) the navigation bar (back, home, recents) shows on every screen except the game table, which keeps it hidden (a swipe from the edge shows it for a moment); screens leave room for it. With gesture navigation it stays hidden everywhere. (r55)
 - **SYS-085** Settings → Table has an "Edge to edge" switch (off by default, saved on the device): on, the game table also takes the strip of the screen around the camera (the display cutout), in portrait and landscape; off, the table keeps out of it. Other screens always keep out of it. (r64)

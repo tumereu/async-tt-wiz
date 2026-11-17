@@ -21,7 +21,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.*
 import kotlin.math.roundToInt
 
-/** How far drawn bounds (snapped to whole pixels, 1 dp at mdpi) may lie from the scene's (ZON-001: fanned cards at fractions). */
+/** How far drawn bounds (snapped to whole pixels, 1 dp at mdpi) may lie from the scene's (ZON-001, ZON-125: fanned cards at fractions). */
 private const val PIXEL = 1f
 
 @RunWith(RobolectricTestRunner::class)
@@ -62,7 +62,7 @@ class TableMotionRuntimeTest {
         node.assertIsDisplayed()
         val during = node.fetchSemanticsNode().boundsInRoot
         assertTrue(travelMillis < MAX_CARD_MOVE_DURATION_MILLIS, "This short draw must arrive before the scene ends")
-        // ZON-001: the other player's fanned hand cards lie at fractions of a dp; the drawn bounds snap to whole pixels
+        // ZON-001, ZON-125: the other player's fanned hand cards lie at fractions of a dp; the drawn bounds snap to whole pixels
         assertEquals(target.bounds.x, during.left, PIXEL)
         assertEquals(target.bounds.y, during.top, PIXEL)
         // Confirmation metadata must not restart a short move that has already arrived while
@@ -123,7 +123,7 @@ class TableMotionRuntimeTest {
             val lefts = compose.onAllNodesWithContentDescription(next.label).fetchSemanticsNodes().map { it.boundsInRoot.left }
             if (jump) assertTrue(lefts.any { kotlin.math.abs(it - next.bounds.x) < PIXEL })
             else {
-                // ZON-001: the card drawn into the other player's fan flies past from their library, left of it: any card
+                // ZON-001, ZON-125: the card drawn into the other player's fan flies past from their library, left of it: any card
                 // of the hand between the survivor's two places is the survivor
                 assertTrue(lefts.any { it > minOf(old.bounds.x, next.bounds.x) && it < maxOf(old.bounds.x, next.bounds.x) },
                     "$owner hand must still be sliding: $lefts, ${old.bounds.x} → ${next.bounds.x}")

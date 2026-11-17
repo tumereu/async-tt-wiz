@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 
 /**
  * Owner question, 2026-11-12: choosing a card from the other player's hand, now that their hand is a fan in their row on
- * the table (ZON-001). Alice casts an Ember Extraction ("Target opponent reveals their hand. You choose a nonland card from
+ * the table (ZON-001, ZON-125). Alice casts an Ember Extraction ("Target opponent reveals their hand. You choose a nonland card from
  * it. That player discards that card.") at Bob: her choice panel shows his hand's nonland cards as cards, the one she picks
  * is discarded into his graveyard on both tables, and Bob sees what happened.
  */
@@ -23,7 +23,7 @@ class HandChoiceTest : E2e() {
     private fun houndsInGraveyard(player: E2ePlayer) =
         player.state.player(bob.me).graveyard.count { cardName(player.state, it) == "Cinder Hound" }
 
-    // ZON-001, STK-030, STK-044: the caster chooses from the revealed hand in her panel; the card picked is discarded
+    // ZON-001, ZON-127, STK-030, STK-044: the caster chooses from the revealed hand in her panel; the card picked is discarded
     @Test fun theCasterChoosesACardFromTheOtherPlayersHandToDiscard() {
         startGame(TestDeck("Extractions", listOf(TestCards.mountain to 20, TestCards.extraction to 20)),
             TestDeck("Hounds", listOf(TestCards.mountain to 20, TestCards.hound to 20)),

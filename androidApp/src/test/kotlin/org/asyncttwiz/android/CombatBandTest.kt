@@ -537,7 +537,7 @@ class CombatBandTest {
             "In landscape Alice tapped her ready Ember Cub: the band between the battlefields (across the whole width, the Stack at its right end) holds its copy in the lane aimed at Bob, zoomed with the battlefields, and the main button reads Attack (1).")
     }
 
-    // CMB-007, CMB-054, ZON-001, TRN-034 (owner, 2026-11-11): on a smaller phone (393×851 dp) the open band pushes Bob's battlefield
+    // CMB-007, CMB-054, ZON-001, ZON-125, TRN-034 (owner, 2026-11-11): on a smaller phone (393×851 dp) the open band pushes Bob's battlefield
     // up; with his hand a fan in his life and pile row (no row of its own) and Alice's row trimmed, his land still shows whole
     // under his row (on master it ended partly under his hand row)
     @Config(qualifiers = "w393dp-h851dp-port-mdpi")

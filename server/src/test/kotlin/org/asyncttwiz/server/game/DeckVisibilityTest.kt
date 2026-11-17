@@ -148,7 +148,7 @@ class DeckVisibilityTest {
         f.select(a2, x); assertTrue(f.shown(a2))
     }
 
-    // SYS-052
+    // SYS-052, SYS-175
     @Test fun `finishing a game still reveals decks when another lobby game of the pair can't be read`() = fixture { f ->
         val x = f.deck(f.a, "Deck X"); val bDeck = f.deck(f.b, "Deck B")
         val (a1, b1) = f.game(f.a, f.b)

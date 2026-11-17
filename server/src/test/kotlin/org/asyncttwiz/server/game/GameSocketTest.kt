@@ -560,7 +560,7 @@ class GameSocketTest {
         }
     }
 
-    // SYS-052
+    // SYS-052, SYS-175
     @Test fun `an unreadable unpublished revision is skipped and later revisions still reach subscribers`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val config = settings(db)

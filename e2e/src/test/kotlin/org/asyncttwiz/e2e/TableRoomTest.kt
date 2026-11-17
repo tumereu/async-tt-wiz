@@ -28,7 +28,7 @@ class TableRoomTest : E2e() {
     private fun backs(player: E2ePlayer, owner: E2ePlayer) =
         player.nodes(hasContentDescription("Covered card, owner ${owner.name}, ", substring = true)).fetchSemanticsNodes().map { it.boundsInRoot }
 
-    // ZON-001, TRN-034, HIS-110: on Alice's table Bob's hand is a fan of card backs in his row, after his piles and level with
+    // ZON-001, ZON-125, ZON-127, TRN-034, HIS-110: on Alice's table Bob's hand is a fan of card backs in his row, after his piles and level with
     // his life square, his battlefield starting under that row; Alice casts Ember Exposure ("Target player reveals their
     // hand") at Bob: his hand's cards open in her reveal panel, the fan stays in his row
     @Test fun theOtherPlayersHandIsAFanInTheirRowAndItsRevealOpensInAPanel() {

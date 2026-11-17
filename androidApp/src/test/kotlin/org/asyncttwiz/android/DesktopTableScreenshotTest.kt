@@ -448,7 +448,7 @@ class DesktopTableScreenshotTest {
         val bobsHand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.b }
         assertTrue(bobsHand.isNotEmpty() && bobsHand.all { it.bounds.y >= DesktopTable.FLOAT - DesktopTable.SEAT && it.bounds.bottom <= DesktopTable.FLOAT },
             "Bob's hand in his seat header's row")
-        // WEB-016, ZON-001 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): Bob's hand is
+        // WEB-016, ZON-001, ZON-126 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): Bob's hand is
         // the phone's small fan of card backs after his piles, its cards the piles' size times FAN_CARD, turned and overlapping,
         // its count at its right
         assertTrue(scene.items.single { it.kind == TableItemKind.HAND && it.owner == kit.f.b }.handFan, "Bob's hand drawn as a fan")

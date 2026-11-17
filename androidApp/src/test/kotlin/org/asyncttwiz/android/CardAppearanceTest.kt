@@ -90,7 +90,7 @@ class CardAppearanceTest {
                 val pileScale = if (barPile) minOf(scale, .8f) else scale
                 val fan = item.cardTransform
                 if (fan != null) {
-                    // ZON-001: the other player's hand in portrait is a fan in their row, its cards the piles' size times FAN_CARD
+                    // ZON-001, ZON-125: the other player's hand in portrait is a fan in their row, its cards the piles' size times FAN_CARD
                     assertTrue(!landscape && item.owner != f.a, item.id)
                     assertEquals(28f * scale * TablePresentation.FAN_CARD, fan.width, .001f, item.id)
                     assertEquals(40f * scale * TablePresentation.FAN_CARD, fan.height, .001f, item.id)

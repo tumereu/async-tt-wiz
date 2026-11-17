@@ -514,7 +514,7 @@ class AuthorityTest {
         assertEquals(1, server.state().engine.stack.size, "the spell waits on the Stack again")
     }
 
-    // SYS-053: the server refuses an action the rules don't allow (a second land in a turn) with a message saying why,
+    // SYS-053, SYS-171: the server refuses an action the rules don't allow (a second land in a turn) with a message saying why,
     // never taking it silently; the device's options, which the app offers, don't list it
     @Test
     fun anActionTheRulesDontAllowIsRefusedWithItsReason() {

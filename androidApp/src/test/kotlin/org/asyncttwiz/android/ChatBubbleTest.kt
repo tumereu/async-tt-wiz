@@ -110,7 +110,7 @@ class ChatBubbleTest {
         val at = compose.onNode(bubble).fetchSemanticsNode().boundsInRoot
         fun bobsCards() = compose.onAllNodes(hasContentDescription(", owner Bob, ", substring = true)).fetchSemanticsNodes()
             .map { it.boundsInRoot }
-        // ZON-001: Bob's hand is a fan in his row, clear of the bubble: the table is panned to bring a card of his
+        // ZON-001, ZON-125: Bob's hand is a fan in his row, clear of the bubble: the table is panned to bring a card of his
         // battlefield under it
         val card = bobsCards().first { it.top > at.bottom }
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(card.center.x - at.center.x, card.center.y - at.center.y))

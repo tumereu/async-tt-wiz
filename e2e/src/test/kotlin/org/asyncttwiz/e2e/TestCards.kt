@@ -254,7 +254,7 @@ object TestCards {
     val glance = card("Ember Glance", "Sorcery", "{0}", "Look at target player's hand.")
     /** A free sorcery revealing the target player's hand (LOB-135: held back unless "Allow assumes that reveal hands"). */
     val exposure = card("Ember Exposure", "Sorcery", "{0}", "Target player reveals their hand.")
-    /** A free sorcery whose caster chooses a card from the other player's revealed hand for them to discard (STK-030, ZON-001). */
+    /** A free sorcery whose caster chooses a card from the other player's revealed hand for them to discard (STK-030, ZON-001, ZON-127). */
     val extraction = card("Ember Extraction", "Sorcery", "{0}",
         "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.")
     /** A free sorcery revealing the target player's top two library cards (LOB-135: let through by default). */

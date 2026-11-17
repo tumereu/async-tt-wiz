@@ -149,7 +149,7 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
-    // ZON-001, WEB-016 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): on Alice's desktop
+    // ZON-001, ZON-126, WEB-016 (owner, desktop playtest 2026-11-14: "Opponent hand should be a fan like in mobile?"): on Alice's desktop
     // table Bob's hand is the phone's small fan of card backs in his seat header, after his piles and level with his life
     // square, its cards overlapping (a row of small cards side by side before)
     @Test fun theOtherPlayersHandIsAFanInTheirSeatHeader() {

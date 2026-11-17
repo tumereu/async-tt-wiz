@@ -180,7 +180,7 @@ class CatalogCardSearchTest {
         assertEquals("Tide Watcher // Deep Horror", dawnCard.shownName)
     }
 
-    // LOB-142: what a listed card's filter needs and its record doesn't hold; nothing for what search doesn't know
+    // LOB-142, LOB-218: what a listed card's filter needs and its record doesn't hold; nothing for what search doesn't know
     @Test fun searchDataGivesEachPrintingsCardAsSearchKnowsIt() {
         val stray = CatalogPrinting("stray", "Stray", "AAA", "1", "English", "", null, false, emptyList(), "{}")
         assertTrue(repo().searchData(listOf(stray)).isEmpty(), "no card records yet")

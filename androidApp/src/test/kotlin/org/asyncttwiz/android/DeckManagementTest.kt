@@ -77,7 +77,7 @@ class DeckManagementTest {
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = false
         fun drain() { while (queue.isNotEmpty()) queue.removeAt(0).run() }
     }
-    // LOB-055
+    // LOB-055, LOB-210
     @Test fun draftDecksListSeparatelyAndSaveAsDeckOpensAnIndependentCopyKeepingOneRequestIdentity() {
         val api = Api(); val worker = Worker()
         val draft = SavedDeck(summary.copy(id = UUID.randomUUID().toString(), name = "Friday pod draft",
@@ -102,7 +102,7 @@ class DeckManagementTest {
             assertEquals(listOf(draft.deck), controller.state.draftDecks)
         } finally { controller.close(); worker.drain() }
     }
-    // LOB-055
+    // LOB-055, LOB-211
     @Test fun draftDeckPresentationNamesTheLimitAndShowsThePodOnlyWhenTheNameHidesIt() {
         assertEquals("DRAFT DECKS (7 / 20)", draftDecksHeading(7))
         assertTrue(DRAFT_DECKS_EXPLANATION.contains("newest 20"))

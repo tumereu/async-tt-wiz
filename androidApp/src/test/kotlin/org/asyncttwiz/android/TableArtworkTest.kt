@@ -54,7 +54,7 @@ class TableArtworkTest {
         assertNotEquals(CardArtworkRequest(full, 100, 140).key, CardArtworkRequest(full.forTable(), 100, 140).key)
     }
 
-    // LOB-097: one picture per printing, face and size, whichever card definition or screen asks for it.
+    // LOB-097, LOB-236: one picture per printing, face and size, whichever card definition or screen asks for it.
     @Test fun twoDefinitionsOfOnePrintingShareTheirPicture() {
         val face = DefinitionFace("front", "Front", scryfallId = printing)
         val first = CardDefinition("Card", listOf(face))

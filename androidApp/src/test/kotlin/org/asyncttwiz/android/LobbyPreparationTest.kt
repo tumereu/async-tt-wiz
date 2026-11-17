@@ -161,7 +161,7 @@ class LobbyPreparationTest {
         }
     }
 
-    // LOB-040, LOB-055
+    // LOB-040, LOB-055, LOB-210
     @Test fun draftDecksArePlayableAndListedAfterOrdinaryDecksUnderTheirOwnHeading() = Fixture().use { f ->
         val draft = source.copy(deck = source.deck.copy(id = id(), name = "Friday pod draft", draft = DraftDeckOrigin(id(), "Friday pod")))
         f.decks = listOf(source); f.draftDecks = listOf(draft)

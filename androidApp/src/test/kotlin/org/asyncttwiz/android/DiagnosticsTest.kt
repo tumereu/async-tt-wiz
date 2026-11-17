@@ -27,7 +27,7 @@ class DiagnosticsTest {
 
     @Before fun unasked() { store.choice = ReportChoice.UNASKED }
 
-    // SYS-030, LOB-090, LOB-104
+    // SYS-030, LOB-090, LOB-104, LOB-232
     @Test fun testBuildsAlwaysReportAndProductionOnlyAfterTheDeviceOptedIn() {
         for (choice in ReportChoice.entries) assertTrue(Diagnostics.enabledFor(alwaysOn = true, choice))
         assertFalse(Diagnostics.enabledFor(alwaysOn = false, ReportChoice.UNASKED))
@@ -76,7 +76,7 @@ class DiagnosticsTest {
         compose.runOnIdle { assertEquals(listOf(true, false), answers) }
     }
 
-    // LOB-104
+    // LOB-104, LOB-232
     @Test fun productionSettingsSwitchStartsOffAndSavesTheChoice() {
         compose.setContent { ScreenTheme { ReportsSetting(alwaysOn = false) } }
         val row = compose.onNodeWithTag("reports-setting")
@@ -88,14 +88,14 @@ class DiagnosticsTest {
         assertEquals(ReportChoice.OFF, store.choice)
     }
 
-    // LOB-090, LOB-104
+    // LOB-090, LOB-104, LOB-232
     @Test fun testBuildSettingsSwitchIsAlwaysOn() {
         compose.setContent { ScreenTheme { ReportsSetting(alwaysOn = true) } }
         compose.onNodeWithTag("reports-setting").assertIsOn().assertIsNotEnabled()
         compose.onNodeWithText("Always on in test builds").assertIsDisplayed()
     }
 
-    // LOB-104
+    // LOB-104, LOB-232
     @Test fun turningReportsOffDeletesEveryUnsentReport() {
         val directory = temporary.newFolder()
         val reports = CrashReportStore(directory)

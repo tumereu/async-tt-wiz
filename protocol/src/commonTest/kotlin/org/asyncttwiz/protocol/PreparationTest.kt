@@ -45,7 +45,7 @@ class PreparationTest {
         assertNull(before.players[0].deck) // Original accepted base was not mutated.
     }
 
-    // LOB-047, LOB-141: Maybe comes along to the game (outside the game with Side) after Main and Side, which keep their card
+    // LOB-047, LOB-227, LOB-141: Maybe comes along to the game (outside the game with Side) after Main and Side, which keep their card
     // ids; its card records are needed too. Preparation moves cards between Main and Side only: a Maybe card stays.
     @Test fun maybeCardsComeAlongAfterMainAndSideAndStayWhereTheyAre() {
         val considered = CardDefinition("Considered", listOf(DefinitionFace(id(22), "Considered")), printingId = id(22))
@@ -73,7 +73,7 @@ class PreparationTest {
         assertNotNull(PreparationRules.capture(state, actor, submitted.digest, SavedDeckSection.SIDEBOARD, all = true))
     }
 
-    // Owner 2026-11-10, LOB-115: a deck's cards are its printings' as the catalog builds them; a card without a printing
+    // Owner 2026-11-10, LOB-115, LOB-223: a deck's cards are its printings' as the catalog builds them; a card without a printing
     // (or a printing nothing was built for) keeps the deck from being chosen
     @Test fun aDeckIsChosenWithItsPrintingsCardsOnly() {
         val selected = select().state!!

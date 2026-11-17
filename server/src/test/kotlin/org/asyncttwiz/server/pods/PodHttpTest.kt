@@ -1506,7 +1506,7 @@ class PodHttpTest {
         assertEquals(listOf("TWL"), f.get(f.a, pod).source.packSets)
     }
 
-    // DRF-162, SYS-082 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
+    // DRF-162, SYS-082, SYS-204 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
     // marks, and a set its catalog doesn't have to draft
     @Test fun `a set the catalog's marks say can't be drafted is refused`() = fixture { f ->
         fun refused(input: CreatePod, status: Int, code: String) =

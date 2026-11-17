@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
 /**
  * Owner 2026-11-10 (card data from the server's catalog, step 4): V80 turns saved decks' and cubes' rows of card data into
  * rows of printings, merging rows that then hold the same card in a section; the startup job finds cards whose printing the
- * catalog lacks again by name, else leaves them without a printing (SYS-084).
+ * catalog lacks again by name, else leaves them without a printing (SYS-084, SYS-201).
  */
 class SavedPrintingsTest {
     private fun id() = UUID.randomUUID().toString()

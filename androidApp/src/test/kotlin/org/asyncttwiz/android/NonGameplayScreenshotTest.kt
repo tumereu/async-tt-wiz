@@ -67,7 +67,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "import-save", "import-link", "reconnecting", "gameplay-chat")
     }
 
-    // LOB-015, LOB-018, LOB-023, LOB-024, LOB-035, LOB-047, LOB-054, LOB-056, LOB-057, LOB-059, LOB-101, LOB-105, LOB-115
+    // LOB-015, LOB-018, LOB-023, LOB-024, LOB-035, LOB-047, LOB-054, LOB-056, LOB-057, LOB-212, LOB-059, LOB-101, LOB-238, LOB-105, LOB-115, LOB-221
     @Test fun portrait() = capture(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscape() = capture(true)
 
@@ -155,7 +155,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
         if (screen == "prepare-deck") { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         if (screen == "register-scrolled") compose.onNodeWithText("Sign in").performScrollTo()
         if (screen == "deck-edit-text") compose.onNodeWithTag("card-list-tab-text").performClick()
-        // LOB-115: holding the warning icon names the cards Automatum can't play yet.
+        // LOB-115, LOB-221: holding the warning icon names the cards Automatum can't play yet.
         if (screen == "choose-lobby-deck-automatum") {
             // Held, not released: the tooltip shows while the finger stays down.
             compose.onNodeWithContentDescription(automatumSupportTip(ScreenFixtures.byHand), useUnmergedTree = true)
@@ -241,7 +241,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  // LOB-059: an existing deck opens on Cards; the Text tab holds the list.
                  compose.onNodeWithTag(if (screen == "deck-edit") "card-list-cards" else "deck-list").assertIsDisplayed()
                  compose.onNodeWithContentDescription("Choose deck cover").assertIsDisplayed()
-                 // LOB-057: the saved deck's editor has Delete deck at the top right.
+                 // LOB-057, LOB-212: the saved deck's editor has Delete deck at the top right.
                  compose.onNodeWithTag("delete-list").assertIsDisplayed().assert(hasText("Delete deck"))
              }
              "delete-deck" -> compose.onNodeWithText("Deletion cannot be undone.").assertIsDisplayed()

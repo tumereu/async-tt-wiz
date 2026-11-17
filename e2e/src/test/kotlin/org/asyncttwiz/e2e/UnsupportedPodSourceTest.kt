@@ -25,7 +25,7 @@ import kotlin.test.fail
  * pod.
  */
 class UnsupportedPodSourceTest : E2e() {
-    // DRF-161, DRF-162, LOB-115: the cube's warning names the card; New pod's Create is greyed; the server refuses the pod
+    // DRF-161, DRF-162, LOB-115, LOB-221: the cube's warning names the card; New pod's Create is greyed; the server refuses the pod
     @Test fun aCubeWithACardAutomatumCantPlayCantBeDrafted() {
         val (a, _) = ServerSetup.accounts()
         val cards = listOf(TestCards.mountain, TestCards.spark, TestCards.relic)

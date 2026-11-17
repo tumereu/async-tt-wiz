@@ -142,7 +142,7 @@ class CatalogTest {
         assertEquals(16, input.count)
     }
 
-    // SYS-081: the endpoints, open without sign-in
+    // SYS-081, SYS-203: the endpoints, open without sign-in
     @Test fun theHttpSourceReadsTheServersCatalogEndpoints() {
         val (file, checksum) = bytes(catalog())
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)

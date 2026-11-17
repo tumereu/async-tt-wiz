@@ -23,7 +23,7 @@ class PreparePodDeckNameTest : E2e() {
     /** Alice's own prepared deck as the server accepted it. */
     private fun acceptedDeck() = alice.lobby.state.acceptedPreparation?.players?.firstOrNull { it.accountId == alice.id }?.deck
 
-    // DRF-105, DRF-166, LOB-047: the pen in Prepare deck's header renames the deck (the header shows the new name, the pod deck
+    // DRF-105, DRF-166, LOB-047, LOB-226: the pen in Prepare deck's header renames the deck (the header shows the new name, the pod deck
     // has it); the cover thumbnail beside it lists the deck's cards, and the card chosen becomes the cover of this game's deck
     // and of the pod deck
     @Test fun aSubmittedPodDeckIsRenamedAndGivenAnotherCoverFromPrepareDeck() {

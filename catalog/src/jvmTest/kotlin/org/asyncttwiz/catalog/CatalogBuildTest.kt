@@ -67,7 +67,7 @@ class CatalogBuildTest {
         assertEquals(catalog.set.getValue("TST"), CardCatalogFormat.decode(line))
     }
 
-    // SYS-082 (section 3.8): a card is supported when it is in a listed set or on the single-card list, and nothing of it is left to the players
+    // SYS-082, SYS-204 (section 3.8): a card is supported when it is in a listed set or on the single-card list, and nothing of it is left to the players
     @Test fun `the support marks follow the lists and what Automatum leaves to the players`() {
         assertTrue(face("Test Bear").automatum, "in a listed set")
         assertTrue(face("Listed Lone").automatum, "on the single-card list")
@@ -119,7 +119,7 @@ class CatalogBuildTest {
         assertFalse("flavorName" in CardCatalogFormat.encode(bolt), "left out when empty")
     }
 
-    // SYS-082: a reversible printing (the same card on both sides) counts as the card it shows
+    // SYS-082, SYS-204: a reversible printing (the same card on both sides) counts as the card it shows
     @Test fun `a reversible printing is the card it shows`() {
         val reversible = catalog.faces.filter { it.layout == "reversible_card" }
         assertEquals(2, reversible.size)
@@ -137,7 +137,7 @@ class CatalogBuildTest {
         assertTrue(DeckValidation.definition(definition))
     }
 
-    // SYS-082, DRF-090: packs leave out a sheet from other sets holding an unsupported card, its slots filled from the main sheet
+    // SYS-082, SYS-204, DRF-090: packs leave out a sheet from other sets holding an unsupported card, its slots filled from the main sheet
     @Test fun `an unsupported bonus sheet from another set is left out of the packs`() {
         val recipe = catalog.recipe.getValue("BON")
         assertEquals(setOf("common", "reversible"), recipe.sheets.keys, "the special guest (Plain Bear, OFF) is left out")
@@ -155,7 +155,7 @@ class CatalogBuildTest {
         assertEquals(setOf("common", "reversible", "specialGuest"), listed.recipe.getValue("BON").sheets.keys)
     }
 
-    // SYS-081 (section 3.3): the version is the checksum of the content, so the same input gives the same file
+    // SYS-081, SYS-203 (section 3.3): the version is the checksum of the content, so the same input gives the same file
     @Test fun `the same input gives the same catalog, and it reads back whole`() {
         val first = ByteArrayOutputStream().also { CardCatalogFiles.write(catalog, it) }.toByteArray()
         val again = ByteArrayOutputStream()

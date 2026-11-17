@@ -297,7 +297,7 @@ class PodControllerTest {
         }
     }
 
-    // LOB-052, LOB-055: the server gives the draft deck its basics; a submission sends no card data
+    // LOB-052, LOB-055, LOB-210: the server gives the draft deck its basics; a submission sends no card data
     @Test fun submissionSendsNoCardData() = Fixture(PodPhase.DRAFTED).use { f ->
         f.open(); f.controller.submit(); f.deliver()
         val input = f.api.calls.single { it.first == "submit" }.second as SubmitPodDeck

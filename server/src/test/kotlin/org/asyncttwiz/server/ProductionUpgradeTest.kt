@@ -365,7 +365,7 @@ class ProductionUpgradeTest {
                 assertTrue(games.head(ann, e<String>("waiting")).preparation!!.players.single { it.accountId == e<String>("ann") }.deckShown)
                 val benDeck = json.decodeFromString<DeckList>(decks.list(ben, null).body).decks.single()
                 // V80 (owner 2026-11-10): the recorded decks' card data has no printing, so their cards are cards without a
-                // printing, which Automatum can't play (LOB-115): choosing one is refused
+                // printing, which Automatum can't play (LOB-115, LOB-223): choosing one is refused
                 assertEquals("automatumUnsupported", Stream(games, ben, e<String>("waiting")).attempt(GameAction.SelectDeck(benDeck.id, benDeck.revision)).reason)
                 Stream(games, ben, e<String>("podGame")).execute(GameAction.AcceptInvitation)
 

@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 class PrintedNameTest : E2e() {
     private val kitten = TestCards.pyreling.flavorName!!
 
-    // LOB-150, LOB-151, SYS-084: a list naming the printed name imports that printing and saves it by printing; the deck
+    // LOB-150, LOB-151, SYS-084, SYS-200: a list naming the printed name imports that printing and saves it by printing; the deck
     // view's card, built from Alice's card records, is the server's, showing the printed name; search finds it by it too
     @Test fun aListImportsAPrintingByItsPrintedName() {
         launchPlayers(aliceCatalog = true)

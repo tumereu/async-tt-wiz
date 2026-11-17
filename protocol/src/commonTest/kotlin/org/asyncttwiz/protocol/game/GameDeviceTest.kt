@@ -1309,7 +1309,7 @@ class GameDeviceTest {
         assertTrue(decoded.log.any { it.startsWith("out Submit") })
     }
 
-    // LOB-089: the record keeps its newest entries up to its bound, and the bundle carries them all
+    // LOB-089, LOB-231: the record keeps its newest entries up to its bound, and the bundle carries them all
     @Test
     fun theRecordKeepsItsNewestEntries() {
         val sim = spells("Glance Ahead")

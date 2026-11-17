@@ -44,7 +44,7 @@ class CardListScreenshotTest {
     @Test fun searchPortrait() = search(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun searchLandscape() = search(true)
 
-    // LOB-144 (docs/specs/web-client.md section 3.9): cards Automatum can't play yet carry the warning sign
+    // LOB-144, LOB-222 (docs/specs/web-client.md section 3.9): cards Automatum can't play yet carry the warning sign
     @Test fun searchMarksUnsupportedCards() = search(false, marked = true)
 
     private fun search(landscape: Boolean, marked: Boolean = false) {
@@ -95,7 +95,7 @@ class CardListScreenshotTest {
     @Test fun savedCubePortrait() = cubeEdit(false, editing = false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun savedCubeLandscape() = cubeEdit(true, editing = false)
 
-    // DRF-161, LOB-144: the saved cube view stamps cards Automatum can't play yet, as the cube editor does
+    // DRF-161, LOB-144, LOB-222: the saved cube view stamps cards Automatum can't play yet, as the cube editor does
     @Test fun savedCubeMarksUnsupportedCards() = cubeEdit(false, editing = false, marked = true)
 
     private fun cubeEdit(landscape: Boolean, editing: Boolean = true, marked: Boolean = false) {
@@ -143,7 +143,7 @@ class CardListScreenshotTest {
         compose.onNodeWithTag("delete-list").assertIsDisplayed()
         captureShot(path("cube-edit-cards", landscape), "${orientation(landscape)} Edit cube screen for the Runes cube on its Cards tab: " +
             "Delete cube at the top right, the filter's empty field and chips, Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, a + at the right of each section header, and Save.")
-        // LOB-142: the filter narrows the sections; the counts line stays the whole list's. Set on the controller, so
+        // LOB-142, LOB-217, LOB-218: the filter narrows the sections; the counts line stays the whole list's. Set on the controller, so
         // no focused field's blinking cursor gets into the pictures
         compose.runOnIdle { cubes.search.filterText("rune"); cubes.search.filterToggle(SearchType.CREATURE) }
         compose.waitForIdle()
@@ -152,7 +152,7 @@ class CardListScreenshotTest {
         compose.onNode(hasContentDescription("Ember Adept, ", substring = true)).assertDoesNotExist()
         captureShot(path("cube-edit-filtered", landscape), "${orientation(landscape)} Edit cube screen with rune typed in the filter and the Creature " +
             "chip chosen: the counts line still says 7 main and 2 maybe, the sections show and count only the matching cards.")
-        // LOB-105: the card menu's icons
+        // LOB-105, LOB-215: the card menu's icons
         compose.runOnIdle { cubes.search.filterText(""); cubes.search.filterToggle(SearchType.CREATURE) }
         compose.waitForIdle()
         compose.onNode(hasContentDescription("Rune Bear, ", substring = true)).performClick()

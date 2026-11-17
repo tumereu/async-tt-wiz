@@ -48,7 +48,7 @@ class ArtworkPrefetchStartTest {
     private fun awaitRequestFor(printing: String) =
         compose.waitUntil(20_000) { synchronized(requested) { requested.any { printing in it } } }
 
-    // LOB-097
+    // LOB-097, LOB-237
     @Test fun savingADeckAndOpeningAGameStartDownloadingTheirCardPictures() {
         install(service)
         val deckCard = UUID.randomUUID().toString()

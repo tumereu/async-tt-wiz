@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test
 class CatalogHttpTest {
     private val directory = File(checkNotNull(System.getProperty("atw.catalogDir")))
 
-    // SYS-081
+    // SYS-081, SYS-203
     @Test fun `the current catalog's version and its file are served without sign-in, the file cached for good`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

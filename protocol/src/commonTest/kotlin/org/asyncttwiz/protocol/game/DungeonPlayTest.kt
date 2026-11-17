@@ -27,7 +27,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * LOB-117, CR 309, 701.49, 727: dungeon cards as a player's device brings them (card data as the catalog writes it, the arrows
+ * LOB-117, LOB-224, LOB-225, CR 309, 701.49, 727: dungeon cards as a player's device brings them (card data as the catalog writes it, the arrows
  * "(Leads to: …)", Undercity's restriction, the reminder face of a double-faced token dropped), played through the server's rules
  * at protocol level: a venture enters the dungeon a plain venture may enter, moves through its rooms by the owner's choice and
  * completes it; the initiative enters the Undercity; an undo across room moves gives back the earlier state exactly. Invented

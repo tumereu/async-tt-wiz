@@ -164,7 +164,7 @@ class DesktopScreensScreenshotTest {
         }
     }
 
-    // WEB-039, WEB-040, LOB-059, LOB-105, LOB-121 (D8): the two-pane editor: the list left, the search right; a click on a
+    // WEB-039, WEB-040, LOB-059, LOB-105, LOB-219, LOB-121 (D8): the two-pane editor: the list left, the search right; a click on a
     // result adds a copy to the chosen section; Hide search folds it into the rail, the list taking the width, and the rail
     // opens it again as it was left
     @Test fun deckEditorTwoPanes() {

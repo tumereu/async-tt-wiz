@@ -24,7 +24,7 @@ class AvatarTest {
     private val viewModels = androidx.lifecycle.ViewModelStore()
     @After fun clearViewModels() { viewModels.clear() }
 
-    // LOB-091
+    // LOB-091, LOB-233
     @Test fun catalogDownloadHasVisibleProgressWithoutBlockingLoginOrRegistration() {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false))
@@ -42,7 +42,7 @@ class AvatarTest {
         compose.onNodeWithText("Card records updating · 10%").assertIsDisplayed()
     }
 
-    // LOB-091 (owner notes 2026-11-14 evening: on the desktop the card records' bar pushed the page down and made it jump when it
+    // LOB-091, LOB-233 (owner notes 2026-11-14 evening: on the desktop the card records' bar pushed the page down and made it jump when it
     // finished): in the desktop layout the bar lies over the top of the page; the sign-in form stays where it is when it goes
     @Test fun desktopCatalogStatusLiesOverThePage() {
         val fixture = ScreenFixtures()

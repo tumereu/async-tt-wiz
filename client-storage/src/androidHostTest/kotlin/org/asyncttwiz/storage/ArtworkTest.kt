@@ -199,7 +199,7 @@ class ArtworkTest {
         }
     }
 
-    // LOB-097: the key is the printing, face and size (and a custom URL, and the provider's face name).
+    // LOB-097, LOB-236: the key is the printing, face and size (and a custom URL, and the provider's face name).
     @Test fun whatTellsPicturesApartIsThePrintingFaceSizeAndCustomUrl() {
         val base = ArtworkReference(id, 0)
         val different = listOf(base, base.copy(printing = "other"), base.copy(face = 1), base.copy(size = "large"),
@@ -234,13 +234,13 @@ class ArtworkTest {
         assertEquals("HTTP 304", attempts.single().failure)
     }
 
-    // LOB-097
+    // LOB-097, LOB-236
     @Test fun theCacheHoldsUpToOneGigabyteAndNotMore() {
         assertEquals(1024L * 1024 * 1024, cache().budget)
         assertThrows(IllegalArgumentException::class.java) { cache(budget = 1024L * 1024 * 1024 + 1) }
     }
 
-    // LOB-097: the running total survives a restart and replacing an entry, so the budget stays true.
+    // LOB-097, LOB-236: the running total survives a restart and replacing an entry, so the budget stays true.
     @Test fun theBudgetCountsWhatARestartFindsAndReplacedEntriesOnlyOnce() {
         fun put(disk: ArtworkDiskCache, key: String) { disk.write(key, ArtworkEntry(200, Long.MAX_VALUE, 0, "image/png", ByteArray(100))); clock++ }
         val directory = temporary.resolve("art").toFile()

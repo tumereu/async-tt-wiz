@@ -82,7 +82,7 @@ object ServerSetup {
         TestAccount(name, account.email, account.token, api.changeUsername(account.token, username))
     }
 
-    /** [account]'s play defaults for new games (LOB-113): how their device responds and stops. */
+    /** [account]'s play defaults for new games (LOB-113, LOB-228): how their device responds and stops. */
     fun playDefaults(account: TestAccount, settings: org.asyncttwiz.protocol.game.PlaySettings) = accountCall("play defaults of ${account.name}") { api ->
         api.setAccountSettings(account.token, api.accountSettings(account.token).copy(playDefaults = settings))
     }

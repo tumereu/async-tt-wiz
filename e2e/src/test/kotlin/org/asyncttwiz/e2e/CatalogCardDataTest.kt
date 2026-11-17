@@ -17,7 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Card data from the server's catalog (owner 2026-11-10, SYS-084): a phone saves a deck or a cube as one request naming
+ * Card data from the server's catalog (owner 2026-11-10, SYS-084, SYS-200, SYS-202): a phone saves a deck or a cube as one request naming
  * its cards' printings, the server keeps them by printing and the phone shows them from its own card records (no card
  * data is read or uploaded); a pod challenge sends no card data (the server supplies the basic lands), a Ready brings the
  * server's dungeons for a deck that ventures, and the server refuses a deck holding a card Automatum can't play (LOB-124).
@@ -134,7 +134,7 @@ class CatalogCardDataTest : E2e() {
         assertEquals(40, deck.entries.filter { it.suppliedBasic != null && it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity })
     }
 
-    // LOB-118, LOB-124: a deck holding a card Automatum can't play (the catalog's marks): the server's result names it at
+    // LOB-118, LOB-223, LOB-124: a deck holding a card Automatum can't play (the catalog's marks): the server's result names it at
     // once, and the server refuses choosing it, so the player can't get Ready with it
     @Test fun aDeckWithACardAutomatumCantPlayIsRefused() {
         val (a, b) = ServerSetup.accounts()

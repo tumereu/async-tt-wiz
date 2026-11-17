@@ -658,7 +658,7 @@ class EngineGameServiceTest {
         assertTrue(f.codec().decodeModel(f.snapshot().state).engine.stack.isEmpty(), "the Augury resolved")
     }
 
-    // LOB-113 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account
+    // LOB-113, LOB-228 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account
     @Test fun `a new game starts with the account's defaults`() = withService { runtime ->
         val defaults = PlaySettings(ResponseMode.Normal, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false)
         val f = Fixture(runtime, engine = true, tag = "d", bobDefaults = defaults)
@@ -667,7 +667,7 @@ class EngineGameServiceTest {
         assertEquals(PlaySettings.NEW_GAMES, f.snapshot(f.a).settings)
     }
 
-    // TRN-059, LOB-113, HIS-096 (single version, owner 2026-11-08): V71 keeps "Assume resolves" as one value instead of
+    // TRN-059, LOB-113, LOB-228, HIS-096 (single version, owner 2026-11-08): V71 keeps "Assume resolves" as one value instead of
     // three flags, in a game's seat settings and in the account's defaults alike; every stored combination becomes the
     // value the app read from it (Always first, then When they have no mana, then Never, else Normal), the rest kept
     @Test fun `V71 turns the three stored assume flags into one value`() = withDatabase { db, runtime ->

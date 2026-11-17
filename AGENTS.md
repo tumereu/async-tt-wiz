@@ -1,14 +1,17 @@
 # Async Tabletop Wizards — agent guide
 
-Native Android (Kotlin, Compose) two-player cooperative tabletop for playing card
-games (MTG first) manually and asynchronously, with a Spring Boot + PostgreSQL
-server. The app records and shows what happened; players interpret the rules.
+Two-player asynchronous MTG games on Android (Kotlin, Compose) and in a desktop
+browser (Kotlin/Wasm, the same shared Compose UI), with a Spring Boot + PostgreSQL
+server. Every game is played by the rules: the Arcanum Automatum engine works out
+the board, casts, resolves and triggers, and asks the players only for decisions;
+nothing is changed by hand (SYS-001, SYS-069).
 
 ## Goal right now
 
-Finish the Android client (see `docs/roadmap.md`) without breaking what already
-works; alongside it, the Arcanum Automatum rules libraries (see below). Do not
-build anything outside the task you were given.
+Finish the Android and desktop web clients (see `docs/roadmap.md`) without
+breaking what already works; alongside it, the Arcanum Automatum rules libraries
+(see below). Do not build features outside the task you were given (bugs you find
+on the way: see "Protecting existing features").
 
 ## Where things are
 
@@ -16,7 +19,12 @@ build anything outside the task you were given.
 | --- | --- |
 | `core/`, `protocol/` | Kotlin Multiplatform shared model, game commands/state, wire types |
 | `client-storage/` | Client storage: shared models and logic, the Android SQLDelight implementation, catalog/art download |
-| `androidApp/` | Compose app (`org.asyncttwiz.android`) |
+| `app-ui/` | The shared Compose UI: the screens, for Android and the browser (Kotlin/Wasm) |
+| `app-engine/` | The device's game on engine state (`EngineGame`), without UI; Android and the browser's engine worker |
+| `automatum/` | ATW's mapping between its game state/actions and the Arcanum engine |
+| `catalog/` | The card catalog: trimmed format, reader, card records (server and clients) |
+| `androidApp/` | Android app shell (`org.asyncttwiz.android`): platform code, Android-only pieces, the unit/screenshot tests of the shared UI |
+| `webApp/` | Desktop web client shell (Kotlin/Wasm) and its engine Web Worker (`webApp/engine`) |
 | `server/` | Spring Boot server, Flyway migrations, jOOQ |
 | `e2e/` | End-to-end tests: feature flows and every owner-reported app bug (see Rules) |
 | `arcanum-api/`, `arcanum-parser/`, `arcanum-engine/` | Arcanum Automatum: generic MTG rules libraries (card definitions, oracle-text parser, engine); spec `docs/specs/arcanum-automatum.md` |
@@ -27,8 +35,9 @@ build anything outside the task you were given.
 | `docs/specs/` | Specs of larger approved changes not built yet; deleted once built |
 
 Read the catalog files your task touches before changing code. Read only the
-spec sections your task needs; where the spec and the catalog disagree, the
-catalog wins. Where neither says, ask rather than pick.
+spec sections your task needs. A spec you are building describes the agreed
+change, so where it and the catalog disagree, the spec wins for that change and
+you update the catalog to match; everywhere else the catalog wins.
 
 ## Protecting existing features
 
@@ -39,10 +48,22 @@ catalog wins. Where neither says, ask rather than pick.
   reference for current behaviour and update the entries the change touches (or
   add new ones) yourself, following the agreed direction, in the same commit as
   the code. The owner reviews catalog changes after implementation, before release.
-- If you must decide something the agreed direction doesn't cover, choose the
-  plainest option and list it under "choices made" in your final reply.
-- If the app turns out to differ from an entry, don't reword the entry to
-  match the app (or the app to match the entry); report it and let the owner decide.
+- If you must decide something the agreed direction doesn't cover: when a
+  player would notice the choice (what is shown, said, allowed, or how it
+  feels), ask the owner before building it; the owner prefers an unnecessary
+  question to a silent change. Choices no player would notice: take the plainest
+  option and list it under "choices made" in your final reply.
+- Bugs you find on the way are fixed, not just reported, when the right
+  behaviour is not in doubt: missing or placeholder text, a crash, a rules
+  error, a refusal or freeze with no reason, or the app not doing what its
+  catalog entry says (a regression). Fix it in your task with a test (citing the
+  entry if there is one), leave the entry as it is, and list it under "fixed
+  along the way" in your final reply. Report it instead when the fix is large or
+  touches another worker's area. Never fix anything silently.
+- If the app and an entry differ and it is not clear which is right (the entry
+  may be outdated, or the app may have changed on purpose), don't reword the
+  entry to match the app or the app to match the entry: report it and let the
+  owner decide. When unsure whether something is a bug or a choice, ask.
 - Tests that protect an entry mention its ID in the test name or a comment
   above it (`// TBL-012`). Changing or deleting such a test requires the entry
   to change in the same commit.

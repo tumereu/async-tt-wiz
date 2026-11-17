@@ -39,9 +39,12 @@ model, where the table was changed by hand, is gone with its entries.
 - A task changes or removes an entry only when the task names that behaviour.
   If work would change any other entry, stop and ask the owner.
 - The implementer updates the entries an agreed change touches, in the same commit
-  as the code. The owner reviews catalog and screenshot changes after
-  implementation (`scripts/review.sh`); nothing unreviewed is released.
-- When the app and an entry disagree, the owner decides which one changes.
+  as the code. The owner reviews catalog changes after implementation
+  (`scripts/review.sh catalog`) and screenshots in the gallery
+  (`scripts/aa-gallery.sh`); nothing unreviewed is released.
+- When the app plainly fails to do what an entry says (a regression), the app is
+  fixed and the entry kept (see `AGENTS.md`). When it is unclear which of the two
+  is right, the owner decides which one changes.
 - Tests that protect an entry mention its ID (see `AGENTS.md`).
 - `checkFeatureCatalog` runs before every test task: IDs must be unique and in their
   area's file, and every ID cited by a test, an entry or the backlog must exist.

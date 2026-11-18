@@ -135,9 +135,11 @@ class WebHoverPointerTest : E2e() {
                 assertEquals((1440 - 320) / 2.0, overlay.x + overlay.width / 2, 2.0, "the overlay centred on the battlefields: ${show(overlay)}")
                 assertEquals(560.0, overlay.width, 3.0, "the overlay its room's width: ${show(overlay)}")
                 assertTrue(overlay.height < filled - 2, "the overlay at the size it fits, shorter than the $filled it filled: ${show(overlay)}")
+                // The labelled node is the panel without its footer (the OK row below it, white too): its left edge, width and
+                // top are the white panel's, its bottom inside it
                 val drawn = drawnPanel(web)
                 assertTrue(kotlin.math.abs(drawn.x - overlay.x) <= 2 && kotlin.math.abs(drawn.width - overlay.width) <= 3 &&
-                    kotlin.math.abs(drawn.y - overlay.y) <= 4 && kotlin.math.abs(drawn.height - overlay.height) <= 5,
+                    kotlin.math.abs(drawn.y - overlay.y) <= 4 && overlay.y + overlay.height <= drawn.y + drawn.height + 1,
                     "the overlay where it is drawn: mirror ${show(overlay)}, drawn ${show(drawn)}")
                 val card = "div[aria-label='Keep area'] :is([aria-label='Mountain'], [aria-label='Storm Spark'], [aria-label='Ember Cub'])"
                 val cardBox = web.box(card)

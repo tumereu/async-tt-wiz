@@ -50,7 +50,7 @@ fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: 
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss, names = names)
         "table" -> {
             TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline,
-                blocked = gameActionsBlocked, settings = toolkit.assumeReveals?.let { change -> GameSettingsAccess(game, toolkit.viewer, change) })
+                suggestionWaits = gameActionsBlocked, settings = toolkit.assumeReveals?.let { change -> GameSettingsAccess(game, toolkit.viewer, change) })
         }
         "deck" -> DeckViewPanel(play, toolkit.viewer, toolkit::dismiss)
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit::dismiss, names = names)
@@ -145,7 +145,7 @@ private fun engineRows(toolkit: TableToolkitController, play: TableBoard, cardId
             org.asyncttwiz.automatum.CardPlay.Kind.Cast -> if (offered.text == "Cast") "Cast" else "Cast · ${offered.text}"
             else -> offered.text
         }
-        val reason = busy ?: offered.refusal?.let { engineRefusal(it, offered.kind, name, names) }
+        val reason = busy ?: offered.refusal?.let { engineRefusal(it, offered.kind, name, names, cardId, offered.text) }
         EngineRow(MenuControl(label, enabled && offered.legal && busy == null, refused = reason) {
             if (toolkit.play(cardId, offered)) toolkit.dismiss()
         }, engineIcon(offered.kind))
@@ -154,9 +154,10 @@ private fun engineRows(toolkit: TableToolkitController, play: TableBoard, cardId
 
 const val WORKING_OUT = "Automatum is working out what this card can do…"
 
-/** The reason shown for something the engine doesn't allow now (§3 I4), in plain words. */
+/** The reason shown for something the engine doesn't allow now (§3 I4), in plain words; an ability's catch-all is also
+ * reported ([catchAllRefusal], with [cardId] and the ability's [text]). */
 fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind,
-    name: String, names: Map<String, String>): String = when (refusal) {
+    name: String, names: Map<String, String>, cardId: String? = null, text: String? = null): String = when (refusal) {
     is org.asyncttwiz.automatum.CardPlay.Refusal.Priority ->
         refusal.holder?.let { "${names[it] ?: "The other player"} holds priority now." } ?: "Nobody holds priority now."
     org.asyncttwiz.automatum.CardPlay.Refusal.Timing -> "Only in your main phase while the Stack is empty."
@@ -166,10 +167,12 @@ fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.
         org.asyncttwiz.automatum.CardPlay.Kind.Cast, org.asyncttwiz.automatum.CardPlay.Kind.Play -> CastController.NOT_YOURS
         else -> "Only its controller can do that."
     }
-    org.asyncttwiz.automatum.CardPlay.Refusal.Other -> when (kind) {
+    is org.asyncttwiz.automatum.CardPlay.Refusal.Other -> when (kind) {
         org.asyncttwiz.automatum.CardPlay.Kind.Cast -> "$name can't be cast now."
         org.asyncttwiz.automatum.CardPlay.Kind.Play -> "$name can't be played now."
-        else -> "$name: Automatum doesn't allow that now (a cost it can't pay, or nothing to target)."
+        // TBL-123, LOB-090 (owner, 2026-11-17): the catch-all, reported
+        else -> catchAllRefusal("menu", "$name: Automatum doesn't allow that now (a cost it can't pay, or nothing to target).", refusal,
+            kind, name, cardId, text)
     }
 }
 

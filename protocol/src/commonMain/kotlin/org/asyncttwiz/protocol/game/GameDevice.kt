@@ -1146,19 +1146,39 @@ class GameDevice(
      * mode, an End turn or a Resolve chain going on, an automatic answer. The main button then shows no press meanwhile:
      * the device makes it itself once the hold is done. Worked out once per point while a hold lasts.
      */
-    val ownStepHeld: Boolean get() {
-        if (!showHolds()) return false
+    val ownStepHeld: Boolean get() = showHolds() && ownStepComes()
+
+    /**
+     * TRN-063, TRN-119 (owner, 2026-11-17): whether the device's next own step at the head ([automaticStep]) is a step of this
+     * player's own (their pass by their response mode, an End turn or a Resolve chain going on, an automatic answer), view
+     * holds aside: once a hold is done ([ownStepHeld]) or, on the board of the player's own action published before the
+     * device's steps after it are made (an Assume's, a Resolve's), at once. The main button shows no press meanwhile.
+     */
+    val ownStepNext: Boolean get() = ownStepComes()
+
+    /** [ownStepHeld] without the view hold: worked out once per point. */
+    private fun ownStepComes(): Boolean {
         if (needsReload || holding || session.drafting || session.behind || request != null || locked || queuedUndo != null) return false
         val key = pointKey()
         stepHeldAt?.let { (at, held) -> if (key.same(at)) return held }
         val s = model.engine
         val held = Engine.result(s) == null && Attention.of(s).let { who -> who != null && (who == me || declares(s)) } &&
-            !held() && own(s)?.let { input -> reveals["${session.tip}:$input"] != true } == true
+            !held() && ownAt(s, key)?.let { input -> reveals["${session.tip}:$input"] != true } == true
         stepHeldAt = key to held
         return held
     }
 
-    /** [ownStepHeld] at its point, worked out last. */
+    /** [own] at the head's point [key], worked out once there: [ownStepComes] and the step made there next ([decideStep]) ask
+     * the same (the engine work count, EngineWorkCountTest: the second search it cost). */
+    private fun ownAt(s: GameState, key: PointKey = pointKey()): Input? {
+        ownFound?.let { (at, input) -> if (key.same(at)) return input }
+        return own(s).also { ownFound = key to it }
+    }
+
+    /** [own] at its point, worked out last ([ownAt]). */
+    private var ownFound: Pair<PointKey, Input?>? = null
+
+    /** [ownStepComes] at its point, worked out last. */
     private var stepHeldAt: Pair<PointKey, Boolean>? = null
 
     /**
@@ -1187,7 +1207,7 @@ class GameDevice(
         val who = Attention.of(s) ?: return false
         if (who == me || declares(s)) {
             if (held()) return false
-            val input = own(s) ?: return false
+            val input = ownAt(s) ?: return false
             if (reveals["${session.tip}:$input"] == true) { endChain("press would show hidden cards"); return false }
             if (input is Input.PassPriority && Stops.stop(s, input.player) && endTurn != s.turn.number) ownMainPass?.invoke("by itself")
             // Spec rule 6 (owner 2026-11-06): the device's own pass is exactly a press of Resolve or the step arrow

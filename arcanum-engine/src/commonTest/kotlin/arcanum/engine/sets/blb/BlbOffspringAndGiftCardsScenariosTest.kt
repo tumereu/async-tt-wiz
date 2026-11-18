@@ -1,5 +1,6 @@
 package arcanum.engine.sets.blb
 
+import arcanum.api.Ability
 import arcanum.api.Color
 import arcanum.api.CounterKind
 import arcanum.api.Keyword
@@ -20,7 +21,9 @@ import arcanum.engine.sets.blb.Blb.p1p1
 import arcanum.engine.sets.blb.Blb.ponder
 import arcanum.engine.sets.blb.Blb.rabbit
 import arcanum.engine.sets.blb.Blb.shock
+import arcanum.engine.state.StackItemKind
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 /** Bloomburrow's offspring creatures and gift cards in play (parser chunks 01–02): what each card does beyond the offspring and gift already played in [BlbOffspringScenariosTest] and [BlbGiftAndForageScenariosTest]. */
@@ -730,6 +733,21 @@ class BlbOffspringAndGiftCardsScenariosTest {
         expect {
             bob.battlefield has ogre
             alice.graveyard has bear
+        }
+    }
+
+    // CR 702.174a, 702.174j: gift gives the spell a wordless spell ability of its own beside the printed one; the spell on
+    // the Stack carries the printed text, promised or not (it had none)
+    @Test
+    fun reedbedScuffleOnTheStackKeepsItsPrintedText() {
+        for (kicked in listOf(0, 1)) scenario {
+            alice.battlefield("Forest", bear)
+            alice.hand(reedbedScuffle)
+            bob.battlefield(ogre)
+            alice.casts(reedbedScuffle, targets = listOf(bear, ogre), kicked = kicked)
+            val spell = state.stack.map { state.stackItems.getValue(it) }.single { it.kind == StackItemKind.Spell }
+            assertEquals("Choose target creature you control and target creature you don't control. Put a +1/+1 counter on the " +
+                "creature you control if the gift was promised. Then those creatures fight each other.", (spell.ability as Ability.Spell).text)
         }
     }
 

@@ -248,6 +248,61 @@ class GameEndDialogTest : E2e() {
         waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
     }
 
+    // TRN-064, TRN-010, HIS-020, SYS-170 (owner, 2026-11-17: "concede and suggest game end should be always available to either
+    // player"; Concede was greyed while a suggestion waited): Alice suggests her win; with it waiting on Bob's table, his Table
+    // actions' Concede ends the game as his concession: he waits for her OK, she sees "You won" with "Bob conceded"
+    @Test fun theOtherPlayerConcedesWhileASuggestionWaits() {
+        startGame()
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.tap("Table actions")
+        waitUntil("Alice's table actions") { alice.showsText("Suggest game end") }
+        alice.text("Suggest game end").performClick()
+        waitUntil("the suggestion chooser") { alice.showsText("My win") }
+        alice.text("My win").performClick()
+        waitUntil("the confirm dialog") { alice.shows(hasTestTag("resultNote")) }
+        alice.text("Confirm").performClick()
+        waitUntil("the suggestion on Bob's table") { bob.shows(hasContentDescription("Accept result")) }
+        concede(bob)
+        waitUntil("both results", along = listOf(alice)) {
+            alice.showsDialog("You won", "${bob.name} conceded") && bob.showsDialog("You lost", "You conceded", waitingForAlice)
+        }
+        waitUntil("the game over on the server") { bob.lobby.state.detail?.lifecycle == GameLifecycle.LOBBY }
+        alice.pressOk(bob)
+        waitUntil("both in the lobby", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
+    }
+
+    // TRN-162, TRN-010, HIS-020, TRN-047 (owner, 2026-11-17: "concede and suggest game end should be always available to either player"):
+    // Alice suggests her win; with it waiting on Bob's table, his Table actions' Suggest game end makes a draw suggestion instead:
+    // both phones show Bob's draw waiting (Accept on Alice's, Withdraw on his) and Alice's win suggestion is gone
+    @Test fun theOtherPlayersSuggestionReplacesTheWaitingOne() {
+        startGame()
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.tap("Table actions")
+        waitUntil("Alice's table actions") { alice.showsText("Suggest game end") }
+        alice.text("Suggest game end").performClick()
+        waitUntil("the suggestion chooser") { alice.showsText("My win") }
+        alice.text("My win").performClick()
+        waitUntil("the confirm dialog") { alice.shows(hasTestTag("resultNote")) }
+        alice.text("Confirm").performClick()
+        waitUntil("Alice's suggestion on Bob's table") { bob.showsText("${alice.name} proposed their win.") }
+        bob.tap("Table actions")
+        waitUntil("Bob's table actions") { bob.showsText("Suggest game end") }
+        bob.text("Suggest game end").performClick()
+        waitUntil("Bob's suggestion chooser") { bob.showsText("Draw game") }
+        bob.text("Draw game").performClick()
+        waitUntil("Bob's confirm dialog") { bob.shows(hasTestTag("resultNote")) }
+        bob.text("Confirm").performClick()
+        waitUntil("Bob's draw waiting on both phones", along = listOf(alice)) {
+            alice.showsText("${bob.name} proposed a draw.") && bob.showsText("You proposed a draw.") &&
+                alice.shows(hasContentDescription("Accept result"))
+        }
+        assertFalse(alice.showsText("You proposed your win."), "Alice's suggestion is gone from her table")
+        assertFalse(bob.showsText("${alice.name} proposed their win."), "and from Bob's")
+        assertEquals(GameLifecycle.ACTIVE, bob.lobby.state.detail?.lifecycle, "the game goes on: ${alice.where()}; ${bob.where()}")
+    }
+
     // TRN-047, TRN-134, TRN-065, TRN-135, TRN-136, TRN-141, TRN-142, LOB-046: Alice suggests her win ("Infinite combo"); Bob's Accept, greyed at first, ends the game: he
     // stays at the table with "Waiting for Alice to acknowledge", and Alice sees "You won" with "Agreed: Infinite combo"; on
     // another device (her app started again) the same dialog shows over the lobby, with OK: it takes them both to the lobby

@@ -72,7 +72,7 @@ saved deck never changes.
 
 ## Cards Automatum can't play
 
-- **LOB-115** A deck Automatum can't play fully by the rules shows an amber warning icon wherever it is listed or chosen (Manage decks' Decks tab, draft decks too; the saved deck view; the deck editor, for the list being edited; Choose deck; your own deck in a game lobby). (r57)
+- **LOB-115** A deck Automatum can't play fully by the rules (one card it can't play yet is enough, in Main, Side or Maybe alike) shows an amber warning icon wherever it is listed or chosen (Manage decks' Decks tab, draft decks too; the saved deck view; the deck editor, for the list being edited; Choose deck; your own deck in a game lobby). (r57)
 - **LOB-221** Holding a deck's warning icon (LOB-115) names the cards ("Automatum can't play 3 cards yet: A, B, C", at most 12 names then "and N more"): those the card catalog doesn't mark as supported (SYS-082), and a card without a printing. (r57)
 - **LOB-124** A deck's Automatum result (LOB-115) is worked out by the server from its card catalog's marks (SYS-082) whenever it reads the deck, so it is known at once, after every save and for every deck; nothing is kept with the deck and nothing runs in the background. (r49)
 - **LOB-144** A card Automatum can't play yet (the card catalog's marks, SYS-082) shows an amber warning triangle stamped over its picture's art box in card search, the deck and cube editor's pictures, the saved cube view's pictures and Inspect (not on tokens); holding it says "Automatum can't play this card yet", and taps and holds still reach the card under it. (r62)

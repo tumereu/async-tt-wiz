@@ -294,3 +294,4 @@ number	item	screenshot	catalog	decisions	sequence
 293	Inspect of the other player's card keeping a secret choice: "Secret choice", never the value	states/secret-choice-inspect.png	TBL-133 TBL-104		
 294	Desktop table: the other player's seat header a box at the top left like yours, the table opening with every card just right of both boxes, the Stack line beside it at the top	desktop/opponent-box.png	WEB-016 WEB-015 TBL-121 TRN-066 STK-057		Desktop opponent box
 295	Desktop table fitted (F): the whole table in the room right of the two seat boxes	desktop/opponent-box-fitted.png	WEB-016 TBL-012		Desktop opponent box
+296	Mana glow: permanents whose only use now is mana glow fainter in blue, beside the cyan glow of a castable spell and of an artifact with another usable ability	battlefield/mana-glow.png	TBL-117 SYS-171		

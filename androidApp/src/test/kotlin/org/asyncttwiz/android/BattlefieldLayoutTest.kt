@@ -246,6 +246,18 @@ class BattlefieldLayoutTest {
         assertTrue(none.expand.isEmpty() && none.playable.isEmpty())
     }
 
+    // TBL-117 (owner, 2026-11-17): a collapsed group whose members' only use now is mana glows in the mana glow as a whole, as
+    // strong as its strongest member; a group with another glow shows none of the mana glow; cards alone keep their own
+    @Test fun aGroupsManaGlowIsWholeAndGivesWayToTheOthers() {
+        val lands = BattlefieldGroup("stack:m1", "a", BattlefieldRow.Lands, listOf("m1", "m2", "m3"), BattlefieldGroup.Kind.Stack)
+        val equipped = BattlefieldGroup("host:elf", "a", BattlefieldRow.Creatures, listOf("elf", "blade"), BattlefieldGroup.Kind.Attached)
+        val glows = TableGlows.of(listOf(lands, equipped), mapOf(lands.key to GroupTap.Expand, equipped.key to GroupTap.Act("blade")),
+            mapOf("blade" to 1f), emptySet(), mana = mapOf("m1" to .5f, "m2" to 1f, "elf" to 1f, "shard" to .7f))
+        assertEquals(mapOf("m1" to 1f, "m2" to 1f, "m3" to 1f, "shard" to .7f), glows.mana)
+        assertEquals(mapOf("elf" to 1f, "blade" to 1f), glows.playable, "the equipped Elf's group glows cyan as a whole")
+        assertEquals(mapOf("shard" to .7f), TableGlows.of(emptyList(), emptyMap(), emptyMap(), emptySet(), mana = mapOf("shard" to .7f)).mana)
+    }
+
     // STK-047, STK-146, TBL-130, TBL-165, TBL-117, TBL-173 (owner 2026-11-07): while targets are picked the opened group's members glow exactly as cards
     // alone: every legal target framed, the picked ones also drawn picked, the non-target unmarked; a closed group holding
     // a picked target shows picked as a whole

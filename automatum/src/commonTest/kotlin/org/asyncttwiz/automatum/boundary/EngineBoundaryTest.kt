@@ -94,7 +94,7 @@ class EngineBoundaryTest {
     @Test fun everyRefusalAndKindRoundTrips() {
         val plays = listOf(CardPlay.Kind.Cast, CardPlay.Kind.Play, CardPlay.Kind.Ability, CardPlay.Kind.Mana, CardPlay.Kind.Special)
             .map { CardPlay(it, "text", null) } + listOf(CardPlay.Refusal.Priority("bob"), CardPlay.Refusal.Priority(null),
-            CardPlay.Refusal.Timing, CardPlay.Refusal.Loyalty, CardPlay.Refusal.Used, CardPlay.Refusal.NotYours, CardPlay.Refusal.Other)
+            CardPlay.Refusal.Timing, CardPlay.Refusal.Loyalty, CardPlay.Refusal.Used, CardPlay.Refusal.NotYours, CardPlay.Refusal.Other(), CardPlay.Refusal.Other("Not enough mana"))
             .map { CardPlay(CardPlay.Kind.Ability, "{T}: Draw a card.", null, it) }
         val text = EngineMessages.json.encodeToString(CardPlaysSerializer, CardPlays.restored(mapOf("c1" to plays)))
         assertEquals(plays, EngineMessages.json.decodeFromString(CardPlaysSerializer, text).of("c1"))

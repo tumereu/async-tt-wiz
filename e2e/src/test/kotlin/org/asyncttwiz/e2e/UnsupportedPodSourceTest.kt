@@ -57,4 +57,36 @@ class UnsupportedPodSourceTest : E2e() {
             }
         } }
     }
+
+    // DRF-161, DRF-162, LOB-141 (owner, 2026-11-17: a list is unplayable with even one such card, Maybe too): a cube whose Main is all
+    // playable, its one Odd Relic in Maybe: the warning names it, New pod's Create is greyed and the server refuses the pod
+    @Test fun aCubeWhoseOnlyUnplayableCardIsInItsMaybeCantBeDrafted() {
+        val (a, _) = ServerSetup.accounts()
+        val cube = DeckApi(E2eStack.origin).use { api -> runBlocking {
+            val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E maybe relic cube",
+                listOf(TestCards.mountain, TestCards.spark).map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 4) } +
+                    CardListEntry(SavedDeckSection.MAYBEBOARD, TestCards.relic.printingId, 1)))
+            assertEquals(listOf("Odd Relic"), saved.cube.automatum?.byHand, "the server's result counts the Maybe card")
+            saved.cube
+        } }
+        launchPlayers()
+        waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
+        alice.tagged("menu-PODS").performClick()
+        waitUntil("Alice's Pods") { alice.shows(hasTestTag("new-pod")) }
+        alice.pods.newPod(cube.id)
+        waitUntil("New pod from the cube, its warning shown") {
+            alice.shows(hasTestTag("automatum-blocked")) && alice.shows(hasContentDescription("Automatum can't play 1 card yet: Odd Relic"))
+        }
+        val create = alice.nodes(hasClickAction() and hasAnyDescendant(hasText("Create"))).fetchSemanticsNodes()
+        assertEquals(1, create.size, alice.screen())
+        assertTrue(isNotEnabled().matches(create.single()), "Create greyed: ${alice.screen()}")
+        PodApi(E2eStack.origin).use { api -> runBlocking {
+            try {
+                api.create(a.token, CreatePod(UUID.randomUUID().toString(), "E2E maybe relic pod", cube.id))
+                fail("the server made a pod from the cube")
+            } catch (refused: PodFailure) {
+                assertEquals("automatum_unsupported", refused.code)
+            }
+        } }
+    }
 }

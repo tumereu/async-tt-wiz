@@ -20,7 +20,7 @@ and shows them in a panel until that player taps OK.
 - **STK-170** When both players pass in a row the top of the Stack resolves, and play goes on by itself to the next point where someone can act. (r48)
 - **STK-053** In every response mode your own main phases are never passed for you (casting or playing a land there leaves you there with priority), and choices and declarations of attackers and blockers always wait for their player. (r52)
 - **STK-037** At your stop or pause the table is yours to act on, with no time limit and no Hold: the main button (TRN-063), reading Resolve with something on the Stack (STK-029). (r53)
-- **STK-029** While a spell or ability is on the Stack and you hold priority, the main button (TRN-063) reads "Resolve" (a play icon above the word): a tap passes your own priority; holding it resolves the whole Stack (TRN-107). Nothing sits under the Stack. While your cast or a choice is open, or a reveal panel (HIS-110), it holds their go-on action instead, or is greyed (TRN-063). Not while your phone is about to pass by itself: once a play shown is done, or right after your own cast (TRN-119). (r76)
+- **STK-029** While a spell or ability is on the Stack and you hold priority, the main button (TRN-063) reads "Resolve" (a play icon above the word): a tap passes your own priority; holding it resolves the whole Stack (TRN-107). Nothing sits under the Stack. While your cast or a choice is open, or a reveal panel (HIS-110), it holds their go-on action instead, or is greyed (TRN-063). Not while your phone is about to pass by itself: once a play shown is done, or right after your own cast, Assume or Resolve (TRN-119). (r76)
 
 ## Response modes
 

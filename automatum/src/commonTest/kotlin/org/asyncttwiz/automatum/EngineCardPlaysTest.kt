@@ -42,7 +42,7 @@ class EngineCardPlaysTest {
         assertTrue(tools.first { it.text.startsWith("{2}, {T}") }.legal, "two Mountains pay {2}")
         val thopter = tools.first { it.text.startsWith("{1}, {T}, Sacrifice a Servo") }
         assertNull(thopter.input, "no Servo to sacrifice")
-        assertEquals(CardPlay.Refusal.Other, thopter.refusal)
+        assertIs<CardPlay.Refusal.Other>(thopter.refusal)
         assertEquals(CardPlay.Refusal.NotYours, plays.of(bobSeer).single().refusal)
         assertEquals(CardPlay.Kind.Play, plays.of(land).single().kind)
         assertEquals(CardPlay.Refusal.Priority(alice), table.plays(viewer = bob).of(bobSeer).single().refusal)

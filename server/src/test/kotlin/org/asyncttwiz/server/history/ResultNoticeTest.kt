@@ -125,6 +125,48 @@ class ResultNoticeTest {
         assertNull(m.summary().resultNotice)
     }
 
+    // TRN-162, TRN-049, HIS-020 (owner, 2026-11-17: "concede and suggest game end should be always available to either player"):
+    // while Alice's draw suggestion waits, Bob suggests his win instead: the server takes it, hers is gone and his waits; then
+    // Bob, its author, suggests a draw instead of it: taken too, and only that one waits; nothing has ended the match
+    @Test fun `a new suggestion replaces the waiting one, whoever makes it`() = HistoryWorld.run { w ->
+        val a = w.account("ReplaceAlice"); val b = w.account("ReplaceBob")
+        val m = w.Match(a, b, "Replace Suggestion")
+        m.start()
+        val alice = PlayerId(a.account.accountId); val bob = PlayerId(b.account.accountId)
+        fun waiting() = m.device(a).model.table.suggestion
+        val aliceDraw = TableSuggestion(alice, EngineResult.Draw)
+        m.alice.accepted(GameAction.Submit(m.device(a).act(id(), null, listOf(TableChange.Suggestion(null, aliceDraw)))))
+        assertEquals(aliceDraw, waiting())
+        // The other player's suggestion replaces it
+        val bobWin = TableSuggestion(bob, EngineResult.Won(bob), "Lethal next turn")
+        m.bob.accepted(GameAction.Submit(m.device(b).act(id(), null, listOf(TableChange.Suggestion(aliceDraw, bobWin)))))
+        assertEquals(bobWin, waiting(), "Bob's suggestion waits, Alice's is gone")
+        assertEquals(bobWin, m.device(b).model.table.suggestion, "the same on Bob's head")
+        // Its author's new one replaces his own
+        val bobDraw = TableSuggestion(bob, EngineResult.Draw)
+        m.bob.accepted(GameAction.Submit(m.device(b).act(id(), null, listOf(TableChange.Suggestion(bobWin, bobDraw)))))
+        assertEquals(bobDraw, waiting(), "only Bob's newest suggestion waits")
+        assertEquals(GameLifecycle.ACTIVE, m.summary().lifecycle, "a suggestion ends nothing")
+        assertNull(m.summary().resultNotice)
+    }
+
+    // TRN-064, HIS-020, SYS-170, CR 104.3a (owner, 2026-11-17): with Alice's suggestion of her win waiting, Bob concedes: the server takes the
+    // concession and the match ends as his concession, the suggestion with it
+    @Test fun `a concession while a suggestion waits is taken`() = HistoryWorld.run { w ->
+        val a = w.account("ConcedeWaitAlice"); val b = w.account("ConcedeWaitBob")
+        val m = w.Match(a, b, "Concede While Waiting")
+        m.start()
+        val alice = PlayerId(a.account.accountId)
+        val suggestion = TableSuggestion(alice, EngineResult.Won(alice))
+        m.alice.accepted(GameAction.Submit(m.device(a).act(id(), null, listOf(TableChange.Suggestion(null, suggestion)))))
+        assertEquals(suggestion, m.device(b).model.table.suggestion)
+        m.concede()
+        assertEquals(GameLifecycle.LOBBY, m.summary().lifecycle)
+        val notice = m.summary().resultNotice!!
+        assertEquals(a.account.accountId, notice.winner)
+        assertEquals(MatchEnding.Conceded(b.account.accountId), notice.ending)
+    }
+
     // TRN-065, TRN-137, TRN-138, LOB-126, LOB-046 (owner, 2026-11-09): a result the rules gave (Bob draws from his empty library, CR 704.5b): one
     // OK leaves the match in play, with no record and the OK taken back at will; both OKs end it and nobody owes another
     @Test fun `a result the rules gave ends the match only on both OKs`() = HistoryWorld.run { w ->

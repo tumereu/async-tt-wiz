@@ -161,3 +161,38 @@ class StackAbilityTextTest {
         assertEquals("tap up to 2 target creatures", named(snare, StackAbilityText.targetedEffect(snare)))
     }
 }
+
+/** A gift spell cast through the engine (CastFlow), its Stack item's texts. */
+class GiftStackTextTest {
+    // STK-046, STK-050, CR 702.174a, 702.174j (2026-11-16 candidate, missing text): gift adds a wordless spell ability of its own
+    // before the spell's printed one; the spell's Stack item reads as the printed one, its targets named in place, promised or
+    // not (before, its line said nothing after "cast" and Inspect had no text)
+    @Test fun aGiftSpellsStackItemReadsAsItsPrintedText() {
+        for (promise in listOf(true, false)) {
+            val t = EngineTable()
+            val card = Cards.invent("Stack Quarrel", "{0}", "Sorcery", "Gift a tapped Fish (You may promise an opponent a gift as you " +
+                "cast this spell. If you do, they create a tapped 1/1 blue Fish creature token before its other effects.)\nChoose " +
+                "target creature you control and target creature you don't control. Put a +1/+1 counter on the creature you control " +
+                "if the gift was promised. Then those creatures fight each other.")
+            val (seer) = t.put(t.alice, arcanum.api.Zone.Battlefield, "Elvish Seer")
+            val (elves) = t.put(t.bob, arcanum.api.Zone.Battlefield, "Thicketwood Elves")
+            val (c) = t.put(t.alice, arcanum.api.Zone.Hand, card)
+            val state = t.state()
+            val names = mapOf<TargetRef, String>(TargetRef.Object(t.obj(seer)) to "Elvish Seer", TargetRef.Object(t.obj(elves)) to "Thicketwood Elves")
+            var flow = CastFlow.start(t.source(state), t.alice, requireNotNull(t.plays(state).of(c).first().input), CastFlow.Seeds(t::seed))
+            while (true) flow = when (val pending = flow.pending) {
+                is arcanum.engine.decision.Decision.May -> flow.answer(arcanum.engine.decision.Answer.YesNo(promise))
+                is arcanum.engine.decision.Decision.Targets -> flow.answer(arcanum.engine.decision.Answer.Targets(listOf(pending.options.first())))
+                else -> break
+            }
+            val item = flow.state.stack.map { flow.state.stackItems.getValue(it) }.single { it.kind == StackItemKind.Spell }
+            fun named(text: TargetedText?) = requireNotNull(text) { "a text for the gift spell (promised: $promise)" }.text { keys ->
+                "[" + keys.flatMap { item.targets[it].orEmpty() }.joinToString(" and ") { names.getValue(it) } + "]"
+            }
+            assertEquals("choose [Elvish Seer] and [Thicketwood Elves]. Put a +1/+1 counter on the creature you control if the gift was " +
+                "promised. Then those creatures fight each other", named(StackAbilityText.targetedEffect(item, source = "Stack Quarrel")))
+            assertEquals("Choose [Elvish Seer] and [Thicketwood Elves]. Put a +1/+1 counter on the creature you control if the gift was " +
+                "promised. Then those creatures fight each other.", named(StackAbilityText.targetedText(item)))
+        }
+    }
+}

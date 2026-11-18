@@ -351,7 +351,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         overloaded || fused || spliced.isNotEmpty() -> Ability.Spell(spellInstructions())
         spellAbilities().size == 1 -> spellAbilities().single().ability
         spellAbilities().isEmpty() -> null
-        else -> Ability.Spell(spellInstructions())
+        // A keyword's own wordless spell ability beside the printed one (gift's, CR 702.174j): the spell's text is the printed
+        // one's, whose target phrases its slots place (they are the only slots with words)
+        else -> Ability.Spell(spellInstructions(), text = spellAbilities().mapNotNull { (it.ability as Ability.Spell).text?.takeIf(String::isNotBlank) }.singleOrNull())
     }
 
     private fun spellOrigin(): AbilityOrigin? = if (overloaded) alternative?.first?.origin else spellAbilities().firstOrNull()?.origin

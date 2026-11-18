@@ -1,0 +1,1 @@
+fix: A gift spell on the Stack shows its card text again.

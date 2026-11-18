@@ -96,7 +96,6 @@ class GameSession(private val connection: GameConnection, private val credential
         latencySubmitted(command, true) // Outgoing chat is immediately visible in the local UI.
         error = null; flush(); statusChanged(); return true
     }
-    private val acceptedRevisions = mutableMapOf<String, String>()
     private val sent = mutableSetOf<String>()
     @Volatile private var token: String? = null
     @Volatile private var epoch = 0L
@@ -113,6 +112,12 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Problem report VSVLSK: the connection's opens, closes, failed sends, hello and welcome, stream opens and fences, each
      * with its cause and epoch; repeats summarised ([ConnectionLog]). */
     private val connectionLog = ConnectionLog(now)
+    /** The one ordering rule for each game's server state: the received revision, and the revisions held until the ones
+     * before them come ([RevisionOrder]). */
+    private val order = RevisionOrder(connectionLog)
+    /** Held revisions that follow what was just received, applied once the message that let them go is done ([drainHeld]). */
+    private val released = ArrayDeque<GameRevision>()
+    private var draining = false
     /** Why the next socket is opened: the cause the last one ended with (logged with the attempt). */
     private var connectReason = "the games need the connection"
     private fun reconnectDelay(failures: Int): Long =
@@ -150,7 +155,9 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     /** Everything the server had when the app returned to the foreground has been received and
      * published for this game, so a resumed table may decide live vs. timeline mode. */
-    fun caughtUp(gameId: String): Boolean = !backgrounded && !resumePending && ready(gameId)
+    fun caughtUp(gameId: String): Boolean = !backgrounded && !resumePending && ready(gameId) &&
+        // A head or list read ahead of the open play asked for the revisions in between: they are part of what the server had
+        gameId !in headAsked && !order.holding(gameId)
     /** Only a previously authorized, loaded active play may capture originals during a short
      * reconnect wait. Nothing is sent until stream recovery and its accepted head are complete. */
     private fun activeRequest(game: GameSummary): Boolean {
@@ -177,7 +184,7 @@ class GameSession(private val connection: GameConnection, private val credential
         ownPodDeckNames.remove(gameId); presences.remove(gameId); endHeld.remove(gameId)
         preparations.remove(gameId); engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
         engineHeads.remove(gameId); headAsked.remove(gameId); unopenable.remove(gameId)
-        acceptedRevisions.remove(gameId)
+        order.forget(gameId); released.removeAll { it.gameId == gameId }
         chats.remove(gameId)
         streams[gameId]?.head = false
     }
@@ -212,7 +219,9 @@ class GameSession(private val connection: GameConnection, private val credential
         if (!endHeld.remove(gameId)) return
         AppLog.info("game", "End of game: table let go, to the lobby: $why")
         engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+        released += order.letGo(gameId)
         summaries[gameId]?.let { changed(summary(it)) }
+        drainHeld()
         statusChanged()
     }
     /** TRN-065: [message] ended [game]'s play: whether its table stays on until both OKs stand ([endHeld]). Only when the
@@ -242,24 +251,31 @@ class GameSession(private val connection: GameConnection, private val credential
     fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
 
     /**
-     * TRN-065, LOB-046 (owner, prod 0.2.0: a player was taken to the lobby after a concession instead of staying at the table
-     * until both OKs): [summary], read from a head or a list, says the play open at this table ended with a result, ahead of
-     * the revision that ended it (a heartbeat's head or a list read is read as soon as asked for, a revision is published up to
-     * a moment after its commit). Whether it waits for that revision: only the revision plays the end at the table and holds it
-     * there ([holdEnd]); installed first, the summary showed the lobby and fenced the revision off. The revisions after the
-     * table's are asked for, so the end comes even if the one on its way went missing.
+     * Whether [gameId] is the open play at the table, whose state is built from its revisions' events ([RevisionOrder]'s
+     * stepped game: a head or list read ahead of it waits for the revisions, a revision ahead is held): its engine game is
+     * loaded here and plays on, not a table held at the end (TRN-065) nor a game that failed to load. TRN-065, LOB-046
+     * (owner, prod 0.2.0): so a head or list read saying the play ended never takes the player to the lobby before the
+     * revision that ended it plays the end at the table ([holdEnd]).
      */
-    private fun endAheadOfRevision(summary: GameSummary, source: String): Boolean {
-        val game = engineGames[summary.id] ?: return false
-        if (summary.lifecycle != GameLifecycle.LOBBY || summary.resultNotice == null || summary.id in endHeld) return false
-        if (!engineLoad(summary.id) || game.shown == null || game.loadFailed) return false
-        val received = game.revision ?: return false
-        if (GameWire.ordinal(summary.revision) <= GameWire.ordinal(received)) return false
-        AppLog.info("game", "End of game ahead of its revision: $source at revision ${summary.revision} says the play ended " +
-            "(${summary.resultNotice?.ending}), the table is at revision $received: it stays, the revisions after it asked for " +
-            "(${if (summary.id in headAsked) "already asked" else "asking now"})")
-        askHead(summary.id)
-        return true
+    private fun stepped(gameId: String): Boolean {
+        val game = engineGames[gameId] ?: return false
+        return gameId !in endHeld && engineLoad(gameId) && !game.loadFailed
+    }
+
+    /** [gameId]'s received revision moves to [revision] ([RevisionOrder.applied]); the held revisions that now follow apply
+     * once the message being handled is done ([drainHeld]). */
+    private fun received(gameId: String, revision: String) { released += order.applied(gameId, revision) }
+
+    /** Applies the held revisions [received] and [RevisionOrder.loaded] let go, in order (each may let more go). */
+    private fun drainHeld() {
+        if (draining) return
+        draining = true
+        try {
+            while (released.isNotEmpty()) {
+                val message = released.removeFirst()
+                if (message.gameId in streams) applyRevision(message)
+            }
+        } finally { draining = false }
     }
 
     /** The newest engine head of a game that isn't loaded, kept until it opens (switchreview #11: only the open game loads
@@ -306,16 +322,18 @@ class GameSession(private val connection: GameConnection, private val credential
             ", app ${if (existing.awayPaused) "away" else "here"}: ${if (following) "nothing new, the game follows the revisions" else "the game loaded again from it"}")
         // A head the game didn't load from says nothing of the revisions up to it that are still on their way (it can be
         // read before they are published): they carry the confirmations of the device's own events and the local heads,
-        // and must not be fenced off as already received
+        // so only a head the game loads from is received ([RevisionOrder.loaded])
         if (!following) {
             engineGames[head.gameId]?.revision = head.revision
-            acceptedRevisions[head.gameId] = head.revision
+            released += order.loaded(head.gameId, head.revision)
         }
         // LOB-135: the game's assume reveal settings, as its host last set them
         engineGames[head.gameId]?.assumeReveals(head.summary.assumeReveals)
         if (summaries[head.gameId]?.let { newerOrEqual(head.revision, it.revision) } != false) summaries[head.gameId] = head.summary
         streams[head.gameId]?.head = true
         changed(summary(head.summary))
+        // The revisions held after the head the game loaded from apply now ([RevisionOrder.loaded])
+        drainHeld()
         pumpEngine(head.gameId)
     }
     /** [head] is past the revisions [game] received, and its last event isn't among those the device shows. */
@@ -333,8 +351,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun awaitEngineHead(message: GameRevision) {
         engineHeads.remove(message.gameId)
         install(message.summary, message.resultRevision, message.preparation, "a revision before the engine head")
-        if (acceptedRevisions[message.gameId]?.let { newerOrEqual(it, message.resultRevision) } != true)
-            acceptedRevisions[message.gameId] = message.resultRevision
+        received(message.gameId, message.resultRevision)
         if (engineLoad(message.gameId)) askHead(message.gameId)
     }
     /** Asks for [gameId]'s head, once until it arrives: the server sends the revisions after the device's, then the head. */
@@ -342,7 +359,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val stream = streams[gameId] ?: return
         if (!ready || stream.generation == null || gameId in headAsked || !available(gameId)) return
         headAsked.add(gameId)
-        send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = true))
+        send(SubscribeGame(gameId, order.received(gameId) ?: "0", engine = true))
     }
     /**
      * The game open on the device changed ([engineLoad]): a game no longer open is let go at once, not at the next tick
@@ -372,9 +389,10 @@ class GameSession(private val connection: GameConnection, private val credential
             val game = engineGames.getValue(gameId)
             if (game.shown != null) game.takeNow(Long.MAX_VALUE) { actions -> deliverEngine(gameId, game, actions) }
             engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+            released += order.letGo(gameId); drainHeld()
             val stream = streams[gameId]
             if (ready && stream?.generation != null && available(gameId))
-                send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = false))
+                send(SubscribeGame(gameId, order.received(gameId) ?: "0", engine = false))
         }
     }
     /** [gameId] can't be opened on this device: a clear error instead of reconnecting. */
@@ -397,7 +415,7 @@ class GameSession(private val connection: GameConnection, private val credential
         }
         game.assumeReveals(message.summary.assumeReveals)
         game.revision(message)
-        acceptedRevisions[message.gameId] = message.resultRevision
+        received(message.gameId, message.resultRevision)
         if (summaries[message.gameId]?.let { newerOrEqual(message.resultRevision, it.revision) } != false) summaries[message.gameId] = message.summary
         changed(summary(message.summary))
         pumpEngine(message.gameId)
@@ -408,9 +426,9 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun engineShown(gameId: String) {
         val game = engineGames[gameId] ?: return
         if (game.loadFailed) { engineGames.remove(gameId)?.close(); cannotOpen(gameId, "engineLoadFailed"); return }
-        if (game.needsReload && gameId in streams && reloadAsked[gameId] != acceptedRevisions[gameId]) {
-            reloadAsked[gameId] = acceptedRevisions[gameId]
-            send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0"))
+        if (game.needsReload && gameId in streams && reloadAsked[gameId] != order.received(gameId)) {
+            reloadAsked[gameId] = order.received(gameId)
+            send(SubscribeGame(gameId, order.received(gameId) ?: "0"))
         }
         summaries[gameId]?.let { changed(summary(it)) }
         pumpEngine(gameId)
@@ -422,7 +440,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val game = engineGame(gameId) ?: return
         // HIS-035, HIS-006: back, with everything the server had: live again unless there is something to catch up on
         if (game.awayPaused && caughtUp(gameId)) {
-            AppLog.info("game", "Game ${gameId.take(8)} back: the server's backlog is in (stream ready with its head), revision ${game.revision}")
+            AppLog.info("game", "Game ${gameId.take(8)} back: the server's backlog is in (stream ready with its head, no revisions asked for or held), revision ${game.revision}")
             game.returned()
         }
         game.tick(now())
@@ -465,9 +483,15 @@ class GameSession(private val connection: GameConnection, private val credential
     fun watch(games: List<GameSummary>) {
         checkAccount()
         for (game in games) {
-            if (!endAheadOfRevision(game, "a list read")) install(game, game.revision, null, "a list read")
+            // A list read is read whenever it was asked for: one ahead of the open play at the table waits for its revisions
+            when (order.snapshot(game.id, game.revision, "a list read", stepped(game.id), whole = ended(game))) {
+                RevisionOrder.Snapshot.Waits -> askHead(game.id)
+                RevisionOrder.Snapshot.Behind -> Unit
+                RevisionOrder.Snapshot.Applies -> install(game, game.revision, null, "a list read")
+            }
             streams.getOrPut(game.id) { SessionStream() }
         }
+        drainHeld()
         tick()
     }
     /**
@@ -709,7 +733,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (available(message.gameId)) {
                     headAsked.add(message.gameId)
                     // Switch-review #11: the open game's head and revisions carry its engine state; the list's are summaries
-                    send(SubscribeGame(message.gameId, acceptedRevisions[message.gameId] ?: "0",
+                    send(SubscribeGame(message.gameId, order.received(message.gameId) ?: "0",
                         engine = engineLoad(message.gameId)))
                 }
                 flush()
@@ -720,25 +744,24 @@ class GameSession(private val connection: GameConnection, private val credential
                 // Presence is read fresh with every head; it is not revisioned state.
                 message.opponentPresence?.let { presence(message.gameId, it) }
                 headAsked.remove(message.gameId)
-                // Fence old-incarnation reads before they can create a replica or trigger recovery.
-                // A leading HTTP summary is deliberately not this accepted-state boundary.
-                if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
+                // Fence old-incarnation reads before they can create a replica or trigger recovery ([RevisionOrder]); a head
+                // ahead of the open play at the table waits for the revisions in between
+                val place = order.snapshot(message.gameId, message.revision, if (message.engine != null) "an engine head" else "a head",
+                    stepped(message.gameId), whole = message.engine != null || ended(message.summary))
+                if (place == RevisionOrder.Snapshot.Behind) return
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.ownPodDeckName?.let { ownPodDeckNames[message.gameId] = it }
                 chats.installChatHead(message)
                 // I-D56: an active play is engine state, played on its engine game
                 if (message.engine != null && message.play != null &&
                     message.summary.lifecycle == GameLifecycle.ACTIVE) engineHead(message)
-                else if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.play == null) {
-                    // A summary head (switch-review #11: every heartbeat, and a game in the list): the summary and presence;
-                    // the open game asks for its engine head when this one is past what it received (switch-review #10)
-                    install(message.summary, message.revision, message.preparation, "a head")
+                else if (place == RevisionOrder.Snapshot.Waits) {
+                    // A summary head (switch-review #11: every heartbeat) past the revisions the open play received: they are
+                    // asked for (the server replays them, then sends the engine head, switch-review #10); TRN-065: one saying
+                    // the play ended leaves the table to the revision that ends it
                     streams[message.gameId]?.head = true
-                    val loaded = engineGames[message.gameId]?.takeIf { it.base.id == message.summary.playId }
-                    if (engineLoad(message.gameId) && loaded?.revision?.let { GameWire.ordinal(message.revision) > GameWire.ordinal(it) } == true)
-                        askHead(message.gameId)
+                    askHead(message.gameId)
                 }
-                else if (endAheadOfRevision(message.summary, "a head")) streams[message.gameId]?.head = true
                 else {
                     install(message.summary, message.revision, message.preparation, "a head")
                     streams[message.gameId]?.head = true
@@ -751,29 +774,26 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameRevision -> {
                 require(message.gameId == message.summary.id && message.scope.gameId == message.gameId)
                 if (message.gameId !in streams) return
-                // Fence BEFORE observePlay can invalidate a newer incarnation's durable cache.
+                // Fence BEFORE observePlay can invalidate a newer incarnation's durable cache ([RevisionOrder]).
                 // Duplicate accepted deliveries can still correlate exact originals, but cannot
                 // advance/replace storage or start recovery against an obsolete through-revision.
-                if (acceptedRevisions[message.gameId]?.let { GameWire.ordinal(message.resultRevision) <= GameWire.ordinal(it) } == true) {
-                    // TRN-065 (owner, prod 0.2.0): the revision that ended the open play, come after its revision was accepted
-                    if (message.summary.lifecycle != GameLifecycle.ACTIVE && engineGames[message.gameId] != null && message.gameId !in endHeld)
-                        AppLog.info("game", "End of game: revision ${message.resultRevision} came after revision " +
-                            "${acceptedRevisions[message.gameId]} was accepted: the table isn't held")
-                    correlateSelections(message)
-                    flush(); statusChanged(); return
+                when (order.revision(message, stepped(message.gameId))) {
+                    RevisionOrder.Revision.Behind -> {
+                        // TRN-065 (owner, prod 0.2.0): the revision that ended the open play, come after its revision was accepted
+                        if (message.summary.lifecycle != GameLifecycle.ACTIVE && engineGames[message.gameId] != null && message.gameId !in endHeld)
+                            AppLog.info("game", "End of game: revision ${message.resultRevision} came after revision " +
+                                "${order.received(message.gameId)} was accepted: the table isn't held")
+                        correlateSelections(message)
+                        flush(); statusChanged(); return
+                    }
+                    // The open play's revisions in between are on their way or missing: asked for (replayed, then the head)
+                    RevisionOrder.Revision.Held -> { askHead(message.gameId); flush(); statusChanged(); return }
+                    RevisionOrder.Revision.InOrder -> {
+                        val engine = applyRevision(message)
+                        drainHeld()
+                        if (engine) { flush(); statusChanged(); return }
+                    }
                 }
-                if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
-                message.chatMessage?.let { chats.installChat(message.gameId, message.resultRevision, listOf(it), snapshot = false) }
-                val engine = engineGames[message.gameId]
-                if (engine != null) {
-                    engineRevision(engine, message)
-                    correlateSelections(message)
-                    flush(); statusChanged(); return
-                }
-                // I-D56: every play is engine state; one this device hasn't loaded waits for its engine head
-                if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
-                else install(message.summary, message.resultRevision, message.preparation, "a revision")
-                correlateSelections(message)
             }
             is GameResult -> result(message)
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
@@ -810,14 +830,33 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (engineGames.isNotEmpty()) AppLog.info("game", "App back: the ping's answer came, what the open socket held is in")
             }
         }
+        drainHeld()
         flush()
         recoveryReady()
         statusChanged()
     }
+    /** A revision of [message]'s game that follows what was received ([RevisionOrder.Revision.InOrder], or held and let go):
+     * applied to its engine game, or to the summary and lobby. True when it went to the engine game. */
+    private fun applyRevision(message: GameRevision): Boolean {
+        if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return false
+        message.chatMessage?.let { chats.installChat(message.gameId, message.resultRevision, listOf(it), snapshot = false) }
+        val engine = engineGames[message.gameId]
+        if (engine != null) {
+            engineRevision(engine, message)
+            correlateSelections(message)
+            return true
+        }
+        // I-D56: every play is engine state; one this device hasn't loaded waits for its engine head
+        if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
+        else install(message.summary, message.resultRevision, message.preparation, "a revision")
+        correlateSelections(message)
+        return false
+    }
     private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?, source: String = "") {
         require(game.revision == revision); GameWire.ordinal(revision)
-        // An HTTP summary can lead the actual replica. It must not prevent catching that replica up.
-        if (acceptedRevisions[game.id]?.let { !newerOrEqual(revision, it) } == true) return
+        // An HTTP summary can lead the actual replica. It must not prevent catching that replica up ([RevisionOrder]: a
+        // summary before the received revision is old).
+        if (order.received(game.id)?.let { !newerOrEqual(revision, it) } == true) return
         val old = summaries[game.id]
         if (old != null && ended(old) && !ended(game)) return
         if (ended(game)) require(preparation == null)
@@ -834,7 +873,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (game.lifecycle != GameLifecycle.LOBBY) preparations.leftLobby(game.id)
         if (game.lifecycle == GameLifecycle.CANCELLED || game.lifecycle == GameLifecycle.DELETED) clearContext(game.id)
         if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) preparations.accept(game, revision, preparation)
-        if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || ended(game)) acceptedRevisions[game.id] = revision
+        if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || ended(game)) received(game.id, revision)
         if (summaries[game.id]?.let { newerOrEqual(revision, it.revision) } != false) summaries[game.id] = game
         retireSelections(game.id)
         changed(summary(game))
@@ -878,7 +917,7 @@ class GameSession(private val connection: GameConnection, private val credential
 
     private fun retireSelections(gameId: String) {
         // A newer HTTP summary is not a board/preparation replica and cannot settle its overlay.
-        val revision = acceptedRevisions[gameId] ?: return
+        val revision = order.received(gameId) ?: return
         preparations.retire(gameId, revision)
     }
     private fun correlateSelections(message: GameRevision) {
@@ -967,7 +1006,7 @@ class GameSession(private val connection: GameConnection, private val credential
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { disconnect(); pending.clear(); preparations.clear();
-        ownPodDeckNames.clear(); chats.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
+        ownPodDeckNames.clear(); chats.clear(); order.clear(); released.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
     override fun close() { closed = true; clear(); connection.close() }
     companion object {
         /** The table's line for a game this device can't open (SYS-052): never a reconnect loop. */

@@ -1,0 +1,1 @@
+fix: Coming back to a game while the other player's latest moves are still on their way now waits for your tap to watch them, instead of sometimes playing them at once.

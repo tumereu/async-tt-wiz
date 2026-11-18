@@ -93,7 +93,7 @@ class WebGameFlowTest : E2e() {
                 }
                 // TRN-057, CMB-028: to combat, a click on her Cub stages it, "Attack (1)" declares it
                 web.page.waitForTimeout(500.0)
-                web.tap("#main-button")
+                tapMain(web)
                 waitUntil("Alice declaring attackers in her browser") { web.mainWords()?.contains("No attack") == true }
                 var staged = 0L
                 waitUntil("the Cub staged in Alice's browser", timeoutSeconds = 60) {
@@ -106,14 +106,16 @@ class WebGameFlowTest : E2e() {
                 }
                 val life = bob.state.player(bob.me).life
                 web.page.waitForTimeout(500.0)
-                web.tap("#main-button")
+                tapMain(web)
                 var pressed = System.nanoTime()
                 waitUntil("the Cub's damage on Bob's phone", timeoutSeconds = 90, along = listOf(bob)) {
                     // Alice passes on with the main button where she holds priority until the damage
                     val s = bob.state
+                    // (the main button goes while the combat's hold lasts: tapped only where the page places it)
                     if (s.priority.holder == alice && s.player(bob.me).life == life && System.nanoTime() - pressed > 2_000_000_000L &&
-                        web.mainWords()?.let { it.startsWith("Next") || it.startsWith("Pass") || it.startsWith("To ") } == true) {
-                        web.tap("#main-button")
+                        web.mainWords()?.let { it.startsWith("Next") || it.startsWith("Pass") || it.startsWith("To ") } == true &&
+                        web.placed("#main-button")) {
+                        tapMain(web)
                         pressed = System.nanoTime()
                     }
                     s.player(bob.me).life < life
@@ -143,6 +145,13 @@ class WebGameFlowTest : E2e() {
             if (System.nanoTime() - clicked > 1_500_000_000L) { web.click(cards.first()); clicked = System.nanoTime() }
             false
         }
+    }
+
+    /** A click on the main button, then the mouse off it, over the empty battlefield: resting on it opens its tooltip, a layer
+     * the page's mirror shows alone while it is open (WEB-059), which would hide the main button from the test. */
+    private fun tapMain(web: E2eBrowser) {
+        web.tap("#main-button")
+        web.cursorAt(560.0, 300.0)
     }
 
     /** The page hidden or ([shown]) shown again, as the browser tells it when another tab comes to the front and back. */
@@ -176,6 +185,10 @@ class WebGameFlowTest : E2e() {
         val field = battlefield(owner)
         return cards(name, owner).filter { it.y + it.height / 2 > field.y + field.height }.sortedBy { it.x }
     }
+
+    /** Whether the page's semantics mirror places what [selector] finds now (attached and given a size). */
+    private fun E2eBrowser.placed(selector: String): Boolean =
+        page.locator(selector).let { it.count() > 0 && it.first().boundingBox()?.let { box -> box.width > 0 } == true }
 
     /** A click in the middle of [box] on the page's canvas. */
     private fun E2eBrowser.click(box: BoundingBox) = page.mouse().click(box.x + box.width / 2, box.y + box.height / 2)

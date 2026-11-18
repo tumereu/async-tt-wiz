@@ -134,7 +134,13 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
     /** WEB-055: while the page is hidden, the games list read every minute for the tab's title. */
     private var hiddenPoll: kotlinx.coroutines.Job? = null
 
+    /** TRN-042, HIS-035: whether the page shows. A hidden page is away: it sends no game heartbeat, also when something
+     * recomposes the page while it is hidden (a browser that keeps drawing a hidden tab). */
+    private var pageShown by mutableStateOf(true)
+
     fun foreground() {
+        if (!pageShown) AppLog.info("web-page", "Page shown: the open game's heartbeat goes again")
+        pageShown = true
         hiddenPoll?.cancel(); hiddenPoll = null
         jsSetTitle(webTabTitle(auth.lobby.state.games, auth.controller.state.account?.accountId))
         auth.catalog.foreground()
@@ -145,6 +151,8 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
     }
 
     fun background() {
+        AppLog.info("web-page", "Page hidden: the open game's heartbeat stops (the other player sees you away)")
+        pageShown = false
         hiddenPoll?.cancel()
         hiddenPoll = pageScope.launch { while (true) { delay(60_000); hiddenTitle() } }
         auth.lobby.background()
@@ -190,13 +198,14 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
             val activityScreen by remember { derivedStateOf {
                 ActivityScreen.of(auth.controller.state.destination, auth.lobby.state.selected, auth.pods.state)
             } }
+            val shown = pageShown
             SideEffect {
                 if (!state.restoring && !state.busy) {
                     DebugCrashes.authenticated(if (state.account != null) token else null)
                     if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()
                 }
                 auth.activity.display(activityScreen, true)
-                auth.heartbeat.display(activityScreen.game, token)
+                auth.heartbeat.display(activityScreen.game.takeIf { shown }, token)
             }
             router.Sync()
             stale.Watch(router)

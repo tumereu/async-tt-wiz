@@ -86,4 +86,29 @@ class AccountFieldsTest {
         time = 120
         assertTrue(capacity.allow("email", "recovered", 5, 60))
     }
+
+    @Test fun `a rate limit reached and a window near it are logged by account id or key hash, never the key`() {
+        var time = 0L
+        val lines = mutableListOf<String>()
+        val limits = AccountRateLimits({ lines += it }) { time }
+        repeat(4) { assertTrue(limits.allow("lobby-http", "account-1", 4, 60, shown = "account account-1")) }
+        repeat(3) { assertFalse(limits.allow("lobby-http", "account-1", 4, 60, shown = "account account-1")) }
+        // Once per window, however many are refused
+        assertEquals(listOf("Rate limit lobby-http of account account-1: 4 requests in 60 s reached; refusing for the window's last 60 s"), lines)
+        time = 60
+        assertTrue(limits.allow("lobby-http", "account-1", 4, 60, shown = "account account-1"))
+        assertEquals("Rate window lobby-http of account account-1 ended: 4 of 4 requests allowed in 60 s, 3 refused", lines.last())
+        // A quiet window ends unlogged; one at half its limit or more is logged; an email key is shown only by its hash
+        lines.clear()
+        assertTrue(limits.allow("login-email", "someone@example.com", 4, 60))
+        time = 120
+        assertTrue(limits.allow("lobby-http", "account-1", 4, 60, shown = "account account-1"))
+        assertTrue(limits.allow("login-email", "someone@example.com", 4, 60))
+        assertTrue(limits.allow("login-email", "someone@example.com", 4, 60))
+        time = 180
+        assertTrue(limits.allow("login-email", "someone@example.com", 4, 60))
+        assertEquals(1, lines.size, "$lines")
+        assertTrue(lines.single().startsWith("Rate window login-email of key ") && lines.single().endsWith(" ended: 2 of 4 requests allowed in 60 s, 0 refused"))
+        assertFalse(lines.single().contains("someone"))
+    }
 }

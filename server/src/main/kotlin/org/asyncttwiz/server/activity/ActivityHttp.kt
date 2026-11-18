@@ -35,7 +35,7 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
             val token = request.getHeaders("Authorization").toList().singleOrNull()?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)
             if (principal == null) { error(401, "authentication_required"); return true }
-            if (!limits.allow("activity", principal.account.accountId, 600, 60)) {
+            if (!limits.allow("activity", principal.account.accountId, 600, 60, shown = "account ${principal.account.accountId}")) {
                 response.setHeader("Retry-After", "60"); error(429, "try_later"); return true
             }
             when (request.method to path) {

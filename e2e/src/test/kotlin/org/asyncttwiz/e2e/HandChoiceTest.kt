@@ -27,7 +27,9 @@ class HandChoiceTest : E2e() {
     @Test fun theCasterChoosesACardFromTheOtherPlayersHandToDiscard() {
         startGame(TestDeck("Extractions", listOf(TestCards.mountain to 20, TestCards.extraction to 20)),
             TestDeck("Hounds", listOf(TestCards.mountain to 20, TestCards.hound to 20)),
-            deal = { a, b -> "Ember Extraction" in hand(a) && "Cinder Hound" in hand(b) && "Mountain" in hand(b) })
+            // Two Hounds or more: with one nonland card in his hand there is nothing to choose, and the engine discards it
+            // without asking (a full run's deal of one Hound timed out waiting for her panel, 2026-11-18)
+            deal = { a, b -> "Ember Extraction" in hand(a) && hand(b).count { it == "Cinder Hound" } >= 2 && "Mountain" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)
         val hand = bob.state.player(bob.me).hand.size

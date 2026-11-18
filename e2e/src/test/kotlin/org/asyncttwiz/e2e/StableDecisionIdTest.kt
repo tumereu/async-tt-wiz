@@ -51,7 +51,11 @@ class StableDecisionIdTest : E2e() {
     // a new line with the libraries' reshuffle first, and her answers name the same decisions as the first time; her phone
     // and the server name them alike, so the server takes the cast
     @Test fun castUndoAndTheSameCastAgainAnswerTheSameDecisions() {
-        startGame(deck, deck, deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Mountain" in hand(b) })
+        // Bob holds a Glimmer (free): he could answer the Spark, so it stays on the Stack for him. Without one he has no mana
+        // and no free spell, the Spark is assumed to resolve at once (AssumeNoManaTest), and the Stack is never seen with it
+        // (a third of the deals; two full runs, 2026-11-18)
+        startGame(deck, deck, deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Mountain" in hand(b) &&
+            "Idle Glimmer" in hand(b) })
         bothOpen()
         bothKeep(bobAway = true)
         alice.playFromHand("Mountain", this)

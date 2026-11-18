@@ -34,7 +34,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             val token = values.singleOrNull()?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)
             if (principal == null) { error(response, 401, "authentication_required"); return true }
-            if (!limits.allow("deck-http", principal.account.accountId, 600, 60)) {
+            if (!limits.allow("deck-http", principal.account.accountId, 600, 60, shown = "account ${principal.account.accountId}")) {
                 response.setHeader("Retry-After", "60"); error(response, 429, "try_later"); return true
             }
             val parts = path.removePrefix("/v1/").split('/')

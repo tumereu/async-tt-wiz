@@ -23,6 +23,8 @@ catalog)
     ;;
 approve)
     git tag -f "$CATALOG_TAG" HEAD >/dev/null; echo "Approved the catalog at $(git rev-parse --short HEAD)."
+    # Origin keeps the approval too (a broken disk lost a local-only tag once); a moved tag needs the forced push
+    git push --quiet --force origin "refs/tags/$CATALOG_TAG" || die "Pushing $CATALOG_TAG to origin failed: git push --force origin refs/tags/$CATALOG_TAG"
     ;;
 check)
     pending "$CATALOG_TAG" "$CATALOG" || { echo "Unapproved catalog changes: scripts/review.sh catalog"; exit 1; }

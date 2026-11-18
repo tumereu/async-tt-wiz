@@ -144,7 +144,7 @@ you update the catalog to match; everywhere else the catalog wins.
   changed modules and their dependents, `:androidApp:testDebugUnitTest`, the
   on-device tests' compile, the web build and an e2e smoke set there, and moves
   master to exactly that tested merge only if all pass (documentation-only merges:
-  the catalog check). Workers never merge to master. A git hook refuses every other
+  the catalog check), then pushes master to origin. Workers never merge to master. A git hook refuses every other
   update of master (a plain merge, fast-forward or commit on master); enable it once
   per clone with `git config core.hooksPath "$(git rev-parse --show-toplevel)/.githooks"`
   in the main checkout. Emergency override, coordinator only:
@@ -179,7 +179,13 @@ you update the catalog to match; everywhere else the catalog wins.
   Automatum newly supports (listed first, under New sets). Plain words a
   player understands, no technical terms. Internal-only work needs no note.
 - Commit your work on your current branch with a descriptive message when done.
-  Do not push, merge, rebase other branches or touch other worktrees.
+- **Push after every commit (owner rule, 2026-11-18):** origin is the backup (a
+  broken disk lost unpushed work once), so every commit is pushed to origin at once
+  (`git push -u origin HEAD`), on any branch, and so is every tag you create.
+  Never force-push; the one exception is the owner's approval tags, which move:
+  `scripts/review.sh approve` pushes `catalog-approved`, and whoever moves
+  `gallery-reviewed` for the owner pushes it.
+- Do not merge, rebase other branches or touch other worktrees.
 - Finish with a short plain-text summary: what you built, what you tested, what
   is still missing or uncertain, and which catalog entries you added, changed or
   removed. No more than ~20 lines.

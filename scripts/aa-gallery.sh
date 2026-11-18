@@ -8,7 +8,8 @@
 # order, to review whole when any is. Comments are lines "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
 # Tap a picture to open it full size. This is the owner's screenshot review (scripts/review.sh gates only the catalog).
 #   scripts/aa-gallery.sh [output dir]     default ~/projects/atw-cache/aa-gallery (outside the repository)
-#   git tag -f gallery-reviewed HEAD      after a gallery review: what the owner has now seen
+#   git tag -f gallery-reviewed HEAD && git push --force origin refs/tags/gallery-reviewed
+#                                         after a gallery review: what the owner has now seen (origin keeps it too)
 # Serving the page is up to the caller.
 set -euo pipefail
 cd "$(dirname "$0")/.."

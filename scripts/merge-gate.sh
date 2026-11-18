@@ -17,6 +17,7 @@
 # Environment: ATW_GATE_WORKTREE (default ~/projects/atw-wt/merge-gate-<repository folder>), ATW_GATE_LOGS (default
 # ~/projects/atw-cache/merge-gate; one folder per run), ATW_LOCKS (default ~/projects/atw-cache/locks), ATW_GRADLE_SLOT
 # (default arcanum-tools/set-work/bin/gradle-slot.sh: the machine-wide two heavy-build slots).
+# After moving master it pushes master to origin (never forced; a failed push is reported, master stays moved).
 # Exit 0 merged (or already in master); 2 usage or setup; 3 master or its checkout not ready; 4 conflict with master;
 # 5 a check failed.
 set -u
@@ -201,4 +202,10 @@ if [ "$(git rev-parse refs/heads/master)" != "$merge" ]; then
     exit 3
 fi
 say "master is now $(git rev-parse --short "$merge"): $label"
+# Origin is the backup (AGENTS.md: push after every commit)
+if git push --quiet origin refs/heads/master:refs/heads/master >>"$log" 2>&1; then
+    say "pushed master to origin"
+else
+    say "pushing master to origin failed (see $log); push it by hand: git push origin master"
+fi
 say "total $(( (SECONDS - begin) / 60 ))m $(( (SECONDS - begin) % 60 ))s"

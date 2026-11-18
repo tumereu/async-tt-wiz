@@ -119,7 +119,7 @@ Nothing on the table can be changed by hand: no notes, dice or hand-made tokens.
 
 ## Glows and refusals
 
-- **TBL-117** Cards Automatum lets you use now (cast, play, or activate an ability other than a mana ability, special actions included) glow softly in cyan from behind, exactly as it allows at that moment: never the other player's cards, nor a permanent whose only use now is mana. (r74)
+- **TBL-117** Cards Automatum lets you use now (cast, play, or activate an ability other than a mana ability, special actions included) glow softly in cyan from behind, exactly as it allows at that moment, never the other player's cards. A permanent whose only use now is a mana ability glows fainter in blue instead (not while it is outlined as a payment source, ZON-079, STK-164); one with another use too glows cyan only. (r74)
 - **TBL-168** On the desktop table, whose cards are larger, every glow stands out as far for the card's size as on the phone (WEB-022). (r74)
 - **TBL-169** For the glow a card counts when there is, or seems to be, a way to do it from the board as it stands: mana in your pool and every mana ability you could use while casting (STK-059), other costs, targets and conditions; it is left out only when Automatum has shown there is no way, and whenever its search stops early it counts. (r74)
 - **TBL-170** The glow doesn't look for "this works if you first tap that": tap your Elf first if you want it as the tapped target, and the card then glows. Autotap has no say in it (STK-024), and what glows is never denied again: a raised card's chips only show its prices (ZON-080). (r74)

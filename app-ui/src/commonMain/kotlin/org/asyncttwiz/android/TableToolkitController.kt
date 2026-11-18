@@ -115,23 +115,41 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun playable(play: TableBoard): Set<String> = playableOrNull(play).orEmpty()
 
     /** [playable], or null while Automatum still works the board out (the glow keeps what it showed meanwhile, TBL-117). */
-    fun playableOrNull(play: TableBoard): Set<String>? {
-        if (!enabled() || cast.open || play.flowOpen || revealing()) return emptySet()
+    fun playableOrNull(play: TableBoard): Set<String>? = glowsOrNull(play)?.playable
+
+    /**
+     * TBL-117, SYS-171 (owner, 2026-11-17): the viewer's permanents whose only use Automatum allows now is a mana ability: they
+     * glow in the fainter mana glow ([ManaGlow]); a card with another use too glows only as [playable]. Empty and null as
+     * [playableOrNull] (nothing while a cast is open: its payment outlines show instead, STK-164).
+     */
+    fun manaOnlyOrNull(play: TableBoard): Set<String>? = glowsOrNull(play)?.mana
+
+    /** What glows ([playable], [manaOnlyOrNull]) by the engine's options for the viewer now, worked out once per board. */
+    private fun glowsOrNull(play: TableBoard): CardGlows? {
+        if (!enabled() || cast.open || play.flowOpen || revealing()) return CardGlows.NONE
         // The game begins only once both players are Ready (TRN-062)
-        if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
+        if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return CardGlows.NONE
         val plays = cardPlays(play) ?: return null
         playableCache?.takeIf { it.first === plays }?.let { return it.second }
-        // A mana ability alone is no reason to glow (owner, 2026-11-03): lands and mana rocks would glow whenever you hold
-        // priority
-        return plays.byCard.filterValues { offered -> offered.any { it.legal && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Mana } }
-            .keys.also { glowing ->
-                // TBL-117 (owner, desktop playtest 2026-11-14): what glows, as it changes, so a report of a wrong glow says it
-                if (glowing != playableCache?.second) AppLog.info("glow", "Glowing at ${play.nodeId}: ${glowing.size} of " +
-                    "${plays.byCard.size} cards with plays${if (glowing.isEmpty()) "" else ": " + glowing.take(12).joinToString()}")
-                playableCache = plays to glowing
-            }
+        // A mana ability alone is no reason for the cyan glow (owner, 2026-11-03): lands and mana rocks would glow whenever you
+        // hold priority; it gets the fainter mana glow instead (owner, 2026-11-17)
+        val legal = plays.byCard.mapValues { (_, offered) -> offered.filter { it.legal } }
+        val glowing = legal.filterValues { offered -> offered.any { it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Mana } }.keys
+        val mana = legal.filterValues { offered -> offered.isNotEmpty() && offered.all { it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Mana } }.keys
+        val glows = CardGlows(glowing, mana)
+        // TBL-117 (owner, desktop playtest 2026-11-14): what glows, as it changes, so a report of a wrong glow says it
+        if (glows != playableCache?.second) AppLog.info("glow", "Glowing at ${play.nodeId}: ${glowing.size} of " +
+            "${plays.byCard.size} cards with plays${if (glowing.isEmpty()) "" else ": " + glowing.take(12).joinToString()}; " +
+            "mana only: ${mana.size}${if (mana.isEmpty()) "" else ": " + mana.take(12).joinToString()}")
+        playableCache = plays to glows
+        return glows
     }
-    private var playableCache: Pair<org.asyncttwiz.automatum.CardPlays, Set<String>>? = null
+    private var playableCache: Pair<org.asyncttwiz.automatum.CardPlays, CardGlows>? = null
+
+    /** The cards that glow cyan ([playable]) and those that glow only for mana ([mana]). */
+    private data class CardGlows(val playable: Set<String>, val mana: Set<String>) {
+        companion object { val NONE = CardGlows(emptySet(), emptySet()) }
+    }
 
     /** Whether [cardId], a card in the viewer's hand row, is known to have no cast, play, special action or ability from where
      * it is (foretell, plot, cycling, channel; ZON-079: flashback, unearth, embalm: a way chip, ZON-080) Automatum allows now

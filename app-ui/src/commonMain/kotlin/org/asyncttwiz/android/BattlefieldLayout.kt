@@ -311,9 +311,11 @@ object BattlefieldLayout {
 /** The glows the table draws (TBL-117): [playable] the cyan glow's strength by card, [targets] the legal targets framed in
  * violet, [attack] the creatures that may attack glowing red-orange (CMB-028), [expand] the strength of the glow of the
  * groups a tap opens (white), [picked] the targets picked so far, drawn picked (STK-047), [spread] the closed groups a tap
- * spreads open to pick from (their keys), glowing as a pile holding choices ([PileChoiceGlow], owner notes 2026-11-14). */
+ * spreads open to pick from (their keys), glowing as a pile holding choices ([PileChoiceGlow], owner notes 2026-11-14);
+ * [mana] the fainter mana glow's strength by card (a permanent whose only use now is mana, owner 2026-11-17). */
 data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>, val expand: Map<String, Float> = emptyMap(),
-    val attack: Set<String> = emptySet(), val picked: Set<String> = emptySet(), val spread: Set<String> = emptySet()) {
+    val attack: Set<String> = emptySet(), val picked: Set<String> = emptySet(), val spread: Set<String> = emptySet(),
+    val mana: Map<String, Float> = emptyMap()) {
     companion object {
         /**
          * TBL-117 for groups: a collapsed group of several ([taps]: what a tap on each does) glows as a whole when any member
@@ -322,24 +324,32 @@ data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>
          * [picked] target shows picked as a whole (STK-047). A group holding a legal target whose tap spreads it open glows as a
          * pile holding choices ([spread], owner notes 2026-11-14: unlike a target its tap picks, and unlike the expand colour,
          * gallery 145), not framed in the targets' violet. Cards alone and the opened group's members glow as themselves: a
-         * legal target framed, a picked one drawn picked, exactly as a card alone.
+         * legal target framed, a picked one drawn picked, exactly as a card alone. A group with none of those glows whose
+         * members may make mana glows in the mana glow as a whole (every member as strong as its strongest); a group with one of
+         * them shows no mana glow (owner, 2026-11-17: mana and another use show the other use's glow).
          */
         fun of(groups: List<BattlefieldGroup>, taps: Map<String, GroupTap>, playable: Map<String, Float>, targets: Set<String>,
-            attack: Set<String> = emptySet(), picked: Set<String> = emptySet()): TableGlows {
-            if (taps.isEmpty()) return TableGlows(playable, targets, attack = attack, picked = picked)
+            attack: Set<String> = emptySet(), picked: Set<String> = emptySet(), mana: Map<String, Float> = emptyMap()): TableGlows {
+            if (taps.isEmpty()) return TableGlows(playable, targets, attack = attack, picked = picked, mana = mana)
             val cyan = playable.toMutableMap()
             val violet = targets.toMutableSet()
             val orange = attack.toMutableSet()
             val white = HashMap<String, Float>()
             val chosen = picked.toMutableSet()
             val spread = HashSet<String>()
+            val faint = mana.toMutableMap()
             for (group in groups) {
                 val tap = taps[group.key] ?: continue
                 if (group.members.any { it in picked }) chosen += group.members
                 val strength = group.members.maxOf { playable[it] ?: 0f }
                 val target = group.members.any { it in targets }
                 val attacks = group.members.any { it in attack }
-                if (strength <= 0f && !target && !attacks) continue
+                if (strength <= 0f && !target && !attacks) {
+                    val manaStrength = group.members.maxOf { mana[it] ?: 0f }
+                    if (manaStrength > 0f) for (id in group.members) faint[id] = manaStrength
+                    continue
+                }
+                for (id in group.members) faint -= id
                 if (tap == GroupTap.Expand && target) {
                     spread += group.key
                     for (id in group.members) { violet -= id; cyan -= id; orange -= id }
@@ -351,7 +361,7 @@ data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>
                     if (attacks && tap is GroupTap.Act) orange += group.members
                 }
             }
-            return TableGlows(cyan, violet, white, orange, chosen, spread)
+            return TableGlows(cyan, violet, white, orange, chosen, spread, faint)
         }
     }
 }

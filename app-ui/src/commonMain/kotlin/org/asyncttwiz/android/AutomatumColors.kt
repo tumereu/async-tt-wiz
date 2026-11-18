@@ -9,6 +9,12 @@ val AutomatumCyan = Color(0xff1fb8cf)
  * the light table by a thin grey edge; distinct from the cyan, violet and red-orange glows. */
 val GroupExpandGlow = Color.White
 val GroupExpandEdge = Color(0xff7d8a88)
+/** TBL-117 (owner, 2026-11-17: "maybe mana abilities could get a different color glow that's also more faint"): the glow of a
+ * permanent whose only use now is a mana ability: a clear blue, drawn fainter than the cyan ([MANA_GLOW_STRENGTH]), so it
+ * reads as secondary on every battlefield tint and stays apart from the Autotap amber, the targets' violet and the white. */
+val ManaGlow = Color(0xff3f6fd8)
+/** How strong the mana glow is beside the cyan one: each of its rings at this share of the cyan's alpha. */
+const val MANA_GLOW_STRENGTH = .65f
 
 /** TRN-059 (owner playtest 2026-11-06): the response mode and Assume resolves cells fill by how much control you keep:
  * deep blue = Control / Assume: Never, violet = Normal / Assume: Normal, amber = Quick / Assume: No mana, red-orange =

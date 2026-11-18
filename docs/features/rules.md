@@ -30,7 +30,7 @@ menu, dialog, button and card-list conventions.
 - **SYS-073** The server takes gameplay only as engine inputs (each player's own, the assumed answers HIS-096 allows, engine-automatic answers, random answers checked against the line's stream, HIS-042) and table changes (combat staging, result suggestions and their answers, each player's OK on a result the rules gave and its take-back (TRN-065), your own early answers). (r48)
 - **SYS-170** Undo, undo requests and their answers, chat and conceding reach the server as separate requests; conceding (TRN-064) needs nobody's agreement and is always taken. (r48)
 - **SYS-053** The server refuses any action the rules don't allow, never ignoring it silently. (r62)
-- **SYS-171** The app doesn't offer actions the rules don't allow: what you can do, or seem to be able to do, glows (TBL-117) and the rest is greyed or shakes (TBL-118); something that only seemed possible is said at its last step, in the cast panel with Cast greyed (STK-024); a refusal that still happens shakes what it was made on (SYS-012). (r62)
+- **SYS-171** The app doesn't offer actions the rules don't allow: what you can do, or seem to be able to do, glows (TBL-117; making mana alone in a fainter glow of its own) and the rest is greyed or shakes (TBL-118); something that only seemed possible is said at its last step, in the cast panel with Cast greyed (STK-024); a refusal that still happens shakes what it was made on (SYS-012). (r62)
 
 ## What stays personal
 

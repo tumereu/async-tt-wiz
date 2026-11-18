@@ -519,6 +519,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // TBL-117 (owner playtest 2026-11-04 #8): while Automatum works a new board out the cards that stayed where they
             // were keep their glow, and each glow fades in and out, so a card that stays playable never blinks
             val glow = rememberPlayableGlow(play, if (runtime.reviewing) emptySet() else toolkit?.playableOrNull(play))
+            // TBL-117 (owner, 2026-11-17): the viewer's permanents whose only use now is mana glow fainter, fading as the cyan does
+            val manaGlow = rememberPlayableGlow(play, if (runtime.reviewing) emptySet() else toolkit?.manaOnlyOrNull(play))
             val shaking = toolkit?.shaking
             // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
             // STK-024 (owner 2026-11-07): and while the cast panel is open, the sources that pay it
@@ -554,7 +556,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 drawnFrame[0] = frame
-                val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow, pickedGlow)
+                val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow, pickedGlow,
+                    mana = manaGlow.alphas())
                 val targetAlphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
                     .filter { it.battlefieldCard && it.cardId in dimmed }.associate { it.id to minOf(frame.alphas[it.id] ?: 1f, TARGET_DIMMED) }
                 val alphas = if (!handDim) targetAlphas else targetAlphas + frame.scene.items
@@ -562,7 +565,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     .associate { it.id to minOf(targetAlphas[it.id] ?: 1f, HAND_DIMMED) }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
-                    attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, picked = glows.picked, pileBadges = false)
+                    attackable = glows.attack, expandGlow = glows.expand, mana = glows.mana, pressed = pressGlow.value, picked = glows.picked, pileBadges = false)
             }
             // STK-047 (owner, 2026-11-12): a pile holding a card the viewer may target or choose glows over its whole face,
             // pulsing, in a layer of its own

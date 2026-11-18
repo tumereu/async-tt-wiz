@@ -52,6 +52,9 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     /** STK-047 (owner 2026-11-07): the targets picked so far (ids as [glow]): their violet glow at full strength, a violet
      * wash over them and a white check in a violet dot at their top right. */
     picked: Set<String> = emptySet(),
+    /** TBL-117 (owner, 2026-11-17): the viewer's permanents whose only use now is a mana ability glow fainter in [ManaGlow]:
+     * card id to the glow's strength; not where the cyan glow or an Autotap outline ([sources]) is drawn. */
+    mana: Map<String, Float> = emptyMap(),
     /** Whether the piles' count bubbles are drawn here; false when the caller draws them over its overlays
      * ([drawPileBadges]: over the Stack's target arrows, STK-058). */
     pileBadges: Boolean = true) {
@@ -271,6 +274,15 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                       val glowScale = scene.glowScale(i)
                       // I-D46 (a): a soft halo behind the card, fading outward within the card's outline room
                       val glowAlpha = if (playable.isEmpty() || i.zone == PlayZone.STACK) 0f else playable[i.cardId] ?: 0f
+                      // TBL-117 (owner, 2026-11-17): a permanent whose only use now is mana: the same halo, fainter, in the
+                      // mana glow's colour; the cyan glow or an Autotap outline (ZON-079) on the card instead when it has one
+                      val manaAlpha = if (mana.isEmpty() || i.zone == PlayZone.STACK || glowAlpha > 0f || i.cardId in sources) 0f
+                          else mana[i.cardId] ?: 0f
+                      if (manaAlpha > 0f) for (ring in 4 downTo 1) {
+                          val spread = ring * grow * glowScale
+                          drawRoundRect(ManaGlow.copy(alpha = (.16f * MANA_GLOW_STRENGTH * manaAlpha * bright).coerceAtMost(1f)),
+                              xy(x - spread, y - spread), size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
+                      }
                       if (glowAlpha > 0f) for (ring in 4 downTo 1) {
                           val spread = ring * grow * glowScale
                           drawRoundRect(AutomatumCyan.copy(alpha = (.16f * glowAlpha * bright).coerceAtMost(1f)), xy(x - spread, y - spread),

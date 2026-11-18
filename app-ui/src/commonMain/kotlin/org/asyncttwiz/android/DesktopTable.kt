@@ -17,7 +17,6 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import kotlin.math.roundToInt
 import androidx.compose.ui.semantics.contentDescription
@@ -310,15 +309,15 @@ fun DesktopTopRow(game: GameSummary, play: TableBoard, viewer: String, toolkit: 
  * It is laid out in the room given divided by [scale] and then magnified by a layer, taking the room it fills: its layout
  * nodes keep the window's density, so the page's semantics mirror (which places each node by its own density) and the hover
  * pointer find its controls where they are drawn (WEB-058; a density override for the subtree put them where they would be
- * at 1×).
+ * at 1×). The layer gets its scale where the content is placed ([placeScaled]), in the pass that laid it out.
  */
 @Composable
 fun DesktopScaled(scale: Float, content: @Composable () -> Unit) {
-    Layout(content = {
-        Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f) }) { content() }
-    }) { measurables, constraints ->
+    Layout(content = { Box { content() } }) { measurables, constraints ->
         val placeable = measurables.firstOrNull()?.measure(constraints.divided(scale))
-        layout(placeable.scaledWidth(scale, constraints), placeable.scaledHeight(scale, constraints)) { placeable?.place(0, 0) }
+        layout(placeable.scaledWidth(scale, constraints), placeable.scaledHeight(scale, constraints)) {
+            placeable?.let { placeScaled(it, scale) }
+        }
     }
 }
 
@@ -328,18 +327,22 @@ fun DesktopScaled(scale: Float, content: @Composable () -> Unit) {
  * at the size it is drawn (its content would scroll), it is drawn a step smaller on the next frame, down to 1×, where its
  * content scrolls as the phone's does. It grows back only when the room it is given changes, so it never swings between two
  * sizes.
+ *
+ * WEB-058 (found 2026-11-15: the page's semantics mirror had the Keep / Bottom overlay 11 px left of where it is drawn, its
+ * last card on a second row): each step is drawn, and so mirrored, whole. The layer used to read the size it is drawn at
+ * from its own state, which the snapshot applied before the panel was measured at the new size: for a frame or more the
+ * panel was drawn at the next step's size with the previous step's layout. The mirror, which copies the screen once it has
+ * been still for 100 ms, could copy that moment. Now the layer gets its size where the panel is placed, in the pass that
+ * measured it at that size.
  */
 @Composable
 fun DesktopFittedScale(scale: Float, content: @Composable () -> Unit) {
-    // The size it is drawn at, and the room it was found for
+    // The size to draw at, and the room it was found for
     val shown = remember { mutableFloatStateOf(scale) }
     val room = remember { mutableStateOf(Constraints()) }
     Layout(content = {
         // Centred in its room: a panel narrower than the room it gets once drawn smaller stays in the middle of it
-        Box(Modifier.graphicsLayer { val k = shown.floatValue; scaleX = k; scaleY = k; transformOrigin = TransformOrigin(0f, 0f) },
-            contentAlignment = Alignment.TopCenter) {
-            content()
-        }
+        Box(contentAlignment = Alignment.TopCenter) { content() }
     }) { measurables, constraints ->
         if (room.value != constraints) {
             if (room.value != Constraints()) {
@@ -357,12 +360,16 @@ fun DesktopFittedScale(scale: Float, content: @Composable () -> Unit) {
             AppLog.info("panel", "Desktop panel: ${placeable.height} px fills its ${inner.maxHeight} at ${k}×, drawn at ${next}×")
             shown.floatValue = next
         }
-        layout(placeable.scaledWidth(k, constraints), placeable.scaledHeight(k, constraints)) { placeable?.place(0, 0) }
+        layout(placeable.scaledWidth(k, constraints), placeable.scaledHeight(k, constraints)) { placeable?.let { placeScaled(it, k) } }
     }
 }
 
 /** How much smaller a desktop panel is drawn each frame until it fits ([DesktopFittedScale]). */
 private const val FIT_STEP = .05f
+
+/** Placed at the corner and magnified [scale] times from it by a layer given that scale here, with the layout it scales. */
+private fun androidx.compose.ui.layout.Placeable.PlacementScope.placeScaled(placeable: androidx.compose.ui.layout.Placeable,
+    scale: Float) = placeable.placeWithLayer(0, 0) { scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f) }
 
 /** These constraints divided by [scale]: the room of content [scale] times magnified. */
 private fun Constraints.divided(scale: Float): Constraints {

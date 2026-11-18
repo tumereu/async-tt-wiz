@@ -1,0 +1,347 @@
+package org.asyncttwiz.android
+
+import org.asyncttwiz.protocol.*
+import kotlin.test.Test
+import org.asyncttwiz.appui.randomUuid
+import kotlin.test.*
+
+class GameSessionTest {
+    init { installTestBuild() }
+    private fun id() = randomUuid()
+    private val owner = AccountIdentity(id(), "Inviter")
+    private val recipient = AccountIdentity(id(), "Recipient")
+    private fun game() = GameSummary(id(), "Azure Spark", "2026-10-22T00:00:00Z", owner, recipient, id(), id(), InvitationState.PENDING)
+    private class Wire : GameConnection {
+        lateinit var listener: GameConnection.Listener
+        val frames = mutableListOf<GameClientMessage>()
+        val tokens = mutableListOf<String>()
+        var disconnected = 0
+        data class ChatRead(val game: String, val before: String?, val after: String?, val complete: (ChatPage?) -> Unit)
+        var pagedChat = false
+        val chatReads = mutableListOf<ChatRead>()
+        override fun chatPage(gameId: String, before: String?, after: String?, complete: (ChatPage?) -> Unit): Boolean {
+            if (!pagedChat) return false
+            chatReads += ChatRead(gameId, before, after, complete); return true
+        }
+        override fun connect(token: String, listener: GameConnection.Listener) { tokens.add(token); this.listener = listener }
+        override fun send(message: GameClientMessage): Boolean { frames.add(message); return true }
+        override fun disconnect() { disconnected++ }
+        override fun close() = Unit
+        fun message(message: GameServerMessage) = listener.message(message)
+    }
+    @Test fun metadataHeadsKeepChatAndFetchNewerAndOlderPagesWithoutReplacingLiveMessages() {
+        val f = Fixture(); val game = game(); f.connect(listOf(game)); f.wire.pagedChat = true
+        fun message(revision: Int) = ChatMessage(id(), game.id, id(), owner.accountId, "message $revision", revision.toString(), "2026-10-25T00:00:00Z")
+        val newest = message(200)
+        fun head(revision: String) = GameHead(game.id, revision, game.copy(revision = revision), chatSync = ChatSync(revision))
+        f.message(head("200"))
+        assertEquals(null, f.wire.chatReads.single().after)
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(newest), ChatSync("200", newest.id), older = "200")); f.drain()
+        assertEquals(listOf(newest), f.session.chat(game.id))
+        f.message(head("200"))
+        assertEquals(1, f.wire.chatReads.size) // A heartbeat does not reload or erase chat.
+        f.message(head("202"))
+        assertEquals("200", f.wire.chatReads.last().after)
+        val next = message(201); val latest = message(202)
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(next), ChatSync("202", latest.id), next = "201")); f.drain()
+        assertEquals("201", f.wire.chatReads.last().after)
+        val live = message(203)
+        f.message(GameRevision(game.id, "202", "203", live.id, owner.accountId, GameScope(game.id),
+            game.copy(revision = "203"), chatMessage = live))
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(latest), ChatSync("202", latest.id))); f.drain()
+        assertEquals(listOf(newest, next, latest, live), f.session.chat(game.id))
+        assertTrue(f.session.loadOlderChat(game.id)); assertEquals("200", f.wire.chatReads.last().before)
+        val older = message(100)
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(older), ChatSync("202", latest.id))); f.drain()
+        assertEquals(listOf(older, newest, next, latest, live), f.session.chat(game.id))
+        assertFalse(f.session.loadOlderChat(game.id))
+        f.session.close()
+    }
+    private inner class Fixture {
+        val wire = Wire()
+        var token: String? = "A".repeat(43)
+        val changed = mutableListOf<GameSummary>()
+        val results = mutableListOf<Pair<GameCommand, GameResult>>()
+        val rejected = mutableListOf<String>()
+        val posts = ArrayDeque<() -> Unit>()
+        var now = 0L
+        val reconnects = mutableListOf<ReconnectEpisode>()
+        val session = GameSession(wire, { token }, { posts.add(it) }, rejected::add, changed::add,
+            { command, result -> results.add(command to result) }, {}, now = { now }, reconnectTelemetry = reconnects::add)
+        fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
+        fun message(message: GameServerMessage) { wire.message(message); drain() }
+        fun connect(games: List<GameSummary>, statuses: Map<String, List<GameRequestStatus>> = emptyMap(), generation: String = "1") {
+            session.watch(games); wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            for (game in games) {
+                val streamId = wire.frames.mapNotNull { when (it) {
+                    is ResumeGameStream -> if (it.gameId == game.id) it.streamId else null
+                    is OpenGameStream -> if (it.gameId == game.id) it.streamId else null
+                    else -> null
+                } }.last()
+                message(GameStreamReady(game.id, streamId, generation, statuses[game.id].orEmpty()))
+                message(GameHead(game.id, game.revision, game))
+            }
+        }
+    }
+    // Analysis 2026-11-05 (a phone without a connection retried the socket, and logged it, every second or faster): the
+    // background ticks back off after failed attempts (1 s, doubling, at most 10 s); a lost connection that had worked is
+    // tried again at once; SYS-013: anything that asks for the connection (here coming back to the app) tries at once
+    @Test fun aSocketThatKeepsFailingIsRetriedWithBackoffInTheBackground() {
+        val f = Fixture(); val game = game()
+        try {
+            f.connect(listOf(game))
+            assertEquals(1, f.wire.tokens.size)
+            f.wire.listener.disconnected(false, "socketFailure"); f.drain()
+            // Every background tick for a minute, each attempt failing before the server's welcome
+            val attemptsAt = mutableListOf<Long>()
+            repeat(60) {
+                f.now += 1_000
+                val before = f.wire.tokens.size
+                f.session.poll()
+                if (f.wire.tokens.size > before) { attemptsAt.add(f.now); f.wire.listener.disconnected(false, "socketFailure"); f.drain() }
+            }
+            assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 26_000L, 36_000L, 46_000L, 56_000L), attemptsAt)
+            // Coming back to the app tries at once, and a connection that works resets the wait
+            val before = f.wire.tokens.size
+            f.now += 1_000; f.session.foreground()
+            assertEquals(before + 1, f.wire.tokens.size)
+            f.wire.listener.opened(); f.drain(); f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            f.wire.listener.disconnected(false, "socketFailure"); f.drain()
+            f.now += 1_000; f.session.poll()
+            assertEquals(before + 2, f.wire.tokens.size, "a connection that had worked is tried again at once")
+        } finally { f.session.close() }
+    }
+    // SYS-032
+    @Test fun olderClientIsPersistentlyBlockedWithoutReconnectOrCommandSubmission() {
+        val f = Fixture(); val game = game()
+        try {
+            f.session.watch(listOf(game)); f.wire.listener.opened(); f.drain()
+            assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, f.wire.frames.filterIsInstance<GameHello>().single().gameplayRulesVersion)
+            val old = f.wire.listener
+            f.message(GameAdmissionError("gameplayRulesUpgradeRequired", false))
+            assertEquals("Update the app to continue this game", f.session.error)
+            old.disconnected(false, "socketClosed"); f.drain()
+            repeat(10) { f.now += 60_000; f.session.dismissError(); f.session.foreground() }
+            assertEquals(1, f.wire.tokens.size)
+            assertFalse(f.session.ready)
+            assertFalse(f.session.submit(game, GameAction.AcceptInvitation))
+            assertTrue(f.wire.frames.none { it is OpenGameStream || it is GameCommand })
+            assertEquals("Update the app to continue this game", f.session.error)
+            assertFalse(f.session.reconnecting(game.id))
+        } finally { f.session.close() }
+    }
+    // SYS-033: the server answers an older app's Hello with GameUpgradeRequired, or welcomes it with a newer
+    // protocol; either way the app is blocked like a rules mismatch and shows the update screen (SYS-032).
+    @Test fun olderProtocolClientIsBlockedLikeOlderRules() {
+        for (response in listOf(GameUpgradeRequired(),
+            GameWelcome(minor = GAME_PROTOCOL_MINOR + 1, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))) {
+            val f = Fixture(); val game = game()
+            try {
+                f.session.watch(listOf(game)); f.wire.listener.opened(); f.drain()
+                assertEquals(GAME_PROTOCOL_MINOR, f.wire.frames.filterIsInstance<GameHello>().single().maxMinor)
+                f.message(response)
+                assertEquals("Update the app to continue this game", f.session.error)
+                f.now += 60_000; f.session.dismissError(); f.session.foreground()
+                assertEquals(1, f.wire.tokens.size)
+                assertFalse(f.session.submit(game, GameAction.AcceptInvitation))
+                assertTrue(f.wire.frames.none { it is OpenGameStream || it is GameCommand })
+                assertEquals("Update the app to continue this game", f.session.error)
+            } finally { f.session.close() }
+        }
+    }
+    // SYS-032, SYS-033
+    @Test fun newerClientWaitsForServerUpdateBeforeOpeningStreamsAndRetriesOnlyHandshake() {
+        for (response in listOf(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION - 1),
+            GameWelcome(), GameAdmissionError("invalidInput", false),
+            GameWelcome(minor = GAME_PROTOCOL_MINOR - 1, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))) {
+            val f = Fixture(); val game = game()
+            try {
+                f.session.watch(listOf(game)); f.wire.listener.opened(); f.drain(); f.message(response)
+                assertEquals("Server update pending", f.session.error)
+                f.session.dismissError(); f.now = 29_999; f.session.tick()
+                assertEquals(1, f.wire.tokens.size)
+                assertFalse(f.session.submit(game, GameAction.AcceptInvitation))
+                assertTrue(f.wire.frames.none { it is OpenGameStream || it is GameCommand })
+                f.now = 30_000; f.session.tick()
+                assertEquals(2, f.wire.tokens.size)
+                assertEquals("Server update pending", f.session.error)
+                f.wire.listener.disconnected(); f.drain()
+                f.now = 59_999; f.session.tick()
+                assertEquals(2, f.wire.tokens.size, "A failed update probe must not start a reconnect loop")
+                f.now = 60_000; f.session.tick()
+                assertEquals(3, f.wire.tokens.size)
+                f.wire.listener.opened(); f.drain()
+                f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+                assertNull(f.session.error)
+                assertEquals(1, f.wire.frames.filterIsInstance<OpenGameStream>().size)
+            } finally { f.session.close() }
+        }
+    }
+    // SYS-019
+    @Test fun socketReasonAndSilentLifecycleRecoveryAreRecordedThroughTheAcceptedHead() {
+        val f = Fixture(); val game = game()
+        f.connect(listOf(game))
+        f.session.background()
+        f.wire.listener.disconnected(false, "socketClose:1001:Reconnect"); f.drain()
+        assertEquals("lifecycle:socketClose:1001:Reconnect", f.reconnects.single().cause)
+        f.now = 10_000
+        assertFalse(f.session.reconnecting(game.id)) // Lifecycle interruption alone never demands UI.
+        f.session.foreground()
+        assertFalse(f.session.reconnecting(game.id))
+        f.now += 10
+        f.wire.listener.opened(); f.drain(); f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+        val resume = f.wire.frames.filterIsInstance<ResumeGameStream>().single()
+        f.now += 20; f.message(GameStreamReady(game.id, resume.streamId, "2"))
+        assertFalse(f.reconnects.last().complete)
+        f.now += 30; f.message(GameHead(game.id, game.revision, game))
+        assertTrue(f.reconnects.last().complete)
+        assertEquals(listOf("lifecycleForeground", "socketConnectStart", "socketConnectedHttpAuthenticated", "protocolWelcome",
+            "streamResumeStart", "streamAuthorized", "ready"), f.reconnects.last().steps.map { it.stage })
+        assertTrue(f.session.ready(game.id))
+    }
+    @Test fun credentialChangeRecordsARecoveryWithoutWaitingForASocketFailure() {
+        val f = Fixture(); val game = game(); f.connect(listOf(game))
+        val old = f.wire.listener
+        f.token = "B".repeat(43)
+        f.session.tick()
+        assertEquals("credentialChanged", f.reconnects.last().cause)
+        assertEquals("socketConnectStart", f.reconnects.last().steps.last().stage)
+        val count = f.reconnects.size
+        old.disconnected(false, "staleSocketFailure"); f.drain()
+        assertEquals(count, f.reconnects.size)
+        assertFalse(f.session.reconnecting(game.id))
+    }
+    // SYS-008, SYS-013
+    @Test fun multipleInFlightCapturedIdentityNoOfflineActionsAndResultsNeverRewindRevision() {
+        val f = Fixture(); val a = game(); val b = game()
+        assertFalse(f.session.submit(a, GameAction.AcceptInvitation))
+        f.connect(listOf(a, b))
+        assertTrue(f.session.submit(a, GameAction.AcceptInvitation)); assertTrue(f.session.submit(b, GameAction.DeclineInvitation))
+        assertFalse(f.session.submit(a, GameAction.DeclineInvitation))
+        val commands = f.wire.frames.filterIsInstance<GameCommand>()
+        assertEquals(listOf(a.id, b.id), commands.map { it.scope.gameId })
+        assertEquals(a.invitationId, commands[0].scope.invitationId)
+        f.message(GameReceipt(commands[0].requestId, commands[0].scope, "1")); assertTrue(f.session.pending(a.id))
+        val accepted = a.copy(invitationState = InvitationState.ACCEPTED, revision = "9007199254740993")
+        f.message(GameHead(a.id, accepted.revision, accepted))
+        f.message(GameResult(commands[0].requestId, commands[0].scope, "accepted", ingressOrdinal = "1", commitRevision = "1"))
+        f.message(GameHead(a.id, "0", a))
+        assertEquals(accepted, f.session.summary(a)); assertEquals(accepted, f.changed.last())
+        assertFalse(f.session.pending(a.id)); assertTrue(f.session.pending(b.id)); assertEquals(1, f.results.size)
+        f.message(GameResult(commands[0].requestId, commands[0].scope, "accepted", ingressOrdinal = "1"))
+        assertEquals(1, f.results.size)
+    }
+    // SYS-014
+    @Test fun fencedResumeRetriesOnlyNotAdmittedInOriginalOrderAndKeepsPendingUntilFinal() {
+        val f = Fixture(); val a = game(); val b = game(); val c = game()
+        f.connect(listOf(a, b, c)); listOf(a, b, c).forEach { assertTrue(f.session.submit(it, GameAction.DeclineInvitation)) }
+        val originals = f.wire.frames.filterIsInstance<GameCommand>()
+        f.wire.listener.disconnected(); f.drain(); assertFalse(f.session.submit(game(), GameAction.DeclineInvitation))
+        f.connect(listOf(a, b, c), mapOf(a.id to listOf(GameRequestStatus(originals[0].requestId, "notAdmitted")),
+            b.id to listOf(GameRequestStatus(originals[1].requestId, "pending")),
+            c.id to listOf(GameRequestStatus(originals[2].requestId, "final", GameResult(originals[2].requestId, originals[2].scope,
+                "accepted", ingressOrdinal = "3", commitRevision = "1")))), "2")
+        val retried = f.wire.frames.filterIsInstance<GameCommand>().drop(3)
+        assertEquals(listOf(originals[0].copy(generation = "2")), retried)
+        assertEquals(GameWire.digest(originals[0]), GameWire.digest(retried.single()))
+        assertTrue(f.session.pending(a.id)); assertTrue(f.session.pending(b.id)); assertFalse(f.session.pending(c.id))
+        assertEquals(listOf(a, b, c).map { it.id }, f.wire.frames.filterIsInstance<ResumeGameStream>().takeLast(3).map { it.gameId })
+    }
+    // SYS-014
+    @Test fun sameAccountReauthKeepsOriginalButClearAndFreshProcessNeverReconstructQueueOrAcceptOldCallbacks() {
+        val f = Fixture(); val a = game(); f.connect(listOf(a)); f.session.submit(a, GameAction.AcceptInvitation)
+        val original = f.wire.frames.filterIsInstance<GameCommand>().single(); val old = f.wire.listener
+        f.message(GameAdmissionError("unauthorized", false)); assertEquals(listOf("A".repeat(43)), f.rejected)
+        f.token = null; f.session.tick(); assertFalse(f.session.ready)
+        f.token = "B".repeat(43)
+        f.connect(listOf(a), mapOf(a.id to listOf(GameRequestStatus(original.requestId, "notAdmitted"))), "2")
+        assertEquals(original.copy(generation = "2"), f.wire.frames.filterIsInstance<GameCommand>().last())
+        old.message(GameHead(a.id, "4", a.copy(revision = "4"))); f.drain(); assertEquals("0", f.session.summary(a).revision)
+        val late = f.wire.listener; f.session.clear()
+        late.message(GameHead(a.id, "5", a.copy(revision = "5"))); f.drain()
+        assertFalse(f.session.pending(a.id)); assertFalse(f.session.ready(a.id)); assertEquals(a, f.session.summary(a))
+        val openCount = f.wire.frames.filterIsInstance<OpenGameStream>().size
+        f.connect(listOf(a)); assertEquals(openCount + 1, f.wire.frames.filterIsInstance<OpenGameStream>().size)
+        val fresh = Fixture(); fresh.connect(listOf(a)); assertTrue(fresh.wire.frames.filterIsInstance<GameCommand>().isEmpty())
+    }
+    // SYS-008
+    @Test fun terminalUnadmittedDoesNotBlockIndependentLaterWorkAndUnavailableIsNeverARejection() {
+        val f = Fixture(); val a = game(); val b = game(); f.connect(listOf(a, b))
+        f.session.submit(a, GameAction.AcceptInvitation)
+        val command = f.wire.frames.filterIsInstance<GameCommand>().single()
+        f.message(GameAdmissionError("requestIdentityMismatch", false, command.requestId))
+        assertFalse(f.session.pending(a.id)); assertTrue(f.session.submit(b, GameAction.DeclineInvitation))
+        f.message(GameAdmissionError("storageUnavailable", true))
+        assertTrue(f.session.pending(b.id)); assertTrue(f.results.isEmpty())
+    }
+    // WEB-060, SYS-014 (problem report VSVLSK): another tab of the same browser (one installation to the server) opened the
+    // game's stream, so the server fences this tab's next command; the stream is opened again on the same socket (no
+    // reconnect) and the command goes again under its own request id once it is ready
+    @Test fun aStreamAnotherTabTookIsOpenedAgainOnTheSameSocketAndTheFencedCommandGoesAgain() {
+        val f = Fixture(); val game = game()
+        try {
+            f.connect(listOf(game))
+            assertTrue(f.session.submit(game, GameAction.AcceptInvitation))
+            val original = f.wire.frames.filterIsInstance<GameCommand>().single()
+            val opens = f.wire.frames.filterIsInstance<OpenGameStream>().size
+            val disconnects = f.wire.disconnected
+            f.message(GameAdmissionError("streamFenced", false, original.requestId, game.id))
+            assertEquals(1, f.wire.tokens.size, "no new socket")
+            assertEquals(disconnects, f.wire.disconnected, "the socket stays")
+            val open = f.wire.frames.filterIsInstance<OpenGameStream>()
+            assertEquals(opens + 1, open.size, "the stream is opened again")
+            assertFalse(f.session.ready(game.id))
+            assertTrue(f.session.pending(game.id))
+            f.message(GameStreamReady(game.id, open.last().streamId, "3"))
+            assertEquals(original.copy(generation = "3"), f.wire.frames.filterIsInstance<GameCommand>().last())
+            assertEquals(2, f.wire.frames.filterIsInstance<GameCommand>().size)
+            assertTrue(f.session.ready(game.id))
+        } finally { f.session.close() }
+    }
+    // WEB-060, SYS-014 (problem report VSVLSK): after a lost socket the tab asks to resume a stream another tab has opened
+    // since; the fenced resume opens the stream afresh instead of dropping the socket and asking to resume again forever,
+    // and what waited goes again
+    @Test fun aFencedResumeOpensTheStreamAfreshInsteadOfReconnectingForever() {
+        val f = Fixture(); val game = game()
+        try {
+            f.connect(listOf(game))
+            assertTrue(f.session.submit(game, GameAction.AcceptInvitation))
+            val original = f.wire.frames.filterIsInstance<GameCommand>().single()
+            f.wire.listener.disconnected(false, "socketFailure"); f.drain()
+            f.session.tick()
+            assertEquals(2, f.wire.tokens.size)
+            f.wire.listener.opened(); f.drain(); f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            val resume = f.wire.frames.filterIsInstance<ResumeGameStream>().single()
+            assertEquals(listOf(original.requestId), resume.requestIds)
+            val disconnects = f.wire.disconnected
+            f.message(GameAdmissionError("streamFenced", false, null, game.id))
+            assertEquals(disconnects, f.wire.disconnected, "the socket stays")
+            repeat(5) { f.now += 1_000; f.session.poll() }
+            assertEquals(2, f.wire.tokens.size, "no reconnect loop")
+            val open = f.wire.frames.filterIsInstance<OpenGameStream>().last()
+            assertEquals(resume.streamId, open.streamId)
+            assertEquals(2, f.wire.frames.filterIsInstance<OpenGameStream>().size)
+            f.message(GameStreamReady(game.id, open.streamId, "4"))
+            f.message(GameHead(game.id, game.revision, game))
+            assertEquals(original.copy(generation = "4"), f.wire.frames.filterIsInstance<GameCommand>().last())
+            assertTrue(f.session.ready(game.id))
+        } finally { f.session.close() }
+    }
+    // WEB-060: the fences of several commands sent before the stream's new open are answered by that one open
+    @Test fun fencesOfCommandsSentBeforeTheNewOpenAskForNoMoreOpens() {
+        val f = Fixture(); val a = game(); val b = game()
+        try {
+            f.connect(listOf(a, b))
+            assertTrue(f.session.submit(a, GameAction.AcceptInvitation))
+            assertTrue(f.session.setAssumeReveals(a, AssumeReveals(library = false, hands = true)))
+            val (first, second) = f.wire.frames.filterIsInstance<GameCommand>()
+            val opens = f.wire.frames.filterIsInstance<OpenGameStream>().size
+            f.message(GameAdmissionError("streamFenced", false, first.requestId, a.id))
+            f.message(GameAdmissionError("streamFenced", false, second.requestId, a.id))
+            assertEquals(opens + 1, f.wire.frames.filterIsInstance<OpenGameStream>().size)
+            f.message(GameStreamReady(a.id, f.wire.frames.filterIsInstance<OpenGameStream>().last().streamId, "2"))
+            assertEquals(listOf(first, second).map { it.copy(generation = "2") }, f.wire.frames.filterIsInstance<GameCommand>().drop(2))
+            assertTrue(f.session.ready(b.id), "the other game's stream is untouched")
+        } finally { f.session.close() }
+    }
+}

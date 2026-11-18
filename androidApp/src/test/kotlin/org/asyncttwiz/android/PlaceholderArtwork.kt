@@ -58,15 +58,7 @@ internal class PlaceholderArtwork(context: Context, private val available: Boole
             }
         }
 
-        private val names = java.util.concurrent.ConcurrentHashMap<String, String>()
         private val cards = java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
-
-        /** A stable provider printing id for a fixture card; its placeholder card images show [name] (then each of
-         * [otherFaces] for the later faces) in the name bar. */
-        fun printing(name: String, vararg otherFaces: String): String =
-            java.util.UUID.nameUUIDFromBytes("printing:$name".toByteArray()).toString().also { id ->
-                (listOf(name) + otherFaces).forEachIndexed { face, faceName -> names["$id|$face"] = faceName }
-            }
 
         /** A plain card in printed 488×680 proportions: dark border, name bar (with the fixture card's name when known),
          * the art in its art box, type bar, text box. */
@@ -97,7 +89,7 @@ internal class PlaceholderArtwork(context: Context, private val available: Boole
 
         fun image(reference: ArtworkReference): Bitmap =
             if (reference.size == "art_crop" && reference.customUrl == null) art
-            else card(reference.faceName ?: names["${reference.printing}|${reference.face}"])
+            else card(reference.faceName ?: PlaceholderPrintings.faceName(reference.printing, reference.face))
 
         /** Fills [box] with the placeholder picture, centred and cropped (never stretched), like a printed art box. */
         fun drawArt(canvas: Canvas, box: RectF) {
@@ -118,5 +110,3 @@ internal class PlaceholderArtwork(context: Context, private val available: Boole
     }
 }
 
-/** A stable provider printing id for a fixture card, so it has an artwork source like every real card. */
-internal fun placeholderPrinting(name: String, vararg otherFaces: String): String = PlaceholderArtwork.printing(name, *otherFaces)

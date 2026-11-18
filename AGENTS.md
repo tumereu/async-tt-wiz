@@ -119,8 +119,15 @@ you update the catalog to match; everywhere else the catalog wins.
 - Build/test with `./scripts/gradle.sh <tasks>` (wraps gradlew for WSL). Useful
   tasks: `:protocol:jvmTest`, `:core:jvmTest`, `:client-storage:test`,
   `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
+  `:app-engine:test`, `:app-ui:test`,
   `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`, `:arcanum-tools:test`, `:e2e:test` (slow, Docker;
   see End-to-end coverage).
+  The shared UI's and the device engine's logic tests are common tests (`app-ui/src/commonTest`,
+  `app-engine/src/commonTest`; the test boards both they and androidApp's tests use in `app-ui/src/testFixtures`): a test
+  that needs no Android goes there, not into androidApp. `:app-ui:test` and `:app-engine:test` run them on the JVM;
+  `:app-engine:wasmJsNodeTest` on Kotlin/Wasm in Node, and `:app-ui:wasmJsBrowserTest` in headless Chrome (Compose's Skia
+  doesn't load in Node), with the browser-only code's own tests (`app-ui/src/wasmJsTest`: the game socket, storage,
+  engine worker, sound) beside them.
   `wasmJsNodeTest` of `:core`, `:protocol`, `:automatum`, `:arcanum-api`, `:arcanum-parser` and `:arcanum-engine` runs their common tests on Kotlin/Wasm (Node); the engine's skips its four long random-game classes unless `-Parcanum.wasmLongGames=true` (about 8 more minutes): before each release, ask the owner whether to include them.
   `:arcanum-tools:setSupport` checks every card of the supported sets (`supported-sets.txt`); it runs in the full-suite batch and in set work's fix and close steps, and reads the pinned MTGJSON file (`catalog/pin.properties`; `scripts/catalog-pin.sh verify`), never committed: without it, it stops and says how to get it.
   `:androidApp:compileDebugAndroidTestKotlin` compiles the on-device tests (androidApp/src/androidTest), which nothing else builds; it runs in the full-suite batch.

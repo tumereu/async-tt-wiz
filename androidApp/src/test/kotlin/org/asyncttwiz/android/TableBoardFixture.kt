@@ -19,10 +19,6 @@ import org.asyncttwiz.protocol.game.LineRandom
 import org.asyncttwiz.protocol.game.TableState
 import java.util.IdentityHashMap
 
-/** The render model ([TableBoard]) of a test board: what the table draws of [play]'s board (no engine state, no worked-out
- * values), for the table's drawing, layout and gesture tests. */
-internal fun tableBoard(play: PlayState): TableBoard =
-    TableBoard(play.gameId, play.id, play.root.id, play.board, play.definitions)
 
 /**
  * The engine table of a test board, for the screenshot tests (R4b follow-up): what the app draws of [play]'s board for

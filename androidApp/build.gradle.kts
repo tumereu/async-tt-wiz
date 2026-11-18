@@ -272,6 +272,8 @@ android {
     // The MTGJSON import (:catalog's src/mtgjson) indexes the tests' invented MTGJSON fixtures; the app reads only the
     // server's card catalog (docs/specs/web-client.md section 3.5).
     sourceSets.getByName("test").kotlin.directories.add("../catalog/src/mtgjson/kotlin")
+    // The test boards the shared UI's common tests (app-ui's commonTest) and these tests both use.
+    sourceSets.getByName("test").kotlin.directories.add("../app-ui/src/testFixtures/kotlin")
     // One retained fixture shared with host migration verification; never packaged in the app.
     sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/commonMain/sqldelight/databases")
 }

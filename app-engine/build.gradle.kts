@@ -16,10 +16,13 @@ kotlin {
         compileSdk = 37
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        withHostTest {}
     }
+    // The common tests run on the JVM (the Android host tests, `test`) and on Kotlin/Wasm in Node (wasmJsNodeTest).
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser { testTask { enabled = false } }
+        nodejs()
     }
     sourceSets {
         commonMain.dependencies {
@@ -30,5 +33,25 @@ kotlin {
             implementation(libs.serialization.json)
             implementation(libs.coroutines.core)
         }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.coroutines.test)
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(project.dependencies.platform(libs.junit.bom))
+            implementation(libs.junit.jupiter)
+            runtimeOnly(libs.junit.launcher)
+            // The common tests' kotlin.test on JUnit 5
+            implementation(libs.kotlin.test.junit5)
+        }
     }
+}
+
+tasks.withType<Test>().configureEach { useJUnitPlatform() }
+
+// The name AGENTS.md and the scripts use for this module's JVM tests (the Android host tests).
+tasks.register("test") {
+    group = "verification"
+    description = "Runs app-engine's common tests on the JVM (testAndroidHostTest)."
+    dependsOn("testAndroidHostTest")
 }

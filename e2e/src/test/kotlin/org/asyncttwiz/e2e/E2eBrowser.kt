@@ -106,6 +106,24 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
         }
     }
 
+    /** Where the semantics mirror places what [selector] finds once that place has held for 1.5 s (waiting up to 20 s):
+     * Compose copies the screen into the mirror only once the screen has been still for 100 ms, and at least once a second
+     * while it keeps changing, so two reads alike may still be an earlier frame's place (WEB-058, found 2026-11-15). */
+    fun settledBox(selector: String): com.microsoft.playwright.options.BoundingBox {
+        val deadline = System.nanoTime() + 20_000_000_000L
+        var last = box(selector)
+        var since = System.nanoTime()
+        while (System.nanoTime() - since < 1_500_000_000L) {
+            check(System.nanoTime() < deadline) { "$selector kept moving in the page's semantics mirror: last at ${place(last)}" }
+            Thread.sleep(100)
+            val now = box(selector)
+            if (place(now) != place(last)) { last = now; since = System.nanoTime() }
+        }
+        return last
+    }
+
+    private fun place(box: com.microsoft.playwright.options.BoundingBox) = listOf(box.x, box.y, box.width, box.height)
+
     /** A tap in the middle of the control [selector] finds, on the page's canvas (the mirror only says where it is). */
     fun tap(selector: String) {
         val box = box(selector)

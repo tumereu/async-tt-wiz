@@ -1,0 +1,1 @@
+fix: In the web version on a computer, a panel made smaller to fit the window, such as choosing cards for the bottom after a mulligan, no longer shows off centre for a moment, and the mouse finds its cards where they are drawn.

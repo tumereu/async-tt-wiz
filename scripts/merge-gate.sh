@@ -23,7 +23,7 @@ set -u
 usage() { sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }
 
 # The e2e smoke set: the core loop, a combat with its close animation (CMB-001), undo, the catch-up and the rewind on
-# return, and the web client.
+# return, and the web client (WebGameFlowTest: a game's turns in the browser against a phone).
 E2E_SMOKE=(
     org.asyncttwiz.e2e.CoreLoopTest
     org.asyncttwiz.e2e.CombatAnimationTest
@@ -31,6 +31,7 @@ E2E_SMOKE=(
     org.asyncttwiz.e2e.CatchUpPlaybackTest
     org.asyncttwiz.e2e.RewindOnReturnTest
     org.asyncttwiz.e2e.WebSmokeTest
+    org.asyncttwiz.e2e.WebGameFlowTest
 )
 # Each module's JVM suite; modules without one are covered by the android, web and e2e checks.
 declare -A SUITE=(
@@ -38,6 +39,7 @@ declare -A SUITE=(
     [:automatum]=:automatum:jvmTest [:catalog]=:catalog:jvmTest [:server]=:server:test
     [:arcanum-api]=:arcanum-api:jvmTest [:arcanum-parser]=:arcanum-parser:jvmTest
     [:arcanum-engine]=:arcanum-engine:jvmTest [:arcanum-tools]=:arcanum-tools:test
+    [:app-engine]=:app-engine:test [:app-ui]=:app-ui:test
 )
 
 tip=; message=; extras=()

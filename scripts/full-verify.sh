@@ -42,7 +42,8 @@ t0=$SECONDS
     :androidApp:assembleDebug :webApp:webDist :arcanum-api:jvmTest :arcanum-parser:jvmTest :arcanum-engine:jvmTest \
     :arcanum-tools:test :automatum:jvmTest :catalog:jvmTest :arcanum-tools:setSupport :androidApp:compileDebugAndroidTestKotlin \
     :core:wasmJsNodeTest :protocol:wasmJsNodeTest :automatum:wasmJsNodeTest :arcanum-api:wasmJsNodeTest \
-    :arcanum-parser:wasmJsNodeTest :arcanum-engine:wasmJsNodeTest verifyModuleBoundaries "${long[@]}" > "$logs/suites.log" 2>&1
+    :arcanum-parser:wasmJsNodeTest :arcanum-engine:wasmJsNodeTest :app-engine:test :app-engine:wasmJsNodeTest :app-ui:test \
+    :app-ui:wasmJsBrowserTest verifyModuleBoundaries "${long[@]}" > "$logs/suites.log" 2>&1
 suites=$?
 echo "SUITES rc=$suites" >> "$logs/suites.log"
 echo "suites: $([ $suites = 0 ] && echo green || echo "FAILED (exit $suites)") in $(( (SECONDS - t0) / 60 )) min" | tee -a "$summary"

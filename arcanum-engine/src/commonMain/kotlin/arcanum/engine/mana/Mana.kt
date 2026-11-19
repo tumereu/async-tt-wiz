@@ -343,7 +343,14 @@ internal object Mana {
         val ability = inst.ability as Ability.Activated
         val eval = snap.evaluator(player, self = id)
         val you = snap.state.player(player)
-        val parts = ability.cost.parts
+        // CR 701.59a: collecting evidence as a cost is the exile it is (what the payment's activation asks, Costs.total)
+        val parts = ability.cost.parts.map { p ->
+            if (p is CostPart.Action && p.action is arcanum.api.KeywordAction.CollectEvidence) arcanum.engine.casting.Costs.asCostPart(p) else p
+        }
+        // Too few objects for a part is a certain no only when nothing else this payment may do first could bring more (no false denials,
+        // owner 2026-11-19): asked only then
+        val othersMayAdd = lazy { zonesOthersMayFill(snap, player, id, inst) }
+        fun shortIsCertain(zones: Collection<Zone>) = zones.none { it in othersMayAdd.value }
         val tapsSelf = parts.any { it == CostPart.TapSelf }
         if (tapsSelf && id in reserved.tapped) return emptyList()
         var unknown = ability.instructions.announced.isNotEmpty() || ability.instructions.modes != null
@@ -393,9 +400,21 @@ internal object Mana {
                                 // CR 601.2g before 601.2h: what the cost taps must still be there and untapped; what the cost moves away may tap
                                 // for mana first but can't also go for mana
                                 val free = choice.options.filter { o -> o !in reserved.tapped && (part is CostPart.TapObjects || o !in reserved.leaving) }
-                                if (free.size < choice.min) return emptyList()
-                                chosen += if (single) Triple(part, free.take(MAX_OBJECTS).map { listOf(it) }, free.size > MAX_OBJECTS)
-                                    else Triple(part, listOf(free.take(choice.min)), true)
+                                // CR 602.2b, 601.2h: a cost can't be paid without enough objects; "with total mana value N or greater" (collect
+                                // evidence, CR 701.59a) the first ones that reach it, "exactly N" some that add up to it
+                                val some = when {
+                                    free.size < choice.min -> null
+                                    choice.total != null -> totalReached(eval, free, choice.min, choice.total!!)
+                                    single -> free
+                                    else -> free.take(choice.min)
+                                }
+                                when {
+                                    some != null -> chosen += if (single) Triple(part, some.take(MAX_OBJECTS).map { listOf(it) }, some.size > MAX_OBJECTS)
+                                        else Triple(part, listOf(some), true)
+                                    shortIsCertain(choiceZones(part)) -> return emptyList()
+                                    // Another mana ability may bring what it lacks first: offered, not searched
+                                    else -> unknown = true
+                                }
                             }
                         }
                         else -> unknown = true
@@ -463,6 +482,72 @@ internal object Mana {
                 answers = combo.map { (_, ids) -> Answer.Objects(ids) } + choices.map { (_, ids) -> Answer.Objects(ids) }, limit = if (exclusive) 1 else limit,
                 bonus = if (tapsSelf) triggeredMana(snap, id, ys, triggers) else emptyList(), unknown = cantRead, partial = partial)
         }
+    }
+
+    /** Some of [free], at least [min] of them, whose [total] property adds up to it ("N or greater": the first ones that reach it; "exactly
+     * N": some that add up to it, [arcanum.engine.casting.Costs.exactSubset]); null when none do. Values below 0 count as 0 (CR 107.1b). */
+    private fun totalReached(eval: Evaluator, free: List<ObjectId>, min: Int, total: arcanum.api.Total): List<ObjectId>? {
+        val need = eval.value(total.atLeast)
+        fun value(o: ObjectId) = eval.property(total.property, o).coerceAtLeast(0)
+        if (total.exactly) return arcanum.engine.casting.Costs.exactSubset(free, min, need, ::value)
+        val taken = mutableListOf<ObjectId>()
+        var sum = 0
+        for (o in free) {
+            if (sum >= need && taken.size >= maxOf(min, 1)) break
+            taken += o
+            sum += value(o)
+        }
+        return taken.takeIf { sum >= need && it.size >= min && it.isNotEmpty() }
+    }
+
+    /** The zones a cost part's choice of objects chooses from. */
+    private fun choiceZones(part: CostPart): List<Zone> = when (part) {
+        is CostPart.Exile -> listOf(part.from) + part.alsoFrom
+        is CostPart.PutOnBottomOfLibrary -> listOf(part.from)
+        is CostPart.Discard -> listOf(Zone.Hand)
+        else -> listOf(Zone.Battlefield)
+    }
+
+    /**
+     * The zones objects may come into while [player] pays, before [inst] of [id] is activated (CR 601.2g: mana abilities, in any order;
+     * CR 601.2h: the parts of one cost, in any order): what the costs of their other mana abilities and the other parts of its own move
+     * objects to (a sacrifice or discard fills a graveyard, CR 701.21a, 701.9a), and every zone for an ability that does more than add
+     * mana, deal damage to or make its controller lose or gain life, or put counters (what it does can't be told here). A part lacking
+     * objects is a certain no only when its zones aren't among them.
+     */
+    private fun zonesOthersMayFill(snap: Snapshot, player: PlayerId, id: ObjectId, inst: AbilityInstance): Set<Zone> {
+        val zones = mutableSetOf<Zone>()
+        fun costFills(source: ObjectId, part: CostPart) {
+            when (part) {
+                // a token sacrificed is no card (CR 111.1) and puts none into a graveyard; a permanent goes to its owner's (CR 701.21a)
+                is CostPart.Sacrifice -> if (part.what != CostObjects.Self || snap.state.obj(source)?.let { !it.isToken && it.owner == player } != false) zones += Zone.Graveyard
+                is CostPart.Discard -> zones += Zone.Graveyard
+                is CostPart.ReturnToHand -> zones += Zone.Hand
+                is CostPart.Exile -> zones += Zone.Exile
+                is CostPart.PutOnBottomOfLibrary -> zones += Zone.Library
+                is CostPart.OneOf -> part.options.forEach { o -> o.parts.forEach { costFills(source, it) } }
+                // CR 701.59a, 701.61a: collecting evidence and foraging are the exiles and sacrifices they are; other keyword actions can't be told
+                is CostPart.Action -> arcanum.engine.casting.Costs.asCostPart(part).let { if (it is CostPart.Action) zones += ALL_ZONES else costFills(source, it) }
+                else -> Unit
+            }
+        }
+        (inst.ability as Ability.Activated).cost.parts.forEach { costFills(id, it) }
+        (snap.state.battlefield + snap.state.player(player).hand).forEach { other ->
+            val theirs = snap.board.controller(other) == player || snap.state.obj(other)?.owner == player
+            manaAbilities(snap, other).forEach { each ->
+                if (other == id && each.origin == inst.origin || !theirs && !activatableByOthers(each)) return@forEach
+                val ability = each.ability as Ability.Activated
+                ability.cost.parts.forEach { costFills(other, it) }
+                val plain = ability.instructions.steps.all { step ->
+                    step is Step.Choose || when ((step as? Step.Do)?.effect) {
+                        is Effect.AddMana, is Effect.DealDamage, is Effect.LoseLife, is Effect.GainLife, is Effect.PutCounters -> true
+                        else -> false
+                    }
+                }
+                if (!plain) zones += ALL_ZONES
+            }
+        }
+        return zones
     }
 
     /** "Whenever you tap a land for mana, add …" (CR 605.1b) as [player] would get it: what taps it, and what it adds. */
@@ -1107,6 +1192,7 @@ internal object Mana {
     private const val SEARCH_STEPS = 3_000
     /** How many objects a cost's choice of one is tried with, in a search. */
     private const val MAX_OBJECTS = 8
+    private val ALL_ZONES: Set<Zone> = setOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command, Zone.Outside)
     private const val MAX_UNITS = 64
     /** Amounts offered for an ability that announces how much it adds. */
     private const val MAX_ANNOUNCED = 8

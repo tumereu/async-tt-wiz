@@ -360,7 +360,19 @@ object EngineProjection {
                 CombatPair(pairId(attacker), listOf(CombatOccurrence(attackId(attacker), attacker)), blockers,
                     attackTarget = target(a.target), blocked = a.blocked)
             }
-            return CombatArea(COMBAT_ID, pairs)
+            // CMB-046 (fault report GL2H6A): a target that ceased to exist (a planeswalker token killed by the combat damage) is
+            // on no zone of the board; its lane keeps the name it last had where everyone saw it
+            val gone = combat.attackers.mapNotNull { a -> ((a.target as? TargetRef.Object)?.id as? ObjectId.Card) }.distinct()
+                .filter { state.obj(it) == null && state.objects.keys.none { o -> o is ObjectId.Card && o.card == it.card } }
+                .mapNotNull { id ->
+                    val name = arcanum.engine.Inspect.lastKnown(state, id)?.characteristics?.name?.takeIf { LastKnown.public(state, id) }
+                    noteOnce("$game/gone/${state.turn.number}/${id.card.value}") {
+                        AutomatumLog.mismatch(game, "combat target gone", "Attack target ${id.card.value} no longer exists: its lane " +
+                            "named ${name ?: "(no last known name)"}, turn ${state.turn.number} ${state.turn.step}")
+                    }
+                    name?.let { id.card.value to it }
+                }.toMap()
+            return CombatArea(COMBAT_ID, pairs, gone)
         }
         // WCRF3Q, R8XVPA: likewise only attackers on the battlefield
         val staged = table.attackDraft?.takeIf { state.turn.step == arcanum.api.TurnStep.DeclareAttackers }
@@ -387,6 +399,15 @@ object EngineProjection {
     }
     @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
     private val loggedStaging = kotlin.concurrent.atomics.AtomicReference<Set<String>>(emptySet())
+
+    /** Runs [note] once per [key] (the last 50 keys kept with [leftOut]'s): a projection runs for every board. */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private fun noteOnce(key: String, note: () -> Unit) {
+        val seen = loggedStaging.load()
+        if (key in seen) return
+        loggedStaging.store((seen + key).toList().takeLast(50).toSet())
+        note()
+    }
 
     private fun suggestion(table: TableState, nodeId: String): AtwSuggestion? {
         val s = table.suggestion ?: return null

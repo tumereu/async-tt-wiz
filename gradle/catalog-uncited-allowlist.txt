@@ -2,7 +2,6 @@
 # names it; a new entry is not added here. An entry that gets a test leaves this list in the same commit (the check fails
 # while a listed entry is cited). One ID per line.
 CMB-045
-CMB-046
 CMB-072
 CMB-076
 CMB-085

@@ -1,0 +1,1 @@
+fix: A planeswalker token killed in combat keeps its name on its combat lane instead of reading "Card".

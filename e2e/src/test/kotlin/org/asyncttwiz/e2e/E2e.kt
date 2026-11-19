@@ -40,7 +40,7 @@ internal fun phonesComposeRule(): androidx.compose.ui.test.junit4.ComposeTestRul
 internal fun lobbyRequest(request: String): Boolean {
     val path = request.substringAfter(' ').substringBefore('?')
     return path in setOf("/v1/users", "/v1/contacts", "/v1/games", "/v1/invitations") || path.startsWith("/v1/contacts/") ||
-        (path.startsWith("/v1/games/") && path.endsWith("/head"))
+        (path.startsWith("/v1/games/") && (path.endsWith("/head") || path.contains("/lent-decks")))
 }
 
 /**

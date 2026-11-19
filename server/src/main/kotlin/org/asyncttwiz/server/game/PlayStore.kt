@@ -45,6 +45,11 @@ internal object PlayStore {
         DeckVisibilityStore.recordFinished(sql, preparation)
         PreparationStore.returnToLobby(sql, preparation)
         DeckVisibilityStore.revealFinished(sql, preparation, summary)
+        // LOB-251: with New random decks on rematch, the next game deals again as it starts
+        if (game.deckSettings.newDealOnRematch) {
+            PreparationStore.clearDecks(sql, UUID.fromString(game.id), preparation.players.map { UUID.fromString(it.accountId) })
+            org.slf4j.LoggerFactory.getLogger(PlayStore::class.java).info("Rematch of game={} deals new decks as it starts", game.id)
+        }
     }
 
     fun start(sql: DSLContext, game: GameSummary, preparation: LobbyPreparation, requestId: String): PlayState {

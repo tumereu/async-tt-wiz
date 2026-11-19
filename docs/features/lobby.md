@@ -10,7 +10,8 @@ You sign in with one account that works the same on all your devices, and pick a
 menu and the side menu lead to your games, pods, decks, contacts, Stats and settings; every list of games uses one
 order, with the games where it is your move first. To start a game you invite a contact or a player you search for;
 the new game opens as a lobby where both players choose and prepare a deck and press Ready, and the game starts when
-both are Ready. When a match ends the server keeps a record of it for Stats and the game returns to its lobby for the
+both are Ready. The game's creator can lend the other player their saved decks, even make the game a battle box whose
+decks are dealt at random, so a new player can play without a deck of their own. When a match ends the server keeps a record of it for Stats and the game returns to its lobby for the
 next one. Each game has a chat: the other player's messages pop up as bubbles on your table, and quick messages send
 with one tap. Notifications tell you when a game waits for you, and the app reminds you of games you have left
 waiting. Games and pods nobody touches for long are deleted by the server, with a warning first for games in play
@@ -81,6 +82,20 @@ and pods.
 - **LOB-039** "Cancel game" (header button or row hold) removes an unstarted game and its pending invitation: the inviter can use it anytime in setup, the recipient after accepting; not while an OK on the last result is still owed (TRN-065). (r1)
 - **LOB-046** When a game's result is final the game returns to the same lobby with both players' last prepared decks restored and both Ready cleared; both players get there together, only once both OKs on the result dialog stand, whatever the ending (TRN-065), and nothing in that lobby can be done before (the next game included). (r1)
 
+## Lending decks
+
+- **LOB-247** The lobby's Game settings card ends with a Decks group: Lend my decks, Only lent decks, Same deck allowed, Deck choice and New random decks on rematch. Both players see them; only the game's creator changes them, in the lobby, and changing one clears both players' Ready. (r78)
+- **LOB-248** Lend my decks: Off (the default), All, or chosen categories (one or several, in a dialog listing the creator's categories as a tree); draft decks are never lent. While it is Off the other Decks settings are greyed and do nothing. The other player sees "<creator> lends decks" with the value. (r78)
+- **LOB-249** Only lent decks (off by default): both players may use only lent decks, nothing from outside them, the creator's own other decks included. Such a game is a battle box. (r78)
+- **LOB-254** Same deck allowed (on by default): both players may use the same lent deck; off, the server refuses a deck the other player already uses ("Both players can't use the same deck in this game"). (r78)
+- **LOB-250** Deck choice: Each picks (the default) or Random. With Random neither player chooses: Choose deck is gone, the deck reads "Dealt at random when the game starts", and when both are Ready the server deals each player a lent deck, different ones unless Same deck allowed. (r78)
+- **LOB-251** New random decks on rematch (off by default, greyed unless Random): on, every rematch deals new decks as it starts; off, both players keep the decks they were dealt (LOB-046). (r78)
+- **LOB-257** A Decks change puts back a chosen deck the new settings no longer allow (a borrowed deck no longer lent, any deck outside the lent ones with Only lent decks, the other player's copy of the same deck without Same deck allowed, every deck when Random starts); that player chooses again. (r78)
+- **LOB-255** For the other player Choose deck lists "<creator>'s decks" first, the lent ones under their categories' names (uncategorised ones last), then "Your decks"; with Only lent decks your own decks (and, for the creator, the decks not lent) are greyed with "Only <creator>'s lent decks can be used in this game." (r78)
+- **LOB-256** Choosing a lent deck makes the game's own copy of it (LOB-053): Prepare deck works, the lender's saved deck never changes and nothing is saved to your account. Its name and art always show to both players: your card reads "from <lender>" and its Show deck switch stays on, greyed. (r78)
+- **LOB-260** A lent deck with Automatum's warning (LOB-115) can't be chosen (LOB-118) and is never dealt; with Random a Ready is refused while too few lent decks can be dealt ("There aren't enough lent decks Automatum can play to deal one to each player."). (r78)
+- **LOB-252** An invitation whose creator lends decks says so: a line "<creator> lends you decks" on its rows (Games screen, menu panel, side menu) and as its notification's text, on phones and in browsers. Turning lending on while the invitation waits sends its notification again. (r78)
+
 ## Game chat
 
 - **LOB-066** A chat button on the table's top bar opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145). (r74)
@@ -128,6 +143,7 @@ and pods.
 - **LOB-177** After the tiles the Graphs tab shows record over time: your running wins and the opponent's with one opponent chosen, your running wins and losses with All, a line each. (r61)
 - **LOB-178** Then win % on the play vs on the draw, how matches end (by the rules, conceded, agreed, draw), and match length in turns (a histogram of four-turn ranges: 1-4, 5-8, up to 29-32, then 33+). (r61)
 - **LOB-179** Then your decks (cover, name, W–L, win %; the most recently played first, by its newest finished match), your decks vs theirs (a W–L grid, one opponent chosen, hidden decks pooled as "Deck"), and win % by your deck's colours (as mana symbols). (r61)
+- **LOB-253** A borrowed deck counts for the player who played it, named "<deck> (from <lender>)" in their records and graphs (and as the opponent's deck in the lender's); the lender's own decks' stats don't change. (r78)
 - **LOB-180** The Graphs tab ends with extras: win % after a mulligan, fastest win, longest match, matches per week for the last 8 weeks. (r61)
 
 ## Notifications and reminders

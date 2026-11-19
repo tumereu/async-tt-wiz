@@ -38,9 +38,12 @@ class DeckService(private val runtime: ServiceRuntime) {
             if (built.kept.isNotEmpty()) return@business error(400, "definitions_unavailable")
             val entries = deckEntries(built)
             if (input.cover != null && entries.none { it.printingId == input.cover }) return@business error(400, "invalid_cover", "cover")
+            // LOB-244: the deck's category is one of its owner's
+            val category = input.category?.let { DeckCategoryService.owned(sql, owner, it) ?: return@business error(400, "invalid_category", "category") }
             val id = UUID.randomUUID()
             val row = sql.insertInto(SAVED_DECK).set(SAVED_DECK.ID, id).set(SAVED_DECK.ACCOUNT_ID, owner)
-                .set(SAVED_DECK.NAME, input.name).set(SAVED_DECK.COVER_PRINTING, input.cover).returning().fetchSingle()
+                .set(SAVED_DECK.NAME, input.name).set(SAVED_DECK.COVER_PRINTING, input.cover)
+                .set(SAVED_DECK.CATEGORY_ID, category).returning().fetchSingle()
             insertEntries(sql, id, owner, entries)
             Result(201, json.encodeToString(SavedDeck(summary(row, entries), entries)))
         }
@@ -60,7 +63,10 @@ class DeckService(private val runtime: ServiceRuntime) {
             if (row.draftPodId != null) return@business error(409, "draft_deck")
             val requestedName = input.name
             val requestedCover = input.cover
-            if ((requestedName == null && requestedCover == null && contents == null) ||
+            // LOB-258: a deck's category is set from its editor (a draft deck has none)
+            val category = input.category?.let { choice -> choice.id?.let {
+                DeckCategoryService.owned(sql, owner, it) ?: return@business error(400, "invalid_category", "category") } }
+            if ((requestedName == null && requestedCover == null && contents == null && input.category == null) ||
                 (requestedName != null && (!DeckValidation.text(requestedName) || requestedName.isBlank())))
                 return@business error(400, "invalid_deck", "name")
             val previous = entries(sql, row.id!!)
@@ -83,6 +89,11 @@ class DeckService(private val runtime: ServiceRuntime) {
                 sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.COVER_PRINTING, cover)
                     .set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L)).where(SAVED_DECK.ID.eq(row.id)).execute()
                 row.name = name; row.coverPrinting = cover; row.revision = row.revision!! + 1
+            }
+            // The category is where the deck is kept, not what it holds: its revision stays (a lobby's chosen copy too)
+            if (input.category != null && category != row.categoryId) {
+                sql.update(SAVED_DECK).set(SAVED_DECK.CATEGORY_ID, category).where(SAVED_DECK.ID.eq(row.id)).execute()
+                row.categoryId = category
             }
             Result(200, json.encodeToString(SavedDeck(summary(row, next), next)))
         }
@@ -114,6 +125,9 @@ class DeckService(private val runtime: ServiceRuntime) {
     private fun intent(id: String, input: kotlinx.serialization.json.JsonElement) = DeckJson.canonicalElement(
         kotlinx.serialization.json.buildJsonObject { put("deckId", kotlinx.serialization.json.JsonPrimitive(id)); put("input", input) })
 
+    /** LOB-256: deck [id] of [lender]'s as a borrower reads it, inside the game transaction (the caller checked it is lent). */
+    internal fun lentSource(sql: DSLContext, lender: UUID, id: String): SavedDeck? = selectedSource(sql, lender, id)
+
     private fun owned(sql: DSLContext, owner: UUID, id: String): SavedDeckRecord? {
         if (!DeckValidation.uuid(id)) return null
         return sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
@@ -125,6 +139,7 @@ class DeckService(private val runtime: ServiceRuntime) {
 
     /** Called inside the game transaction; a concurrent edit/delete cannot change this snapshot. */
     internal fun selectedSource(sql: DSLContext, owner: UUID, id: String): SavedDeck? {
+        if (!DeckValidation.uuid(id)) return null
         val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
             .and(SAVED_DECK.ACCOUNT_ID.eq(owner)).forShare().fetchOne() ?: return null
         val entries = entries(sql, row.id!!)
@@ -132,7 +147,7 @@ class DeckService(private val runtime: ServiceRuntime) {
     }
 
     /** A list's summaries with two queries in all (the decks, their entries). */
-    private fun summaries(sql: DSLContext, rows: List<SavedDeckRecord>): List<DeckSummary> {
+    internal fun summaries(sql: DSLContext, rows: List<SavedDeckRecord>): List<DeckSummary> {
         if (rows.isEmpty()) return emptyList()
         val entries = sql.selectFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.`in`(rows.map { it.id }))
             .orderBy(DECK_ENTRY.DECK_ID, DECK_ENTRY.POSITION).fetch().groupBy({ it.deckId!! }, ::entry)
@@ -150,13 +165,13 @@ class DeckService(private val runtime: ServiceRuntime) {
             entries.filter { it.section == SavedDeckSection.SIDEBOARD }.sumOf { it.quantity.toLong() }, cover,
             row.draftPodId?.let { DraftDeckOrigin(it.toString(), row.draftPodName!!) },
             entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() },
-            CardListSupports.support(entries.map { it.printingId to it.name }))
+            CardListSupports.support(entries.map { it.printingId to it.name }), row.categoryId?.toString())
     }
 
     /** INSERT uniqueness waits for concurrent identical IDs, then reads the committed original result.
      * No thrown business exceptions: the ownership boundary correctly treats SQL failures as unavailable.
      */
-    private fun business(principal: AccountService.Principal, requestId: String, kind: String, canonical: String,
+    internal fun business(principal: AccountService.Principal, requestId: String, kind: String, canonical: String,
                          action: (DSLContext, UUID) -> Result): Result {
         val owner = UUID.fromString(principal.account.accountId)
         val id = UUID.fromString(requestId)
@@ -196,7 +211,9 @@ class DeckService(private val runtime: ServiceRuntime) {
                 .and(if (after == null) DSL.trueCondition() else SAVED_DECK.ID.gt(UUID.fromString(after)))
                 .orderBy(SAVED_DECK.ID).limit(101).forShare().fetch()
             val decks = summaries(sql, rows.take(100))
-            Result(200, json.encodeToString(DeckList(decks, if (rows.size > 100) decks.last().id else null)))
+            // LOB-244: the first page carries the account's categories too
+            Result(200, json.encodeToString(DeckList(decks, if (rows.size > 100) decks.last().id else null,
+                if (after == null) DeckCategoryService.all(sql, owner) else emptyList())))
         }
     }
 

@@ -184,7 +184,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val author = if (reset) SUMMARY.AUTHOR_ID else EVENT.AUTHOR_ID
         val game = if (reset) SUMMARY.GAME_ID else EVENT.GAME_ID
         val ownerField = if (reset) SUMMARY.ACCOUNT_ID else EVENT.ACCOUNT_ID
-        val rows = sql.select(activity, kind, game, identity, author, GAME.GAME_NAME, GAME.POD_ID, GAME.POD_NAME, GAME.POD_INVITATION_HELD).from(source)
+        val rows = sql.select(activity, kind, game, identity, author, GAME.GAME_NAME, GAME.POD_ID, GAME.POD_NAME, GAME.POD_INVITATION_HELD,
+            GAME.DECK_SETTINGS).from(source)
             .leftJoin(GAME).on(GAME.ID.eq(game)).leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
             .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
             .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game, identity)))
@@ -244,7 +245,9 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                     ?.takeIf { invitation },
                 sourceName = pod?.second,
                 opponentName = named?.second ?: row[author]?.takeIf { type in invitingKinds }?.let(inviterNames::get),
-                podId = challengePod?.toString(), held = challengePod != null && row[GAME.POD_INVITATION_HELD] == true)
+                podId = challengePod?.toString(), held = challengePod != null && row[GAME.POD_INVITATION_HELD] == true,
+                // LOB-252: a game invitation says when its creator lends the recipient decks
+                lendsDecks = invitation && challengePod == null && org.asyncttwiz.server.decks.Lending.decode(row[GAME.DECK_SETTINGS], row[game]).lending)
         }
     }
 
@@ -311,7 +314,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             else readyHint(sql, owner, summary, due = false)
         }
         val rows = sql.select(EVENT.ACTIVITY_ID, EVENT.KIND, EVENT.GAME_ID, EVENT.IDENTITY, EVENT.AUTHOR_ID, GAME.GAME_NAME, GAME.POD_ID,
-            GAME.POD_NAME, GAME.POD_INVITATION_HELD).from(EVENT).leftJoin(GAME).on(GAME.ID.eq(EVENT.GAME_ID))
+            GAME.POD_NAME, GAME.POD_INVITATION_HELD, GAME.DECK_SETTINGS).from(EVENT).leftJoin(GAME).on(GAME.ID.eq(EVENT.GAME_ID))
             .where(EVENT.ACCOUNT_ID.eq(owner)).and(EVENT.ACTIVITY_ID.eq(activity)).fetch()
         return hints(sql, owner, rows, EVENT.ACTIVITY_ID, EVENT.KIND, EVENT.GAME_ID, EVENT.IDENTITY, EVENT.AUTHOR_ID).singleOrNull()
     }

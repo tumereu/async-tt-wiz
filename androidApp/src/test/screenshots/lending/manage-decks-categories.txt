@@ -1,0 +1,1 @@
+Portrait Manage decks, Decks tab: New category at the top, the categories as a tree with Battle box and its Red subcategory open (Red's decks, then Battle box's Green shut), Casual shut, and the decks without a category last.

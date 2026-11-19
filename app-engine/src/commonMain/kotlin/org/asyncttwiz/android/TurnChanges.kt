@@ -15,10 +15,21 @@ object TurnBanners {
      */
     fun of(transition: EngineGame.Transition): TurnChange? {
         if (transition.jump || transition.undone != null || transition.backward.isNotEmpty()) return null
-        for (event in transition.forward.asReversed()) {
+        return newest(transition.serial, transition.forward)
+    }
+
+    /**
+     * TRN-074 (review 171522fa63-a): the newest turn change among [events], the events new to the player that the transition
+     * [serial] jumped to when their own move lost a race to the server (another event came first, so their own events were
+     * dropped and made again on it, SYS-131): no undo, so the turn change shows as any other.
+     */
+    fun corrected(serial: Long, events: List<GameEvent>): TurnChange? = newest(serial, events)
+
+    private fun newest(serial: Long, events: List<GameEvent>): TurnChange? {
+        for (event in events.asReversed()) {
             val changes = event.engine?.changes.orEmpty()
             val at = changes.indexOfLast { it is Change.Step && it.before.number != it.after.number && it.after.number > 0 }
-            if (at >= 0) return TurnChange(transition.serial, (changes[at] as Change.Step).after.active.value, event, at, transition.forward.map { it.id })
+            if (at >= 0) return TurnChange(serial, (changes[at] as Change.Step).after.active.value, event, at, events.map { it.id })
         }
         return null
     }

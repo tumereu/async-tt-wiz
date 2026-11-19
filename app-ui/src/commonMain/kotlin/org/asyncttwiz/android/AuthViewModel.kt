@@ -129,6 +129,7 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
 
     init {
         deckImport.cardRecords = cardRecords; decks.cardRecords = cardRecords; cubes.cardRecords = cardRecords
+        deckImport.categories = { decks.state.categories }
         pods.cardRecords = cardRecords; lobby.cardRecords = cardRecords
         lobby.gameInput = heartbeat::input
         activity.authenticationRequired = ::authenticationRequired

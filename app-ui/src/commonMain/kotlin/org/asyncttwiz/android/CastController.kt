@@ -139,6 +139,9 @@ class CastController(
     var hidden by mutableStateOf(false); private set
     /** The engine is working out the last step (SYS-025): the panel shows it and takes no input meanwhile. */
     var busy by mutableStateOf(false); private set
+    /** STK-024 (review 147a9c5af6): taps on the payment made while a step was worked out (the last tap, or the cast followed
+     * onto a new board), taken in order once it is done (before, such a tap did nothing). */
+    private val queuedTaps = ArrayDeque<PayTap>()
     /** Why the last step in the open panel was refused ("Not enough mana to pay {5}{R}."), shown inside the panel (UI
      * review round 2 #4: no message over the table); null when none. */
     var notice by mutableStateOf<String?>(null); private set
@@ -382,6 +385,7 @@ class CastController(
      * worked out together so they pay whenever they can, whatever order they were tapped in ([ManaTaps]). */
     override fun toggleMana(group: List<ManaUse>) {
         val key = ManaPicks.key(group.first())
+        if (busy) { queueTap(PayTap.Chip(group)); return }
         tapWays(group.filter { it in (payment?.options ?: group) }.ifEmpty { group }, "chip ${ManaWays.label(group.first())}", ManaBelongs.Key(key))
     }
 
@@ -390,6 +394,7 @@ class CastController(
     private fun tapWays(ways: List<ManaUse>, what: String, belongs: ManaBelongs) {
         flow ?: return
         payment ?: return
+        // Its callers queue a tap made while a step is worked out ([queueTap])
         if (busy) return
         val current = mana
         val autotapOn = autotap
@@ -403,7 +408,8 @@ class CastController(
     fun chooseWay(cardId: String, way: ManaUse) {
         flow ?: return
         payment ?: return
-        if (busy || !paying) return
+        if (!paying) return
+        if (busy) { queueTap(PayTap.Way(cardId, way)); return }
         val autotapOn = autotap
         val before = taps
         val mine = waysOf(cardId)
@@ -422,6 +428,7 @@ class CastController(
      * source the payment can use, it is added to the payment (its sensible way) or taken out; false when it isn't one. */
     fun tapSource(cardId: String): Boolean {
         if (!paying) return false
+        if (busy) return queueTap(PayTap.Source(cardId))
         val ways = waysOf(cardId)
         if (ways.isEmpty()) {
             // A source used with other objects (the creature an altar sacrifices): one pick per object set
@@ -435,6 +442,29 @@ class CastController(
         AppLog.info("cast", "Payment: source $cardId tapped (${ways.size} ways), paying before ${paySources()}")
         tapWays(ways, "source $cardId", ManaBelongs.Uses(ways))
         return true
+    }
+
+    /** STK-024 (review 147a9c5af6): [tap], made while a step is still worked out, waits for it and is taken then. */
+    private fun queueTap(tap: PayTap): Boolean {
+        queuedTaps.addLast(tap)
+        AppLog.info("cast", "Payment: ${tap.what} tapped while a step is worked out: taken once it is done (${queuedTaps.size} waiting)")
+        return true
+    }
+
+    /** The next taps waiting ([queueTap]), taken now on the payment shown; one that no longer pays it shakes its card (TBL-118). */
+    private fun nextTap() {
+        while (!busy) {
+            val tap = queuedTaps.removeFirstOrNull() ?: return
+            val taken = paying && when (tap) {
+                is PayTap.Source -> tapSource(tap.cardId)
+                is PayTap.Chip -> { toggleMana(tap.group); true }
+                is PayTap.Way -> waysOf(tap.cardId).contains(tap.way).also { if (it) chooseWay(tap.cardId, tap.way) }
+            }
+            if (!taken) {
+                AppLog.info("cast", "Payment: ${tap.what} not taken: the payment shown has no such source now")
+                tap.card?.let(shake)
+            }
+        }
     }
 
     /** The payment's uses tapped by tapping [cardId] on the table: one of its mana abilities, or another way to pay with it
@@ -510,6 +540,8 @@ class CastController(
             port.ask(CastRequest(session, op = CastOp.Close(how)), null, { null }) {}
         }
         generation++
+        if (queuedTaps.isNotEmpty()) AppLog.info("cast", "Payment: ${queuedTaps.size} taps waiting dropped with the cast ($how)")
+        queuedTaps.clear()
         busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
         payment = null; fieldSources = emptySet(); custom = false; hand = null; choosing = false
@@ -616,6 +648,7 @@ class CastController(
             if (run != generation) return@ask
             busy = false
             result = apply(answer, play, base)
+            nextTap()
         }
         return result
     }
@@ -652,6 +685,7 @@ class CastController(
         }
         is CastAnswer.Mana -> {
             if (base != null && flow === base) { mana = answer.mana; paid = answer.paid; taps = answer.taps.taps() }
+            else AppLog.warn("cast", "Payment: a tap's result came for a flow no longer shown (${base?.cardId}): not applied")
             follow()
             true
         }

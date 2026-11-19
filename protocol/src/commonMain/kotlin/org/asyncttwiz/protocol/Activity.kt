@@ -23,7 +23,9 @@ import kotlinx.serialization.json.Json
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val podId: String? = null,
     /** INVITATION of a pod challenge sent while the recipient is still building: it can be accepted once they submit
      * their deck (LOB-025). Omitted when false. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val held: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val held: Boolean = false,
+    /** INVITATION of a game whose creator lends the recipient decks (LOB-252). Omitted when false. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lendsDecks: Boolean = false)
 /** Authenticated projection only; never included in the FCM data hint. [reminder]: the one-off
  * "opponent is waiting" notice after their moves went unanswered (omitted when false). [gameOver]: the opponent
  * accepted the recipient's result suggestion, which was this outcome from the recipient's (its author's) side

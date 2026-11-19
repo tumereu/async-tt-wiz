@@ -260,11 +260,14 @@ object WhoActs {
         return decision !is Decision.Random && automaticAnswer(model, decision) == answer
     }
 
+    /** The decider's early answer to [decision] (I-D33): given for it this turn and, for a combat damage division, in this very
+     * combat damage step (CR 510.4, [EarlyAnswer.damageStep]: the next step's division is asked again). */
     private fun earlyAnswer(model: GameModel, decision: Decision): Input.Answer? {
         val key = EarlyAnswer.keyOf(decision)
         val turn = model.engine.turn.number
+        val step by lazy { EarlyAnswer.damageStep(model.engine) }
         return model.table.earlyAnswers.values.firstOrNull { early ->
-            early.player == decision.player && early.key == key && (early.turn == null || early.turn == turn)
+            early.player == decision.player && early.key == key && (early.turn == null || early.turn == turn) && early.damageStep == step
         }?.let { Input.Answer(decision.id, it.answer) }
     }
 

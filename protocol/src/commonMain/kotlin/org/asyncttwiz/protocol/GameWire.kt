@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 13
+const val GAME_PROTOCOL_MINOR = 14
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -49,6 +49,9 @@ const val GAME_PROTOCOL_MINOR = 13
     /** TRN-065 (owner 2026-11-07): the actor tapped OK on the last match's result ([GameSummary.resultNotice]); the next
      * game starts only once both players have. Scoped to the game alone. */
     @Serializable @SerialName("acknowledgeResult") data object AcknowledgeResult : GameAction
+    /** LOB-247: the game's deck settings; only its creator (the inviter) changes them, in the lobby. Clears both players'
+     * Ready, and a chosen deck the new settings don't allow. */
+    @Serializable @SerialName("setDeckSettings") data class SetDeckSettings(val settings: DeckSettings) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
@@ -270,6 +273,10 @@ object GameWire {
                     require(action.choice.accountId == null || DeckValidation.uuid(action.choice.accountId))
                 }
                 is GameAction.SetAlternateStarter, is GameAction.ShowDeck -> require(command.scope.invitationId == null)
+                is GameAction.SetDeckSettings -> {
+                    require(command.scope.invitationId == null)
+                    (action.settings.lend as? DeckLending.Categories)?.let { require(it.ids.isNotEmpty() && it.ids.size <= 256 && it.ids.all(DeckValidation::uuid)) }
+                }
                 GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> require(command.scope.invitationId == null)
                 else -> require(command.scope.invitationId != null)
             }

@@ -29,7 +29,9 @@ import org.asyncttwiz.protocol.game.TableState
  *   is the table's [TableState.attackDraft]: the attacks as the engine's own [Attack]s, so the choices travel with them.
  * - **Block staging** (CMB-034) is [TableState.blockDraft].
  * - **Early divisions of combat damage** (STK-034, I-D33) are [TableState.earlyAnswers] keyed as the engine's division
- *   decision will be ([EarlyAnswer.keyOf]: kind, player, the creature dealing the damage), for the turn they were given in.
+ *   decision will be ([EarlyAnswer.keyOf]: kind, player, the creature dealing the damage), for the turn and the combat
+ *   damage step they were given in ([EarlyAnswer.damageStep], CR 510.4): once that step is over they answer nothing and
+ *   show nowhere.
  *
  * [changes] turns a board the combat controls made (their lanes and early-answer records) into the table changes that
  * share it; [records] and [blockLanes] show the table's drafts and early answers on the projected board again, so both
@@ -61,7 +63,8 @@ object EngineDrafts {
         // STK-034: only the viewer's own early answers
         val given = PreAnswers.of(staged).filterIsInstance<PreAnswer.Division>().filter { it.player == viewer }
             .mapNotNull { early(s, it) }.associateBy { it.key }
-        val had = table.earlyAnswers.filterValues { it.player == me && it.key.startsWith(DIVIDE) }
+        // Only those of this damage step: one of an earlier step answers nothing any more and is left as it is
+        val had = table.earlyAnswers.filterValues { it.player == me && it.key.startsWith(DIVIDE) && live(s, it) }
         for ((key, answer) in given) if (had[key] != answer) out += TableChange.EarlyAnswered(key, table.earlyAnswers[key], answer)
         for ((key, answer) in had) if (key !in given) out += TableChange.EarlyAnswered(key, answer, null)
         return out
@@ -89,8 +92,13 @@ object EngineDrafts {
             }
             Share(target, share.amount)
         }
-        return EarlyAnswer(PlayerId(d.player), divisionKey(PlayerId(d.player), source), Answer.Division(shares), d.turn)
+        return EarlyAnswer(PlayerId(d.player), divisionKey(PlayerId(d.player), source), Answer.Division(shares), d.turn,
+            EarlyAnswer.damageStep(s))
     }
+
+    /** Whether [early] can still answer a division on [s]: given in this turn's combat damage step under way (CR 510.4). */
+    private fun live(s: GameState, early: EarlyAnswer): Boolean =
+        (early.turn == null || early.turn == s.turn.number) && early.damageStep != null && early.damageStep == EarlyAnswer.damageStep(s)
 
     /** The key of [player]'s division of [source]'s combat damage ([EarlyAnswer.keyOf] of that decision). */
     fun divisionKey(player: PlayerId, source: ObjectId): String = "$DIVIDE${player.value}:$source"
@@ -101,8 +109,8 @@ object EngineDrafts {
 
     /**
      * The early-answer records the combat controls read on the projected board (CMB-036–CMB-038, STK-034): the attacker's
-     * choices with the staged [TableState.attackDraft], and every early division in the table (as both damage steps' of
-     * its creature: one early answer answers the creature's division in the step it comes in).
+     * choices with the staged [TableState.attackDraft], and the early divisions of the combat damage step under way (CR 510.4:
+     * one given in an earlier step answers nothing in this one, review 519b7400ec).
      */
     fun records(s: GameState, table: TableState): List<EngineRecord> = buildList {
         table.attackDraft?.takeIf { s.turn.step == arcanum.api.TurnStep.DeclareAttackers }?.let { draft ->
@@ -112,8 +120,9 @@ object EngineDrafts {
             }.filterNot { it.empty }
             if (choices.isNotEmpty()) add(PreAnswers.record(PreAnswer.AttackChoices(s.turn.active.value, s.turn.number, choices)))
         }
+        val firstStrike = s.combat?.firstStrikeStep == true
         for (early in table.earlyAnswers.values) {
-            if (!early.key.startsWith(DIVIDE)) continue
+            if (!early.key.startsWith(DIVIDE) || !live(s, early)) continue
             val division = early.answer as? Answer.Division ?: continue
             val sourceText = early.key.removePrefix(DIVIDE).substringAfter(':')
             val card = sourceText.substringBeforeLast('#')
@@ -125,8 +134,7 @@ object EngineDrafts {
                 } ?: return@mapNotNull null
                 PreShare(target, share.amount)
             }
-            for (firstStrike in listOf(false, true))
-                add(PreAnswers.record(PreAnswer.Division(early.player.value, MtgRef.Card(card, zoneChanges), shares, early.turn, firstStrike)))
+            add(PreAnswers.record(PreAnswer.Division(early.player.value, MtgRef.Card(card, zoneChanges), shares, early.turn, firstStrike)))
         }
     }
 }

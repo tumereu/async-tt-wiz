@@ -120,17 +120,35 @@ sealed interface ResponseMode {
 
 /**
  * An answer [player] gives early to a decision of theirs that isn't open yet (I-D33), named by [key] (the decision's
- * kind and what it is about, [EarlyAnswer.keyOf]), valid in turn [turn] (null: any). Applied by the device running the
- * step when its decision opens, as an engine-automatic answer (I-D56 §6 c).
+ * kind and what it is about, [EarlyAnswer.keyOf]), valid in turn [turn] (null: any) and in the combat damage step
+ * [damageStep] of that turn it was given in ([EarlyAnswer.damageStep]; null: given outside a combat damage step, and then
+ * valid only outside one). Applied by the device running the step when its decision opens, as an engine-automatic answer
+ * (I-D56 §6 c).
  */
 @Serializable
-data class EarlyAnswer(val player: PlayerId, val key: String, val answer: Answer, val turn: Int? = null) {
+data class EarlyAnswer(val player: PlayerId, val key: String, val answer: Answer, val turn: Int? = null, val damageStep: Int? = null) {
     companion object {
         /** The key of an early answer to [decision]: the decision's kind ([arcanum.engine.decision.Decision.kind], written
          * out: a shrunk Android build may name a nested class "Decision$Divide" where the JVM says "Divide", and the device
          * and the server must make the same key), its player and its source. */
         fun keyOf(decision: arcanum.engine.decision.Decision): String =
             "${decision.kind}:${decision.player.value}:${decision.source ?: "-"}"
+
+        /**
+         * Which combat damage step of its turn [state] is in, counted from 1, or null outside a combat damage step. CR 510.4:
+         * with first or double strike a combat has two combat damage steps, and an additional combat phase (CR 500.8) brings
+         * its own: each creature divides its damage anew in each (CR 510.1c), so an early division answers only the step it
+         * was given in (review 519b7400ec: one given in the first-strike step was applied again in the regular one).
+         */
+        fun damageStep(state: arcanum.engine.state.GameState): Int? {
+            if (state.turn.step != arcanum.api.TurnStep.CombatDamage) return null
+            val turn = state.turn.number
+            return arcanum.engine.Inspect.events(state).count { logged ->
+                val step = logged.change as? arcanum.engine.change.Change.Step
+                logged.turn == turn && step != null && arcanum.engine.change.Meaning.StepBegan in step.meanings &&
+                    step.after.step == arcanum.api.TurnStep.CombatDamage
+            }.takeIf { it > 0 }
+        }
     }
 }
 

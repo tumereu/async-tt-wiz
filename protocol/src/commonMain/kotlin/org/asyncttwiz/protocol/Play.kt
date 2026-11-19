@@ -171,13 +171,16 @@ object StartRules {
             }
             // Concerns later plays only, so nobody's Ready is withdrawn.
             is GameAction.SetAlternateStarter -> PreparationChange(current.copy(alternateStarter = action.enabled))
+            // LOB-256: a borrowed deck always shows
+            is GameAction.ShowDeck -> if (player.deck?.lender != null && !action.shown) reject("borrowedDeckShown")
             // Display only: nobody's Ready is withdrawn. The server fills a shown pod deck's private name.
-            is GameAction.ShowDeck -> PreparationChange(current.copy(players = current.players.map {
+            else PreparationChange(current.copy(players = current.players.map {
                 if (it.accountId == actor) it.copy(deckShown = action.shown, shownPodDeckName = it.shownPodDeckName.takeIf { action.shown })
                 else it
             }))
             GameAction.Ready -> when {
-                player.deck == null -> reject("deckRequired")
+                // LOB-250: with Random the server deals the decks as the game starts; nobody chooses one
+                player.deck == null && !game.deckSettings.dealt -> reject("deckRequired")
                 else -> PodGamePreparation.readyProblem(current, actor)?.let(::reject)
                     ?: PreparationChange(current.copy(players = current.players.map {
                         if (it.accountId == actor) it.copy(ready = true) else it
@@ -202,7 +205,7 @@ object StartRules {
         game.invitationState == InvitationState.ACCEPTED &&
         // TRN-065: the next game starts only once both players have tapped OK on the last one's result
         game.resultNotice == null &&
-        preparation.players.size == 2 && preparation.players.all { it.ready && it.deck != null }
+        preparation.players.size == 2 && preparation.players.all { it.ready && (it.deck != null || game.deckSettings.dealt) }
 
     /** Inputs are acquired independently by the server only after the readiness transition applies. */
     /** Every play is played with Automatum (I-D52) and starts with each player's opening hand ([GameRules.openingHand])

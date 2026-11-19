@@ -37,6 +37,15 @@ object ActivityTexts {
     /** I-D57: a pod notification's text: the set or cube the pod drafts. */
     fun podDetail(hint: ActivityHint): String? = hint.sourceName?.takeIf { pod(hint.kind) }
 
+    /** LOB-252: the line saying a game's creator lends you decks: "<name> lends you decks". */
+    fun lendsDecks(name: String) = "$name lends you decks"
+
+    /** An invitation's or pod notification's text under its title: a game invitation's lent decks (LOB-252), a pod's set
+     * or cube ([podDetail]). */
+    fun detail(hint: ActivityHint): String? =
+        if (hint.kind == ActivityKind.INVITATION && hint.lendsDecks && hint.podId == null) lendsDecks(hint.opponentName ?: "Your opponent")
+        else podDetail(hint)
+
     /** I-D53: the rules' result, from the notified player's side. */
     fun byRulesResult(outcome: SuggestedResult) = when (outcome) {
         SuggestedResult.WIN -> "You won"
@@ -86,7 +95,7 @@ object ActivityTexts {
     fun notification(hint: ActivityHint, podName: String? = null): Pair<String, String?> {
         val game = hint.notice
         return when {
-            hint.kind == ActivityKind.INVITATION || hint.kind == ActivityKind.POD_INVITATION -> invitation(hint, podName) to podDetail(hint)
+            hint.kind == ActivityKind.INVITATION || hint.kind == ActivityKind.POD_INVITATION -> invitation(hint, podName) to detail(hint)
             pod(hint.kind) -> podActivity(hint.kind, hint.resourceName ?: podName) to podDetail(hint)
             hint.kind == ActivityKind.GAME_REMOVAL -> gameRemoval(hint)
             game != null -> gameTitle(game) to gameText(game)

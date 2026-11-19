@@ -45,6 +45,12 @@ internal object DeckVisibilityStore {
             .execute().also { check(it == 1) }
     }
 
+    /** LOB-256: a borrowed deck shows to both players whatever the deck visibility says, and nothing changes that. */
+    fun borrowed(sql: DSLContext, game: UUID, account: UUID) {
+        sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.DECK_SHOWN, true).set(PLAYER_PREPARATION.DECK_SHOWN_CHOSEN, true)
+            .where(PLAYER_PREPARATION.GAME_ID.eq(game)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(account)).execute()
+    }
+
     /** The player switched this game's Show deck toggle themselves: [revealFinished] leaves the game alone. */
     fun chosen(sql: DSLContext, game: UUID, account: UUID) {
         sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.DECK_SHOWN_CHOSEN, true)
@@ -54,6 +60,8 @@ internal object DeckVisibilityStore {
     /** A play ended with an accepted result: each player has now finished a game with their deck against the other. */
     fun recordFinished(sql: DSLContext, preparation: LobbyPreparation) {
         for (player in preparation.players) {
+            // LOB-256: a borrowed deck is the lender's, always shown: never the borrower's own finished deck
+            if (player.deck?.lender != null) continue
             val source = player.deck?.sourceId?.let(::sourceId) ?: continue
             val opponent = preparation.players.singleOrNull { it.accountId != player.accountId } ?: continue
             sql.insertInto(FINISHED_DECK_MATCHUP).set(FINISHED_DECK_MATCHUP.ACCOUNT_ID, UUID.fromString(player.accountId))

@@ -1,5 +1,6 @@
 package org.asyncttwiz.protocol
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** Username-only projections. Account emails and credentials never enter shared lobby metadata. */
@@ -22,7 +23,9 @@ import kotlinx.serialization.Serializable
     /** The game's assume reveal settings (LOB-135), set by its host ([inviter]). Omitted when the defaults. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val assumeReveals: AssumeReveals = AssumeReveals(),
     /** TRN-065: the last match's result while a player still has to tap OK on it. Omitted when nobody has to. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val resultNotice: ResultNotice? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val resultNotice: ResultNotice? = null,
+    /** The game's deck settings (LOB-247), set by its creator ([inviter]). Omitted when the defaults. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val deckSettings: DeckSettings = DeckSettings())
 
 /**
  * TRN-065 (owner 2026-11-09): how the last match ended, after a concession or an accepted suggestion, kept from its end until
@@ -47,6 +50,39 @@ import kotlinx.serialization.Serializable
         val NONE = AssumeReveals(library = false, hands = false)
     }
 }
+/** LOB-247 (owner 2026-11-19): which of the game creator's saved decks they lend to the other player. */
+@Serializable sealed interface DeckLending {
+    /** Nothing lent (the default). */
+    @Serializable @SerialName("off") data object Off : DeckLending
+    /** Every ordinary saved deck of the creator's (draft decks are never lent). */
+    @Serializable @SerialName("all") data object All : DeckLending
+    /** The decks in the chosen categories ([ids], one or several), their subcategories included (LOB-245). */
+    @Serializable @SerialName("categories") data class Categories(val ids: List<String>) : DeckLending
+}
+
+/**
+ * LOB-247..LOB-251 (owner 2026-11-19): a game's deck settings, set only by its creator (the inviter) in the lobby; a change
+ * clears both players' Ready. [lend]: the creator's decks the other player may borrow. [onlyLent]: while lending, every
+ * player plays a lent deck (a battle box: nothing from outside, the creator's other decks included). [sameDeck]: both
+ * players may use the same deck. [random]: while lending, the server deals each player a lent deck as the game starts,
+ * instead of each picking one. [redeal]: with [random], every rematch deals new decks.
+ */
+@Serializable data class DeckSettings(val lend: DeckLending = DeckLending.Off, val onlyLent: Boolean = false,
+    val sameDeck: Boolean = true, val random: Boolean = false, val redeal: Boolean = false) {
+    /** Whether the creator lends any deck. */
+    val lending: Boolean get() = lend != DeckLending.Off
+    /** Players may use only lent decks (the settings that need lending count only while lending). */
+    val onlyLentDecks: Boolean get() = lending && (onlyLent || random)
+    /** The server deals the decks as the game starts. */
+    val dealt: Boolean get() = lending && random
+    /** Each rematch deals new decks. */
+    val newDealOnRematch: Boolean get() = dealt && redeal
+}
+
+/** GET /v1/games/{id}/lent-decks (LOB-248): the decks the game's creator ([lender]) lends, with the lent categories they
+ * lie in (a category whose parent isn't lent lies at the top level here). Only the game's players read them. */
+@Serializable data class LentDecks(val lender: AccountIdentity, val decks: List<DeckSummary>, val categories: List<DeckCategory> = emptyList())
+
 /** A page of the games list. Read with a [token] from an earlier read ("changed since", switch-review #11): only the games
  * changed since then, with [removed] the ids of changed games that left this list (ended, cancelled, declined, no longer
  * visible). [token] is what to read changed games since next time (the first page's; null on an older read). */

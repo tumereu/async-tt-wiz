@@ -42,6 +42,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         { if (it == SharedFlowController.BUSY || it == REVEAL_BUSY) busyShake() else error = it },
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send },
         takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
+        // TBL-118, STK-049 (review 147a9c5af6): a tap on a payment's source that no longer pays it shakes the card
+        shake = { shake(it) },
         // Web client step 4e: the flows' sessions run beside the game's device (the browser's engine worker), else here
         port = TableSharedPort(LocalSharedPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     private val automatumWork = automatumWork

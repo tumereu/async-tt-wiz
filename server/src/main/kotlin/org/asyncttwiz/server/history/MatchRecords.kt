@@ -68,7 +68,9 @@ internal object MatchRecords {
             val main = deck.entries.filter { it.section == SavedDeckSection.MAINBOARD }.mapNotNull { definitions[it.definition] }
             val cover = deck.cover?.let { digest -> definitions[digest]?.let { card ->
                 DeckCover(digest, card.name, card.faces.firstOrNull()?.scryfallId, card.faces.firstOrNull()?.imageUri) } }
-            MatchDeck(podNames[account] ?: deck.name, cover, DeckColors.of(main), deck.sourceId)
+            // LOB-253: a borrowed deck counts for the player who played it, named with its lender
+            val lender = deck.lender?.let { id -> listOf(summary.inviter, summary.recipient).firstOrNull { it.accountId == id }?.username }
+            MatchDeck(podNames[account] ?: deck.name.let { name -> lender?.let { "$name (from $it)" } ?: name }, cover, DeckColors.of(main), deck.sourceId)
         }
         val started = sql.select(ENGINE_EVENT.CREATED_AT).from(ENGINE_EVENT).where(ENGINE_EVENT.PLAY_ID.eq(play))
             .orderBy(ENGINE_EVENT.ORDINAL).limit(1).fetchOne(ENGINE_EVENT.CREATED_AT) ?: at

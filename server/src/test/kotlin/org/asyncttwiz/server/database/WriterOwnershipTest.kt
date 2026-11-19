@@ -15,7 +15,8 @@ class WriterOwnershipTest {
     private fun Connection.number(sql: String): Long = createStatement().use { statement ->
         statement.executeQuery(sql).use { rows -> assertTrue(rows.next()); rows.getLong(1) }
     }
-    private fun epoch(db: OwnedPostgres) = db.connection().use { it.number("SELECT epoch FROM service_writer") }
+    private fun Connection.epoch() = number("SELECT epoch FROM service_writer")
+    private fun epoch(db: OwnedPostgres) = db.connection().use { it.epoch() }
     private fun migrated(): OwnedPostgres =
         OwnedPostgres().start().also { FoundationMigrations.migrate(it.settings) }
     private fun acquired(owner: WriterOwnership) = owner.refresh().orElseThrow()
@@ -28,6 +29,23 @@ class WriterOwnershipTest {
             Thread.sleep(20) // Poll a measured server condition, not a substitute for synchronization.
         } while (System.nanoTime() < deadline)
         fail<Unit>("Timed out waiting for $label")
+    }
+
+    /**
+     * Waits until the restarted database answers on a new connection and returns that connection, so the
+     * test inspects the database over it instead of opening more. A restarted container must be reached on
+     * its stable published port, whose Docker proxy (WSL) resets about one new connection in a few hundred
+     * under CPU load ("The connection attempt failed."), well after PostgreSQL accepts connections.
+     */
+    private fun reconnected(db: OwnedPostgres, label: String): Connection {
+        var connection: Connection? = null
+        eventually(label) {
+            connection = try { db.connection() } catch (_: SQLException) { null }
+            connection?.let { probe ->
+                try { probe.number("SELECT 1") == 1L } catch (_: SQLException) { probe.close(); connection = null; false }
+            } ?: false
+        }
+        return connection!!
     }
 
     private fun terminateLock(db: OwnedPostgres) {
@@ -296,15 +314,14 @@ class WriterOwnershipTest {
                     .flatMap { it.toList() }.map { it.hostPortSpec }
                 println("Restart diagnostic: actual Docker publication=$publication")
                 assertEquals(setOf(db.container.getMappedPort(5432).toString()), publication.toSet())
-                eventually("PostgreSQL restart") {
-                    try { db.connection().use { it.number("SELECT 1") == 1L } } catch (_: SQLException) { false }
+                reconnected(db, "PostgreSQL restart").use { inspect ->
+                    inspect.execute("UPDATE flyway_schema_history SET checksum = checksum + 1 WHERE version = '1'")
+                    assertThrows(OwnershipFailure::class.java) { owner.refresh() }
+                    assertTrue(owner.token().isEmpty)
+                    assertEquals(stale.epoch(), inspect.epoch())
+                    inspect.execute("UPDATE flyway_schema_history SET checksum = checksum - 1 WHERE version = '1'")
+                    assertEquals(stale.epoch() + 1, acquired(owner).epoch())
                 }
-                db.connection().use { it.execute("UPDATE flyway_schema_history SET checksum = checksum + 1 WHERE version = '1'") }
-                assertThrows(OwnershipFailure::class.java) { owner.refresh() }
-                assertTrue(owner.token().isEmpty)
-                assertEquals(stale.epoch(), epoch(db))
-                db.connection().use { it.execute("UPDATE flyway_schema_history SET checksum = checksum - 1 WHERE version = '1'") }
-                assertEquals(stale.epoch() + 1, acquired(owner).epoch())
                 println("PASS actual database stop/start, immediate observed invalidation, recovery schema revalidation and new persisted epoch")
             }
         }
@@ -334,10 +351,7 @@ class WriterOwnershipTest {
                 val id = db.container.containerId
                 db.container.dockerClient.stopContainerCmd(id).withTimeout(0).exec()
                 db.container.dockerClient.startContainerCmd(id).exec()
-                eventually("database after unobserved restart") {
-                    try { db.connection().use { it.number("SELECT 1") == 1L } } catch (_: SQLException) { false }
-                }
-                assertEquals(stale.epoch(), epoch(db))
+                assertEquals(stale.epoch(), reconnected(db, "database after unobserved restart").use { it.epoch() })
                 var entered = false
                 assertThrows(OwnershipFailure::class.java) { owner.transaction(stale) { entered = true } }
                 assertFalse(entered)

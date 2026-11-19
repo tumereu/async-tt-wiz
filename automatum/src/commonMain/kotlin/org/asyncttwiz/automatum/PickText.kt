@@ -55,8 +55,15 @@ data class PickText(val parts: List<Part>, val roles: List<Pair<TargetRef, Strin
         /** The announcement a pick of [continuation] belongs to: a cast's or activation's, or a trigger's as it is put on the
          * Stack (CR 601.2, 602.2, 603.3d): for a trigger whose targets are asked before it is begun, the waiting trigger of
          * [decision]'s source and player, with nothing chosen yet. */
-        fun announcing(continuation: Continuation?, decision: Decision? = null): Continuation.Announcing? = when (continuation) {
+        fun announcing(continuation: Continuation?, decision: Decision? = null, state: GameState? = null): Continuation.Announcing? = when (continuation) {
             is Continuation.Announcing -> continuation
+            // D5 (MDLPM7): a spell cast while something resolves ("you may cast that card", a copy cast from exile, CR 608.2g) is
+            // announced inside the resolution, out of sight: its pick belongs to the spell on the Stack the decision comes from
+            // The resolution's changes so far aren't kept while it waits: the card is where it was before, by its card id
+            is Continuation.Resolving -> (decision as? Decision.Targets)?.let { d -> (d.source as? ObjectId.Card)?.takeIf { it !in state?.stackItems.orEmpty() }
+                ?.let { s -> state?.obj(s) ?: state?.objects?.values?.lastOrNull { it.card == s.card } }
+                ?.let { spell -> Continuation.Announcing(d.player, Announced.Spell(spell.id, arcanum.engine.input.CastWay(spell.face),
+                    byEffect = true), arcanum.engine.decision.AnnounceStage.Targets) } }
             is Continuation.PlacingTriggers -> continuation.current ?: decision?.let { d ->
                 continuation.waiting.firstOrNull { it.source == d.source && it.controller == d.player }
                     ?: continuation.waiting.singleOrNull { it.controller == d.player }

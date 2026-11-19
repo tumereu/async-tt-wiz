@@ -423,6 +423,8 @@ object CombatStackPresentation {
             ?.faces?.find { it.faceId == card.faceId }?.shownName
             ?: Faults.placeholder("CombatStackPresentation", "combat copy without its card's name", "Card", mapOf("card" to card.id))
         return when {
+            // D7: a copy of a spell or ability reads as one
+            CombatStackRules.copyEntry(state.board, drawing.viewId) -> "Copy of $name"
             drawing.frozen -> "Effect, $name, retained source, read-only"
             drawing.projection -> "Projection, $name"
             else -> name

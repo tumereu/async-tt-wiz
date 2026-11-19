@@ -13,6 +13,8 @@ import arcanum.parser.OracleParser
 import org.asyncttwiz.protocol.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -41,12 +43,12 @@ class StackLineTest {
 
     /** Bob's card of [card] in his [zone] with [item] on the Stack as its entry (top), Alice holding priority unless [holder]. */
     private fun board(card: Invented, zone: PlayZone, item: (String) -> MtgStackItem, holder: String? = f.a,
-        below: List<StackEffect> = emptyList()): TableBoard {
+        below: List<StackEffect> = emptyList(), copy: Boolean = false): TableBoard {
         val b = f.initial.board
         val container = b.containers.single { it.zone == zone && it.accountId == f.b }
         val placed = PlayCard(f.id("card/${card.submitted.definition.name}"), card.submitted.digest, f.b, container.id,
             card.submitted.definition.faces.single().faceId)
-        val entry = StackEffect(placed.id, placed.id, controller = f.b, item = item(placed.id))
+        val entry = StackEffect(placed.id, placed.id, controller = f.b, isCopy = copy, item = item(placed.id))
         return tableBoard(f.initial.copy(definitions = f.initial.definitions + card.submitted, board = b.copy(
             cards = b.cards + placed,
             containers = b.containers.map { when {
@@ -93,6 +95,37 @@ class StackLineTest {
 
     private fun name(card: PlayCard) = f.initial.definitions.single { it.digest == card.definition }.definition.faces
         .single { it.faceId == card.faceId }.name
+
+    // STK-212, D7 (owner 2026-11-19, problem report MDLPM7), CR 707.10: a copied ability reads "Copy of …" by its kind in the Stack line, the
+    // Stack list and Inspect, and carries the copy marker; the original doesn't
+    @Test fun aCopiedAbilityReadsAsACopy() {
+        val play = board(reason, PlayZone.GRAVEYARD, cycleTrigger, copy = true)
+        val entry = CombatStackRules.stack(play.board).cards.first()
+        assertEquals("Copy of Shattered Reason's cycling trigger · each opponent mills 4 cards", StackLine.text(play, f.a, names))
+        val ability = assertNotNull(StackAbilities.of(play, entry, f.a))
+        assertTrue(ability.copy)
+        assertEquals("Copy of Shattered Reason's cycling trigger", ability.name)
+        assertEquals("Copy of a cycling trigger", ability.shownKind)
+        assertEquals("Cycling trigger", ability.kind, "its chip and kind stay the ability's (STK-046)")
+        assertEquals("Copy of Shattered Reason's cycling trigger", contentsEntries(play, PileContents("stack", "Stack", listOf(entry), ordered = true), f.a).single().name)
+        assertFalse(assertNotNull(StackAbilities.of(board(reason, PlayZone.GRAVEYARD, cycleTrigger), entry, f.a)).copy)
+    }
+
+    // STK-212, STK-018, D7, CR 707.10: a copy of a spell reads "Copy of …" in the Stack list and as a copy in the Stack line
+    @Test fun aSpellCopyReadsAsACopy() {
+        val copyItem: (String) -> MtgStackItem = { id ->
+            val ability = spark.engine.faces.single().abilities.filterIsInstance<Ability.Spell>().single()
+            structured(StackItem(ObjectId.StackItem("copy:9"), StackItemKind.SpellCopy(ObjectId.Card(CardId(id), 1)), PlayerId(f.b),
+                ObjectId.Card(CardId(id), 1), ability, timestamp = 3, copyOf = ObjectId.Card(CardId(id), 1)), MtgRef.StackItem("copy:9"), MtgStackKind.SpellCopy)
+        }
+        val play = board(spark, PlayZone.HAND, copyItem, copy = true)
+        val entry = CombatStackRules.stack(play.board).cards.first()
+        assertTrue(StackLine.text(play, f.a, names)!!.startsWith("Bob's copy of Storm Spark"))
+        val listed = contentsEntries(play, PileContents("stack", "Stack", listOf(entry), ordered = true), f.a).single()
+        assertEquals("Copy of Storm Spark", listed.name)
+        assertTrue(listed.location.endsWith(" · Copy"))
+        assertTrue(CombatStackRules.copyEntry(play.board, entry))
+    }
 
     // STK-057, STK-129, STK-130: the other player's spell names its caster and what it does, in short
     @Test fun aSpellSaysWhoCastItAndWhatItDoes() {

@@ -26,6 +26,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -272,5 +273,75 @@ class ChoiceSourceTest {
             .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!(results)
         assertEquals(2, results.single().lineCount)
         assertTrue(results.single().isLineEllipsized(1), "the second line ends in …")
+    }
+
+    /**
+     * Problem report MDLPM7: in the Control response mode Alice's Ember Kindler is on her battlefield and her Spark Seer's trigger, aimed at
+     * Bob, on the Stack; she activates the Kindler targeting it and lets it resolve (Bob's pass assumed): the copy's question of new
+     * targets is open.
+     */
+    private fun copiedSeerTrigger(): EngineTableKit {
+        val kit = kit(Choices.SEER, Choices.KINDLER)
+        kit.opening()
+        kit.alice.settings(PlaySettings(mode = ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
+        kit.scenario.confirmStops[kit.f.a] = false
+        val bob = arcanum.engine.state.TargetRef.Player(arcanum.engine.state.PlayerId(kit.f.b))
+        fun passOn(what: String, done: () -> Boolean) {
+            repeat(20) {
+                if (done()) return
+                val s = kit.state()
+                val d = s.pending?.decision
+                when {
+                    d is Decision.Targets && d.player == kit.me -> kit.alice.send(listOf(Input.Answer(d.id, arcanum.engine.decision.Answer.Targets(listOf(bob)))))
+                    d == null && s.priority.holder == kit.me && s.stack.isNotEmpty() -> kit.alice.act(Input.PassPriority(kit.me))
+                    else -> {}
+                }
+                kit.settle(bobActs = false)
+            }
+            assertTrue(done(), what)
+        }
+        assertIs<GameDevice.Acted.Sent>(kit.alice.send(kit.scenario.cast(kit.state(), kit.me, Input.Cast(kit.me, kit.hand(Choices.KINDLER).first()))))
+        passOn("the Kindler on Alice's battlefield") { kit.field(Choices.KINDLER).isNotEmpty() && kit.state().stack.isEmpty() }
+        assertIs<GameDevice.Acted.Sent>(kit.alice.send(kit.scenario.cast(kit.state(), kit.me, Input.Cast(kit.me, kit.hand(Choices.SEER).first()))))
+        passOn("the Seer's trigger on the Stack") { kit.state().let { s -> s.pending == null && s.stack.lastOrNull()?.let { s.stackItems[it]?.kind } ==
+            arcanum.engine.state.StackItemKind.Triggered } }
+        val trigger = kit.state().stack.last()
+        val kindler = kit.field(Choices.KINDLER).single()
+        val origin = assertNotNull(arcanum.engine.Engine.view(kit.state())[kindler]?.characteristics?.abilities
+            ?.firstOrNull { it.ability is arcanum.api.Ability.Activated }).origin
+        assertIs<GameDevice.Acted.Sent>(kit.alice.send(kit.scenario.cast(kit.state(), kit.me, Input.Activate(kit.me, kindler, origin),
+            target = arcanum.engine.state.TargetRef.Object(trigger))))
+        passOn("the copy's question of new targets") { kit.state().pending?.decision is Decision.May }
+        return kit
+    }
+
+    // STK-178, STK-046, STK-212 (problem report MDLPM7, D3), CR 707.10c: the question whether to choose new targets for the copy of Alice's
+    // Spark Seer's trigger has the trigger's ability token (the Seer's art, its "T" chip) at the panel's right, never no source or a card back
+    @Test fun aCopysNewTargetsAskAboutTheAbilityItCopies() {
+        val kit = copiedSeerTrigger()
+        render(kit)
+        sourceAtTheRight("Automatum choice", "You may", Choices.SEER)
+        sourceIsAnAbilityToken("Triggered ability")
+        compose.onNodeWithText("Choose new targets for the copy?", substring = true).assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/choice-source/copy-new-targets.png",
+            "Alice copied her Spark Seer's trigger with her Ember Kindler: the panel above her hand asks whether to choose new targets for the copy, with the Seer's trigger as its ability token (the Seer's art and a \"T\" chip) at its right.")
+    }
+
+    // STK-212, STK-018, STK-046 (problem report MDLPM7, D7): with the copy of Alice's Spark Seer's trigger on the Stack over the original, the
+    // Stack list shows the copy as "Copy of Spark Seer's triggered ability" with the copy marker on its token, the original as it always was
+    @Test fun aCopiedTriggerReadsAsACopyInTheStackList() {
+        val kit = copiedSeerTrigger()
+        val may = assertIs<Decision.May>(kit.state().pending?.decision)
+        kit.alice.send(listOf(Input.Answer(may.id, arcanum.engine.decision.Answer.YesNo(false))))
+        kit.playOn("the copy on the Stack", bobActs = false) { kit.state().stack.size == 2 && kit.state().pending == null }
+        render(kit)
+        compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Top · Copy of Spark Seer's triggered ability").assertExists()
+        compose.onNodeWithText("Copy of a triggered ability").assertExists()
+        compose.onNodeWithText("2 · Spark Seer's ability").assertExists()
+        compose.onAllNodesWithContentDescription("Copy").assertCountEquals(1)
+        compose.onRoot().captureShot("$SCREENSHOTS/choice-source/stack-copy-list.png",
+            "Alice copied her Spark Seer's trigger and tapped the Stack: the list shows on top \"Copy of Spark Seer's triggered ability\" with a small violet copy marker on its ability token and \"Copy of a triggered ability\" in violet, and under it the original \"Spark Seer's ability\" without the marker.")
     }
 }

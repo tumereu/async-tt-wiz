@@ -546,7 +546,7 @@ private fun AbilityTile(tile: InspectTile.Ability, size: DpSize, fit: Boolean, m
     val bounded = if (fit) Modifier.heightIn(max = size.height) else Modifier
     Box(modifier.width(size.width).then(bounded).clip(shape).background(AbilityTokenColor)
         .border(2.dp, if (tile.own) OwnTableColor else OpponentTableColor, shape)
-        .semantics { contentDescription = "${tile.ability.kind} of ${tile.ability.source}" }) {
+        .semantics { contentDescription = "${tile.ability.shownKind} of ${tile.ability.source}" }) {
         CompositionLocalProvider(LocalContentColor provides Color.White) {
             Column(Modifier.fillMaxWidth().then(bounded)) {
                 Box(Modifier.fillMaxWidth().then(if (fit) Modifier.weight(1f, fill = false) else Modifier).height(artHeight)
@@ -559,7 +559,9 @@ private fun AbilityTile(tile: InspectTile.Ability, size: DpSize, fit: Boolean, m
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AbilityKindChip(tile.ability, 24.dp)
-                        Text(tile.ability.kind, style = MaterialTheme.typography.labelLarge)
+                        // D7: a copy reads as one, with the copy marker
+                        if (tile.ability.copy) CopyMarker(24.dp)
+                        Text(tile.ability.shownKind, style = MaterialTheme.typography.labelLarge)
                     }
                     Text(tile.ability.source, style = MaterialTheme.typography.titleLarge)
                     if (tile.text != null) CardText(tile.text, style = MaterialTheme.typography.bodyLarge)

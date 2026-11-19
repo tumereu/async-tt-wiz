@@ -69,6 +69,11 @@ data class FaceDefinition(
     /** Colours set by a copy effect's exception ("except it's a 1/1 white Spirit", CR 707.9b): the face is exactly these colours,
      * whatever its mana cost and [colorIndicator] say; null: colour from those (CR 202.2). Never printed on a card. */
     val colors: List<Color>? = null,
+    /** The host's opaque identity of the printed card face these values came from (which card data, which face); null when
+     * none was given. Never read by the rules: part of the copiable values (CR 707.2), so a copy of the face, a copy effect's
+     * values, a spell copy and a token copy carry it (CR 707.2, 707.10) and the host can tell what the copy shows; a face-down
+     * object's values have none (CR 708.2a). */
+    val identity: String? = null,
 )
 
 /**

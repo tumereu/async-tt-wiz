@@ -269,6 +269,12 @@ object EngineEventText {
             // trigger resolved")
             val kind = org.asyncttwiz.automatum.StackAbilityText.kind(item)
                 ?.takeIf { it != "Activated ability" && it != "Triggered ability" }?.replaceFirstChar { it.lowercase() } ?: "ability"
+            // D7 (owner 2026-11-19): a copy by what it copies: "Copy of Storm Spark resolved", "Copy of Bre of Clan Stoutarm's
+            // triggered ability resolved"
+            if (item.copyOf != null || item.kind is StackItemKind.SpellCopy) {
+                val copy = state?.let { s -> org.asyncttwiz.automatum.ShownNames.of(s, item) { name(it, s, viewer) } }
+                return "${copy?.replaceFirstChar { it.uppercase() } ?: "A copy"} resolved"
+            }
             val shown = when (val id = item.id) {
                 is ObjectId.Card -> name(id, state, viewer)
                 else -> (item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer)

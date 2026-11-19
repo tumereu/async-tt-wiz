@@ -165,4 +165,28 @@ class PickTextTest {
         assertEquals("no creature you control", PickText.none("up to one other target creature you control"))
         assertEquals(PlayerId(alice).value, alice)
     }
+
+    // D5 (problem report MDLPM7), STK-047, CR 608.2g, 601.2c: a spell cast while something resolves ("you may cast that card") has its
+    // targets picked with its own text, the phrase picked now shining, though its announcement is inside the resolution
+    @Test fun aSpellCastWhileSomethingResolvesShowsItsText() {
+        val forage = Cards.invent("Pick Forage", "{0}", "Sorcery",
+            "Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost.")
+        val split = Cards.invent("Pick Split", "{1}{G}", "Sorcery", "Target creature you control fights target creature you don't control.")
+        table.put(alice, Zone.Library, split)
+        table.put(alice, Zone.Battlefield, "Elvish Seer", "Elvish Seer")
+        val (card) = table.put(alice, Zone.Hand, forage)
+        table.put(table.bob, Zone.Battlefield, "Elvish Seer", "Thicketwood Elves")
+        val state = table.state()
+        fun perform(input: Input) = arcanum.engine.Engine.perform(state, input, org.asyncttwiz.protocol.game.EnginePreferences.of(state)).changes.forEach(state::apply)
+        perform(Input.Cast(PlayerId(alice), table.obj(card)))
+        repeat(4) { state.pending?.decision?.let { d -> if (d is Decision.ManaPayment) perform(Input.Answer(d.id, Answer.ManaPayment(d.suggestion))) }
+            if (state.pending == null) state.priority.holder?.let { perform(Input.PassPriority(it)) } }
+        val may = assertIs<Decision.May>(state.pending?.decision, "the cast is offered")
+        perform(Input.Answer(may.id, Answer.YesNo(true)))
+        val first = assertIs<Decision.Targets>(state.pending?.decision)
+        assertIs<arcanum.engine.decision.Continuation.Resolving>(state.pending?.continuation)
+        val text = assertNotNull(PickText.of(state, assertNotNull(PickText.announcing(state.pending?.continuation, first, state),
+            "the cast by the effect is the announcement: source ${first.source} in ${first.source?.let { state.obj(it)?.zone }}"), first, emptyList()))
+        assertEquals("[Target creature you control] fights target creature you don't control.", text.shown { "?" })
+    }
 }

@@ -980,6 +980,9 @@ class GameDevice(
         @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("cast") data object Cast : PlayKind
         @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("activated") data object Activated : PlayKind
         @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("triggered") data object Triggered : PlayKind
+        /** D6 (owner 2026-11-19): a copy of a spell or ability put on the Stack by something resolving (CR 707.10), shown to every
+         * player, flying in from the copier ([PlayShow.card]). */
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("copied") data object Copied : PlayKind
     }
 
     /** "Create a copy of the card with the chosen name" (CR 707.12): the player's device answers the engine's
@@ -3154,7 +3157,7 @@ class GameDevice(
         /**
          * HIS-112: the plays [viewer]'s table shows of [event], in the order they were put on the Stack: every spell cast,
          * ability activated (mana abilities never use the Stack) and trigger of the other player's, and [viewer]'s own
-         * triggers. Copies of spells are put there by something else, which was shown: they are not.
+         * triggers; and every copy of a spell or ability, whoever's (D6, owner 2026-11-19), flying in from what copied it.
          */
         fun showsIn(event: GameEvent, viewer: PlayerId): List<PlayShow> = momentsIn(event, viewer).filterIsInstance<PlayShow>()
 
@@ -3167,10 +3170,13 @@ class GameDevice(
             var damageStep = false
             // HIS-112 (owner 2026-11-12): where each spell was cast from, for its flight in
             var castFrom: HashMap<ObjectId, arcanum.api.Zone>? = null
+            // D6: what copied each copy, for its flight in
+            val copiers = event.engine?.changes.orEmpty().mapNotNull { (it as? arcanum.engine.change.Change.Happened)?.event as? arcanum.engine.change.GameEvent.Copied }
+                .associate { it.copy to it.by }
             for (change in event.engine?.changes.orEmpty()) when (change) {
                 is arcanum.engine.change.Change.ZoneChange -> for (move in change.moves) if (move.to == arcanum.api.Zone.Stack)
                     (castFrom ?: HashMap<ObjectId, arcanum.api.Zone>().also { castFrom = it })[move.after.id] = move.from
-                is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer, castFrom)?.let(moments::add)
+                is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer, castFrom, copiers)?.let(moments::add)
                 is arcanum.engine.change.Change.Combat ->
                     if (change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) moments += CombatHold(event.id, CombatMoment.Attackers)
                 is arcanum.engine.change.Change.Step -> damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
@@ -3184,7 +3190,9 @@ class GameDevice(
         }
 
         private fun showOf(event: GameEvent, added: arcanum.engine.change.Change.StackItemAdded, viewer: PlayerId,
-            castFrom: Map<ObjectId, arcanum.api.Zone>?): PlayShow? {
+            castFrom: Map<ObjectId, arcanum.api.Zone>?, copiers: Map<ObjectId, ObjectId?>): PlayShow? {
+            if (arcanum.engine.change.Meaning.Copied in added.meanings)
+                return PlayShow(event.id, added.item.controller, added.item.id, PlayKind.Copied, (copiers[added.item.id] as? ObjectId.Card)?.card)
             val kind = when {
                 arcanum.engine.change.Meaning.Cast in added.meanings -> PlayKind.Cast
                 arcanum.engine.change.Meaning.Activated in added.meanings -> PlayKind.Activated

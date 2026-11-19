@@ -53,6 +53,9 @@ data class StackItem(
      * and the additional and alternative costs paid (and the objects that paid them); it wasn't cast and no mana was
      * spent to cast it. Null for a spell (its card holds them) and for abilities. */
     val cast: CastFacts? = null,
+    /** For a copy of a spell or ability (CR 707.10): the spell or ability it was copied from (for a copy of a copy, that copy);
+     * null for anything that isn't a copy. A copied ability keeps the original's [source] (CR 707.10, 113.7). */
+    val copyOf: ObjectId? = null,
 )
 
 /** What kind of Stack object a [StackItem] is (CR 112, 113.7, 707.10). */

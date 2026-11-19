@@ -132,6 +132,9 @@ object CombatStackRules {
 
     /** A face-down cast's entry (STK-005): shown as a card back to both players; only its holder may inspect it. */
     fun faceDownEntry(board: BoardState, id: String): Boolean = board.stackEffects.any { it.id == id && it.faceDown }
+    /** D7 (owner 2026-11-19): a copy of a spell or ability's entry ([StackEffect.isCopy], CR 707.10): read "Copy of …" and drawn with
+     * the copy marker. */
+    fun copyEntry(board: BoardState, id: String): Boolean = board.stackEffects.any { it.id == id && it.isCopy }
     fun occurrences(area: CombatArea?): List<CombatOccurrence> = area?.pairs.orEmpty().flatMap { it.blockers + it.attackers }
     /** CMB-031: the pairs whose attackers the blocker copy [occurrenceId] blocks, its own pair first; empty when it isn't
      * a blocker in [area]. */

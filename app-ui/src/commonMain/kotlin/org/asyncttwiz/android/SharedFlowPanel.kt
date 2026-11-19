@@ -224,9 +224,13 @@ private fun observedCard(flows: SharedFlowController, flow: SharedShown, play: T
 private fun commonSource(decision: Decision): ObjectId? = decision.source
     ?: (decision as? Decision.OrderTriggers)?.triggers?.map { it.source }?.distinct()?.singleOrNull()
 
-/** The Stack item an open choice belongs to: named by the decision, or the resolving top of the Stack from its source. */
+/** The Stack item an open choice belongs to: named by the decision, or the resolving top of the Stack from its source; a Stack
+ * item that isn't there (MDLPM7, D3: a copy asked about before it is put on the Stack) is the resolving top, never nothing. */
 private fun decisionItem(flow: SharedShown, decision: Decision): StackItem? =
-    decision.source?.let { source -> flow.state.stackItems[source] ?: flow.top?.takeIf { it.source == source || it.id == source } }
+    decision.source?.let { source -> flow.state.stackItems[source] ?: flow.top?.takeIf { it.source == source || it.id == source }
+        ?: flow.top?.takeIf { source is ObjectId.StackItem }?.also {
+            AppLog.warn("decision", "Choice ${decision.id.value} names Stack item $source, which isn't on the Stack: about the resolving ${it.id}")
+        } }
 
 /**
  * Where an open choice comes from (STK-044), drawn at the right of its panel or target bar: an ability as its Stack token
@@ -237,6 +241,8 @@ private fun decisionItem(flow: SharedShown, decision: Decision): StackItem? =
 fun decisionSource(flows: FlowQuestions, flow: SharedShown, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
     if (decision is Decision.OrderTriggers) return commonSource(decision)?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }
     val item = decisionItem(flow, decision)
+    // MDLPM7: an ability on the Stack (a copy too) is its entry's token as the Stack draws it: the source's face, its copy marker
+    stackEntrySource(flow, play, viewer, item)?.let { return it }
     val source = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem } ?: return null
     val card = choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null && it.shown }
         // An ability whose source has left since (a fetch land sacrificed to activate it, STK-056): its Stack entry
@@ -262,7 +268,8 @@ fun decisionSource(flows: FlowQuestions, flow: SharedShown, play: TableBoard, vi
     // Its entry on the Stack, when the ability is there yet (its Inspect tile, STK-050)
     val ref = flow.ref(TargetRef.Object(item.id))
     val entry = play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id
-    return card.copy(key = entry ?: "ability/${item.id}", ability = StackAbilityShown(triggered, card.name, itemText(flows, play, item).orEmpty().trim()))
+    return card.copy(key = entry ?: "ability/${item.id}", ability = StackAbilityShown(triggered, card.name, itemText(flows, play, item).orEmpty().trim(),
+        copy = item.copyOf != null))
 }
 
 /** The ability [item] as its entry on the Stack shows it (STK-046: its source card as the table keeps it, the

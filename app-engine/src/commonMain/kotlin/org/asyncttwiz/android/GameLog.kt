@@ -72,7 +72,8 @@ class GameLog(gameId: String, private val me: PlayerId) {
             is Decision.ChooseOption -> "${d.options}"
             else -> ""
         }
-        return "$game ${at(state)}: asks ${d.player.value.take(8)}: ${d.kind} ${d.id.value} $asked".take(MAX_DECISION)
+        // D10: the object it asks about (a copy's new targets name the spell or ability it copies, CR 707.10c)
+        return "$game ${at(state)}: asks ${d.player.value.take(8)}: ${d.kind} ${d.id.value} $asked${d.source?.let { " (source $it)" }.orEmpty()}".take(MAX_DECISION)
     }
     private var loggedDecision: arcanum.engine.decision.DecisionId? = null
 
@@ -107,7 +108,9 @@ class GameLog(gameId: String, private val me: PlayerId) {
                 put("their graveyard", o.graveyard.map { name(s, it) })
             }
             put("exile", s.exile.map { name(s, it) })
-            put("stack", s.stack.map { id -> s.stackItems[id]?.takeIf { s.obj(id) == null }?.let { item -> "ability of ${item.source?.let { source -> name(s, source) } ?: "?"}" } ?: name(s, id) })
+            // D10 (MDLPM7): an entry that is no card by its id, what it is and what it copies, so copies and originals read apart
+            put("stack", s.stack.map { id -> s.stackItems[id]?.takeIf { s.obj(id) == null }?.let { item ->
+                org.asyncttwiz.automatum.ShownNames.logged(s, item) { source -> source?.let { name(s, it) }?.takeIf { it != "?" } } } ?: name(s, id) })
         }
     }
 

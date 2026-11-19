@@ -376,7 +376,8 @@ private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, 
         // TBL-131: pinned (and on the way there), each change its own block; an unchanged card says "No changes", faded
         when {
             group.changes.isNotEmpty() -> Column(Modifier.align(Alignment.Top).width(changesWidth), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (progress > 0f) ChangeBlocks(group.changes, pinned) else ChangesPanel(group.changes, false)
+                if (progress > 0f) ChangeBlocks(group.changes, pinned, Modifier.fillMaxWidth())
+                else ChangesPanel(group.changes, false, Modifier.fillMaxWidth())
                 RulesReminders(group.reminders, explained, pinned)
             }
             // TBL-200: an unchanged card's reminders in the middle of the room beside it, under "No changes" when pinned

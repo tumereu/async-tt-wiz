@@ -37,25 +37,31 @@ class GameSettingsUiTest {
         return game
     }
 
-    // LOB-135, LOB-035: the host sees the game's settings at their defaults (the opponent's library allowed, hands not)
-    // and each switch sends the whole new value
+    // LOB-135, LOB-035, HIS-232: the host sees the game's settings at their defaults (the opponent's library allowed, hands not,
+    // undo past the other player's passes free) and each switch sends the whole new value
     @Test fun theHostChangesTheGameSettings() {
         val sent = mutableListOf<AssumeReveals>()
         lobbyCards({ it.inviter.accountId }, sent)
         val library = compose.onNodeWithTag("assume-library")
         val hands = compose.onNodeWithTag("assume-hands")
+        val passes = compose.onNodeWithTag("undo-past-passes")
         library.assertIsOn().assertIsEnabled()
         hands.assertIsOff().assertIsEnabled()
+        passes.assertIsOff().assertIsEnabled()
         compose.onNodeWithText(GameSettingsText.LIBRARY).assertIsDisplayed()
         compose.onNodeWithText(GameSettingsText.HANDS).assertIsDisplayed()
+        compose.onNodeWithText(GameSettingsText.UNDO_PASSES).assertIsDisplayed()
         compose.onAllNodesWithText("can change these", substring = true).assertCountEquals(0)
         val file = File("$SCREENSHOTS/settings/game-settings-host.png")
         file.parentFile!!.mkdirs()
         captureShot(file.path, "Portrait game lobby cards for the game's host: Starting player, then Game settings with " +
-            "\"Allow assumes that reveal the opponent's library\" on and \"Allow assumes that reveal hands\" off, the defaults.")
+            "\"Allow assumes that reveal the opponent's library\" on, \"Allow assumes that reveal hands\" off and \"Undo past the " +
+            "other player's passes needs a request\" off, the defaults.")
         hands.performClick().assertIsOn()
         library.performClick().assertIsOff()
-        assertEquals(listOf(AssumeReveals(library = true, hands = true), AssumeReveals(library = false, hands = true)), sent)
+        passes.performClick().assertIsOn()
+        assertEquals(listOf(AssumeReveals(library = true, hands = true), AssumeReveals(library = false, hands = true),
+            AssumeReveals(library = false, hands = true, undoPastPasses = true)), sent)
     }
 
     // LOB-135, LOB-154: the other player sees the current values, greyed, under who can change them; a change of the host's shows

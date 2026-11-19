@@ -99,7 +99,8 @@ class LobbyService(private val runtime: ServiceRuntime) {
 
     /** LOB-135: [game]'s assume reveal settings, as its host last set them. */
     private fun assumeReveals(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =
-        AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true)
+        AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true,
+            undoPastPasses = game.undoPastPasses == true)
 
     /** TRN-065: [game]'s last match result while a player still has to tap OK on it. */
     private fun resultNotice(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =

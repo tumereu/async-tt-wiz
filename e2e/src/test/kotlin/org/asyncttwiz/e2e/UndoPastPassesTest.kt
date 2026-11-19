@@ -105,6 +105,37 @@ class UndoPastPassesTest : E2e() {
         aliceUndoesFreely(cast.herald, cast.cast)
     }
 
+    // HIS-232, LOB-135, HIS-099, HIS-209 (owner 2026-11-19, N15): Alice, the host, turns "Undo past the other player's passes needs a
+    // request" on from Table actions → Game settings; then Bob's own passes over her Ember Herald make her Undo a request: the
+    // Undo dialog opens asking him and nothing is taken back without him
+    @Test fun undoPastTheOtherPlayersPassesNeedsARequestWithTheGameSetting() {
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
+            aliceSettings = PlaySettings(assume = AssumeResolves.Never), bobSettings = PlaySettings(mode = ResponseMode.FullControl),
+            deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.tap("Table actions")
+        waitUntil("Alice's table actions") { alice.showsText("Game settings") }
+        alice.text("Game settings").performClick()
+        waitUntil("the game settings") { alice.shows(hasTestTag("undo-past-passes")) }
+        alice.tagged("undo-past-passes").performClick()
+        waitUntil("the setting on the server, both phones told") {
+            listOf(alice, bob).all { p -> p.engine { device.assumeReveals.undoPastPasses } } &&
+                ServerSetup.head(aliceAccount, game.id).summary.assumeReveals.undoPastPasses
+        }
+        alice.tap("Close")
+        run()
+        val (_, cast) = aliceCastsAHeraldWithBobThere()
+        val after = alice.engine { device.session.after(cast.id).orEmpty() }
+        assertTrue(after.any { it.author == bob.id && passOnly(it) }, "Bob's passes after her cast: ${after.map(::inputs)}")
+        val head = serverGame()?.headId
+        alice.tap("Undo")
+        waitUntil("Alice's Undo dialog asking Bob") { alice.shows(hasTestTag("undo-scroller")) && alice.showsText("Ask ${bob.name}") }
+        assertEquals(head, serverGame()?.headId, "nothing taken back without Bob")
+        alice.text("Cancel").performClick()
+        run()
+    }
+
     // HIS-087, HIS-099, HIS-209 (owner problem report VXSGKH): a real input of the other player's after the point still makes Undo
     // a request: Alice plays a Mountain and ends her turn, Bob plays his Mountain; her Undo opens the Undo dialog asking him
     @Test fun undoPastTheOtherPlayersRealInputIsStillARequest() {

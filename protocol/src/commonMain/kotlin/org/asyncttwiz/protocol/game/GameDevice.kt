@@ -113,6 +113,7 @@ class GameDevice(
     /** The game's assume reveal settings changed (its summary, set by the host): they apply to the points not yet made. */
     fun assumeReveals(value: org.asyncttwiz.protocol.AssumeReveals) {
         if (value == assumeReveals) return
+        remember("game settings now: library ${value.library}, hands ${value.hands}, undo past passes needs a request ${value.undoPastPasses}")
         assumeReveals = value
         reveals.clear()
     }
@@ -2040,9 +2041,9 @@ class GameDevice(
         private set
 
     /** [Rewind.judge] of undoing to [target] from [at] (the state there, used up) with the main line's events [after]
-     * it, remembered ([undoWhy]). */
+     * it, remembered ([undoWhy]); the other player's passes count while the game's setting says so (N15, LOB-135). */
     private fun judged(at: GameModel, target: String, after: List<GameEvent>): Rewind.Verdict =
-        Rewind.judge(at, target, after, me, heads.filterKeys { it != me }.values.toList()).also {
+        Rewind.judge(at, target, after, me, heads.filterKeys { it != me }.values.toList(), assumeReveals.undoPastPasses).also {
             undoWhy = it.why
             remember("undo to $target judged: ${it.why}")
         }

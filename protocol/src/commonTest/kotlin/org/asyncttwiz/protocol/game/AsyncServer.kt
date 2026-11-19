@@ -118,9 +118,9 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     }
 
     /** Why [player]'s rewind to [target] needs a request, or null when it is free. */
-    fun rewindNeeds(player: PlayerId, target: String): String? {
+    fun rewindNeeds(player: PlayerId, target: String, passes: Boolean = false): String? {
         val after = MainLine.after(history, head, target)!!
-        return Rewind.requestNeeded(stateAt(target), target, after, player, heads.filterKeys { it != player }.values.toList())
+        return Rewind.requestNeeded(stateAt(target), target, after, player, heads.filterKeys { it != player }.values.toList(), passes)
     }
 
     /** Takes the main line back to just after [target] (free or approved), as the server does: its events go, a new

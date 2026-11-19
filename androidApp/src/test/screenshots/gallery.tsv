@@ -40,7 +40,7 @@ number	item	screenshot	catalog	decisions	sequence
 39	Playback of an attack	engine/playback-attack.png	CMB-007 HIS-021
 40	The other player's staging	engine/shared-staging.png	CMB-043
 41	Timeline mode	engine/timeline-mode.png	HIS-004 HIS-010
-42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-099
+42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-099 HIS-235
 43	Undo request	engine/undo-request.png	SYS-025
 44	Hand card way chips	chips/hand-ability-chips.png	ZON-080
 45	Ability chips with cost symbols	chips/ability-chips-wrapped.png	TBL-124
@@ -304,3 +304,4 @@ number	item	screenshot	catalog	decisions	sequence
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
 304	Cards exiled from a library show as a reveal	engine/reveal-panel-library-exile.png	HIS-233 HIS-110 STK-044		
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
+306	A shake says why in a bubble rising from what shook	engine/refusal-bubble.png	TBL-118 TBL-209		

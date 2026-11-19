@@ -105,7 +105,8 @@ class DeckLendingFlowTest : E2e() {
         waitUntil("the rematch's lobby without decks") {
             listOf(alice, bob).all { player -> player.lobby.state.preparation?.players?.all { it.deck == null && !it.ready } == true }
         }
-        assertEquals(listOf("accepted"), ServerSetup.attempt(a, game, GameAction.Ready).map { it.reason ?: it.outcome })
+        // The rematch is a new lobby round
+        assertEquals(listOf("accepted"), ServerSetup.attempt(a, ServerSetup.head(a, game.id).summary, GameAction.Ready).map { it.reason ?: it.outcome })
         waitUntil("Bob's Ready for the rematch") { bob.shows(ready) }
         bob.node(ready).performClick()
         waitUntil("the rematch started") { ServerSetup.head(b, game.id).summary.lifecycle == GameLifecycle.ACTIVE }

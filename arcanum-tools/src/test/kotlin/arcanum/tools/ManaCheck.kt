@@ -5,10 +5,13 @@ package arcanum.tools
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.CostChange
+import arcanum.api.CostObjects
 import arcanum.api.CostPart
 import arcanum.api.CounterKind
+import arcanum.api.KeywordAction
 import arcanum.api.Layout
 import arcanum.api.Mechanic
+import arcanum.api.Value
 import arcanum.api.Zone
 import arcanum.api.isManaAbility
 import arcanum.engine.CastScreen
@@ -37,7 +40,8 @@ import kotlin.system.exitProcess
  * pinned MTGJSON file (never committed):
  *
  * - each mana ability is put on a test board and must pay for a small spell through a payment by hand (CR 605.3a): `pays`, or `FAILS`
- *   with why.
+ *   with why. A cost that uses cards from the graveyard (collect evidence, CR 701.59a; "exile a card from your graveyard") gets them
+ *   there, and first must not be offered while the graveyard is empty (CR 602.2b, 601.2h: such a cost can't be paid).
  * - each cost reducer is tried on a test board and must lower a cost: `lowers`, or `look` when it didn't on that board (its condition
  *   may ask for a board this tool doesn't make): a list to read, not a failure.
  *
@@ -115,19 +119,43 @@ private object ManaBoards {
             val t = ++timestampCounter
             objects[id] = GameObject(id = id, owner = alice, controller = if (on) alice else null, zone = zone, definition = definition,
                 counters = counters.map { (kind, n) -> CounterEntry(kind, n, t) }, timestamp = t, controlSince = if (on) ControlSince(alice, -1) else null)
-            if (on) battlefield.add(id) else {
-                val p = players.indexOfFirst { it.id == alice }
-                players[p] = players[p].copy(hand = players[p].hand + id)
+            val p = players.indexOfFirst { it.id == alice }
+            when (zone) {
+                Zone.Battlefield -> battlefield.add(id)
+                Zone.Graveyard -> players[p] = players[p].copy(graveyard = players[p].graveyard + id)
+                else -> players[p] = players[p].copy(hand = players[p].hand + id)
             }
         }
         return id
     }
 
+    /** How many cards of mana value 1 its cost needs in the graveyard: collect evidence N (CR 701.59a), "exile N cards from your graveyard". */
+    private fun graveyardNeeded(ability: Ability.Activated): Int = ability.cost.parts.sumOf { part ->
+        when {
+            part is CostPart.Action && part.action is KeywordAction.CollectEvidence -> ((part.action as KeywordAction.CollectEvidence).amount as? Value.Fixed)?.value ?: 10
+            part is CostPart.Exile && part.from == Zone.Graveyard -> (part.what as? CostObjects.Choose)?.let { (it.count as? Value.Fixed)?.value ?: 1 } ?: 0
+            else -> 0
+        }
+    }
+
     /** "pays", "pays (Autotap doesn't find it)" or why not. */
     fun manaAbilityPays(card: CardDefinition, ability: Ability.Activated): String {
+        val graveyard = graveyardNeeded(ability)
+        // CR 602.2b, 601.2h: with nothing in the graveyard its cost can't be paid: it isn't offered
+        if (graveyard > 0 && board(card, ability, graveyard = 0).let { (payment, source) -> payment.options.any { it is ManaUse.Ability && it.source == source } })
+            return "FAILS: offered with an empty graveyard, though its cost can't be paid"
+        return pays(card, ability, graveyard)
+    }
+
+    /** The test spell's payment on a board with [card] and [graveyard] cards of mana value 1 in the graveyard, and [card]'s id there. */
+    private fun board(card: CardDefinition, ability: Ability.Activated, graveyard: Int): Pair<Decision.ManaPayment, ObjectId> =
+        build(card, ability, graveyard).let { (payment, _, source) -> payment to source }
+
+    private fun build(card: CardDefinition, ability: Ability.Activated, graveyard: Int): Triple<Decision.ManaPayment, GameState, ObjectId> {
         val state = game()
         val counters = ability.cost.parts.filterIsInstance<CostPart.RemoveCounters>().map { (it.kind ?: CounterKind.PowerToughness(1, 1)) to 5 }
         val source = state.put(card, Zone.Battlefield, counters)
+        repeat(graveyard) { state.put(filler, Zone.Graveyard) }
         repeat(3) { state.put(helper, Zone.Battlefield) }
         repeat(2) { state.put(landHelper, Zone.Battlefield) }
         val spell = state.put(filler, Zone.Hand)
@@ -136,7 +164,12 @@ private object ManaBoards {
         val cast = Engine.perform(state, Input.Cast(alice, spell))
         val running = state.deepCopy()
         cast.changes.forEach { running.apply(it) }
-        val payment = cast.pending?.decision as? Decision.ManaPayment ?: return "FAILS: no payment asked of the test spell"
+        val payment = cast.pending?.decision as? Decision.ManaPayment ?: error("no payment asked of the test spell")
+        return Triple(payment, running, source)
+    }
+
+    private fun pays(card: CardDefinition, ability: Ability.Activated, graveyard: Int): String {
+        val (payment, running, source) = runCatching { build(card, ability, graveyard) }.getOrElse { return "FAILS: ${it.message}" }
         val uses = payment.options.filterIsInstance<ManaUse.Ability>().filter { it.source == source }
         if (uses.isEmpty()) return "look: not offered on this board (its condition or a choice it asks)"
         val others = payment.options.filterIsInstance<ManaUse.Ability>().filter { it.source != source }

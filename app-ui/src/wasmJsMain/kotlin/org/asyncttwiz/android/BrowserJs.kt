@@ -62,6 +62,7 @@ internal fun idbGet(db: JsAny, store: String, key: String): Promise<JsAny?> = js
         const request = tx.objectStore(store).get(key);
         tx.oncomplete = () => resolve(request.result === undefined ? null : request.result);
         tx.onerror = () => reject(tx.error || new Error('IndexedDB read failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB read aborted'));
     })""")
 
 /** Empties [store], then puts [value] under [key] and [marker] under [markerKey], in one transaction. */
@@ -84,9 +85,30 @@ internal fun idbClear(db: JsAny, store: String): Promise<JsAny?> = js("""
         tx.objectStore(store).clear();
         tx.oncomplete = () => resolve(null);
         tx.onerror = () => reject(tx.error || new Error('IndexedDB clear failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB clear aborted'));
     })""")
 
 internal fun jsText(value: JsAny): String? = js("typeof value === 'string' ? value : null")
+
+/** A browser storage request the browser refused (IndexedDB or the Cache API: storage full, over its quota, blocked in a
+ * private window); [message] names the browser's error ("QuotaExceededError: …"). An Exception, so the storage code's
+ * callers take it as a failed write or read (kept for this tab only, downloaded again) instead of a crash. */
+class BrowserStorageRefused(message: String, cause: Throwable) : Exception(message, cause)
+
+/** The answer of a storage request made with the IndexedDB and Cache API functions here. Their rejection (whatever Kotlin
+ * makes of the browser's error: a JsException, or a non-Exception error) comes out as a [BrowserStorageRefused], the one
+ * failure the storage code's callers handle as "not kept"; cancellation stays cancellation. */
+internal suspend fun <T : JsAny?> Promise<T>.awaitStorage(): T = try { await<T>() }
+    catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+    catch (failure: Throwable) { throw BrowserStorageRefused("Browser storage refused: ${jsFailureText(failure)}", failure) }
+
+/** What the browser said in [failure] (a JavaScript error): its error's name and message when it gave them. */
+internal fun jsFailureText(failure: Throwable): String =
+    (failure as? JsException)?.thrownValue?.let(::jsErrorText) ?: failure.message ?: failure::class.simpleName ?: "unknown error"
+
+private fun jsErrorText(value: JsAny): String? = js("""
+    (value && typeof value === 'object' && (value.name || value.message))
+        ? [value.name, value.message].filter(Boolean).join(': ') : (typeof value === 'string' ? value : null)""")
 
 // Persistent storage (§1 item 4): the browser keeps the card records and personal data instead of evicting them
 

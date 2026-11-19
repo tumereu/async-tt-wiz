@@ -37,7 +37,7 @@ browser's push service once you turn them on, and the site can be installed as a
 
 ## Sign-in and sound
 
-- **WEB-009** The card records (LOB-091) download into the browser's own storage, which is asked to keep them (persistent storage), and are used from there on later visits; if the browser deletes them (iOS Safari does after 7 days unvisited unless the site is installed), they download again. Sign-in is kept in the browser too, across reloads, until you log out. (r71)
+- **WEB-009** The card records (LOB-091) download into the browser's own storage, which is asked to keep them (persistent storage), and are used from there on later visits; if the browser deletes them (iOS Safari does after 7 days unvisited unless the site is installed), they download again. A browser that can't keep them (its storage full or refused, as in some private windows) uses them for that visit, and Settings → Card records says under the installed line "This browser couldn't keep them, so they download again on your next visit"; pictures it can't keep are still shown and download again next time. Sign-in is kept in the browser too, across reloads, until you log out. (r78)
 - **WEB-008** The "Your move" sound (LOB-146, TRN-075) plays in the browser, also in a background tab, once you have tapped or typed on the page after opening it (browsers allow sound only then). (r71)
 - **WEB-010** "Import from link" (LOB-061) reads Archidekt decks through the ATW server, since Archidekt answers no browser directly. (r71)
 - **WEB-064** Emojis show in colour in the browser wherever players' own words show (chat messages and the chat's draft, names, notes), typed, pasted or picked from the system's emoji picker, and are sent whole, so the other player sees them as written. (r76)

@@ -779,7 +779,16 @@ class GameDevice(
     @kotlinx.serialization.Serializable data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
         val source: arcanum.engine.state.CardId?, val sourceName: String?,
         /** HIS-114: not a reveal but [cards] leaving a public pile for a hidden zone, moved by [by]; null for a reveal. */
-        val left: LeftPile? = null)
+        val left: LeftPile? = null,
+        /** HIS-233: not a reveal but [cards] exiled face up from [LibraryExile.owner]'s library by [by]; null otherwise. */
+        val exiled: LibraryExile? = null)
+
+    /**
+     * HIS-233 (owner 2026-11-19, N18, problem report MDLPM7): cards exiled face up from [owner]'s library ("exile the top N",
+     * "exile cards from the top until …"), shown to every player as a reveal is ([Reveal.exiled]), the mover too: they leave a
+     * hidden zone for a public one, so nobody saw them before.
+     */
+    @kotlinx.serialization.Serializable data class LibraryExile(val owner: PlayerId)
 
     /**
      * HIS-114 (owner playtest 2026-11-09): cards that left [owner]'s public pile [from] (a graveyard, or exile face up) for
@@ -908,8 +917,9 @@ class GameDevice(
                 else { revealsOpen += r; remember("pile move open (left a public pile for a hidden zone): $what") }
             } else if (r.by != me || ownRevealNews(line, e, r)) {
                 revealsOpen += r
-                remember("reveal open: ${r.by.value.take(8)} revealed ${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
-            } else remember("own reveal in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
+                remember("reveal open: ${r.by.value.take(8)} ${if (r.exiled != null) "exiled from ${r.exiled.owner.value.take(8)}'s library" else "revealed"} " +
+                    "${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
+            } else remember("own ${if (r.exiled != null) "library exile" else "reveal"} in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
             if (showPlays) momentsIn(e, me).takeIf { it.isNotEmpty() }?.let { moments ->
                 showsOpen += moments
                 remember("view holds open in ${e.id.take(8)}: ${moments.map { m -> if (m is CombatHold) "combat ${m.kind::class.simpleName}" else "play" }}")
@@ -3104,11 +3114,48 @@ class GameDevice(
          * the card cast or the ability's source of the step's input (a cost). HIS-114: with them, in the same order, the
          * cards that left a public pile for a hidden zone ([leftPiles]), whoever moved them (the caller tells them apart).
          */
-        fun revealsIn(event: GameEvent): List<Reveal> = event.engine?.steps.orEmpty().flatMap { step ->
-            step.changes.flatMap { change ->
-                if (change is arcanum.engine.change.Change.ZoneChange) leftPiles(event, step, change)
-                else listOfNotNull(revealOf(event, step, change))
+        fun revealsIn(event: GameEvent): List<Reveal> {
+            val all = event.engine?.steps.orEmpty().flatMap { step ->
+                step.changes.flatMap { change ->
+                    if (change is arcanum.engine.change.Change.ZoneChange) leftPiles(event, step, change) + libraryExiles(event, step, change)
+                    else listOfNotNull(revealOf(event, step, change))
+                }
             }
+            // HIS-233: a card the event also revealed ("reveal cards until …, exile them") shows once, in its reveal
+            val revealed = all.filter { it.left == null && it.exiled == null }.flatMap { it.cards }.toSet()
+            if (revealed.isEmpty()) return all
+            return all.mapNotNull { r -> if (r.exiled == null) r else r.copy(cards = r.cards - revealed).takeIf { it.cards.isNotEmpty() } }
+        }
+
+        /**
+         * HIS-234 (owner 2026-11-19, N18): what an event's text adds for the cards [event] exiled face up from a library, one line
+         * per library, from [viewer]'s side ([names] by account): "Exiled from Bob's library: Plains, Mountain", "Exiled from your
+         * library: …". The cards are public once there, so every player reads them (HIS-062). Empty when it exiled none.
+         */
+        fun libraryExileTexts(event: GameEvent, viewer: String, names: Map<String, String>): List<String> {
+            val moves = event.engine?.changes.orEmpty().filterIsInstance<arcanum.engine.change.Change.ZoneChange>().flatMap { it.moves }
+                .filter { it.from == arcanum.api.Zone.Library && it.to == arcanum.api.Zone.Exile && !it.after.faceDown && !it.before.token }
+            return moves.groupBy { it.before.owner }.map { (owner, ms) ->
+                val whose = if (owner.value == viewer) "your" else "${names[owner.value] ?: "the other player"}'s"
+                "Exiled from $whose library: " + ms.joinToString { m -> m.after.definition?.faces?.getOrNull(m.after.face)?.name ?: "a card" }
+            }
+        }
+
+        /**
+         * HIS-233 (owner 2026-11-19, N18): the cards [change] of [step] in [event] exiled face up from a library, one [Reveal] per
+         * player who moved them and library owner, with [Reveal.exiled]. Who moved them as [leftPiles] says. Tokens are left out.
+         */
+        private fun libraryExiles(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change.ZoneChange): List<Reveal> {
+            val inputPlayer = when (val input = step.input) {
+                is Input.Cast -> input.player
+                is Input.Activate -> input.player
+                else -> null
+            }
+            return change.moves.filter { m -> m.from == arcanum.api.Zone.Library && m.to == arcanum.api.Zone.Exile && !m.after.faceDown && !m.before.token }
+                .groupBy { m -> (change.by?.controller ?: inputPlayer ?: m.before.owner) to m.before.owner }
+                .map { (key, moves) ->
+                    Reveal(event.id, key.first, moves.map { it.before.card }.distinct(), sourceOf(step, change.by), change.by?.name, exiled = LibraryExile(key.second))
+                }
         }
 
         /** HIS-110: the reveal [change] of [step] in [event] is, or null. */

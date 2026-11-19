@@ -96,7 +96,7 @@ number	item	screenshot	catalog	decisions	sequence
 95	Inspect of an ability naming its kind (Cycling trigger)	stack/cycling-trigger-inspect.png	STK-050 TBL-104
 96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044
 97	View deck from your own Library: Still in library	engine/view-deck.png	ZON-093 ZON-078
-98	Game settings in the lobby: allowing assumes over library and hand reveals	settings/game-settings-host.png	LOB-135 TRN-067
+98	Game settings in the lobby: allowing assumes over library and hand reveals	settings/game-settings-host.png	LOB-135 TRN-067 HIS-232
 99	The other player's spell shown large before it moves to the Stack	engine/play-show-spell.png	HIS-112 STK-057
 100	Hand card chips, one per complete way to cast it (offspring)	chips/cast-chips-offspring.png	ZON-080 ZON-079
 101	One "Cast…" chip for a card with more than four ways	chips/cast-more-chip.png	ZON-080
@@ -302,3 +302,4 @@ number	item	screenshot	catalog	decisions	sequence
 301	A Random battle box's lobby: the decks dealt as the game starts, only Ready to press	lending/lobby-random.png	LOB-250		Lending decks
 302	A copy's question of new targets: the ability it copies at the panel's right	choice-source/copy-new-targets.png	STK-178 STK-212		Copies
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
+304	Cards exiled from a library show as a reveal	engine/reveal-panel-library-exile.png	HIS-233 HIS-110 STK-044		

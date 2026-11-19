@@ -142,6 +142,15 @@ stage() { # stage <name> <gradle arguments...>
     say "[$name] gradle $*"
     (cd "$wt" && "$slot" "$@") >"$out" 2>&1
     rc=$?
+    # The kept worktree's Kotlin incremental caches can go stale after a large merge ("Incremental compilation failed");
+    # that says nothing about the branch, so the caches are cleared and the stage runs once more, its time included.
+    if [ $rc != 0 ] && grep -q 'Incremental compilation failed' "$out"; then
+        say "[$name] stale Kotlin build cache after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: clearing build/kotlin and running the stage once more"
+        mv "$out" "$out.stale-cache"
+        find "$wt" -path '*/build/kotlin' -type d -prune -not -path '*/node_modules/*' -exec rm -rf {} +
+        (cd "$wt" && "$slot" "$@") >"$out" 2>&1
+        rc=$?
+    fi
     local waited; waited=$(sed -n 's/^gradle-slot: waited \([0-9]*\)s.*/\1/p' "$out" | head -1)
     say "[$name] $([ $rc = 0 ] && echo passed || echo "FAILED (exit $rc)") in $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s${waited:+ (${waited}s of it waiting for a build slot)}"
     [ $rc = 0 ] && return 0

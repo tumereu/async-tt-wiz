@@ -53,9 +53,10 @@ class StableDecisionIdTest : E2e() {
     @Test fun castUndoAndTheSameCastAgainAnswerTheSameDecisions() {
         // Bob holds a Glimmer (free): he could answer the Spark, so it stays on the Stack for him. Without one he has no mana
         // and no free spell, the Spark is assumed to resolve at once (AssumeNoManaTest), and the Stack is never seen with it
-        // (a third of the deals; two full runs, 2026-11-18)
-        startGame(deck, deck, deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Mountain" in hand(b) &&
-            "Idle Glimmer" in hand(b) })
+        // (a third of the deals; two full runs, 2026-11-18). Alice holds no Glimmer: spark() casts her first castable card, and a
+        // free Glimmer asks nothing (the gate's run, 2026-11-19: "the cast answers decisions: [Cast(...)]")
+        startGame(deck, deck, deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Idle Glimmer" !in hand(a) &&
+            "Mountain" in hand(b) && "Idle Glimmer" in hand(b) })
         bothOpen()
         bothKeep(bobAway = true)
         alice.playFromHand("Mountain", this)

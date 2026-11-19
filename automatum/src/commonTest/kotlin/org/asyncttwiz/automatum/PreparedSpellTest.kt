@@ -88,6 +88,7 @@ class PreparedSpellTest {
         assertFalse(copy.card.value in OffZoneCards.permitted(state, view, alice), "not in the hand row: offered on the Seraph")
         val board = ComputedBoard.of(table.board(state, alice), table.base().definitions, table.definitions, alice, state, view)
         assertTrue(board.handRow.isEmpty(), "${board.handRow}")
+        assertFalse(copy.card.value in HandPlays.of(state, alice, view).offZone, "nor among the hand row's usable-now cards")
         // The other player's table: greyed, not theirs
         val bobs = plays(state, table.bob).of(s).single { it.kind == CardPlay.Kind.Prepared }
         assertNull(bobs.input)

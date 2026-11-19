@@ -227,10 +227,10 @@ class GameCleanupTest {
         assertFalse(m.exists())
     }
 
-    // LOB-261 (owner, 2026-11-19): a game request answered 30 days ago or more is deleted with its outbox notice and its request
+    // LOB-261 (owner, 2026-11-19): the nightly run deletes a game request answered 30 days ago or more with its outbox notice and its request
     // identity; never one other rows name (a chat message's, the play's start), one whose answer still waits to be sent, or
     // one still waiting for its answer. The game goes on, and a status read of a deleted request finds it unknown.
-    @Test fun `answered game requests go 30 days after their answer`() = HistoryWorld.run { w ->
+    @Test fun `answered game requests older than 30 days go nightly`() = HistoryWorld.run { w ->
         val a = w.account("ReqAlice"); val b = w.account("ReqBob")
         val m = w.Match(a, b)
         m.start()
@@ -252,11 +252,13 @@ class GameCleanupTest {
         repeat(2) { w.clock.advance(Duration.ofDays(10)); m.alice.accepted(GameAction.SendChat("still there?")) }
         w.execute("UPDATE game_outbox SET published = true WHERE request_id <> ?", UUID.fromString(unsent))
         w.clock.advance(Duration.ofDays(10).minus(minute))
-        assertEquals(0, w.cleanup.run().deletedRequests, "answered 30 days ago less a minute")
+        assertEquals(0, w.cleanup.runRequests(), "answered 30 days ago less a minute")
         w.clock.advance(minute)
         val gone = answered - named - UUID.fromString(unsent)
         assertTrue(UUID.fromString(settings) in gone)
-        assertEquals(gone.size, w.cleanup.run().deletedRequests)
+        w.cleanup.run()
+        assertTrue(ids("SELECT request_id FROM game_inbox WHERE game_id = ?").containsAll(gone), "only the nightly run deletes them")
+        assertEquals(gone.size, w.cleanup.runRequests())
         val left = ids("SELECT request_id FROM game_inbox WHERE game_id = ?")
         assertTrue(left.none { it in gone })
         assertTrue(left.containsAll(named), "chat messages and the play's start keep theirs")
@@ -272,7 +274,7 @@ class GameCleanupTest {
         w.clock.advance(Duration.ofDays(40))
         w.execute("UPDATE game SET activity_at = ?::timestamptz WHERE id = ?", w.clock.instant.toString(), m.id)
         w.execute("UPDATE game_outbox SET published = true")
-        assertTrue(w.cleanup.run().deletedRequests > 0)
+        assertTrue(w.cleanup.runRequests() > 0)
         assertEquals("pending", w.games.results(b, m.game.id, listOf(waiting.requestId)).statuses.single().status)
         assertTrue(m.exists())
     }

@@ -27,7 +27,7 @@ import org.jooq.impl.DSL
 
 /**
  * The automatic cleanup (game history spec §4), run every hour: deletes old games and pods with everything that belongs
- * to them, never the history records; and old answered game requests.
+ * to them, never the history records; and nightly the old answered game requests.
  *
  * - A finished game (back in its lobby after a match) whose last match ended [FINISHED] ago or more, with no activity since,
  *   is deleted (§4.1).
@@ -37,8 +37,8 @@ import org.jooq.impl.DSL
  *   the game rules.
  * - [WARNING] before that, at day 11 of 14, both players of a game in play and every member of a pod get one warning
  *   (§4.5); any activity resets the clock and allows another warning later.
- * - LOB-261 (owner, 2026-11-19): a game request answered [REQUESTS] ago or more is deleted with its outbox notice and its
- *   request identity ([deleteRequests]): a device resends a request only until it learns the answer, within one run of the app.
+ * - LOB-261 (owner, 2026-11-19): nightly ([runRequests]), a game request answered [REQUESTS] ago or more is deleted with its
+ *   outbox notice and its request identity: a device resends a request only until it learns the answer, within one run of the app.
  *
  * Activity (§4.4) is a game's `activity_at` (each change by a player: [org.asyncttwiz.server.game.GameService]) and a pod's
  * `updated_at` (each change by a member saves the pod), its chat's newest message or its games' activity, whichever is latest.
@@ -49,15 +49,23 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
 
     /** What one run did: the games and pods warned and deleted. */
     data class Run(val warnedGames: Int = 0, val warnedPods: Int = 0, val deletedGames: Int = 0, val deletedPods: Int = 0,
-        val unfinished: Int = 0, val deletedRequests: Int = 0)
+        val unfinished: Int = 0)
 
-    /** Every hour, the first ten minutes after the start (a restart never deletes at once). */
+    /** Every hour, the first ten minutes after the start (a restart never deletes at once); the answered game requests
+     * nightly at [NIGHTLY_AT] (LOB-261). */
     fun start() {
         scheduler.scheduleWithFixedDelay({
             try { if (runtime.admitting()) run().takeIf { it != Run() }?.let { log.info("Cleanup {}", it) } }
             catch (_: OwnershipFailure) { /* Ordinary ownership recovery: the next run catches up. */ }
             catch (failure: Exception) { log.error("Cleanup failed failureType={}", failure.javaClass.simpleName) }
         }, 10, 60, TimeUnit.MINUTES)
+        val now = clock.instant().atOffset(ZoneOffset.UTC)
+        val tonight = now.with(NIGHTLY_AT).let { if (it.isAfter(now)) it else it.plusDays(1) }
+        scheduler.scheduleAtFixedRate({
+            try { if (runtime.admitting()) log.info("Nightly cleanup deletedRequests={}", runRequests()) }
+            catch (_: OwnershipFailure) { /* Ordinary ownership recovery: the next night catches up. */ }
+            catch (failure: Exception) { log.error("Nightly cleanup failed failureType={}", failure.javaClass.simpleName) }
+        }, Duration.between(now, tonight).toMinutes(), Duration.ofDays(1).toMinutes(), TimeUnit.MINUTES)
     }
 
     fun available() = !scheduler.isShutdown
@@ -81,11 +89,16 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
             result = result.copy(deletedGames = result.deletedGames + deleted, unfinished = result.unfinished + unfinished)
         }
         while (true) { val n = transaction { deletePods(it, now) }; if (n == 0) break; result = result.copy(deletedPods = result.deletedPods + n) }
-        while (true) {
-            val n = transaction { deleteRequests(it, now) }; if (n == 0) break
-            result = result.copy(deletedRequests = result.deletedRequests + n)
-        }
         return result
+    }
+
+    /** LOB-261: the nightly run at the clock's time: the answered game requests [REQUESTS] old or more deleted, in batches
+     * until nothing is left. Returns how many were deleted. */
+    fun runRequests(): Int {
+        val now = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
+        var deleted = 0
+        while (true) { val n = transaction { deleteRequests(it, now) }; if (n == 0) break; deleted += n }
+        return deleted
     }
 
     /** Not warned since its latest activity (a warning, then activity, then 11 days more: warned again). */
@@ -173,6 +186,8 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
     companion object {
         /** LOB-261: an answered game request is deleted this long after its answer. */
         val REQUESTS: Duration = Duration.ofDays(30)
+        /** LOB-261: when the nightly run deletes them, in UTC (03:00 in Finland in winter, 04:00 in summer). */
+        val NIGHTLY_AT: java.time.LocalTime = java.time.LocalTime.of(1, 0)
         private const val REQUEST_BATCH = 1000
         /** §4.1: a finished game goes this long after its last match ended, without activity since. */
         val FINISHED: Duration = Duration.ofDays(7)

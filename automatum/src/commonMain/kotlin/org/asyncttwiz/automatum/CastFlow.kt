@@ -257,10 +257,25 @@ class CastFlow private constructor(
             val parts = mutableListOf<String>()
             if (way.way.fused) fusedName(definition)?.let { parts += it }
             else if (way.way.face != 0 || (definition?.faces?.size ?: 1) > 1) definition?.faces?.getOrNull(way.way.face)?.name?.let { parts += it }
-            way.way.alternative?.let { parts += abilityText(definition, it) ?: "Alternative cost" }
-            if (way.way.permission != null) parts += permissionText(definition, way) ?: "With permission"
+            way.way.alternative?.let { parts += abilityText(definition, it) ?: unnamedWay("alternative cost without its ability's text", definition, way) }
+            permissionPart(definition, way)?.let { parts += it }
             return parts.joinToString(" · ").ifEmpty { null }
         }
+
+        /** ZON-107, ZON-108 (owner playtest 2026-11-19, N9): what [cast]'s permission adds to its way's name: the card's own
+         * permission ability by its printed text ("Flashback {R}"); nothing for a permission without an ability of the card's
+         * (an Adventure's card cast from exile, CR 716.3d; another object's or a rule's "you may cast it"), which is a plain
+         * cast from where the card is (its zone badge says where). An own ability whose text can't be found is a fault. */
+        fun permissionPart(definition: CardDefinition?, cast: Input.Cast): String? {
+            val permission = cast.way.permission ?: return null
+            if (permission.source != cast.card || permission.ability == null) return null
+            return permissionText(definition, cast) ?: unnamedWay("own permission ability without its text", definition, cast)
+        }
+
+        /** The placeholder rule (owner, 2026-11-11): a way that can't be named is shown by its generic word and reported. */
+        internal fun unnamedWay(what: String, definition: CardDefinition?, cast: Input.Cast): String =
+            org.asyncttwiz.protocol.Faults.placeholder("CastFlow", what, "Cast",
+                mapOf("card" to (definition?.faces?.joinToString(" // ") { it.name } ?: "?"), "way" to cast.way.toString().take(300)))
 
         /** ZON-079: the printed text of the card's own ability whose permission [cast] uses ("Flashback {R}"), null for a
          * permission from elsewhere (another object's, a rule's) or none. */

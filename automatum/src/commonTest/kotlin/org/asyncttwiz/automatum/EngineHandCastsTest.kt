@@ -414,4 +414,34 @@ class EngineHandCastsTest {
         assertEquals(1, kicked.answers.size, "the target kept")
         assertEquals("{4}{R}", (kicked.pending as Decision.ManaPayment).cost.toString())
     }
+    // ZON-107, ZON-108 (owner playtest 2026-11-19, N9): a way's name never reads "With permission": the card cast from exile after
+    // its Adventure resolved (CR 716.3d: a permission without an ability of the card's) is a plain "Cast" (its Adventure by its
+    // name); another object's permission adds nothing either; the card's own permission by its keyword; an own permission ability
+    // whose text can't be found shows "Cast" and is reported (placeholder rule)
+    @Test fun aWayCastUnderAPermissionIsNamedAsZon108Says() {
+        val pilferer = arcanum.engine.cards.Cards.definition("Brash Pilferer")
+        val card = arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("alice.1"), 2)
+        fun cast(face: Int, permission: arcanum.engine.input.Permission) =
+            Input.Cast(arcanum.engine.state.PlayerId(alice), card, arcanum.engine.input.CastWay(face, permission = permission))
+        val afterAdventure = arcanum.engine.input.Permission(source = card, effect = arcanum.engine.state.EffectId("E7"))
+        assertEquals("Cast", HandCasts.wayName(pilferer, cast(0, afterAdventure)))
+        assertEquals("Brash Pilferer", CastFlow.wayLabel(pilferer, cast(0, afterAdventure)), "the cast panel names the face, nothing more")
+        assertEquals("Petty Pinch", HandCasts.wayName(pilferer, cast(1, afterAdventure)))
+        val other = arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("bob.2"), 0)
+        assertEquals("Cast", HandCasts.wayName(pilferer, cast(0, arcanum.engine.input.Permission(source = other,
+            ability = arcanum.engine.view.AbilityOrigin.Printed(0, 0)))))
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        val (bolt) = table.put(alice, Zone.Graveyard, "Cinder Bolt")
+        val state = table.state()
+        val flashback = HandPlays.of(state, alice, null).of(bolt).filterIsInstance<Input.Cast>().single()
+        assertEquals("Flashback", HandCasts.wayName(state.obj(flashback.card)?.definition, flashback))
+        val faults = mutableListOf<org.asyncttwiz.protocol.Fault>()
+        val sink = org.asyncttwiz.protocol.Faults.sink
+        org.asyncttwiz.protocol.Faults.sink = { faults += it }
+        try {
+            val missing = cast(0, arcanum.engine.input.Permission(source = card, ability = arcanum.engine.view.AbilityOrigin.Printed(0, 40)))
+            assertEquals("Cast", HandCasts.wayName(pilferer, missing))
+            assertEquals(listOf("CastFlow: own permission ability without its text"), faults.map { it.key })
+        } finally { org.asyncttwiz.protocol.Faults.sink = sink }
+    }
 }

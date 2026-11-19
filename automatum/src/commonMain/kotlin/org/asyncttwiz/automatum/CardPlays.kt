@@ -106,9 +106,7 @@ class CardPlays private constructor(
                     add(card, CardPlay(CardPlay.Kind.Cast, CastFlow.wayLabel(state.obj(card)?.definition, input) ?: "Cast", input))
                 }
                 is Input.PlayLand -> (input.card as? ObjectId.Card)?.let { card ->
-                    val back = input.face != 0
-                    add(card, CardPlay(CardPlay.Kind.Play, if (back) state.obj(card)?.definition?.faces?.getOrNull(input.face)?.name
-                        ?.let { "Play $it" } ?: "Play back face" else "Play", input))
+                    add(card, CardPlay(CardPlay.Kind.Play, HandCasts.wayName(state.obj(card)?.definition, input), input))
                 }
                 else -> Unit
             }

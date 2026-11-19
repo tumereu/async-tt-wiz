@@ -13,7 +13,7 @@ import java.io.File
 open class TabletopApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        // The shared UI's platform services (docs/specs/web-client.md §1 item 2), before anything that uses them.
+        // The shared UI's platform services, before anything that uses them.
         AppPlatform.install(AndroidAppPlatform(this))
         AppServices.install(AndroidAppServices(this))
         AppLog.install(File(filesDir, "app-log.txt"))

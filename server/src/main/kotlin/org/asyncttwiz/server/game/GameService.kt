@@ -189,10 +189,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             play = play, chatSync = reads.chatSync, ownPodDeckName = reads.ownPodDeckName, engine = engine?.first)
     }
 
-    /** What a head reads of [game]'s other tables besides the engine's (R6). */
+    /** What a head reads of [game]'s other tables besides the engine's. */
     internal class HeadReads(val play: PlayState?, val chatSync: ChatSync, val ownPodDeckName: String?)
 
-    /** R6: [PlayStore.read], [ChatStore.sync] and [PreparationStore.ownPodDeckName] for [viewer], in one statement. Run
+    /** [PlayStore.read], [ChatStore.sync] and [PreparationStore.ownPodDeckName] for [viewer], in one statement. Run
      * after the game's lock: a statement waiting for the lock would read the other tables as they were before it. */
     internal fun headReads(sql: DSLContext, game: UUID, viewer: UUID): HeadReads {
         val payload = PlayStore.payloadField(game)

@@ -7,7 +7,7 @@ import kotlinx.serialization.json.Json
 import org.asyncttwiz.catalog.CatalogVersion
 
 /**
- * The card catalog's endpoints (docs/specs/web-client.md section 3.4), open without sign-in: the first download comes
+ * The card catalog's endpoints (SYS-081), open without sign-in: the first download comes
  * before sign-in (LOB-091). `GET /v1/catalog` says which catalog is current ([CatalogVersion]); `GET /v1/catalog/{checksum}`
  * is that file (gzip-compressed lines), or the one kept before it, cached for good since its name is its content.
  */

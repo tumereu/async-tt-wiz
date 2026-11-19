@@ -20,7 +20,7 @@ internal object PlayStore {
         .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
         .where(GAME.ID.eq(game)).fetchOne()?.value1())
 
-    /** [read]'s stored payload as a column of a caller's own statement (R6: read with other rows). */
+    /** [read]'s stored payload as a column of a caller's own statement (read with other rows). */
     fun payloadField(game: UUID): org.jooq.Field<String?> = org.jooq.impl.DSL.field(org.jooq.impl.DSL.select(GAME_PLAY.PAYLOAD).from(GAME)
         .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
         .where(GAME.ID.eq(game))).`as`("play_payload")

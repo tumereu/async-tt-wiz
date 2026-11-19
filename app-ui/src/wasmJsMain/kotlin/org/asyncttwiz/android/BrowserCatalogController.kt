@@ -25,7 +25,7 @@ import org.asyncttwiz.storage.DeckResolver
 import org.asyncttwiz.storage.UnpackedCatalog
 
 /**
- * The browser's card records (docs/specs/web-client.md §3.5, §3.6, §9.3), as [CatalogController] on Android: on start
+ * The browser's card records (LOB-091, LOB-096, WEB-009), as [CatalogController] on Android: on start
  * ([start]) the kept catalog is read into memory when it is the one the app expects ([expected], built in; null in local
  * and test builds: the server's current one), else downloaded from the server at [origin], checked and kept. Meanwhile
  * [state] says how far it is, so whatever reads card records stays greyed ("Card records updating · 43%"); a failed attempt
@@ -108,7 +108,7 @@ internal class BrowserCatalogDownloads(private val origin: String) : CatalogDown
     }
 
     private companion object {
-        /** Far above the catalog's ~13 MB (section 3.3), as on Android. */
+        /** Far above the catalog's ~13 MB, as on Android. */
         const val MAX_BYTES = 512L * 1024 * 1024
         val json = Json { ignoreUnknownKeys = true }
     }

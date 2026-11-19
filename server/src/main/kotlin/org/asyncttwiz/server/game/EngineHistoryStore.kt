@@ -173,7 +173,7 @@ internal class EngineHistoryStore private constructor(
         }
 
         /**
-         * [play]'s engine history from its root [rootId] and stored [definitions] the caller read (with other rows, R6):
+         * [play]'s engine history from its root [rootId] and stored [definitions] the caller read (with other rows):
          * through [shared] when that is of the same root (the definitions not decoded again); null definitions are then
          * read here only when [shared] isn't.
          */

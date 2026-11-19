@@ -44,7 +44,7 @@ class CardListScreenshotTest {
     @Test fun searchPortrait() = search(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun searchLandscape() = search(true)
 
-    // LOB-144, LOB-222 (docs/specs/web-client.md section 3.9): cards Automatum can't play yet carry the warning sign
+    // LOB-144, LOB-222: cards Automatum can't play yet carry the warning sign
     @Test fun searchMarksUnsupportedCards() = search(false, marked = true)
 
     private fun search(landscape: Boolean, marked: Boolean = false) {

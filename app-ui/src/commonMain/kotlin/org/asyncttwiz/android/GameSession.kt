@@ -191,7 +191,7 @@ class GameSession(private val connection: GameConnection, private val credential
     fun pending(gameId: String) = pending.values.any { it.scope.gameId == gameId } || preparations.pending(gameId)
     fun queuedTransfers(gameId: String) = preparations.queuedTransfers(gameId)
     fun acceptedPreparation(gameId: String) = preparations.acceptedPreparation(gameId)
-    /** The board the table draws of [game] played on engine state (engine-responsiveness R4a), once it first loaded. */
+    /** The board the table draws of [game] played on engine state, once it first loaded. */
     fun board(game: GameSummary): TableBoard? = engineGame(game)?.play()
 
     // ---- I-D56: games played on engine state

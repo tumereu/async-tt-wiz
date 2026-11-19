@@ -594,7 +594,7 @@ object InformationRule {
         revealing(Before(before, null), changes, viewer, null, allowed)
 
     /** [revealing] on [before] with the views known ([Before.view]; [after]: the view of [before]'s state with [changes]
-     * made), so the layers aren't worked out again (engine-responsiveness R2); null ones are worked out. */
+     * made), so the layers aren't worked out again; null ones are worked out. */
     fun revealing(before: Before, changes: List<Change>, viewer: PlayerId, after: arcanum.engine.view.View?,
         allowed: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Set<arcanum.engine.state.CardId> =
         Host.revealed(before.state, changes, viewer, before.view, after).filterTo(mutableSetOf()) { card ->

@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 /**
- * Docs/specs/web-client.md sections 3.5 and 3.6: an app whose built-in catalog checksum differs from its installed card
+ * LOB-091, LOB-096: an app whose built-in catalog checksum differs from its installed card
  * records (here: none) downloads the server's card catalog on start. Meanwhile Alice's menu, Settings and Games list work,
  * opening her game is greyed with "Card records updating", and Bob's chat goes on; once installed her table opens and
  * works, with his message there.

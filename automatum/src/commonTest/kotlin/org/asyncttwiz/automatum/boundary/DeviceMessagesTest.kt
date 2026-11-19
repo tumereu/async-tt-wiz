@@ -13,7 +13,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Web client step 4c part 3 (docs/specs/web-client.md §1 item 3): the device's requests and answers across the engine
+ * The device's requests and answers across the engine
  * boundary ([DeviceMessage]) and the page's ledger of a game's requests ([DeviceCalls]): every request and answer comes
  * back the same from its JSON string, device messages are told apart from the planning ones on the shared channel, answers
  * reach their callbacks in order, and a closed game's calls end with their fallback while later answers are dropped.
@@ -52,7 +52,7 @@ class DeviceMessagesTest {
         for (a in answers) assertEquals(a, DeviceMessage.decode(DeviceMessage.answer("game-1", a)).answer)
     }
 
-    // Web client step 4d: the table's own staging and a board's plays asked of the device come back the same from their text
+    // The table's own staging and a board's plays asked of the device come back the same from their text
     @Test fun stagingAndPlaysComeBackTheSameFromTheirText() {
         val staging = DeviceRequest.Staging(10, 4, listOf(
             org.asyncttwiz.protocol.PlayAction.Combat(org.asyncttwiz.protocol.CombatAction.Open),

@@ -5,7 +5,7 @@ package org.asyncttwiz.android
 import kotlin.js.Promise
 import kotlinx.coroutines.await
 
-// The browser APIs the storage, card records and pictures use (web client step 3a), as small JavaScript functions: IndexedDB,
+// The browser APIs the storage, card records and pictures use, as small JavaScript functions: IndexedDB,
 // fetch, DecompressionStream with SHA-256, the Cache API and persistent storage. Values cross as text (JSON), numbers and
 // opaque handles (JsAny); the logic above them is client-storage's common code.
 

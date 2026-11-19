@@ -21,7 +21,7 @@ import java.io.*
 import java.net.InetSocketAddress
 import java.nio.file.Path
 
-/** The device's card records from the server's card catalog (docs/specs/web-client.md section 3.5). */
+/** The device's card records from the server's card catalog (LOB-091). */
 class CatalogTest {
     @TempDir lateinit var temporary: Path
     private val directory get() = temporary.resolve("catalog").toFile()
@@ -95,7 +95,7 @@ class CatalogTest {
         assertEquals(id(101), bear.scryfallId)
         assertEquals("Creature — Bear", JsonParser.parseString(bear.json).asJsonObject.get("type").asString)
         assertEquals(2, repo().find("test bear").size)
-        // SYS-082's marks (section 3.8): supported printings, and the draft sets with their unsupported cards and
+        // SYS-082's marks: supported printings, and the draft sets with their unsupported cards and
         // their Keyrune set symbols (DRF-088)
         assertEquals(setOf(id(3), id(4), id(9)), repo().unsupported(listOf(id(1), id(2), id(3), id(4), id(9))))
         assertEquals(listOf(DraftableSet("TST", "Test Set", "2026-01-01", 2, false, listOf("Glorp Wizard")),

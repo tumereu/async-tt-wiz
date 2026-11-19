@@ -256,7 +256,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     private fun done(acted: GameDevice.Acted?): Boolean { sent(); return acted is GameDevice.Acted.Sent || acted == GameDevice.Acted.Confirmed || acted == GameDevice.Acted.Made }
 
     /**
-     * An own action on the engine game in its callback form ([EngineWorker.call], web client step 4c): [ask] starts it,
+     * An own action on the engine game in its callback form ([EngineWorker.call]): [ask] starts it,
      * [answered] reads its result on this thread. Android waits for the engine thread, so the result is in before this
      * returns and the press's answer is that result, in the same frame as before; a page whose engine side answers later
      * gets [asked] now (the action went out; its board and any refusal's note come with the board published after it).
@@ -304,7 +304,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     override fun local(actions: List<PlayAction>, requestId: String?): Boolean {
         val g = game() ?: return false
         val play = shown() ?: return false
-        // Worked out on the engine side on the board shown (I-D56 step D2; web client step 4d: in the browser's worker); what goes
+        // Worked out on the engine side on the board shown (I-D56 step D2; in the browser's worker); what goes
         // out is sent from here after. Not on a board the device has moved on from (switchreview #6)
         return own(true, "onShown", { g.stageOwn(play, actions, requestId, it) }) { done -> sent(); done }
     }
@@ -1082,7 +1082,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         // Stack animation: the next event waits for the top entry's arrows (step 4) to play
         if (!shown.takingBack && stack.busy) snapshotFlow { stack.busy }.first { !it }
         if (pause != null) pause.wait(wait) else if (wait > 0) delay(wait)
-        // Web client step 4d: the callback form (the device may be in the browser's worker; Android answers at once)
+        // The callback form (the device may be in the browser's worker; Android answers at once)
         if (game.shown?.status is GameDevice.Status.Playing) game.step { routes.pump() }
     }
 }
@@ -1157,7 +1157,7 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
     game.shownVersion
     val shownGame = game.shown ?: return
     // HIS-111: a point before what the device holds shows once its older history is in (the board is published again).
-    // Web client step 4c: the request's view arrives through a callback (on Android at once, in the same composition)
+    // The request's view arrives through a callback (on Android at once, in the same composition)
     val answer = remember(game.version) {
         AnsweredValue<EngineGame.RequestView?>().also { a ->
             game.requestView(routes.viewer, shownGame.localHead, shownGame.request?.target ?: "", a::set)
@@ -1236,7 +1236,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         if (preview != null) delay(UNDO_PREVIEW_DELAY_MS)
         // HIS-005: a point whose board needs older history keeps the last board, dimmed, until its page is in (the
         // board is published again then: this runs again)
-        // Web client step 4c: through a callback (on Android at once, without suspending)
+        // Through a callback (on Android at once, without suspending)
         val next = kotlinx.coroutines.suspendCancellableCoroutine<EngineGame.UndoPreview> { c -> game.undoPreview(t) { c.resume(it) } }
         preview = if (next.loading) t to EngineGame.UndoPreview(preview?.second?.board, null, loading = true) else t to next
     }

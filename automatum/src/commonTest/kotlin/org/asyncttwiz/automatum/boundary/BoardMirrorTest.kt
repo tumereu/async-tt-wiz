@@ -24,7 +24,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Web client step 4c: the page's copy of a game's board states ([BoardMirror]) stays equal to the device's through a
+ * The page's copy of a game's board states ([BoardMirror]) stays equal to the device's through a
  * random game: events made by both players (random legal inputs of invented cube cards), branches (events taken back
  * and others made), the line's start trimmed, drafts (an event still being made), a step of a motion and of a take-back
  * ([StateOrigin.Steps]), and the page loading the game anew; every reference crossing as JSON. The engine side's copy

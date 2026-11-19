@@ -67,7 +67,7 @@ class PodScreensTest {
         field.assertIsEnabled().assertTextEquals("0–2147483647", "0")
     }
 
-    // DRF-088, DRF-089: the card records' draft sets, newest first, no Redownload buttons; section 3.9: an unsupported set
+    // DRF-088, DRF-089: the card records' draft sets, newest first, no Redownload buttons; an unsupported set
     // is greyed and can't be chosen
     @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstAndRefusesUnsupportedSets() {
         var state by mutableStateOf(PodSetPickerState(open = true, loaded = true, sets = listOf(

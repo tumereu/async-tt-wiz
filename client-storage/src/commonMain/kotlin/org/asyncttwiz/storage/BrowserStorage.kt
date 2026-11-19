@@ -15,7 +15,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 
-// The browser's personal storage (docs/specs/web-client.md §1 item 4, §11 step 3): the session, the accounts' local data
+// The browser's personal storage: the session, the accounts' local data
 // and the card definitions cache, each one of the browser's asynchronous stores (IndexedDB; app-ui's wasm side adapts it),
 // mirrored in memory so the app's synchronous storage interfaces (SessionStore, AppLocalData, CardDefinitionCache) read it
 // at once. Writes go to memory at once and to the store in order, one batch at a time.
@@ -112,7 +112,7 @@ class StoredRememberedSession(val token: String, val accountId: String, val user
 class UnreadableStoredSession(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
- * The signed-in session in the browser (docs/specs/web-client.md §1 item 5): the session token as Android keeps it, in its
+ * The signed-in session in the browser: the session token as Android keeps it, in its
  * own store, and the remembered sessions. No passwords. Tokens never enter logs or diagnostic strings.
  */
 class BrowserSessions(private val store: MirroredStore) {
@@ -163,7 +163,7 @@ class BrowserSessions(private val store: MirroredStore) {
 
 /**
  * The accounts' local data in the browser, as Android's ClientStorage keeps it for AndroidAccountLocalData: one installation
- * owner; switching accounts clears the former one's personal data (a logout too, §9.5); a logout begun survives the tab
+ * owner; switching accounts clears the former one's personal data (a logout too, LOB-007); a logout begun survives the tab
  * closing midway ([logoutPending]), so it is finished on the next start. Personal values are JSON texts by scope and key.
  */
 class BrowserAccountData(private val store: MirroredStore) {

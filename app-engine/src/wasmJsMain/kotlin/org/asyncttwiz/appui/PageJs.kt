@@ -2,7 +2,7 @@
 
 package org.asyncttwiz.appui
 
-// The browser APIs the platform pieces use (web client step 3b), as small JavaScript functions: timers and frames, clocks,
+// The browser APIs the platform pieces use, as small JavaScript functions: timers and frames, clocks,
 // the console, secure random bytes, the local time zone's calendar, identity numbers and the page's error events.
 
 fun jsSetTimeout(millis: Double, action: () -> Unit): Int = js("setTimeout(() => action(), millis)")

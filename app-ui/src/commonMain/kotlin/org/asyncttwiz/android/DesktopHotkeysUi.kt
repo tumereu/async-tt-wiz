@@ -46,7 +46,7 @@ fun KeyCap(text: String, modifier: Modifier = Modifier, ink: Color = Color(0xff2
     }
 }
 
-/** What the mouse does on the desktop layout, as the "?" sheet lists it (§5). */
+/** What the mouse does on the desktop layout, as the "?" sheet lists it (WEB-091). */
 private val MOUSE_ROWS = listOf(
     "Click" to "Tap", "Double click" to "Double tap; on a play shown or a combat hold, ends it",
     "Hover" to "Quick look at the picture; a usable card's chips, faded", "Right-click" to "A control's hold action; in a draft pick, burn",

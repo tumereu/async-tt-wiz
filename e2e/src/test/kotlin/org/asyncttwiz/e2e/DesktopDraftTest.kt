@@ -22,7 +22,7 @@ import java.util.UUID
 import kotlin.test.assertTrue
 
 /**
- * A pod on the desktop layout (docs/specs/web-client.md §5, §7.6, step 6b; wireframe D9): Alice, on a computer at 1440 × 900,
+ * A pod on the desktop layout (WEB-023, WEB-044; wireframe D9): Alice, on a computer at 1440 × 900,
  * picks with clicks and keys and moves her Build cards by their edge zones; Bob on his phone's layout.
  */
 @Config(qualifiers = "w1440dp-h900dp-land-mdpi")

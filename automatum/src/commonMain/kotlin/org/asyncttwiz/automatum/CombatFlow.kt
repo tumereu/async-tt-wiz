@@ -206,7 +206,7 @@ data class CombatShown(
  */
 object CombatFlow {
     /**
-     * [shown] for a game on engine state (I-D56, engine-responsiveness R4a): [state] is its own state (full information,
+     * [shown] for a game on engine state (I-D56): [state] is its own state (full information,
      * never changed here) and [board] the board the table shows of it (its lanes and records). Never throws.
      */
     fun shown(state: GameState, board: BoardState, gameId: String): CombatShown {

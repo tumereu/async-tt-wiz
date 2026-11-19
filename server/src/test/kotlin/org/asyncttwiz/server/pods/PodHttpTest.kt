@@ -1407,7 +1407,7 @@ class PodHttpTest {
         assertEquals(24, listOf(f.a, f.b).sumOf { f.get(it, pod).grid!!.mine.pool.size })
     }
 
-    // DRF-169, DRF-090 (docs/specs/web-client.md section 3.7): a set pod from its code, its packs built from the server's
+    // DRF-169, DRF-090: a set pod from its code, its packs built from the server's
     // card catalog (the test cards' catalog, tests/fixtures/card-catalog)
     @Test fun `a set chosen by its code gets packs the server builds from its card catalog`() = fixture { f ->
         val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Catalog set", setCode = "TST"), 201))
@@ -1537,7 +1537,7 @@ class PodHttpTest {
         assertEquals(listOf("TWL"), f.get(f.a, pod).source.packSets)
     }
 
-    // DRF-162, DRF-188, SYS-082, SYS-204 (section 3.8): the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
+    // DRF-162, DRF-188, SYS-082, SYS-204: the server refuses a set whose packs can hold a card Automatum can't play, by the catalog's
     // marks, and a set its catalog doesn't have to draft
     @Test fun `a set the catalog's marks say can't be drafted is refused`() = fixture { f ->
         fun refused(input: CreatePod, status: Int, code: String) =

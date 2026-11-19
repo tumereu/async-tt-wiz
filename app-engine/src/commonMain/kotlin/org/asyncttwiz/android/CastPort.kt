@@ -7,7 +7,7 @@ import org.asyncttwiz.automatum.boundary.CastOp
 import org.asyncttwiz.automatum.boundary.CastRequest
 
 /**
- * Web client step 4e (docs/specs/web-client.md §1 item 3): where a table's cast flow sessions run ([CastSessions]) as the page
+ * Where a table's cast flow sessions run ([CastSessions]) as the page
  * sees it: in-process ([LocalCastPort]: Android, tests, a browser page holding the device itself) or the browser's engine Web
  * Worker beside the game's device ([EngineGame.castStep]). The answers come on the page's (main) thread, in the order asked.
  */

@@ -19,7 +19,7 @@ import org.asyncttwiz.appui.asCoroutineDispatcher
 /**
  * Automatum (integration spec §3 I1): the engine's view of the table. A board of a game on engine state ([TableBoard]
  * with its [TableBoard.values]) brings its computed values, plays, shared flow and combat from the engine thread
- * ([EngineBoardValues], engine-responsiveness R3): read from there, nothing is rebuilt from the board here. Card
+ * ([EngineBoardValues]): read from there, nothing is rebuilt from the board here. Card
  * definitions are parsed on the device from the game's own card data (I-D2) by [definitionSource], which the app
  * installs (its [org.asyncttwiz.storage.CardDefinitions] on the account's storage), and kept in memory by digest.
  */
@@ -54,10 +54,10 @@ object AutomatumBoards {
     fun cachedFlow(play: TableBoard): SharedFlow? = play.values?.sharedFlow
 
     /** [play]'s board as a shared flow (priority, the open decision; I2), worked out now when not yet (blocking, on the
-     * engine thread, R4a). */
+     * engine thread). */
     fun sharedFlow(play: TableBoard): SharedFlow? = play.values?.sharedFlow()
 
-    /** Web client step 4e: the plain data of [play]'s shared flow already worked out, if any (the engine thread's). */
+    /** The plain data of [play]'s shared flow already worked out, if any (the engine thread's). */
     fun cachedSharedValue(play: TableBoard): org.asyncttwiz.automatum.boundary.SharedFlowValue? = play.values?.sharedValue
 
     /** [play]'s shared flow's plain data, worked out now when not yet (blocking, on the engine thread). */
@@ -66,14 +66,14 @@ object AutomatumBoards {
     /** What the table shows of combat on [play]'s board already worked out, if any (the engine thread's). */
     fun cachedCombat(play: TableBoard): CombatShown? = play.values?.combat
 
-    /** What the table shows of combat on [play]'s board, worked out now when not yet (blocking, on the engine thread,
-     * R4a); [CombatShown.NONE] outside combat. */
+    /** What the table shows of combat on [play]'s board, worked out now when not yet (blocking, on the engine
+     * thread); [CombatShown.NONE] outside combat. */
     fun combat(play: TableBoard): CombatShown {
         if (TurnPosition.of(play.board.turn) !in COMBAT_STEPS) return CombatShown.NONE
         return play.values?.combat() ?: CombatShown.NONE
     }
 
-    /** Web client step 4e: whether [play]'s combat is asked of the device in the browser's worker ([askCombat]), never worked
+    /** Whether [play]'s combat is asked of the device in the browser's worker ([askCombat]), never worked
      * out on the page. */
     fun remoteCombat(play: TableBoard): Boolean = play.values?.workerBoard == true
 

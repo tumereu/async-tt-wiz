@@ -1,6 +1,6 @@
 package org.asyncttwiz.storage
 
-/** UUID texts as java.util.UUID makes them, for the browser (web client step 3b), whose platform has no UUID class. */
+/** UUID texts as java.util.UUID makes them, for the browser, whose platform has no UUID class. */
 object Uuids {
     /** The random (version 4) UUID made of 16 random [bytes] (UUID.randomUUID()'s bits). */
     fun random(bytes: ByteArray): String = text(bytes.copyOf(16).also {

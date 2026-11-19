@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
-/** Settings → Card records (docs/specs/web-client.md section 3.6). */
+/** Settings → Card records (LOB-096). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class CatalogControlsTest {

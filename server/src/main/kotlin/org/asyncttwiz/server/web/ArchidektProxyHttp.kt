@@ -12,7 +12,7 @@ import java.time.Duration
 import java.util.concurrent.Semaphore
 
 /**
- * The web client's Archidekt deck import (LOB-061, docs/specs/web-client.md §2.3): Archidekt allows no browser requests,
+ * The web client's Archidekt deck import (LOB-061, WEB-010): Archidekt allows no browser requests,
  * so `GET /v1/import/archidekt/{id}` reads that deck's public JSON from Archidekt's API for the page. Open without sign-in
  * (the Android app reads Archidekt directly, also without credentials), but only a deck by its number, from the fixed
  * [upstream], without redirects, at most [MAX_BODY] bytes, two at a time and [PER_MINUTE] a minute in all, so the server

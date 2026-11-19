@@ -6,7 +6,7 @@ import org.junit.Test
 import kotlin.test.assertTrue
 
 /**
- * One game, two clients (docs/specs/web-client.md §11 step 4): Alice plays in a real browser on the web build
+ * One game, two clients: Alice plays in a real browser on the web build
  * ([E2eBrowser]: the shared UI and engine compiled for the web, the engine's Web Worker working out her plays), Bob on
  * the Android app's code ([E2ePlayer]). Each sees the other's moves through the server as two phones would.
  */

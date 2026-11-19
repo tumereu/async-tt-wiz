@@ -21,7 +21,7 @@ import java.util.IdentityHashMap
 
 
 /**
- * The engine table of a test board, for the screenshot tests (R4b follow-up): what the app draws of [play]'s board for
+ * The engine table of a test board, for the screenshot tests: what the app draws of [play]'s board for
  * [viewer], made once per board ([of]).
  *
  * - [board]: [play]'s board with the engine state of it beside it ([TestEngineState]: the board as the engine's state,

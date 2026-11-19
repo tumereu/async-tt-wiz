@@ -188,7 +188,7 @@ class WebHistory(initial: WebRoute?, private var index: Int = 0) {
 }
 
 /**
- * When a tab running an older web build reloads itself (WEB-006, docs/specs/web-client.md §2.2): at once on the menu or the
+ * When a tab running an older web build reloads itself (WEB-006): at once on the menu or the
  * Games list, or as a game is opened; never while a dialog, panel or other layer is open or text is being typed. Elsewhere
  * it waits until the player reaches one of those.
  */

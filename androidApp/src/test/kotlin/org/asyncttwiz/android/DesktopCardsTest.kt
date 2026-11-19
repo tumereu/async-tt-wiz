@@ -25,8 +25,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The desktop layout's mouse and keys on the draft pick, Build, the card lists and dialogs (docs/specs/web-client.md §5, §6,
- * step 6b; WEB-044 to WEB-048).
+ * The desktop layout's mouse and keys on the draft pick, Build, the card lists and dialogs (WEB-044 to
+ * WEB-048).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w1440dp-h900dp-land-mdpi")

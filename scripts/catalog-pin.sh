@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The card catalog's pin (docs/specs/web-client.md section 3.1): catalog/pin.properties names the MTGJSON AllPrintings
+# The card catalog's pin: catalog/pin.properties names the MTGJSON AllPrintings
 # build everything reads. The raw file is kept only on this machine, at $ATW_ALLPRINTINGS (default
 # ~/projects/atw-cache/AllPrintings.json.gz); it is never committed.
 #   verify             checks the local raw file against the pin

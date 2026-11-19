@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-/** The card catalog's endpoints (docs/specs/web-client.md section 3.4), open without sign-in, on the test cards' catalog
+/** The card catalog's endpoints (SYS-081), open without sign-in, on the test cards' catalog
  * the server tests run with (CATALOG_DIR, built by :catalog:testCardsCatalog). */
 class CatalogHttpTest {
     private val directory = File(checkNotNull(System.getProperty("atw.catalogDir")))

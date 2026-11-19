@@ -6,7 +6,7 @@ import arcanum.parser.OracleParser
 import org.asyncttwiz.storage.*
 import org.asyncttwiz.appui.ExecutorService
 
-/** The draft sets of the card records with their support marks (section 3.8). Blocking: the picker's worker only. */
+/** The draft sets of the card records with their support marks (SYS-082). Blocking: the picker's worker only. */
 fun interface PodSetRepository {
     fun sets(): List<DraftableSet>
 }
@@ -16,7 +16,7 @@ class StoredPodSets(private val repository: () -> CardCatalog) : PodSetRepositor
     override fun sets() = repository().draftableSets()
 }
 
-/** A draft set chosen as a pod's source: the server builds its packs from its card catalog (DRF-169, section 3.7). */
+/** A draft set chosen as a pod's source: the server builds its packs from its card catalog (DRF-169). */
 data class PodSetChoice(val code: String, val name: String)
 
 fun PodSetChoice.podSource() = PodSource(kind = PodSourceKind.SET, setCode = code, setName = name, packSets = listOf(code))
@@ -75,7 +75,7 @@ data class PodSetPickerState(
 
 /**
  * The Sets tab of a pod's source picker (DRF-088): the draft sets of the card records, newest first, each with its symbol
- * (DRF-176). A set Automatum can't play every card of (the card catalog's marks, section 3.9) is greyed and can't be
+ * (DRF-176). A set Automatum can't play every card of (the card catalog's marks, DRF-088) is greyed and can't be
  * chosen; a chosen set goes to the pod by its code ([selected], with the pack grid's packs it was chosen for, DRF-178).
  */
 class PodSetPickerController(private val repository: PodSetRepository?, private val worker: ExecutorService,
@@ -116,7 +116,7 @@ class PodSetPickerController(private val repository: PodSetRepository?, private 
         }
     }
 
-    /** Chooses set [code] when Automatum can play every card of it; an unsupported set can't be chosen (section 3.9). */
+    /** Chooses set [code] when Automatum can play every card of it; an unsupported set can't be chosen (DRF-088). */
     fun choose(code: String) {
         val set = state.sets.firstOrNull { it.code == code } ?: return
         if (!set.automatum) { AppLog.info("sets", "$code not chosen: Automatum can't play ${set.unsupported.size} of its cards"); return }

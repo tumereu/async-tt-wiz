@@ -14,7 +14,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
 
 /**
- * Web client step 4c part 3 (docs/specs/web-client.md §1 item 3): the page's one channel to the games' devices in the
+ * The page's one channel to the games' devices in the
  * engine's Web Worker ([DeviceHost] there). [post] sends a message to the worker; [received] takes each of its messages
  * ([DeviceMessage.isDevice]) on the page's thread, in order: a game's boards and results go to its [RemoteDevice], the
  * worker's log lines into the page's app log (so problem reports carry them), its lookups to the page's card records.
@@ -68,7 +68,7 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
     /** The game's codec as the worker's device has it (its card data), from the snapshot it last loaded. */
     var codec: EngineJson = EngineJson(EngineJson.decodeDefinitions(snapshot.definitions))
         private set
-    /** Web client step 4d: a published board's plays the device hadn't worked out when it went out, asked of it by the
+    /** A published board's plays the device hadn't worked out when it went out, asked of it by the
      * board's number (it holds the board: nothing else is sent). */
     private val plays = object : DevicePlays {
         override fun ask(board: Long, done: (hand: org.asyncttwiz.automatum.HandPlays?, card: org.asyncttwiz.automatum.CardPlays?) -> Unit) =
@@ -77,7 +77,7 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
                 done(answer?.hand, answer?.card)
             }
 
-        // Web client step 4e: a board's combat as the table shows it, worked out where the device is
+        // A board's combat as the table shows it, worked out where the device is
         override fun combat(board: Long, lanes: org.asyncttwiz.protocol.CombatArea?, drawn: Boolean,
             done: (org.asyncttwiz.automatum.CombatShown?) -> Unit) =
             request("combat", { DeviceRequest.Combat(it, board, lanes, drawn) }, { DeviceResult.Combat(null) }) { r ->

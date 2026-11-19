@@ -6,11 +6,11 @@ import org.asyncttwiz.automatum.HandCastChips
 import org.asyncttwiz.automatum.HandCasts
 
 /**
- * ZON-080 (I-D50): the cost chips of a raised hand card ([HandCasts.chips]), worked out where the engine is (web client step
- * 4e: the browser's engine worker beside the game's device, [DeviceHost]; Android on the Automatum worker).
+ * ZON-080 (I-D50): the cost chips of a raised hand card ([HandCasts.chips]), worked out where the engine is (the
+ * browser's engine worker beside the game's device, [DeviceHost]; Android on the Automatum worker).
  */
 object HandChips {
-    /** [cardId]'s chips on [play] for [viewer], on the game's own engine state (R4a); null when they couldn't be worked out. */
+    /** [cardId]'s chips on [play] for [viewer], on the game's own engine state; null when they couldn't be worked out. */
     fun of(play: TableBoard, viewer: String, cardId: String): HandCastChips? = try {
         val definitions = AutomatumBoards.definitions(play)
         val offered = AutomatumBoards.handPlays(play, viewer).of(cardId)

@@ -11,7 +11,7 @@ import org.asyncttwiz.protocol.ActivityWire
 import org.asyncttwiz.protocol.RegisterInstallation
 import org.asyncttwiz.protocol.WebPushSubscription
 
-// The browser's notifications, push subscription and install prompt (web client step 7; WEB-050 to WEB-055), as small
+// The browser's notifications, push subscription and install prompt (WEB-050 to WEB-055), as small
 // JavaScript functions over the service worker index.html registers (/sw.js) and the install prompt it keeps.
 
 /** The notification permission: 'granted', 'denied', 'default', or 'unsupported' where the page can't get push at all. */

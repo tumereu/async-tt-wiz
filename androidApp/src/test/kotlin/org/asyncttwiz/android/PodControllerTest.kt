@@ -591,7 +591,7 @@ class PodControllerTest {
         assertEquals(nextPack.id, f.controller.state.detail!!.draft!!.head!!.id)
     }
 
-    // DRF-161, DRF-187, section 3.9: the sets' support comes from the card catalog's marks; a set Automatum can't play every card
+    // DRF-161, DRF-187, DRF-088: the sets' support comes from the card catalog's marks; a set Automatum can't play every card
     // of can't be chosen
     @Test fun setSupportComesFromTheMarksAndAnUnsupportedSetCantBeChosen() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver(); f.controller.chooseSet(); f.deliver()

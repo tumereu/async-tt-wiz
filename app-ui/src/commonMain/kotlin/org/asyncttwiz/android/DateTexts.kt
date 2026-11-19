@@ -7,7 +7,7 @@ import org.asyncttwiz.appui.ZonedDateTime
 import org.asyncttwiz.protocol.GameSummary
 import org.asyncttwiz.protocol.MatchRecord
 
-// Dates and times as the app writes them (docs/specs/web-client.md §1 item 2). Android: java.time, as before; each
+// Dates and times as the app writes them. Android: java.time, as before; each
 // function's Android side is the code that was here.
 
 /** A game row's last activity: "14:05" today, "21 Oct" this year, "21 Oct 2025" before; "" when unreadable. */

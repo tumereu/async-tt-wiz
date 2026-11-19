@@ -175,7 +175,7 @@ data class TableItem(
     val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
     val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
-    val damage: String = "", val eotCorner: String = "",
+    val damage: String = "",
     val touchBounds: TableBounds? = null,
     /** A player's Temp pile: a LIBRARY-zone pile that is never that player's Library. */
     val temp: Boolean = false,
@@ -211,6 +211,8 @@ data class TableItem(
     val raised: Boolean = false,
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
     val stackAbility: StackAbilityShown? = null,
+    /** D7 (owner 2026-11-19): a copy of a spell or ability on the Stack, drawn with the copy marker (never a permanent). */
+    val stackCopy: Boolean = false,
     /** TBL-053: a battlefield card's group ([BattlefieldGroup.key]); null off the battlefield. */
     val group: String? = null,
     /** ZON-092: a pile holding a card with counters (a suspended card in exile), marked on the pile. */
@@ -256,7 +258,7 @@ class PileCardDrawings(private val build: (String) -> TableItem?) {
 /** Shown in the title position of a face-down Battlefield card; it says nothing about the hidden front. */
 const val FACE_DOWN_TITLE = "?"
 
-/** Clearly blue, distinct from the own (teal) / opponent (red) table colours and the until-end-of-turn teal. */
+/** Clearly blue, distinct from the own (teal) / opponent (red) table colours. */
 const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
 /** [gridBounds] spans the whole pannable width (the battlefield feels infinite); [originX] is the screen x of column 0. */
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
@@ -705,7 +707,7 @@ object TablePresentation {
             val artwork = art(card, hidden)
             val fullPicture = artwork != null && artwork.customUrl == null &&
                 (zone == PlayZone.HAND && appearance.handFullPicture || zone == PlayZone.BATTLEFIELD && appearance.battlefieldFullPicture)
-            val label = if (ability != null) "${ability.kind}, ${ability.line}, controller ${name(CombatStackRules.controller(play.board, viewId) ?: card.owner)}"
+            val label = if (ability != null) "${ability.shownKind}, ${ability.line}, controller ${name(CombatStackRules.controller(play.board, viewId) ?: card.owner)}"
                 // TBL-133: a card's states read aloud too, as the chip shows them
                 else "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
                     (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" } +
@@ -715,11 +717,12 @@ object TablePresentation {
                     (if (auto != null && card.id in computed.withEffects) ", changed by effects" else "") +
                     // TBL-021, TBL-135: its counters read aloud in words, the corner's primary one too
                     auto?.counters.orEmpty().joinToString("") { ", ${it.words}" }
-            return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
+            return TableItem("card/$viewId", b, if (projection) "${if (zone == PlayZone.STACK && ability == null && CombatStackRules.copyEntry(play.board, viewId)) "Copy"
+                    else if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
-                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: effectiveCorner(card),
-                damage = if (!values) "" else card.damage, eotCorner = if (!values || autoCorner != null) "" else card.eotCorner,
+                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: card.corner,
+                damage = if (!values) "" else card.damage,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token,
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()),
@@ -732,7 +735,8 @@ object TablePresentation {
                     crew = auto?.crew?.let { "Crew $it" }, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
                     counterBubbles = auto?.bubbles.orEmpty(), effectsMarker = auto != null && card.id in computed.withEffects,
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
-                    enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
+                    enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability,
+                    stackCopy = zone == PlayZone.STACK && projection && !hidden && CombatStackRules.copyEntry(play.board, viewId)).also { if (draw) items += it }
         }
         // Opponent block on top, own block at the bottom; in landscape (TBL-009) the opponent's in the top bar, yours in the
         // bottom bar, left of the controls

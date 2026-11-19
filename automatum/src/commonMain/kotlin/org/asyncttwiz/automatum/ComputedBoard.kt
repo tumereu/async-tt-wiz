@@ -157,7 +157,7 @@ class ComputedBoard private constructor(
     val withEffects: Set<String> by lazy {
         givenWithEffects?.let { return@lazy it }
         val ids = cards.keys.toList()
-        if (state == null || ids.isEmpty()) emptySet() else effects(ids, "").keys + restrictions(ids, "").keys
+        if (state == null || ids.isEmpty()) emptySet() else effects(ids, "", shown = false).keys + restrictions(ids, "", shown = false).keys
     }
 
     /**
@@ -230,15 +230,16 @@ class ComputedBoard private constructor(
      * then the others ("+3/+3, trample until end of turn", "Flying", "Becomes blue", "Has the activated abilities of Ember
      * Cub", owner 2026-11-12: every effect, from the engine's [arcanum.engine.view.Explanation]), each with its source's name
      * as [viewer] may see it; counters and a card's own characteristic-defining ability aren't changes here. [names] names
-     * the players by account. Cards with no changes are left out; one run of the layers for all of them.
+     * the players by account. Cards with no changes are left out; one run of the layers for all of them. [shown]: the texts
+     * are for a player (a stand-in in them is reported, LOB-090), not only which cards have changes.
      */
-    fun effects(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap()): Map<String, List<EffectChange>> {
+    fun effects(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap(), shown: Boolean = true): Map<String, List<EffectChange>> {
         val state = state ?: return emptyMap()
         val view = view ?: return emptyMap()
         val objects = cardIds.filter { it in cards }.mapNotNull { card -> objectOf(card)?.let { card to it } }
         if (objects.isEmpty()) return emptyMap()
         val explanations = Inspect.explain(state, objects.map { it.second })
-        val durations = DurationText(state, view, viewer, names)
+        val durations = DurationText(state, view, viewer, names, shown)
         return objects.mapNotNull { (card, id) ->
             val explanation = explanations[id] ?: return@mapNotNull null
             val copies = explanation.copies.map { copy ->
@@ -254,7 +255,7 @@ class ComputedBoard private constructor(
                 val source = effect.source
                 if (source is EffectSource.Counters) return@mapNotNull null
                 if (source is EffectSource.StaticAbility && source.characteristicDefining && source.obj == id) return@mapNotNull null
-                val parts = effect.steps.flatMap { step -> stepParts(state, view, step, viewer, names) }.distinct()
+                val parts = effect.steps.flatMap { step -> stepParts(state, view, step, viewer, names, shown) }.distinct()
                 if (parts.isEmpty()) return@mapNotNull null
                 val made = (source as? EffectSource.EffectObject)?.let { state.effects[it.effect] }
                 val lasts = effect.duration?.let { durations.of(it, made, id) }
@@ -299,12 +300,12 @@ class ComputedBoard private constructor(
     /**
      * TBL-134: what continuous effects tell each of [cardIds] (on the Battlefield, or a spell on the Stack) it can't or must do,
      * from the board's own view ([Inspect.restrictions]): "Can't block until end of turn", with its source as [viewer] may see
-     * it. A Ring-bearer's rule from the Ring is its own line ([states]).
+     * it. A Ring-bearer's rule from the Ring is its own line ([states]). [shown] as for [effects].
      */
-    fun restrictions(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap()): Map<String, List<EffectChange>> {
+    fun restrictions(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap(), shown: Boolean = true): Map<String, List<EffectChange>> {
         val state = state ?: return emptyMap()
         val view = view ?: return emptyMap()
-        val durations = DurationText(state, view, viewer, names)
+        val durations = DurationText(state, view, viewer, names, shown)
         return cardIds.mapNotNull { card ->
             val id = ids?.engine(card)?.let { engine -> state.objects.keys.firstOrNull {
                 (it as? ObjectId.Card)?.card == engine && state.objects[it]?.zone.let { z -> z == Zone.Battlefield || z == Zone.Stack } } } ?: return@mapNotNull null
@@ -321,7 +322,8 @@ class ComputedBoard private constructor(
 
     /** What one layer step changed, in a few words each ("+3/+3", "trample", "loses flying", "becomes blue", "has the
      * activated abilities of Ember Cub", "gains \"{T}: Add {G}.\""). */
-    private fun stepParts(state: GameState, view: View, step: ExplainedEffect, viewer: String, names: Map<String, String>): List<String> = when (step.layer) {
+    private fun stepParts(state: GameState, view: View, step: ExplainedEffect, viewer: String, names: Map<String, String>,
+        shown: Boolean): List<String> = when (step.layer) {
         Layer.PowerToughnessDefining, Layer.PowerToughnessSet -> listOf("base ${pt(step.after.power, step.after.toughness)}")
         Layer.PowerToughnessModify -> listOf("${signed((step.after.power ?: 0) - (step.before.power ?: 0))}/" +
             signed((step.after.toughness ?: 0) - (step.before.toughness ?: 0)))
@@ -348,8 +350,11 @@ class ComputedBoard private constructor(
             (gained.map { it.lowercase() } + lender + granted.map { "gains " + words(it) } +
                 if (lostAll) listOf("loses all abilities") else lost.map { "loses ${it.lowercase()}" } + gone.map { "loses " + words(it) })
         }
-        Layer.Control -> listOf("controlled by " + (step.controllerAfter?.value?.let { if (it == viewer) "you" else names[it] ?: "the opponent" }
-            ?: "nobody"))
+        Layer.Control -> listOf("controlled by " + (step.controllerAfter?.value?.let { when {
+            it == viewer -> "you"
+            shown -> PlayerNames.of(names, it, "the opponent", "ComputedBoard")
+            else -> names[it] ?: "the opponent"
+        } } ?: "nobody"))
         Layer.Text -> listOf("text changed")
         else -> emptyList()
     }

@@ -70,7 +70,6 @@ class EnteredThisTurnPresentationTest {
         val blue = EnteredThisTurnTitleColor
         assertNotEquals(OwnTableColor.toArgb(), blue)
         assertNotEquals(OpponentTableColor.toArgb(), blue)
-        assertNotEquals(EotPowerToughnessColor, blue)
         assertNotEquals(ChangedPowerToughnessColor, blue)
         // Blue dominates and the title stays readable on a white card frame (contrast >= 4.5).
         val r = blue shr 16 and 0xff; val g = blue shr 8 and 0xff; val b = blue and 0xff

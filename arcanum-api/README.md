@@ -10,7 +10,8 @@ lives here. Design: `docs/specs/arcanum-automatum.md` §4.1 and §5.
 The definition model (overview in `Definitions.kt`):
 
 - `CardDefinition(layout, faces)`; `FaceDefinition`: name, mana cost, colour
-  indicator, supertypes/types/subtypes, P/T, loyalty, defense, abilities.
+  indicator, supertypes/types/subtypes, P/T, loyalty, defense, abilities, and the host's opaque `identity` of the printed
+  face (never read by the rules; a copiable value, so copies carry it, CR 707.2).
 - `Ability`: `Spell`, `Activated`, `Triggered`, `Static` (the CR kinds), `Keyword`,
   `Unparsed`. Spell/activated/triggered carry `Instructions` (targets, modes,
   `Step`s of one-shot `Effect`s); static abilities carry `Mechanic`s.

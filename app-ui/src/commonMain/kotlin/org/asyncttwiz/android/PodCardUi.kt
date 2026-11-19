@@ -55,12 +55,17 @@ fun podPreviewFaces(definition: CardDefinition): List<Int> {
     } else listOf(0)
 }
 
+/** LOB-090 (owner rule 2026-11-11): the name of a draft card whose card data the pod didn't send ([definition] its digest):
+ * "Card data unavailable", reported from [area]. */
+fun cardDataUnavailable(area: String, definition: String): String = org.asyncttwiz.protocol.Faults.placeholder(area,
+    "draft card without its card data", "Card data unavailable", mapOf("definition" to definition))
+
 @Composable
 fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: ScrollState = rememberScrollState()) {
     val card = remember(copy.definition, definition) {
         definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
     }
-    PodCardArtPreview(card, definition?.shownName ?: "Card data unavailable", scroll = scroll)
+    PodCardArtPreview(card, definition?.shownName ?: cardDataUnavailable("PodPickArtPreview", copy.definition), scroll = scroll)
 }
 
 /** Inspect outside a game (TBL-104): every face of [card] while held ([fallback] names a card without card data). */

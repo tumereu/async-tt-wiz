@@ -90,7 +90,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val locked = shown.locked
     LaunchedEffect(locked) { if (locked) { toolkit.dismiss(); toolkit.peek(null) } }
     val names = remember(game) { mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username) }
-    routes.opponentName = names[shown.opponent.value] ?: "The other player"
+    routes.opponentName = org.asyncttwiz.automatum.PlayerNames.of(names, shown.opponent.value, "The other player", "EngineTableScreen")
     val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
     val playbackPause by playbackPreferences.pauseState()
     // HIS-075: the event chip

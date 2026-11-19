@@ -648,6 +648,9 @@ fun behindText(at: GameDevice.OpponentAt, viewer: String, opponent: String): Str
  * source's ability ("Ember Herald's ability", STK-046), a copy of a spell as its spell. */
 private fun engineName(play: TableBoard, id: ObjectId): String? {
     val item = (id as? ObjectId.StackItem)?.let { play.engine?.state?.stackItems?.get(it) }
+    // D7: a copy by what it copies ("copy of Storm Spark", "copy of Bre of Clan Stoutarm's triggered ability")
+    if (item != null && (item.copyOf != null || item.kind is StackItemKind.SpellCopy)) play.engine?.state?.let { state ->
+        return org.asyncttwiz.automatum.ShownNames.of(state, item) { it?.let { s -> sourceName(play, s) } } }
     val ability = item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered)
     return sourceName(play, id)?.let { if (ability) "$it's ability" else it }
 }
@@ -845,7 +848,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     val game = routes.engine ?: return
     val shown = game.shown ?: return
     val status = shown.status
-    val opponent = names[shown.opponent.value] ?: "The other player"
+    val opponent = org.asyncttwiz.automatum.PlayerNames.of(names, shown.opponent.value, "The other player", "EngineTable")
     // Timeline mode (HIS-004) shows an earlier board, view-only: no async panels over it, only an incoming request
     val reviewing = routes.review != null
     // TRN-066, TRN-068: the wait is the band under the other player's hand (TableRuntimeHooks.waitingLine) with its Assume or

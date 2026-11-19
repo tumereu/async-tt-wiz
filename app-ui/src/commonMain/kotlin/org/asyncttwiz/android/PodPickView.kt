@@ -508,7 +508,7 @@ private fun PodPickCard(
     Box(if (desktop) Modifier.mouseHover(copy.id, onHover) else Modifier) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { width = it.width; onSize(it) }
             .testTag("pod-pick-card-${copy.id}").semantics {
-                contentDescription = definition?.shownName ?: "Card data unavailable"
+                contentDescription = definition?.shownName ?: cardDataUnavailable("PodPickView", copy.definition)
                 stateDescription = when (effectiveMark) {
                     PodPickMark.KEEP -> "Keep"
                     PodPickMark.BURN -> if (automaticBurn) "Automatic burn" else "Burn"
@@ -691,13 +691,14 @@ private fun PodPickTray(
 private fun PodPickArtwork(copy: DraftCopy, definition: CardDefinition?, modifier: Modifier, reuseArtwork: Boolean = false,
     crop: Boolean = false) {
     val reference = remember(copy.definition, definition) { podTileArtwork(definition) }
+    val name = definition?.shownName ?: cardDataUnavailable("PodPickView", copy.definition)
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         CardArtwork(reference,
-            definition?.shownName ?: "Card data unavailable",
+            name,
             with(density) { maxWidth.roundToPx() }.coerceIn(1, 4096),
             with(density) { maxHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(),
-            placeholder = { PodCardPlaceholder(definition?.shownName ?: "Card data unavailable") },
+            placeholder = { PodCardPlaceholder(name) },
             previewReference = reference.takeIf { reuseArtwork }, crop = crop)
     }
 }

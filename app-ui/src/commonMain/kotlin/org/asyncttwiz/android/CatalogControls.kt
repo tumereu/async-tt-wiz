@@ -9,6 +9,9 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.appui.FormatLocale
 import org.asyncttwiz.appui.formatIn
 
+/** WEB-009: under the installed line when the browser couldn't keep the card records for later visits. */
+const val CARD_RECORDS_NOT_KEPT = "This browser couldn't keep them, so they download again on your next visit"
+
 /** LOB-093: Settings → Card records: what is installed, how far an installation is, Retry after a failure. */
 @Composable
 fun CatalogControls(state: CatalogUiState, retry: () -> Unit) {
@@ -16,7 +19,8 @@ fun CatalogControls(state: CatalogUiState, retry: () -> Unit) {
         SettingsSectionHeader("Card records")
         val installed = state.installed?.takeIf { state.ready }
         SettingsLabel(installed?.let { "Installed: ${it.date} · ${formatIn(FormatLocale.Us, "%,d", it.records)} records" }
-            ?: state.records.line().orEmpty(), null, Modifier.padding(vertical = 4.dp))
+            ?: state.records.line().orEmpty(), CARD_RECORDS_NOT_KEPT.takeIf { installed != null && !state.kept },
+            Modifier.padding(vertical = 4.dp))
         if (!state.ready && !state.failed) LinearProgressIndicator(progress = { (state.progress?.percent ?: 0) / 100f },
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("catalog-status"))
         if (state.failed) SettingsActionRow("Retry", "refresh", retry, Modifier.testTag("catalog-retry"))

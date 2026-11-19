@@ -18,6 +18,10 @@ class WebRoutesTest {
         for (route in routes) assertEquals(route, WebRoute.parse(route.path), route.path)
         assertEquals("/games/$game", WebRoute.Game(game).path)
         assertEquals("/pods/p1/draft", WebRoute.Pod("p1", PodTab.DRAFT).path)
+        // The pod address without a tab: the pod on the tab it opens on (DRF-077)
+        assertEquals("/pods/p1", WebRoute.Pod("p1").path)
+        assertEquals(WebRoute.Pod("p1", null), WebRoute.parse("/pods/p1"))
+        assertEquals(WebRoute.Pod("p1", null), WebRoute.parse("/pods/p1/"))
         assertEquals("/decks/d1/edit", WebRoute.DeckEdit("d1").path)
         assertEquals(WebRoute.Games, WebRoute.parse("/games/"))
     }

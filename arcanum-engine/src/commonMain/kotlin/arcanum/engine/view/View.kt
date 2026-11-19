@@ -121,6 +121,9 @@ data class Characteristics(
     val loyalty: Int? = null,
     val defense: Int? = null,
     val abilities: List<AbilityInstance> = emptyList(),
+    /** The host's identity of the printed face its copiable values came from ([arcanum.api.FaceDefinition.identity]): the copied
+     * card's for a copy (CR 707.2, 707.10), none face down (CR 708.2a). Not a characteristic: no rule reads it. */
+    val identity: String? = null,
 ) {
     fun isType(type: CardType): Boolean = type in types
 

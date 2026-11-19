@@ -68,7 +68,9 @@ const val PLAY_SHOW_TAG = "play-show"
  */
 data class PlayShown(val description: String, val caption: List<StackTextPiece>, val own: Boolean,
     val face: InspectTile.Face? = null, val covered: Boolean = false, val ability: StackAbilityShown? = null,
-    val art: ArtworkReference? = null, val typeIcon: String = "")
+    val art: ArtworkReference? = null, val typeIcon: String = "",
+    /** D6, D7: a copy of a spell put on the Stack, drawn with the copy marker (a copied ability's token carries its own). */
+    val copy: Boolean = false)
 
 object PlayShows {
     /** What [viewer]'s table shows of [show] on [play] (the board at its event); [names]: the players' names by account. */
@@ -80,13 +82,30 @@ object PlayShows {
         val line = effect?.let { StackLine.entryPieces(play, entry, viewer, names) }
         val cardId = show.card?.value
         val card = (if (effect != null) CombatStackRules.inspection(play.board, entry) else null)
-            ?: cardId?.let { id -> play.board.cards.firstOrNull { it.id == id } }
+            ?: cardId?.takeIf { show.kind != GameDevice.PlayKind.Copied }?.let { id -> play.board.cards.firstOrNull { it.id == id } }
         val visible = card != null && effect?.faceDown != true &&
             (effect?.frozen != null || CardVisibility.isVisibleFaceUp(play.board, card, viewer))
         val definition = card?.let { c -> play.definitions.firstOrNull { it.digest == c.definition }?.definition }
         val faceIndex = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
         val name = definition?.faces?.getOrNull(faceIndex)?.shownName?.takeIf { visible && it.isNotBlank() }
+        // D6 (owner 2026-11-19): a copy put on the Stack shows as the copied spell's card or the copied ability's token, its line
+        // naming it a copy; it flies in from what copied it ([show]'s card), so its own card is its entry's
+        val copied = show.kind == GameDevice.PlayKind.Copied
+        val spellCopy = copied && effect?.item?.kind == org.asyncttwiz.protocol.MtgStackKind.SpellCopy
         return when (show.kind) {
+            GameDevice.PlayKind.Copied -> if (spellCopy) {
+                val caption = line ?: listOf(StackTextPiece("Copy of ${name ?: unnamed(visible, "a spell", show)}"))
+                val face = if (visible && definition != null) inspectFaces(InspectedCard.retained(definition), faceIndex,
+                    flippedOnTable(definition, card.faceId), "play-show/${card.id}",
+                    if (own) OwnTableColor else OpponentTableColor, card.token).firstOrNull()?.copy(oracleName = null) else null
+                PlayShown(caption.plain(), caption, own, face = face, covered = face == null, copy = true)
+            } else {
+                val ability = effect?.let { StackAbilities.of(play, entry, viewer) }
+                    ?: StackAbilityShown(true, name ?: unnamed(visible, "Ability", show), "", copy = true)
+                val source = choiceCard(play, viewer, "play-show/source", effect?.sourceId, visible, ability.source)
+                val caption = line ?: listOf(StackTextPiece(ability.name))
+                PlayShown(caption.plain(), caption, own, ability = ability, art = source.art, typeIcon = source.typeIcon, copy = true)
+            }
             GameDevice.PlayKind.Cast -> {
                 val caption = line ?: listOf(StackTextPiece("$who cast ${name ?: unnamed(visible, "a card", show)}"))
                 // TBL-138: a card printed under another name has its Oracle name labelled in Inspect and the quick look only
@@ -471,7 +490,10 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                 val ability = look.ability
                 when {
                     ability != null -> AbilityTokenFace(ability, look.art, look.own, Modifier.size(width.dp, height.dp), look.typeIcon)
-                    look.face != null -> InspectFaceView(look.face, DpSize(width.dp, height.dp))
+                    look.face != null -> Box {
+                        InspectFaceView(look.face, DpSize(width.dp, height.dp))
+                        if (look.copy) CopyMarker((height * .12f).dp, Modifier.align(Alignment.TopEnd))
+                    }
                     else -> Box(Modifier.size(width.dp, height.dp).cardFrame(false, if (look.own) OwnTableColor else OpponentTableColor)
                         .background(Color(0xff506b61)))
                 }

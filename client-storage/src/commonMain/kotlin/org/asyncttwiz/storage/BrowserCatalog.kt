@@ -87,6 +87,11 @@ class BrowserCatalogInstaller<F>(
     private val retryPause: Long = 2_000,
     private val pause: suspend () -> Unit = { yield() },
 ) {
+    /** Whether the card records [run] made last are kept for later visits; false when the storage refused to keep the
+     * downloaded file (full, over its quota, a private window): they are used for this visit and download again next time. */
+    var kept: Boolean = true
+        private set
+
     /**
      * Makes the card records catalog [expected] (the app's built-in checksum; null in local and test builds: the server's
      * current one) and returns their metadata; [progress] hears how far it is. Throws when it couldn't.
@@ -128,7 +133,7 @@ class BrowserCatalogInstaller<F>(
      * catalog any more. */
     private suspend fun load(checksum: String, progress: (CatalogProgress) -> Unit): CatalogMetadata? = try {
         val file = files.read(checksum) ?: error("The kept catalog file is missing")
-        read(file, checksum, progress).also { records.current = it }.metadata()
+        read(file, checksum, progress).also { records.current = it; kept = true }.metadata()
     } catch (failure: Exception) {
         if (failure is CancellationException) throw failure
         log("Card records: the kept catalog $checksum couldn't be read (${failure.message}); dropping it")
@@ -153,7 +158,11 @@ class BrowserCatalogInstaller<F>(
         progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, size))
         val file = downloads.download(checksum) { bytes -> progress(CatalogProgress(CatalogPhase.DOWNLOADING, bytes, size)) }
         val catalog = read(file, checksum, progress)
-        files.install(checksum, file)
+        kept = try { files.install(checksum, file); true } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            log("Card records $checksum couldn't be kept in the browser's storage (${failure.message}); used for this visit only")
+            false
+        }
         records.current = catalog
         log("Card records $checksum installed: ${catalog.metadata().records} printings")
         return catalog.metadata()

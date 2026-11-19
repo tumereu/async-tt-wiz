@@ -14,7 +14,6 @@ fun changedPowerToughness(displayed: String, face: DefinitionFace?): Boolean =
         displayed != "${face.power}/${face.toughness}"
 
 const val ChangedPowerToughnessColor = 0xffa0522d.toInt()
-const val EotPowerToughnessColor = 0xff007f80.toInt()
 /** Automatum on (I1): a computed P/T above its printed value is green, below it red (the damage red); up in one value
  * and down in the other (a switch) brown as TBL-022; unchanged the default ink. */
 const val RaisedPowerToughnessColor = 0xff1b7f3a.toInt()
@@ -25,14 +24,6 @@ fun computedCornerColor(trend: Int?): Int? = when (trend) {
     1 -> RaisedPowerToughnessColor
     -1 -> LoweredPowerToughnessColor
     else -> ChangedPowerToughnessColor
-}
-
-fun effectiveCorner(card: PlayCard): String {
-    if (card.eotCorner.isEmpty()) return card.corner
-    val base = card.corner.split('/')
-    val delta = card.eotCorner.split('/')
-    if (base.size != 2 || delta.size != 2) return card.corner
-    return base.indices.joinToString("/") { TableActions.addNumber(base[it], delta[it]) ?: base[it] }
 }
 
 fun damageIsLethal(damage: String, corner: String): Boolean {

@@ -74,6 +74,19 @@ class NonGameplayBusyTest {
         compose.onNodeWithTag("quick-continue-${game.id}").assertIsEnabled()
     }
 
+    // LOB-235 (owner, 2026-11-17): the main menu shows the card records' line too, gone once they are installed
+    @Test fun theMainMenuSaysHowFarTheCardRecordsAre() {
+        val fixtures = ScreenFixtures()
+        fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.MENU))
+        val catalog = CatalogViewModel(AppServices.current.catalogController()).also { viewModels.put("catalog", it) }
+        catalog.seed(CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100)))
+        compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, lobby = fixtures.lobby) } }
+        compose.onNodeWithTag("menu-GAMES").assertIsDisplayed()
+        compose.onNodeWithText("Card records updating · 40%").assertIsDisplayed()
+        compose.runOnIdle { catalog.seed(CatalogUiState(ready = true)) }
+        compose.onNodeWithTag("card-records-note").assertDoesNotExist()
+    }
+
     // SYS-023
     @Test fun onlyInitialForegroundLoadOfEmptyGamesShowsLoading() {
         val fixtures = ScreenFixtures()

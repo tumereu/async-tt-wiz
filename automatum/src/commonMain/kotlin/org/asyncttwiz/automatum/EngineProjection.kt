@@ -84,20 +84,10 @@ object EngineProjection {
         // What made each token, while the log still says (this and last turn): for its picture (SYS-072)
         val madeBy = HashMap<ObjectId, arcanum.engine.change.CausedBy?>()
         for (logged in arcanum.engine.Inspect.events(state)) (logged.change as? Change.Created)?.let { c -> c.objects.forEach { madeBy[it.obj.id] = c.by } }
-        // Card data of an object: the prepared card's, else made from its engine definition (tokens, copies); a token is
-        // drawn with the picture of its best matching token printing (SYS-072)
-        val digests = HashMap<ObjectId, String>()
-        fun digestOf(obj: GameObject): String = digests.getOrPut(obj.id) {
-            val prepared = byCard[obj.card.value]
-            if (prepared != null && !obj.token && !obj.isCopyOfCard) return@getOrPut prepared.definition
-            val definition = obj.definition ?: return@getOrPut prepared?.definition ?: UNKNOWN.digest.also { definitions[it] = UNKNOWN }
-            val made = AtwTokens.submitted(definition, token = true, gained = obj.statuses.status<arcanum.engine.state.ObjectStatus.GainedInCopying>()?.abilities.orEmpty())
-            // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it;
-            // a copy of a card (offspring, embalm, myriad, …) is drawn with that card's own picture
-            val shown = copied(made, base)
-                ?: if (!obj.token || tokenArt === TokenArt.None) made else kept(pictures, obj.id, made) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
-            shown.also { definitions[it.digest] = it }.digest
-        }
+        // MDLPM7: what each object and Stack item looks like, worked out in one place ([ShownObjects]): the prepared card's data, a
+        // copy as the card its copiable values came from, a token with its best matching token printing (SYS-072)
+        val shownObjects = ShownObjects(base, state, view, definitions, tokenArt, pictures, madeBy)
+        fun digestOf(obj: GameObject): String = shownObjects.digestOf(obj)
         fun faceIdOf(obj: GameObject, digest: String): String {
             val faces = definitions[digest]?.definition?.faces.orEmpty()
             return (faces.getOrNull(obj.face) ?: faces.firstOrNull())?.faceId ?: ""
@@ -212,28 +202,19 @@ object EngineProjection {
             val item = state.stackItems[id] ?: continue
             val entryId = "entry:$id"
             val mtg = EngineCodec.stackItem(item, ::ref)
-            val sourceCard = when (id) {
-                is ObjectId.Card -> id.card.value
-                else -> (item.source as? ObjectId.Card)?.card?.value?.takeIf { it in cardIds }
-            }
-            if (sourceCard != null && item.kind !is StackItemKind.SpellCopy) {
-                effects += StackEffect(entryId, sourceCard, controller = item.controller.value,
-                    faceDown = (id as? ObjectId.Card)?.let { state.objects[it] }?.faceDown == true, item = mtg)
-            } else {
-                val name = item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name
-                    ?: StackAbilityText.ruleName(item)
-                    ?: (item.kind as? StackItemKind.SpellCopy)?.let { state.stackItems[it.copied]?.let { c -> (c.id as? ObjectId.Card)?.let { cid -> state.objects[cid]?.definition?.faces?.firstOrNull()?.name } } }
-                    // Its source as last known elsewhere (a token gone from the game, CR 111.7, seen as it left), or the card it is now
-                    ?: item.source?.let { arcanum.engine.Inspect.lastKnown(state, it) }?.characteristics?.name
-                    ?: (item.source as? ObjectId.Card)?.let { source -> state.objects.values.firstOrNull { it.card == source.card } }?.definition?.faces?.firstOrNull()?.name
-                // Prod faults K87CEQ, VHDZ2A, CV29AN: what the entry is and where its source went, when no name is found
-                val definition = AtwTokens.ability(name, item.ability, mapOf("entry" to "$id", "kind" to "${item.kind}", "origin" to "${item.origin}",
-                    "source" to "${item.source}", "snapshots" to item.snapshots.joinToString { "${it.id}" })).also { definitions[it.digest] = it }
-                val shown = PlayCard("ability:$id", definition.digest, item.controller.value, stackContainer.id,
-                    definition.definition.faces.single().faceId, covered = false, token = true)
-                shownAbilities += shown
-                effects += StackEffect(entryId, shown.id, frozen = shown, controller = item.controller.value,
-                    isCopy = item.kind is StackItemKind.SpellCopy, item = mtg)
+            val shown = shownObjects.stackItem(item, cardIds)
+            val frozen = shown.frozen
+            if (frozen == null && shown.sourceCard != null) {
+                effects += StackEffect(entryId, shown.sourceCard, controller = item.controller.value,
+                    faceDown = (id as? ObjectId.Card)?.let { state.objects[it] }?.faceDown == true, isCopy = shown.copy, item = mtg)
+            } else if (frozen != null) {
+                // A spell copy shows the face of the spell it copies that is up
+                val faces = frozen.definition.faces
+                val up = ((item.kind as? StackItemKind.SpellCopy)?.copied as? ObjectId.Card)?.let { state.obj(it)?.face } ?: 0
+                val card = PlayCard("ability:$id", frozen.digest, item.controller.value, stackContainer.id,
+                    (faces.getOrNull(up) ?: faces.first()).faceId, covered = false, token = true)
+                shownAbilities += card
+                effects += StackEffect(entryId, card.id, frozen = card, controller = item.controller.value, isCopy = shown.copy, item = mtg)
             }
         }
 
@@ -285,53 +266,6 @@ object EngineProjection {
             attentionHolder = attention, priority = state.priority.let { MtgPriority(it.holder?.value, it.passes) },
             engineRecords = records, move = move)
         return Board(board, definitions.values.sortedBy { it.digest })
-    }
-
-    /**
-     * SYS-072 (owner, 2026-11-05): [made], the card data of a copy of a card (a token copy: offspring, populate, embalm,
-     * eternalize, myriad, encore, …; or a copy that is no card), drawn with the copied card's own picture: each face takes
-     * the picture of the game's card face of its name (the game's cards, not tokens). Null when no face is named so.
-     */
-    private fun copied(made: SubmittedDefinition, base: PlayState): SubmittedDefinition? {
-        val pictures = base.definitions.asSequence().filter { !it.definition.token }.flatMap { it.definition.faces }
-            .filter { it.scryfallId != null || it.imageUri != null }
-        val faces = made.definition.faces.map { face ->
-            pictures.firstOrNull { it.name == face.name }?.let { face.copy(scryfallId = it.scryfallId, imageUri = it.imageUri) } ?: face
-        }
-        if (faces == made.definition.faces) return null
-        val card = made.definition.copy(faces = faces)
-        return SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
-    }
-
-    /**
-     * SYS-072 (owner playtest 2026-11-19, N25): the card data kept in [pictures] for token [id] when it is that of the token
-     * now there ([made], but for its picture), else [find]'s, kept. A token's id comes from the timestamp it was created at
-     * ([arcanum.engine.state.TokenIds]), so after an undo, a rewind or on another branch another token made at the same
-     * point has the same id: it must not be drawn as the one kept before (another token's name, text and picture).
-     */
-    private fun kept(pictures: MutableMap<ObjectId, SubmittedDefinition>, id: ObjectId, made: SubmittedDefinition,
-        find: () -> SubmittedDefinition): SubmittedDefinition {
-        val kept = pictures[id]
-        if (kept != null && kept.definition.copy(faces = kept.definition.faces.map { it.copy(scryfallId = null, imageUri = null) }) == made.definition) return kept
-        if (kept != null) AutomatumLog.mismatch("", "token picture", "Token ${(id as? ObjectId.Card)?.card?.value ?: id} is now " +
-            "${made.definition.name}, kept as ${kept.definition.name}: looked up again")
-        return find().also { pictures[id] = it }
-    }
-
-    /** [token] drawn with the picture [tokenArt] finds for it and the card whose effect made it ([by]); as it is when
-     * none is found (the plain frame). */
-    private fun pictured(token: SubmittedDefinition, by: arcanum.engine.change.CausedBy?, base: PlayState, byCard: Map<String, PlayCard>,
-        tokenArt: TokenArt): SubmittedDefinition {
-        if (tokenArt === TokenArt.None) return token
-        val face = token.definition.faces.singleOrNull() ?: return token
-        val digest = (by?.source as? ObjectId.Card)?.let { byCard[it.card.value]?.definition }
-        val source = base.definitions.firstOrNull { it.digest == digest }?.definition
-            ?: by?.name?.let { name -> base.definitions.firstOrNull { !it.definition.token && it.definition.name == name }?.definition }
-        val id = try { tokenArt.find(TokenArtQuery(face, source?.name ?: by?.name, source?.printingId)) }
-            catch (problem: Exception) { if (problem is kotlin.coroutines.cancellation.CancellationException) throw problem; null }
-            ?: return token
-        val card = token.definition.copy(faces = listOf(face.copy(scryfallId = id)))
-        return SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
     }
 
     /** The combat lanes: the engine's combat (a pair per attacker, blockers in the pair of the first attacker they block,
@@ -461,6 +395,3 @@ object EngineProjection {
         SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
     }
 }
-
-/** A copy of a card (CR 707.12), not a card ([arcanum.engine.state.ObjectStatus.CopyOfCard]). */
-private val GameObject.isCopyOfCard: Boolean get() = statuses.status<arcanum.engine.state.ObjectStatus.CopyOfCard>() != null

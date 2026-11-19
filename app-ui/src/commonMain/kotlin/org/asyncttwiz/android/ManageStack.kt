@@ -101,6 +101,8 @@ fun StackEntries(state: TableBoard, viewer: String, modifier: Modifier, targets:
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize().then(if (nameInCard) Modifier.clip(RoundedCornerShape(4.dp)) else Modifier),
                                 placeholder = small)
                             else MenuIcon("Inspect")
+                            // D7: a spell copy's entry has the copy marker
+                            if (entry.faceVisible && CombatStackRules.copyEntry(state.board, id)) CopyMarker(14.dp * size, Modifier.align(Alignment.TopEnd))
                         }
                         Column(Modifier.weight(1f)) {
                             Text("${place(index)} · ${entry.name}",
@@ -108,7 +110,7 @@ fun StackEntries(state: TableBoard, viewer: String, modifier: Modifier, targets:
                             // STK-018 (owner playtest 2026-11-07): an ability's kind, its text (a spell's own text), its
                             // targets named in it, then what was chosen for the entry (modes, X, targets the text doesn't
                             // name, as far as the viewer may see them), and the entries targeting it
-                            if (ability != null) Text(ability.kind, style = MaterialTheme.typography.labelMedium, color = AutomatumViolet)
+                            if (ability != null) Text(ability.shownKind, style = MaterialTheme.typography.labelMedium, color = AutomatumViolet)
                             val text = texts[id]
                             if (text != null) CardText(text.pieces.tinted(viewer), style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             else if (ability != null && ability.text.isNotEmpty()) CardText(ability.text,

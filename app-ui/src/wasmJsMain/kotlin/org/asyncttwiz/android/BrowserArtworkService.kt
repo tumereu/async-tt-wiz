@@ -140,15 +140,41 @@ class BrowserArtworkService(context: PlatformContext = PlatformContext.INSTANCE,
 }
 
 /** Pictures and card lookups kept in the browser's Cache API. */
-internal object CacheApiArtworkStore : ArtworkStore {
-    private const val CACHE = "atw-artwork-v1"
-    override suspend fun read(key: String): ArtworkStored? = cacheRead(CACHE, key).await<JsAny?>()?.let {
-        ArtworkStored(responseType(it), responseBytes(it).toByteArray())
-    }
+internal object CacheApiArtworkStore : ArtworkStore by CacheApiArtworkStoreOf("atw-artwork-v1")
+
+/**
+ * Pictures and card lookups kept in the browser's Cache API [cache]. When the browser refuses (storage full, over its quota,
+ * a private window), a read finds nothing kept and a write throws [BrowserStorageRefused], which the repository takes as
+ * "not kept": the picture is used now and downloaded again next time. The first refusal of a stretch is logged, and the
+ * stretch's end, not every picture (there are thousands).
+ */
+internal class CacheApiArtworkStoreOf(private val cache: String) : ArtworkStore {
+    private var refusals = 0
+
+    override suspend fun read(key: String): ArtworkStored? = try {
+        cacheRead(cache, key).awaitStorage<JsAny?>()?.let { ArtworkStored(responseType(it), responseBytes(it).toByteArray()) }
+    } catch (failure: BrowserStorageRefused) { refused("read", failure); null }
+
     override suspend fun write(key: String, stored: ArtworkStored) {
-        cacheWrite(CACHE, key, stored.type, stored.bytes.toJsBytes()).await<JsAny?>()
+        try { cacheWrite(cache, key, stored.type, stored.bytes.toJsBytes()).awaitStorage<JsAny?>() }
+        catch (failure: BrowserStorageRefused) { refused("write", failure); throw failure }
+        worked()
     }
-    override suspend fun delete(key: String) { cacheDelete(CACHE, key).await<JsAny?>() }
+
+    override suspend fun delete(key: String) {
+        try { cacheDelete(cache, key).awaitStorage<JsAny?>() } catch (failure: BrowserStorageRefused) { refused("delete", failure); throw failure }
+    }
+
+    private fun refused(what: String, failure: BrowserStorageRefused) {
+        if (refusals++ == 0) AppLog.warn("artwork", "Pictures can't be kept in this browser (a $what was refused); " +
+            "they are shown and downloaded again next time", failure)
+    }
+
+    /** A write the browser kept: a stretch of refusals ends. */
+    private fun worked() {
+        if (refusals > 0) AppLog.info("artwork", "Pictures are kept in this browser again after $refusals refused requests")
+        refusals = 0
+    }
 }
 
 /** The browser's fetch, as Android's HttpArtworkTransport: no credentials; a Retry-After (429) on [clock]'s time. */

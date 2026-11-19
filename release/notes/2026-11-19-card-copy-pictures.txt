@@ -1,0 +1,1 @@
+fix: Copies of prepared spells and of cards made by their name show the card's picture.

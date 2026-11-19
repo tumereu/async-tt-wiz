@@ -1230,6 +1230,10 @@ internal object Effects {
             val ts = act.state.nextTimestamp()
             val copyId = ObjectId.StackItem("copy:$ts")
             var targets = original.targets
+            // CR 707.10c: the copy's new targets are chosen before it is put on the Stack, so the questions name the spell or ability
+            // it copies (still on the Stack), or what copies it once that has left (epic, CR 702.50a); the copy's own id stays its
+            // "this" for what may be targeted
+            val asking = id.takeIf { it in act.state.stackItems } ?: scope.self ?: copyId
             if (effect.newTargets) {
                 val instructions = arcanum.engine.action.Replacements.instructionsOf(original.ability)
                 val slots = instructions?.targets.orEmpty() + original.modes.flatMap { m -> instructions?.modes?.options?.getOrNull(m)?.instructions?.targets.orEmpty() }
@@ -1241,9 +1245,9 @@ internal object Effects {
                     val names = now.entries.filter { it.key != slot }.fold(original.names) { b, (k, v) -> b.with(k, NamedValue.Targets(v)) }
                     val options = Targeting.options(act, s, controller, original.source, names, chosen = now, self = copyId)
                     // Asked only when another target could be chosen (a single other legal target counts)
-                    now[slot] = if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
+                    now[slot] = if (options.all { it in chosen } || !act.yesNo(controller, asking, "Choose new targets for the copy?")) chosen
                         // mkm fixes: within the slot's limits on each other, as when first chosen (CR 707.10c, 601.2c)
-                        else Targeting.choose(act, controller, copyId, s, options, chosen.size, chosen.size,
+                        else Targeting.choose(act, controller, asking, s, options, chosen.size, chosen.size,
                             act.evaluator(arcanum.engine.query.Context(controller, original.source, names, stackItem = original)))
                 }
                 targets = now
@@ -1278,9 +1282,9 @@ internal object Effects {
             } else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
-                cast = if (kind is StackItemKind.SpellCopy) copiedFacts(original.cast ?: act.state.obj(id)?.cast) else original.cast)
-            act.record(Change.StackItemAdded(copy, act.state.stack.size))
-            act.record(Change.Happened(GameEvent.Copied(controller, copyId)))
+                cast = if (kind is StackItemKind.SpellCopy) copiedFacts(original.cast ?: act.state.obj(id)?.cast) else original.cast, copyOf = id)
+            act.record(Change.StackItemAdded(copy, act.state.stack.size, listOf(arcanum.engine.change.Meaning.Copied)))
+            act.record(Change.Happened(GameEvent.Copied(controller, copyId, scope.self)))
         }
         return copyId
     }

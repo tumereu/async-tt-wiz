@@ -284,6 +284,7 @@ cleanup() {
     # Remove only the disposable worktree this invocation created, including its build output.
     if [[ -d $worktree ]]; then git -C "$ROOT" worktree remove --force "$worktree"; fi
     rm -f -- "$scratch/published.json" "$scratch"/github-*
+    rm -rf -- "$scratch/old-catalog"
     rmdir "$scratch"
 }
 trap cleanup EXIT
@@ -319,6 +320,42 @@ PY
 *) die "Production update check returned HTTP $status; release refused." ;;
 esac
 (( code > published )) || die "VersionCode $code must be greater than published $published. Allocate a new code in release/version.json and approve that commit."
+# No release drops support for cards by accident (owner, 2026-11-19): the new catalog's supported cards are compared
+# with the catalog production serves (when it's unreachable, the last release built here), and a card no longer
+# supported stops the release, before anything is published, until ATW_ALLOW_DROPPED_SUPPORT names how many were listed.
+allow_dropped=${ATW_ALLOW_DROPPED_SUPPORT:-0}
+[[ $allow_dropped =~ ^[0-9]+$ ]] || die "ATW_ALLOW_DROPPED_SUPPORT must be the number of cards listed."
+old_catalog=$scratch/old-catalog old_catalog_file=
+mkdir -p "$old_catalog"
+status=$(curl --silent --max-time 20 -o "$old_catalog/version.json" -w '%{http_code}' "$ORIGIN/v1/catalog") || true
+case "$status" in
+200) old_checksum=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["checksum"])' "$old_catalog/version.json")
+    [[ $old_checksum =~ ^[0-9a-f]{64}$ ]] || die "Production's card catalog checksum is malformed; release refused."
+    old_catalog_file=$old_catalog/$old_checksum.jsonl.gz
+    curl --fail --silent --show-error --max-time 600 -o "$old_catalog_file" "$ORIGIN/v1/catalog/$old_checksum" ||
+        die "Downloading production's card catalog failed; release refused."
+    echo "Card support is compared with the catalog production serves ($old_checksum)." ;;
+404|000|502|503|504|530)
+    last_catalog=
+    if [[ -f $STATE/last-built ]]; then
+        read -r last < "$STATE/last-built"
+        last_catalog=$STATE/releases/$last/catalog
+        old_checksum=$(tr -d '[:space:]' < "$last_catalog/current" 2>/dev/null) || true
+    fi
+    if [[ -n $last_catalog && $old_checksum =~ ^[0-9a-f]{64}$ && -f $last_catalog/$old_checksum.jsonl.gz ]]; then
+        # Copied: rerunning the same release rebuilds that directory.
+        old_catalog_file=$old_catalog/$old_checksum.jsonl.gz
+        cp -- "$last_catalog/$old_checksum.jsonl.gz" "$old_catalog_file"
+        echo "Production serves no catalog (HTTP $status); card support is compared with the last built release's ($last)."
+    elif [[ $status == 404 ]]; then
+        echo "Production serves no card catalog and none was built here; no card support to compare with."
+    elif [[ -n ${ATW_ALLOW_DROPPED_SUPPORT:-} ]]; then
+        echo "Production is unreachable and no release was built here; card support isn't compared (ATW_ALLOW_DROPPED_SUPPORT is set)."
+    else
+        die "Production is unreachable and no release was built here, so dropped card support can't be checked. Re-run with ATW_ALLOW_DROPPED_SUPPORT=0 to release without the check."
+    fi ;;
+*) die "Production's card catalog check returned HTTP $status; release refused." ;;
+esac
 # The card catalog (SYS-081): the pinned MTGJSON file verified (a different file stops the
 # release here, before anything is published) and the catalog built from it with the code the server and clients read
 # it with. Its checksum is built into the app; the catalog is deployed with the server (the playbook's atw_catalog_artifact).
@@ -328,7 +365,11 @@ rm -rf -- "$artifact/catalog"
 "$worktree/scripts/catalog-pin.sh" build "$artifact/catalog" || die "The card catalog couldn't be built from the pinned MTGJSON file; release refused."
 catalog_checksum=$(tr -d '[:space:]' < "$artifact/catalog/current")
 [[ $catalog_checksum =~ ^[0-9a-f]{64}$ ]] || die "The card catalog build left no checksum; release refused."
-# The web client, built from the same commit and served by the server on the
+if [[ -n $old_catalog_file ]]; then
+    "$worktree/scripts/catalog-pin.sh" compare-support "$old_catalog_file" "$artifact/catalog" "$allow_dropped" ||
+        die "Release refused: it would drop Automatum support for the cards listed above (or the comparison failed; see above). We don't plan to drop support for cards. To release anyway, re-run with ATW_ALLOW_DROPPED_SUPPORT=<the number of cards listed>."
+fi
+# The web client (WEB-001), built from the same commit and served by the server on the
 # same origin; the playbook installs it beside the server (atw_web_artifact).
 "$worktree/scripts/gradle.sh" :webApp:webDist
 rm -rf -- "$artifact/web"

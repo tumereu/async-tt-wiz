@@ -217,7 +217,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         // past a sensible size: [tz] scales their text, [ez] the border and the frame around the art (elsewhere both are [z])
         val tz = if (i.handSlot != null) minOf(z, DESKTOP_HAND_TEXT_SCALE) else z
         val ez = if (i.handSlot != null) minOf(z, DESKTOP_HAND_EDGE_SCALE) else z
-        val corner = if (i.eotCorner.isEmpty() && !i.cornerHourglass) i.corner else "⌛${i.corner}"
+        val corner = if (!i.cornerHourglass) i.corner else "⌛${i.corner}"
         // TBL-137 (owner notes 2026-11-14): an uncrewed Vehicle's "Crew N", one short line on a white chip just above its P/T
         // at the art's bottom right, where it fits the card's width
         fun crewLine() {
@@ -260,13 +260,12 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
                 size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
             val previousColor = paint.color
             if (i.cornerColor != null) paint.color = i.cornerColor
-            else if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
             else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
             fittedText(corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
             paint.color = previousColor
         }
         val ability = i.stackAbility
-        if (ability != null && !i.covered) { abilityFace(i, ability, color, z); return@translate }
+        if (ability != null && !i.covered) { abilityFace(i, ability, color, z); copyMarker(i, x + cardWidth - 5f * z, y + 1f * z, z); return@translate }
         val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         val art = i.artwork?.key?.let(artwork::get)
@@ -325,15 +324,30 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         paint.textSize = 7 * valueScale * tz * density
         val previousColor = paint.color
         if (i.cornerColor != null) paint.color = i.cornerColor
-        else if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
         else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
         fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * tz, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor
         crewLine()
         damageBadge()
         cardAnnotations(i, x, y, z)
+        copyMarker(i, x + cardWidth - 4f * z, y - 1f * z, z)
         paint.textSize = 11 * density
         }
+    }
+
+    /**
+     * D7 (owner 2026-11-19): the copy marker of a copied spell or ability on the Stack ([TableItem.stackCopy]): a small violet disc
+     * with two overlapping white sheets, centred at ([cx], [cy]) in card units [z]. Permanents never have one.
+     */
+    private fun DrawScope.copyMarker(i: TableItem, cx: Float, cy: Float, z: Float) {
+        if (!i.stackCopy || i.covered) return
+        val r = 4.2f * z
+        drawCircle(AutomatumViolet, r * density, xy(cx, cy))
+        drawCircle(Color.White, r * density, xy(cx, cy), style = Stroke(.7f * z * density))
+        val w = 2.6f * z; val h = 3.2f * z
+        drawRoundRect(Color.White, xy(cx - w * .8f, cy - h * .7f), size(w, h), CornerRadius(.5f * z * density), style = Stroke(.6f * z * density))
+        drawRoundRect(AutomatumViolet, xy(cx - w * .2f, cy - h * .3f), size(w, h), CornerRadius(.5f * z * density))
+        drawRoundRect(Color.White, xy(cx - w * .2f, cy - h * .3f), size(w, h), CornerRadius(.5f * z * density), style = Stroke(.6f * z * density))
     }
 
     /**
@@ -391,7 +405,7 @@ const val FULL_PICTURE_EDGE = 1.5f
 /** TBL-139: whether a full picture ([TableItem.fullPicture]) shows the app's P/T badge over the printed card: only when it
  * says what the printed card doesn't: a changed P/T, or a count (loyalty and other counters) rather than a P/T. */
 fun fullPictureCorner(i: TableItem): Boolean = i.corner.isNotEmpty() &&
-    (i.cornerColor != null || i.eotCorner.isNotEmpty() || i.cornerHourglass || i.changedPowerToughness || '/' !in i.corner)
+    (i.cornerColor != null || i.cornerHourglass || i.changedPowerToughness || '/' !in i.corner)
 
 /** How far a state's word on a card's chip may shrink to fit (TBL-133). */
 private const val MIN_STATE_TEXT = .72f

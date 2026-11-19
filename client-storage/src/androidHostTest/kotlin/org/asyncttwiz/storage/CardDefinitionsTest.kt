@@ -147,6 +147,8 @@ class CardDefinitionsTest {
     private fun of(name: String) = cards.getValue(name)
     private fun parse(name: String): ParsedCard? = definitions().forDefinitions(listOf(of(name)))[of(name).digest]
     private fun read(result: ParsedCard?) = assertInstanceOf(ParsedCard.Read::class.java, result)
+    /** [this] without its faces' identities (MDLPM7: the card data each face came from), which the parser itself doesn't give. */
+    private fun arcanum.api.CardDefinition.plain() = copy(faces = faces.map { it.copy(identity = null) })
 
     // ---- Card data built from the catalog keeps the printed values the parser needs
 
@@ -168,7 +170,9 @@ class CardDefinitionsTest {
     @Test fun singleFaceCardIsParsedFromItsPrintedValues() {
         val result = read(parse("Thornback Sentry"))
         assertEquals(OracleParser.parseCard(Layout.Normal, listOf(OracleCard("Thornback Sentry", "{1}{G}", "Creature — Elf Warrior",
-            "Flying\nVigilance", power = "2", toughness = "3"))), result.definition)
+            "Flying\nVigilance", power = "2", toughness = "3"))), result.definition.plain())
+        // MDLPM7: each face names the card data and face it was printed on, so copies of it show its picture
+        assertEquals("${of("Thornback Sentry").digest}#0", result.definition.faces.single().identity)
         assertTrue(result.fullyParsed)
         assertEquals(listOf(Keyword.Flying, Keyword.Vigilance), result.definition.faces.single().abilities)
     }
@@ -177,7 +181,10 @@ class CardDefinitionsTest {
         val names = listOf("Kindle // Rime", "Hedge Ogre // Trample Down", "Moonlit Herder // Howling Herder",
             "Tidecaller's Call // Tidecaller Grotto")
         val result = definitions().forDefinitions(names.map(::of))
-        fun definition(name: String) = read(result[of(name).digest]).definition
+        fun definition(name: String) = read(result[of(name).digest]).definition.plain()
+        // MDLPM7: a split card's halves share its one physical face; a double-faced card's faces are its own
+        assertEquals(listOf("${of(names[0]).digest}#0", "${of(names[0]).digest}#0"), read(result[of(names[0]).digest]).definition.faces.map { it.identity })
+        assertEquals(listOf("${of(names[2]).digest}#0", "${of(names[2]).digest}#1"), read(result[of(names[2]).digest]).definition.faces.map { it.identity })
         assertEquals(OracleParser.parseCard(Layout.Split, listOf(
             OracleCard("Kindle", "{1}{R}", "Instant", "Kindle deals 2 damage to any target."),
             OracleCard("Rime", "{1}{U}", "Instant", "Tap target creature.\nDraw a card."),
@@ -203,7 +210,7 @@ class CardDefinitionsTest {
     @Test fun omenPreparationAndMeldCardsKeepTheirLayout() {
         val result = definitions().forDefinitions(listOf("Tidewing Regent // Swell and Surge", "Quillward Tutor // Ink Lesson",
             "Bramble Twin // Thornwall Colossus").map(::of))
-        fun definition(name: String) = read(result[of(name).digest]).definition
+        fun definition(name: String) = read(result[of(name).digest]).definition.plain()
         assertEquals(OracleParser.parseCard(Layout.Omen, listOf(
             OracleCard("Tidewing Regent", "{3}{U}{U}", "Creature — Dragon", "Flying", power = "4", toughness = "4"),
             OracleCard("Swell and Surge", "{1}{U}", "Instant — Omen", "Draw a card. (Then shuffle this card into its owner's library.)"),
@@ -221,7 +228,7 @@ class CardDefinitionsTest {
     }
 
     @Test fun tokenTypeLineIsReadWithoutTheTokenWord() {
-        val spirit = read(parse("Spirit")).definition.faces.single()
+        val spirit = read(parse("Spirit")).definition.plain().faces.single()
         assertEquals(OracleParser.parse(OracleCard("Spirit", null, "Creature — Spirit", "Flying", power = "1", toughness = "1",
             colorIndicator = "W")), spirit)
     }

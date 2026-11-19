@@ -37,7 +37,11 @@ import kotlin.random.Random
  * state built directly ([state]: full information, as a game on engine state holds it), the play it started as ([base]:
  * its containers, players and card data) and the board the table draws of it ([board], [EngineProjection]).
  */
-internal class EngineTable {
+internal class EngineTable(
+    /** MDLPM7: each card's data has a picture of its own and its engine definition the identity of that card data
+     * ([org.asyncttwiz.protocol.game.GameCards.identified]), as a game's cards have. */
+    private val pictured: Boolean = false,
+) {
     val alice = "alice"
     val bob = "bob"
     private val objects = LinkedHashMap<ObjectId, GameObject>()
@@ -62,8 +66,11 @@ internal class EngineTable {
      * the card data the table makes of it ([AtwTokens.submitted]); returns its card id. */
     fun putToken(player: String, definition: arcanum.api.CardDefinition): String = add(player, Zone.Battlefield, definition, token = true)
 
-    private fun add(player: String, zone: Zone, definition: arcanum.api.CardDefinition, token: Boolean, tapped: Boolean = false): String {
-        val data = AtwTokens.submitted(definition, token = token)
+    private fun add(player: String, zone: Zone, printed: arcanum.api.CardDefinition, token: Boolean, tapped: Boolean = false): String {
+        val plain = AtwTokens.submitted(printed, token = token)
+        val data = if (!pictured || token) plain else plain.definition.let { card ->
+            card.copy(faces = card.faces.map { it.copy(scryfallId = pictureOf(it.name)) }) }.let { SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(it), it) }
+        val definition = if (!pictured || token) printed else org.asyncttwiz.protocol.game.GameCards.identified(printed, data.definition, data.digest)
         submitted[data.digest] = data
         definitions[data.digest] = definition
         val id = ObjectId.Card(CardId("$player.${objects.size}"), 0)
@@ -132,7 +139,37 @@ internal class EngineTable {
     /** A cast source on [state]. */
     fun source(state: GameState = state()): CastFlow.Source = CastFlow.Source.engine(state, board(state), "game")
 
+    /** The card data of [cardId] as the game started. */
+    fun data(cardId: String): SubmittedDefinition = submitted.getValue(digests.getValue(cardId))
+
+    /** Puts a copy of a card (CR 707.12: a prepare spell's copy in exile, [arcanum.engine.state.ObjectStatus.CopyOfCard]) with the one
+     * engine [face] into [player]'s exile; returns its card id. */
+    fun putCopyOfCard(player: String, face: arcanum.api.FaceDefinition): String {
+        val definition = arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(face))
+        val data = AtwTokens.submitted(definition, token = true)
+        submitted[data.digest] = data
+        definitions[data.digest] = definition
+        val id = ObjectId.Card(CardId("$player.copy${objects.size}"), 0)
+        digests[id.card.value] = data.digest
+        objects[id] = GameObject(id = id, owner = PlayerId(player), zone = Zone.Exile, definition = definition, timestamp = ++clock,
+            statuses = listOf(arcanum.engine.state.ObjectStatus.CopyOfCard))
+        zones.getOrPut(player to Zone.Exile) { mutableListOf() } += id
+        return id.card.value
+    }
+
+    /** The engine definition (with its identity when [pictured]) the card [name] gets on this table. */
+    fun printed(name: String): arcanum.api.CardDefinition {
+        val printed = Cards.definition(name)
+        if (!pictured) return printed
+        val data = AtwTokens.submitted(printed, token = false).definition.let { card ->
+            card.copy(faces = card.faces.map { it.copy(scryfallId = pictureOf(it.name)) }) }
+        return org.asyncttwiz.protocol.game.GameCards.identified(printed, data, org.asyncttwiz.protocol.DeckJson.digest(data))
+    }
+
     companion object {
+        /** The picture id a pictured table's card face [name] has. */
+        fun pictureOf(name: String): String = "picture-of-$name"
+
         val SEED: String = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
     }
 }

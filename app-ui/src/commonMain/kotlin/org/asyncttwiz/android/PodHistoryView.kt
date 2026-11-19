@@ -237,7 +237,7 @@ private fun PodHistoryPicks(rounds: List<Pair<Int, List<IndexedValue<DraftHistor
 private fun PodHistoryCard(copy: DraftCopy, definition: CardDefinition?, mark: PodPickMark?, spent: Boolean, gone: Boolean,
     tag: String, preview: PodLimitedPreview) {
     val shape = RoundedCornerShape(4.dp)
-    val name = definition?.shownName ?: "Card data unavailable"
+    val name = definition?.shownName ?: cardDataUnavailable("PodHistoryView", copy.definition)
     val state = when { mark == PodPickMark.KEEP -> "kept"; mark == PodPickMark.BURN -> "burned"; gone -> "taken since"; else -> null }
     Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { preview.tileSize = it }.testTag(tag)
         .semantics { contentDescription = listOfNotNull(name, state).joinToString(", ") }

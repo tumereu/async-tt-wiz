@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.Faults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -41,11 +43,16 @@ import org.asyncttwiz.appui.boundedLruMap
  * else "Triggered ability" or "Activated ability").
  */
 data class StackAbilityShown(val triggered: Boolean, val source: String, val text: String,
-    val kind: String = if (triggered) "Triggered ability" else "Activated ability") {
-    /** How the ability is named in lists and texts: "Ember Herald's ability". */
-    val name: String get() = "$source's ability"
+    val kind: String = if (triggered) "Triggered ability" else "Activated ability",
+    /** D7 (owner 2026-11-19): a copy of an ability (CR 707.10): named "Copy of …" and drawn with the copy marker. */
+    val copy: Boolean = false) {
+    /** How the ability is named in lists and texts: "Ember Herald's ability"; a copy by its kind, "Copy of Bre of Clan
+     * Stoutarm's triggered ability" (D7). */
+    val name: String get() = if (copy) "Copy of $source's ${kind.replaceFirstChar { it.lowercase() }}" else "$source's ability"
     /** The source's name and the ability's text: "Ember Herald — When this creature enters, …". */
     val line: String get() = if (text.isEmpty()) source else "$source — $text"
+    /** Its kind as Inspect and the Stack list name it: [kind], a copy's "Copy of a triggered ability" (D7). */
+    val shownKind: String get() = if (copy) "Copy of a ${kind.replaceFirstChar { it.lowercase() }}" else kind
     /** The kind chip's letter (STK-046): "T" for a triggered ability, "A" for an activated one. */
     val letter: String get() = if (triggered) "T" else "A"
 }
@@ -93,7 +100,8 @@ object StackAbilities {
         val source = face?.shownName?.takeIf { it.isNotBlank() }
             ?: Faults.placeholder("StackAbilities", "ability entry without its source's name", "Ability", mapOf("entry" to entryId))
         val text = text(item, face?.rulesText) ?: face?.rulesText?.takeIf { frozen }.orEmpty()
-        return kind(item)?.let { StackAbilityShown(triggered, source, text.trim(), it) } ?: StackAbilityShown(triggered, source, text.trim())
+        return kind(item)?.let { StackAbilityShown(triggered, source, text.trim(), it, copy = effect.isCopy) }
+            ?: StackAbilityShown(triggered, source, text.trim(), copy = effect.isCopy)
     }
 
     /**
@@ -155,7 +163,7 @@ object StackAbilities {
      */
     fun targetName(play: TableBoard, target: MtgRef, viewer: String, names: Map<String, String>, you: String = "You",
         hidden: String = "a hidden card"): String = when (target) {
-        is MtgRef.Player -> if (target.accountId == viewer) you else names[target.accountId] ?: "Opponent"
+        is MtgRef.Player -> if (target.accountId == viewer) you else org.asyncttwiz.automatum.PlayerNames.of(names, target.accountId, "Opponent", "StackAbilities")
         is MtgRef.Card -> visibleName(play, target.cardId, viewer, hidden)
         is MtgRef.StackItem -> of(play, target.id, viewer)?.name ?: visibleName(play, target.id, viewer, hidden)
     }
@@ -202,6 +210,20 @@ fun AbilityTokenFace(ability: StackAbilityShown, art: ArtworkReference?, own: Bo
                 })
             }
             AbilityKindChip(ability, chipHeight, Modifier.align(Alignment.BottomCenter).offset(y = -chipHeight * .3f))
+            if (ability.copy) CopyMarker(chipHeight, Modifier.align(Alignment.TopEnd).offset(x = chipHeight * .25f, y = -chipHeight * .25f))
         }
+    }
+}
+
+/**
+ * D7 (owner 2026-11-19): the copy marker of a copied spell or ability on the Stack (CR 707.10), wherever its entry or token is
+ * drawn: a small violet disc with two overlapping sheets, read as "Copy". Permanents never have one. [height] sets its size.
+ */
+@Composable
+fun CopyMarker(height: Dp, modifier: Modifier = Modifier) {
+    Box(modifier.size(height).background(AutomatumViolet, androidx.compose.foundation.shape.CircleShape)
+        .border(1.dp, Color.White, androidx.compose.foundation.shape.CircleShape).semantics { contentDescription = "Copy" },
+        contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Icon(Icons.Outlined.ContentCopy, null, Modifier.size(height * .62f), tint = Color.White)
     }
 }

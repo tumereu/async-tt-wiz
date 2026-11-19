@@ -267,6 +267,26 @@ class DeckImportTest {
         assertEquals(spell.map { it.get("uuid").asString }, exactBack.entries.single().faces.map { it.id })
     }
 
+    // LOB-062 (owner playtest 2026-11-19): a single "/" becomes a split card's " // " only when the name as written names no
+    // card: "Summon: Choco/Mog" is one card's own name, "Fire/Ice" (and "Fire / Ice") is the split card Fire // Ice
+    @Test fun aSlashInACardsOwnNameIsNoSplitCardSeparator() {
+        val summon = card(1, name = "Summon: Choco/Mog", oracle = "summon")
+        val split = listOf(card(2, "2", "fire-ice", "Fire // Ice"), card(3, "2", "fire-ice", "Fire // Ice"))
+        split.forEachIndexed { index, raw ->
+            raw.addProperty("faceName", listOf("Fire", "Ice")[index])
+            raw.addProperty("side", if (index == 0) "a" else "b")
+            raw.add("otherFaceIds", JsonArray().apply { add(split[1 - index].get("uuid")) })
+        }
+        val repository = install(Triple("SET", "2026-01-01", listOf(summon) + split))
+        val result = DeckImportResolver(repository).resolve("1 Summon: Choco/Mog\n1 Fire/Ice\nSideboard\n1 Fire / Ice\n1 Fire // Ice")
+        assertTrue(result.resolved, result.issues.toString())
+        assertEquals(listOf(summon.get("uuid").asString, split.first().get("uuid").asString, split.first().get("uuid").asString),
+            result.entries.map { it.printing.id })
+        assertEquals(listOf(1, 1, 2), result.entries.map { it.quantity })
+        // A name that is neither still can't be resolved, under the name as written
+        val unknown = DeckImportResolver(repository).resolve("1 Choco/Ice")
+        assertTrue(unknown.issues.single().message.startsWith("Choco/Ice could not be resolved"), unknown.issues.toString())
+    }
 
     /** Small catalog of real card records (see cubecobra-synergy test resources). */
     private fun realSample(): DeckImportResolver {
@@ -357,7 +377,9 @@ class DeckImportTest {
         assertEquals(List(3) { DeckSection.MAINBOARD }, DeckTextParser.parse("4 A\n\n2 B\n\n1 C").lines.map { it.section })
         assertEquals(List(2) { DeckSection.MAINBOARD }, DeckTextParser.parse("Deck\n4 A\n\n2 B").lines.map { it.section })
         val printings = DeckTextParser.parse("1 [MH2:32] Solitude\n1 Thalia, Guardian of Thraben|SLD\n1 Wasteland (TMP)\n1 Fire/Ice").lines
-        assertEquals(listOf("Solitude", "Thalia, Guardian of Thraben", "Wasteland", "Fire // Ice"), printings.map { it.name })
+        // The name as written; a single "/" is read as a split card's " // " only when resolving (LOB-062)
+        assertEquals(listOf("Solitude", "Thalia, Guardian of Thraben", "Wasteland", "Fire/Ice"), printings.map { it.name })
+        assertEquals(listOf(null, null, null, "Fire // Ice"), printings.map { it.splitName })
         assertEquals(listOf("MH2", "SLD", "TMP", null), printings.map { it.set })
         assertEquals(listOf("32", null, null, null), printings.map { it.number })
         assertFalse(DeckTextParser.parse("Solitude").issues.isEmpty())

@@ -300,3 +300,5 @@ number	item	screenshot	catalog	decisions	sequence
 299	An invitation saying its creator lends you decks	lending/invitation-lends-decks.png	LOB-252		Lending decks
 300	Choose deck in a battle box: the creator's lent decks first by category, your own greyed	lending/choose-lent-deck.png	LOB-255 LOB-249		Lending decks
 301	A Random battle box's lobby: the decks dealt as the game starts, only Ready to press	lending/lobby-random.png	LOB-250		Lending decks
+302	A copy's question of new targets: the ability it copies at the panel's right	choice-source/copy-new-targets.png	STK-178 STK-212		Copies
+303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies

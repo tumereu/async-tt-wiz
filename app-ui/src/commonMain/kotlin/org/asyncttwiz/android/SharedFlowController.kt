@@ -343,7 +343,7 @@ class SharedFlowController(
         val flow = view ?: return null
         val pick = pick ?: return null
         pickTextOf?.let { (of, now, text) -> if (of === pick.decision && now == picked) return text }
-        val announcing = org.asyncttwiz.automatum.PickText.announcing(flow.state.pending?.continuation, pick.decision)
+        val announcing = org.asyncttwiz.automatum.PickText.announcing(flow.state.pending?.continuation, pick.decision, flow.state)
         val source = when (val what = announcing?.what) {
             is arcanum.engine.decision.Announced.Ability -> what.source
             is arcanum.engine.decision.Announced.Trigger -> what.trigger.source

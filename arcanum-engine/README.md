@@ -100,7 +100,8 @@ seeded random games of cube cards, failing on any open player decision without a
   or `StackItem(id)`, D21/D35) with owner, controller, zone, face, status, counters, damage,
   attachment, timestamp (D34), control start (CR 302.6), marks, linked-ability memory (`linked`, CR 607), how it was cast
   (`cast: CastFacts?`, D22) and its statuses; every object has its definition (full information); Stack items with targets, modes, X,
-  names and snapshots; effect objects and delayed triggers (D19, D26); turn, step, priority; the game's statuses; the open `Pending`.
+  names and snapshots, and for a copy of a spell or ability what it was copied from (`StackItem.copyOf`, CR 707.10; it is put on
+  the Stack with `Meaning.Copied`, and `GameEvent.Copied.by` names the copier); effect objects and delayed triggers (D19, D26); turn, step, priority; the game's statuses; the open `Pending`.
   Statuses (`ObjectStatus`, `PlayerStatus`, `GameStatus`: sealed, serializable, one of each key per holder in key order, stored only
   when not at their default) hold the mechanics the engine codes by hand with their values (speed, the Ring, designations, day and
   night, a Class's level, a venture marker, goad, a battle's protector, merged components, soulbond pairs, …); each family changes
@@ -144,6 +145,9 @@ seeded random games of cube cards, failing on any open player decision without a
   made it and its duration, so a host can list "+3/+3 and trample until end of turn" and name the source on request),
   and the copy effects that made the layer-1 values (`Explanation.copies`, `AppliedCopy`: source, the object that made it,
   duration, the object copied and the copied values' name, CR 613.2a, 707.2; none face down), for "Copy of Ember Cub";
+  `Characteristics.identity`: the host's identity of the printed face the copiable values came from (`FaceDefinition.identity`),
+  carried by every copy (spell copies, token copies, copy effects, card copies, CR 707.2, 707.10) and by last known
+  information, none face down (CR 708.2a): what a host draws an object or a copy as, without guessing by name;
   `Inspect.explain(state, ids)` explains several objects from one run of the layers;
   `AppliedRestriction` (`Inspect.restrictions`): a rule a continuous effect puts on an object beyond its characteristics
   (CR 113.12), with plain words, the object that made it and its duration, read from `ObjectView.mechanics`; the object's

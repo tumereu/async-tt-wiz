@@ -438,6 +438,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                 abilities = expand(faces.flatMap { f ->
                     f.face.abilities.mapIndexed { i, a -> AbilityInstance(a, AbilityOrigin.Printed(f.index, i, f.card), timestamp) }
                 }),
+                identity = single?.identity ?: merged.firstNotNullOfOrNull { it.identity },
             )
         }
 
@@ -476,7 +477,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         private fun Characteristics.asFace() = FaceDefinition(
             name = name ?: "", manaCost = manaCost, colorIndicator = colors, supertypes = supertypes, types = types,
             subtypes = subtypes, power = power?.let { PrintedNumber.Fixed(it) }, toughness = toughness?.let { PrintedNumber.Fixed(it) },
-            abilities = abilities.filter { it.origin is AbilityOrigin.Printed }.map { it.ability },
+            abilities = abilities.filter { it.origin is AbilityOrigin.Printed }.map { it.ability }, identity = identity,
         )
     }
 }

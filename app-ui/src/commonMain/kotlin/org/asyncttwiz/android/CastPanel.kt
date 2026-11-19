@@ -832,7 +832,13 @@ fun targetTitle(d: Decision.Targets): String = targetPrompt(d).replaceFirstChar 
 
 fun targetPrompt(d: Decision.Targets): String {
     val slot = d.slot.substringBefore(':').substringBefore('@')
-    val what = if (slot == "any" || slot.isEmpty()) "any target" else "target $slot"
+    // D5 (MDLPM7): "another target" is the slot "other", never "target other"
+    val what = when {
+        slot == "any" || slot.isEmpty() -> "any target"
+        slot == "other" -> "another target"
+        slot.startsWith("other ") -> "another target ${slot.removePrefix("other ")}"
+        else -> "target $slot"
+    }
     return when {
         d.max == null -> "choose any number of targets ($what)"
         d.min == 0 -> "choose up to ${d.max} $what"
@@ -901,10 +907,22 @@ fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>
 /** An object's name, or "A hidden card" when the viewer mustn't see it (I-D27). */
 fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
     if (!flow.shown(id)) "A hidden card"
-    else flow.engine?.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
+    // D8 (owner 2026-11-19): a permanent that became a copy is named as the copied card its board card shows (CR 707.2)
+    else copiedName(flow, play, id) ?: flow.engine?.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
         ?: flow.engine?.let { arcanum.engine.Inspect.lastKnown(it, id) }?.characteristics?.name
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) }
         ?: Faults.placeholder("CastPanel", "object without a name", "An object", mapOf("object" to id.toString()))
+
+/** D8: the name of [id]'s board card when the board shows it as another card than its printed one (a copy, CR 707.2); null
+ * otherwise (its card shows itself: a split card's halves are its own names too). */
+private fun copiedName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String? {
+    val obj = flow.engine?.obj(id)?.takeIf { !it.token && it.zone == arcanum.api.Zone.Battlefield } ?: return null
+    val card = play.board.cards.firstOrNull { it.id == flow.atwCard(id) } ?: return null
+    val face = play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
+        ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() } ?: return null
+    val printed = obj.definition.faces.map { it.name }
+    return face.name.takeIf { face.name !in printed && face.parts.none { it.name in printed } }
+}
 
 private fun manaLabel(flow: FlowQuestions, play: TableBoard, use: ManaUse, group: List<ManaUse>): String = when (use) {
     is ManaUse.Ability -> objectName(flow, play, use.source) + usedWith(flow, play, use) + " " + group.filterIsInstance<ManaUse.Ability>()

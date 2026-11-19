@@ -266,7 +266,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             paint.color = previousColor
         }
         val ability = i.stackAbility
-        if (ability != null && !i.covered) { abilityFace(i, ability, color, z); return@translate }
+        if (ability != null && !i.covered) { abilityFace(i, ability, color, z); copyMarker(i, x + cardWidth - 5f * z, y + 1f * z, z); return@translate }
         val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         val art = i.artwork?.key?.let(artwork::get)
@@ -332,8 +332,24 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         crewLine()
         damageBadge()
         cardAnnotations(i, x, y, z)
+        copyMarker(i, x + cardWidth - 4f * z, y - 1f * z, z)
         paint.textSize = 11 * density
         }
+    }
+
+    /**
+     * D7 (owner 2026-11-19): the copy marker of a copied spell or ability on the Stack ([TableItem.stackCopy]): a small violet disc
+     * with two overlapping white sheets, centred at ([cx], [cy]) in card units [z]. Permanents never have one.
+     */
+    private fun DrawScope.copyMarker(i: TableItem, cx: Float, cy: Float, z: Float) {
+        if (!i.stackCopy || i.covered) return
+        val r = 4.2f * z
+        drawCircle(AutomatumViolet, r * density, xy(cx, cy))
+        drawCircle(Color.White, r * density, xy(cx, cy), style = Stroke(.7f * z * density))
+        val w = 2.6f * z; val h = 3.2f * z
+        drawRoundRect(Color.White, xy(cx - w * .8f, cy - h * .7f), size(w, h), CornerRadius(.5f * z * density), style = Stroke(.6f * z * density))
+        drawRoundRect(AutomatumViolet, xy(cx - w * .2f, cy - h * .3f), size(w, h), CornerRadius(.5f * z * density))
+        drawRoundRect(Color.White, xy(cx - w * .2f, cy - h * .3f), size(w, h), CornerRadius(.5f * z * density), style = Stroke(.6f * z * density))
     }
 
     /**

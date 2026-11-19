@@ -38,7 +38,9 @@ class CardDefinitions internal constructor(
         val result = LinkedHashMap<String, ParsedCard>()
         val fresh = mutableListOf<CachedCardDefinition>()
         for ((digest, card) in cards) {
-            val hit = cached[digest]?.let(::decode)
+            // A definition cached before faces had their identity gets it here (MDLPM7)
+            val hit = cached[digest]?.let(::decode)?.let { h -> if (h is ParsedCard.Read && h.definition.faces.any { it.identity == null })
+                h.copy(definition = GameCards.identified(h.definition, card.definition, digest)) else h }
             if (hit != null) { result[digest] = hit; continue }
             val parsed = GameCards.parse(card.definition, parse).let { p ->
                 p.definition?.let { ParsedCard.Read(it, p.manualAbilities) } ?: ParsedCard.Unreadable(p.problem.orEmpty())

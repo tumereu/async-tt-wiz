@@ -74,7 +74,8 @@ object StackLine {
         val head = when (item.kind) {
             MtgStackKind.Spell -> "$who cast ${name ?: unnamed(visible, "a card", top)}"
             MtgStackKind.SpellCopy -> "$who's copy of ${name ?: unnamed(visible, "a spell", top)}"
-            MtgStackKind.Activated, MtgStackKind.Triggered -> ability?.let { "${it.source}'s ${it.kind.replaceFirstChar { c -> c.lowercase() }}" }
+            // D7: a copied ability by what it copies ("Copy of Bre of Clan Stoutarm's triggered ability")
+            MtgStackKind.Activated, MtgStackKind.Triggered -> ability?.let { if (it.copy) it.name else "${it.source}'s ${it.kind.replaceFirstChar { c -> c.lowercase() }}" }
                 ?: "$who's ability"
         }
         val engine = if (visible) StackAbilityText.decoded(item) else null

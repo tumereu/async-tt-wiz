@@ -173,6 +173,7 @@ fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: String? = n
     gap: Dp = 4.dp, contentPadding: Dp = 12.dp, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         MenuWindowDimming()
+        val bubbles = rememberRefusalBubbles()
         var entered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { entered = true }
         val opacity by animateFloatAsState(if (entered) 1f else 0f, tween(80))
@@ -194,9 +195,11 @@ fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: String? = n
                     Text(title, Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     ManualActionSquare("Close", "", bordered = false, onClick = onDismiss)
                 }
-                content()
+                CompositionLocalProvider(LocalRefusalBubbles provides bubbles) { content() }
             }
         }
+        // TBL-118: the panel is a window of its own: its shakes' bubbles show in it
+        RefusalBubbleOverlay(bubbles, Modifier.matchParentSize())
         }
     }
 }

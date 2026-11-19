@@ -39,7 +39,7 @@ class PaymentTapKeptTest {
         val f = kit.scenario.f
         val game = EngineGame(f.game.id, f.a, f.base, kit.scenario.sim.snapshot(f.a), worker = HostWorker)
         assertIs<Decision.May>(game.shown?.engine?.pending?.decision, "the Tollkeeper asks")
-        val flows = SharedFlowController(game.me, { game.play() }, { }, engineSend = { null }, shake = { shaken += it },
+        val flows = SharedFlowController(game.me, { game.play() }, { }, engineSend = { null }, shake = { card, _ -> shaken += card },
             port = LocalSharedPort(game.me) { work: () -> SharedAnswer, done: (SharedAnswer) -> Unit -> waiting.addLast { done(work()) } })
         flows.load(game.play())
         letThrough()
@@ -98,7 +98,7 @@ class PaymentTapKeptTest {
         kit.playLand()
         val f = kit.scenario.f
         val game = EngineGame(f.game.id, f.a, f.base, kit.scenario.sim.snapshot(f.a), worker = HostWorker)
-        val cast = CastController(game.me, { game.play() }, { }, shake = { shaken += it }, engineSend = { null },
+        val cast = CastController(game.me, { game.play() }, { }, shake = { card, _ -> shaken += card }, engineSend = { null },
             port = LocalCastPort(game.me) { work: () -> CastAnswer, done: (CastAnswer) -> Unit -> waiting.addLast { done(work()) } })
         cast.autotap = false
         val s = game.shown!!.engine

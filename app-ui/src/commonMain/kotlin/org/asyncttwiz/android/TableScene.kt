@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
@@ -533,6 +534,17 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
+            // TBL-118 (owner 2026-11-19): the shake's reason rises from the item it shook (in the middle when the table doesn't
+            // draw it)
+            val refusalBubbles = LocalRefusalBubbles.current
+            val canvasOrigin = remember { arrayOf(androidx.compose.ui.geometry.Offset.Zero) }
+            LaunchedEffect(shaking) {
+                val s = shaking ?: return@LaunchedEffect
+                val item = rendered.value.scene.items.firstOrNull { it.id == s.id || it.cardId == s.id }
+                val anchor = item?.bounds?.let { b -> androidx.compose.ui.geometry.Rect(canvasOrigin[0].x + b.x * density,
+                    canvasOrigin[0].y + b.y * density, canvasOrigin[0].x + b.right * density, canvasOrigin[0].y + b.bottom * density) }
+                refusalBubbles?.show(s.reason, anchor)
+            }
             // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
             val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
                 .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
@@ -552,7 +564,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape, runtime.timelineOpen).dp)
                 .then(bars))
             }
-            Canvas(Modifier.fillMaxSize()) {
+            Canvas(Modifier.fillMaxSize().onGloballyPositioned { canvasOrigin[0] = it.positionInRoot() }) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 drawnFrame[0] = frame

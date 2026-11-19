@@ -170,9 +170,11 @@ sealed interface DeviceResult {
     @Serializable @SerialName("flag") data class Flag(val flag: Boolean) : DeviceResult
     /** A board outside the published ones (timeline mode's, a preview's), with the events and card data the page lacks. */
     @Serializable @SerialName("board") data class Board(val board: LooseBoard?) : DeviceResult
-    @Serializable @SerialName("preview") data class Preview(val board: LooseBoard?, val needsRequest: Boolean?, val loading: Boolean) : DeviceResult
+    /** [libraries]: the players (account ids) whose library cards the events undone touched (HIS-042: reshuffled). */
+    @Serializable @SerialName("preview") data class Preview(val board: LooseBoard?, val needsRequest: Boolean?, val loading: Boolean,
+        val libraries: List<String> = emptyList()) : DeviceResult
     @Serializable @SerialName("view") data class View(val message: String, val unseen: Boolean, val turn: TurnState,
-        val board: LooseBoard?) : DeviceResult
+        val board: LooseBoard?, val libraries: List<String> = emptyList()) : DeviceResult
     @Serializable @SerialName("view-none") data object NoView : DeviceResult
     @Serializable @SerialName("repro") data class Repro(val repro: GameRepro?) : DeviceResult
     /** A published board's plays ([DeviceRequest.Plays]); null where the engine side no longer holds the board. */

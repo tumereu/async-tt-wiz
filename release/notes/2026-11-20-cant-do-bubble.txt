@@ -1,0 +1,1 @@
+add: When something can't be done, what you tapped now says why in a short bubble ("Costs more than you can pay", "Not a legal target") as it shakes

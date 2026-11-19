@@ -76,13 +76,15 @@ class EngineTableGesturesTest {
         assertEquals(kit.scenario.sim.head, kit.alice.device.session.head, "through Automatum: the server took the land")
     }
 
-    // ZON-078, ZON-130, ZON-093, TBL-118: the other player's library whose top card Automatum offers nothing for shakes on a
-    // tap and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; ZON-033: an empty Graveyard shakes
+    // ZON-078, ZON-130, ZON-093, TBL-118, TBL-209: the other player's library whose top card Automatum offers nothing for shakes on a
+    // tap, saying so, and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; ZON-033: an empty
+    // Graveyard shakes
     @Test fun aLibraryTapShakesAndADoubleTapDrawsNothing() {
         kit.opening()
         val theirs = kit.pile(PlayZone.LIBRARY, owner = f.b)
         kit.tap(theirs)
         assertEquals(theirs.id, toolkit.shaking?.id, "the other player's library shakes")
+        assertEquals(LIBRARY_NOTHING, toolkit.shaking?.reason, "and says why")
         assertNull(toolkit.panel, "no menu")
         assertNull(toolkit.error, "no message")
         val library = kit.pile(PlayZone.LIBRARY)
@@ -98,6 +100,7 @@ class EngineTableGesturesTest {
         val graveyard = kit.pile(PlayZone.GRAVEYARD)
         kit.tap(graveyard)
         assertEquals(graveyard.id, toolkit.shaking?.id, "an empty Graveyard has nothing to show")
+        assertEquals(PILE_EMPTY, toolkit.shaking?.reason)
         assertNull(toolkit.panel, "no menu")
     }
 
@@ -125,17 +128,20 @@ class EngineTableGesturesTest {
         assertTrue(land in kit.field("Mountain").map(kit::atw))
     }
 
-    // SYS-012, SYS-139, SYS-069 (owner, 2026-11-08): a refusal of Alice's own action shakes the card it was made on, without a
-    // message; one made on the main button (or on a card the table doesn't show) shakes the main button
+    // SYS-012, SYS-139, SYS-069, TBL-209 (owner, 2026-11-08, 2026-11-19): a refusal of Alice's own action shakes the card it was
+    // made on, saying why in its bubble, never a message; one made on the main button (or on a card the table doesn't show) shakes
+    // the main button, saying why
     @Test fun aRefusalShakesWhatItWasMadeOn() {
         kit.opening()
         val land = kit.atw(kit.hand("Mountain").first())
-        toolkit.refusedShake(land)
+        toolkit.refusedShake(land, AutomatumDrags.MANUAL)
         assertEquals(land, toolkit.shaking?.id, "the card shakes")
+        assertEquals(AutomatumDrags.MANUAL, toolkit.shaking?.reason)
         val main = toolkit.mainShakes
-        toolkit.refusedShake(null)
-        toolkit.refusedShake("not-on-the-table")
+        toolkit.refusedShake(null, "An undo request is open: wait for the answer.")
+        toolkit.refusedShake("not-on-the-table", AutomatumDrags.MANUAL)
         assertEquals(main + 2, toolkit.mainShakes, "the main button shakes")
+        assertEquals(AutomatumDrags.MANUAL, toolkit.mainShakeReason)
         assertNull(toolkit.error, "no message")
     }
 
@@ -148,6 +154,8 @@ class EngineTableGesturesTest {
         kit.tap(kit.item(spark, PlayZone.HAND))
         assertNull(toolkit.hand.raised, "not raised")
         assertEquals(spark, toolkit.shaking?.id, "it shakes")
+        // TBL-209: saying why: its cast is there, but nothing pays for it
+        assertEquals(CANT_PAY, toolkit.shaking?.reason)
         assertTrue(toolkit.cardPlays(kit.alice.play())!!.of(spark).none { it.legal }, "Inspect lists why")
         val mountain = kit.playLand()
         kit.tap(kit.item(spark, PlayZone.HAND))

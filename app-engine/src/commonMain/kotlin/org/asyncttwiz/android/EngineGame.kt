@@ -667,11 +667,15 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** §29.4: what an undo took back of what this player had seen: [by] undid, [event] first (null when unknown). With
      * [branch] (HIS-097) it is a branch's take-back: [by] answered differently than assumed, the note says so. */
-    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?, val branch: Boolean = false)
+    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?, val branch: Boolean = false,
+        /** HIS-042 (owner 2026-11-19): the players (account ids) whose library cards the events taken back touched. */
+        val libraries: Set<String> = emptySet(),
+        /** The undo was an undo request's, approved (HIS-099): both players were told of the reshuffle in its dialogs. */
+        val requested: Boolean = false)
 
     /** A rewind arriving (engine thread): who undid (or branched, [branch]), to where, and the line shown before it. */
     private class Rewinding(val by: String, val target: String, val line: List<GameEvent>, val state: arcanum.engine.state.GameState?,
-        val branch: Boolean = false)
+        val branch: Boolean = false, val requested: Boolean = false)
     private var rewinding: Rewinding? = null
     /** SYS-025: the player's own undo just shown on this device, before the server's rewind came ([undo]): its board
      * animates as that rewind's would (engine thread; used by the next transition). */
@@ -773,8 +777,14 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             EngineMotion.trim(boards.asReversed(), before, after, null)
         }.onFailure { AppLog.info("engine", "No undo motion: ${it.message}") }.getOrDefault(emptyList())
         val first = undone.firstOrNull { !EngineEventText.hidden(it) || EngineEventText.pass(it) }
+        // HIS-042 (owner 2026-11-19, playtest N4): whose library cards the events taken back touched; a free undo's note says
+        // the libraries were reshuffled
+        val libraries = if (r.branch) emptySet() else org.asyncttwiz.protocol.game.Rewind.librariesTouched(undone).mapTo(LinkedHashSet()) { it.value }
+        AppLog.info("undo", "Undo by ${r.by.take(8)} to ${r.target.take(8)} shown: ${undone.size} events taken back " +
+            "(${undone.joinToString(",") { it.id.take(8) }}), ${if (r.requested) "an approved request" else "free"}, " +
+            "libraries touched: ${libraries.joinToString { it.take(8) }.ifEmpty { "none" }}")
         lastTransition = Transition(++transitions, after.nodeId, false, changes, emptySet(), emptyList(), undone.asReversed(), steps,
-            Undone(r.by, first, r.state, r.branch))
+            Undone(r.by, first, r.state, r.branch, libraries, r.requested))
         pt = ptNow
         loaded = false
         return true
@@ -993,7 +1003,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      */
     fun requestView(viewer: String, localHead: String, target: String, done: (RequestView?) -> Unit) = remote?.run {
         request("requestView", { org.asyncttwiz.automatum.boundary.DeviceRequest.RequestView(it, viewer, localHead, target) }) { result ->
-            done((result as? org.asyncttwiz.automatum.boundary.DeviceResult.View)?.let { v -> RequestView(v.message, v.unseen, v.turn, board(v.board)) })
+            done((result as? org.asyncttwiz.automatum.boundary.DeviceResult.View)?.let { v -> RequestView(v.message, v.unseen, v.turn, board(v.board),
+                v.libraries.toSet()) })
         }
     } ?: worker.call({ requestViewOn(viewer, localHead, target) }, done)
 
@@ -1005,7 +1016,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             val board = requestBoard?.takeIf { it.model === p.board && it.at == at && it.viewer == viewer }?.board
                 ?: runCatching { table(EngineProjection.project(base, p.board, viewer, at, null, null, tokenArt), p.board, at, viewer) }
                     .getOrNull().also { requestBoard = RequestBoard(p.board, at, viewer, it) }
-            RequestView(p.message, p.unseen, p.board.engine.turn, board)
+            // HIS-042 (owner 2026-11-19): whose library cards the events the request takes back touched (all of them, also
+            // those the viewer hasn't seen yet): the dialog says the libraries reshuffle
+            val libraries = device.request?.target?.let { t -> device.lineAfter(t) }?.let { after ->
+                org.asyncttwiz.protocol.game.Rewind.librariesTouched(after).mapTo(LinkedHashSet()) { it.value } }.orEmpty()
+            RequestView(p.message, p.unseen, p.board.engine.turn, board, libraries)
         }
     }
 
@@ -1015,7 +1030,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** [requestView]'s answer: the request's [message], whether it takes back actions the viewer hasn't seen ([unseen]),
      * the [turn] it goes back to and the [board] there (null when it couldn't be made). */
-    class RequestView(val message: String, val unseen: Boolean, val turn: arcanum.engine.state.TurnState, val board: TableBoard?)
+    class RequestView(val message: String, val unseen: Boolean, val turn: arcanum.engine.state.TurnState, val board: TableBoard?,
+        /** HIS-042: the players (account ids) whose library cards the events taken back touched: reshuffled by the undo. */
+        val libraries: Set<String> = emptySet())
 
     /** Asks for the older history the open undo request's preview needs, if any (main thread). */
     fun loadForRequest() = remote?.run { request("requestNeeds", { org.asyncttwiz.automatum.boundary.DeviceRequest.RequestNeeds(it) }) { ask(text(it)) } }
@@ -1250,9 +1267,12 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val reapplied = update?.target != null && update.rewoundBy != me && events.any { it.carriedFrom != null }
         if (reapplied) AppLog.info("engine", "Rewind to ${update?.target} by ${update?.rewoundBy} re-applies this player's line: " +
             "${events.count { it.carriedFrom != null }} of ${events.size} events made from theirs")
+        // HIS-042: a rewind to the open undo request's point is that request's, approved (its dialogs told of the reshuffle)
+        val requested = update?.target != null && device.request?.target == update.target
         rewinding = update?.target?.let { target ->
             lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target,
-                if (it.line.any { e -> e.id == target || e.parentId == target }) it.line else it.older + it.line, it.engine, branch = reapplied) }
+                if (it.line.any { e -> e.id == target || e.parentId == target }) it.line else it.older + it.line, it.engine, branch = reapplied,
+                requested = requested) }
         } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
             lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
         }
@@ -1742,7 +1762,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * state ([org.asyncttwiz.protocol.game.GameSession.stateAt]), never a replay from the game's start. */
     class UndoPreview(val board: TableBoard?, val needsRequest: Boolean?,
         /** HIS-005: the point needs older history, asked for ([loadFor]): nothing is worked out until it is in. */
-        val loading: Boolean = false)
+        val loading: Boolean = false,
+        /** HIS-042 (owner 2026-11-19): the players (account ids) whose library cards the events undone touched: the undo
+         * reshuffles their libraries' unknown parts, so the next cards drawn may change. */
+        val libraries: Set<String> = emptySet())
 
     fun undoPreview(target: String): UndoPreview = answered { undoPreview(target, it) }
 
@@ -1751,7 +1774,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     fun undoPreview(target: String, done: (UndoPreview) -> Unit) = remote?.run {
         request("undoPreview", { org.asyncttwiz.automatum.boundary.DeviceRequest.UndoPreview(it, target) }) { result ->
             val p = result as? org.asyncttwiz.automatum.boundary.DeviceResult.Preview
-            val preview = if (p == null) UndoPreview(null, true) else UndoPreview(board(p.board), p.needsRequest, p.loading)
+            val preview = if (p == null) UndoPreview(null, true) else UndoPreview(board(p.board), p.needsRequest, p.loading, p.libraries.toSet())
             if (!preview.loading) done(preview)
             else loadFor(target) { started -> done(if (started) preview else UndoPreview(null, true)) }
         }
@@ -1775,7 +1798,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val needs = if (after.isEmpty()) null
             else org.asyncttwiz.protocol.game.Rewind.requestNeeded(at.copy(), target, after, PlayerId(me), others, device.assumeReveals.undoPastPasses) != null
         val board = runCatching { table(EngineProjection.project(base, at, me, target, null, null, tokenArt), at, target) }.getOrNull()
-        return UndoPreview(board, needs)
+        val libraries = org.asyncttwiz.protocol.game.Rewind.librariesTouched(after).mapTo(LinkedHashSet()) { it.value }
+        return UndoPreview(board, needs, libraries = libraries)
     }
     fun requestUndo(target: String, message: String) {
         AppLog.info("undo", "Undo request to $target from tip ${shown?.tip}, with a message of ${message.length} characters")

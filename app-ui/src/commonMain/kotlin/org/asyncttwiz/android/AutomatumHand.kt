@@ -61,9 +61,12 @@ class HandController(
     /** Casts [cardId] through the cast panel, or at once when it has no choice ([CastController.startFromHand]); [known]:
      * its chips when worked out. */
     private val panel: (cardId: String, known: HandCastChips?) -> Boolean,
-    private val shake: (String) -> Unit,
+    /** Shakes a card, saying why (TBL-118). */
+    private val shake: (String, String?) -> Unit,
     /** Whether [cardId] is known to have no cast or play Automatum allows now (null: not worked out yet). */
     private val unplayable: (TableBoard, String) -> Boolean?,
+    /** TBL-118: why [cardId] can't be used now, in the card menu's words. */
+    private val refusal: (TableBoard, String) -> String = { _, _ -> REFUSAL_STAND_IN },
     /** Web client step 4e: the game played, whose device in the browser's engine worker works the chips out there. */
     private val game: () -> EngineGame? = { null },
 ) {
@@ -100,7 +103,7 @@ class HandController(
         // ZON-079: a tap on a hand row card from another zone, logged with what Automatum knows of it
         offZone(play, cardId)?.let { zone -> AppLog.info("automatum", "Hand row tap on $cardId from $zone: " +
             if (unusable == true) "nothing usable now, shakes" else "raised (usable now: ${unusable?.not() ?: "not known yet"})") }
-        if (unusable == true) { lower(); shake(cardId); return true }
+        if (unusable == true) { lower(); shake(cardId, refusal(play, cardId)); return true }
         raise(play, cardId)
         return true
     }
@@ -166,7 +169,8 @@ class HandController(
         // TBL-118: a card the player can't pay for (or that Automatum doesn't allow now) shakes and stays raised
         val known = chips?.takeIf { it.cardId == card }
         val play = current()
-        if (known?.affordable == false || (known == null && play != null && unplayable(play, card) == true)) { shake(card); return false }
+        if (known?.affordable == false) { shake(card, CANT_PAY); return false }
+        if (known == null && play != null && unplayable(play, card) == true) { shake(card, refusal(play, card)); return false }
         if (known != null && !known.choice) {
             val chip = known.chips.first()
             lower()
@@ -236,7 +240,11 @@ class HandController(
             current()?.let { offZone(it, card) }?.let { zone -> AppLog.info("automatum", "Hand row chips of $card from $zone: " +
                 (result?.let { r -> r.chips.joinToString { "${it.name} ${it.cost ?: ""}${if (it.affordable) "" else " (greyed)"}" }
                     .ifEmpty { "${r.count} ways, one Cast… chip" } } ?: "none")) }
-            if (tapped && (result == null || !result.affordable)) { lower(); shake(card); return@done }
+            if (tapped && (result == null || !result.affordable)) {
+                lower()
+                shake(card, if (result != null) CANT_PAY else current()?.let { refusal(it, card) })
+                return@done
+            }
             chips = result
         }
         chipsOf(play, card, done)

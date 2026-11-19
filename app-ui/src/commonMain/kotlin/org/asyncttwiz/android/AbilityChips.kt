@@ -163,7 +163,7 @@ fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit, refusal:
     val press: () -> Unit = { if (refusal != null) shakes++ else tap() }
     val ink = if (refusal != null) MenuInk.copy(alpha = .45f) else AutomatumViolet
     Surface(shape = RoundedCornerShape(14.dp), color = Color.White, border = BorderStroke(1.5.dp, if (refusal != null) MenuBorder else AutomatumViolet),
-        shadowElevation = 2.dp, modifier = Modifier.shaken(shakes).semantics {
+        shadowElevation = 2.dp, modifier = Modifier.shaken(shakes, refusal, "ability chip").semantics {
             contentDescription = if (refusal != null) "$text ($refusal)" else text
             role = Role.Button
             if (refusal != null) disabled()

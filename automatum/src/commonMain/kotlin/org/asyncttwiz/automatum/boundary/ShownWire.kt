@@ -127,7 +127,8 @@ class TableChangeWire(val target: String, val kind: String, val color: CounterCo
 
 /** What an undo took back (the app's `EngineGame.Undone`): its state as the board [board] the page holds, or [state] whole. */
 @Serializable
-class UndoneWire(val by: String, val event: String? = null, val board: Long? = null, val state: JsonElement? = null, val branch: Boolean = false)
+class UndoneWire(val by: String, val event: String? = null, val board: Long? = null, val state: JsonElement? = null, val branch: Boolean = false,
+    val libraries: List<String> = emptyList(), val requested: Boolean = false)
 
 /** A turn change (the app's `TurnChange`): whole when new, else [known]. */
 @Serializable

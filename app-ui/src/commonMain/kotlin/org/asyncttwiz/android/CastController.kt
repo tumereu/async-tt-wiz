@@ -85,8 +85,8 @@ class CastController(
     private val work: AutomatumWork = AutomatumWork.Inline,
     /** The pictures of tokens a cast makes (§4.6). */
     private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
-    /** UI review round 2 #4 (I-D46 b): shakes a card on the table, for a cast that can't go on ([visual]). */
-    private val shake: (String) -> Unit = {},
+    /** UI review round 2 #4 (I-D46 b): shakes a card on the table, for a cast that can't go on ([visual]), saying why (TBL-118). */
+    private val shake: (String, String) -> Unit = { _, _ -> },
     /** I-D56 step C: sends the complete cast as the player's own inputs (null: sent; else why not), and the device does
      * what follows by itself (null: casting isn't available here). */
     private val engineSend: ((List<Input>) -> String?)? = null,
@@ -528,7 +528,7 @@ class CastController(
             }
             if (!taken) {
                 AppLog.info("cast", "Payment: ${tap.what} not taken: the payment shown has no such source now")
-                tap.card?.let(shake)
+                tap.card?.let { shake(it, NO_LONGER_PAYS) }
             }
         }
     }
@@ -592,7 +592,7 @@ class CastController(
     private fun drop(message: String) {
         val card = castCard
         cancel("dropped: $message")
-        if (card != null && visual(message)) { fail(null); shake(card) } else fail(message)
+        if (card != null && visual(message)) { fail(null); shake(card, message) } else fail(message)
     }
 
     /** Undo or Back (STK-025): the whole cast is dropped; nothing was sent (I-D11). A step still being worked out is
@@ -774,8 +774,8 @@ class CastController(
         val route = engineSend ?: run { fail("Casting isn't available here."); return false }
         val refusal = route(planned.inputs) ?: return true
         AutomatumLog.refusal(play.gameId, "cast", "$refusal: ${planned.inputs}")
-        // I-D56 §5: a cast that would show hidden cards while the line is tentative waits; its card shakes
-        shake(card)
+        // I-D56 §5: a cast that would show hidden cards while the line is tentative waits; its card shakes, saying why (TBL-118)
+        shake(card, if (refusal == org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN) WAIT_TO_CATCH_UP else refusedShakeText(refusal))
         fail(if (refusal == org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN) WAIT_TO_CATCH_UP else null)
         return false
     }

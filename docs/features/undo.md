@@ -9,7 +9,7 @@ A tap of Undo takes back your latest own action; holding it opens the Undo dialo
 point of the game. An undo is free when nothing after that point is a real input of the other player's and nothing
 there showed you something new; otherwise the other player must approve it, so an undo never changes a line they are
 on without their consent. The other player's passes (unless a game setting says they count) and the combat staging or early answers that your
-undo doesn't touch never stand in its way. An undo shows at once, as one animation from the board before to the board after. There
+undo doesn't touch never stand in its way. An undo that takes back library cards drawn or seen says that the libraries reshuffle. An undo shows at once, as one animation from the board before to the board after. There
 is no redo, and undo is only a convenience: no feature works by undoing something.
 
 ## The Undo button
@@ -34,7 +34,7 @@ is no redo, and undo is only a convenience: no feature works by undoing somethin
 - **HIS-203** What shows you something new: a card you couldn't see (your draw, look, scry, search, a reveal, also when a resolution their pass let through shows it), a random result, or a wait for the other player's choice from a source you can't see. (r49)
 - **ZON-026** Undoing your own look, scry or reveal needs the other player's approval (an undo request, HIS-087). (r48)
 - **HIS-204** In your opening, an undo back past the other player's assumed keep about you counts only the events before that keep: their line after it is made again, not taken back (HIS-115). (r49)
-- **HIS-089** Undo never changes a line the other player is on without their approval. A refused undo says why in plain words; an undo with nothing to undo shakes the button. (r48)
+- **HIS-089** Undo never changes a line the other player is on without their approval. A refused undo says why in plain words; an undo with nothing to undo shakes the button ("Nothing to undo yet.", TBL-209). (r78)
 
 ## The concern rule
 
@@ -43,6 +43,7 @@ is no redo, and undo is only a convenience: no feature works by undoing somethin
 
 ## How an undo shows
 
+- **HIS-236** After a free undo whose events taken back touched library cards (HIS-235), its fading text (HIS-168) has a second line, for the player who undid and the other player alike: "Your library reshuffled: the next draws may change." ("Bob's library", "Both libraries"). An approved request's undo doesn't repeat it. (r78)
 - **HIS-108** An undo, yours or the other player's of events you had seen, shows its whole result at once and animates once, straight from the board before to the board after (a cast spell flies from the battlefield straight back to the hand), at the card move speed with no playback pause: no boards, step texts, main button or quick-action states in between, while "Undid: <action>" fades at the top (HIS-168). (r59)
 - **HIS-205** Live (the game open, in sight, at the head) the other player's undo shows at once. Coming back to it (the app in the background, the game not open, a notification, a cold start) opens the game exactly as you left it, and nothing moves until you tap: the centre text says "<name> undid moves · Tap to watch" (HIS-158), and the tap plays the undo, then their new events as catch-up playback with its stops. Their undo of only events you never saw is a plain catch-up. (r59)
 - **HIS-206** An undo of the other player's that took back more than 200 events you had seen opens at its result in an app started anew. (r59)
@@ -53,6 +54,7 @@ is no redo, and undo is only a convenience: no feature works by undoing somethin
 - **HIS-207** At the Undo dialog's top a small view of the board at the chosen point as you see it (after a new choice it follows once the choice rests a quarter second, dimmed meanwhile); under it the timeline's strip of the points with their icons and turn and step lines (HIS-005), the chosen one boxed in the centre; then "Go back to just before" and the chosen event's text. (r76)
 - **HIS-208** Dragging the Undo dialog's strip left or right chooses an earlier or later point one event at a time; a tap on an event chooses it, holding one shows its text. The dialog opens at the point before your latest own action (HIS-084), or the newest point when there is none. (r76)
 - **HIS-209** The Undo dialog ends with Undo when the undo is free or, when the other player must approve (going back past a real input of theirs, not a pass, or past something that showed you something new, HIS-087), the line "Undoing requires confirmation from <name>.", an optional message and "Ask <name>". (r76)
+- **HIS-235** When what an undo takes back touched library cards (a card drawn, milled, searched for, revealed or looked at where it lies, put into a library, a library shuffled or reordered), the Undo dialog asking the other player (HIS-209) and their "<name> asks to undo" (HIS-100) say "Undoing this reshuffles your library: the next cards drawn may change." ("Bob's library", "both libraries"). (r78)
 
 ## Undo requests
 

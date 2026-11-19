@@ -73,7 +73,10 @@ object Authority {
      */
     data class Rules(val nextLine: Int? = null, val tentative: Boolean = false,
         /** The game's assume reveal settings (LOB-135): the cards the information rule lets through. */
-        val reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE)
+        val reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE,
+        /** The players whose response mode is Quick now: any device may answer their one-answer questions ([WhoActs.quickAnswer],
+         * SYS-063, owner 2026-11-19). */
+        val quick: Set<PlayerId> = emptySet())
 
     /**
      * Makes the event [submission] describes, by [author], on [model] (the state at its parent): on success [model] is
@@ -98,7 +101,7 @@ object Authority {
                     if (before != null) before = InformationRule.Before.of(model)
                 }
                 is Act.Perform -> {
-                    val kind = WhoActs.kind(model, act.input, author, act.assumed)
+                    val kind = WhoActs.kind(model, act.input, author, act.assumed, rules.quick)
                     when (kind) {
                         is WhoActs.Kind.Assumed -> if (performed > 0) throw Refusal("An assumed input begins its own event (I-D56 §13)")
                             else assumed = true
@@ -183,8 +186,9 @@ object WhoActs {
         data class Assumed(val about: PlayerId) : Kind
     }
 
-    /** What [input] by [author] on [model] is, or a [Refusal] saying why they may not make it. */
-    fun kind(model: GameModel, input: Input, author: PlayerId, assumed: Boolean): Kind {
+    /** What [input] by [author] on [model] is, or a [Refusal] saying why they may not make it. [quick]: the players whose
+     * response mode is Quick now, whose one-answer questions any device may answer ([quickAnswer]). */
+    fun kind(model: GameModel, input: Input, author: PlayerId, assumed: Boolean, quick: Set<PlayerId> = emptySet()): Kind {
         val state = model.engine
         when (input) {
             is Input.Concede -> return if (input.player == author && !assumed) Kind.Own else throw Refusal("Only ${input.player} concedes for themselves (CR 104.3a)")
@@ -205,7 +209,7 @@ object WhoActs {
         val decider = Host.decider(state, player)
         if (!assumed) {
             if (decider == author) return Kind.Own
-            if (automatic(model, input, player, decision)) return Kind.Automatic
+            if (automatic(model, input, player, decision, quick)) return Kind.Automatic
             throw Refusal("Only $decider decides this (I-D56 §6)")
         }
         if (decider == author) throw Refusal("An input of your own isn't assumed")
@@ -236,10 +240,28 @@ object WhoActs {
      * order-free division of combat damage answered with the suggestion, is gone: every division the engine asks for is its
      * player's (STK-033, owner 2026-11-19).
      */
-    private fun automatic(model: GameModel, input: Input, player: PlayerId, decision: Decision?): Boolean {
+    private fun automatic(model: GameModel, input: Input, player: PlayerId, decision: Decision?, quick: Set<PlayerId> = emptySet()): Boolean {
         if (input is Input.PassPriority) return Stops.forcedPass(model, player)
         if (input !is Input.Answer || decision == null || decision.player != player) return false
-        return input == earlyAnswer(model, decision)
+        if (input == earlyAnswer(model, decision)) return true
+        // (d) SYS-063, item a819b9ffdd (owner 2026-11-19): a one-answer question of a player on Quick, answered by any device
+        // (its only answer judged with every card, the hidden ones included: phones may hold what they never show)
+        return player in quick && input == quickAnswer(model, decision)
+    }
+
+    /**
+     * The only answer to [decision] on [model], as Quick answers it for its player (SYS-063), or null: never the order of
+     * triggers (STK-030, owner 2026-11-06: the engine lists one order of the many there are, and asks only when the triggers
+     * differ, so their player always orders them), nor a selection up to a total (CR 701.59a: the engine lists a working
+     * sample of them, and which cards go is theirs to confirm), nor a random or named-card decision. Judged with every card.
+     */
+    fun quickAnswer(model: GameModel, decision: Decision): Input.Answer? {
+        if (decision is Decision.Random || decision is Decision.NamedCard || decision is Decision.OrderTriggers ||
+            (decision is Decision.ChooseObjects && decision.total != null)) return null
+        val s = model.engine
+        if (s.pending?.decision?.id != decision.id) return null
+        return Engine.options(s, decision.player, model.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.Answer>()
+            .filter { it.decision == decision.id }.singleOrNull()
     }
 
     /**
@@ -424,7 +446,7 @@ object Acceptance {
     fun accept(history: GameHistory, head: String, warm: LiveState?, sent: Submission, author: PlayerId,
         heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false, aliases: Map<String, String> = emptyMap(),
         reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE,
-        ids: () -> String = { error("No ids for re-made events") }): Result {
+        ids: () -> String = { error("No ids for re-made events") }, quick: Set<PlayerId> = emptySet()): Result {
         val submission = aliases[sent.parentId]?.let { sent.copy(parentId = it) } ?: sent
         val concession = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()?.input.let { it is Input.Concede && it.player == author }
         var used: LiveState? = null
@@ -456,7 +478,7 @@ object Acceptance {
                 val others = model.engine.players.map { it.id }.filter { it != author }.map { heads[it] ?: history.store.rootId }
                 val tentative = others.any { other -> tentativeFor(history, head, other, author) }
                 val event = Authority.make(model, submission.copy(parentId = head, acts = acts), author,
-                    Authority.Rules(nextLine = due, tentative = tentative, reveals = reveals))
+                    Authority.Rules(nextLine = due, tentative = tentative, reveals = reveals, quick = quick))
                 return Accepted(event, LiveState(event.id, model), authorHead = event.engine?.steps.orEmpty().any { it.input != null } || parent == own)
             }
             val next = rest.first()
@@ -481,7 +503,7 @@ object Acceptance {
                 if (Reapply.opening(next, model.engine)) {
                     val oldBase = model.copy()
                     val event = Authority.make(model, submission.copy(acts = submission.acts.filter { it !is Act.NewLine }), author,
-                        Authority.Rules(reveals = reveals))
+                        Authority.Rules(reveals = reveals, quick = quick))
                     val result = Reapply.run(oldBase, model, event.id, rest, assumed.assumedBy, ids)
                     return Reapplied(event, result, LiveState(result.events.lastOrNull()?.id ?: event.id, model), next.id, nextLine)
                 }
@@ -494,7 +516,7 @@ object Acceptance {
                 else -> throw Refusal("newLine")
             }
             val model = atParent ?: state(parent)
-            val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine, reveals = reveals))
+            val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine, reveals = reveals, quick = quick))
             return Accepted(event, LiveState(event.id, model), discarded = next.id)
         } catch (refusal: Refusal) {
             refusal.state = used ?: warm

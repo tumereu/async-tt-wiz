@@ -29,6 +29,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     val aliases = mutableMapOf<String, String>()
     /** The game's assume reveal settings (LOB-135) the information rule honours; nothing relaxed unless a test says. */
     var reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE
+    /** The players on Quick now (SYS-063): any device may answer their one-answer questions; none unless a test says. */
+    var quick: Set<PlayerId> = emptySet()
     private var ids = 0
     val alice get() = games.alice
     val bob get() = games.bob
@@ -57,7 +59,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     fun submit(submission: Submission, author: PlayerId): Result<Acceptance.Result> = try {
         val oldHead = head
         val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1, rewindOpen = request != null,
-            aliases = aliases, reveals = reveals, ids = { "r${++ids}" })
+            aliases = aliases, reveals = reveals, ids = { "r${++ids}" }, quick = quick)
         when (result) {
             is Acceptance.Reapplied -> {
                 // As the server: the event and the re-made line after it; local heads on the old line go to the events made

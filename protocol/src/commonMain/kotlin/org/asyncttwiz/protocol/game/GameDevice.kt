@@ -1197,7 +1197,8 @@ class GameDevice(
         if (Host.decider(s, holder) != me) return false
         if (endTurn == s.turn.number) return true
         val check by lazy { model.passCheck(holder) }
-        return Stops.passes(settings.mode, s, holder) { check.ownSkipOn } || (check.asSet && !Stops.stop(s, holder))
+        return (Stops.passes(settings.mode, s, holder) { check.ownSkipOn } && !actedInStep(s, holder)) ||
+            (check.asSet && !Stops.stop(s, holder))
     }
 
     /** [automaticStep] worked out: whether the device made its own step at the head. */
@@ -1215,7 +1216,11 @@ class GameDevice(
             return (act(input, emptyList(), { null }, null, automatic = true) is Acted.Sent).also { made -> if (!made) endChain("press not made") }
         }
         return when (val point = point(s)) {
-            is Point.Automatic -> make(point.input, assumed = false) is Acted.Sent
+            is Point.Automatic -> {
+                if (s.pending?.decision?.let { Host.decider(s, it.player) } == opponent)
+                    remember("answering ${opponent.value.take(8)}'s one-answer question for them (their Quick, SYS-063): ${point.input}")
+                make(point.input, assumed = false) is Acted.Sent
+            }
             // ... and its assumption exactly a press of Assume
             is Point.Assume -> assumed(point.input) is Acted.Sent
             // TRN-017, TRN-070: a Resolve chain presses the wait's Assume; a wait without it (greyed: the information rule,
@@ -1308,7 +1313,11 @@ class GameDevice(
             if (keeps(at)) return null
             // One search of the player's options answers both (the engine's own pass and their mode's)
             val check = m.passCheck(holder)
-            return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
+            if (check.asSet && !Stops.stop(s, holder)) return Input.PassPriority(holder)
+            if (!modePasses(s, holder, check)) return null
+            // STK-213 (owner 2026-11-19, item dea2ae3ac4): after their own cast or activation in this step, the device passes
+            // for them only over what they put on top of the Stack; once it has resolved, their next pass here is their press
+            return Input.PassPriority(holder).takeIf { !actedInStep(s, holder) }
         }
         if (endTurn == s.turn.number && s.turn.active == me)
             return Engine.options(s, me, m.keptView(), EnginePreferences.of(s)).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
@@ -1318,9 +1327,39 @@ class GameDevice(
     /** Under Auto-skip, the only answer to [d] (§2). Never the order of triggers (STK-030, owner 2026-11-06): the engine
      * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. Nor
      * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm. */
-    private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers ||
-        (d is Decision.ChooseObjects && d.total != null)) null
-        else Engine.options(s, d.player, m.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
+    private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? =
+        if (settings.mode != ResponseMode.AutoSkip) null else WhoActs.quickAnswer(m, d)
+
+    /**
+     * SYS-063, item a819b9ffdd (owner 2026-11-19): the only answer to the other player's [d] on [m] while their response mode is
+     * Quick ([opponentMode]): this device answers it for them as their own Quick would, the cards only they see judged too
+     * (held, never shown), so their wait goes; null otherwise. On a tentative line the information rule still holds: an answer
+     * whose outcome would show this player a card it holds back (a discarded card, unless the game allows hands, LOB-135) is
+     * refused once ([make]: remembered) and left to their own device.
+     */
+    private fun theirOneAnswer(d: Decision, m: GameModel = model): Input.Answer? {
+        if (opponentMode != ResponseMode.AutoSkip || Host.decider(m.engine, d.player) != opponent) return null
+        return WhoActs.quickAnswer(m, d)
+    }
+
+    /** The players on Quick as this device knows (itself, and the other player's [opponentMode]): any device may answer their
+     * one-answer questions (SYS-063). */
+    private fun quickPlayers(): Set<PlayerId> = setOfNotNull(me.takeIf { settings.mode == ResponseMode.AutoSkip },
+        opponent.takeIf { opponentMode == ResponseMode.AutoSkip })
+
+    /**
+     * STK-213 (owner 2026-11-19, item dea2ae3ac4): whether [player] cast a spell or activated an ability in the current step on
+     * the line up to the tip ([actedInStep] of the companion), while nothing of theirs is on top of the Stack ([s]): then
+     * their mode passes nothing for them in this step (a second trick after a pump), neither on their own device nor as the
+     * other player's device assumes their pass by it; with their own spell or ability on top their device still passes it
+     * on to the other player as before (TRN-119). An End turn or a Resolve chain still passes. Steps where they did nothing
+     * are passed by their mode as before.
+     */
+    private fun actedInStep(s: GameState, player: PlayerId, building: EventBuilder? = null): Boolean {
+        val top = s.stack.lastOrNull()
+        if (top != null && (s.stackItems[top]?.controller ?: s.obj(top)?.controller) == player) return false
+        return actedInStep(session.events + session.pending, player, building?.engineSteps.orEmpty(), me.value.takeIf { building != null })
+    }
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2, [Stops.passes]: never
      * at their own main phases, owner smoke 2026-11-04, STK-036) or an End turn. */
@@ -1342,6 +1381,9 @@ class GameDevice(
         val d = s.pending?.decision
         if (d != null) {
             if (d !is Decision.Random) WhoActs.automaticAnswer(m, d)?.let { return Point.Automatic(it) }
+            // SYS-063 (owner 2026-11-19): their one-answer question while they are on Quick
+            if (d !is Decision.Random) theirOneAnswer(d, m)?.takeIf { m !== model || reveals["${session.tip}:$it"] != true }
+                ?.let { return Point.Automatic(it) }
             // TRN-027, HIS-096 (owner, 2026-11-15): the other player's opening keep is assumed only by a press of Assume keep
             // (never by the phone itself), once this player's own opening is done
             Reapply.assumedKeep(s, me)?.let { keep -> return Point.Wait(Wait.Keep, Offer.AssumeKeep.takeIf { assumable(keep, m) }, keep) }
@@ -1378,7 +1420,7 @@ class GameDevice(
      * began, the setting doesn't count: where their mode stops, the device waits for them.
      */
     private fun assumesAtOnce(s: GameState, holder: PlayerId, m: GameModel = model): Boolean {
-        if (Stops.passes(opponentMode, s, holder) { m.passCheck(holder).ownSkipOn }) return true
+        if (Stops.passes(opponentMode, s, holder) { m.passCheck(holder).ownSkipOn } && !actedInStep(s, holder)) return true
         if (pointOwner(session.events + session.pending, s) != me) return false
         return settingAssumes(settings.assume, s, holder, me) { noMana(s, holder, m) }
     }
@@ -1631,7 +1673,7 @@ class GameDevice(
         newLine: Int? = null, player: Boolean = false, performed: (() -> Unit)? = null, reapplies: Boolean = false): Acted {
         // The server's rules (§6): the player's own inputs (or engine-automatic answers), the other player's only assumed
         try {
-            val kind = WhoActs.kind(model, input, me, assumed)
+            val kind = WhoActs.kind(model, input, me, assumed, quickPlayers())
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
         val before = informationRule { if (assumed || tentative()) InformationRule.Before.of(model) else null }
@@ -1741,7 +1783,18 @@ class GameDevice(
                 }
                 val answer = WhoActs.automaticAnswer(model, d)
                     ?: if (own && Host.decider(s, d.player) == me) oneAnswer(s, d) else null
-                builder.perform(answer ?: return)
+                if (answer == null) {
+                    // SYS-063 (owner 2026-11-19): the other player's one-answer question while they are on Quick, unless what it
+                    // shows is what the information rule holds back on a tentative line
+                    val theirs = (if (Host.decider(s, d.player) == opponent) theirOneAnswer(d) else null) ?: return
+                    val mark = builder.mark()
+                    builder.perform(theirs)
+                    builder.answerRandoms()
+                    if (guard != null && shows(guard, builder)) { builder.takeBack(mark); return }
+                    remember("answered ${opponent.value.take(8)}'s one-answer question for them in the event (their Quick, SYS-063): $theirs")
+                    return@repeat
+                }
+                builder.perform(answer)
                 return@repeat
             }
             val holder = s.priority.holder ?: return
@@ -1752,7 +1805,8 @@ class GameDevice(
             // kept with the state (the device's next point there reads it again)
             val check = model.passCheck(holder)
             val forced = check.asSet && !Stops.stop(s, holder)
-            val yields = mine && !forced && modePasses(s, holder, check)
+            // STK-213: not after their own cast or activation in this step once nothing of theirs is on top
+            val yields = mine && !forced && modePasses(s, holder, check) && !actedInStep(s, holder, builder)
             if (!forced && !yields) return
             if (s.turn.number >= start + 2 && Stops.stop(s, s.turn.active)) return
             // TRN-060 (CR 104.4b): a pass nobody could avoid is a forced one, or the player's own where they can do nothing
@@ -2991,6 +3045,34 @@ class GameDevice(
             }
             return state.turn.active
         }
+
+        /**
+         * STK-213: whether [player] cast a spell or activated an ability of their own (their real input, not assumed) since the
+         * current step began, on [line] up to its last event: the newest events first, until the step's beginning (a step
+         * change among an event's changes) or [ACTED_LOOKBACK] events.
+         */
+        fun actedInStep(line: List<GameEvent>, player: PlayerId, building: List<EngineStep> = emptyList(), builder: String? = null): Boolean {
+            /** True: acted; false: the step began; null: nothing in [steps] decides it. */
+            fun scan(steps: List<EngineStep>, author: String?): Boolean? {
+                for (step in steps.asReversed()) {
+                    if (step.changes.any { it is arcanum.engine.change.Change.Step && (it.before.step != it.after.step ||
+                            it.before.number != it.after.number) }) return false
+                    val input = step.input ?: continue
+                    val by = when (input) { is Input.Cast -> input.player; is Input.Activate -> input.player; else -> null } ?: continue
+                    if (by == player && step.assumedBy == null && author == player.value) return true
+                }
+                return null
+            }
+            scan(building, builder)?.let { return it }
+            for ((n, event) in line.asReversed().withIndex()) {
+                if (n >= ACTED_LOOKBACK) return false
+                scan(event.engine?.steps ?: continue, event.author)?.let { return it }
+            }
+            return false
+        }
+
+        /** How far back [actedInStep] looks: a step holds few events. */
+        private const val ACTED_LOOKBACK = 200
 
         /** The player whose real input [input] (of [step] in [event]) is ([pointOwner]), or null when it is none. */
         private fun realInputBy(event: GameEvent, step: EngineStep, input: Input): PlayerId? {

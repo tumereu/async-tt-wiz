@@ -279,7 +279,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(author.toString())
         val result = try {
             Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
-                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() })
+                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() },
+                // SYS-063 (owner 2026-11-19): any device may answer the one-answer questions of a player on Quick now
+                quick = seats.filter { it.settings.mode == org.asyncttwiz.protocol.game.ResponseMode.AutoSkip }.map { PlayerId(it.account.toString()) }.toSet())
         } catch (refusal: Refusal) {
             keepWarm(play, history, refusal.state, head)
             throw refusal

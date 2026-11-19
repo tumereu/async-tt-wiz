@@ -358,6 +358,12 @@ object TestCards {
     val trinket = card("Ember Trinket", "Artifact", "{0}", "Sacrifice this artifact: Draw a card.")
     val recall = card("Ember Recall", "Sorcery", "{0}", "Return target card from your graveyard to your hand.")
     val revival = card("Ember Revival", "Sorcery", "{0}", "Return target artifact card from your graveyard to the battlefield.")
+    /** SYS-206: a free sorcery whose "unless" asks each opponent a question their hand decides (one answer with only lands: no). */
+    val prod = card("Ember Prod", "Sorcery", "{0}", "Each opponent discards two cards unless they discard a nonland card.")
+    /** STK-214: a free artifact whose mana ability's cost exiles a card of its controller's choosing from their graveyard. */
+    val urn = card("Ash Urn", "Artifact", "{0}", "{T}, Exile a card from your graveyard: Add one mana of any color.")
+    /** HIS-233: a free sorcery exiling the top two cards of its controller's library face up (shown as a reveal). */
+    val delve = card("Ember Delve", "Sorcery", "{0}", "Exile the top two cards of your library. Until the end of your next turn, you may play those cards.")
     /** ZON-079, ZON-105: a free sorcery with flashback {R}: from the graveyard it is cast from its owner's hand row. */
     val flare = card("Ember Flare", "Sorcery", "{0}",
         "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)")

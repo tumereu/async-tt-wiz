@@ -125,6 +125,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val RECALL = "Hedge Recall"
         /** A free sorcery exiling the top two cards of its controller's library face up (HIS-233: shown as a reveal). */
         const val DELVE = "Hedge Delve"
+        /** STK-211: a free artifact whose mana ability's cost exiles a card of its controller's choosing from their graveyard. */
+        const val URN = "Ash Urn"
         /** CMB-044, CMB-074: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
         const val BULWARK = "Ember Bulwark"
         /** A free enchantment whose trigger begins its controller's upkeep (another enchantment beside a Bulwark). */
@@ -201,6 +203,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("stone", Choices.STONE, "Artifact", "{T}: Add {C}."),
         free("recall", Choices.RECALL, "Sorcery", "Return target card from your graveyard to your hand."),
         free("delve", Choices.DELVE, "Sorcery", "Exile the top two cards of your library. Until the end of your next turn, you may play those cards."),
+        free("urn", Choices.URN, "Artifact", "{T}, Exile a card from your graveyard: Add one mana of any color."),
         free("chime", Choices.CHIME, "Enchantment", "At the beginning of your upkeep, you gain 1 life."),
         free("leech", Choices.LEECH, "Creature — Elemental Leech", "Lifelink\nHaste", "2", "2"),
         free("flare", Choices.FLARE, "Sorcery", "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)"),

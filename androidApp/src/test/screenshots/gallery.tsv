@@ -303,3 +303,4 @@ number	item	screenshot	catalog	decisions	sequence
 302	A copy's question of new targets: the ability it copies at the panel's right	choice-source/copy-new-targets.png	STK-178 STK-212		Copies
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
 304	Cards exiled from a library show as a reveal	engine/reveal-panel-library-exile.png	HIS-233 HIS-110 STK-044		
+305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		

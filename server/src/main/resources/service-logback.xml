@@ -11,5 +11,9 @@
     <logger name="org.asyncttwiz.server.StoredData" level="WARN" additivity="false">
         <appender-ref ref="COMMAND_LATENCY"/>
     </logger>
+    <!-- A rate limit reached, and windows that came near it: scope, account id or key hash, counts; never emails or addresses. -->
+    <logger name="org.asyncttwiz.server.accounts.AccountRateLimits" level="INFO" additivity="false">
+        <appender-ref ref="COMMAND_LATENCY"/>
+    </logger>
     <root level="OFF"/>
 </configuration>

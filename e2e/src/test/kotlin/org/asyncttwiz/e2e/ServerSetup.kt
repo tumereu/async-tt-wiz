@@ -34,40 +34,92 @@ object ServerSetup {
     /** The accounts' password (the web smoke signs in with it in the browser). */
     const val PASSWORD = "e2e password 1"
 
-    private var pair: Pair<TestAccount, TestAccount>? = null
+    private var pool: List<Pair<TestAccount, TestAccount>>? = null
     private const val ACCOUNTS = "atw.e2e.accounts"
+    private const val CURRENT = "atw.e2e.accountPair"
 
     /**
-     * Alice's and Bob's accounts, made once per test run as the base dataset ([E2eStack.keepBase]; the server allows
-     * few sign-ups and sign-ins per address an hour, and every e2e request comes from this machine); each test plays its
-     * own new game with them. Alice's account id sorts first (the server seats players by account id, so the deal
-     * depends on it). Kept in a system property, as [E2eStack] keeps the stack, so another Robolectric sandbox finds the
-     * same pair.
+     * How many pairs of Alice's and Bob's accounts a run has; each test takes the next ([fresh]). The server limits each
+     * account's lobby requests (600 a minute, LobbyHttp; its other services alike), and a run's are many: the phones' clock
+     * runs several times as fast as the real one, and the app's background sync of its lists with it (every 5 s of that
+     * clock). With one pair a full run made 255 a minute per account on average and up to 449 (measured 2026-11-18), and a
+     * test waiting out its timeout spent the rest: the tests after it failed in their setup ("Lobby request of the setup:
+     * try_later") until the minute was over. With 8 pairs a pair comes back after 7 other tests, its minute mostly over.
      */
-    @Synchronized fun accounts(): Pair<TestAccount, TestAccount> = pair ?: run {
-        val stored = System.getProperty(ACCOUNTS)?.lines()?.map { line ->
-            val (name, email, token, identity) = line.split('\t')
-            TestAccount(name, email, token, Json.decodeFromString(AccountIdentity.serializer(), identity))
-        }
-        stored?.let { (a, b) -> a to b } ?: made().also { (a, b) ->
-            E2eStack.keepBase()
-            System.setProperty(ACCOUNTS, listOf(a, b).joinToString("\n") {
-                listOf(it.name, it.email, it.token, Json.encodeToString(AccountIdentity.serializer(), it.identity)).joinToString("\t")
-            })
-        }
-    }.also { pair = it }
+    const val PAIRS = 8
+
+    /**
+     * The current test's Alice and Bob: one of the [PAIRS] pairs of accounts made once per test run as the base dataset
+     * ([E2eStack.keepBase]; the server allows few sign-ups and sign-ins per address an hour, and every e2e request comes
+     * from this machine, so the first pair is made over the API and the others copied from it in the database). Each test
+     * plays its own new game with them. Alice's account id sorts first (the server seats players by account id, so the
+     * deal depends on it). Kept in system properties, as [E2eStack] keeps the stack, so another Robolectric sandbox finds
+     * the same pairs and the same current one.
+     */
+    @Synchronized fun accounts(): Pair<TestAccount, TestAccount> {
+        val pairs = pool ?: run {
+            val stored = System.getProperty(ACCOUNTS)?.lines()?.map { line ->
+                val (name, email, token, identity) = line.split('\t')
+                TestAccount(name, email, token, Json.decodeFromString(AccountIdentity.serializer(), identity))
+            }?.chunked(2)?.map { (a, b) -> a to b }
+            stored ?: made().also { made ->
+                E2eStack.keepBase()
+                System.setProperty(ACCOUNTS, made.flatMap { it.toList() }.joinToString("\n") {
+                    listOf(it.name, it.email, it.token, Json.encodeToString(AccountIdentity.serializer(), it.identity)).joinToString("\t")
+                })
+            }
+        }.also { pool = it }
+        return pairs[(System.getProperty(CURRENT)?.toInt() ?: 0) % pairs.size]
+    }
 
     /**
      * The server as at the start of the run, with [accounts] (the base dataset): whatever earlier tests made on it
-     * (games, pods, invitations, contacts, decks, notifications, chat, problem reports, changed settings) is gone.
+     * (games, pods, invitations, contacts, decks, notifications, chat, problem reports, changed settings) is gone. The
+     * test's Alice and Bob are the next pair of accounts ([PAIRS]).
      */
-    fun fresh(): Pair<TestAccount, TestAccount> = accounts().also { E2eStack.reset() }
+    @Synchronized fun fresh(): Pair<TestAccount, TestAccount> {
+        accounts()
+        System.setProperty(CURRENT, (((System.getProperty(CURRENT)?.toInt() ?: -1) + 1) % PAIRS).toString())
+        E2eStack.reset()
+        return accounts()
+    }
 
-    private fun made(): Pair<TestAccount, TestAccount> {
+    private fun made(): List<Pair<TestAccount, TestAccount>> {
         val tag = UUID.randomUUID().toString().take(8)
         val (x, y) = account("e2e${tag}x") to account("e2e${tag}y")
         val (a, b) = if (x.identity.accountId < y.identity.accountId) x to y else y to x
-        return rename(a, "Alice", "Alice$tag") to rename(b, "Bob", "Bob$tag")
+        val first = rename(a, "Alice", "Alice$tag") to rename(b, "Bob", "Bob$tag")
+        return listOf(first) + (2..PAIRS).map { copied(first) }
+    }
+
+    /**
+     * Another pair like [first] (its password, settings, pod presets and the shape of its names), made in the database: the
+     * accounts and a session each (the server keeps a session token's SHA-256). A new account has no other rows (2026-11-18;
+     * a sign-up that makes more needs them copied here too: base.sql in the run's stack folder shows them).
+     */
+    private fun copied(first: Pair<TestAccount, TestAccount>): Pair<TestAccount, TestAccount> {
+        val tag = UUID.randomUUID().toString().take(8)
+        val (aliceId, bobId) = List(2) { UUID.randomUUID().toString() }.sorted()
+        fun copy(from: TestAccount, id: String, name: String, letter: Char): Pair<TestAccount, String> {
+            val username = "$name$tag"
+            val email = "e2e$tag$letter@e2e.invalid"
+            val token = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(ByteArray(32).also(java.security.SecureRandom()::nextBytes))
+            val sql = "INSERT INTO account (id, username, username_key, email_delivery, email_key, password_phc, auth_epoch, " +
+                "created_at, avatar_face, deck_visibility) SELECT '$id', '$username', '${username.lowercase()}', '$email', " +
+                "'$email', password_phc, 0, now(), avatar_face, deck_visibility FROM account WHERE id = '${from.id}';\n" +
+                "INSERT INTO account_session (id, account_id, token_hash, auth_epoch) VALUES ('${UUID.randomUUID()}', '$id', " +
+                "sha256(convert_to('$token', 'UTF8')), 0);\n" +
+                // What a new account starts with: the Glimpse pod preset (DRF-031)
+                "INSERT INTO pod_preset (id, account_id, name, name_key, settings, cube_id, set_code, set_name, updated_at, pack_sets) " +
+                "SELECT gen_random_uuid(), '$id', name, name_key, settings, cube_id, set_code, set_name, updated_at, pack_sets " +
+                "FROM pod_preset WHERE account_id = '${from.id}';\n"
+            return TestAccount(from.name, email, token, AccountIdentity(id, username)) to sql
+        }
+        val (alice, aliceSql) = copy(first.first, aliceId, "Alice", 'x')
+        val (bob, bobSql) = copy(first.second, bobId, "Bob", 'y')
+        E2eStack.execute(aliceSql + bobSql)
+        return alice to bob
     }
 
     private fun account(username: String): TestAccount = AccountApi(origin).use { api -> runBlocking {

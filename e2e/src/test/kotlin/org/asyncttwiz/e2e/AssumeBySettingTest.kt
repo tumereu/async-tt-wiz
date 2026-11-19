@@ -83,7 +83,10 @@ class AssumeBySettingTest : E2e() {
     @Test fun blocksAreAssumedOnlyFromTheMainButton() {
         // Bob in Normal: his pauses wait for him (owner 2026-11-06: in Quick, unable to respond, his pass is assumed at once)
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), bobSettings = PlaySettings(mode = ResponseMode.Normal),
-            deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) && "Ember Herald" in hand(b) })
+            // A Storm Spark in her hand: after the blocks she can respond, so her own priority stops ("the game on past Bob's
+            // assumed blocks"); without one it was passed by itself and the test waited for a stop that never came (2026-11-18)
+            deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Storm Spark" in hand(a) && "Mountain" in hand(b) &&
+                "Ember Herald" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)
         alice.playFromHand("Mountain", this)

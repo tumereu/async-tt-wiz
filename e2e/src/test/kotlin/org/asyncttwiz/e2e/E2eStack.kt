@@ -141,6 +141,11 @@ object E2eStack {
         }
     }
 
+    /** [sql] (statements) run in one transaction. */
+    fun execute(sql: String) {
+        exec("BEGIN;\n$sql\nCOMMIT;\n", "psql", "-q", "-U", "atw_e2e", "-d", "atw_e2e", "-v", "ON_ERROR_STOP=1")
+    }
+
     /** The rows [sql] (a read) gives now, each one line of its values separated by `|`. */
     fun query(sql: String): List<String> =
         exec(null, "psql", "-q", "-t", "-A", "-U", "atw_e2e", "-d", "atw_e2e", "-v", "ON_ERROR_STOP=1", "-c", sql).lines().filter { it.isNotBlank() }

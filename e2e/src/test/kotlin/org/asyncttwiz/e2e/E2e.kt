@@ -35,6 +35,14 @@ import org.asyncttwiz.appui.AppPlatform
 internal fun phonesComposeRule(): androidx.compose.ui.test.junit4.ComposeTestRule =
     androidx.compose.ui.test.junit4.v2.createEmptyComposeRule()
 
+/** Whether [request] ("METHOD /path", [NetworkLink.requests]) is one the server's lobby limit counts (LobbyHttp: users,
+ * contacts, the game and invitation lists, a game's head). */
+internal fun lobbyRequest(request: String): Boolean {
+    val path = request.substringAfter(' ').substringBefore('?')
+    return path in setOf("/v1/users", "/v1/contacts", "/v1/games", "/v1/invitations") || path.startsWith("/v1/contacts/") ||
+        (path.startsWith("/v1/games/") && path.endsWith("/head"))
+}
+
 /**
  * The base of every e2e test: two players' phones ([alice], [bob]: the real app, [E2ePlayer]) on the real server
  * ([E2eStack]), a game between them set up as the test chooses ([startGame]: decks, the starting player, each player's
@@ -42,8 +50,8 @@ internal fun phonesComposeRule(): androidx.compose.ui.test.junit4.ComposeTestRul
  * playback): never a fixed sleep, never an elapsed-time assert (owner rule), only a condition and a generous timeout.
  *
  * Every test starts from the same state, whatever ran before, and depends on no other test's leftovers: before each
- * test the server's database goes back to the base dataset (Alice's and Bob's accounts, made once per run:
- * [ServerSetup.fresh]), and each test's phones are new apps (Robolectric's fresh application and storage, new
+ * test the server's database goes back to the base dataset (pairs of Alice's and Bob's accounts, made once per run, each
+ * test taking the next pair: [ServerSetup.fresh]), and each test's phones are new apps (Robolectric's fresh application and storage, new
  * controllers, nothing in memory).
  *
  * When a test fails, each phone's screen (picture, semantics tree, visible texts), its device's record of what it sent
@@ -57,12 +65,37 @@ abstract class E2e {
     private val compose = phonesComposeRule()
     private val players = mutableListOf<E2ePlayer>()
     private val evidence = object : TestWatcher() {
+        private var startedAt = 0L
+        private var phoneStartedAt = 0L
+        override fun starting(description: Description) {
+            startedAt = System.nanoTime(); phoneStartedAt = android.os.SystemClock.uptimeMillis()
+            requestsLog("START ${description.testClass.simpleName}.${description.methodName}")
+        }
+        override fun succeeded(description: Description) = ended(description, "END")
         override fun failed(e: Throwable, description: Description) {
+            ended(description, "FAIL")
             val dir = File(E2eStack.output, "failures/${description.testClass.simpleName}.${description.methodName}")
             dir.deleteRecursively()
             players.forEach { it.evidence(dir) }
             runCatching { File(dir, "app.log").writeText(AppLog.text()) }
             System.err.println("E2E failure evidence: ${dir.path}")
+        }
+
+        /**
+         * The run's record of each test's lobby requests (`e2e/build/e2e/requests.log`): its real time, how far the phones'
+         * clock moved meanwhile, and each phone's requests counted against the server's lobby limit (600 an account a minute;
+         * the accounts are [ServerSetup.accounts]' pairs, made once per run), so a run that comes near the limit shows which
+         * tests spend it. The phones' clock runs several times as fast as the real one (each look at the screen moves it on by
+         * frames, a test's skip by seconds), and with it the app's background sync of its lists (every 5 s of that clock):
+         * most of a run's lobby requests. The server logs each window that reached half its limit or more.
+         */
+        private fun ended(description: Description, how: String) = requestsLog("$how ${description.testClass.simpleName}." +
+            "${description.methodName} real=${(System.nanoTime() - startedAt) / 1_000_000} " +
+            "phone=${android.os.SystemClock.uptimeMillis() - phoneStartedAt} " +
+            players.joinToString(" ") { player -> "${player.name}:${player.link.requests.count(::lobbyRequest)}" })
+
+        private fun requestsLog(line: String) {
+            runCatching { File(E2eStack.output, "requests.log").appendText("${java.time.Instant.now()} $line\n") }
         }
 
         // After failed(): the phones stay up until their evidence is taken

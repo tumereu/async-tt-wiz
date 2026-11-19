@@ -374,14 +374,14 @@ private fun DesktopChatField(draft: String, compose: (String) -> Unit, send: () 
 }
 
 /** LOB-067 (owner, 2026-11-14): a message's row: its author, text, delivery or Read [status] and its small [time] ("14:05"),
- * none while it is on its way. */
+ * none while it is on its way; its text can be selected and copied (owner, 2026-11-17). */
 @Composable
 private fun ChatMessageRow(author: String, text: String, own: Boolean, status: String, time: String = "") {
     Surface(Modifier.fillMaxWidth(), color = if (own) MaterialTheme.colorScheme.primaryContainer else ScreenBackground,
         shape = MaterialTheme.shapes.small) {
         Column(Modifier.padding(10.dp)) {
             Text(author, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-            Text(text)
+            androidx.compose.foundation.text.selection.SelectionContainer { Text(text, Modifier.testTag("chat-text")) }
             Box(Modifier.fillMaxWidth().height(16.dp)) {
                 if (status.isNotEmpty()) Text(status, Modifier.align(Alignment.CenterStart), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 if (time.isNotEmpty()) Text(time, Modifier.align(Alignment.CenterEnd).testTag("chat-time"),

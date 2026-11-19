@@ -7,7 +7,7 @@ import org.asyncttwiz.protocol.*
 /** A combat area at Combat damage: [attackers] of the actor in one pair, blocked by the defender's [blockers]. */
 internal class CombatDamageFixture(
     attackers: List<String> = listOf("5/5"), blockers: List<String> = emptyList(),
-    keyword: String = "", note: String = "", eotNote: String = "", eotCorner: String = "",
+    keyword: String = "", note: String = "", eotNote: String = "",
     marked: String = "", targetCorner: String? = null,
 ) {
     val id = TableToolFixture::id
@@ -28,7 +28,7 @@ internal class CombatDamageFixture(
         val walker = SubmittedDefinition(DeckJson.digest(targetDefinition), targetDefinition)
         val cards = attackers.mapIndexed { i, pt ->
             PlayCard(attackerIds[i], submitted.digest, actor, id(10), id(25), covered = false,
-                corner = pt, note = note, eotNote = eotNote, eotCorner = eotCorner,
+                corner = pt, note = note, eotNote = eotNote,
                 placement = PlayPlacement(BoardPosition(i, 0), id(200 + i)))
         } + blockers.mapIndexed { i, pt ->
             PlayCard(blockerIds[i], submitted.digest, defender, id(13), id(25), covered = false,

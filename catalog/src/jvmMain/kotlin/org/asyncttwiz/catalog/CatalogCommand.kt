@@ -16,6 +16,9 @@ import kotlin.system.exitProcess
  *   set it marks draftable builds its packs. The checksum in `current` is what the release builds into the app (section
  *   3.4). `--no-pin` builds from any file (the test cards' catalogs) without the pin.
  * - `move`: makes the pin name the raw file.
+ * - `compare-support --old <file|dir> --new <file|dir> [--allow <count>]`: lists the cards the old catalog marks as
+ *   supported and the new one doesn't (a directory means its `current` catalog). Exit code 3 when there are any, unless
+ *   `--allow` names exactly their count: the release's guard against dropping support for cards (owner, 2026-11-19).
  *
  * Options: `--pin <file>` (default `catalog/pin.properties`), `--file <AllPrintings.json[.gz]>` (default
  * `$ATW_ALLPRINTINGS`, else `~/projects/atw-cache/AllPrintings.json.gz`), `--sets <file>` and `--cards <file>` (the support
@@ -65,8 +68,54 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
                 out.println("The pin names MTGJSON ${metadata.version} (SHA-256 $raw).")
                 0
             }
+            "compare-support" -> {
+                val old = catalogFile(File(options["--old"] ?: return usage())) ?: return fail("No catalog at ${options["--old"]}")
+                val new = catalogFile(File(options["--new"] ?: return usage())) ?: return fail("No catalog at ${options["--new"]}")
+                val allow = options["--allow"]?.let { it.toIntOrNull() ?: return usage() } ?: 0
+                compareSupport(old, new, allow)
+            }
             else -> usage()
         }
+    }
+
+    /** [path] itself, or the catalog a directory's `current` names; null when there is none. */
+    private fun catalogFile(path: File): File? {
+        if (path.isFile) return path
+        val current = File(path, "current").takeIf { it.isFile }?.readText()?.trim() ?: return null
+        return File(path, current + CardCatalogFiles.SUFFIX).takeIf { CardCatalogFiles.valid(current) && it.isFile }
+    }
+
+    /** Lists the cards [old] supports and [new] doesn't; 0 when there are none or [allow] is their count, else 3. */
+    private fun compareSupport(old: File, new: File, allow: Int): Int {
+        val before = supportedCards(old)
+        val after = supportedCards(new)
+        val dropped = (before - after).sorted()
+        if (dropped.isEmpty()) {
+            out.println("No card loses Automatum support: ${before.size} supported before, ${after.size} now.")
+            return 0
+        }
+        out.println("${dropped.size} cards Automatum supports in ${old.name} are no longer supported in ${new.name}:")
+        dropped.forEach { out.println("  $it") }
+        if (allow == dropped.size) {
+            out.println("Allowed: dropping support for these ${dropped.size} cards was confirmed.")
+            return 0
+        }
+        if (allow != 0) out.println("The confirmation names $allow cards, not ${dropped.size}.")
+        return 3
+    }
+
+    /** The names of the cards [file]'s catalog marks as supported ([CatalogFaceRecord.automatum]), checked against the
+     * checksum its name gives. */
+    private fun supportedCards(file: File): Set<String> {
+        val names = HashSet<String>()
+        val checksum = file.inputStream().use { input ->
+            CardCatalogFiles.stream(input, recipes = false) { record ->
+                if (record is CatalogFaceRecord && record.automatum) names += CatalogCards.cardName(record)
+            }
+        }
+        val named = file.name.removeSuffix(CardCatalogFiles.SUFFIX)
+        check(!CardCatalogFiles.valid(named) || named == checksum) { "Catalog ${file.name} has checksum $checksum" }
+        return names
     }
 
     /** Why [file] isn't the pinned raw file, or null when it is. */
@@ -131,5 +180,5 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
 
     private fun fail(message: String): Int { out.println(message); return 1 }
 
-    private fun usage(): Int = fail("Usage: verify | build --out <dir> [--no-pin] | update | move; options --pin, --file, --sets, --cards, --report")
+    private fun usage(): Int = fail("Usage: verify | build --out <dir> [--no-pin] | update | move | compare-support --old <file|dir> --new <file|dir> [--allow <count>]; options --pin, --file, --sets, --cards, --report")
 }

@@ -576,7 +576,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
         is Decision.ChoosePlayer -> Section(choiceWhat(decision), choiceHint(decision)) {
             NumberedOptions(decision.options.map { player -> { cast.answer(Answer.Player(player)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (player in decision.options) PlayerChoiceButton(player.value, names[player.value] ?: "A player") {
+                for (player in decision.options) PlayerChoiceButton(player.value, org.asyncttwiz.automatum.PlayerNames.of(names, player.value, "A player", "CastPanel")) {
                     cast.answer(Answer.Player(player))
                 }
             }
@@ -944,7 +944,7 @@ private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String
     is Answer.YesNo -> if (answer.yes) "Yes" else "No"
     is Answer.Option -> answer.chosen
     is Answer.ColorChoice -> colorName(answer.color.symbol)
-    is Answer.Player -> names[answer.player.value] ?: "A player"
+    is Answer.Player -> org.asyncttwiz.automatum.PlayerNames.of(names, answer.player.value, "A player", "CastPanel")
     is Answer.Division -> answer.shares.joinToString { "${it.amount} to ${targetName(flow, play, names, it.target)}" }
     is Answer.Keep -> objectName(flow, play, answer.kept)
     is Answer.SubtypeChoice -> answer.subtype.name
@@ -959,7 +959,7 @@ private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String
 }
 
 fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>, target: TargetRef): String = when (target) {
-    is TargetRef.Player -> names[target.id.value] ?: "A player"
+    is TargetRef.Player -> org.asyncttwiz.automatum.PlayerNames.of(names, target.id.value, "A player", "CastPanel")
     is TargetRef.Object -> objectName(flow, play, target.id)
 }
 

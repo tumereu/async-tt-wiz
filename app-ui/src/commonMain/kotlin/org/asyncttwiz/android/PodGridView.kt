@@ -235,7 +235,7 @@ private fun PodGridSlot(board: GridPublicBoard, cell: PodGridCell, position: Int
     val highlighted = rules?.highlighted(position, selected) == true
     val selecting = selected != null && rules?.canSelect(selected) == true
     val picker = cell.pickedBy?.let { colors[it] ?: OpponentTableColor }
-    val name = copy?.let { definitions[it.definition]?.name ?: "Card data unavailable" }
+    val name = copy?.let { definitions[it.definition]?.name ?: cardDataUnavailable("PodGridView", it.definition) }
     val pickerName = cell.pickedBy?.let { id -> members.find { it.accountId == id }?.username ?: "another player" }
     // Like the pick screen's card face: the art is cropped to fill the clipped slot and the
     // border is drawn over its edge, so the frame hugs the card on all four sides.
@@ -305,12 +305,13 @@ private fun PodGridCard(copy: DraftCopy, definition: CardDefinition?, modifier: 
     val card = remember(copy.definition, definition) {
         definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
     }
+    val name = definition?.shownName ?: cardDataUnavailable("PodGridView", copy.definition)
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         CardArtwork(card?.artwork?.firstOrNull()?.takeIf { it.printing != null || it.customUrl != null }?.copy(size = "normal"),
-            definition?.shownName ?: "Card data unavailable",
+            name,
             with(density) { maxWidth.roundToPx() }.coerceIn(1, 4096),
             with(density) { maxHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(),
-            crop = true, placeholder = { PodCardPlaceholder(definition?.shownName ?: "Card data unavailable") })
+            crop = true, placeholder = { PodCardPlaceholder(name) })
     }
 }

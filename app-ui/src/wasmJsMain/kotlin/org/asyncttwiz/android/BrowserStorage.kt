@@ -59,8 +59,13 @@ class BrowserStorage private constructor(
                     null
                 }
             suspend fun mirrored(name: String): MirroredStore {
+                val log = { message: String, failure: Throwable -> AppLog.warn("storage", "$name: $message", failure) }
                 val store: AsyncTextStore = database?.let { IndexedDbTextStore(it, name) } ?: MemoryTextStore()
-                return MirroredStore.open(store, scope) { message, failure -> AppLog.warn("storage", "$name: $message", failure) }
+                // A store the browser refuses to read keeps this tab's data in memory only, as without IndexedDB
+                return try { MirroredStore.open(store, scope, log) } catch (failure: BrowserStorageRefused) {
+                    AppLog.warn("storage", "$name couldn't be read; this tab keeps it in memory only", failure)
+                    MirroredStore.open(MemoryTextStore(), scope, log)
+                }
             }
             val storage = BrowserStorage(database, BrowserSessions(mirrored(SESSION)), BrowserAccountData(mirrored(ACCOUNT)),
                 BrowserCardDefinitionCache(mirrored(DEFINITIONS)))
@@ -70,15 +75,16 @@ class BrowserStorage private constructor(
     }
 }
 
-/** One IndexedDB object store of text values. */
+/** One IndexedDB object store of text values. A request the browser refuses throws [BrowserStorageRefused] (a refused write
+ * stays in memory for this tab only, [MirroredStore]). */
 internal class IndexedDbTextStore(private val database: JsAny, private val store: String) : AsyncTextStore {
     override suspend fun entries(): Map<String, String> =
-        Json.parseToJsonElement(idbEntriesJson(database, store).await<JsString>().toString()).jsonObject
+        Json.parseToJsonElement(idbEntriesJson(database, store).awaitStorage<JsString>().toString()).jsonObject
             .mapValues { it.value.jsonPrimitive.content }
 
     override suspend fun write(changes: Map<String, String?>) {
         val json = JsonObject(changes.mapValues { (_, value) -> value?.let(::JsonPrimitive) ?: JsonNull })
-        idbWriteJson(database, store, json.toString()).await<JsAny?>()
+        idbWriteJson(database, store, json.toString()).awaitStorage<JsAny?>()
     }
 }
 

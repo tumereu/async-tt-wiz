@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.WindowInsets
@@ -11,6 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -24,11 +27,50 @@ class ChatScreenTest {
     private fun message(number: Int, author: String = "b") = ChatMessage("m$number", game.id,
         game.playId!!, author, "Message $number", number.toString(), "date")
 
+    /** The text menu a selection opens (LOB-067), while it is open: its items by key. */
+    private val menu = object : androidx.compose.foundation.text.contextmenu.provider.TextContextMenuProvider {
+        var shown: androidx.compose.foundation.text.contextmenu.provider.TextContextMenuDataProvider? = null
+        override suspend fun showTextContextMenu(dataProvider: androidx.compose.foundation.text.contextmenu.provider.TextContextMenuDataProvider) {
+            shown = dataProvider
+            try { kotlinx.coroutines.awaitCancellation() } finally { if (shown === dataProvider) shown = null }
+        }
+        fun item(key: Any): (() -> Unit)? = shown?.data()?.components
+            ?.filterIsInstance<androidx.compose.foundation.text.contextmenu.data.TextContextMenuItem>()
+            ?.firstOrNull { it.key == key }?.let { item -> { item.onClick(object : androidx.compose.foundation.text.contextmenu.data.TextContextMenuSession {
+                override fun close() {}
+            }) } }
+    }
+
     private fun open(count: Int = 100) {
         lobby.seed(lobby.state.copy(selected = game.id, detail = game, chatOpen = true, chatLoaded = true,
             chat = ChatPresentation(messages = IndexedChatMessages().upsert((1..count).map { message(it) }))))
-        compose.setContent { ChatPanel(lobby, "a", contentInsets = WindowInsets(bottom = keyboardHeight.intValue)) }
+        compose.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.foundation.text.contextmenu.provider.LocalTextContextMenuToolbarProvider provides menu) {
+                ChatPanel(lobby, "a", contentInsets = WindowInsets(bottom = keyboardHeight.intValue))
+            }
+        }
         compose.waitForIdle()
+    }
+
+    // LOB-067 (owner, 2026-11-17): a message's text can be selected and copied: holding it selects a word, the menu's Select all
+    // the whole message, and its Copy puts it on the clipboard
+    @Test @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Config(shadows = [NoMagnifier::class])
+    fun aMessagesTextCanBeSelectedAndCopied() {
+        open(2)
+        compose.onNodeWithText("Message 2").performTouchInput { longClick() }
+        compose.waitForIdle()
+        val keys = androidx.compose.foundation.text.contextmenu.data.TextContextMenuKeys
+        val selectAll = assertNotNull(menu.item(keys.SelectAllKey), "holding the text selects it and offers its menu")
+        compose.runOnIdle { selectAll() }
+        compose.waitForIdle()
+        val copy = assertNotNull(menu.item(keys.CopyKey), "the selection offers Copy")
+        compose.runOnIdle { copy() }
+        compose.waitForIdle()
+        val clipboard = org.robolectric.RuntimeEnvironment.getApplication()
+            .getSystemService(android.content.ClipboardManager::class.java)
+        assertEquals("Message 2", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
     }
 
     private fun incoming(number: Int) = compose.runOnIdle {
@@ -130,4 +172,13 @@ class ChatScreenTest {
         assertTrue(first.bottom < last.top)
         assertTrue(list.bottom - last.bottom < 30f, "Short conversations sit just above the composer")
     }
+}
+
+/** The selection's magnifier, which Robolectric can't show or dismiss (no surface): nothing. */
+@org.robolectric.annotation.Implements(android.widget.Magnifier::class)
+class NoMagnifier {
+    @org.robolectric.annotation.Implementation fun show(sourceCenterX: Float, sourceCenterY: Float) {}
+    @org.robolectric.annotation.Implementation fun show(sourceCenterX: Float, sourceCenterY: Float, magnifierCenterX: Float, magnifierCenterY: Float) {}
+    @org.robolectric.annotation.Implementation fun dismiss() {}
+    @org.robolectric.annotation.Implementation fun update() {}
 }

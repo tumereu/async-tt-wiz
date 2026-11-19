@@ -175,7 +175,7 @@ data class TableItem(
     val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
     val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
-    val damage: String = "", val eotCorner: String = "",
+    val damage: String = "",
     val touchBounds: TableBounds? = null,
     /** A player's Temp pile: a LIBRARY-zone pile that is never that player's Library. */
     val temp: Boolean = false,
@@ -258,7 +258,7 @@ class PileCardDrawings(private val build: (String) -> TableItem?) {
 /** Shown in the title position of a face-down Battlefield card; it says nothing about the hidden front. */
 const val FACE_DOWN_TITLE = "?"
 
-/** Clearly blue, distinct from the own (teal) / opponent (red) table colours and the until-end-of-turn teal. */
+/** Clearly blue, distinct from the own (teal) / opponent (red) table colours. */
 const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
 /** [gridBounds] spans the whole pannable width (the battlefield feels infinite); [originX] is the screen x of column 0. */
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
@@ -721,8 +721,8 @@ object TablePresentation {
                     else if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
-                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: effectiveCorner(card),
-                damage = if (!values) "" else card.damage, eotCorner = if (!values || autoCorner != null) "" else card.eotCorner,
+                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: card.corner,
+                damage = if (!values) "" else card.damage,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token,
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()),

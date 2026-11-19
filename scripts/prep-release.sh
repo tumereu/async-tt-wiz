@@ -9,6 +9,17 @@ VERSION_FILE=release/version.json
 branch=$(git symbolic-ref --quiet --short HEAD) || die "Check out a branch first; HEAD is detached."
 git diff --quiet HEAD -- "$VERSION_FILE" || die "$VERSION_FILE has uncommitted changes."
 scripts/review.sh check || die "The owner has not approved every catalog change yet."
+# An early warning only (owner, 2026-11-19: we don't plan to drop support for cards): sets or cards taken off the
+# support lists since the last release. scripts/prod-release.sh compares the built catalogs and stops on any drop.
+if last_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null); then
+    lists=arcanum-tools/src/main/resources/arcanum/tools
+    for list in supported-sets.txt supported-cards.txt; do
+        removed=$(comm -23 <(git show "$last_tag:$lists/$list" 2>/dev/null | grep -v '^#' | sort -u) \
+            <(grep -v '^#' "$lists/$list" | sort -u) | grep -v '^[[:space:]]*$' || true)
+        [[ -z $removed ]] || printf 'WARNING: taken off %s since %s (prod-release will refuse dropped card support):\n%s\n' \
+            "$list" "$last_tag" "$removed" >&2
+    done
+fi
 
 # Append the next allocation in place so the file keeps its hand-written layout.
 read -r code name < <(python3 - "$VERSION_FILE" "${1:-}" <<'PY'

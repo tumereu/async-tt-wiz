@@ -1,0 +1,1 @@
+mod: The main menu shows how far card records have downloaded while they update.

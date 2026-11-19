@@ -81,7 +81,8 @@ fun gameQuickLookTiles(state: TableBoard, viewer: String, inspection: ManualInsp
 private fun cardTiles(state: TableBoard, viewer: String, card: PlayCard, inspection: ManualInspection?, faceDownEntry: Boolean,
     projection: Boolean): List<InspectTile> {
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
-        ?: return listOf(InspectTile.Covered(card.id, "Card data unavailable"))
+        ?: return listOf(InspectTile.Covered(card.id, Faults.placeholder("CardInspection", "card without its card data",
+            "Card data unavailable", mapOf("card" to card.id, "definition" to card.definition))))
     // Only a deliberate inspection of a choice's card ([ManualInspection.explicit]) names its faces itself; an ordinary one
     // never shows an opponent a face-down front
     val allowed = if (inspection?.explicit == true) inspection.faceIds

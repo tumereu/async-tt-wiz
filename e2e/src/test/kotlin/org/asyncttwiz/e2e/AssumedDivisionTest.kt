@@ -92,15 +92,15 @@ class AssumedDivisionTest : E2e() {
         }
         val takenBack = AppLog.text().lines().count { "Shown board taken back" in it }
         alice.tap("Assume pass")
-        // STK-033 (owner 2026-11-19): the spare damage could go elsewhere, so her division opens, prefilled with 2 and 2
+        // STK-033 (owner 2026-11-19): the spare damage could go elsewhere, so her division opens, prefilled: lethal 1 to the first Pup, the spare damage on the last (1 and 3, STK-101)
         waitUntil("Alice's division panel, prefilled") {
-            alice.settled(this) && alice.state.pending?.decision is arcanum.engine.decision.Decision.Divide && alice.stepArrow() == "OK"
+            alice.settled(this) && alice.state.pending?.decision is arcanum.engine.decision.Decision.Divide && alice.showsControl("OK") && alice.shows(androidx.compose.ui.test.hasContentDescription("Division of combat damage"))
         }
         alice.tap("OK")
         waitUntil("the combat damage dealt and on the server") {
             alice.engine { device.session.pending.isEmpty() } && pups(alice) == 0 &&
                 alice.engine { device.session.events.any { it.author == alice.id && it.assumed == null &&
-                    it.engine?.steps.orEmpty().any { s -> ((s.input as? Input.Answer)?.answer as? Answer.Division)?.shares?.map { it.amount } == listOf(2, 2) } } }
+                    it.engine?.steps.orEmpty().any { s -> ((s.input as? Input.Answer)?.answer as? Answer.Division)?.shares?.map { it.amount } == listOf(1, 3) } } }
         }
         repeat(5) { run(skip = java.time.Duration.ofMillis(200)) }
         assertEquals(0, pups(alice), "both Pups died and stay dead")

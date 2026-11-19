@@ -8,7 +8,7 @@ import org.asyncttwiz.protocol.*
 class PreparationIntents {
     private data class PreparationReplica(val revision: String, val state: LobbyPreparation)
     private data class Selection(val command: GameCommand, val actor: String, val source: SavedDeck,
-        val definitions: List<SubmittedDefinition>, var commitRevision: String? = null)
+        val definitions: List<SubmittedDefinition>, val lender: String? = null, var commitRevision: String? = null)
     private val preparations = mutableMapOf<String, PreparationReplica>()
     private data class Readiness(val command: GameCommand, val actor: String, var commitRevision: String? = null)
     private val readiness = linkedMapOf<String, Readiness>()
@@ -39,7 +39,7 @@ class PreparationIntents {
         for (selection in selections.values.filter { it.command.scope.gameId == gameId }) {
             display = PreparationRules.select(current, display, selection.actor, selection.command.requestId,
                 selection.command.scope, selection.command.action as GameAction.SelectDeck, selection.source,
-                selection.definitions).state ?: display
+                selection.definitions, selection.lender).state ?: display
         }
         // Ready is submitted only after earlier predictions settle. Later per-card edits follow it.
         for (intent in readiness.values.filter { it.command.scope.gameId == gameId }) {
@@ -59,8 +59,8 @@ class PreparationIntents {
         StartRules.change(game, base, actor, scope, action)
 
     fun readied(command: GameCommand, actor: String) { readiness[command.requestId] = Readiness(command, actor) }
-    fun selected(command: GameCommand, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>) {
-        selections[command.requestId] = Selection(command, actor, source, definitions)
+    fun selected(command: GameCommand, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>, lender: String? = null) {
+        selections[command.requestId] = Selection(command, actor, source, definitions, lender)
     }
     fun capture(intent: PreparedTransfer, actor: String) { captured.add(Captured(intent, actor)) }
     fun withdrawTransfer(requestId: String) { transfers[requestId]?.withdrawn = true }

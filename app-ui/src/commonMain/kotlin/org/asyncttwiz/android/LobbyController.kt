@@ -249,6 +249,17 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val send = { state.detail?.takeIf { it.id == game.id }?.let { current -> session?.setAssumeReveals(current, reveals) }; connectionState() }
         if (game.lifecycle == GameLifecycle.LOBBY) queue.whenReady(game.id, "assumeReveals") { send() } else send()
     }
+    /** LOB-248: reads the creator's own deck categories for Lend my decks ([LobbyState.lendCategories]). */
+    fun loadLendCategories() = deckPicker.loadLendCategories()
+    /** LOB-247: the open game's deck settings, changed by its creator in the lobby once the game can send (the latest tap
+     * wins). */
+    fun deckSettings(settings: DeckSettings) {
+        val game = state.detail ?: return
+        if (closed || game.inviter.accountId != accountId() || game.lifecycle != GameLifecycle.LOBBY) return
+        queue.whenReady(game.id, "deckSettings") {
+            state.detail?.takeIf { it.id == game.id }?.let { current -> session?.setDeckSettings(current, settings) }; connectionState()
+        }
+    }
     /** TRN-065 (owner 2026-11-07): the viewer tapped OK on the open game's result: off the screen at once, sent once the
      * game can send. */
     fun acknowledgeResult() {

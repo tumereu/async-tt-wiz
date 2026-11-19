@@ -592,14 +592,15 @@ class GameSession(private val connection: GameConnection, private val credential
         latencySubmitted(command, true)
         error = null; flush(); statusChanged(); return true
     }
-    fun selectDeck(game: GameSummary, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>): Boolean =
+    /** [lender]: the game creator's account id when [source] is one of the decks they lend (LOB-256). */
+    fun selectDeck(game: GameSummary, actor: String, source: SavedDeck, definitions: List<SubmittedDefinition>, lender: String? = null): Boolean =
         measureLatency(game, GameAction.SelectDeck(source.deck.id, source.deck.revision)) {
         val current = summary(game)
         val base = preparation(current) ?: return false
         val action = GameAction.SelectDeck(source.deck.id, source.deck.revision)
         val command = command(current, action) ?: return false
-        if (PreparationRules.select(current, base, actor, command.requestId, command.scope, action, source, definitions).state == null) return false
-        preparations.selected(command, actor, source, definitions)
+        if (PreparationRules.select(current, base, actor, command.requestId, command.scope, action, source, definitions, lender).state == null) return false
+        preparations.selected(command, actor, source, definitions, lender)
         pending[command.requestId] = command
         latencySubmitted(command, true)
         error = null; flush(); statusChanged(); return true
@@ -628,6 +629,16 @@ class GameSession(private val connection: GameConnection, private val credential
         val current = summary(game)
         if (current.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE) || current.assumeReveals == reveals) return false
         val command = command(current, GameAction.SetAssumeReveals(reveals)) ?: return false
+        pending[command.requestId] = command
+        latencySubmitted(command, false)
+        error = null; flush(); statusChanged(); return true
+    }
+    /** LOB-247: the game's deck settings, changed by its creator in the lobby (the server refuses anyone else). */
+    fun setDeckSettings(game: GameSummary, settings: DeckSettings): Boolean = measureLatency(game, GameAction.SetDeckSettings(settings)) {
+        val current = summary(game)
+        if (current.lifecycle != GameLifecycle.LOBBY || current.deckSettings == settings) return false
+        val command = command(current, GameAction.SetDeckSettings(settings)) ?: return false
+        AppLog.info("lobby", "Deck settings of ${current.id.take(8)} asked: ${current.deckSettings} -> $settings")
         pending[command.requestId] = command
         latencySubmitted(command, false)
         error = null; flush(); statusChanged(); return true

@@ -338,8 +338,66 @@ internal object Mana {
         return result.sortedBy { it.penalty }
     }
 
-    /** What activating [inst] of [id] takes and adds, one [Source] for each set of objects its cost could use. */
-    private fun sourcesOf(snap: Snapshot, player: PlayerId, id: ObjectId, inst: AbilityInstance, triggers: List<ManaTrigger>, reserved: Reserved): List<Source> {
+    /**
+     * The choices of objects the costs of [options]' mana abilities ask ([arcanum.engine.decision.Decision.ManaPayment.costChoices]):
+     * for each ability with objects among its answers, each part of its cost that chooses objects, in the order of its answers.
+     */
+    fun costChoices(snap: Snapshot, player: PlayerId, options: List<ManaUse>): List<arcanum.engine.decision.ManaCostChoice> =
+        options.filterIsInstance<ManaUse.Ability>().filter { u -> u.answers.any { it is Answer.Objects } }.distinctBy { it.source to it.ability }
+            .flatMap { use ->
+                val inst = Legality.instance(snap, use.source, use.ability) ?: return@flatMap emptyList()
+                val ability = inst.ability as? Ability.Activated ?: return@flatMap emptyList()
+                val eval = snap.evaluator(player, self = use.source)
+                var index = 0
+                costParts(ability).filter { choosesObjects(it) }.mapNotNull { part ->
+                    val c = arcanum.engine.casting.Costs.objectChoice(snap, player, null, part, eval) ?: return@mapNotNull null
+                    arcanum.engine.decision.ManaCostChoice(use.source, use.ability, index++, c.options, c.min, c.max, c.total, c.text)
+                }
+            }
+
+    /** [ability]'s cost parts as a payment reads them: collecting evidence as the exile it is (CR 701.59a). */
+    private fun costParts(ability: Ability.Activated): List<CostPart> = ability.cost.parts.map { p ->
+        if (p is CostPart.Action && p.action is arcanum.api.KeywordAction.CollectEvidence) arcanum.engine.casting.Costs.asCostPart(p) else p
+    }
+
+    /** Whether [part] chooses objects other than its own source (a random discard chooses none). */
+    private fun choosesObjects(part: CostPart): Boolean {
+        val what = when (part) {
+            is CostPart.Sacrifice -> part.what
+            is CostPart.Exile -> part.what
+            is CostPart.PutOnBottomOfLibrary -> part.what
+            is CostPart.Discard -> if (part.random) return false else part.what
+            is CostPart.ReturnToHand -> part.what
+            is CostPart.TapObjects -> part.what
+            else -> return false
+        }
+        return what is CostObjects.Choose
+    }
+
+    /** The [Source]s of the mana ability [use] names with exactly the objects its answers give for its cost (CR 601.2h: the payer
+     * chooses them), when those fit what the cost may use; empty when they don't. */
+    fun sourcesFor(snap: Snapshot, player: PlayerId, use: ManaUse.Ability, reserved: Reserved = Reserved.NONE): List<Source> {
+        val inst = Legality.instance(snap, use.source, use.ability) ?: return emptyList()
+        if (inst.ability !is Ability.Activated || !Legality.isManaAbility(inst.ability as Ability.Activated)) return emptyList()
+        if (!canActivate(snap, player, use.source, inst) || Legality.manaUsesLeft(snap, use.source, inst) <= 0) return emptyList()
+        return sourcesOf(snap, player, use.source, inst, manaTriggers(snap, player), reserved,
+            given = use.answers.filterIsInstance<Answer.Objects>().map { it.chosen })
+    }
+
+    /** Whether [pick] is a set the cost's [choice] may use among [free]: distinct, enough and not too many, reaching its total. */
+    private fun fitsGiven(eval: Evaluator, free: List<ObjectId>, choice: arcanum.engine.casting.Costs.ObjectChoice, pick: List<ObjectId>): Boolean {
+        if (pick.distinct().size != pick.size || pick.any { it !in free } || pick.size < choice.min) return false
+        if (choice.max != null && pick.size > choice.max!!) return false
+        val total = choice.total ?: return true
+        val need = eval.value(total.atLeast)
+        val sum = pick.sumOf { eval.property(total.property, it).coerceAtLeast(0) }
+        return if (total.exactly) sum == need else sum >= need
+    }
+
+    /** What activating [inst] of [id] takes and adds, one [Source] for each set of objects its cost could use; with [given], only the
+     * one using those sets (the payer's own choice, one per part that chooses objects, in order), none when they don't fit. */
+    private fun sourcesOf(snap: Snapshot, player: PlayerId, id: ObjectId, inst: AbilityInstance, triggers: List<ManaTrigger>, reserved: Reserved,
+        given: List<List<ObjectId>>? = null): List<Source> {
         val ability = inst.ability as Ability.Activated
         val eval = snap.evaluator(player, self = id)
         val you = snap.state.player(player)
@@ -362,6 +420,7 @@ internal object Mana {
         val leaves = mutableSetOf<ObjectId>()
         // The parts that choose objects: each with what it may choose (a single object each, the first ones otherwise)
         val chosen = mutableListOf<Triple<CostPart, List<List<ObjectId>>, Boolean>>()
+        var choosing = 0
         parts.forEach { part ->
             when (part) {
                 CostPart.TapSelf, CostPart.UntapSelf -> exclusive = true
@@ -402,13 +461,17 @@ internal object Mana {
                                 val free = choice.options.filter { o -> o !in reserved.tapped && (part is CostPart.TapObjects || o !in reserved.leaving) }
                                 // CR 602.2b, 601.2h: a cost can't be paid without enough objects; "with total mana value N or greater" (collect
                                 // evidence, CR 701.59a) the first ones that reach it, "exactly N" some that add up to it
+                                // CR 601.2h: the payer's own choice, when given, is the only set
+                                val pick = given?.let { g -> g.getOrNull(choosing++)?.takeIf { fitsGiven(eval, free, choice, it) } ?: return emptyList() }
                                 val some = when {
+                                    pick != null -> pick
                                     free.size < choice.min -> null
                                     choice.total != null -> totalReached(eval, free, choice.min, choice.total!!)
                                     single -> free
                                     else -> free.take(choice.min)
                                 }
                                 when {
+                                    pick != null -> chosen += Triple(part, listOf(pick), false)
                                     some != null -> chosen += if (single) Triple(part, some.take(MAX_OBJECTS).map { listOf(it) }, some.size > MAX_OBJECTS)
                                         else Triple(part, listOf(some), true)
                                     shortIsCertain(choiceZones(part)) -> return emptyList()
@@ -937,7 +1000,11 @@ internal object Mana {
         val pool: List<Payer> = if (!canSpendMana) emptyList() else poolPayers(snap, player, paysFor, anyColor = any, xCost = xCost).filter { (it.use as ManaUse.Pool).index !in removedPool }
         val pinnedSources = pinned.filterIsInstance<ManaUse.Ability>()
         private val removedSources = removed.filterIsInstance<ManaUse.Ability>()
-        private val all: List<Source> = if (!canSpendMana) emptyList() else sources(snap, player, reserved).filter { s -> removedSources.none { sameSource(it, s) } }
+        // CR 601.2h: a pinned use with objects of the payer's own choosing that no listed source uses: its own source
+        private val all: List<Source> = if (!canSpendMana) emptyList() else sources(snap, player, reserved).let { listed ->
+            listed + pinnedSources.filter { p -> p.answers.any { it is Answer.Objects } && listed.none { sameSource(p, it) } }
+                .flatMap { sourcesFor(snap, player, it, reserved) }
+        }.filter { s -> removedSources.none { sameSource(it, s) } }
         private val searched = all.filter { !it.unknown }
         private val phyrexian = lifeSymbols(snap, player, cost, lifeBarred)
         private val mustLife = pinned.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()

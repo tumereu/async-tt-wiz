@@ -43,8 +43,12 @@ import kotlinx.serialization.Serializable
  * reshuffles the unknown parts of the libraries, HIS-042); with [hands], cards of the other player's hand (reveals,
  * random discards) don't either. Face-down cards and other random results are held back regardless. The defaults are
  * the game's: library on, hands off.
+ *
+ * The same Game settings card (and so this value) also holds [undoPastPasses] (owner 2026-11-19, N15): "Undo past the other
+ * player's passes needs a request". Off (the default), the other player's passes never count for a free undo (HIS-202); on,
+ * going back past one needs their approval like their real input (HIS-099).
  */
-@Serializable data class AssumeReveals(val library: Boolean = true, val hands: Boolean = false) {
+@Serializable data class AssumeReveals(val library: Boolean = true, val hands: Boolean = false, val undoPastPasses: Boolean = false) {
     companion object {
         /** Nothing relaxed: the information rule as such (its checks' default, and a device not yet told). */
         val NONE = AssumeReveals(library = false, hands = false)

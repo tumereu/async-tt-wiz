@@ -1,0 +1,1 @@
+add: A new game setting, "Undo past the other player's passes needs a request": when on, going back past a pass of theirs asks them first.

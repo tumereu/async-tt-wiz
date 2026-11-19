@@ -100,6 +100,10 @@ sealed interface Decision {
         /** mh3 fixes: a cost paid while something resolves contains {X}, so mana spent "only on costs that contain {X}" may pay it
          * (CR 106.6, 107.3); a cast or activation reads it from its total cost. */
         val xCost: Boolean = false,
+        /** The choices of objects the costs of [options]' mana abilities ask (collecting evidence, discarding, exiling a card from a
+         * graveyard): the payer chooses them (CR 601.2h, 605.3a, 701.59a). An option lists one working set; a [ManaUse.Ability] of
+         * the same ability with any other set these allow pays too. */
+        val costChoices: List<ManaCostChoice> = emptyList(),
     ) : Decision
 
     /** Yes or no: "you may …" (CR 608.2d), or pay [cost] on resolution (CR 118.12, D40) when given. Not [payable]: the
@@ -282,6 +286,17 @@ sealed interface RandomKind {
     @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int,
         val library: List<ObjectId> = emptyList()) : RandomKind
 }
+
+/**
+ * The objects the cost of mana ability [ability] of [source] chooses (CR 601.2h, 605.3a): at least [min] and at most [max] of
+ * [options] (with [total], those whose property reaches it: collecting evidence, CR 701.59a), said as [text]; the choice is the
+ * [index]th [Answer.Objects] of a [ManaUse.Ability] of it.
+ */
+@Serializable
+data class ManaCostChoice(
+    val source: ObjectId, val ability: arcanum.engine.view.AbilityOrigin, val index: Int, val options: List<ObjectId>,
+    val min: Int, val max: Int?, val total: arcanum.api.Total? = null, val text: String = "",
+)
 
 /**
  * One way to pay part of a mana cost (CR 601.2g–h): mana already in the pool, a mana ability to activate (with the

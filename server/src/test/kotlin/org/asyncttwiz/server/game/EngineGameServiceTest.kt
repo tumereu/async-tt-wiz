@@ -368,6 +368,38 @@ class EngineGameServiceTest {
         assertEquals(approved.headId, approved.localHeads[f.b.account.accountId])
     }
 
+    // HIS-232, LOB-135, HIS-202 (owner 2026-11-19, N15): the host's game setting "Undo past the other player's passes needs a
+    // request" is kept with the game (off by default) and the server's rewind check honours it: Alice's undo past Bob's own
+    // pass is refused while it is on and taken at once once she turns it off
+    @Test fun `the undo past passes setting decides whether the other player's pass needs a request`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "up")
+        assertEquals(false, f.games.head(f.b, f.game.id).summary.assumeReveals.undoPastPasses)
+        assertEquals("notHost", f.recipient.execute(GameAction.SetAssumeReveals(AssumeReveals(undoPastPasses = true))).reason)
+        assertEquals("accepted", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals(undoPastPasses = true))).outcome)
+        assertEquals(AssumeReveals(undoPastPasses = true), f.games.head(f.b, f.game.id).summary.assumeReveals)
+        val alice = f.device(f.a)
+        fun send(submission: Submission) {
+            assertEquals("accepted", f.owner.execute(GameAction.Submit(submission)).outcome)
+            alice.receivedShown(alice.pending.first())
+        }
+        send(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))))
+        val bobKeep = f.device(f.b)
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(bobKeep.act(id(),
+            Input.Answer(bobKeep.model.engine.pending!!.decision.id, Answer.Option("Keep"))))).outcome)
+        // Alice passes in her first upkeep: Bob holds priority there
+        val mine = f.device(f.a)
+        assertEquals(f.alice, mine.model.engine.priority.holder)
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(mine.act(id(), Input.PassPriority(f.alice)))).outcome)
+        val target = f.snapshot().headId
+        val bob = f.device(f.b)
+        assertEquals(f.bob, bob.model.engine.priority.holder)
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), Input.PassPriority(f.bob)))).outcome)
+        assertEquals("requestNeeded", f.owner.execute(GameAction.EngineRewind(target)).reason)
+        assertEquals("accepted", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals())).outcome)
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRewind(target)).outcome, "his pass doesn't count by default")
+        assertEquals(target, f.snapshot().headId)
+    }
+
     // HIS-108, HIS-205 (owner playtest 2026-11-07): Alice's free undo takes back her keep that Bob's device had shown: his local
     // head goes to the undo's point and his snapshot keeps what he had been shown with who undid, so a device opening
     // the game shows the undo (where he left it, then the rewind as it is live); his device's report of that head (the

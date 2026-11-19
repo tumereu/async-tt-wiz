@@ -1735,7 +1735,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         if (after.isEmpty()) return@await null
         val at = (device.reach(target) as? GameDevice.Reach.State)?.model ?: return@await true
         val others = device.localHeads.filterKeys { it != PlayerId(me) }.values.toList()
-        org.asyncttwiz.protocol.game.Rewind.requestNeeded(at, target, after, PlayerId(me), others) != null
+        org.asyncttwiz.protocol.game.Rewind.requestNeeded(at, target, after, PlayerId(me), others, device.assumeReveals.undoPastPasses) != null
     }
     /** HIS-099: the Undo dialog's view of going back to just after [target]: the board there as the player sees it
      * (null when the device can't reach it exactly) and [undoNeedsRequest]'s answer, from one walk back from the shown
@@ -1773,7 +1773,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val others = device.localHeads.filterKeys { it != PlayerId(me) }.values.toList()
         // The request check plays the later events on its own copy; the board keeps the state at the point
         val needs = if (after.isEmpty()) null
-            else org.asyncttwiz.protocol.game.Rewind.requestNeeded(at.copy(), target, after, PlayerId(me), others) != null
+            else org.asyncttwiz.protocol.game.Rewind.requestNeeded(at.copy(), target, after, PlayerId(me), others, device.assumeReveals.undoPastPasses) != null
         val board = runCatching { table(EngineProjection.project(base, at, me, target, null, null, tokenArt), at, target) }.getOrNull()
         return UndoPreview(board, needs)
     }

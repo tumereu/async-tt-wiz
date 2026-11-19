@@ -23,9 +23,6 @@ Playtest and gallery notes (owner, 2026-11-11):
 
 Queue (owner, 2026-11-09 evening), in any order: the items below. The evidence selection's running total is not wanted for now (owner).
 
-Needs discussion, owner thinking (2026-11-09):
-
-- When the phone presses for you: a pump in combat can go straight on to damage in Quick (STK-036). Proposal: after you act, your phone doesn't pass in that step until you press; Quick still skips steps where you did nothing.
 
 Arcanum copies, found building copiable values (2026-11-09; can be done any time):
 

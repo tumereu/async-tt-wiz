@@ -60,6 +60,35 @@ class PileRevealTest : E2e() {
         assertTrue(bob.state.player(bob.me).graveyard.any { cardName(bob.state, it) == "Ember Trinket" }, "the Trinket in Bob's graveyard")
     }
 
+    // HIS-233, HIS-234, HIS-110 (owner 2026-11-19, N18, problem report MDLPM7): Bob's Ember Delve exiles the top two cards of his library:
+    // both phones open the reveal panel, "Bob exiled 2 cards from their library" on Alice's and "You exiled 2 cards from your library" on
+    // his, each closed by its own OK, and the timeline's text names the exiled cards
+    @Test fun cardsBobExilesFromHisLibraryShowOnBothTables() {
+        startGame(TestDeck.thirds(), TestDeck("Delves", listOf(TestCards.delve to 40)), bobStarts = true,
+            bobSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always), deal = { _, b -> "Ember Delve" in hand(b) })
+        bothOpen()
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Bob's Main 1, his game settled") { bob.inOwnMain() && bob.settled(this) }
+        // The Delve asks nothing (no target, nothing to pay): its cast alone
+        assertFalse(bob.game!!.send(listOf(Input.Cast(bob.me, bob.hand("Ember Delve").first()))) is GameDevice.Acted.Refused)
+        waitUntil("the panel on both phones") {
+            alice.showsText("${bob.name} exiled 2 cards from their library") && bob.showsText("You exiled 2 cards from your library")
+        }
+        assertEquals(bob.me, assertNotNull(alice.shown.reveal?.exiled).owner)
+        val exiled = bob.state.objects.values.filter { it.zone == arcanum.api.Zone.Exile && it.owner == bob.me }
+            .map { cardName(bob.state, it.id) }
+        assertEquals(listOf("Ember Delve", "Ember Delve"), exiled)
+        assertTrue(alice.showsRevealOk() && bob.showsRevealOk(), "OK on both main buttons")
+        val event = bob.engine { device.session.events.last { e -> org.asyncttwiz.protocol.game.GameDevice.libraryExileTexts(e, bob.id, emptyMap()).isNotEmpty() } }
+        assertEquals(listOf("Exiled from ${bob.name}'s library: Ember Delve, Ember Delve"),
+            org.asyncttwiz.protocol.game.GameDevice.libraryExileTexts(event, alice.id, mapOf(bob.id to bob.name)))
+        bob.tap("OK")
+        waitUntil("Bob's panel closed, Alice's still open") { bob.shown.reveal == null && alice.shown.reveal != null }
+        alice.tap("OK")
+        waitUntil("Alice's panel closed") { alice.shown.reveal == null }
+    }
+
     // HIS-114, HIS-157, HIS-110, TRN-063, TRN-114: Bob returns his Trinket from his graveyard to the battlefield (no panel on Alice's phone),
     // sacrifices it again and returns it to his hand: Alice's phone opens the reveal panel, "Bob returned Ember Trinket from
     // their graveyard to their hand", the Trinket only, the Recall as its source, and her table waits there while Bob plays on

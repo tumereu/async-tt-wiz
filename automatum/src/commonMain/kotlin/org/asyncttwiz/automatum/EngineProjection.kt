@@ -95,7 +95,7 @@ object EngineProjection {
             // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it;
             // a copy of a card (offspring, embalm, myriad, …) is drawn with that card's own picture
             val shown = copied(made, base)
-                ?: if (!obj.token || tokenArt === TokenArt.None) made else pictures.getOrPut(obj.id) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
+                ?: if (!obj.token || tokenArt === TokenArt.None) made else kept(pictures, obj.id, made) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
             shown.also { definitions[it.digest] = it }.digest
         }
         fun faceIdOf(obj: GameObject, digest: String): String {
@@ -301,6 +301,21 @@ object EngineProjection {
         if (faces == made.definition.faces) return null
         val card = made.definition.copy(faces = faces)
         return SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
+    }
+
+    /**
+     * SYS-072 (owner playtest 2026-11-19, N25): the card data kept in [pictures] for token [id] when it is that of the token
+     * now there ([made], but for its picture), else [find]'s, kept. A token's id comes from the timestamp it was created at
+     * ([arcanum.engine.state.TokenIds]), so after an undo, a rewind or on another branch another token made at the same
+     * point has the same id: it must not be drawn as the one kept before (another token's name, text and picture).
+     */
+    private fun kept(pictures: MutableMap<ObjectId, SubmittedDefinition>, id: ObjectId, made: SubmittedDefinition,
+        find: () -> SubmittedDefinition): SubmittedDefinition {
+        val kept = pictures[id]
+        if (kept != null && kept.definition.copy(faces = kept.definition.faces.map { it.copy(scryfallId = null, imageUri = null) }) == made.definition) return kept
+        if (kept != null) AutomatumLog.mismatch("", "token picture", "Token ${(id as? ObjectId.Card)?.card?.value ?: id} is now " +
+            "${made.definition.name}, kept as ${kept.definition.name}: looked up again")
+        return find().also { pictures[id] = it }
     }
 
     /** [token] drawn with the picture [tokenArt] finds for it and the card whose effect made it ([by]); as it is when

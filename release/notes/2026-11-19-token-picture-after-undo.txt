@@ -1,0 +1,1 @@
+fix: After an undo, a new token no longer shows up with the name and picture of a token that was undone.

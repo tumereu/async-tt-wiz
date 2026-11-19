@@ -299,4 +299,28 @@ class EngineBoardTest {
             org.asyncttwiz.protocol.Faults.sink = sink
         }
     }
+    // SYS-072 (owner playtest 2026-11-19, N25): a token's id comes from the point it was made at, so after an undo another token made
+    // at the same point has the same id; the picture kept for the first is not drawn for the second: the second is looked up as itself
+    @Test fun aTokenMadeWhereAnotherWasUndoneIsDrawnAsItself() {
+        fun token(name: String, subtype: String) = arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(arcanum.api.FaceDefinition(name,
+            colorIndicator = listOf(arcanum.api.Color.Blue), types = listOf(arcanum.api.CardType.Planeswalker),
+            subtypes = listOf(arcanum.api.Subtype(subtype)), loyalty = arcanum.api.PrintedNumber.Fixed(0))))
+        val asked = mutableListOf<String>()
+        val art = TokenArt { query -> asked += query.face.name; "picture-of-${query.face.name}" }
+        val pictures = HashMap<arcanum.engine.state.ObjectId, org.asyncttwiz.protocol.SubmittedDefinition>()
+        fun drawn(table: EngineTable): List<org.asyncttwiz.protocol.DefinitionFace> {
+            val board = EngineProjection.project(table.base(), org.asyncttwiz.protocol.game.GameModel(table.state(), org.asyncttwiz.protocol.game.TableState()),
+                alice, "node", tokenArt = art, pictures = pictures)
+            return board.board.cards.mapNotNull { card ->
+                board.definitions.firstOrNull { it.digest == card.definition }?.definition?.takeIf { it.token }?.faces?.single() }
+        }
+        val first = EngineTable().apply { putToken(alice, token("Kael Token", "Kael")) }
+        assertEquals(listOf("Kael Token" to "picture-of-Kael Token"), drawn(first).map { it.name to it.scryfallId })
+        // The same id, another token: drawn as itself, with its own picture
+        val second = EngineTable().apply { putToken(alice, token("Jace Token", "Jace")) }
+        assertEquals(listOf("Jace Token" to "picture-of-Jace Token"), drawn(second).map { it.name to it.scryfallId })
+        // The same token again keeps its picture without asking
+        drawn(second)
+        assertEquals(listOf("Kael Token", "Jace Token"), asked)
+    }
 }

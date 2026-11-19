@@ -397,6 +397,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                             AppLog.info("combat", "Combat band ${if (bandOpen) "opens" else "closes"} for ${accountId.take(8)} at " +
                                 "${play.nodeId.take(8)}: " + if (!instant) "over $millis ms" else if (step.navigation)
                                     "at once (the layout or the table's size changed with it)" else "at once (a board that doesn't animate)")
+                            TableProbes.bandMoved?.invoke(accountId, bandOpen, if (instant) 0 else millis)
                         }
                         if (instant) progress.snapTo(1f)
                         else progress.animateTo(1f, tween(millis, easing = androidx.compose.animation.core.LinearEasing))
@@ -713,6 +714,12 @@ object TableProbes {
     /** Told each time a table's combat target chips begin to fade in (CMB-001: once per combat), with its account and the
      * combat ([combatBandKey]). */
     @kotlin.concurrent.Volatile var chipsFadeIn: ((me: String, combat: String) -> Unit)? = null
+    /** CMB-054, CMB-055, TBL-205: told each time a table's combat band begins to open ([open]) or close, with its account and how
+     * long its animation is ([millis]; 0: at once). */
+    @kotlin.concurrent.Volatile var bandMoved: ((me: String, open: Boolean, millis: Int) -> Unit)? = null
+    /** CMB-055: told each time what sat on a closing combat band begins to fade out where it was, with its account, how many
+     * target chips fade and how long the fade is. */
+    @kotlin.concurrent.Volatile var chipsFadeOut: ((me: String, chips: Int, millis: Int) -> Unit)? = null
 }
 
 /** WEB-026: [content] for the card whose quick look [mouse] shows, if any; read here alone (web frame rate, 2026-11-15). */

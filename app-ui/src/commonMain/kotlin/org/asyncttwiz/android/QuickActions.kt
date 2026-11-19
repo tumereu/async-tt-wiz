@@ -143,6 +143,9 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // player must act
             // TRN-163, TRN-164 (owner 2026-11-19): what it holds comes from where the game really is for the player (the point the
             // view comes to rest at while playback is behind, else the live board), never from the step the table still animates
+            // Read as snapshot state: a board published while the table still draws an older one (its steps, a Stack entry's
+            // arrows holding it) changes what the button holds at once
+            val version = engine?.engine?.shownVersion ?: 0L
             val real = engine?.real(play)
             val board = real?.board ?: play
             val realStatus = real?.status
@@ -213,13 +216,12 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             }
             val currentTarget by rememberUpdatedState(target)
             val pending = engine?.pendingPress
-            val version = engine?.engine?.shown?.version ?: 0L
             LaunchedEffect(pending, version) {
                 val p = pending ?: return@LaunchedEffect
                 if (version < p.version) return@LaunchedEffect
                 engine?.pendingPress = null
                 val now = currentTarget
-                if (madeAfterSkip(p.label, now)) {
+                if (now != null && madeAfterSkip(p.label, now)) {
                     AppLog.info("game", "Main button ${if (p.hold) "hold" else "tap"} \"${p.label}\" made after its skip (board v$version)")
                     if (p.hold) (now.hold ?: now.tap)() else now.tap()
                 } else AppLog.info("game", "Main button ${if (p.hold) "hold" else "tap"} \"${p.label}\" not made after its skip: the button now " +

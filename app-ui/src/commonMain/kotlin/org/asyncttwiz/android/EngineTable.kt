@@ -500,13 +500,14 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
      */
     class Real(val status: GameDevice.Status?, val board: TableBoard, val rest: Boolean)
 
-    /** [Real] now, [live] the live board (the drawn board when no game is published). */
+    /** [Real] now; [live]: the board the table draws (taken when no live board of its play is published). */
     fun real(live: TableBoard): Real {
-        val shown = game()?.shown ?: return Real(status(), live, false)
-        val rest = shown.rest
+        val published = game()?.shown ?: return Real(status(), live, false)
+        val rest = published.rest
         if (rest != null) return Real(rest.status, rest.board, true)
-        val board = shown.board.takeIf { it.playId == live.playId } ?: live
-        return Real(shown.status, assuming()?.board(board) ?: board, false)
+        // The table's live board (the one published: the screen's state, whatever step of it the table still draws)
+        val board = shown()?.takeIf { it.playId == live.playId } ?: live
+        return Real(published.status, assuming()?.board(board) ?: board, false)
     }
 
     /** TRN-165: whether the view still waits on something a press of the main button skips first: the table's own animations

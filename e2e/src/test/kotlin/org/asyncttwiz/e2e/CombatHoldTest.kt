@@ -67,7 +67,7 @@ class CombatHoldTest : E2e() {
             assertEquals(GameDevice.CombatMoment.Attackers, alice.shown.combatHold?.kind, "still held after a tap")
             // Her hold never holds the game: Bob's phone hears the attack and holds too
             waitUntil("the attackers hold Bob's view") { bob.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
-            // Nor does a double tap (HIS-148: only the main button skips it, TRN-165)
+            // Nor does a double tap, which is the table's own as at any time (HIS-148, TBL-012: only the main button skips it, TRN-165)
             run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
             alice.doubleTapTable()
             run()

@@ -289,8 +289,12 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Response mode").assertExists()
         // TRN-059, TRN-121 (owner playtest 2026-11-12): the three cells stay in their places, Assume resolves greyed while catching up
         compose.onNodeWithContentDescription("Assume resolves setting").assertIsNotEnabled()
+        // TRN-163, TRN-164 (owner 2026-11-19): the main button's place already shows what waits where his playback would rest (Alice's
+        // main phase: her move)
+        assertTrue(bob.shown?.rest != null, "a rest point ahead of what his table shows")
+        compose.onNodeWithTag(QUIET_WAIT_TAG).assertExists()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
-            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana; nothing plays until he taps the text.")
+            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana, and in the main button's place \"Alice's move…\", what waits once he has caught up; nothing plays until he taps the text.")
         compose.onNodeWithTag("centre-action").performClick()
         compose.runOnIdle {
             assertTrue(bob.device.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped }, "the tap started it")

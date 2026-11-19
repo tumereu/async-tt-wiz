@@ -821,7 +821,9 @@ fun cardText(play: TableBoard, cardId: String): String? {
 private fun wayLabel(play: TableBoard, flow: CastShown, way: Input): String = when (way) {
     is Input.Cast -> CastFlow.wayLabel(flow.state.objects.values.firstOrNull { (it.id as? ObjectId.Card)?.card ==
         (way.card as ObjectId.Card).card }?.definition, way) ?: "Cast"
-    is Input.PlayLand -> if (way.face == 0) "Play" else "Play back face"
+    // ZON-108: a land's other face by its name ("Play Ember Crag")
+    is Input.PlayLand -> org.asyncttwiz.automatum.HandCasts.wayName(flow.state.objects.values.firstOrNull { (it.id as? ObjectId.Card)?.card ==
+        (way.card as? ObjectId.Card)?.card }?.definition, way)
     else -> "Cast"
 }
 

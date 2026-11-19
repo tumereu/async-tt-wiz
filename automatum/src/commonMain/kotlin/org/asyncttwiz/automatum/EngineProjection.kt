@@ -95,7 +95,7 @@ object EngineProjection {
             // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it;
             // a copy of a card (offspring, embalm, myriad, …) is drawn with that card's own picture
             val shown = copied(made, base)
-                ?: if (!obj.token || tokenArt === TokenArt.None) made else pictures.getOrPut(obj.id) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
+                ?: if (!obj.token || tokenArt === TokenArt.None) made else kept(pictures, obj.id, made) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
             shown.also { definitions[it.digest] = it }.digest
         }
         fun faceIdOf(obj: GameObject, digest: String): String {
@@ -303,6 +303,21 @@ object EngineProjection {
         return SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
     }
 
+    /**
+     * SYS-072 (owner playtest 2026-11-19, N25): the card data kept in [pictures] for token [id] when it is that of the token
+     * now there ([made], but for its picture), else [find]'s, kept. A token's id comes from the timestamp it was created at
+     * ([arcanum.engine.state.TokenIds]), so after an undo, a rewind or on another branch another token made at the same
+     * point has the same id: it must not be drawn as the one kept before (another token's name, text and picture).
+     */
+    private fun kept(pictures: MutableMap<ObjectId, SubmittedDefinition>, id: ObjectId, made: SubmittedDefinition,
+        find: () -> SubmittedDefinition): SubmittedDefinition {
+        val kept = pictures[id]
+        if (kept != null && kept.definition.copy(faces = kept.definition.faces.map { it.copy(scryfallId = null, imageUri = null) }) == made.definition) return kept
+        if (kept != null) AutomatumLog.mismatch("", "token picture", "Token ${(id as? ObjectId.Card)?.card?.value ?: id} is now " +
+            "${made.definition.name}, kept as ${kept.definition.name}: looked up again")
+        return find().also { pictures[id] = it }
+    }
+
     /** [token] drawn with the picture [tokenArt] finds for it and the card whose effect made it ([by]); as it is when
      * none is found (the plain frame). */
     private fun pictured(token: SubmittedDefinition, by: arcanum.engine.change.CausedBy?, base: PlayState, byCard: Map<String, PlayCard>,
@@ -345,7 +360,19 @@ object EngineProjection {
                 CombatPair(pairId(attacker), listOf(CombatOccurrence(attackId(attacker), attacker)), blockers,
                     attackTarget = target(a.target), blocked = a.blocked)
             }
-            return CombatArea(COMBAT_ID, pairs)
+            // CMB-046 (fault report GL2H6A): a target that ceased to exist (a planeswalker token killed by the combat damage) is
+            // on no zone of the board; its lane keeps the name it last had where everyone saw it
+            val gone = combat.attackers.mapNotNull { a -> ((a.target as? TargetRef.Object)?.id as? ObjectId.Card) }.distinct()
+                .filter { state.obj(it) == null && state.objects.keys.none { o -> o is ObjectId.Card && o.card == it.card } }
+                .mapNotNull { id ->
+                    val name = arcanum.engine.Inspect.lastKnown(state, id)?.characteristics?.name?.takeIf { LastKnown.public(state, id) }
+                    noteOnce("$game/gone/${state.turn.number}/${id.card.value}") {
+                        AutomatumLog.mismatch(game, "combat target gone", "Attack target ${id.card.value} no longer exists: its lane " +
+                            "named ${name ?: "(no last known name)"}, turn ${state.turn.number} ${state.turn.step}")
+                    }
+                    name?.let { id.card.value to it }
+                }.toMap()
+            return CombatArea(COMBAT_ID, pairs, gone)
         }
         // WCRF3Q, R8XVPA: likewise only attackers on the battlefield
         val staged = table.attackDraft?.takeIf { state.turn.step == arcanum.api.TurnStep.DeclareAttackers }
@@ -372,6 +399,15 @@ object EngineProjection {
     }
     @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
     private val loggedStaging = kotlin.concurrent.atomics.AtomicReference<Set<String>>(emptySet())
+
+    /** Runs [note] once per [key] (the last 50 keys kept with [leftOut]'s): a projection runs for every board. */
+    @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+    private fun noteOnce(key: String, note: () -> Unit) {
+        val seen = loggedStaging.load()
+        if (key in seen) return
+        loggedStaging.store((seen + key).toList().takeLast(50).toSet())
+        note()
+    }
 
     private fun suggestion(table: TableState, nodeId: String): AtwSuggestion? {
         val s = table.suggestion ?: return null

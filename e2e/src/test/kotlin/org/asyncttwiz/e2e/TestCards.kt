@@ -371,6 +371,22 @@ object TestCards {
     val reprise = card("Ember Reprise", "Sorcery", "{0}",
         "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand.")
 
+    /** ZON-105, ZON-108 (owner playtest 2026-11-19, N9): an adventurer card whose free Adventure exiles it, from where its creature is
+     * cast (CR 716.3d) through its owner's hand row. */
+    val roamer = TestCard("Ember Roamer // Roaming Errand", listOf(
+        TestFace("Ember Roamer", "Creature — Elemental Scout", "{R}", power = "2", toughness = "1"),
+        TestFace("Roaming Errand", "Sorcery — Adventure", "{0}", "You gain 2 life.")),
+        layout = "adventure")
+
+    /** STK-030 (problem report MDLPM7, Bre of Clan Stoutarm's wording): a free sorcery whose "you may cast that card" concerns
+     * the card it exiled. */
+    val unearthing = card("Ember Unearthing", "Sorcery", "{0}",
+        "Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost.")
+
+    /** CMB-046 (fault report GL2H6A): a free sorcery making a Jace planeswalker token with 1 loyalty (CR 701.71a). */
+    val lesson = card("Ember Lesson", "Sorcery", "{0}", "Empower Jace 1. (Put a loyalty counter on a Jace token you control. If you " +
+        "don't control one, first create a blue Jace planeswalker token with \"[−1]: Surveil 1\" and \"[−3]: Draw a card.\")")
+
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
     val pathCrag = TestCard("Ember Path // Ember Crag", listOf(
         TestFace("Ember Path", "Instant", "{1}{R}", "Draw a card."),

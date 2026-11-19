@@ -340,10 +340,6 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     // STK-058: drawn here unless the caller draws them over its overlays (drawPileBadges)
     if (pileBadges) pileBadges(this@with, scene)
     val landing = tableDragLanding(scene, preview)
-    for ((b, insertionX) in listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands) {
-        drawRect(OwnTableColor.copy(alpha = .18f), xy(b.x, b.y), size(b.width, b.height))
-        insertionX?.let { x -> drawLine(OwnTableColor, xy(x, b.y + 3), xy(x, b.bottom - 3), 2 * density) }
-    }
     for (b in landing.outlines) {
         drawRoundRect(OwnTableColor.copy(alpha = .08f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(2 * density))
         drawRoundRect(OwnTableColor.copy(alpha = .5f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(2 * density),

@@ -4,9 +4,9 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.CombatInsertion
 import org.asyncttwiz.protocol.CombatRole
 
-data class TableDragLanding(val outlines: List<TableBounds> = emptyList(),
-    val hand: TableBounds? = null, val insertionX: Float? = null,
-    val additionalHands: List<Pair<TableBounds, Float?>> = emptyList())
+/** Where a drag would land, drawn under it: the outlines it lights up. A hand is never a landing (ZON-081: hands never
+ * reorder, and a card dropped into its own hand returns, ZON-134), so dragging over one marks nothing. */
+data class TableDragLanding(val outlines: List<TableBounds> = emptyList())
 
 /** Uses the same snapped destination and captured relative positions as the move adapter. */
 fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDragLanding {
@@ -16,8 +16,7 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
     if (destinations.size > 1 || destinations.keys.singleOrNull()?.let { it != destination } == true) {
         val landings = destinations.map { (target, ids) -> tableDragLanding(scene, preview.copy(
             scope = TableScope(scope.contextId.takeIf { it in ids } ?: ids.first(), ids), destination = target)) }
-        val hands = landings.flatMap { landing -> listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands }
-        return TableDragLanding(landings.flatMap { it.outlines }, hands.firstOrNull()?.first, hands.firstOrNull()?.second, hands.drop(1))
+        return TableDragLanding(landings.flatMap { it.outlines })
     }
     val ids = scope.cardIds
     return when (destination) {
@@ -27,12 +26,9 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
             ?.let { card -> scene.fields.firstOrNull { it.containerId == card.viewport } }?.bounds))
         is TableDestination.Container -> {
             val item = scene.items.firstOrNull { it.id == destination.id } ?: return TableDragLanding()
-            if (destination.zone == PlayZone.HAND) {
-                val right = destination.handGap?.beforeId?.let { id -> scene.items.firstOrNull { it.cardId == id } }
-                val left = destination.handGap?.afterId?.let { id -> scene.items.firstOrNull { it.cardId == id } }
-                val x = right?.bounds?.x?.minus(2) ?: left?.bounds?.right?.plus(2) ?: item.bounds.center.x
-                TableDragLanding(hand = item.bounds, insertionX = x.coerceIn(item.bounds.x + 2, item.bounds.right - 2))
-            } else {
+            // ZON-081 (owner playtest 2026-11-19, N16): no tint or insertion line over a hand, which never reorders
+            if (destination.zone == PlayZone.HAND) TableDragLanding()
+            else {
                 val step = if (destination.zone == PlayZone.STACK) item.bounds.width * .12f else 4f
                 val x = item.bounds.x + if (destination.zone == PlayZone.STACK) 2 * step else 8f
                 val y = item.bounds.y + if (destination.zone == PlayZone.STACK) 2 * step else 8f

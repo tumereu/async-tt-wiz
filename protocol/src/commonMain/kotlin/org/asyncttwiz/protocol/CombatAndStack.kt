@@ -21,7 +21,10 @@ import kotlinx.serialization.Serializable
     fun withSide(role: CombatRole, cards: List<CombatOccurrence>) =
         if (role == CombatRole.ATTACKER) copy(attackers = cards) else copy(blockers = cards)
 }
-@Serializable data class CombatArea(val id: String, val pairs: List<CombatPair> = emptyList())
+@Serializable data class CombatArea(val id: String, val pairs: List<CombatPair> = emptyList(),
+    /** CMB-046 (fault report GL2H6A): the names of attack targets that no longer exist anywhere (a planeswalker token that
+     * died, CR 111.7, 704.5d), by card id, as they last were (CR 608.2h), for their lanes' "<name> (gone)". */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val goneTargets: Map<String, String> = emptyMap())
 /** Only disappearance retains card data. Live effects never cache fields or a creation-time snapshot. */
 @Serializable data class StackEffect(val id: String, val sourceId: String, val frozen: PlayCard? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val controller: String? = null,

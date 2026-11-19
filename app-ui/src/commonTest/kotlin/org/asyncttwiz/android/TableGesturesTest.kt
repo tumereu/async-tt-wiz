@@ -533,6 +533,18 @@ class TableGesturesTest {
         assertTrue(tableDragLanding(scene, TableGesturePreview(scope = scope)).outlines.isEmpty())
     }
 
+    // ZON-081, ZON-002 (owner playtest 2026-11-19, N16): a hand never reorders, so a card dragged over a hand marks nothing
+    // there (no tint, no insertion line), wherever in the hand it would go
+    @Test fun aDragOverAHandMarksNoLanding() {
+        val scene = TableFixture.scene(TableFixture.play(board = 2))
+        val hand = scene.items.first { it.zone == PlayZone.HAND && it.kind != TableItemKind.CARD }
+        val scope = TableScope("a/BATTLEFIELD/0", listOf("a/BATTLEFIELD/0"))
+        for (gap in listOf(null, org.asyncttwiz.protocol.IdentityGap(afterId = "a/BATTLEFIELD/1"))) {
+            val preview = TableGesturePreview(scope = scope, destination = TableDestination.Container(hand.id, PlayZone.HAND, handGap = gap))
+            assertEquals(TableDragLanding(), tableDragLanding(scene, preview), "$gap")
+        }
+    }
+
     // TBL-004
     @Test fun transformedLandsBandsStillTargetRowZero() {
         for (zoom in listOf(.65f, 1f, 2f)) for (pan in listOf(-12f, 0f, 12f)) for (owner in listOf("a", "b")) {

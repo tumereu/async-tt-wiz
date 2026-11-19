@@ -222,8 +222,9 @@ object CombatStackPresentation {
             val label = when {
                 target == null -> name
                 hidden -> "Face-down card"
-                gone -> "${face?.name ?: unnamedTarget(targetCard?.id)} (gone)"
-                else -> face?.name ?: unnamedTarget(targetCard?.id)
+                // CMB-046 (fault report GL2H6A): a target no longer anywhere (a planeswalker token killed in the combat) by its last name
+                gone -> "${face?.name ?: area.goneTargets[target] ?: unnamedTarget(target, area)} (gone)"
+                else -> face?.name ?: unnamedTarget(target, area)
             }
             val value = when {
                 target == null -> board.players.firstOrNull { it.accountId == defender }?.life.orEmpty()
@@ -429,6 +430,7 @@ object CombatStackPresentation {
     }
 }
 
-/** The stand-in of an attack target whose card data is missing (a fault: reported). */
-private fun unnamedTarget(card: String?): String =
-    Faults.placeholder("CombatStackPresentation", "attack target without its card's name", "Card", mapOf("card" to card.toString()))
+/** The stand-in of attack target [card] whose card data is missing (a fault: reported, with the [area]'s pairs). */
+private fun unnamedTarget(card: String?, area: org.asyncttwiz.protocol.CombatArea): String =
+    Faults.placeholder("CombatStackPresentation", "attack target without its card's name", "Card", mapOf("card" to card.toString(),
+        "gone" to area.goneTargets.toString(), "pairs" to area.pairs.joinToString { "${it.attackers.map { a -> a.sourceId }} → ${it.attackTarget}" }))

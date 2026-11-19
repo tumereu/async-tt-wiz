@@ -91,4 +91,23 @@ class EngineSharedFlowTest {
         assertTrue(answered.stack.isEmpty())
         assertEquals(PlayerId(alice), answered.priority.holder, "the active player gets priority after a resolution")
     }
+    // STK-030 (owner playtest 2026-11-19, N18; problem report MDLPM7), CR 608.2c: "You may cast that card" asked as the spell
+    // resolves concerns the card its earlier step exiled: its resolution has named it, so the choice's "About:" can show it
+    @Test fun aMayAskedWhileResolvingKnowsTheCardItsEarlierStepExiled() {
+        val unearthing = arcanum.engine.cards.Cards.invent("Unearthing Gaze", "{0}", "Sorcery",
+            "Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost.")
+        val (found) = table.put(alice, Zone.Library, "Glance Ahead")
+        table.put(bob, Zone.Library, "Island")
+        val (spell) = table.put(alice, Zone.Hand, unearthing)
+        val state = table.state()
+        val cast = CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(spell).first(), CastFlow.Seeds(table::seed)).sending(null).cast.working
+        val resolving = table.flow(table.flow(cast).pass(alice).working).pass(bob).working
+        val flow = table.flow(resolving)
+        assertIs<Decision.May>(flow.decision)
+        val item = assertNotNull(flow.top)
+        val named = SharedFlow.resolutionObjects(flow.state, item.id)
+        assertEquals(listOf(found), named.mapNotNull(flow::atwCard), "the exiled card: $named")
+        assertEquals(Zone.Exile, flow.state.obj(named.single())?.zone)
+        assertEquals(emptyList(), SharedFlow.resolutionObjects(cast, item.id), "not resolving yet")
+    }
 }

@@ -503,15 +503,19 @@ object HandCasts {
     /** The name of [input] on its chip: "Play" (or "Play <face>") for a land, "Cast" for the plain cast, else the way
      * ([CastFlow.wayLabel]) with its mana symbols left to the chip's cost. */
     fun wayName(definition: CardDefinition?, input: Input): String = when (input) {
-        is Input.PlayLand -> if (input.face == 0) "Play" else definition?.faces?.getOrNull(input.face)?.name?.let { "Play $it" } ?: "Play back face"
+        is Input.PlayLand -> if (input.face == 0) "Play" else definition?.faces?.getOrNull(input.face)?.name?.let { "Play $it" }
+            ?: org.asyncttwiz.protocol.Faults.placeholder("CastFlow", "land face without its name", "Play",
+                mapOf("card" to (definition?.faces?.joinToString(" // ") { it.name } ?: "?"), "face" to "${input.face}"))
         is Input.Cast -> {
             val way = input.way
             val parts = mutableListOf<String>()
             if (way.fused) CastFlow.fusedName(definition)?.let { parts += it }
             else if (way.face != 0) definition?.faces?.getOrNull(way.face)?.name?.let { parts += it }
-            way.alternative?.let { origin -> parts += CastFlow.abilityText(definition, origin)?.let(::withoutSymbols)?.ifBlank { null } ?: "Alternative cost" }
-            // ZON-079: a card's own permission by its keyword ("Flashback"), another's plainly
-            if (way.permission != null) parts += CastFlow.permissionText(definition, input)?.let(::withoutSymbols)?.ifBlank { null } ?: "With permission"
+            way.alternative?.let { origin -> parts += CastFlow.abilityText(definition, origin)?.let(::withoutSymbols)?.ifBlank { null }
+                ?: CastFlow.unnamedWay("alternative cost without its ability's text", definition, input) }
+            // ZON-107, ZON-108 (owner playtest 2026-11-19, N9): a card's own permission by its keyword ("Flashback"); any other
+            // (an Adventure's card cast from exile, another object's permission) adds nothing: a plain "Cast" from that zone
+            CastFlow.permissionPart(definition, input)?.let { parts += withoutSymbols(it).ifBlank { it } }
             parts.joinToString(" · ").ifEmpty { "Cast" }
         }
         // A special action or an ability from the hand: its keyword ("Plot", "Foretell", "Cycling", "Swampcycling") or the

@@ -287,5 +287,23 @@ class SharedFlow private constructor(
          */
         fun of(state: GameState, board: BoardState, gameId: String, seeds: () -> String): SharedFlow =
             SharedFlow(board) { EngineRun.of(state, board, gameId, seeds) }
+
+        /**
+         * STK-030 (owner playtest 2026-11-19, N18; problem report MDLPM7): the objects Stack item [item]'s resolution has
+         * named so far, which a choice asked while it resolves may be about ("You may cast that card …": the card its earlier
+         * step exiled, CR 608.2c): the objects (and object targets) bound by its costs and its committed steps, in the order
+         * they were bound, each once. Empty when [state] isn't resolving [item].
+         */
+        fun resolutionObjects(state: GameState, item: ObjectId): List<ObjectId> {
+            val resolving = generateSequence(state.pending?.continuation) { it.then }
+                .filterIsInstance<arcanum.engine.decision.Continuation.Resolving>().firstOrNull { it.item == item } ?: return emptyList()
+            return resolving.names.values.values.flatMap { value ->
+                when (value) {
+                    is arcanum.engine.state.NamedValue.Objects -> value.ids
+                    is arcanum.engine.state.NamedValue.Targets -> value.refs.filterIsInstance<TargetRef.Object>().map { it.id }
+                    else -> emptyList()
+                }
+            }.distinct()
+        }
     }
 }

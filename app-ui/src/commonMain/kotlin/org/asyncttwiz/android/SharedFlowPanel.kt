@@ -33,6 +33,7 @@ import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.Dispatchers
 import org.asyncttwiz.automatum.Divisions
+import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
 
@@ -286,14 +287,37 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedShown, play: 
     val item = decisionItem(flow, decision)
     val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
     val source = decisionSource(flows, flow, play, viewer, decision)
-    // UI review #5: which objects the choice is about, e.g. the creature that died
-    val about = item?.let { (it.event?.objects.orEmpty().flatMap { r -> r.ids } +
-        it.targets.values.flatten().filterIsInstance<TargetRef.Object>().map { t -> t.id }).distinct() - setOfNotNull(sourceCard) }.orEmpty()
+    val about = remember(decision.id, flow.state) { aboutObjects(flows, flow, decision) }
+    LaunchedEffect(decision.id) {
+        if (about.isNotEmpty() || item != null) AppLog.info("decision", "Choice ${decision.id.value} (${decision.kind}) about " +
+            about.joinToString(prefix = "[", postfix = "]") { "${flows.atwCard(it) ?: it}${if (flows.shown(it)) "" else " (hidden)"}" } +
+            " of item ${item?.id}: event ${item?.event?.objects.orEmpty().flatMap { it.ids }}, targets ${item?.targets?.values?.flatten()}, " +
+            "named by its resolution ${item?.let { SharedFlow.resolutionObjects(flow.state, it.id) }.orEmpty()}")
+    }
+    DecisionPanelContent(flows, flows.hidden, flows::toggleHidden, play, names, decision, source,
+        askedLine(flows, flow, play, decision, source), about, otherName.takeIf { forOther })
+}
+
+/**
+ * STK-030, UI review #5: the objects an open choice of a resolution or a trigger is about ("About:"): what it triggered on
+ * and its targets, then what its resolution has named so far that the viewer may see (owner playtest 2026-11-19, N18,
+ * problem report MDLPM7: "You may cast that card …" names the card its earlier step exiled), never its source nor the
+ * choice's own options (drawn as the choice already); one card once.
+ */
+private fun aboutObjects(flows: SharedFlowController, flow: SharedShown, decision: Decision): List<ObjectId> {
+    val item = decisionItem(flow, decision) ?: return emptyList()
+    val sourceCard = item.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
+    val options: Set<ObjectId> = when (decision) {
+        is Decision.ChooseObjects -> decision.options.toSet()
+        is Decision.Targets -> decision.options.filterIsInstance<TargetRef.Object>().map { it.id }.toSet()
+        else -> emptySet()
+    }
+    val named = SharedFlow.resolutionObjects(flow.state, item.id).filter { it !in options && it != item.id && flows.shown(it) }
+    return ((item.event?.objects.orEmpty().flatMap { r -> r.ids } +
+        item.targets.values.flatten().filterIsInstance<TargetRef.Object>().map { t -> t.id } + named).distinct() - setOfNotNull(sourceCard))
         // One card once: an object that changed zones is the same card (its earlier object can't be shown any more)
         .groupBy { flows.atwCard(it) ?: it.toString() }.filterKeys { it != sourceCard?.let(flows::atwCard) }
         .values.map { same -> same.firstOrNull(flows::shown) ?: same.first() }
-    DecisionPanelContent(flows, flows.hidden, flows::toggleHidden, play, names, decision, source,
-        askedLine(flows, flow, play, decision, source), about, otherName.takeIf { forOther })
 }
 
 /**

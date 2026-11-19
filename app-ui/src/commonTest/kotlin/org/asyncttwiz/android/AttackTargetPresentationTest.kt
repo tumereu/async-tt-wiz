@@ -51,6 +51,31 @@ class AttackTargetPresentationTest {
         }
     }
 
+    // CMB-046 (fault report GL2H6A): a target that no longer exists anywhere (a planeswalker token the combat damage killed) keeps
+    // its lane, named as it last was, "(gone)", without a value; nothing is reported. Without its last name it is the reported stand-in
+    @Test fun aTargetThatCeasedToExistKeepsItsLaneByItsLastName() {
+        val initial = TableFixture.play(board = 1, library = 0)
+        val reported = mutableListOf<Fault>()
+        val sink = Faults.sink
+        Faults.sink = { reported += it }
+        try {
+            fun lane(gone: Map<String, String>): CombatLaneLabel {
+                val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
+                    CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")), attackTarget = "token-1")),
+                    goneTargets = gone)))
+                return TablePresentation.scene(TableFixture.game, tableBoard(state), "a", 412f, 892f, false)
+                    .combatLabels.single { it.cardId == "token-1" }
+            }
+            val named = lane(mapOf("token-1" to "Jace Token"))
+            assertEquals("Jace Token (gone)", named.label)
+            assertEquals("", named.value)
+            assertEquals(emptyList(), reported)
+            assertEquals("Card (gone)", lane(emptyMap()).label)
+            assertEquals(listOf("CombatStackPresentation: attack target without its card's name"), reported.map { it.key }.distinct())
+            assertEquals("token-1", reported.first().details["card"])
+        } finally { Faults.sink = sink }
+    }
+
     // CMB-012
     @Test fun groupingKeepsOneRowPerRoleAndReservedLabelsAndBoldLaneBoundaries() {
         val original = attackTargetState()

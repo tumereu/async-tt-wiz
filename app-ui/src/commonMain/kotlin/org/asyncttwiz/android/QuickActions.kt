@@ -232,7 +232,8 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             val mainButton: @Composable (Modifier) -> Unit = { place -> Box(place.shaken(mainShakes)) {
                 if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {
                     pressed(main.label); own { main.run(); true } }, controller.enabled(scope) || panelMain != null, Modifier.fillMaxWidth(), ::taken)
-                else if (arrow) AutomatumStepArrow(board, controller.enabled(scope), Modifier.fillMaxWidth(),
+                // TRN-164, TRN-165: while playback is behind its rest point, a press skips there first (made there when it may act)
+                else if (arrow) AutomatumStepArrow(board, controller.enabled(scope) || real?.rest == true, Modifier.fillMaxWidth(),
                     onHold = { press(says, true, endTurn) },
                     onResolveHold = resolveChain?.let { chain -> { press(says, true, chain) } },
                     blocked = blocked,

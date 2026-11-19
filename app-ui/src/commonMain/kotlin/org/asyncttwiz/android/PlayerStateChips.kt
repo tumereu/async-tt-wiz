@@ -53,9 +53,10 @@ import org.asyncttwiz.automatum.StateChip
 import org.asyncttwiz.automatum.StateGlyph
 import org.asyncttwiz.automatum.StateIcon
 
-/** One state chip where it lies: [chip] by its label, or, for a "+N" chip ([hidden] not empty), the states it stands for. */
+/** One state chip where it lies: [chip] by its label, or, for a "+N" chip ([hidden] not empty), the states it stands for;
+ * ZON-136: the other player's playable chip with its cards ([playable], [OtherPlayableChip]). */
 data class PlacedStateChip(val label: String, val bounds: TableBounds, val chip: StateChip? = null,
-    val hidden: List<StateChip> = emptyList())
+    val hidden: List<StateChip> = emptyList(), val playable: List<OtherPlayableChip.Shown> = emptyList())
 
 /** Where a player's round chips lie (TRN-072, TRN-053, TRN-069): their states' ([states], the dungeon room first) and their
  * emblems' ([emblems], as [EmblemChips.shown] reads them). */
@@ -135,7 +136,9 @@ private fun PlacedStateChip.explained(): Pair<List<arcanum.api.RulesGlossary.Ent
 @Composable
 fun StateChipsOverlay(scene: TableScene) {
     for (life in scene.items.filter { it.kind == TableItemKind.LIFE && it.stateChips.isNotEmpty() && it.visible.isNotEmpty() }) key(life.id) {
-        for (placed in life.stateChips) key(placed.label) { StateChipView(placed) }
+        for (placed in life.stateChips) key(placed.label) {
+            if (placed.playable.isNotEmpty()) OtherPlayableChipView(placed) else StateChipView(placed)
+        }
     }
     scene.dayNightChip?.let { placed -> key(placed.label) { StateChipView(placed) } }
 }

@@ -315,7 +315,7 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                           drawRoundRect(tint, xy(x - 1f, y - 1f), size(cardWidth + 2f, cardHeight + 2f), CornerRadius(3 * density),
                               style = Stroke(2f * density))
                       }
-                      if (i.copies > 1) {
+                      if (i.copies > 1 && i.countCorner == null) {
                           val label = "×${i.copies}"
                           // TBL-053: a battlefield stack's count badge is sized with its card (a panel's keeps its size)
                           val s = if (i.zone == PlayZone.BATTLEFIELD && i.viewport != "combat") z * .7f else 1f
@@ -328,6 +328,19 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                       }
                      paint.textSize = 11 * density
                      outlines(i, TableBounds(x, y, cardWidth, cardHeight), card = true, glowScale = glowScale)
+                 }
+                 // TBL-054 (owner, 2026-11-19): while some of a stack's members are tapped its count reads untapped/total,
+                 // upright, at the bottom-left corner of the stack's bottom card (the whole stack's, TBL-177), over its top card
+                 i.countCorner?.let { corner ->
+                     val label = "${i.copies - i.stackTapped}/${i.copies}"
+                     val s = z * .7f
+                     paint.textSize = 11 * s * density
+                     val badgeWidth = cache.measure(label) / density + 6f * s
+                     drawRoundRect(color, xy(corner.x, corner.bottom - 16f * s), size(badgeWidth, 16f * s), CornerRadius(3 * s * density))
+                     paint.color = NativeColors.WHITE
+                     text(label, corner.x + 3f * s, corner.bottom - 4f * s, label.length)
+                     paint.color = NativeColors.DKGRAY
+                     paint.textSize = 11 * density
                  }
             }
         }

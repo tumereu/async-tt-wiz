@@ -413,6 +413,31 @@ class CardStatesTest {
     private val shotPlay = withEmblems(f.initial)
     private fun allStates() = board(shotPlay) { playerStates(); dungeon() }
 
+    // ZON-136 (owner playtest 2026-11-19, N17): a card Bob may cast from his graveyard shows as a cyan "▶1" chip in his row of round
+    // chips on Alice's table, and a tap on it lists the card with its zone; Alice's own row has none
+    @Test fun theOtherPlayersPlayableCardsAtAGlance() {
+        val grave = f.initial.board.cards.first { it.containerId == f.id("b/GRAVEYARD") }
+        val table = board {
+            val card = id(grave)
+            setup.effects[EffectId("may")] = EffectObject(EffectId("may"), listOf(Mechanic.MayPlay(Zone.Graveyard, arcanum.api.PlayKind.Cast)),
+                arcanum.api.Affected.Objects(arcanum.api.Objects.Bound("affected")), locked = listOf(card), source = card,
+                controller = PlayerId(f.b), timestamp = 900, createdTurn = turn.number, duration = Duration.EndOfTurn)
+        }
+        val scene = scene(table)
+        val chip = scene.items.single { it.id == "life/${f.b}" }.stateChips.single { it.playable.isNotEmpty() }
+        val name = f.initial.definitions.single { it.digest == grave.definition }.definition.faces.single().name
+        assertEquals(listOf(name to "Graveyard"), chip.playable.map { it.name to it.zone })
+        assertEquals("Bob may play 1 card from other zones", chip.label)
+        assertTrue(scene.items.single { it.id == "life/${f.a}" }.stateChips.none { it.playable.isNotEmpty() }, "none on Alice's own row")
+        render(f.initial, table)
+        compose.onNode(hasTestTag(OtherPlayableChip.TAG)).performClick()
+        compose.waitForIdle()
+        compose.onNode(hasTestTag(OtherPlayableChip.LIST_TAG)).assertExists()
+        captureShot("$SCREENSHOTS/states/other-playable.png",
+            "Bob may cast a card from his graveyard: on Alice's table a round chip edged in cyan with \"▶1\" sits in his row of round chips; " +
+                "Alice tapped it and a list names the card with its picture and \"Graveyard\".")
+    }
+
     // TRN-072, TRN-073, TRN-053, TRN-069: with chips, emblems and a dungeon together
     @Test fun playerChipsPortrait() {
         render(shotPlay, allStates())

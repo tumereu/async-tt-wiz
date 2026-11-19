@@ -405,6 +405,12 @@ object TestCards {
     val lesson = card("Ember Lesson", "Sorcery", "{0}", "Empower Jace 1. (Put a loyalty counter on a Jace token you control. If you " +
         "don't control one, first create a blue Jace planeswalker token with \"[−1]: Surveil 1\" and \"[−3]: Draw a card.\")")
 
+    /** SYS-206 (owner playtest 2026-11-19, N24): a free creature with a free prepare spell (CR 723), which it prepares itself for {0}. */
+    val adept = TestCard("Ember Adept // Ember Mending", listOf(
+        TestFace("Ember Adept", "Creature — Elemental Wizard", "{0}", "{0}: This creature becomes prepared.", "1", "1"),
+        TestFace("Ember Mending", "Sorcery", "{0}", "You gain 2 life.")),
+        layout = "prepare")
+
     /** A modal double-faced card, an instant with a land for a back (STK-041). */
     val pathCrag = TestCard("Ember Path // Ember Crag", listOf(
         TestFace("Ember Path", "Instant", "{1}{R}", "Draw a card."),

@@ -14,7 +14,10 @@ Adding a set to Arcanum: follow [set-work/README.md](set-work/README.md).
   (`OracleParser.layout`, `OracleParser.parseCard`) and nothing left to the players (`CardSupport.manualParts`), the check
   behind a host's "fully supported" mark. Un-cards, online-only and rebalanced printings are skipped; reprints are
   checked once. Reads the sets from the pinned MTGJSON file. Prints every unsupported card with the parts left to the
-  players and fails when there is any. `./scripts/gradle.sh :arcanum-tools:setSupport [-Psets=LTR,BLB]`
+  players and fails when there is any. It also checks the rules reminders (`GlossaryCoverage.kt`): every rules word a card's
+  data lists among its keywords (keyword abilities and actions, token kinds such as Food or "Role token"; ability and flavor
+  words aside) must have a plain-words explanation in `RulesGlossary` that its text is found to name, and it fails listing
+  each gap: set work adds the explanations its set's new words need. `./scripts/gradle.sh :arcanum-tools:setSupport [-Psets=LTR,BLB]`
 - `manaCheck`: castability over every card of the supported sets, from the same pinned file (never committed): each mana ability must pay
   for a small spell through a payment by hand on a test board, each cost reducer is tried on test boards; all are listed in
   `build/arcanum/mana-check.tsv` (`pays` / `FAILS`, `lowers` / `look`: a reducer whose condition the boards don't meet is to be read, not a

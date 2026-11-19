@@ -68,11 +68,15 @@ fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: Scro
     PodCardArtPreview(card, definition?.shownName ?: cardDataUnavailable("PodPickArtPreview", copy.definition), scroll = scroll)
 }
 
-/** Inspect outside a game (TBL-104): every face of [card] while held ([fallback] names a card without card data). */
+/** Inspect outside a game (TBL-104): every face of [card] while held ([fallback] names a card without card data), with its
+ * rules reminders explained under it (TBL-200, TBL-201). */
 @Composable
 fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
     // Shown only while a finger holds a card; that finger's release closes it.
-    InspectPopup(inspectTiles(card, fallback), scroll)
+    val group = remember(card, fallback) {
+        InspectGroup("card", inspectTiles(card, fallback), reminders = card?.definition?.let(::cardReminders).orEmpty())
+    }
+    InspectPopup(listOf(group), scroll)
 }
 
 /** Screen-wide owner of the single open card menu: simultaneous taps leave only the latest open. */

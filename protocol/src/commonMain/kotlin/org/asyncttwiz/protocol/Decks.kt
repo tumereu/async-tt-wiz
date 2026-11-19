@@ -204,7 +204,7 @@ object DeckCategories {
         val found = mutableSetOf<String>()
         val queue = ArrayDeque(ids.filter { id -> all.any { it.id == id } })
         while (queue.isNotEmpty()) {
-            val next = queue.removeFirst()
+            val next = queue.removeAt(0)
             if (found.add(next)) children[next].orEmpty().forEach { queue.add(it.id) }
         }
         return found

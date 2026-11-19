@@ -227,4 +227,54 @@ class GameCleanupTest {
         assertFalse(m.exists())
     }
 
+    // LOB-261 (owner, 2026-11-19): a game request answered 30 days ago or more is deleted with its outbox notice and its request
+    // identity; never one other rows name (a chat message's, the play's start), one whose answer still waits to be sent, or
+    // one still waiting for its answer. The game goes on, and a status read of a deleted request finds it unknown.
+    @Test fun `answered game requests go 30 days after their answer`() = HistoryWorld.run { w ->
+        val a = w.account("ReqAlice"); val b = w.account("ReqBob")
+        val m = w.Match(a, b)
+        m.start()
+        val keep = m.aliceKeeps()
+        m.alice.accepted(GameAction.SendChat("first"))
+        val unsent = m.bob.execute(GameAction.EngineSeen(keep)).requestId
+        val settings = m.bob.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(
+            mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl))).requestId
+        fun ids(statement: String) = w.sql { sql ->
+            sql.fetch(statement.replace("?", "'${m.id}'::uuid")).mapNotNull { it.get(0, UUID::class.java) } }.toSet()
+        val answered = ids("SELECT request_id FROM game_inbox WHERE game_id = ? AND result IS NOT NULL")
+        val named = ids("SELECT id FROM game_chat WHERE game_id = ? UNION SELECT start_request_id FROM game_play WHERE game_id = ?" +
+            " UNION SELECT ended_request_id FROM game_play WHERE game_id = ?")
+        assertEquals(2, named.size, "the chat message and the play's start")
+        // Every answer was sent but Bob's seen report's
+        w.execute("UPDATE game_outbox SET published = (request_id <> ?)", UUID.fromString(unsent))
+        val otherIdentities = w.number("SELECT count(*) FROM request_identity WHERE kind <> 'gameCommand'")
+        // Activity every 10 days keeps the game (LOB-133)
+        repeat(2) { w.clock.advance(Duration.ofDays(10)); m.alice.accepted(GameAction.SendChat("still there?")) }
+        w.execute("UPDATE game_outbox SET published = true WHERE request_id <> ?", UUID.fromString(unsent))
+        w.clock.advance(Duration.ofDays(10).minus(minute))
+        assertEquals(0, w.cleanup.run().deletedRequests, "answered 30 days ago less a minute")
+        w.clock.advance(minute)
+        val gone = answered - named - UUID.fromString(unsent)
+        assertTrue(UUID.fromString(settings) in gone)
+        assertEquals(gone.size, w.cleanup.run().deletedRequests)
+        val left = ids("SELECT request_id FROM game_inbox WHERE game_id = ?")
+        assertTrue(left.none { it in gone })
+        assertTrue(left.containsAll(named), "chat messages and the play's start keep theirs")
+        assertTrue(UUID.fromString(unsent) in left, "an answer not yet sent")
+        assertEquals(0L, w.number("SELECT count(*) FROM game_outbox WHERE request_id = ANY(?::uuid[])", gone.toTypedArray()))
+        assertEquals(0L, w.number("SELECT count(*) FROM request_identity WHERE id = ANY(?::uuid[])", gone.toTypedArray()))
+        assertEquals(otherIdentities, w.number("SELECT count(*) FROM request_identity WHERE kind <> 'gameCommand'"), "other requests stay")
+        assertEquals("unknown", w.games.results(b, m.game.id, listOf(settings)).statuses.single().status)
+        // The game goes on; a request still waiting for its answer stays however old
+        m.bobKeeps()
+        val waiting = m.bob.command(GameAction.EngineSeen(keep))
+        w.games.admit(b, m.bob.hello, m.bob.connection, waiting)
+        w.clock.advance(Duration.ofDays(40))
+        w.execute("UPDATE game SET activity_at = ?::timestamptz WHERE id = ?", w.clock.instant.toString(), m.id)
+        w.execute("UPDATE game_outbox SET published = true")
+        assertTrue(w.cleanup.run().deletedRequests > 0)
+        assertEquals("pending", w.games.results(b, m.game.id, listOf(waiting.requestId)).statuses.single().status)
+        assertTrue(m.exists())
+    }
+
 }

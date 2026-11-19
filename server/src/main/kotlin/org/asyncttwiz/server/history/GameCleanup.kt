@@ -12,9 +12,14 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.activity.ActivityService
 import org.asyncttwiz.server.database.OwnershipFailure
 import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.GameChat.GAME_CHAT
+import org.asyncttwiz.server.generated.tables.GameInbox.GAME_INBOX
+import org.asyncttwiz.server.generated.tables.GameOutbox.GAME_OUTBOX
+import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.Pod.POD
 import org.asyncttwiz.server.generated.tables.PodChat.POD_CHAT
 import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER
+import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
@@ -22,7 +27,7 @@ import org.jooq.impl.DSL
 
 /**
  * The automatic cleanup (game history spec §4), run every hour: deletes old games and pods with everything that belongs
- * to them, never the history records.
+ * to them, never the history records; and old answered game requests.
  *
  * - A finished game (back in its lobby after a match) whose last match ended [FINISHED] ago or more, with no activity since,
  *   is deleted (§4.1).
@@ -32,6 +37,8 @@ import org.jooq.impl.DSL
  *   the game rules.
  * - [WARNING] before that, at day 11 of 14, both players of a game in play and every member of a pod get one warning
  *   (§4.5); any activity resets the clock and allows another warning later.
+ * - LOB-261 (owner, 2026-11-19): a game request answered [REQUESTS] ago or more is deleted with its outbox notice and its
+ *   request identity ([deleteRequests]): a device resends a request only until it learns the answer, within one run of the app.
  *
  * Activity (§4.4) is a game's `activity_at` (each change by a player: [org.asyncttwiz.server.game.GameService]) and a pod's
  * `updated_at` (each change by a member saves the pod), its chat's newest message or its games' activity, whichever is latest.
@@ -42,7 +49,7 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
 
     /** What one run did: the games and pods warned and deleted. */
     data class Run(val warnedGames: Int = 0, val warnedPods: Int = 0, val deletedGames: Int = 0, val deletedPods: Int = 0,
-        val unfinished: Int = 0)
+        val unfinished: Int = 0, val deletedRequests: Int = 0)
 
     /** Every hour, the first ten minutes after the start (a restart never deletes at once). */
     fun start() {
@@ -74,6 +81,10 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
             result = result.copy(deletedGames = result.deletedGames + deleted, unfinished = result.unfinished + unfinished)
         }
         while (true) { val n = transaction { deletePods(it, now) }; if (n == 0) break; result = result.copy(deletedPods = result.deletedPods + n) }
+        while (true) {
+            val n = transaction { deleteRequests(it, now) }; if (n == 0) break
+            result = result.copy(deletedRequests = result.deletedRequests + n)
+        }
         return result
     }
 
@@ -136,7 +147,33 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
         return pods.size
     }
 
+    /**
+     * LOB-261: a batch of the game requests answered [REQUESTS] ago or more, deleted, each with its outbox notice and its
+     * request identity, so a status read of one finds it unknown, as one never sent. Never a request still waiting for its
+     * answer, one whose answer still waits to be sent (its outbox notice unpublished), or one other rows name: a chat
+     * message's (its id is its request's), a play's start or end. Returns how many were deleted.
+     */
+    private fun deleteRequests(sql: DSLContext, now: OffsetDateTime): Int {
+        val requests = sql.select(GAME_INBOX.REQUEST_ID).from(GAME_INBOX)
+            .where(GAME_INBOX.ANSWERED_AT.le(now.minus(REQUESTS)))
+            .andNotExists(sql.selectOne().from(GAME_OUTBOX).where(GAME_OUTBOX.REQUEST_ID.eq(GAME_INBOX.REQUEST_ID))
+                .and(GAME_OUTBOX.PUBLISHED.eq(false)))
+            .andNotExists(sql.selectOne().from(GAME_CHAT).where(GAME_CHAT.ID.eq(GAME_INBOX.REQUEST_ID)))
+            .andNotExists(sql.selectOne().from(GAME_PLAY).where(GAME_PLAY.START_REQUEST_ID.eq(GAME_INBOX.REQUEST_ID)
+                .or(GAME_PLAY.ENDED_REQUEST_ID.eq(GAME_INBOX.REQUEST_ID))))
+            .orderBy(GAME_INBOX.ANSWERED_AT).limit(REQUEST_BATCH).forUpdate().of(GAME_INBOX).skipLocked()
+            .fetch(GAME_INBOX.REQUEST_ID).map { it!! }
+        if (requests.isEmpty()) return 0
+        sql.deleteFrom(GAME_OUTBOX).where(GAME_OUTBOX.REQUEST_ID.`in`(requests)).execute()
+        sql.deleteFrom(GAME_INBOX).where(GAME_INBOX.REQUEST_ID.`in`(requests)).execute()
+        sql.deleteFrom(REQUEST_IDENTITY).where(REQUEST_IDENTITY.ID.`in`(requests)).and(REQUEST_IDENTITY.KIND.eq("gameCommand")).execute()
+        return requests.size
+    }
+
     companion object {
+        /** LOB-261: an answered game request is deleted this long after its answer. */
+        val REQUESTS: Duration = Duration.ofDays(30)
+        private const val REQUEST_BATCH = 1000
         /** §4.1: a finished game goes this long after its last match ended, without activity since. */
         val FINISHED: Duration = Duration.ofDays(7)
         /** §4.2, 4.3: any other game, and a pod, goes after this long without activity. */

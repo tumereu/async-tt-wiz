@@ -185,12 +185,12 @@ object ServerSetup {
      * DeckChoiceRequestsTest was seen failing once with a bare "Deck request failed" right after the database's reset, the
      * server's log quiet: no refusal), the same request each time; a refusal fails at once, naming its code.
      */
-    fun deck(account: TestAccount, deck: TestDeck): SavedDeck {
+    fun deck(account: TestAccount, deck: TestDeck, category: String? = null): SavedDeck {
         val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
             SavedDeckSection.MAYBEBOARD to deck.maybe)
         // As a phone saves it: the cards by printing, in one request (the server builds their card data)
         val request = CreateDeck(UUID.randomUUID().toString(), deck.name,
-            sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } })
+            sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } }, category = category)
         repeat(3) { attempt ->
             try { return DeckApi(origin).use { api -> runBlocking { api.create(account.token, request) } } }
             catch (failure: org.asyncttwiz.android.DeckFailure) {
@@ -270,6 +270,20 @@ object ServerSetup {
 
     /** The name the server holds for pod [id]. */
     fun podName(a: TestAccount, id: String): String = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id).name } }
+
+    /** LOB-244: a new top-level deck category [name] of [account]'s. */
+    fun category(account: TestAccount, name: String): DeckCategory = DeckApi(origin).use { api -> runBlocking {
+        api.createCategory(account.token, CreateDeckCategory(UUID.randomUUID().toString(), name)).categories.single { it.name == name }
+    } }
+
+    /** [account]'s ordinary saved decks, as the server lists them. */
+    fun decks(account: TestAccount): List<DeckSummary> = DeckApi(origin).use { api -> runBlocking { api.list(account.token).decks } }
+
+    /** A game [name] of [a] (the inviter) and [b], invited, the invitation not answered yet. */
+    fun invite(a: TestAccount, b: TestAccount, name: String): GameSummary = lobbyCall { api ->
+        api.add(a.token, AddContact(UUID.randomUUID().toString(), b.id))
+        api.create(a.token, CreateInvitation(UUID.randomUUID().toString(), b.id, name))
+    }
 
     /** A game [name] of [a] (the inviter) and [b], invited and accepted, in its lobby with no deck chosen yet. */
     fun invitation(a: TestAccount, b: TestAccount, name: String): GameSummary {

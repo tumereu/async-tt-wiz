@@ -256,10 +256,10 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
                      choose = controller::starter)
                 }
                 // LOB-135: the game's assume reveal settings, below Starting player
-                val settings: @Composable () -> Unit = { GameSettingsCard(game, accountId, controller::assumeReveals,
+                val settings: @Composable () -> Unit = { GameSettingsCard(game, accountId,
                     // LOB-247: the Decks group, changed by the creator in the lobby
                     DeckSettingsAccess(state.lendCategories, controller::loadLendCategories, controller::deckSettings),
-                    decksEnabled = game.lifecycle == GameLifecycle.LOBBY && state.preparation != null) }
+                    decksEnabled = game.lifecycle == GameLifecycle.LOBBY && state.preparation != null, change = controller::assumeReveals) }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     own(Modifier.weight(1f))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { opponent(Modifier.fillMaxWidth()); starter(); settings() }

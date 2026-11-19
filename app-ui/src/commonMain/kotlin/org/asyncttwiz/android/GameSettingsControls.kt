@@ -97,7 +97,7 @@ fun DeckSettingsGroup(game: GameSummary, accountId: String, access: DeckSettings
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(host, onClickLabel = "Choose decks to lend") { access.load(); lendDialog = true }
             .testTag("lend-decks").semantics(mergeDescendants = true) { contentDescription = "$lendLabel: $lendValue" },
             verticalAlignment = Alignment.CenterVertically) {
-            Text(lendLabel, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            SettingsLabel(lendLabel, modifier = Modifier.weight(1f))
             Text(lendValue, Modifier.padding(start = 12.dp).widthIn(max = 200.dp), style = MaterialTheme.typography.bodyMedium,
                 color = if (host) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -109,7 +109,7 @@ fun DeckSettingsGroup(game: GameSummary, accountId: String, access: DeckSettings
         RevealSwitch(GameSettingsText.SAME_DECK, GameSettingsText.SAME_DECK_MEANING, settings.sameDeck, host && lending, "same-deck") {
             access.change(settings.copy(sameDeck = it)) }
         Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-            Text(GameSettingsText.DECK_CHOICE, style = MaterialTheme.typography.bodyMedium)
+            SettingsLabel(GameSettingsText.DECK_CHOICE)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(!settings.random, { access.change(settings.copy(random = false)) }, { Text(GameSettingsText.EACH_PICKS) },
                     enabled = host && lending, modifier = Modifier.testTag("deck-choice-each"))
@@ -166,8 +166,8 @@ private fun RevealSwitch(label: String, meaning: String, on: Boolean, enabled: B
 /** LOB-135: the lobby's Game settings card, below Starting player; LOB-247: its Decks group ([decks], in a game that isn't
  * a pod's). */
 @Composable
-fun GameSettingsCard(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit, decks: DeckSettingsAccess? = null,
-    decksEnabled: Boolean = true) {
+fun GameSettingsCard(game: GameSummary, accountId: String, decks: DeckSettingsAccess? = null, decksEnabled: Boolean = true,
+    change: (AssumeReveals) -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Game settings", style = MaterialTheme.typography.titleSmall)

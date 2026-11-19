@@ -1,0 +1,1 @@
+Portrait lobby of a Random battle box for the invited player: both decks read "Dealt at random when the game starts", there is no Choose deck, and Ready can be pressed.

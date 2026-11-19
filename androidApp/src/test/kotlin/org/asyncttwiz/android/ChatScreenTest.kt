@@ -45,7 +45,13 @@ class ChatScreenTest {
         lobby.seed(lobby.state.copy(selected = game.id, detail = game, chatOpen = true, chatLoaded = true,
             chat = ChatPresentation(messages = IndexedChatMessages().upsert((1..count).map { message(it) }))))
         compose.setContent {
+            // The selection menu opens only after the platform's text classification of the selection, which runs on
+            // Dispatchers.IO by default: waitForIdle doesn't wait for it, so on a loaded machine the menu came after the
+            // assertion. On the composition's test dispatcher it runs within the test's clock and waitForIdle covers it.
+            val testDispatcher = androidx.compose.runtime.rememberCoroutineScope()
+                .coroutineContext[kotlin.coroutines.ContinuationInterceptor]!!
             androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.foundation.text.selection.LocalTextClassifierCoroutineContext provides testDispatcher,
                 androidx.compose.foundation.text.contextmenu.provider.LocalTextContextMenuToolbarProvider provides menu) {
                 ChatPanel(lobby, "a", contentInsets = WindowInsets(bottom = keyboardHeight.intValue))
             }

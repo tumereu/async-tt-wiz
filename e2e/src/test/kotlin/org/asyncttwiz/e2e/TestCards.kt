@@ -383,6 +383,24 @@ object TestCards {
     val unearthing = card("Ember Unearthing", "Sorcery", "{0}",
         "Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost.")
 
+    /** STK-212, HIS-231 (problem report MDLPM7, Kirol, Attentive First-Year's wording): a free artifact copying a trigger of yours. */
+    val kindler = card("Ember Kindler", "Artifact", "{0}",
+        "{0}: Copy target triggered ability you control. You may choose new targets for the copy.")
+
+    /** STK-212, STK-030 (problem report MDLPM7, Bre of Clan Stoutarm's wording): a free creature whose enters trigger exiles cards until a
+     * nonland card and offers to cast it, drawn with a picture of its own. */
+    val forager = card("Ember Forager", "Creature — Elemental", "{0}",
+        "When this creature enters, exile cards from the top of your library until you exile a nonland card. You may cast that card " +
+            "without paying its mana cost.", "1", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Forager".encodeToByteArray()).toString())
+
+    /** STK-121, HIS-231 (problem report MDLPM7): a free enchantment copying every artifact spell its controller casts. */
+    val echoer = card("Ember Echoer", "Enchantment", "{0}",
+        "Whenever you cast an artifact spell, copy that spell. (A copy of a permanent spell becomes a token.)")
+
+    /** STK-121: a free artifact with a picture of its own, for its spell's copy. */
+    val bauble = card("Ember Bauble", "Artifact", "{0}", "{1}, {T}: You gain 1 life.",
+        scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Bauble".encodeToByteArray()).toString())
+
     /** CMB-046 (fault report GL2H6A): a free sorcery making a Jace planeswalker token with 1 loyalty (CR 701.71a). */
     val lesson = card("Ember Lesson", "Sorcery", "{0}", "Empower Jace 1. (Put a loyalty counter on a Jace token you control. If you " +
         "don't control one, first create a blue Jace planeswalker token with \"[−1]: Surveil 1\" and \"[−3]: Draw a card.\")")

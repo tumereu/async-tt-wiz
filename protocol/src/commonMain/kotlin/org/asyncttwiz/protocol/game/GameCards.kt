@@ -50,7 +50,7 @@ object GameCards {
     fun parse(card: GameCard, parse: (Layout, List<OracleCard>) -> CardDefinition = OracleParser::parseCard): Parsed =
         when (val printed = printed(card)) {
             is Printed.Card -> try {
-                val definition = parse(printed.layout, printed.faces)
+                val definition = identified(parse(printed.layout, printed.faces), card)
                 Parsed(definition, definition.faces.sumOf { face -> face.abilities.count { it is Ability.Unparsed } })
             } catch (error: RuntimeException) {
                 // The parser throws on printed values it can't read (a type line, a mana cost).
@@ -58,6 +58,50 @@ object GameCards {
             }
             is Printed.Unreadable -> Parsed(null, problem = printed.problem)
         }
+
+    /**
+     * MDLPM7: [definition] (parsed from [card]) with each face's identity ([arcanum.api.FaceDefinition.identity]): the card data
+     * and its face the face was printed on ([identity]), so every copy the engine makes of it says which card it shows ([of]).
+     * Parts sharing one physical face (a split card's halves, an adventurer's Adventure, a prepare spell) are that face.
+     */
+    fun identified(definition: CardDefinition, card: GameCard, digest: String = org.asyncttwiz.protocol.DeckJson.digest(card)): CardDefinition {
+        val shared = card.faces.singleOrNull()?.parts?.isNotEmpty() == true
+        return definition.copy(faces = definition.faces.mapIndexed { i, face ->
+            face.copy(identity = identity(digest, if (shared) 0 else i.coerceAtMost(card.faces.lastIndex).coerceAtLeast(0)))
+        })
+    }
+
+    /** The identity of face [face] (its index) of the card data [digest]. */
+    fun identity(digest: String, face: Int): String = "$digest#$face"
+
+    /** D9: [definition] (parsed from [card], [identified]) with each face identified by its printing instead ([printing]): a card
+     * made by its name from the card records (CR 707.12) isn't among the game's card data, so every device draws it by its
+     * printing. A face without a printing keeps its identity. */
+    fun byPrinting(definition: CardDefinition, card: GameCard): CardDefinition = definition.copy(faces = definition.faces.map { face ->
+        val index = of(face.identity)?.second ?: return@map face
+        val printing = card.faces.getOrNull(index)?.scryfallId ?: return@map face
+        face.copy(identity = printing(printing, index))
+    })
+
+    /** The identity of face [face] of a card of the card records known only by its printing [scryfallId] (a card made by its name,
+     * CR 707.12, whose card data isn't the game's): its picture is that printing's. */
+    fun printing(scryfallId: String, face: Int): String = "$PRINTING$scryfallId#$face"
+
+    /** The printing and face index a [printing] identity names, or null when it is none. */
+    fun printingOf(identity: String?): Pair<String, Int>? {
+        if (identity == null || !identity.startsWith(PRINTING)) return null
+        val at = identity.lastIndexOf('#').takeIf { it > PRINTING.length } ?: return null
+        return identity.substring(PRINTING.length, at) to (identity.substring(at + 1).toIntOrNull() ?: return null)
+    }
+
+    private const val PRINTING = "printing:"
+
+    /** The card data digest and face index an identity names ([identity]), or null when it names none. */
+    fun of(identity: String?): Pair<String, Int>? {
+        if (identity == null || identity.startsWith(PRINTING)) return null
+        val at = identity.lastIndexOf('#').takeIf { it > 0 } ?: return null
+        return identity.substring(0, at) to (identity.substring(at + 1).toIntOrNull() ?: return null)
+    }
 
     private fun face(face: DefinitionFace, token: Boolean) = OracleCard(
         name = face.name,

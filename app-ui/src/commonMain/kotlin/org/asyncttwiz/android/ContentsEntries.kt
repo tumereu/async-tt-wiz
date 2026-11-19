@@ -31,10 +31,12 @@ fun contentsEntries(state: TableBoard, pile: PileContents, viewer: String, searc
         val location = card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() }
             ?: Faults.placeholder("ContentsEntries", "card without its place", "Unavailable", mapOf("card" to id))
         val ability = if (visible && effect != null) StackAbilities.of(state, id, viewer) else null
-        ContentsEntry(id, if (visible) ability?.name ?: face?.shownName ?: unavailableCard(id) else "Card back",
+        // D7 (owner 2026-11-19): a copy of a spell reads "Copy of …" as a copied ability does
+        val copy = effect?.isCopy == true
+        ContentsEntry(id, if (visible) ability?.name ?: face?.shownName?.let { if (copy) "Copy of $it" else it } ?: unavailableCard(id) else "Card back",
             if (visible) contentsCategory(face?.typeLine.orEmpty()) else "Cards",
             (if (pile.ordered) "${index + 1} · " else "") + location +
-                when { effect?.frozen != null -> " · Retained effect"; effect != null -> " · Effect"; else -> "" },
+                when { copy -> " · Copy"; effect?.frozen != null -> " · Retained effect"; effect != null -> " · Effect"; else -> "" },
             faceVisible = visible, ability = ability)
     }.filter { !it.faceVisible || it.name.contains(search, ignoreCase = true) }
     return if (pile.ordered) entries else entries.sortedWith(contentsOrder)

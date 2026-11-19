@@ -144,6 +144,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val CART = "Ember Cart"
         /** TBL-117: a free artifact with a mana ability and another one: "{T}: Add {R}." and "{2}: You gain 1 life." */
         const val LANTERN = "Ember Lantern"
+        /** STK-212 (problem report MDLPM7, Kirol, Attentive First-Year's wording): a free artifact copying a trigger of its controller's. */
+        const val KINDLER = "Ember Kindler"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -206,6 +208,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("elders", Choices.ELDERS, "Creature — Human Citizen", "Tap two untapped creatures you control: Add one mana of any color.", "1", "1"),
         free("fork", Choices.FORK, "Artifact", "{T}: Add {R} or {U}."),
         free("lantern", Choices.LANTERN, "Artifact", "{T}: Add {R}.\n{2}: You gain 1 life."),
+        free("kindler", Choices.KINDLER, "Artifact", "{0}: Copy target triggered ability you control. You may choose new targets for the copy."),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
             rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),

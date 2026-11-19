@@ -1231,7 +1231,7 @@ internal object Actions {
             val of = e.objects(spec.objects).firstOrNull()
             val values = of?.let { copiedForToken(act, it)?.takeIf { v -> v.faces.isNotEmpty() } }
                 ?: of?.let { e.characteristics(it) }?.let { c -> arcanum.engine.state.CopiableValues.of(FaceDefinition(c.name ?: "Copy", c.manaCost, c.colors,
-                    c.supertypes, c.types, c.subtypes, c.power?.let { arcanum.api.PrintedNumber.Fixed(it) }, c.toughness?.let { arcanum.api.PrintedNumber.Fixed(it) })) }
+                    c.supertypes, c.types, c.subtypes, c.power?.let { arcanum.api.PrintedNumber.Fixed(it) }, c.toughness?.let { arcanum.api.PrintedNumber.Fixed(it) }, identity = c.identity)) }
             values?.let { arcanum.engine.view.Copiable.exceptions(it, spec.except) }
         }
     }

@@ -82,7 +82,8 @@ fun namedCardDefinition(cards: List<CatalogCard>, metadata: org.asyncttwiz.stora
     } ?: return null
     val definition = org.asyncttwiz.protocol.PhysicalCardFaces.normalize(
         org.asyncttwiz.storage.ResolvedDeckEntry(org.asyncttwiz.storage.DeckSection.MAINBOARD, 1, card.faces, emptyList()).definition(metadata))
-    return org.asyncttwiz.protocol.game.GameCards.parse(definition).definition
+    // D9 (MDLPM7): its faces name its printing, so its copy is drawn with its picture on every device
+    return org.asyncttwiz.protocol.game.GameCards.parse(definition).definition?.let { org.asyncttwiz.protocol.game.GameCards.byPrinting(it, definition) }
 }
 
 /** The cards a named card's search brings: the card, its printings' variants. */

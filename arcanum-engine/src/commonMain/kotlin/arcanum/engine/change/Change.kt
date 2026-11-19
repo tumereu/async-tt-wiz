@@ -476,8 +476,9 @@ sealed interface GameEvent {
     @Serializable @SerialName("die") data class DieRolled(val player: PlayerId, val sides: Int, val results: List<Int>) : GameEvent
     /** [player] searched [library]'s library (CR 701.23). */
     @Serializable @SerialName("searched") data class Searched(val player: PlayerId, val library: PlayerId) : GameEvent
-    /** [player] copied the spell [copy] (CR 707.10). */
-    @Serializable @SerialName("copied") data class Copied(val player: PlayerId, val copy: ObjectId) : GameEvent
+    /** [player] copied the spell or ability [copy] (CR 707.10), by the effect of [by] (the copier: the object whose ability or
+     * spell made the copy; null when none). */
+    @Serializable @SerialName("copied") data class Copied(val player: PlayerId, val copy: ObjectId, val by: ObjectId? = null) : GameEvent
     /** [player] is the starting player (CR 103.1), chosen by [chooser] (null: given). */
     @Serializable @SerialName("starting-player") data class StartingPlayer(val player: PlayerId, val chooser: PlayerId?) : GameEvent
     /** [player] took their [count]th mulligan (CR 103.5). */
@@ -552,6 +553,8 @@ sealed interface Meaning {
     @Serializable @SerialName("fizzled") data object Fizzled : Meaning
     @Serializable @SerialName("activated") data object Activated : Meaning
     @Serializable @SerialName("triggered") data object Triggered : Meaning
+    /** A copy of a spell or ability put on the Stack (CR 707.10): neither cast, activated nor triggered. */
+    @Serializable @SerialName("copied") data object Copied : Meaning
     /** Put into a graveyard from the battlefield (CR 700.4). */
     @Serializable @SerialName("died") data object Died : Meaning
     @Serializable @SerialName("destroyed") data object Destroyed : Meaning

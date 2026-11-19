@@ -35,6 +35,9 @@ class CatalogTokenArt(private val repository: () -> CardCatalog) : TokenArt {
                     else -> "$id (${printing.name} of ${printing.set} ${printing.number})"
                 })
                 if (id.isNotEmpty()) TokenPictures.found(id, token.face.name)
+                // Owner rule (2026-11-19, N25): a picture missing once the card records answered is a fault, reported with what was asked
+                else org.asyncttwiz.protocol.Faults.report("CatalogTokenArt", "token without a picture in the card records",
+                    mapOf("token" to describe(token), "typeLine" to token.face.typeLine, "found" to (printing?.let { "${it.name} ${it.set} ${it.number}" } ?: "none")))
                 id
             }.ifEmpty { null }
         }

@@ -62,6 +62,14 @@ class TurnBannerTest {
         assertNull(TurnBanners.of(transition(event("e", newTurn()), undone = EngineGame.Undone("a", null, null))), "an undo")
     }
 
+    // TRN-074 (review 171522fa63-a): after an own move lost a race, the newest turn change among the events new to the player
+    @Test fun aCorrectedBoardNamesTheNewestTurnChange() {
+        val change = TurnBanners.corrected(7, listOf(event("e", newTurn()), event("f", Change.Step(turn(4, b), turn(4, b).copy(step = TurnStep.Upkeep)))))
+        assertEquals("b" to "e", change?.player to change?.event?.id)
+        assertEquals(listOf("e", "f"), change?.forward)
+        assertNull(TurnBanners.corrected(7, listOf(event("f", Change.Step(turn(3, a), turn(3, a).copy(step = TurnStep.Upkeep))))))
+    }
+
     private val entry = ObjectId.Card(CardId("c"), 0)
     private fun play(event: String) = GameDevice.PlayShow(event, b, entry, GameDevice.PlayKind.Triggered, CardId("c"))
 

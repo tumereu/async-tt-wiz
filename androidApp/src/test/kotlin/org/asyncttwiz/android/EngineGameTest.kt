@@ -87,6 +87,24 @@ class EngineGameTest {
         assertTrue(game.device.session.pending.isEmpty(), "her keep isn't made again")
     }
 
+    // TRN-074 (review 171522fa63-a): Alice and Bob keep at the same moment and his keep reaches the server first: her phone drops
+    // her keep, takes his and makes hers again on it, which begins her first turn. The board jumps there (nothing animates back,
+    // SYS-009) and, as that is no undo, the turn banner shows her turn
+    @Test fun aTurnChangeAfterAnOwnMoveLostARaceShowsItsBanner() {
+        val game = alice()
+        game.tick(1_000)
+        assertIs<GameDevice.Acted.Sent>(game.keep())
+        assertNull(game.shown?.turnChange, "no turn yet: Bob hasn't kept")
+        val ownKeep = game.device.session.pending.single().id
+        game.revision(f.revision(f.keep, 2, mapOf(f.a to f.start.id, f.b to f.keep.id)))
+        val shown = assertNotNull(game.shown)
+        assertTrue(shown.line.none { it.id == ownKeep } && shown.line.first().id == f.keep.id, "her keep made again on his")
+        assertEquals(1, shown.engine.turn.number)
+        assertTrue(shown.transition?.jump == true && shown.transition?.undone == null, "a jump, no undo")
+        assertEquals(f.a, assertNotNull(shown.turnChange, "the turn banner").player)
+        assertTrue(AppLog.text().lines().any { "lost a race" in it && "turn banner for ${f.a.take(8)}" in it }, "logged")
+    }
+
     // SYS-012, SYS-139 (problem report N7FU6Y; owner 2026-11-08): an own action the server refuses for any other reason (the
     // engine's) is never a silent snap back: it shakes (no note text) what it was made on, here the main button (a keep),
     // and the app log says once which board was taken back and why

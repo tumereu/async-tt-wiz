@@ -1,0 +1,1 @@
+fix: A damage division you give early in the first-strike damage step is no longer used again in the regular damage step; you are asked again there.

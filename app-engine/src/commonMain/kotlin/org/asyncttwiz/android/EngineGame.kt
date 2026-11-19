@@ -708,9 +708,36 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val transition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
             forward, backward, steps)
         lastTransition = transition
-        TurnBanners.of(transition)?.let { lastTurnChange = it }
+        // TRN-074 (review 171522fa63-a): the board corrected after the player's own move lost a race is a jump, yet no undo:
+        // a turn change among the events new to them shows its banner
+        val corrected = if (!loaded && before != null && from == null && to != null && undoing == null) corrected(before, line, to) else null
+        (TurnBanners.of(transition) ?: corrected?.let { events ->
+            TurnBanners.corrected(transition.serial, events).also { change ->
+                AppLog.info("game", "Board corrected after own events lost a race (shown ${before?.nodeId?.take(8)}, now ${tip.take(8)}): " +
+                    "${events.size} events new to the player, ${change?.let { "turn banner for ${it.player.take(8)}" } ?: "no turn change among them"}")
+            }
+        })?.let { lastTurnChange = it }
         pt = ptAfter
         loaded = false
+    }
+
+    /**
+     * TRN-074 (review 171522fa63-a): the events of [line] up to [to] new to the player when the board shown before ([before],
+     * off [line]) was their own move that lost a race to the server: the line shown before back to its last event still on
+     * [line], every event after that on [line]. Null when [before] isn't on the line shown before or anything but the player's
+     * own events was dropped (a branch or rewind of the other player's: their take-back shows instead). Engine thread.
+     */
+    private fun corrected(before: TableBoard, line: List<GameEvent>, to: Int): List<GameEvent>? {
+        val old = lastShown?.line ?: return null
+        val at = old.indexOfFirst { it.id == before.nodeId }.takeIf { it >= 0 } ?: return null
+        val ids = line.mapTo(HashSet()) { it.id }
+        var common = at
+        while (common >= 0 && old[common].id !in ids) common--
+        val dropped = old.subList(common + 1, at + 1)
+        if (dropped.isEmpty() || dropped.any { it.author != me }) return null
+        val from = if (common >= 0) line.indexOfFirst { it.id == old[common].id }
+            else if (old.first().parentId == device.session.lineStart) -1 else return null
+        return line.subList(from + 1, to + 1).toList()
     }
 
     /**

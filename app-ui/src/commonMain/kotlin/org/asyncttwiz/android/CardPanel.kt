@@ -129,7 +129,7 @@ fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, panels: List
             owner = card.owner, zone = containers[card.containerId]?.zone, kind = TableItemKind.CARD,
             viewport = panel.viewport.id, cardId = card.id, covered = !row.entry.faceVisible,
             artwork = art,
-            corner = if (row.entry.faceVisible) effectiveCorner(card) else "",
+            corner = if (row.entry.faceVisible) card.corner else "",
             damage = if (row.entry.faceVisible) card.damage else "",
             copies = row.copies, token = card.token,
             // ZON-094: the state a card has in exile first, as on the battlefield (TBL-133)

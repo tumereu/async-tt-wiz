@@ -403,4 +403,30 @@ class AttackTargetPresentationTest {
         assertEquals(original.board.combat, drag.board.combat)
         assertEquals(original.board.cards, drag.board.cards)
     }
+
+    // CMB-058, CMB-028 (owner, 2026-11-17: "Shift should not happen even for 2+ lanes"): with attackers in two lanes (the player's
+    // and a planeswalker's) none of them moves when the declaration ends and the slots go: each lane keeps its room, so the band
+    // keeps its width and the table centres it at the same place (TablePresentation: (width of the table - band) / 2), and every
+    // copy keeps its place
+    @Test fun attackersInTwoLanesStayPutWhenTheSlotsGo() {
+        val original = attackTargetState()
+        val area = original.board.combat!!
+        val state = original.copy(board = original.board.copy(combat = area.copy(pairs = area.pairs.mapIndexed { n, pair ->
+            pair.copy(attackTarget = if (n == 1) null else combatId(80)) })))
+        val attacker = combatId(7)
+        fun band(slots: Boolean) = CombatStackPresentation.combat(state.board, 48f, 68f, state.definitions,
+            mapOf(combatId(8) to "Bob"), viewer = attacker, attackerSlots = slots)
+        val staging = band(true)
+        val declared = band(false)
+        assertEquals(2, state.board.combat!!.pairs.map { it.attackTarget }.distinct().size, "attackers in two lanes")
+        assertTrue(staging.slots.any { it.role == CombatRole.ATTACKER })
+        assertTrue(declared.slots.none { it.role == CombatRole.ATTACKER })
+        assertEquals(staging.width, declared.width, .001f, "the band keeps its width")
+        assertEquals(staging.lanes.map { it.bounds }, declared.lanes.map { it.bounds })
+        assertEquals(staging.cards.associate { it.viewId to it.bounds }, declared.cards.associate { it.viewId to it.bounds })
+        // The defender's band is the same, mirrored (CMB-007)
+        val defender = CombatStackPresentation.combat(state.board, 48f, 68f, state.definitions, mapOf(combatId(8) to "Bob"),
+            viewer = combatId(8))
+        assertEquals(declared.width, defender.width, .001f)
+    }
 }

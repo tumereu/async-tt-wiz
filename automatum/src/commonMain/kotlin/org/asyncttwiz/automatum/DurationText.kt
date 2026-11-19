@@ -15,6 +15,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import arcanum.engine.view.View
+import org.asyncttwiz.protocol.Faults
 
 /**
  * TBL-104 (owner, 2026-11-07): how long an effect object lasts, in concrete words for Inspect, read from the effect's
@@ -22,12 +23,16 @@ import arcanum.engine.view.View
  * Ember Herald leaves the battlefield"), card ("until Ember Herald is cast") or condition ("as long as you control it":
  * a suspended creature's haste, CR 702.62a). [viewer] reads "you"; [names] names the other players by account. A card
  * [viewer] may not see is "a card" (I-D27). [about] is the card being inspected: it reads "it".
+ *
+ * LOB-090 (owner rule 2026-11-11): words standing in for what the effect's data doesn't say ("its controller's", "its
+ * condition holds", a player without a name) are reported as placeholders while the text is [shown] to a player.
  */
 internal class DurationText(
     private val state: GameState,
     private val view: View,
     private val viewer: String,
     private val names: Map<String, String> = emptyMap(),
+    private val shown: Boolean = true,
 ) {
     /** [effect]'s duration as a phrase ("until end of turn"); null when it lasts indefinitely. */
     fun of(effect: EffectObject, about: ObjectId? = null): String? = of(effect.duration, effect, about)
@@ -36,26 +41,32 @@ internal class DurationText(
     fun of(duration: Duration, effect: EffectObject?, about: ObjectId? = null): String? = when (duration) {
         Duration.EndOfTurn -> "until end of turn"
         Duration.EndOfCombat -> "until end of combat"
-        Duration.UntilYourNextTurn -> "until ${possessive(effect?.controller, "its controller's")} next turn"
-        Duration.UntilEndOfYourNextTurn -> "until the end of ${possessive(effect?.controller, "its controller's")} next turn"
+        Duration.UntilYourNextTurn -> "until ${possessive(effect?.controller, "its controller's", effect)} next turn"
+        Duration.UntilEndOfYourNextTurn -> "until the end of ${possessive(effect?.controller, "its controller's", effect)} next turn"
         is Duration.UntilStep -> "until ${stepOwner(duration.whose, effect)} next ${stepName(duration.step)}"
         is Duration.ThroughNextStep ->
-            "until after ${possessive(effect?.let { players(duration.whose, it).singleOrNull() }, "its controller's")} next ${stepName(duration.step)}"
+            "until after ${possessive(effect?.let { players(duration.whose, it).singleOrNull() }, "its controller's", effect)} next ${stepName(duration.step)}"
         is Duration.AsLongAs -> "as long as " + (effect?.let { condition(duration.condition, it, about) }
-            ?: effect?.source?.let(::name)?.let { "$it's condition holds" } ?: "its condition holds")
+            ?: generic(effect?.source?.let(::name)?.let { "$it's condition holds" } ?: "its condition holds",
+                "duration condition without its words", effect))
         is Duration.UntilLeaves -> {
             val what = effect?.let { subject(duration.objects, it, about) }
-            if (what == null) "until the card that made it leaves the battlefield"
+            if (what == null) generic("until the card that made it leaves the battlefield", "duration without what leaves", effect)
             else "until ${what.first} ${if (what.second) "leave" else "leaves"} the battlefield"
         }
         is Duration.UntilCast -> {
             val what = effect?.let { subject(duration.objects, it, about) }
-            if (what == null) "until the exiled card is cast" else "until ${what.first} ${if (what.second) "are" else "is"} cast"
+            if (what == null) generic("until the exiled card is cast", "duration without what is cast", effect)
+            else "until ${what.first} ${if (what.second) "are" else "is"} cast"
         }
         is Duration.UntilEndOfNextTurnOf ->
-            "until the end of ${possessive(effect?.let { players(duration.players, it).singleOrNull() }, "that player's")} next turn"
+            "until the end of ${possessive(effect?.let { players(duration.players, it).singleOrNull() }, "that player's", effect)} next turn"
         Duration.Indefinitely -> null
     }
+
+    /** [words] standing in for what [effect]'s data doesn't say ([what] it lacks): reported while the text is [shown]. */
+    private fun generic(words: String, what: String, effect: EffectObject?): String =
+        if (!shown) words else Faults.placeholder("DurationText", what, words, mapOf("effect" to (effect?.id?.toString() ?: "none")))
 
     /** The condition of a "for as long as" duration, or null when it isn't one these words cover. */
     private fun condition(condition: Condition, effect: EffectObject, about: ObjectId?): String? = when (condition) {
@@ -90,7 +101,8 @@ internal class DurationText(
             }
         }
         is ObjectFilter.Is -> (filter.objects as? Objects.Remembered)?.let {
-            "$who ${if (plural) "are" else "is"} the last card exiled with ${effect.source?.let(::name) ?: "its source"}"
+            "$who ${if (plural) "are" else "is"} the last card exiled with " +
+                (effect.source?.let(::name) ?: generic("its source", "duration without its source's name", effect))
         }
         is ObjectFilter.And -> filter.all.map { filter(it, who, plural, effect) ?: return null }.joinToString(" and ")
         else -> null
@@ -107,9 +119,11 @@ internal class DurationText(
     /** Whose step an "until" names: "your", "Bob's", "the" (anyone's). */
     private fun stepOwner(filter: PlayerFilter, effect: EffectObject?): String = when (filter) {
         PlayerFilter.Any -> "the"
-        PlayerFilter.You -> possessive(effect?.controller, "its controller's")
-        PlayerFilter.Opponent -> possessive(effect?.let { opponents(it.controller).singleOrNull() }, "an opponent's")
-        is PlayerFilter.Is -> possessive(effect?.let { players(filter.players, it).singleOrNull() }, "the")
+        PlayerFilter.You -> possessive(effect?.controller, "its controller's", effect)
+        // With several opponents (or players) "an opponent's" ("the") is the right word, not a stand-in
+        PlayerFilter.Opponent -> possessive(effect?.let { opponents(it.controller).singleOrNull() }, "an opponent's", effect,
+            standIn = effect == null)
+        is PlayerFilter.Is -> possessive(effect?.let { players(filter.players, it).singleOrNull() }, "the", effect, standIn = effect == null)
         else -> "the"
     }
 
@@ -154,13 +168,17 @@ internal class DurationText(
     private fun opponents(of: PlayerId): List<PlayerId> = state.players.map { it.id }.filter { it != of }
 
     /** "you", the player's name or "the opponent". */
-    private fun player(id: PlayerId): String = if (id.value == viewer) "you" else names[id.value] ?: "the opponent"
+    private fun player(id: PlayerId): String = if (id.value == viewer) "you" else named(id)
 
-    /** "your", "Bob's", or [unknown] when there is no one player. */
-    private fun possessive(id: PlayerId?, unknown: String): String = when {
-        id == null -> unknown
+    /** The player's name in [names], or "the opponent" (reported while [shown]). */
+    private fun named(id: PlayerId): String = names[id.value]
+        ?: if (shown) PlayerNames.of(names, id.value, "the opponent", "DurationText") else "the opponent"
+
+    /** "your", "Bob's", or [unknown] when there is no one player ([standIn]: reported as a stand-in while [shown]). */
+    private fun possessive(id: PlayerId?, unknown: String, effect: EffectObject?, standIn: Boolean = true): String = when {
+        id == null -> if (standIn) generic(unknown, "duration without its player", effect) else unknown
         id.value == viewer -> "your"
-        else -> "${names[id.value] ?: "the opponent"}'s"
+        else -> "${named(id)}'s"
     }
 
     /** The object or its card's latest object. */

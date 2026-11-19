@@ -35,6 +35,7 @@ import org.asyncttwiz.storage.UnpackedCatalog
 class BrowserCatalogController(storage: BrowserStorage, origin: String, private val expected: String?,
     private val scope: CoroutineScope) : CardRecordsController {
     private val records = BrowserCardRecords()
+    private val keptForLaterVisits = storage.database != null
     override val repository: BrowserCardRecords get() = records
     private val installer = BrowserCatalogInstaller(records, BrowserCatalogDownloads(origin),
         storage.database?.let { IndexedDbCatalogFiles(it) } ?: MemoryCatalogFiles(), ::unpackCatalog,
@@ -81,7 +82,11 @@ class BrowserCatalogController(storage: BrowserStorage, origin: String, private 
                     if (!closed) state = state.copy(progress = progress, failed = false)
                 }
             }
-            if (!closed) state = CatalogUiState(installed, ready = true)
+            // WEB-009: without IndexedDB (some private windows) or with the file refused, the records last this visit only
+            val kept = keptForLaterVisits && installer.kept
+            if (!kept) AppLog.warn("catalog", "Card records couldn't be kept in this browser " +
+                "(${if (keptForLaterVisits) "its storage refused them" else "no IndexedDB"}); they download again next visit")
+            if (!closed) state = CatalogUiState(installed, ready = true, kept = kept)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -114,14 +119,15 @@ internal class BrowserCatalogDownloads(private val origin: String) : CatalogDown
     }
 }
 
-/** The kept catalog file in IndexedDB: the gzip file as a Blob under its checksum, and which one is installed. */
+/** The kept catalog file in IndexedDB: the gzip file as a Blob under its checksum, and which one is installed. A request
+ * the browser refuses throws [BrowserStorageRefused] (the installer then downloads again, or uses the file for this visit). */
 internal class IndexedDbCatalogFiles(private val database: JsAny) : CatalogFiles<JsAny> {
-    override suspend fun installed(): String? = idbGet(database, BrowserStorage.CATALOG, INSTALLED).await<JsAny?>()?.let(::jsText)
-    override suspend fun read(checksum: String): JsAny? = idbGet(database, BrowserStorage.CATALOG, FILE + checksum).await()
+    override suspend fun installed(): String? = idbGet(database, BrowserStorage.CATALOG, INSTALLED).awaitStorage<JsAny?>()?.let(::jsText)
+    override suspend fun read(checksum: String): JsAny? = idbGet(database, BrowserStorage.CATALOG, FILE + checksum).awaitStorage()
     override suspend fun install(checksum: String, file: JsAny) {
-        idbReplace(database, BrowserStorage.CATALOG, FILE + checksum, file, INSTALLED, checksum).await<JsAny?>()
+        idbReplace(database, BrowserStorage.CATALOG, FILE + checksum, file, INSTALLED, checksum).awaitStorage<JsAny?>()
     }
-    override suspend fun clear() { idbClear(database, BrowserStorage.CATALOG).await<JsAny?>() }
+    override suspend fun clear() { idbClear(database, BrowserStorage.CATALOG).awaitStorage<JsAny?>() }
 
     private companion object {
         const val INSTALLED = "installed"
@@ -140,7 +146,11 @@ internal class MemoryCatalogFiles : CatalogFiles<JsAny> {
 
 /** A kept or downloaded catalog file unpacked by the browser (DecompressionStream), with its SHA-256. */
 internal suspend fun unpackCatalog(file: JsAny): UnpackedCatalog {
-    val state = unpackGzip(file).await<JsAny>()
+    // A file the browser can't read or unpack (a kept one it evicted, a damaged download) is a failure the installer handles
+    // (dropped and downloaded again), not a crash, whatever Kotlin makes of the browser's error
+    val state = try { unpackGzip(file).await<JsAny>() } catch (failure: Throwable) {
+        throw if (failure is Exception) failure else IllegalStateException("Card catalog couldn't be unpacked: ${jsFailureText(failure)}", failure)
+    }
     return object : UnpackedCatalog {
         override val checksum: String = unpackedChecksum(state)
         override val size: Long = unpackedSize(state).toLong()

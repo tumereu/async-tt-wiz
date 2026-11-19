@@ -38,5 +38,14 @@ class CatalogControlsTest {
         compose.onNodeWithText("Installed: 2026-10-31 · 121,853 records").assertIsDisplayed()
         compose.onNodeWithTag("catalog-status").assertDoesNotExist()
         assertFalse(compose.onAllNodesWithText("Refresh full catalog").fetchSemanticsNodes().isNotEmpty())
+        compose.onNodeWithText(CARD_RECORDS_NOT_KEPT).assertDoesNotExist()
+    }
+
+    // WEB-009: a browser that couldn't keep the card records says so under the installed line
+    @Test fun recordsTheBrowserCouldntKeepSaySo() {
+        compose.setContent { MaterialTheme { CatalogControls(CatalogUiState(CatalogMetadata("2026-10-31", "5.3.0", "x", 121853),
+            ready = true, kept = false)) {} } }
+        compose.onNodeWithText("Installed: 2026-10-31 · 121,853 records").assertIsDisplayed()
+        compose.onNodeWithText("This browser couldn't keep them, so they download again on your next visit").assertIsDisplayed()
     }
 }

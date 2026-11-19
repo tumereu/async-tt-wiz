@@ -279,7 +279,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(author.toString())
         val result = try {
             Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
-                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() })
+                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() },
+                // SYS-063 (owner 2026-11-19): any device may answer the one-answer questions of a player on Quick now
+                quick = seats.filter { it.settings.mode == org.asyncttwiz.protocol.game.ResponseMode.AutoSkip }.map { PlayerId(it.account.toString()) }.toSet())
         } catch (refusal: Refusal) {
             keepWarm(play, history, refusal.state, head)
             throw refusal
@@ -385,7 +387,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * reshuffle, [Rewind.lineDue]); the other player's table-only events that may stand are added again after it while
      * they apply, the first starting the line; local heads past the target move to the new head.
      */
-    fun rewind(sql: DSLContext, play: UUID, account: UUID, target: String, live: (UUID) -> Boolean, approved: Boolean = false): Outcome? {
+    fun rewind(sql: DSLContext, play: UUID, account: UUID, target: String, live: (UUID) -> Boolean, approved: Boolean = false,
+        passes: Boolean = false): Outcome? {
         val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val head = head(sql, play, store.rootId)
@@ -399,8 +402,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(account.toString())
         val warm = take(play)
         val model = if (warm == null) history.stateAt(target) else history.move(warm.model, warm.at, target)
-        if (!approved) Rewind.requestNeeded(model.copy(), target, after, me, seats.filter { it.account != account }.map { it.head })
-            ?.let { keepWarm(play, history, LiveState(target, model), head); throw Refusal("requestNeeded") }
+        if (!approved) Rewind.judge(model.copy(), target, after, me, seats.filter { it.account != account }.map { it.head }, passes)
+            .also { org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info("Rewind of play {} to {} by {} judged: {}", play, target, account, it.why) }
+            .reason?.let { keepWarm(play, history, LiveState(target, model), head); throw Refusal("requestNeeded") }
         store.delete(after.map { it.id })
         // A new line (§9), kept as the line counter: no event of the rewind's own (owner's rule 2026-11-04)
         val line = row.lines + 1

@@ -879,7 +879,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     if (reveal != null) AboveHand(handRow(scene, routes.viewer), PromptPlace.Choice) {
         // HIS-110: named by who revealed (Bob, when Alice's spell makes him reveal his hand), as the card's text has it
         RevealPanel(play, routes.viewer, reveal, if (reveal.by.value == routes.viewer) "You" else names[reveal.by.value] ?: opponent,
-            reveal.left?.owner?.let { names[it.value] } ?: opponent) {
+            (reveal.left?.owner ?: reveal.exiled?.owner)?.let { names[it.value] } ?: opponent) {
             AppLog.info("game", "Reveal OK pressed: ${reveal.by.value.take(8)} revealed ${reveal.cards.map { it.value }} in ${reveal.event}; " +
                 "the panel closes at once")
             routes.dismissReveal(reveal)

@@ -83,7 +83,8 @@ object NextStop {
  * player's real input (anything but a pass: their passes never count, whether they tapped them, their device made them or
  * they were assumed and confirmed; owner problem report VXSGKH) other than their table-only events the undo rule lets
  * stand, or showed the player something new; otherwise it needs the other player's approval (an undo request). Every
- * rewind deletes the events after the target and starts a new line (§9).
+ * rewind deletes the events after the target and starts a new line (§9). With the game setting "Undo past the other player's
+ * passes needs a request" (LOB-135, owner 2026-11-19, N15) their passes count as their real input too.
  */
 object Rewind {
     /** Whether a rewind needs a request: [reason] (null: free), with [why], a compact account of the events after the
@@ -93,24 +94,27 @@ object Rewind {
     /**
      * Why rewinding to the point after [target] needs the other player's approval, or null when it is free: [model] is
      * the state at [target] (used up), [after] the main line's events after it, [others] the other players' local
-     * heads.
+     * heads. With [passes] (the game setting "Undo past the other player's passes needs a request", LOB-135) the other
+     * players' passes count as their real input.
      */
-    fun requestNeeded(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): String? =
-        judge(model, target, after, player, others).reason
+    fun requestNeeded(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>,
+        passes: Boolean = false): String? =
+        judge(model, target, after, player, others, passes).reason
 
     /**
      * [requestNeeded] with its account ([Verdict.why]). A rewind of [player]'s inside their opening to before the other
      * player's assumed keep about them ([reapplies]) is judged by the events before that keep alone: the other player's line
      * after it isn't taken back but made again on the point the rewind lands on (HIS-115).
      */
-    fun judge(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): Verdict {
+    fun judge(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>,
+        passes: Boolean = false): Verdict {
         val at = if (model.engine.turn.number == 0) reapplies(model.copy(), after, player) else null
-        if (at == null) return judgeAll(model, target, after, player, others)
+        if (at == null) return judgeAll(model, target, after, player, others, passes)
         val before = after.take(at)
         val ids = before.map { it.id }.toSet()
         // A local head on the line made again has seen everything before it
         val seen = others.map { if (it == target || it in ids) it else before.last().id }
-        val verdict = judgeAll(model, target, before, player, seen)
+        val verdict = judgeAll(model, target, before, player, seen, passes)
         return Verdict(verdict.reason, verdict.why + "; the other player's line of ${after.size - at} event(s) after ${before.last().id.take(8)} " +
             "rests on their assumed keep about you: made again, not taken back (HIS-115)")
     }
@@ -159,15 +163,17 @@ object Rewind {
      * after [base] (the last of [standing], or the target); [atBase] is the state at [base]. */
     class Reapplied(val standing: List<GameEvent>, val reapply: Reapply.Result, val base: String, val atBase: GameModel)
 
-    private fun judgeAll(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>): Verdict {
+    private fun judgeAll(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, others: List<String>,
+        passes: Boolean): Verdict {
         // The index in [after] of the last event another player has seen (−1: none)
         val seen = others.maxOfOrNull { head -> if (head == target) -1 else after.indexOfFirst { it.id == head } } ?: -1
         val undone = mutableListOf<GameEvent>()
         var own = 0
         var assumedPasses = 0
-        var passes = 0
+        var othersPasses = 0
         var kept = 0
-        fun counts() = "yours $own (your assumed passes for them $assumedPasses), others' passes $passes (never counted), others' table-only kept $kept"
+        fun counts() = "yours $own (your assumed passes for them $assumedPasses), others' passes $othersPasses " +
+            "(${if (passes) "counted: the game's setting" else "never counted"}), others' table-only kept $kept"
         fun request(reason: String, event: GameEvent, what: String) = Verdict(reason,
             "request ($reason) at ${event.id.take(8)} by ${event.author.take(8)}: $what; ${after.size} event(s) after ${target.take(8)}, before it ${counts()}")
         for ((i, event) in after.withIndex()) {
@@ -182,10 +188,13 @@ object Rewind {
                 }
                 // Owner problem report VXSGKH: their passes (tapped, by their device, assumed and confirmed) never count
                 othersInput(model.engine, engine)?.let { return request("otherPlayersInput", event, "their ${it.toString().substringBefore('(')}") }
-                passes++
+                // N15 (owner 2026-11-19): unless the game's setting counts them as their input (LOB-135)
+                if (passes) return request("otherPlayersPass", event, "their pass (the game's setting: passes need a request)")
+                othersPasses++
             } else {
                 // Your assumption of another player's real input (a block, a keep) is theirs once they have seen it
-                val assumed = engine?.steps?.firstNotNullOfOrNull { s -> s.input?.takeIf { s.assumedBy != null && it !is Input.PassPriority } }
+                // (their pass too while the game's setting counts their passes, N15)
+                val assumed = engine?.steps?.firstNotNullOfOrNull { s -> s.input?.takeIf { s.assumedBy != null && (passes || it !is Input.PassPriority) } }
                 if (assumed != null && i <= seen) return request("confirmed", event, "your assumed ${assumed.toString().substringBefore('(')} for them, seen")
                 own++
                 if (event.assumed?.input is Input.PassPriority) assumedPasses++

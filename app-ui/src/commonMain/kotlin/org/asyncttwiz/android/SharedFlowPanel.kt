@@ -110,7 +110,7 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
         return
     }
     val early = if (decision != null && flows.answering == null && holder == viewer)
-        toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) } else null
+        toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer } else null
     if (early != null) BandAttached(scene) {
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
             EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())

@@ -319,6 +319,9 @@ internal fun E2ePlayer.playAlong() {
                     "Pass", "Next", "Resolve", "No attack", "No blocks" ->
                         if (shown.engine.turn.active == me && shown.engine.turn.step.let { it == TurnStep.PrecombatMain || it == TurnStep.PostcombatMain })
                             { hold(arrow); true } else { tap(arrow); true }
+                    // STK-033 (owner 2026-11-19): a division of combat damage opens whenever it could go another way, prefilled:
+                    // they accept the suggestion
+                    "OK" -> if (shows(androidx.compose.ui.test.hasContentDescription("Division of combat damage"))) { tap(arrow); true } else false
                     else -> false
                 }
             }

@@ -25,7 +25,7 @@ import org.asyncttwiz.appui.toBigIntegerOrNull
  */
 object EngineEventText {
     fun of(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
-        val text = acted(event, state, viewer, names)
+        val text = libraryExiles(acted(event, state, viewer, names), event, viewer, names)
         // HIS-091, TBL-133 (owner 2026-11-16): a secret choice the event revealed is named to everyone, after what was done
         // ("Bob activated Ember Lineup's ability · Bob revealed: Goblin"); before it, nobody but its chooser read its value
         val reveals = org.asyncttwiz.automatum.SecretChoices.revealed(event.engine?.changes.orEmpty(), state)
@@ -38,6 +38,17 @@ object EngineEventText {
                 reveals.joinToString { "${it.source} ${it.key}=${it.value} known by ${it.player?.value?.take(8)}" } + "; reads \"$shown\" for ${viewer.take(8)}")
         }
         return shown
+    }
+
+    /**
+     * HIS-234 (owner 2026-11-19, N18): [text] with the cards [event] exiled face up from a library after it, by library
+     * ("Bob's Bre of Clan Stoutarm's ability resolved · Exiled from Bob's library: Plains, Mountain"): they are public once
+     * there, so every player reads them (HIS-062).
+     */
+    private fun libraryExiles(text: String, event: GameEvent, viewer: String, names: Map<String, String>): String {
+        val lists = org.asyncttwiz.protocol.game.GameDevice.libraryExileTexts(event, viewer, names)
+        if (lists.isEmpty()) return text
+        return (listOf(text).filter { it.isNotEmpty() } + lists).joinToString(" · ")
     }
 
     /** The events (by event and viewer) whose reveal was logged ([of]), the latest 64; read from any thread. */

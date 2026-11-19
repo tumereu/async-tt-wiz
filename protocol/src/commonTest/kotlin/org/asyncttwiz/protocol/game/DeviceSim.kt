@@ -54,6 +54,9 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     }
 
     fun other(p: PlayerId) = if (p == alice) bob else alice
+
+    /** The server's players on Quick as each player's settings say (SYS-063), as the real server reads its seats. */
+    private fun syncQuick() { server.quick = settings.filterValues { it.mode == ResponseMode.AutoSkip }.keys }
     fun device(p: PlayerId): GameDevice = devices.getValue(p)
 
     /** Starts the game (the server's own first event) and loads both devices. Each player plays on while the other is
@@ -64,6 +67,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         server.start(starter, handSizes)
         for (p in listOf(alice, bob)) {
             settings[p] = PlaySettings(mode = mode, assume = if (alwaysAssume) AssumeResolves.Always else AssumeResolves.Normal)
+            syncQuick()
             load(p)
         }
     }
@@ -231,7 +235,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             }
             GameAction.EngineCancelRewind ->
                 if (server.request?.by != p.value) refuse(p, action, "accessDenied") else { server.request = null; broadcast(emptyList()) }
-            is GameAction.EngineSettings -> { settings[p] = action.settings; broadcast(emptyList()) }
+            is GameAction.EngineSettings -> { settings[p] = action.settings; syncQuick(); broadcast(emptyList()) }
             else -> error("not an engine action: $action")
         }
     }

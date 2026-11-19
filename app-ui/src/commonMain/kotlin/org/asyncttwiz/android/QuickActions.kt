@@ -165,7 +165,10 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 AppLog.info("game", "Main button (seat ${context.viewer?.take(8)}): ${record.removePrefix(BOTTOM_BAR)} (panel ${panelMain?.label ?: "none"}, " +
                     "status ${shown?.status?.let { it::class.simpleName } ?: "?"}, own step held $ownStepHeld, " +
                     "show ${shown?.show?.kind?.let { it::class.simpleName } ?: "none"}, own action shown ${shown?.ownActionShown}, " +
-                    "board drawn ${play.nodeId.take(8)}${if (shown != null && shown.board.nodeId != play.nodeId) " (live ${shown.board.nodeId.take(8)})" else ""}, " +
+                    "board drawn ${play.nodeId.take(8)}${if (shown != null && shown.board.nodeId != play.nodeId) " (live ${shown.board.nodeId.take(8)})" else ""}" +
+                    // Problem report B7UZB5: the step the button's words come from when the board's steps still play behind the game
+                    (shown?.engine?.let { live -> play.engine?.state?.takeIf { it !== live }?.let { drawn ->
+                        " at turn ${drawn.turn.number} ${drawn.turn.step}, the game at turn ${live.turn.number} ${live.turn.step}" } } ?: "") + ", " +
                     "stack ${play.engine?.state?.stack?.size ?: 0})")
             }
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
@@ -188,16 +191,19 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             val mainButton: @Composable (Modifier) -> Unit = { place -> Box(place.shaken(mainShakes)) {
                 if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {
                     pressed(main.label); own { main.run(); true } }, controller.enabled(scope) || panelMain != null, Modifier.fillMaxWidth(), ::taken)
+                // Problem report B7UZB5 (SYS-137, SYS-138): a press on the board drawn while its steps still play, at a point the
+                // game has moved past, isn't taken (it passed the Main 2 the game had reached)
                 else if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
-                    onHold = { pressed(says, hold = true); own { perform(TableActionIntent.End(scope)) } },
+                    onHold = { pressed(says, hold = true); if (engine?.pressBehind(play, says, endTurn = true) != true) own { perform(TableActionIntent.End(scope)) } },
                     // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain
-                    onResolveHold = engine?.let { routes -> { pressed(says, hold = true); own { routes.holdResolve() } } },
+                    onResolveHold = engine?.let { routes -> { pressed(says, hold = true); if (!routes.pressBehind(play, says)) own { routes.holdResolve() } } },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat, context.revealOpen),
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
                     control = control) {
                     if (taken(says)) {
                         pressed(says)
-                        own { perform(TableActionIntent.Next(scope)) }
+                        if (engine?.pressBehind(play, says, endTurn = AutomatumStep.of(play, control) == AutomatumStep.EndTurn) != true)
+                            own { perform(TableActionIntent.Next(scope)) }
                     }
                 }
                 else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal,

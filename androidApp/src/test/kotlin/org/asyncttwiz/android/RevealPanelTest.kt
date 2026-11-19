@@ -206,6 +206,9 @@ class RevealPanelTest {
         refresh()
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
         assertEquals(null, holdingMainButtonSays(REVEAL_BUSY), "no longer greyed")
+        // The hold just made is Resolve's own (the Resolve chain): the tap is on the board it led to, as the table draws it (a tap
+        // on the board before it would be one the game has moved past, not taken: problem report B7UZB5)
+        refresh()
         val before = bob.shown?.version
         // TRN-063, TRN-117: a tap right after the OK would be ignored as the second tap of a double tap
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(MainButtonGuard.MILLIS))

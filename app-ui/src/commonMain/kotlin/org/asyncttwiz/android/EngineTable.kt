@@ -487,6 +487,37 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
      * the player's own it makes by itself: the main button holds nothing meanwhile. */
     fun ownStepHeld(): Boolean = game()?.shown?.ownStepHeld == true
 
+    /**
+     * Problem report B7UZB5 (SYS-011, SYS-135, SYS-137, SYS-138): whether a press of the main button saying [label] on the board
+     * the table draws, [drawn] (a step behind the game while the board's steps still play, TBL-040, or a combat's hold, HIS-113),
+     * is made at a point the game has moved past: there it isn't taken, the table shows where the game is and the note says so.
+     * Taken as before when the game is still at the same point of the player's (the same turn, step, priority and Stack; End
+     * turn, [endTurn]: the same turn of theirs, SYS-076). Before, it was made where the game was: "To blockers", pressed while
+     * the attack's steps still played on the board, passed the Main 2 the game had already reached, and the turn with it.
+     */
+    fun pressBehind(drawn: TableBoard, label: String, endTurn: Boolean = false): Boolean {
+        val seen = drawn.engine?.state ?: return false
+        val now = game()?.shown?.engine ?: return false
+        if (seen === now) return false
+        val same = if (endTurn) GameDevice.sameEndTurn(seen, now, arcanum.engine.state.PlayerId(viewer)) else samePoint(seen, now)
+        if (same) return false
+        AppLog.warn("game", "Main button press \"$label\" not taken: made on the board drawn at ${point(seen)} while the game is at " +
+            "${point(now)} (the board's steps still playing); the note says it wasn't taken")
+        tell(NOT_TAKEN)
+        return true
+    }
+
+    /** Whether the game on [now] is still at the point [seen] shows to the player: the same decision, or the same turn, step,
+     * priority and Stack with nothing to decide (only cards moved on the way, as the board's steps play them). */
+    private fun samePoint(seen: arcanum.engine.state.GameState, now: arcanum.engine.state.GameState): Boolean =
+        GameDevice.sameDecision(seen, now) || (seen.turn.number == now.turn.number && seen.turn.step == now.turn.step &&
+            seen.combat?.firstStrikeStep == now.combat?.firstStrikeStep && seen.priority.holder == now.priority.holder &&
+            seen.pending == null && now.pending == null && seen.stack == now.stack)
+
+    private fun point(s: arcanum.engine.state.GameState): String =
+        "turn ${s.turn.number} ${s.turn.step} (priority ${s.priority.holder?.value?.take(8)}, stack ${s.stack.size}, " +
+            "decision ${s.pending?.decision?.id?.value})"
+
     /** TRN-004 (owner playtest 2026-11-12): the quiet status in the main button's place while the game waits for the other
      * player ([quietWaitText]), or null. */
     fun quietWait(): String? = (status() as? GameDevice.Status.Waiting)?.let { quietWaitText(it.reason, opponentName) }

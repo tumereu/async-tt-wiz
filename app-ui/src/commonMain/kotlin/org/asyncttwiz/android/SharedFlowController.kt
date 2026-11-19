@@ -60,6 +60,8 @@ class SharedFlowController(
     private val port: SharedPort = LocalSharedPort(viewer) { w, d -> work.run(w, d) },
     /** TBL-130: the stacks of identical battlefield cards on a board as the table lays them out (Autotap takes the topmost). */
     private val stacks: (TableBoard) -> List<List<String>> = { TopmostSources.stacks(BattlefieldLayout.groups(it, viewer)) },
+    /** TBL-118: shakes a table card (a tap on a payment's source that no longer pays it, STK-049). */
+    private val shake: (String) -> Unit = {},
 ) : FlowQuestions {
     /** The take-backs counted when the shown choice opened ([takeBacks]). */
     private var shownAt = 0L
@@ -85,6 +87,9 @@ class SharedFlowController(
     private var taps = ManaTaps()
     /** Automatum is working out the last answer (SYS-025): nothing else is taken meanwhile. */
     var busy by mutableStateOf(false); private set
+    /** STK-049 (review 147a9c5af6): taps on the open payment made while the last one was worked out, taken in order once it is
+     * done (before, such a tap did nothing). */
+    private val queuedTaps = ArrayDeque<PayTap>()
     private var shownDecision: String? = null
 
     /** Whether the flows run across the boundary (the browser's engine worker): the panel's host then asks for a board's flow
@@ -395,7 +400,7 @@ class SharedFlowController(
      * (SYS-025: up to a few dozen engine calls). A pool or life chip in the bar. */
     override fun toggleMana(group: List<ManaUse>) {
         val key = ManaPicks.key(group.first())
-        tapWays(group, "chip ${ManaWays.label(group.first())}", ManaBelongs.Key(key))
+        tapWays(group, "chip ${ManaWays.label(group.first())}", ManaBelongs.Key(key), PayTap.Chip(group))
     }
 
     /** STK-049 (owner playtest 2026-11-09): the open payment the viewer makes while something resolves, picked on the table: a
@@ -446,6 +451,7 @@ class SharedFlowController(
      * payment can use is added (its sensible way, STK-024) or taken out; false when it isn't one. */
     fun tapSource(cardId: String): Boolean {
         if (!paying) return false
+        if (busy) return queueTap(PayTap.Source(cardId))
         val ways = waysOf(cardId).ifEmpty {
             // STK-024 (owner 2026-11-14): a source whose cost uses other objects: one pick per object set, the first not paying yet
             val groups = org.asyncttwiz.automatum.ManaPicks.groups(payment ?: return false).filter { objectSource(it.first()) == cardId }
@@ -456,38 +462,83 @@ class SharedFlowController(
             return true
         }
         AppLog.info("decision", "Payment while resolving: source $cardId tapped (${ways.size} ways), paying before ${paySources()}")
-        tapWays(ways, "source $cardId", ManaBelongs.Uses(ways))
+        tapWays(ways, "source $cardId", ManaBelongs.Uses(ways), PayTap.Source(cardId))
         return true
     }
 
     /** STK-024 (owner playtest 2026-11-09): [way] chosen with the corner chip of the table card [cardId]: kept exactly. */
     fun chooseWay(cardId: String, way: ManaUse) {
-        val flow = view ?: return
         payment ?: return
-        if (busy || !paying) return
-        val mine = waysOf(cardId)
-        payStep(flow, mana, SharedOp.ChooseWay(cardId, way, mine, mana, taps.wire(), autotap()))
+        if (!paying) return
+        if (busy) { queueTap(PayTap.Way(cardId, way)); return }
+        val flow = view ?: return
+        payStep(flow, mana, PayTap.Way(cardId, way)) { SharedOp.ChooseWay(cardId, way, waysOf(cardId), mana, taps.wire(), autotap()) }
     }
 
-    private fun tapWays(ways: List<ManaUse>, what: String, belongs: ManaBelongs) {
+    private fun tapWays(ways: List<ManaUse>, what: String, belongs: ManaBelongs, tap: PayTap) {
         val flow = view ?: return
         payment ?: return
-        if (busy) return
-        payStep(flow, mana, SharedOp.Tap(ways, belongs, what, mana, taps.wire(), autotap()))
+        if (busy) { queueTap(tap); return }
+        payStep(flow, mana, tap) { SharedOp.Tap(ways, belongs, what, mana, taps.wire(), autotap()) }
     }
 
-    /** Works the payment's [op] out where the flow runs and applies it while the same flow and payment are shown. */
-    private fun payStep(flow: SharedShown, current: List<ManaUse>, op: SharedOp) {
+    /** STK-049 (review 147a9c5af6): [tap], made while the last tap is still worked out, waits for it and is taken then. */
+    private fun queueTap(tap: PayTap): Boolean {
+        queuedTaps.addLast(tap)
+        AppLog.info("decision", "Payment while resolving: ${tap.what} tapped while the last tap is worked out: taken once it is done " +
+            "(${queuedTaps.size} waiting)")
+        return true
+    }
+
+    /** The next tap waiting ([queueTap]), taken now on the payment shown; one that no longer pays it shakes its card. */
+    private fun nextTap() {
+        while (!busy) {
+            val tap = queuedTaps.removeFirstOrNull() ?: return
+            val taken = paying && when (tap) {
+                is PayTap.Source -> tapSource(tap.cardId)
+                is PayTap.Chip -> { toggleMana(tap.group); true }
+                is PayTap.Way -> waysOf(tap.cardId).contains(tap.way).also { if (it) chooseWay(tap.cardId, tap.way) }
+            }
+            if (!taken) noLongerPays(tap, "the payment shown has no such source now")
+        }
+    }
+
+    /** TBL-118, STK-049: [tap] can't change the payment any more ([why]): its card shakes, never a tap that does nothing. */
+    private fun noLongerPays(tap: PayTap, why: String) {
+        AppLog.info("decision", "Payment while resolving: ${tap.what} not taken: $why")
+        tap.card?.let(shake)
+    }
+
+    /**
+     * Works the payment's op ([op], made from what is picked now) for [tap] out where the flow runs and applies it while the same
+     * flow and payment are shown. Review 147a9c5af6: when a new board came meanwhile still asking the same payment (the other
+     * player's event, the server's answer), the tap is worked out again there instead of being lost; when the payment it was
+     * made in is gone, its card shakes. Then the next tap waiting is taken.
+     */
+    private fun payStep(flow: SharedShown, current: List<ManaUse>, tap: PayTap, op: () -> SharedOp) {
         busy = true
-        port.ask(SharedRequest(session, flow.version, flow.value.board, op), flow.play, { null }) { answer ->
+        val decision = flow.decision?.id
+        port.ask(SharedRequest(session, flow.version, flow.value.board, op()), flow.play, { null }) { answer ->
             busy = false
             val done = answer as? SharedAnswer.Mana ?: run {
                 AppLog.warn("automatum", "Mana tapping couldn't be worked out: $answer")
+                noLongerPays(tap, "it couldn't be worked out ($answer)")
+                nextTap()
                 return@ask
             }
             AppLog.info("decision", "Payment while resolving: ${done.said}; paying now ${done.mana.joinToString { ManaWays.label(it) }}" +
                 (if (done.paid) ", paid" else ", not paid yet"))
-            if (view === flow && mana === current) { mana = done.mana; taps = done.taps.taps(); paid = done.paid }
+            val now = view
+            when {
+                now === flow && mana === current -> { mana = done.mana; taps = done.taps.taps(); paid = done.paid }
+                now != null && mana === current && paying && decision != null && now.decision?.id == decision -> {
+                    AppLog.info("decision", "Payment while resolving: ${tap.what} was worked out on board ${flow.value.board}, a new " +
+                        "board ${now.value.board} came meanwhile asking the same payment: worked out again there")
+                    queuedTaps.addFirst(tap)
+                }
+                else -> noLongerPays(tap, "the payment it was made in is gone (now ${now?.decision?.id?.value ?: "none"})")
+            }
+            nextTap()
         }
     }
 

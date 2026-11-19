@@ -1,0 +1,1 @@
+fix: Tapping a land to pay while the board updates no longer gets lost: the tap is applied, or the card shakes when it can no longer pay.

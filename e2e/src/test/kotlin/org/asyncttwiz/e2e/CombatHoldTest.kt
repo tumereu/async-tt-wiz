@@ -20,8 +20,8 @@ import org.asyncttwiz.appui.AppPlatform
 
 /**
  * Owner, 2026-11-08: a combat that goes by itself went by too fast to read. It now holds the view, never the game, once when
- * the attackers show and once on the damage, for the "Show plays and combat" time; a double tap on the table skips it, a
- * single tap does nothing (owner, 2026-11-08), a held finger pauses it; at Off nothing holds. Bob has no creatures: Alice's attack goes by itself once she assumes his blocks.
+ * the attackers show and once on the damage, for the "Show plays and combat" time; no tap on the table ends it (owner,
+ * 2026-11-19: the main button skips it), a held finger pauses it; at Off nothing holds. Bob has no creatures: Alice's attack goes by itself once she assumes his blocks.
  */
 class CombatHoldTest : E2e() {
     private val pups = TestDeck("Pups", listOf(TestCards.mountain to 20, TestCards.pup to 20))
@@ -49,8 +49,8 @@ class CombatHoldTest : E2e() {
     }
 
     // HIS-113, HIS-146, HIS-148, LOB-082, HIS-112: both phones hold on the attackers, the game going on past Alice's hold on Bob's phone only as
-    // far as he is shown; a single tap does nothing, a double tap skips Alice's; then the damage holds both, each ended by
-    // its time
+    // far as he is shown; neither a tap nor a double tap on the table ends Alice's (owner 2026-11-19); then the damage holds both,
+    // each ended by its time
     @Test fun aCombatHoldsBothViewsOnTheAttackersAndTheDamage() {
         aliceDeclaring(HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS)
         // The frames' clock in step with the real one: a hold can't end between two looks (E2e.clockInStep)
@@ -61,19 +61,20 @@ class CombatHoldTest : E2e() {
             val at = alice.shown.tip
             run(skip = Duration.ofMillis(200))
             assertEquals(at, alice.shown.tip, "her phone makes nothing of its own meanwhile")
-            // A single tap on the table does nothing at all
+            // A tap on the table doesn't end it
             alice.tapTable()
             run()
-            assertEquals(GameDevice.CombatMoment.Attackers, alice.shown.combatHold?.kind, "still held after a single tap")
+            assertEquals(GameDevice.CombatMoment.Attackers, alice.shown.combatHold?.kind, "still held after a tap")
             // Her hold never holds the game: Bob's phone hears the attack and holds too
             waitUntil("the attackers hold Bob's view") { bob.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
-            // A double tap on the table skips it, doing nothing else: it doesn't zoom the table (TBL-012)
-            val field = alice.battlefieldBounds()
+            // Nor does a double tap (HIS-148: only the main button skips it, TRN-165)
             run(skip = Duration.ofMillis(500)) // past the double-tap window: that tap was a single tap
             alice.doubleTapTable()
-            // Skipped, her phone goes on at once by itself (HIS-096, HIS-180: Bob's passes right after her attack are assumed, and he has
+            run()
+            assertEquals(GameDevice.CombatMoment.Attackers, alice.shown.combatHold?.kind, "still held after a double tap")
+            // Over by its time, her phone goes on by itself (HIS-096, HIS-180: Bob's passes right after her attack are assumed, and he has
             // no blockers) to the damage, which may hold her view already
-            waitUntil("Alice's hold skipped") { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
+            waitUntil("Alice's hold over") { alice.shown.combatHold?.kind != GameDevice.CombatMoment.Attackers }
             assertTrue(!alice.refusalSeen)
             // Bob's hold ends by its time; he answers as he plays along, no blocks possible with no creatures
             waitUntil("the damage holds Alice's view", along = listOf(bob)) {
@@ -81,9 +82,6 @@ class CombatHoldTest : E2e() {
                 if (alice.status is GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
                 alice.shown.combatHold?.kind == GameDevice.CombatMoment.Damage
             }
-            // Still in combat (the combat band as at the attackers), the table where it was: the double tap didn't zoom it.
-            // (Compared once the game moved on, the band gone after combat, it sits 56 dp higher: that is no zoom.)
-            assertEquals(field, alice.battlefieldBounds(), "the double tap didn't zoom the table")
             assertEquals(life - 1, alice.state.player(bob.me).life, "the board shows the damage dealt while it holds")
             waitUntil("the hold over by itself, Alice's phone on past it", along = listOf(bob)) { alice.shown.combatHold == null }
             assertNull(alice.shown.show)

@@ -101,12 +101,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentViewPause?.justTappedShow == true && !owner.tapOnHand) {
-                    // HIS-112: the second tap of a double tap on a shown play, the play gone from under it by then
-                } else if (currentRuntime.holdTap != null && !owner.tapOnHand) {
-                    // HIS-113 (owner, 2026-11-08): while a combat holds the view a single tap on the table (not the hand) does
-                    // nothing; a double tap skips it ([TableGestureCoordinator.viewHoldSkip])
-                } else if (currentRuntime.centreAction != null && !owner.tapOnHand) {
+                // HIS-139, HIS-148 (owner 2026-11-19): no tap on the table skips a play shown or a combat's hold (the main button
+                // does, TRN-165): taps act as at any other time
+                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.centreAction != null && !owner.tapOnHand) {
                     // HIS-094: with the catch-up's centre text showing, a tap on the table (not the hand) starts the playback
                     currentRuntime.centreAction?.run?.invoke()
                 } else if (currentRuntime.boardTap != null) {
@@ -142,7 +139,6 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 AppLog.info("table", if (held) "Finger held on the table (pauses what the view waits on)" else "Finger on the table lifted")
                 currentViewPause?.finger = held
             })
-        owner.viewHoldSkip = { currentRuntime.holdTap }
         owner.combatDrag = { item -> toolkit?.combatDraggable(item) ?: true }
         owner
     }

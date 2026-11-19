@@ -1,7 +1,7 @@
 # Async play
 
 Playing without waiting for each other: the wait while the other player must act, assumed answers and the Assume
-button, the information rule and its game settings, the unconfirmed mark, automation as button presses, branches and
+button, the information rule and its game settings, automation as button presses, branches and
 lines of play, moves made on an out-of-date board, and playing on an assumed keep in the opening.
 
 ## How it works
@@ -12,8 +12,8 @@ device presumes their answer (usually a pass, sometimes their blocks or their op
 "Assume resolves" setting decides where your phone assumes by itself; anything your phone does for you counts exactly
 as a press of a button. An assumption is a conditional pre-move, not a decision made for them: when their real answer
 is the same it is confirmed, and when it differs the game branches, taking back what came after and going on from
-their answer on a new line of play. While your play rests on answers they haven't confirmed, a violet dot marks the
-main button and nothing you do may show you hidden cards or random results, unless the game's settings allow it. A move
+their answer on a new line of play. While your play rests on answers they haven't confirmed, nothing you do may show you
+hidden cards or random results, unless the game's settings allow it. A move
 made on a board the game has since moved past is made again on the newer board when the same decision still waits
 there, otherwise it isn't taken. The starting player may play turn 1 on an assumed keep while the other player still
 decides on their opening.
@@ -63,7 +63,6 @@ decides on their opening.
 
 ## While your play rests on assumptions
 
-- **TRN-068** The unconfirmed mark: while actions of yours rest on answers the other player hasn't confirmed yet, a small violet dot (no number) sits at the main button's corner; a tap or hold says "<name> hasn't seen your last moves yet; if <name> answers differently, they'll be taken back". Only you see it. (r50)
 - **TRN-067** Information rule: while your line rests on an unconfirmed assumption, nothing you do or assume may show you a card you couldn't see (the other player's hand or library, face-down cards, random discards; never your own library) or a random result (coin, die, random choice), apart from what the game's settings allow (LOB-135). (r58)
 - **TRN-159** An action the information rule forbids is refused before it shows: the card shakes and holding it says "Wait for the other player to catch up: this would show you hidden cards or a random result." The server checks the same for cards, with the game's settings. (r58)
 - **TRN-071** Under the information rule your phone's own passes after an action of yours stop before one that would show you something (you keep priority there), and an assumption that would show you something isn't made. A reveal the game's settings allow (LOB-135) neither stops nor greys anything. (r74)

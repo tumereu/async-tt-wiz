@@ -29,7 +29,7 @@ number	item	screenshot	catalog	decisions	sequence
 28	Assume resolves quick action: Never	engine/assume-never.png	TRN-059 HIS-096
 29	Assume resolves quick action: No mana	engine/assume-no-mana.png	TRN-059 HIS-096
 30	Assume resolves quick action: Always	engine/assume-always.png	TRN-059 HIS-096
-31	Quick actions row and the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-068
+31	Quick actions row, the main button without the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-163
 32	Opening: Mulligan and Keep	engine/opening.png	TRN-062
 33	Wait band under the other player's hand while they decide on their opening, Assume keep on the main button	engine/waiting-bar.png	TRN-066 TRN-070 TRN-004 HIS-096
 34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066
@@ -302,3 +302,4 @@ number	item	screenshot	catalog	decisions	sequence
 301	A Random battle box's lobby: the decks dealt as the game starts, only Ready to press	lending/lobby-random.png	LOB-250		Lending decks
 302	A copy's question of new targets: the ability it copies at the panel's right	choice-source/copy-new-targets.png	STK-178 STK-212		Copies
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
+304	The main button says Resolve while the other player's spell is still shown, what comes once it lands	engine/main-button-during-play.png	TRN-163 TRN-165 TBL-203	

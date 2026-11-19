@@ -66,12 +66,21 @@ class ShownWire(
     val coming: List<GameDevice.PlayShow> = emptyList(),
     /** The notes published with the board, to be shown once. */
     val notes: List<NoteWire> = emptyList(),
+    /** TRN-163, TRN-164: where the view comes to rest while playback is behind the head (the app's `EngineGame.Rest`). */
+    val rest: RestWire? = null,
 ) {
     companion object {
         fun encode(wire: ShownWire): String = EngineMessages.json.encodeToString(serializer(), wire)
         fun decode(text: String): ShownWire = EngineMessages.json.decodeFromString(serializer(), text)
     }
 }
+
+/**
+ * TRN-163, TRN-164: where the view comes to rest (the app's `EngineGame.Rest`): what the player is offered there ([status]) and
+ * its board, whole ([board]) when it is new, else null: the one sent last ([events]: those [status] refers to).
+ */
+@Serializable
+class RestWire(val status: StatusWire, val board: LooseBoard? = null, val events: Map<String, JsonElement> = emptyMap())
 
 /**
  * A board the table draws ([number]: its values' number on the boundary, null for a board without engine state). [reuse]:

@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.exp
 
-// The mouse and the finger key on the desktop table (docs/specs/web-client.md §5; WEB-023 to WEB-030). The phone layout's
+// The mouse and the finger key on the desktop table (docs/specs/web-client.md §5; WEB-023 to WEB-029). The phone layout's
 // touch handling is never changed by any of this: everything here is installed only in the desktop layout.
 
 /** WEB-023: which mouse button a press is: the left button acts as a finger does, the right one does a control's hold
@@ -353,7 +353,7 @@ class DesktopHover(private val scope: CoroutineScope, private val apply: (HoverT
 val LocalDesktopHover = compositionLocalOf<DesktopHover?> { null }
 
 /**
- * WEB-023 to WEB-030: the mouse on the desktop table, beside the table's one pointer arbiter ([TableGestureCoordinator],
+ * WEB-023 to WEB-029: the mouse on the desktop table, beside the table's one pointer arbiter ([TableGestureCoordinator],
  * which gets the left button as a finger: a click taps, a double click double-taps, a drag drags or pans, held still it
  * pauses): what the pointer hovers ([hover], for the quick look, the hover chips and the finger key), the right button
  * kept off the table (it never inspects), the middle button panning, the wheel zooming around the pointer (Shift or

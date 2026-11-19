@@ -221,13 +221,20 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
          * off the table's board from the first board that has them, so nothing of them shows before their play does. */
         val coming: List<GameDevice.PlayShow> = emptyList(),
         /** [board]'s engine state (every board this game builds has one). */
-        val engine: GameState) {
+        val engine: GameState,
+        /** TRN-163, TRN-164 (owner 2026-11-19): where the view comes to rest once what it waits on is skipped, while playback is
+         * behind the head ([GameDevice.rest]); null while it rests at [board] (what the main button holds comes from [status]). */
+        val rest: Rest? = null) {
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
          * [EngineBoardValues.promisePlays]) and, when first asked, the card menus' plays (on an own action's board with its
          * hand plays), the shared flow and combat. */
         val values: EngineBoardValues? get() = board.values
     }
+
+    /** TRN-163, TRN-164: what the player is offered where the view comes to rest ([status]: a stop, their move, a wait for the
+     * other player) and the board there ([board], projected from that point's state). */
+    class Rest(val status: GameDevice.Status, val board: TableBoard)
 
     /** The last published snapshot (main thread); null until the game first loaded. */
     @Volatile var shown: Shown? = null
@@ -486,7 +493,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             device.needsReload, device.pausing, takingBack,
             device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold,
             opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null, moments = device.openMoments,
-            ownStepHeld = status == GameDevice.Status.YourMove && device.ownStepHeld || stepNext, engine = engine)
+            ownStepHeld = status == GameDevice.Status.YourMove && device.ownStepHeld || stepNext, engine = engine,
+            rest = restShown(device.rest(), device.move?.value))
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -515,6 +523,40 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The last [Shown] published (engine thread). */
     private var lastShown: Shown? = null
+
+    /** TRN-164: the rest point published last and its board (engine thread): the same point keeps its board. */
+    private var lastRest: Pair<GameDevice.Rest, Rest>? = null
+
+    /**
+     * TRN-163, TRN-164 (owner 2026-11-19): [rest] ([GameDevice.rest]) as the table gets it, with its board projected from the
+     * state there (once per point: playback stepping toward the same stop keeps it). Engine thread.
+     */
+    private fun restShown(rest: GameDevice.Rest?, move: String?): Rest? {
+        if (rest == null) { if (lastRest != null) AppLog.info("game", "Rest point: the view rests at the shown point"); lastRest = null; return null }
+        lastRest?.let { (was, shown) -> if (was === rest || (was.at == rest.at && was.status == rest.status)) return shown }
+        val attention = when (rest.status) {
+            GameDevice.Status.YourMove, GameDevice.Status.Drafting, is GameDevice.Status.Stopped -> me
+            is GameDevice.Status.Waiting -> device.opponent.value
+            else -> null
+        }
+        val board = runCatching {
+            table(EngineProjection.project(base, rest.model, me, rest.at, attention, staging, tokenArt, pictures, move), rest.model, rest.at)
+        }.onFailure { AppLog.warn("game", "Rest point at ${rest.at.take(8)} not projected: ${it.message}") }.getOrNull() ?: return null
+        val s = rest.model.engine
+        // TRN-163: what the main button is about to offer while the view still plays toward it reaches the report
+        AppLog.info("game", "Rest point ahead of the shown ${device.session.tip.take(8)}: ${rest.at.take(8)} at turn ${s.turn.number} " +
+            "${s.turn.step} (stack ${s.stack.size}, priority ${s.priority.holder?.value?.take(8)}), ${restText(rest.status)}")
+        return Rest(rest.status, board).also { lastRest = rest to it }
+    }
+
+    private fun restText(status: GameDevice.Status): String = when (status) {
+        is GameDevice.Status.Stopped -> "a stop before ${status.event.id.take(8)} (assumed ${status.assumed::class.simpleName}${if (status.paused) ", paused" else ""})"
+        is GameDevice.Status.Waiting -> "waiting: ${status.reason}${status.offer?.let { ", offer $it" } ?: ""}"
+        else -> status::class.simpleName ?: "?"
+    }
+
+    /** TRN-165: the next transition is a jump (the player's skip): nothing animates or flashes for what it passed (engine thread). */
+    private var skipping = false
 
     /** The browser: the line each published board stands on, for its transfer to the engine's worker (engine thread,
      * which is the page's there). */
@@ -695,7 +737,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val undoing = rewinding ?: ownUndo
         ownUndo = null
         if (!loaded && before != null && from == null) undoing?.let { r -> if (undo(r, before, after, attention, move)) return }
-        val jump = loaded || before == null || from == null || to == null
+        // TRN-165: the player's skip jumps to where the view comes to rest
+        val jump = loaded || skipping || before == null || from == null || to == null
         val forward = if (!jump && from != null && to != null && to > from) line.subList(from + 1, to + 1).toList() else emptyList()
         val backward = if (!jump && from != null && to != null && to < from) line.subList(to + 1, from + 1).reversed() else emptyList()
         val changes = if (jump || before == null) emptyList() else EngineChanges.between(before, after, pt, ptAfter, forward + backward)
@@ -1682,6 +1725,27 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         while (device.dismissShow() || device.dismissCombatHold()) any = true
         if (any) stepsAfterHold()
     }
+
+    /**
+     * TRN-165 (owner 2026-11-19): the player pressed the main button ([why]: what it said) while their view still waited on
+     * something: every play shown and combat hold ends and playback shows at once everything up to where the view comes to
+     * rest ([GameDevice.skipToRest]); the board after it is a jump (nothing animates, flashes or shows a banner for what it
+     * passed), with the device's own steps after it made first. [done] runs on the caller's thread with the version of the
+     * board published after it (the table acts on that board).
+     */
+    fun skipToRest(why: String, done: (Long) -> Unit = {}) = remote?.run {
+        request("skipToRest", { org.asyncttwiz.automatum.boundary.DeviceRequest.SkipToRest(it, why) }) { done(shown?.version ?: 0L) }
+    } ?: worker.call({
+        val tip = device.session.tip
+        val what = device.skipToRest()
+        AppLog.info("game", "Main button press \"$why\" skips what the view waited on: $what")
+        skipping = device.session.tip != tip
+        try {
+            device.advance(now)
+            publish(device.notes())
+        } finally { skipping = false }
+        lastShown?.version ?: 0L
+    }) { done(it) }
 
     /** A tap on the table while playback runs (HIS-095): it goes on to the next point where Full control stops and stops
      * there ([GameDevice.pausing]). */

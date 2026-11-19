@@ -101,14 +101,15 @@ class EngineTableScreenshotTest {
         s.player(PlayerId(f.a)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
     }
 
-    // TRN-059, TRN-122, TRN-068, TRN-016, TRN-017: the private toggles, and the unconfirmed mark at the main button's corner (no
-    // count); the main button is 112 dp wide and the three toggles share the rest of the row equally
+    // TRN-059, TRN-122, TRN-016, TRN-017: the private toggles; the main button is 112 dp wide and the three toggles share the rest of
+    // the row equally. TRN-163 (owner 2026-11-19): no violet dot at its corner, though Bob hasn't seen her last moves yet
     @Test fun assumedAnswersAndPrivateToggles() {
         val game = aliceAtMain()
         val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
         render(game, f.a, routes = routes)
-        compose.onNodeWithTag("engine-unconfirmed").assertExists()
-        compose.onNodeWithContentDescription("Bob hasn't seen your last moves yet", substring = true).assertExists()
+        assertTrue(game.shown?.indicator != null, "her line rests on answers Bob hasn't confirmed")
+        compose.onNodeWithTag("engine-unconfirmed").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Bob hasn't seen your last moves yet", substring = true).assertDoesNotExist()
         // HIS-001: no event strip in play mode
         compose.onNodeWithContentDescription("Event strip").assertDoesNotExist()
         compose.onNodeWithContentDescription("Timeline mode").assertDoesNotExist()
@@ -120,7 +121,7 @@ class EngineTableScreenshotTest {
             .map { compose.onNodeWithContentDescription(it).fetchSemanticsNode().boundsInRoot.width }
         assertTrue(cells.all { kotlin.math.abs(it - cells.first()) <= 1.5f } && cells.first() > 48f, "$cells")
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, 112 dp wide) says Bob hasn't seen her last moves yet (no count, nothing over the board), no event strip, and the quick actions are her own Response mode (Quick), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: the main button (To combat, 112 dp wide) has nothing at its corner though Bob hasn't seen her last moves yet, there is no event strip, and the quick actions are her own Response mode (Quick), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
     }
 
     /** Alice at her main phase with "Assume resolves" set to [choice]: the quick action shows [state] and is captured as [file]. */

@@ -1096,16 +1096,112 @@ class GameDevice(
     /** The assumed input of [event] where this player's playback stops before it under [mode] (HIS-095: their current
      * response mode, [PlaySettings.mode]), else null (§7); while paused ([pausing]) wherever Full control stops (§27); and
      * always at the assumption that took the place of a move of theirs lost in a race ([lateAnswerAt]). */
-    private fun stopAt(event: GameEvent, mode: ResponseMode = if (pausing) ResponseMode.FullControl else settings.mode): Input? {
+    private fun stopAt(event: GameEvent, mode: ResponseMode = if (pausing) ResponseMode.FullControl else settings.mode,
+        /** The state before [event]: the shown one, or one worked out ahead of it ([rest]). */
+        s: GameState = model.engine): Input? {
         val step = event.assumed ?: return null
         if (step.assumedBy == me || Acceptance.assumedAbout(step, event, players) != me) return null
         if (remaking.isNotEmpty() && event.id == lateAnswerAt()) return step.input
         // TRN-017 (owner 2026-11-07): a Resolve chain presses Resolve there: the other player's assumption of that press
         // over the Stack shows (and so is confirmed) instead of stopping
-        if (chain && !pausing && step.input is Input.PassPriority && model.engine.stack.isNotEmpty()) return null
+        if (chain && !pausing && step.input is Input.PassPriority && s.stack.isNotEmpty()) return null
         // The stop the player stood at when they changed their mode stays until they answer it ([keptAt])
         if (keeps(event.parentId)) return step.input
-        return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, mode) }
+        return step.input?.takeIf { NextStop.stopsAt(s, it, me, mode) }
+    }
+
+    // ---- Where the view comes to rest (TRN-163 to TRN-166)
+
+    /**
+     * TRN-163, TRN-164 (owner 2026-11-19): where this player's view comes to rest once what it still waits on is skipped, while
+     * playback is behind the head: [at] is the event it would stand at, [model] the state there (a copy) and [status] what the
+     * player is offered there: the stop playback would make before the next event ([stopAt]: their response mode, a pause of
+     * theirs, a kept stop, the late answer), or at the head their move, the wait for the other player ([point]) or nothing to
+     * press ([Wait.Sending]: a step made by itself comes first, TRN-119; the result, [Status.Idle]). Engine thread.
+     */
+    class Rest(val at: String, val status: Status, val model: GameModel)
+
+    /**
+     * TRN-163, TRN-164: where the view would come to rest ([Rest]) when it isn't the shown point: playback behind the head and
+     * not standing at its stop already; null otherwise (and while a take-back is held, a draft or the device's own events are
+     * open, in the opening, which is never played back). A reveal on the way isn't foreseen: the skip stops at its panel
+     * ([skipToRest]). Worked out anew whenever the shown point, the head or a setting it reads changed.
+     */
+    fun rest(): Rest? {
+        if (!session.behind || needsReload || holding || session.drafting || session.pending.isNotEmpty() || opening) return null
+        val key = listOf(session.head, session.lineStart, settings, pausing, chain, endTurn, opponentMode,
+            opponentAssume, request, holdAt, remaking.size)
+        val tip = session.tip
+        restMemo?.takeIf { it.first == key }?.let { (_, was, from) ->
+            if (from == tip) return was
+            // Playback stepping toward the same rest point keeps it (the events up to it and their stops are the same)
+            val at = was?.let { session.indexOf(it.at) }
+            val now = session.indexOf(tip)
+            if (was != null && at != null && now != null && now < at && (session.indexOf(from) ?: -2) <= now) {
+                restMemo = Triple(key, was, tip)
+                return was
+            }
+        }
+        val buffered = session.buffered
+        if (stopAt(buffered.first()) != null) return null.also { restMemo = Triple(key, null, tip) }
+        val m = model.copy()
+        var at = tip
+        for (next in buffered) {
+            val decision = stopAt(next, settings.mode, m.engine)
+            val stop = if (pausing) stopAt(next, s = m.engine) else decision
+            if (stop != null) return Rest(at, Status.Stopped(next, stop, paused = decision == null), m).also { restMemo = Triple(key, it, tip) }
+            m.apply(next)
+            at = next.id
+        }
+        return Rest(at, restAtHead(m), m).also { restMemo = Triple(key, it, tip) }
+    }
+
+    /** [rest] worked out last: what it read besides the shown point, the rest point, and the shown point it was worked out at. */
+    private var restMemo: Triple<List<Any?>, Rest?, String>? = null
+
+    /** TRN-164: what the player is offered at the head reached ahead of the shown point, state [m] (the head's part of [status]). */
+    private fun restAtHead(m: GameModel): Status {
+        val s = m.engine
+        if (Engine.result(s) != null) return Status.Idle
+        if (request != null) return Status.Waiting(Wait.Request)
+        if (m.table.suggestion != null) return Status.Waiting(Wait.Suggestion)
+        val who = Attention.of(s) ?: return Status.Idle
+        // TRN-119: a step made by itself comes first there (the player's own pass by their mode, an assumption): nothing to press
+        if (runCatching { makesItself(m, session.head) }.getOrDefault(false)) return Status.Waiting(Wait.Sending)
+        if (who == me || declares(s)) return Status.YourMove
+        return when (val point = point(s, m)) {
+            is Point.Wait -> Status.Waiting(point.reason, point.offer)
+            else -> Status.Waiting(Wait.Sending)
+        }
+    }
+
+    /**
+     * TRN-165 (owner 2026-11-19): the player pressed the main button while their view still waited on something: every play
+     * shown and combat hold ends, the catch-up's pause ends, and playback shows at once every event up to where the view comes
+     * to rest ([rest]): its next stop, an open reveal (HIS-110: a reveal is never passed unseen, its panel opens) or the head,
+     * opening no play shown or combat hold for what it passes. Personal: nothing is sent. Returns what it did, for the log.
+     */
+    fun skipToRest(): String {
+        syncReveals()
+        val ended = showsOpen.size
+        showsOpen.clear()
+        val paused = catchUp && session.behind
+        if (!holding) catchUp = false
+        var shown = 0
+        while (session.behind && !needsReload && !holding && !session.drafting && session.pending.isEmpty() && revealsOpen.isEmpty()) {
+            if (stopAt(session.buffered.first()) != null) break
+            session.showNext()
+            shown++
+            // What the skipped events would show (their plays, their combat) isn't shown; their reveals are
+            syncReveals()
+            showsOpen.clear()
+        }
+        showResultOks()
+        if (!session.behind) { pausing = false; catchUp = false }
+        val what = "skipped to rest: $ended view holds ended, ${if (paused) "the catch-up's pause ended, " else ""}$shown events " +
+            "shown at once${if (revealsOpen.isNotEmpty()) ", stopped at a reveal" else ""}; ${viewState()}"
+        remember(what)
+        return what
     }
 
     // ---- The device's own steps

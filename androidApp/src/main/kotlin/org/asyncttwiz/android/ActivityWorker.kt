@@ -183,7 +183,10 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
                     synchronized(lock) {
                         if (owner != expected) false else {
                             activityHints?.invoke(page.entries)
-                            delivery.apply(expected, page, notifications::allowed)
+                            delivery.apply(expected, page, notifications::allowed).also { applied ->
+                                // LOB-242: the server tells what still waits; any other shown notification goes
+                                if (applied) notifications.settle(expected, page, delivery)
+                            }
                         }
                     }
                 })

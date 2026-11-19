@@ -186,7 +186,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-080** All grids are dealt at the start with their own refill cards; you open your next grids as soon as none of your open grids can come back to you; grids of unopened rounds stay hidden. (r30)
 - **DRF-081** Every grid you have seen shows as dealt with cards in place: your current pick first, then other open grids, then finished grids (latest first). (r30)
 - **DRF-082** Each grid has a header: "Your pick · Grid 4/18", "Your pick next · Grid 6/18", "Waiting for <name> · Grid 5/18" or "Finished · Grid 3/18". (r30)
-- **DRF-083** Only the grid you pick from has arrows beside each row and above each column; tapping one tints that line, slightly dims the other cards, and Confirm takes it. (r31)
+- **DRF-083** Only the grid you pick from has arrows beside each row and above each column; tapping one tints that line, slightly dims the other cards, and Confirm takes it. In that grid the cards already taken are dimmed like discarded ones (DRF-086), keeping their band and avatar (DRF-085). (r31)
 - **DRF-084** Tapping a grid card does nothing; holding it inspects it with the same release-to-close hold as the pick screen (DRF-063). (r52)
 - **DRF-085** Each pick shows as a coloured band along its row or column (yours in your table colour, others in opponent colour, then blue and amber) plus the picker's small avatar in the card's top left corner, over the name. (r34)
 - **DRF-086** Discarded cards of a finished grid are dimmed and refill cards are marked "New"; a refilled grid shows its "Before refill" and "After refill" boards framed together. (r34)
@@ -204,7 +204,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-152** Rotisserie: the whole pool lies face up (cube: players × the pool per player, drawn at random; set: boosters opened until there are enough, all their cards); players take one card per turn in snake order (seat order, then back) until each has made their picks; the cards nobody picks stay in the pool; turns are sequential. (r74)
 - **DRF-153** The Rotisserie pick screen is one scrolling panel of the whole pool, sorted like Build columns (W U B R G, multicolour, colourless, then name), under a line like "Your pick · Pick 4 of 90" ("Waiting for <name> · …" on another's turn) and a "Search cards" field using the catalog search syntax; taken cards stay greyed with the picker's small avatar (as in Grid). (r60)
 - **DRF-216** On the Rotisserie pick screen, on your turn tap a card to frame it, then "Pick <card name>" takes it; on another's turn tap a free card you haven't queued to frame it, then "Queue <card name>" adds it to your pick queue (DRF-164); other taps do nothing; holding inspects. (r60)
-- **DRF-164** Rotisserie pick queue: your queue is private and kept on the server, so it works while you are away. A strip above the button lists it in order as chips ("1 · Lightning Bolt"), each with an ✕ that removes it, and queued cards in the pool carry their number in a small badge. (r60)
+- **DRF-164** Rotisserie pick queue: your queue is private and kept on the server, so it works while you are away. A strip above the button shows it in order as small cards (as in the pick screen's Keep and Burn trays), each with its number in a corner and an ✕: a tap removes it, holding inspects it; queued cards in the pool carry their number in a small badge. (r60)
 - **DRF-217** When your Rotisserie turn comes the queue's first card is taken for you at once, with no "Your pick" notification and no wait, and the rest stays queued in order (a run of picks in a row takes one queued card each). (r60)
 - **DRF-218** If another player takes any card of your Rotisserie queue your whole queue clears and the strip reads "Queue cleared: <card> was taken" until you queue or pick again; your turn then waits for you as usual. (r60)
 
@@ -232,14 +232,14 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 ## Other players' picks
 
-- **DRF-160** Winston, Winchester and Grid have a "Picks" button at the top right of the Draft tab; it opens a dialog with a chip per opponent (avatar, name and card count) and that opponent's picks, in order, newest first. (r60)
+- **DRF-160** Winston, Winchester, Grid, Rochester and Rotisserie have the History icon in the pod's header where Booster's is (DRF-165), on every tab; it opens a dialog with a chip per opponent (avatar, name and card count) and that opponent's picks, in order, newest first. (r60)
 - **DRF-227** In the Picks dialog a card shows face up if you have seen it (always in Winchester and Grid; in Winston only cards you had seen in a pile), otherwise as a card back; holding a card inspects it, over the dialog. (r60)
-- **DRF-228** Booster and Glimpse have no Picks button; their History is in the pod's header (DRF-165). Rochester and Rotisserie show picks on the board itself. (r60)
+- **DRF-228** The History icon sits in the same place of the pod's header in every draft mode: Booster and Glimpse open their draft history (DRF-165), the others the picks (DRF-160); Sealed has none. Rochester and Rotisserie also show picks on the board itself. (r60)
 
 ## Build
 
 - **DRF-092** Build is one scrolling page with Main, Side and Maybe sections (green, blue and amber headers with counts, the card list sections' colours, SYS-054); nothing sticks to the top, the deck name and headers scroll away. (r60)
-- **DRF-093** Build works during the draft too: new picks land in Main without moving anything else, and every change is saved on the server. (r16)
+- **DRF-093** Build works during the draft too: new picks land in Main without moving anything else, and every change is saved on the server. A drafted basic land (Plains, Island, Swamp, Mountain or Forest) never shows as a card: it adds one to Main's count of that basic (DRF-103). (r16)
 - **DRF-094** The Main header reads "Main X + Y = Z" (nonland cards + all lands incl. basics); Side uses the same split once it holds lands. By the same rules as Submit (DRF-119), a warning icon follows the header while Main is too small or Side is over its limit; holding it says why ("Main needs 40 cards", "Side exceeds its limit of N cards"). (r61)
 - **DRF-095** Columns sit side by side filling the width: Lands, then mana value 0, 1, 2 … with the last column "and above"; 2–10 columns, default 7, saved per device and orientation. (r16)
 - **DRF-096** "Build · cards side by side" puts 1–3 cards next to each other in every column, default 1 in both orientations. (r22)
@@ -249,7 +249,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-100** While swiping the card stays put and a tilted see-through copy (as on the pick screen, DRF-058) tinted in the destination colour follows the finger; under 20 dp it springs back. (r20)
 - **DRF-101** A moved card fades out where it was and in at its new place while others slide (~250 ms); a brief chip like "→ Side" confirms the move. (r20)
 - **DRF-102** Tapping a card opens a menu with its two destinations; after submitting they are disabled. Holding inspects the card like the pick screen. (r52)
-- **DRF-103** A W/U/B/R/G basics row under Main (and one under Side) opens one dialog with five −/+ steppers and Done, with "Basics N · Lands M" left of Done updating live (the section it was opened for, M counting every land there, drafted ones too); basics are unlimited and not drafted. (r23)
+- **DRF-103** A W/U/B/R/G basics row under Main (and one under Side) opens one dialog with five −/+ steppers and Done, with "Basics N · Lands M" left of Done updating live (the section it was opened for, M counting every land there, drafted ones too); basics are unlimited, and a drafted one is counted here (DRF-093). (r23)
 - **DRF-104** New drafts with an unlimited sideboard start with 17 of each basic in Side; Side basics count toward a finite sideboard limit. (r23)
 - **DRF-105** The deck name row has a pen button; the name (default "<pod name> deck") is private to you and can be changed even after submitting, here or from Prepare deck in a pod game's lobby (LOB-047); a new name reaches your draft deck and your games of the pod still in their lobby. (r70)
 - **DRF-166** A cover thumbnail sits beside the deck's name in Build; a tap lists your Main and Side cards alphabetically, basics not among them, to choose it from, also after submitting; without a choice, or once the chosen card has gone to Maybe, the first Main card shows. (r62)
@@ -305,7 +305,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-135** Draft notifications use their own "Draft activity" channel, one per pod, updated rather than stacked; pod notifications name the set or cube the pod drafts below their title. (r49)
 - **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid, Rotisserie, Winston and Winchester: your turn; Rochester: your pick in a pack) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (r35)
 - **DRF-137** Other pod notifications: "<name> invited you to <pod>", "Draft complete: build your deck", "Decks ready — <pod name>" (to everyone but the last submitter and members with a challenge of the pod queued, sent or received: that challenge's own notice is theirs), "Draft cancelled", "Pod destroyed", "Auto-start off — <pod name>". (r49)
-- **DRF-138** A pod's notification clears, and none is posted, while that pod is open in the app; pod invitation notifications likewise while the Pods list is shown. (r19)
+- **DRF-138** A pod's notification clears, and none is posted, while that pod is open in the app; pod invitation notifications likewise while the Pods list is shown. A pick or build notification also clears on your other devices once it's done (LOB-242). (r19)
 
 ## Privacy
 

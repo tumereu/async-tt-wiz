@@ -106,12 +106,12 @@ object MatchStats {
         return buckets.map { (label, range) -> label to turns.count { it in range } }
     }
 
-    /** The viewer's decks (by source), most played first. */
+    /** The viewer's decks (by source), the most recently played first (LOB-179: by their newest finished match). */
     fun decks(records: List<MatchRecord>, me: String): List<DeckLine> = records.finished(me)
-        .mapNotNull { r -> r.player(me)?.deck?.let { it to r.result(me) } }.groupBy { it.first.sourceId }
-        .map { (source, played) -> DeckLine(source, played.last().first.name, played.last().first.cover,
-            played.fold(Record()) { acc, (_, result) -> acc + result }) }
-        .sortedWith(compareByDescending<DeckLine> { it.record.matches }.thenBy { it.name.lowercase() })
+        .mapNotNull { r -> r.player(me)?.deck?.let { Triple(it, r.result(me), r.endedAt) } }.groupBy { it.first.sourceId }
+        .map { (source, played) -> played.last().third to DeckLine(source, played.last().first.name, played.last().first.cover,
+            played.fold(Record()) { acc, (_, result, _) -> acc + result }) }
+        .sortedWith(compareByDescending<Pair<String, DeckLine>> { it.first }.thenBy { it.second.name.lowercase() }).map { it.second }
 
     /** The viewer's decks against the opponent's (their hidden decks pooled as "Deck"). */
     fun grid(records: List<MatchRecord>, me: String): Grid {

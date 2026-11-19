@@ -90,7 +90,10 @@ class PodLimitedModelsTest {
         val gridPicks = podOpponentPicks(detail.copy(settings = DraftSettings.grid(), limited = null, grid = grid), "a")
         assertEquals(listOf("b"), gridPicks.map { it.account.accountId })
         assertEquals(listOf(c[0], c[3], c[4]), gridPicks.single().cards)
-        assertTrue(listOf(DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.GRID).all(::podHasPicksView))
-        assertFalse(listOf(DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.BOOSTER, DraftMode.SEALED).any(::podHasPicksView))
+        // DRF-160, DRF-165 (owner, 2026-11-19): every draft mode has the History icon; without pack passing it opens the picks
+        assertTrue(listOf(DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE).all(::podHasPicksView))
+        assertFalse(listOf(DraftMode.BOOSTER, DraftMode.GLIMPSE, DraftMode.SEALED).any(::podHasPicksView))
+        assertTrue(DraftMode.entries.filter { it != DraftMode.SEALED }.all(::podHasHistoryIcon))
+        assertFalse(podHasHistoryIcon(DraftMode.SEALED))
     }
 }

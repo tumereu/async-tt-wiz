@@ -49,6 +49,30 @@ class PodDeckRulesTest {
         assertEquals(updated, PodDeckRules.withAwards(updated, listOf("one", "two", "three", "four")))
     }
 
+    // DRF-093, DRF-103 (owner, 2026-11-19): a drafted basic land adds one to Main's count of that basic and never becomes a
+    // card; it stays in the pool, so the build is complete with it; one that leaves the pool (a Librarian exchange) takes
+    // its one back
+    @Test fun draftedBasicLandsGoToMainsCountNotToCards() {
+        val lands = mapOf("plains-1" to BasicLand.PLAINS, "plains-2" to BasicLand.PLAINS, "forest" to BasicLand.FOREST)
+        val build = PodDeckBuild(listOf(PodDeckCopy("bolt")), PodDeckBasics(plains = 3))
+        val updated = PodDeckRules.withAwards(build, listOf("bolt", "plains-1", "elf", "forest", "plains-2"), lands::get)
+        assertEquals(listOf(PodDeckCopy("bolt"), PodDeckCopy("elf")), updated.copies)
+        assertEquals(PodDeckBasics(plains = 5, forest = 1), updated.basics)
+        assertEquals(PodDeckBasics(), updated.sideBasics)
+        assertEquals(listOf("plains-1", "forest", "plains-2"), updated.landed)
+        assertEquals(updated, PodDeckRules.withAwards(updated, listOf("bolt", "plains-1", "elf", "forest", "plains-2"), lands::get))
+        val pool = listOf("bolt", "plains-1", "elf", "forest", "plains-2")
+        assertTrue(PodDeckIssue.MISSING_COPY !in PodDeckRules.validate(updated, pool))
+        assertTrue(PodDeckIssue.UNKNOWN_COPY !in PodDeckRules.validate(updated, pool))
+        val exchanged = PodDeckRules.withDraftPool(updated, listOf("bolt", "plains-1", "elf", "forest", "librarian"), basicOf = lands::get)
+        assertEquals(PodDeckBasics(plains = 4, forest = 1), exchanged.basics)
+        assertEquals(listOf("plains-1", "forest"), exchanged.landed)
+        assertEquals(listOf(PodDeckCopy("bolt"), PodDeckCopy("elf"), PodDeckCopy("librarian")), exchanged.copies)
+        assertEquals(PodDeckBasics(forest = 1), PodDeckRules.withDraftPool(PodDeckBuild(), listOf("forest"), basicOf = lands::get).basics)
+        assertEquals(BasicLand.ISLAND, BasicLand.named("Island"))
+        assertEquals(null, BasicLand.named("Snow-Covered Island"))
+    }
+
     @Test fun basicsAreNonnegativeAndCountTowardFortyWithOverflowSafeTotals() {
         assertTrue(PodDeckBasics().valid)
         assertEquals(0L, PodDeckBasics().total)

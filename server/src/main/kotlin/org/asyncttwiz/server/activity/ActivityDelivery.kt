@@ -78,8 +78,18 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
     private val clock: Clock = Clock.systemUTC(), private val webPush: WebPushAdapter? = null) : AutoCloseable {
     private val worker = Executors.newSingleThreadScheduledExecutor { Thread(it, "activity-hints").apply { isDaemon = true } }
     fun start() { worker.scheduleWithFixedDelay({ if (runtime.admitting()) runCatching { deliverDue() } }, 0, 1, TimeUnit.SECONDS) }
+    /** When [ActivityNotices.sweep] last ran: every [SWEEP_SECONDS] seconds. */
+    @Volatile private var swept: java.time.Instant? = null
     fun deliverDue() {
         ActivityService(runtime, clock).pruneExpired()
+        // LOB-078: notices that no longer wait are cleared on their devices (clear pushes, sent below)
+        val instant = clock.instant()
+        if (swept?.plusSeconds(SWEEP_SECONDS)?.isAfter(instant) != true) {
+            swept = instant
+            runtime.transaction { connection ->
+                ActivityNotices.sweep(DSL.using(connection, SQLDialect.POSTGRES), OffsetDateTime.ofInstant(instant, ZoneOffset.UTC))
+            }
+        }
         runtime.transaction { connection ->
             ActivityService.remindDue(DSL.using(connection, SQLDialect.POSTGRES), OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))
         }
@@ -131,7 +141,8 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
                     .and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
                     .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE").and(PUSH.KIND.`in`("INVITATION", "GAME", "GAME_REMOVAL"))
                         .and(PUSH.KIND.ne("INVITATION").or(INVITATION.STATE.eq("PENDING").and(GAME.CURRENT_INVITATION.eq(PUSH.IDENTITY))))
-                        .or(ActivityService.podVisible(INSTALL.ACCOUNT_ID, PUSH.KIND, PUSH.GAME_ID, PUSH.IDENTITY)))
+                        .or(ActivityService.podVisible(INSTALL.ACCOUNT_ID, PUSH.KIND, PUSH.GAME_ID, PUSH.IDENTITY))
+                        .or(PUSH.KIND.like(ActivityNotices.CLEAR_PREFIX + "%")))
                     .orderBy(PUSH.DUE_AT).limit(1).forUpdate().of(PUSH).skipLocked().fetchOne() ?: return@transaction null
                 val attempt = row[PUSH.ATTEMPTS]!!
                 val seconds = retrySeconds(attempt)
@@ -144,10 +155,18 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
                     .where(SUMMARY.ACCOUNT_ID.eq(row[INSTALL.ACCOUNT_ID])).and(SUMMARY.GAME_ID.eq(row[PUSH.GAME_ID]))
                     .and(SUMMARY.KIND.eq("GAME")).execute()
                 val browser = row[INSTALL.WEB_PUSH]?.takeIf { webPush != null }
-                if (browser == null) return@transaction Delivery.Android(row, ActivityPushHint(row[PUSH.GENERATION].toString(),
+                val cleared = ActivityNotices.clearedKey(row[PUSH.KIND]!!, row[PUSH.GAME_ID]!!)
+                // LOB-078: an Android installation's clear is the usual hint: its feed refresh then removes what no longer waits
+                if (browser == null) return@transaction if (row[INSTALL.PUSH_TOKEN] == null) {
+                    sql.deleteFrom(PUSH).where(exact).execute(); Delivery.Nothing
+                } else Delivery.Android(row, ActivityPushHint(row[PUSH.GENERATION].toString(),
                     row[PUSH.GAME_ID].toString(), row[PUSH.ACTIVITY_ID].toString(), row[PUSH.IDENTITY].toString()), row[INSTALL.PUSH_TOKEN]!!)
-                // WEB-051, WEB-052: a browser is sent the notice itself, in the feed's words, if its switches let the kind through
                 val subscription = ActivityWire.json.decodeFromString(WebPushSubscription.serializer(), browser)
+                // LOB-078: a browser's clear names the notice's tag; its switches decide as for the notice
+                if (cleared != null) return@transaction if (WebPushNotices.wanted(subscription, ActivityNotices.clearedKind(row[PUSH.KIND]!!)))
+                    Delivery.Browser(row, subscription, browser, WebPushNotice("", tag = cleared, path = "/", clear = true))
+                    else { sql.deleteFrom(PUSH).where(exact).execute(); Delivery.Nothing }
+                // WEB-051, WEB-052: a browser is sent the notice itself, in the feed's words, if its switches let the kind through
                 val kind = ActivityKind.valueOf(row[PUSH.KIND]!!)
                 val notice = if (!WebPushNotices.wanted(subscription, kind)) null else ActivityService(runtime, clock)
                     .pushHint(sql, row[INSTALL.ACCOUNT_ID]!!, kind, row[PUSH.GAME_ID]!!, row[PUSH.ACTIVITY_ID]!!)?.let(WebPushNotices::of)
@@ -185,6 +204,12 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
                     }
                     else -> sql.deleteFrom(PUSH).where(exact).execute()
                 }
+                // LOB-078: a delivered notice may show until nothing waits for it; a browser is then sent its clear
+                if (result.status == PushStatus.DELIVERED && ActivityNotices.clearedKey(row[PUSH.KIND]!!, row[PUSH.GAME_ID]!!) == null) {
+                    val key = ActivityNotices.key(ActivityKind.valueOf(row[PUSH.KIND]!!), row[PUSH.GAME_ID].toString(), row[PUSH.IDENTITY].toString())
+                    ActivityNotices.shown(sql, row[INSTALL.ACCOUNT_ID]!!, listOf(key), time)
+                    if (work is Delivery.Browser) ActivityNotices.shownInBrowser(sql, row[PUSH.GENERATION]!!, key)
+                }
             }
         }
     }
@@ -198,5 +223,8 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
     }
 
     override fun close() { worker.shutdownNow(); check(worker.awaitTermination(25, TimeUnit.SECONDS)) }
-    companion object { fun retrySeconds(attempt: Int) = when (attempt) { 0 -> 60L; 1 -> 300L; 2 -> 900L; else -> 3600L } }
+    companion object {
+        fun retrySeconds(attempt: Int) = when (attempt) { 0 -> 60L; 1 -> 300L; 2 -> 900L; else -> 3600L }
+        const val SWEEP_SECONDS = 5L
+    }
 }

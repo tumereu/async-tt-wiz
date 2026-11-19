@@ -19,6 +19,7 @@ internal object DraftDeckStore {
         val category = build.copies.associate { it.copyId to it.category }
         val main = build.copies.filter { it.category == PodDeckCategory.MAIN }.map { it.copyId }
         val inMain = main.toSet()
+        val landed = build.landed.toSet() // DRF-093: in the basics already
         fun collect(sideBasics: Boolean): List<Entry> {
             val counts = linkedMapOf<Pair<SavedDeckSection, String>, Int>()
             fun add(section: SavedDeckSection, digest: String, quantity: Int) {
@@ -29,7 +30,7 @@ internal object DraftDeckStore {
             }
             main.forEach { add(SavedDeckSection.MAINBOARD, definitions.getValue(it), 1) }
             basics(SavedDeckSection.MAINBOARD, build.basics)
-            val rest = pool.filter { it !in inMain }
+            val rest = pool.filter { it !in inMain && it !in landed }
             rest.filter { category[it] != PodDeckCategory.MAYBE }.forEach { add(SavedDeckSection.SIDEBOARD, definitions.getValue(it), 1) }
             if (sideBasics) basics(SavedDeckSection.SIDEBOARD, build.sideBasics)
             rest.filter { category[it] == PodDeckCategory.MAYBE }.forEach { add(SavedDeckSection.MAYBEBOARD, definitions.getValue(it), 1) }

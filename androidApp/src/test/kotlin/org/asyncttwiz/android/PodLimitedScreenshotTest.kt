@@ -138,18 +138,21 @@ class PodLimitedScreenshotTest {
     }
 
     // DRF-153, DRF-216, DRF-164, DRF-218: on another's turn a tap frames a free card and "Queue <card>" adds it to the end of your queue;
-    // the strip lists the queue in order with removes, queued cards carry their number, and a cleared queue shows its note.
+    // the strip shows the queue in order as small cards with their number and ✕ (a tap removes one), queued cards in the pool
+    // carry their number, and a cleared queue shows its note.
     @Test fun rotisseriePickQueueStripAndQueueButton() {
         val board = copies.take(12).mapIndexed { index, copy -> LimitedSlot(copy, if (index == 4) "bob" else null) }
         var view by mutableStateOf(LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob"), emptyList(), false,
             currentPlayer = "bob", turn = 1, turns = 90, board = board, pickQueue = listOf(copies[6], copies[0])))
         val queued = mutableListOf<List<String>>()
-        show({ "pod-rotisserie-${it.id}" }, board.map { it.copy }) {
+        show({ "pod-rotisserie-${it.id}" }, board.map { it.copy },
+            also = { copy -> if (copy in view.pickQueue) listOf("pod-rotisserie-queued-${copy.id}") else emptyList() }) {
             PodRotisserieView(view, members, definitions, false, { _, _, _, _, _, _ -> error("no pick on Bob's turn") },
                 Modifier.fillMaxSize(), columns) { queued += it }
         }
-        compose.onNodeWithText("1 · Serra Angel").assertIsDisplayed()
-        compose.onNodeWithText("2 · Lightning Bolt").assertIsDisplayed()
+        compose.onNodeWithContentDescription("1 · Serra Angel").assertIsDisplayed()
+        compose.onNodeWithContentDescription("2 · Lightning Bolt").assertIsDisplayed()
+        compose.onNodeWithTag("pod-rotisserie-queued-copy-6-number", useUnmergedTree = true).assertTextEquals("1")
         compose.onNodeWithTag("pod-rotisserie-copy-6-badge", useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Queue").assertIsNotEnabled()
         // Taps on a queued or taken card do nothing; a free card is framed for the queue.
@@ -162,8 +165,9 @@ class PodLimitedScreenshotTest {
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
         compose.onNodeWithText("Queue Shivan Dragon").assertIsEnabled()
-        shot("pod-rotisserie-queue", "Rotisserie draft on Bob's turn with Alice's pick queue of two cards in the strip above " +
-            "the button (numbered on their cards too), after she taps Shivan Dragon: \"Queue Shivan Dragon\" below.")
+        shot("pod-rotisserie-queue", "Rotisserie draft on Bob's turn with Alice's pick queue of two cards shown as small " +
+            "numbered cards with an x in the strip above the button (numbered in the pool too), after she taps Shivan Dragon: " +
+            "\"Queue Shivan Dragon\" below.")
         compose.onNodeWithText("Queue Shivan Dragon").performClick()
         compose.onNodeWithTag("pod-rotisserie-queued-copy-0").performClick()
         kotlin.test.assertEquals(listOf(listOf("copy-6", "copy-0", "copy-7"), listOf("copy-6")), queued)
@@ -171,6 +175,28 @@ class PodLimitedScreenshotTest {
         compose.runOnIdle { view = view.copy(pickQueue = emptyList(), queueCleared = copies[0]) }
         compose.onNodeWithText("Queue cleared: Lightning Bolt was taken").assertIsDisplayed()
         compose.onNodeWithTag("pod-rotisserie-queue").assertDoesNotExist()
+    }
+
+    // DRF-164 (owner, 2026-11-19): holding a queued card in the strip inspects it (its full card) and doesn't remove it
+    @Test fun holdingAQueuedCardInspectsIt() {
+        val board = copies.take(6).map { LimitedSlot(it, null) }
+        val view = LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob"), emptyList(), false,
+            currentPlayer = "bob", turn = 1, turns = 90, board = board, pickQueue = listOf(copies[2]))
+        val queued = mutableListOf<List<String>>()
+        show({ "pod-rotisserie-${it.id}" }, board.map { it.copy }) {
+            PodRotisserieView(view, members, definitions, false, { _, _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns) { queued += it }
+        }
+        val inspect = hasContentDescription("Card inspection content")
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("pod-rotisserie-queued-copy-2").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onNode(inspect, useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pod-rotisserie-queued-copy-2").performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        compose.onNode(inspect, useUnmergedTree = true).assertDoesNotExist()
+        kotlin.test.assertEquals(emptyList(), queued, "holding removes nothing")
     }
 
     // DRF-155, DRF-215, DRF-085

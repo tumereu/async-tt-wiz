@@ -480,6 +480,11 @@ object LimitedEngine {
 
     fun picksMade(state: LimitedDraftState, player: String): Int = state.log.count { it.player == player }
 
+    /** Rotisserie and Rochester: every take in order, all face up (each was taken from a board everyone sees), for the
+     * History icon's picks (DRF-160). */
+    private fun publicPicks(state: LimitedDraftState, copies: Map<String, DraftCopy>): List<LimitedPickView> =
+        state.log.map { take -> LimitedPickView(take.player, take.cards.map(copies::getValue)) }
+
     /** What [viewer] may see: their pool, every open board, and pile cards only once they have seen them (Winston). */
     fun view(state: LimitedDraftState, viewer: String): LimitedView {
         require(viewer in state.seating) { "Not a draft member" }
@@ -493,9 +498,10 @@ object LimitedEngine {
                 base.copy(turns = minOf(rotisserieTurns(state), state.board.size),
                     board = state.board.map { LimitedSlot(copies.getValue(it), pickers[it]) },
                     pickQueue = state.pickQueues[viewer].orEmpty().map(copies::getValue),
-                    queueCleared = state.queueCleared[viewer]?.let(copies::getValue))
+                    queueCleared = state.queueCleared[viewer]?.let(copies::getValue),
+                    picks = publicPicks(state, copies))
             }
-            DraftMode.ROCHESTER -> base.copy(round = if (state.finished) state.packs.maxOf { it.round } + 1 else state.round + 1,
+            DraftMode.ROCHESTER -> base.copy(picks = publicPicks(state, copies), round = if (state.finished) state.packs.maxOf { it.round } + 1 else state.round + 1,
                 rounds = state.packs.maxOf { it.round } + 1,
                 packs = state.packs.filter { it.round == state.round }.map { pack ->
                     val pickers = pack.picked.zip(pack.pickers).toMap()

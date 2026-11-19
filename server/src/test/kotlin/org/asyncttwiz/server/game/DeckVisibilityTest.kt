@@ -194,6 +194,7 @@ class DeckVisibilityTest {
             CREATE TABLE account_definition (account_id uuid NOT NULL REFERENCES account(id), digest text NOT NULL REFERENCES definition(digest),
                 PRIMARY KEY (account_id, digest));
             CREATE TABLE account_token_favorites (account_id uuid PRIMARY KEY REFERENCES account(id) ON DELETE CASCADE, keys_json text NOT NULL);
+            DROP TABLE activity_notice_browser; DROP TABLE activity_notice;
             DROP TABLE pod_chat_read_cursor; DROP TABLE pod_chat;
             ALTER TABLE pod_member DROP COLUMN deck_cover;
             DROP TRIGGER deck_shown_to_record ON player_preparation; DROP FUNCTION deck_shown_to_record();
@@ -223,7 +224,7 @@ class DeckVisibilityTest {
             ALTER TABLE account DROP COLUMN move_sound;
             ALTER TABLE account DROP COLUMN key_bindings;
             ALTER TABLE activity_installation DROP COLUMN web_push;
-            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89')
+            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90')
         """.trimIndent())
         // Up to V53: V54 would remove the finished game this checks
         assertEquals(8, org.flywaydb.core.Flyway.configure().configuration(FoundationMigrations.flyway(f.db.settings).configuration)

@@ -425,8 +425,10 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         true
     }
     val icons: @Composable () -> Unit = {
-        // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included.
+        // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included; DRF-160 (owner, 2026-11-19): in
+        // every draft mode, in the same place: the others' picks where there is no pack passing
         if (detail.settings.mode.packPassing) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
+        else if (podHasPicksView(detail.settings.mode)) PodPicksHeaderButton(detail, accountId, definitions)
         PodChatButton(controller, detail.id, accountId)
         PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
             historyColumns.takeIf { detail.settings.mode.packPassing })
@@ -440,7 +442,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         // WEB-062 (owner playtest 2026-11-16): on the desktop layout the tabs share the header's row (tabs left, avatars in the
         // middle, the icons right) where they fit; elsewhere, and on the phone, they have their own row under it (DRF-076)
         val desktop = desktopLayout()
-        val iconCount = if (detail.settings.mode.packPassing) 3 else 2
+        val iconCount = if (podHasHistoryIcon(detail.settings.mode)) 3 else 2
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val oneRow = desktop && podHeaderOneRow(maxWidth, tabs.size, detail.members.size, iconCount, navigation != null)
             LaunchedEffect(desktop, oneRow) {
@@ -453,9 +455,6 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                 tabRow(Modifier.fillMaxWidth())
             }
         }
-        // DRF-160: Winston, Winchester and Grid show each opponent's picks on request.
-        if (selected == PodTab.DRAFT && podHasPicksView(detail.settings.mode))
-            PodPicksButton(detail, accountId, definitions)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 // Section 3.6: pod picks wait for the card records

@@ -20,6 +20,12 @@ self.addEventListener('push', (event) => {
     let notice = null;
     try { notice = event.data ? event.data.json() : null; } catch (e) { notice = null; }
     if (!notice || typeof notice.title !== 'string' || typeof notice.path !== 'string') return;
+    // LOB-078: nothing waits for this notice any more (dealt with on another device or in another way): it is closed
+    if (notice.clear === true && typeof notice.tag === 'string') {
+        event.waitUntil(self.registration.getNotifications({ tag: notice.tag })
+            .then((shown) => shown.forEach((notification) => notification.close())));
+        return;
+    }
     event.waitUntil(tabs().then((open) => {
         if (open.some((tab) => tab.visibilityState === 'visible' && tab.focused !== false && shows(tab, notice.path))) return undefined;
         return self.registration.showNotification(notice.title, {

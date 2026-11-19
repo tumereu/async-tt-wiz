@@ -54,8 +54,9 @@ class ActivityPresenceTest {
             val delta = service.page(f.b, "0")
             assertTrue(delta.entries.any { it.kind == ActivityKind.GAME })
             assertTrue(delta.readyNotices!!.none { it.kind == ActivityKind.GAME })
+            // The notices' pushes: a clear's hint (activity 0, LOB-242) is ActivityNoticesTest's
             val sent = mutableListOf<ActivityPushHint>()
-            ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock).use { delivery ->
+            ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> if (hint.activityId != "0") sent += hint; PushResult(PushStatus.DELIVERED) }, clock).use { delivery ->
                 clock.time = first.plusSeconds(5); service.heartbeat(f.a, actor.copy(didSomething = false))
                 delivery.deliverDue(); assertTrue(sent.isEmpty())
                 clock.time = first.plusSeconds(9); service.heartbeat(f.a, actor)
@@ -104,8 +105,9 @@ class ActivityPresenceTest {
             service.register(f.b, RegisterInstallation(id(), id(), "push")); f.sql("DELETE FROM activity_push")
             val actor = GamePresence(game.id, id())
             service.heartbeat(f.a, actor); f.record(game, id(), first)
+            // The notices' pushes: a clear's hint (activity 0, LOB-242) is ActivityNoticesTest's
             val sent = mutableListOf<ActivityPushHint>()
-            ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock).use { delivery ->
+            ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> if (hint.activityId != "0") sent += hint; PushResult(PushStatus.DELIVERED) }, clock).use { delivery ->
                 for (seconds in 5L..55L step 5) {
                     clock.time = first.plusSeconds(seconds); service.heartbeat(f.a, actor); delivery.deliverDue()
                 }
@@ -124,8 +126,9 @@ class ActivityPresenceTest {
         val clock = ActivityClock(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS))
         val first: Instant = clock.time
         val service = ActivityService(f.runtime, clock)
+        // The notices' pushes: a clear's hint (activity 0, LOB-242) is ActivityNoticesTest's
         val sent = mutableListOf<ActivityPushHint>()
-        val delivery = ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock)
+        val delivery = ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> if (hint.activityId != "0") sent += hint; PushResult(PushStatus.DELIVERED) }, clock)
         val actor = GamePresence(game.id, UUID.randomUUID().toString())
         val recipient = GamePresence(game.id, UUID.randomUUID().toString())
         init {

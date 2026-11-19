@@ -53,9 +53,11 @@ import kotlinx.serialization.json.Json
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ResumePoint(val turn: Int, val yours: Boolean,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val step: TurnPosition? = null)
+/** [openNotices] (LOB-078): the notification keys (ActivityHint.notificationKey) that still wait for the account; a shown
+ * notification of any other key is cleared. Null: not told (a page made on the device). */
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
     val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean,
-    val readyNotices: List<ActivityHint>? = null)
+    val readyNotices: List<ActivityHint>? = null, val openNotices: List<String>? = null)
 /** Games now waiting for the account (GET /activity/waiting): in play, the opponent made the latest event and
  * left the move with the account, and the opponent is idle by the push rule. Each [ActivityHint] carries the
  * latest event's activity and identity and a waiting-reminder [GameNoticeContent]. */
@@ -84,8 +86,11 @@ import kotlinx.serialization.json.Json
  * notification's [title] and [body] in the Android app's words (LOB-072), its [tag] (a newer one of the same game, pod or
  * invitation replaces it), the app address a click opens ([path]) and the time of what it tells ([time], epoch millis).
  */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class WebPushNotice(val title: String, val body: String? = null, val tag: String, val path: String,
-    val time: Long? = null)
+    val time: Long? = null,
+    /** LOB-078: nothing waits for the notice of [tag] any more: the browser closes it and shows nothing. Omitted when false. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val clear: Boolean = false)
 @Serializable data class ActivityRegistration(val generation: String)
 @Serializable data class ActivityPushHint(val generation: String, val gameId: String, val activityId: String,
     val identity: String)

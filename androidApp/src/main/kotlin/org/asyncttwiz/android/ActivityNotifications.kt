@@ -96,5 +96,22 @@ class ActivityNotifications(private val context: Context, private val podName: (
             if (tag.startsWith(prefix) && screen.shows(tag.removePrefix(prefix))) manager.cancel(tag, it.id)
         }
     }
+    /** LOB-078 (owner, 2026-11-19): clears [owner]'s shown notifications whose key the server no longer lists in [open] (nothing
+     * waits for them, however the player dealt with it); returns the keys cleared. */
+    fun cancelSettled(owner: ActivityOwner, open: Set<String>): List<String> {
+        val prefix = "activity:${owner.binding}:"
+        val settled = runCatching { manager.activeNotifications }.getOrNull().orEmpty().mapNotNull { shown ->
+            val key = shown.tag?.takeIf { it.startsWith(prefix) }?.removePrefix(prefix) ?: return@mapNotNull null
+            if (key in open) null else { manager.cancel(shown.tag, shown.id); key }
+        }
+        if (settled.isNotEmpty()) AppLog.info("activity", "Cleared notifications nothing waits for any more: ${settled.joinToString()}")
+        return settled
+    }
+    /** LOB-242: after [page] is applied, [owner]'s shown notifications the server no longer lists as waiting are cleared, and
+     * [delivery] makes the next notice of each alert. */
+    fun settle(owner: ActivityOwner, page: org.asyncttwiz.protocol.ActivityPage, delivery: ActivityDelivery) {
+        val open = page.openNotices ?: return
+        cancelSettled(owner, open.toSet()).takeIf { it.isNotEmpty() }?.let { delivery.settled(owner, it) }
+    }
     fun cancelAll() { manager.cancelAll() }
 }

@@ -164,9 +164,11 @@ val PodGridBandWidth = 5.dp
 /** Bands stop this short of a cell's sides across their line, so two adjacent parallel bands stay apart. */
 val PodGridBandGap = 1.dp
 
-/** Discarded cards fade most; while a line is selected the other live cards dim slightly so the selection stands out. */
-fun podGridArtAlpha(cell: PodGridCell, live: Boolean, highlighted: Boolean, selecting: Boolean) = when {
+/** Discarded cards fade most, and so do the cards already taken in the grid you pick from ([picking], DRF-083); while a line
+ * is selected the other live cards dim slightly so the selection stands out. */
+fun podGridArtAlpha(cell: PodGridCell, live: Boolean, highlighted: Boolean, selecting: Boolean, picking: Boolean = false) = when {
     cell.discarded -> .35f
+    picking && cell.pickedBy != null -> .35f
     selecting && live && !highlighted -> .7f
     else -> 1f
 }
@@ -250,7 +252,7 @@ private fun PodGridSlot(board: GridPublicBoard, cell: PodGridCell, position: Int
             val currentInspect by rememberUpdatedState(inspect)
             val currentInspectScroll by rememberUpdatedState(inspectScroll)
             PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize()
-                .alpha(podGridArtAlpha(cell, live, highlighted, selecting))
+                .alpha(podGridArtAlpha(cell, live, highlighted, selecting, picking = rules != null))
                 .pointerInput(copy) {
                     podPickGestures(onTap = {}, onInspect = { currentInspect(copy, it) },
                         onInspectScroll = { currentInspectScroll(it) })

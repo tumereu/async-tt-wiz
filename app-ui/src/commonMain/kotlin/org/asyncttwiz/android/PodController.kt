@@ -738,7 +738,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             detail = base.copy(
                 draft = draft.copy(head = draft.queuedPacks.firstOrNull(), queuedPacks = draft.queuedPacks.drop(1),
                     packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = pool),
-                build = base.build?.let { PodDeckRules.withDraftPool(it, pool.map { copy -> copy.id }) },
+                // DRF-093: a drafted basic land goes to Main's count, as the server will put it
+                build = base.build?.let { PodDeckRules.withDraftPool(it, pool.map { copy -> copy.id }) { id ->
+                    pool.firstOrNull { copy -> copy.id == id }?.let { copy -> base.definitions.firstOrNull { d -> d.digest == copy.definition } }
+                        ?.let { d -> BasicLand.named(d.definition.name) }
+                } },
                 members = base.members.map { if (it.account.accountId == draft.player)
                     it.copy(packsWaiting = (it.packsWaiting - 1).coerceAtLeast(0), picksMade = it.picksMade + 1) else it })
         }

@@ -203,7 +203,10 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
         val reminders = reminders(sql, owner, SUMMARY.REMINDER_ACTIVITY_ID.le(high))
         val notices = (ready + reminders).sortedByDescending { ActivityWire.ordinal(it.activityId) }.take(50)
-        ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + notices)
+        val told = entries.filter { it.kind != ActivityKind.GAME } + notices
+        // LOB-078: what this page may make the device show is remembered until nothing waits for it (ActivityNotices.sweep)
+        if (!reset) ActivityNotices.shown(sql, owner, told.map { ActivityNotices.key(it.kind, it.gameId, it.identity) }, now())
+        ActivityPage(entries, next, floor.toString(), reset, more, told, ActivityNotices.open(sql, owner).sorted())
     }
 
     /** The feed's entries for [owner]'s [rows] of the event log or, after a reset, the summaries ([activity] ... [author]
@@ -333,7 +336,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
      * and whose other player is idle by the rule that makes a push due ([ActivityTiming.due]). On engine state (I-D57) the
      * game waits for the account by its seat ([engineWaiting]), also when the account itself played on and left with
      * nothing waiting for the other player; otherwise the opponent made the latest event (the other player's row holds
-     * the account's own latest event) and the move is the account's. Read only. */
+     * the account's own latest event) and the move is the account's. Writes only what the app may now show (LOB-078). */
     fun waiting(principal: AccountService.Principal): WaitingGames = transaction { sql ->
         val owner = account(principal); val time = now()
         val own = SUMMARY.`as`("own")
@@ -354,8 +357,11 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
                     row[ACCOUNT.USERNAME]!!, row[SUMMARY.LAST_EVENT_AT].toString(), true, row[SUMMARY.NEW_MESSAGE]!!, reminder = true))
         }
-        WaitingGames((games + engineWaiting(sql, owner, time)).sortedByDescending { OffsetDateTime.parse(it.notice!!.lastEventAt) }
-            .take(50) + waitingPods(sql, owner))
+        val waiting = (games + engineWaiting(sql, owner, time)).sortedByDescending { OffsetDateTime.parse(it.notice!!.lastEventAt) }
+            .take(50) + waitingPods(sql, owner)
+        // LOB-078: the app may post these (LOB-076); remembered until nothing waits for them
+        ActivityNotices.shown(sql, owner, waiting.map { ActivityNotices.key(it.kind, it.gameId, it.identity) }, time)
+        WaitingGames(waiting)
     }
 
     /** I-D57: the engine games that wait for [owner] by their seat ([org.asyncttwiz.protocol.game.NextStop.waitsFor]), timed

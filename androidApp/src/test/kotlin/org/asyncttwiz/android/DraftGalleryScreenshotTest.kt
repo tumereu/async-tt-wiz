@@ -247,6 +247,31 @@ class DraftGalleryScreenshotTest {
             "the one left, and Confirm reads \"Confirm · 1 Librarian\" (greyed until the second keep is marked).")
     }
 
+    // DRF-165, DRF-160 (owner, 2026-11-19): the History icon sits in the same place of the pod's header in every draft mode:
+    // Booster's opens the draft history, the others' the Picks dialog; Sealed has none
+    @Test fun historyIconInTheSamePlaceInEveryDraftMode() {
+        val members = listOf(PodMember(alice), PodMember(bob, packsWaiting = 1))
+        var shown = false
+        fun iconBounds(settings: DraftSettings, view: PodDetail.() -> PodDetail): androidx.compose.ui.geometry.Rect? {
+            val state = opened(detail(PodPhase.DRAFTING, settings, members).view())
+            if (shown) { pods.seed(state); settle() } else show(state)
+            shown = true
+            val tag = if (settings.mode.packPassing) "pod-history" else "pod-picks"
+            val nodes = compose.onAllNodesWithTag(tag).fetchSemanticsNodes()
+            return nodes.singleOrNull()?.boundsInRoot
+        }
+        val booster = iconBounds(DraftSettings.booster()) { copy(draft = DraftPrivateView("alice", null, 0, emptyList(), round = 1, rounds = 3)) }
+        kotlin.test.assertNotNull(booster)
+        for (settings in listOf(DraftSettings.winston(), DraftSettings.winchester(), DraftSettings.rochester(), DraftSettings.rotisserie())) {
+            val bounds = iconBounds(settings) { copy(limited = LimitedView(settings.mode, "alice", listOf("alice", "bob"), emptyList(), false)) }
+            kotlin.test.assertEquals(booster, bounds, "${settings.mode}'s History icon where Booster's is")
+        }
+        val grid = iconBounds(DraftSettings.grid()) { this }
+        kotlin.test.assertEquals(booster, grid, "Grid's History icon where Booster's is")
+        compose.onNodeWithTag("pod-picks").performClick()
+        compose.onNodeWithText("Picks").assertIsDisplayed()
+    }
+
     // DRF-071, DRF-072
     @Test fun boosterWaiting() {
         val members = listOf(PodMember(alice), PodMember(bob, packsWaiting = 2), PodMember(carol, packsWaiting = 1))
@@ -268,9 +293,11 @@ class DraftGalleryScreenshotTest {
                 picks = listOf(LimitedPickView("alice", listOf(copy(3)), 1), LimitedPickView("bob", listOf(copy(13), copy(18)), 2),
                     LimitedPickView("alice", listOf(copy(8)), 0))))
         show(opened(detail.copy(members = members)))
-        compose.onNodeWithText("Picks").assertIsDisplayed()
+        // DRF-160 (owner, 2026-11-19): the History icon in the pod's header, where Booster's is; no Picks button on the Draft tab
+        compose.onNodeWithTag("pod-picks").assertIsDisplayed()
+        compose.onNodeWithText("Picks").assertDoesNotExist()
         shot("winchester-waiting", "A Winchester draft on Bob's turn: the board stays on screen with its line naming whose pick it " +
-            "is (\"Waiting for Bob\") and the stack count, the four face-up piles, and the Picks button at the top right.")
+            "is (\"Waiting for Bob\") and the stack count, the four face-up piles, and the History icon in the pod's header.")
     }
 
     private fun buildCopies(): Pair<List<DraftCopy>, PodDeckBuild> {

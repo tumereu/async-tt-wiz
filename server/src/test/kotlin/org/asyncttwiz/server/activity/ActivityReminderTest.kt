@@ -20,8 +20,9 @@ class ActivityReminderTest {
         val clock = ActivityClock(Instant.now().truncatedTo(ChronoUnit.MICROS))
         val start: Instant = clock.time
         val service = ActivityService(f.runtime, clock)
+        // The notices' pushes: a clear's hint (activity 0, LOB-242) is ActivityNoticesTest's
         val sent = mutableListOf<ActivityPushHint>()
-        val delivery = ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock)
+        val delivery = ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> if (hint.activityId != "0") sent += hint; PushResult(PushStatus.DELIVERED) }, clock)
         val actor = GamePresence(game.id, UUID.randomUUID().toString())
         val recipient = GamePresence(game.id, UUID.randomUUID().toString())
         init {

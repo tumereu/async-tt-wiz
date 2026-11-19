@@ -14,6 +14,10 @@ import kotlinx.serialization.Serializable
         PLAINS -> basics.copy(plains = count); ISLAND -> basics.copy(island = count); SWAMP -> basics.copy(swamp = count)
         MOUNTAIN -> basics.copy(mountain = count); FOREST -> basics.copy(forest = count)
     }
+    companion object {
+        /** The basic land a card named [cardName] is (exactly one of the five names), or null. */
+        fun named(cardName: String): BasicLand? = entries.firstOrNull { it.cardName == cardName }
+    }
 }
 @Serializable data class PodGameRules(val sideboardLimit: Int? = null)
 

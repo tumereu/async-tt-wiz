@@ -37,7 +37,8 @@ class WebPushDeliveryTest {
                 clock.time = Instant.now().plusSeconds(1); delivery.deliverDue(); sent.clear()
                 f.record(accepted, id(), clock.time)
                 clock.time = clock.time.plusSeconds(61); delivery.deliverDue()
-                val move = sent.single().second
+                // (the accepted invitation's notice is cleared meanwhile, LOB-242)
+                val move = sent.filterNot { it.second.clear }.single().second
                 assertEquals("Private table · vs Inviter", move.title)
                 assertEquals("Inviter's move", move.body)
                 assertEquals("game:${game.id}", move.tag); assertEquals("/games/${game.id}", move.path)
@@ -63,6 +64,9 @@ class WebPushDeliveryTest {
                 val game = f.accept(invited)
                 clock.time = Instant.now().plusSeconds(1); delivery.deliverDue()
                 f.record(game, id(), clock.time); clock.time = clock.time.plusSeconds(61); delivery.deliverDue()
+                // (the accepted invitation's notice is cleared meanwhile, LOB-242)
+                assertEquals(listOf("invite"), sent.filter { it.clear }.map { it.tag.substringBefore(':') })
+                sent.removeAll { it.clear }
                 assertTrue(sent.isEmpty(), "Game activity is off in this browser")
                 assertEquals(0L, f.number("SELECT count(*) FROM activity_push"))
                 // Game activity on again: the next move is sent; the push service says the subscription is gone

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import arcanum.engine.state.PlayerId
@@ -84,8 +85,8 @@ class DeckLendingFlowTest : E2e() {
         bob.node(accept).performClick()
         waitUntil("the invitation accepted") { ServerSetup.head(b, game.id).summary.invitationState == InvitationState.ACCEPTED }
 
-        // In the lobby nobody chooses: Bob's deck is dealt as the game starts; Ready is all he does
-        bob.openLobby(game)
+        // Accepting opens the game's lobby (LOB-034), where nobody chooses: Bob's deck is dealt as the game starts; Ready is all he does
+        waitUntil("Bob in the game's lobby") { bob.shows(hasTestTag("lobby-history-tab")) }
         waitUntil("Bob's lobby with the deal to come") { bob.showsText("Dealt at random when the game starts") }
         assertTrue(!bob.showsText("Choose deck"), "no Choose deck with Random")
         val ready = hasClickAction() and hasAnyDescendant(hasText("Ready")) and isEnabled()
@@ -94,7 +95,8 @@ class DeckLendingFlowTest : E2e() {
         waitUntil("the game started") { ServerSetup.head(b, game.id).summary.lifecycle == GameLifecycle.ACTIVE }
 
         alice.openGame(game, this)
-        bob.openGame(game, this)
+        // Bob's lobby turns into the table as the game starts
+        waitUntil("Bob's table") { bob.game?.shown != null }
         val first = dealt(alice) to dealt(bob)
         assertNotEquals(first.first, first.second, "different decks without Same deck allowed")
 

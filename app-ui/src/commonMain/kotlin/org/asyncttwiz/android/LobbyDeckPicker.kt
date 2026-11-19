@@ -48,12 +48,12 @@ fun deckPickerSections(game: GameSummary, viewer: String, own: List<DeckSummary>
     }
     val (drafts, ordinary) = own.partition { it.draft != null }
     if (ordinary.isNotEmpty()) {
-        if (lentToMe == null && settings.onlyLentDecks) {
+        if (creator && settings.onlyLentDecks) {
             // The creator's own decks: the lent ones usable, the others greyed
             val (allowed, others) = ordinary.partition(usable)
             if (allowed.isNotEmpty()) sections.add(DeckPickerSection(null, allowed))
             if (others.isNotEmpty()) sections.add(DeckPickerSection("Not lent", others, usable = false))
-        } else sections.add(DeckPickerSection(if (lentToMe != null) "Your decks" else null, ordinary, usable = !settings.onlyLentDecks || lentToMe == null))
+        } else sections.add(DeckPickerSection(if (lentToMe != null) "Your decks" else null, ordinary, usable = !settings.onlyLentDecks))
     }
     if (drafts.isNotEmpty()) sections.add(DeckPickerSection("Draft decks", drafts, usable = !settings.onlyLentDecks))
     return sections

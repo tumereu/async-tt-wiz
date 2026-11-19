@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -171,12 +173,15 @@ fun DeckCategoryField(categories: List<DeckCategory>, chosen: String?, enabled: 
     modifier: Modifier = Modifier, compact: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     val shown = chosen?.let { DeckCategories.pathName(categories, it) }?.takeIf { it.isNotEmpty() } ?: "None"
-    Row((if (compact) modifier.widthIn(max = 220.dp) else modifier.fillMaxWidth()).heightIn(min = 40.dp)
+    Row((if (compact) modifier.widthIn(max = 160.dp) else modifier.fillMaxWidth()).heightIn(min = 40.dp)
         .clickable(enabled, onClickLabel = "Choose category") { open = true }
         .testTag("deck-category").semantics(mergeDescendants = true) { contentDescription = "Category: $shown" },
         verticalAlignment = Alignment.CenterVertically) {
-        Text("Category", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(12.dp))
+        // Beside the name (where it shares the title row) a folder stands for the word, to leave the name its room
+        if (compact) Icon(Icons.Outlined.FolderOpen, null, Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        else Text("Category", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(if (compact) 6.dp else 12.dp))
         Text(shown, if (compact) Modifier.weight(1f, fill = false) else Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Icon(screenIcon("chevron"), null, Modifier.size(20.dp))
     }

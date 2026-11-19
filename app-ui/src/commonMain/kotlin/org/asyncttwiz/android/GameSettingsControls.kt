@@ -89,6 +89,8 @@ fun DeckSettingsGroup(game: GameSummary, accountId: String, access: DeckSettings
     val settings = game.deckSettings
     val host = game.inviter.accountId == accountId && enabled
     var lendDialog by remember { mutableStateOf(false) }
+    // The creator's lent categories show by name: their categories are read once the group shows
+    LaunchedEffect(host) { if (host && access.categories == null) access.load() }
     Column(Modifier.testTag("deck-settings")) {
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         Text(GameSettingsText.DECKS, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 4.dp))

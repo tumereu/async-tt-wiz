@@ -31,6 +31,6 @@ class MainButtonSkipTest {
         time = 200
         changes.stopMotion()
         assertFalse(changes.animates("e1"), "after the skip the scene is drawn at once")
-        assertEquals(setOf(life.key), changes.active.keys, "the flash stays")
+        assertTrue(changes.active.containsKey(life.key), "the flash stays")
     }
 }

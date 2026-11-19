@@ -1,7 +1,9 @@
 package org.asyncttwiz.e2e
 
 import android.app.NotificationManager
+import androidx.compose.ui.test.hasAnyChild
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import kotlinx.coroutines.runBlocking
@@ -26,7 +28,11 @@ class NotificationsClearEverywhereTest : E2e() {
     /** Bob's second phone: its notifications, its delivery state, and the feed poll the app's worker makes. */
     private inner class SecondPhone(val account: TestAccount) {
         val owner = ActivityOwner(account.id, UUID.randomUUID().toString())
-        val notifications = ActivityNotifications(bob.activity).also { it.channels() }
+        val notifications = ActivityNotifications(bob.activity).also {
+            // The phone allows notifications (Android 13+ asks, LOB-188)
+            org.robolectric.Shadows.shadowOf(bob.activity.application).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+            it.channels()
+        }
         private var cursor: String? = null
         private val marks = mutableMapOf<String, ActivityWatermark>()
         private var pending = mapOf<String, PendingActivity>()
@@ -53,6 +59,10 @@ class NotificationsClearEverywhereTest : E2e() {
             }
         }
 
+        private var polled = 0L
+        /** [poll] at most once a second, as a check in a wait (the server limits the feed's requests per minute). */
+        fun pollNowAndThen() { if (System.nanoTime() - polled > 1_000_000_000L) { polled = System.nanoTime(); poll() } }
+
         fun shown(): Set<String> = bob.activity.getSystemService(NotificationManager::class.java).activeNotifications
             .mapNotNull { it.tag?.removePrefix("activity:${owner.binding}:")?.takeIf { key -> key != it.tag } }.toSet()
     }
@@ -78,13 +88,14 @@ class NotificationsClearEverywhereTest : E2e() {
             }
         }
         val key = "invite:${game.invitationId}"
-        waitUntil("the invitation's notification on Bob's second phone") { phone.poll(); key in phone.shown() }
+        waitUntil("the invitation's notification on Bob's second phone") { phone.pollNowAndThen(); key in phone.shown() }
 
         // Bob accepts it on his first phone, from the Games list
         waitUntil("Bob's menu") { bob.shows(hasTestTag("menu-GAMES")) }
         bob.tagged("menu-GAMES").performClick()
-        waitUntil("the invitation in Bob's list") { bob.showsText(name) && bob.shows(hasContentDescription("Accept invitation")) }
-        bob.described("Accept invitation").performClick()
+        val accept = hasAnyChild(hasContentDescription("Accept invitation")) and isEnabled()
+        waitUntil("the invitation in Bob's list") { bob.showsText(name) && bob.shows(accept) }
+        bob.node(accept).performClick()
         waitUntil("the invitation accepted") {
             ServerSetup.head(bob.account, game.id).summary.invitationState == InvitationState.ACCEPTED
         }

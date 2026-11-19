@@ -204,7 +204,7 @@ class CombatController(
     private var stepDivisions: Pair<Pair<String, Boolean>, List<String>>? = null
 
     private fun noteDivisions(play: TableBoard, value: CombatShown) {
-        val asked = value.preview?.divisions.orEmpty().map { it.first }.filter { askedInDialog(play.board, it) }
+        val asked = value.preview?.divisions.orEmpty().map { it.first }
         for (step in listOf(true, false)) {
             val sources = asked.filter { it.firstStrike == step }.map { it.source }.distinct()
             if (sources.isEmpty()) continue
@@ -220,7 +220,7 @@ class CombatController(
     fun divisionCount(play: TableBoard, division: DamageDivision): Pair<Int, Int>? {
         val known = stepDivisions?.takeIf { it.first == (play.board.turn.number to division.firstStrike) }?.second.orEmpty()
         val index = known.indexOf(division.source)
-        val coming = view.early.filter { askedInDialog(play.board, it) }.map { it.source }.distinct()
+        val coming = view.early.map { it.source }.distinct()
         val (n, m) = if (index >= 0) index + 1 to maxOf(known.size, index + 1 + coming.size) else 1 to 1 + coming.size
         return (n to m).takeIf { m > 1 }
     }

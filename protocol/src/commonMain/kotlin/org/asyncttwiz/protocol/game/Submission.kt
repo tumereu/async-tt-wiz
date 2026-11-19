@@ -231,22 +231,22 @@ object WhoActs {
     /**
      * §6's engine-automatic answers: (a) a pass of a player who could only pass, judged without cards only they can see
      * (the shared state keeps every player's "Skip when I have no choice" off, so [Host.shouldPassFor] is that public
-     * judgement), never at their own main phase ([Stops.forcedPass]); (b) an order-free division of combat damage answered with the engine's suggestion (CMB-033: one
-     * creature, or enough for lethal damage to each); (c) the decider's own early answer (I-D33), applied as its decision
-     * opens. Choices with one legal answer that depend on nothing hidden the engine makes itself (P5).
+     * judgement), never at their own main phase ([Stops.forcedPass]); (c) the decider's own early answer (I-D33), applied as
+     * its decision opens. Choices with one legal answer that depend on nothing hidden the engine makes itself (P5). (b), an
+     * order-free division of combat damage answered with the suggestion, is gone: every division the engine asks for is its
+     * player's (STK-033, owner 2026-11-19).
      */
     private fun automatic(model: GameModel, input: Input, player: PlayerId, decision: Decision?): Boolean {
         if (input is Input.PassPriority) return Stops.forcedPass(model, player)
         if (input !is Input.Answer || decision == null || decision.player != player) return false
-        return input == earlyAnswer(model, decision) || input == orderFree(decision)
+        return input == earlyAnswer(model, decision)
     }
 
     /**
-     * The engine-automatic answer to the open [decision] on [model] (§6 b, c), or null: the decider's own early answer to
-     * it (I-D33), valid this turn; else an order-free division of combat damage with the engine's suggestion (CMB-033:
-     * one creature, or enough for lethal damage to each). Any device running the step makes it.
+     * The engine-automatic answer to the open [decision] on [model] (§6 c), or null: the decider's own early answer to it
+     * (I-D33), valid this turn. Any device running the step makes it.
      */
-    fun automaticAnswer(model: GameModel, decision: Decision): Input.Answer? = earlyAnswer(model, decision) ?: orderFree(decision)
+    fun automaticAnswer(model: GameModel, decision: Decision): Input.Answer? = earlyAnswer(model, decision)
 
     /**
      * Whether [input] is the engine-automatic answer ([automaticAnswer]) to the decision open on [model], whoever decides it.
@@ -271,11 +271,6 @@ object WhoActs {
         }?.let { Input.Answer(decision.id, it.answer) }
     }
 
-    private fun orderFree(decision: Decision): Input.Answer? {
-        if (decision !is Decision.Divide || decision.lethal.isEmpty()) return null
-        if (decision.lethal.size > 1 && decision.amount < decision.lethal.sumOf { it.amount }) return null
-        return Input.Answer(decision.id, Answer.Division(decision.suggested))
-    }
 
     /** Why [author] may not assume [input] of [player] here (I-D56 §3), or null: a pass anywhere but at [player]'s stop,
      * blocks without costs to block (CR 509.1d), or the opening keep (HIS-096: by the starting player once their own opening

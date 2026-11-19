@@ -16,9 +16,10 @@ import kotlin.test.assertTrue
  * Owner problem report JVPJ8Y ("assume no response won't continue"): Alice attacks with her Zinc Hauler (4/3) and Bob
  * blocks it with two Ash Pups, then leaves. Alice passes after the blocks ("To damage") and her table waits for Bob (his
  * Normal stops at the blocks) with "Assume pass". Her press assumes his pass; in the combat damage step that
- * follows her Hauler's 4 damage divides among the Pups by itself (enough for lethal damage to each, STK-033), in the
- * same event. The server refused that event until the fix (it took her automatic division for a real input of hers in
- * an assumed event), so the damage was shown and taken back at every press.
+ * follows her Hauler's 4 damage divided among the Pups by itself (enough for lethal damage to each), in the same event.
+ * The server refused that event until the fix (it took her automatic division for a real input of hers in an assumed
+ * event), so the damage was shown and taken back at every press. Since owner 2026-11-19 (STK-033) the division is asked
+ * anyway: the panel opens prefilled and her OK deals the damage as an event of its own.
  */
 class AssumedDivisionTest : E2e() {
     /** Taps [player]'s main button while it passes or goes on, once their game has settled (DamageDivisionTest's). */
@@ -35,7 +36,7 @@ class AssumedDivisionTest : E2e() {
         s.battlefield.count { s.obj(it)?.controller == bob.me && s.obj(it)?.definition?.faces?.first()?.name == "Ash Pup" }
     }
 
-    // JVPJ8Y, STK-033, CR 510.1c
+    // JVPJ8Y, STK-033, STK-101, CMB-094, CR 510.1c
     @Test fun assumingNoResponseAfterADoubleBlockDealsTheDamage() {
         startGame(TestDeck("Haulers", listOf(TestCards.mountain to 20, TestCards.hauler to 20)),
             TestDeck("Pups", listOf(TestCards.mountain to 10, TestCards.pup to 30)),
@@ -91,10 +92,15 @@ class AssumedDivisionTest : E2e() {
         }
         val takenBack = AppLog.text().lines().count { "Shown board taken back" in it }
         alice.tap("Assume pass")
+        // STK-033 (owner 2026-11-19): the spare damage could go elsewhere, so her division opens, prefilled with 2 and 2
+        waitUntil("Alice's division panel, prefilled") {
+            alice.settled(this) && alice.state.pending?.decision is arcanum.engine.decision.Decision.Divide && alice.stepArrow() == "OK"
+        }
+        alice.tap("OK")
         waitUntil("the combat damage dealt and on the server") {
             alice.engine { device.session.pending.isEmpty() } && pups(alice) == 0 &&
-                alice.engine { device.session.events.any { it.assumed?.assumedBy == alice.me && it.assumed?.input == Input.PassPriority(bob.me) &&
-                    it.engine?.steps.orEmpty().any { s -> (s.input as? Input.Answer)?.answer is Answer.Division } } }
+                alice.engine { device.session.events.any { it.author == alice.id && it.assumed == null &&
+                    it.engine?.steps.orEmpty().any { s -> ((s.input as? Input.Answer)?.answer as? Answer.Division)?.shares?.map { it.amount } == listOf(2, 2) } } }
         }
         repeat(5) { run(skip = java.time.Duration.ofMillis(200)) }
         assertEquals(0, pups(alice), "both Pups died and stay dead")

@@ -794,19 +794,6 @@ object CombatFlow {
             d.suggested.associate { ids.ref(it.target) to it.amount }, trample?.let(ids::ref), s.combat?.firstStrikeStep == true)
     }
 
-    /**
-     * Whether the open decision in [call]'s state is a division of combat damage whose "In order" result can't depend on
-     * the order ([Divisions.orderFree], CMB-033): the table answers it with the suggestion at once, without asking.
-     */
-    fun answeredByItself(call: EngineRun): Boolean = answeredByItself(call.working, call.ids)
-
-    private fun answeredByItself(s: GameState, ids: CardIds): Boolean {
-        val d = s.pending?.decision as? Decision.Divide ?: return false
-        val combat = s.combat ?: return false
-        if (s.turn.step != TurnStep.CombatDamage || d.lethal.isEmpty()) return false
-        if (combat.attackers.none { it.id == d.source } && combat.blockers.none { it.id == d.source }) return false
-        return Divisions.orderFree(division(s, ids) ?: return false)
-    }
 }
 
 /**
@@ -848,7 +835,8 @@ object Divisions {
     }
 
     /** Whether "In order" gives the same result in every order (CMB-033): one creature, or damage enough for lethal damage
-     * to all of them. The division is then made with the suggestion without asking. */
+     * to all of them. Such a division is still asked (STK-033, owner 2026-11-19: the spare damage may go elsewhere); its
+     * panel opens in Free, where the player has choices (combat review B). */
     fun orderFree(d: DamageDivision): Boolean {
         val creatures = creatures(d)
         return creatures.size <= 1 || d.amount >= creatures.sumOf { d.lethal[it] ?: 0 }

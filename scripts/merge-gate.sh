@@ -140,6 +140,9 @@ stage() { # stage <name> <gradle arguments...>
     n=$((n + 1))
     local out=$run/$n-$name.log t0=$SECONDS rc
     say "[$name] gradle $*"
+    # The gate compiles with a Kotlin daemon of its own: sharing the machine's daemon with workers' builds ran it out of
+    # memory on the web build (2026-11-19), a failure that says nothing about the branch.
+    set -- "-Pkotlin.daemon.jvmargs=-Xmx5g -Datw.kotlin.daemon=merge-gate" "$@"
     (cd "$wt" && "$slot" "$@") >"$out" 2>&1
     rc=$?
     # The kept worktree's Kotlin incremental caches can go stale after a large merge ("Incremental compilation failed");
@@ -148,6 +151,12 @@ stage() { # stage <name> <gradle arguments...>
         say "[$name] stale Kotlin build cache after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: clearing build/kotlin and running the stage once more"
         mv "$out" "$out.stale-cache"
         find "$wt" -path '*/build/kotlin' -type d -prune -not -path '*/node_modules/*' -exec rm -rf {} +
+        (cd "$wt" && "$slot" "$@") >"$out" 2>&1
+        rc=$?
+    elif [ $rc != 0 ] && grep -q 'Not enough memory to run compilation' "$out"; then
+        # The compiler daemon ran out of memory (the machine busy with other builds): one more run, its time included.
+        say "[$name] the Kotlin compiler ran out of memory after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: running the stage once more"
+        mv "$out" "$out.out-of-memory"
         (cd "$wt" && "$slot" "$@") >"$out" 2>&1
         rc=$?
     fi

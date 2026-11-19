@@ -16,6 +16,9 @@ import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
+// Every scenario owns its container over the bridge address (OwnedPostgres(viaBridge = true)):
+// none stops, pauses or restarts the container (a "restart" here is a new ServiceRuntime on the same
+// database), and the published loopback port resets new unpooled connections under CPU load.
 class GameDurabilityTest {
     private fun id() = UUID.randomUUID().toString()
     private fun sql(db: OwnedPostgres, sql: String) { db.connection().use { it.createStatement().execute(sql) } }
@@ -39,7 +42,7 @@ class GameDurabilityTest {
 
     // SYS-014
     @Test fun `committed pending dedup atomic execution rollback restart and original final recovery`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var b: AccountService.Principal; lateinit var game: GameSummary; lateinit var original: GameCommand
             val hello = GameHello(id(), id()); val connection = UUID.randomUUID(); val streamId = id()
@@ -85,7 +88,7 @@ class GameDurabilityTest {
     }
 
     @Test fun `FIFO enqueue precedes asynchronous database admission and unrelated games progress`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); await(runtime::ready)
@@ -116,7 +119,7 @@ class GameDurabilityTest {
     }
 
     @Test fun `stream cutover is installation scoped global identities conflict and no sequence holes`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); await(runtime::ready)
@@ -161,7 +164,7 @@ class GameDurabilityTest {
     }
 
     @Test fun `additive worker readiness recovery ownership epoch and bounded close`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val runtime = ServiceRuntime(db.settings); val hub = GameHub(runtime)
             val mailAvailable = AtomicBoolean(true); val mailReloads = AtomicInteger(); val gameReloads = AtomicInteger()
@@ -185,7 +188,7 @@ class GameDurabilityTest {
     }
 
     @Test fun `explicit V6 forward migration retains games attempts account deck and original creation`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("6").load().migrate()
             val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val a = id(); val b = id(); val game = id(); val invite = id(); val preparation = id(); val request = id(); val deck = id()

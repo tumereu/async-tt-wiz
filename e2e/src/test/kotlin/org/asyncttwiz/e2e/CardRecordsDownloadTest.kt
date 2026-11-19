@@ -26,6 +26,8 @@ class CardRecordsDownloadTest : E2e() {
         startGame(aliceCatalog = true, holdAliceCatalog = true)
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-SETTINGS")) }
         assertFalse(alice.catalog!!.state.ready)
+        // LOB-235 (owner, 2026-11-17): the main menu says how far the card records are too
+        waitUntil("the card records' line on Alice's menu") { alice.shows(hasTestTag("card-records-note")) }
         // Settings work and say how far the card records are
         alice.tagged("menu-SETTINGS").performScrollTo().performClick()
         waitUntil("Alice's Settings with the card records' line") { alice.showsText("Card records updating", substring = true) }

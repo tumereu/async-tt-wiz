@@ -42,6 +42,12 @@ class DeckLendingScreensTest {
         compose.onNodeWithTag("new-category").assertIsDisplayed()
         compose.onNodeWithText("Burn").assertIsDisplayed()
         compose.onNodeWithText("Pauper night").assertDoesNotExist()
+        // LOB-245 (owner playtest 2026-11-19): every category's ⋮ sits at the row's right edge, whatever its depth, where the
+        // deck rows end
+        val menuEdges = listOf(box, green, red, casual).map {
+            compose.onNodeWithContentDescription("${it.name} options").fetchSemanticsNode().boundsInRoot.right }
+        assertEquals(1, menuEdges.distinct().size, "$menuEdges")
+        assertEquals(compose.onNodeWithTag("category-Battle box").fetchSemanticsNode().boundsInRoot.right, menuEdges.first(), .5f)
         captureShot("$SCREENSHOTS/lending/manage-decks-categories.png", "Portrait Manage decks, Decks tab: New category at the top, " +
             "the categories as a tree with Battle box and its Red subcategory open (Red's decks, then Battle box's Green shut), Casual shut, " +
             "and the decks without a category last.")

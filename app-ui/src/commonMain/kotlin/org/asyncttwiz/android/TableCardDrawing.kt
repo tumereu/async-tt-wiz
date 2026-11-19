@@ -217,7 +217,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         // past a sensible size: [tz] scales their text, [ez] the border and the frame around the art (elsewhere both are [z])
         val tz = if (i.handSlot != null) minOf(z, DESKTOP_HAND_TEXT_SCALE) else z
         val ez = if (i.handSlot != null) minOf(z, DESKTOP_HAND_EDGE_SCALE) else z
-        val corner = if (i.eotCorner.isEmpty() && !i.cornerHourglass) i.corner else "⌛${i.corner}"
+        val corner = if (!i.cornerHourglass) i.corner else "⌛${i.corner}"
         // TBL-137 (owner notes 2026-11-14): an uncrewed Vehicle's "Crew N", one short line on a white chip just above its P/T
         // at the art's bottom right, where it fits the card's width
         fun crewLine() {
@@ -260,7 +260,6 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
                 size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
             val previousColor = paint.color
             if (i.cornerColor != null) paint.color = i.cornerColor
-            else if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
             else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
             fittedText(corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
             paint.color = previousColor
@@ -325,7 +324,6 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         paint.textSize = 7 * valueScale * tz * density
         val previousColor = paint.color
         if (i.cornerColor != null) paint.color = i.cornerColor
-        else if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
         else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
         fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * tz, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor
@@ -407,7 +405,7 @@ const val FULL_PICTURE_EDGE = 1.5f
 /** TBL-139: whether a full picture ([TableItem.fullPicture]) shows the app's P/T badge over the printed card: only when it
  * says what the printed card doesn't: a changed P/T, or a count (loyalty and other counters) rather than a P/T. */
 fun fullPictureCorner(i: TableItem): Boolean = i.corner.isNotEmpty() &&
-    (i.cornerColor != null || i.eotCorner.isNotEmpty() || i.cornerHourglass || i.changedPowerToughness || '/' !in i.corner)
+    (i.cornerColor != null || i.cornerHourglass || i.changedPowerToughness || '/' !in i.corner)
 
 /** How far a state's word on a card's chip may shrink to fit (TBL-133). */
 private const val MIN_STATE_TEXT = .72f

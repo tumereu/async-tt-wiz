@@ -396,7 +396,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val result = GameResult(command.requestId, command.scope, if (rejection == null) "accepted" else "rejected",
             rejection, inbox.ingressOrdinal.toString(), revision?.toString(), created, detail = engineDetail.takeIf { rejection != null })
         val encoded = json.encodeToString(result)
-        sql.update(GAME_INBOX).set(GAME_INBOX.RESULT, encoded).where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
+        sql.update(GAME_INBOX).set(GAME_INBOX.RESULT, encoded).set(GAME_INBOX.ANSWERED_AT, answeredNow())
+            .where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
         sql.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game.id).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result))
             .set(GAME_OUTBOX.REVISION, encodedUpdate).execute()
@@ -425,10 +426,13 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         return executed
     }
 
+    /** When a request is answered, on the cleanup's clock (LOB-261: answered requests go [org.asyncttwiz.server.history.GameCleanup.REQUESTS] after it). */
+    private fun answeredNow() = java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)
+
     /** The request's final outcome without any game change: original result plus the sender's outbox notice. */
     private fun reject(sql: DSLContext, game: UUID, inbox: org.asyncttwiz.server.generated.tables.records.GameInboxRecord,
         result: GameResult): Boolean {
-        sql.update(GAME_INBOX).set(GAME_INBOX.RESULT, json.encodeToString(result))
+        sql.update(GAME_INBOX).set(GAME_INBOX.RESULT, json.encodeToString(result)).set(GAME_INBOX.ANSWERED_AT, answeredNow())
             .where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
         sql.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result)).execute()

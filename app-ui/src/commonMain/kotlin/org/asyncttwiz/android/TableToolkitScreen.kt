@@ -159,7 +159,7 @@ const val WORKING_OUT = "Automatum is working out what this card can do…"
 fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind,
     name: String, names: Map<String, String>, cardId: String? = null, text: String? = null): String = when (refusal) {
     is org.asyncttwiz.automatum.CardPlay.Refusal.Priority ->
-        refusal.holder?.let { "${names[it] ?: "The other player"} holds priority now." } ?: "Nobody holds priority now."
+        refusal.holder?.let { "${org.asyncttwiz.automatum.PlayerNames.of(names, it, "The other player", "engineRefusal")} holds priority now." } ?: "Nobody holds priority now."
     org.asyncttwiz.automatum.CardPlay.Refusal.Timing -> "Only in your main phase while the Stack is empty."
     org.asyncttwiz.automatum.CardPlay.Refusal.Loyalty -> "A loyalty ability: once each turn, in your main phase while the Stack is empty."
     org.asyncttwiz.automatum.CardPlay.Refusal.Used -> "Already used as often as allowed this turn."

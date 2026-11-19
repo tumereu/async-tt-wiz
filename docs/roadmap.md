@@ -8,6 +8,7 @@ Long-term direction, in order. Rough by design; the owner changes it as plans ch
 - More draft modes.
 - History of played games (built: the Stats screen and match records).
 - Possibly more game modes (Commander and others).
+- Companions with Commander support (owner 2026-11-19): choosing one and its place in the app wait for the command zone's place for cards outside the game; the engine already handles them.
 
 ## Alongside 1: Arcanum Automatum
 

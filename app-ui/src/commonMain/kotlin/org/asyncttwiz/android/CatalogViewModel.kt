@@ -8,10 +8,11 @@ import org.asyncttwiz.storage.*
 
 /**
  * The card records (docs/specs/web-client.md sections 3.5, 3.6): [installed] the records in use once they are the app's
- * catalog ([ready]); [progress] while it installs; [failed] when the download failed twice (Retry).
+ * catalog ([ready]); [progress] while it installs; [failed] when the download failed twice (Retry); [kept] false when the
+ * browser couldn't keep them for later visits (its storage refused them, or a private window has none, WEB-009).
  */
 data class CatalogUiState(val installed: CatalogMetadata? = null, val ready: Boolean = false,
-    val progress: CatalogProgress? = null, val failed: Boolean = false) {
+    val progress: CatalogProgress? = null, val failed: Boolean = false, val kept: Boolean = true) {
     /** What the screens show: controls reading card records are greyed until they are [CardRecords.Ready]. */
     val records: CardRecords get() = when {
         ready -> CardRecords.Ready

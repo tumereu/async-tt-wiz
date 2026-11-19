@@ -3,6 +3,7 @@ package org.asyncttwiz.storage
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -126,6 +127,30 @@ class BrowserCatalogTest {
         assertEquals(2, server.downloads)
         assertTrue(log.any { "trying once more" in it })
         assertNotNull(records.metadata())
+    }
+
+    // WEB-009: a browser storage that refuses to keep the downloaded catalog (full, over its quota, a private window) leaves
+    // the card records usable for this visit, downloaded once, and says they weren't kept; the next visit downloads them again
+    @Test
+    fun aCatalogTheStorageRefusesIsUsedForThisVisitOnly() = runTest {
+        val server = Server(A, mutableMapOf(A to File(lines(), A)))
+        val refusing = object : CatalogFiles<File> by Kept() {
+            override suspend fun install(checksum: String, file: File) = throw IllegalStateException("QuotaExceededError")
+        }
+        val records = BrowserCardRecords()
+        val log = mutableListOf<String>()
+        val installer = BrowserCatalogInstaller(records, server, refusing, { unpack(it) }, log = { log += it }, retryPause = 10,
+            pause = { yield() })
+        assertEquals(A, installer.run(A).checksum)
+        assertEquals(1, server.downloads, "not downloaded again within the visit")
+        assertEquals(7, records.metadata()!!.records)
+        assertFalse(installer.kept)
+        assertTrue(log.any { "couldn't be kept" in it && "QuotaExceededError" in it }, "$log")
+        // The next visit (new records, nothing kept) downloads again; a storage that keeps it says so
+        val next = installer(BrowserCardRecords(), server, Kept())
+        next.run(A)
+        assertEquals(2, server.downloads)
+        assertTrue(next.kept)
     }
 
     @Test

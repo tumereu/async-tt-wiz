@@ -76,7 +76,7 @@ fun TurnBannerOverlay(queue: TurnBannerQueue, playOpen: Boolean, viewer: String,
     if (banner.afterPlays && playOpen) return
     key(banner.key) {
         val own = banner.player == viewer
-        val text = if (own) "Your turn" else "${names[banner.player] ?: "The other player"}'s turn"
+        val text = if (own) "Your turn" else "${org.asyncttwiz.automatum.PlayerNames.of(names, banner.player, "The other player", "TurnBanner")}'s turn"
         val color = if (own) OwnTableColor else OpponentTableColor
         val alpha = remember { Animatable(1f) }
         RecordShown(text, banner.key)

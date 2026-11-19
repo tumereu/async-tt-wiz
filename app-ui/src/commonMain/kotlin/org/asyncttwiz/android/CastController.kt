@@ -212,6 +212,61 @@ class CastController(
     }
     /** The open question is picked on the table ([pick]): the panel is a slim bar. */
     val targeting: Boolean get() = pick != null && !choosing
+
+    /**
+     * STK-211 (owner 2026-11-19, CR 601.2h, 701.59a): the cards a mana ability's cost uses (collecting evidence, discarding, exiling
+     * from a graveyard), being chosen by the payer in the panel: [choice] for [use] (opened by tapping its source on the table, or
+     * the payment line's Change); its OK pays with them ([pickCostObjects]).
+     */
+    class CostPick(val choice: arcanum.engine.decision.ManaCostChoice, val use: ManaUse.Ability)
+    /** STK-211: the cost choice open in the panel, null when none. */
+    var costPick by mutableStateOf<CostPick?>(null); private set
+
+    /** STK-211: the cost choice [use]'s cards are chosen in, when its cards are the payer's to pick in the panel: cards off the
+     * battlefield (a graveyard's, the hand's); those on it are tapped on the table (STK-162). */
+    fun costChoiceOf(use: ManaUse): arcanum.engine.decision.ManaCostChoice? {
+        val ability = use as? ManaUse.Ability ?: return null
+        if (!ManaPicks.usesObjects(ability)) return null
+        val state = flow?.state
+        return payment?.costChoices?.firstOrNull { it.source == ability.source && it.ability == ability.ability }
+            ?.takeIf { c -> c.options.isNotEmpty() && c.options.none { state?.obj(it)?.zone == arcanum.api.Zone.Battlefield } }
+    }
+
+    /** STK-211: opens the panel's choice of the cards [use] takes (the payment line's Change, or a tap on its source). */
+    fun openCostPick(use: ManaUse): Boolean {
+        val choice = costChoiceOf(use) ?: return false
+        costPick = CostPick(choice, use as ManaUse.Ability)
+        AppLog.info("cast", "Payment: choosing the cards ${atwCard(use.source) ?: use.source}'s cost uses (${choice.text}, " +
+            "${choice.options.size} to choose from, now ${use.answers})")
+        return true
+    }
+
+    /** STK-211: the cost choice closed without choosing: the payment stays as it was. */
+    fun cancelCostPick() {
+        costPick?.let { AppLog.info("cast", "Payment: choosing the cards ${atwCard(it.use.source) ?: it.use.source}'s cost uses cancelled") }
+        costPick = null
+    }
+
+    /** STK-211: the payer chose [chosen] for the open cost choice: its source pays with those cards (kept exactly, Autotap filling in
+     * the rest), in place of what it paid with before. */
+    fun pickCostObjects(chosen: List<ObjectId>): Boolean {
+        val pick = costPick ?: return false
+        costPick = null
+        var i = 0
+        val use = pick.use.copy(answers = pick.use.answers.map { a -> if (a is Answer.Objects && i++ == pick.choice.index) Answer.Objects(chosen) else a })
+        AppLog.info("cast", "Payment: ${atwCard(use.source) ?: use.source}'s cost uses ${chosen.map { atwCard(it) ?: it.toString() }}, chosen by the payer " +
+            "(listed ${pick.use.answers}); paying before ${paySources()}")
+        val paying = mana.filter { it is ManaUse.Ability && it.source == use.source && it.ability == use.ability }
+        if (paying.isNotEmpty()) {
+            // Its earlier cards go: the source pays once, with these
+            mana = mana - paying.toSet()
+            taps = taps.copy(tapped = taps.tapped - paying.toSet(), chosen = taps.chosen - paying.toSet())
+        }
+        val ways = listOf<ManaUse>(use)
+        if (busy) { queueTap(PayTap.Chip(ways)); return true }
+        tapWays(ways, "source ${atwCard(use.source)} with the payer's cards", ManaBelongs.Key(ManaPicks.key(use)))
+        return true
+    }
     /** STK-024 (owner 2026-11-07): the open panel takes the table's mana sources: a tap on one adds it to the payment or
      * takes it out ([tapSource]). */
     val paying: Boolean get() = flow != null && !targeting && payment != null
@@ -431,8 +486,19 @@ class CastController(
         if (busy) return queueTap(PayTap.Source(cardId))
         val ways = waysOf(cardId)
         if (ways.isEmpty()) {
+            // STK-211 (owner 2026-11-19): a source whose cost uses cards off the battlefield: paying, a tap takes it out; else the
+            // panel asks which cards it uses
+            mana.firstOrNull { tableCard(it) == cardId && costChoiceOf(it) != null }?.let { used ->
+                AppLog.info("cast", "Payment: source $cardId tapped, its cost using ${(used as ManaUse.Ability).answers}, taken out; paying before ${paySources()}")
+                // STK-158: taken out, it isn't used again in this cast, whichever cards Autotap would list for it
+                val all = listOf(used) + payment?.options.orEmpty().filter { it is ManaUse.Ability && it.source == used.source && it != used }
+                if (busy) return queueTap(PayTap.Chip(all))
+                tapWays(all, "source $cardId", ManaBelongs.Uses(all))
+                return true
+            }
             // A source used with other objects (the creature an altar sacrifices): one pick per object set
             val group = groupOf(cardId) ?: return false
+            if (openCostPick(group.first())) return true
             // STK-024 (owner 2026-11-14): never a chip naming the objects its cost uses; which ones the engine lists, for reports
             AppLog.info("cast", "Payment: source $cardId tapped, its cost using ${(group.first() as? ManaUse.Ability)?.answers}, " +
                 "${if (mana.any { it in group }) "taken out" else "added"}; paying before ${paySources()}")
@@ -545,7 +611,7 @@ class CastController(
         busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
         payment = null; fieldSources = emptySet(); custom = false; hand = null; choosing = false
-        taps = ManaTaps(); selection = null; selectionFor = emptyList(); selectionRun++
+        taps = ManaTaps(); selection = null; selectionFor = emptyList(); selectionRun++; costPick = null
         announcedMost = emptyMap()
         listed = emptyList(); visible = emptySet()
     }

@@ -32,7 +32,7 @@ object OffZoneCards {
     private fun permittedIds(state: GameState, view: View, player: PlayerId): List<ObjectId> {
         val held = view.objects.values.filter { o ->
             o.id is ObjectId.Card && o.statuses.any { status -> status is ObjectStatus.Playable && status.by.any { it.player == player } } &&
-                // SYS-206 (owner playtest 2026-11-19, N24): a prepared permanent's spell is offered on the permanent instead
+                // SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's spell is offered on the permanent instead
                 !preparedSpell(state, o.id)
         }.map { it.id }
         if (held.isEmpty()) return emptyList()

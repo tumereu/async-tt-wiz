@@ -375,6 +375,37 @@ class AuthorityTest {
         assertEquals("shown", server.rewindNeeds(bob, beforeCast))
     }
 
+    // HIS-232, LOB-135, HIS-202 (owner 2026-11-19, N15): with the game setting "Undo past the other player's passes needs a
+    // request" on, a pass of hers after the point (her own, or Bob's assumption of it once she has seen it) makes his undo a
+    // request; off (the default) the same undo is free; his own events alone stay free either way
+    @Test
+    fun theGameSettingMakesTheOtherPlayersPassesNeedARequest() {
+        val server = AsyncServer(EngineGames(3, List(40) { "Forest" } to List(40) { "Island" }))
+        val alice = server.alice; val bob = server.bob
+        server.start(bob)
+        server.keepAndAssumeKeep(bob)
+        server.atOwnMain(bob)
+        server.seen(alice, server.head)
+        val beforeLand = server.head
+        server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
+        assertNull(server.rewindNeeds(bob, beforeLand, passes = true), "only his own land: free")
+        // Her own pass
+        server.act(bob, Input.PassPriority(bob)).getOrThrow()
+        server.seen(alice, server.head)
+        server.act(alice, Input.PassPriority(alice)).getOrThrow()
+        assertNull(server.rewindNeeds(bob, beforeLand))
+        assertEquals("otherPlayersPass", server.rewindNeeds(bob, beforeLand, passes = true))
+        server.rewind(bob, beforeLand)
+        // His assumption of her pass: free until she has seen it, then hers
+        server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
+        server.act(bob, Input.PassPriority(bob)).getOrThrow()
+        server.act(bob, Input.PassPriority(alice), assumed = true).getOrThrow()
+        assertNull(server.rewindNeeds(bob, beforeLand, passes = true), "an assumed pass she hasn't seen")
+        server.seen(alice, server.head)
+        assertNull(server.rewindNeeds(bob, beforeLand))
+        assertEquals("confirmed", server.rewindNeeds(bob, beforeLand, passes = true))
+    }
+
     // I-D56 §11: conceding while behind is the conceder's real input at their local head: a branch
     @Test
     fun aConcessionWhileBehindBranches() {

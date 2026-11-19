@@ -1,0 +1,1 @@
+Alice opened Blue Note's cast panel with Autotap off and tapped her Ash Urn ("{T}, Exile a card from your graveyard: Add one mana of any color."): the panel asks which card of her graveyard it exiles, her two Hedge Studies drawn as cards, with OK and Cancel.

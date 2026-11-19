@@ -169,7 +169,7 @@ fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.
     }
     is org.asyncttwiz.automatum.CardPlay.Refusal.Other -> when (kind) {
         org.asyncttwiz.automatum.CardPlay.Kind.Cast -> "$name can't be cast now."
-        // SYS-206 (owner playtest 2026-11-19, N24): a prepared permanent's spell, by the spell's name ("{G}: Cast Mending")
+        // SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's spell, by the spell's name ("{G}: Cast Mending")
         org.asyncttwiz.automatum.CardPlay.Kind.Prepared -> "${text?.substringAfter("Cast ", "")?.substringBefore(" · ")?.ifEmpty { null } ?: "The spell"} can't be cast now."
         org.asyncttwiz.automatum.CardPlay.Kind.Play -> "$name can't be played now."
         // TBL-123, LOB-090 (owner, 2026-11-17): the catch-all, reported

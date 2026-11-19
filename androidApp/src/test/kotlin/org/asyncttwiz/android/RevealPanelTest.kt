@@ -274,6 +274,37 @@ class RevealPanelTest {
         compose.runOnIdle { assertNull(bob.shown?.reveal) }
     }
 
+    // HIS-233, HIS-110, STK-044, STK-178 (owner 2026-11-19, N18): Alice's Hedge Delve exiles the top two cards of her library; Bob's
+    // playback stops there with the reveal panel naming the exile and showing those two cards face up, the Delve at its right,
+    // until his OK; her own phone shows her the same panel ("You exiled 2 cards from your library")
+    @Test fun cardsExiledFromALibraryShowAsAReveal() {
+        val g = EngineGameFixture(aliceCards = listOf(EngineGameFixture.Choices.DELVE, "Mountain"))
+        val alice = EngineGame(g.game.id, g.a, g.base, g.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
+        val top = alice.device.model.engine.player(PlayerId(g.a)).library.take(2).map { (it as arcanum.engine.state.ObjectId.Card).card }
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.DELVE)))
+        alice.tick(3_000)
+        val own = assertNotNull(alice.shown?.reveal, "her own panel")
+        assertEquals(GameDevice.LibraryExile(PlayerId(g.a)), own.exiled)
+        assertEquals(top.toSet(), own.cards.toSet())
+        alice.dismissReveal(own, 3_500)
+        alice.tick(4_000)
+        alice.endTurn()
+        alice.tick(5_000)
+        val bob = EngineGame(g.game.id, g.b, g.base, g.behind(alice.device.session.pending, alice.device.model))
+        bob.startPlayback()
+        var guard = 0
+        while (bob.shown?.status is GameDevice.Status.Playing && bob.shown?.reveal == null && guard++ < 200) bob.step()
+        val panel = assertNotNull(bob.shown?.reveal, "stopped at her exile")
+        assertEquals(GameDevice.LibraryExile(PlayerId(g.a)), panel.exiled)
+        render(bob, g.b)
+        compose.onNodeWithText("Alice exiled 2 cards from their library").assertExists()
+        compose.onNodeWithTag(CHOICE_SOURCE_TAG).assertContentDescriptionEquals(EngineGameFixture.Choices.DELVE)
+        captureShot("$SCREENSHOTS/engine/reveal-panel-library-exile.png",
+            "Bob catching up on Alice's turn: her Hedge Delve exiled the top two cards of her library, so his playback stopped there with the reveal panel, \"Alice exiled 2 cards from their library\", both cards face up, the Delve at the right and OK on his main button.")
+        revealOk().performClick()
+        compose.runOnIdle { assertNull(bob.shown?.reveal) }
+    }
+
     // HIS-110, HIS-150, HIS-152, HIS-154 (owner, 2026-11-09): Alice's own reveal of a card she couldn't see opens her own panel: "You revealed · <source>",
     // the card, OK; her table's actions wait for her OK, and it closes only for her
     @Test fun yourOwnRevealShowsYouThePanelWithItsOk() {

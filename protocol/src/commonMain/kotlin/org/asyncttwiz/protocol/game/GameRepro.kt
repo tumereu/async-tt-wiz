@@ -47,7 +47,10 @@ data class GameRepro(
             val inputs = event.engine?.steps.orEmpty().mapNotNull { it.input }
             if (inputs.isNotEmpty() && inputs.none { it is Input.StartGame }) {
                 val made = try {
-                    Authority.make(model.copy(), Submission.of(event), PlayerId(event.author), Authority.Rules(nextLine = event.startsLine))
+                    // A one-answer question answered for a player on Quick (SYS-063): the modes then aren't recorded, so every
+                    // player counts as on Quick here
+                    Authority.make(model.copy(), Submission.of(event), PlayerId(event.author), Authority.Rules(nextLine = event.startsLine,
+                        quick = model.engine.players.map { it.id }.toSet()))
                 } catch (e: Refusal) { out += Mismatch(event.id, e.reason); null }
                 if (made != null && made != event) out += Mismatch(event.id, "made differently")
             }

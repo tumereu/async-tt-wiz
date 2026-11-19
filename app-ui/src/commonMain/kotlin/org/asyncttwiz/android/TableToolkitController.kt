@@ -168,7 +168,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun play(cardId: String, play: org.asyncttwiz.automatum.CardPlay): Boolean {
         val input = play.input ?: return false
         error = null
-        // SYS-206 (owner playtest 2026-11-19, N24): a prepared permanent's spell is cast as its copy in exile
+        // SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's spell is cast as its copy in exile
         val cast = if (play.kind == org.asyncttwiz.automatum.CardPlay.Kind.Prepared)
             ((input as? arcanum.engine.input.Input.Cast)?.card as? arcanum.engine.state.ObjectId.Card)?.card?.value ?: cardId else cardId
         if (cast != cardId) AppLog.info("table", "Prepared spell of $cardId: casting its copy $cast from exile")

@@ -27,6 +27,9 @@ object GameSettingsText {
     const val LIBRARY_MEANING = "A card of the other player's library never makes you wait: each line of play reshuffles the libraries"
     const val HANDS = "Allow assumes that reveal hands"
     const val HANDS_MEANING = "A card of the other player's hand (a reveal, a random discard) never makes you wait"
+    // N15 (owner 2026-11-19)
+    const val UNDO_PASSES = "Undo past the other player's passes needs a request"
+    const val UNDO_PASSES_MEANING = "Going back past a pass of theirs (letting something resolve) asks them first, as their other moves do"
     fun hostOnly(host: String) = "Only $host can change these."
     // LOB-247..LOB-251, LOB-254: the Decks group
     const val DECKS = "Decks"
@@ -58,8 +61,9 @@ object GameSettingsText {
 class DeckSettingsAccess(val categories: List<DeckCategory>?, val load: () -> Unit, val change: (DeckSettings) -> Unit)
 
 /**
- * LOB-135: the game's assume reveal settings as two switches: both players see the current values, only the game's host
- * (its inviter) changes them ([change]); the other player's are greyed with who can.
+ * LOB-135: the game's assume reveal settings as two switches, then "Undo past the other player's passes needs a request"
+ * (N15): both players see the current values, only the game's host (its inviter) changes them ([change]); the other
+ * player's are greyed with who can.
  */
 @Composable
 fun AssumeRevealSwitches(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit, note: Boolean = true) {
@@ -71,6 +75,9 @@ fun AssumeRevealSwitches(game: GameSummary, accountId: String, change: (AssumeRe
         }
         RevealSwitch(GameSettingsText.HANDS, GameSettingsText.HANDS_MEANING, reveals.hands, host, "assume-hands") {
             change(reveals.copy(hands = it))
+        }
+        RevealSwitch(GameSettingsText.UNDO_PASSES, GameSettingsText.UNDO_PASSES_MEANING, reveals.undoPastPasses, host, "undo-past-passes") {
+            change(reveals.copy(undoPastPasses = it))
         }
         if (!host && note) HostOnlyNote(game)
     }

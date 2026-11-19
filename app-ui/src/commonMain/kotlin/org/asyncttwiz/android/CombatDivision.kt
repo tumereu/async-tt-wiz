@@ -396,15 +396,6 @@ fun EarlyDivisionPanel(combat: CombatController, play: TableBoard, division: Dam
     }
 }
 
-/** Whether the shared [flow]'s open decision is a division of combat damage shown in the dialog (not one Automatum's
- * table makes by itself, CMB-033). */
-fun dividingInDialog(flow: SharedShown): Boolean = flow.decision is Decision.Divide &&
-    flow.division?.let { askedInDialog(flow.board, it) } == true
-
-/**
- * Whether [division] on [board] is asked in the dialog (CMB-033): when its order can change something, and also
- * when it can't but its player has "Skip when I have no choice" off (combat review B: then it opens in Free, where the
- * player still has choices). Else the table makes it with the suggestion by itself.
- */
-fun askedInDialog(board: BoardState, division: DamageDivision): Boolean = !Divisions.orderFree(division) ||
-    board.players.firstOrNull { it.accountId == division.player }?.skipWhenNoChoice == false
+/** Whether the shared [flow]'s open decision is a division of combat damage shown in the dialog: every division the engine
+ * asks for is (STK-033, owner 2026-11-19: whenever the damage could be divided another way, prefilled). */
+fun dividingInDialog(flow: SharedShown): Boolean = flow.decision is Decision.Divide && flow.division != null

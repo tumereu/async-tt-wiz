@@ -9,7 +9,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * SYS-206, SYS-068 (owner playtest 2026-11-19, N24), CR 723.3c on two phones: a prepared creature's spell is cast from the creature
+ * SYS-207, SYS-068 (owner playtest 2026-11-19, N24), CR 723.3c on two phones: a prepared creature's spell is cast from the creature
  * as one of its abilities (its copy waits in exile, not in the hand row).
  */
 class PreparedSpellTest : E2e() {
@@ -18,7 +18,7 @@ class PreparedSpellTest : E2e() {
     /** Alice's Adept on her battlefield as her screen names it (by its face, or by the card's both names). */
     private fun adept() = listOf("Ember Adept", "Ember Adept // Ember Mending").firstNotNullOf { runCatching { alice.battlefieldCard(it) }.getOrNull() }
 
-    // SYS-206, TBL-124: Alice casts her Ember Adept and prepares it; a tap on it opens its chips, among them "{0}: Cast Ember Mending",
+    // SYS-207, TBL-124: Alice casts her Ember Adept and prepares it; a tap on it opens its chips, among them "{0}: Cast Ember Mending",
     // and that chip casts the spell: she gains 2 life, the Adept is no longer prepared and nothing of it was in her hand row
     @Test fun aPreparedCreaturesSpellIsCastFromTheCreature() {
         startGame(TestDeck("Prepare", listOf(TestCards.mountain to 20, TestCards.adept to 20)), TestDeck.glimmers(), deal = { a, _ ->

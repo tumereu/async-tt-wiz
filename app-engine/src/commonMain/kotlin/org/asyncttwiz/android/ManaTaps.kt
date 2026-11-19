@@ -40,7 +40,9 @@ data class ManaTaps(
             val paying = current.filter(belongs)
             val kept = taps.copy(tapped = taps.tapped.filterNot(belongs), chosen = taps.chosen.filterNot(belongs))
             if (paying.isNotEmpty()) {
-                val next = kept.copy(outs = kept.outs + paying.first())
+                // STK-214: with it the source's other uses tapped with it ([ways]: a source whose cost uses cards of the payer's choosing,
+                // and the set Autotap would list for it) stay out too
+                val next = kept.copy(outs = kept.outs + paying.first() + ways.filter { belongs(it) && ManaPicks.usesObjects(it) && it !in paying && it !in kept.outs })
                 return Outcome(next, payment(next, decision, autotap, engine), "taken out (${paying.joinToString { ManaWays.label(it) }})")
             }
             val outs = kept.outs.filterNot(belongs)

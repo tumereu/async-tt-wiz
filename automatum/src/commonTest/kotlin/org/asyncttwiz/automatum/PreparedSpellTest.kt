@@ -27,7 +27,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * SYS-068, SYS-206 (owner playtest 2026-11-19, N24), CR 723.3c: a prepared creature's spell, a copy of it in exile, feels like an ability
+ * SYS-068, SYS-207 (owner playtest 2026-11-19, N24), CR 723.3c: a prepared creature's spell, a copy of it in exile, feels like an ability
  * of the creature: the creature offers "{G}: Cast <spell>" among its plays (its chips and glow), the copy isn't in the hand row,
  * and the copy in exile shows the card's own picture.
  */
@@ -75,7 +75,7 @@ class PreparedSpellTest {
         return CardPlays.of(state, viewer, view, Host.visible(state, PlayerId(viewer), view))
     }
 
-    // SYS-206, CR 723.3c: the prepared Seraph offers its spell among its plays, cast as the copy in exile; the copy isn't in the hand row
+    // SYS-207, CR 723.3c: the prepared Seraph offers its spell among its plays, cast as the copy in exile; the copy isn't in the hand row
     @Test fun thePreparedCreatureOffersItsSpell() {
         val (s) = table.put(alice, Zone.Battlefield, seraph)
         val state = prepared(s, forest = true)
@@ -95,7 +95,7 @@ class PreparedSpellTest {
         assertEquals(CardPlay.Refusal.NotYours, bobs.refusal)
     }
 
-    // SYS-206: without mana for it the spell is still offered on the Seraph, greyed with why
+    // SYS-207: without mana for it the spell is still offered on the Seraph, greyed with why
     @Test fun withoutManaItIsGreyed() {
         val (s) = table.put(alice, Zone.Battlefield, seraph)
         val state = prepared(s, forest = false)

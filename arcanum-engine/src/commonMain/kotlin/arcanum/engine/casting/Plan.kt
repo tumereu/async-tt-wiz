@@ -1103,9 +1103,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Pay -> if (cantSpendMana) {
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred))
-        } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred))
+        } else Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred).let { options ->
+            Decision.ManaPayment(id, player, sourceId, q.cost, options,
+                Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred),
+                costChoices = Mana.costChoices(snap, player, options))
+        }
     }
 
     /** eoe: the objects a [CostPart.Choose] of objects may choose, in the zones its filter names (the battlefield otherwise). */

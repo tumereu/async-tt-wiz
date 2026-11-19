@@ -45,7 +45,7 @@ data class CardPlay(
         @Serializable @SerialName("ability") data object Ability : Kind
         @Serializable @SerialName("mana") data object Mana : Kind
         @Serializable @SerialName("special") data object Special : Kind
-        /** SYS-206 (owner playtest 2026-11-19, N24): a prepared permanent's prepare spell, offered on the permanent like one of
+        /** SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's prepare spell, offered on the permanent like one of
          * its abilities: casting the spell's copy in exile (CR 723.3c), [input] that copy's cast. */
         @Serializable @SerialName("prepared") data object Prepared : Kind
     }
@@ -153,7 +153,7 @@ class CardPlays private constructor(
         }
 
         /**
-         * SYS-206 (owner playtest 2026-11-19, N24): each prepared permanent's prepare spell (its copy in exile, CR 723.3c) is
+         * SYS-207 (owner playtest 2026-11-19, N24): each prepared permanent's prepare spell (its copy in exile, CR 723.3c) is
          * offered on the permanent as [CardPlay.Kind.Prepared], "{G}: Cast Mending", after its abilities: the copy's casts the
          * engine offers, or greyed with why. The copy keeps its own casts (its exile pile's menu).
          */

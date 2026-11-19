@@ -45,7 +45,12 @@ class DurationTextTest {
 
     /** The Inspect line of an effect giving [card] haste for [duration], made by Alice's Ember Herald, as [viewer] reads it. */
     private fun line(duration: Duration, card: String = ogre, viewer: String = table.alice, controller: String = table.alice,
-        bound: Map<String, NamedValue> = emptyMap(), change: (GameState) -> Unit = {}): String {
+        bound: Map<String, NamedValue> = emptyMap(), names: Map<String, String> = this.names, change: (GameState) -> Unit = {}): String =
+        board(duration, viewer, controller, bound, change, card).effects(listOf(card), viewer, names).getValue(card).single().text
+
+    /** The board with that effect (see [line]). */
+    private fun board(duration: Duration, viewer: String = table.alice, controller: String = table.alice,
+        bound: Map<String, NamedValue> = emptyMap(), change: (GameState) -> Unit = {}, card: String = ogre): ComputedBoard {
         val state = table.state()
         change(state)
         val id = table.obj(card)
@@ -53,8 +58,16 @@ class DurationTextTest {
             Affected.Objects(Objects.Bound("affected")), locked = listOf(id), source = table.obj(herald), controller = PlayerId(controller),
             timestamp = 100, createdTurn = state.turn.number, duration = duration, names = Bindings(bound))
         val view = Engine.view(state)
-        val board = ComputedBoard.of(table.board(state, viewer), table.base().definitions, table.definitions, viewer, state, view)
-        return board.effects(listOf(card), viewer, names).getValue(card).single().text
+        return ComputedBoard.of(table.board(state, viewer), table.base().definitions, table.definitions, viewer, state, view)
+    }
+
+    /** The faults [block] reports. */
+    private fun reported(block: () -> Unit): List<org.asyncttwiz.protocol.Fault> {
+        val faults = mutableListOf<org.asyncttwiz.protocol.Fault>()
+        val sink = org.asyncttwiz.protocol.Faults.sink
+        org.asyncttwiz.protocol.Faults.sink = { faults += it }
+        try { block() } finally { org.asyncttwiz.protocol.Faults.sink = sink }
+        return faults
     }
 
     @Test fun untilEndOfTurnAndCombat() {
@@ -123,5 +136,22 @@ class DurationTextTest {
         val exiled = table.put(table.alice, Zone.Exile, "Hill Ogre").single()
         assertEquals("Haste until Hill Ogre is cast", line(Duration.UntilCast(Objects.Bound("exiled")),
             bound = mapOf("exiled" to NamedValue.Objects(listOf(table.obj(exiled))))))
+    }
+
+    // LOB-090 (owner, 2026-11-17: "Report"): generic words standing in for what the effect's data doesn't say are shown and
+    // reported as errors, a player without a name too; working out only which cards have effects (the effects marker,
+    // TBL-136) reports nothing, as nothing of it is shown
+    @Test fun standInWordsAreReported() {
+        val unnamed = reported {
+            assertEquals("Haste until the end of the opponent's next turn",
+                line(Duration.UntilEndOfYourNextTurn, controller = table.bob, names = mapOf(table.alice to "Alice")))
+        }
+        assertEquals(listOf("DurationText: player without a name"), unnamed.map { it.key })
+        assertEquals(table.bob, unnamed.single().details["player"])
+        val condition = reported { line(Duration.AsLongAs(Condition.Not(Condition.IsNight))) }
+        assertEquals(listOf("DurationText: duration condition without its words"), condition.map { it.key })
+        assertEquals("Ember Herald's condition holds", condition.single().details["shown"])
+        assertEquals(emptyList(), reported { line(Duration.UntilEndOfYourNextTurn, controller = table.bob) }, "a named player is no stand-in")
+        assertEquals(emptyList(), reported { board(Duration.AsLongAs(Condition.Not(Condition.IsNight))).withEffects })
     }
 }

@@ -91,7 +91,7 @@ internal object CardStates {
      */
     fun lines(state: GameState, o: GameObject, statuses: List<ObjectStatus>, viewer: String, names: Map<String, String>,
         objectName: (arcanum.engine.state.ObjectId) -> String? = { id -> state.obj(id)?.let { it.definition.faces.getOrNull(it.face)?.name } }): List<EffectChange> = buildList {
-        fun who(id: String) = if (id == viewer) "you" else names[id] ?: "the opponent"
+        fun who(id: String) = if (id == viewer) "you" else PlayerNames.of(names, id, "the opponent", "CardStates")
         val shown = Shown(statuses)
         for (word in words(o, shown)) when (word) {
             "Ring-bearer" -> {

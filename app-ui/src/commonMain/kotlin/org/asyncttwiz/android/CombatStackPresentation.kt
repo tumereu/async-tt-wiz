@@ -177,8 +177,8 @@ object CombatStackPresentation {
         /** CMB-001 (owner playtest 2026-11-06): false for the collapsed band, which shows only the target chips (one
          * row, each lane one whole attacker drop); true once an attacker is in the area. */
         open: Boolean = true,
-        /** CMB-028 (owner, 2026-11-08): the viewer declares attackers: each lane with attackers keeps room for one more at
-         * its end, so choosing another target moves nothing. */
+        /** CMB-028 (owner, 2026-11-08): the viewer declares attackers: the dashed slot for one more sits in the room each
+         * lane with attackers keeps at its end (CMB-058), so choosing another target moves nothing. */
         attackerSlots: Boolean = false,
         /** The board's point (its event), for the log of a combat copy left out ([drawable]). */
         head: String = ""): CombatGeometry {
@@ -202,10 +202,11 @@ object CombatStackPresentation {
         val lanePads = mutableMapOf<String?, Float>()
         var laneX = 0f
         val attackerSlot = slotWidth(0, 1, cardWidth)
-        // CMB-012, CMB-028 (owner playtest 2026-11-10): the slot takes no part in placing the combatants: a lane with
-        // attackers keeps a slot's room on each side of them, so they stay centred where they are once declared (the slot
-        // gone) and only the slot sits in the room after them
-        fun slotRoom(members: List<CombatPair>) = if (attackerSlots && members.isNotEmpty()) attackerSlot else 0f
+        // CMB-012, CMB-028, CMB-058 (owner playtest 2026-11-10; owner 2026-11-17: "even for 2+ lanes"): the slot takes no
+        // part in placing the combatants: a lane with attackers keeps a slot's room on each side of them, while they are
+        // declared and for the rest of the combat, on both players' tables, so nothing moves when the declaration ends and
+        // the slot goes, however many lanes hold attackers; only the slot sits in the room after them
+        fun slotRoom(members: List<CombatPair>) = if (members.isNotEmpty()) attackerSlot else 0f
         for ((target, members) in groups) {
             val cardSpan = (members.sumOf { slotWidth(it.blockers.size, it.attackers.size, cardWidth).toDouble() }.toFloat() +
                 2 * slotRoom(members))
@@ -217,10 +218,9 @@ object CombatStackPresentation {
             val hidden = !gone && targetCard != null && (targetCard.isFaceDown || !CardVisibility.isVisibleFaceUp(board, targetCard, viewer))
             val defender = CombatStackRules.defendingPlayer(board)
             val avatar = if (target == null) avatars[defender]?.takeIf { it.face in 0..15 } else null
-            val name = names[defender] ?: "Player"
             val face = definitions.find { it.digest == targetCard?.definition }?.definition?.faces?.find { it.faceId == targetCard?.faceId }
             val label = when {
-                target == null -> name
+                target == null -> org.asyncttwiz.automatum.PlayerNames.of(names, defender.orEmpty(), "Player", "CombatStackPresentation")
                 hidden -> "Face-down card"
                 // CMB-046 (fault report GL2H6A): a target no longer anywhere (a planeswalker token killed in the combat) by its last name
                 gone -> "${face?.name ?: area.goneTargets[target] ?: unnamedTarget(target, area)} (gone)"
@@ -319,7 +319,7 @@ object CombatStackPresentation {
                 val pairWidth = pairWidths.getValue(pair.id)
                 // The lane's first and last pairs also take drops in the free space at its ends
                 val before = if (n == 0) pad + room else 0f
-                val after = if (n == members.lastIndex && !attackerSlots) pad else 0f
+                val after = if (n == members.lastIndex && !attackerSlots) pad + room else 0f
                 // CMB-034: a blocker's slot over the attackers of a pair no blocker sits in
                 if (pair.blockers.isEmpty()) slots += CombatSlot(CombatRole.BLOCKER, TableBounds(x + (pairWidth - cardWidth) / 2,
                     rowY(CombatRole.BLOCKER) + margin, cardWidth, cardHeight), pair.id, pair.attackTarget)
@@ -351,7 +351,7 @@ object CombatStackPresentation {
                     CombatDestination(area.id, CombatRole.ATTACKER, pairGap = IdentityGap(area.pairs.lastOrNull()?.id, null), attackTarget = target),
                     landing = TablePoint(left + cardWidth / 2, y + rowHeight / 2), exact = true)
                 x += attackerSlot
-            }
+            } else x += room
             x += pad
         }
         if (pairs.isNotEmpty()) {

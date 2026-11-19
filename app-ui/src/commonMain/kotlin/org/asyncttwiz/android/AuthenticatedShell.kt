@@ -309,7 +309,8 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
             if (destination == ShellDestination.DECKS && deckImport != null)
                 ScreenCreateAction("Import deck", "import", deckImport::open, Modifier.testTag("import-deck"), enabled = cardRecordsReady())
         }
-        if (destination == ShellDestination.GAMES || destination == ShellDestination.DECKS)
+        // LOB-235: also on the main menu (owner, 2026-11-17)
+        if (destination == ShellDestination.GAMES || destination == ShellDestination.DECKS || destination == ShellDestination.MENU)
             CardRecordsNote(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)

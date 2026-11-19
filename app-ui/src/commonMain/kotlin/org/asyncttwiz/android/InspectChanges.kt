@@ -51,7 +51,7 @@ object InspectChanges {
                     is MtgRef.Card -> add(InspectChange("Attached to " +
                         if (play.board.cards.firstOrNull { it.id == to.cardId }?.isFaceDown == true) "a face-down card"
                         else StackAbilities.visibleName(play, to.cardId, viewer)))
-                    is MtgRef.Player -> add(InspectChange("Attached to ${if (to.accountId == viewer) "you" else names[to.accountId] ?: "the opponent"}"))
+                    is MtgRef.Player -> add(InspectChange("Attached to ${if (to.accountId == viewer) "you" else org.asyncttwiz.automatum.PlayerNames.of(names, to.accountId, "the opponent", "InspectChanges")}"))
                     else -> Unit
                 }
                 if (EnteredTurn.marked(play.board, card)) add(InspectChange("Entered this turn"))

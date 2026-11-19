@@ -56,8 +56,8 @@ object EngineEventText {
 
     /** What [event]'s acting input did, from [viewer]'s side (HIS-091). */
     private fun acted(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
-        fun who(player: PlayerId) = if (player.value == viewer) "You" else names[player.value] ?: "The other player"
-        fun author() = if (event.author == viewer) "You" else names[event.author] ?: "A player"
+        fun who(player: PlayerId) = if (player.value == viewer) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, player.value, "The other player", "EngineEventText")
+        fun author() = if (event.author == viewer) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, event.author, "A player", "EngineEventText")
         fun card(id: ObjectId?): String = name(id, state, viewer) ?: "a card"
         val step = event.engine?.steps?.firstOrNull { it.input != null }
         // HIS-091 (owner playtest 2026-11-04 #1, #2): only the player who assumed an answer reads it as assumed; to the
@@ -192,7 +192,7 @@ object EngineEventText {
      * ([GameEvent.press]) "went to combat"; with no event, just who undid.
      */
     fun undid(event: GameEvent?, state: GameState?, viewer: String, by: String, names: Map<String, String>): String {
-        val subject = if (by == viewer) "You" else names[by] ?: "The other player"
+        val subject = if (by == viewer) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, by, "The other player", "EngineEventText")
         val head = if (by == viewer) "Undid" else "$subject undid"
         val e = event ?: return head
         wentTo(e.press)?.let { return "$head: $it" }
@@ -280,7 +280,7 @@ object EngineEventText {
         val steps = changes.filterIsInstance<Change.Step>()
         val last = steps.lastOrNull()?.after ?: return null
         val first = steps.first().before
-        if (last.number != first.number) return "Turn ${last.number} → ${if (last.active.value == viewer) "you" else names[last.active.value] ?: "the other player"}"
+        if (last.number != first.number) return "Turn ${last.number} → ${if (last.active.value == viewer) "you" else org.asyncttwiz.automatum.PlayerNames.of(names, last.active.value, "the other player", "EngineEventText")}"
         return if (last.step != first.step) org.asyncttwiz.automatum.EngineProjection.position(last.step).label else null
     }
 

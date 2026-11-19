@@ -69,7 +69,7 @@ data class GameEndText(val title: String, val reason: String) {
          * the players' names by account. */
         fun of(winner: String?, ending: MatchEnding, causes: Map<String, LossCause>, viewer: String, names: Map<String, String>): GameEndText {
             val title = when (winner) { null -> "Draw"; viewer -> "You won"; else -> "You lost" }
-            fun name(account: String) = names[account] ?: "The other player"
+            fun name(account: String) = org.asyncttwiz.automatum.PlayerNames.of(names, account, "The other player", "GameEndText")
             val reason = when (ending) {
                 is MatchEnding.Conceded -> if (ending.by == viewer) "You conceded" else "${name(ending.by)} conceded"
                 is MatchEnding.Agreed -> if (ending.reason.isBlank()) "Agreed" else "Agreed: ${ending.reason}"

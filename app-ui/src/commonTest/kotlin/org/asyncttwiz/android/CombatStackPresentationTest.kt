@@ -47,7 +47,7 @@ class CombatStackPresentationTest {
         assertTrue(AppLog.text().lines().any { "E/combat" in it && missing.id in it && "head-1" in it }, AppLog.text().takeLast(800))
     }
 
-    // CMB-008
+    // CMB-008, CMB-058
     @Test fun packedPairWidthsUseUprightCardsAndOnlyInteriorDividers() {
         val state = populated().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
             if (card.id == combatId(22)) card.copy(tapped = true) else card
@@ -62,7 +62,8 @@ class CombatStackPresentationTest {
         assertEquals(1, geometry.dividers.size)
         val widths = listOf(geometry.dividers.single(), geometry.width - geometry.dividers.single())
         assertTrue(widths[0] > widths[1])
-        assertEquals(48f + 2 * CombatStackPresentation.slotMargin(48f), widths[1], .001f)
+        // The last pair's one upright card, then the lane's room after it (CMB-058: a slot's width, kept for the whole combat)
+        assertEquals(2 * (48f + 2 * CombatStackPresentation.slotMargin(48f)), widths[1], .001f)
         val blockers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.BLOCKER }
         val attackers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.ATTACKER }
         assertTrue(blockers.maxOf { it.bounds.y + it.bounds.height } < attackers.minOf { it.bounds.y })

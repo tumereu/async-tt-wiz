@@ -36,13 +36,18 @@ class DeckImportResolver(private val repository: CatalogSnapshots) : DeckResolve
             issues += ImportIssue(0, "Card records are not installed. Download card records, then retry lookup.")
         } else for (line in parsed.lines) {
             check(!repository.cancelled())
+            // LOB-062: a name as written ("Summon: Choco/Mog"); only when it names no card, a single "/" read as a split
+            // card's " // " ("Fire/Ice")
+            val name = line.splitName?.takeIf { split ->
+                catalog.find(line.name, null, null, 1).isEmpty() && catalog.find(split, null, null, 1).isNotEmpty()
+            } ?: line.name
             // Page through every matching printing: prolific cards must not become ambiguous just
             // because they exceed a lookup page, nor may a later, different identity be ignored.
             fun find(set: String?, number: String?) = buildList {
                 var after: String? = null
                 do {
                     check(!repository.cancelled())
-                    val page = catalog.find(line.name, set, number, 256, after)
+                    val page = catalog.find(name, set, number, 256, after)
                     addAll(page)
                     after = page.lastOrNull()?.id
                 } while (page.size == 256)
@@ -69,7 +74,7 @@ class DeckImportResolver(private val repository: CatalogSnapshots) : DeckResolve
             val cards = matching.filterNot { it.printing.token }.ifEmpty { matching }
             // A card's own (Oracle) name comes before a name a printing gives it (flavorName: Secret Lair, Universes
             // Within), which comes before a back face's.
-            val candidates = cards.filter { it.primaryName(line.name) }.ifEmpty { cards.filter { it.printedName(line.name) } }
+            val candidates = cards.filter { it.primaryName(name) }.ifEmpty { cards.filter { it.printedName(name) } }
                 .ifEmpty { cards }
             // Several printings of one card are never ambiguous; only different cards sharing a name are.
             // A cube import still picks a deterministic card then, and reports it as a substitution.

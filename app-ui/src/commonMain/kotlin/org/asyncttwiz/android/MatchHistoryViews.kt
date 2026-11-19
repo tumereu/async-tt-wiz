@@ -42,7 +42,8 @@ fun lossCauseText(cause: LossCause): String = when (cause) {
 
 /** How a match ended, in full (its details): who, why, and an agreement's reason. */
 fun matchEndDetail(record: MatchRecord, me: String): String {
-    fun name(accountId: String) = if (accountId == me) "You" else record.player(accountId)?.account?.username ?: "Opponent"
+    fun name(accountId: String) = if (accountId == me) "You" else record.player(accountId)?.account?.username
+        ?: org.asyncttwiz.protocol.Faults.placeholder("matchEndDetail", "match player without a name", "Opponent", mapOf("player" to accountId))
     return when (val ending = record.ending) {
         MatchEnding.ByRules -> record.players.mapNotNull { p -> p.lossCause?.let { p to it } }.joinToString("; ") { (loser, cause) ->
             val who = name(loser.account.accountId)

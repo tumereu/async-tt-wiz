@@ -155,7 +155,7 @@ object StackAbilities {
      */
     fun targetName(play: TableBoard, target: MtgRef, viewer: String, names: Map<String, String>, you: String = "You",
         hidden: String = "a hidden card"): String = when (target) {
-        is MtgRef.Player -> if (target.accountId == viewer) you else names[target.accountId] ?: "Opponent"
+        is MtgRef.Player -> if (target.accountId == viewer) you else org.asyncttwiz.automatum.PlayerNames.of(names, target.accountId, "Opponent", "StackAbilities")
         is MtgRef.Card -> visibleName(play, target.cardId, viewer, hidden)
         is MtgRef.StackItem -> of(play, target.id, viewer)?.name ?: visibleName(play, target.id, viewer, hidden)
     }

@@ -8,6 +8,10 @@ data class ImportLine(val line: Int, val section: DeckSection, val quantity: Int
     val name: String, val set: String?, val number: String?, val scryfallId: String? = null) {
     /** " (SET) number", " (SET)" or empty, in the list syntax the parser accepts back. */
     val printingSuffix: String get() = set?.let { " ($it)" + number?.let { n -> " $n" }.orEmpty() }.orEmpty()
+    /** LOB-062: [name] with each single "/" read as a split card's separator ("Fire/Ice" → "Fire // Ice"); null without one.
+     * Only a name that names no card as written is read so ("Summon: Choco/Mog" is one card's name). */
+    val splitName: String? get() = name.takeIf { DeckTextParser.singleSlash.containsMatchIn(it) }
+        ?.replace(DeckTextParser.singleSlash, " // ")
 }
 data class ParsedDeck(val text: String, val lines: List<ImportLine>, val issues: List<ImportIssue>)
 data class ResolvedDeckEntry(val section: DeckSection, val quantity: Int,
@@ -34,7 +38,7 @@ object DeckTextParser {
     private val bracketHeader = Regex("\\[([A-Za-z ]+)\\]")
     private val headerCount = Regex("\\s*\\(\\s*[0-9]+\\s*\\)$")
     private val setCode = Regex("[A-Za-z0-9_-]{1,16}")
-    private val singleSlash = Regex("\\s*(?<!/)/(?!/)\\s*")
+    internal val singleSlash = Regex("\\s*(?<!/)/(?!/)\\s*")
     private val uuid = Regex("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}")
     private val headers = mapOf(
         "deck" to Target.MAIN, "main" to Target.MAIN, "mainboard" to Target.MAIN, "main deck" to Target.MAIN,
@@ -77,7 +81,7 @@ object DeckTextParser {
                         Target.MAYBE -> DeckSection.MAYBEBOARD
                         else -> DeckSection.MAINBOARD
                     },
-                    quantity, name.replace(singleSlash, " // "), set?.uppercase(), number, scryfall)
+                    quantity, name, set?.uppercase(), number, scryfall)
             }
         }
         val first = lines.firstOrNull { it.isNotBlank() }

@@ -68,10 +68,14 @@ fun DeckCategoryRow(row: DeckTreeRow.Category, toggle: () -> Unit, menu: (@Compo
         .padding(start = (row.depth * 20).dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(screenIcon("chevron"), null, Modifier.size(24.dp).rotate(if (row.expanded) 90f else 0f))
         Spacer(Modifier.width(4.dp))
-        Text(row.category.name, Modifier.weight(1f, fill = false), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.width(8.dp))
-        Text(categoryDeckCount(row.decks), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        // LOB-245 (owner playtest 2026-11-19): the name and count take the room left of the ⋮, which sits at the row's right
+        // edge at every depth, like the deck rows' ends
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(row.category.name, Modifier.weight(1f, fill = false), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(8.dp))
+            Text(categoryDeckCount(row.decks), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
         menu?.invoke()
     }
 }

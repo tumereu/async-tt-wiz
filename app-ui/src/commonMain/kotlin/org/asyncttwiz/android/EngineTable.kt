@@ -845,7 +845,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     val game = routes.engine ?: return
     val shown = game.shown ?: return
     val status = shown.status
-    val opponent = names[shown.opponent.value] ?: "The other player"
+    val opponent = org.asyncttwiz.automatum.PlayerNames.of(names, shown.opponent.value, "The other player", "EngineTable")
     // Timeline mode (HIS-004) shows an earlier board, view-only: no async panels over it, only an incoming request
     val reviewing = routes.review != null
     // TRN-066, TRN-068: the wait is the band under the other player's hand (TableRuntimeHooks.waitingLine) with its Assume or

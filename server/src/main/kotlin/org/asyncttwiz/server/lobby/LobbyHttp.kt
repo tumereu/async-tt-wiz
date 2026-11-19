@@ -15,6 +15,7 @@ import org.asyncttwiz.server.database.OwnershipFailure
 class LobbyHttp(private val runtime: ServiceRuntime) {
     private val accounts = AccountService(runtime)
     private val lobby = LobbyService(runtime)
+    private val lending = org.asyncttwiz.server.decks.Lending(runtime)
     private val limits = AccountRateLimits()
     private val json = DeckJson.format
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
@@ -35,8 +36,15 @@ class LobbyHttp(private val runtime: ServiceRuntime) {
                 response.setHeader("Retry-After", "60"); error(429, "try_later"); return true
             }
             val parts = path.split('/')
-            if (path.startsWith("/v1/games/") && (parts.size != 5 || parts[4] != "head")) {
+            // LOB-248: the decks a game's creator lends, and one of them
+            val lent = path.startsWith("/v1/games/") && parts.size in 5..6 && parts[4] == "lent-decks"
+            if (path.startsWith("/v1/games/") && !lent && (parts.size != 5 || parts[4] != "head")) {
                 error(404, "not_found"); return true
+            }
+            if (lent) {
+                if (request.method != "GET") { response.setHeader("Allow", "GET"); error(405, "method_not_allowed"); return true }
+                val result = if (parts.size == 5) lending.list(principal, parts[3]) else lending.deck(principal, parts[3], parts[5])
+                reply(LobbyService.Result(result.status, result.body)); return true
             }
             val removing = path.startsWith("/v1/contacts/")
             if (removing && (parts.size != 4 || !DeckValidation.uuid(parts[3]))) {

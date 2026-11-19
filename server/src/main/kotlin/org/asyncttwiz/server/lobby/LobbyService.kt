@@ -145,7 +145,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             game.revision.toString(), game.currentPlay?.toString(),
             holder,
             activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game),
-            resultNotice(game))
+            resultNotice(game), org.asyncttwiz.server.decks.Lending.settings(game))
     }
 
     /**
@@ -238,7 +238,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 game.revision.toString(), game.currentPlay?.toString(),
                 holder,
                 activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game),
-            resultNotice(game))
+            resultNotice(game), org.asyncttwiz.server.decks.Lending.settings(game))
         } }
     }
 

@@ -13,7 +13,10 @@ import kotlinx.serialization.Serializable
     val basicDefinitions: Map<BasicLand, String> = emptyMap(), val nextCardIndex: String = "0",
     /** The definitions (digests) of the cards its player owns outside the game besides the deck: the dungeon cards the server
      * brought with their Ready ([org.asyncttwiz.protocol.game.OutsideCards], CR 309.2). Omitted when none. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val outside: List<String> = emptyList()) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val outside: List<String> = emptyList(),
+    /** LOB-256: a deck borrowed from the game's creator: the lender's account id (the saved deck [sourceId] is theirs).
+     * Omitted for the player's own deck. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lender: String? = null) {
     fun count(section: SavedDeckSection) = entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
     fun card(entry: PreparedEntry, offset: Int): PreparedCard {
         require(entry in entries && offset in 0 until entry.quantity)
@@ -126,7 +129,9 @@ object PreparationRules {
 
     fun select(game: GameSummary, current: LobbyPreparation, actor: String, requestId: String,
         scope: GameScope, action: GameAction.SelectDeck, source: SavedDeck?,
-        definitions: List<SubmittedDefinition>): PreparationChange {
+        definitions: List<SubmittedDefinition>,
+        /** LOB-256: the lender's account id when [source] is a deck borrowed from the game's creator. */
+        lender: String? = null): PreparationChange {
         fun reject(reason: String) = PreparationChange(reason = reason)
         if (game.lifecycle != GameLifecycle.LOBBY) return reject("lifecycleEnded")
         if (scope.gameId != game.id || scope.preparationId != game.preparationRound || scope.playId != null ||
@@ -152,10 +157,12 @@ object PreparationRules {
         }
         val used = prepared.map { cards.getValue(it.printingId) }
         val deck = PreparedDeck(CommandIds.output(requestId, "prepared-deck", 0), source.deck.id,
-            source.deck.revision, source.deck.name, source.deck.cover?.definition?.let { cards[it]?.digest }, requestId, entries)
+            source.deck.revision, source.deck.name, source.deck.cover?.definition?.let { cards[it]?.digest }, requestId, entries,
+            lender = lender)
         val retained = (current.definitions + used).associateBy { it.digest }
         return PreparationChange(current.copy(players = current.players.map {
-            if (it.accountId == actor) it.copy(ready = false, deck = deck) else it
+            // LOB-256: a borrowed deck's name and art show to both players, whatever the deck visibility says
+            if (it.accountId == actor) it.copy(ready = false, deck = deck, deckShown = if (lender != null) true else it.deckShown) else it
         }, definitions = retained.values.sortedBy { it.digest }))
     }
 }

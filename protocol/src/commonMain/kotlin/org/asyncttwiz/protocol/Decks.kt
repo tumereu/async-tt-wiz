@@ -124,8 +124,11 @@ object SavedCards {
  * section is one entry, its copies added up.
  */
 @Serializable data class CardListEntry(val section: SavedDeckSection, val printingId: String?, val quantity: Int, val name: String? = null)
-/** A new deck, in one request: its [entries] and its [cover], the printing id of one of its cards. */
-@Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<CardListEntry>, val cover: String? = null)
+/** A new deck, in one request: its [entries], its [cover] (the printing id of one of its cards) and its [category] (LOB-244,
+ * one of the account's deck categories; null: none). */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<CardListEntry>, val cover: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val category: String? = null)
 /** A deck's cover card: [definition] is its printing id in a saved deck, its card data digest in a match record. */
 @Serializable data class DeckCover(val definition: String, val name: String, val scryfallId: String? = null, val imageUri: String? = null)
 /** Present only on a draft deck: saved automatically from a pod deck submission, read-only until copied. */
@@ -138,7 +141,9 @@ object SavedCards {
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeboard: Long = 0,
     /** Which cards Automatum can't play yet (I-D51, LOB-124), worked out by the server from its card catalog's marks
      * whenever it reads the deck; null when it has no catalog. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: CardListSupport? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: CardListSupport? = null,
+    /** The deck's category (LOB-244), one of its owner's [DeckCategory] ids; omitted when it has none. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val category: String? = null)
 @Serializable data class SavedDeck(val deck: DeckSummary, val entries: List<SavedDeckEntry>)
 /** I-D51: the cards of a deck, cube or set Automatum can't play yet, by the card catalog's marks (SYS-082), made with the
  * parser of [parserVersion]. [byHand] names those cards (distinct, sorted); empty: Automatum plays every card. */
@@ -147,12 +152,19 @@ object SavedCards {
     val engineVersion: Int = 0) {
     val supported: Boolean get() = byHand.isEmpty()
 }
-@Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
+/** A page of the account's ordinary decks; the first page (no `after`) also carries every deck category of the account
+ * ([categories], LOB-244). */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val categories: List<DeckCategory> = emptyList())
 /** Omitted fields are unchanged. Cover is the printing id of one of the deck's cards, never an arbitrary URL.
  * New contents always replace the whole list. */
 @Serializable data class DeckContentsImport(val entries: List<CardListEntry>)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null,
-    val contents: DeckContentsImport? = null)
+    val contents: DeckContentsImport? = null,
+    /** LOB-258: the deck's new category ([CategoryChoice.id] null: none); omitted: unchanged. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val category: CategoryChoice? = null)
 @Serializable data class DeleteDeck(val requestId: String)
 /** POST /v1/decks/{id}/copy: "Save as deck". An independent ordinary saved deck with the same contents and cover. */
 @Serializable data class CopyDeck(val requestId: String)
@@ -162,6 +174,73 @@ object DraftDecks {
     const val LIMIT = 20
 }
 @Serializable data class DeckDeleted(val id: String)
+
+/**
+ * LOB-244 (owner 2026-11-19): one of an account's deck categories. Categories nest: [parent] is the category it lies in
+ * (null: the top level). A saved deck is in at most one category ([DeckSummary.category]); choosing a category anywhere
+ * always includes its subcategories ([DeckCategories.within], LOB-259).
+ */
+@Serializable data class DeckCategory(val id: String, val name: String, val parent: String? = null)
+/** GET /v1/deck-categories, and every change's answer: all the account's categories. */
+@Serializable data class DeckCategoryList(val categories: List<DeckCategory>)
+/** A category named or placed: [id] null is none (a deck without a category, a category at the top level). */
+@Serializable data class CategoryChoice(val id: String? = null)
+/** POST /v1/deck-categories: a new category [name] in [parent] (null: the top level). */
+@Serializable data class CreateDeckCategory(val requestId: String, val name: String, val parent: String? = null)
+/** PUT /v1/deck-categories/{id}: renamed to [name] and/or moved into [parent] (omitted: unchanged). A category never moves
+ * into itself or one of its subcategories. */
+@Serializable data class UpdateDeckCategory(val requestId: String, val name: String? = null, val parent: CategoryChoice? = null)
+/** DELETE /v1/deck-categories/{id}: its decks and subcategories move up one level, into its parent (LOB-246). */
+@Serializable data class DeleteDeckCategory(val requestId: String)
+
+/** LOB-244: the tree of deck categories. */
+object DeckCategories {
+    const val MAX_NAME_BYTES = 256
+    fun name(value: String) = value.isNotBlank() && DeckValidation.text(value.trim(), MAX_NAME_BYTES) && value.trim() == value
+
+    /** [ids] and every category below them in [all] (selecting a category always includes its subcategories). */
+    fun within(all: List<DeckCategory>, ids: Collection<String>): Set<String> {
+        val children = all.groupBy { it.parent }
+        val found = mutableSetOf<String>()
+        val queue = ArrayDeque(ids.filter { id -> all.any { it.id == id } })
+        while (queue.isNotEmpty()) {
+            val next = queue.removeFirst()
+            if (found.add(next)) children[next].orEmpty().forEach { queue.add(it.id) }
+        }
+        return found
+    }
+
+    /** The names from the top level down to [id] ("Battle box › Red"); empty for an unknown id. */
+    fun path(all: List<DeckCategory>, id: String?): List<DeckCategory> {
+        val byId = all.associateBy { it.id }
+        val path = mutableListOf<DeckCategory>()
+        var at = id?.let(byId::get)
+        while (at != null && at !in path) { path.add(0, at); at = at.parent?.let(byId::get) }
+        return path
+    }
+
+    fun pathName(all: List<DeckCategory>, id: String?): String = path(all, id).joinToString(" › ") { it.name }
+
+    /** The categories of [all] in tree order (each followed by its subcategories, siblings by name), with their depth;
+     * a category whose parent isn't in [all] lies at the top level. */
+    fun ordered(all: List<DeckCategory>): List<Pair<DeckCategory, Int>> {
+        val ids = all.map { it.id }.toSet()
+        val children = all.groupBy { it.parent?.takeIf { parent -> parent in ids } }
+        val out = mutableListOf<Pair<DeckCategory, Int>>()
+        fun visit(parent: String?, depth: Int) {
+            for (category in children[parent].orEmpty().sortedWith(compareBy({ it.name.lowercase() }, { it.id }))) {
+                if (out.any { it.first.id == category.id }) continue
+                out.add(category to depth); visit(category.id, depth + 1)
+            }
+        }
+        visit(null, 0)
+        return out
+    }
+
+    /** Whether moving [moved] into [parent] keeps the tree a tree: never into itself or one of its subcategories. */
+    fun canMove(all: List<DeckCategory>, moved: String, parent: String?): Boolean =
+        parent == null || parent !in within(all, listOf(moved))
+}
 @Serializable data class DeckError(val code: String, val field: String? = null)
 
 /** RFC8785 subset: typed schemas contain only strings, booleans, null and exact 32-bit integers.

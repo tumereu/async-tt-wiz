@@ -8,9 +8,9 @@ Manage decks keeps your saved decks and cubes, and a read-only draft deck for ev
 opens in a read-only picture view; Edit opens the editor that decks and cubes share, with a Cards tab of pictures and a
 Text tab holding the raw list. A list can be typed, pasted or imported from an Archidekt link, and cards are added from
 a search page that understands search terms (LOB-108). Saved lists hold each card by its printing and always show
-it with the current card catalog's text. A deck holding a card Automatum can't play yet carries an amber warning and
-can't start a game. Before a game, Prepare deck moves cards between Mainboard and Sideboard for that game alone; the
-saved deck never changes.
+it with the current card catalog's text. Saved decks can be sorted into categories, which can hold categories of their
+own. A deck holding a card Automatum can't play yet carries an amber warning and can't start a game. Before a game,
+Prepare deck moves cards between Mainboard and Sideboard for that game alone; the saved deck never changes.
 
 ## Manage decks
 
@@ -18,6 +18,14 @@ saved deck never changes.
 - **LOB-055** Every pod deck you submit is kept as a draft deck in its own section under Decks ("DRAFT DECKS (N / 20)"; only the newest 20 are kept). (r60)
 - **LOB-210** A draft deck is read-only and playable in any game (under "Draft decks" in the deck picker); its Side holds your pod deck's Side (with its basics) and its Maybe your Build's Maybe, with no sideboard limit. "Save as deck" copies it into an ordinary deck you can edit and keep for good. (r60)
 - **LOB-058** Each deck has a cover chosen from its own cards, the choices listed alphabetically; a draft deck's is chosen in Build (DRF-166). (r62)
+
+## Deck categories
+
+- **LOB-244** A saved deck is in at most one category, and a category can hold categories. The Decks tab lists the categories as a tree under "SAVED LISTS (N)", each a row with its name and deck count that a tap folds open or shut (shut at first), showing its subcategories, then its decks; decks without a category come after the categories. (r78)
+- **LOB-245** "New category" at the top of the Decks tab makes a top-level category; a category row's ⋮ offers New subcategory, Rename, Move to… (the top level or another category, never itself or one of its own subcategories) and Delete, each a small dialog over the list. (r78)
+- **LOB-246** Deleting a category asks "Delete category?" (Keep category / Delete category) and moves its decks and subcategories up one level, into the category it was in, or to the top level; no deck is deleted. (r78)
+- **LOB-258** A deck's category is chosen in its editor, in a "Category" row under the name ("None" or the category's path, "Battle box › Red"), from a list of the categories as a tree; Save keeps it with the deck's other changes. Draft decks have no category. (r78)
+- **LOB-259** Choosing a category anywhere (lending decks, LOB-248) always includes its subcategories. (r78)
 
 ## Saved deck and cube view
 

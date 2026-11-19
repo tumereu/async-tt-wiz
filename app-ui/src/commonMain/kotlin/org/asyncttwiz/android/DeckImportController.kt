@@ -24,7 +24,9 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val linkError: String? = null,
     val destination: DeckSection = DeckSection.MAINBOARD,
     /** LOB-057: the editor's "Delete deck" confirmation, its request in flight and its failure. */
-    val deleteDialog: Boolean = false, val deleting: Boolean = false, val deleteError: String? = null)
+    val deleteDialog: Boolean = false, val deleting: Boolean = false, val deleteError: String? = null,
+    /** LOB-258: the deck's category (null: none). */
+    val category: String? = null)
 
 /**
  * One deck save, a single request (owner 2026-11-10: card data from the server's catalog): a new deck ([target] null, with
@@ -33,10 +35,13 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
  * from its records (the server builds the same), for the pictures.
  */
 data class DeckSave(val name: String, val entries: List<CardListEntry>, val cover: String?, val target: String?,
-    val editMetadata: Boolean, val cards: List<SubmittedDefinition>, val requestId: String = randomUuid()) {
-    fun create() = CreateDeck(requestId, name, entries, cover)
-    /** Saving into an existing deck replaces its whole list. */
-    fun update() = UpdateDeck(requestId, name = name.takeIf { editMetadata }, cover = cover, contents = DeckContentsImport(entries))
+    val editMetadata: Boolean, val cards: List<SubmittedDefinition>, val requestId: String = randomUuid(),
+    /** LOB-258: the deck's category (null: none). */
+    val category: String? = null) {
+    fun create() = CreateDeck(requestId, name, entries, cover, category)
+    /** Saving into an existing deck replaces its whole list; its category is saved with it. */
+    fun update() = UpdateDeck(requestId, name = name.takeIf { editMetadata }, cover = cover, contents = DeckContentsImport(entries),
+        category = CategoryChoice(category))
     companion object {
         /** [entry]'s card: one the records can't build as the editor keeps it ([retained], by its printing id: a card
          * without a printing, or one the records don't have), else the catalog's. */
@@ -212,7 +217,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     }
     fun cancel() {
         saveAfterLookup = false
-        if (state.text != initial.text || state.name != initial.name || state.cover != initial.cover)
+        if (state.text != initial.text || state.name != initial.name || state.cover != initial.cover || state.category != initial.category)
             state = state.copy(discard = true)
         else exit()
     }
@@ -291,7 +296,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         open()
         if (closed) return
         val cover = detail.saved.deck.cover?.definition
-        state = state.copy(target = detail.saved.deck.id, name = detail.saved.deck.name, cover = cover, editing = true, busy = true)
+        state = state.copy(target = detail.saved.deck.id, name = detail.saved.deck.name, cover = cover, editing = true, busy = true,
+            category = detail.saved.deck.category)
         initial = state
         val generation = ++epoch
         val cards = detail.saved.cards()
@@ -349,6 +355,10 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     }
     fun review() { if (state.result?.resolved == true && !state.busy) state = state.copy(preview = true) }
     fun editList() { if (!state.saving) { state = state.copy(preview = false, error = null) } }
+    /** LOB-258: the deck's categories to choose from (the account's, as Manage decks last read them). */
+    var categories: () -> List<DeckCategory> = { emptyList() }
+    /** LOB-258: chooses the deck's category (null: none), kept by Save. */
+    fun category(id: String?) { if (!state.saving && id != state.category) { pendingSave = null; state = state.copy(category = id, error = null) } }
     fun name(value: String) { if (value != state.name) {
         cancelUrlFetch()
         pendingSave = null; state = state.copy(name = value, error = null)
@@ -375,11 +385,11 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             var plan = previous
             try {
                 if (plan == null) plan = DeckSave.from(checkNotNull(input.result), input.name, input.target,
-                    cover, retained, input.editing)
+                    cover, retained, input.editing).copy(category = input.category)
                 val result = action(checkNotNull(plan))
                 runCatching { acceptedDefinitions(result.deck.id, plan.cards) }
                 post { if (!closed && generation == epoch && state.active) {
-                    if (state.text == input.text && state.name == input.name && state.cover == input.cover) { exit(); saved(result) }
+                    if (state.text == input.text && state.name == input.name && state.cover == input.cover && state.category == input.category) { exit(); saved(result) }
                     else {
                         pendingSave = null
                         initial = input.copy(target = result.deck.id, editing = true)
@@ -390,7 +400,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             } catch (failure: Exception) {
                 val retained = plan
                 post { if (!closed && generation == epoch && state.active) {
-                     pendingSave = retained.takeIf { state.text == input.text && state.name == input.name && state.cover == input.cover }
+                     pendingSave = retained.takeIf { state.text == input.text && state.name == input.name && state.cover == input.cover && state.category == input.category }
                      state = state.copy(saving = false, error = deckError(failure))
                 } }
             }

@@ -18,8 +18,9 @@ fun resumePointText(point: ResumePoint, opponentName: String): String = Activity
 /** Game history §4.5: the cleanup's warning 3 days before a game in play is deleted ([ActivityTexts.gameRemoval]). */
 fun gameRemovalText(hint: org.asyncttwiz.protocol.ActivityHint): Pair<String, String> = ActivityTexts.gameRemoval(hint)
 
-/** I-D57: a pod notification's text: the set or cube the pod drafts. */
-fun podNotificationDetail(hint: org.asyncttwiz.protocol.ActivityHint): String? = ActivityTexts.podDetail(hint)
+/** I-D57: a pod notification's text: the set or cube the pod drafts; LOB-252: a game invitation's lent decks
+ * ([ActivityTexts.detail]). */
+fun podNotificationDetail(hint: org.asyncttwiz.protocol.ActivityHint): String? = ActivityTexts.detail(hint)
 
 /** I-D53: the rules' result, from the notified player's side. */
 fun byRulesResult(outcome: SuggestedResult) = ActivityTexts.byRulesResult(outcome)

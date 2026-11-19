@@ -62,6 +62,9 @@ fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
         Text("vs ${game.opponent(accountId).username} · ${gameStatus(game, accountId)} · ${gameLastActivity(game)}",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (game.invitationHeld) 2 else 1, overflow = TextOverflow.Ellipsis)
+        // LOB-252: an invitation whose creator lends you decks says so
+        lendsDecksLine(game, accountId)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("lends-decks-${game.id}")) }
     }
     // WEB-038 (D7): on the desktop layout one line of columns: avatar, the name over its lines, the move chip, the chevron
     if (desktopLayout()) Row(modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,

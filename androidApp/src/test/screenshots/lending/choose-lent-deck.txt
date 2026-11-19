@@ -1,0 +1,1 @@
+Portrait Choose deck for the invited player of a battle box: alex's lent decks first under their categories (Battle box › Green, Battle box › Red) with Burn highlighted, then the player's own deck greyed under "Only alex's lent decks can be used in this game."

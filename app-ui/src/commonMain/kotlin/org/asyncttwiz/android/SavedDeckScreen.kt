@@ -202,9 +202,20 @@ fun SavedDeckCollection(controller: DeckLibraryController) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
     PullToRefreshBox(isRefreshing = state.busy, onRefresh = { if (!state.busy) controller.refresh() }, modifier = Modifier.fillMaxSize()) {
     val savedHeading: @Composable () -> Unit = {
-        Text("SAVED LISTS (${state.decks.size})", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // LOB-245: New category at the top of the Decks tab
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("SAVED LISTS (${state.decks.size})", Modifier.weight(1f).padding(vertical = 12.dp), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton({ controller.categoryDialog(CategoryDialog.Create(null)) }, enabled = state.loaded && !state.categoryBusy,
+                modifier = Modifier.testTag("new-category")) { ButtonLabel("add", "New category") }
+        }
         if (state.loaded && state.decks.isEmpty()) Text("No saved decks yet.")
+    }
+    // LOB-244: the categories as a tree, uncategorised decks last
+    val rows = deckTreeRows(state.decks, state.categories, state.expanded)
+    val categoryRow: @Composable (DeckTreeRow.Category) -> Unit = { row ->
+        DeckCategoryRow(row, { controller.toggleCategory(row.category.id) },
+            { DeckCategoryMenu(row.category, controller::categoryDialog, enabled = !state.categoryBusy) })
     }
     val draftHeading: @Composable () -> Unit = {
         Text(draftDecksHeading(state.draftDecks.size), Modifier.padding(top = 20.dp, bottom = 4.dp),
@@ -217,24 +228,33 @@ fun SavedDeckCollection(controller: DeckLibraryController) {
         Modifier.fillMaxSize().padding(horizontal = DesktopScreens.Gutter).testTag("deck-grid"),
         verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { Column { savedHeading() } }
-        items(state.decks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
+        for (row in rows) when (row) {
+            is DeckTreeRow.Category -> item(key = "category-${row.category.id}",
+                span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { categoryRow(row) }
+            is DeckTreeRow.Deck -> item(key = row.deck.id) { SavedDeckRow(row.deck) { controller.open(row.deck.id) } }
+        }
         if (state.draftDecks.isNotEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { Column { draftHeading() } }
         items(state.draftDecks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
     } else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { savedHeading() }
-        items(state.decks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
+        for (row in rows) when (row) {
+            is DeckTreeRow.Category -> item(key = "category-${row.category.id}") { categoryRow(row) }
+            is DeckTreeRow.Deck -> item(key = row.deck.id) {
+                SavedDeckRow(row.deck, Modifier.padding(start = (row.depth * 20).dp)) { controller.open(row.deck.id) } }
+        }
         if (state.draftDecks.isNotEmpty()) item { draftHeading() }
         items(state.draftDecks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
     }
     }
     }
-    FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    FloatingTransientError(state.error.takeIf { state.categoryDialog == null }, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    DeckCategoryDialogs(controller)
     }
 }
 
 @Composable
-private fun SavedDeckRow(deck: DeckSummary, open: () -> Unit) {
-    OutlinedCard(onClick = open, modifier = Modifier.fillMaxWidth()) {
+private fun SavedDeckRow(deck: DeckSummary, modifier: Modifier = Modifier, open: () -> Unit) {
+    OutlinedCard(onClick = open, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val cover = deck.cover

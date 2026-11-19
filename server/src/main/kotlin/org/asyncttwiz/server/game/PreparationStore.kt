@@ -73,6 +73,19 @@ internal object PreparationStore {
             .where(GAME.ID.eq(game)).and(GAME.LIFECYCLE.eq("ACTIVE")).execute().also { check(it == 1) }
     }
 
+    /** LOB-247, LOB-257: a deck settings change: nobody is Ready any more, and [cleared]'s chosen decks are put back (none chosen). */
+    fun settingsChanged(sql: DSLContext, game: UUID, cleared: Collection<UUID>) {
+        sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.READY, false).where(PLAYER_PREPARATION.GAME_ID.eq(game)).execute()
+        if (cleared.isNotEmpty()) clearDecks(sql, game, cleared)
+    }
+
+    /** [players]' chosen decks in [game] put back (LOB-257 a settings change, LOB-251 a rematch's new deal). */
+    fun clearDecks(sql: DSLContext, game: UUID, players: Collection<UUID>) {
+        sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.DECK, null as String?).set(PLAYER_PREPARATION.DECK_SHOWN, false)
+            .set(PLAYER_PREPARATION.DECK_SHOWN_CHOSEN, false)
+            .where(PLAYER_PREPARATION.GAME_ID.eq(game)).and(PLAYER_PREPARATION.ACCOUNT_ID.`in`(players)).execute()
+    }
+
     fun saveSelection(sql: DSLContext, actor: UUID, state: LobbyPreparation) {
         val game = UUID.fromString(state.gameId)
         val player = state.players.single { it.accountId == actor.toString() }

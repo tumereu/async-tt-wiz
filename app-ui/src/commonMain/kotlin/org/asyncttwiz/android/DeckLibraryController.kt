@@ -11,11 +11,22 @@ import org.asyncttwiz.appui.randomUuid
  * records (owner 2026-11-10: card data from the server's catalog). */
 data class DeckDetail(val saved: SavedDeck, val definitions: Map<String, CardDefinition>)
 enum class DeckDialog { EDIT, RENAME, COVER, DELETE }
+/** LOB-245, LOB-246: a deck category dialog over Manage decks' Decks tab. */
+sealed interface CategoryDialog {
+    /** A new category in [parent] (null: the top level). */
+    data class Create(val parent: String?) : CategoryDialog
+    data class Rename(val category: DeckCategory) : CategoryDialog
+    data class Move(val category: DeckCategory) : CategoryDialog
+    data class Delete(val category: DeckCategory) : CategoryDialog
+}
 /** [draftDecks]: kept automatically from submitted pod decks, newest first, read-only until saved as an ordinary deck. */
 data class DeckLibraryState(val decks: List<DeckSummary> = emptyList(), val draftDecks: List<DeckSummary> = emptyList(), val selected: String? = null,
     val detail: DeckDetail? = null, val busy: Boolean = false, val error: String? = null, val loaded: Boolean = false,
     val dialog: DeckDialog? = null, val draftName: String = "", val draftCover: String? = null,
-    val section: SavedDeckSection = SavedDeckSection.MAINBOARD, val mutating: Boolean = false)
+    val section: SavedDeckSection = SavedDeckSection.MAINBOARD, val mutating: Boolean = false,
+    /** LOB-244: the account's deck categories, and the ones folded open on this device (personal UI). */
+    val categories: List<DeckCategory> = emptyList(), val expanded: Set<String> = emptySet(),
+    val categoryDialog: CategoryDialog? = null, val categoryName: String = "", val categoryBusy: Boolean = false)
 
 /** Server-owned accepted collection. Dialogs/retries are personal volatile memory, never local authority. */
 class DeckLibraryController(private val api: Decks, private val credential: () -> String?,
@@ -54,6 +65,63 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
     }
     fun dismiss() { pending = null; state = state.copy(dialog = null, error = null) }
 
+    /** LOB-244: folds category [id] open or shut (personal, kept while the app runs). */
+    fun toggleCategory(id: String) {
+        state = state.copy(expanded = if (id in state.expanded) state.expanded - id else state.expanded + id)
+    }
+    /** LOB-245, LOB-246: opens a category dialog; a name dialog starts from the category's name. */
+    fun categoryDialog(dialog: CategoryDialog) {
+        if (state.categoryBusy) return
+        categoryRequest = null
+        state = state.copy(categoryDialog = dialog, error = null,
+            categoryName = (dialog as? CategoryDialog.Rename)?.category?.name.orEmpty())
+    }
+    fun categoryName(value: String) { if (!state.categoryBusy) { categoryRequest = null; state = state.copy(categoryName = value) } }
+    fun dismissCategory() { if (!state.categoryBusy) { categoryRequest = null; state = state.copy(categoryDialog = null) } }
+    /** Creates or renames as the open dialog says (its name trimmed), or deletes its category. */
+    fun confirmCategory() {
+        val name = state.categoryName.trim()
+        when (val dialog = state.categoryDialog ?: return) {
+            is CategoryDialog.Create -> if (DeckCategories.name(name)) categoryWrite("create in ${dialog.parent ?: "the top level"}") { token, request ->
+                api.createCategory(token, CreateDeckCategory(request, name, dialog.parent)) }
+            is CategoryDialog.Rename -> if (DeckCategories.name(name)) categoryWrite("rename ${dialog.category.id}") { token, request ->
+                api.updateCategory(token, dialog.category.id, UpdateDeckCategory(request, name = name)) }
+            is CategoryDialog.Delete -> categoryWrite("delete ${dialog.category.id}") { token, request ->
+                api.deleteCategory(token, dialog.category.id, DeleteDeckCategory(request)) }
+            is CategoryDialog.Move -> Unit
+        }
+    }
+    /** LOB-245: moves the open Move dialog's category into [parent] (null: the top level). */
+    fun moveCategory(parent: String?) {
+        val dialog = state.categoryDialog as? CategoryDialog.Move ?: return
+        if (!DeckCategories.canMove(state.categories, dialog.category.id, parent)) return
+        categoryWrite("move ${dialog.category.id} into ${parent ?: "the top level"}") { token, request ->
+            api.updateCategory(token, dialog.category.id, UpdateDeckCategory(request, parent = CategoryChoice(parent))) }
+    }
+    /** The open dialog's request id, kept while the same change is retried (the server answers a repeat with its result). */
+    private var categoryRequest: String? = null
+    private fun categoryWrite(what: String, write: suspend (String, String) -> DeckCategoryList) {
+        if (closed || state.categoryBusy) return
+        val token = credential() ?: return
+        val request = categoryRequest ?: randomUuid().also { categoryRequest = it }
+        state = state.copy(categoryBusy = true, error = null)
+        AppLog.info("decks", "Deck category $what asked")
+        worker.executeSuspending {
+            try {
+                val list = serviceRetry(current = { !closed }) { write(token, request) }
+                post { if (!closed) {
+                    categoryRequest = null
+                    state = state.copy(categories = list.categories, categoryBusy = false, categoryDialog = null)
+                    // Decks moved with a deleted category: their categories come with the decks
+                    refresh()
+                } }
+            } catch (failure: Exception) {
+                AppLog.warn("decks", "Deck category $what failed", failure)
+                post { if (!closed) state = state.copy(categoryBusy = false, error = deckError(failure)) }
+            }
+        }
+    }
+
     private fun load(id: String?) {
         if (closed || state.mutating) return
         val token = credential() ?: return
@@ -69,6 +137,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 val drafts = if (id == null) run { serviceRetry(current = { generation == epoch }) { api.drafts(token).decks } } else null
                 if (generation != epoch) return@executeSuspending
                 post { if (!closed && generation == epoch) state = state.copy(detail = result,
+                    categories = if (id == null) loadedCategories else state.categories,
                     decks = decks ?: state.decks.map { if (it.id == id && result != null) result.saved.deck else it },
                     draftDecks = drafts ?: state.draftDecks.map { if (it.id == id && result != null) result.saved.deck else it },
                     busy = false, loaded = state.loaded || id == null) }
@@ -142,11 +211,15 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         }
     }
 
+    /** LOB-244: the categories the last whole collection read brought (its first page's). */
+    private var loadedCategories: List<DeckCategory> = emptyList()
     private suspend fun collection(token: String, generation: Long): List<DeckSummary>? {
         val decks = linkedMapOf<String, DeckSummary>(); val cursors = mutableSetOf<String>(); var after: String? = null
         do {
             if (generation != epoch) return null
-            val page = api.list(token, after); page.decks.forEach { decks[it.id] = it }; after = page.next
+            val page = api.list(token, after); page.decks.forEach { decks[it.id] = it }
+            if (after == null) loadedCategories = page.categories
+            after = page.next
             if (after != null && !cursors.add(after)) throw DeckFailure("invalid_response")
         } while (after != null)
         return decks.values.toList()

@@ -17,6 +17,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
     private val accounts = AccountService(runtime)
     private val decks = DeckService(runtime)
     private val cubes = org.asyncttwiz.server.cubes.CubeService(runtime)
+    private val categories = DeckCategoryService(runtime)
     private val limits = AccountRateLimits()
     private val json = DeckJson.format
     // An HTTP resource bound, not a card-count/deck-legality limit or an application chunk protocol.
@@ -25,7 +26,9 @@ class DeckHttp(private val runtime: ServiceRuntime) {
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
         val cube = path == "/v1/cubes" || path.startsWith("/v1/cubes/")
-        if (!cube && path != "/v1/decks" && !path.startsWith("/v1/decks/")) return false
+        // LOB-244: an account's deck categories
+        val category = path == "/v1/deck-categories" || path.startsWith("/v1/deck-categories/")
+        if (!cube && !category && path != "/v1/decks" && !path.startsWith("/v1/decks/")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         try {
@@ -39,7 +42,8 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             }
             val parts = path.removePrefix("/v1/").split('/')
             val allowed = when {
-                path == "/v1/decks" || path == "/v1/cubes" -> "GET, POST"
+                path == "/v1/decks" || path == "/v1/cubes" || path == "/v1/deck-categories" -> "GET, POST"
+                category && parts.size == 2 -> "PUT, DELETE"
                 parts.size == 2 -> "GET, PUT, DELETE"
                 !cube && parts.size == 3 && parts[2] == "copy" -> "POST"
                 else -> { error(response, 404, "not_found"); return true }
@@ -50,7 +54,12 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             val result = when {
                 request.method in listOf("POST", "PUT", "DELETE") -> {
                     val text = body(request, response) ?: return true
-                    if (cube) when (request.method) {
+                    if (category) when (request.method) {
+                        "PUT" -> categories.update(principal, parts[1], json.decodeFromString<UpdateDeckCategory>(text))
+                        "DELETE" -> categories.delete(principal, parts[1], json.decodeFromString<DeleteDeckCategory>(text))
+                        else -> categories.create(principal, json.decodeFromString<CreateDeckCategory>(text))
+                    }
+                    else if (cube) when (request.method) {
                         "PUT" -> cubes.update(principal, parts[1], json.decodeFromString<UpdateCube>(text))
                         "DELETE" -> cubes.delete(principal, parts[1], json.decodeFromString<DeleteCube>(text))
                         else -> cubes.create(principal, json.decodeFromString<CreateCube>(text))
@@ -60,6 +69,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
                     else if (parts.size == 3) decks.copy(principal, parts[1], json.decodeFromString<CopyDeck>(text))
                     else decks.create(principal, json.decodeFromString<CreateDeck>(text))
                 }
+                path == "/v1/deck-categories" -> categories.read(principal)
                 path == "/v1/cubes" -> cubes.list(principal, request.getParameter("after"))
                 cube -> cubes.read(principal, parts[1])
                 path == "/v1/decks" -> decks.list(principal, request.getParameter("after"), request.getParameter("drafts") == "true")

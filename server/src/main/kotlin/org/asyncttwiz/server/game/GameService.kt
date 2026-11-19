@@ -8,6 +8,7 @@ import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.activity.OpponentPresences
 import org.asyncttwiz.server.decks.DeckService
+import org.asyncttwiz.server.decks.Lending
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GameInbox.GAME_INBOX
 import org.asyncttwiz.server.generated.tables.GameOutbox.GAME_OUTBOX
@@ -295,6 +296,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             GameAction.AcknowledgeResult -> applyAcknowledgement(sql, game, inbox.accountId!!)
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
+            is GameAction.SetDeckSettings -> applyDeckSettings(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
             is GameAction.SetStarter, is GameAction.SetAlternateStarter, is GameAction.ShowDeck, GameAction.Ready, GameAction.WithdrawReady ->
                 applyReadiness(sql, game, inbox.accountId!!, command)
@@ -534,7 +536,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private fun lobbyWaitsForResult(game: GameRecord, action: GameAction): Boolean = game.lifecycle == "LOBBY" &&
         game.resultNotice != null && when (action) {
             is GameAction.SelectDeck, is GameAction.TransferPreparedCard, is GameAction.SetStarter,
-            is GameAction.SetAlternateStarter, is GameAction.ShowDeck, is GameAction.SetAssumeReveals,
+            is GameAction.SetAlternateStarter, is GameAction.ShowDeck, is GameAction.SetAssumeReveals, is GameAction.SetDeckSettings,
             GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> true
             else -> false
         }
@@ -565,7 +567,28 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (command.scope.preparationId != game.preparationRound.toString()) return "inapplicable"
         if (!canReadPreparation(summary, account.toString())) return "accessDenied"
         if (summary.podId != null) return "podDeckFixed"
-        val source = DeckService(runtime).selectedSource(sql, account, action.deckId)
+        val settings = Lending.settings(game)
+        // LOB-250: with Random nobody chooses: the server deals the decks as the game starts
+        if (settings.dealt) return "decksDealt"
+        val decks = DeckService(runtime)
+        val own = decks.selectedSource(sql, account, action.deckId)
+        // LOB-256: the other player borrows one of the creator's lent decks (only a lent one: anything else is "not found")
+        val lender = game.inviterId!!.takeIf { own == null && account != it && settings.lending &&
+            DeckValidation.uuid(action.deckId) && Lending.isLent(sql, game, UUID.fromString(action.deckId)) }
+        val source = own ?: lender?.let { decks.lentSource(sql, it, action.deckId) }
+        // LOB-249: with Only lent decks nothing else is used, the creator's other decks included
+        if (own != null && settings.onlyLentDecks && (account != game.inviterId || !Lending.isLent(sql, game, UUID.fromString(action.deckId)))) {
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Deck choice refused game={} account={} deck={}: only lent decks are allowed",
+                game.id, account, action.deckId)
+            return "notLent"
+        }
+        // LOB-254: without Same deck allowed, both players never use the same deck
+        if (source != null && !settings.sameDeck && PreparationStore.read(sql, summary).players
+                .any { it.accountId != account.toString() && it.deck?.sourceId == action.deckId }) {
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Deck choice refused game={} account={} deck={}: the other player uses it",
+                game.id, account, action.deckId)
+            return "sameDeckTaken"
+        }
         // I-D51/I-D52 (LOB-118, LOB-124): a deck Automatum can't play fully, by the card catalog's marks, can't start a game.
         source?.deck?.automatum?.takeUnless { it.supported }?.let { support ->
             org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Deck choice refused game={} account={} deck={}: Automatum can't play {} cards by the catalog's marks: {}",
@@ -573,21 +596,64 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             return "automatumUnsupported"
         }
         // The deck's cards built from the server's card catalog by their printings (owner 2026-11-10)
-        val definitions = org.asyncttwiz.server.catalog.ServerCatalogs.current()?.let { catalog ->
-            source?.entries.orEmpty().mapNotNull { it.printingId }.distinct().mapNotNull(catalog::card)
-                .map { SubmittedDefinition(DeckJson.digest(it), it) }
-        }.orEmpty()
+        val definitions = catalogDefinitions(source)
         val current = PreparationStore.read(sql, summary)
         val change = PreparationRules.select(summary, current, account.toString(),
-            command.requestId, command.scope, action, source, definitions)
+            command.requestId, command.scope, action, source, definitions, lender?.toString())
         change.state?.let { state ->
             PreparationStore.saveSelection(sql, account, state)
             // The account default decides the deck's visibility whenever a different deck is chosen; re-selecting
             // the same deck keeps this game's own Show deck choice.
-            val previous = current.players.single { it.accountId == account.toString() }.deck?.sourceId
-            if (previous != action.deckId) DeckVisibilityStore.apply(sql, summary, account, action.deckId)
+            val previous = current.players.single { it.accountId == account.toString() }.deck
+            // LOB-256: a borrowed deck shows to both players, whatever the deck visibility says
+            if (lender != null) DeckVisibilityStore.borrowed(sql, game.id!!, account)
+            else if (previous?.sourceId != action.deckId || previous.lender != null) DeckVisibilityStore.apply(sql, summary, account, action.deckId)
+            if (lender != null) org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Deck borrowed game={} account={} deck={} lender={}",
+                game.id, account, action.deckId, lender)
         }
         return change.reason
+    }
+
+    /** The cards of [source] built from the server's card catalog by their printings (owner 2026-11-10). */
+    private fun catalogDefinitions(source: SavedDeck?): List<SubmittedDefinition> =
+        org.asyncttwiz.server.catalog.ServerCatalogs.current()?.let { catalog ->
+            source?.entries.orEmpty().mapNotNull { it.printingId }.distinct().mapNotNull(catalog::card)
+                .map { SubmittedDefinition(DeckJson.digest(it), it) }
+        }.orEmpty()
+
+    /**
+     * LOB-247, LOB-257 (owner 2026-11-19): the game's deck settings, changed by its creator (the inviter) only, in the lobby. Both
+     * players' Ready clears; a chosen deck the new settings don't allow (a borrowed deck no longer lent, any other deck with
+     * Only lent decks, the second of two same decks without Same deck allowed, every deck as Random starts) is put back.
+     * Turning lending on while the invitation waits tells the recipient again, now that decks are lent (LOB-252).
+     */
+    private fun applyDeckSettings(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
+        val settings = (command.action as GameAction.SetDeckSettings).settings
+        val log = org.slf4j.LoggerFactory.getLogger(GameService::class.java)
+        if (account != game.inviterId) return "notHost"
+        if (game.lifecycle != "LOBBY") return "lifecycleEnded"
+        if (command.scope.preparationId != game.preparationRound.toString()) return "inapplicable"
+        if (game.podId != null) return "podDeckFixed"
+        (settings.lend as? DeckLending.Categories)?.let { lend ->
+            if (lend.ids.any { org.asyncttwiz.server.decks.DeckCategoryService.owned(sql, account, it) == null }) return "inapplicable" }
+        val previous = Lending.settings(game)
+        game.deckSettings = Lending.encode(settings)
+        sql.update(GAME).set(GAME.DECK_SETTINGS, game.deckSettings).where(GAME.ID.eq(game.id)).execute()
+        val summary = lobby.summary(sql, game.id!!)
+        val preparation = PreparationStore.read(sql, summary)
+        val lent = Lending.lentIds(sql, game.inviterId!!, settings)
+        val kept = preparation.players.associate { player -> player.accountId to player.deck?.takeIf { deck ->
+            Lending.allowed(sql, game, settings, UUID.fromString(player.accountId), deck, lent) && (!settings.dealt || previous.dealt) } }
+        val sameDeck = !settings.sameDeck && kept.values.filterNotNull().let { decks -> decks.size == 2 && decks[0].sourceId == decks[1].sourceId }
+        val cleared = preparation.players.filter { it.deck != null && (kept[it.accountId] == null ||
+            (sameDeck && it.accountId == game.recipientId.toString())) }.map { UUID.fromString(it.accountId) }
+        PreparationStore.settingsChanged(sql, game.id!!, cleared)
+        log.info("Deck settings game={} from {} to {}: Ready cleared, decks put back for {}", game.id, previous, settings, cleared)
+        val invitation = sql.selectFrom(INVITATION).where(INVITATION.ID.eq(game.currentInvitation)).fetchOne()
+        if (!previous.lending && settings.lending && invitation?.state == "PENDING")
+            org.asyncttwiz.server.activity.ActivityService.record(sql, game.recipientId!!, ActivityKind.INVITATION, game.id!!,
+                invitation.id!!, account)
+        return null
     }
 
     private fun applyTransfer(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
@@ -631,21 +697,29 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     private fun applyReadiness(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
         val summary = lobby.summary(sql, game.id!!)
-        val changed = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
+        val ruled = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
+        // LOB-250: with Random a Ready waits for decks to deal, and the Ready that starts the game deals them
+        val dealing = ruled.state?.takeIf { command.action == GameAction.Ready && summary.deckSettings.dealt }
+        val deal = dealing?.let { deal(sql, game, summary, it, command.requestId, apply = StartRules.canStart(summary, it)) }
+        if (deal?.reason != null) return deal.reason
+        val changed = deal?.state?.let { ruled.copy(state = it) } ?: ruled
         // CR 309.2, LOB-117: the Ready of a deck that ventures or takes the initiative brings the dungeons of the server's
-        // catalog outside the game; it needs the ones its cards ask for
-        val outside = changed.state?.takeIf { command.action == GameAction.Ready && EngineDecks.ventures(it, account.toString()) }
-            ?.let { org.asyncttwiz.server.catalog.ServerCatalogs.current()?.dungeons }.orEmpty()
-        if (changed.state != null && command.action == GameAction.Ready &&
-            !EngineDecks.outsideProvided(changed.state!!, account.toString(), outside)) {
-            org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Ready refused game={} account={}: its deck ventures and the catalog's dungeons {} don't provide what it needs",
-                game.id, account, outside.map { it.definition.name })
-            return "automatumUnsupported"
+        // catalog outside the game; it needs the ones its cards ask for (a deck dealt now, its player's Ready's)
+        var change = changed
+        if (command.action == GameAction.Ready) for (player in (listOf(account.toString()) + deal?.players.orEmpty()).distinct()) {
+            val state = change.state ?: break
+            if (state.players.single { it.accountId == player }.deck == null) continue
+            val outside = state.takeIf { EngineDecks.ventures(it, player) }
+                ?.let { org.asyncttwiz.server.catalog.ServerCatalogs.current()?.dungeons }.orEmpty()
+            if (!EngineDecks.outsideProvided(state, player, outside)) {
+                org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Ready refused game={} account={}: {}'s deck ventures and the catalog's dungeons {} don't provide what it needs",
+                    game.id, account, player, outside.map { it.definition.name })
+                return "automatumUnsupported"
+            }
+            change = change.copy(state = StartRules.withOutside(state, player, outside))
         }
         // TRN-065: a player gets Ready only after tapping OK on the last match's result
         if (command.action == GameAction.Ready && summary.resultNotice?.unseen?.contains(account.toString()) == true) return "resultNotSeen"
-        val change = if (command.action == GameAction.Ready) changed.copy(state = changed.state?.let {
-            StartRules.withOutside(it, account.toString(), outside) }) else changed
         if (change.state?.let { preparation -> StartRules.canStart(summary, preparation) &&
             preparation.players.any { !DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) } } == true)
             return "invalidDeck"
@@ -664,7 +738,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
             // The prepared deck with its outside cards, and their definitions
-            if (command.action == GameAction.Ready) PreparationStore.saveSelection(sql, account, preparation)
+            if (command.action == GameAction.Ready && preparation.players.single { it.accountId == account.toString() }.deck != null)
+                PreparationStore.saveSelection(sql, account, preparation)
+            // LOB-250: each deck dealt now is its player's chosen deck: a borrowed one shows, the creator's own by their default
+            for (player in deal?.players.orEmpty()) {
+                val id = UUID.fromString(player)
+                PreparationStore.saveSelection(sql, id, preparation)
+                val deck = preparation.players.single { it.accountId == player }.deck!!
+                if (deck.lender != null) DeckVisibilityStore.borrowed(sql, game.id!!, id)
+                else DeckVisibilityStore.apply(sql, summary, id, deck.sourceId)
+            }
             if (command.action is GameAction.ShowDeck) DeckVisibilityStore.chosen(sql, game.id!!, account)
             if (seats != null) {
                 val play = PlayStore.start(sql, summary, preparation, command.requestId)
@@ -678,6 +761,48 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         }
         return change.reason
     }
+
+    /** A random deal (LOB-250): [state] with the dealt decks, the [players] dealt one, or why there is nothing to deal. */
+    private class Deal(val state: LobbyPreparation?, val players: List<String>, val reason: String?)
+
+    /**
+     * LOB-250: deals each player of [preparation] without a deck one of the creator's lent decks Automatum can play fully
+     * (LOB-260: LOB-115's warning keeps a deck out), different decks unless Same deck allowed, at random; with [apply] false it only
+     * checks there are enough ("noDecksToDeal" when not), as a Ready that doesn't start the game yet does.
+     */
+    private fun deal(sql: DSLContext, game: GameRecord, summary: GameSummary, preparation: LobbyPreparation, requestId: String,
+        apply: Boolean): Deal {
+        val settings = summary.deckSettings
+        val lender = game.inviterId!!
+        val decks = DeckService(runtime)
+        val sources = Lending.lentIds(sql, lender, settings).sorted().mapNotNull { decks.lentSource(sql, lender, it.toString()) }
+            .filter { it.deck.automatum?.supported != false }
+        val needing = preparation.players.filter { it.deck == null }.map { it.accountId }
+        val kept = preparation.players.mapNotNull { it.deck?.sourceId }.toSet()
+        val pool = if (settings.sameDeck) sources else sources.filter { it.deck.id !in kept }
+        val log = org.slf4j.LoggerFactory.getLogger(GameService::class.java)
+        if (needing.isNotEmpty() && (pool.isEmpty() || (!settings.sameDeck && pool.size < needing.size))) {
+            log.info("Ready refused game={}: {} playable lent decks of {} lent to deal {} players (same deck {})", game.id, pool.size,
+                Lending.lentIds(sql, lender, settings).size, needing.size, settings.sameDeck)
+            return Deal(null, emptyList(), "noDecksToDeal")
+        }
+        if (!apply || needing.isEmpty()) return Deal(preparation, emptyList(), null)
+        val picks = if (settings.sameDeck) needing.map { pool[dealing.nextInt(pool.size)] } else pool.shuffled(dealing).take(needing.size)
+        var state = preparation
+        for ((player, source) in needing.zip(picks)) {
+            val change = PreparationRules.select(summary, state, player, CommandIds.uuidV5(requestId, "deal/$player"),
+                GameScope(summary.id, summary.preparationRound), GameAction.SelectDeck(source.deck.id, source.deck.revision), source,
+                catalogDefinitions(source), lender.toString().takeIf { it != player })
+            val next = change.state ?: return Deal(null, emptyList(), change.reason ?: "noDecksToDeal").also {
+                log.warn("Deal refused game={} player={} deck={}: {}", game.id, player, source.deck.id, change.reason) }
+            // Dealt into a Ready: the player stays Ready
+            state = next.copy(players = next.players.map { if (it.accountId == player) it.copy(ready = true) else it })
+        }
+        Lending.logDeal(game.id!!, needing.zip(picks).associate { (player, source) -> player to "${source.deck.name} (${source.deck.id})" }, pool.size)
+        return Deal(state, needing, null)
+    }
+
+    private val dealing = java.security.SecureRandom()
 
     /**
      * Whether a deck of [preparation] ([only]'s alone when given) holds cards Automatum can't play fully (I-D52, LOB-118): a

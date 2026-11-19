@@ -43,7 +43,9 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     /** TRN-065: the results OK'd on this phone ([resultKey]), off the screen at once while the server learns it. */
     val resultsOk: Set<String> = emptySet(),
     /** Background refreshes have kept failing for a while; the shown lists may be stale. */
-    val unreachable: Boolean = false) {
+    val unreachable: Boolean = false,
+    /** LOB-248: the creator's own deck categories, read when they open Lend my decks (null until read). */
+    val lendCategories: List<DeckCategory>? = null) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
     fun tableView() = LobbyTableView(selected, detail, board, connectedGames, reconnectingGames,
         syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence,

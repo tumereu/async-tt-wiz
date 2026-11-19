@@ -23,6 +23,10 @@ fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition = ca
 fun deckError(failure: Exception): String = when ((failure as? DeckFailure)?.code) {
     "not_found" -> "This saved deck is no longer available. Return to your collection to refresh."
     "invalid_cover" -> "Choose a card that is still in this deck."
+    // LOB-244, LOB-245
+    "invalid_category" -> "This category is no longer available. Refresh and choose again."
+    "invalid_move" -> "A category can't move into itself or one of its own subcategories."
+    "too_many_categories" -> "You have as many categories as can be kept."
     "invalid_deck" -> "Enter a deck name and check the quantities. Your pasted list is kept."
     "invalid_definition", "definitions_unavailable" -> "Card metadata could not be accepted. Edit the list or update card records and retry."
     "request_too_large" -> "This import exceeds the service transfer limit. Your pasted list is kept."
@@ -42,6 +46,14 @@ interface Decks : Closeable {
     suspend fun drafts(token: String): DeckList = DeckList(emptyList())
     /** "Save as deck": an independent ordinary copy. */
     suspend fun copy(token: String, id: String, value: CopyDeck): SavedDeck = throw DeckFailure("unsupported")
+    /** LOB-244: the account's deck categories; every change answers them all. */
+    suspend fun categories(token: String): DeckCategoryList = DeckCategoryList(emptyList())
+    suspend fun createCategory(token: String, value: CreateDeckCategory): DeckCategoryList = throw DeckFailure("unsupported")
+    suspend fun updateCategory(token: String, id: String, value: UpdateDeckCategory): DeckCategoryList = throw DeckFailure("unsupported")
+    suspend fun deleteCategory(token: String, id: String, value: DeleteDeckCategory): DeckCategoryList = throw DeckFailure("unsupported")
+    /** LOB-255: the decks game [gameId]'s creator lends, and one of them whole. */
+    suspend fun lentDecks(token: String, gameId: String): LentDecks = throw DeckFailure("unsupported")
+    suspend fun lentDeck(token: String, gameId: String, deckId: String): SavedDeck = throw DeckFailure("unsupported")
 }
 
 /** Dedicated authenticated service transport; never shares provider caches or follows redirects. */
@@ -94,6 +106,25 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
     override suspend fun read(token: String, id: String): SavedDeck {
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Get, "/v1/decks/$id")
+    }
+    override suspend fun categories(token: String): DeckCategoryList = call(token, HttpMethod.Get, "/v1/deck-categories")
+    override suspend fun createCategory(token: String, value: CreateDeckCategory): DeckCategoryList =
+        call(token, HttpMethod.Post, "/v1/deck-categories", DeckJson.format.encodeToString(value))
+    override suspend fun updateCategory(token: String, id: String, value: UpdateDeckCategory): DeckCategoryList {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Put, "/v1/deck-categories/$id", DeckJson.format.encodeToString(value))
+    }
+    override suspend fun deleteCategory(token: String, id: String, value: DeleteDeckCategory): DeckCategoryList {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Delete, "/v1/deck-categories/$id", DeckJson.format.encodeToString(value))
+    }
+    override suspend fun lentDecks(token: String, gameId: String): LentDecks {
+        if (!DeckValidation.uuid(gameId)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Get, "/v1/games/$gameId/lent-decks")
+    }
+    override suspend fun lentDeck(token: String, gameId: String, deckId: String): SavedDeck {
+        if (!DeckValidation.uuid(gameId) || !DeckValidation.uuid(deckId)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Get, "/v1/games/$gameId/lent-decks/$deckId")
     }
     private suspend inline fun <reified T> call(token: String, method: HttpMethod, path: String, body: String? = null): T {
         if (origin.isEmpty()) throw DeckFailure("not_configured")

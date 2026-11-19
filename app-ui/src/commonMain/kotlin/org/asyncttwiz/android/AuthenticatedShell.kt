@@ -192,6 +192,9 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
                             Text(game.gameName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             // Its own line: beside the chevron the narrow drawer squeezed the name to one letter.
                             if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            // LOB-252: an invitation whose creator lends you decks says so
+                            lendsDecksLine(game, accountId)?.let { Text(it, style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
                             Text("${game.opponent(accountId).username} · ${gameStatus(game, accountId)} · ${gameLastActivity(game)}",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

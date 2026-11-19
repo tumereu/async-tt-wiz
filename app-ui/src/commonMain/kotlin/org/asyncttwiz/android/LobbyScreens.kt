@@ -53,7 +53,9 @@ fun gameStatus(game: GameSummary, accountId: String? = null): String = if (game.
     InvitationState.ACCEPTED -> "Preparing"
 }
 fun GameSummary.opponent(accountId: String) = if (inviter.accountId == accountId) recipient else inviter
-fun readyReason(preparation: LobbyPreparation?, accountId: String): String? = when {
+fun readyReason(preparation: LobbyPreparation?, accountId: String, game: GameSummary? = null): String? = when {
+    // LOB-250: with Random the decks are dealt as the game starts
+    preparation?.players?.find { it.accountId == accountId }?.deck == null && game?.deckSettings?.dealt == true -> null
     preparation?.players?.find { it.accountId == accountId }?.deck == null -> "Select your deck to get ready."
     PodGamePreparation.readyProblem(preparation, accountId) == "mainTooSmall" -> "Main must contain at least 40 cards including basics."
     PodGamePreparation.readyProblem(preparation, accountId) == "sideboardLimit" -> "Side exceeds this pod's sideboard limit (${preparation?.podRules?.sideboardLimit}). Move cards to Main."
@@ -167,7 +169,7 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
             ReconnectingDialog(controller::back, dismiss = { dismissedReconnect = true })
         return
     }
-    if (state.picker != null) { LobbyDeckPicker(controller, importDeck, hamburger); return }
+    if (state.picker != null) { LobbyDeckPicker(controller, accountId, importDeck, hamburger); return }
     if (state.preparing && state.detail?.lifecycle == GameLifecycle.LOBBY) {
         PreparationScreen(controller, accountId, landscape, hamburger); return
     }
@@ -214,12 +216,15 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
                 val own: @Composable (Modifier) -> Unit = { modifier ->
                     OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
-                        PreparedSummary(state.preparation, accountId, accountId, state.ownPodDeckName)
-                        if (ownPlayer?.deck != null) ShowDeckChip(ownPlayer.deckShown,
-                            enabled = game.lifecycle == GameLifecycle.LOBBY, onChange = controller::showDeck)
+                        PreparedSummary(state.preparation, accountId, accountId, state.ownPodDeckName, game)
+                        // LOB-256: a borrowed deck always shows: its switch stays on, greyed
+                        val ownDeck = ownPlayer?.deck
+                        if (ownDeck != null) ShowDeckChip(ownPlayer.deckShown || ownDeck.lender != null,
+                            enabled = game.lifecycle == GameLifecycle.LOBBY && ownDeck.lender == null, onChange = controller::showDeck)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                              // Lobby actions stay enabled while the connection (re)opens; taps run once it is ready.
-                             if (game.podId == null && state.preparation?.podRules == null) ScreenOutlinedButton(onClick = controller::chooseDeck,
+                             // LOB-250: with Random nobody chooses a deck
+                             if (game.podId == null && state.preparation?.podRules == null && !game.deckSettings.dealt) ScreenOutlinedButton(onClick = controller::chooseDeck,
                                 enabled = game.lifecycle == GameLifecycle.LOBBY, modifier = Modifier.weight(1f)) {
                                 EntryIcon(null, "decks"); Spacer(Modifier.width(8.dp))
                                 Text(if (ownPlayer?.deck == null) "Choose deck" else "Change deck")
@@ -234,7 +239,7 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
                     OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         PlayerReadiness(game.opponent(accountId),
                             state.preparation?.players?.find { it.accountId == game.opponent(accountId).accountId }?.ready == true)
-                        if (game.invitationState == InvitationState.ACCEPTED) PreparedSummary(state.preparation, game.opponent(accountId).accountId, accountId)
+                        if (game.invitationState == InvitationState.ACCEPTED) PreparedSummary(state.preparation, game.opponent(accountId).accountId, accountId, game = game)
                          else Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
                              Text(gameStatus(game), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                          }
@@ -251,7 +256,10 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
                      choose = controller::starter)
                 }
                 // LOB-135: the game's assume reveal settings, below Starting player
-                val settings: @Composable () -> Unit = { GameSettingsCard(game, accountId, controller::assumeReveals) }
+                val settings: @Composable () -> Unit = { GameSettingsCard(game, accountId,
+                    // LOB-247: the Decks group, changed by the creator in the lobby
+                    DeckSettingsAccess(state.lendCategories, controller::loadLendCategories, controller::deckSettings),
+                    decksEnabled = game.lifecycle == GameLifecycle.LOBBY && state.preparation != null, change = controller::assumeReveals) }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     own(Modifier.weight(1f))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { opponent(Modifier.fillMaxWidth()); starter(); settings() }
@@ -267,7 +275,7 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
         // marks tell at once (section 3.8), so the wait says nothing
         val checking = LocalCardListSupport.current != null && !ownCards.isNullOrEmpty()
         val support = rememberCardListSupport(ownCards)
-        val reason = readyReason(state.preparation, accountId)
+        val reason = readyReason(state.preparation, accountId, state.detail)
             ?: RESULT_FIRST.takeIf { state.detail?.let(controller::resultUnseen) == true }
             ?: AUTOMATUM_DECK_BLOCKED.takeIf { support?.supported == false }
             ?: "".takeIf { checking && support == null }
@@ -413,12 +421,15 @@ fun ShowDeckChip(shown: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) 
 }
 
 @Composable
-fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?, ownPodDeckName: String? = null) {
+fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?, ownPodDeckName: String? = null,
+    game: GameSummary? = null) {
     val player = preparation?.players?.find { it.accountId == accountId }
     val deck = player?.deck
     Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
     if (deck == null) {
-        if (player?.ready != true) Text("No deck selected", style = MaterialTheme.typography.bodyMedium)
+        // LOB-250: with Random the server deals the deck as the game starts
+        if (game?.deckSettings?.dealt == true) Text(DEALT_AT_RANDOM, style = MaterialTheme.typography.bodyMedium)
+        else if (player?.ready != true) Text("No deck selected", style = MaterialTheme.typography.bodyMedium)
     } else {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val cover = gameDeckCover(accountId, viewer, deck.cover, player?.deckShown == true)
@@ -430,7 +441,9 @@ fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: S
             } else Box(Modifier.size(48.dp, 68.dp), contentAlignment = Alignment.Center) { EntryIcon(null, "decks") }
             Column(Modifier.weight(1f, fill = false)) {
                 Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name, player?.deckShown == true, player?.shownPodDeckName), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side",
+                Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side" +
+                    // LOB-256: a borrowed deck names its lender
+                    borrowedFrom(deck, game).orEmpty(),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             // LOB-115: only your own deck, worked out from the game's card data of its cards.
@@ -446,7 +459,7 @@ fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: S
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit)?, hamburger: (() -> Unit)?) {
+private fun LobbyDeckPicker(controller: LobbyController, accountId: String, importDeck: (() -> Unit)?, hamburger: (() -> Unit)?) {
     val picker = controller.state.picker ?: return
     val connecting = picker.game.id in controller.state.queuedGames && picker.game.id !in controller.state.connectedGames
     ScreenBusyOverlay(if (picker.confirming) (if (connecting) "Connecting…" else "Loading deck…") else null) {
@@ -462,15 +475,24 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
                     if (!picker.loading) Text("No saved decks yet.")
                 }
             }
-            for ((heading, decks) in deckPickerSections(picker.decks)) {
-            if (heading != null) item(key = "heading-$heading") {
-                Text(heading.uppercase(), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium,
+            // LOB-255: the creator's lent decks first for the other player; decks a battle box doesn't allow greyed
+            val game = controller.state.detail ?: picker.game
+            val lender = picker.lent?.lender?.username ?: game.inviter.username
+            var noted = false
+            for (section in deckPickerSections(game, accountId, picker.decks, picker.categories, picker.lent)) {
+            val heading = section.heading
+            if (heading != null) item(key = "heading-$heading-${section.minor}") {
+                Text(if (section.minor) heading else heading.uppercase(), Modifier.padding(top = if (section.minor) 4.dp else 12.dp),
+                    style = if (section.minor) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            items(decks, key = { it.id }) { deck ->
+            if (!section.usable && !noted) { noted = true; item(key = "only-lent") {
+                Text(onlyLentNote(lender), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("only-lent-note")) } }
+            items(section.decks, key = { it.id }) { deck ->
                 val chosen = picker.draft?.id == deck.id
-                Surface(selected = chosen, onClick = { controller.highlightDeck(deck) }, enabled = !picker.confirming,
-                    modifier = Modifier.fillMaxWidth(),
+                Surface(selected = chosen, onClick = { controller.highlightDeck(deck) }, enabled = !picker.confirming && section.usable,
+                    modifier = Modifier.fillMaxWidth().alpha(if (section.usable) 1f else 0.45f),
                     color = MaterialTheme.colorScheme.surface,
                     border = BorderStroke(if (chosen) 3.dp else 1.dp,
                         if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant), shape = MaterialTheme.shapes.medium) {

@@ -65,8 +65,15 @@ fun DeckImportScreen(controller: DeckImportController, landscape: Boolean,
         lookupPending = state.busy || (state.text.isNotBlank() && state.result == null && !state.lookupFailed),
         error = state.error, dismissError = controller::dismissError,
         nameRow = {
-            DeckMetadataHeader(state.name, controller.currentCover, controller::name,
-                if (state.result?.resolved == true) controller::chooseCover else null, padding = PaddingValues(0.dp))
+            val header: @Composable (Modifier) -> Unit = { modifier -> Box(modifier) {
+                DeckMetadataHeader(state.name, controller.currentCover, controller::name,
+                    if (state.result?.resolved == true) controller::chooseCover else null, padding = PaddingValues(0.dp)) } }
+            // LOB-258: the deck's category, under the name in portrait, beside it where the name shares the title row
+            val category: @Composable (Boolean) -> Unit = { compact ->
+                DeckCategoryField(controller.categories(), state.category, !state.saving, controller::category, compact = compact) }
+            if (landscape || desktopLayout()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                header(Modifier.weight(1f)); category(true)
+            } else Column { header(Modifier.fillMaxWidth()); category(false) }
         },
         listField = { ImportListField(state.text, controller::edit, "Deck list", "deck-list", problemLines(state.text, state.result)) },
         feedback = {

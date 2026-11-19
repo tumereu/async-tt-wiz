@@ -127,7 +127,7 @@ and pods.
 - **LOB-132** The Graphs tab, drawn in the app, starts with tiles filling the whole width in equal columns, two rows of three or, with room, one row of six (matches, W–L–D, win %, current streak, longest winning streak, average turns). Without a finished match it says so instead of drawing graphs. (r61)
 - **LOB-177** After the tiles the Graphs tab shows record over time: your running wins and the opponent's with one opponent chosen, your running wins and losses with All, a line each. (r61)
 - **LOB-178** Then win % on the play vs on the draw, how matches end (by the rules, conceded, agreed, draw), and match length in turns (a histogram of four-turn ranges: 1-4, 5-8, up to 29-32, then 33+). (r61)
-- **LOB-179** Then your decks (cover, name, W–L, win %), your decks vs theirs (a W–L grid, one opponent chosen, hidden decks pooled as "Deck"), and win % by your deck's colours (as mana symbols). (r61)
+- **LOB-179** Then your decks (cover, name, W–L, win %; the most recently played first, by its newest finished match), your decks vs theirs (a W–L grid, one opponent chosen, hidden decks pooled as "Deck"), and win % by your deck's colours (as mana symbols). (r61)
 - **LOB-180** The Graphs tab ends with extras: win % after a mulligan, fastest win, longest match, matches per week for the last 8 weeks. (r61)
 
 ## Notifications and reminders
@@ -145,7 +145,9 @@ and pods.
 - **LOB-074** Leaving with the Home button still notifies; after you open a game and close it, your opponent's next moves notify with sound again. (r29)
 - **LOB-075** One reminder "<opponent> is waiting for you" comes 5 minutes after your next stop appeared while the game waits for you (LOB-073), if you have not moved since; just opening the game does not count, and it waits until 5 minutes after you leave. (r49)
 - **LOB-076** (Android) If no notice reached you, the app itself reminds you of games waiting for you (LOB-073; also a game you played on assumptions and left with nothing waiting for your opponent, who then gets no reminder) and pods waiting for your pick or deck build: 15 min, 30 min, 1 h, 2 h, 4 h, 8 h and 16 h after it went to the background, then daily until you open it. A notification you swipe away stays away until something new waits for you (for a pod: a new pick or the draft's end). (r49)
-- **LOB-078** Tapping a notification opens that game or pod (a game already open keeps its table as it was, so what came meanwhile still shows from where you left it, HIS-094, HIS-106, HIS-108); a game's or pod's notification clears while you have it open. (r58)
+- **LOB-078** Tapping a notification opens that game or pod (a game already open keeps its table as it was, so what came meanwhile still shows from where you left it, HIS-094, HIS-106, HIS-108); a game's or pod's notification clears while you have it open, and everywhere once nothing waits for you (LOB-242). (r58)
+- **LOB-242** A game's, pod's or invitation's notification clears on every device of yours, phones and browsers, once nothing waits for you there any more, however you dealt with it: a game once you've seen what it told on any device and it isn't your move, an invitation once answered, a pod once your pick is made (your queue's included) or your deck submitted. (r77)
+- **LOB-243** The server decides what still waits: with push a device clears it within seconds, without push at its next check (LOB-076's or its regular one, or opening the app). Other pod notices ("Decks ready", "Draft cancelled" …) clear only where you open the pod (DRF-138). (r77)
 - **LOB-188** Android 13+ asks for notification permission once, on the Games list or Pods screen. (r58)
 
 ## Cleanup of idle games and pods

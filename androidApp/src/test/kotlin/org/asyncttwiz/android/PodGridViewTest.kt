@@ -214,6 +214,18 @@ class PodGridViewTest {
         assertEquals(1f, podGridArtAlpha(plain.copy(pickedBy = "bob"), live = false, highlighted = false, selecting = true))
     }
 
+    // DRF-083, DRF-086 (owner, 2026-11-19): in the grid you pick from, the cards already taken are dimmed like discarded ones,
+    // whether a line is selected or not; in the other grids a taken card keeps its full colour
+    @Test fun takenCardsAreDimmedLikeDiscardedOnesInTheGridYouPickFrom() {
+        val taken = PodGridCell(cards[0], "bob", false, false)
+        val discarded = podGridArtAlpha(PodGridCell(cards[1], null, true, false), live = false, highlighted = false, selecting = false)
+        assertEquals(discarded, podGridArtAlpha(taken, live = false, highlighted = false, selecting = false, picking = true))
+        assertEquals(discarded, podGridArtAlpha(taken, live = false, highlighted = false, selecting = true, picking = true))
+        assertEquals(1f, podGridArtAlpha(PodGridCell(cards[2], null, false, false), live = true, highlighted = false,
+            selecting = false, picking = true))
+        assertEquals(1f, podGridArtAlpha(taken, live = false, highlighted = false, selecting = false, picking = false))
+    }
+
     // DRF-085
     @Test fun bandsRunAlongEachPickedLineWithEarlierPicksOnTop() {
         fun pick(player: String, line: GridLine) = GridPublicPickLog(player, "grid-0", line, emptyList(), emptyList())

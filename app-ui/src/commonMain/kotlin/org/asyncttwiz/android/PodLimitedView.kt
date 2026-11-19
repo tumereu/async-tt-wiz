@@ -200,7 +200,33 @@ fun podRotisserieFilter(board: List<LimitedSlot>, definitions: Map<String, CardD
     return board.filter { slot -> definitions[slot.copy.definition]?.let { parsed.query.matches(podSearchCard(it)) } == true }
 }
 
-/** "1 · Lightning Bolt": a queued card's chip text (DRF-164). */
+/**
+ * One card of the Rotisserie queue strip (DRF-164): a small card as in the pick screen's trays, its queue number in the
+ * top left corner and an ✕ in the top right; a tap removes it from the queue (as a tray's tap unmarks), holding inspects it.
+ */
+@Composable
+private fun PodQueuedCard(position: Int, copy: DraftCopy, definitions: Map<String, CardDefinition>, preview: PodLimitedPreview,
+    remove: () -> Unit) {
+    val currentRemove by rememberUpdatedState(remove)
+    val shape = MaterialTheme.shapes.extraSmall
+    Box(Modifier.width(PodPickTrayCardWidth).fillMaxHeight().testTag("pod-rotisserie-queued-${copy.id}").semantics {
+        contentDescription = podQueueChipText(position, copy, definitions)
+        onClick("Remove from queue") { currentRemove(); true }
+    }.clip(shape).background(MaterialTheme.colorScheme.surfaceVariant).pointerInput(copy.id) {
+        podPickGestures(onTap = { currentRemove() }, onInspect = { preview.hold(copy, it) },
+            onInspectScroll = { preview.scroll.dispatchRawDelta(it) })
+    }) {
+        PodLimitedArt(copy, definitions[copy.definition], Modifier.fillMaxSize())
+        Box(Modifier.matchParentSize().border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape))
+        Text("${position + 1}", Modifier.align(Alignment.TopStart).background(MaterialTheme.colorScheme.primary, shape)
+            .padding(horizontal = 3.dp).testTag("pod-rotisserie-queued-${copy.id}-number"),
+            color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        Text("✕", Modifier.align(Alignment.TopEnd).background(Color.Black.copy(alpha = .6f), shape).padding(horizontal = 2.dp),
+            color = Color.White, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+    }
+}
+
+/** "1 · Lightning Bolt": a queued card's description (DRF-164). */
 fun podQueueChipText(position: Int, copy: DraftCopy, definitions: Map<String, CardDefinition>): String =
     "${position + 1} · ${definitions[copy.definition]?.name ?: "Card"}"
 
@@ -249,12 +275,11 @@ fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>, definit
                 }
             }
         }
-        if (view.pickQueue.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("pod-rotisserie-queue"),
-            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (view.pickQueue.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(48.dp)
+            .horizontalScroll(rememberScrollState()).testTag("pod-rotisserie-queue"),
+            horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
             view.pickQueue.forEachIndexed { position, copy ->
-                InputChip(false, { queue(queued - copy.id) }, label = { Text(podQueueChipText(position, copy, definitions)) },
-                    modifier = Modifier.testTag("pod-rotisserie-queued-${copy.id}"),
-                    trailingIcon = { Text("✕", Modifier.semantics { contentDescription = "Remove from queue" }) })
+                key(copy.id) { PodQueuedCard(position, copy, definitions, preview) { queue(queued - copy.id) } }
             }
         } else view.queueCleared?.let {
             Text(podQueueClearedText(it, definitions), Modifier.padding(vertical = 6.dp).testTag("pod-rotisserie-queue-cleared"),

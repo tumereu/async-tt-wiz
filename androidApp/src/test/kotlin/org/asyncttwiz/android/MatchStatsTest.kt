@@ -65,6 +65,17 @@ class MatchStatsTest {
         assertEquals(6, weeks.sumOf { it.second })
     }
 
+    // LOB-179: your decks start with the most recently played one (by its newest finished match), not the most played;
+    // an Unfinished match doesn't count
+    @Test fun decksMostRecentlyPlayedFirst() {
+        val grove = MatchDeck("Quiet grove", null, "GW", "deck-grove", openable = true)
+        val later = MatchHistoryFixtures.record(8, riley, SuggestedResult.LOSS, 9, 9, mine = grove)
+        assertEquals(listOf("Quiet grove" to "1–1–1", "Ember rush" to "3–1–0"),
+            MatchStats.decks(listOf(later) + records, me).map { it.name to it.record.text })
+        val unfinished = MatchHistoryFixtures.record(9, riley, null, 3, 10, mine = grove)
+        assertEquals(listOf("Ember rush", "Quiet grove"), MatchStats.decks(listOf(unfinished) + records, me).map { it.name })
+    }
+
     // DRF-121, DRF-235: a pod's standings: each member's W–L–D in the pod's finished matches, best first, members without one at 0–0–0
     @Test fun podStandings() {
         val pod = listOf(

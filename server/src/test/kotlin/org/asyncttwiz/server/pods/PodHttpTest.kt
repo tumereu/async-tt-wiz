@@ -222,6 +222,37 @@ class PodHttpTest {
         assertFalse(f.get(f.a, nativePod.id).draft!!.pool.any { it.id == pickedNative.id })
     }
 
+    // DRF-093, DRF-103 (owner, 2026-11-19): a drafted Plains adds one to Main's Plains count instead of becoming a card in
+    // Build; the build is complete with it, and the submitted deck has it among its basics
+    @Test fun `drafted basic lands go to the Main basics count`() = fixture { f ->
+        val others = org.asyncttwiz.server.TestPrintings.names("E2E").filter { it != "Cogwork Librarian" && BasicLand.named(it) == null }.take(8)
+        val cube = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes", CreateCube(id(), "Lands cube",
+            listOf(org.asyncttwiz.server.TestPrintings.entry("Plains", 8)) + others.map { org.asyncttwiz.server.TestPrintings.entry(it, 1) }), 201))
+        val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Lands pod", cube.cube.id,
+            settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 8, sideboardLimit = 0)), 201)).id
+        f.join(pod); f.start(pod)
+        f.finish(pod, listOf(f.a, f.b))
+        var plains = 0
+        for (who in listOf(f.a, f.b)) {
+            val detail = f.get(who, pod)
+            val names = detail.definitions.associate { it.digest to it.definition.name }
+            val drafted = detail.draft!!.pool.filter { names[it.definition] == "Plains" }.map { it.id }
+            plains += drafted.size
+            val build = detail.build!!
+            assertEquals(drafted.toSet(), build.landed.toSet())
+            assertEquals(drafted.size, build.basics.plains)
+            assertTrue(build.copies.none { it.copyId in drafted }, "no drafted Plains is a card in Build")
+            assertEquals(detail.draft!!.pool.size - drafted.size, build.copies.size)
+        }
+        assertEquals(8, plains)
+        // Main made big enough with the steppers; submitting takes the drafted Plains among the basics
+        val mine = f.get(f.a, pod).build!!
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), f.get(f.a, pod).draftAttemptId!!,
+            mine.basics.copy(island = 40)))
+        f.send(f.a, "POST", "/v1/pods/$pod/submit", SubmitPodDeck(id(), f.get(f.a, pod).draftAttemptId!!))
+        assertTrue(f.get(f.a, pod).submitted)
+    }
+
     // DRF-044, DRF-093, DRF-120, DRF-136, DRF-139, DRF-140
     @Test fun `Glimpse HTTP completion private builds locked submission and retained retries`() = fixture { f ->
         val create = CreatePod(id(), "Glimpse pod", f.cube.cube.id, DraftMode.GLIMPSE)

@@ -187,6 +187,15 @@ class PodService(private val runtime: ServiceRuntime) {
     internal fun unsupported(row: PodRecord): Result? =
         if (support(row)?.supported == false) error(409, "automatum_unsupported") else null
 
+    /** DRF-093: the copies of [copies] that are one of the five basic lands, by their card's name, in one query. */
+    private fun basicLands(sql: DSLContext, copies: List<DraftCopy>): Map<String, BasicLand> {
+        if (copies.isEmpty()) return emptyMap()
+        val name = DSL.field("({0})::jsonb ->> 'name'", String::class.java, DEFINITION.PAYLOAD)
+        val lands = sql.select(DEFINITION.DIGEST, name).from(DEFINITION).where(DEFINITION.DIGEST.`in`(copies.map { it.definition }.toSet()))
+            .and(name.`in`(BasicLand.entries.map { it.cardName })).fetch().associate { it.value1()!! to BasicLand.named(it.value2()!!)!! }
+        return copies.mapNotNull { copy -> lands[copy.definition]?.let { copy.id to it } }.toMap()
+    }
+
     /** Stores [definitions] the `definition` table doesn't have yet, in one statement (SYS-025). */
     private fun storeDefinitions(sql: DSLContext, definitions: List<SubmittedDefinition>) {
         if (definitions.isEmpty()) return
@@ -894,11 +903,12 @@ class PodService(private val runtime: ServiceRuntime) {
 
     private fun advance(sql: DSLContext, row: PodRecord, previous: DraftState?, next: DraftState) {
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
+        val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
         for (member in members(sql, row.id!!)) {
             val owner = member.accountId!!; val player = owner.toString()
             val build = build(row, member.build!!.data())
             val initialSide = if (previous == null) next.copies.filter { it.librarian && it.id.startsWith("librarian:") }.map { it.id }.toSet() else emptySet()
-            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withDraftPool(build, next.pools.getValue(player), initialSide)))
+            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withDraftPool(build, next.pools.getValue(player), initialSide, lands::get)))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // Notify when a pack arrives at an empty queue. The picker's own just-picked pack does not count as waiting,
             // so their next-round packs opening (possibly early) right after their pick notify them too.
@@ -917,10 +927,11 @@ class PodService(private val runtime: ServiceRuntime) {
 
     private fun advanceGrid(sql: DSLContext, row: PodRecord, previous: GridState?, next: GridState) {
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
+        val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
         for (member in members(sql, row.id!!)) {
             val owner = member.accountId!!; val player = owner.toString()
             val build = build(row, member.build!!.data())
-            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player))))
+            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player), lands::get)))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // More simultaneous turns do not notify a member who already has an actionable grid. As with packs, the
             // picker's just-picked grid does not count, so their next round's grids opening early notify them too.
@@ -938,10 +949,11 @@ class PodService(private val runtime: ServiceRuntime) {
 
     private fun advanceLimited(sql: DSLContext, row: PodRecord, previous: LimitedDraftState?, next: LimitedDraftState) {
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
+        val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
         for (member in members(sql, row.id!!)) {
             val owner = member.accountId!!; val player = owner.toString()
             val build = build(row, member.build!!.data())
-            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player))))
+            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player), lands::get)))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // "Your pick" when it becomes the member's turn (Rochester: a pack's pick) while none was waiting.
             val queue = next.queues[player].orEmpty()

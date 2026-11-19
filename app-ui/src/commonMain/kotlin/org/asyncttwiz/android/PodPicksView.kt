@@ -15,8 +15,12 @@ import org.asyncttwiz.protocol.*
 /** One opponent's picks, newest first; a card the viewer never saw is null (a card back). */
 data class PodOpponentPicks(val account: AccountIdentity, val cards: List<DraftCopy?>)
 
-/** Engines with a Picks view (DRF-160): Winston, Winchester and Grid. */
-fun podHasPicksView(mode: DraftMode) = mode == DraftMode.WINSTON || mode == DraftMode.WINCHESTER || mode == DraftMode.GRID
+/** Engines whose History icon opens the Picks view (DRF-160): Winston, Winchester, Grid, Rochester and Rotisserie. */
+fun podHasPicksView(mode: DraftMode) = mode == DraftMode.WINSTON || mode == DraftMode.WINCHESTER || mode == DraftMode.GRID ||
+    mode == DraftMode.ROCHESTER || mode == DraftMode.ROTISSERIE
+
+/** DRF-165, DRF-160 (owner, 2026-11-19): whether the pod's header has the History icon: every draft mode (Sealed has no picks). */
+fun podHasHistoryIcon(mode: DraftMode) = mode.packPassing || podHasPicksView(mode)
 
 /** Every other member's picks, in seat order, each newest first (a take's own cards keep their order). */
 fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpponentPicks> {
@@ -33,12 +37,13 @@ fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpponentPick
 /** DRF-070: the Picks view's face-up cards, opponent by opponent as the chips list them; never a card back. */
 fun podPicksPrefetchCards(picks: List<PodOpponentPicks>): List<DraftCopy> = picks.flatMap { it.cards }.filterNotNull()
 
-/** The "Picks" button above a Winston, Winchester or Grid board; it opens [PodPicksDialog]. */
+/** The History icon in the pod's header of a Winston, Winchester, Grid, Rochester or Rotisserie pod, where Booster's and
+ * Glimpse's is (DRF-165): it opens [PodPicksDialog] (DRF-160). */
 @Composable
-fun PodPicksButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>) {
+fun PodPicksHeaderButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>) {
     var open by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-        TextButton({ open = true }, Modifier.testTag("pod-picks")) { ButtonLabel("decks", "Picks") }
+    HoldTip("History") {
+        IconButton({ open = true }, Modifier.size(48.dp).testTag("pod-picks")) { EntryIcon("History", "history") }
     }
     if (open) PodPicksDialog(podOpponentPicks(detail, accountId), definitions) { open = false }
 }

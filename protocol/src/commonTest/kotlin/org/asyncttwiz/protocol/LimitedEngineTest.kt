@@ -185,6 +185,18 @@ class LimitedEngineTest {
         assertEquals(LimitedRejection.WRONG_ACTION, LimitedEngine.queue(winston, x, emptyList()).reason)
     }
 
+    // DRF-160, DRF-228 (owner, 2026-11-19): Rotisserie's picks, in order and face up, for the History icon's picks view
+    @Test fun rotisseriePicksAreListedForEveryone() {
+        val two = players.take(2)
+        var state = LimitedEngine.startFromCube(two, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
+        val (x, y) = state.seating
+        val board = state.board
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[0]))
+        state = ok(move(state, y, LimitedAction.TAKE_CARD, board[1]))
+        for (viewer in listOf(x, y))
+            assertEquals(listOf(x to board[0], y to board[1]), LimitedEngine.view(state, viewer).picks.map { it.player to it.cards.single()!!.id })
+    }
+
     // DRF-164, DRF-217: queued picks play the draft to its end when everyone has queued enough.
     @Test fun rotisseriePickQueuesCanFinishTheDraft() {
         val two = players.take(2)

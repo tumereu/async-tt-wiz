@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import coil3.asImage
@@ -139,14 +140,16 @@ class PodGridScreenshotTest {
         assertEquals(colors.getValue("bob").toArgb(), leftOf("pod-grid-done-slot-7"))
         assertEquals(colors.getValue("alice").toArgb(), leftOf("pod-grid-done-slot-6"))
         assertTrue(leftOf("pod-grid-grid-0-slot-0") != colors.getValue("bob").toArgb()) // the refilled row has no band
-        // The frame hugs the art: right inside the 1dp border at the top and bottom edge is card, not slot background.
+        // DRF-083: a card already taken in the grid Alice picks from is dimmed like a discarded one
         val slotFile = File(directory, "pod-grid-slot.png")
         compose.onNodeWithTag("pod-grid-grid-0-slot-4").captureShot(slotFile.path,
-            "Close-up of one live Grid draft card Carol took, framed tightly by her pick band colour.")
-        val image = ImageIO.read(slotFile)
+            "Close-up of one live Grid draft card Carol took, dimmed in the grid Alice picks from and framed tightly by her pick band colour.")
+        // The frame hugs the art: right inside the 1dp border at the top and bottom edge is card, not slot background
+        // (an untaken card, at full colour).
+        val image = compose.onNodeWithTag("pod-grid-grid-0-slot-0").captureToImage().asAndroidBitmap()
         val border = (1 * RuntimeEnvironment.getApplication().resources.displayMetrics.density).toInt()
         listOf(border + 1, image.height - border - 2).forEach { y ->
-            assertEquals(0xff111111.toInt(), image.getRGB(image.width / 2, y), "pixel at y=$y of ${image.height}")
+            assertEquals(0xff111111.toInt(), image.getPixel(image.width / 2, y), "pixel at y=$y of ${image.height}")
         }
         // DRF-085: the picker badge sits in the card's top left corner, over the name.
         val slot = compose.onNodeWithTag("pod-grid-grid-0-slot-1").fetchSemanticsNode().boundsInRoot

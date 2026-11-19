@@ -48,6 +48,16 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         }
         Unit
     }
+    /** LOB-078: the notices of [keys] were cleared because nothing waits for them any more (dealt with elsewhere): as after
+     * opening their game, the next notice of each is a fresh one and alerts. */
+    fun settled(expected: ActivityOwner, keys: Collection<String>) = synchronized(lock) {
+        if (owner != expected) return@synchronized
+        val cursor = store.cursor() ?: return@synchronized
+        val marks = keys.mapNotNull { key -> store.watermark(key)?.let { key to it.copy(yourMove = false, alertNext = true) } }.toMap()
+        if (marks.isEmpty()) return@synchronized
+        (store as? ActivityWindowStore)?.let { it.saveWindow(cursor, marks, it.pending() - marks.keys) } ?: store.save(cursor, marks)
+        Unit
+    }
     fun cursor(expected: ActivityOwner): String? = synchronized(lock) { if (expected == owner) store.cursor() else null }
     fun current(expected: ActivityOwner) = synchronized(lock) { owner == expected }
     fun nextDue(expected: ActivityOwner): Long? = synchronized(lock) {

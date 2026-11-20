@@ -77,7 +77,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     /** Where pod chat requests run, beside the serialized pod requests. */
     chatWorker: ExecutorService = worker,
     /** The main thread's clock [watch]'s re-reads run on: by default the main looper's handler. */
-    private val delayed: MainDelayed = mainLooperDelayed) : AutoCloseable {
+    private val delayed: MainDelayed = mainLooperDelayed,
+    /** Each pod's quick filters over the Rotisserie pool and Build (DRF-255): personal, local, never sent. */
+    val filters: PodCardFilters = PodCardFilters()) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -1024,7 +1026,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             "sending ${if (next.draftPick != null) "the pick of pack ${next.draftPick.packId}" else "the next one"} now")
         pump()
     }
-    override fun close() { closed = true; clear(); worker.execute { api.close(); cubes.close() }; worker.shutdown() }
+    override fun close() { closed = true; clear(); worker.execute { api.close(); cubes.close() }; worker.shutdown(); filters.close() }
 }
 
 fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && detail.members.size >= 2 &&

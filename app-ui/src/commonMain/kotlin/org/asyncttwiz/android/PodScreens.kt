@@ -464,7 +464,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
             when (selected) {
                 // Section 3.6: pod picks wait for the card records
                 PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
-                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue)
+                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue,
+                    filter = controller.filters.of(detail.id, PodFilterPlace.Pool), filters = controller.filters)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
@@ -481,7 +482,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
                     controller.canUndoBuild, controller::undoBuild, controller::revertMove,
                     onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) },
-                    deckCover = detail.deckCover, onCover = controller::deckCover)
+                    deckCover = detail.deckCover, onCover = controller::deckCover,
+                    filter = controller.filters.of(detail.id, PodFilterPlace.Build), filters = controller.filters)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }

@@ -459,6 +459,37 @@ class PodBuildViewTest {
         compose.onNodeWithTag("pod-build-feed").assertExists()
     }
 
+    // DRF-254, DRF-253, DRF-250: filtered, Build's columns show only the matching cards, a column's count what it shows; the headers and
+    // Submit still count the whole deck, and the one-by-one review goes through the cards shown. The button is filled while a filter is set.
+    @Test fun aFilterHidesTheCardsThatDontMatchButCountsStayTheDecks() {
+        fun named(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = "{1}")))
+        val copies = mapOf("a" to DraftCopy("a", "bear"), "b" to DraftCopy("b", "bolt"), "s" to DraftCopy("s", "bolt"))
+        val filter = PodCardFilterState()
+        compose.setContent { ScreenTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("a"), PodDeckCopy("b"), PodDeckCopy("s", PodDeckCategory.SIDE)), PodDeckBasics(plains = 10)),
+                copies, mapOf("bear" to named("Grove Bear", "Creature — Bear"), "bolt" to named("Spark Bolt", "Instant")),
+                null, true, false, { _, _ -> }, { _, _ -> }, {}, filter = filter)
+        } }
+        compose.onNodeWithTag("pod-build-filter").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "No filter"))
+        compose.onNodeWithTag("pod-build-column-count-MAIN-2", useUnmergedTree = true).assertTextEquals("2")
+        compose.onNodeWithTag("pod-build-filter").performClick()
+        compose.onNodeWithTag("pod-build-filter-type-Creature").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("pod-build-card-a").assertExists()
+        compose.onNodeWithTag("pod-build-card-b").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-card-s").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-column-count-MAIN-2", useUnmergedTree = true).assertTextEquals("1")
+        compose.onNodeWithText("Main 2 + 10 = 12", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Submit deck (12)").assertExists()
+        compose.onNodeWithTag("pod-build-filter").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Filter on"))
+        compose.onNodeWithTag("pod-build-filter-badge", useUnmergedTree = true).assertExists()
+        // The review of Main goes through the bear alone
+        compose.runOnIdle { filter.close() }
+        compose.onNodeWithTag("pod-build-feed-header-MAIN").performClick()
+        compose.onNodeWithTag("pod-build-feed-card-a", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("1 / 1", useUnmergedTree = true).assertExists()
+    }
+
     // DRF-094: holding the warning says why
     @Test fun holdingAHeaderWarningSaysWhy() {
         compose.setContent { ScreenTheme {

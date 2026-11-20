@@ -12,11 +12,12 @@ class PodLimitedModelsTest {
     private val definitions = cards.mapIndexed { index, card -> "d$index" to card }.toMap()
     private val board = cards.indices.map { LimitedSlot(DraftCopy("c$it", "d$it"), "bob".takeIf { _ -> it == 1 }) }
 
-    // DRF-153: the pool sorts like Build columns and filters with the catalog search syntax.
+    // DRF-153, DRF-251: the pool sorts like Build columns and filters with the catalog search syntax.
     @Test fun rotisseriePoolSortsByColourAndFiltersWithCardSearch() {
         assertEquals(listOf("Opt", "Shock", "Grizzly Bears", "Boros Charm", "Sol Ring"),
             podRotisserieOrder(board, definitions).map { definitions.getValue(it.copy.definition).name })
-        fun names(query: String) = podRotisserieFilter(board, definitions, query).map { definitions.getValue(it.copy.definition).name }
+        fun names(query: String) = podRotisserieFilter(board, definitions, PodCardFilter(text = query))
+            .map { definitions.getValue(it.copy.definition).name }
         assertEquals(listOf("Shock", "Opt", "Boros Charm"), names("t:instant"))
         assertEquals(listOf("Shock", "Boros Charm"), names("c:r"))
         assertEquals(listOf("Grizzly Bears"), names("mv=2 t:creature"))

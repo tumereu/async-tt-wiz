@@ -469,14 +469,8 @@ internal fun SearchChips(state: SearchChipChoices, oneRow: Boolean) {
     @Composable fun row(content: @Composable RowScope.() -> Unit) =
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
-    // The symbol is the chip: an outline around it, filled with a 2 dp border when chosen.
     @Composable fun symbol(selected: Boolean, token: String, description: String, tag: String, onClick: () -> Unit) =
-        Surface(selected, onClick, Modifier.size(36.dp, 32.dp).testTag(tag).semantics { contentDescription = description },
-            shape = RoundedCornerShape(8.dp),
-            color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-            border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Box(Modifier.padding(4.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(24.dp)) { CardSymbol(token) } }
-        }
+        SearchSymbolChip(selected, token, description, tag, onClick)
     val types: @Composable RowScope.() -> Unit = {
         SearchType.entries.forEach { type ->
             FilterChip(type in state.types, { state.type(type) }, { Text(type.label) }, Modifier.height(32.dp))
@@ -498,6 +492,17 @@ internal fun SearchChips(state: SearchChipChoices, oneRow: Boolean) {
         }
     }
 }
+
+/** A quick filter chip that is a card symbol ([token]: a colour's or a number's mana symbol): the symbol is the chip, an
+ * outline around it, filled with a 2 dp border when chosen; 36 × 32 dp. */
+@Composable
+internal fun SearchSymbolChip(selected: Boolean, token: String, description: String, tag: String, onClick: () -> Unit) =
+    Surface(selected, onClick, Modifier.size(36.dp, 32.dp).testTag(tag).semantics { contentDescription = description },
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Box(Modifier.padding(4.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(24.dp)) { CardSymbol(token) } }
+    }
 
 /** Where tapped results go: one button per section in its colour, the chosen one filled. */
 @Composable

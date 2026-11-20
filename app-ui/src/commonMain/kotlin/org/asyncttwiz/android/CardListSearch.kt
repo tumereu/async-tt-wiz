@@ -49,12 +49,15 @@ data class CardListSearchState(val open: Boolean = false, val text: String = "",
     val baseline: Long = 0)
 
 /** The typed text plus the chosen quick filters as one Scryfall-style query (CardSearchQuery syntax). */
-fun cardSearchQuery(text: String, colors: Set<SearchColor>, types: Set<SearchType>, values: Set<SearchManaValue>): String {
+fun cardSearchQuery(text: String, colors: Set<SearchColor>, types: Set<SearchType>, values: Set<SearchManaValue>): String =
+    searchQuery(text, listOf(SearchColor.entries.filter { it in colors }.map { it.term },
+        SearchType.entries.filter { it in types }.map { it.term }, SearchManaValue.entries.filter { it in values }.map { it.term }))
+
+/** The typed text and each row of chosen chips' terms ([rows]) as one query: any term of a row, every row and the text. */
+fun searchQuery(text: String, rows: List<List<String>>): String {
     fun any(terms: List<String>) = when (terms.size) { 0 -> null; 1 -> terms.single(); else -> terms.joinToString(" or ", "(", ")") }
-    return listOfNotNull(text.trim().takeIf { it.isNotEmpty() }?.let { if (" or " in it.lowercase()) "($it)" else it },
-        any(SearchColor.entries.filter { it in colors }.map { it.term }),
-        any(SearchType.entries.filter { it in types }.map { it.term }),
-        any(SearchManaValue.entries.filter { it in values }.map { it.term })).joinToString(" ")
+    return (listOf(text.trim().takeIf { it.isNotEmpty() }?.let { if (" or " in it.lowercase()) "($it)" else it }) + rows.map(::any))
+        .filterNotNull().joinToString(" ")
 }
 
 /** The Cards tab's filter (LOB-142): typed text and chips as on the search page, over the list itself. */

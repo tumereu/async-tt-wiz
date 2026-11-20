@@ -1058,10 +1058,11 @@ fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardMoveMultip
  * control on, [mode], the delay too, except a pass made right after the same player's own action, [previous], HIS-104), a
  * short moment after the other player's staging and early answers, nothing after an event that left an entry it put on the
  * Stack there (Stack animation, owner 2026-11-14: an entry stays on the Stack only as long as its own animation, its move
- * there and its arrows, which the table plays before the next event), else the playback [delay].
+ * there and its arrows, which the table plays before the next event), else the playback [delay]. Nothing while the board
+ * shown is in the [opening] (§29.1: the opening is never played back, its events show at once).
  */
-fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null): Long = when {
-    shown == null -> 0L
+fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null, opening: Boolean = false): Long = when {
+    shown == null || opening -> 0L
     EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl && !EnginePlaybackPace.passAfterOwnAction(shown, previous)) delay else 0L
     shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft ||
         it is TableChange.EarlyAnswered } -> QUICK_PLAYBACK_MS
@@ -1088,8 +1089,12 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         if (shown.takingBack) snapshotFlow { routes.motionBusy() }.first { !it }
         val last = shown.held.lastOrNull()?.takeIf { it.id == shown.localHead }
         // HIS-112, HIS-021: an event whose plays were shown already had its moment: no playback delay after it
+        // §29.1: the opening shows at once. A game loaded from before its first event holds that event at the local head; the
+        // delay after it (as after an event just played back) held the other player's keep back while the player's own Keep
+        // was refused for playback (the backlog's "opening a game from its very first event", e2e OpeningKeepTest)
+        val opening = shown.board.engine?.state?.turn?.number == 0
         val wait = if (last != null && last.id == shown.showDone) 0L
-            else playbackWait(last, playbackDelay(multiplier), shown.settings.mode, shown.held.getOrNull(shown.held.size - 2))
+            else playbackWait(last, playbackDelay(multiplier), shown.settings.mode, shown.held.getOrNull(shown.held.size - 2), opening)
         val stack = routes.stackAnimation
         if (!shown.takingBack && stack.busy) snapshotFlow { stack.busy }.first { !it }
         if (!shown.takingBack && stack.driven && last != null && EnginePlaybackPace.leavesStackEntry(last)) {

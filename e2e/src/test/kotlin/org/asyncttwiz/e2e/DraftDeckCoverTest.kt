@@ -17,7 +17,9 @@ class DraftDeckCoverTest : E2e() {
     @Test fun aCoverChosenInBuildGoesToTheDraftDeck() {
         launchPlayers()
         val name = "E2E cover ${UUID.randomUUID().toString().take(6)}"
-        val pod = ServerSetup.draftedPod(alice.account, bob.account, name)
+        // No basic land in the cube (a drafted one counts as a basic, not a card, DRF-093): three cards of 4 copies each, so
+        // Alice's 6 cards are always of at least two kinds to choose from
+        val pod = ServerSetup.draftedPod(alice.account, bob.account, name, cards = listOf(TestCards.spark, TestCards.cub, TestCards.herald))
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
         alice.tagged("menu-PODS").performClick()
         waitUntil("the pod in Alice's list") { alice.showsText(name) }

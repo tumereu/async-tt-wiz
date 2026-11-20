@@ -3,7 +3,7 @@ package org.asyncttwiz.storage
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-// UUID texts as java.util.UUID makes them (web client step 3b: the browser has no UUID class).
+// UUID texts as java.util.UUID makes them (the browser has no UUID class).
 class UuidsTest {
     private fun hex(bytes: ByteArray) = bytes.joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
 

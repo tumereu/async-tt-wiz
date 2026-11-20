@@ -41,12 +41,20 @@ fun pileTitle(name: String, cards: List<String>, left: GameDevice.LeftPile, whos
 }
 
 /**
+ * HIS-233 (owner 2026-11-19, N18): the reveal panel's title for cards exiled face up from a library by [name]: "Bob exiled
+ * Plains from their library", "You exiled 4 cards from Bob's library"; [whose] as [pileTitle]'s.
+ */
+fun libraryExileTitle(name: String, cards: List<String>, whose: String): String =
+    "$name exiled ${cards.singleOrNull() ?: "${cards.size} cards"} from $whose library"
+
+/**
  * HIS-110 (owner 2026-11-09): a reveal, the other player's or your own ([name] "You"), docked above the hand like every
  * Automatum panel (STK-044): "<name> revealed · <source>", the revealed cards as cards at the Hand card size (holding one inspects it,
  * TBL-104), the source's card at the right, the eye, and OK, which [dismiss]es it (the table then plays on). The cards
  * were revealed to the viewer, so they show face up wherever they are now. Until OK (the main button, TRN-063) game actions are
  * refused as while a choice is open ([REVEAL_BUSY]). HIS-114: cards that left a public pile for a hidden zone show in it too,
- * titled by [pileTitle], [ownerName] naming the pile's owner where that is neither the viewer nor the mover.
+ * titled by [pileTitle], [ownerName] naming the pile's owner where that is neither the viewer nor the mover. HIS-233: cards
+ * exiled face up from a library show in it too, titled by [libraryExileTitle].
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -64,11 +72,20 @@ fun RevealPanel(play: TableBoard, viewer: String, reveal: GameDevice.Reveal, nam
         }
         pileTitle(name, cards.map { it.name }, left, whose)
     }
+        ?: reveal.exiled?.let { exiled ->
+            val whose = when {
+                exiled.owner.value == viewer -> "your"
+                exiled.owner == reveal.by -> "their"
+                else -> "$ownerName's"
+            }
+            libraryExileTitle(name, cards.map { it.name }, whose)
+        }
         ?: ("$name revealed" + (sourceName?.let { " · $it" } ?: ""))
     // HIS-110 (problem 2026-11-12, the wrong player named): what the panel says, with who revealed by the event
     LaunchedEffect(reveal) {
         AppLog.info("game", "Reveal panel in ${reveal.event}: \"$title\" (by ${reveal.by.value.take(8)}, viewer ${viewer.take(8)}" +
-            (reveal.left?.let { ", pile owner ${it.owner.value.take(8)}" } ?: "") + ")")
+            (reveal.left?.let { ", pile owner ${it.owner.value.take(8)}" } ?: "") +
+            (reveal.exiled?.let { ", exiled from ${it.owner.value.take(8)}'s library" } ?: "") + ")")
     }
     CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
         // TRN-063 (owner playtest 2026-11-09): its OK is the main button (its own button where there is none)

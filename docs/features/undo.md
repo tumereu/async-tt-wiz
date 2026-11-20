@@ -8,8 +8,8 @@ Undo dialog and undo requests.
 A tap of Undo takes back your latest own action; holding it opens the Undo dialog, where you can pick any earlier
 point of the game. An undo is free when nothing after that point is a real input of the other player's and nothing
 there showed you something new; otherwise the other player must approve it, so an undo never changes a line they are
-on without their consent. The other player's passes and the combat staging or early answers that your undo doesn't
-touch never stand in its way. An undo shows at once, as one animation from the board before to the board after. There
+on without their consent. The other player's passes (unless a game setting says they count) and the combat staging or early answers that your
+undo doesn't touch never stand in its way. An undo shows at once, as one animation from the board before to the board after. There
 is no redo, and undo is only a convenience: no feature works by undoing something.
 
 ## The Undo button
@@ -23,13 +23,14 @@ is no redo, and undo is only a convenience: no feature works by undoing somethin
 - **HIS-085** One acting point (a cast with its choices, a declaration with its payment) undoes as one. (r48)
 - **TRN-023** Your opening's Mulligan and Keep (TRN-062) are each one Undo step, however many changes they make; the settings in the quick actions (TRN-059) are no events at all (SYS-071). (r60)
 - **HIS-086** Undo only deletes the events after the point: the game is exactly as it was there, and no timeline event ever says the game went back (the new line's reshuffle, HIS-042, happens with the next event). (r55)
-- **HIS-107** An Undo tapped while your own action is still being worked out or sent (right after Attack or a cast, while your events wait for the server) is never refused: no shake and no "That wasn't taken". It waits for the action, then takes back the action you last made when you tapped (never one you make, or that arrives, after the tap), and meanwhile your device makes nothing more for you. When by then the undo isn't free, the Undo dialog opens with that point chosen. (r53)
+- **HIS-107** An Undo tapped while your own action is still being worked out or sent (right after Attack or a cast, while your events wait for the server) is never refused: no shake and no "That wasn't taken". It takes back the action you last made when you tapped (never one you make, or that arrives, after the tap). When it is free, the undone board shows at once and the undo follows the action to the server; otherwise (the action still being made again after a lost race, or the undo needing approval) it waits for the action first, your device making nothing more for you meanwhile, and when by then the undo isn't free, the Undo dialog opens with that point chosen. (r53)
 - **HIS-201** A move of yours waiting to be made again after the other player's event came first (SYS-077) is simply not made again, and any undo of yours ends such moves. (r53)
 
 ## Free undo or approval
 
 - **HIS-087** Undo is free unless something after the point is a real input of the other player's or showed you something new; otherwise it needs their approval (HIS-099). (r49)
-- **HIS-202** For a free undo, the other player's passes never count as their real input, whether they tapped them, their device made them or yours assumed them and they confirmed (owner problem report VXSGKH), nor do their table-only events that stay (SYS-058). An assumption of yours about their real input (a block, a keep) counts as their input once they have seen it. (r49)
+- **HIS-202** For a free undo, the other player's passes never count as their real input (unless the game's setting says so, HIS-232), whether they tapped them, their device made them or yours assumed them and they confirmed (owner problem report VXSGKH), nor do their table-only events that stay (SYS-058). An assumption of yours about their real input (a block, a keep) counts as their input once they have seen it. (r78)
+- **HIS-232** With the game setting "Undo past the other player's passes needs a request" on (LOB-135), their passes count as their real input after all: going back past one they tapped, their device made, or you assumed and they have seen needs their approval (HIS-099). (r78)
 - **HIS-203** What shows you something new: a card you couldn't see (your draw, look, scry, search, a reveal, also when a resolution their pass let through shows it), a random result, or a wait for the other player's choice from a source you can't see. (r49)
 - **ZON-026** Undoing your own look, scry or reveal needs the other player's approval (an undo request, HIS-087). (r48)
 - **HIS-204** In your opening, an undo back past the other player's assumed keep about you counts only the events before that keep: their line after it is made again, not taken back (HIS-115). (r49)
@@ -37,7 +38,7 @@ is no redo, and undo is only a convenience: no feature works by undoing somethin
 
 ## The concern rule
 
-- **SYS-058** Undo's concern rule: undoing goes back past the other player's later table-only events (combat staging, an early answer, a suggestion) that touched nothing the undone events changed, and those stay (for combat staging see SYS-140); their passes go with the undo without asking them; any later real input of theirs needs their approval (HIS-087, HIS-099). There is no redo. (r49)
+- **SYS-058** Undo's concern rule: undoing goes back past the other player's later table-only events (combat staging, an early answer, a suggestion) that touched nothing the undone events changed, and those stay (for combat staging see SYS-140); their passes go with the undo without asking them (unless the game's setting counts them, HIS-232); any later real input of theirs needs their approval (HIS-087, HIS-099). There is no redo. (r78)
 - **SYS-140** Combat staging stays after an undo only while the game still awaits the declaration it stages there: an undo or rewind back out of that declare attackers or blockers step drops it (CMB-043). (r49)
 
 ## How an undo shows

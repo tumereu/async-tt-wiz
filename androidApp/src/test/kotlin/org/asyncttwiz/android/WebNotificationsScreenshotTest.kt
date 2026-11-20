@@ -18,7 +18,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** The browser's Settings rows and the Games list's hint (docs/specs/web-client.md §9.1, §9.2), drawn as the web shell
+/** The browser's Settings rows and the Games list's hint (WEB-054, WEB-050), drawn as the web shell
  * provides them, at phone size. Android never shows them (no [LocalWebNotifications] there). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

@@ -81,6 +81,9 @@ class GameLog(gameId: String, private val me: PlayerId) {
     fun reveal(state: GameState, reveal: org.asyncttwiz.protocol.game.GameDevice.Reveal): String {
         val cards = reveal.cards.map { c -> state.current(c)?.definition?.faces?.firstOrNull()?.name ?: "hidden card" }
         // HIS-114: why a move shows as a reveal: it took the cards out of a public pile into a zone hidden from the player
+        // HIS-233: cards exiled face up from a library show as a reveal
+        reveal.exiled?.let { return "$game ${at(state)}: reveal panel for cards exiled face up from ${it.owner.value.take(8)}'s library by " +
+            "${reveal.by.value.take(8)} · ${reveal.sourceName}: $cards" }
         val left = reveal.left ?: return "$game ${at(state)}: reveal by ${reveal.by.value.take(8)} · ${reveal.sourceName}: $cards"
         return "$game ${at(state)}: reveal panel for cards that left a public pile for a hidden zone: ${reveal.by.value.take(8)} moved " +
             "$cards from ${left.owner.value.take(8)}'s ${left.from} to ${left.to} · ${reveal.sourceName}"

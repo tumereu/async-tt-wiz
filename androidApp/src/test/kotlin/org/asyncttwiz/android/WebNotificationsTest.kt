@@ -14,7 +14,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The browser's notification switch, its kinds, the Games list's hint and the tab's title (docs/specs/web-client.md §9.2). */
+/** The browser's notification switch, its kinds, the Games list's hint and the tab's title (WEB-050). */
 class WebNotificationsTest {
     private class MemoryPreferences : Preferences {
         val values = mutableMapOf<String, Any>()

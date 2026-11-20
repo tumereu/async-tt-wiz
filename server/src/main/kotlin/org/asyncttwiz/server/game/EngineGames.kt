@@ -44,7 +44,7 @@ import org.jooq.impl.DSL
 @Volatile internal var engineSeats: ((gameId: UUID) -> List<Seat>?)? = null
 
 /**
- * How many plays [EngineGames] keeps warm (R6), for a heap of [maxHeap]. Measured (WarmGameHeapTest, 2026-11-05): a kept
+ * How many plays [EngineGames] keeps warm, for a heap of [maxHeap]. Measured (WarmGameHeapTest, 2026-11-05): a kept
  * play holds about 1.8 MiB at turn 40 (state 0.5, its decoded definitions 0.7, 256 cached events 0.6) and up to 3.5 MiB
  * early on (turn 10: the start's events, which carry every card, still cached). Counted at 4 MiB, an eighth of the heap
  * keeps 128 plays (512 MiB) at the Pi's -Xmx4g; never fewer than 32 (a smaller heap, the tests' 512 MiB).
@@ -52,7 +52,7 @@ import org.jooq.impl.DSL
 internal fun warmCapacity(maxHeap: Long = Runtime.getRuntime().maxMemory()): Int =
     Math.round(maxHeap / 8.0 / (4L shl 20)).toInt().coerceIn(32, 128)
 
-/** Tests only (R6): a seat a refresh leaves as stored is worked out anyway and checked to be the same. */
+/** Tests only: a seat a refresh leaves as stored is worked out anyway and checked to be the same. */
 @Volatile internal var checkSkipped: Boolean = false
 
 /** The refusals of an engine play's actions that a device tells apart (the rest are "refusedByEngine"). */
@@ -95,7 +95,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         if (fixed != null) return java.util.HexFormat.of().parseHex(fixed).also { require(it.size == 32) { "TEST_GAME_SECRET_FILE: 32 bytes" } }
         return ByteArray(32).also(random::nextBytes)
     }
-    /** Seats whose next stop, wait and resume point were worked out so far (R6: tests count the work of a refresh). */
+    /** Seats whose next stop, wait and resume point were worked out so far (tests count the work of a refresh). */
     internal val seatsWorkedOut = java.util.concurrent.atomic.AtomicLong()
     private val plays = object : LinkedHashMap<UUID, EngineHistoryStore.Shared>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, EngineHistoryStore.Shared>?) = size > capacity
@@ -279,7 +279,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(author.toString())
         val result = try {
             Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
-                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() })
+                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() },
+                // SYS-063 (owner 2026-11-19): any device may answer the one-answer questions of a player on Quick now
+                quick = seats.filter { it.settings.mode == org.asyncttwiz.protocol.game.ResponseMode.AutoSkip }.map { PlayerId(it.account.toString()) }.toSet())
         } catch (refusal: Refusal) {
             keepWarm(play, history, refusal.state, head)
             throw refusal
@@ -385,7 +387,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * reshuffle, [Rewind.lineDue]); the other player's table-only events that may stand are added again after it while
      * they apply, the first starting the line; local heads past the target move to the new head.
      */
-    fun rewind(sql: DSLContext, play: UUID, account: UUID, target: String, live: (UUID) -> Boolean, approved: Boolean = false): Outcome? {
+    fun rewind(sql: DSLContext, play: UUID, account: UUID, target: String, live: (UUID) -> Boolean, approved: Boolean = false,
+        passes: Boolean = false): Outcome? {
         val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val head = head(sql, play, store.rootId)
@@ -399,8 +402,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(account.toString())
         val warm = take(play)
         val model = if (warm == null) history.stateAt(target) else history.move(warm.model, warm.at, target)
-        if (!approved) Rewind.requestNeeded(model.copy(), target, after, me, seats.filter { it.account != account }.map { it.head })
-            ?.let { keepWarm(play, history, LiveState(target, model), head); throw Refusal("requestNeeded") }
+        if (!approved) Rewind.judge(model.copy(), target, after, me, seats.filter { it.account != account }.map { it.head }, passes)
+            .also { org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info("Rewind of play {} to {} by {} judged: {}", play, target, account, it.why) }
+            .reason?.let { keepWarm(play, history, LiveState(target, model), head); throw Refusal("requestNeeded") }
         store.delete(after.map { it.id })
         // A new line (§9), kept as the line counter: no event of the rewind's own (owner's rule 2026-11-04)
         val line = row.lines + 1
@@ -602,7 +606,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * table-only events (the other player arranging cards, early answers) is the same wait, kept with its time and not
      * notified again (§18.11); a new real wait at the head of a player who isn't live counts as an async round (§15);
      * each player's last-activity time (their next stop's, else their local head's: nothing past it, §7); the outcome for
-     * the caller. [only] (R6): the change was that player's own (their local head or settings), so only their seat is
+     * the caller. [only]: the change was that player's own (their local head or settings), so only their seat is
      * worked out again.
      */
     private fun refresh(sql: DSLContext, play: UUID, history: GameHistory, state: LiveState, events: List<GameEvent>, live: (UUID) -> Boolean,
@@ -623,7 +627,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         // it locks the game for both) waits for the other player's answer
         val asker = row.request?.by ?: state.model.table.suggestion?.by?.value
         for (seat in seats) {
-            // R6: a change of [only]'s own (their local head, their settings) can't move the other player's next stop, wait
+            // A change of [only]'s own (their local head, their settings) can't move the other player's next stop, wait
             // or resume point (each is worked out from the head, that player's own local head and settings, and the open
             // request, none of which changed): theirs stay as stored. A seat stored before resume points were (V60) is
             // worked out anyway.
@@ -844,7 +848,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     internal data class Opened(val store: EngineHistoryStore, val head: String, val row: PlayRow, val seats: List<SeatRow>)
 
     /**
-     * R6: [open], [head], [playRow] and [seats] in one statement (opening a game reads them all): the play's row (its
+     * [open], [head], [playRow] and [seats] in one statement (opening a game reads them all): the play's row (its
      * definitions only when no earlier request kept them), its newest event and its seats; null when [play] isn't played
      * as engine state.
      */

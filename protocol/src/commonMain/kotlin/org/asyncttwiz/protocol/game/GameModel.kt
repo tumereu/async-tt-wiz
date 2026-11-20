@@ -29,7 +29,7 @@ import arcanum.engine.view.View
  *   that no longer does (decoded from a checkpoint, or more than [KEPT_DROPS] turns back) becomes [stale], and its
  *   caller gets the state from a checkpoint instead ([GameHistory]).
  *
- * **The layers are worked out once per state** (engine-responsiveness R2): [view] and each player's [visible] set are
+ * **The layers are worked out once per state**: [view] and each player's [visible] set are
  * kept until the engine state next changes through this model ([apply], [revert], an [EventBuilder] on it, an event's
  * drop of older log entries), counted by [changes]. Change [engine] only through those; a [copy] keeps nothing. So are
  * each player's [passCheck] and the outcome of an [EventBuilder]'s first input (End turn engine speed): an abandoned
@@ -211,8 +211,8 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
          * own `Layers.checkShortcuts`). */
         var checkKept: Boolean = false
 
-        /** For tests (engine-responsiveness R2's count of layer computations): false, nothing is kept, and every read
-         * works the view out afresh as before R2. */
+        /** For tests (count of layer computations): false, nothing is kept, and every read
+         * works the view out afresh as before. */
         var keepViews: Boolean = true
     }
 }
@@ -277,7 +277,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
     fun perform(input: Input, trace: EngineTrace = EngineTrace.None, assumedBy: PlayerId? = null): Outcome {
         check(!done) { "The event was built or abandoned" }
         val random = model.engine.pending?.decision as? Decision.Random
-        // The layers once per state (R2): the model's view of the state given, the outcome's of the state after it
+        // The layers once per state: the model's view of the state given, the outcome's of the state after it
         val kept = if (trace == EngineTrace.None) model.keptOutcome(input) else null
         val outcome = kept ?: Engine.perform(model.engine, input, model.keptView(), EnginePreferences.of(model.engine), trace)
         if (pristine && trace == EngineTrace.None) keptBefore.outcomes[input] = outcome
@@ -355,7 +355,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         table += change
     }
 
-    /** Web client step 4c: the event as made so far, not ended (its line's move not added, nothing dropped from the log):
+    /** The event as made so far, not ended (its line's move not added, nothing dropped from the log):
      * applying its changes straight to the state it was begun on gives the model's state now. */
     fun provisional(): GameEvent =
         GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode, press, carriedFrom)

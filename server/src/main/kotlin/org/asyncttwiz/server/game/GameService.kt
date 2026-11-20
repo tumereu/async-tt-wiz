@@ -189,10 +189,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             play = play, chatSync = reads.chatSync, ownPodDeckName = reads.ownPodDeckName, engine = engine?.first)
     }
 
-    /** What a head reads of [game]'s other tables besides the engine's (R6). */
+    /** What a head reads of [game]'s other tables besides the engine's. */
     internal class HeadReads(val play: PlayState?, val chatSync: ChatSync, val ownPodDeckName: String?)
 
-    /** R6: [PlayStore.read], [ChatStore.sync] and [PreparationStore.ownPodDeckName] for [viewer], in one statement. Run
+    /** [PlayStore.read], [ChatStore.sync] and [PreparationStore.ownPodDeckName] for [viewer], in one statement. Run
      * after the game's lock: a statement waiting for the lock would read the other tables as they were before it. */
     internal fun headReads(sql: DSLContext, game: UUID, viewer: UUID): HeadReads {
         val payload = PlayStore.payloadField(game)
@@ -456,7 +456,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                     // LOB-135: the information rule's check honours the game's assume reveal settings
                     AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true))
                 is GameAction.EngineSeen -> engineGames.seen(sql, play, account, action.eventId, live)
-                is GameAction.EngineRewind -> engineGames.rewind(sql, play, account, action.target, live)
+                // N15, LOB-135: the game's setting decides whether the other player's passes count for a free undo
+                is GameAction.EngineRewind -> engineGames.rewind(sql, play, account, action.target, live, passes = game.undoPastPasses == true)
                 is GameAction.EngineRequestRewind -> engineGames.requestRewind(sql, play, account, action.target, action.message, live)
                 is GameAction.EngineAnswerRewind -> engineGames.answerRewind(sql, play, account, action.accept, live)
                 GameAction.EngineCancelRewind -> engineGames.cancelRewind(sql, play, account, live)
@@ -514,8 +515,12 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private fun applyAssumeReveals(sql: DSLContext, game: GameRecord, account: UUID, action: GameAction.SetAssumeReveals): String? {
         if (account != game.inviterId) return "notHost"
         sql.update(GAME).set(GAME.ASSUME_LIBRARY_REVEALS, action.reveals.library).set(GAME.ASSUME_HAND_REVEALS, action.reveals.hands)
+            .set(GAME.UNDO_PAST_PASSES, action.reveals.undoPastPasses)
             .where(GAME.ID.eq(game.id)).execute()
         game.assumeLibraryReveals = action.reveals.library; game.assumeHandReveals = action.reveals.hands
+        game.undoPastPasses = action.reveals.undoPastPasses
+        org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Game {} settings by {}: library {}, hands {}, undo past passes needs a request {}",
+            game.id, account, action.reveals.library, action.reveals.hands, action.reveals.undoPastPasses)
         return null
     }
 

@@ -67,7 +67,7 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
         // SYS-025: the flow worked out off the main thread (with the open decision, its early answer, I-D33, and what its
-        // panel draws), then shown at once; web client step 4e: in the browser asked of the engine's worker, shown when it
+        // panel draws), then shown at once; in the browser asked of the engine's worker, shown when it
         // answers
         if (!flows.remote && AutomatumBoards.cachedSharedValue(play) == null)
             toolkit.boardWork(Dispatchers.Default) { AutomatumBoards.sharedValue(play) }
@@ -110,7 +110,7 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
         return
     }
     val early = if (decision != null && flows.answering == null && holder == viewer)
-        toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) } else null
+        toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer } else null
     if (early != null) BandAttached(scene) {
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
             EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())

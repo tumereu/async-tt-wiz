@@ -33,7 +33,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Automatum's choices on a game played on engine state (R4b's replacements of the old model's choice screen tests):
+ * Automatum's choices on a game played on engine state (replacing the old model's choice screen tests):
  * Alice's discard to hand size in her cleanup step on the simulated server ([EngineTableKit]), drawn by [TableSurface]
  * as [EngineTableScreen] draws it.
  */
@@ -91,7 +91,7 @@ class EngineChoiceScreenTest {
 
     // STK-032, TBL-118: while Automatum's choice is open, casting is refused on both devices without a message: on the
     // deciding player's device the card shakes (their own table never says they are choosing); on the other player's,
-    // whose table waits for the choice, the card shakes and the event text saying "Alice is choosing" flashes (R4c: the
+    // whose table waits for the choice, the card shakes and the event text saying "Alice is choosing" flashes (the
     // waiting device's cast was refused silently); looking and holding to inspect still work
     @Test fun whileAChoiceIsOpenCastingIsRefused() {
         toDiscard()
@@ -126,7 +126,7 @@ class EngineChoiceScreenTest {
     // STK-033, STK-101, CMB-033, CMB-094, STK-044, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division
     // panel: a row per creature that may get damage, filled in with Automatum's suggestion (lethal damage to each in
     // turn); OK deals the combat damage. Alice's Ember Cub (2/1) is blocked by three of Bob's (with two, lethal damage to
-    // each is the only in-order result: made without asking, STK-033)
+    // each would leave only the spare damage to place: asked too since owner 2026-11-19, STK-033)
     @Test fun aDivisionOfCombatDamageIsMadeInItsPanel() {
         val other = kit.other
         kit.scenario.confirmStops[f.b] = false

@@ -27,6 +27,7 @@ class ManaCostObjectsTest {
     private val tally = Cards.invent("Quick Tally", "{1}", "Instant", "Draw a card.")
     private val notes = Cards.invent("Loose Case Notes", "{1}", "Sorcery", "Draw a card.")
     private val dossier = Cards.invent("Thick Dossier", "{1}{U}", "Sorcery", "Draw two cards.")
+    private val memo = Cards.invent("Stray Memo", "{1}", "Sorcery", "Draw a card.")
 
     /** Starts casting Quick Tally ({1}) and returns its payment. */
     private fun Scenario.payment(): Decision.ManaPayment {
@@ -110,6 +111,60 @@ class ManaCostObjectsTest {
         answer(Answer.ManaPayment(listOf(use)))
         expect {
             alice.graveyard has notes
+            stack has tally
+        }
+    }
+
+    // STK-211, STK-214, CR 601.2h, 701.59a: the payer chooses which cards collect the evidence: the payment lists the choice (the graveyard's cards,
+    // total mana value 3), and a set other than the listed one pays too, exiling those cards only
+    @Test
+    fun evidenceIsCollectedWithTheCardsThePayerChooses() = scenario {
+        alice.battlefield(cipher)
+        alice.graveyard(notes, dossier, memo)
+        alice.hand(tally)
+        val d = payment()
+        val choice = d.costChoices.single { it.source == card(cipher) }
+        assertEquals(setOf(card(notes), card(dossier), card(memo)), choice.options.toSet())
+        assertEquals(0, choice.index)
+        assertEquals(3, (choice.total?.atLeast as? arcanum.api.Value.Fixed)?.value)
+        val listed = uses(d, cipher).first { it.color == Color.Blue }
+        val mine = listed.copy(answers = listOf(Answer.Objects(listOf(card(dossier), card(memo)))))
+        assertTrue(mine !in d.options, "not the listed set")
+        answer(Answer.ManaPayment(listOf(mine)))
+        expect {
+            alice.exile has dossier
+            alice.exile has memo
+            alice.graveyard has notes
+            stack has tally
+        }
+    }
+
+    // STK-211, CR 601.2h, 701.59a: a chosen set short of the total doesn't pay
+    @Test
+    fun evidenceShortOfItsTotalIsRefused() = scenario {
+        alice.battlefield(cipher)
+        alice.graveyard(notes, dossier, memo)
+        alice.hand(tally)
+        val d = payment()
+        val listed = uses(d, cipher).first { it.color == Color.Blue }
+        kotlin.test.assertFailsWith<IllegalArgumentException> {
+            answer(Answer.ManaPayment(listOf(listed.copy(answers = listOf(Answer.Objects(listOf(card(notes), card(memo))))))))
+        }
+    }
+
+    // STK-214, CR 601.2h, 701.9a: Autotap's fill keeps a discard for mana of the payer's own choosing exactly as given
+    @Test
+    fun aDiscardOfThePayersChoosingIsKeptByTheFill() = scenario {
+        alice.battlefield(imp)
+        alice.hand(tally, notes, memo)
+        val d = payment()
+        assertEquals(setOf(card(notes), card(memo)), d.costChoices.single().options.toSet() - card(tally))
+        val mine = uses(d, imp).first().copy(answers = listOf(Answer.Objects(listOf(card(memo)))))
+        val filled = arcanum.engine.CastScreen.fillPayment(state, emptyList(), emptyList(), listOf(mine))
+        assertEquals(listOf<arcanum.engine.decision.ManaUse>(mine), filled)
+        answer(Answer.ManaPayment(filled))
+        expect {
+            alice.graveyard has memo
             stack has tally
         }
     }

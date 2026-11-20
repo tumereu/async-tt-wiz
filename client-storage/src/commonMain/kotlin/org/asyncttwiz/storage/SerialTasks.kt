@@ -7,7 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * One-at-a-time work as coroutines (web client step 3b): the browser's stand-in for a single-thread executor, whose
+ * One-at-a-time work as coroutines: the browser's stand-in for a single-thread executor, whose
  * thread it can't have. Tasks run in the order given, each to its end, suspensions included, before the next starts, so
  * a task that waits (HTTP) holds back the ones queued after it, as a worker thread blocked in runBlocking does on Android.
  * [capacity] bounds the tasks waiting to start: when full, the oldest waiting one is dropped (a ThreadPoolExecutor's

@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -397,6 +398,8 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                     else -> cast.pick?.let { CardText("Then ${it.prompt} on the table.", style = TextStyle(fontSize = 12.sp)) }
                         ?: CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
                 }
+                // STK-211 (owner 2026-11-19): the cards a mana ability's cost uses, chosen by the payer
+                cast.costPick?.let { pick -> CostPickSection(cast, play, names, pick) }
                 PaymentLine(cast, play)
                 // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
                 cast.notice?.let { CardText(it, color = Color(0xffb3261e), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium)) }
@@ -737,6 +740,17 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
             else Text(if (onTable.isEmpty()) "Tap a source on the table to change it." else "Outlined sources pay. Tap sources on the table to change them.",
                 fontSize = 11.sp, color = Color(0xff4b5a5f))
         }
+        // STK-211 (owner 2026-11-19): a source paying with cards off the battlefield (collecting evidence, a discard): its cards are the
+        // payer's to choose, with Change
+        val choosable = cast.mana.filter { cast.costChoiceOf(it) != null }
+        if (choosable.isNotEmpty() && cast.costPick == null) for (use in choosable) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(useName(cast, play, use), Modifier.weight(1f), fontSize = 12.sp)
+                TextButton({ cast.openCostPick(use) }, Modifier.semantics { contentDescription = "Change the cards ${useName(cast, play, use)} uses" }) {
+                    Text("Change", fontSize = 12.sp)
+                }
+            }
+        }
         // STK-024 (owner 2026-11-14): a source whose cost uses other cards (tapping two creatures, sacrificing one) is never a chip
         // naming them: it is tapped on the table like any other source
         val others = ManaPicks.groups(payment).filter { group -> cast.tableSource(group.first()) == null && !ManaPicks.usesObjects(group.first()) }
@@ -750,6 +764,51 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
             }
         }
+    }
+}
+
+/**
+ * STK-211 (owner 2026-11-19, CR 601.2h, 701.59a): the payer's choice of the cards a mana ability's cost uses (collecting evidence,
+ * discarding, exiling from a graveyard), in the rows a choice of cards takes in the cast panel (STK-191: "Tap cards with total
+ * mana value 3 or more, then OK.", OK greyed until they reach it), with Cancel: its OK pays with those cards.
+ */
+@Composable
+private fun CostPickSection(cast: CastController, play: TableBoard, names: Map<String, String>, pick: CastController.CostPick) {
+    val c = pick.choice
+    val payer = cast.payment?.player ?: return
+    val decision = remember(pick) {
+        Decision.ChooseObjects(arcanum.engine.decision.DecisionId("mana-cost/${c.source}/${c.index}"), payer, c.source, c.options, c.min, c.max,
+            c.text.ifEmpty { "Choose" }, c.total)
+    }
+    val questions = remember(pick) { CostPickQuestions(cast, c) }
+    Column(Modifier.semantics { contentDescription = "Cards for ${objectName(cast, play, c.source)}'s cost" }) {
+        // Its OK is its own button: the main button stays the cast's
+        CompositionLocalProvider(LocalMainSlot provides null, LocalCastOk provides null) { OpenSection(questions, cast, play, names, decision) }
+        TextButton({ cast.cancelCostPick() }, Modifier.testTag("cost-pick-cancel")) { Text("Cancel", fontSize = 12.sp) }
+    }
+}
+
+/** STK-211: the cast panel's questions for [CostPickSection]: its OK pays with the cards chosen ([CastController.pickCostObjects]);
+ * with a total (collecting evidence) OK waits for the cards to reach it. */
+private class CostPickQuestions(private val cast: CastController, private val choice: arcanum.engine.decision.ManaCostChoice) : FlowQuestions by cast {
+    override fun answer(answer: Answer): Boolean = (answer as? Answer.Objects)?.let { cast.pickCostObjects(it.chosen) } ?: false
+    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean = answer(answer)
+    override fun listedAnswers(): List<Answer> = emptyList()
+    override fun selectionOf(chosen: List<ObjectId>, done: (arcanum.engine.Selection?) -> Unit) {
+        val total = choice.total ?: return done(null)
+        val state = cast.engine ?: return done(null)
+        val need = (total.atLeast as? arcanum.api.Value.Fixed)?.value ?: return done(null)
+        val view = arcanum.engine.Engine.view(state)
+        val sum = chosen.sumOf { id ->
+            val c = view[id]?.characteristics
+            when (total.property) {
+                arcanum.api.NumericProperty.ManaValue -> c?.manaValue() ?: 0
+                arcanum.api.NumericProperty.Power -> c?.power ?: 0
+                arcanum.api.NumericProperty.Toughness -> c?.toughness ?: 0
+                else -> return done(null)
+            }.coerceAtLeast(0)
+        }
+        done(arcanum.engine.Selection(choice.options.map { TargetRef.Object(it) }, if (total.exactly) sum == need else sum >= need))
     }
 }
 

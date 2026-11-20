@@ -5,12 +5,12 @@ import org.asyncttwiz.appui.newIdentitySet
 import kotlin.math.roundToLong
 
 /**
- * SYS-025, SYS-030 (engine-responsiveness R1): one own action's probe, its time split into parts. Up to its board:
+ * SYS-025, SYS-030: one own action's probe, its time split into parts. Up to its board:
  * [WAIT] (queued behind other work on the engine thread, e.g. the 1-second tick), [ENGINE] (the engine's work: the
  * action's inputs and what follows them before its board), [INFO] (the information rule's work on a tentative line) and
  * [BOARD] (building the board), adding up to [TOTAL]. After the board is published: [FRAME] (the main thread's next frame
  * drawn), [COMPUTED] and [PLAYS] (the table's computed board and the player's hand plays arriving, for this board or a
- * later one: since engine-responsiveness R3 made by the engine thread, the computed board with the board, the plays right
+ * later one: made by the engine thread, the computed board with the board, the plays right
  * after it is published, before the follow-up work, [EngineBoardValues]) and [AFTER] (the engine thread's work after the
  * board: its plays, the rest of the event, the device's own steps and the board again; [AFTER_INFO] of it the information
  * rule's).

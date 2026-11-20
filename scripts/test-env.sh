@@ -114,7 +114,7 @@ export PUBLIC_BASE_URL=$ORIGIN RESET_BASE_URL=$ORIGIN
 export SERVER_ADDRESS=127.0.0.1 SERVER_PORT=18090 HEALTH_ADDRESS=127.0.0.1 HEALTH_PORT=18091
 export APP_RELEASE_DIR="$STATE/app-release"
 export WEB_APP_DIR="$snapshot/web"
-# The card catalog from the local pinned MTGJSON file (docs/specs/web-client.md section 3), as this checkout builds it
+# The card catalog from the local pinned MTGJSON file (SYS-081), as this checkout builds it
 export CATALOG_DIR="$STATE/catalog"
 ./scripts/gradle.sh -q :catalog:catalogCommand --args="build --no-pin --out $CATALOG_DIR"
 if [[ -f $ATW_FIREBASE/fcm-service-account.json ]]; then

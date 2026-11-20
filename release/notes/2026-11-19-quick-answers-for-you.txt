@@ -1,0 +1,1 @@
+mod: When you play on Quick, the other player's phone can answer your questions that have only one possible answer, so they don't have to wait for you.

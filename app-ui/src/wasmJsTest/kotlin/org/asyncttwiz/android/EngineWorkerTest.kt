@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 
 /**
  * The page's side of the engine's Web Worker ([startEngineWorkers]) over a stand-in Worker: what the page posts to it and
- * when, where the worker's messages go, and what happens when it fails (docs/specs/web-client.md §1 item 3).
+ * when, where the worker's messages go, and what happens when it fails.
  */
 class EngineWorkerTest {
     @BeforeTest fun fakes() { installTestBuild(); EngineBoundary.reset(); fakeWorker() }

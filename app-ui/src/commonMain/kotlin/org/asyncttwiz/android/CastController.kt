@@ -70,7 +70,7 @@ interface AutomatumWork {
  * drops it, sending nothing. While it is open nothing else changes the game ([open] blocks the toolkit's actions, D32);
  * looking stays free (I-D10).
  *
- * Web client step 4e: the flow runs as a session where the engine is ([port]: in-process on [work], off the main thread in
+ * The flow runs as a session where the engine is ([port]: in-process on [work], off the main thread in
  * the app, SYS-025; in the browser the engine's Web Worker beside the game's device), and the panel draws the plain data
  * each step answers ([flow], a [CastShown]), never the flow itself. Meanwhile [busy] is true, the panel shows it and takes
  * no input. A step's result applies only if nothing replaced it (Cancel, another step).
@@ -96,7 +96,7 @@ class CastController(
      * rewind, a branch, an own event refused), and the last one's words ([EngineGame.takeBacks]). */
     private val takeBacks: () -> Long = { 0L },
     private val lastTakeBack: () -> String = { "" },
-    /** Web client step 4e: where the cast's flow session runs: in-process on [work] unless said otherwise ([TableCastPort]: the
+    /** Where the cast's flow session runs: in-process on [work] unless said otherwise ([TableCastPort]: the
      * browser's engine worker when the game's device is there). */
     private val port: CastPort = LocalCastPort(viewer) { w, d -> work.run(w, d) },
     /** TBL-130: the stacks of identical battlefield cards on a board as the table lays them out (Autotap takes the topmost). */
@@ -104,7 +104,7 @@ class CastController(
 ) : FlowQuestions {
     /** The take-backs counted when the open cast began ([takeBacks]): a later one took the table back behind it. */
     private var startedAt = 0L
-    /** The open cast's session where the flow runs (web client step 4e). */
+    /** The open cast's session where the flow runs. */
     private var session = 0L
     /** The open cast as the panel draws it, null when none. */
     var flow by mutableStateOf<CastShown?>(null); private set
@@ -212,6 +212,61 @@ class CastController(
     }
     /** The open question is picked on the table ([pick]): the panel is a slim bar. */
     val targeting: Boolean get() = pick != null && !choosing
+
+    /**
+     * STK-211 (owner 2026-11-19, CR 601.2h, 701.59a): the cards a mana ability's cost uses (collecting evidence, discarding, exiling
+     * from a graveyard), being chosen by the payer in the panel: [choice] for [use] (opened by tapping its source on the table, or
+     * the payment line's Change); its OK pays with them ([pickCostObjects]).
+     */
+    class CostPick(val choice: arcanum.engine.decision.ManaCostChoice, val use: ManaUse.Ability)
+    /** STK-211: the cost choice open in the panel, null when none. */
+    var costPick by mutableStateOf<CostPick?>(null); private set
+
+    /** STK-211: the cost choice [use]'s cards are chosen in, when its cards are the payer's to pick in the panel: cards off the
+     * battlefield (a graveyard's, the hand's); those on it are tapped on the table (STK-162). */
+    fun costChoiceOf(use: ManaUse): arcanum.engine.decision.ManaCostChoice? {
+        val ability = use as? ManaUse.Ability ?: return null
+        if (!ManaPicks.usesObjects(ability)) return null
+        val state = flow?.state
+        return payment?.costChoices?.firstOrNull { it.source == ability.source && it.ability == ability.ability }
+            ?.takeIf { c -> c.options.isNotEmpty() && c.options.none { state?.obj(it)?.zone == arcanum.api.Zone.Battlefield } }
+    }
+
+    /** STK-211: opens the panel's choice of the cards [use] takes (the payment line's Change, or a tap on its source). */
+    fun openCostPick(use: ManaUse): Boolean {
+        val choice = costChoiceOf(use) ?: return false
+        costPick = CostPick(choice, use as ManaUse.Ability)
+        AppLog.info("cast", "Payment: choosing the cards ${atwCard(use.source) ?: use.source}'s cost uses (${choice.text}, " +
+            "${choice.options.size} to choose from, now ${use.answers})")
+        return true
+    }
+
+    /** STK-211: the cost choice closed without choosing: the payment stays as it was. */
+    fun cancelCostPick() {
+        costPick?.let { AppLog.info("cast", "Payment: choosing the cards ${atwCard(it.use.source) ?: it.use.source}'s cost uses cancelled") }
+        costPick = null
+    }
+
+    /** STK-211: the payer chose [chosen] for the open cost choice: its source pays with those cards (kept exactly, Autotap filling in
+     * the rest), in place of what it paid with before. */
+    fun pickCostObjects(chosen: List<ObjectId>): Boolean {
+        val pick = costPick ?: return false
+        costPick = null
+        var i = 0
+        val use = pick.use.copy(answers = pick.use.answers.map { a -> if (a is Answer.Objects && i++ == pick.choice.index) Answer.Objects(chosen) else a })
+        AppLog.info("cast", "Payment: ${atwCard(use.source) ?: use.source}'s cost uses ${chosen.map { atwCard(it) ?: it.toString() }}, chosen by the payer " +
+            "(listed ${pick.use.answers}); paying before ${paySources()}")
+        val paying = mana.filter { it is ManaUse.Ability && it.source == use.source && it.ability == use.ability }
+        if (paying.isNotEmpty()) {
+            // Its earlier cards go: the source pays once, with these
+            mana = mana - paying.toSet()
+            taps = taps.copy(tapped = taps.tapped - paying.toSet(), chosen = taps.chosen - paying.toSet())
+        }
+        val ways = listOf<ManaUse>(use)
+        if (busy) { queueTap(PayTap.Chip(ways)); return true }
+        tapWays(ways, "source ${atwCard(use.source)} with the payer's cards", ManaBelongs.Key(ManaPicks.key(use)))
+        return true
+    }
     /** STK-024 (owner 2026-11-07): the open panel takes the table's mana sources: a tap on one adds it to the payment or
      * takes it out ([tapSource]). */
     val paying: Boolean get() = flow != null && !targeting && payment != null
@@ -431,8 +486,19 @@ class CastController(
         if (busy) return queueTap(PayTap.Source(cardId))
         val ways = waysOf(cardId)
         if (ways.isEmpty()) {
+            // STK-211 (owner 2026-11-19): a source whose cost uses cards off the battlefield: paying, a tap takes it out; else the
+            // panel asks which cards it uses
+            mana.firstOrNull { tableCard(it) == cardId && costChoiceOf(it) != null }?.let { used ->
+                AppLog.info("cast", "Payment: source $cardId tapped, its cost using ${(used as ManaUse.Ability).answers}, taken out; paying before ${paySources()}")
+                // STK-158: taken out, it isn't used again in this cast, whichever cards Autotap would list for it
+                val all = listOf(used) + payment?.options.orEmpty().filter { it is ManaUse.Ability && it.source == used.source && it != used }
+                if (busy) return queueTap(PayTap.Chip(all))
+                tapWays(all, "source $cardId", ManaBelongs.Uses(all))
+                return true
+            }
             // A source used with other objects (the creature an altar sacrifices): one pick per object set
             val group = groupOf(cardId) ?: return false
+            if (openCostPick(group.first())) return true
             // STK-024 (owner 2026-11-14): never a chip naming the objects its cost uses; which ones the engine lists, for reports
             AppLog.info("cast", "Payment: source $cardId tapped, its cost using ${(group.first() as? ManaUse.Ability)?.answers}, " +
                 "${if (mana.any { it in group }) "taken out" else "added"}; paying before ${paySources()}")
@@ -536,7 +602,7 @@ class CastController(
         // I-D43: how each cast flow ended
         if (flow != null || starting != null) {
             (flow?.gameId ?: current()?.gameId)?.let { AutomatumLog.flow(it, "cast", how, flow?.cardId ?: starting.orEmpty()) }
-            // Web client step 4e: the session ends where the flow runs
+            // The session ends where the flow runs
             port.ask(CastRequest(session, op = CastOp.Close(how)), null, { null }) {}
         }
         generation++
@@ -545,7 +611,7 @@ class CastController(
         busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
         payment = null; fieldSources = emptySet(); custom = false; hand = null; choosing = false
-        taps = ManaTaps(); selection = null; selectionFor = emptyList(); selectionRun++
+        taps = ManaTaps(); selection = null; selectionFor = emptyList(); selectionRun++; costPick = null
         announcedMost = emptyMap()
         listed = emptyList(); visible = emptySet()
     }
@@ -760,7 +826,7 @@ class CastController(
         const val FAILED = CastSessions.FAILED
         const val TAKE_OVER = "Automatum can't take over this board:"
 
-        /** The table's cast sessions, numbered across the page (web client step 4e: the engine side keys them by game). */
+        /** The table's cast sessions, numbered across the page (the engine side keys them by game). */
         private val sessions = org.asyncttwiz.appui.AtomicLong()
         private fun nextSession(): Long = sessions.incrementAndGet()
 
@@ -796,7 +862,7 @@ class CastController(
 }
 
 /**
- * Web client step 4e: an open cast as the cast panel and its target bar draw it: the plain data its session's last step
+ * An open cast as the cast panel and its target bar draw it: the plain data its session's last step
  * answered ([value]) on the board it runs on ([play]), never the flow itself. Its engine state ([state]) is the flow's own
  * in-process, else the page's copy of [play]'s with the flow's changes, worked out once when first read.
  */

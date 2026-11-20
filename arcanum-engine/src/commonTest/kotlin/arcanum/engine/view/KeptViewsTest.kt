@@ -13,11 +13,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * A host that keeps a state's view (engine-responsiveness R2) gets the same results as one that has the engine work it
+ * A host that keeps a state's view gets the same results as one that has the engine work it
  * out each time: [arcanum.engine.Outcome.view] is the view of the state after the outcome's changes, [Engine.perform]
  * given the state's view gives the same outcome, the [Host.visible] and [Host.revealed] overloads given views
- * give the same sets, and the option searches given the view ([Engine.options], [Host.passCheck], [Host.shouldPassFor],
- * R3) the same results. Each is compared with [Engine.view] worked out afresh, on seeded random games of cube cards (every
+ * give the same sets, and the option searches given the view ([Engine.options], [Host.passCheck], [Host.shouldPassFor])
+ * the same results. Each is compared with [Engine.view] worked out afresh, on seeded random games of cube cards (every
  * input listed for any player is tried, then one is played), with [Layers.checkShortcuts] on as in [ShortcutsTest].
  */
 class KeptViewsTest {

@@ -53,9 +53,9 @@ services:
       RESET_BASE_URL: ${RESET_BASE_URL:-${PUBLIC_BASE_URL}}
       RESET_MAIL_KEY_FILE: /run/secrets/reset_mail_key
       APP_RELEASE_DIR: /app-release
-      # The card catalog built at release (docs/specs/web-client.md section 3.4): <checksum>.jsonl.gz files and `current`.
+      # The card catalog built at release (SYS-081): <checksum>.jsonl.gz files and `current`.
       CATALOG_DIR: /catalog
-      # The web client (webApp's `webDist` output, docs/specs/web-client.md section 2.1), served on the same origin; an
+      # The web client (webApp's `webDist` output), served on the same origin; an
       # empty directory serves none.
       WEB_APP_DIR: /web-app
       # Browser notifications' VAPID key pair (WEB-052): the private key (PKCS#8) and its public key, in one PEM file.

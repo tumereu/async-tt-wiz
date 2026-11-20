@@ -35,7 +35,7 @@ fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryController?,
     }
     var cubeTab by (shared ?: own)
     if (cubeTab && (cubes.state.editing || cubes.state.selected != null)) {
-        // A cube's cards need card records (section 3.6)
+        // A cube's cards need card records (LOB-096)
         if (!cardRecordsReady()) { CardRecordsScreen("Cube", navigation, cubes::back); return }
         CubeScreen(cubes, navigation, draftCube, landscape); return
     }

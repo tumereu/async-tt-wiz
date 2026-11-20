@@ -13,7 +13,8 @@ Changes the owner wants but that are not built yet. The feature catalog
 Desktop playtest notes (owner, 2026-11-14): high priority.
 
 - Desktop battlefield cards at least twice today's size (the rest of the desktop default sizes is built, 2026-11-14): waits for the owner's choice, since at 4× the six battlefield rows don't fit a 1440 × 900 or 1920 × 1080 window even at the opening's 0.65× (TBL-121), so the table opens with both land rows out of view (gallery: desktop/table-battlefield-4x.png). Meanwhile, with the taller seat headers, hand band and top row, the 2× battlefield cards open smaller at 1440 × 900 than before (the rows fit: about 56 px tall, 72 before; at 1920 × 1080 about 78, 80 before). Options: the desktop opening shows your own battlefield whole (the other player's land row out of view); a lower least zoom on the desktop so the rows fit (cards then only as large as fit); fewer rows on the desktop; or the battlefield stays 2× (the Card size slider gives 4×) (WEB-022, TBL-121, TBL-010).
-- Desktop draft pick: the hover quick look of a pack card with every face (web-client.md §5, wireframe D9) is not built (step 6b left it out; WEB-026 covers the table only).
+- Desktop draft pick: the hover quick look of a pack card with every face (wireframe D9) is not built (WEB-026 covers the table only).
+- Desktop timeline: hovering an event shows its text, as holding it does on the phone (HIS-011); not built (the mouse holds an event as a finger does). Left over from the web client spec.
 
 Playtest and gallery notes (owner, 2026-11-11):
 
@@ -23,9 +24,6 @@ Playtest and gallery notes (owner, 2026-11-11):
 
 Queue (owner, 2026-11-09 evening), in any order: the items below. The evidence selection's running total is not wanted for now (owner).
 
-Needs discussion, owner thinking (2026-11-09):
-
-- When the phone presses for you: a pump in combat can go straight on to damage in Quick (STK-036). Proposal: after you act, your phone doesn't pass in that step until you press; Quick still skips steps where you did nothing.
 
 Arcanum copies, found building copiable values (2026-11-09; can be done any time):
 
@@ -59,12 +57,17 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 - "Can't do" explainer (owner, 2026-11-08; TBL-118 today says nothing by design): a short-lived chip or bubble rising from a shaken card, saying in one plain line why ("Costs more than you can pay"). Maybe for every shake, starting from castability's unselectable targets. Where it shows and how long are undecided; the engine's refusal reasons are technical, so the wording needs its own step. Also (report 82PG8P): warn, never block, before paying for an ability that would do nothing right now (Frodo's first ability when he is no longer a Citizen; legal, checked when it resolves, and the type may still change in response).
 
 - Opening a game from its very first event (found 2026-11-06, worker A): loading a game's recent events starting at its root gave a wrong board (turn 1 shown with the keep decision open, Keep ignored); the load now stops at the first event, which avoids it, but why loading from the root goes wrong is unexplained. Investigate before relying on root loads.
-- Arcanum engine: a streaming `perform` — called with a state, it returns a channel/stream of updates (changes in order, decisions as they come) instead of one finished `Outcome`, so the host can show the quick first results at once and keep the UI responsive while a long chain (many triggers, state-based actions, loops) resolves. A candidate fix for UI-feels-slow cases; keep every update reversible (D59) and the engine stateless; undo mid-stream = discard the stream's remaining updates and revert the applied ones (owner, 2026-11-04). Architecture check (2026-11-04) recommends not now: it speeds up only long chains; if R1's measurements after R2–R3 still show chains as the slow cases, a plain callback on `perform` rather than a channel (`engine-responsiveness.md`, last section). Owner to decide.
-- R5 of `engine-responsiveness.md` (optional, decided later; owner 2026-11-06: not now, after the End turn speed work): while the player looks at the board, the idle engine thread works out their step-arrow pass on a probe, so the tap only applies the result (frame-fast passes, some battery cost). Decide after R1–R3's measurements.
+- Arcanum engine: a streaming `perform` — called with a state, it returns a channel/stream of updates (changes in order, decisions as they come) instead of one finished `Outcome`, so the host can show the quick first results at once and keep the UI responsive while a long chain (many triggers, state-based actions, loops) resolves. A candidate fix for UI-feels-slow cases; keep every update reversible (D59) and the engine stateless; undo mid-stream = discard the stream's remaining updates and revert the applied ones (owner, 2026-11-04). Architecture check (2026-11-04) recommends not now: it speeds up only long chains (board wipe, big turn changes, 40–80 ms on the Pi), and on a tentative line nothing may be shown before the whole outcome passed the information rule; if the own-action measurements (SYS-030) still show chains as the slow cases, a plain callback on `perform` handing over changes as they are recorded rather than a channel. Owner to decide.
+- The step arrow's pass worked out ahead of time (optional, decided later; owner 2026-11-06: not now, after the End turn speed work): while the player looks at the board, the idle engine thread works out their step-arrow pass on a probe, so the tap only applies the result (frame-fast passes, some battery cost). Decide on the own-action measurements (SYS-030).
 
 - Summoning-sick permanents in the same battlefield group as their non-sick copies (owner idea, 2026-11-07; owner testing first): one group regardless of sickness with a "2 sick" badge, attacks picking a non-sick member first, so groups don't reshuffle after the turn.
 
 - Rule references the compiler can check (owner, 2026-11-15; parked, to think about, not now): replace plain-text `// CR 613.4c` citations with annotations naming the rule number, store each cited rule's text or a checksum of it, and have a build job list which rules the code relies on and which of them changed when the Comprehensive Rules pin moves, so a renumbered or reworded rule can't go unnoticed (today's citations are comments the compiler doesn't check; the 2026-11-15 pin move uses a one-off citation delta tool in arcanum-tools instead).
+
+## Needs design
+
+- Stats colours (owner, 2026-11-19): separate stats for cast costs and for cast costs + abilities (colour identity), instead of today's one view by colour identity (DRF-230, DRF-117).
+- Multicolour cards in the Stats colours (owner, 2026-11-19): show split colours, or add a multicolour card to each of its colours' stats, instead of one Multicolor bucket (DRF-230, DRF-117).
 
 ## Later (nice to have)
 

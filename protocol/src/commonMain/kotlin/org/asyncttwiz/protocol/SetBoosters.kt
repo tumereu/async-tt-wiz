@@ -72,7 +72,7 @@ fun selectSetBoosterRecipe(booster: Map<String, SetBoosterRecipe>): SetBoosterRe
 }
 
 /** A set source's checks. No limits on its cards or sheets: the server builds every set source from its card catalog
- * (docs/specs/web-client.md section 3.7). */
+ * (DRF-169). */
 object SetSourceValidation {
     const val MAX_COMPOSITIONS = 1000
     const val MAX_PACK_SIZE = 1000

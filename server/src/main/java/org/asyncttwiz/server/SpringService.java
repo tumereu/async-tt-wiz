@@ -200,7 +200,7 @@ public final class SpringService implements AutoCloseable {
             if (!health && activity.handle(request, response)) return;
             if (!health && crashReports.handle(request, response)) return;
             if (!health && archidekt.handle(request, response)) return;
-            // Last: the web client's page answers its own addresses only (docs/specs/web-client.md §2.1)
+            // Last: the web client's page answers its own addresses only
             if (!health && webApp.handle(request, response)) return;
             int status = 404;
             String body = "Not found\n";

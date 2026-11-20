@@ -113,6 +113,7 @@ class GameDevice(
     /** The game's assume reveal settings changed (its summary, set by the host): they apply to the points not yet made. */
     fun assumeReveals(value: org.asyncttwiz.protocol.AssumeReveals) {
         if (value == assumeReveals) return
+        remember("game settings now: library ${value.library}, hands ${value.hands}, undo past passes needs a request ${value.undoPastPasses}")
         assumeReveals = value
         reveals.clear()
     }
@@ -168,7 +169,7 @@ class GameDevice(
     var holding: Boolean = false
 
     /**
-     * The measuring clock (nanoseconds; engine-responsiveness R1, SYS-030): when set, the time the information rule's
+     * The measuring clock (nanoseconds; SYS-030): when set, the time the information rule's
      * work takes (§5: the state kept from before an event and the checks of what it would show this player) adds up in
      * [informationNanos]. Null (the default, and on the server): nothing is measured.
      */
@@ -398,7 +399,7 @@ class GameDevice(
         Engine.result(s)?.let { return Status.Over(it, confirmable(), final(), ending(s, it), endedBy(), me in model.table.resultOks) }
         if (request != null) return Status.Waiting(Wait.Request)
         if (locked) return Status.Waiting(Wait.Suggestion)
-        // R3: worked out once per point (the searches below don't run again while nothing they read changed)
+        // Worked out once per point (the searches below don't run again while nothing they read changed)
         val key = pointKey()
         headStatus?.let { (at, status) -> if (key.same(at)) return status }
         pointsWorkedOut++
@@ -416,7 +417,7 @@ class GameDevice(
     }
 
     /**
-     * Engine-responsiveness R3: what the device's decisions at the head read besides the engine state at the tip (the
+     * What the device's decisions at the head read besides the engine state at the tip (the
      * tip names it: the state at an event is the same however it was reached, and nothing is decided while a draft is
      * open; its open decision is compared too, by identity, as a cheap guard against a state changed in place): the table
      * state (the other player's table-only events slip in under the device's own pending events without moving the tip),
@@ -440,7 +441,7 @@ class GameDevice(
     /** The point where the device's own step was last found to make nothing ([automaticStep]). */
     private var idleAt: PointKey? = null
 
-    /** Tests and measurements (engine-responsiveness R3): how many times the status at the head or the device's own step
+    /** Tests and measurements: how many times the status at the head or the device's own step
      * there was worked out anew (each may search the engine's options); a tick at an unchanged point adds none. */
     var pointsWorkedOut: Int = 0
         private set
@@ -778,7 +779,16 @@ class GameDevice(
     @kotlinx.serialization.Serializable data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
         val source: arcanum.engine.state.CardId?, val sourceName: String?,
         /** HIS-114: not a reveal but [cards] leaving a public pile for a hidden zone, moved by [by]; null for a reveal. */
-        val left: LeftPile? = null)
+        val left: LeftPile? = null,
+        /** HIS-233: not a reveal but [cards] exiled face up from [LibraryExile.owner]'s library by [by]; null otherwise. */
+        val exiled: LibraryExile? = null)
+
+    /**
+     * HIS-233 (owner 2026-11-19, N18, problem report MDLPM7): cards exiled face up from [owner]'s library ("exile the top N",
+     * "exile cards from the top until …"), shown to every player as a reveal is ([Reveal.exiled]), the mover too: they leave a
+     * hidden zone for a public one, so nobody saw them before.
+     */
+    @kotlinx.serialization.Serializable data class LibraryExile(val owner: PlayerId)
 
     /**
      * HIS-114 (owner playtest 2026-11-09): cards that left [owner]'s public pile [from] (a graveyard, or exile face up) for
@@ -907,8 +917,9 @@ class GameDevice(
                 else { revealsOpen += r; remember("pile move open (left a public pile for a hidden zone): $what") }
             } else if (r.by != me || ownRevealNews(line, e, r)) {
                 revealsOpen += r
-                remember("reveal open: ${r.by.value.take(8)} revealed ${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
-            } else remember("own reveal in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
+                remember("reveal open: ${r.by.value.take(8)} ${if (r.exiled != null) "exiled from ${r.exiled.owner.value.take(8)}'s library" else "revealed"} " +
+                    "${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
+            } else remember("own ${if (r.exiled != null) "library exile" else "reveal"} in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
             if (showPlays) momentsIn(e, me).takeIf { it.isNotEmpty() }?.let { moments ->
                 showsOpen += moments
                 remember("view holds open in ${e.id.take(8)}: ${moments.map { m -> if (m is CombatHold) "combat ${m.kind::class.simpleName}" else "play" }}")
@@ -1136,7 +1147,7 @@ class GameDevice(
         // wait until it is done, so a spell shown isn't resolved under it by this device (the other player's device goes
         // on as ever)
         if (showHolds()) return false
-        // R3: nothing to make here was already found at this point (no search again while it lasts)
+        // Nothing to make here was already found at this point (no search again while it lasts)
         val key = pointKey()
         if (key.same(idleAt)) return false
         pointsWorkedOut++
@@ -1199,7 +1210,8 @@ class GameDevice(
         if (Host.decider(s, holder) != me) return false
         if (endTurn == s.turn.number) return true
         val check by lazy { model.passCheck(holder) }
-        return Stops.passes(settings.mode, s, holder) { check.ownSkipOn } || (check.asSet && !Stops.stop(s, holder))
+        return (Stops.passes(settings.mode, s, holder) { check.ownSkipOn } && !actedInStep(s, holder)) ||
+            (check.asSet && !Stops.stop(s, holder))
     }
 
     /** [automaticStep] worked out: whether the device made its own step at the head. */
@@ -1217,7 +1229,11 @@ class GameDevice(
             return (act(input, emptyList(), { null }, null, automatic = true) is Acted.Sent).also { made -> if (!made) endChain("press not made") }
         }
         return when (val point = point(s)) {
-            is Point.Automatic -> make(point.input, assumed = false) is Acted.Sent
+            is Point.Automatic -> {
+                if (s.pending?.decision?.let { Host.decider(s, it.player) } == opponent)
+                    remember("answering ${opponent.value.take(8)}'s one-answer question for them (their Quick, SYS-063): ${point.input}")
+                make(point.input, assumed = false) is Acted.Sent
+            }
             // ... and its assumption exactly a press of Assume
             is Point.Assume -> assumed(point.input) is Acted.Sent
             // TRN-017, TRN-070: a Resolve chain presses the wait's Assume; a wait without it (greyed: the information rule,
@@ -1310,7 +1326,11 @@ class GameDevice(
             if (keeps(at)) return null
             // One search of the player's options answers both (the engine's own pass and their mode's)
             val check = m.passCheck(holder)
-            return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
+            if (check.asSet && !Stops.stop(s, holder)) return Input.PassPriority(holder)
+            if (!modePasses(s, holder, check)) return null
+            // STK-213 (owner 2026-11-19, item dea2ae3ac4): after their own cast or activation in this step, the device passes
+            // for them only over what they put on top of the Stack; once it has resolved, their next pass here is their press
+            return Input.PassPriority(holder).takeIf { !actedInStep(s, holder) }
         }
         if (endTurn == s.turn.number && s.turn.active == me)
             return Engine.options(s, me, m.keptView(), EnginePreferences.of(s)).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
@@ -1320,9 +1340,39 @@ class GameDevice(
     /** Under Auto-skip, the only answer to [d] (§2). Never the order of triggers (STK-030, owner 2026-11-06): the engine
      * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. Nor
      * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm. */
-    private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers ||
-        (d is Decision.ChooseObjects && d.total != null)) null
-        else Engine.options(s, d.player, m.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
+    private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? =
+        if (settings.mode != ResponseMode.AutoSkip) null else WhoActs.quickAnswer(m, d)
+
+    /**
+     * SYS-063, item a819b9ffdd (owner 2026-11-19): the only answer to the other player's [d] on [m] while their response mode is
+     * Quick ([opponentMode]): this device answers it for them as their own Quick would, the cards only they see judged too
+     * (held, never shown), so their wait goes; null otherwise. On a tentative line the information rule still holds: an answer
+     * whose outcome would show this player a card it holds back (a discarded card, unless the game allows hands, LOB-135) is
+     * refused once ([make]: remembered) and left to their own device.
+     */
+    private fun theirOneAnswer(d: Decision, m: GameModel = model): Input.Answer? {
+        if (opponentMode != ResponseMode.AutoSkip || Host.decider(m.engine, d.player) != opponent) return null
+        return WhoActs.quickAnswer(m, d)
+    }
+
+    /** The players on Quick as this device knows (itself, and the other player's [opponentMode]): any device may answer their
+     * one-answer questions (SYS-063). */
+    private fun quickPlayers(): Set<PlayerId> = setOfNotNull(me.takeIf { settings.mode == ResponseMode.AutoSkip },
+        opponent.takeIf { opponentMode == ResponseMode.AutoSkip })
+
+    /**
+     * STK-213 (owner 2026-11-19, item dea2ae3ac4): whether [player] cast a spell or activated an ability in the current step on
+     * the line up to the tip ([actedInStep] of the companion), while nothing of theirs is on top of the Stack ([s]): then
+     * their mode passes nothing for them in this step (a second trick after a pump), neither on their own device nor as the
+     * other player's device assumes their pass by it; with their own spell or ability on top their device still passes it
+     * on to the other player as before (TRN-119). An End turn or a Resolve chain still passes. Steps where they did nothing
+     * are passed by their mode as before.
+     */
+    private fun actedInStep(s: GameState, player: PlayerId, building: EventBuilder? = null): Boolean {
+        val top = s.stack.lastOrNull()
+        if (top != null && (s.stackItems[top]?.controller ?: s.obj(top)?.controller) == player) return false
+        return actedInStep(session.events + session.pending, player, building?.engineSteps.orEmpty(), me.value.takeIf { building != null })
+    }
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2, [Stops.passes]: never
      * at their own main phases, owner smoke 2026-11-04, STK-036) or an End turn. */
@@ -1344,6 +1394,9 @@ class GameDevice(
         val d = s.pending?.decision
         if (d != null) {
             if (d !is Decision.Random) WhoActs.automaticAnswer(m, d)?.let { return Point.Automatic(it) }
+            // SYS-063 (owner 2026-11-19): their one-answer question while they are on Quick
+            if (d !is Decision.Random) theirOneAnswer(d, m)?.takeIf { m !== model || reveals["${session.tip}:$it"] != true }
+                ?.let { return Point.Automatic(it) }
             // TRN-027, HIS-096 (owner, 2026-11-15): the other player's opening keep is assumed only by a press of Assume keep
             // (never by the phone itself), once this player's own opening is done
             Reapply.assumedKeep(s, me)?.let { keep -> return Point.Wait(Wait.Keep, Offer.AssumeKeep.takeIf { assumable(keep, m) }, keep) }
@@ -1380,7 +1433,7 @@ class GameDevice(
      * began, the setting doesn't count: where their mode stops, the device waits for them.
      */
     private fun assumesAtOnce(s: GameState, holder: PlayerId, m: GameModel = model): Boolean {
-        if (Stops.passes(opponentMode, s, holder) { m.passCheck(holder).ownSkipOn }) return true
+        if (Stops.passes(opponentMode, s, holder) { m.passCheck(holder).ownSkipOn } && !actedInStep(s, holder)) return true
         if (pointOwner(session.events + session.pending, s) != me) return false
         return settingAssumes(settings.assume, s, holder, me) { noMana(s, holder, m) }
     }
@@ -1633,7 +1686,7 @@ class GameDevice(
         newLine: Int? = null, player: Boolean = false, performed: (() -> Unit)? = null, reapplies: Boolean = false): Acted {
         // The server's rules (§6): the player's own inputs (or engine-automatic answers), the other player's only assumed
         try {
-            val kind = WhoActs.kind(model, input, me, assumed)
+            val kind = WhoActs.kind(model, input, me, assumed, quickPlayers())
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
         val before = informationRule { if (assumed || tentative()) InformationRule.Before.of(model) else null }
@@ -1743,7 +1796,18 @@ class GameDevice(
                 }
                 val answer = WhoActs.automaticAnswer(model, d)
                     ?: if (own && Host.decider(s, d.player) == me) oneAnswer(s, d) else null
-                builder.perform(answer ?: return)
+                if (answer == null) {
+                    // SYS-063 (owner 2026-11-19): the other player's one-answer question while they are on Quick, unless what it
+                    // shows is what the information rule holds back on a tentative line
+                    val theirs = (if (Host.decider(s, d.player) == opponent) theirOneAnswer(d) else null) ?: return
+                    val mark = builder.mark()
+                    builder.perform(theirs)
+                    builder.answerRandoms()
+                    if (guard != null && shows(guard, builder)) { builder.takeBack(mark); return }
+                    remember("answered ${opponent.value.take(8)}'s one-answer question for them in the event (their Quick, SYS-063): $theirs")
+                    return@repeat
+                }
+                builder.perform(answer)
                 return@repeat
             }
             val holder = s.priority.holder ?: return
@@ -1754,7 +1818,8 @@ class GameDevice(
             // kept with the state (the device's next point there reads it again)
             val check = model.passCheck(holder)
             val forced = check.asSet && !Stops.stop(s, holder)
-            val yields = mine && !forced && modePasses(s, holder, check)
+            // STK-213: not after their own cast or activation in this step once nothing of theirs is on top
+            val yields = mine && !forced && modePasses(s, holder, check) && !actedInStep(s, holder, builder)
             if (!forced && !yields) return
             if (s.turn.number >= start + 2 && Stops.stop(s, s.turn.active)) return
             // TRN-060 (CR 104.4b): a pass nobody could avoid is a forced one, or the player's own where they can do nothing
@@ -2043,9 +2108,9 @@ class GameDevice(
         private set
 
     /** [Rewind.judge] of undoing to [target] from [at] (the state there, used up) with the main line's events [after]
-     * it, remembered ([undoWhy]). */
+     * it, remembered ([undoWhy]); the other player's passes count while the game's setting says so (N15, LOB-135). */
     private fun judged(at: GameModel, target: String, after: List<GameEvent>): Rewind.Verdict =
-        Rewind.judge(at, target, after, me, heads.filterKeys { it != me }.values.toList()).also {
+        Rewind.judge(at, target, after, me, heads.filterKeys { it != me }.values.toList(), assumeReveals.undoPastPasses).also {
             undoWhy = it.why
             remember("undo to $target judged: ${it.why}")
         }
@@ -2994,6 +3059,34 @@ class GameDevice(
             return state.turn.active
         }
 
+        /**
+         * STK-213: whether [player] cast a spell or activated an ability of their own (their real input, not assumed) since the
+         * current step began, on [line] up to its last event: the newest events first, until the step's beginning (a step
+         * change among an event's changes) or [ACTED_LOOKBACK] events.
+         */
+        fun actedInStep(line: List<GameEvent>, player: PlayerId, building: List<EngineStep> = emptyList(), builder: String? = null): Boolean {
+            /** True: acted; false: the step began; null: nothing in [steps] decides it. */
+            fun scan(steps: List<EngineStep>, author: String?): Boolean? {
+                for (step in steps.asReversed()) {
+                    if (step.changes.any { it is arcanum.engine.change.Change.Step && (it.before.step != it.after.step ||
+                            it.before.number != it.after.number) }) return false
+                    val input = step.input ?: continue
+                    val by = when (input) { is Input.Cast -> input.player; is Input.Activate -> input.player; else -> null } ?: continue
+                    if (by == player && step.assumedBy == null && author == player.value) return true
+                }
+                return null
+            }
+            scan(building, builder)?.let { return it }
+            for ((n, event) in line.asReversed().withIndex()) {
+                if (n >= ACTED_LOOKBACK) return false
+                scan(event.engine?.steps ?: continue, event.author)?.let { return it }
+            }
+            return false
+        }
+
+        /** How far back [actedInStep] looks: a step holds few events. */
+        private const val ACTED_LOOKBACK = 200
+
         /** The player whose real input [input] (of [step] in [event]) is ([pointOwner]), or null when it is none. */
         private fun realInputBy(event: GameEvent, step: EngineStep, input: Input): PlayerId? {
             val player = when (input) {
@@ -3021,11 +3114,48 @@ class GameDevice(
          * the card cast or the ability's source of the step's input (a cost). HIS-114: with them, in the same order, the
          * cards that left a public pile for a hidden zone ([leftPiles]), whoever moved them (the caller tells them apart).
          */
-        fun revealsIn(event: GameEvent): List<Reveal> = event.engine?.steps.orEmpty().flatMap { step ->
-            step.changes.flatMap { change ->
-                if (change is arcanum.engine.change.Change.ZoneChange) leftPiles(event, step, change)
-                else listOfNotNull(revealOf(event, step, change))
+        fun revealsIn(event: GameEvent): List<Reveal> {
+            val all = event.engine?.steps.orEmpty().flatMap { step ->
+                step.changes.flatMap { change ->
+                    if (change is arcanum.engine.change.Change.ZoneChange) leftPiles(event, step, change) + libraryExiles(event, step, change)
+                    else listOfNotNull(revealOf(event, step, change))
+                }
             }
+            // HIS-233: a card the event also revealed ("reveal cards until …, exile them") shows once, in its reveal
+            val revealed = all.filter { it.left == null && it.exiled == null }.flatMap { it.cards }.toSet()
+            if (revealed.isEmpty()) return all
+            return all.mapNotNull { r -> if (r.exiled == null) r else r.copy(cards = r.cards - revealed).takeIf { it.cards.isNotEmpty() } }
+        }
+
+        /**
+         * HIS-234 (owner 2026-11-19, N18): what an event's text adds for the cards [event] exiled face up from a library, one line
+         * per library, from [viewer]'s side ([names] by account): "Exiled from Bob's library: Plains, Mountain", "Exiled from your
+         * library: …". The cards are public once there, so every player reads them (HIS-062). Empty when it exiled none.
+         */
+        fun libraryExileTexts(event: GameEvent, viewer: String, names: Map<String, String>): List<String> {
+            val moves = event.engine?.changes.orEmpty().filterIsInstance<arcanum.engine.change.Change.ZoneChange>().flatMap { it.moves }
+                .filter { it.from == arcanum.api.Zone.Library && it.to == arcanum.api.Zone.Exile && !it.after.faceDown && !it.before.token }
+            return moves.groupBy { it.before.owner }.map { (owner, ms) ->
+                val whose = if (owner.value == viewer) "your" else "${names[owner.value] ?: "the other player"}'s"
+                "Exiled from $whose library: " + ms.joinToString { m -> m.after.definition?.faces?.getOrNull(m.after.face)?.name ?: "a card" }
+            }
+        }
+
+        /**
+         * HIS-233 (owner 2026-11-19, N18): the cards [change] of [step] in [event] exiled face up from a library, one [Reveal] per
+         * player who moved them and library owner, with [Reveal.exiled]. Who moved them as [leftPiles] says. Tokens are left out.
+         */
+        private fun libraryExiles(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change.ZoneChange): List<Reveal> {
+            val inputPlayer = when (val input = step.input) {
+                is Input.Cast -> input.player
+                is Input.Activate -> input.player
+                else -> null
+            }
+            return change.moves.filter { m -> m.from == arcanum.api.Zone.Library && m.to == arcanum.api.Zone.Exile && !m.after.faceDown && !m.before.token }
+                .groupBy { m -> (change.by?.controller ?: inputPlayer ?: m.before.owner) to m.before.owner }
+                .map { (key, moves) ->
+                    Reveal(event.id, key.first, moves.map { it.before.card }.distinct(), sourceOf(step, change.by), change.by?.name, exiled = LibraryExile(key.second))
+                }
         }
 
         /** HIS-110: the reveal [change] of [step] in [event] is, or null. */

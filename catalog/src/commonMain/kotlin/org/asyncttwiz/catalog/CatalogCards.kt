@@ -15,8 +15,8 @@ import org.asyncttwiz.protocol.game.GameCards
 /**
  * Card data from catalog records, as a device makes it from its card records for a deck (client-storage's
  * `ResolvedDeckEntry.definition`): the sides of one physical card, each face with its printed values, its picture and its
- * printing's record ([sourceData]). The server builds set packs with it (section 3.7) and the catalog build checks support
- * with it (section 3.8).
+ * printing's record ([sourceData]). The server builds set packs with it (DRF-169) and the catalog build checks support
+ * with it (SYS-082).
  */
 object CatalogCards {
     private const val FRONT = "a"

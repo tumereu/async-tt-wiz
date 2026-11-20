@@ -14,7 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 /**
- * The card records for the screens (docs/specs/web-client.md section 3.6): while they install, every control whose action
+ * The card records for the screens (LOB-096): while they install, every control whose action
  * reads them stays visible but greyed with [line], and content that needs them shows [CardRecordsPlaceholder].
  */
 sealed interface CardRecords {

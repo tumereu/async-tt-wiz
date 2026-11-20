@@ -21,7 +21,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * SYS-025, SYS-030 (engine-responsiveness R1): the probe of an own action splits its time into its parts and gives each
+ * SYS-025, SYS-030: the probe of an own action splits its time into its parts and gives each
  * to the part it belongs to: up to the board the wait for the engine thread, the engine's work, the information rule and
  * building the board; then the next frame, the computed board and hand plays, and the engine's work after the board.
  * A fake clock that moves one millisecond on every read makes every part that was timed non-zero; nothing compares

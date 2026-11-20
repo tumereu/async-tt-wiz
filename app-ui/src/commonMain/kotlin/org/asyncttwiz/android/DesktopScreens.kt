@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 fun desktopLayout(): Boolean = LocalAppLayout.current == AppLayout.Desktop
 
 /**
- * The desktop layout's screens outside the table (docs/specs/web-client.md §7.1, §7.4, §7.5, §7.7; wireframes D7, D8, D10):
+ * The desktop layout's screens outside the table (WEB-037, WEB-038, WEB-039, WEB-043; wireframes D7, D8, D10):
  * the same screens as the phone's, arranged for a wide window.
  */
 object DesktopScreens {

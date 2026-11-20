@@ -26,13 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// The edge zones of a card in Build, Prepare and the deck and cube editor on the desktop layout (docs/specs/web-client.md §5,
-// wireframe D8; WEB-045, WEB-046): the mouse can't swipe, so a card's left and right quarters move one copy where a swipe that
+// The edge zones of a card in Build, Prepare and the deck and cube editor on the desktop layout (wireframe
+// D8; WEB-045, WEB-046): the mouse can't swipe, so a card's left and right quarters move one copy where a swipe that
 // way would (SYS-083), and every copy with Shift held (owner playtest 2026-11-16); a click in its middle opens the menu of a card
 // that keeps one on the desktop (the editor's), and ← / → / ↓ do the same for the card under the pointer. Holding Alt over it
 // previews it as holding a finger on it does. Nothing of this exists on the phone layout.
 
-/** WEB-045: the share of a card's width each edge zone takes (a quarter, §5). */
+/** WEB-045: the share of a card's width each edge zone takes (a quarter). */
 const val EDGE_ZONE_FRACTION = .25f
 
 /** WEB-045: one edge zone's destination: the section's [label] ("Side"), its [color], moving one copy there ([move]) and every

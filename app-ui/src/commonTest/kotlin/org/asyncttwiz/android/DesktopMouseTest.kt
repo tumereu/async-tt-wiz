@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The desktop table's input mapping (docs/specs/web-client.md §5): the mouse's buttons, the finger key, the left button. */
+/** The desktop table's input mapping (WEB-023): the mouse's buttons, the finger key, the left button. */
 class DesktopMouseTest {
     // WEB-023, WEB-028: the left button is the finger, the right one a control's hold action, the middle one pans; a chord
     // with the left button down stays a left press
@@ -50,7 +50,7 @@ class DesktopMouseTest {
         assertEquals(listOf(Effect.Pause(false)), key.release("Alt"))
     }
 
-    // WEB-025, HIS-021, HIS-126: on the desktop table the left button held still on a card pauses the view but never inspects (§5: no
+    // WEB-025, HIS-021, HIS-126: on the desktop table the left button held still on a card pauses the view but never inspects (no
     // press-and-hold on desktop); the phone's hold still inspects (TBL-104)
     @Test fun theLeftButtonHeldStillPausesWithoutInspecting() {
         val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "", kind = TableItemKind.CARD, cardId = "a",

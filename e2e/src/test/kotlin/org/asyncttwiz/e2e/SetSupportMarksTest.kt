@@ -13,7 +13,7 @@ import org.junit.Test
 import kotlin.test.assertNull
 
 /**
- * The card catalog's support marks (docs/specs/web-client.md sections 3.8, 3.9) decide which sets can be drafted, and the
+ * The card catalog's support marks (SYS-082, DRF-088) decide which sets can be drafted, and the
  * phone shows them at once: in Alice's draft set search (her card records are the server's catalog, the test cards') the
  * Unlisted Set, whose packs hold a card Automatum doesn't support, is greyed and can't be chosen, and holding its warning
  * sign names that card; a supported set can be chosen.

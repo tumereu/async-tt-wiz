@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.PopupProperties
 
-// The browser's pieces of drawing, windows and input the shared UI uses (web client step 3).
+// The browser's pieces of drawing, windows and input the shared UI uses.
 
 /**
  * The page's Back registrations in the order they were first composed (the later one is on top, as Android's dispatcher

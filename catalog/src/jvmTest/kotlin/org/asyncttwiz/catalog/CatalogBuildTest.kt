@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.RandomV1
 import org.asyncttwiz.protocol.SetBoosters
 import org.asyncttwiz.protocol.SetCardRarity
 
-/** The card catalog built from the invented test cards (tests/fixtures/card-catalog), docs/specs/web-client.md section 3. */
+/** The card catalog built from the invented test cards (tests/fixtures/card-catalog), SYS-081. */
 class CatalogBuildTest {
     private val fixtures = File(System.getProperty("catalog.fixture") ?: "../tests/fixtures/card-catalog")
     private val allPrintings = File(fixtures, "AllPrintings.json")
@@ -67,7 +67,7 @@ class CatalogBuildTest {
         assertEquals(catalog.set.getValue("TST"), CardCatalogFormat.decode(line))
     }
 
-    // SYS-082, SYS-204 (section 3.8): a card is supported when it is in a listed set or on the single-card list, and nothing of it is left to the players
+    // SYS-082, SYS-204: a card is supported when it is in a listed set or on the single-card list, and nothing of it is left to the players
     @Test fun `the support marks follow the lists and what Automatum leaves to the players`() {
         assertTrue(face("Test Bear").automatum, "in a listed set")
         assertTrue(face("Listed Lone").automatum, "on the single-card list")
@@ -155,7 +155,7 @@ class CatalogBuildTest {
         assertEquals(setOf("common", "reversible", "specialGuest"), listed.recipe.getValue("BON").sheets.keys)
     }
 
-    // SYS-081, SYS-203 (section 3.3): the version is the checksum of the content, so the same input gives the same file
+    // SYS-081, SYS-203: the version is the checksum of the content, so the same input gives the same file
     @Test fun `the same input gives the same catalog, and it reads back whole`() {
         val first = ByteArrayOutputStream().also { CardCatalogFiles.write(catalog, it) }.toByteArray()
         val again = ByteArrayOutputStream()
@@ -168,7 +168,7 @@ class CatalogBuildTest {
         assertTrue(checksum != CardCatalogFiles.write(build(emptySet()).catalog, ByteArrayOutputStream()))
     }
 
-    // DRF-169 (section 3.7): set packs from the catalog
+    // DRF-169: set packs from the catalog
     @Test fun `a set's source comes from the catalog with its recipe and valid card data`() {
         val tst = assertNotNull(CatalogSetSources.build(catalog, "TST"))
         assertEquals("Test Set", tst.snapshot.setName)
@@ -225,7 +225,7 @@ class CatalogBuildTest {
         assertTrue(lone.values.all { it > drawn.getValue("Listed Lone") / 4 }, "each printing about half: $lone")
     }
 
-    // SYS-081 (section 3.4): the release builds the catalog from the pinned file only
+    // SYS-081: the release builds the catalog from the pinned file only
     @Test fun `the catalog command builds only from the pinned raw file, and move pins a file`() {
         val directory = createTempDirectory("catalog-pin").toFile()
         try {

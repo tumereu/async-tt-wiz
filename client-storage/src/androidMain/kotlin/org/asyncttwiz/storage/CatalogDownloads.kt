@@ -19,7 +19,7 @@ import org.asyncttwiz.catalog.CatalogVersion
 import org.asyncttwiz.protocol.CardColors
 import org.asyncttwiz.protocol.CardSearchRules
 
-/** The ATW server's card catalog (docs/specs/web-client.md section 3.4): which one is current, and its file by checksum. */
+/** The ATW server's card catalog (SYS-081): which one is current, and its file by checksum. */
 interface CatalogSource {
     /** The server's current catalog (`GET /v1/catalog`). */
     fun current(): CatalogVersion
@@ -77,7 +77,7 @@ class HttpCatalogSource(private val origin: String, private val userAgent: Strin
     }
 
     companion object {
-        /** Far above the catalog's ~13 MB (section 3.3). */
+        /** Far above the catalog's ~13 MB (SYS-081). */
         const val MAX_BYTES = 512L * 1024 * 1024
         private val json = Json { ignoreUnknownKeys = true }
     }
@@ -100,7 +100,7 @@ internal class CountingInput(input: InputStream) : FilterInputStream(input) {
 }
 
 /**
- * Installs the server's card catalog (docs/specs/web-client.md section 3.5) as the device's card records: downloads the
+ * Installs the server's card catalog (LOB-091) as the device's card records: downloads the
  * file, indexes it record by record into a new generation of [repository] (search, imports, support marks), and
  * publishes it only when the file's checksum is the one asked for. Always the whole file. Blocking: a worker only.
  */
@@ -253,7 +253,7 @@ internal class CatalogRecordReader(private val times: CatalogPhaseTimes = Catalo
                 printings++
                 if (batch.size == BATCH) return take()
             }
-            is CatalogRecipeRecord -> Unit // Packs are the server's (section 3.7)
+            is CatalogRecipeRecord -> Unit // Packs are the server's (DRF-169)
         }
         return null
     }

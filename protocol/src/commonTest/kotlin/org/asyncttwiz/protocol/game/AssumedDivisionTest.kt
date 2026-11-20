@@ -15,10 +15,11 @@ import kotlin.test.assertTrue
 /**
  * Owner problem report JVPJ8Y (beta16): the attacker's phone assumed the defender's pass after a double block, and the
  * combat damage step that followed opened the attacker's own division of their creature's damage among the two blockers
- * (CR 510.1c). It is order-free (enough for lethal damage to each, STK-033), so the phone answered it with the engine's
+ * (CR 510.1c). It was order-free (enough for lethal damage to each), so the phone answered it with the engine's
  * suggestion in the same event, as it folds every engine-automatic answer; the server took that answer for the author's
  * own real input in an event that began with an assumed one (I-D56 §13) and refused the event ("refusedByEngine"), so
- * every press of "Assume no response" was taken back.
+ * every press of "Assume no response" was taken back. Since owner 2026-11-19 (STK-033) such a division is asked too: the
+ * assumed event ends at it and the division is the attacker's own event.
  */
 class AssumedDivisionTest {
     private val hauler = arcanum.engine.cards.Cards.invent("Zinc Hauler", "{0}", "Artifact Creature — Construct", "", "4/3")
@@ -30,12 +31,13 @@ class AssumedDivisionTest {
     private fun GameModel.named(p: PlayerId, zone: List<ObjectId>, name: String) =
         zone.filter { engine.obj(it)?.controller == p || engine.obj(it)?.owner == p }.filter { engine.obj(it)?.definition?.faces?.first()?.name == name }
 
-    // JVPJ8Y, STK-033, CR 510.1c: Alice casts a Zinc Hauler (4/3) in her turn 1, Bob two Rattled Pilots (2/2) in his turn 2;
-    // in her turn 3 she attacks with the Hauler and Bob blocks with both. Both pass by hand (Control, Assume Never). Alice
-    // passes after the blocks and presses Assume for Bob's pass: her 4 damage divides 2 and 2 by itself, both Pilots die,
-    // the Hauler (2 + 2 damage, toughness 3) dies too, and the server takes the event as her phone made it
+    // JVPJ8Y, STK-033, CR 510.1c (owner 2026-11-19: every division that could go another way is asked, prefilled): Alice casts a
+    // Zinc Hauler (4/3) in her turn 1, Bob two Rattled Pilots (2/2) in his turn 2; in her turn 3 she attacks with the Hauler and
+    // Bob blocks with both. Both pass by hand (Control, Assume Never). Alice passes after the blocks and presses Assume for
+    // Bob's pass: her division opens for her (enough for lethal damage to each, yet asked), she accepts the suggested 2 and 2,
+    // both Pilots die, the Hauler (2 + 2 damage, toughness 3) dies too, and the server takes both events as her phone made them
     @Test
-    fun anAssumedPassBeforeAnOrderFreeDivisionOfYourOwnIsTaken() {
+    fun anAssumedPassBeforeADivisionOfYourOwnStopsForItAndIsTaken() {
         val sim = DeviceSim(EngineGames(3, List(40) { hauler } to List(40) { pilot }))
         val alice = sim.alice; val bob = sim.bob
         sim.start(alice, mode = ResponseMode.FullControl, alwaysAssume = false)
@@ -82,11 +84,17 @@ class AssumedDivisionTest {
         assertEquals(GameDevice.Offer.AssumeResolves, assertIs<GameDevice.Status.Waiting>(alices.status).offer, "waiting for Bob with Assume")
         assertIs<GameDevice.Acted.Sent>(alices.assume())
         sim.settle(only = listOf(alice))
-
+        val divide = assertIs<arcanum.engine.decision.Decision.Divide>(alices.model.engine.pending?.decision, "her division is asked")
+        assertEquals(alice, divide.player)
         val assumed = sim.server.line().last { it.assumed?.assumedBy == alice && it.assumed?.input == Input.PassPriority(bob) }
-        val division = assumed.engine!!.steps.mapNotNull { it.input as? Input.Answer }.single { it.answer is Answer.Division }
+        assertTrue(assumed.engine!!.steps.none { (it.input as? Input.Answer)?.answer is Answer.Division }, "nothing divided for her")
+        assertIs<GameDevice.Acted.Sent>(alices.act(Input.Answer(divide.id, Answer.Division(divide.suggested))))
+        sim.settle(only = listOf(alice))
+        val own = sim.server.line().last { e -> e.engine?.steps.orEmpty().any { (it.input as? Input.Answer)?.answer is Answer.Division } }
+        assertEquals(alice.value, own.author)
+        assertEquals(null, own.assumed, "her own event")
+        val division = own.engine!!.steps.mapNotNull { it.input as? Input.Answer }.single { it.answer is Answer.Division }
         assertEquals(listOf(2, 2), (division.answer as Answer.Division).shares.map { it.amount }, "lethal damage to each Pilot")
-        assertEquals(null, assumed.engine!!.steps.single { it.input == division }.assumedBy, "her own automatic answer, not assumed")
         val server = sim.server.state()
         assertEquals(2, server.named(bob, server.engine.player(bob).graveyard, pilot).size, "both Pilots died: ${server.engine.turn}")
         assertEquals(1, server.named(alice, server.engine.player(alice).graveyard, hauler).size, "the Hauler died")
@@ -97,10 +105,11 @@ class AssumedDivisionTest {
         assertEquals(emptyList(), sim.equivalence())
     }
 
-    // HIS-118, JVPJ8Y (I-D56 §13): the gate's own rule, on the same board: the author's automatic answer folds into their assumed
-    // event, any other answer of theirs to that decision doesn't (it is a real input: its own event)
+    // HIS-118, JVPJ8Y (I-D56 §13), STK-033 (owner 2026-11-19): the gate's own rule, on the same board: the division has no automatic
+    // answer any more, so no answer of hers folds into her assumed event, the suggested one included (each is a real input: its
+    // own event), and on its own after the assumed pass it is taken
     @Test
-    fun onlyTheAutomaticDivisionFoldsIntoAnAssumedEvent() {
+    fun noDivisionFoldsIntoAnAssumedEvent() {
         val sim = DeviceSim(EngineGames(3, List(40) { hauler } to List(40) { pilot }))
         val alice = sim.alice; val bob = sim.bob
         sim.start(alice, mode = ResponseMode.FullControl, alwaysAssume = false)
@@ -137,14 +146,18 @@ class AssumedDivisionTest {
         builder.answerRandoms()
         val divide = assertIs<arcanum.engine.decision.Decision.Divide>(model.engine.pending?.decision, "her division is open")
         assertEquals(alice, divide.player)
-        val automatic = WhoActs.automaticAnswer(model, divide)!!
+        kotlin.test.assertNull(WhoActs.automaticAnswer(model, divide), "no automatic answer: she divides")
+        val suggested = Input.Answer(divide.id, Answer.Division(divide.suggested))
         val lopsided = Input.Answer(divide.id, Answer.Division(listOf(
             divide.suggested[0].copy(amount = 3), divide.suggested[1].copy(amount = 1))))
         builder.abandon()
         fun submission(id: String, answer: Input.Answer) = Submission(id, server.head,
             listOf(Act.Perform(Input.PassPriority(bob), assumed = true), Act.Perform(answer)))
-        val refused = kotlin.test.assertFailsWith<Refusal> { server.submit(submission("lopsided", lopsided), alice).getOrThrow() }
-        assertTrue("never share an event" in refused.reason, refused.reason)
-        assertTrue(server.submit(submission("automatic", automatic), alice).isSuccess, "the automatic division folds in")
+        for ((id, answer) in listOf("lopsided" to lopsided, "suggested" to suggested)) {
+            val refused = kotlin.test.assertFailsWith<Refusal> { server.submit(submission(id, answer), alice).getOrThrow() }
+            assertTrue("never share an event" in refused.reason, refused.reason)
+        }
+        assertTrue(server.submit(Submission("pass", server.head, listOf(Act.Perform(Input.PassPriority(bob), assumed = true))), alice).isSuccess)
+        assertTrue(server.submit(Submission("divide", server.head, listOf(Act.Perform(lopsided))), alice).isSuccess, "her own division")
     }
 }

@@ -42,7 +42,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The browser's table plays (docs/specs/web-client.md §1 item 3, §11 step 4; WEB-007, WEB-070): a board's hand plays and card
+ * The browser's table plays (WEB-007, WEB-070): a board's hand plays and card
  * menus' plays asked of the engine's Web Worker ([EngineBoundary.remote]) arrive later as its answers, the same as worked
  * out in-process; nothing waits for good (a newer board, a lost worker); Android keeps working them out in-process.
  * The worker here is the engine side of the boundary ([EnginePlanner]) behind the page's message channel, answering

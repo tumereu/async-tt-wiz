@@ -26,10 +26,10 @@ data class PodStats(
     /** Land sources per colour (DRF-114): basics, basic land types and the lands' mana abilities. */
     val sources: Map<DraftColor, Long>,
     /**
-     * Main nonland copies per colour by their cast costs (DRF-117): a card counts in each of its colours, Multicolor counts
-     * the cards of two or more colours and Colorless those of none, so the counts add up to more than the cards.
+     * Main nonland copies per exact set of colours by their cast costs (DRF-117): each card counted once, under its one
+     * colour, its multicolour combination or none (Colorless); zeros absent.
      */
-    val colors: Map<PodStatsColor, Int>,
+    val colors: Map<Set<DraftColor>, Int>,
     val missingDefinitions: Int,
     /** Main lands (not basics) that produce no colored mana by [podStatsLandColors]. */
     val colorlessLands: Int = 0,
@@ -50,14 +50,37 @@ data class PodStats(
      * zeros absent (DRF-180). */
     val subtypes: List<Pair<String, Long>> = emptyList(),
     /** [colors] by colour identity instead (DRF-242): cast costs, mana symbols in rules text and colour indicators. */
-    val identityColors: Map<PodStatsColor, Int> = PodStatsColor.entries.associateWith { 0 },
+    val identityColors: Map<Set<DraftColor>, Int> = emptyMap(),
     /** [curveColors] by colour identity (DRF-242). */
     val curveIdentityColors: Map<Double, Map<PodStatsColor, Int>> = emptyMap(),
 ) {
     /** Main nonland copies: what the colour counts are shares of (DRF-117). */
     val nonland: Int get() = creatures + noncreatures
-    /** The colour counts by cast costs or, [byIdentity], by colour identity (DRF-242). */
-    fun colors(byIdentity: Boolean): Map<PodStatsColor, Int> = if (byIdentity) identityColors else colors
+    /** The Colors pie's slices by cast costs or, [byIdentity], by colour identity (DRF-117, DRF-242). */
+    fun slices(byIdentity: Boolean): List<PodStatsSlice> = podStatsSlices(if (byIdentity) identityColors else colors)
+}
+
+/**
+ * DRF-117: one slice of the Colors pie, the Main nonland cards of exactly [colors] (W U B R G order): one colour, a
+ * multicolour combination, or none (Colorless).
+ */
+data class PodStatsSlice(val colors: List<DraftColor>, val count: Int) {
+    /** Its name in the legend: "W", "WU", "WUB" or "Colorless". */
+    val name: String get() = if (colors.isEmpty()) "Colorless" else colors.joinToString("") { it.name }
+}
+
+/**
+ * DRF-117 (owner, 2026-11-20): the slices of [groups] holding cards, in the order they go round the pie: the single colours
+ * W U B R G, then two-colour combinations, then those of three or more (each in W U B R G order), Colorless last.
+ */
+fun podStatsSlices(groups: Map<Set<DraftColor>, Int>): List<PodStatsSlice> =
+    groups.filterValues { it > 0 }.map { (colors, count) -> PodStatsSlice(colors.sortedBy { it.ordinal }, count) }
+        .sortedWith(compareBy<PodStatsSlice> { if (it.colors.isEmpty()) Int.MAX_VALUE else it.colors.size }
+            .thenComparator { a, b -> podStatsColorOrder(a.colors, b.colors) })
+
+private fun podStatsColorOrder(a: List<DraftColor>, b: List<DraftColor>): Int {
+    for ((x, y) in a.zip(b)) if (x != y) return x.ordinal.compareTo(y.ordinal)
+    return a.size.compareTo(b.size)
 }
 
 data class PodStatsCurveBucket(val creatures: Int = 0, val noncreatures: Int = 0) {
@@ -246,11 +269,6 @@ fun podStatsColorOf(colors: Set<DraftColor>): PodStatsColor = when (colors.size)
     else -> PodStatsColor.MULTICOLOR
 }
 
-/** DRF-117: the Colors chart rows one card counts in: each of its colours, plus Multicolor with two or more, or Colorless. */
-fun podStatsColorCounts(colors: Set<DraftColor>): List<PodStatsColor> =
-    DraftColor.entries.filter { it in colors }.map { PodStatsColor.valueOf(it.name) } +
-        listOfNotNull(podStatsColorOf(colors).takeIf { it == PodStatsColor.MULTICOLOR || it == PodStatsColor.COLORLESS })
-
 /** [podStatsIdentityColors] as one chart part. */
 fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): PodStatsColor =
     podStatsColorOf(podStatsIdentityColors(card, copyColors))
@@ -288,8 +306,8 @@ fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: M
     val others = DraftColor.entries.associateWith { 0L }.toMutableMap()
     var sourceLands = build.basics.total
     var sourceOthers = 0
-    val colors = PodStatsColor.entries.associateWith { 0 }.toMutableMap()
-    val identityColors = PodStatsColor.entries.associateWith { 0 }.toMutableMap()
+    val colors = mutableMapOf<Set<DraftColor>, Int>()
+    val identityColors = mutableMapOf<Set<DraftColor>, Int>()
     var creatures = 0
     var noncreatures = 0
     var lands = build.basics.total
@@ -330,8 +348,8 @@ fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: M
                 else bucket.copy(noncreatures = bucket.noncreatures + 1)
             val cost = podStatsCostColors(card)
             val identity = podStatsIdentityColors(card, copy?.colors.orEmpty())
-            for (color in podStatsColorCounts(cost)) colors[color] = colors.getValue(color) + 1
-            for (color in podStatsColorCounts(identity)) identityColors[color] = identityColors.getValue(color) + 1
+            colors[cost] = (colors[cost] ?: 0) + 1
+            identityColors[identity] = (identityColors[identity] ?: 0) + 1
             curveColors.getOrPut(mv) { mutableMapOf() }.let { it[podStatsColorOf(cost)] = (it[podStatsColorOf(cost)] ?: 0) + 1 }
             curveIdentityColors.getOrPut(mv) { mutableMapOf() }
                 .let { it[podStatsColorOf(identity)] = (it[podStatsColorOf(identity)] ?: 0) + 1 }
@@ -396,11 +414,11 @@ fun podStatsSourceLine(sources: Long, share: Double): String =
 
 private fun podStatsPercent(share: Double) = "${(share * 100).roundToInt()}%"
 
-/** DRF-117: a colour's line in the Colors chart, its cards and their share of the Main nonland cards: "8 · 35%". */
+/** DRF-117: a slice's line in the Colors pie's legend, its cards and their share of the Main nonland cards: "8 · 35%". */
 fun podStatsColorLine(count: Int, nonland: Int): String =
     "$count · ${podStatsPercent(podStatsColorShare(count, nonland))}"
 
-/** DRF-117: a colour's share of the Main nonland cards in the Colors chart, 0 without any. */
+/** DRF-117: a slice's share of the Main nonland cards in the Colors pie, 0 without any. */
 fun podStatsColorShare(count: Int, nonland: Int): Double = if (nonland == 0) 0.0 else count.toDouble() / nonland
 
 /** Empty charts have zero shares, never NaN; each chart normalizes independently. */

@@ -19,12 +19,7 @@ Fixes and small changes:
 - Pod notifications: a pod's news ("Decks ready", "Draft cancelled" …) clears on every device once you have opened the pod on any one; and one notification per pod: a pod challenge and "Draft complete: build your deck" never both show for the same pod (LOB-243, DRF-138, DRF-137, DRF-122).
 - Vibration on your move gets its own setting in the Android app, no longer tied to the Your move sound (TRN-075, LOB-146; new entry).
 - Deck categories: a deck gets its own "Move to…" (a category or the top level) in Manage decks, so decks can be sorted without opening each; the editor's Category row stays (LOB-258, LOB-245; new entry).
-- Arena from a set offers snow-covered basics and Wastes as ordinary cards when the set's boosters hold them; the five plain basics never (DRF-286).
 - Token kind explanations in the rules reminders read more like MTG's own reminder text and spell out what the token is, as a real card's hint does ("It's an artifact token with …") (TBL-209).
-- Draft filter: multicolour is a golden M chip in the colour chips' row (no row of its own), named "Multicolor" as on Stats (DRF-252).
-- Stats colours become a pie: one slice per single colour and one per each multicolour combination the deck holds (striped in its colours, gold for three or more), each card counted once; the Cast cost | Identity toggle stays (DRF-117, DRF-242).
-- Arena setup: the "Uncommon every" tile's label wraps onto two lines; make it fit as the other tiles' do (DRF-281; no entry change).
-- Draft filter rarity chips: a set's special and bonus cards count under the rarity they belong to in Arena (DRF-291), not their own printing's (DRF-252).
 - Web app: a built-in file (fonts and the like) that fails to load is tried again a couple of times before "ATW couldn't load" shows (WEB-005).
 
 Features, in this order:

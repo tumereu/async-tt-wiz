@@ -1,0 +1,1 @@
+mod: Arena from a set also offers its snow-covered basic lands and Wastes when the set's boosters hold them.

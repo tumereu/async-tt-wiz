@@ -164,5 +164,7 @@ private fun symbolColor(part: String): Color = when (part) {
     "G" -> Color(0xff9dceaa)
     "S" -> Color(0xffceeff3)
     "E" -> Color(0xffffd77b)
+    // Not a mana symbol: the draft filter's Multicolor chip (DRF-252), gold as Stats' Multicolor
+    "M" -> Color(0xffffd77b)
     else -> Color(0xffd6dbdd)
 }

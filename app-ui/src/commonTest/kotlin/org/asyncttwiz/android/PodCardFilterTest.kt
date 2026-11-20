@@ -80,6 +80,26 @@ class PodCardFilterTest {
         assertEquals(listOf("p1", "p2-front"), asked.map { it.id }, "each card's front printing")
     }
 
+    // DRF-252, DRF-291 (owner, 2026-11-20): a special or bonus printing counts under the rarity it belongs to in Arena, the lowest of the
+    // card's other printings (rare without any), for the rarity chips; a typed search term still sees its own rarity
+    @Test fun specialAndBonusPrintingsCountUnderTheirArenaRarity() {
+        fun printing(id: String) = CatalogPrinting(id, "Card $id", "TSP", "1", "English", "", null, false, emptyList(), "{}")
+        val ids = listOf("p-lash", "p-cub", "p-glimpse")
+        val data = mapOf(
+            "p-lash" to CardSearchCard("Ember Lash", faces = emptyList(), printings = listOf(CardSearchPrinting("tsp", "special"),
+                CardSearchPrinting("old", "rare"), CardSearchPrinting("new", "uncommon"))),
+            "p-cub" to CardSearchCard("Mossback Cub", faces = emptyList(), printings = listOf(CardSearchPrinting("tsp", "bonus"))),
+            "p-glimpse" to CardSearchCard("Tide Glimpse", faces = emptyList(), printings = listOf(CardSearchPrinting("tsp", "common"))))
+        val read = podFilterPrintings(ids, { asked -> asked.associateWith { listOf(printing(it)) } }) { data }
+        assertEquals(listOf(CardSearchPrinting("tsp", "special"), CardSearchPrinting("tsp", "uncommon")), read["p-lash"])
+        assertEquals(listOf(CardSearchPrinting("tsp", "bonus"), CardSearchPrinting("tsp", "rare")), read["p-cub"])
+        assertEquals(listOf(CardSearchPrinting("tsp", "common")), read["p-glimpse"])
+        assertEquals(listOf("Ember Lash"), names(PodCardFilter(rarities = setOf(SearchRarity.UNCOMMON)), read))
+        assertEquals(listOf("Mossback Cub"), names(PodCardFilter(rarities = setOf(SearchRarity.RARE)), read))
+        assertEquals(listOf("Tide Glimpse"), names(PodCardFilter(rarities = setOf(SearchRarity.COMMON)), read))
+        assertEquals(listOf("Ember Lash"), names(PodCardFilter(text = "r:special"), read))
+    }
+
     // DRF-253: anything set makes the filter active; Clear empties text and chips at once
     @Test fun activeUntilCleared() {
         val state = PodCardFilterState()

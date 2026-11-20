@@ -1,1 +1,1 @@
-Rotisserie draft after Alice taps the filter button in the pool's bottom right corner and chooses red and mana value 1 in its popup: only Lightning Bolt still shows, and the button is filled with a dot.
+Rotisserie draft after Alice taps the filter button in the pool's bottom right corner and chooses red and mana value 1 in its popup (Multicolor the golden M at the end of the colours' row): only Lightning Bolt still shows, and the button is filled with a dot.

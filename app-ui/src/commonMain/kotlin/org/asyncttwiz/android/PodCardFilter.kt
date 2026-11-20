@@ -14,15 +14,18 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.appui.Executor
+import org.asyncttwiz.protocol.ArenaEngine
 import org.asyncttwiz.protocol.CardDefinition
 import org.asyncttwiz.protocol.CardSearchCard
 import org.asyncttwiz.protocol.CardSearchNode
 import org.asyncttwiz.protocol.CardSearchParse
 import org.asyncttwiz.protocol.CardSearchPrinting
 import org.asyncttwiz.protocol.CardSearchQuery
+import org.asyncttwiz.protocol.SetCardRarity
 import org.asyncttwiz.storage.CatalogPrinting
 
-/** The draft filter's rarity chips (DRF-252): a card's own printing's rarity. */
+/** The draft filter's rarity chips (DRF-252): a card's own printing's rarity; a special or bonus printing's the one it
+ * belongs to in Arena (DRF-291, [podFilterPrintings]). */
 enum class SearchRarity(val label: String, val term: String) {
     COMMON("Common", "r:common"), UNCOMMON("Uncommon", "r:uncommon"), RARE("Rare", "r:rare"), MYTHIC("Mythic", "r:mythic")
 }
@@ -93,6 +96,9 @@ fun podBuildFiltered(columns: List<List<PodBuildTile>>, filter: PodCardFilter,
 /**
  * DRF-252: each of [ids]' printings as card records know it, for its rarity: the card each printing is a face of ([cards],
  * CardCatalog.cards), read by [searchData], narrowed to that printing's set. Printings the records don't know are left out.
+ * A special or bonus printing also holds the rarity it belongs to in Arena (DRF-291, [ArenaEngine.rarity]): the lowest of
+ * the card's other printings, or rare without any, so the rarity chips find it there while typed search terms still see
+ * its own rarity.
  */
 fun podFilterPrintings(ids: Collection<String>, cards: (Collection<String>) -> Map<String, List<CatalogPrinting>>,
     searchData: (Collection<CatalogPrinting>) -> Map<String, CardSearchCard>): Map<String, List<CardSearchPrinting>> {
@@ -100,9 +106,18 @@ fun podFilterPrintings(ids: Collection<String>, cards: (Collection<String>) -> M
     val data = searchData(fronts.map { it.second }.distinctBy { it.id })
     return fronts.mapNotNull { (id, printing) ->
         val set = printing.set.lowercase()
-        data[printing.id]?.printings?.filter { it.set == set }?.takeIf { it.isNotEmpty() }?.let { id to it }
+        val card = data[printing.id] ?: return@mapNotNull null
+        val tier by lazy { ArenaEngine.tier(card.printings.mapNotNull { podFilterRarity(it.rarity) }) }
+        card.printings.filter { it.set == set }.flatMap { own ->
+            val rarity = podFilterRarity(own.rarity)
+            if (rarity == null || !ArenaEngine.special(rarity)) listOf(own)
+            else listOf(own, own.copy(rarity = ArenaEngine.rarity(rarity, tier).name.lowercase()))
+        }.distinct().takeIf { it.isNotEmpty() }?.let { id to it }
     }.toMap()
 }
+
+/** A card record's rarity word as a set rarity, null for one Arena doesn't know. */
+private fun podFilterRarity(word: String): SetCardRarity? = SetCardRarity.entries.firstOrNull { it.name.equals(word, ignoreCase = true) }
 
 /** Where a pod's filter is: the Rotisserie pool (DRF-250) or Build (DRF-254). Each has its own (DRF-255). */
 sealed interface PodFilterPlace {
@@ -208,8 +223,8 @@ fun PodCardFilterButton(state: PodCardFilterState, filters: PodCardFilters, defi
     }
 }
 
-/** The popup (DRF-250): "Filter cards" with Clear, the search field, and the chips: colours with Multicolour, mana values,
- * card types and rarities (DRF-252). */
+/** The popup (DRF-250): "Filter cards" with Clear, the search field, and the chips: colours with a golden M for
+ * Multicolor, mana values, card types and rarities (DRF-252). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PodCardFilterContent(state: PodCardFilterState, tag: String) {
@@ -230,7 +245,8 @@ private fun PodCardFilterContent(state: PodCardFilterState, tag: String) {
                 SearchColor.entries.forEach { color ->
                     SearchSymbolChip(color in filter.colors, color.label, "Colour ${color.label}", "$tag-colour-${color.label}") { state.toggle(color) }
                 }
-                FilterChip(filter.multicolor, state::toggleMulticolor, { Text("Multicolour") }, Modifier.height(32.dp).testTag("$tag-multicolour"))
+                // DRF-252 (owner, 2026-11-20): a golden M in the colours' row, named as Stats names it
+                SearchSymbolChip(filter.multicolor, "M", "Multicolor", "$tag-multicolour", state::toggleMulticolor)
             }
             FlowRow(horizontalArrangement = gap, verticalArrangement = gap) {
                 SearchManaValue.entries.forEach { value ->

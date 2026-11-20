@@ -4,6 +4,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -369,6 +370,28 @@ fun PodModeButton(mode: DraftMode, enabled: Boolean, choose: (DraftMode) -> Unit
     }
 }
 
+/** A setting tile's label at its top, on one line as every tile's: a long one ("Uncommon every", DRF-281) shrinks just enough
+ * to fit the tile instead of wrapping. */
+@Composable
+private fun PodTileLabel(label: String, modifier: Modifier) {
+    val style = MaterialTheme.typography.labelSmall
+    // Measured as Text styles it, so a label that fits is drawn exactly as before
+    val measured = LocalTextStyle.current.merge(style)
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier) {
+        val width = constraints.maxWidth
+        val size = remember(label, measured, width) {
+            generateSequence(measured.fontSize.value) { it - .25f }.takeWhile { it >= PodTileLabelSmallest }.firstOrNull { size ->
+                measurer.measure(label, measured.copy(fontSize = size.sp), maxLines = 1, softWrap = false).size.width <= width
+            } ?: PodTileLabelSmallest
+        }
+        Text(label, style = style, fontSize = size.sp, maxLines = 1, softWrap = false)
+    }
+}
+
+/** The smallest a tile's label shrinks to, in sp. */
+private const val PodTileLabelSmallest = 8f
+
 /** On/off setting in the same square tile shape as the numeric settings; a tap toggles it. Greyed when not [applicable]. */
 @Composable
 private fun PodToggleTile(label: String, checked: Boolean, enabled: Boolean, applicable: Boolean = true, toggle: (Boolean) -> Unit) {
@@ -376,7 +399,7 @@ private fun PodToggleTile(label: String, checked: Boolean, enabled: Boolean, app
         shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, ScreenBorder),
         color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface) {
         Box(Modifier.fillMaxSize().padding(6.dp).alpha(if (applicable) 1f else .38f)) {
-            Text(label, Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelSmall)
+            PodTileLabel(label, Modifier.align(Alignment.TopCenter))
             Text(if (checked) "On" else "Off", Modifier.align(Alignment.Center), style = MaterialTheme.typography.headlineSmall)
         }
     }
@@ -389,7 +412,7 @@ private fun PodSettingTile(field: PodSetting, settings: DraftSettings, enabled: 
     Surface(onClick = { open = true }, enabled = enabled, modifier = Modifier.size(96.dp),
         shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, ScreenBorder)) {
         Box(Modifier.fillMaxSize().padding(6.dp)) {
-            Text(field.label, Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelSmall)
+            PodTileLabel(field.label, Modifier.align(Alignment.TopCenter))
             val text = field.text(settings)
             Text(text, Modifier.align(Alignment.Center).testTag("pod-setting-${field.name.lowercase()}"),
                 style = if (text.length > 4) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium)

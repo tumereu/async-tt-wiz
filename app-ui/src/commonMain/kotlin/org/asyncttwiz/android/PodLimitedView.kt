@@ -81,6 +81,8 @@ class PodLimitedPreview {
     val scroll = androidx.compose.foundation.ScrollState(0)
     /** One board tile's size: prefetched pictures decode at it (DRF-070). */
     var tileSize by mutableStateOf(IntSize.Zero)
+    /** WEB-117: the desktop layout's quick look of the card the mouse rests on (unused on the phone layout). */
+    val look = PodQuickLook()
     fun hold(copy: DraftCopy, open: Boolean) {
         // Several fingers may hold cards: the latest hold shows, and only its release closes.
         if (open) { scroll.dispatchRawDelta(-scroll.value.toFloat()); held = copy } else if (held == copy) held = null
@@ -89,6 +91,8 @@ class PodLimitedPreview {
 
 @Composable
 fun PodLimitedPreviewHost(preview: PodLimitedPreview, definitions: Map<String, CardDefinition>) {
+    // WEB-117: the quick look waits while a held card's Inspect shows
+    if (LocalAppLayout.current == AppLayout.Desktop) PodQuickLookTimer(preview.look, blocked = preview.held != null)
     preview.held?.let { PodPickArtPreview(it, definitions[it.definition], preview.scroll) }
 }
 
@@ -104,7 +108,9 @@ fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: Strin
     val name = definition?.shownName ?: cardDataUnavailable("PodLimitedView", copy.definition)
     val picker = pickedBy?.let { id -> members.firstOrNull { it.accountId == id } }
     val currentTap by rememberUpdatedState(onTap)
-    Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { preview.tileSize = it }.testTag(tag).semantics {
+    // WEB-117: on the desktop layout resting the mouse on the card shows it larger with every face
+    val look = preview.look.takeIf { LocalAppLayout.current == AppLayout.Desktop }
+    Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { preview.tileSize = it }.podQuickLook(look, copy).testTag(tag).semantics {
         contentDescription = listOfNotNull(name, pickedBy?.let { "picked by ${picker?.username ?: "another player"}" }).joinToString(", ")
         this.selected = selected
         onClick("Select") { currentTap(); true }
@@ -121,6 +127,7 @@ fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: Strin
             .background(MaterialTheme.colorScheme.primary).testTag("$tag-badge"), contentAlignment = Alignment.Center) {
             Text(badge, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
         }
+        PodQuickLookPopup(look, copy, definition)
     }
 }
 

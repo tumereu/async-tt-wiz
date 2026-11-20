@@ -54,6 +54,8 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
     LaunchedEffect(controller, state.selected) { controller.shown() }
     // The pod list and the open pod are read again every 10 s while shown with the app in front, on the main thread's clock
     WhileInFront(controller, state.selected) { controller.watch(state.selected?.let { "pod $it" } ?: "pod list") }
+    // DRF-239: an open pod's picks count as seen only while its screen is in front; coming to the front tells what happened since
+    WhileInFront(controller, state.selected) { state.selected?.let(controller::inFront) ?: {} }
     // DRF-170: an open pod's chat is read again every few seconds
     state.selected?.let { PodChatRefresh(controller.chat, it, state.chatOpen, "pod screen") }
     LaunchedEffect(state.selected, state.setup?.revision, state.uncertain) {
@@ -482,6 +484,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
             }
         }
     }
+    // DRF-239: what happened in a Rotisserie draft since you last looked, over whichever tab the pod opened on
+    controller.away?.let { PodAwayDialog(it, accountId, detail.members.map { member -> member.account }, definitions, controller::dismissAway) }
 }
 
 @Composable

@@ -290,6 +290,45 @@ class LimitedDraftHttpTest {
         assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
     }
 
+    // DRF-240, DRF-239: the server keeps how many Rotisserie picks each member has seen: it only moves forward, never past the picks made,
+    // belongs to its member alone, and a new draft attempt starts from none; the picks tell their viewer what happened to their queue
+    @Test fun `Rotisserie HTTP keeps each member's seen picks`() = fixture { f ->
+        val pod = f.create(DraftSettings.rotisserie().copy(cardsPerPlayer = 5))
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        val attempt = started.draftAttemptId!!
+        val (x, y) = started.limited!!.seating.map(f::session)
+        val board = started.limited!!.board.map { it.copy.id }
+        fun seen(who: SessionCreated, picks: Int, status: Int = 200) =
+            f.send(who, "PUT", "/v1/pods/$pod/rotisserie/seen", SeePodPicks(picks), status)
+        f.send(y, "PUT", "/v1/pods/$pod/rotisserie/queue", PodPickQueue(id(), attempt, listOf(board[1], board[5])), 200)
+        f.turn(x, pod, PodTurn(id(), attempt, LimitedAction.TAKE_CARD, 0, board[0]))
+        // x's pick took y's two queued picks at once (the second ran the queue out).
+        val ofY = f.get(y, pod).limited!!
+        assertEquals(3, ofY.picks.size)
+        assertEquals(0, ofY.picksSeen)
+        assertEquals(listOf(false, true, true), ofY.picks.map { it.fromQueue })
+        assertEquals(listOf(false, false, true), ofY.picks.map { it.queueRanOut })
+        assertTrue(f.get(x, pod).limited!!.picks.none { it.fromQueue })
+        seen(y, 2)
+        assertEquals(2, f.get(y, pod).limited!!.picksSeen)
+        assertEquals(0, f.get(x, pod).limited!!.picksSeen)
+        // Never back, never past the picks made.
+        seen(y, 1)
+        assertEquals(2, f.get(y, pod).limited!!.picksSeen)
+        seen(y, 99)
+        assertEquals(3, f.get(y, pod).limited!!.picksSeen)
+        assertEquals("invalid_request", f.code(seen(y, -1, 400)))
+        assertEquals("not_found", f.code(seen(f.c, 1, 404)))
+        // A new attempt starts from no picks seen.
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodDraftRequest(id(), attempt), 200)
+        val again = json.decodeFromString<PodDetail>(f.start(pod))
+        val first = f.session(again.limited!!.currentPlayer!!)
+        f.turn(first, pod, PodTurn(id(), again.draftAttemptId!!, LimitedAction.TAKE_CARD, 0, again.limited!!.board[0].copy.id))
+        assertEquals(1, f.get(y, pod).limited!!.picks.size)
+        assertEquals(0, f.get(y, pod).limited!!.picksSeen)
+    }
+
     // DRF-154, DRF-214, DRF-155, DRF-139: open packs are public, later rounds stay hidden, picks follow each pack's snake order.
     @Test fun `Rochester HTTP open packs hidden rounds parallel picks and end`() = fixture { f ->
         val pod = f.create(DraftSettings.rochester().copy(packsPerPlayer = 2, cardsPerPack = 6))

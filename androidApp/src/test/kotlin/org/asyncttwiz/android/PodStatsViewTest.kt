@@ -54,9 +54,9 @@ class PodStatsViewTest {
         compose.onNodeWithText("Lands without a color", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-donut-Pips").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-donut-Sources").assertDoesNotExist()
+        // DRF-117: the white-blue-black card is one slice of its own, the whole pie
         compose.onNodeWithTag("pod-stats-colors").performScrollTo().assertIsDisplayed()
-            .assert(hasAnyDescendant(hasContentDescription("W 1 · 100%", substring = true)))
-            .assert(hasAnyDescendant(hasContentDescription("Multicolor 1 · 100%", substring = true)))
+            .assert(hasAnyDescendant(hasContentDescription("Colors by cast cost: WUB 1 · 100%")))
         compose.onAllNodesWithTag("pod-color-bar").assertCountEquals(0)
         compose.onNodeWithText("Mana sources · approximate").assertDoesNotExist()
     }
@@ -71,8 +71,9 @@ class PodStatsViewTest {
     private fun card(name: String, type: String, cost: String, text: String = "") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
 
-    /** A 23-card build plus 15 basics, as the app reads it: a green-white deck with a little red, a mana rock and two duals. */
-    private fun showDeck() {
+    /** A 23-card build plus 15 basics, as the app reads it: a green-white deck with a little red, a mana rock and two duals;
+     * [extra] cards (digest to name, type and cost, and copies) join it. */
+    private fun showDeck(extra: Map<String, Pair<CardDefinition, Int>> = emptyMap()) {
         val definitions = mapOf(
             "bear" to card("Bear", "Creature — Bear", "{1}{G}"), "golem" to card("Golem", "Artifact Creature — Golem", "{4}"),
             "hero" to card("Hero", "Legendary Creature — Human Knight", "{1}{W}{W}"), "bolt" to card("Bolt", "Instant", "{R}"),
@@ -81,9 +82,9 @@ class PodStatsViewTest {
             "walker" to card("Walker", "Legendary Planeswalker — Ajani", "{2}{G}{W}"),
             "giant" to card("Giant", "Creature — Giant // Sorcery — Adventure", "{4}{R}"),
             "gate" to card("Gate", "Land — Gate", "", "{T}: Add {R} or {G}."),
-        )
+        ) + extra.mapValues { it.value.first }
         val counts = mapOf("bear" to 5, "golem" to 2, "hero" to 3, "bolt" to 2, "growth" to 2, "rampant" to 1, "aura" to 2,
-            "ring" to 1, "walker" to 1, "giant" to 2, "gate" to 2)
+            "ring" to 1, "walker" to 1, "giant" to 2, "gate" to 2) + extra.mapValues { it.value.second }
         val copies = counts.flatMap { (digest, n) -> List(n) { DraftCopy("$digest-$it", digest) } }.associateBy { it.id }
         compose.setContent { MaterialTheme { androidx.compose.runtime.CompositionLocalProvider(LocalCardListSupport provides parsing) {
             PodStatsView(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }, PodDeckBasics(plains = 7, forest = 8)), copies, definitions)
@@ -196,27 +197,29 @@ class PodStatsViewTest {
         assertFalse(PodStatsCurveChoice(preferences).byColor)
     }
 
-    // DRF-117, DRF-242: the Colors chart counts a multicolor card in each of its colours and in Multicolor, each row's share of
-    // the 21 nonland cards; Identity counts mana symbols in rules text too (the Ember Rock below), for the curve as well
+    // DRF-117, DRF-242 (owner, 2026-11-20): the Colors pie has a slice per single colour and per multicolour combination the deck holds,
+    // each card counted once, its legend giving each slice's share of the 24 nonland cards; Identity counts mana symbols in rules
+    // text too (identityCountsRulesTextSymbolsCastCostDoesNot), for the curve as well
     @Test
     @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
-    fun colorsCountAMulticolorCardInEachOfItsColorsByCastCostOrIdentity() {
-        showDeck()
+    fun colorsPieHasASlicePerColorAndCombinationEachCardOnce() {
+        showDeck(mapOf("charm" to (card("Charm", "Instant", "{R}{W}") to 2), "command" to (card("Command", "Sorcery", "{G}{W}{U}") to 1)))
         val preferences = org.asyncttwiz.appui.AppPlatform.current.preferences("pod-build")
-        compose.onNodeWithTag("pod-stats").performScrollToNode(hasTestTag("pod-stats-colors-note"))
+        compose.onNodeWithTag("pod-stats").performScrollToNode(hasTestTag("pod-stats-colors"))
         compose.onNodeWithTag("pod-stats-colors-cast").assertIsSelected()
         compose.onNodeWithTag("pod-stats-colors-identity").assertIsNotSelected()
-        fun row(color: String, line: String) = compose.onNodeWithTag("pod-stats-color-$color", useUnmergedTree = true)
-            .assert(hasAnyDescendant(hasText(line)))
-        // The Walker ({2}{G}{W}) counts in W, G and Multicolor.
-        row("W", "6 · 29%"); row("G", "9 · 43%"); row("R", "4 · 19%"); row("U", "0 · 0%"); row("B", "0 · 0%")
-        row("MULTICOLOR", "1 · 5%"); row("COLORLESS", "3 · 14%")
-        compose.onNodeWithText("Multicolor", useUnmergedTree = true).assertExists()
-        compose.onNodeWithTag("pod-stats-colors-note").assertTextEquals("A multicolor card counts in each of its colors.")
-        compose.onRoot().captureShot("$SCREENSHOTS/pod-stats-colors.png", "Draft deck Stats scrolled to the Colors chart for " +
-            "a 23-card build plus 15 basics: a row per colour (W U B R G, Multicolor, Colorless) with its cards and their share of " +
-            "the 21 nonland cards and a bar, the Walker ({2}{G}{W}) counted in W, G and Multicolor, Cast cost chosen in the " +
-            "Cast cost | Identity toggle, and the note that a multicolor card counts in each of its colors.")
+        // The Walker ({2}{G}{W}) is one card of its own slice, the Charms another, the Command gold; no blue or black slice
+        compose.onNodeWithTag("pod-stats-colors").assert(hasAnyDescendant(hasContentDescription("Colors by cast cost: W 5 · 21%, " +
+            "R 4 · 17%, G 8 · 33%, WR 2 · 8%, WG 1 · 4%, WUG 1 · 4%, Colorless 3 · 13%")))
+        compose.onNodeWithTag("pod-stats-colors-pie", useUnmergedTree = true).assertExists()
+        // The pie is the page's end: scrolled all the way down
+        compose.onNodeWithTag("pod-stats").performTouchInput { swipeUp() }
+        compose.waitForIdle()
+        compose.onRoot().captureShot("$SCREENSHOTS/pod-stats-colors.png", "Draft deck Stats scrolled to the Colors pie for " +
+            "a 23-card build plus 15 basics, two {R}{W} Charms and a {G}{W}{U} Command: a slice per single colour (W, R, G), the " +
+            "two-colour Charms and Walker striped in their colours, the three-colour Command gold, and Colorless, each card counted " +
+            "once, with a legend of each slice's cards and share of the 24 nonland cards, and Cast cost chosen in the " +
+            "Cast cost | Identity toggle.")
         compose.onNodeWithTag("pod-stats-colors-identity").performClick()
         compose.onNodeWithTag("pod-stats-colors-identity").assertIsSelected()
         assertTrue(PodStatsCurveChoice(preferences).byIdentity, "the choice stays on this device")
@@ -226,7 +229,7 @@ class PodStatsViewTest {
     }
 
     // DRF-242: a mana rock adding red ("{T}: Add {R}.", cost {2}) is colorless by its cast cost and red by identity, in the
-    // Colors chart and the curve's Color view alike, one choice for both
+    // Colors pie and the curve's Color view alike, one choice for both
     @Test fun identityCountsRulesTextSymbolsCastCostDoesNot() {
         val rock = CardDefinition("Rock", listOf(DefinitionFace("front", "Rock", typeLine = "Artifact", manaCost = "{2}",
             rulesText = "{T}: Add {R}.")))
@@ -236,12 +239,10 @@ class PodStatsViewTest {
         compose.onNodeWithTag("pod-stats-curve-color").performClick()
         compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("2: 1 Colorless", substring = true))
         compose.onNodeWithTag("pod-stats-colors").performScrollTo()
-            .assert(hasAnyDescendant(hasContentDescription("R 0 · 0%", substring = true)))
-            .assert(hasAnyDescendant(hasContentDescription("Colorless 1 · 100%", substring = true)))
+            .assert(hasAnyDescendant(hasContentDescription("Colors by cast cost: Colorless 1 · 100%")))
         compose.onNodeWithTag("pod-stats-colors-identity").performClick()
         compose.onNodeWithTag("pod-stats-colors")
-            .assert(hasAnyDescendant(hasContentDescription("R 1 · 100%", substring = true)))
-            .assert(hasAnyDescendant(hasContentDescription("Colorless 0 · 0%", substring = true)))
+            .assert(hasAnyDescendant(hasContentDescription("Colors by identity: R 1 · 100%")))
         compose.onNodeWithTag("pod-stats-curve-basis-identity").assertIsSelected()
         compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("2: 1 R", substring = true))
         compose.onNodeWithTag("pod-stats-curve-basis-cast").performClick()
@@ -265,7 +266,7 @@ class PodStatsViewTest {
         compose.onNodeWithTag("pod-stats-colors").performScrollTo().assertIsDisplayed()
         val table = compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot()
         val colors = compose.onNodeWithTag("pod-stats-colors")
-            .assert(hasAnyDescendant(hasContentDescription("W 0 · 0%, U 0 · 0%, B 0 · 0%, R 0 · 0%, G 0 · 0%", substring = true)))
+            .assert(hasAnyDescendant(hasContentDescription("Colors by cast cost: no nonland cards")))
             .getUnclippedBoundsInRoot()
         assertEquals(table.top, colors.top)
         assertTrue(table.right < colors.left)

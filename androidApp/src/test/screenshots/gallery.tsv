@@ -310,7 +310,7 @@ number	item	screenshot	catalog	decisions	sequence
 310	A shake says why in a bubble rising from what shook	engine/refusal-bubble.png	TBL-118 TBL-212		
 315	Draft: "While you were away" in a Rotisserie pod	pod-rotisserie-away.png	DRF-239 DRF-240		
 316	Desktop draft: the quick look of a double-faced pack card	desktop/draft-quick-look.png	WEB-117		
-317	Draft: Stats Colors chart by cast cost, a multicolor card in each of its colors	pod-stats-colors.png	DRF-117 DRF-242		
+317	Draft: Stats Colors pie by cast cost, a slice per colour and colour combination, each card once	pod-stats-colors.png	DRF-117 DRF-242		
 318	The main button says Resolve while the other player's spell is still shown, what comes once it lands	engine/main-button-during-play.png	TRN-163 TRN-165 TBL-203	
 320	Draft: the Rotisserie pool filtered by its popup (red, mana value 1), the button filled with a dot	pod-rotisserie-filter.png	DRF-250 DRF-252 DRF-253		Draft filter
 321	Desktop: Build filtered by its popup (Creature and "human"), only the matching cards in the columns	desktop/build-filter.png	WEB-120 DRF-251 DRF-254		Draft filter

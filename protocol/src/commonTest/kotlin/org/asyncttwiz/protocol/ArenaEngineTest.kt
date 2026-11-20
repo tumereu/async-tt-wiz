@@ -105,12 +105,11 @@ class ArenaEngineTest {
     }
 
     // DRF-286: a set's offers never hold two copies of one card (its printings are one card); a later offer may bring it again;
-    // basic lands and other sets' cards are left out
+    // plain basic lands and other sets' cards are left out
     @Test fun setOffersNeverRepeatACardWithinAnOffer() {
         val printings = (0 until 8).flatMap { card ->
             List(1 + card % 3) { variant -> SetSourceCard("def-$card-$variant", "uuid-$card-$variant", SetCardRarity.COMMON, card = "Card $card") }
         } + SetSourceCard("def-plains", "uuid-plains", SetCardRarity.COMMON, card = "Plains") +
-            SetSourceCard("def-snow", "uuid-snow", SetCardRarity.COMMON, card = "Snow-Covered Island") +
             SetSourceCard("def-guest", "uuid-guest", SetCardRarity.COMMON, card = "Guest")
         val set = SetSourceSnapshot("TST", "Test set", printings)
         val cards = ArenaEngine.setCards(listOf(set), own = { _, uuid -> uuid != "uuid-guest" })
@@ -127,11 +126,32 @@ class ArenaEngineTest {
             state = pickFirst(state, "p0")
         }
         assertEquals(8, seen.size) // every card comes again in later offers
-        assertTrue(state.copies.none { it.definition in setOf("def-plains", "def-snow", "def-guest") })
+        assertTrue(state.copies.none { it.definition in setOf("def-plains", "def-guest") })
         // Unknown counts as common; special and bonus as their tier, rare without one (DRF-291)
         assertEquals(SetCardRarity.RARE, ArenaEngine.rarity(SetCardRarity.SPECIAL))
         assertEquals(SetCardRarity.UNCOMMON, ArenaEngine.rarity(SetCardRarity.BONUS, SetCardRarity.UNCOMMON))
         assertEquals(SetCardRarity.COMMON, ArenaEngine.rarity(SetCardRarity.UNKNOWN))
+    }
+
+    // DRF-286 (owner, 2026-11-20): snow-covered basics and Wastes are ordinary cards of a set whose boosters hold them (a sheet of
+    // its recipe names the printing; without a recipe its approximate packs draw from every card); the five plain basics never are
+    @Test fun snowCoveredBasicsAndWastesAreOfferedWhenTheSetsBoostersHoldThem() {
+        val printings = List(4) { SetSourceCard("def-$it", "uuid-$it", SetCardRarity.COMMON, card = "Card $it") } +
+            SetSourceCard("def-forest", "uuid-forest", SetCardRarity.COMMON, card = "Forest") +
+            SetSourceCard("def-snow-forest", "uuid-snow-forest", SetCardRarity.COMMON, card = "Snow-Covered Forest") +
+            SetSourceCard("def-wastes", "uuid-wastes", SetCardRarity.COMMON, card = "Wastes")
+        fun recipe(vararg land: String) = SetBoosterRecipe(listOf(SetBoosterComposition(mapOf("common" to 1, "land" to 1), 1)),
+            mapOf("common" to SetBoosterSheet(List(4) { "uuid-$it" to 1L }.toMap()),
+                "land" to SetBoosterSheet((land.toList() + "uuid-forest").associateWith { 1L })))
+        fun names(recipe: SetBoosterRecipe?) = ArenaEngine.setCards(listOf(SetSourceSnapshot("TST", "Test", printings, recipe))).map { it.id }.toSet()
+        val plain = setOf("TST:Card 0", "TST:Card 1", "TST:Card 2", "TST:Card 3")
+        assertEquals(plain + "TST:Snow-Covered Forest", names(recipe("uuid-snow-forest")), "the land sheet names the snow land, not Wastes")
+        assertEquals(plain + "TST:Wastes", names(recipe("uuid-wastes")))
+        assertEquals(plain, names(recipe()), "boosters without them")
+        assertEquals(plain + "TST:Snow-Covered Forest" + "TST:Wastes", names(null), "approximate packs draw every card of the set")
+        val cards = ArenaEngine.setCards(listOf(SetSourceSnapshot("TST", "Test", printings, recipe("uuid-snow-forest", "uuid-wastes"))))
+        assertEquals(ArenaCard("TST:Snow-Covered Forest", listOf("def-snow-forest"), set = "TST"), cards.single { it.id == "TST:Snow-Covered Forest" })
+        assertEquals(ArenaCounts(common = 6), ArenaEngine.counts(cards))
     }
 
     // DRF-291 (owner, 2026-11-20): a set's special and bonus cards form their tier's bonus bag; a card drawn for the tier comes

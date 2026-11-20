@@ -52,7 +52,10 @@ object ArenaEngine {
     const val MAX_OFFER = 15
     const val MAX_MYTHIC_ONE_IN = 100
     private val ORDER = listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE, SetCardRarity.MYTHIC)
-    private val BASICS = BasicLand.entries.map { it.cardName }.toSet() + "Wastes"
+    /** The five plain basic lands, never offered from a set (DRF-286). */
+    private val PLAIN_BASICS = BasicLand.entries.map { it.cardName }.toSet()
+    /** The other basic lands, offered from a set only when its boosters hold them (DRF-286; owner, 2026-11-20). */
+    private val OTHER_BASICS = PLAIN_BASICS.map { "Snow-Covered $it" }.toSet() + "Wastes" + "Snow-Covered Wastes"
     /**
      * DRF-291 (owner, 2026-11-20): the most a card drawn for a rarity comes from that rarity's bonus bag, in percent; the
      * chance is this times the bag's cards over the normal cards of the rarity, at most once over.
@@ -106,14 +109,16 @@ object ArenaEngine {
 
     /**
      * Each set's cards as Arena cards (DRF-286): a card once however many printings it has, its rarity the lowest of
-     * its printings'. Basic lands are left out, and so are printings [own] says are not the set's own (cards of other sets
+     * its printings'. The five plain basic lands are left out; snow-covered basics and Wastes are ordinary cards when the
+     * set's boosters hold them (a sheet of its recipe names that printing; without a recipe its approximate packs draw from
+     * every card of the set), else left out too. So are printings [own] says are not the set's own (cards of other sets
      * its booster recipe names). A card all of whose printings in the set are special or bonus is a bonus card (DRF-291):
      * its rarity is [tier] (the lowest rarity of its printings elsewhere, by its name), or rare without one.
      */
     fun setCards(sets: List<SetSourceSnapshot>, own: (set: String, uuid: String) -> Boolean = { _, _ -> true },
         tier: (card: String) -> SetCardRarity? = { null }): List<ArenaCard> =
         sets.flatMap { set ->
-            set.cards.filter { own(set.setCode, it.uuid) && !basic(it.card) }.sortedBy { it.uuid }
+            set.cards.filter { own(set.setCode, it.uuid) && offered(set, it) }.sortedBy { it.uuid }
                 .groupBy { it.card.ifEmpty { it.uuid } }.entries.sortedBy { it.key }.map { (card, printings) ->
                     val normal = printings.filter { !special(it.rarity) }
                     val bonus = normal.isEmpty()
@@ -125,7 +130,11 @@ object ArenaEngine {
                 }
         }
 
-    private fun basic(name: String) = name in BASICS || name.removePrefix("Snow-Covered ") in BASICS
+    private fun offered(set: SetSourceSnapshot, card: SetSourceCard): Boolean = when (card.card) {
+        in PLAIN_BASICS -> false
+        in OTHER_BASICS -> set.recipe?.sheets?.values?.any { (it.cards[card.uuid] ?: 0L) > 0L } ?: true
+        else -> true
+    }
 
     /** The cards of each rarity in [cards] (DRF-285); several sets give each rarity's fewest of any one set. */
     fun counts(cards: List<ArenaCard>): ArenaCounts {

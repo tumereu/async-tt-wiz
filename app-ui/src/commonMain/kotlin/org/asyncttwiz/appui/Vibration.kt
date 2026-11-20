@@ -9,3 +9,6 @@ import androidx.compose.runtime.Composable
  * the shared UI's haptic tick (WEB-012).
  */
 @Composable expect fun rememberMoveVibration(): (why: String) -> Unit
+
+/** TRN-167: whether Settings offers "Vibrate on your move" (the Android app; not a browser). */
+expect val moveVibrationSetting: Boolean

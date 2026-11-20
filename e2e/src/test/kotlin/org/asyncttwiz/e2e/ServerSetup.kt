@@ -225,6 +225,9 @@ object ServerSetup {
         }
     }
 
+    /** [b] made a contact of [a]'s, so [a] can invite them. */
+    fun contact(a: TestAccount, b: TestAccount) { lobbyCall { it.add(a.token, AddContact(UUID.randomUUID().toString(), b.id)) } }
+
     /** [b] joins [a]'s pod [pod] (invited as a contact, accepting) and [a] starts its draft. */
     fun joinAndStart(a: TestAccount, b: TestAccount, pod: String) = runBlocking {
         fun id() = UUID.randomUUID().toString()

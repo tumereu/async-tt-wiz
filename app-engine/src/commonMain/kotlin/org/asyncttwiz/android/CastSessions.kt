@@ -109,6 +109,12 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
     private fun answer(session: Long, name: String, version: Long?, outcome: Outcome): CastAnswer = when (outcome) {
         is Outcome.Show -> {
             val v = sessions.put(session, Entry(outcome.flow, outcome.ahead), "$name shows ${outcome.flow.pending?.kind ?: "the complete flow"}")
+            // Prod reports V5LJML, SFBXD9 (convoke): the payment a panel opens on, Autotap's suggestion and every way offered
+            ((outcome.ahead ?: outcome.flow).pending as? Decision.ManaPayment)?.let { pay ->
+                AppLog.info("cast", "Payment of ${outcome.flow.cardId} opens: ${pay.cost}; Autotap suggests " +
+                    "${pay.suggestion.joinToString { ManaWays.label(it) }.ifEmpty { "nothing" }}; ${pay.options.size} ways offered: " +
+                    pay.options.take(24).joinToString { ManaWays.label(it) })
+            }
             if (v == null) CastAnswer.Drop(TABLE_CHANGED) else CastAnswer.Show(outcome.panel(flowValue(outcome.flow, v, outcome.fresh)))
         }
         is Outcome.Mana -> CastAnswer.Mana(version ?: 0, outcome.mana, outcome.paid, outcome.taps.wire())
@@ -144,8 +150,11 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
             val plays = AutomatumBoards.handPlays(play, viewer)
             val offered = plays.of(op.cardId)
             val name = cardName(play, op.cardId)
-            val begin = op.way ?: offered.firstOrNull()
-                ?: return Outcome.Drop(if (land(play, op.cardId)) "$name can't be played now." else "$name can't be cast now.")
+            val begin = op.way ?: offered.firstOrNull() ?: run {
+                // Prod reports V5LJML, SFBXD9 (logging rule 2026-11-09): why a card can't be cast reaches the report
+                AppLog.info("cast", "Cast of $name (${op.cardId}) refused: the engine offers no way to cast it now")
+                return Outcome.Drop(if (land(play, op.cardId)) "$name can't be played now." else "$name can't be cast now.")
+            }
             val flow = try {
                 CastFlow.start(source(play), viewer, begin, seeds(), extras = op.extras)
             } catch (_: IllegalArgumentException) {
@@ -165,8 +174,13 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
             val src = source(play)
             val seeds = seeds()
             val chips = op.known?.takeIf { it.cardId == cardId } ?: HandCasts.chips(src, definitions, viewer, cardId, offered, seeds)
-                ?: return Outcome.Drop(cant)
-            if (!chips.affordable) return Outcome.Drop(cant)
+                ?: return Outcome.Drop(cant).also { AppLog.info("cast", "Cast of $name ($cardId) from the hand refused: no way to cast it now") }
+            if (!chips.affordable) {
+                // Prod reports V5LJML, SFBXD9: which ways the card has and that none can be done now
+                AppLog.info("cast", "Cast of $name ($cardId) from the hand refused: none of its ${chips.count} ways can be done now " +
+                    "(the cheapest ${chips.cheapest ?: "free"}; ${offered.size} offered)")
+                return Outcome.Drop(cant)
+            }
             if (!chips.choice) {
                 val chip = chips.chips.first()
                 val flow = try { CastFlow.start(src, viewer, chip.input, seeds, extras = chip.times) }

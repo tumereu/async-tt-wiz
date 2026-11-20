@@ -116,6 +116,13 @@ object EngineEventText {
         val name = name(input.source, state, viewer)
         val item = event.engine?.changes.orEmpty().filterIsInstance<Change.StackItemAdded>().map { it.item }
             .firstOrNull { it.kind is StackItemKind.Activated && it.origin == input.ability }
+        // HIS-091 (prod faults 9SF97R, P86WUK, owner 2026-11-19: an unlock showed nowhere): a special action reads as what it
+        // did, "Bob unlocked Prop Room", "You turned Ember Mask face up"
+        if (item == null) {
+            val definition = (input.source as? ObjectId.Card)?.card?.let { card ->
+                state?.let { s -> s.objects[input.source] ?: s.objects.values.lastOrNull { it.card == card } }?.definition }
+            org.asyncttwiz.automatum.CastFlow.specialActionDone(definition, input.ability, name)?.let { return "$who $it" }
+        }
         if (name != null && item != null && org.asyncttwiz.automatum.StackAbilityText.cycling(item)) return "$who cycled $name"
         val kind = item?.let { org.asyncttwiz.automatum.StackAbilityText.kind(it) }?.takeIf { it != "Activated ability" }
         return "$who activated ${name?.let { "$it's ${kind?.replaceFirstChar { c -> c.lowercase() } ?: "ability"}" } ?: "an ability"}"
@@ -422,6 +429,15 @@ object EngineChanges {
                 add(TableChange(TableChangeKey(card.id, TableChangeKind.OWNER), owner = card.controllerOf(after)))
             if (old.containerId == card.containerId && (old.faceId != card.faceId || old.covered != card.covered))
                 add(TableChange(TableChangeKey(card.id, TableChangeKind.FACE)))
+        }
+        // HIS-031 (owner 2026-11-19, prod faults 9SF97R, P86WUK: unlocking a door showed nothing): a Room on the battlefield
+        // whose door was unlocked pulses as a control change does, in its controller's colour
+        val unlocked = events.flatMap { e -> e.engine?.changes.orEmpty().filterIsInstance<Change.Happened>() }
+            .mapNotNull { (it.event as? arcanum.engine.change.GameEvent.Unlocked)?.id as? ObjectId.Card }.map { it.card.value }.toSet()
+        for (card in after.board.cards) {
+            if (card.id !in unlocked || card.containerId !in battlefield) continue
+            if (beforeCards[card.id]?.containerId == card.containerId)
+                add(TableChange(TableChangeKey(card.id, TableChangeKind.UNLOCK), owner = card.controllerOf(after)))
         }
     }.distinctBy { it.key }
 

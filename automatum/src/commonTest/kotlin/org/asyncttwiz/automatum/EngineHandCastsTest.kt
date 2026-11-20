@@ -444,4 +444,34 @@ class EngineHandCastsTest {
             assertEquals(listOf("CastFlow: own permission ability without its text"), faults.map { it.key })
         } finally { org.asyncttwiz.protocol.Faults.sink = sink }
     }
+
+    private val stage = arcanum.engine.cards.Cards.inventFaces("Split",
+        arcanum.engine.cards.face("Gilded Stage", "{3}{W}", "Enchantment — Room", "Creature spells you cast have convoke.", null, null, null),
+        arcanum.engine.cards.face("Prop Closet", "{2}{W}", "Enchantment — Room",
+            "Untap each creature you control during each other player's untap step.", null, null, null),
+    )
+    private val eye = arcanum.engine.cards.Cards.invent("Peeping Eye", "{1}{U}", "Creature — Eye",
+        "{T}: Add {U}. Spend this mana only to cast an enchantment spell, unlock a door, or turn a permanent face up.", "1/1")
+    private val tumbler = arcanum.engine.cards.Cards.invent("Plucky Tumbler", "{1}{W}", "Creature — Human Performer", "Vigilance", "2/2")
+
+    // STK-024, STK-161 (CR 702.51a, 106.6; prod reports V5LJML, SFBXD9): with every land tapped, a creature spell given convoke by a
+    // Room is paid by tapping a blue creature for {1} and a white one for {W}; the blue creature's own mana, spendable only on
+    // enchantments, doors and turning face up, is no way to pay it
+    @Test fun aRoomsConvokePaysWithTwoCreatures() {
+        table.put(alice, Zone.Battlefield, "Plains", "Plains", tapped = true)
+        val (room) = table.put(alice, Zone.Battlefield, stage)
+        table.update(room) { it.copy(marks = it.marks + arcanum.api.ObjectMark.Unlocked(arcanum.api.Door.Left)) }
+        val (peeper, white) = table.put(alice, Zone.Battlefield, eye, tumbler)
+        val (card) = table.put(alice, Zone.Hand, tumbler)
+        val state = table.state()
+        val flow = CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(card).single(), CastFlow.Seeds(table::seed))
+        val payment = assertIs<Decision.ManaPayment>(flow.pending)
+        val convokes = payment.options.filterIsInstance<arcanum.engine.decision.ManaUse.Special>().filter { it.way == arcanum.api.ManaPaymentWay.TapCreatures }
+        assertEquals(setOf(table.obj(peeper), table.obj(white)), convokes.flatMap { it.objects }.toSet(), "both creatures may convoke")
+        assertTrue(flow.pays(convokes), "the two creatures pay {1}{W}: " + convokes)
+        assertTrue(flow.pays(payment.suggestion), "Autotap's suggestion pays: " + payment.suggestion)
+        val eyeMana = payment.options.filterIsInstance<arcanum.engine.decision.ManaUse.Ability>().filter { it.source == table.obj(peeper) }
+        assertTrue(eyeMana.none { flow.pays(convokes.filter { c -> table.obj(peeper) !in c.objects } + it) },
+            "the Eye's mana can't be spent on a creature spell: " + eyeMana)
+    }
 }

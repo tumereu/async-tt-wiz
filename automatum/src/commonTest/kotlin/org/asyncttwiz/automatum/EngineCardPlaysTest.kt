@@ -9,6 +9,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.state.PlayerId
+import arcanum.engine.cards.Cards
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -139,5 +140,34 @@ class EngineCardPlaysTest {
             assertEquals("{2}, {T}, Sacrifice this token: You gain 3 life.", face.rulesText)
         }
         assertEquals(emptyList(), faults + projectionFaults)
+    }
+
+    private val room = Cards.inventFaces("Split",
+        arcanum.engine.cards.face("Lamplit Parlor", "{1}{W}", "Enchantment — Room", "When you unlock this door, you gain 2 life.", null, null, null),
+        arcanum.engine.cards.face("Dusty Attic", "{2}{W}", "Enchantment — Room", "Creatures you control get +1/+0.", null, null, null),
+    )
+
+    // TBL-115, SYS-153 (CR 709.5e, prod faults 9SF97R, P86WUK: the unlock read as the placeholder "Special action"): a locked
+    // door's unlocking is offered by its name, "Unlock Dusty Attic"
+    @Test fun unlockingADoorIsOfferedByItsName() {
+        table.put(alice, Zone.Battlefield, "Plains", "Plains", "Plains")
+        val (parlor) = table.put(alice, Zone.Battlefield, room)
+        table.update(parlor) { it.copy(marks = it.marks + arcanum.api.ObjectMark.Unlocked(arcanum.api.Door.Left)) }
+        val (plays, faults) = faults { table.plays() }
+        val unlock = plays.of(parlor).single { it.kind == CardPlay.Kind.Special }
+        assertEquals("Unlock Dusty Attic", unlock.text)
+        assertIs<Input.Activate>(unlock.input)
+        assertEquals(emptyList(), faults)
+    }
+
+    // TBL-115 (CR 701.40b): a manifested creature card's turning face up is offered with its mana cost, never as a placeholder
+    @Test fun turningAManifestedCardFaceUpIsNamed() {
+        table.put(alice, Zone.Battlefield, "Forest", "Forest", "Forest")
+        val (seer) = table.put(alice, Zone.Battlefield, "Elvish Seer")
+        table.update(seer) { it.copy(faceDown = true, marks = it.marks + arcanum.api.ObjectMark.Manifested) }
+        val (plays, faults) = faults { table.plays() }
+        val faceUp = plays.of(seer).single { it.kind == CardPlay.Kind.Special }
+        assertEquals("Turn face up for " + Cards.definition("Elvish Seer").faces.single().manaCost, faceUp.text)
+        assertEquals(emptyList(), faults)
     }
 }

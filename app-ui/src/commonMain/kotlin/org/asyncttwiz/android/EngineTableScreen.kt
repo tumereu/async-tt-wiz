@@ -338,6 +338,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val desktopFrame = if (desktopLayout) DesktopFrame(dockOpen) else null
     // WEB-031, WEB-032: the desktop table's hotkeys (§6), never while a text field has the keyboard
     val hotkeys = remember(game.id) { TableHotkeys() }
+    // WEB-090 (prod reports 9FNZGG, SLCCVC): a press on the table takes the keyboard from the dock's chat
+    val dockFocus = remember(game.id) { DockFocus() }
     val bindings = currentKeyBindings()
     DesktopKeyboard.Listen(desktopLayout) { key ->
         if (!key.down || key.textField) return@Listen false
@@ -443,7 +445,9 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 val rewindPanel: @Composable (@Composable () -> Unit) -> Unit = { _ -> EngineRewindPanel(landscape) }
                 val watch = { watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
                 val pausePlayback = { engine.pause(); controller.engineSent() }
-                val dock: @Composable () -> Unit = { DesktopDock { modifier -> ChatPanel(controller, accountId, modifier, docked = true) } }
+                val dock: @Composable () -> Unit = {
+                    DesktopDock(dockFocus.dock(Modifier)) { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
+                }
                 val hooks = key("table hooks") { TableRuntimeHooks(chat = chatOpener,
                         navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake, undoShakeReason = routes.undoShakeReason,
@@ -503,7 +507,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         // WEB-017: the game chat docked at the right (the Stack stays on the table, STK-007)
                         desktopDock = if (!chatDocked) null else dock) }
                 key(game.id) {
-                    TableSurface(game, play, accountId, landscape || desktopLayout, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
+                    TableSurface(game, play, accountId, landscape || desktopLayout,
+                        if (desktopLayout) dockFocus.table(Modifier.fillMaxSize()) else Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                         onIntent = toolkit::handle, toolkit = toolkit, runtime = hooks)
                 }
                 // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the

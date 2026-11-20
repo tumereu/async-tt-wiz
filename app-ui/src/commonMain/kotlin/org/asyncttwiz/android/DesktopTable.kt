@@ -16,6 +16,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.testTag
 import kotlin.math.roundToInt
@@ -436,6 +440,49 @@ fun DesktopDock(modifier: Modifier = Modifier, chat: @Composable (Modifier) -> U
     Column(modifier.fillMaxSize().background(Color(0xfffafbfb)).border(1.dp, Color(0xffd5d8dc))
         .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }.testTag("desktop-dock")) {
         chat(Modifier.fillMaxWidth().weight(1f).onSizeChanged { chatShown = (it.height / density).toInt() })
+    }
+}
+
+/**
+ * WEB-090 (prod reports 9FNZGG, SLCCVC, 2026-11-19: a click on the table while writing in the dock's chat left the chat's caret
+ * where it was, the keys then pressing the table's hotkeys, "No blocks" among them, and typing the rest into the chat): a press on
+ * the table outside the dock takes the keyboard from the chat, as a click outside a text field does on a web page. [dock] goes
+ * on the dock, [table] on the table's surface around it.
+ */
+class DockFocus {
+    /** Whether the dock's chat field has the keyboard. */
+    var chatFocused = false
+        private set
+    private var dockBounds: androidx.compose.ui.geometry.Rect? = null
+    private var surface: androidx.compose.ui.layout.LayoutCoordinates? = null
+
+    fun dock(modifier: Modifier): Modifier = modifier
+        .onFocusChanged { state ->
+            if (state.hasFocus != chatFocused) AppLog.info("chat", "Dock's chat ${if (state.hasFocus) "has" else "let go of"} the keyboard")
+            chatFocused = state.hasFocus
+        }
+        .onGloballyPositioned { dockBounds = it.boundsInRoot() }
+
+    /** Whether a press at [position] on the table's surface lies outside the dock while its chat has the keyboard. */
+    fun takesKeyboard(position: androidx.compose.ui.geometry.Offset): Boolean {
+        if (!chatFocused) return false
+        val at = surface?.takeIf { it.isAttached }?.localToRoot(position) ?: return false
+        return dockBounds?.contains(at) != true
+    }
+
+    @Composable
+    fun table(modifier: Modifier): Modifier {
+        val focus = androidx.compose.ui.platform.LocalFocusManager.current
+        return modifier.onGloballyPositioned { surface = it }.pointerInput(this) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false,
+                    pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                if (takesKeyboard(down.position)) {
+                    AppLog.info("chat", "A press on the table took the keyboard from the dock's chat")
+                    focus.clearFocus()
+                }
+            }
+        }
     }
 }
 

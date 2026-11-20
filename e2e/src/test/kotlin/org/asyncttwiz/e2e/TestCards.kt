@@ -431,6 +431,11 @@ object TestCards {
         TestFace("Trail", "Instant", "{2}{G}", "Draw a card."),
         TestFace("Blaze", "Instant", "{1}{R}{R}", "Blaze deals 3 damage to any target.")), layout = "split")
 
+    /** A Room (CR 709.5): a door cast for {R}, the other unlocked for nothing (prod faults 9SF97R, P86WUK: the unlock read "Special action"). */
+    val foyer = TestCard("Ember Foyer // Ember Vault", listOf(
+        TestFace("Ember Foyer", "Enchantment — Room", "{R}", "When you unlock this door, you gain 1 life."),
+        TestFace("Ember Vault", "Enchantment — Room", "{0}", "When you unlock this door, you gain 2 life.")), layout = "split")
+
     /** SYS-086 (owner fault 2PTQG5): a free sorcery making three tokens the rules define (CR 111.10a, b, f). */
     val pantry = card("Ember Pantry", "Sorcery", "{0}", "Create a Food token, a Treasure token, and a Clue token.")
 

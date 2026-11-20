@@ -42,8 +42,10 @@ fun podRotisserieAway(view: LimitedView, seen: Int): PodRotisserieAway? {
 private fun podAwayCardName(card: DraftCopy, definitions: Map<String, CardDefinition>): String =
     definitions[card.definition]?.name ?: cardDataUnavailable("PodAwayView", card.definition)
 
+/** A picker's name in "While you were away"; without one "Another player", reported as a stand-in (LOB-090). */
 private fun podAwayName(player: String, me: String, members: List<AccountIdentity>): String =
-    if (player == me) "You" else members.firstOrNull { it.accountId == player }?.username ?: "Another player"
+    if (player == me) "You" else org.asyncttwiz.automatum.PlayerNames.of(members.associate { it.accountId to it.username }, player,
+        "Another player", "PodAwayView")
 
 /** The lines about the viewer's queue (DRF-239): "Your queue was cleared: Bob took Lightning Bolt", "Your queue ran out:
  * Shock was its last card". */

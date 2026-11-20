@@ -431,10 +431,11 @@ fun LimitedView.table(index: Int): LimitedView = tables.getOrNull(index)?.let { 
  */
 fun podTableChipText(index: Int, table: LimitedTableView, me: String, members: List<AccountIdentity>,
     mode: DraftMode = DraftMode.WINCHESTER): String =
-    "Table ${index + 1} · " + when (table.currentPlayer) {
+    "Table ${index + 1} · " + when (val current = table.currentPlayer) {
         null -> "Finished"
         me -> "Your pick"
-        else -> (members.firstOrNull { it.accountId == table.currentPlayer }?.username ?: "Another player") +
+        else -> org.asyncttwiz.automatum.PlayerNames.of(members.associate { it.accountId to it.username }, current,
+            "Another player", "PodLimitedView") +
             if (mode == DraftMode.WINSTON) " looks" else " picks"
     }
 

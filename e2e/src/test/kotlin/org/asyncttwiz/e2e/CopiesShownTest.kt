@@ -51,6 +51,25 @@ class CopiesShownTest : E2e() {
         done()
     }
 
+    /**
+     * HIS-233, HIS-110 (owner 2026-11-19): [whose] trigger resolving exiles a card from Alice's library: both tables show it as a reveal
+     * ("You exiled … from your library" on hers), each closed by its own OK (Bob's by playing along); then her "you may cast that card"
+     * choice shows, once [also] holds.
+     */
+    private fun aliceExileShownThenChoice(whose: String, also: () -> Boolean = { true }) {
+        aliceResolvesUntil("$whose exile shown on Alice's table") {
+            alice.shown.reveal?.exiled != null && alice.showsRevealOk() && also()
+        }
+        // (Mountains over the Glimmer go with it: "You exiled 2 cards from your library")
+        assertTrue(alice.showsText("You exiled ", substring = true) && alice.showsText(" from your library", substring = true),
+            "$whose exile's panel: ${alice.screen()}")
+        assertTrue(alice.shows(hasContentDescription("Idle Glimmer", substring = true)), "$whose exile shows the Glimmer: ${alice.screen()}")
+        alice.revealOk()
+        aliceResolvesUntil("$whose choice to cast the exiled card") {
+            alice.shown.reveal == null && alice.state.pending?.decision is Decision.May && alice.showsText("About:") && also()
+        }
+    }
+
     private fun topKind(): StackItemKind? = alice.state.let { s -> s.stack.lastOrNull()?.let { s.stackItems[it]?.kind } }
 
     // STK-212, HIS-231, STK-178, STK-030, STK-046: Alice's Ember Forager enters; she copies its trigger with her Ember Kindler. The copy
@@ -114,16 +133,16 @@ class CopiesShownTest : E2e() {
         // STK-212: on the Stack its token reads as a copy
         waitUntil("the copy's token on Alice's Stack") { !showsCopy(alice) && alice.shows(hasContentDescription("Copy of a triggered ability", substring = true)) }
 
-        // The copy resolves: it exiles the Idle Glimmer and offers to cast it
-        aliceResolvesUntil("the copy's choice to cast the exiled card") { alice.state.pending?.decision is Decision.May && alice.showsText("About:") }
+        // The copy resolves: it exiles the Idle Glimmer, shown first as a reveal (HIS-233, owner 2026-11-19: its own panel and OK, the
+        // one who exiled it too), then offers to cast it
+        aliceExileShownThenChoice("the copy's")
         assertTrue(alice.shows(hasContentDescription("Idle Glimmer")), "STK-030: the exiled card about the choice: ${alice.screen()}")
         assertTrue(alice.shows(hasContentDescription("Copy")), "STK-178: the source's token with the copy marker: ${alice.screen()}")
         assertTrue(alice.shows(hasContentDescription("Ember Forager")), "STK-178: the source named by its face: ${alice.screen()}")
         assertTrue(!alice.shows(hasContentDescription("Hidden card")), "never a card back: ${alice.screen()}")
         alice.text("No").performClick()
-        aliceResolvesUntil("the original trigger's choice") {
-            alice.state.pending?.decision is Decision.May && alice.state.stack.none { it == copy } && alice.showsText("About:")
-        }
+        // HIS-233: the original trigger's exile shows its own reveal before its own choice; the copy's "No" isn't lost
+        aliceExileShownThenChoice("the original trigger's") { alice.state.stack.none { it == copy } }
         assertTrue(!alice.shows(hasContentDescription("Copy")), "the original isn't marked a copy: ${alice.screen()}")
         alice.text("No").performClick()
         aliceResolvesUntil("the Stack empty") { alice.state.stack.isEmpty() && alice.inOwnMain() }
@@ -144,7 +163,11 @@ class CopiesShownTest : E2e() {
         alice.playFromHand("Ember Bauble", this)
         val art = assertNotNull(TestCards.bauble.definition.faces.single().scryfallId)
         val seen = mutableSetOf<String>()
-        waitUntil("the Bauble's copy shown arriving on both tables", along = listOf(bob)) {
+        // STK-212, HIS-231 (release fix 0.3.0): its line reads "Your copy of Ember Bauble" to Alice, never "You's copy of …"
+        val worded = mutableSetOf<String>()
+        waitUntil("the Bauble's copy shown arriving on both tables, Alice's naming it her copy", along = listOf(bob)) {
+            if (showsCopy(alice) && alice.shows(hasTestTag(PLAY_SHOW_TAG) and hasContentDescription("Your copy of Ember Bauble", substring = true)))
+                worded += alice.name
             for (player in listOf(alice, bob)) if (showsCopy(player) && player.name !in seen) {
                 val play = player.shown.board
                 val entry = play.board.stackEffects.single { it.id == "entry:${player.shown.show?.entry}" }
@@ -157,8 +180,9 @@ class CopiesShownTest : E2e() {
                 assertTrue(entry.isCopy, player.name)
                 seen += player.name
             }
-            seen.size == 2
+            seen.size == 2 && worded.isNotEmpty()
         }
+        assertTrue(faults.none { it.area == "StackLine" }, "the copy's controller was named: $faults")
         waitUntil("the Bauble and its token copy on both tables", along = listOf(bob)) {
             alice.field("Ember Bauble").size == 2 && bob.field("Ember Bauble", alice.me).size == 2 && alice.inOwnMain()
         }

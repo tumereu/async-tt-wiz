@@ -1594,7 +1594,8 @@ class PodHttpTest {
         refused(listOf("TST", "DCK"), 404, "set_not_found")
         refused(listOf("TST", "NOPE"), 404, "set_not_found")
         refused(listOf("TST", "T S T"), 400, "invalid_source")
-        refused(List(61) { "TST" }, 400, "invalid_source")
+        // The longest list is Arena's most picks, a grid row each (owner 2026-11-20: 120)
+        refused(List(121) { "TST" }, 400, "invalid_source")
         val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Grid", packSets = listOf("TST", "TWL")), 201)).id
         assertEquals("automatum_unsupported", json.decodeFromString<PodError>(
             f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), packSets = listOf("TST", "TWL", "BAD")), 409)).code)

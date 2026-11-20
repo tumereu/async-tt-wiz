@@ -31,6 +31,7 @@ class StackLineTest {
     private val burst = invented("burst", "Ember Burst", "Sorcery", "Ember Burst deals X damage to any target.")
     private val snare = invented("snare", "Frost Snare", "Instant", "Tap up to two target creatures.")
     private val insight = invented("insight", "Borrowed Insight", "Sorcery", "Target player draws two cards.")
+    private val whisper = invented("whisper", "Night Murmur", "Sorcery", "You draw two cards and you lose 2 life.")
     private val charm = invented("charm", "Cinder Charm", "Instant", "Choose one —\n• Cinder Charm deals 1 damage to any target.\n• You gain 2 life.")
 
     private class Invented(val submitted: SubmittedDefinition, val engine: arcanum.api.CardDefinition)
@@ -61,10 +62,10 @@ class StackLineTest {
 
     /** [card]'s spell with [targets] chosen for its first target slot ([slot] when it names another key). */
     private fun spell(card: Invented, targets: List<MtgRef> = emptyList(), x: Int? = null, slot: String? = null,
-        modes: List<Int> = emptyList()): (String) -> MtgStackItem = { id ->
+        modes: List<Int> = emptyList(), controller: String = f.b): (String) -> MtgStackItem = { id ->
         val ability = card.engine.faces.single().abilities.filterIsInstance<Ability.Spell>().single()
         val key = slot ?: ability.instructions.targets.firstOrNull()?.name ?: "target"
-        val engine = StackItem(ObjectId.Card(CardId(id), 0), StackItemKind.Spell, PlayerId(f.b), ObjectId.Card(CardId(id), 0), ability,
+        val engine = StackItem(ObjectId.Card(CardId(id), 0), StackItemKind.Spell, PlayerId(controller), ObjectId.Card(CardId(id), 0), ability,
             targets = if (targets.isEmpty()) emptyMap() else mapOf(key to targets.map(::engineRef)),
             announced = listOfNotNull(x?.let { "X" to it }).toMap(), modes = modes, timestamp = 1)
         structured(engine, MtgRef.Card(id, 0), MtgStackKind.Spell)
@@ -255,12 +256,63 @@ class StackLineTest {
         assertEquals(listOf("X = 4"), StackAbilities.details(play, entry, f.a, names, text))
     }
 
-    // STK-057, STK-130, STK-133, STK-018: the other player's modal spell says its chosen mode in the line, and the Stack list shows it
+    // STK-057, STK-130, STK-133, STK-018, STK-220: the other player's modal spell says its chosen mode in the line, and the Stack list
+    // shows it, its "you" as their name
     @Test fun theChosenModeShowsInTheLineAndTheStackList() {
         val play = board(charm, PlayZone.HAND, spell(charm, modes = listOf(1)))
-        assertEquals("Bob cast Cinder Charm · you gain 2 life", StackLine.text(play, f.a, names))
+        assertEquals("Bob cast Cinder Charm · Bob gains 2 life", StackLine.text(play, f.a, names))
         val entry = CombatStackRules.stack(play.board).cards.first()
-        assertEquals(listOf("Mode: You gain 2 life."), StackAbilities.details(play, entry, f.a, names))
+        assertEquals(listOf("Mode: Bob gains 2 life."), StackAbilities.details(play, entry, f.a, names))
+    }
+
+    // STK-220, STK-131, STK-123, STK-133: the other player's own "you" reads as their name with the verb agreeing, in their colour, in
+    // the line, the Stack list's and Inspect's text; their own table keeps "you"
+    @Test fun theOtherPlayersYouIsTheirName() {
+        val play = board(charm, PlayZone.HAND, spell(charm, modes = listOf(1)))
+        val entry = CombatStackRules.stack(play.board).cards.first()
+        val (_, detail) = StackLine.split(StackLine.pieces(play, f.a, names)!!)
+        assertEquals(listOf(StackTextPiece("Bob", f.b), StackTextPiece(" gains 2 life")), detail)
+        // The rewrite is in the app log, for problem reports
+        assertTrue("\"you gain 2 life\" -> \"Bob gains 2 life\"" in AppLog.text())
+        assertTrue(StackAbilities.text(play, entry, f.a, names)!!.pieces.plain().endsWith("• Bob gains 2 life."))
+        assertEquals("You cast Cinder Charm · you gain 2 life", StackLine.entryPieces(play, entry, f.b, names)!!.plain())
+        assertEquals(listOf("Mode: You gain 2 life."), StackAbilities.details(play, entry, f.b, names))
+        assertTrue(StackAbilities.text(play, entry, f.b, names)!!.pieces.plain().endsWith("• You gain 2 life."))
+        // A third player's spell names them, never assuming two seats
+        val carol = names + ("carol" to "Carol")
+        val hers = board(whisper, PlayZone.HAND, spell(whisper, controller = "carol"))
+        assertEquals("Carol cast Night Murmur · Carol draws 2 cards and Carol loses 2 life", StackLine.text(hers, f.a, carol))
+        assertEquals("Carol cast Night Murmur · Carol draws 2 cards and Carol loses 2 life",
+            StackLine.text(board(whisper, PlayZone.HAND, spell(whisper, controller = "carol"), holder = f.b), f.b, carol))
+    }
+
+    // LOB-090: the other player's missing name reads "The other player" in the Stack line and their "you" as "the other player", both
+    // reported as stand-ins
+    @Test fun aMissingCasterNameIsReported() {
+        val faults = mutableListOf<org.asyncttwiz.protocol.Fault>()
+        val sink = Faults.sink
+        Faults.sink = { faults += it }
+        try {
+            val play = board(charm, PlayZone.HAND, spell(charm, modes = listOf(1)))
+            assertEquals("The other player cast Cinder Charm · the other player gains 2 life", StackLine.text(play, f.a, mapOf(f.a to "Alice")))
+        } finally { Faults.sink = sink }
+        assertEquals(setOf("StackLine: player without a name", "StackTargetText: player without a name"), faults.map { it.key }.toSet())
+        assertTrue(faults.all { it.details["player"] == f.b })
+    }
+
+    // LOB-090: a play shown of a player without a name says "The other player cast …", reported
+    @Test fun aMissingPlayerNameInAPlayShownIsReported() {
+        val faults = mutableListOf<org.asyncttwiz.protocol.Fault>()
+        val sink = Faults.sink
+        Faults.sink = { faults += it }
+        val play = board(charm, PlayZone.HAND, spell(charm, modes = listOf(1)))
+        val card = play.board.cards.single { it.definition == charm.submitted.digest }
+        val show = org.asyncttwiz.protocol.game.GameDevice.PlayShow("e1", PlayerId(f.b), ObjectId.StackItem("gone"),
+            org.asyncttwiz.protocol.game.GameDevice.PlayKind.Cast, CardId(card.id))
+        try {
+            assertEquals("The other player cast Cinder Charm", PlayShows.of(play, show, f.a, mapOf(f.a to "Alice")).description)
+        } finally { Faults.sink = sink }
+        assertEquals(listOf("PlayShows: player without a name"), faults.map { it.key })
     }
 
     // edgeToward: an arrow leaves the Stack at its edge, towards its target

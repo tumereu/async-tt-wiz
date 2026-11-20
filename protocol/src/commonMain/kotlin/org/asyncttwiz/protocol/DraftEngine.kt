@@ -27,8 +27,8 @@ data class DraftState(
      * [queues] (and so out of every projection, pick check and your-pick hint) until that member opens their round.
      */
     val held: Map<String, List<String>> = emptyMap(),
-    /** Homerock (DRF-280): what each player's offers are drawn from; null for Booster. */
-    val homerock: HomerockState? = null,
+    /** Arena (DRF-280): what each player's offers are drawn from; null for Booster. */
+    val arena: ArenaState? = null,
 ) {
     val finished: Boolean get() = round == settings.rounds
     /** Direction of the lowest live round; every pack passes in its own round's direction. */
@@ -201,7 +201,7 @@ object DraftEngine {
     }
 
     fun pick(state: DraftState, pick: DraftPick): DraftPickResult {
-        if (state.homerock != null) return HomerockEngine.pick(state, pick)
+        if (state.arena != null) return ArenaEngine.pick(state, pick)
         fun reject(reason: DraftPickRejection) = DraftPickResult(reason = reason)
         if (state.finished) return reject(DraftPickRejection.DRAFT_FINISHED)
         val queue = state.queues[pick.player]
@@ -245,7 +245,7 @@ object DraftEngine {
         return DraftPrivateView(player, visible.firstOrNull(),
             (queue.size - 1).coerceAtLeast(0), state.pools.getValue(player).map(copies::getValue), visible.drop(1),
             if (state.finished) state.settings.rounds else (state.openedRound(player) + 1).coerceAtMost(state.settings.rounds),
-            state.settings.rounds, if (state.finished || state.homerock != null) 0 else Working(state).incoming(player))
+            state.settings.rounds, if (state.finished || state.arena != null) 0 else Working(state).incoming(player))
     }
 
     /**
@@ -303,7 +303,7 @@ object DraftEngine {
      */
     fun consecutivePicks(state: DraftState, player: String): Int {
         if (state.finished || state.queues[player].isNullOrEmpty()) return 0
-        if (state.homerock != null) return HomerockEngine.consecutivePicks(state, player)
+        if (state.arena != null) return ArenaEngine.consecutivePicks(state, player)
         return Working(state).soloPicks(player)
     }
 

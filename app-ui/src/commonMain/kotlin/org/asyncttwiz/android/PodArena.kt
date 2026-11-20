@@ -13,38 +13,38 @@ import org.asyncttwiz.protocol.*
 
 private fun count(n: Int, one: String, many: String = "${one}s") = "$n ${if (n == 1) one else many}"
 
-/** DRF-287: a Homerock pod's format in brief, "Homerock: 45 picks, 5 cards, take 1". */
-fun podHomerockFormat(format: HomerockFormat): String =
-    "Homerock: ${count(format.picks, "pick")}, ${count(format.cards, "card")}, take ${format.take}"
+/** DRF-287: an Arena pod's format in brief, "Arena: 45 picks, 5 cards, take 1". */
+fun podArenaFormat(format: ArenaFormat): String =
+    "Arena: ${count(format.picks, "pick")}, ${count(format.cards, "card")}, take ${format.take}"
 
-/** A Homerock rarity's name: "Common", "Uncommon", "Rare", "Mythic rare". */
-fun podRarityName(rarity: SetCardRarity): String = when (HomerockEngine.rarity(rarity)) {
+/** An Arena rarity's name: "Common", "Uncommon", "Rare", "Mythic rare". */
+fun podRarityName(rarity: SetCardRarity): String = when (ArenaEngine.rarity(rarity)) {
     SetCardRarity.UNCOMMON -> "Uncommon"; SetCardRarity.RARE -> "Rare"; SetCardRarity.MYTHIC -> "Mythic rare"; else -> "Common"
 }
 private fun plural(rarity: SetCardRarity) = podRarityName(rarity).lowercase() + "s"
 
-/** Whether a Homerock pod's offers go by rarity: not a cube with Ignore rarity (DRF-283). */
-fun podHomerockByRarity(settings: DraftSettings, kind: PodSourceKind) = !(kind == PodSourceKind.CUBE && settings.ignoreRarity)
+/** Whether an Arena pod's offers go by rarity: not a cube with Ignore rarity (DRF-283). */
+fun podArenaByRarity(settings: DraftSettings, kind: PodSourceKind) = !(kind == PodSourceKind.CUBE && settings.ignoreRarity)
 
-/** DRF-288: the Homerock pick screen's first line, "Pick 12 of 45 · Uncommon · take 1" (no rarity with Ignore rarity). */
-fun podHomerockPickLine(settings: DraftSettings, pick: Int, kind: PodSourceKind, offer: Int): String =
+/** DRF-288: the Arena pick screen's first line, "Pick 12 of 45 · Uncommon · take 1" (no rarity with Ignore rarity). */
+fun podArenaPickLine(settings: DraftSettings, pick: Int, kind: PodSourceKind, offer: Int): String =
     listOfNotNull("Pick $pick of ${settings.packsPerPlayer}",
-        podRarityName(HomerockEngine.pickRarity(settings, pick)).takeIf { podHomerockByRarity(settings, kind) },
+        podRarityName(ArenaEngine.pickRarity(settings, pick)).takeIf { podArenaByRarity(settings, kind) },
         "take ${minOf(settings.keep, offer)}").joinToString(" · ")
 
-/** DRF-289: a Homerock pick's header in the draft history, "Pick 12 · Uncommon". */
-fun podHomerockHistoryHeader(settings: DraftSettings, pick: Int, kind: PodSourceKind): String =
-    "Pick $pick" + if (podHomerockByRarity(settings, kind)) " · ${podRarityName(HomerockEngine.pickRarity(settings, pick))}" else ""
+/** DRF-289: an Arena pick's header in the draft history, "Pick 12 · Uncommon". */
+fun podArenaHistoryHeader(settings: DraftSettings, pick: Int, kind: PodSourceKind): String =
+    "Pick $pick" + if (podArenaByRarity(settings, kind)) " · ${podRarityName(ArenaEngine.pickRarity(settings, pick))}" else ""
 
 /**
- * DRF-287, DRF-285: the setup summary under Homerock's tiles: its format, how many picks are of each rarity and the cards
+ * DRF-287, DRF-285: the setup summary under Arena's tiles: its format, how many picks are of each rarity and the cards
  * each player ends with, a cube's Reuse cards in words (DRF-284), then each rarity the source has too few cards of for an offer and where the offer is filled up
- * from (nearest below, then above), when the server has told the source's [HomerockCounts].
+ * from (nearest below, then above), when the server has told the source's [ArenaCounts].
  */
-fun podHomerockSummary(settings: DraftSettings, source: PodSource): List<String> = buildList {
-    add(podHomerockFormat(HomerockFormat.of(settings)))
-    val byRarity = podHomerockByRarity(settings, source.kind)
-    val schedule = HomerockEngine.schedule(settings)
+fun podArenaSummary(settings: DraftSettings, source: PodSource): List<String> = buildList {
+    add(podArenaFormat(ArenaFormat.of(settings)))
+    val byRarity = podArenaByRarity(settings, source.kind)
+    val schedule = ArenaEngine.schedule(settings)
     val order = listOf(SetCardRarity.RARE, SetCardRarity.UNCOMMON, SetCardRarity.COMMON)
     val picks = if (!byRarity) "Rarity ignored"
         else order.filter { (schedule[it] ?: 0) > 0 }.joinToString(", ") { "${schedule[it]} ${podRarityName(it).lowercase()}" } + " picks"
@@ -67,11 +67,11 @@ fun podHomerockSummary(settings: DraftSettings, source: PodSource): List<String>
     }
 }
 
-/** DRF-287: the summary's lines under Homerock's tiles, read-only for members too. */
+/** DRF-287: the summary's lines under Arena's tiles, read-only for members too. */
 @Composable
-fun PodHomerockSummary(settings: DraftSettings, source: PodSource) {
-    Column(Modifier.fillMaxWidth().testTag("pod-homerock-summary"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        podHomerockSummary(settings, source).forEachIndexed { index, line ->
+fun PodArenaSummary(settings: DraftSettings, source: PodSource) {
+    Column(Modifier.fillMaxWidth().testTag("pod-arena-summary"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        podArenaSummary(settings, source).forEachIndexed { index, line ->
             Text(line, style = if (index == 0) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodySmall,
                 color = if (index == 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
         }

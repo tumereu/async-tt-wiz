@@ -1,1 +1,0 @@
-add: New draft type "Homerock": each player drafts on their own, at their own pace; every pick offers a few cards (rarer ones on a schedule the pod's creator sets), you take some and the rest are gone.

@@ -531,19 +531,19 @@ class PodHttpTest {
 
     private fun autoStart(f: Fixture, pod: String, enabled: Boolean, status: Int = 200, who: SessionCreated = f.a) =
         f.send(who, "POST", "/v1/pods/$pod/auto-start", SetPodAutoStart(id(), enabled), status)
-    // DRF-280, DRF-284, DRF-285, DRF-287, DRF-290: a Homerock pod tells its format to invitees and its source's rarities in
+    // DRF-280, DRF-284, DRF-285, DRF-287, DRF-290: an Arena pod tells its format to invitees and its source's rarities in
     // setup; each player gets offers of their own, which nobody else sees or can pick from; the server checks each pick, and
     // only the first offer notifies
-    @Test fun `homerock offers are each player's own and the server checks every pick`() = fixture { f ->
-        val settings = DraftSettings.homerock().copy(packsPerPlayer = 4, cardsPerPack = 3, keep = 1)
+    @Test fun `arena offers are each player's own and the server checks every pick`() = fixture { f ->
+        val settings = DraftSettings.arena().copy(packsPerPlayer = 4, cardsPerPack = 3, keep = 1)
         val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
-            CreatePod(id(), "Homerock pod", f.cube.cube.id, DraftMode.HOMEROCK, settings = settings), 201))
+            CreatePod(id(), "Arena pod", f.cube.cube.id, DraftMode.ARENA, settings = settings), 201))
         assertEquals(settings.packsPerPlayer, created.settings.packsPerPlayer)
         assertEquals(90, created.source.rarities!!.total)
         f.send(f.a, "PUT", "/v1/pods/${created.id}", UpdatePod(id(), settings = settings.copy(keep = 3)), 400)
         invite(f, created.id, f.b)
         val invitation = f.list(f.b).invitations.single()
-        assertEquals(DraftMode.HOMEROCK, invitation.mode); assertEquals(HomerockFormat(4, 3, 1), invitation.homerock)
+        assertEquals(DraftMode.ARENA, invitation.mode); assertEquals(ArenaFormat(4, 3, 1), invitation.arena)
         respond(f, created.id, f.b, true)
         f.start(created.id)
         val mine = f.get(f.a, created.id); val theirs = f.get(f.b, created.id)

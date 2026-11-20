@@ -7,8 +7,8 @@ val DraftMode.limited: Boolean get() = this == DraftMode.ROCHESTER || this == Dr
     this == DraftMode.WINSTON || this == DraftMode.WINCHESTER || this == DraftMode.SEALED
 /** Booster pack passing ([DraftEngine]), also for pods created as Glimpse. */
 val DraftMode.packPassing: Boolean get() = this == DraftMode.BOOSTER || this == DraftMode.GLIMPSE
-/** Engines whose server snapshot is a [DraftState]: Booster pack passing and Homerock's offers ([HomerockEngine]). */
-val DraftMode.draftState: Boolean get() = packPassing || this == DraftMode.HOMEROCK
+/** Engines whose server snapshot is a [DraftState]: Booster pack passing and Arena's offers ([ArenaEngine]). */
+val DraftMode.draftState: Boolean get() = packPassing || this == DraftMode.ARENA
 /** How many members an engine allows. */
 val DraftMode.players: IntRange get() = when (this) {
     DraftMode.GRID, DraftMode.WINSTON, DraftMode.WINCHESTER -> 2..4

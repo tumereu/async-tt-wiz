@@ -445,12 +445,12 @@ class PodService(private val runtime: ServiceRuntime) {
         // DRF-179: each pack from its cell's set (the stored grid is normalized; cells past its end take its last set)
         val set = setSource(row)?.let { resized(it, settings) }
         set?.let { log("pod ${row.id} starts ${settings.mode} for ${players.size} players from pack grid ${PodPackGrid.cells(it.packs, settings)}") }
-        if (settings.mode == DraftMode.HOMEROCK) {
-            val next = if (set == null) HomerockEngine.start(players, HomerockEngine.cubeCards(cube, cubeRarities(sql, cube)), settings, seed, cube = true)
-                else HomerockEngine.start(players, homerockSetCards(set), settings, seed, cube = false,
+        if (settings.mode == DraftMode.ARENA) {
+            val next = if (set == null) ArenaEngine.start(players, ArenaEngine.cubeCards(cube, cubeRarities(sql, cube)), settings, seed, cube = true)
+                else ArenaEngine.start(players, arenaSetCards(set), settings, seed, cube = false,
                     pickSets = PodPackGrid.packSets(set.packs, settings, players.size))
-            logHomerock(row, null, next, "start for ${players.size} players from ${if (set == null) "a cube of ${cube.sumOf { it.quantity }} copies" else
-                "sets ${set.packs}"}: ${next.homerock?.cards?.size} cards, ${HomerockEngine.counts(next.homerock?.cards.orEmpty())}")
+            logArena(row, null, next, "start for ${players.size} players from ${if (set == null) "a cube of ${cube.sumOf { it.quantity }} copies" else
+                "sets ${set.packs}"}: ${next.arena?.cards?.size} cards, ${ArenaEngine.counts(next.arena?.cards.orEmpty())}")
             advance(sql, row, null, next)
         } else if (settings.mode.limited) {
             val next = if (set == null) LimitedEngine.startFromCube(players, cube, settings, seed)
@@ -484,10 +484,10 @@ class PodService(private val runtime: ServiceRuntime) {
             val previous = state(row)!!
             val result = DraftEngine.pick(previous, DraftPick(owner.toString(), input.packId, input.keep, input.burn, input.librarians))
             if (result.reason != null) {
-                if (previous.homerock != null) log("pod ${row.id} Homerock pick of $owner refused (${result.reason}): offer ${input.packId}, keep ${input.keep}")
+                if (previous.arena != null) log("pod ${row.id} Arena pick of $owner refused (${result.reason}): offer ${input.packId}, keep ${input.keep}")
                 return@mutate error(409, result.reason!!.name.lowercase())
             }
-            result.state?.homerock?.let { logHomerock(row, previous, result.state!!, "pick of $owner from ${input.packId}: kept ${input.keep}") }
+            result.state?.arena?.let { logArena(row, previous, result.state!!, "pick of $owner from ${input.packId}: kept ${input.keep}") }
             // The marks belonged to the pack just picked.
             clearMarks(sql, row.id!!, owner)
             advance(sql, row, previous, result.state!!)
@@ -940,7 +940,7 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row)
     }
 
-    /** Homerock (DRF-285): each card's rarity in a cube, by its printing's in the card catalog (special and bonus count as
+    /** Arena (DRF-285): each card's rarity in a cube, by its printing's in the card catalog (special and bonus count as
      * rare, an unknown one, or no catalog, as common). */
     private fun cubeRarities(sql: DSLContext, cube: List<DraftCubeEntry>): (String) -> SetCardRarity {
         val catalog = ServerCatalogs.current()?.catalog
@@ -949,32 +949,32 @@ class PodService(private val runtime: ServiceRuntime) {
             printing?.let { catalog?.printing?.get(it)?.rarity }?.let { value -> SetCardRarity.entries.firstOrNull { it.name.lowercase() == value } }
                 ?: SetCardRarity.UNKNOWN
         }
-        if (catalog == null) log("Homerock cube rarities without a card catalog: every card counts as common")
+        if (catalog == null) log("Arena cube rarities without a card catalog: every card counts as common")
         return { rarities[it] ?: SetCardRarity.UNKNOWN }
     }
 
-    /** Homerock (DRF-286): the pod's sets' own cards, by the card catalog (not the other sets' cards their recipes name). */
-    private fun homerockSetCards(set: SetPackSources): List<HomerockCard> {
+    /** Arena (DRF-286): the pod's sets' own cards, by the card catalog (not the other sets' cards their recipes name). */
+    private fun arenaSetCards(set: SetPackSources): List<ArenaCard> {
         val catalog = ServerCatalogs.current()?.catalog
-        if (catalog == null) log("Homerock set cards without a card catalog: every card of the set sources counts as the set's own")
-        return HomerockEngine.setCards(set.sets) { code, uuid -> catalog == null || catalog.printing[uuid]?.set == code }
+        if (catalog == null) log("Arena set cards without a card catalog: every card of the set sources counts as the set's own")
+        return ArenaEngine.setCards(set.sets) { code, uuid -> catalog == null || catalog.printing[uuid]?.set == code }
     }
 
-    /** DRF-285: what a Homerock change did, with every offer filled up from another rarity since [previous]. */
-    private fun logHomerock(row: PodRecord, previous: DraftState?, next: DraftState, what: String) {
-        val fills = next.homerock?.fills.orEmpty().drop(previous?.homerock?.fills?.size ?: 0)
-        log("pod ${row.id} Homerock $what" + fills.joinToString("") { fill ->
+    /** DRF-285: what an Arena change did, with every offer filled up from another rarity since [previous]. */
+    private fun logArena(row: PodRecord, previous: DraftState?, next: DraftState, what: String) {
+        val fills = next.arena?.fills.orEmpty().drop(previous?.arena?.fills?.size ?: 0)
+        log("pod ${row.id} Arena $what" + fills.joinToString("") { fill ->
             if (fill.count == 0) "; ${fill.player} pick ${fill.pick}: no card left to offer, their draft ends here"
             else "; ${fill.player} pick ${fill.pick}: ${fill.count} ${fill.used} in place of ${fill.wanted}"
         })
     }
 
-    /** DRF-285: the cards of each rarity a Homerock pod's source holds, for its setup summary; null when not worked out. */
-    private fun homerockCounts(sql: DSLContext, row: PodRecord): HomerockCounts? = runCatching {
+    /** DRF-285: the cards of each rarity an Arena pod's source holds, for its setup summary; null when not worked out. */
+    private fun arenaCounts(sql: DSLContext, row: PodRecord): ArenaCounts? = runCatching {
         val set = setSource(row)
-        if (set == null) HomerockEngine.counts(HomerockEngine.cubeCards(source(row), cubeRarities(sql, source(row))))
-        else HomerockEngine.counts(homerockSetCards(set))
-    }.onFailure { log("pod ${row.id} Homerock counts failed: $it") }.getOrNull()
+        if (set == null) ArenaEngine.counts(ArenaEngine.cubeCards(source(row), cubeRarities(sql, source(row))))
+        else ArenaEngine.counts(arenaSetCards(set))
+    }.onFailure { log("pod ${row.id} Arena counts failed: $it") }.getOrNull()
 
     private fun advance(sql: DSLContext, row: PodRecord, previous: DraftState?, next: DraftState) {
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
@@ -988,8 +988,8 @@ class PodService(private val runtime: ServiceRuntime) {
             // Notify when a pack arrives at an empty queue. The picker's own just-picked pack does not count as waiting,
             // so their next-round packs opening (possibly early) right after their pick notify them too.
             val queue = next.queues.getValue(player)
-            // Homerock: a player's next offer comes with their own pick, so only the first one is news (DRF-280)
-            val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue } || previous != null && next.homerock != null
+            // Arena: a player's next offer comes with their own pick, so only the first one is news (DRF-280)
+            val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue } || previous != null && next.arena != null
             if (!hadPacks && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
         }
@@ -1206,12 +1206,12 @@ class PodService(private val runtime: ServiceRuntime) {
                 settings(row).mode, chatUnread[row.id] ?: 0)
         } }.sortedWith(podListOrder)
         val invitations = invited.mapNotNull {
-            // DRF-287: the invitation names the pod's mode and a Homerock pod's format
+            // DRF-287: the invitation names the pod's mode and an Arena pod's format
             StoredData.orSkip("pod", it[INVITE.POD_ID]) {
                 val settings = json.decodeFromString<DraftSettings>(it[POD.SETTINGS]!!.data())
                 PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!),
                     it[INVITE.INVITED_AT]!!.toInstant().toString(), settings.mode,
-                    if (settings.mode == DraftMode.HOMEROCK) HomerockFormat.of(settings) else null)
+                    if (settings.mode == DraftMode.ARENA) ArenaFormat.of(settings) else null)
             }
         }
         Result(200, json.encodeToString(PodList(pods, invitations)))
@@ -1246,8 +1246,8 @@ class PodService(private val runtime: ServiceRuntime) {
             PodSource(kind = PodSourceKind.SET, setCode = set.first.setCode, setName = set.first.setName,
                 boosterKind = if (set.sets.any { it.recipe == null }) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
                 boosterName = set.first.recipe?.name, packSets = set.packs)
-        // DRF-285, DRF-287: a Homerock pod's setup summary tells its source's rarities
-        val rarities = if (settings.mode == DraftMode.HOMEROCK && row.phase == "SETUP") homerockCounts(sql, row) else null
+        // DRF-285, DRF-287: an Arena pod's setup summary tells its source's rarities
+        val rarities = if (settings.mode == DraftMode.ARENA && row.phase == "SETUP") arenaCounts(sql, row) else null
         val finite = settings.supply(members.size, cube)
         val supply = if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
         val pending = pending(sql, row.id!!)

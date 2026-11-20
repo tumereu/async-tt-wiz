@@ -50,7 +50,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 - **DRF-011** The Pods screen (main menu: LOB-015) has a New pod button at the top right. (r21)
 - **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-189): pod rows with the compact stack of the other members' avatars (up to two plus "+N"; only yourself when alone), the name and status (a small dot after it while the pod's chat holds messages of other members you haven't read, DRF-237), and pod invitations with Accept and Decline. (r62)
-- **DRF-013** Pod statuses read "Your pick · 2 packs" (just "Your pick" in Rotisserie, Winston, Winchester and Homerock), "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. (r35)
+- **DRF-013** Pod statuses read "Your pick · 2 packs" (just "Your pick" in Rotisserie, Winston, Winchester and Arena), "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. (r35)
 - **DRF-189** One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
 
 ## Pod setup
@@ -61,7 +61,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
 - **DRF-029** Only the creator edits name, source and settings; members see them read-only. Edits apply at once without disabling anything and save in the background. A name that can't be saved (the emptied field) waits in the field until a name is typed; leaving the pod then keeps the last saved name and saves the other edits. (r17)
 - **DRF-030** Setup lists members and pending invitations with "Members (N/L)", L the engine's player limit (DRF-150); the creator invites through the shared player picker, up to 8 members and invitations together. (r35)
-- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Grid, Rochester, Rotisserie, Winston, Winchester, Sealed and Homerock (DRF-280), each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r74)
+- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Grid, Rochester, Rotisserie, Winston, Winchester, Sealed and Arena (DRF-280), each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r74)
 - **DRF-190** Glimpse is a preset of Booster (DRF-200), and a pod's mode always reads "Booster", also for pods created as Glimpse. (r74)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. Winston and Winchester have a "Tables" tile after Piles. (r60)
 - **DRF-191** Rochester's "Open packs" tile reads "1 each" (one per player) until a number is set; its dialog has a square "1 each" toggle like the sideboard's ∞. (r60)
@@ -81,7 +81,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 ## Mixed sets
 
 - **DRF-177** A pod from a set has one set for every pack by default. Beside the source button (DRF-018) the creator has the "Mix sets" toggle, an icon (holding it says what a tap does), switching the form between one set and mixed packs. One set: the chosen set fills every pack, also packs added later.
-- **DRF-195** Mixed packs show the pod's pack grid: one row per round and one cell per pack of that round, sized by the pod's settings (Booster: its rounds of open packs; Grid: its rounds of open grids, a cell per grid; Rochester: a round per pack each player opens; Homerock: a row per pick, "Pick 1"…, DRF-286; Sealed, Winston and Winchester: one row, "All packs"), with column labels "Pack 1", "Pack 2"… and row labels "Round 1"…; each cell is a set chip. The order in a row is the order that round's packs are opened.
+- **DRF-195** Mixed packs show the pod's pack grid: one row per round and one cell per pack of that round, sized by the pod's settings (Booster: its rounds of open packs; Grid: its rounds of open grids, a cell per grid; Rochester: a round per pack each player opens; Arena: a row per pick, "Pick 1"…, DRF-286; Sealed, Winston and Winchester: one row, "All packs"), with column labels "Pack 1", "Pack 2"… and row labels "Round 1"…; each cell is a set chip. The order in a row is the order that round's packs are opened.
 - **DRF-196** Switching between one set and mixed packs only changes what the form shows, never a pack: back in one set after mixing, the source reads "Mixed sets" until a set is chosen in the Source dialog, which then fills every pack.
 - **DRF-197** A grid of more than one set opens as mixed packs, members always see it (read-only), and the source then reads "Mixed sets"; the Mix sets toggle is the creator's own view, kept while the pod's setup is open.
 - **DRF-198** A cube and Rotisserie (which takes one set) have no mixed packs, and no set chosen yet has none to mix: the Mix sets toggle stays, greyed, and holding it says why ("Only sets can be mixed, not a cube", "Rotisserie takes one set", "Choose a set first").
@@ -107,7 +107,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 ## Starting, leaving and cancelling
 
 - **DRF-035** The creator's "Start draft" needs at least 2 accepted members and no more than the engine allows (DRF-150), settings that fit them and a source with enough cards; there is no Ready step. (r35)
-- **DRF-150** Each engine has a player limit: Booster, Rochester, Rotisserie, Sealed and Homerock 2–8; Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."). (r35)
+- **DRF-150** Each engine has a player limit: Booster, Rochester, Rotisserie, Sealed and Arena 2–8; Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."). (r35)
 - **DRF-036** While invitations are pending the button is "Start when everyone accepts"; armed, it reads "Starts when N more accept · Cancel" and members see "Starts automatically when everyone accepts". (r21)
 - **DRF-037** Auto-start begins the draft when the last invitee accepts; a decline or a failed start turns it off with a setup line like "Bob declined; auto-start is off" and a notification. (r21)
 - **DRF-163** Auto-start can't be armed while members plus pending invitations exceed the engine's limit (DRF-150): "Grid takes at most 4 players; 5 are joined or invited.". (r35)
@@ -232,25 +232,25 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 - **DRF-151** Sealed has no draft phase: at the start every player gets a private pool (set: their own boosters opened; cube: random cards without replacement) and the pod goes straight to Build with "Draft complete: build your deck". (r35)
 
-## Homerock
+## Arena
 
-- **DRF-280** Homerock: each player drafts on their own, at their own pace, and nothing passes between players. Every pick offers you a few cards; you take some of them and the rest of that offer is gone. When all your picks are done you go on to Build as in every draft.
-- **DRF-281** Homerock's tiles: "Picks" (number of picks, default 45, 1–60), "Cards" (cards per offer, default 5, 2–15), "Take" (picks per offer, default 1, fewer than Cards), "Rare every" (default 10) and "Uncommon every" (default 4), each 1–60 or Never (a square toggle as the sideboard's ∞). A pick both apply to offers rares; the others commons.
-- **DRF-282** Homerock's "Mythic" tile: each card offered on a rare pick is a mythic rare instead with chance 1 in N, default 1/8, N 1–100 or Never.
-- **DRF-283** "Ignore rarity", a toggle tile for a Homerock pod from a cube (default off, greyed for sets): each offer is drawn from the whole cube, and the rarity tiles play no part.
-- **DRF-284** "Reuse cards", a toggle tile for a Homerock pod from a cube (default off, greyed for sets), works for each player on their own (owner, 2026-11-20): off, a card you picked is never offered to you again; on, any card may be. Cards offered to you but not taken stay in your own pool, and other players' picks never change what you are offered.
+- **DRF-280** Arena: each player drafts on their own, at their own pace, and nothing passes between players. Every pick offers you a few cards; you take some of them and the rest of that offer is gone. When all your picks are done you go on to Build as in every draft.
+- **DRF-281** Arena's tiles: "Picks" (number of picks, default 45, 1–60), "Cards" (cards per offer, default 5, 2–15), "Take" (picks per offer, default 1, fewer than Cards), "Rare every" (default 10) and "Uncommon every" (default 4), each 1–60 or Never (a square toggle as the sideboard's ∞). A pick both apply to offers rares; the others commons.
+- **DRF-282** Arena's "Mythic" tile: each card offered on a rare pick is a mythic rare instead with chance 1 in N, default 1/8, N 1–100 or Never.
+- **DRF-283** "Ignore rarity", a toggle tile for an Arena pod from a cube (default off, greyed for sets): each offer is drawn from the whole cube, and the rarity tiles play no part.
+- **DRF-284** "Reuse cards", a toggle tile for an Arena pod from a cube (default off, greyed for sets), works for each player on their own (owner, 2026-11-20): off, a card you picked is never offered to you again; on, any card may be. Cards offered to you but not taken stay in your own pool, and other players' picks never change what you are offered.
 - **DRF-285** Each offer's cards are drawn evenly at random from the source's cards of its rarity, all different. When a rarity has too few cards for an offer, the offer is filled up from the nearest rarity below, then above; the server logs it, and the setup summary says so ("Only 3 rares for offers of 5: filled up from uncommons").
-- **DRF-286** Homerock draws from the same sources as Booster: a cube's Main, a set (its own cards, a card once however many printings it has, no basic lands, never two copies of one card in an offer, though it may come again later) or mixed sets, whose pack grid has a row per pick choosing that pick's set.
-- **DRF-287** Pod setup shows a summary under Homerock's tiles: "Homerock: 45 picks, 5 cards, take 1", then how many picks are rare, uncommon and common ("4 rare, 9 uncommon, 32 common picks"; "Rarity ignored" with Ignore rarity) and the cards each player ends with, for a cube its Reuse cards in words ("Reuse cards off: a card you pick is never offered to you again; other players' picks never change your offers"), then any rarity too short (DRF-285). A pod invitation reads the first line under the creator.
-- **DRF-288** The Homerock pick screen is Booster's (cards with holding to inspect and the desktop quick look, the keep tray and Confirm, no burns) with its first line "Pick 12 of 45 · Uncommon · take 1" (no rarity with Ignore rarity).
-- **DRF-289** Homerock's History icon opens "Draft history" with every pick of yours in order under "Pick 12 · Uncommon": the offer, your picks marked as kept; no seating ring and no "Returning packs only".
+- **DRF-286** Arena draws from the same sources as Booster: a cube's Main, a set (its own cards, a card once however many printings it has, no basic lands, never two copies of one card in an offer, though it may come again later) or mixed sets, whose pack grid has a row per pick choosing that pick's set.
+- **DRF-287** Pod setup shows a summary under Arena's tiles: "Arena: 45 picks, 5 cards, take 1", then how many picks are rare, uncommon and common ("4 rare, 9 uncommon, 32 common picks"; "Rarity ignored" with Ignore rarity) and the cards each player ends with, for a cube its Reuse cards in words ("Reuse cards off: a card you pick is never offered to you again; other players' picks never change your offers"), then any rarity too short (DRF-285). A pod invitation reads the first line under the creator.
+- **DRF-288** The Arena pick screen is Booster's (cards with holding to inspect and the desktop quick look, the keep tray and Confirm, no burns) with its first line "Pick 12 of 45 · Uncommon · take 1" (no rarity with Ignore rarity).
+- **DRF-289** Arena's History icon opens "Draft history" with every pick of yours in order under "Pick 12 · Uncommon": the offer, your picks marked as kept; no seating ring and no "Returning packs only".
 - **DRF-290** The server makes each player's offers from the draft's seeded random alone, keeps them and checks every pick; no other member ever sees your offers or picks. Your avatar badge counts the picks you have left, all of which you can make without waiting.
 
 ## Other players' picks
 
 - **DRF-160** Winston, Winchester, Grid, Rochester and Rotisserie have the History icon in the pod's header where Booster's is (DRF-165), on every tab; it opens a dialog with a chip per opponent (avatar, name and card count) and that opponent's picks, in order, newest first. (r60)
 - **DRF-227** In the Picks dialog a card shows face up if you have seen it (always in Winchester and Grid; in Winston only cards you had seen in a pile), otherwise as a card back; holding a card inspects it, over the dialog. (r60)
-- **DRF-228** The History icon sits in the same place of the pod's header in every draft mode: Booster and Glimpse open their draft history (DRF-165), the others the picks (DRF-160); Homerock opens its own picks (DRF-289); Sealed has none. Rochester and Rotisserie also show picks on the board itself. (r60)
+- **DRF-228** The History icon sits in the same place of the pod's header in every draft mode: Booster and Glimpse open their draft history (DRF-165), the others the picks (DRF-160); Arena opens its own picks (DRF-289); Sealed has none. Rochester and Rotisserie also show picks on the board itself. (r60)
 
 ## Build
 

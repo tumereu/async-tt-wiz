@@ -4,25 +4,25 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.*
 
-/** Homerock: each player drafts alone from offers of their own; nothing passes between players. */
-class HomerockEngineTest {
+/** Arena: each player drafts alone from offers of their own; nothing passes between players. */
+class ArenaEngineTest {
     private val seed = RandomV1.encodeSeed(ByteArray(32) { (it * 11).toByte() })
     private val otherSeed = RandomV1.encodeSeed(ByteArray(32) { (it * 5 + 1).toByte() })
 
     /** A cube of [commons] commons, [uncommons] uncommons, [rares] rares and [mythics] mythic rares, one copy each. */
-    private fun cube(commons: Int = 40, uncommons: Int = 20, rares: Int = 10, mythics: Int = 5): List<HomerockCard> {
+    private fun cube(commons: Int = 40, uncommons: Int = 20, rares: Int = 10, mythics: Int = 5): List<ArenaCard> {
         val rarities = List(commons) { SetCardRarity.COMMON } + List(uncommons) { SetCardRarity.UNCOMMON } +
             List(rares) { SetCardRarity.RARE } + List(mythics) { SetCardRarity.MYTHIC }
         val entries = rarities.indices.map { DraftCubeEntry("card-${it.toString().padStart(3, '0')}", 1) }
-        return HomerockEngine.cubeCards(entries) { definition -> rarities[definition.removePrefix("card-").toInt()] }
+        return ArenaEngine.cubeCards(entries) { definition -> rarities[definition.removePrefix("card-").toInt()] }
     }
-    private val rarityOf = { cards: List<HomerockCard> -> cards.flatMap { card -> card.printings.map { it to card.rarity } }.toMap() }
+    private val rarityOf = { cards: List<ArenaCard> -> cards.flatMap { card -> card.printings.map { it to card.rarity } }.toMap() }
 
     private fun settings(picks: Int = 12, cards: Int = 5, take: Int = 1) =
-        DraftSettings.homerock().copy(packsPerPlayer = picks, cardsPerPack = cards, keep = take)
-    private fun start(cards: List<HomerockCard>, settings: DraftSettings = settings(), players: Int = 2, seed: String = this.seed,
+        DraftSettings.arena().copy(packsPerPlayer = picks, cardsPerPack = cards, keep = take)
+    private fun start(cards: List<ArenaCard>, settings: DraftSettings = settings(), players: Int = 2, seed: String = this.seed,
         cube: Boolean = true, pickSets: List<String> = emptyList()) =
-        HomerockEngine.start(List(players) { "p$it" }, cards, settings, seed, cube, pickSets)
+        ArenaEngine.start(List(players) { "p$it" }, cards, settings, seed, cube, pickSets)
 
     private fun offer(state: DraftState, player: String): List<DraftCopy> {
         val head = DraftEngine.privateView(state, player).head ?: return emptyList()
@@ -35,7 +35,7 @@ class HomerockEngineTest {
 
     // DRF-281: the defaults and limits
     @Test fun defaultsAndLimits() {
-        val base = DraftSettings.defaults(DraftMode.HOMEROCK)
+        val base = DraftSettings.defaults(DraftMode.ARENA)
         assertEquals(listOf(45, 5, 1, 10, 4, 8), listOf(base.packsPerPlayer, base.cardsPerPack, base.keep, base.rareEvery, base.uncommonEvery, base.mythicOneIn))
         assertFalse(base.ignoreRarity); assertFalse(base.reuseCards)
         assertTrue(base.validate(2).isEmpty()); assertTrue(base.validate(8).isEmpty())
@@ -47,30 +47,30 @@ class HomerockEngineTest {
         assertContains(base.copy(rareEvery = 0).validate(2), DraftSettingsIssue.RARITY_SCHEDULE)
         assertContains(base.copy(mythicOneIn = 101).validate(2), DraftSettingsIssue.MYTHIC_CHANCE)
         assertContains(base.copy(librarians = 1).validate(2), DraftSettingsIssue.LIBRARIANS)
-        assertEquals(2..8, DraftMode.HOMEROCK.players)
-        assertTrue(DraftMode.HOMEROCK.draftState); assertFalse(DraftMode.HOMEROCK.packPassing); assertFalse(DraftMode.HOMEROCK.limited)
+        assertEquals(2..8, DraftMode.ARENA.players)
+        assertTrue(DraftMode.ARENA.draftState); assertFalse(DraftMode.ARENA.packPassing); assertFalse(DraftMode.ARENA.limited)
         // DRF-284: a cube needs one player's picks before the last offer plus that offer, or one offer with Reuse cards
-        assertEquals(44L * 1 + 5, HomerockEngine.needed(base))
-        assertEquals(5L, HomerockEngine.needed(base.copy(reuseCards = true)))
+        assertEquals(44L * 1 + 5, ArenaEngine.needed(base))
+        assertEquals(5L, ArenaEngine.needed(base.copy(reuseCards = true)))
         assertEquals(49L, base.supply(8, listOf(DraftCubeEntry("x", 49))).needed)
     }
 
     // DRF-281: rare every 10th pick, uncommon every 4th, rare winning, common otherwise; each offer is of its pick's rarity
     @Test fun theRarityScheduleDecidesEachOffer() {
-        val base = DraftSettings.homerock()
-        assertEquals(SetCardRarity.COMMON, HomerockEngine.pickRarity(base, 1))
-        assertEquals(SetCardRarity.UNCOMMON, HomerockEngine.pickRarity(base, 4))
-        assertEquals(SetCardRarity.RARE, HomerockEngine.pickRarity(base, 10))
-        assertEquals(SetCardRarity.RARE, HomerockEngine.pickRarity(base, 20)) // both apply: rare wins
-        assertEquals(mapOf(SetCardRarity.RARE to 4, SetCardRarity.UNCOMMON to 9, SetCardRarity.COMMON to 32), HomerockEngine.schedule(base))
-        assertEquals(SetCardRarity.COMMON, HomerockEngine.pickRarity(base.copy(rareEvery = null, uncommonEvery = null), 20))
+        val base = DraftSettings.arena()
+        assertEquals(SetCardRarity.COMMON, ArenaEngine.pickRarity(base, 1))
+        assertEquals(SetCardRarity.UNCOMMON, ArenaEngine.pickRarity(base, 4))
+        assertEquals(SetCardRarity.RARE, ArenaEngine.pickRarity(base, 10))
+        assertEquals(SetCardRarity.RARE, ArenaEngine.pickRarity(base, 20)) // both apply: rare wins
+        assertEquals(mapOf(SetCardRarity.RARE to 4, SetCardRarity.UNCOMMON to 9, SetCardRarity.COMMON to 32), ArenaEngine.schedule(base))
+        assertEquals(SetCardRarity.COMMON, ArenaEngine.pickRarity(base.copy(rareEvery = null, uncommonEvery = null), 20))
         val cards = cube()
         val rarity = rarityOf(cards)
         var state = start(cards, settings(picks = 10).copy(mythicOneIn = null))
         for (pick in 1..10) {
             val shown = offer(state, "p0")
             assertEquals(5, shown.size)
-            assertEquals(setOf(HomerockEngine.pickRarity(state.settings, pick)), shown.map { rarity.getValue(it.definition) }.toSet(), "pick $pick")
+            assertEquals(setOf(ArenaEngine.pickRarity(state.settings, pick)), shown.map { rarity.getValue(it.definition) }.toSet(), "pick $pick")
             assertEquals(pick, DraftEngine.privateView(state, "p0").round)
             state = pickFirst(state, "p0")
         }
@@ -110,7 +110,7 @@ class HomerockEngineTest {
             SetSourceCard("def-snow", "uuid-snow", SetCardRarity.COMMON, card = "Snow-Covered Island") +
             SetSourceCard("def-guest", "uuid-guest", SetCardRarity.COMMON, card = "Guest")
         val set = SetSourceSnapshot("TST", "Test set", printings)
-        val cards = HomerockEngine.setCards(listOf(set)) { _, uuid -> uuid != "uuid-guest" }
+        val cards = ArenaEngine.setCards(listOf(set)) { _, uuid -> uuid != "uuid-guest" }
         assertEquals(8, cards.size)
         assertEquals(listOf("def-2-0", "def-2-1", "def-2-2"), cards.first { it.id == "TST:Card 2" }.printings)
         val settings = settings(picks = 30, cards = 6).copy(rareEvery = null, uncommonEvery = null)
@@ -126,8 +126,8 @@ class HomerockEngineTest {
         assertEquals(8, seen.size) // every card comes again in later offers
         assertTrue(state.copies.none { it.definition in setOf("def-plains", "def-snow", "def-guest") })
         // Special and bonus count as rare, unknown as common
-        assertEquals(SetCardRarity.RARE, HomerockEngine.rarity(SetCardRarity.SPECIAL))
-        assertEquals(SetCardRarity.COMMON, HomerockEngine.rarity(SetCardRarity.UNKNOWN))
+        assertEquals(SetCardRarity.RARE, ArenaEngine.rarity(SetCardRarity.SPECIAL))
+        assertEquals(SetCardRarity.COMMON, ArenaEngine.rarity(SetCardRarity.UNKNOWN))
     }
 
     // DRF-284 (owner, 2026-11-20): without Reuse cards a card a player picked is never offered to that player again; another
@@ -177,7 +177,7 @@ class HomerockEngineTest {
         assertEquals(setOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE, SetCardRarity.MYTHIC), seen)
         // A set ignores it: the option is a cube's
         val set = SetSourceSnapshot("TST", "Test", List(20) { SetSourceCard("d$it", "u$it", if (it < 10) SetCardRarity.COMMON else SetCardRarity.RARE, card = "C$it") })
-        val setCards = HomerockEngine.setCards(listOf(set))
+        val setCards = ArenaEngine.setCards(listOf(set))
         val fromSet = start(setCards, settings(picks = 1).copy(ignoreRarity = true, rareEvery = null, uncommonEvery = null), cube = false, pickSets = listOf("TST"))
         assertTrue(offer(fromSet, "p0").all { copy -> setCards.first { copy.definition in it.printings }.rarity == SetCardRarity.COMMON })
     }
@@ -189,13 +189,13 @@ class HomerockEngineTest {
         val rare = start(cards, settings(picks = 1).copy(rareEvery = 1, mythicOneIn = null, reuseCards = true))
         assertEquals(mapOf(SetCardRarity.RARE to 1, SetCardRarity.UNCOMMON to 2, SetCardRarity.COMMON to 2),
             offer(rare, "p0").groupingBy { rarity.getValue(it.definition) }.eachCount())
-        assertEquals(listOf(HomerockFill("p0", 1, SetCardRarity.RARE, SetCardRarity.UNCOMMON, 2), HomerockFill("p0", 1, SetCardRarity.RARE, SetCardRarity.COMMON, 2)),
-            rare.homerock!!.fills.filter { it.player == "p0" })
+        assertEquals(listOf(ArenaFill("p0", 1, SetCardRarity.RARE, SetCardRarity.UNCOMMON, 2), ArenaFill("p0", 1, SetCardRarity.RARE, SetCardRarity.COMMON, 2)),
+            rare.arena!!.fills.filter { it.player == "p0" })
         // No commons below: a common pick fills from above
         val above = start(cube(commons = 2, uncommons = 2, rares = 5, mythics = 0), settings(picks = 1).copy(rareEvery = null, uncommonEvery = null, reuseCards = true))
         assertEquals(5, offer(above, "p0").size)
-        assertEquals(listOf(SetCardRarity.UNCOMMON to 2, SetCardRarity.RARE to 1), above.homerock!!.fills.filter { it.player == "p0" }.map { it.used to it.count })
-        assertEquals(HomerockCounts(10, 2, 1, 0), HomerockEngine.counts(cards))
+        assertEquals(listOf(SetCardRarity.UNCOMMON to 2, SetCardRarity.RARE to 1), above.arena!!.fills.filter { it.player == "p0" }.map { it.used to it.count })
+        assertEquals(ArenaCounts(10, 2, 1, 0), ArenaEngine.counts(cards))
     }
 
     // DRF-280, DRF-290: offers are refused with other counts, burns or another player's offer; your badge counts your picks left; the draft ends when every player has made

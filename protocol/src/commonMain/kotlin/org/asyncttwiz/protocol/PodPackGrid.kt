@@ -25,7 +25,7 @@ object PodPackGrid {
         DraftMode.GRID -> chunks(settings.grids, settings.gridsOpenAtOnce)
         DraftMode.ROCHESTER -> List(settings.packsPerPlayer.coerceAtLeast(1)) { 1 }
         // DRF-286: a row per pick, the set its offers come from
-        DraftMode.HOMEROCK -> List(settings.packsPerPlayer.coerceAtLeast(1)) { 1 }
+        DraftMode.ARENA -> List(settings.packsPerPlayer.coerceAtLeast(1)) { 1 }
         DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED -> listOf(settings.packsPerPlayer.coerceAtLeast(1))
         DraftMode.ROTISSERIE -> null
     }
@@ -91,8 +91,8 @@ object PodPackGrid {
         return when (settings.mode) {
             DraftMode.GRID -> cells
             DraftMode.ROTISSERIE -> cells
-            // Homerock: each pick's set, the same for every player
-            DraftMode.HOMEROCK -> cells
+            // Arena: each pick's set, the same for every player
+            DraftMode.ARENA -> cells
             DraftMode.SEALED -> List(players * settings.packsPerPlayer) { cells[it % settings.packsPerPlayer] }
             else -> List(players * settings.packsPerPlayer) { cells[it / players] }
         }

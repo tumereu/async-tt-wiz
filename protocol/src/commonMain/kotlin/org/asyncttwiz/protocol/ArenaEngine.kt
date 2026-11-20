@@ -3,37 +3,37 @@ package org.asyncttwiz.protocol
 import kotlinx.serialization.Serializable
 
 /**
- * One card Homerock offers are drawn from: a cube copy (one printing), or a set's card with every printing of it in the
- * set (one is chosen at random when it is offered). [rarity] is one of common, uncommon, rare and mythic ([HomerockEngine.rarity]);
+ * One card Arena offers are drawn from: a cube copy (one printing), or a set's card with every printing of it in the
+ * set (one is chosen at random when it is offered). [rarity] is one of common, uncommon, rare and mythic ([ArenaEngine.rarity]);
  * [set] is the set's code ("" for a cube).
  */
-@Serializable data class HomerockCard(val id: String, val printings: List<String>, val colors: Set<DraftColor> = emptySet(),
+@Serializable data class ArenaCard(val id: String, val printings: List<String>, val colors: Set<DraftColor> = emptySet(),
     val rarity: SetCardRarity = SetCardRarity.COMMON, val set: String = "")
 
 /** An offer that had too few cards of its rarity (DRF-285): [count] of its cards came from [used] in place of [wanted]. */
-@Serializable data class HomerockFill(val player: String, val pick: Int, val wanted: SetCardRarity, val used: SetCardRarity, val count: Int)
+@Serializable data class ArenaFill(val player: String, val pick: Int, val wanted: SetCardRarity, val used: SetCardRarity, val count: Int)
 
 /**
- * Homerock's part of a [DraftState] (server-only): what each player's offers are drawn from. Each player's offers come
+ * Arena's part of a [DraftState] (server-only): what each player's offers are drawn from. Each player's offers come
  * only from [seed], their own picks and the source: no other player's pick changes them (owner, 2026-11-20).
  */
-@Serializable data class HomerockState(
+@Serializable data class ArenaState(
     val seed: String,
     /** The source is a cube (Ignore rarity and Reuse cards apply, DRF-283, DRF-284), not sets. */
     val cube: Boolean,
-    val cards: List<HomerockCard>,
+    val cards: List<ArenaCard>,
     /** A set source's set of each pick, by its pack grid (DRF-286); empty for a cube. */
     val pickSets: List<String> = emptyList(),
     /** A cube without Reuse cards: the cards each player has picked, never offered to that player again (DRF-284). */
     val picked: Map<String, List<String>> = emptyMap(),
-    /** The open offers' copies: copy id to its [HomerockCard.id]. */
+    /** The open offers' copies: copy id to its [ArenaCard.id]. */
     val drawn: Map<String, String> = emptyMap(),
     /** Every offer filled up from another rarity so far (DRF-285), for the server's log. */
-    val fills: List<HomerockFill> = emptyList(),
+    val fills: List<ArenaFill> = emptyList(),
 )
 
-/** The cards of each rarity a Homerock source holds (DRF-285): a cube's copies, a set's cards (the fewest of the pod's sets). */
-@Serializable data class HomerockCounts(val common: Int = 0, val uncommon: Int = 0, val rare: Int = 0, val mythic: Int = 0) {
+/** The cards of each rarity an Arena source holds (DRF-285): a cube's copies, a set's cards (the fewest of the pod's sets). */
+@Serializable data class ArenaCounts(val common: Int = 0, val uncommon: Int = 0, val rare: Int = 0, val mythic: Int = 0) {
     fun of(rarity: SetCardRarity): Int = when (rarity) {
         SetCardRarity.UNCOMMON -> uncommon; SetCardRarity.RARE -> rare; SetCardRarity.MYTHIC -> mythic; else -> common
     }
@@ -41,19 +41,19 @@ import kotlinx.serialization.Serializable
 }
 
 /**
- * Homerock (DRF-280): each player drafts alone, at their own pace. Every pick offers them [DraftSettings.cardsPerPack]
+ * Arena (DRF-280): each player drafts alone, at their own pace. Every pick offers them [DraftSettings.cardsPerPack]
  * cards of the pick's rarity ([pickRarity]); they take [DraftSettings.keep] and the rest of the offer is gone. Nothing
  * passes between players. The state is a [DraftState]: each offer is a pack of its player's, its round the pick's index,
  * so the pick screen, marks and draft history of Booster work unchanged.
  */
-object HomerockEngine {
+object ArenaEngine {
     const val MAX_PICKS = 60
     const val MAX_OFFER = 15
     const val MAX_MYTHIC_ONE_IN = 100
     private val ORDER = listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE, SetCardRarity.MYTHIC)
     private val BASICS = BasicLand.entries.map { it.cardName }.toSet() + "Wastes"
 
-    /** Homerock's four rarities: special and bonus printings count as rare, an unknown rarity as common. */
+    /** Arena's four rarities: special and bonus printings count as rare, an unknown rarity as common. */
     fun rarity(value: SetCardRarity): SetCardRarity = when (value) {
         SetCardRarity.SPECIAL, SetCardRarity.BONUS -> SetCardRarity.RARE
         SetCardRarity.UNKNOWN -> SetCardRarity.COMMON
@@ -79,24 +79,24 @@ object HomerockEngine {
     fun needed(settings: DraftSettings): Long = if (settings.reuseCards) settings.cardsPerPack.toLong()
         else (settings.packsPerPlayer - 1).coerceAtLeast(0).toLong() * settings.keep + settings.cardsPerPack
 
-    /** A cube's copies as Homerock cards, each with its card's [rarity] (by its definition). */
-    fun cubeCards(cube: List<DraftCubeEntry>, rarity: (String) -> SetCardRarity): List<HomerockCard> =
+    /** A cube's copies as Arena cards, each with its card's [rarity] (by its definition). */
+    fun cubeCards(cube: List<DraftCubeEntry>, rarity: (String) -> SetCardRarity): List<ArenaCard> =
         cube.groupBy { it.definition }.entries.sortedBy { it.key }.flatMap { (definition, entries) ->
             val quantity = entries.sumOf { it.quantity }
             val colors = entries.first().colors.sortedBy { it.ordinal }.toSet()
-            List(quantity) { HomerockCard("$definition:copy:$it", listOf(definition), colors, rarity(rarity(definition))) }
+            List(quantity) { ArenaCard("$definition:copy:$it", listOf(definition), colors, rarity(rarity(definition))) }
         }
 
     /**
-     * Each set's cards as Homerock cards (DRF-286): a card once however many printings it has, its rarity the lowest of
+     * Each set's cards as Arena cards (DRF-286): a card once however many printings it has, its rarity the lowest of
      * its printings'. Basic lands are left out, and so are printings [own] says are not the set's own (cards of other sets
      * its booster recipe names).
      */
-    fun setCards(sets: List<SetSourceSnapshot>, own: (set: String, uuid: String) -> Boolean = { _, _ -> true }): List<HomerockCard> =
+    fun setCards(sets: List<SetSourceSnapshot>, own: (set: String, uuid: String) -> Boolean = { _, _ -> true }): List<ArenaCard> =
         sets.flatMap { set ->
             set.cards.filter { own(set.setCode, it.uuid) && !basic(it.card) }.sortedBy { it.uuid }
                 .groupBy { it.card.ifEmpty { it.uuid } }.entries.sortedBy { it.key }.map { (card, printings) ->
-                    HomerockCard("${set.setCode}:$card", printings.map { it.definition }.distinct(),
+                    ArenaCard("${set.setCode}:$card", printings.map { it.definition }.distinct(),
                         printings.flatMap { it.colors }.sortedBy { it.ordinal }.toSet(),
                         printings.map { rarity(it.rarity) }.minBy { ORDER.indexOf(it) }, set.setCode)
                 }
@@ -105,19 +105,19 @@ object HomerockEngine {
     private fun basic(name: String) = name in BASICS || name.removePrefix("Snow-Covered ") in BASICS
 
     /** The cards of each rarity in [cards] (DRF-285); several sets give each rarity's fewest of any one set. */
-    fun counts(cards: List<HomerockCard>): HomerockCounts {
+    fun counts(cards: List<ArenaCard>): ArenaCounts {
         val bySet = cards.groupBy { it.set }.values.map { set -> set.groupingBy { it.rarity }.eachCount() }
         fun count(rarity: SetCardRarity) = bySet.minOfOrNull { it[rarity] ?: 0 } ?: 0
-        return HomerockCounts(count(SetCardRarity.COMMON), count(SetCardRarity.UNCOMMON), count(SetCardRarity.RARE), count(SetCardRarity.MYTHIC))
+        return ArenaCounts(count(SetCardRarity.COMMON), count(SetCardRarity.UNCOMMON), count(SetCardRarity.RARE), count(SetCardRarity.MYTHIC))
     }
 
     /**
      * The draft's start: random seating and every player's first offer. [pickSets]: a set source's set of each pick
      * ([PodPackGrid.packSets]), empty for a cube ([cube]).
      */
-    fun start(players: List<String>, cards: List<HomerockCard>, settings: DraftSettings, seed: String, cube: Boolean,
+    fun start(players: List<String>, cards: List<ArenaCard>, settings: DraftSettings, seed: String, cube: Boolean,
         pickSets: List<String> = emptyList()): DraftState {
-        require(settings.mode == DraftMode.HOMEROCK && settings.validate(players.size).isEmpty()) { "Invalid Homerock settings" }
+        require(settings.mode == DraftMode.ARENA && settings.validate(players.size).isEmpty()) { "Invalid Arena settings" }
         require(players.all { it.isNotBlank() } && players.distinct().size == players.size) { "Invalid members" }
         require(cards.isNotEmpty() && cards.all { it.printings.isNotEmpty() } && cards.map { it.id }.distinct().size == cards.size) { "Invalid cards" }
         require(!cube || cards.size >= needed(settings)) { "Insufficient cube supply" }
@@ -130,7 +130,7 @@ object HomerockEngine {
         }
         val empty = seating.associateWith { emptyList<String>() }
         var state = DraftState(settings, seating.toList(), emptyList(), emptyList(), 0, empty, empty,
-            opened = seating.associateWith { 0 }, homerock = HomerockState(seed, cube, cards, if (cube) emptyList() else pickSets))
+            opened = seating.associateWith { 0 }, arena = ArenaState(seed, cube, cards, if (cube) emptyList() else pickSets))
         for (player in seating) state = offer(state, player, 0)
         return state
     }
@@ -138,7 +138,7 @@ object HomerockEngine {
     /** [player] takes [DraftPick.keep] of their offer (DRF-280): exactly the pick's count, no burns, no Librarians. */
     fun pick(state: DraftState, pick: DraftPick): DraftPickResult {
         fun reject(reason: DraftPickRejection) = DraftPickResult(reason = reason)
-        val homerock = requireNotNull(state.homerock) { "Not a Homerock draft" }
+        val arena = requireNotNull(state.arena) { "Not an Arena draft" }
         if (state.finished) return reject(DraftPickRejection.DRAFT_FINISHED)
         val queue = state.queues[pick.player]
         if (queue == null || pick.packId !in queue) return reject(DraftPickRejection.NOT_YOUR_PACK)
@@ -149,16 +149,16 @@ object HomerockEngine {
             pick.keep.size != minOf(state.settings.keep, pack.cards.size)) return reject(DraftPickRejection.WRONG_COUNTS)
         val player = pick.player
         val rest = pack.cards.filter { it !in pick.keep }
-        val reuse = !homerock.cube || state.settings.reuseCards
-        val picked = if (reuse) homerock.picked
-            else homerock.picked + (player to homerock.picked[player].orEmpty() + pick.keep.map { homerock.drawn.getValue(it) })
+        val reuse = !arena.cube || state.settings.reuseCards
+        val picked = if (reuse) arena.picked
+            else arena.picked + (player to arena.picked[player].orEmpty() + pick.keep.map { arena.drawn.getValue(it) })
         val next = state.copy(
             packs = state.packs.map { if (it.id == pack.id) it.copy(cards = emptyList()) else it },
             queues = state.queues + (player to emptyList()),
             pools = state.pools + (player to state.pools.getValue(player) + pick.keep),
             log = state.log + DraftPickLog(player, pack.id, pack.round, pick.keep, discarded = rest),
             opened = state.opened + (player to pack.round + 1),
-            homerock = homerock.copy(picked = picked, drawn = homerock.drawn - pack.cards.toSet()),
+            arena = arena.copy(picked = picked, drawn = arena.drawn - pack.cards.toSet()),
         )
         return DraftPickResult(state = settle(offer(next, player, pack.round + 1)))
     }
@@ -174,7 +174,7 @@ object HomerockEngine {
 
     /** The random words of [player]'s offer at pick index [index], from the draft's seed alone. */
     private fun words(seed: String, player: String, index: Int): RandomV1.Words {
-        val digest = sha256("async-tt-wiz/homerock/v1\u0000".encodeToByteArray() + RandomV1.decodeSeed(seed) +
+        val digest = sha256("async-tt-wiz/arena/v1\u0000".encodeToByteArray() + RandomV1.decodeSeed(seed) +
             "$player\u0000$index".encodeToByteArray())
         return RandomV1.Words(RandomV1.encodeSeed(ByteArray(32) { digest.substring(it * 2, it * 2 + 2).toInt(16).toByte() }))
     }
@@ -188,18 +188,18 @@ object HomerockEngine {
     private fun offer(state: DraftState, player: String, index: Int): DraftState {
         val settings = state.settings
         if (index >= settings.packsPerPlayer) return settle(state)
-        val homerock = requireNotNull(state.homerock) { "Not a Homerock draft" }
-        val words = words(homerock.seed, player, index)
-        val excluded = if (homerock.cube && !settings.reuseCards) homerock.picked[player].orEmpty().toSet() else emptySet()
-        val set = homerock.pickSets.getOrNull(index)
-        val pool = homerock.cards.filter { (set == null || it.set == set) && it.id !in excluded }
-        val chosen = mutableListOf<HomerockCard>()
-        val fills = mutableListOf<HomerockFill>()
-        fun draw(from: List<HomerockCard>): HomerockCard? {
+        val arena = requireNotNull(state.arena) { "Not an Arena draft" }
+        val words = words(arena.seed, player, index)
+        val excluded = if (arena.cube && !settings.reuseCards) arena.picked[player].orEmpty().toSet() else emptySet()
+        val set = arena.pickSets.getOrNull(index)
+        val pool = arena.cards.filter { (set == null || it.set == set) && it.id !in excluded }
+        val chosen = mutableListOf<ArenaCard>()
+        val fills = mutableListOf<ArenaFill>()
+        fun draw(from: List<ArenaCard>): ArenaCard? {
             val free = from.filter { card -> chosen.none { it.id == card.id } }
             return if (free.isEmpty()) null else free[RandomV1.sample(free.size, words::next)]
         }
-        if (homerock.cube && settings.ignoreRarity) repeat(settings.cardsPerPack) { draw(pool)?.let(chosen::add) }
+        if (arena.cube && settings.ignoreRarity) repeat(settings.cardsPerPack) { draw(pool)?.let(chosen::add) }
         else {
             val base = pickRarity(settings, index + 1)
             val buckets = pool.groupBy { it.rarity }
@@ -217,7 +217,7 @@ object HomerockEngine {
                     if (used != rarity) {
                         val last = fills.lastOrNull()
                         if (last != null && last.wanted == rarity && last.used == used) fills[fills.lastIndex] = last.copy(count = last.count + 1)
-                        else fills += HomerockFill(player, index + 1, rarity, used, 1)
+                        else fills += ArenaFill(player, index + 1, rarity, used, 1)
                     }
                     break
                 }
@@ -225,8 +225,8 @@ object HomerockEngine {
         }
         if (chosen.isEmpty()) {
             // A source without a card left for this player ends their draft here; the server logs it.
-            return settle(state.copy(opened = state.opened + (player to settings.packsPerPlayer), homerock = homerock.copy(
-                fills = homerock.fills + HomerockFill(player, index + 1, pickRarity(settings, index + 1), pickRarity(settings, index + 1), 0))))
+            return settle(state.copy(opened = state.opened + (player to settings.packsPerPlayer), arena = arena.copy(
+                fills = arena.fills + ArenaFill(player, index + 1, pickRarity(settings, index + 1), pickRarity(settings, index + 1), 0))))
         }
         val seat = state.seating.indexOf(player)
         val copies = chosen.mapIndexed { slot, card ->
@@ -236,7 +236,7 @@ object HomerockEngine {
         val pack = DraftPack("offer-$seat-$index", index, player, index + 1, copies.map { it.id })
         return state.copy(copies = state.copies + copies, packs = state.packs + pack, queues = state.queues + (player to listOf(pack.id)),
             opened = state.opened + (player to index),
-            homerock = homerock.copy(drawn = homerock.drawn + copies.zip(chosen).associate { (copy, card) -> copy.id to card.id },
-                fills = homerock.fills + fills))
+            arena = arena.copy(drawn = arena.drawn + copies.zip(chosen).associate { (copy, card) -> copy.id to card.id },
+                fills = arena.fills + fills))
     }
 }

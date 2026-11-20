@@ -244,9 +244,9 @@ fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respon
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Avatar(invitation.creator); Text(invitation.creator.username)
                         }
-                        // DRF-287: a Homerock invitation tells its format before accepting
-                        invitation.homerock?.takeIf { invitation.mode == DraftMode.HOMEROCK }?.let { format ->
-                            Text(podHomerockFormat(format), Modifier.testTag("pod-invitation-format"), style = MaterialTheme.typography.bodySmall)
+                        // DRF-287: an Arena invitation tells its format before accepting
+                        invitation.arena?.takeIf { invitation.mode == DraftMode.ARENA }?.let { format ->
+                            Text(podArenaFormat(format), Modifier.testTag("pod-invitation-format"), style = MaterialTheme.typography.bodySmall)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ScreenButton({ respond(invitation.podId, true) }, enabled = state.pending == 0) { ButtonLabel("ready", "Accept") }
@@ -605,8 +605,8 @@ fun podWaitingText(detail: PodDetail, accountId: String): String {
         names.isEmpty() -> "All your picks are done\nOther players are finishing"
         else -> "All your picks are done\n${names.joinToString(", ")} ${if (names.size == 1) "is" else "are"} finishing"
     }
-    // Homerock's picks are no rounds of the pod's (DRF-280)
-    if (detail.settings.mode == DraftMode.HOMEROCK) return status
+    // Arena's picks are no rounds of the pod's (DRF-280)
+    if (detail.settings.mode == DraftMode.ARENA) return status
     return status + (round?.let { "\nRound ${it.first} of ${it.second}" } ?: "")
 }
 
@@ -614,8 +614,8 @@ fun podWaitingText(detail: PodDetail, accountId: String): String {
 fun podPickOrientationText(detail: PodDetail): String? {
     val draft = detail.draft ?: return null
     val head = draft.head ?: return null
-    // DRF-288: Homerock's pick and its rarity; the offer is the player's own
-    if (detail.settings.mode == DraftMode.HOMEROCK) return podHomerockPickLine(detail.settings, draft.round, detail.source.kind, head.cards.size)
+    // DRF-288: Arena's pick and its rarity; the offer is the player's own
+    if (detail.settings.mode == DraftMode.ARENA) return podArenaPickLine(detail.settings, draft.round, detail.source.kind, head.cards.size)
     val from = head.passedBy?.let { id ->
         "from " + (detail.members.firstOrNull { it.account.accountId == id }?.account?.username ?: "another player")
     } ?: "your pack"

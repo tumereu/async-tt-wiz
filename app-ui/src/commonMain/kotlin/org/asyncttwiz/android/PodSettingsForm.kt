@@ -37,11 +37,11 @@ enum class PodSetting(val label: String) {
     BOOSTERS("Boosters"),
     /** Winston and Winchester: independent tables (DRF-156, DRF-158). */
     TABLES("Tables"),
-    /** Homerock (DRF-281): the number of picks, cards per offer and picks per offer. */
+    /** Arena (DRF-281): the number of picks, cards per offer and picks per offer. */
     PICKS("Picks"), OFFER_CARDS("Cards"), TAKE("Take"),
-    /** Homerock (DRF-281): the rarity intervals; empty = never. */
+    /** Arena (DRF-281): the rarity intervals; empty = never. */
     RARE_EVERY("Rare every"), UNCOMMON_EVERY("Uncommon every"),
-    /** Homerock (DRF-282): the mythic chance, 1 in N; empty = never. */
+    /** Arena (DRF-282): the mythic chance, 1 in N; empty = never. */
     MYTHIC("Mythic");
 
     fun value(s: DraftSettings): Int? = when (this) {
@@ -55,7 +55,7 @@ enum class PodSetting(val label: String) {
         PICKS -> s.packsPerPlayer; OFFER_CARDS -> s.cardsPerPack; TAKE -> s.keep
         RARE_EVERY -> s.rareEvery; UNCOMMON_EVERY -> s.uncommonEvery; MYTHIC -> s.mythicOneIn
     }
-    /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player), Homerock's
+    /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player), Arena's
      * rarity intervals and mythic chance "Never". */
     val emptyText: String? get() = when (this) {
         SIDEBOARD -> "∞"; TABLE_OPEN -> "1 each"; RARE_EVERY, UNCOMMON_EVERY, MYTHIC -> "Never"; else -> null
@@ -80,11 +80,11 @@ enum class PodSetting(val label: String) {
         PILES -> if (s.mode == DraftMode.WINCHESTER) 2..8 else 2..6
         BOOSTERS -> 1..30
         TABLES -> 1..s.mode.players.last
-        PICKS -> 1..HomerockEngine.MAX_PICKS
-        OFFER_CARDS -> maxOf(2, s.keep + 1)..HomerockEngine.MAX_OFFER
+        PICKS -> 1..ArenaEngine.MAX_PICKS
+        OFFER_CARDS -> maxOf(2, s.keep + 1)..ArenaEngine.MAX_OFFER
         TAKE -> 1..(s.cardsPerPack - 1).coerceAtLeast(1)
-        RARE_EVERY, UNCOMMON_EVERY -> 1..HomerockEngine.MAX_PICKS
-        MYTHIC -> 1..HomerockEngine.MAX_MYTHIC_ONE_IN
+        RARE_EVERY, UNCOMMON_EVERY -> 1..ArenaEngine.MAX_PICKS
+        MYTHIC -> 1..ArenaEngine.MAX_MYTHIC_ONE_IN
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
@@ -104,11 +104,11 @@ enum class PodSetting(val label: String) {
         PILES -> "${range(s).first}–${range(s).last}"
         BOOSTERS -> "1–30"
         TABLES -> "1–${range(s).last}; more than the players gives one table each"
-        PICKS -> "1–${HomerockEngine.MAX_PICKS}"
-        OFFER_CARDS -> "Take + 1: ${s.keep + 1}; maximum ${HomerockEngine.MAX_OFFER}"
+        PICKS -> "1–${ArenaEngine.MAX_PICKS}"
+        OFFER_CARDS -> "Take + 1: ${s.keep + 1}; maximum ${ArenaEngine.MAX_OFFER}"
         TAKE -> "Fewer than the cards: ${s.cardsPerPack}"
-        RARE_EVERY, UNCOMMON_EVERY -> "1–${HomerockEngine.MAX_PICKS} or Never"
-        MYTHIC -> "1 in 1–${HomerockEngine.MAX_MYTHIC_ONE_IN} or Never"
+        RARE_EVERY, UNCOMMON_EVERY -> "1–${ArenaEngine.MAX_PICKS} or Never"
+        MYTHIC -> "1 in 1–${ArenaEngine.MAX_MYTHIC_ONE_IN} or Never"
     }
     /** Plain-words meaning shown in the value dialog. */
     fun explanation(s: DraftSettings): String = when (this) {
@@ -175,14 +175,14 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
         DraftMode.BOOSTER, DraftMode.GLIMPSE -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
             PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)
         // DRF-281, DRF-282: offers are never a set's booster, so their size is always set
-        DraftMode.HOMEROCK -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.RARE_EVERY,
+        DraftMode.ARENA -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.RARE_EVERY,
             PodSetting.UNCOMMON_EVERY, PodSetting.MYTHIC)
     } + PodSetting.SIDEBOARD
 }
 
 /** The modes the mode button's popup lists (DRF-020); Glimpse is a preset of Booster (DRF-031), not a mode. */
 val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER,
-    DraftMode.SEALED, DraftMode.HOMEROCK)
+    DraftMode.SEALED, DraftMode.ARENA)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
 fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
@@ -192,7 +192,7 @@ fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.WINSTON -> "Winston"
     DraftMode.WINCHESTER -> "Winchester"
     DraftMode.SEALED -> "Sealed"
-    DraftMode.HOMEROCK -> "Homerock"
+    DraftMode.ARENA -> "Arena"
 }
 /** The listed mode a pod's mode is: a Glimpse pod is a Booster pod. */
 fun podModeChoice(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
@@ -242,8 +242,8 @@ fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
         if (settings.mode.packPassing && source.kind == PodSourceKind.CUBE) key("colorBalance") {
             PodToggleTile("Color balancing", settings.colorBalance, enabled) { value -> change { it.copy(colorBalance = value) } }
         }
-        // DRF-283, DRF-284: Homerock's cube options, greyed for sets
-        if (settings.mode == DraftMode.HOMEROCK) {
+        // DRF-283, DRF-284: Arena's cube options, greyed for sets
+        if (settings.mode == DraftMode.ARENA) {
             val cube = source.kind == PodSourceKind.CUBE
             key("ignoreRarity") {
                 PodToggleTile("Ignore rarity", settings.ignoreRarity, enabled && cube, cube) { value -> change { it.copy(ignoreRarity = value) } }
@@ -264,8 +264,8 @@ fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
         Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && members <= 2)
         Text("Two picks each")
     }
-    // DRF-287: Homerock's summary, members' too
-    if (settings.mode == DraftMode.HOMEROCK) PodHomerockSummary(settings, source)
+    // DRF-287: Arena's summary, members' too
+    if (settings.mode == DraftMode.ARENA) PodArenaSummary(settings, source)
 }
 
 /** DRF-020: one full-width button showing the pod's mode with a switch icon; it opens a popup list of the modes,

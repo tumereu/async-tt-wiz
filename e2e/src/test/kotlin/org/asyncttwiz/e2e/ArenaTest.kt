@@ -18,27 +18,27 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Homerock (owner, 2026-11-20): each player drafts alone from offers of their own, takes some of each offer and the rest is
+ * Arena (owner, 2026-11-20): each player drafts alone from offers of their own, takes some of each offer and the rest is
  * gone; nothing passes between players.
  */
-class HomerockTest : E2e() {
-    // DRF-280, DRF-284, DRF-287, DRF-288, DRF-289, DRF-290: a two-player Homerock pod from a cube without Reuse cards, 3 picks of
+class ArenaTest : E2e() {
+    // DRF-280, DRF-284, DRF-287, DRF-288, DRF-289, DRF-290: a two-player Arena pod from a cube without Reuse cards, 3 picks of
     // offers of 3 taking 1. Bob's invitation reads the format; both pick on their phones, each from their own offers, with the
     // pick line; neither ever sees the other's offers; a card Alice took never comes back to her; her history lists her picks;
     // both reach Build
     @Test fun twoPlayersDraftTheirOwnOffersAndReachBuild() {
         launchPlayers()
-        val name = "E2E Homerock ${UUID.randomUUID().toString().take(6)}"
+        val name = "E2E Arena ${UUID.randomUUID().toString().take(6)}"
         val cards = listOf(TestCards.spark, TestCards.cub, TestCards.herald, TestCards.hound, TestCards.stride, TestCards.glimmer,
             TestCards.glint, TestCards.drowsy)
-        val settings = DraftSettings.homerock().copy(packsPerPlayer = 3, cardsPerPack = 3, keep = 1, ignoreRarity = true)
+        val settings = DraftSettings.arena().copy(packsPerPlayer = 3, cardsPerPack = 3, keep = 1, ignoreRarity = true)
         val pod = runBlocking {
             fun id() = UUID.randomUUID().toString()
             val cube = DeckApi(E2eStack.origin).use { api ->
-                api.create(alice.account.token, CreateCube(id(), "E2E Homerock cube", cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 1) }))
+                api.create(alice.account.token, CreateCube(id(), "E2E Arena cube", cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 1) }))
             }
             org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
-                api.create(alice.account.token, CreatePod(id(), name, cube.cube.id, DraftMode.HOMEROCK, settings = settings)).id.also { pod ->
+                api.create(alice.account.token, CreatePod(id(), name, cube.cube.id, DraftMode.ARENA, settings = settings)).id.also { pod ->
                     ServerSetup.contact(alice.account, bob.account)
                     api.invite(alice.account.token, pod, InviteToPod(id(), bob.account.id))
                 }
@@ -48,7 +48,7 @@ class HomerockTest : E2e() {
         bob.auth.navigate(ShellDestination.PODS)
         bob.pods.refresh()
         waitUntil("Bob's invitation with the format") {
-            bob.shows(hasTestTag("pod-invitation-format") and hasText("Homerock: 3 picks, 3 cards, take 1"))
+            bob.shows(hasTestTag("pod-invitation-format") and hasText("Arena: 3 picks, 3 cards, take 1"))
         }
         bob.node(hasClickAction() and hasAnyDescendant(hasText("Accept"))).performClick()
         waitUntil("Bob a member") { ServerSetup.pod(alice.account, pod).members.size == 2 }
@@ -102,7 +102,7 @@ class HomerockTest : E2e() {
         alice.pods.refresh()
         waitUntil("Alice's History button") { alice.shows(hasTestTag("pod-history")) }
         alice.tagged("pod-history").performClick()
-        waitUntil("Alice's Homerock history") {
+        waitUntil("Alice's Arena history") {
             alice.pods.history?.picks?.map { it.kept.single() } == taken.getValue(alice).map { it.id } &&
                 alice.showsText("Pick 1") && !alice.shows(hasTestTag("pod-history-returning"))
         }

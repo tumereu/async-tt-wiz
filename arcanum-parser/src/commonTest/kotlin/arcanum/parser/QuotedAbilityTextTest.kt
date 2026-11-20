@@ -53,4 +53,16 @@ class QuotedAbilityTextTest {
         assertEquals(listOf("Whenever this creature deals combat damage to a player, you may pay {1}. If you do, create a 1/1 colorless Servo " +
             "artifact creature token."), quotedTexts(face))
     }
+
+    // CR 113.1a (prod faults 8FKFT6, B3KMCU: 'target creature you control gains "When this creature dies, …"' read as the
+    // placeholder "Triggered ability" on the board): an ability an effect grants in quotes until end of turn keeps its words
+    @Test
+    fun anAbilityGainedUntilEndOfTurnKeepsItsText() {
+        val face = OracleParser.parse(OracleCard("Grave Encore", "{B}", "Instant",
+            "Until end of turn, target creature you control gains \"When this creature dies, return it to the battlefield tapped under its " +
+                "owner's control, then create a Wicked Role token attached to it.\" (Enchanted creature gets +1/+1. When this token is put " +
+                "into a graveyard, each opponent loses 1 life.)"))
+        assertEquals(listOf("When this creature dies, return it to the battlefield tapped under its owner's control, then create a Wicked " +
+            "Role token attached to it."), quotedTexts(face))
+    }
 }

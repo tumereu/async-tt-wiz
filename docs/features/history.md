@@ -25,7 +25,7 @@ in undo.md.
 ## Event texts and icons
 
 - **HIS-061** Every event has a short text: hold an icon on the timeline. Texts name who acted first ("You", the other player's name) and end with what it led to. (r55)
-- **HIS-091** Event texts name the actor: "You cast Storm Spark", "Bob played Mountain", "You activated Ember Herald's ability" (STK-046), "You attacked with 2", "Bob blocked with 1". (r76)
+- **HIS-091** Event texts name the actor: "You cast Storm Spark", "Bob played Mountain", "You activated Ember Herald's ability" (STK-046), "You attacked with 2", "Bob blocked with 1"; a special action by what it did: "Bob unlocked Dusty Attic", "You turned Ember Mask face up", "Bob foretold a card", "Bob plotted Ember Rider", "Bob suspended Ember Comet". (r76)
 - **HIS-121** Keyword abilities read by their keyword: "Bob cycled Shattered Reason", "You activated Ember Blade's equip ability". A keyword's ability or trigger resolving reads by its kind (STK-050): "Shattered Reason's cycling trigger resolved"; other abilities read "Ember Herald's ability resolved". (r76)
 - **HIS-122** Table-only events read "Alice staged 2 attackers", "Bob arranged 1 block", "You answered early", "A result was suggested". (r76)
 - **HIS-123** An answer you assumed reads, for you only, as theirs with "(assumed)": "Bob: no blocks (assumed)", "Bob kept (assumed)", and a stand-in bottom choice "Bob chose (assumed)", never naming the cards. They read it as their own, so nothing tells them it was assumed. (r76)
@@ -43,7 +43,7 @@ in undo.md.
 - **HIS-130** In Control, the other player's pass right after their own action still goes by at once (a resolve by hand after their cast, which a lower mode would have made inside that action's event, HIS-188). (r61)
 - **HIS-102** With everything before them shown (your live game), the other player's passes show at once on the live table, never as playback; what they lead to (a spell resolving) animates as usual. (r52)
 - **HIS-030** Playback and live opponent actions animate each change (cards fly, rotate, flip, fade; also between piles); attacks play back in the combat area (CMB-007). Take-backs animate backwards: an undo in one go on both tables (for the other player only as far as they had seen, HIS-108), a branch's take-back step by step (HIS-106). (r53)
-- **HIS-031** Changes show a delta tag such as "+2" and a number flash for life, player counters, card P/T and counters (shown 1 s, then a 0.5 s fade; changes within 1.5 s add up), and a short highlight for face, control and step changes. (r60)
+- **HIS-031** Changes show a delta tag such as "+2" and a number flash for life, player counters, card P/T and counters (shown 1 s, then a 0.5 s fade; changes within 1.5 s add up), and a short highlight for face, control and step changes; a Room whose door was unlocked pulses as a card changing control does. (r60)
 - **HIS-131** Delta tags, flashes and highlights show for your own and the opponent's changes, live and in playback (catch-up playback too), also when a take-back goes back; never on jumps, on opening the game or in timeline mode. They come from the events shown (life, P/T, step and turn, face, a change of control, a library's shuffle). (r60)
 
 ## Pausing with a held finger

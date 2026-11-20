@@ -289,8 +289,65 @@ class CastFlow private constructor(
         fun abilityText(definition: CardDefinition?, origin: AbilityOrigin): String? = when (origin) {
             is AbilityOrigin.Printed -> definition?.faces?.getOrNull(origin.face)?.abilities?.getOrNull(origin.index)?.let(::text)
             is AbilityOrigin.Expansion -> abilityText(definition, origin.keyword)
+            is AbilityOrigin.Rule -> ruleText(definition, origin)
             else -> null
         }
+
+        /**
+         * The words of a special action the rules give an object rather than a printed ability (CR 116.2; prod faults
+         * 9SF97R, P86WUK: a door's unlocking showed as the placeholder "Special action"): "Unlock Prop Room" (CR 709.5e),
+         * "Turn face up for {2}{U}" for a manifested or cloaked creature card (CR 701.40b), foretelling (CR 702.143b); null for
+         * a rule it doesn't know.
+         */
+        fun ruleText(definition: CardDefinition?, origin: AbilityOrigin.Rule): String? = when (origin.name) {
+            UNLOCK_LEFT, UNLOCK_RIGHT -> definition?.faces?.getOrNull(if (origin.name == UNLOCK_LEFT) 0 else 1)?.name
+                ?.takeIf { it.isNotBlank() }?.let { "Unlock $it" }
+            MANIFESTED -> definition?.faces?.firstOrNull()?.manaCost?.toString()?.takeIf { it.isNotEmpty() }
+                ?.let { "Turn face up for $it" } ?: "Turn face up"
+            FORETELL -> "Foretell (During your turn, you may pay {2} and exile this card from your hand face down.)"
+            else -> null
+        }
+
+        /**
+         * HIS-091: what a special action (CR 116.2) did, for its event text after its player's name: "unlocked Prop Room",
+         * "turned Ember Mask face up", "foretold a card" (the card stays hidden), "plotted Ember Rider", "suspended Ember
+         * Comet"; [name] is the card's name when the reader may see it. Null for an ability that isn't one of these (it reads
+         * as an activated ability).
+         */
+        fun specialActionDone(definition: CardDefinition?, origin: AbilityOrigin, name: String?): String? {
+            val card = name ?: "a card"
+            if (origin is AbilityOrigin.Rule) return when (origin.name) {
+                UNLOCK_LEFT, UNLOCK_RIGHT -> ruleText(definition, origin)?.removePrefix("Unlock ")?.let { "unlocked $it" } ?: "unlocked a door"
+                MANIFESTED -> "turned $card face up"
+                FORETELL -> "foretold a card"
+                else -> null
+            }
+            val printed = when (origin) {
+                is AbilityOrigin.Printed -> origin
+                is AbilityOrigin.Expansion -> origin.keyword as? AbilityOrigin.Printed
+                else -> null
+            } ?: return null
+            val ability = definition?.faces?.getOrNull(printed.face)?.abilities?.getOrNull(printed.index) ?: return null
+            val action = when {
+                ability is Ability.SpecialAction -> ability
+                ability is arcanum.api.Keyword && origin is AbilityOrigin.Expansion ->
+                    arcanum.engine.view.KeywordMeanings.expand(ability).getOrNull(origin.index) as? Ability.SpecialAction
+                else -> null
+            } ?: return null
+            return when {
+                ability is arcanum.api.Keyword.Plot -> "plotted $card"
+                ability is arcanum.api.Keyword.Suspend -> "suspended $card"
+                ability is arcanum.api.Keyword.Foretell -> "foretold a card"
+                action.instructions.steps.any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp } -> "turned $card face up"
+                else -> null
+            }
+        }
+
+        /** The engine's rule names of the special actions [ruleText] names (arcanum.engine Rooms, SpecialActions, Foretell). */
+        const val UNLOCK_LEFT = "unlock-left"
+        const val UNLOCK_RIGHT = "unlock-right"
+        const val MANIFESTED = "manifested"
+        const val FORETELL = "foretell"
 
         /** The name of a fused split spell (CR 702.102a): both halves' names, "Reel // Rend (fused)". */
         fun fusedName(definition: CardDefinition?): String? =

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
@@ -60,7 +62,7 @@ class DesktopTableScreenshotTest {
     /** Alice's table of [kit]'s game drawn as [EngineTableScreen] draws it in the desktop layout: the top row over the table
      * surface with the desktop frame, the dock holding the docked chat of [lobby] while [dockOpen] (read as state). */
     private fun render(kit: EngineTableKit, lobby: LobbyController = chatLobby(kit), dockOpen: () -> Boolean = { true },
-        pictures: Boolean = false) {
+        pictures: Boolean = false, chatBubbles: (() -> TableChatBubbles?)? = null) {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
@@ -74,7 +76,7 @@ class DesktopTableScreenshotTest {
                                 TableSurface(kit.f.game, play, kit.f.a, true, Modifier.fillMaxSize(), connected = true,
                                     onIntent = kit.toolkit::handle, toolkit = kit.toolkit,
                                     runtime = TableRuntimeHooks(navigation = {}, undo = { kit.routes.undo() }, controlsConnected = true,
-                                        waitingLine = kit.routes.waitingLine(play),
+                                        waitingLine = kit.routes.waitingLine(play), chatBubbles = chatBubbles?.invoke(),
                                         desktopDock = { DesktopDock { m -> ChatPanel(lobby, kit.f.a, m, docked = true) } }))
                             }
                         }
@@ -580,6 +582,31 @@ class DesktopTableScreenshotTest {
         compose.onNodeWithTag("desktop-dock").assertDoesNotExist()
         val folded = compose.onNodeWithContentDescription("Stack, 1 entries").fetchSemanticsNode().boundsInRoot
         assertEquals(beside.right + DesktopTable.DOCK, folded.right, 1f, "folded away, the Stack at the window's right edge: $folded")
+    }
+
+    // WEB-137, WEB-138, LOB-136, LOB-137 (owner playtest 2026-11-20: desktop chat bubbles at least twice as big; owner 2026-11-19: shown while the
+    // dock is open, gone by themselves): with the chat dock open Bob's message shows as his bubble under his life square and
+    // Alice's just sent one above hers, each twice the phone's size, text included; Bob's goes by itself after about 5 s
+    @Test fun chatBubblesAreTwiceTheSizeAndGoByThemselves() {
+        val kit = EngineTableKit()
+        kit.toReadyCub()
+        val gone = mutableListOf<String>()
+        var incoming by androidx.compose.runtime.mutableStateOf<IncomingChatBubble?>(IncomingChatBubble("m3", "nice draw, my turn soon?", 1, 1))
+        compose.mainClock.autoAdvance = false
+        render(kit, chatBubbles = { TableChatBubbles(incoming, SentChat(1, "one sec, thinking"), tableShown = true, authorName = "Bob",
+            read = {}, open = {}, sentShown = {}, scale = ChatBubbleRules.DESKTOP_SCALE, incomingGone = { gone += it; incoming = null }) })
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithTag("desktop-dock").assertExists()
+        val bubble = compose.onNodeWithTag("chat-bubble").fetchSemanticsNode().boundsInRoot
+        assertTrue(bubble.height >= 2 * ChatBubbleLayout.HEIGHT, "twice the phone's one-line bubble: $bubble")
+        compose.onNodeWithTag("own-chat-bubble").assertExists()
+        captureShot("$SCREENSHOTS/desktop/chat-bubbles.png",
+            "Alice's desktop table with the chat dock open: Bob's message shows as his red-outlined bubble under his life square in his seat header " +
+                "and Alice's just sent message as her green one above her life square, both twice the phone's size, text included.")
+        compose.mainClock.advanceTimeBy(ChatBubbleRules.DESKTOP_SHOWN_MILLIS + ChatBubbleRules.OWN_FADE_MILLIS + 200)
+        compose.waitForIdle()
+        assertEquals(listOf("m3"), gone, "Bob's bubble went by itself")
+        compose.onNodeWithTag("chat-bubble").assertDoesNotExist()
     }
 
     // WEB-015, WEB-016, WEB-020, WEB-022: in a 1920 × 1080 window, with Alice's Mountain and Ember Cub out at her main phase,

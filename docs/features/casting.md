@@ -23,7 +23,7 @@ it without a trace.
 - **ZON-103** Tapping elsewhere or another hand card lowers the raised card, as do casting it and its leaving the hand; board changes refresh its chips and outlines. It moves at hand-move speed. (r64)
 - **ZON-004** Double-tapping a hand card casts it through Automatum (STK-023) as a second tap on the raised card does (ZON-102): at once when it has no choice, otherwise through its cast panel. A card Automatum doesn't allow now (any card in the other player's hand too) stays in the hand and shakes, saying why (TBL-212). (r78)
 - **ZON-104** A land double-tapped in your hand is played at once onto its owner's battlefield, and a trigger it sets off (landfall) is passed on by its player as after a cast (STK-026). (r58)
-- **ZON-095** While a cast (its target bar too), an Automatum choice of yours or another panel (a reveal, a Library, View deck, the Stack's list, the table menu) is open, your hand row is dimmed to about 40% and takes no taps, double taps or drags (nothing raises, casts or shakes), unless the open choice is about a card in your hand (a discard, a cost discarding or exiling a hand card); closing it lights the hand again. (r74)
+- **ZON-095** While a cast (its target bar too), an Automatum choice of yours or another panel (a reveal, a Library, View deck, the Stack's list, the table menu) is open, your hand row is dimmed to about 40% and takes no taps, double taps or drags (nothing raises, casts or shakes), unless the open choice is about a card in your hand (a discard, a cost discarding or exiling a hand card); closing it lights the hand again. Never during your opening: the hand you decide a mulligan on shows at full strength (TRN-062). (r74)
 
 ## Cards you may use from other zones
 

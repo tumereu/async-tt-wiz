@@ -22,6 +22,11 @@ object ChatBubbleRules {
     /** LOB-137: how long the viewer's own sent message stays before it fades, and the fade (ms). */
     const val OWN_SHOWN_MILLIS = 3_000L
     const val OWN_FADE_MILLIS = 400
+    /** WEB-138 (owner playtest 2026-11-20): on the desktop table how long the other player's bubble stays before it fades by itself
+     * (ms); it fades as the own one does ([OWN_FADE_MILLIS]). */
+    const val DESKTOP_SHOWN_MILLIS = 5_000L
+    /** WEB-137 (owner playtest 2026-11-20): on the desktop table chat bubbles are twice the phone's size, their text included. */
+    const val DESKTOP_SCALE = 2f
 
     /**
      * LOB-136: the bubble of the other player's oldest unread message in [messages] (ascending, loaded ones) for [viewer]
@@ -51,7 +56,8 @@ object ChatBubbleRules {
  * LOB-136, LOB-137 (owner, 2026-11-08): where a chat bubble goes: always at its player's life square, under the opponent's
  * and above the viewer's own, covering whatever lies there, hand cards included, in the old status bubbles' look (white,
  * the player's colour as outline and tail, text wrapped over up to [MAX_LINES] lines and cut with "…", each line centred,
- * never narrower than the life square). Only the screen's edges move it.
+ * never narrower than the life square). Only the screen's edges move it. Sizes are the phone's, times a [scale] where one is
+ * given (WEB-137: the desktop table's bubbles).
  */
 object ChatBubbleLayout {
     const val TEXT = 11f
@@ -71,24 +77,25 @@ object ChatBubbleLayout {
 
     /** The bubble's size for [lines] [textWidth] wide (the longest line) and a [counterWidth] wide counter (0: none),
      * never narrower than the [life] square. */
-    fun size(life: TableBounds, textWidth: Float, lines: Int, counterWidth: Float): Pair<Float, Float> {
-        val counter = if (counterWidth > 0f) counterWidth + COUNTER_GAP else 0f
-        return maxOf(textWidth + counter + 2 * PADDING, life.width) to HEIGHT + (lines.coerceIn(1, MAX_LINES) - 1) * LINE
+    fun size(life: TableBounds, textWidth: Float, lines: Int, counterWidth: Float, scale: Float = 1f): Pair<Float, Float> {
+        val counter = if (counterWidth > 0f) counterWidth + COUNTER_GAP * scale else 0f
+        return maxOf(textWidth + counter + 2 * PADDING * scale, life.width) to (HEIGHT + (lines.coerceIn(1, MAX_LINES) - 1) * LINE) * scale
     }
 
     /** The bubble [width]×[height] by [life] ([below] it for the opponent, above it for the viewer), left-aligned with the
      * square, on a [screenWidth]×[screenHeight] table: kept on the screen, whatever it covers. */
-    fun place(life: TableBounds, below: Boolean, width: Float, height: Float, screenWidth: Float, screenHeight: Float): TableBounds {
-        val keep = TAIL + 1f
+    fun place(life: TableBounds, below: Boolean, width: Float, height: Float, screenWidth: Float, screenHeight: Float,
+        scale: Float = 1f): TableBounds {
+        val keep = TAIL * scale + 1f
         val y = if (below) life.bottom + keep else life.y - keep - height
         return TableBounds(life.x.coerceAtMost(screenWidth - 4f - width).coerceAtLeast(4f),
             y.coerceAtMost(screenHeight - height).coerceAtLeast(0f), width, height)
     }
 
     /** Which edge of [bubble] the tail leaves from towards [life] ([Tail.top]: its top edge), and the tail's base centre on it. */
-    fun tail(bubble: TableBounds, life: TableBounds): Tail {
+    fun tail(bubble: TableBounds, life: TableBounds, scale: Float = 1f): Tail {
         val top = bubble.y >= life.bottom
-        return Tail(top, life.center.x.coerceIn(bubble.x + 8f, bubble.right - 8f), if (top) bubble.y else bubble.bottom)
+        return Tail(top, life.center.x.coerceIn(bubble.x + 8f * scale, bubble.right - 8f * scale), if (top) bubble.y else bubble.bottom)
     }
     data class Tail(val top: Boolean, val x: Float, val y: Float)
 }

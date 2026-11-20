@@ -317,6 +317,9 @@ number	item	screenshot	catalog	decisions	sequence
 325	Draft: Custom booster setup with its list of passes	draft/setup-custom-booster.png	DRF-262 DRF-020		Custom booster
 326	Draft: Custom booster pick screen saying what the pass asks	draft/custom-booster-pick.png	DRF-263 DRF-260		Custom booster
 330	The other player's spell on the Stack, its "you" as their name: "Bob gains 2 life" under the band's main line	stack/opponent-you-named.png	STK-220 STK-057 STK-131	
+340	Desktop chat bubbles twice the size, shown with the chat dock open	desktop/chat-bubbles.png	WEB-137 WEB-138
+341	Attackers declared from a stack lie together in one pile beside the rest	battlefield/attackers-pile.png	TBL-230 CMB-070
+342	Holding the other player's face-down creature lists its counters and effects	states/face-down-inspect.png	TBL-231
 350	Draft: Arena setup with its tiles and summary	draft/setup-arena.png	DRF-281 DRF-282 DRF-283 DRF-284 DRF-285 DRF-287		Arena
 351	Draft: Arena pick screen on the phone	draft/arena-pick.png	DRF-288 DRF-280		Arena
 352	Desktop draft: Arena pick with a quick look	desktop/arena-pick.png	DRF-288 WEB-117		Arena

@@ -43,7 +43,10 @@ fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspe
     val faceDown = CombatStackRules.faceDownEntry(state.board, inspection.cardId)
     val held = cardTiles(state, viewer, card, inspection, faceDown, inspection.cardId in CombatStackRules.projectionIds(state.board))
     val others = below.map { it to cardTiles(state, viewer, it, null, false, false) }
-    val changes = InspectChanges.of(state, viewer, (listOf(card to held) + others).filter { (_, tiles) -> tiles.none { it is InspectTile.Covered } }
+    // TBL-231 (owner playtest 2026-11-20): a face-down permanent hides only its face: its counters, damage, effects and
+    // restrictions are listed for every player, its covered tile notwithstanding
+    val changes = InspectChanges.of(state, viewer, (listOf(card to held) + others)
+        .filter { (shown, tiles) -> tiles.none { it is InspectTile.Covered } || publicFaceDown(state.board, shown) }
         .map { it.first }, names)
     // STK-050 (owner 2026-11-06): a spell on the Stack shows what was chosen for it (modes, X, targets), as abilities do
     val chosen = if (state.board.stackEffects.any { it.id == entry } && held.none { it is InspectTile.Covered })

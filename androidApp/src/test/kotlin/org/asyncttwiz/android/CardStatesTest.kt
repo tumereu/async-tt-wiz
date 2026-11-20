@@ -529,6 +529,64 @@ class CardStatesTest {
             source = id(blocker), controller = PlayerId(f.b), timestamp = 900, createdTurn = 1, duration = Duration.UntilYourNextTurn)
     }
 
+    /** Alice's Sentinel face down and tapped with two +1/+1 counters, Bob's Guide giving it +1/+0 until end of turn and keeping it
+     * from untapping, on [viewer]'s table. */
+    private fun faceDownSentinel(viewer: String): TableBoard {
+        val counters = listOf(CounterEntry(CounterKind.PowerToughness(1, 1), 2, 1))
+        val play = f.initial.copy(board = f.initial.board.copy(cards = f.initial.board.cards.map {
+            if (it.id == sentinel.id) it.copy(covered = true, explicitlyCovered = true, tapped = true,
+                typedCounters = listOf(org.asyncttwiz.protocol.TypedCounter("+1/+1", 2, 1))) else it }))
+        return board(play, viewer) {
+            mark(sentinel) { it.copy(faceDown = true, tapped = true, counters = counters) }
+            setup.effects[EffectId("E1")] = EffectObject(EffectId("E1"),
+                listOf(Mechanic.ModifyPowerToughness(arcanum.api.Value.Fixed(1), arcanum.api.Value.Fixed(0))),
+                affects = null, locked = listOf(id(sentinel)), source = id(blocker), controller = PlayerId(f.b), timestamp = 900, createdTurn = 1,
+                duration = Duration.EndOfTurn)
+            setup.effects[EffectId("E2")] = EffectObject(EffectId("E2"), listOf(Mechanic.DoesntUntap), affects = null, locked = listOf(id(sentinel)),
+                source = id(blocker), controller = PlayerId(f.b), timestamp = 901, createdTurn = 1, duration = Duration.UntilYourNextTurn)
+        }
+    }
+
+    // TBL-029, TBL-231 (owner playtest 2026-11-20: face-down cards don't show their public modifiers): a face-down permanent hides only its
+    // face: both players' tables show its counters, its P/T as changed (2/2 face down, two +1/+1 counters, +1/+0: 5/4), that it is
+    // tapped and changed by effects (it doesn't untap), and Inspect lists its counters and effects for both; nothing names it to Bob
+    @Test fun aFaceDownPermanentShowsWhatIsPublic() {
+        for (viewer in listOf(f.a, f.b)) {
+            val table = faceDownSentinel(viewer)
+            val card = table.board.cards.single { it.id == sentinel.id }
+            val item = scene(table, viewer).items.single { it.sourceId == sentinel.id && it.zone == PlayZone.BATTLEFIELD && it.viewport != "combat" }
+            assertTrue(item.covered, "its face hidden on the table")
+            assertEquals("5/4", item.corner, "the P/T as changed for $viewer")
+            assertTrue(item.tapped, "tapped for $viewer")
+            assertEquals(listOf("+1/+1" to 2), item.counterBubbles.map { it.name to it.count }, "its counters for $viewer")
+            assertTrue(item.effectsMarker, "changed by effects for $viewer")
+            val groups = gameInspectGroups(table, viewer, ManualInspection(f.game.id, f.initial.id, sentinel.id,
+                org.asyncttwiz.protocol.ManualDisclosure.permittedFaces(table.board, table.definitions, card, viewer, inspecting = true).map { it.faceId }), card, names)
+            val lines = groups.first().changes.map { it.text }
+            assertTrue(lines.any { "+1/+1 counter" in it }, "Inspect lists its counters for $viewer: $lines")
+            assertTrue(lines.any { "+1/+0" in it } && lines.any { "untap" in it }, "Inspect lists its effects for $viewer: $lines")
+            if (viewer == f.b) {
+                assertTrue(groups.first().tiles.all { it is InspectTile.Covered }, "Bob sees no face")
+                assertTrue((lines + item.label + groups.first().changes.mapNotNull { it.source }).none { "Sentinel" in it },
+                    "nothing names it to Bob: $lines ${item.label}")
+            }
+        }
+    }
+
+    // TBL-231 (owner playtest 2026-11-20): what Bob sees holding Alice's face-down permanent: its back, and under it its counters and
+    // the effects on it
+    @Test fun faceDownInspect() {
+        val table = faceDownSentinel(f.b)
+        val card = table.board.cards.single { it.id == sentinel.id }
+        val groups = gameInspectGroups(table, f.b, ManualInspection(f.game.id, f.initial.id, sentinel.id, emptyList()), card, names)
+        compose.setContent { MaterialTheme { NoRipples { InspectContent(groups, ScrollState(0)) } } }
+        compose.waitForIdle()
+        compose.onNodeWithText("+1/+1 counter ×2").assertExists()
+        captureShot("$SCREENSHOTS/states/face-down-inspect.png",
+            "Bob holds Alice's face-down creature, tapped with two +1/+1 counters and pumped by his Lantern Guide: Inspect shows only its " +
+                "back, and under it its counters and the effects on it (+1/+0 until end of turn, doesn't untap until his next turn).")
+    }
+
     // TBL-133: the state's word on the card's chip on the table
     @Test fun cardStateChips() {
         render(f.initial, stated())

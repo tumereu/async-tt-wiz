@@ -33,9 +33,8 @@ class StagingFromStackTest : E2e() {
     /** The left edge of Alice's leftmost Pup on her screen (the stack's bottom card). */
     private fun bottomLeft(): Float = alice.battlefieldCard("Ash Pup").fetchSemanticsNode().boundsInRoot.left
 
-    // CMB-047, CMB-071, CMB-028, TBL-130, TBL-163, TBL-053, TBL-178: Alice's three identical Ash Pups lie in one stack; while she declares attackers
-    // two taps on the stack stage its two topmost Pups one after the other, the bottom Pup staying where it was
-    @Test fun twoOfThreeIdenticalCreaturesAreStagedByTappingTheirStack() {
+    /** Alice's three ready Ash Pups in one stack on her screen, her table declaring attackers. */
+    private fun toThreePupsDeclaring() {
         startGame(TestDeck("Pups", listOf(TestCards.mountain to 10, TestCards.pup to 30)), TestDeck.thirds(TestCards.cub),
             deal = { a, b -> hand(a).count { it == "Ash Pup" } >= 3 && "Mountain" in hand(b) })
         bothOpen()
@@ -59,6 +58,16 @@ class StagingFromStackTest : E2e() {
         waitUntil("Alice declaring attackers", along = listOf(bob)) {
             alice.state.turn.step == TurnStep.DeclareAttackers && alice.stepArrow() == "No attack"
         }
+    }
+
+    /** Whether Alice's screen shows a pile of [n] Ash Pups of hers ("stack of [n]" on its top card). */
+    private fun pupPile(n: Int) = alice.shows(androidx.compose.ui.test.hasContentDescription("Ash Pup, owner ${alice.name},", substring = true) and
+        androidx.compose.ui.test.hasContentDescription("stack of $n", substring = true))
+
+    // CMB-047, CMB-071, CMB-028, TBL-130, TBL-163, TBL-053, TBL-178: Alice's three identical Ash Pups lie in one stack; while she declares attackers
+    // two taps on the stack stage its two topmost Pups one after the other, the bottom Pup staying where it was
+    @Test fun twoOfThreeIdenticalCreaturesAreStagedByTappingTheirStack() {
+        toThreePupsDeclaring()
         val pups = pupsInOrder()
         val left = bottomLeft()
         // The first tap on the stack (its leftmost card, the bottom one) stages the topmost Pup
@@ -75,5 +84,30 @@ class StagingFromStackTest : E2e() {
         assertEquals("Attack (2)", alice.stepArrow())
         assertFalse(alice.refusalSeen, "no refusal")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty(), "${alice.leaks.leaks} ${bob.leaks.leaks}")
+    }
+
+    // CMB-070, TBL-230, TBL-053 (owner playtest 2026-11-20: "attackers declared from a stack should stack together"): Alice stages two of
+    // her three Pups from their stack: they lie together in one pile right of the third, not each in a pile of its own; once
+    // declared they still lie in one pile of two right of the Pup left at home
+    @Test fun attackersDeclaredFromAStackLieTogetherInOnePile() {
+        toThreePupsDeclaring()
+        val left = bottomLeft()
+        alice.stageAttacker("Ash Pup", this, index = 0)
+        waitUntil("one Pup staged") { staged().size == 1 }
+        alice.stageAttacker("Ash Pup", this, index = 0)
+        waitUntil("two Pups staged") { staged().size == 2 }
+        waitUntil("the staged Pups in one pile of two: ${alice.screen()}") { pupPile(2) }
+        assertEquals(left, bottomLeft(), "the Pup left at home stays where it was")
+        val staged = staged()
+        alice.declare("Attack (2)", this)
+        waitUntil("the two Pups declared as attackers", along = listOf(bob)) {
+            alice.state.combat?.attackers?.map { atw(it.id) }?.toSet() == staged.toSet() && alice.settled(this)
+        }
+        waitUntil("the attacking Pups in one pile of two: ${alice.screen()}") { pupPile(2) }
+        assertEquals(left, bottomLeft(), "the Pup at home still where it was, the attackers right of it")
+        val home = alice.battlefieldCard("Ash Pup", index = 0).fetchSemanticsNode().boundsInRoot
+        val pile = (0 until 3).map { alice.battlefieldCard("Ash Pup", index = it).fetchSemanticsNode().boundsInRoot }
+        assertTrue(pile.drop(1).all { it.left > home.left }, "the attackers' pile right of the Pup at home: $pile")
+        assertFalse(alice.refusalSeen, "no refusal")
     }
 }

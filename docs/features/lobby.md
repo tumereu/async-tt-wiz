@@ -118,7 +118,7 @@ and pods.
 
 - **LOB-136** A chat message of the other player's shows on your table as a speech bubble by their life square, always right under it (in landscape under the top bar, where their square sits), over whatever lies there, hand cards included (only the screen's edges move it; the bars' controls and open panels lie over it). (r61)
 - **LOB-165** A chat bubble has the old status bubbles' look: white, outlined and tailed in the other player's colour, the text centred over up to four lines and cut with "…", never narrower than the life square. (r61)
-- **LOB-166** A chat bubble stays until you tap it; a tap reads that message and touches nothing under it. Holding the bubble opens the chat at that message. (r61)
+- **LOB-166** A chat bubble stays until you tap it (on the desktop table it also goes by itself, WEB-138); a tap reads that message and touches nothing under it. Holding the bubble opens the chat at that message. (r61)
 - **LOB-167** With several unread the bubble shows the oldest with "1/3" beside its text; each tap reads it and shows the next ("2/3"), and the last tap leaves no bubble. (r61)
 - **LOB-168** Chat bubbles show in play, in timeline mode and when you open the game (the unread ones), never as part of the game's history. (r61)
 - **LOB-137** A message you send shows always right above your own life square (in landscape above the bottom bar, where your square sits), over whatever lies there, as a bubble in your colour for about 3 s once the table is in sight (in portrait after the chat closes), then fades in 0.4 s; it takes no taps. (r61)

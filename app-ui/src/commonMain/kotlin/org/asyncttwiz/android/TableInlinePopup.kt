@@ -368,7 +368,7 @@ fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
     // I-D46: a refused control stays greyed; a tap shakes it and holding it says why
     val reason = control.refused.takeIf { !control.enabled }
     var shakes by remember { mutableIntStateOf(0) }
-    Surface(modifier.shaken(shakes).pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) {
+    Surface(modifier.shaken(shakes, reason, "menu row").pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) {
             contentDescription = control.name; selected = control.selected; if (!control.enabled) disabled() }
         .combinedClickable(enabled = control.enabled || reason != null, role = role, hapticFeedbackEnabled = false,
             onLongClick = { holding = true }, onClick = if (reason != null) { { shakes += 1 } } else control.click),

@@ -162,8 +162,16 @@ fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: Modifier 
                 .testTag("event-text")
                 .clearAndSetSemantics { contentDescription = shown.text; liveRegion = LiveRegionMode.Polite },
                 contentAlignment = Alignment.Center) {
-                CardText(shown.text, color = Color.White, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, lineHeight = 16.sp,
-                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center)
+                // HIS-042 (owner 2026-11-19): a text of two lines (an undo's, then that the libraries reshuffled) keeps each on
+                // its own line, so a long first line never pushes the second out
+                val lines = shown.text.split('\n', limit = 2)
+                if (lines.size == 2) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CardText(lines[0], color = Color.White, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    CardText(lines[1], color = Color.White, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                else CardText(shown.text, color = Color.White, style = style, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }

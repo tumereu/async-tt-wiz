@@ -24,7 +24,9 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** HIS-083: holding Undo (the rewind dialog, I-D56 §10); null: holding it only says what it is. */
     val undoHold: (() -> Unit)? = null,
     /** Bumped when an Undo can't do anything: the button shakes. */
-    val undoShakes: Int = 0, val reviewing: Boolean = false,
+    val undoShakes: Int = 0,
+    /** TBL-118 (owner 2026-11-19): why the Undo button shook last, said in its bubble. */
+    val undoShakeReason: String? = null, val reviewing: Boolean = false,
     val controlsConnected: Boolean? = null,
     val navigation: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,

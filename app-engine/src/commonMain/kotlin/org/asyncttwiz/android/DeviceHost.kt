@@ -199,9 +199,9 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                 is DeviceRequest.Page -> done(r.id, DeviceResult.Flag(game.pageOn(r.through, r.page)))
                 is DeviceRequest.Review -> done(r.id, DeviceResult.Board(game.reviewPlayOn(r.event)?.let(::loose)))
                 is DeviceRequest.UndoPreview -> game.undoPreviewOn(r.target).let { p ->
-                    done(r.id, DeviceResult.Preview(p.board?.let(::loose), p.needsRequest, p.loading)) }
+                    done(r.id, DeviceResult.Preview(p.board?.let(::loose), p.needsRequest, p.loading, p.libraries.toList())) }
                 is DeviceRequest.RequestView -> done(r.id, game.requestViewOn(r.viewer, r.localHead, r.target)?.let { v ->
-                    DeviceResult.View(v.message, v.unseen, v.turn, v.board?.let(::loose)) } ?: DeviceResult.NoView)
+                    DeviceResult.View(v.message, v.unseen, v.turn, v.board?.let(::loose), v.libraries.toList()) } ?: DeviceResult.NoView)
                 is DeviceRequest.Plays -> done(r.id, plays(r.board))
                 is DeviceRequest.Combat -> done(r.id, combat(r.board, r.lanes, r.drawn))
                 is DeviceRequest.CombatRefusal -> done(r.id, combatRefusal(r))

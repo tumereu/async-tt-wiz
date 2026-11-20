@@ -256,7 +256,9 @@ fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage
     content: @Composable ColumnScope.() -> Unit = {}) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TrackGameDialogInput()
-        ScreenTheme {
+        // TBL-118: a dialog is a window of its own: its shakes' bubbles show in it
+        val bubbles = rememberRefusalBubbles()
+        ScreenTheme { CompositionLocalProvider(LocalRefusalBubbles provides bubbles) {
             Surface(modifier.padding(16.dp).widthIn(max = 380.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                 border = BorderStroke(1.dp, ScreenBorder)) {
                 Box {
@@ -276,9 +278,10 @@ fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage
                         FloatingBusyPill(busyMessage)
                         FloatingTransientError(error, dismissError)
                     }
+                    RefusalBubbleOverlay(bubbles, Modifier.matchParentSize())
                 }
             }
-        }
+        } }
     }
 }
 

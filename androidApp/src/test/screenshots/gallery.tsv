@@ -40,7 +40,7 @@ number	item	screenshot	catalog	decisions	sequence
 39	Playback of an attack	engine/playback-attack.png	CMB-007 HIS-021
 40	The other player's staging	engine/shared-staging.png	CMB-043
 41	Timeline mode	engine/timeline-mode.png	HIS-004 HIS-010
-42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-099
+42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-099 HIS-235
 43	Undo request	engine/undo-request.png	SYS-025
 44	Hand card way chips	chips/hand-ability-chips.png	ZON-080
 45	Ability chips with cost symbols	chips/ability-chips-wrapped.png	TBL-124
@@ -307,6 +307,7 @@ number	item	screenshot	catalog	decisions	sequence
 307	Game Inspect pinned: rules reminder chips under the card, a tap on Ward explains it	inspect/reminders-pinned.png	TBL-209 TBL-210		Rules reminders
 308	Draft Inspect: rules reminder chips under the card, each with its explanation	inspect/reminders-draft.png	TBL-209 TBL-210 DRF-063		Rules reminders
 309	The other player's cards they may play from other zones: a cyan chip in their row of round chips and its list	states/other-playable.png	ZON-136		
+310	A shake says why in a bubble rising from what shook	engine/refusal-bubble.png	TBL-118 TBL-212		
 315	Draft: "While you were away" in a Rotisserie pod	pod-rotisserie-away.png	DRF-239 DRF-240		
 316	Desktop draft: the quick look of a double-faced pack card	desktop/draft-quick-look.png	WEB-117		
 317	Draft: Stats Colors chart by cast cost, a multicolor card in each of its colors	pod-stats-colors.png	DRF-117 DRF-242		

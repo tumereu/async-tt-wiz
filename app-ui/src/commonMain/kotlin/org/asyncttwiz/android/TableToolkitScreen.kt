@@ -33,6 +33,8 @@ fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: 
     peekScroll: ScrollState? = null, scene: TableScene? = null, peekSwipe: InspectSwipe? = null,
     onTimeline: (() -> Unit)? = null, reviewing: Boolean = false, gameActionsBlocked: Boolean = false) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
+    // TBL-118: the names a shake's reason may say ("Bob holds priority now.")
+    SideEffect { toolkit.playerNames = names }
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
     val bound = toolkit.capture

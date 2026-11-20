@@ -230,7 +230,9 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 when {
                     // HIS-097: a branch's take-back has its note instead
                     undone != null && undone.branch -> eventText.moved(t.cursor)
-                    undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names),
+                    // HIS-042 (owner 2026-11-19): after a free undo that touched library cards, a second line says the
+                    // libraries reshuffled
+                    undone != null -> eventText.post(t.cursor, EngineEventText.undoNote(undone, accountId, names),
                         always = true)
                     told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
                     else -> eventText.moved(t.cursor)
@@ -402,8 +404,10 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         }
         false
     }
+    // TBL-118 (owner 2026-11-19): the table's refusal bubbles, rising from what shook
+    val refusalBubbles = rememberRefusalBubbles()
     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap,
-        LocalUnhiddenPlay provides unhidden,
+        LocalUnhiddenPlay provides unhidden, LocalRefusalBubbles provides refusalBubbles,
         LocalDesktopFrame provides desktopFrame, LocalTableHotkeys provides hotkeys.takeIf { desktopLayout },
         LocalPanelOptions provides hotkeys.options.takeIf { desktopLayout }) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
@@ -442,7 +446,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 val dock: @Composable () -> Unit = { DesktopDock { modifier -> ChatPanel(controller, accountId, modifier, docked = true) } }
                 val hooks = key("table hooks") { TableRuntimeHooks(chat = chatOpener,
                         navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
-                        undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
+                        undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake, undoShakeReason = routes.undoShakeReason,
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
                         resultControls = TableResultControls(interactive,
@@ -505,6 +509,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         flashes = toolkit.choiceFlashes)
                     TurnBannerOverlay(routes.banners, shown.show != null, accountId, names, Modifier.align(Alignment.Center))
                 }
+                // TBL-118: over everything on the table, never taking a tap
+                RefusalBubbleOverlay(refusalBubbles, Modifier.matchParentSize())
             }
         }
     }

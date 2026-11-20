@@ -106,6 +106,8 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
     submit: (PlayAction) -> Boolean = { false },
     /** SYS-012: goes up to shake the main button (a refusal of an action made on it). */
     mainShakes: Int = 0,
+    /** TBL-118 (owner 2026-11-19): why the main button shook last, said in its bubble. */
+    mainShakeReason: String? = null,
     /** WEB-018: the desktop table's action area: the quick actions in a row over the main button, which is wider. */
     stacked: Boolean = false) {
     if (!context.playable) return
@@ -229,7 +231,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             }
             DisposableEffect(engine) { onDispose { engine?.pendingPress = null } }
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
-            val mainButton: @Composable (Modifier) -> Unit = { place -> Box(place.shaken(mainShakes)) {
+            val mainButton: @Composable (Modifier) -> Unit = { place -> Box(place.shaken(mainShakes, mainShakeReason, "main button refusal")) {
                 if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {
                     pressed(main.label); own { main.run(); true } }, controller.enabled(scope) || panelMain != null, Modifier.fillMaxWidth(), ::taken)
                 // TRN-164, TRN-165: while playback is behind its rest point, a press skips there first (made there when it may act)

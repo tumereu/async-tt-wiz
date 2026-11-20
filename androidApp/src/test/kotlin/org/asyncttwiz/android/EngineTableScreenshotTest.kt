@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.Engine
@@ -56,7 +57,9 @@ class EngineTableScreenshotTest {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
-                    CompositionLocalProvider(LocalEngineRoutes provides routes) {
+                    // TBL-212: the table's refusal bubbles, as EngineTableScreen shows them
+                    val bubbles = rememberRefusalBubbles()
+                    CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusalBubbles provides bubbles) {
                         Box(Modifier.fillMaxSize()) {
                             val reviewed = routes.review?.let { game.reviewPlay(it) }
                             val events = game.timeline.events(game, names)
@@ -77,6 +80,7 @@ class EngineTableScreenshotTest {
                                     centreAction = if (reviewed == null && watch)
                                         TableCentreAction("${routes.opponentName} has made moves · Tap to watch") { game.startPlayback() } else null,
                                     boardTap = if (reviewed == null && playing) ({ game.pause() }) else null))
+                            RefusalBubbleOverlay(bubbles, Modifier.matchParentSize())
                         }
                     }
                 }
@@ -488,6 +492,11 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves")).assertIsNotEnabled()
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertEquals(1, game.device.model.engine.stack.size, "nothing assumed: the Glance waits on the Stack") }
+        // TBL-212: the tap's bubble says the same; it has faded before the hold
+        compose.onNodeWithTag("refusal-bubble").assertContentDescriptionEquals("Assuming this would show you hidden cards or a random result: wait for Bob.")
+        compose.mainClock.advanceTimeBy(REFUSAL_BUBBLE_MILLIS + 500)
+        compose.waitForIdle()
+        compose.onNodeWithTag("refusal-bubble").assertDoesNotExist()
         compose.onNodeWithTag("engine-wait-action").performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
@@ -646,15 +655,38 @@ class EngineTableScreenshotTest {
         assertTrue(compose.onAllNodesWithTag(TimelineSeparatorTag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty(), "turn and step lines")
         compose.onNodeWithText("Ask Bob").assertExists()
         compose.onNodeWithTag("rewind-message").assertExists()
+        // HIS-235 (owner 2026-11-19): going back there takes back Alice's draw: the dialog says the libraries reshuffle
+        compose.onNodeWithTag("undo-reshuffle").assertExists()
         captureShot("$SCREENSHOTS/engine/$file.png",
-            "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, and Ask Bob with a message field, as going back there takes his action back.")
+            "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, the line saying that undoing this reshuffles the library (it takes back a draw), and Ask Bob with a message field, as going back there takes his action back.")
     }
 
-    // HIS-083, HIS-099, HIS-207
+    // HIS-083, HIS-099, HIS-207, HIS-235
     @Test fun undoDialogShowsTheBoardAboveTheTimelineStrip() = undoDialog(false, "rewind-dialog")
 
-    // HIS-083, HIS-099, HIS-207
+    // HIS-083, HIS-099, HIS-207, HIS-235
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun undoDialogInLandscape() = undoDialog(true, "rewind-dialog-landscape")
+
+    // TBL-118, TBL-212, ZON-079 (owner 2026-11-19, the "can't do" explainer): Alice taps Storm Spark with no land out: it shakes
+    // and a small bubble rises from it saying why, in the card menu's words
+    @Test fun aShakeSaysWhyInABubble() {
+        val game = aliceAtMain()
+        var toolkit: TableToolkitController? = null
+        render(game, f.a, onToolkit = { toolkit = it })
+        val spark = (hand(game, "Storm Spark") as ObjectId.Card).card.value
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { toolkit!!.hand.tap(spark) }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(400)
+        compose.waitForIdle()
+        assertEquals("Storm Spark can't be cast now.", toolkit!!.shaking?.reason)
+        compose.onNodeWithTag("refusal-bubble").assertExists()
+        captureShot("$SCREENSHOTS/engine/refusal-bubble.png",
+            "Alice, in her first main phase with no land out, tapped Storm Spark in her hand: it shakes instead of rising, and a small dark bubble rises from it saying \"Storm Spark can't be cast now.\" for about two seconds.")
+        compose.mainClock.advanceTimeBy(REFUSAL_BUBBLE_MILLIS + 500)
+        compose.waitForIdle()
+        compose.onNodeWithTag("refusal-bubble").assertDoesNotExist()
+    }
 
     // HIS-099, HIS-208, HIS-207 (owner 2026-11-06): dragging the strip right chooses earlier points one event per step (snapping to them),
     // the text follows at once and the board once the choice rests; tapping an event chooses it

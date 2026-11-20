@@ -114,7 +114,8 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
             val state = u.state
             val number = state?.let { s -> boards.entries.lastOrNull { it.value.engine?.state === s }?.key }
             UndoneWire(u.by, u.event?.let(events::ref), number,
-                if (state != null && number == null) codec.encodeModelElement(GameModel(state, TableState())) else null, u.branch)
+                if (state != null && number == null) codec.encodeModelElement(GameModel(state, TableState())) else null, u.branch,
+                u.libraries.toList(), u.requested)
         })
 
     /** [b] as the page gets it: the very board or its engine state when the page holds them, else whole. [main]: the
@@ -257,7 +258,7 @@ class ShownDecoder(private val gameId: String, private val codec: EngineJson, pr
         t.undone?.let { u ->
             val state = u.board?.let { n -> checkNotNull(boards[n]?.engine?.state) { "The page lacks board $n" } }
                 ?: u.state?.let { codec.decodeModelElement(it).engine }
-            EngineGame.Undone(u.by, u.event?.let(events::get), state, u.branch)
+            EngineGame.Undone(u.by, u.event?.let(events::get), state, u.branch, u.libraries.toSet(), u.requested)
         })
 
     private fun board(w: TableBoardWire): TableBoard {

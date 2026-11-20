@@ -180,8 +180,10 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     /** The note shown is done (its time is up, or the player tapped it): the next one shows. */
     fun noteDone() { note = waitingNotes.removeFirstOrNull() }
-    /** Bumped when an Undo can't do anything: the button shakes (I-D46 b). */
+    /** Bumped when an Undo can't do anything: the button shakes (I-D46 b), saying why ([undoShakeReason], TBL-118). */
     var undoShake by mutableIntStateOf(0)
+    /** TBL-118 (owner 2026-11-19): why the last Undo couldn't do anything, in plain words. */
+    var undoShakeReason by mutableStateOf<String?>(null); private set
 
     data class RewindChoice(val target: String?)
 
@@ -411,7 +413,11 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
                     AppLog.info("undo", "Undo dialog opened at ${u.target}: it needs a request (${u.reason})")
                     sent(); rewind = RewindChoice(u.target); true
                 }
-                is GameDevice.Undo.Unavailable -> { AppLog.info("engine", "Undo not taken: ${u.reason}"); undoShake++; false }
+                is GameDevice.Undo.Unavailable -> {
+                    undoShakeReason = undoRefusal(u.reason)
+                    AppLog.info("engine", "Undo not taken: ${u.reason} (its shake says: $undoShakeReason)")
+                    undoShake++; false
+                }
             }
         }
     }
@@ -595,7 +601,7 @@ fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
     val refused = action.refusal != null
     val assume = assumeLook(action)
     val fill = if (assume) AutomatumViolet else Color.White
-    ActionSquare(action.label, "", true, modifier.shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+    ActionSquare(action.label, "", true, modifier.shaken(shakes, action.refusal, "wait action").shadow(3.dp, AdvanceArrowShape)
         .background(fill, AdvanceArrowShape)
         .border(1.dp, if (assume) AutomatumViolet else AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape)
         .testTag("engine-wait-action").semantics { if (refused) disabled(); stateDescription = if (assume) "Assumption" else "" },
@@ -619,6 +625,34 @@ fun refusedText(reason: String): String? = when (reason) {
     GameDevice.DRAFT_DROPPED -> NOT_TAKEN
     else -> null
 }
+
+/**
+ * TBL-118, HIS-089 (owner 2026-11-19): why an Undo can't do anything ([GameDevice.Undo.Unavailable.reason]), in plain words for
+ * its shake's bubble; a reason without words of its own is a fault ([refusalReason]).
+ */
+fun undoRefusal(reason: String): String = when (reason) {
+    "nothing" -> "Nothing to undo yet."
+    "final" -> "The game is over: nothing more can be undone."
+    "playback" -> "Catch up first: watch the moves up to the newest one."
+    GameDevice.REWIND_REQUESTED -> "An undo request is open: wait for the answer."
+    "sending", "drafting" -> "Your last move is still on its way: try again in a moment."
+    "stale" -> "The game moved on: try again."
+    else -> refusalReason(null, "undo: $reason")
+}
+
+/**
+ * TBL-118, SYS-139 (owner 2026-11-19): the bubble of a refusal of the player's own action that shakes ([refusedText] has no
+ * note for it): an open undo request says so; any other reason is the engine's or the server's, which has no plain words
+ * (the device took the action as allowed): the catch-all, reported as a fault ([Faults.placeholder]) with the reason.
+ */
+fun refusedShakeText(reason: String): String = when (reason) {
+    GameDevice.REWIND_REQUESTED -> "An undo request is open: wait for the answer."
+    else -> org.asyncttwiz.protocol.Faults.placeholder("Refusal", "own action refused without plain words", REFUSED_NOW,
+        mapOf("reason" to reason))
+}
+
+/** SYS-139: the catch-all of a refusal of the player's own action the device took as allowed. */
+const val REFUSED_NOW = "The game didn't allow that now."
 
 /** The record of a refusal shown by a shake ([LocalShownTexts]: nothing in the app hears it; the e2e phones do). */
 const val REFUSAL_SHAKEN = "Refusal shaken:"
@@ -959,7 +993,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     }
     // Incoming undo request (§10): Accept / Deny; the game is frozen meanwhile
     val request = shown.request
-    if (request != null && request.by != routes.viewer) EngineRequestDialog(routes, opponent, summary)
+    if (request != null && request.by != routes.viewer) EngineRequestDialog(routes, opponent, summary, names)
     routes.rewind?.let { EngineRewindDialog(routes, it, names, opponent, summary) }
     // Notes (§8, §10): told once
     val recordShown = LocalShownTexts.current
@@ -978,7 +1012,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
                 // SYS-012 (owner, 2026-11-08): any other refusal of your own action shakes what it was made on, never a
                 // silent snap back (problem report N7FU6Y); the board shows where the game is
                 is GameDevice.Note.Refused -> refusedText(note.reason)?.let(routes::tell) ?: run {
-                    toolkit.refusedShake((note.on as? arcanum.engine.state.ObjectId.Card)?.card?.value)
+                    toolkit.refusedShake((note.on as? arcanum.engine.state.ObjectId.Card)?.card?.value, refusedShakeText(note.reason))
                     recordShown("$REFUSAL_SHAKEN ${note.reason}")
                 }
             }
@@ -1171,7 +1205,7 @@ object EnginePlaybackPace {
 /** The incoming undo request (§10): the other player's message, what it takes back as far as the viewer has seen, Accept
  * or Deny; never how many actions go. */
 @Composable
-private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, summary: GameSummary) {
+private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, summary: GameSummary, names: Map<String, String>) {
     val game = routes.engine ?: return
     game.shownVersion
     val shownGame = game.shown ?: return
@@ -1196,6 +1230,11 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
         // HIS-099: the board it goes back to, as far as the viewer has seen (their local head's when the target is past it):
         // the table's own drawing laid out at a phone's size and drawn smaller; nothing on it acts
         preview?.board?.let { BoardPreview(summary, it, routes.viewer) }
+        // HIS-042 (owner 2026-11-19, playtest N4): the events it takes back touched library cards: the libraries reshuffle
+        preview?.let { EngineEventText.reshuffleWarning(it.libraries, routes.viewer, names) }?.let { warning ->
+            LaunchedEffect(warning) { AppLog.info("undo", "Undo request dialog says: $warning") }
+            Text(warning, Modifier.testTag("undo-reshuffle"), style = MaterialTheme.typography.bodyMedium)
+        }
         Text("The game waits until you answer.", style = MaterialTheme.typography.bodySmall)
     }
 }
@@ -1301,6 +1340,11 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         if (landscape) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { lead(); text() }
         else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { lead(); text() }
         if (needsRequest == true) {
+            // HIS-042 (owner 2026-11-19, playtest N4): the events it takes back touched library cards: the libraries reshuffle
+            current?.let { EngineEventText.reshuffleWarning(it.libraries, routes.viewer, names) }?.let { warning ->
+                LaunchedEffect(warning, target) { AppLog.info("undo", "Undo dialog at ${target?.take(8)} says: $warning") }
+                Text(warning, Modifier.testTag("undo-reshuffle"), style = MaterialTheme.typography.bodyMedium)
+            }
             Text("Undoing requires confirmation from $opponent.",
                 style = MaterialTheme.typography.bodySmall)
             ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)")

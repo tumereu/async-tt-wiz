@@ -60,6 +60,29 @@ class ChatBubblesTest : E2e() {
         waitUntil("Bob's chat showing both messages read") { bob.nodes(hasText("Read")).fetchSemanticsNodes().size == 2 }
     }
 
+    // WEB-138, WEB-137, LOB-136 (owner, 2026-11-19: on the desktop bubbles show while the chat dock is open and go by themselves): Alice plays
+    // on the desktop table with her chat dock open; Bob's quick message shows as his bubble on her table though her dock reads it
+    // at once, and it goes by itself after about 5 s, the message staying read
+    @Test fun onTheDesktopABubbleShowsWithTheDockOpenAndGoesByItself() {
+        startGame(aliceDesktop = true)
+        bothOpen()
+        waitUntil("Alice's chat dock open") { alice.shows(hasTestTag("desktop-dock")) }
+        clockInStep {
+            bob.node(hasContentDescription("${bob.name}, life 20", substring = true)).performClick()
+            waitUntil("Bob's Life panel with the quick messages") { bob.shows(hasContentDescription("Quick messages")) }
+            pastPopupGuard()
+            bob.described("GG").performClick()
+            waitUntil("Bob's bubble on Alice's desktop table: ${alice.screen()}") {
+                alice.shows(bubble and hasContentDescription("Chat bubble: ${bob.name}: GG"))
+            }
+            waitUntil("the message read in Alice's dock") { alice.lobby.state.chat.unread == 0 }
+            assertTrue(alice.shows(bubble), "the bubble stays while the dock has read its message: ${alice.screen()}")
+            run(skip = java.time.Duration.ofSeconds(6))
+            waitUntil("Bob's bubble gone by itself") { !alice.shows(bubble) }
+        }
+        assertEquals(0, alice.lobby.state.chat.unread)
+    }
+
     // LOB-136, LOB-166, LOB-137 (owner, 2026-11-08): the bubble lies at Bob's life square, over whatever card lies there on Alice's
     // table, and a tap on it reads it without touching the card under it; Bob's own bubble lies above his square. ZON-001, ZON-125
     // (owner, 2026-11-11): Bob's hand is a fan in his row now, so the card under the bubble is his Mountain, Alice's table

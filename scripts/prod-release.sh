@@ -283,7 +283,7 @@ worktree=$scratch/source
 cleanup() {
     # Remove only the disposable worktree this invocation created, including its build output.
     if [[ -d $worktree ]]; then git -C "$ROOT" worktree remove --force "$worktree"; fi
-    rm -f -- "$scratch/published.json" "$scratch"/github-*
+    rm -f -- "$scratch/published.json" "$scratch/gradle.log" "$scratch"/github-*
     rm -rf -- "$scratch/old-catalog"
     rmdir "$scratch"
 }
@@ -369,9 +369,21 @@ if [[ -n $old_catalog_file ]]; then
     "$worktree/scripts/catalog-pin.sh" compare-support "$old_catalog_file" "$artifact/catalog" "$allow_dropped" ||
         die "Release refused: it would drop Automatum support for the cards listed above (or the comparison failed; see above). We don't plan to drop support for cards. To release anyway, re-run with ATW_ALLOW_DROPPED_SUPPORT=<the number of cards listed>."
 fi
+# Its own Kotlin daemon: in the shared one, other builds wear the heap down until the web client's Wasm
+# compile runs out of memory (0.3.0's first try). A build that still runs out of memory runs once more in a
+# fresh daemon.
+kotlin="-Pkotlin.daemon.jvmargs=-Xmx6g -Datw.kotlin.daemon=prod-release"
+build() {
+    if "$worktree/scripts/gradle.sh" "$kotlin" "$@" 2>&1 | tee "$scratch/gradle.log"; then return; fi
+    grep -q -e 'Not enough memory to run compilation' -e 'Gradle build daemon disappeared unexpectedly' \
+        -e 'java.lang.OutOfMemoryError' "$scratch/gradle.log" || return 1
+    echo "The build ran out of memory; running it once more in a fresh Kotlin daemon."
+    pgrep -f -- '^[^ ]*/java .*-Datw.kotlin.daemon=prod-release .*KotlinCompileDaemon' | xargs -r kill || true
+    "$worktree/scripts/gradle.sh" "$kotlin" "$@"
+}
 # The web client (WEB-001), built from the same commit and served by the server on the
 # same origin; the playbook installs it beside the server (atw_web_artifact).
-"$worktree/scripts/gradle.sh" :webApp:webDist
+build :webApp:webDist
 rm -rf -- "$artifact/web"
 cp -a "$worktree/webApp/build/web" "$artifact/web"
 [[ -f $artifact/web/index.html ]] || die "The web client build left no index.html; release refused."
@@ -384,7 +396,7 @@ atw_fcm_args "$ATW_FIREBASE/google-services-prod.json" org.asyncttwiz.android
 # Firebase identifiers add the "fcm" flavor, which renames the task and output directory.
 variant=release apk_dir=release
 if (( ${#fcm_args[@]} )); then variant=fcmRelease apk_dir=fcm/release; fi
-"$worktree/scripts/gradle.sh" ":androidApp:assemble${variant^}" -PatwSelfHosted=true \
+build ":androidApp:assemble${variant^}" -PatwSelfHosted=true \
     "-PatwApiOrigin=$ORIGIN" "-PatwResetOrigin=$ORIGIN" -PatwAccountSwitcher=false -PatwCatalogTestOrigin= \
     "-PatwCatalogChecksum=$catalog_checksum" "${fcm_args[@]}"
 cp "$worktree/androidApp/build/outputs/apk/$apk_dir/"*.apk "$artifact/app.apk"

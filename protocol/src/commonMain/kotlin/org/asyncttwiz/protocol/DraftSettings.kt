@@ -2,9 +2,23 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** GLIMPSE is only read from pods and presets saved before Glimpse became a preset of BOOSTER (DRF-020, DRF-031). */
-@Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID, ROCHESTER, ROTISSERIE, WINSTON, WINCHESTER, SEALED }
+/**
+ * GLIMPSE is only read from pods and presets saved before Glimpse became a preset of BOOSTER (DRF-020, DRF-031).
+ * CUSTOM_BOOSTER is Booster's pack passing with the creator's list of passes in place of keep, burn and discard (DRF-260).
+ */
+@Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID, ROCHESTER, ROTISSERIE, WINSTON, WINCHESTER, SEALED, CUSTOM_BOOSTER }
 @Serializable enum class DraftColor { W, U, B, R, G }
+
+/**
+ * One pass of a Custom booster pack (DRF-260): the player it reaches picks [pick] cards and then burns [burn] (they go to
+ * nobody), and passes the pack on.
+ */
+@Serializable data class DraftPass(val pick: Int = 1, val burn: Int = 0) {
+    companion object {
+        /** The most passes a list holds, and the most cards one pass takes: a pack holds at most 30 cards (DRF-023). */
+        const val MAX = 30
+    }
+}
 
 @Serializable
 data class DraftSettings(
@@ -41,14 +55,35 @@ data class DraftSettings(
     val tablePacksOpen: Int? = null,
     /** Winston and Winchester: independent tables the cards are split into (DRF-156, DRF-158); more than the players gives one per player. */
     val tables: Int = 1,
+    /**
+     * Custom booster (DRF-260): the passes every pack goes through, in order; the n-th manual pick from a pack is its n-th
+     * pass. When they run out, the cards left in the pack are thrown away. Unused by the other modes.
+     */
+    val passes: List<DraftPass> = emptyList(),
 ) {
+    private val custom: Boolean get() = mode == DraftMode.CUSTOM_BOOSTER
+
+    /**
+     * The pass a pack is on after [taken] manual picks from it: Booster's keep and burn on every pick, a Custom booster's
+     * [passes] entry (null once they have run out: the pack is then empty).
+     */
+    fun pass(taken: Int): DraftPass? = if (custom) passes.getOrNull(taken) else DraftPass(keep, burn)
+    /** Cards a pick keeps on the pass after [taken] manual picks (0 once a Custom booster's passes have run out). */
+    fun keepAt(taken: Int): Int = pass(taken)?.pick ?: 0
+    /** Cards a pick burns on the pass after [taken] manual picks. */
+    fun burnAt(taken: Int): Int = pass(taken)?.burn ?: 0
+    /** Booster's "discard" threshold (DRF-046); a Custom booster has none (its passes end the pack instead). */
+    val discardAt: Int get() = if (custom) 0 else discardRemainingAt
+    /** A Custom booster's passes have run out after [taken] manual picks from a pack: the rest of it is thrown away (DRF-261). */
+    fun passesEnd(taken: Int): Boolean = custom && taken >= passes.size
+
     /**
      * DRF-045: a pick from a pack holding [cards] cards (spent Librarians included) with [keep] keep slots needs only the
      * keeps when the rest would all go anyway: burned, or discarded at the threshold after the burns. The engine then
      * burns up to burn-count of the rest and discards the others. A Librarian spend adds as many cards as keep slots, so
-     * it never changes the answer.
+     * it never changes the answer. [taken]: the manual picks already taken from the pack (a Custom booster's pass).
      */
-    fun keepsOnly(cards: Int, keep: Long): Boolean = cards <= keep + burn + discardRemainingAt
+    fun keepsOnly(cards: Int, keep: Long, taken: Int = 0): Boolean = cards <= keep + burnAt(taken) + discardAt
 
     fun validate(players: Int): List<DraftSettingsIssue> = buildList {
         if (sideboardLimit != null && sideboardLimit < 0) add(DraftSettingsIssue.SIDEBOARD_LIMIT)
@@ -77,6 +112,15 @@ data class DraftSettings(
             }
             return@buildList
         }
+        if (custom) {
+            // DRF-262: 1–30 passes, each picking 1–30 and burning 0 or more, at most 30 cards together
+            if (passes.size !in 1..DraftPass.MAX || passes.any { it.pick < 1 || it.burn < 0 || it.pick + it.burn > DraftPass.MAX })
+                add(DraftSettingsIssue.PASSES)
+            if (packsPerPlayer !in 1..30) add(DraftSettingsIssue.PACKS_PER_PLAYER)
+            if (cardsPerPack !in 1..30) add(DraftSettingsIssue.CARDS_PER_PACK)
+            if (packsOpenAtOnce !in 1..packsPerPlayer) add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
+            return@buildList
+        }
         if (mode == DraftMode.GRID) {
             if (grids !in 1..60) add(DraftSettingsIssue.GRIDS)
             if (twoPicks && players != 2) add(DraftSettingsIssue.TWO_PICKS)
@@ -102,6 +146,8 @@ data class DraftSettings(
 
     companion object {
         fun booster() = DraftSettings()
+        /** Custom booster's default passes (DRF-262): pick 1, burn 1, seven times (a 15-card pack's last card is thrown away). */
+        fun customBooster() = DraftSettings(mode = DraftMode.CUSTOM_BOOSTER, passes = List(7) { DraftPass(1, 1) })
         /** The Glimpse preset of Booster every account starts with (DRF-020, DRF-031). */
         fun glimpse() = DraftSettings(packsPerPlayer = 9, burn = 2)
         fun grid() = DraftSettings(mode = DraftMode.GRID)
@@ -120,6 +166,7 @@ data class DraftSettings(
             DraftMode.WINSTON -> winston()
             DraftMode.WINCHESTER -> winchester()
             DraftMode.SEALED -> sealed()
+            DraftMode.CUSTOM_BOOSTER -> customBooster()
         }
     }
 }
@@ -130,6 +177,8 @@ data class DraftSettings(
     GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE, LIBRARIANS, CARDS_PER_PLAYER, PILES, TABLES,
     /** Rotisserie: the pool per player is out of range or smaller than the picks per player. */
     POOL_PER_PLAYER,
+    /** Custom booster: no passes, too many, or one out of range (DRF-262). */
+    PASSES,
 }
 
 @Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)

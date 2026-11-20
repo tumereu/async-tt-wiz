@@ -211,21 +211,24 @@ object DraftEngine {
             return reject(DraftPickRejection.INVALID_LIBRARIANS)
         // Spent Librarians join the pack for this pick as ordinary cards: each may be kept back, burned or passed on.
         val cards = pack.cards + pick.librarians
-        val keep = state.settings.keep.toLong() + pick.librarians.size
+        // DRF-260: a Custom booster pick keeps and burns as the pack's current pass says (Booster: keep and burn always)
+        val taken = state.log.count { !it.automatic && it.packId == pack.id }
+        val burnCount = state.settings.burnAt(taken)
+        val keep = state.settings.keepAt(taken).toLong() + pick.librarians.size
         val selected = pick.keep + pick.burn
         if (selected.any { it !in cards }) return reject(DraftPickRejection.UNKNOWN_CARD)
         if (selected.distinct().size != selected.size || pick.keep.size.toLong() != keep)
             return reject(DraftPickRejection.WRONG_COUNTS)
         val rest = cards.filter { it !in pick.keep }
-        val nearEnd = state.settings.keepsOnly(cards.size, keep)
+        val nearEnd = state.settings.keepsOnly(cards.size, keep, taken)
         if (nearEnd) {
             // No burns, all of the rest, or (needed by nobody, still accepted) an ordinary burn-count choice.
-            if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet() && pick.burn.size != state.settings.burn)
+            if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet() && pick.burn.size != burnCount)
                 return reject(DraftPickRejection.WRONG_COUNTS)
-        } else if (pick.burn.size != state.settings.burn) return reject(DraftPickRejection.WRONG_COUNTS)
+        } else if (pick.burn.size != burnCount) return reject(DraftPickRejection.WRONG_COUNTS)
         // Near the end, unless burn-count cards were chosen, the first burn-count of the rest burn (all of them when that
         // is all) and the discard threshold throws away what is left.
-        val burned = if (nearEnd && pick.burn.size != state.settings.burn) rest.take(state.settings.burn) else pick.burn
+        val burned = if (nearEnd && pick.burn.size != burnCount) rest.take(burnCount) else pick.burn
         return DraftPickResult(state = Working(state).applyPick(pick, burned))
     }
 
@@ -333,10 +336,11 @@ object DraftEngine {
             while (!finished && budget-- > 0) {
                 val id = queue(player).firstOrNull() ?: break
                 val cards = pack(id).cards
+                val keep = settings.keepAt(picks(id))
                 // Queued packs always hold more than keep cards (smaller ones are awarded on arrival).
-                if (cards.size < settings.keep) break
+                if (keep < 1 || cards.size < keep) break
                 // Normal or near-end burns alike (DRF-045): the threshold discards whatever near-end burns leave.
-                move(DraftPick(player, id, cards.take(settings.keep)), cards.drop(settings.keep).take(settings.burn))
+                move(DraftPick(player, id, cards.take(keep)), cards.drop(keep).take(settings.burnAt(picks(id))))
                 open()
                 count++
             }
@@ -352,7 +356,9 @@ object DraftEngine {
             // A spent Librarian that was neither kept back nor burned stays in the pack like any leftover card: it passes
             // on, is discarded at the threshold, or goes to the next member with an automatic award.
             val remaining = (pack.cards + pick.librarians).filter { it !in removed }
-            val discard = remaining.isNotEmpty() && remaining.size <= source.settings.discardRemainingAt
+            // DRF-046's threshold, or (DRF-261) a Custom booster pack whose passes have run out with this pick
+            val discard = remaining.isNotEmpty() && (remaining.size <= source.settings.discardAt ||
+                source.settings.passesEnd(picks(pack.id) + 1))
             val discarded = if (discard) remaining else emptyList()
             packs[index] = pack.copy(cards = if (discard) emptyList() else remaining)
             pools.getValue(pick.player).removeAll(pick.librarians.toSet())
@@ -377,16 +383,19 @@ object DraftEngine {
          */
         override fun reaches(item: String, holder: String?, player: String): Boolean {
             val pack = pack(item)
-            val keep = source.settings.keep
-            val removed = keep + source.settings.burn
+            val settings = source.settings
+            // A Custom booster's picks follow the pack's passes (DRF-260); Booster's are all alike.
+            var taken = picks(item)
             // Unopened packs that are already small enough are awarded on arrival.
-            if (holder == null && pack.cards.size <= keep) return false
+            if (holder == null && pack.cards.size <= settings.keepAt(taken)) return false
             var current = holder ?: pack.initialPlayer
             var size = pack.cards.size
             while (true) {
                 if (current == player) return true
+                val removed = settings.keepAt(taken) + settings.burnAt(taken)
                 size = if (size <= removed) 0 else size - removed
-                if (size <= source.settings.discardRemainingAt || size <= keep) return false
+                taken++
+                if (size <= settings.discardAt || settings.passesEnd(taken) || size <= settings.keepAt(taken)) return false
                 current = passTo(current, pack.round)
             }
         }
@@ -395,7 +404,7 @@ object DraftEngine {
         override fun automatic(item: String, player: String): Boolean {
             val index = packIndexes.getValue(item)
             val pack = packs[index]
-            if (pack.cards.size > source.settings.keep) return false
+            if (pack.cards.size > source.settings.keepAt(picks(item))) return false
             pools.getValue(player).addAll(pack.cards)
             log.add(DraftPickLog(player, pack.id, pack.round, pack.cards, automatic = true))
             packs[index] = pack.copy(cards = emptyList())

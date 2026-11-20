@@ -133,6 +133,31 @@ class DraftGalleryScreenshotTest {
             "\"Start when everyone accepts\".")
     }
 
+    // DRF-262, DRF-020, DRF-022 (a tall screen shows the whole form)
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun customBoosterSetup() {
+        val detail = detail(PodPhase.SETUP, DraftSettings.customBooster().copy(passes = listOf(DraftPass(2, 1)) +
+            List(4) { DraftPass(1, 1) } + DraftPass(1, 0)), listOf(PodMember(alice), PodMember(bob)), name = "Burn night")
+        show(opened(detail))
+        compose.onNodeWithText("Passes (6)").performScrollTo().assertIsDisplayed()
+        shot("setup-custom-booster", "The creator's setup of a Custom booster pod from the Runes cube: its tiles (packs, pack size, " +
+            "open packs, Librarians, sideboard) and under them its six passes, pick 2 and burn 1 first, then four of pick 1, " +
+            "burn 1 and a last pick 1, each with its Pick and Burn buttons and a remove cross, then Add pass.")
+    }
+
+    // DRF-263, DRF-260
+    @Test fun customBoosterPick() {
+        val settings = DraftSettings.customBooster().copy(passes = listOf(DraftPass(2, 1)) + List(4) { DraftPass(1, 1) } + DraftPass(1, 0))
+        val detail = boosterPick(settings, fourteen.take(11), pick = 2).copy(name = "Burn night")
+        show(opened(detail))
+        compose.runOnIdle {
+            pods.mark(detail.draft!!.head, PodPickMarks("pack-a", keeps = listOf(copy(15).id), burns = listOf(copy(0).id)))
+        }
+        settle()
+        compose.onNodeWithTag("pod-pick-pass").assertTextEquals("Pass 2/6 · Pick 1 of 11 · Burn 1")
+        shot("custom-booster-pick", "A Custom booster draft on the second pass of a pack passed by Bob: the line above the trays " +
+            "says what this pass asks (\"Pass 2/6 · Pick 1 of 11 · Burn 1\"), Cinder Whelp marked keep and Dawnward Sentry marked burn.")
+    }
+
     // DRF-182, DRF-152, DRF-022
     @Test fun rotisserieSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings.rotisserie().copy(cardsPerPlayer = 30, poolPerPlayer = 60),

@@ -1,0 +1,1 @@
+add: Holding a card to look at it now shows chips for the keywords and tokens its own text doesn't explain (such as Ward, Treasure or a Monster Role) and what each means: in drafts and deck building right under the card, in a game by tapping a chip once the view is pinned with a sideways drag.

@@ -1,0 +1,1 @@
+mod: Double tapping the table (or double clicking it) no longer skips a shown play, a combat or the target arrows; the main button does that now.

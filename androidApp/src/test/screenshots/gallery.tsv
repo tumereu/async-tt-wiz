@@ -29,7 +29,7 @@ number	item	screenshot	catalog	decisions	sequence
 28	Assume resolves quick action: Never	engine/assume-never.png	TRN-059 HIS-096
 29	Assume resolves quick action: No mana	engine/assume-no-mana.png	TRN-059 HIS-096
 30	Assume resolves quick action: Always	engine/assume-always.png	TRN-059 HIS-096
-31	Quick actions row and the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-068
+31	Quick actions row, the main button without the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-163
 32	Opening: Mulligan and Keep	engine/opening.png	TRN-062
 33	Wait band under the other player's hand while they decide on their opening, Assume keep on the main button	engine/waiting-bar.png	TRN-066 TRN-070 TRN-004 HIS-096
 34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066
@@ -304,4 +304,8 @@ number	item	screenshot	catalog	decisions	sequence
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
 304	Cards exiled from a library show as a reveal	engine/reveal-panel-library-exile.png	HIS-233 HIS-110 STK-044		
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
+307	Game Inspect pinned: rules reminder chips under the card, a tap on Ward explains it	inspect/reminders-pinned.png	TBL-209 TBL-210		Rules reminders
+308	Draft Inspect: rules reminder chips under the card, each with its explanation	inspect/reminders-draft.png	TBL-209 TBL-210 DRF-063		Rules reminders
+309	The other player's cards they may play from other zones: a cyan chip in their row of round chips and its list	states/other-playable.png	ZON-136		
 310	A shake says why in a bubble rising from what shook	engine/refusal-bubble.png	TBL-118 TBL-212		
+318	The main button says Resolve while the other player's spell is still shown, what comes once it lands	engine/main-button-during-play.png	TRN-163 TRN-165 TBL-203	

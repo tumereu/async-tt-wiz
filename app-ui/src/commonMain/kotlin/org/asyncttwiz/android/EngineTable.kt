@@ -353,7 +353,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
             stackAnimation.targeting?.done == false) } == true
 
     /** TRN-015, I-D56 §14: the step arrow acts only for the viewer: shown while they may act. */
-    fun arrowShown(): Boolean = when (status()) {
+    fun arrowShown(status: GameDevice.Status? = status()): Boolean = when (status) {
         GameDevice.Status.YourMove, GameDevice.Status.Drafting, is GameDevice.Status.Stopped -> true
         else -> false
     }
@@ -448,14 +448,19 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     /** The control the main button shows while the other player must act, or null for none: "Assume resolves" with
      * something on the Stack (STK-028), else "Assume pass" (TRN-070, owner playtest 2026-11-05 evening; owner notes 2026-11-14: nothing to resolve); while their
      * blocks are awaited "Assume no blockers", or "Assume blockers" once blockers are placed on the lanes (CMB-040). */
-    fun waitAction(): WaitAction? {
+    fun waitAction(): WaitAction? = waitAction(game()?.shown?.status, game()?.shown?.engine)
+
+    /** [waitAction] at [status] (TRN-163: where the view comes to rest, [EngineGame.Shown.rest], or the shown status) with the
+     * engine state there, [engine]. */
+    fun waitAction(status: GameDevice.Status?, engine: arcanum.engine.state.GameState?): WaitAction? {
         val g = game() ?: return null
         val shown = g.shown ?: return null
-        val status = shown.status as? GameDevice.Status.Waiting ?: return null
+        val state = engine ?: return null
+        if (status !is GameDevice.Status.Waiting) return null
         val name = opponentName
         return when (status.offer) {
             // TRN-017 (owner 2026-11-07): holding a Stack wait's Assume is the Resolve chain; holding any other Assume, its tap
-            GameDevice.Offer.AssumeResolves -> if (shown.engine.stack.isNotEmpty())
+            GameDevice.Offer.AssumeResolves -> if (state.stack.isNotEmpty())
                 WaitAction("Assume resolves", AssumeIcon,
                     "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there",
                     hold = { g.holdAssume { pump() } }, holdName = RESOLVE_CHAIN) { g.assume { pump() } }
@@ -482,7 +487,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
                 // TRN-067, TRN-071 (owner gallery review, 2026-11-06): where assuming their answer would show hidden
                 // information or a random result, Assume shows greyed; holding it says why
                 status.reason == GameDevice.Wait.HiddenCards -> WaitAction(
-                    if (shown.engine.stack.isNotEmpty()) "Assume resolves" else "Assume pass", AssumeIcon,
+                    if (state.stack.isNotEmpty()) "Assume resolves" else "Assume pass", AssumeIcon,
                     refusal = "Assuming this would show you hidden cards or a random result: wait for $name.") {}
                 else -> null
             }
@@ -494,39 +499,68 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     fun ownStepHeld(): Boolean = game()?.shown?.ownStepHeld == true
 
     /**
-     * Problem report B7UZB5 (SYS-011, SYS-135, SYS-137, SYS-138): whether a press of the main button saying [label] on the board
-     * the table draws, [drawn] (a step behind the game while the board's steps still play, TBL-040, or a combat's hold, HIS-113),
-     * is made at a point the game has moved past: there it isn't taken, the table shows where the game is and the note says so.
-     * Taken as before when the game is still at the same point of the player's (the same turn, step, priority and Stack; End
-     * turn, [endTurn]: the same turn of theirs, SYS-076). Before, it was made where the game was: "To blockers", pressed while
-     * the attack's steps still played on the board, passed the Main 2 the game had already reached, and the turn with it.
+     * TRN-163, TRN-164 (owner 2026-11-19): where the game really is for the player, for what the main button holds: the point the
+     * view comes to rest at once what it still waits on is done ([EngineGame.Shown.rest]: playback behind the head) with its
+     * status and board, else the shown status on the live board ([live]: the board published, whatever step of it the table
+     * still draws), the blocks placed to assume drawn on it (CMB-040). Never the step being animated.
      */
-    fun pressBehind(drawn: TableBoard, label: String, endTurn: Boolean = false): Boolean {
-        val seen = drawn.engine?.state ?: return false
-        val now = game()?.shown?.engine ?: return false
-        if (seen === now) return false
-        val same = if (endTurn) GameDevice.sameEndTurn(seen, now, arcanum.engine.state.PlayerId(viewer)) else samePoint(seen, now)
-        if (same) return false
-        AppLog.warn("game", "Main button press \"$label\" not taken: made on the board drawn at ${point(seen)} while the game is at " +
-            "${point(now)} (the board's steps still playing); the note says it wasn't taken")
-        tell(NOT_TAKEN)
+    class Real(val status: GameDevice.Status?, val board: TableBoard, val rest: Boolean)
+
+    /** [Real] now; [live]: the board the table draws (taken when no live board of its play is published). */
+    fun real(live: TableBoard): Real {
+        val published = game()?.shown ?: return Real(status(), live, false)
+        val rest = published.rest
+        if (rest != null) return Real(rest.status, rest.board, true)
+        // The table's live board (the one published: the screen's state, whatever step of it the table still draws)
+        val board = shown()?.takeIf { it.playId == live.playId } ?: live
+        return Real(published.status, assuming()?.board(board) ?: board, false)
+    }
+
+    /** TRN-165: whether the view still waits on something a press of the main button skips first: the table's own animations
+     * ([viewBusy], set by the table: the board's steps, a Stack entry's arrows), the device's view holds (a play shown, a combat's
+     * hold) or playback behind its rest point (the catch-up's pause included). */
+    fun skipNeeded(): Boolean = viewBusy() || deviceSkip()
+
+    private fun deviceSkip(): Boolean = game()?.shown?.let { it.rest != null || it.moments.isNotEmpty() } == true
+
+    /** TRN-165: the table's own animations still playing (set by the table). */
+    var viewBusy: () -> Boolean = { false }
+    /** TRN-165: ends the table's own animations at once, [why] for the log: the board's steps jump to the last, a Stack entry's
+     * arrows end, the next scene is drawn without moving (set by the table). */
+    var skipView: (why: String) -> Unit = {}
+
+    /** TRN-165: a press of the main button waiting for the board after its skip ([EngineGame.skipToRest]): made once that board
+     * ([version]) is drawn, when the button still says [label] there; [hold]: its hold. */
+    class PendingPress(val label: String, val hold: Boolean, val version: Long)
+
+    /** TRN-165: the press waiting for its skip's board (the main button acts on it, [QuickActionStrip]). */
+    var pendingPress by mutableStateOf<PendingPress?>(null)
+
+    /**
+     * TRN-165 (owner 2026-11-19): a tap ([hold] false) or hold of the main button saying [label] while the view still waits on
+     * something ([skipNeeded]): what plays on the table ends at once ([skipView]) and, when the device's view holds or playback
+     * stand between, the device shows everything up to where the view comes to rest ([EngineGame.skipToRest]); the press is then
+     * made on that board ([pendingPress]). True when the press waits for that board; false when it is made now (nothing waits,
+     * or only the table's own animations did).
+     */
+    fun skipFirst(label: String, hold: Boolean): Boolean {
+        if (!skipNeeded()) return false
+        val g = game() ?: return false
+        val shown = g.shown
+        val device = deviceSkip()
+        AppLog.info("game", "Main button ${if (hold) "hold" else "tap"} \"$label\" while the view still plays: skipped first " +
+            "(the table's animations ${viewBusy()}, view holds ${shown?.moments?.size ?: 0}, rest ahead ${shown?.rest != null}, " +
+            "status ${shown?.status?.let { it::class.simpleName }})" + if (device) "; made once the device shows where the view rests" else "; made now")
+        skipView("the main button's \"$label\"")
+        if (!device) return false
+        pendingPress = null
+        g.skipToRest(label) { version -> pendingPress = PendingPress(label, hold, version); pump() }
         return true
     }
 
-    /** Whether the game on [now] is still at the point [seen] shows to the player: the same decision, or the same turn, step,
-     * priority and Stack with nothing to decide (only cards moved on the way, as the board's steps play them). */
-    private fun samePoint(seen: arcanum.engine.state.GameState, now: arcanum.engine.state.GameState): Boolean =
-        GameDevice.sameDecision(seen, now) || (seen.turn.number == now.turn.number && seen.turn.step == now.turn.step &&
-            seen.combat?.firstStrikeStep == now.combat?.firstStrikeStep && seen.priority.holder == now.priority.holder &&
-            seen.pending == null && now.pending == null && seen.stack == now.stack)
-
-    private fun point(s: arcanum.engine.state.GameState): String =
-        "turn ${s.turn.number} ${s.turn.step} (priority ${s.priority.holder?.value?.take(8)}, stack ${s.stack.size}, " +
-            "decision ${s.pending?.decision?.id?.value})"
-
     /** TRN-004 (owner playtest 2026-11-12): the quiet status in the main button's place while the game waits for the other
      * player ([quietWaitText]), or null. */
-    fun quietWait(): String? = (status() as? GameDevice.Status.Waiting)?.let { quietWaitText(it.reason, opponentName) }
+    fun quietWait(status: GameDevice.Status? = status()): String? = (status as? GameDevice.Status.Waiting)?.let { quietWaitText(it.reason, opponentName) }
 
     /** The wait of [othersChoice], or null: the other player is choosing, declaring blockers or deciding on a mulligan. */
     private fun choiceWait(): GameDevice.Wait? = (status() as? GameDevice.Status.Waiting)?.reason
@@ -579,23 +613,6 @@ fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
         keys = LocalTableHotkeys.current?.main,
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
             label = action.label) }, onClick = { if (refused) shakes++ else action.run() })
-}
-
-/**
- * TRN-068: the unconfirmed mark, a small violet dot at the step arrow's corner while actions of yours wait for the other
- * player to see them (only you see it). A tap or hold says what it means.
- */
-@Composable
-fun EngineUnconfirmedMark(opponent: String, modifier: Modifier = Modifier) {
-    var tip by remember { mutableStateOf(false) }
-    val words = "$opponent hasn't seen your last moves yet; if $opponent answers differently, they'll be taken back"
-    Box(modifier.size(24.dp).semantics { contentDescription = words }.testTag("engine-unconfirmed")
-        .pointerInput(Unit) { detectTapGestures(onPress = { tip = true; tryAwaitRelease(); tip = false }) },
-        contentAlignment = Alignment.Center) {
-        Box(Modifier.size(10.dp).background(AutomatumViolet, androidx.compose.foundation.shape.CircleShape)
-            .border(1.5.dp, Color.White, androidx.compose.foundation.shape.CircleShape))
-        if (tip) HoldTooltip(words)
-    }
 }
 
 val LocalEngineRoutes = staticCompositionLocalOf<EngineTableRoutes?> { null }
@@ -915,14 +932,13 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     val shows = playShowGroup(shown.moments, stackAnimation.ended)
     val show = shows.firstOrNull()
     val showPace = remember(game) { PlayShowPace() }
-    val showTapScope = rememberCoroutineScope()
     if ((show != null || shown.combatHold != null) && reviewing) LaunchedEffect(show, shown.combatHold) { game.dismissShows(); routes.pump() }
     // TRN-074: a play and the turn banner never overlap: one follows the other
     if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         val peekHeight = holdPreviewScreenHeight()
         // Made from the board with their entries on it (the table's board has them off until they land)
         PlayShowOverlay(LocalUnhiddenPlay.current ?: play, scene, routes.viewer, shows, names, showMillis, routes.viewPause,
-            tapScope = showTapScope, pace = showPace, ready = { routes.showReady() },
+            pace = showPace, ready = { routes.showReady() },
             // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
             inspect = { held, holding ->
                 if (holding) {

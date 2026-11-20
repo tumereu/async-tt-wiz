@@ -1,0 +1,1 @@
+mod: The band saying what the other player is doing sits a little lower, so it no longer covers their chat message or the close button of a pile you opened

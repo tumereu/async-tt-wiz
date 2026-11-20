@@ -78,14 +78,32 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
         val status = StatusWire.of(shown.status, ref)
         val noted = notes.map { NoteWire.of(it, ref) }
         // Every event referred to is known now: those the page lacks go with the message
-        val out = ShownWire(shown.version, events.take(), definitions.take(), board, status, shown.locked, shown.settings,
+        val sent = events.take()
+        val defined = definitions.take()
+        // TRN-164: the rest point after them, with the events and card data it needs of its own
+        val rest = rest(shown.rest)
+        val out = ShownWire(shown.version, sent, defined, board, status, shown.locked, shown.settings,
             shown.opponent, shown.behind, shown.tip, shown.localHead, shown.drafting, shown.request, shown.indicator, shown.undoTarget,
             lineDelta, shown.held.size, transition, shown.needsReload, shown.pausing, shown.takingBack, shown.reveal, olderDelta,
             shown.olderComplete, shown.show, shown.showDone, shown.takeBack?.let { HeldWire(it.by, it.undo) }, shown.branchStop,
-            turnChange, shown.combatHold, shown.ownActionShown, shown.opponentAt, shown.moments, shown.ownStepHeld, shown.coming, noted)
+            turnChange, shown.combatHold, shown.ownActionShown, shown.opponentAt, shown.moments, shown.ownStepHeld, shown.coming, noted,
+            rest = rest)
         // Both sides keep the events of the page's mirror line, the shown line and the older history loaded
         events.retain(retained(shadow.lineIds, lineIds, olderIds))
         return out
+    }
+
+    /** The rest point's board sent last (TRN-164). */
+    private var restBoard: TableBoard? = null
+
+    /** TRN-163, TRN-164: [rest] as the page gets it: its board whole when it is new (as a loose board: the page's mirror isn't
+     * moved by it), else only its status. */
+    private fun rest(rest: EngineGame.Rest?): org.asyncttwiz.automatum.boundary.RestWire? {
+        if (rest == null) { restBoard = null; return null }
+        val status = StatusWire.of(rest.status, events::ref)
+        if (rest.board === restBoard) return org.asyncttwiz.automatum.boundary.RestWire(status, events = events.take())
+        restBoard = rest.board
+        return org.asyncttwiz.automatum.boundary.RestWire(status, loose(rest.board))
     }
 
     private fun transition(t: EngineGame.Transition): TransitionWire = TransitionWire(t.serial, false, t.cursor, t.jump,
@@ -160,7 +178,7 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
     /** The page loads the game anew (a new channel): everything is sent again. */
     fun clear() {
         events.clear(); states.clear(); shadow.clear(); boards.clear()
-        line = emptyList(); older = emptyList(); visible = emptyList(); transition = null; turnChange = null
+        line = emptyList(); older = emptyList(); visible = emptyList(); transition = null; turnChange = null; restBoard = null
     }
 
     companion object {
@@ -192,6 +210,8 @@ class ShownDecoder(private val gameId: String, private val codec: EngineJson, pr
     private var visible: List<ObjectId> = emptyList()
     private var transition: EngineGame.Transition? = null
     private var turnChange: TurnChange? = null
+    /** The rest point's board decoded last (TRN-164). */
+    private var restBoard: TableBoard? = null
 
     /** A published board and the notes published with it. */
     class Decoded(val shown: EngineGame.Shown, val notes: List<GameDevice.Note>)
@@ -214,11 +234,18 @@ class ShownDecoder(private val gameId: String, private val codec: EngineJson, pr
             else TurnChange(c.serial, c.player, events[c.event], c.at, c.forward).also { this.turnChange = it }
         }
         val state = checkNotNull(board.engine?.state) { "A published board without engine state" }
+        // TRN-164: the rest point, its board the one decoded last when it isn't sent again
+        val rest = w.rest?.let { r ->
+            events.add(r.events)
+            val restBoard = r.board?.let(::loose)?.also { this.restBoard = it } ?: this.restBoard
+            restBoard?.let { EngineGame.Rest(r.status.restored(events::get), it) }
+        }
+        if (w.rest == null) restBoard = null
         val shown = EngineGame.Shown(w.version, board, w.status.restored(events::get), w.locked, w.settings, w.opponent, w.behind, w.tip,
             w.localHead, w.drafting, w.request, w.indicator, w.undoTarget, lineEvents, lineEvents.take(w.held), transition, w.needsReload,
             w.pausing, w.takingBack, w.reveal, olderIds.map(events::get), w.olderComplete, w.show, w.showDone,
             w.takeBack?.let { EngineGame.Held(it.by, it.undo) }, w.branchStop, turnChange, w.combatHold, w.ownActionShown, w.opponentAt,
-            w.moments, w.ownStepHeld, w.coming, state)
+            w.moments, w.ownStepHeld, w.coming, state, rest)
         val notes = w.notes.map { it.restored(events::get) }
         events.retain(ShownEncoder.retained(mirror.events, lineIds, olderIds))
         return Decoded(shown, notes)

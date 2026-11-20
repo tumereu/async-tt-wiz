@@ -315,7 +315,7 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                           drawRoundRect(tint, xy(x - 1f, y - 1f), size(cardWidth + 2f, cardHeight + 2f), CornerRadius(3 * density),
                               style = Stroke(2f * density))
                       }
-                      if (i.copies > 1) {
+                      if (i.copies > 1 && i.countCorner == null) {
                           val label = "×${i.copies}"
                           // TBL-053: a battlefield stack's count badge is sized with its card (a panel's keeps its size)
                           val s = if (i.zone == PlayZone.BATTLEFIELD && i.viewport != "combat") z * .7f else 1f
@@ -337,6 +337,7 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
         }
     }
     }
+    stackCounts(this@with, scene, viewer, alphas)
     // STK-058: drawn here unless the caller draws them over its overlays (drawPileBadges)
     if (pileBadges) pileBadges(this@with, scene)
     val landing = tableDragLanding(scene, preview)
@@ -352,6 +353,33 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
             text("${preview.scope.cardIds.size}", p.x, p.y)
         }
     }
+    }
+}
+
+/**
+ * TBL-054 (owner, 2026-11-19): while some of a battlefield stack's members are tapped its count reads untapped/total ("2/3"),
+ * upright, at the bottom-left corner of the stack's bottom card (the whole stack's, its corners lined up, TBL-177), over all
+ * its cards: drawn after the cards, clipped to the battlefield's viewport only (a card is clipped to what shows of it).
+ */
+private fun DrawScope.stackCounts(painter: TableCardPainter, scene: TableScene, viewer: String, alphas: Map<String, Float>) = with(painter) {
+    for (i in scene.items) {
+        val corner = i.countCorner ?: continue
+        if (i.copies < 2 || i.visible.isEmpty()) continue
+        val port = scene.viewports.firstOrNull { it.id == i.viewport }?.bounds ?: continue
+        val alpha = alphas[i.id] ?: 1f
+        val color = (if (i.owner == viewer) OwnTableColor else OpponentTableColor).copy(alpha = alpha)
+        val label = "${i.copies - i.stackTapped}/${i.copies}"
+        val s = minOf(i.bounds.width, i.bounds.height) / 28f * .7f
+        clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
+            val previousSize = paint.textSize
+            paint.textSize = 11 * s * density
+            val badgeWidth = cache.measure(label) / density + 6f * s
+            drawRoundRect(color, xy(corner.x, corner.bottom - 16f * s), size(badgeWidth, 16f * s), CornerRadius(3 * s * density))
+            paint.color = NativeColors.WHITE
+            text(label, corner.x + 3f * s, corner.bottom - 4f * s, label.length)
+            paint.color = NativeColors.DKGRAY
+            paint.textSize = previousSize
+        }
     }
 }
 

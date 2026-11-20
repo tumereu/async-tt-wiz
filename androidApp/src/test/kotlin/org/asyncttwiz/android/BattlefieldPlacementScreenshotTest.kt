@@ -170,7 +170,7 @@ class BattlefieldPlacementScreenshotTest {
     }
 
     // TBL-053, TBL-177, TBL-054, TBL-027 (owner, 2026-11-08): the Mountain played this turn joined its stack at once, under the tapped
-    // ones, which lie on top
+    // ones, which lie on top; TBL-054, TBL-177 (owner, 2026-11-19): the count reads untapped/total, the corners line up
     @Test fun aNewLandJoinsItsStackUnderTheTappedOnes() {
         play = f.play().let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
             if (it.id == "a-mountain-3") it.copy(enteredTurn = p.board.turn.number) else it })) }
@@ -185,7 +185,8 @@ class BattlefieldPlacementScreenshotTest {
         compose.waitForIdle()
         compose.onRoot().captureShot("$SCREENSHOTS/battlefield/pile-tapped-on-top.png",
             "Alice's land row zoomed in: she played the third Mountain this turn (its name in blue) and it joined the stack at once; of the fan from the left " +
-                "the two untapped Mountains lie under the two tapped ones, which are turned and on top.")
+                "the two untapped Mountains lie under the two tapped ones, which are turned and on top, every card's bottom-left corner on " +
+                "one line; the stack's count reads \"2/4\" (untapped of all), upright at its bottom-left corner.")
     }
 
     // TBL-004, TBL-140, TBL-142, TBL-053, TBL-177, TBL-179, TBL-117, TBL-172, TBL-122: lands from the left in the land row by each player's edge; in the upper band

@@ -191,6 +191,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
                 is DeviceRequest.DismissShows -> game.dismissShows()
                 is DeviceRequest.Pause -> game.pause()
                 is DeviceRequest.HoldPlayback -> game.holdPlayback()
+                is DeviceRequest.SkipToRest -> game.skipToRest(r.why) { done(r.id, DeviceResult.None) }
                 is DeviceRequest.Step -> game.step { e -> done(r.id, DeviceResult.Event(e?.let { game.codec.encodeElement(GameEvent.serializer(), it) })) }
                 is DeviceRequest.OlderThrough -> done(r.id, DeviceResult.Text(game.olderThroughOn()))
                 is DeviceRequest.NeedsFor -> done(r.id, DeviceResult.Text(game.needsForOn(r.event)))

@@ -31,20 +31,6 @@ class ViewPause {
 
     val paused: Boolean get() = finger || key || inspecting()
 
-    private var showTap: Job? = null
-
-    /** HIS-112: a tap on a shown play, in [scope] (which outlives it): whether it is a double tap's second. */
-    fun tapOnShow(scope: CoroutineScope): Boolean {
-        val second = showTap?.isActive == true
-        showTap?.cancel()
-        showTap = scope.launch { delay(DOUBLE_TAP_MILLIS) }
-        return second
-    }
-
-    /** HIS-112: whether a tap on a shown play was made just now: a tap on the table then belongs to it (the play may have
-     * gone from under the finger) and does nothing there. */
-    val justTappedShow: Boolean get() = showTap?.isActive == true
-
     /** Returns once nothing pauses the view. */
     suspend fun lifted() { if (paused) snapshotFlow { paused }.first { !it } }
 

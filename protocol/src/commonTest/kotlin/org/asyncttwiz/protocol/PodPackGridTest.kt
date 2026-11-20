@@ -69,7 +69,10 @@ class PodPackGridTest {
         assertTrue(PodPackGrid.valid(block))
         assertFalse(PodPackGrid.valid(emptyList()))
         assertFalse(PodPackGrid.valid(listOf("R T R")))
-        assertFalse(PodPackGrid.valid(List(61) { "RTR" }))
+        // Owner 2026-11-20: an Arena grid has a row per pick, up to 120 (DRF-286, DRF-281)
+        assertTrue(PodPackGrid.valid(List(120) { "RTR" }))
+        assertFalse(PodPackGrid.valid(List(121) { "RTR" }))
+        assertEquals(listOf("RTR", "GTC", "DGM"), PodPackGrid.packSets(block, DraftSettings.arena().copy(packsPerPlayer = 3), 2))
     }
 
     private fun card(index: Int) = SetSourceCard("sha256:" + index.toString(16).padStart(64, '0'),

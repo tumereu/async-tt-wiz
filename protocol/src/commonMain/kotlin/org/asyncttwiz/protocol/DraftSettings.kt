@@ -136,7 +136,7 @@ data class DraftSettings(
             return@buildList
         }
         if (mode == DraftMode.ARENA) {
-            // DRF-281, DRF-282: picks 1–60, offers of 2–15 cards, taking fewer than an offer holds
+            // DRF-281, DRF-282: picks 1–120, offers of 2–15 cards, taking fewer than an offer holds
             if (packsPerPlayer !in 1..ArenaEngine.MAX_PICKS) add(DraftSettingsIssue.PACKS_PER_PLAYER)
             if (cardsPerPack !in 2..ArenaEngine.MAX_OFFER) add(DraftSettingsIssue.CARDS_PER_PACK)
             if (keep < 1 || keep >= cardsPerPack) add(DraftSettingsIssue.KEEP)

@@ -943,21 +943,33 @@ class PodService(private val runtime: ServiceRuntime) {
     /** Arena (DRF-285): each card's rarity in a cube, by its printing's in the card catalog (special and bonus count as
      * rare, an unknown one, or no catalog, as common). */
     private fun cubeRarities(sql: DSLContext, cube: List<DraftCubeEntry>): (String) -> SetCardRarity {
-        val catalog = ServerCatalogs.current()?.catalog
-        val printings = StoredDefinitions.read(sql, cube.map { it.definition }.toSet()).associate { it.digest to it.definition.printingId }
-        val rarities = printings.mapValues { (_, printing) ->
-            printing?.let { catalog?.printing?.get(it)?.rarity }?.let { value -> SetCardRarity.entries.firstOrNull { it.name.lowercase() == value } }
-                ?: SetCardRarity.UNKNOWN
+        val server = ServerCatalogs.current()
+        val catalog = server?.catalog
+        val definitions = StoredDefinitions.read(sql, cube.map { it.definition }.toSet()).associate { it.digest to it.definition }
+        val rarities = definitions.mapValues { (_, definition) ->
+            val rarity = definition.printingId?.let { catalog?.printing?.get(it)?.rarity }
+                ?.let { value -> SetCardRarity.entries.firstOrNull { it.name.lowercase() == value } } ?: SetCardRarity.UNKNOWN
+            // DRF-291: a special or bonus printing counts as the lowest rarity of the card's other printings, else rare
+            if (ArenaEngine.special(rarity)) ArenaEngine.rarity(rarity, server?.normalRarity(definition.name)) else rarity
         }
         if (catalog == null) log("Arena cube rarities without a card catalog: every card counts as common")
         return { rarities[it] ?: SetCardRarity.UNKNOWN }
     }
 
-    /** Arena (DRF-286): the pod's sets' own cards, by the card catalog (not the other sets' cards their recipes name). */
+    /** Arena (DRF-286): the pod's sets' own cards, by the card catalog (not the other sets' cards their recipes name); a
+     * bonus card's tier (DRF-291) is the lowest rarity of its printings elsewhere in the catalog. */
     private fun arenaSetCards(set: SetPackSources): List<ArenaCard> {
-        val catalog = ServerCatalogs.current()?.catalog
+        val server = ServerCatalogs.current()
+        val catalog = server?.catalog
         if (catalog == null) log("Arena set cards without a card catalog: every card of the set sources counts as the set's own")
-        return ArenaEngine.setCards(set.sets) { code, uuid -> catalog == null || catalog.printing[uuid]?.set == code }
+        val cards = ArenaEngine.setCards(set.sets, { code, uuid -> catalog == null || catalog.printing[uuid]?.set == code }) { name ->
+            server?.normalRarity(name)
+        }
+        cards.filter { it.bonus }.takeIf { it.isNotEmpty() }?.let { bonus ->
+            log("Arena bonus bags of ${set.packs.distinct()}: " + bonus.groupBy { it.set to it.rarity }.entries
+                .joinToString { (key, list) -> "${key.first} ${key.second}: ${list.size}" })
+        }
+        return cards
     }
 
     /** DRF-285: what an Arena change did, with every offer filled up from another rarity since [previous]. */

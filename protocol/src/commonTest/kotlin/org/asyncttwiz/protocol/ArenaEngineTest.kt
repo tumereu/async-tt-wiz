@@ -43,7 +43,10 @@ class ArenaEngineTest {
         assertContains(base.copy(keep = 5).validate(2), DraftSettingsIssue.KEEP)
         assertContains(base.copy(cardsPerPack = 1, keep = 1).validate(2), DraftSettingsIssue.CARDS_PER_PACK)
         assertContains(base.copy(cardsPerPack = 16).validate(2), DraftSettingsIssue.CARDS_PER_PACK)
-        assertContains(base.copy(packsPerPlayer = 61).validate(2), DraftSettingsIssue.PACKS_PER_PLAYER)
+        assertContains(base.copy(packsPerPlayer = 121).validate(2), DraftSettingsIssue.PACKS_PER_PLAYER)
+        // Owner 2026-11-20: up to 120 picks, and rarity intervals up to 120
+        assertTrue(base.copy(packsPerPlayer = 120, rareEvery = 120, uncommonEvery = 120).validate(2).isEmpty())
+        assertContains(base.copy(uncommonEvery = 121).validate(2), DraftSettingsIssue.RARITY_SCHEDULE)
         assertContains(base.copy(rareEvery = 0).validate(2), DraftSettingsIssue.RARITY_SCHEDULE)
         assertContains(base.copy(mythicOneIn = 101).validate(2), DraftSettingsIssue.MYTHIC_CHANCE)
         assertContains(base.copy(librarians = 1).validate(2), DraftSettingsIssue.LIBRARIANS)
@@ -110,7 +113,7 @@ class ArenaEngineTest {
             SetSourceCard("def-snow", "uuid-snow", SetCardRarity.COMMON, card = "Snow-Covered Island") +
             SetSourceCard("def-guest", "uuid-guest", SetCardRarity.COMMON, card = "Guest")
         val set = SetSourceSnapshot("TST", "Test set", printings)
-        val cards = ArenaEngine.setCards(listOf(set)) { _, uuid -> uuid != "uuid-guest" }
+        val cards = ArenaEngine.setCards(listOf(set), own = { _, uuid -> uuid != "uuid-guest" })
         assertEquals(8, cards.size)
         assertEquals(listOf("def-2-0", "def-2-1", "def-2-2"), cards.first { it.id == "TST:Card 2" }.printings)
         val settings = settings(picks = 30, cards = 6).copy(rareEvery = null, uncommonEvery = null)
@@ -125,9 +128,54 @@ class ArenaEngineTest {
         }
         assertEquals(8, seen.size) // every card comes again in later offers
         assertTrue(state.copies.none { it.definition in setOf("def-plains", "def-snow", "def-guest") })
-        // Special and bonus count as rare, unknown as common
+        // Unknown counts as common; special and bonus as their tier, rare without one (DRF-291)
         assertEquals(SetCardRarity.RARE, ArenaEngine.rarity(SetCardRarity.SPECIAL))
+        assertEquals(SetCardRarity.UNCOMMON, ArenaEngine.rarity(SetCardRarity.BONUS, SetCardRarity.UNCOMMON))
         assertEquals(SetCardRarity.COMMON, ArenaEngine.rarity(SetCardRarity.UNKNOWN))
+    }
+
+    // DRF-291 (owner, 2026-11-20): a set's special and bonus cards form their tier's bonus bag; a card drawn for the tier comes
+    // from it with chance 20% × min(1, bag / normal cards): 10 normal mythics and 1 bonus mythic give it about 2%, each
+    // normal mythic about 9.8%
+    @Test fun bonusCardsComeFromTheirTiersBagAtTheirChance() {
+        fun set(bonus: Boolean) = SetSourceSnapshot("TST", "Test", List(10) { SetSourceCard("m$it", "um$it", SetCardRarity.MYTHIC, card = "Mythic $it") } +
+            List(10) { SetSourceCard("r$it", "ur$it", SetCardRarity.RARE, card = "Rare $it") } +
+            listOfNotNull(SetSourceCard("bonus", "ubonus", SetCardRarity.SPECIAL, card = "Bonus").takeIf { bonus }) +
+            // A card with a normal printing too is a normal card: its special printing is not offered
+            SetSourceCard("r-special", "ur-special", SetCardRarity.SPECIAL, card = "Rare 0"))
+        val tiers = mapOf("Bonus" to SetCardRarity.MYTHIC)
+        val cards = ArenaEngine.setCards(listOf(set(bonus = true))) { tiers[it] }
+        assertEquals(ArenaCard("TST:Bonus", listOf("bonus"), rarity = SetCardRarity.MYTHIC, set = "TST", bonus = true), cards.single { it.bonus })
+        assertEquals(listOf("r0"), cards.single { it.id == "TST:Rare 0" }.printings)
+        assertEquals(SetCardRarity.RARE, ArenaEngine.setCards(listOf(set(bonus = true))).single { it.bonus }.rarity) // no other printing: rare
+        assertEquals(ArenaCounts(rare = 10, mythic = 11), ArenaEngine.counts(cards))
+        val settings = settings(picks = 120, cards = 2).copy(rareEvery = 1, mythicOneIn = 1)
+        fun drawn(cards: List<ArenaCard>): Map<String, Int> {
+            var state = start(cards, settings, players = 8, cube = false, pickSets = List(120) { "TST" })
+            val counts = mutableMapOf<String, Int>()
+            while (!state.finished) {
+                val player = state.seating.first { state.queues.getValue(it).isNotEmpty() }
+                offer(state, player).forEach { counts[it.definition] = (counts[it.definition] ?: 0) + 1 }
+                state = pickFirst(state, player)
+            }
+            return counts
+        }
+        val counts = drawn(cards)
+        val total = counts.values.sum()
+        assertEquals(1920, total)
+        val bonus = counts["bonus"] ?: 0
+        assertTrue(bonus in 15..65, "the bonus mythic came $bonus times of $total (about 2%)")
+        for (n in 0 until 10) assertTrue(counts.getValue("m$n") in 120..260, "mythic $n came ${counts["m$n"]} times of $total (about 9.8%)")
+        // An empty bag: never a bonus card, every card a normal mythic
+        val plain = drawn(ArenaEngine.setCards(listOf(set(bonus = false))) { tiers[it] })
+        assertEquals(setOf("m0", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9"), plain.keys)
+        // A tier with only its bag: the bag gives its cards, with no fill-up
+        val bagOnly = SetSourceSnapshot("TST", "Test", List(3) { SetSourceCard("b$it", "ub$it", SetCardRarity.BONUS, card = "Bonus $it") } +
+            List(5) { SetSourceCard("c$it", "uc$it", SetCardRarity.COMMON, card = "Common $it") })
+        val onlyBag = start(ArenaEngine.setCards(listOf(bagOnly)) { SetCardRarity.MYTHIC }, settings(picks = 1, cards = 2).copy(rareEvery = 1, mythicOneIn = 1),
+            cube = false, pickSets = listOf("TST"))
+        assertTrue(offer(onlyBag, "p0").all { it.definition.startsWith("b") })
+        assertTrue(onlyBag.arena!!.fills.isEmpty())
     }
 
     // DRF-284 (owner, 2026-11-20): without Reuse cards a card a player picked is never offered to that player again; another

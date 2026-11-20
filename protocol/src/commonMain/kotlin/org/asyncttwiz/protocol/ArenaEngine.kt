@@ -5,10 +5,10 @@ import kotlinx.serialization.Serializable
 /**
  * One card Arena offers are drawn from: a cube copy (one printing), or a set's card with every printing of it in the
  * set (one is chosen at random when it is offered). [rarity] is one of common, uncommon, rare and mythic ([ArenaEngine.rarity]);
- * [set] is the set's code ("" for a cube).
+ * [set] is the set's code ("" for a cube). [bonus]: a set's special or bonus card, in its [rarity]'s bonus bag (DRF-291).
  */
 @Serializable data class ArenaCard(val id: String, val printings: List<String>, val colors: Set<DraftColor> = emptySet(),
-    val rarity: SetCardRarity = SetCardRarity.COMMON, val set: String = "")
+    val rarity: SetCardRarity = SetCardRarity.COMMON, val set: String = "", val bonus: Boolean = false)
 
 /** An offer that had too few cards of its rarity (DRF-285): [count] of its cards came from [used] in place of [wanted]. */
 @Serializable data class ArenaFill(val player: String, val pick: Int, val wanted: SetCardRarity, val used: SetCardRarity, val count: Int)
@@ -47,16 +47,28 @@ import kotlinx.serialization.Serializable
  * so the pick screen, marks and draft history of Booster work unchanged.
  */
 object ArenaEngine {
-    const val MAX_PICKS = 60
+    /** The most picks, and the longest rarity interval (DRF-281, owner 2026-11-20). */
+    const val MAX_PICKS = 120
     const val MAX_OFFER = 15
     const val MAX_MYTHIC_ONE_IN = 100
     private val ORDER = listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE, SetCardRarity.MYTHIC)
     private val BASICS = BasicLand.entries.map { it.cardName }.toSet() + "Wastes"
+    /**
+     * DRF-291 (owner, 2026-11-20): the most a card drawn for a rarity comes from that rarity's bonus bag, in percent; the
+     * chance is this times the bag's cards over the normal cards of the rarity, at most once over.
+     */
+    const val BONUS_PERCENT = 20
 
-    /** Arena's four rarities: special and bonus printings count as rare, an unknown rarity as common. */
-    fun rarity(value: SetCardRarity): SetCardRarity = when (value) {
-        SetCardRarity.SPECIAL, SetCardRarity.BONUS -> SetCardRarity.RARE
-        SetCardRarity.UNKNOWN -> SetCardRarity.COMMON
+    /** Whether [value] is a special or bonus rarity (bonus-sheet cards, DRF-291). */
+    fun special(value: SetCardRarity) = value == SetCardRarity.SPECIAL || value == SetCardRarity.BONUS
+
+    /**
+     * Arena's four rarities: an unknown rarity counts as common; a special or bonus card (DRF-291) as [tier], the lowest
+     * rarity of its other printings, or rare when it has none.
+     */
+    fun rarity(value: SetCardRarity, tier: SetCardRarity? = null): SetCardRarity = when {
+        special(value) -> tier?.takeIf { !special(it) }?.let { rarity(it) } ?: SetCardRarity.RARE
+        value == SetCardRarity.UNKNOWN -> SetCardRarity.COMMON
         else -> value
     }
 
@@ -79,7 +91,8 @@ object ArenaEngine {
     fun needed(settings: DraftSettings): Long = if (settings.reuseCards) settings.cardsPerPack.toLong()
         else (settings.packsPerPlayer - 1).coerceAtLeast(0).toLong() * settings.keep + settings.cardsPerPack
 
-    /** A cube's copies as Arena cards, each with its card's [rarity] (by its definition). */
+    /** A cube's copies as Arena cards, each with its card's [rarity] (by its definition; a special or bonus printing's tier,
+     * DRF-291, is the caller's to give: a cube has no bonus bag). */
     fun cubeCards(cube: List<DraftCubeEntry>, rarity: (String) -> SetCardRarity): List<ArenaCard> =
         cube.groupBy { it.definition }.entries.sortedBy { it.key }.flatMap { (definition, entries) ->
             val quantity = entries.sumOf { it.quantity }
@@ -90,15 +103,21 @@ object ArenaEngine {
     /**
      * Each set's cards as Arena cards (DRF-286): a card once however many printings it has, its rarity the lowest of
      * its printings'. Basic lands are left out, and so are printings [own] says are not the set's own (cards of other sets
-     * its booster recipe names).
+     * its booster recipe names). A card all of whose printings in the set are special or bonus is a bonus card (DRF-291):
+     * its rarity is [tier] (the lowest rarity of its printings elsewhere, by its name), or rare without one.
      */
-    fun setCards(sets: List<SetSourceSnapshot>, own: (set: String, uuid: String) -> Boolean = { _, _ -> true }): List<ArenaCard> =
+    fun setCards(sets: List<SetSourceSnapshot>, own: (set: String, uuid: String) -> Boolean = { _, _ -> true },
+        tier: (card: String) -> SetCardRarity? = { null }): List<ArenaCard> =
         sets.flatMap { set ->
             set.cards.filter { own(set.setCode, it.uuid) && !basic(it.card) }.sortedBy { it.uuid }
                 .groupBy { it.card.ifEmpty { it.uuid } }.entries.sortedBy { it.key }.map { (card, printings) ->
-                    ArenaCard("${set.setCode}:$card", printings.map { it.definition }.distinct(),
-                        printings.flatMap { it.colors }.sortedBy { it.ordinal }.toSet(),
-                        printings.map { rarity(it.rarity) }.minBy { ORDER.indexOf(it) }, set.setCode)
+                    val normal = printings.filter { !special(it.rarity) }
+                    val bonus = normal.isEmpty()
+                    val shown = if (bonus) printings else normal
+                    ArenaCard("${set.setCode}:$card", shown.map { it.definition }.distinct(),
+                        shown.flatMap { it.colors }.sortedBy { it.ordinal }.toSet(),
+                        if (bonus) rarity(SetCardRarity.SPECIAL, tier(card)) else normal.map { rarity(it.rarity) }.minBy { ORDER.indexOf(it) },
+                        set.setCode, bonus)
                 }
         }
 
@@ -202,7 +221,18 @@ object ArenaEngine {
         if (arena.cube && settings.ignoreRarity) repeat(settings.cardsPerPack) { draw(pool)?.let(chosen::add) }
         else {
             val base = pickRarity(settings, index + 1)
-            val buckets = pool.groupBy { it.rarity }
+            val buckets = pool.filter { !it.bonus }.groupBy { it.rarity }
+            val bags = pool.filter { it.bonus }.groupBy { it.rarity }
+            // DRF-291: a card drawn for a rarity comes from its bonus bag with chance BONUS_PERCENT × min(1, bag / normal cards)
+            fun drawTier(tier: SetCardRarity): ArenaCard? {
+                val normal = buckets[tier].orEmpty().filter { card -> chosen.none { it.id == card.id } }
+                val bag = bags[tier].orEmpty().filter { card -> chosen.none { it.id == card.id } }
+                if (bag.isEmpty()) return draw(normal)
+                if (normal.isEmpty()) return draw(bag)
+                val bagSize = bags.getValue(tier).size.toLong(); val normalSize = buckets.getValue(tier).size.toLong()
+                val fromBag = RandomV1.sample(100L * normalSize, words::next) < BONUS_PERCENT * minOf(bagSize, normalSize)
+                return draw(if (fromBag) bag else normal)
+            }
             val wanted = List(settings.cardsPerPack) {
                 val mythic = base == SetCardRarity.RARE && settings.mythicOneIn?.let { n -> RandomV1.sample(n, words::next) == 0 } == true
                 if (mythic) SetCardRarity.MYTHIC else base
@@ -212,7 +242,7 @@ object ArenaEngine {
                 // The rarity itself, then the nearest below, then above
                 val tries = listOf(rarity) + ORDER.subList(0, at).reversed() + ORDER.subList(at + 1, ORDER.size)
                 for (used in tries) {
-                    val card = draw(buckets[used].orEmpty()) ?: continue
+                    val card = drawTier(used) ?: continue
                     chosen += card
                     if (used != rarity) {
                         val last = fills.lastOrNull()

@@ -12,8 +12,8 @@ import kotlinx.serialization.Serializable
  * resize it: a grid that grows repeats the last set, one that shrinks drops its last packs.
  */
 object PodPackGrid {
-    /** The longest list a pod or preset sends: Grid's most grids (DRF-023). */
-    const val MAX_PACKS = 60
+    /** The longest list a pod or preset sends: Arena's most picks, a row each (DRF-286, DRF-281); Grid's most grids is 60 (DRF-023). */
+    const val MAX_PACKS = ArenaEngine.MAX_PICKS
 
     /**
      * The grid's row lengths: Booster one row per round of open packs; Grid one per round of open grids; Rochester one per

@@ -111,6 +111,12 @@ class GameLog(gameId: String, private val me: PlayerId) {
                 put("their graveyard", o.graveyard.map { name(s, it) })
             }
             put("exile", s.exile.map { name(s, it) })
+            // Problem report WGEG3N: the crimes committed this turn (CR 700.13), for "as long as you've committed a crime this turn"
+            s.eventsOf(s.turn.number).mapNotNull { (it as? arcanum.engine.change.Change.StackItemAdded)
+                ?.takeIf { added -> arcanum.engine.change.Meaning.Crime in added.meanings }?.item?.controller }
+                .takeIf { it.isNotEmpty() }?.let { crimes ->
+                    put("crimes this turn", crimes.groupingBy { it }.eachCount().map { (p, n) -> "${if (p == me) "yours" else p.value.take(8)} $n" })
+                }
             // D10 (MDLPM7): an entry that is no card by its id, what it is and what it copies, so copies and originals read apart
             put("stack", s.stack.map { id -> s.stackItems[id]?.takeIf { s.obj(id) == null }?.let { item ->
                 org.asyncttwiz.automatum.ShownNames.logged(s, item) { source -> source?.let { name(s, it) }?.takeIf { it != "?" } } } ?: name(s, id) })

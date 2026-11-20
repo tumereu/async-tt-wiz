@@ -42,6 +42,14 @@ run() {
     local log=$1; shift
     "$slot" "$kotlin" --continue "$@" > "$log" 2>&1
     local rc=$?
+    if [ $rc != 0 ] && grep -q 'Incremental compilation failed' "$log"; then
+        # A stale Kotlin incremental cache in the kept worktree (the merge gate retries the same way)
+        echo "full-verify: $(basename "$log") hit a stale Kotlin incremental cache; clearing it and running once more" | tee -a "$summary"
+        mv "$log" "$log.stale-cache"
+        find "$wt" -path '*/build/kotlin' -type d -prune -not -path '*/node_modules/*' -exec rm -rf {} +
+        "$slot" "$kotlin" --continue "$@" > "$log" 2>&1
+        rc=$?
+    fi
     if [ $rc != 0 ] && grep -q -e 'Not enough memory to run compilation' -e 'Gradle build daemon disappeared unexpectedly' -e 'java.lang.OutOfMemoryError' "$log"; then
         echo "full-verify: $(basename "$log") ran out of memory; running it once more in a fresh Kotlin daemon" | tee -a "$summary"
         mv "$log" "$log.out-of-memory"

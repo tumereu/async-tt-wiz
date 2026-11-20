@@ -222,6 +222,24 @@ class EngineHistoryShownTest {
         assertEquals("Alice cast Storm Spark", EngineEventText.of(cast, alice.device.model.engine, f.b, names))
     }
 
+    // HIS-062, web frame rate (owner, 2026-11-20): texts made with what the viewer sees worked out once for one state (the
+    // timeline's sight) read the same: still "a card" to Bob, named to Alice; a sight of another viewer or state isn't used
+    @Test fun textsMadeWithOneSightReadTheSame() {
+        val sim = EngineAppSim(f)
+        val (alice, _) = bothKeepThenBobAway(sim)
+        playLand(sim, alice)
+        val s = alice.device.model.engine.deepCopy()
+        val spark = assertNotNull(s.player(a).hand.firstOrNull { s.obj(it)?.definition?.faces?.first()?.name == "Storm Spark" })
+        assertIs<GameDevice.Acted.Sent>(alice.send(EngineCombatScenario(f).cast(s, a, Input.Cast(a, spark))))
+        sim.flush(f.a)
+        val cast = sim.line().last { e -> e.engine?.steps?.any { it.input is Input.Cast } == true }
+        assertEquals("Alice cast a card", EngineEventText.of(cast, s, f.b, names, EngineEventText.Sight(s, f.b)))
+        assertEquals("You cast Storm Spark", EngineEventText.of(cast, s, f.a, names, EngineEventText.Sight(s, f.a)))
+        assertEquals("You cast Storm Spark", EngineEventText.of(cast, s, f.a, names, EngineEventText.Sight(s, f.b)), "Bob's sight isn't Alice's")
+        assertEquals("Alice cast Storm Spark", EngineEventText.of(cast, alice.device.model.engine, f.b, names, EngineEventText.Sight(s, f.b)),
+            "a sight of another state isn't used")
+    }
+
     // TRN-051: the suggestion panel's suggestion appears in playback once its event is reached; it can be answered only
     // at the live end
     @Test fun aSuggestionShowsOnceReachedAndIsAnsweredAtTheLiveEnd() {

@@ -24,8 +24,8 @@ import org.asyncttwiz.appui.toBigIntegerOrNull
  * cards read "a card").
  */
 object EngineEventText {
-    fun of(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
-        val text = libraryExiles(acted(event, state, viewer, names), event, viewer, names)
+    fun of(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>, sight: Sight? = null): String {
+        val text = libraryExiles(acted(event, state, viewer, names, sight), event, viewer, names)
         // HIS-091, TBL-133 (owner 2026-11-16): a secret choice the event revealed is named to everyone, after what was done
         // ("Bob activated Ember Lineup's ability · Bob revealed: Goblin"); before it, nobody but its chooser read its value
         val reveals = org.asyncttwiz.automatum.SecretChoices.revealed(event.engine?.changes.orEmpty(), state)
@@ -66,10 +66,10 @@ object EngineEventText {
     }
 
     /** What [event]'s acting input did, from [viewer]'s side (HIS-091). */
-    private fun acted(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
+    private fun acted(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>, sight: Sight?): String {
         fun who(player: PlayerId) = if (player.value == viewer) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, player.value, "The other player", "EngineEventText")
         fun author() = if (event.author == viewer) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, event.author, "A player", "EngineEventText")
-        fun card(id: ObjectId?): String = name(id, state, viewer) ?: "a card"
+        fun card(id: ObjectId?): String = name(id, state, viewer, sight) ?: "a card"
         val step = event.engine?.steps?.firstOrNull { it.input != null }
         // HIS-091 (owner playtest 2026-11-04 #1, #2): only the player who assumed an answer reads it as assumed; to the
         // player it was assumed about it reads as their own answer, the same as if they had made it (passes read as
@@ -86,10 +86,10 @@ object EngineEventText {
             is Input.PlayLand -> "${who(input.player)} played ${card(input.card)}"
             // STK-046: an ability is named as its source's ability, never as if the card were cast; HIS-091 (owner playtest
             // 2026-11-07): cycling reads as cycling ("Bob cycled Fractured Sanity"), another keyword's ability by its keyword
-            is Input.Activate -> activation(event, input, state, viewer, who(input.player))
+            is Input.Activate -> activation(event, input, state, viewer, who(input.player), sight)
             // §29.2 (owner 2026-11-04): passes are implied: a pass reads only as what it led to ("Storm Spark resolved",
             // "Turn 3 → Bob", the new step); one that led to nothing shows nowhere ([hidden])
-            is Input.PassPriority -> passOutcome(event, state, viewer, names).orEmpty()
+            is Input.PassPriority -> passOutcome(event, state, viewer, names, sight).orEmpty()
             is Input.DeclareAttackers -> if (input.attacks.isEmpty()) "${who(input.player)}: no attack" else "${who(input.player)} attacked with ${input.attacks.size}"
             is Input.DeclareBlockers -> if (input.blocks.isEmpty()) "${who(input.player)}: no blocks$assumed" else "${who(input.player)} blocked with ${input.blocks.size}$assumed"
             is Input.SetupAnswer -> when (input.answer) {
@@ -112,8 +112,9 @@ object EngineEventText {
      * Blade's equip ability" for another keyword's ability, else "You activated Ember Herald's ability" (STK-046); the
      * ability as it went on the Stack in [event] tells which (a mana ability, which doesn't, reads as an ability).
      */
-    private fun activation(event: GameEvent, input: Input.Activate, state: GameState?, viewer: String, who: String): String {
-        val name = name(input.source, state, viewer)
+    private fun activation(event: GameEvent, input: Input.Activate, state: GameState?, viewer: String, who: String,
+        sight: Sight? = null): String {
+        val name = name(input.source, state, viewer, sight)
         val item = event.engine?.changes.orEmpty().filterIsInstance<Change.StackItemAdded>().map { it.item }
             .firstOrNull { it.kind is StackItemKind.Activated && it.origin == input.ability }
         if (name != null && item != null && org.asyncttwiz.automatum.StackAbilityText.cycling(item)) return "$who cycled $name"
@@ -299,7 +300,8 @@ object EngineEventText {
     }
 
     /** What a pass led to (the most telling of: a spell or ability resolved, a new turn, a new step). */
-    private fun passOutcome(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String? {
+    private fun passOutcome(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>,
+        sight: Sight? = null): String? {
         val changes = event.engine?.changes.orEmpty()
         // The spell or ability that resolved leaves the Stack last (CR 608.2n): what it countered left before it
         changes.lastOrNull { it is Change.StackItemRemoved }?.let { it as Change.StackItemRemoved }?.let { removed ->
@@ -313,12 +315,12 @@ object EngineEventText {
             // D7 (owner 2026-11-19): a copy by what it copies: "Copy of Storm Spark resolved", "Copy of Bre of Clan Stoutarm's
             // triggered ability resolved"
             if (item.copyOf != null || item.kind is StackItemKind.SpellCopy) {
-                val copy = state?.let { s -> org.asyncttwiz.automatum.ShownNames.of(s, item) { name(it, s, viewer) } }
+                val copy = state?.let { s -> org.asyncttwiz.automatum.ShownNames.of(s, item) { name(it, s, viewer, sight) } }
                 return "${copy?.replaceFirstChar { it.uppercase() } ?: "A copy"} resolved"
             }
             val shown = when (val id = item.id) {
-                is ObjectId.Card -> name(id, state, viewer)
-                else -> (item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer)
+                is ObjectId.Card -> name(id, state, viewer, sight)
+                else -> (item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer, sight)
                     ?: org.asyncttwiz.automatum.StackAbilityText.ruleName(item))
                     ?.let { if (ability) "$it's $kind" else it }
             }
@@ -331,12 +333,24 @@ object EngineEventText {
         return if (last.step != first.step) org.asyncttwiz.automatum.EngineProjection.position(last.step).label else null
     }
 
-    /** The name of [id] as [viewer] may see it in [state] (the card's latest object), or null. */
-    private fun name(id: ObjectId?, state: GameState?, viewer: String): String? {
+    /**
+     * What [viewer] may see in [state] ([Host.visible]), worked out once for all the texts made from one state ([of]'s
+     * sight): web frame rate (owner, 2026-11-20: the desktop table stutters when plays happen), each card a text named
+     * worked the whole layers out again, on the page's thread, for every new event of the timeline.
+     */
+    class Sight(val state: GameState, val viewer: String) {
+        val ids: Set<ObjectId> by lazy { Host.visible(state, PlayerId(viewer)) }
+    }
+
+    /** The name of [id] as [viewer] may see it in [state] (the card's latest object), or null; [sight], when of the same
+     * state and viewer, says what they see. */
+    private fun name(id: ObjectId?, state: GameState?, viewer: String, sight: Sight? = null): String? {
         val card = (id as? ObjectId.Card)?.card ?: return null
         val s = state ?: return null
         val obj = s.objects[id] ?: s.objects.values.lastOrNull { it.card == card } ?: return null
-        if (obj.faceDown || obj.id !in Host.visible(s, PlayerId(viewer))) return null
+        if (obj.faceDown) return null
+        val seen = sight?.takeIf { it.state === s && it.viewer == viewer }?.ids ?: Host.visible(s, PlayerId(viewer))
+        if (obj.id !in seen) return null
         return obj.definition?.faces?.getOrNull(obj.face)?.name
     }
 

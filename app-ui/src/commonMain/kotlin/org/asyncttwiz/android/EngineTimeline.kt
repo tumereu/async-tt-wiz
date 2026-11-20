@@ -62,6 +62,8 @@ class EngineTimeline {
     private fun walk(game: EngineGame, line: List<GameEvent>, start: arcanum.engine.state.TurnState,
         previous: arcanum.engine.state.TurnState?, published: EngineGame.Shown, names: Map<String, String>): Part {
         val state = published.engine
+        // What the viewer sees in the state the new texts are made from, worked out once for all of them
+        val sight = EngineEventText.Sight(state, game.me)
         val players = state.players.map { it.id.value }
         var at = start
         var shownBefore = previous
@@ -75,7 +77,7 @@ class EngineTimeline {
                 TimelineSeparator(EngineEventText.separatorLabel(before), it.number != before.number, before.active.value) }
             shownBefore = before
             val text = if (EngineEventText.ownPress(e, game.me) != null) EngineEventText.timelineText(e, state, game.me, names)
-                else texts.getOrPut(e.id) { EngineEventText.of(e, state, game.me, names) }
+                else texts.getOrPut(e.id) { EngineEventText.of(e, state, game.me, names, sight) }
             events += HistoryTimelineEvent(e.id, EngineEventText.icon(e), text, EngineEventText.colourOf(e, players), separator)
         }
         return Part(line, names, events, at, shownBefore)

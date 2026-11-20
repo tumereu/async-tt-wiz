@@ -76,7 +76,7 @@ class EngineTableGesturesTest {
         assertEquals(kit.scenario.sim.head, kit.alice.device.session.head, "through Automatum: the server took the land")
     }
 
-    // ZON-078, ZON-130, ZON-093, TBL-118, TBL-209: the other player's library whose top card Automatum offers nothing for shakes on a
+    // ZON-078, ZON-130, ZON-093, TBL-118, TBL-212: the other player's library whose top card Automatum offers nothing for shakes on a
     // tap, saying so, and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; ZON-033: an empty
     // Graveyard shakes
     @Test fun aLibraryTapShakesAndADoubleTapDrawsNothing() {
@@ -128,7 +128,7 @@ class EngineTableGesturesTest {
         assertTrue(land in kit.field("Mountain").map(kit::atw))
     }
 
-    // SYS-012, SYS-139, SYS-069, TBL-209 (owner, 2026-11-08, 2026-11-19): a refusal of Alice's own action shakes the card it was
+    // SYS-012, SYS-139, SYS-069, TBL-212 (owner, 2026-11-08, 2026-11-19): a refusal of Alice's own action shakes the card it was
     // made on, saying why in its bubble, never a message; one made on the main button (or on a card the table doesn't show) shakes
     // the main button, saying why
     @Test fun aRefusalShakesWhatItWasMadeOn() {
@@ -154,7 +154,7 @@ class EngineTableGesturesTest {
         kit.tap(kit.item(spark, PlayZone.HAND))
         assertNull(toolkit.hand.raised, "not raised")
         assertEquals(spark, toolkit.shaking?.id, "it shakes")
-        // TBL-209: saying why: its cast is there, but nothing pays for it
+        // TBL-212: saying why: its cast is there, but nothing pays for it
         assertEquals(CANT_PAY, toolkit.shaking?.reason)
         assertTrue(toolkit.cardPlays(kit.alice.play())!!.of(spark).none { it.legal }, "Inspect lists why")
         val mountain = kit.playLand()

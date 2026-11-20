@@ -57,7 +57,7 @@ class EngineTableScreenshotTest {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
-                    // TBL-209: the table's refusal bubbles, as EngineTableScreen shows them
+                    // TBL-212: the table's refusal bubbles, as EngineTableScreen shows them
                     val bubbles = rememberRefusalBubbles()
                     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusalBubbles provides bubbles) {
                         Box(Modifier.fillMaxSize()) {
@@ -487,7 +487,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves")).assertIsNotEnabled()
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertEquals(1, game.device.model.engine.stack.size, "nothing assumed: the Glance waits on the Stack") }
-        // TBL-209: the tap's bubble says the same; it has faded before the hold
+        // TBL-212: the tap's bubble says the same; it has faded before the hold
         compose.onNodeWithTag("refusal-bubble").assertContentDescriptionEquals("Assuming this would show you hidden cards or a random result: wait for Bob.")
         compose.mainClock.advanceTimeBy(REFUSAL_BUBBLE_MILLIS + 500)
         compose.waitForIdle()
@@ -662,7 +662,7 @@ class EngineTableScreenshotTest {
     // HIS-083, HIS-099, HIS-207, HIS-235
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun undoDialogInLandscape() = undoDialog(true, "rewind-dialog-landscape")
 
-    // TBL-118, TBL-209, ZON-079 (owner 2026-11-19, the "can't do" explainer): Alice taps Storm Spark with no land out: it shakes
+    // TBL-118, TBL-212, ZON-079 (owner 2026-11-19, the "can't do" explainer): Alice taps Storm Spark with no land out: it shakes
     // and a small bubble rises from it saying why, in the card menu's words
     @Test fun aShakeSaysWhyInABubble() {
         val game = aliceAtMain()

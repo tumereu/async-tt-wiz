@@ -101,7 +101,7 @@ decides on their opening.
 - **SYS-136** When such a move is the very press your phone made right there by itself (its pass for you, its assumption, HIS-109), it is that press and goes quietly, with nothing made again. (r60)
 - **SYS-137** Otherwise (a new Stack object, another step, a chosen target gone, a hidden card shown, a quick second tap) such a move isn't taken, with the note of SYS-138. (r60)
 - **SYS-138** When your phone can't make your action again on the newer board, it says once: "That wasn't taken: the game moved on first. The table shows where it is now." Your device's own passes and assumptions that lose such a race go quietly. (r60)
-- **SYS-139** Any other refusal of your own action shakes what it was made on (TBL-118: the card cast, played or activated; otherwise the main button), saying why (TBL-209; the game's own refusal without plain words: TBL-210), the board updates and you act again. (r78)
+- **SYS-139** Any other refusal of your own action shakes what it was made on (TBL-118: the card cast, played or activated; otherwise the main button), saying why (TBL-212; the game's own refusal without plain words: TBL-213), the board updates and you act again. (r78)
 - **SYS-078** Notes on the table (a branch's "<name> responded — your later actions were taken back", SYS-012's "That wasn't taken: …") show one at a time near the top of the table for 6 s or until tapped; a note told while another one shows waits for it and shows next, never replacing it at once. (r53)
 
 ## Playing on an assumed keep in the opening

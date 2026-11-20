@@ -71,7 +71,7 @@ class UndoReshuffleAndRefusalTest : E2e() {
         assertFalse(alice.told("library reshuffled") || bob.told("library reshuffled"), "${alice.shownTexts} / ${bob.shownTexts}")
     }
 
-    // TBL-118, TBL-209, ZON-079: Alice in her Main 1 with no land out taps Storm Spark in her hand: it shakes and a bubble says why
+    // TBL-118, TBL-212, ZON-079: Alice in her Main 1 with no land out taps Storm Spark in her hand: it shakes and a bubble says why
     @Test fun aShakeSaysWhyInABubble() {
         startGame(deal = { a, _ -> "Storm Spark" in hand(a) })
         bothOpen()

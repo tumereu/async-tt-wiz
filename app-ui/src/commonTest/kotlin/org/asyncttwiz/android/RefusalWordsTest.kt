@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** TBL-209, TBL-210, HIS-235, HIS-236 (owner 2026-11-19): what a shake's bubble and an undo's reshuffle line say. */
+/** TBL-212, TBL-213, HIS-235, HIS-236 (owner 2026-11-19): what a shake's bubble and an undo's reshuffle line say. */
 class RefusalWordsTest {
     private fun reported(block: () -> Unit): List<Fault> {
         val faults = mutableListOf<Fault>()
@@ -17,12 +17,12 @@ class RefusalWordsTest {
         return faults
     }
 
-    // TBL-209: a known reason is said as it is, reporting nothing
+    // TBL-212: a known reason is said as it is, reporting nothing
     @Test fun aKnownReasonIsSaid() {
         assertEquals(emptyList(), reported { assertEquals(NOT_A_TARGET, refusalReason(NOT_A_TARGET, "table item")) })
     }
 
-    // TBL-210: a shake without a reason says the stand-in and is reported with where it came from
+    // TBL-213: a shake without a reason says the stand-in and is reported with where it came from
     @Test fun aShakeWithoutAReasonIsReported() {
         val faults = reported { assertEquals(REFUSAL_STAND_IN, refusalReason(null, "table item")) }
         assertEquals(listOf("Refusal: shake without a reason"), faults.map { it.key })
@@ -30,7 +30,7 @@ class RefusalWordsTest {
         assertEquals(1, reported { refusalReason(" ", "control") }.size, "a blank reason is none")
     }
 
-    // TBL-209, HIS-089: an Undo that can't do anything says why in plain words; an unknown reason is reported (TBL-210)
+    // TBL-212, HIS-089: an Undo that can't do anything says why in plain words; an unknown reason is reported (TBL-213)
     @Test fun anUndoThatCantSaysWhy() {
         assertEquals("Nothing to undo yet.", undoRefusal("nothing"))
         assertEquals("An undo request is open: wait for the answer.", undoRefusal(GameDevice.REWIND_REQUESTED))
@@ -39,7 +39,7 @@ class RefusalWordsTest {
         assertEquals("undo: failed", faults.single().details["where"])
     }
 
-    // SYS-139, TBL-210: a refusal of your own action the game took as allowed says the catch-all and is reported with the reason
+    // SYS-139, TBL-213: a refusal of your own action the game took as allowed says the catch-all and is reported with the reason
     @Test fun aRefusalOfYourOwnActionWithoutWordsIsReported() {
         assertEquals(emptyList(), reported {
             assertEquals("An undo request is open: wait for the answer.", refusedShakeText(GameDevice.REWIND_REQUESTED)) })
@@ -47,7 +47,7 @@ class RefusalWordsTest {
         assertEquals("illegal", faults.single().details["reason"])
     }
 
-    // TBL-209: a newer bubble replaces the one shown; an old one's time running out leaves the newer
+    // TBL-212: a newer bubble replaces the one shown; an old one's time running out leaves the newer
     @Test fun theNewestBubbleShows() {
         val bubbles = RefusalBubbles()
         bubbles.show("First", null)

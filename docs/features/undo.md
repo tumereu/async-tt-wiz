@@ -34,7 +34,7 @@ is no redo, and undo is only a convenience: no feature works by undoing somethin
 - **HIS-203** What shows you something new: a card you couldn't see (your draw, look, scry, search, a reveal, also when a resolution their pass let through shows it), a random result, or a wait for the other player's choice from a source you can't see. (r49)
 - **ZON-026** Undoing your own look, scry or reveal needs the other player's approval (an undo request, HIS-087). (r48)
 - **HIS-204** In your opening, an undo back past the other player's assumed keep about you counts only the events before that keep: their line after it is made again, not taken back (HIS-115). (r49)
-- **HIS-089** Undo never changes a line the other player is on without their approval. A refused undo says why in plain words; an undo with nothing to undo shakes the button ("Nothing to undo yet.", TBL-209). (r78)
+- **HIS-089** Undo never changes a line the other player is on without their approval. A refused undo says why in plain words; an undo with nothing to undo shakes the button ("Nothing to undo yet.", TBL-212). (r78)
 
 ## The concern rule
 

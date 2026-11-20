@@ -1,0 +1,1 @@
+mod: Draft Stats show colors by cast cost or by color identity, count a multicolor card in each of its colors, and say "Multicolor" instead of "Gold"

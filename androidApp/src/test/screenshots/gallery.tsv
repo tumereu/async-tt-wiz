@@ -304,3 +304,4 @@ number	item	screenshot	catalog	decisions	sequence
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
 304	Cards exiled from a library show as a reveal	engine/reveal-panel-library-exile.png	HIS-233 HIS-110 STK-044		
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
+317	Draft: Stats Colors chart by cast cost, a multicolor card in each of its colors	pod-stats-colors.png	DRF-117 DRF-242		

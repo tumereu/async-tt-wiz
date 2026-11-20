@@ -98,7 +98,7 @@ class DesktopDraftTest : E2e() {
         assertTrue(right.left > left.right, "side by side: $left, $right")
         for (tag in listOf("pod-stats-curve", "pod-stats-mana"))
             assertTrue(bounds(tag).let { it.left >= left.left && it.right <= left.right }, "$tag on the left")
-        for (tag in listOf("pod-stats-donut-Colors", "pod-stats-notes", "pod-stats-counter-4"))
+        for (tag in listOf("pod-stats-colors", "pod-stats-notes", "pod-stats-counter-4"))
             assertTrue(bounds(tag).let { it.left >= right.left && it.right <= right.right }, "$tag on the right")
         alice.tagged("pod-stats-notes").performTextInput("Green-white, two drops")
         alice.described("Increase Green").performClick()

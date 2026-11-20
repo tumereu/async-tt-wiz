@@ -72,6 +72,10 @@ object ArenaEngine {
         else -> value
     }
 
+    /** DRF-291: the lowest of common, uncommon, rare and mythic among [rarities] (a card's other printings), the tier its
+     * special and bonus printings count as ([rarity]); null without any. */
+    fun tier(rarities: Collection<SetCardRarity>): SetCardRarity? = rarities.filter { it in ORDER }.minByOrNull { ORDER.indexOf(it) }
+
     /** DRF-281: the rarity of pick [pick] (one-based): rare every [DraftSettings.rareEvery]th, uncommon every
      * [DraftSettings.uncommonEvery]th (rare wins), common otherwise. */
     fun pickRarity(settings: DraftSettings, pick: Int): SetCardRarity = when {
@@ -116,7 +120,7 @@ object ArenaEngine {
                     val shown = if (bonus) printings else normal
                     ArenaCard("${set.setCode}:$card", shown.map { it.definition }.distinct(),
                         shown.flatMap { it.colors }.sortedBy { it.ordinal }.toSet(),
-                        if (bonus) rarity(SetCardRarity.SPECIAL, tier(card)) else normal.map { rarity(it.rarity) }.minBy { ORDER.indexOf(it) },
+                        if (bonus) rarity(SetCardRarity.SPECIAL, tier(card)) else ArenaEngine.tier(normal.map { rarity(it.rarity) }) ?: SetCardRarity.COMMON,
                         set.setCode, bonus)
                 }
         }

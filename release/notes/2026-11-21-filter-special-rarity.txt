@@ -1,0 +1,1 @@
+fix: The draft filter's rarity chips find a set's special and bonus cards under the rarity they have in Arena.

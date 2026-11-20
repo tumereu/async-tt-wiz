@@ -115,7 +115,7 @@ class InspectEffectsTest {
 
     private val pump = Mechanic.ModifyPowerToughness(Value.Fixed(2), Value.Fixed(2))
 
-    // TBL-136, TBL-200 (owner, 2026-11-19): an until-end-of-turn change of only power and toughness shows on the table (TBL-112: the P/T
+    // TBL-136, TBL-211 (owner, 2026-11-19): an until-end-of-turn change of only power and toughness shows on the table (TBL-112: the P/T
     // changes, with its ⌛), so it gets no sparkle; Inspect still lists it. With anything else in it, or lasting longer, it does.
     @Test fun anUntilEndOfTurnPowerChangeAloneHasNoSparkle() {
         val board = board(pump)
@@ -125,7 +125,7 @@ class InspectEffectsTest {
         assertEquals(setOf(herald), board(listOf(pump), duration = Duration.UntilEndOfYourNextTurn).withEffects, "no ⌛: it lasts longer")
     }
 
-    // TBL-136, TBL-200 (owner, 2026-11-19): what an Aura or Equipment attached to a card gives it is told by the card drawn under it: no
+    // TBL-136, TBL-211 (owner, 2026-11-19): what an Aura or Equipment attached to a card gives it is told by the card drawn under it: no
     // sparkle for it; the sparkle stays for any other effect on the card
     @Test fun whatAnAttachedCardGivesHasNoSparkle() {
         val mantle = table.put(table.alice, Zone.Battlefield, "Valor Mantle").single()

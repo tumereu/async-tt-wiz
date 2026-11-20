@@ -40,16 +40,16 @@ class PodPassesTest {
         field.performTextReplacement("3")
         compose.onNodeWithText("Save").performClick()
         compose.runOnIdle { assertEquals(DraftPass(3, 1), settings.passes.first()) }
-        compose.onNodeWithTag("pod-pass-6-burn").performScrollTo().performClick()
+        compose.onNodeWithTag("pod-pass-6-burn").performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement("0")
         compose.onNodeWithText("Save").performClick()
-        compose.onNodeWithTag("pod-pass-add").performScrollTo().performClick()
+        compose.onNodeWithTag("pod-pass-add").performClick()
         compose.runOnIdle { assertEquals(listOf(DraftPass(1, 0), DraftPass(1, 0)), settings.passes.takeLast(2)) }
         compose.onNodeWithText("Passes (8)").assertExists()
-        compose.onNodeWithTag("pod-pass-1-remove").performScrollTo().performClick()
+        compose.onNodeWithTag("pod-pass-1-remove").performClick()
         compose.runOnIdle { assertEquals(listOf(DraftPass(3, 1)) + List(4) { DraftPass(1, 1) } + List(2) { DraftPass(1, 0) }, settings.passes) }
         compose.runOnIdle { settings = settings.copy(passes = listOf(DraftPass(2, 0))) }
-        compose.onNodeWithTag("pod-pass-0-remove").assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Remove pass 1") and hasClickAction()).assertIsNotEnabled()
     }
 
     // DRF-263: members read the passes without buttons

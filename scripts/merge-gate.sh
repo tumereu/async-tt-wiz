@@ -171,7 +171,7 @@ stage() { # stage <name> <gradle arguments...>
         say "[$name] the build ran out of memory or its daemon was killed after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: running the stage once more"
         mv "$out" "$out.out-of-memory"
         # The gate's own Kotlin daemon keeps its heap between stages, so a retry in it runs out again: stop it first.
-        pgrep -f -- '-Datw.kotlin.daemon=merge-gate .*KotlinCompileDaemon' | xargs -r kill
+        pgrep -f -- '^[^ ]*/java .*-Datw.kotlin.daemon=merge-gate .*KotlinCompileDaemon' | xargs -r kill
         (cd "$wt" && "$slot" "$@") >"$out" 2>&1
         rc=$?
     fi

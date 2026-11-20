@@ -41,7 +41,7 @@ import kotlin.math.roundToInt
 import org.asyncttwiz.appui.NativeTextPaint
 import org.asyncttwiz.appui.drawNativeText
 
-// Same W/U/B/R/G, gold and neutral palette as CardText's mana badges.
+// Same W/U/B/R/G, multicolor (gold) and neutral palette as CardText's mana badges.
 private val podStatsPalette = listOf(
     Color(0xffffefbd), Color(0xff8fc9ec), Color(0xffb8aec9), Color(0xffefa799),
     Color(0xff9dceaa), Color(0xffffd77b), Color(0xffd6dbdd),
@@ -70,8 +70,8 @@ fun PodStatsView(
     val stats = remember(build, copies, definitions, manaColors) { podStats(build, copies, definitions, manaColors) }
     val curve: @Composable () -> Unit = {
         Column {
-            PodStatsCurveToggle(curveChoice.byColor, curveChoice::choose)
-            PodStatsCurve(stats, curveChoice.byColor)
+            PodStatsCurveToggle(curveChoice)
+            PodStatsCurve(stats, curveChoice.byColor, curveChoice.byIdentity)
         }
     }
     val counts: @Composable () -> Unit = {
@@ -89,7 +89,7 @@ fun PodStatsView(
     }
     val colors: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            PodStatsColors(stats, Modifier.widthIn(max = 240.dp).fillMaxWidth())
+            PodStatsColors(stats, curveChoice, Modifier.widthIn(max = 360.dp).fillMaxWidth())
         }
     }
     // WEB-061 (owner playtests 2026-11-15, 2026-11-16): on the desktop layout Stats keeps Settings' readable width, centred in its room
@@ -102,7 +102,7 @@ fun PodStatsView(
                 if (desktop) AppLog.info("pod", "Stats on the desktop layout: ${if (columns) "two columns" else "one column"} at ${maxWidth.value.roundToInt()} wide")
             }
             // WEB-061: the deck's numbers on the left (the curve with its toggle, the counts, the type rows, pips and sources), the
-            // colours donut, notes and counters on the right
+            // Colors chart, notes and counters on the right
             if (columns) Row(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("pod-stats").padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 Column(Modifier.weight(1f).testTag("pod-stats-left"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -124,7 +124,7 @@ fun PodStatsView(
                 item {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         PodStatsMana(stats, Modifier.weight(1f))
-                        if (wide) PodStatsColors(stats, Modifier.weight(1f))
+                        if (wide) PodStatsColors(stats, curveChoice, Modifier.weight(1f))
                     }
                 }
                 if (!wide) item { colors() }
@@ -285,7 +285,7 @@ private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
     }
 }
 
-private val podStatsCounterNames = listOf("White", "Blue", "Black", "Red", "Green", "Colorless", "Gold", "Neutral")
+private val podStatsCounterNames = listOf("White", "Blue", "Black", "Red", "Green", "Colorless", "Multicolor", "Neutral")
 
 /** Private free text plus eight tally counters, saved on the server for this draft attempt. */
 @Composable
@@ -337,28 +337,77 @@ private fun PodStatsCounter(index: Int, value: Int, onAdjust: (Int) -> Unit, mod
     }
 }
 
+/** DRF-242: a small choice of two, as the curve's Type | Color: [options] are its values with their labels. */
 @Composable
-private fun PodStatsColors(stats: PodStats, modifier: Modifier) {
-    PodStatsDonut("Colors", podStatsShares(stats.colors).mapKeys { (color, _) -> when (color) {
-        PodStatsColor.MULTICOLOR -> "Multicolor"
-        PodStatsColor.COLORLESS -> "Colorless"
-        else -> color.name
-    } }, podStatsPalette, modifier)
-}
-
-/** The small Type | Color choice above the mana curve (DRF-111). */
-@Composable
-private fun PodStatsCurveToggle(byColor: Boolean, choose: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().testTag("pod-stats-curve-toggle"), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
-        listOf(false to "Type", true to "Color").forEach { (value, label) ->
-            val chosen = byColor == value
-            Surface(selected = chosen, onClick = { choose(value) }, Modifier.testTag("pod-stats-curve-${label.lowercase()}"),
-                shape = MaterialTheme.shapes.small,
-                color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh) {
+private fun PodStatsToggle(options: List<Pair<Boolean, String>>, chosen: Boolean, tag: String, chipTag: String,
+    choose: (Boolean) -> Unit) {
+    Row(Modifier.testTag(tag), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        options.forEach { (value, label) ->
+            val selected = chosen == value
+            Surface(selected = selected, onClick = { choose(value) },
+                Modifier.testTag("$chipTag-${label.substringBefore(' ').lowercase()}"), shape = MaterialTheme.shapes.small,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Text(label, Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
             }
         }
+    }
+}
+
+/** DRF-242: the choice of what the colours go by, cast costs or colour identity, the same choice wherever it shows. */
+private val podStatsBasisOptions = listOf(false to "Cast cost", true to "Identity")
+
+/**
+ * DRF-117, DRF-242: the Main nonland cards per colour by cast costs or by colour identity: a row per colour, W U B R G,
+ * Multicolor and Colorless, with its count, its share of the nonland cards and a bar where the full width is all of them;
+ * a multicolor card counts in each of its colours and in Multicolor, said under the rows.
+ */
+@Composable
+private fun PodStatsColors(stats: PodStats, choice: PodStatsCurveChoice, modifier: Modifier) {
+    val counts = stats.colors(choice.byIdentity)
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val outline = MaterialTheme.colorScheme.outline
+    Column(modifier.testTag("pod-stats-colors"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Colors", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+            PodStatsToggle(podStatsBasisOptions, choice.byIdentity, "pod-stats-colors-toggle", "pod-stats-colors", choice::chooseIdentity)
+        }
+        Column(Modifier.fillMaxWidth().clearAndSetSemantics {
+            contentDescription = "Colors by ${if (choice.byIdentity) "identity" else "cast cost"}: " +
+                PodStatsColor.entries.joinToString { "${it.podStatsCurveName()} ${podStatsColorLine(counts.getValue(it), stats.nonland)}" }
+        }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            PodStatsColor.entries.forEachIndexed { index, color ->
+                val count = counts.getValue(color)
+                Row(Modifier.fillMaxWidth().testTag("pod-stats-color-${color.name}"), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    PodStatsSwatch(podStatsPalette[index])
+                    Text(color.podStatsCurveName(), Modifier.width(72.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    Text(podStatsColorLine(count, stats.nonland), Modifier.width(64.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    Canvas(Modifier.weight(1f).height(PodStatsSourceBarHeight)) {
+                        val radius = CornerRadius(size.height / 2)
+                        drawRoundRect(track, cornerRadius = radius)
+                        val width = (size.width * podStatsColorShare(count, stats.nonland)).toFloat()
+                        if (width > 0f) {
+                            drawRoundRect(podStatsPalette[index], size = Size(width, size.height), cornerRadius = radius)
+                            // A fine line keeps the pale mana colours distinct, as in the curve.
+                            drawRoundRect(outline, size = Size(width, size.height), cornerRadius = radius, style = Stroke(1.dp.toPx()))
+                        }
+                    }
+                }
+            }
+        }
+        Text("A multicolor card counts in each of its colors.", Modifier.testTag("pod-stats-colors-note"),
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The small Type | Color choice above the mana curve (DRF-111), with Cast cost | Identity beside it in Color (DRF-242). */
+@Composable
+private fun PodStatsCurveToggle(choice: PodStatsCurveChoice) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (choice.byColor) PodStatsToggle(podStatsBasisOptions, choice.byIdentity, "pod-stats-curve-basis", "pod-stats-curve-basis",
+            choice::chooseIdentity)
+        Spacer(Modifier.weight(1f))
+        PodStatsToggle(listOf(false to "Type", true to "Color"), choice.byColor, "pod-stats-curve-toggle", "pod-stats-curve", choice::choose)
     }
 }
 
@@ -384,7 +433,7 @@ fun podStatsCurveBarLabel(counts: List<Int>, byColor: Boolean): String =
 
 /** The mana curve: the same slots, scale and totals in both views, stacked creature/noncreature or by colour (DRF-111). */
 @Composable
-private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
+private fun PodStatsCurve(stats: PodStats, byColor: Boolean, byIdentity: Boolean) {
     val creatureColor = MaterialTheme.colorScheme.primary
     val noncreatureColor = MaterialTheme.colorScheme.primaryContainer
     val outline = MaterialTheme.colorScheme.outline
@@ -394,13 +443,13 @@ private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
         color = textColor.toArgb(); this.textSize = textSize; textAlign = NativeTextPaint.TextAlign.Center
     } }
     // Per slot its label and its stack from the bottom up.
-    val slots: List<Pair<String, List<Pair<Color, Int>>>> = if (byColor) stats.curveColorBuckets().map { (label, counts) ->
+    val slots: List<Pair<String, List<Pair<Color, Int>>>> = if (byColor) stats.curveColorBuckets(byIdentity).map { (label, counts) ->
         label to PodStatsColor.entries.mapIndexed { index, color -> podStatsPalette[index] to counts.getValue(color) }
     } else stats.curveBuckets().map { (label, value) ->
         label to listOf(creatureColor to value.creatures, noncreatureColor to value.noncreatures)
     }
     Canvas(Modifier.fillMaxWidth().height(180.dp).testTag("pod-stats-curve").semantics {
-        contentDescription = if (byColor) stats.curveColorBuckets().entries.joinToString { (label, counts) ->
+        contentDescription = if (byColor) stats.curveColorBuckets(byIdentity).entries.joinToString { (label, counts) ->
             "$label: " + counts.filterValues { it > 0 }.entries.joinToString { (color, count) -> "$count ${color.podStatsCurveName()}" }.ifEmpty { "none" }
         } else stats.curveBuckets().entries.joinToString { (label, value) ->
             "$label: ${value.creatures} creature, ${value.noncreatures} noncreature"
@@ -417,7 +466,7 @@ private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
                 val height = count.toFloat() / maximum * chartHeight
                 top -= height
                 drawRect(color, Offset(left, top), Size(slot * .7f, height))
-                // A fine line keeps neighboring pale mana colors distinct, as in the donut.
+                // A fine line keeps neighboring pale mana colors distinct, as in the Colors chart.
                 if (byColor) drawRect(outline, Offset(left, top), Size(slot * .7f, height), style = Stroke(1.dp.toPx()))
             }
             val total = parts.sumOf { it.second }
@@ -427,46 +476,6 @@ private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
                     slot * (index + .5f), top - textSize * .3f, paint)
             }
             drawNativeText(label, slot * (index + .5f), size.height - textSize * .25f, paint)
-        }
-    }
-}
-
-@Composable
-private fun PodStatsDonut(title: String, shares: Map<String, Double>, colors: List<Color>, modifier: Modifier) {
-    val outline = MaterialTheme.colorScheme.outline
-    val track = MaterialTheme.colorScheme.surfaceVariant
-    val surface = MaterialTheme.colorScheme.surface
-    Column(modifier.testTag("pod-stats-donut-$title").clearAndSetSemantics {
-        contentDescription = "$title: " + shares.entries.joinToString { "${it.key} ${(it.value * 100).roundToInt()}%" }
-    }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.labelLarge)
-        Canvas(Modifier.sizeIn(maxWidth = 128.dp, maxHeight = 128.dp).fillMaxWidth().aspectRatio(1f)) {
-            val stroke = size.minDimension * .23f
-            val radius = (size.minDimension - stroke) / 2 - 1.dp.toPx()
-            val topLeft = center - Offset(radius, radius)
-            val diameter = Size(radius * 2, radius * 2)
-            drawCircle(track, radius, style = Stroke(stroke))
-            var start = -90f
-            shares.values.forEachIndexed { index, share ->
-                val sweep = (share * 360).toFloat()
-                if (sweep > 0f) {
-                    drawArc(colors[index], start, sweep, false, topLeft, diameter, style = Stroke(stroke))
-                    // A fine gap keeps neighboring pale mana colors distinct in either theme.
-                    if (share < 1.0) drawArc(surface, start, 1.5f, false, topLeft, diameter, style = Stroke(stroke + 1.dp.toPx()))
-                    start += sweep
-                }
-            }
-            drawCircle(outline, radius + stroke / 2, style = Stroke(1.dp.toPx()))
-            drawCircle(outline, radius - stroke / 2, style = Stroke(1.dp.toPx()))
-        }
-        Column(Modifier.widthIn(max = 180.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            shares.entries.forEachIndexed { index, (label, share) ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PodStatsSwatch(colors[index])
-                    Text(label, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
-                    Text("${(share * 100).roundToInt()}%", style = MaterialTheme.typography.labelSmall)
-                }
-            }
         }
     }
 }

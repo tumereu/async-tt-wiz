@@ -37,10 +37,8 @@ class TableGestureCoordinator(
         /** ZON-081: where a hand pan started (its scroll plus the pull past its end shown then). */
         var handStart: Float = 0f,
         /** TBL-104: where the finger was when the hold began. */
-        var holdStart: TablePoint? = null,
-        /** HIS-113: the first tap of this double tap came while a combat held the view. */
-        var afterHoldTap: Boolean = false)
-    private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean, val duringViewHold: Boolean = false)
+        var holdStart: TablePoint? = null)
+    private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var transformRegion: String? = null
     private var transforming = false
@@ -63,8 +61,6 @@ class TableGestureCoordinator(
     /** D2 (SYS-041): the height (dp) of the open Automatum panel or bar over the table's bottom: the world pans that much
      * further up, so the board can sit above it. */
     var panelInset: () -> Float = { 0f }
-    /** HIS-113: what a double tap on the table does while a combat holds the view (skips it); null when none holds. */
-    var viewHoldSkip: () -> (() -> Unit)? = { null }
     /** CMB-028, CMB-034, CMB-040 (owner playtest 2026-11-10): whether a battlefield card may be dragged into the combat band
      * now (one the viewer stages as an attacker, places as a blocker or places to assume); a drag on any other pans the
      * table, as without a combat. */
@@ -171,7 +167,6 @@ class TableGestureCoordinator(
                 distance(point, old.capture.start) <= slopDp * 4 && time <= old.deadline) {
                 next.double = true
                 next.replacingLocal = old.shown && item != null
-                next.afterHoldTap = old.duringViewHold
                 // The first press's stable scope wins even if sync changed between taps.
                 capture = next.copy(scope = old.capture.scope, sources = old.capture.sources)
                 pending = null
@@ -273,15 +268,6 @@ class TableGestureCoordinator(
         capture = null
         held(false)
         transforming = false; transformRegion = null
-        // HIS-113: while a combat holds the view a double tap on the table but the hand only skips it: it never zooms the
-        // table (TBL-012) or opens a pile, also when the hold ended between its two taps
-        if (c.double && c.phase == Phase.PRESS && c.item?.kind != TableItemKind.HAND && c.item?.zone != PlayZone.HAND &&
-            (c.afterHoldTap || viewHoldSkip() != null)) {
-            viewHoldSkip()?.invoke()
-            settleCamera()
-            preview = TableGesturePreview()
-            return
-        }
         if (reviewing && c.double && c.item != null && c.phase == Phase.PRESS) {
             if (c.replacingLocal) emit(TableIntent.DismissTapUi)
             preview = TableGesturePreview()
@@ -320,13 +306,13 @@ class TableGestureCoordinator(
                 // Opening personal UI never waits for double-tap recognition. The second gesture
                 // dismisses that UI before drawing/rotating/entering explicit Stack actions.
                 single(c)
-                pending = Tap(c, time + doubleMillis, true, viewHoldSkip() != null)
+                pending = Tap(c, time + doubleMillis, true)
                 recentTap = pending; pendingCleared = null
             } else {
                 single(c)
                 // Empty taps remain immediate; retain only recognition metadata for navigation.
                 if (doubleTapEnabled && c.item == null && (scene.worldInput(c.start) || c.panRegion.isCardPanel))
-                    pending = Tap(c, time + doubleMillis, true, viewHoldSkip() != null)
+                    pending = Tap(c, time + doubleMillis, true)
             }
             Phase.DRAG -> {
                 if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true)

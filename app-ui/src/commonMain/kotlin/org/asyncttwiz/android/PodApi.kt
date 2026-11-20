@@ -29,6 +29,8 @@ interface Pods : Closeable {
     suspend fun turn(token: String, id: String, input: PodTurn): PodDetail = throw PodFailure("not_configured")
     /** Sets the caller's whole Rotisserie pick queue (DRF-164). */
     suspend fun queue(token: String, id: String, input: PodPickQueue): PodDetail = throw PodFailure("not_configured")
+    /** Tells the server the caller has seen the Rotisserie draft's first [SeePodPicks.picks] picks (DRF-239). */
+    suspend fun seePicks(token: String, id: String, input: SeePodPicks): PodAcknowledged = throw PodFailure("not_configured")
     /** The caller's Booster or Glimpse draft history (DRF-165). */
     suspend fun history(token: String, id: String): PodDraftHistory = throw PodFailure("not_configured")
     suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail
@@ -80,6 +82,7 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail = call(token, path(id, "/grid/select"), DeckJson.format.encodeToString(input))
     override suspend fun turn(token: String, id: String, input: PodTurn): PodDetail = call(token, path(id, "/turn"), DeckJson.format.encodeToString(input))
     override suspend fun queue(token: String, id: String, input: PodPickQueue): PodDetail = call(token, path(id, "/rotisserie/queue"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun seePicks(token: String, id: String, input: SeePodPicks): PodAcknowledged = call(token, path(id, "/rotisserie/seen"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun history(token: String, id: String): PodDraftHistory = call(token, path(id, "/draft/history"))
     override suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail = call(token, path(id, "/build/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail = call(token, path(id, "/build/basics"), DeckJson.format.encodeToString(input), HttpMethod.Put)

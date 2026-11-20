@@ -1,7 +1,7 @@
 # Async play
 
 Playing without waiting for each other: the wait while the other player must act, assumed answers and the Assume
-button, the information rule and its game settings, the unconfirmed mark, automation as button presses, branches and
+button, the information rule and its game settings, automation as button presses, branches and
 lines of play, moves made on an out-of-date board, and playing on an assumed keep in the opening.
 
 ## How it works
@@ -12,15 +12,15 @@ device presumes their answer (usually a pass, sometimes their blocks or their op
 "Assume resolves" setting decides where your phone assumes by itself; anything your phone does for you counts exactly
 as a press of a button. An assumption is a conditional pre-move, not a decision made for them: when their real answer
 is the same it is confirmed, and when it differs the game branches, taking back what came after and going on from
-their answer on a new line of play. While your play rests on answers they haven't confirmed, a violet dot marks the
-main button and nothing you do may show you hidden cards or random results, unless the game's settings allow it. A move
+their answer on a new line of play. While your play rests on answers they haven't confirmed, nothing you do may show you
+hidden cards or random results, unless the game's settings allow it. A move
 made on a board the game has since moved past is made again on the newer board when the same decision still waits
 there, otherwise it isn't taken. The starting player may play turn 1 on an assumed keep while the other player still
 decides on their opening.
 
 ## Waiting for the other player
 
-- **TRN-066** The wait: while the other player must act (online or away), a semi-transparent dark band right under their hand says why, in white text of up to 3 lines. It shows in landscape too, never takes a touch, and doesn't show while a play is shown (HIS-112). (r64)
+- **TRN-066** The wait: while the other player must act (online or away), a semi-transparent dark band a little under their hand (a one-line chat bubble's room, 24 dp, so their bubble and a view opened there stay clear) says why, in white text of up to 3 lines. It shows in landscape too, never takes a touch, and doesn't show while a play is shown (HIS-112). (r64)
 - **TRN-150** The wait band sits in portrait under the other player's row, which holds their hand (ZON-001), and on the desktop table at the battlefields' top, from their seat header to the battlefields' right edge (WEB-016). It runs edge to edge, fading out toward both sides only over a narrow margin, with every line of its words on its solid middle, in portrait and landscape alike. (r64)
 - **TRN-151** The wait's words: "<name> may respond to <spell>" (an ability as "<source>'s ability", STK-046), "<name> may act · <step>", "<name> is declaring blockers", "<name> is deciding on a mulligan", "<name> is choosing · <card>" (the card only when you can see it), or "Waiting for <name>". (r64)
 - **TRN-152** When the other player is behind you (you went ahead on assumptions about them they haven't confirmed), "Waiting for <name>" says where they are instead: "Bob is at turn 5 · their combat" (a combat step as "combat", any other step by its name, "your" in your own turn). (r64)
@@ -63,7 +63,6 @@ decides on their opening.
 
 ## While your play rests on assumptions
 
-- **TRN-068** The unconfirmed mark: while actions of yours rest on answers the other player hasn't confirmed yet, a small violet dot (no number) sits at the main button's corner; a tap or hold says "<name> hasn't seen your last moves yet; if <name> answers differently, they'll be taken back". Only you see it. (r50)
 - **TRN-067** Information rule: while your line rests on an unconfirmed assumption, nothing you do or assume may show you a card you couldn't see (the other player's hand or library, face-down cards, random discards; never your own library) or a random result (coin, die, random choice), apart from what the game's settings allow (LOB-135). (r58)
 - **TRN-159** An action the information rule forbids is refused before it shows: the card shakes and holding it says "Wait for the other player to catch up: this would show you hidden cards or a random result." The server checks the same for cards, with the game's settings. (r58)
 - **TRN-071** Under the information rule your phone's own passes after an action of yours stop before one that would show you something (you keep priority there), and an assumption that would show you something isn't made. A reveal the game's settings allow (LOB-135) neither stops nor greys anything. (r74)

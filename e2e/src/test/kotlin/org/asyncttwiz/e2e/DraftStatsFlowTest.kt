@@ -12,8 +12,9 @@ import java.util.UUID
 
 /** The Build and Stats flow of a drafted deck: the basics dialog's count, the mana table and the curve's views. */
 class DraftStatsFlowTest : E2e() {
-    // DRF-103, DRF-111, DRF-230, DRF-114, DRF-116, DRF-180: Alice drafts a mana rock (Ember Shard, "{T}: Add {R}.", red by its colour as in the donut), adds a Mountain
-    // in the basics dialog and sees its count follow, then reads her Stats and switches the curve to Color and back
+    // DRF-103, DRF-111, DRF-230, DRF-114, DRF-116, DRF-180, DRF-242: Alice drafts a mana rock (Ember Shard, "{T}: Add {R}.",
+    // colorless by its cast cost, red by its colour identity), adds a Mountain in the basics dialog and sees its count follow,
+    // then reads her Stats and switches the curve to Color, from cast costs to identity, and back to Type
     @Test fun basicsCountThenStatsTableAndCurveToggle() {
         launchPlayers()
         val name = "E2E pod ${UUID.randomUUID().toString().take(6)}"
@@ -54,9 +55,13 @@ class DraftStatsFlowTest : E2e() {
             alice.shows(hasTestTag("pod-stats-curve") and hasContentDescription("0: 0 creature, 1 noncreature", substring = true))
         }
         alice.tagged("pod-stats-curve-color").performClick()
-        waitUntil("the curve by colour, with its legend") {
-            alice.shows(hasTestTag("pod-stats-curve") and hasContentDescription("0: 1 R,", substring = true)) &&
+        waitUntil("the curve by colour of the cast costs, with its legend") {
+            alice.shows(hasTestTag("pod-stats-curve") and hasContentDescription("0: 1 Colorless,", substring = true)) &&
                 alice.shows(hasTestTag("pod-stats-curve-legend"))
+        }
+        alice.tagged("pod-stats-curve-basis-identity").performClick()
+        waitUntil("the curve by colour identity") {
+            alice.shows(hasTestTag("pod-stats-curve") and hasContentDescription("0: 1 R,", substring = true))
         }
         alice.tagged("pod-stats-curve-type").performClick()
         waitUntil("the curve back on Type") {

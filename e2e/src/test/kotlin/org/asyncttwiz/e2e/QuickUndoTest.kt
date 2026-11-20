@@ -103,7 +103,7 @@ class QuickUndoTest : E2e() {
         assertFalse(alice.refusalSeen, "no note: ${alice.shownTexts}")
     }
 
-    // HIS-108, HIS-030: Alice undoes her Ember Herald (it resolved and made its token on her assumption of Bob's pass): her
+    // HIS-108, HIS-030, TBL-207: Alice undoes her Ember Herald (it resolved and made its token on her assumption of Bob's pass): her
     // table shows the whole result at once and animates once, straight from the board before to the board after; no
     // bottom bar of a board in between ever shows (the Herald back on the Stack would have said "Resolve")
     @Test fun anUndoShowsItsWholeResultAtOnce() {

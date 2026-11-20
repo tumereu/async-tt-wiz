@@ -68,10 +68,11 @@ data class BattlefieldCard(val id: String, val field: String, val row: Battlefie
  * card alone. [members] from the bottom up: a stack's untapped members in arrival order, then its tapped ones in arrival
  * order, on top (owner, 2026-11-08); a host first and then what is attached to it; [staged] the members staged as
  * attackers or placed as blockers while those are declared (they stay in their stack then, CMB-047); [besideOf] the group it
- * lies right of (STK-024: the sources paying the open payment, by that stack's key).
+ * lies right of (STK-024: the sources paying the open payment, by that stack's key); [tapped] a stack's tapped members.
  */
 data class BattlefieldGroup(val key: String, val field: String, val row: BattlefieldRow, val members: List<String>,
-    val kind: Kind, val staged: Map<String, CombatRole> = emptyMap(), val besideOf: String? = null) {
+    val kind: Kind, val staged: Map<String, CombatRole> = emptyMap(), val besideOf: String? = null,
+    val tapped: Set<String> = emptySet()) {
     sealed interface Kind {
         data object Single : Kind
         /** Identical permanents: lands fan out, others lie tight with a ×N badge. */
@@ -95,9 +96,12 @@ data class BattlefieldGroup(val key: String, val field: String, val row: Battlef
  * counted from the player's own edge ([BattlefieldRow.LAND_ROW], [BattlefieldRow.BAND_BACK], [BattlefieldRow.BAND_FRONT]),
  * [lift] how many peek steps above its host an attached card lies, [order] its drawing order on the battlefield (later on
  * top), [copies] the ×N badge it carries (0: none), [staged] its role when it is a stack's staged member drawn at the
- * stack's right end (CMB-047). */
+ * stack's right end (CMB-047). TBL-054 (owner, 2026-11-19): [tappedCopies] how many of the [copies] counted are tapped (the
+ * badge then reads untapped/total); [aligned] a member of a stack with both tapped and untapped members, which line up by
+ * their bottom-left corners (TBL-177). */
 data class BattlefieldSpot(val x: Float, val row: Int, val lift: Int = 0, val order: Int = 0, val copies: Int = 0,
-    val group: String = "", val lifts: Int = 0, val staged: CombatRole? = null)
+    val group: String = "", val lifts: Int = 0, val staged: CombatRole? = null, val tappedCopies: Int = 0,
+    val aligned: Boolean = false)
 
 /** TBL-002, TBL-004, TBL-053: the automatic battlefield layout (MTG Arena style): rows, stacks and attachments. */
 object BattlefieldLayout {
@@ -156,7 +160,7 @@ object BattlefieldLayout {
         }
         // A stack is known by its first arrival, whichever joins or leaves later
         val keyed = groups.map { group -> if (group.kind != BattlefieldGroup.Kind.Stack) group else group.copy(key = "stack:${group.members.first()}",
-            members = group.members.sortedBy { byId[it]?.tapped == true }) }
+            members = group.members.sortedBy { byId[it]?.tapped == true }, tapped = group.members.filter { byId[it]?.tapped == true }.toSet()) }
         if (paying.isEmpty()) return keyed
         // STK-024: each pile of paying sources right after what is left of its stack
         val ordered = keyed.toMutableList()
@@ -210,6 +214,9 @@ object BattlefieldLayout {
             val staged = if (open || group.kind != BattlefieldGroup.Kind.Stack) emptyList()
                 else group.members.asReversed().filter { it in group.staged }
             val unstaged = group.members.filter { it !in staged }
+            // TBL-054, TBL-177 (owner, 2026-11-19): how many of the counted members are tapped; with both kinds they line up
+            val tappedCopies = if (open || group.kind != BattlefieldGroup.Kind.Stack) 0 else unstaged.count { it in group.tapped }
+            val mixed = tappedCopies in 1 until unstaged.size
             val stackWidth = width(group, false) - stagedWidth(group)
             for (id in drawn) {
                 val i = group.members.indexOf(id)
@@ -225,7 +232,8 @@ object BattlefieldLayout {
                 val copies = if (!open && group.kind == BattlefieldGroup.Kind.Stack &&
                     id == unstaged.lastOrNull() && unstaged.size > 1) unstaged.size else 0
                 spots[id] = BattlefieldSpot(left + x, row, lift, order++, copies, group.key, lifts,
-                    if (id in staged) group.staged[id] else null)
+                    if (id in staged) group.staged[id] else null, tappedCopies = if (copies > 0) tappedCopies else 0,
+                    aligned = mixed && id !in staged)
             }
         }
         fun width(group: BattlefieldGroup) = width(group, group.key == expanded)

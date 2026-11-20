@@ -135,7 +135,8 @@ fun abilityParts(text: String): Pair<String, String?> {
  * [catchAllRefusal] says, with [cardId] and the ability's [text]). */
 fun chipRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind, name: String,
     names: Map<String, String>, cardId: String? = null, text: String? = null): String =
-    if (refusal is org.asyncttwiz.automatum.CardPlay.Refusal.Other)
+    // SYS-207 (N24): a prepared spell that can't be cast now says so by its name, as a hand card's cast does
+    if (refusal is org.asyncttwiz.automatum.CardPlay.Refusal.Other && kind != org.asyncttwiz.automatum.CardPlay.Kind.Prepared)
         catchAllRefusal("chip", CHIP_CATCH_ALL, refusal, kind, name, cardId, text)
     else engineRefusal(refusal, kind, name, names, cardId, text)
 

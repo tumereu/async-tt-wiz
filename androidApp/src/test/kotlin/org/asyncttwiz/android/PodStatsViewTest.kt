@@ -28,8 +28,8 @@ import kotlin.test.assertTrue
 class PodStatsViewTest {
     @get:Rule val compose = createComposeRule()
 
-    // DRF-114
-    @Test fun manaTableShowsNumbersAndPipPatternsWithTheColorsDonutAndStackedCurve() {
+    // DRF-114, DRF-117
+    @Test fun manaTableShowsNumbersAndPipPatternsWithTheColorsChartAndStackedCurve() {
         val card = CardDefinition("Hybrid", listOf(DefinitionFace("front", "Hybrid", typeLine = "Creature", manaCost = "{W/U}{B/P}")))
         compose.setContent { MaterialTheme {
             PodStatsView(PodDeckBuild(listOf(PodDeckCopy("copy")), PodDeckBasics(plains = 39)),
@@ -54,8 +54,9 @@ class PodStatsViewTest {
         compose.onNodeWithText("Lands without a color", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-donut-Pips").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-donut-Sources").assertDoesNotExist()
-        compose.onNodeWithTag("pod-stats-donut-Colors").performScrollTo().assertIsDisplayed()
-            .assert(hasContentDescription("Multicolor 100%", substring = true))
+        compose.onNodeWithTag("pod-stats-colors").performScrollTo().assertIsDisplayed()
+            .assert(hasAnyDescendant(hasContentDescription("W 1 · 100%", substring = true)))
+            .assert(hasAnyDescendant(hasContentDescription("Multicolor 1 · 100%", substring = true)))
         compose.onAllNodesWithTag("pod-color-bar").assertCountEquals(0)
         compose.onNodeWithText("Mana sources · approximate").assertDoesNotExist()
     }
@@ -174,20 +175,77 @@ class PodStatsViewTest {
         assertEquals(typeChart, compose.onNodeWithTag("pod-stats-curve")
             .assert(hasContentDescription("2: 2 W, 5 G, 1 Colorless", substring = true)).assert(hasContentDescription("0: none", substring = true))
             .getUnclippedBoundsInRoot())
-        compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("4: 1 Gold, 2 Colorless", substring = true))
-        for (name in listOf("W", "U", "B", "R", "G", "Gold", "Colorless"))
+        compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("4: 1 Multicolor, 2 Colorless", substring = true))
+        // DRF-242: in Color the curve also shows what the colours go by, cast costs at first
+        compose.onNodeWithTag("pod-stats-curve-basis-cast").assertIsSelected()
+        compose.onNodeWithTag("pod-stats-curve-basis-identity").assertIsNotSelected()
+        for (name in listOf("W", "U", "B", "R", "G", "Multicolor", "Colorless"))
             compose.onNode(hasText(name) and hasAnyAncestor(hasTestTag("pod-stats-curve-legend"))).assertIsDisplayed()
         // The counts stay; their Type swatches would mean nothing here.
         compose.onNodeWithText("Creature: 12").assertIsDisplayed()
         // Every legend entry on one line at phone width.
         assertTrue(with(compose.onNodeWithTag("pod-stats-curve-legend").getUnclippedBoundsInRoot()) { bottom - top } < 24.dp)
         compose.onRoot().captureShot("$SCREENSHOTS/pod-stats-color.png", "Draft deck Stats after tapping Color above the mana " +
-            "curve: the same chart and totals with the bars stacked W, U, B, R, G, gold and colorless in the donut's colours, " +
-            "a legend of those colours above the Creature, Noncreature and Land counts.")
+            "curve: the same chart and totals with the bars stacked W, U, B, R, G, Multicolor and Colorless by the cards' cast costs " +
+            "(Cast cost | Identity at the left, Cast cost chosen), in the Colors chart's colours, a legend of those colours above " +
+            "the Creature, Noncreature and Land counts.")
         assertTrue(PodStatsCurveChoice(preferences).byColor, "the choice stays on this device")
         compose.onNodeWithTag("pod-stats-curve-type").performClick()
         compose.onNodeWithTag("pod-stats-curve-legend").assertDoesNotExist()
+        compose.onNodeWithTag("pod-stats-curve-basis").assertDoesNotExist()
         assertFalse(PodStatsCurveChoice(preferences).byColor)
+    }
+
+    // DRF-117, DRF-242: the Colors chart counts a multicolor card in each of its colours and in Multicolor, each row's share of
+    // the 21 nonland cards; Identity counts mana symbols in rules text too (the Ember Rock below), for the curve as well
+    @Test
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun colorsCountAMulticolorCardInEachOfItsColorsByCastCostOrIdentity() {
+        showDeck()
+        val preferences = org.asyncttwiz.appui.AppPlatform.current.preferences("pod-build")
+        compose.onNodeWithTag("pod-stats").performScrollToNode(hasTestTag("pod-stats-colors-note"))
+        compose.onNodeWithTag("pod-stats-colors-cast").assertIsSelected()
+        compose.onNodeWithTag("pod-stats-colors-identity").assertIsNotSelected()
+        fun row(color: String, line: String) = compose.onNodeWithTag("pod-stats-color-$color", useUnmergedTree = true)
+            .assert(hasAnyDescendant(hasText(line)))
+        // The Walker ({2}{G}{W}) counts in W, G and Multicolor.
+        row("W", "6 · 29%"); row("G", "9 · 43%"); row("R", "4 · 19%"); row("U", "0 · 0%"); row("B", "0 · 0%")
+        row("MULTICOLOR", "1 · 5%"); row("COLORLESS", "3 · 14%")
+        compose.onNodeWithText("Multicolor", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pod-stats-colors-note").assertTextEquals("A multicolor card counts in each of its colors.")
+        compose.onRoot().captureShot("$SCREENSHOTS/pod-stats-colors.png", "Draft deck Stats scrolled to the Colors chart for " +
+            "a 23-card build plus 15 basics: a row per colour (W U B R G, Multicolor, Colorless) with its cards and their share of " +
+            "the 21 nonland cards and a bar, the Walker ({2}{G}{W}) counted in W, G and Multicolor, Cast cost chosen in the " +
+            "Cast cost | Identity toggle, and the note that a multicolor card counts in each of its colors.")
+        compose.onNodeWithTag("pod-stats-colors-identity").performClick()
+        compose.onNodeWithTag("pod-stats-colors-identity").assertIsSelected()
+        assertTrue(PodStatsCurveChoice(preferences).byIdentity, "the choice stays on this device")
+        compose.onNodeWithTag("pod-stats-colors").assert(hasAnyDescendant(hasContentDescription("Colors by identity", substring = true)))
+        compose.onNodeWithTag("pod-stats-colors-cast").performClick()
+        assertFalse(PodStatsCurveChoice(preferences).byIdentity)
+    }
+
+    // DRF-242: a mana rock adding red ("{T}: Add {R}.", cost {2}) is colorless by its cast cost and red by identity, in the
+    // Colors chart and the curve's Color view alike, one choice for both
+    @Test fun identityCountsRulesTextSymbolsCastCostDoesNot() {
+        val rock = CardDefinition("Rock", listOf(DefinitionFace("front", "Rock", typeLine = "Artifact", manaCost = "{2}",
+            rulesText = "{T}: Add {R}.")))
+        compose.setContent { MaterialTheme {
+            PodStatsView(PodDeckBuild(listOf(PodDeckCopy("copy"))), mapOf("copy" to DraftCopy("copy", "rock")), mapOf("rock" to rock))
+        } }
+        compose.onNodeWithTag("pod-stats-curve-color").performClick()
+        compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("2: 1 Colorless", substring = true))
+        compose.onNodeWithTag("pod-stats-colors").performScrollTo()
+            .assert(hasAnyDescendant(hasContentDescription("R 0 · 0%", substring = true)))
+            .assert(hasAnyDescendant(hasContentDescription("Colorless 1 · 100%", substring = true)))
+        compose.onNodeWithTag("pod-stats-colors-identity").performClick()
+        compose.onNodeWithTag("pod-stats-colors")
+            .assert(hasAnyDescendant(hasContentDescription("R 1 · 100%", substring = true)))
+            .assert(hasAnyDescendant(hasContentDescription("Colorless 0 · 0%", substring = true)))
+        compose.onNodeWithTag("pod-stats-curve-basis-identity").assertIsSelected()
+        compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("2: 1 R", substring = true))
+        compose.onNodeWithTag("pod-stats-curve-basis-cast").performClick()
+        compose.onNodeWithTag("pod-stats-colors-cast").assertIsSelected()
     }
 
     // DRF-111, DRF-230 (owner playtest 2026-11-09): in Type view a bar's number reads "creatures · noncreatures"; in Color view its total
@@ -204,10 +262,11 @@ class PodStatsViewTest {
         compose.setContent { MaterialTheme { PodStatsView(PodDeckBuild(), emptyMap(), emptyMap()) } }
         compose.onNodeWithTag("pod-stats-curve").assertIsDisplayed()
         compose.onNodeWithText("0: 0").assertDoesNotExist()
-        compose.onNodeWithTag("pod-stats-donut-Colors").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("pod-stats-colors").performScrollTo().assertIsDisplayed()
         val table = compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot()
-        val colors = compose.onNodeWithTag("pod-stats-donut-Colors")
-            .assert(hasContentDescription("W 0%, U 0%, B 0%, R 0%, G 0%", substring = true)).getUnclippedBoundsInRoot()
+        val colors = compose.onNodeWithTag("pod-stats-colors")
+            .assert(hasAnyDescendant(hasContentDescription("W 0 · 0%, U 0 · 0%, B 0 · 0%, R 0 · 0%, G 0 · 0%", substring = true)))
+            .getUnclippedBoundsInRoot()
         assertEquals(table.top, colors.top)
         assertTrue(table.right < colors.left)
         for (color in DraftColor.entries) compose.onNodeWithTag("pod-stats-mana-${color.name}")
@@ -283,7 +342,7 @@ class PodStatsViewTest {
         compose.onNodeWithContentDescription("Decrease White").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Increase White").performClick().performClick()
         compose.onNodeWithContentDescription("Decrease White").performClick()
-        compose.onNodeWithContentDescription("Increase Gold").performClick()
+        compose.onNodeWithContentDescription("Increase Multicolor").performClick()
         compose.onNodeWithContentDescription("Increase Neutral").assertIsNotEnabled()
         compose.runOnIdle { assertEquals(listOf(1, 0, 0, 0, 0, 0, 1, PodDeckNotes.MAX_COUNTER), notes.counters) }
         compose.onNodeWithContentDescription("White 1").assertExists()

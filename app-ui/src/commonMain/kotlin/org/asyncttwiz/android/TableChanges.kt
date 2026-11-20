@@ -13,6 +13,9 @@ class TableChanges(private val now: () -> Long = { nanoTime() / 1_000_000 }) {
     private var shuffledLibraries: Set<String> = emptySet()
     fun shuffles(cursor: String): Set<String> = if (animates(cursor)) shuffledLibraries else emptySet()
     fun animates(cursor: String): Boolean = motionCursor == cursor
+
+    /** TRN-165: the main button skipped what plays: the next scene is drawn where it is, without moving (the flashes stay). */
+    fun stopMotion() { motionCursor = null }
     private var serial = 0L
     /** On engine state (I-D56 step D): [changes] the shown events made, worked out from the engine's own changes; the
      * board at [cursor] animates (its card motion, and the [shuffled] libraries); a [jump] (a load) clears instead. */

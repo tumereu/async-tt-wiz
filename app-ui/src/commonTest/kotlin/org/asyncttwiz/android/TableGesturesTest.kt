@@ -67,40 +67,23 @@ class TableGesturesTest {
         g.cancel()
     }
 
-    // HIS-113, HIS-148, TBL-012: while a combat holds the view a double tap on the table only skips it: no zoom to fit, nor when the
-    // hold ended between its two taps; the hand keeps its own double tap
-    @Test fun aDoubleTapSkipsAViewHoldInsteadOfWhatItOtherwiseDoes() {
+    // HIS-148, HIS-139, TBL-012 (owner 2026-11-19): no tap on the table skips anything (the main button does, TRN-165): a single tap on
+    // the empty table is the table's own and a double tap there zooms to fit, whatever holds the view; the hand keeps its own
+    @Test fun noTapOnTheTableSkipsADoubleTapIsTheTablesOwn() {
         val world = TableWorld(TableBounds(0f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
         val handCard = TableItem("card/h", TableBounds(0f, 500f, 40f, 60f), "Card", "", kind = TableItemKind.CARD, cardId = "h",
             zone = PlayZone.HAND, viewport = "hand")
         val scene = TableScene(listOf(handCard), emptyList(), world = world, camera = TableCamera(10f, 10f, 2f))
         val events = mutableListOf<TableIntent>()
-        var skips = 0
-        var holding = true
         val g = TableGestureCoordinator(events::add)
-        g.viewHoldSkip = { if (holding) ({ skips++ }) else null }
         g.update(scene, true)
         val empty = TablePoint(100f, 100f)
         fun tap(point: TablePoint, time: Long) { g.down(point, time); g.up(point, time + 10) }
         tap(empty, 0)
-        assertEquals(0, skips, "a single tap skips nothing")
+        assertTrue(events.contains(TableIntent.EmptyTap), "a single tap is the table's own: $events")
+        assertTrue(events.none { it is TableIntent.Camera }, "a single tap doesn't zoom: $events")
         tap(empty, 100)
-        assertEquals(1, skips, "the double tap skips")
-        assertTrue(events.none { it is TableIntent.Camera }, "no zoom to fit: $events")
-        // The hold ends between the two taps: the second doesn't zoom either
-        events.clear()
-        tap(empty, 2000)
-        holding = false
-        tap(empty, 2100)
-        assertEquals(1, skips)
-        assertTrue(events.none { it is TableIntent.Camera }, "no zoom to fit: $events")
-        // No hold: the double tap is the table's own again
-        tap(empty, 4000); tap(empty, 4100)
-        assertTrue(events.any { it is TableIntent.Camera }, "zoomed to fit: $events")
-        // The hand's double tap isn't a skip
-        holding = true
-        tap(handCard.bounds.center, 6000); tap(handCard.bounds.center, 6100)
-        assertEquals(1, skips)
+        assertTrue(events.any { it is TableIntent.Camera }, "the double tap zooms to fit: $events")
     }
 
     // TBL-016

@@ -48,8 +48,9 @@ fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspe
     // STK-050 (owner 2026-11-06): a spell on the Stack shows what was chosen for it (modes, X, targets), as abilities do
     val chosen = if (state.board.stackEffects.any { it.id == entry } && held.none { it is InspectTile.Covered })
         StackAbilities.details(state, entry, viewer, names).map { InspectChange(it) } else emptyList()
-    return listOf(InspectGroup(card.id, held, chosen + changes[card.id].orEmpty())) +
-        others.map { (member, tiles) -> InspectGroup(member.id, tiles, changes[member.id].orEmpty()) }
+    // TBL-209: each card's rules reminders, from the faces the viewer may see of it
+    return listOf(InspectGroup(card.id, held, chosen + changes[card.id].orEmpty(), reminders(state, viewer, card, inspection, held))) +
+        others.map { (member, tiles) -> InspectGroup(member.id, tiles, changes[member.id].orEmpty(), reminders(state, viewer, member, null, tiles)) }
 }
 
 /** STK-050: the panel of the ability on the Stack [entry] (its source [card]), null when [entry] is no ability there. */
@@ -77,19 +78,31 @@ fun gameQuickLookTiles(state: TableBoard, viewer: String, inspection: ManualInsp
     return cardTiles(state, viewer, card, inspection, faceDown, inspection.cardId in CombatStackRules.projectionIds(state.board))
 }
 
+/** TBL-209: the rules reminders of the faces of [card] its inspection shows [viewer] ([tiles]); none for a covered card. */
+private fun reminders(state: TableBoard, viewer: String, card: PlayCard, inspection: ManualInspection?, tiles: List<InspectTile>) =
+    if (tiles.any { it is InspectTile.Covered }) emptyList()
+    else state.definitions.singleOrNull { it.digest == card.definition }?.definition?.let { definition ->
+        shownFaces(state, viewer, card, inspection, definition).takeIf { it.isNotEmpty() }?.let { cardReminders(definition.copy(faces = it)) }
+    }.orEmpty()
+
+/** The faces of [card] ([definition]) its inspection shows [viewer]. Only a deliberate inspection of a choice's card
+ * ([ManualInspection.explicit]) names its faces itself; an ordinary one never shows an opponent a face-down front. */
+private fun shownFaces(state: TableBoard, viewer: String, card: PlayCard, inspection: ManualInspection?,
+    definition: CardDefinition): List<DefinitionFace> {
+    val allowed = if (inspection?.explicit == true) inspection.faceIds
+        else if (ManualDisclosure.faceDownFrontHidden(state.board, card, viewer)) emptyList()
+        else ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId }
+            .filter { inspection == null || it in inspection.faceIds }
+    return definition.faces.filter { it.faceId in allowed }
+}
+
 /** [card]'s faces as its inspection shows them to [viewer], or one covered tile when they may see none of it. */
 private fun cardTiles(state: TableBoard, viewer: String, card: PlayCard, inspection: ManualInspection?, faceDownEntry: Boolean,
     projection: Boolean): List<InspectTile> {
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
         ?: return listOf(InspectTile.Covered(card.id, Faults.placeholder("CardInspection", "card without its card data",
             "Card data unavailable", mapOf("card" to card.id, "definition" to card.definition))))
-    // Only a deliberate inspection of a choice's card ([ManualInspection.explicit]) names its faces itself; an ordinary one
-    // never shows an opponent a face-down front
-    val allowed = if (inspection?.explicit == true) inspection.faceIds
-        else if (ManualDisclosure.faceDownFrontHidden(state.board, card, viewer)) emptyList()
-        else ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId }
-            .filter { inspection == null || it in inspection.faceIds }
-    val faces = definition.faces.filter { it.faceId in allowed }
+    val faces = shownFaces(state, viewer, card, inspection, definition)
     if (faces.isEmpty()) return listOf(InspectTile.Covered(card.id, "Covered card"))
     // The full name only when every face is permitted: a partial view never names a face it hides.
     val filtered = definition.copy(name = if (faces.size == definition.faces.size) definition.name else faces.first().name, faces = faces)

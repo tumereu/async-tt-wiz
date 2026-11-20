@@ -112,8 +112,6 @@ const val WAIT_BAND_TEXT_INSET = WAIT_BAND_FADE + 8f
 @Composable
 fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit) {
     val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer } ?: return
-    // ZON-001: in portrait their hand is a fan in their row: the band lies under that row, on top of their battlefield
-    val row = scene.viewports.firstOrNull { it.id == "dock/${hand.owner}" }?.bounds?.bottom ?: 0f
     // WEB-016 (owner notes 2026-11-16): on the desktop table at the battlefields' top, beside the other player's seat box at
     // their top left, across the rest of the battlefields (not the dock)
     val desktop = LocalDesktopGeometry.current
@@ -122,8 +120,20 @@ fun WaitBand(scene: TableScene, viewer: String, content: @Composable () -> Unit)
         WaitBandStrip(Modifier.offset(box.right.dp, 0.dp).width((desktop.tableRight - box.right).coerceAtLeast(0f).dp), content)
         return
     }
-    WaitBandStrip(Modifier.offset(0.dp, maxOf(hand.bounds.bottom, row).dp)
+    WaitBandStrip(Modifier.offset(0.dp, waitBandTop(scene, viewer).dp)
         .then(if (desktop != null) Modifier.width(desktop.tableRight.dp) else Modifier), content)
+}
+
+/** TRN-066 (owner playtest 2026-11-19): how far under the other player's hand the band lies: a one-line chat bubble's room
+ * under their life square (LOB-136), so the band doesn't cover that bubble or the top of a view opened there. */
+const val WAIT_BAND_DROP = ChatBubbleLayout.TAIL + 1f + ChatBubbleLayout.HEIGHT
+
+/** TRN-066: the band's top on the phone's table (dp): [WAIT_BAND_DROP] under the other player's hand, or in portrait under
+ * their row holding it (ZON-001: their hand is a fan in that row), on top of their battlefield; 0 without their hand. */
+fun waitBandTop(scene: TableScene, viewer: String): Float {
+    val hand = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner != viewer } ?: return 0f
+    val row = scene.viewports.firstOrNull { it.id == "dock/${hand.owner}" }?.bounds?.bottom ?: 0f
+    return maxOf(hand.bounds.bottom, row) + WAIT_BAND_DROP
 }
 
 /**

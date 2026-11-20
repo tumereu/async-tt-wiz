@@ -28,8 +28,8 @@ import org.asyncttwiz.appui.AppPlatform
 
 /**
  * HIS-112, HIS-136, HIS-139, HIS-140 (owner 2026-11-07, MTG Arena as the reference): on Alice's table Bob's plays show large in the middle of the board
- * for the "Show plays and combat" time, her view held at their event meanwhile, then they fly to the Stack; a double tap
- * ends one at once (a single tap does nothing, a held finger pauses it, owner 2026-11-08), and at 0 none shows. Games played through the simulated server; time on the test clock.
+ * for the "Show plays and combat" time, her view held at their event meanwhile, then they fly to the Stack; no tap ends one
+ * (a held finger pauses it, owner 2026-11-08), the main button skips it and acts (owner 2026-11-19), and at 0 none shows. Games played through the simulated server; time on the test clock.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -105,19 +105,38 @@ class PlayShowTest {
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
     }
 
-    // HIS-112, HIS-139 (owner, 2026-11-08): a single tap on the shown card does nothing; a double tap ends it at once
-    @Test fun aDoubleTapEndsTheShowAtOnceASingleTapDoesNothing() {
+    // HIS-112, HIS-139 (owner, 2026-11-19): no touch on the shown card ends it, a tap or a double tap (the main button skips it, TRN-165)
+    @Test fun noTapEndsTheShow() {
         val (kit, _) = bobsSparkShown()
         compose.mainClock.autoAdvance = false
         render(kit)
         compose.onNodeWithTag(PLAY_SHOW_TAG).performClick()
         compose.mainClock.advanceTimeBy(DOUBLE_TAP_MILLIS + 50)
         kit.settle()
-        compose.runOnIdle { assertNotNull(kit.alice.shown?.show, "a single tap does nothing") }
+        compose.runOnIdle { assertNotNull(kit.alice.shown?.show, "a tap does nothing") }
         compose.onNodeWithTag(PLAY_SHOW_TAG).performTouchInput { doubleClick() }
         kit.settle()
-        compose.runOnIdle { assertNull(kit.alice.shown?.show, "ended by the double tap") }
-        assertEquals(kit.me, kit.state().priority.holder, "she holds priority over the Spark, live")
+        compose.runOnIdle { assertNotNull(kit.alice.shown?.show, "nor does a double tap") }
+    }
+
+    // TRN-163, TRN-165, TBL-203 (owner 2026-11-19): while Bob's Spark shows, Alice's main button already holds what she is offered once
+    // it has landed (Resolve: the Spark on the Stack and her priority), though her table keeps its entry off the Stack meanwhile;
+    // her press ends the show at once and is made there: she passes, and the Spark resolves
+    @Test fun theMainButtonHoldsWhatComesAfterTheShowAndItsPressSkipsItAndActs() {
+        val (kit, _) = bobsSparkShown()
+        compose.mainClock.autoAdvance = false
+        render(kit)
+        compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
+        captureShot("$SCREENSHOTS/engine/main-button-during-play.png",
+            "Bob cast Storm Spark at Alice's Ember Cub and her table still shows it large in the middle, its entry not on her Stack yet, while her main button already says Resolve: what she is offered once it has landed; a press skips the show and passes.")
+        compose.onNodeWithTag("main-button").performClick()
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.runOnIdle { assertNull(kit.alice.shown?.show, "the show ended by the press") }
+        kit.playOn("the Spark resolving on Alice's table") { kit.state().stack.isEmpty() }
+        assertTrue(kit.field("Ember Cub").isEmpty(), "her press passed: the Spark resolved")
     }
 
     // HIS-112, HIS-139, HIS-021, HIS-126, HIS-127, TBL-104 (owner, 2026-11-08): a finger held on the shown card inspects it and pauses its time, the pause

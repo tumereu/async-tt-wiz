@@ -220,6 +220,10 @@ data class TableItem(
     /** CMB-047: a stack's member staged as an attacker or placed as a blocker while they are declared, drawn at its stack's
      * right end with the staged look; null otherwise. */
     val staged: CombatRole? = null,
+    /** TBL-054 (owner, 2026-11-19): a battlefield stack's top card ([copies] > 1) with this many of its counted members tapped:
+     * its count reads untapped/total ("2/3"), upright at [countCorner]'s bottom-left (its stack's bottom card). */
+    val stackTapped: Int = 0,
+    val countCorner: TableBounds? = null,
     /** ZON-001 (owner, 2026-11-11): the other player's hand in portrait, a small fan of its cards in their row: drawn as its
      * count only (its cards are their own items, turned). */
     val handFan: Boolean = false,
@@ -562,6 +566,9 @@ object TablePresentation {
             val dungeon = play.engine?.let { org.asyncttwiz.automatum.EngineProjection.dungeon(it.state, player.accountId) }
             player.accountId to SeatRow(dungeon, EmblemChips.texts(play.board, player.accountId),
                 listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let(::roomChip)) +
+                    // ZON-136 (owner playtest 2026-11-19, N17): the other player's cards they may use from other zones, one chip
+                    listOfNotNull(computed.othersPlayable[player.accountId]?.takeIf { player.accountId != viewer && it.isNotEmpty() }
+                        ?.let { OtherPlayableChip.chip(name(player.accountId), it.size) }) +
                     play.engine?.let { org.asyncttwiz.automatum.PlayerStates.of(it.state, player.accountId) }.orEmpty())
         }
         // WEB-016 (owner playtest 2026-11-15, owner notes 2026-11-16): on the desktop table each seat header is a box floating
@@ -888,6 +895,8 @@ object TablePresentation {
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
             // TBL-004, TBL-053: each card where its group puts it, drawn behind to front; an attached card peeks out above
             // its host (on both sides, so its name shows), wherever the host lies
+            // TBL-054: each stack's bottom card where it lies, for its count badge (TBL-054, owner 2026-11-19)
+            val stackBottoms = HashMap<String, TableBounds>()
             for ((id, spot) in spots[battlefield.id].orEmpty().entries.sortedBy { it.value.order }) byId[id]?.let { c ->
                 val x = field.originX + spot.x * fieldScale + 16f * fieldScale
                 val rowHeight = field.rowHeight
@@ -896,10 +905,19 @@ object TablePresentation {
                 val y = rowY + (rowHeight - envelope) / 2
                 val footprint = TableBounds(x, y, columnPitch * zoom, envelope)
                 val lift = (spot.lifts / 2f - spot.lift) * BattlefieldLayout.PEEK * fieldScale
-                val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, if (c.tapped) cw else ch, lift)
+                val centred = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, if (c.tapped) cw else ch, lift)
+                // TBL-177 (owner, 2026-11-19): in a stack with both tapped and untapped members each lies with its bottom-left
+                // corner (a tapped one's as it lies turned) at the bottom-left of the square both fit in, so the corners line up
+                val square = maxOf(cw, ch)
+                val b = if (!spot.aligned) centred else centred.copy(x = footprint.center.x - square / 2,
+                    y = footprint.center.y + square / 2 + lift - centred.height)
+                if (spot.staged == null) stackBottoms.getOrPut(spot.group) { b }
                 card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
                 items[items.lastIndex] = items.last().copy(group = spot.group, copies = maxOf(1, spot.copies), staged = spot.staged,
-                    label = if (spot.copies > 1) items.last().label + ", stack of ${spot.copies}" else items.last().label)
+                    stackTapped = if (spot.copies > 1) spot.tappedCopies else 0,
+                    countCorner = if (spot.copies > 1 && spot.tappedCopies > 0) stackBottoms[spot.group] else null,
+                    label = if (spot.copies > 1) items.last().label + ", stack of ${spot.copies}" +
+                        (if (spot.tappedCopies > 0) ", ${spot.copies - spot.tappedCopies} untapped" else "") else items.last().label)
             }
             port(battlefield.id, field.bounds, (logicalRight + 32f) * fieldScale)
             // Mirror the player blocks: counters face the outside, piles face the Stack.
@@ -974,7 +992,17 @@ object TablePresentation {
                     items[items.lastIndex] = items.last().copy(cardTransform = face)
                 } }
             }
-            val chips = PlayerChips.layout(stateChips, emblemTexts.size, chipsArea, fromRight = !landscape)
+            val chips = PlayerChips.layout(stateChips, emblemTexts.size, chipsArea, fromRight = !landscape).let { row ->
+                // ZON-136: the playable chip carries its list, only what the viewer may know (OffZoneCards.playableBy)
+                val others = computed.othersPlayable[player.accountId].orEmpty()
+                if (others.isEmpty() || player.accountId == viewer) row else row.copy(states = row.states.map { placed ->
+                    if (placed.chip != OtherPlayableChip.chip(name(player.accountId), others.size)) placed else placed.copy(playable = others.map { entry ->
+                        val card = entry.cardId?.let(byId::get)
+                        OtherPlayableChip.Shown(entry.cardId?.let { face(card)?.name } ?: OtherPlayableChip.hiddenName(entry.zone),
+                            OtherPlayableChip.zoneWord(entry.zone), if (entry.cardId == null) null else art(card, false))
+                    })
+                })
+            }
             items += TableItem("life/${player.accountId}", life,
                 "${name(player.accountId)}, life ${player.life}",
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,

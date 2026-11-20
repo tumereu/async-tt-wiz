@@ -153,9 +153,10 @@ stage() { # stage <name> <gradle arguments...>
         find "$wt" -path '*/build/kotlin' -type d -prune -not -path '*/node_modules/*' -exec rm -rf {} +
         (cd "$wt" && "$slot" "$@") >"$out" 2>&1
         rc=$?
-    elif [ $rc != 0 ] && grep -q 'Not enough memory to run compilation' "$out"; then
-        # The compiler daemon ran out of memory (the machine busy with other builds): one more run, its time included.
-        say "[$name] the Kotlin compiler ran out of memory after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: running the stage once more"
+    elif [ $rc != 0 ] && grep -q -e 'Not enough memory to run compilation' -e 'Gradle build daemon disappeared unexpectedly' -e 'java.lang.OutOfMemoryError' "$out"; then
+        # The compiler or the Gradle daemon ran out of memory or was killed (the machine busy with other builds): one more
+        # run, its time included.
+        say "[$name] the build ran out of memory or its daemon was killed after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: running the stage once more"
         mv "$out" "$out.out-of-memory"
         (cd "$wt" && "$slot" "$@") >"$out" 2>&1
         rc=$?

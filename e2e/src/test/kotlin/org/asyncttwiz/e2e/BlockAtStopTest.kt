@@ -26,7 +26,10 @@ class BlockAtStopTest : E2e() {
     private fun goOn(player: E2ePlayer) {
         if (!player.settled(this)) return
         player.once {
-            if (player.status == GameDevice.Status.YourMove || player.status is GameDevice.Status.Stopped)
+            // HIS-190: a branch (Bob's block at the stop) stops Alice's table at the branch point; her tap plays his events on.
+            // STK-033 (owner 2026-11-19): the Brute's trample damage is now always her own division, so the combat waits for her there
+            if (player.status == GameDevice.Status.CatchUp && player.game?.shown?.branchStop == true && player.showsWatch()) player.tapToWatch()
+            else if (player.status == GameDevice.Status.YourMove || player.status is GameDevice.Status.Stopped)
                 player.stepArrow()?.takeIf { it in listOf("Pass", "Next", "Resolve") }?.let(player::tap)
         }
     }

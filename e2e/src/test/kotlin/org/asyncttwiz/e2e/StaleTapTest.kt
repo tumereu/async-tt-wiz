@@ -177,7 +177,9 @@ class StaleTapTest : E2e() {
     // 2026-11-16): the attack's own board holds no Next on her main button, her phone passing there by itself
     @Test fun aNextTappedOnHerAttackAsHerPhonePassesByItselfGoesQuietly() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), aliceWorker = held,
-            deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
+            // HIS-176: a Storm Spark in Bob's hand, so he could respond to her attack: his Quick stops there, and so his phone stops at
+            // her assumption of his pass (without one his Quick passes there by itself: no stop; full runs 2026-11-18, 2026-11-20)
+            deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) && "Storm Spark" in hand(b) })
         held.observe = ::watchNotes
         bothOpen()
         bothKeep(bobAway = false)

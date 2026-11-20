@@ -248,7 +248,8 @@ class ControlAssumptionsTest : E2e() {
 
     // HIS-096, HIS-175, HIS-176 (owner 2026-11-07, scenario 7b): Alice's Storm Spark kills Bob's Ember Martyr and its dies trigger, Bob's own,
     // goes on the Stack: still a point Alice began (her cast was the last real input), so her setting counts: on Always her
-    // phone assumes his pass over his trigger at once although he is in Control; no wait with Assume in her turn
+    // phone assumes his pass over his trigger at once although he is in Control; no wait with Assume in her turn. STK-213: her own
+    // pass over his trigger is her press (she cast in this step)
     @Test fun theirTriggerFromYourSpellFollowsYourSetting() {
         startGame(TestDeck.sparks(), TestDeck("Martyrs", listOf(TestCards.mountain to 20, TestCards.martyr to 20)), bobStarts = true,
             aliceSettings = PlaySettings().assuming(AssumeResolves.Always), bobSettings = PlaySettings(mode = ResponseMode.FullControl),
@@ -266,6 +267,12 @@ class ControlAssumptionsTest : E2e() {
         alice.playFromHand("Storm Spark", this)
         waitUntil("Alice's target bar") { alice.shows(androidx.compose.ui.test.hasContentDescription("Choose targets")) }
         alice.battlefieldCard("Ember Martyr", owner = bob).performClick()
+        // STK-213 (owner 2026-11-19): she cast her Spark in this step, so over Bob's trigger on top her pass is her own press
+        waitUntil("Alice's own Resolve over Bob's trigger") {
+            alice.state.let { s -> s.stack.lastOrNull()?.let { s.stackItems[it]?.controller } == bob.me } &&
+                alice.status == GameDevice.Status.YourMove && alice.stepArrow() == "Resolve"
+        }
+        alice.tap("Resolve")
         waitUntil("the Martyr dead and its trigger resolved") {
             alice.state.player(bob.me).life == 22 && alice.field("Ember Martyr", owner = bob.me).isEmpty() && inMain(alice, turn = 2)
         }

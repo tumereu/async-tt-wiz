@@ -94,14 +94,16 @@ class PassesAndUndoTest : E2e() {
         }
 
         // HIS-099: the Undo dialog's points are exactly the timeline's events up to her local head: no pass line (a
-        // resolution reads as what resolved; an End turn that began with a pass is one point)
+        // resolution reads as what resolved; an End turn that began with a pass is one point); "The game began" itself is no
+        // point (the game's start event, on her line since a game early on loads from its start)
         val shown = alice.shown
         val aliceGame = alice.game!!
         val timeline = aliceGame.timeline.events(aliceGame, names)
         val points = undoPoints(shown, timeline)
         assertTrue(points.isNotEmpty())
         val held = shown.held.associateBy { it.id }
-        assertEquals(timeline.filter { held[it.id]?.parentId != null }.map { it.id }, points.map { it.event.id })
+        val began = { id: String -> held[id]?.engine?.steps.orEmpty().any { it.input is Input.StartGame } }
+        assertEquals(timeline.filter { held[it.id]?.parentId != null && !began(it.id) }.map { it.id }, points.map { it.event.id })
         val texts = points.map { it.shown.description }
         assertEquals("You went to combat", points.single { it.event.id == next.id }.shown.description, "her tap out of her main phase is a point")
         assertTrue(texts.none { "passed" in it }, texts.toString())

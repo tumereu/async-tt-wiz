@@ -34,22 +34,39 @@ else
     git -C "$wt" reset -q --hard && git -C "$wt" clean -qfd && git -C "$wt" checkout -q --detach "$commit" || exit 2
 fi
 slot=$wt/arcanum-tools/set-work/bin/gradle-slot.sh
+# Its own Kotlin daemon (the merge gate has its own too): in the shared one, other builds wear the heap down until the
+# web build's Wasm compile runs out of memory. A run that still runs out of memory runs once more in a fresh daemon
+# (--continue: what passed is up to date, so only the rest runs again).
+kotlin="-Pkotlin.daemon.jvmargs=-Xmx6g -Datw.kotlin.daemon=full-verify"
+run() {
+    local log=$1; shift
+    "$slot" "$kotlin" --continue "$@" > "$log" 2>&1
+    local rc=$?
+    if [ $rc != 0 ] && grep -q -e 'Not enough memory to run compilation' -e 'Gradle build daemon disappeared unexpectedly' -e 'java.lang.OutOfMemoryError' "$log"; then
+        echo "full-verify: $(basename "$log") ran out of memory; running it once more in a fresh Kotlin daemon" | tee -a "$summary"
+        mv "$log" "$log.out-of-memory"
+        pgrep -f -- '^[^ ]*/java .*-Datw.kotlin.daemon=full-verify .*KotlinCompileDaemon' | xargs -r kill
+        "$slot" "$kotlin" --continue "$@" > "$log" 2>&1
+        rc=$?
+    fi
+    return $rc
+}
 cd "$wt" || exit 2
 summary=$logs/summary.txt
 echo "full-verify of $(git log -1 --format='%h %s' "$commit") in $wt, started $(date '+%F %T')" | tee "$summary"
 t0=$SECONDS
-"$slot" --continue :protocol:jvmTest :core:jvmTest :client-storage:test :server:test :androidApp:testDebugUnitTest \
+run "$logs/suites.log" :protocol:jvmTest :core:jvmTest :client-storage:test :server:test :androidApp:testDebugUnitTest \
     :androidApp:assembleDebug :webApp:webDist :arcanum-api:jvmTest :arcanum-parser:jvmTest :arcanum-engine:jvmTest \
     :arcanum-tools:test :automatum:jvmTest :catalog:jvmTest :arcanum-tools:setSupport :androidApp:compileDebugAndroidTestKotlin \
     :core:wasmJsNodeTest :protocol:wasmJsNodeTest :automatum:wasmJsNodeTest :arcanum-api:wasmJsNodeTest \
     :arcanum-parser:wasmJsNodeTest :arcanum-engine:wasmJsNodeTest :app-engine:test :app-engine:wasmJsNodeTest :app-ui:test \
-    :app-ui:wasmJsBrowserTest verifyModuleBoundaries "${long[@]}" > "$logs/suites.log" 2>&1
+    :app-ui:wasmJsBrowserTest verifyModuleBoundaries "${long[@]}"
 suites=$?
 echo "SUITES rc=$suites" >> "$logs/suites.log"
 echo "suites: $([ $suites = 0 ] && echo green || echo "FAILED (exit $suites)") in $(( (SECONDS - t0) / 60 )) min" | tee -a "$summary"
 [ $suites = 0 ] || grep -E ' FAILED$|^> Task .* FAILED' "$logs/suites.log" | head -40 | tee -a "$summary"
 t1=$SECONDS
-"$slot" --continue :e2e:test > "$logs/e2e.log" 2>&1
+run "$logs/e2e.log" :e2e:test
 e2e=$?
 echo "E2E rc=$e2e" >> "$logs/e2e.log"
 echo "e2e: $([ $e2e = 0 ] && echo green || echo "FAILED (exit $e2e)") in $(( (SECONDS - t1) / 60 )) min" | tee -a "$summary"

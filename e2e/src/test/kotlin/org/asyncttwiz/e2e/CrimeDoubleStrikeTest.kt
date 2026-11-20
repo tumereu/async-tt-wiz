@@ -48,7 +48,6 @@ class CrimeDoubleStrikeTest : E2e() {
             alice.field("Mountain Hymn", owner = bob.me).isEmpty() && alice.field("Hungry Gnawer").isEmpty() && alice.inOwnMain()
         }
         assertTrue(alice.state.player(bob.me).graveyard.any { cardName(alice.state, it) == "Mountain Hymn" }, "the Hymn in Bob's graveyard")
-        assertContains(AppLog.text(), "crimes this turn +yours 1")
 
         waitUntil("Alice's game settled") { alice.settled(this) }
         alice.tap("To combat")
@@ -61,6 +60,7 @@ class CrimeDoubleStrikeTest : E2e() {
                 alice.state.turn.step in listOf(TurnStep.EndOfCombat, TurnStep.PostcombatMain, TurnStep.End, TurnStep.Cleanup)
         }
         assertEquals(16, alice.state.player(bob.me).life, "the Vigilante dealt its 2 twice, with double strike")
+        assertContains(AppLog.text(), "crimes this turn +yours 1")
         assertFalse(alice.refusalSeen || bob.refusalSeen, "no refusal")
     }
 }

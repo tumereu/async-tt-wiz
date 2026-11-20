@@ -121,6 +121,22 @@ class EngineMotionQueue {
     /** Whether a step is drawn instead of the board. */
     val playing: Boolean get() = index < steps.size
 
+    /**
+     * TRN-165 (owner 2026-11-19): the main button skips the board's steps: the board itself is drawn next, whatever step was
+     * playing or held (a combat's hold, a play shown's entry), [why] for the log. True when steps were playing.
+     */
+    fun skipToEnd(why: String): Boolean {
+        val held = heldBefore.value == run
+        if (!playing && !held) return false
+        AppLog.info("game", "Board steps skipped ($why): from step ${index + 1} of ${steps.size} to the board itself" +
+            if (held) " (held before the first step for a play shown)" else "")
+        played.value = run to steps.size
+        stopped.value = null
+        heldBefore.value = null
+        before = null
+        return true
+    }
+
     /** HIS-112: whether the board drawn is where the plays shown of [stopEntries] show: the steps stopped at the first
      * step with one of them on the Stack, or over (none had one). */
     fun reachedEntries(): Boolean = !playing || stopEntries.isNotEmpty() && (stopped.value == (run to index) || heldBefore.value == run)

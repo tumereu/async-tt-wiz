@@ -141,41 +141,50 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // 2026-11-03 #2: in the other player's turn only while the viewer holds priority or must decide; its room stays,
             // so the toggles don't move. I-D56 §14: on engine state only the viewer's own actions: hidden while the other
             // player must act
-            // TRN-063, STK-029 (owner playtest 2026-11-12): no press the device is about to make itself: while a play shown or a
-            // combat's hold keeps it from its own pass, the button holds nothing (no "Resolve" flashing before it passes)
-            val ownStepHeld = engine?.ownStepHeld() == true
-            val arrow = panelMain == null && (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
-                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer)) && !ownStepHeld
-            // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel); TRN-068: the
-            // unconfirmed mark sits at its corner without moving anything
-            val wait = if (arrow || panelMain != null) null else engine?.waitAction()?.let { w ->
+            // TRN-163, TRN-164 (owner 2026-11-19): what it holds comes from where the game really is for the player (the point the
+            // view comes to rest at while playback is behind, else the live board), never from the step the table still animates
+            // Read as snapshot state: a board published while the table still draws an older one (its steps, a Stack entry's
+            // arrows holding it) changes what the button holds at once
+            val version = engine?.engine?.shownVersion ?: 0L
+            val real = engine?.real(play)
+            val board = real?.board ?: play
+            val realStatus = real?.status
+            // TRN-063, STK-029, TRN-119 (owner playtest 2026-11-12): no press the device is about to make itself: while a play shown
+            // or a combat's hold keeps it from its own pass, the button holds nothing (no "Resolve" flashing before it passes)
+            val ownStepHeld = real?.rest != true && engine?.ownStepHeld() == true
+            val arrow = panelMain == null && (toggles || QuickActions.visible(board, context.viewer) && !QuickActions.mulliganOnly(board, context.viewer)) &&
+                (engine?.arrowShown(realStatus) ?: stepArrowShown(play, context.viewer)) && !ownStepHeld
+            // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel)
+            val wait = if (arrow || panelMain != null) null else engine?.waitAction(realStatus, board.engine?.state)?.let { w ->
                 if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, assumption = w.assumption, run = w.run) else w }
             // TRN-004 (owner playtest 2026-11-12): waiting on the other player with nothing on the button, its place says so quietly
-            val quiet = if (arrow || panelMain != null || wait != null) null else engine?.quietWait()
-            val unconfirmed = engine?.engine?.shown?.indicator != null
+            val quiet = if (arrow || panelMain != null || wait != null) null else engine?.quietWait(realStatus)
             // HIS-110: the reveal panel's own OK is the main button while it is open (other panels wait behind it)
             val main = panelMain
             val control = engine?.control() == true
-            val record = bottomBarRecord(main?.label ?: if (arrow) AutomatumStep.of(play, control).words(play) else wait?.label, if (toggles) null else actions.map { it.name },
+            val step = AutomatumStep.of(board, control)
+            val says = step.words(board)
+            val record = bottomBarRecord(main?.label ?: if (arrow) says else wait?.label, if (toggles) null else actions.map { it.name },
                 quiet)
             RecordShown(record)
-            // TRN-063, STK-029, TRN-004: each change of what the main button says reaches the app log, with what decided it
+            // TRN-063, STK-029, TRN-004, TRN-163: each change of what the main button says reaches the app log, with what decided it
             LaunchedEffect(record) {
                 val shown = engine?.engine?.shown
+                val drawn = play.engine?.state
+                val at = board.engine?.state
                 AppLog.info("game", "Main button (seat ${context.viewer?.take(8)}): ${record.removePrefix(BOTTOM_BAR)} (panel ${panelMain?.label ?: "none"}, " +
-                    "status ${shown?.status?.let { it::class.simpleName } ?: "?"}, own step held $ownStepHeld, " +
-                    "show ${shown?.show?.kind?.let { it::class.simpleName } ?: "none"}, own action shown ${shown?.ownActionShown}, " +
-                    "board drawn ${play.nodeId.take(8)}${if (shown != null && shown.board.nodeId != play.nodeId) " (live ${shown.board.nodeId.take(8)})" else ""}" +
-                    // Problem report B7UZB5: the step the button's words come from when the board's steps still play behind the game
-                    (shown?.engine?.let { live -> play.engine?.state?.takeIf { it !== live }?.let { drawn ->
-                        " at turn ${drawn.turn.number} ${drawn.turn.step}, the game at turn ${live.turn.number} ${live.turn.step}" } } ?: "") + ", " +
-                    "stack ${play.engine?.state?.stack?.size ?: 0})")
+                    "status ${realStatus?.let { it::class.simpleName } ?: "?"}${if (real?.rest == true) " at the rest point ahead" else ""}, " +
+                    "own step held $ownStepHeld, show ${shown?.show?.kind?.let { it::class.simpleName } ?: "none"}, own action shown ${shown?.ownActionShown}, " +
+                    "from ${board.nodeId.take(8)}${if (at != null) " at turn ${at.turn.number} ${at.turn.step}" else ""}" +
+                    // Problem report B7UZB5: the step the table still draws when it is behind what the button says
+                    (if (drawn != null && at != null && drawn !== at) ", the table drawing ${play.nodeId.take(8)} at turn ${drawn.turn.number} ${drawn.turn.step}" else "") +
+                    ", stack ${at?.stack?.size ?: 0})")
             }
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
             // TRN-057 (reports P2XUER, 3WWPA8): every press goes into the app log, with what the button said and the step
-            fun pressed(label: String, hold: Boolean = false) = engine?.engine?.logPress(play, label, hold)
+            fun pressed(label: String, hold: Boolean = false) = engine?.engine?.logPress(board, label, hold)
             // TRN-063 (owner playtest 2026-11-09): a second tap within a very short time of the first is ignored, whatever the button
             // says by then (a double tap on Cast never also passes)
             val fallbackPress = remember { longArrayOf(Long.MIN_VALUE / 2) }
@@ -186,29 +195,55 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 if (!ok) AppLog.info("game", "Main button: a quick second tap on \"$label\" ignored (within ${MainButtonGuard.MILLIS} ms of the last press)")
                 return ok
             }
-            val says = AutomatumStep.of(play, control).words(play)
+            // TRN-165 (owner 2026-11-19): a press while the view still waits on something skips that first; it is made now, or on
+            // the board the skip brings (below)
+            fun press(label: String, hold: Boolean, action: () -> Unit) {
+                pressed(label, hold)
+                if (engine?.skipFirst(label, hold) != true) action()
+            }
+            val next = { own { perform(TableActionIntent.Next(scope)) } }
+            val endTurn = { own { perform(TableActionIntent.End(scope)) } }
+            // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain
+            val resolveChain: (() -> Unit)? = engine?.let { routes -> { own { routes.holdResolve() } } }
+            val blocked = stepBlocked(board, context.castOpen, context.automatumCombat.takeIf { board.nodeId == play.nodeId }, context.revealOpen)
+            // TRN-165: what a press waiting for its skip's board makes there, as the button holds it now (a panel's go-on never waits)
+            val target = when {
+                main != null -> null
+                arrow -> MainPress(says, controller.enabled(scope) && blocked == null && step != AutomatumStep.Waiting, next,
+                    if (step == AutomatumStep.Resolve) resolveChain else endTurn)
+                wait != null -> MainPress(wait.label, wait.refusal == null, { own { wait.run(); true } }, wait.hold?.let { h -> { own { h(); true } } })
+                else -> null
+            }
+            val currentTarget by rememberUpdatedState(target)
+            val pending = engine?.pendingPress
+            LaunchedEffect(pending, version) {
+                val p = pending ?: return@LaunchedEffect
+                if (version < p.version) return@LaunchedEffect
+                engine?.pendingPress = null
+                val now = currentTarget
+                if (now != null && madeAfterSkip(p.label, now)) {
+                    AppLog.info("game", "Main button ${if (p.hold) "hold" else "tap"} \"${p.label}\" made after its skip (board v$version)")
+                    if (p.hold) (now.hold ?: now.tap)() else now.tap()
+                } else AppLog.info("game", "Main button ${if (p.hold) "hold" else "tap"} \"${p.label}\" not made after its skip: the button now " +
+                    (now?.let { "says \"${it.label}\"${if (!it.enabled) ", greyed" else ""}" } ?: "holds nothing") + " (board v$version)")
+            }
+            DisposableEffect(engine) { onDispose { engine?.pendingPress = null } }
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
             val mainButton: @Composable (Modifier) -> Unit = { place -> Box(place.shaken(mainShakes)) {
                 if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {
                     pressed(main.label); own { main.run(); true } }, controller.enabled(scope) || panelMain != null, Modifier.fillMaxWidth(), ::taken)
-                // Problem report B7UZB5 (SYS-137, SYS-138): a press on the board drawn while its steps still play, at a point the
-                // game has moved past, isn't taken (it passed the Main 2 the game had reached)
-                else if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
-                    onHold = { pressed(says, hold = true); if (engine?.pressBehind(play, says, endTurn = true) != true) own { perform(TableActionIntent.End(scope)) } },
-                    // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain
-                    onResolveHold = engine?.let { routes -> { pressed(says, hold = true); if (!routes.pressBehind(play, says)) own { routes.holdResolve() } } },
-                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat, context.revealOpen),
+                // TRN-164, TRN-165: while playback is behind its rest point, a press skips there first (made there when it may act)
+                else if (arrow) AutomatumStepArrow(board, controller.enabled(scope) || real?.rest == true, Modifier.fillMaxWidth(),
+                    onHold = { press(says, true, endTurn) },
+                    onResolveHold = resolveChain?.let { chain -> { press(says, true, chain) } },
+                    blocked = blocked,
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
                     control = control) {
-                    if (taken(says)) {
-                        pressed(says)
-                        if (engine?.pressBehind(play, says, endTurn = AutomatumStep.of(play, control) == AutomatumStep.EndTurn) != true)
-                            own { perform(TableActionIntent.Next(scope)) }
-                    }
+                    if (taken(says)) press(says, false, next)
                 }
                 else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal,
-                    wait.hold?.let { hold -> { pressed(wait.label, hold = true); own { hold(); true } } }, wait.holdName, wait.assumption) {
-                    if (taken(wait.label)) { pressed(wait.label); own { wait.run(); true } } }, Modifier.fillMaxWidth())
+                    wait.hold?.let { hold -> { press(wait.label, true) { own { hold(); true } } } }, wait.holdName, wait.assumption) {
+                    if (taken(wait.label)) press(wait.label, false) { own { wait.run(); true } } }, Modifier.fillMaxWidth())
                 else if (quiet != null) QuietWaitStatus(quiet, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 // TRN-075: the move passed to you: one pulse in your colour
@@ -216,7 +251,6 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 // TRN-063: over the Assume violet the working sign sweeps white
                 if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape),
                     if (main == null && !arrow && wait != null && assumeLook(wait)) Color.White else AutomatumViolet)
-                if (unconfirmed && engine != null) EngineUnconfirmedMark(engine.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             } }
         // WEB-018 (owner playtest 2026-11-15: "no need for such a large margin"): only the quick actions' gap between the rows
         if (stacked) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(DesktopTable.ACTION_GAP.dp)) {
@@ -231,6 +265,14 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
         }
     }
 }
+
+/** TRN-165: what the main button does as it holds it now: its words ([label]), whether a press acts ([enabled]), its tap and its
+ * hold (null: none). */
+class MainPress(val label: String, val enabled: Boolean, val tap: () -> Unit, val hold: (() -> Unit)?)
+
+/** TRN-166: whether a press of the main button saying [pressed], waiting for its skip's board, is made there: the button holds
+ * [now] there, and it still says the same and isn't greyed (else only the skip was made). */
+fun madeAfterSkip(pressed: String, now: MainPress?): Boolean = now != null && now.label == pressed && now.enabled
 
 /** TRN-017: the main button's one width, whatever quick actions show beside it. */
 val MainButtonWidth = 112.dp

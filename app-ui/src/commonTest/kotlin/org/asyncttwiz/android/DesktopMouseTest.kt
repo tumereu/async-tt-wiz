@@ -74,24 +74,6 @@ class DesktopMouseTest {
         assertEquals(listOf<TableIntent>(TableIntent.Peek("a"), TableIntent.Peek(null, released = true)), phone)
     }
 
-    // WEB-030, HIS-113, HIS-148: a double click on the table during a combat hold (two left clicks, as the phone's double tap) ends
-    // the hold, and a single click does nothing more than a tap
-    @Test fun aDoubleClickEndsACombatHold() {
-        val world = TableWorld(TableBounds(0f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
-        val card = TableItem("card/a", TableBounds(20f, 20f, 60f, 80f), "Card", "", kind = TableItemKind.CARD, cardId = "a",
-            zone = PlayZone.BATTLEFIELD)
-        val g = TableGestureCoordinator({})
-        g.holdInspects = false
-        var skips = 0
-        g.viewHoldSkip = { { skips++ } }
-        g.update(TableScene(listOf(card), emptyList(), world = world), true)
-        val point = card.bounds.center
-        g.down(point, 0); g.up(point, 60)
-        assertEquals(0, skips, "one click")
-        g.down(point, 200); g.up(point, 260)
-        assertEquals(1, skips, "the double click")
-    }
-
     // WEB-029: the wheel zooms around the pointer within 0.65–2×; a notch is a gentle step either way
     @Test fun theWheelZoomsGently() {
         assertTrue(wheelZoom(1f) < 1f && wheelZoom(1f) > .85f, "a notch towards you zooms out a little")

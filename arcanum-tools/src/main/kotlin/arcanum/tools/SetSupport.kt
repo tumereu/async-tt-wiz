@@ -12,7 +12,9 @@ import kotlin.system.exitProcess
  * card data gives them ([OracleParser.layout], [OracleParser.parseCard]) and [CardSupport.manualParts] must find nothing left
  * to the players, the check a host makes to say "this card is supported". Un-cards, online-only and rebalanced printings
  * are skipped; reprints of one card (one oracle id) are checked once. Prints every unsupported card with the parts left
- * to the players and exits with 1 when there is any. Args: [set codes, comma-separated; default every supported set].
+ * to the players and exits with 1 when there is any. Also checks that every rules word the cards print has its rules reminder
+ * ([glossaryGaps]), listing the gaps and exiting with 1 when there is any. Args: [set codes, comma-separated; default every
+ * supported set].
  */
 fun main(args: Array<String>) {
     val supported = supportedSets()
@@ -21,9 +23,11 @@ fun main(args: Array<String>) {
     require(unknown.isEmpty()) { "Not in supported-sets.txt: ${unknown.joinToString()}" }
     val codes = wanted.ifEmpty { supported.keys.toList() }
     val results = HashMap<String, Pair<Int, List<Pair<String, List<String>>>>>()
+    val glossary = LinkedHashMap<String, List<String>>()
     val version = forEachPinnedSet(codes) { code, records ->
         val cards = setCards(records)
         results[code] = cards.size to cards.mapNotNull { card -> card.handParts().takeIf { it.isNotEmpty() }?.let { card.name to it } }
+        cards.forEach { card -> glossaryGaps(card.faces).takeIf { it.isNotEmpty() }?.let { glossary.putIfAbsent(card.name, it) } }
     }
     var failed = 0
     var total = 0
@@ -35,7 +39,10 @@ fun main(args: Array<String>) {
         unsupported.forEach { (name, parts) -> println("  $name\n" + parts.joinToString("\n") { "    - $it" }) }
     }
     println("$total cards in ${codes.size} sets, $failed unsupported (MTGJSON $version)")
-    if (failed > 0) exitProcess(1)
+    // The rules reminders: every rules word these cards print has its plain-words explanation (glossaryGaps)
+    println("Rules glossary: ${glossary.size} cards print rules words without an explanation or out of its reach")
+    glossary.forEach { (name, gaps) -> println("  $name\n" + gaps.joinToString("\n") { "    - $it" }) }
+    if (failed > 0 || glossary.isNotEmpty()) exitProcess(1)
 }
 
 /** The supported sets in file order: code → name. */

@@ -106,6 +106,9 @@ sealed interface DeviceRequest {
     @Serializable @SerialName("dismiss-shows") data class DismissShows(override val id: Long) : DeviceRequest
     @Serializable @SerialName("pause") data class Pause(override val id: Long) : DeviceRequest
     @Serializable @SerialName("hold-playback") data class HoldPlayback(override val id: Long) : DeviceRequest
+    /** TRN-165: the main button pressed ([why]: what it said) while the view still waited on something: everything up to where
+     * the view comes to rest is shown at once: [DeviceResult.None] once the board after it is published. */
+    @Serializable @SerialName("skip-to-rest") data class SkipToRest(override val id: Long, val why: String) : DeviceRequest
     /** The next buffered event played: [DeviceResult.Event]. */
     @Serializable @SerialName("step") data class Step(override val id: Long) : DeviceRequest
 

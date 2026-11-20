@@ -126,8 +126,10 @@ private object WindowOrigin : PopupPositionProvider {
  */
 data class InspectChange(val text: String, val source: String? = null)
 
-/** One card in Inspect: its pictures ([tiles]: a card's faces, or an ability's tile) kept together, then its [changes]. */
-data class InspectGroup(val key: String, val tiles: List<InspectTile>, val changes: List<InspectChange> = emptyList())
+/** One card in Inspect: its pictures ([tiles]: a card's faces, or an ability's tile) kept together, then its [changes] and
+ * its rules [reminders] (TBL-209). */
+data class InspectGroup(val key: String, val tiles: List<InspectTile>, val changes: List<InspectChange> = emptyList(),
+    val reminders: List<arcanum.api.RulesGlossary.Entry> = emptyList())
 
 @Composable
 fun InspectContent(tiles: List<InspectTile>, scroll: ScrollState) = InspectContent(listOf(InspectGroup("card", tiles)), scroll)
@@ -144,6 +146,8 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
     val progress by animateFloatAsState(swipe?.let { if (it.pinned) 1f else it.progress } ?: 0f,
         if (pinned) tween(200) else snap(), label = "inspect pin")
     val desktop = LocalAppLayout.current == AppLayout.Desktop
+    // TBL-210: where nothing can tap a rules reminder (no pinned mode, the desktop layout) each shows its explanation
+    val explained = swipe == null || desktop
     // WEB-024: on the desktop layout a click on a pinned Inspect closes it (a click outside the card)
     val clickCloses = swipe != null && pinned && desktop
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f + .2f * progress)).testTag("card-inspection")
@@ -171,7 +175,7 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
                 key(group.key) {
                     if (index > 0) GroupSeparator(Modifier.padding(vertical = 4.dp).height(1.dp).width(room.width * .8f))
                     val changesWidth = if (progress > 0f) pinnedChangesWidth(listOf(group), cardsRoom, room.width) else SIDE_CHANGES_WIDTH
-                    LandscapeGroup(group, cardsRoom, changesWidth, pinned, progress)
+                    LandscapeGroup(group, cardsRoom, changesWidth, pinned, progress, explained)
                 }
             }
         } else if (landscape) Row(content.align(toStart).padding(top = buttonRoom).widthIn(max = room.width).horizontalScroll(scroll),
@@ -184,7 +188,7 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
             groups.forEachIndexed { index, group ->
                 key(group.key) {
                     if (index > 0) GroupSeparator(Modifier.padding(horizontal = 4.dp).width(1.dp).height(cardsRoom.height * .7f))
-                    LandscapeGroup(group, cardsRoom, changesWidth, pinned, progress)
+                    LandscapeGroup(group, cardsRoom, changesWidth, pinned, progress, explained)
                 }
             }
         } else Column(content.align(toStart).heightIn(max = room.height).verticalScroll(scroll).padding(top = buttonRoom),
@@ -194,7 +198,7 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
                     // TBL-131 (owner playtest 2026-11-07): pinned and on the way there the line spans the whole width
                     if (index > 0) GroupSeparator(Modifier.padding(vertical = 4.dp).height(1.dp)
                         .width(if (progress > 0f) room.width else room.width * .8f))
-                    PortraitGroup(group, room, progress, pinned)
+                    PortraitGroup(group, room, progress, pinned, explained)
                 }
             }
         }
@@ -282,21 +286,24 @@ private val MIN_SIDE_CHANGES_WIDTH = 120.dp
  * [MIN_SIDE_CHANGES_WIDTH] (then the row scrolls).
  */
 fun pinnedChangesWidth(groups: List<InspectGroup>, room: DpSize, width: Dp): Dp {
-    val panels = groups.count { it.changes.isNotEmpty() }
+    val panels = groups.count { it.side }
     if (panels == 0) return SIDE_CHANGES_WIDTH
     val gap = 8.dp
     // The pictures and the gaps between everything in the row (a separator is 1 dp with 4 dp on each side)
     val fixed = groups.fold(0.dp) { total, group -> total + group.tiles.fold(0.dp) { sum, tile -> sum + inspectTileSize(tile, room).width } +
-        gap * (group.tiles.size - 1 + if (group.changes.isNotEmpty()) 1 else 0) } + (gap * 2 + 9.dp) * (groups.size - 1)
+        gap * (group.tiles.size - 1 + if (group.side) 1 else 0) } + (gap * 2 + 9.dp) * (groups.size - 1)
     return ((width - fixed) / panels).coerceIn(MIN_SIDE_CHANGES_WIDTH, SIDE_CHANGES_WIDTH)
 }
 
+/** Whether a card in landscape Inspect has something beside its pictures: changes or rules reminders (TBL-209). */
+private val InspectGroup.side: Boolean get() = changes.isNotEmpty() || reminders.isNotEmpty()
+
 /**
- * A card in portrait Inspect: its pictures, then its changes under them. At [progress] of the pinned swipe the pictures
+ * A card in portrait Inspect: its pictures, then its changes and its rules reminders (TBL-209) under them. At [progress] of the pinned swipe the pictures
  * shrink towards [PINNED_CARD_SHARE] of the width while the changes fold away under them and slide in beside them.
  */
 @Composable
-private fun PortraitGroup(group: InspectGroup, room: DpSize, progress: Float, pinned: Boolean) {
+private fun PortraitGroup(group: InspectGroup, room: DpSize, progress: Float, pinned: Boolean, explained: Boolean) {
     val gap = 12.dp
     val pinnedCards = room.width * PINNED_CARD_SHARE
     val beside = room.width - pinnedCards - gap
@@ -315,6 +322,8 @@ private fun PortraitGroup(group: InspectGroup, room: DpSize, progress: Float, pi
                 val left = 1f - progress * 2f
                 ChangesPanel(group.changes, false, Modifier.width(width).folded(left).graphicsLayer { alpha = left })
             }
+            // TBL-209: the rules reminders stay under the card, pinned too, where taps reach them (TBL-210)
+            RulesReminders(group.reminders, explained, pinned, Modifier.width(width))
         }
         // TBL-131: beside the card, each change its own block; an unchanged card says "No changes", faded
         if (progress > 0f) Box(Modifier.width((beside + gap) * progress).clipToBounds()) {
@@ -358,15 +367,25 @@ private fun NoChanges(modifier: Modifier) {
     }
 }
 
-/** A card in landscape Inspect: its pictures side by side, its changes beside them, [changesWidth] wide. */
+/** A card in landscape Inspect: its pictures side by side, its changes and its rules reminders (TBL-209) beside them,
+ * [changesWidth] wide. */
 @Composable
-private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, pinned: Boolean, progress: Float) {
+private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, pinned: Boolean, progress: Float, explained: Boolean) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         group.tiles.forEach { tile -> key(tile.key) { InspectTileView(tile, room, fit = true) } }
         // TBL-131: pinned (and on the way there), each change its own block; an unchanged card says "No changes", faded
         when {
-            group.changes.isNotEmpty() && progress > 0f -> ChangeBlocks(group.changes, pinned, Modifier.align(Alignment.Top).width(changesWidth))
-            group.changes.isNotEmpty() -> ChangesPanel(group.changes, false, Modifier.align(Alignment.Top).width(changesWidth))
+            group.changes.isNotEmpty() -> Column(Modifier.align(Alignment.Top).width(changesWidth), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (progress > 0f) ChangeBlocks(group.changes, pinned, Modifier.fillMaxWidth())
+                else ChangesPanel(group.changes, false, Modifier.fillMaxWidth())
+                RulesReminders(group.reminders, explained, pinned)
+            }
+            // TBL-209: an unchanged card's reminders in the middle of the room beside it, under "No changes" when pinned
+            group.reminders.isNotEmpty() -> Column(Modifier.width(changesWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp,
+                Alignment.CenterVertically)) {
+                if (progress > 0f) NoChanges(Modifier.fillMaxWidth().graphicsLayer { alpha = progress })
+                RulesReminders(group.reminders, explained, pinned)
+            }
             progress > 0f -> NoChanges(Modifier.width(changesWidth).fillMaxHeight().graphicsLayer { alpha = progress })
         }
     }

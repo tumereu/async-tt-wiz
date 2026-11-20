@@ -2,8 +2,9 @@ package arcanum.api
 
 /**
  * Plain-words explanations of the keywords ([KeywordKind]), keyword actions ([KeywordAction], and scry, surveil, mill
- * and fight, which are effects of their own) and states ([states]) the libraries know, for players who hold one to see
- * what it means.
+ * and fight, which are effects of their own), states ([states]), token kinds ([tokens]) and other rules words ([terms]) the
+ * libraries know, for players who hold one to see what it means, and the ones a card's text leaves unexplained
+ * ([reminders]).
  *
  * Every text here is written for this library in its own words: a short summary of what the keyword does in play, never
  * the Comprehensive Rules' text or a card's reminder text. They simplify (corner cases are left out); the rules and the
@@ -88,6 +89,156 @@ object RulesGlossary {
 
     /** The first explanation [text] names ([named]), null when it names none. */
     fun first(text: String): Entry? = named(text).firstOrNull()
+
+    /**
+     * What the token kinds cards make or name mean, by the name cards print ("Treasure", "Monster Role"): every predefined
+     * token ([PredefinedTokens.names]) and "Role" itself. Written and kept like the keywords' explanations; a test checks
+     * that every predefined token has one.
+     */
+    val tokens: Map<String, Entry> by lazy { TOKENS.associate { (id, name, text) -> name to Entry(id, name, text) } }
+
+    /** The explanation of the token kind cards print as [name] ("Food", "Young Hero Role", "Role"), null when it has none. */
+    fun token(name: String): Entry? = tokens[name]
+
+    /**
+     * Other rules words cards print that the library models as neither a [KeywordKind] nor a [KeywordAction], by id:
+     * ability labels ([AbilityLabel]: "Exhaust", "Max speed", "Power-up", ...) and actions and words of their own
+     * ("Transform", "Suspect", "Face a dilemma", "Descend"). Written and kept like the keywords' explanations.
+     */
+    val terms: Map<String, Entry> by lazy { TERMS.associate { (id, name, text) -> id to Entry(id, name, text) } }
+
+    /**
+     * The explanation of what cards print as [name], a keyword ability, keyword action, other rules word, token kind or an
+     * object's state, as a card list names it ("Ward", "Hexproof from", "Swampcycling", "Scry", "Transform", "Food",
+     * "Role token", "Solved"); null when the glossary has none.
+     */
+    fun lookup(name: String): Entry? {
+        val bare = name.trim().removeSuffix(" tokens").removeSuffix(" token")
+        tokens[bare]?.let { return it }
+        val lower = bare.lowercase().trimEnd('!')
+        for (words in listOf(lower, lower.removeSuffix(" from"))) vocabulary.firstOrNull { !it.exactCase && it.words == words }?.let { return it.entry }
+        // A keyword's variants: "Basic landcycling", "Islandwalk"
+        return vocabularyIn(lower).singleOrNull()?.takeIf { (_, end, _) -> end == lower.length }?.third
+    }
+
+    /**
+     * The rules reminders of a card whose rules text is [text] (its faces' texts one per line; [names] the card's own names,
+     * which never count as rules words): each keyword ability, keyword action, other rules word ([terms]), token kind
+     * ([tokens]) and object state the text names, in the order it first names them, but those the card explains itself.
+     * A card explains a word with reminder text: a parenthesis later on the same line as the word ("Ward {2} (Whenever
+     * …)", "Create a Food token. (It's an artifact …)"); one explained place explains the word for the whole card.
+     * Words inside reminder text aren't counted, nor ability and flavor words leading a line ("Landfall — …"); verbs count
+     * in their forms too ("explores", "foraging", "transformed").
+     */
+    fun reminders(text: String, names: Collection<String> = emptyList()): List<Entry> =
+        rulesWords(text, names).filterValues { !it }.keys.toList()
+
+    /** Every rules word [reminders] finds in [text] (with the card's own [names]), in the order the text first names them,
+     * each with whether the card explains it itself. */
+    fun rulesWords(text: String, names: Collection<String> = emptyList()): Map<Entry, Boolean> {
+        val own = names.flatMap { listOf(it, it.substringBefore(',')) }.map { it.trim() }.filter { it.length > 1 }.distinct()
+            .sortedByDescending { it.length }
+        val explained = LinkedHashMap<Entry, Boolean>()
+        for (printed in text.lines()) {
+            val line = withoutLeadWords(printed)
+            val asides = ASIDE.findAll(line).map { it.range }.toList()
+            // The card's names, where they stand: a word within one is no rules word ("Flash Ward"), a rules word holding one
+            // is ("Empower Jace" on a Jace)
+            val named = mutableListOf<IntRange>()
+            for (name in own) {
+                var from = 0
+                while (true) {
+                    val at = line.indexOf(name, from)
+                    if (at < 0) break
+                    from = at + name.length
+                    if (named.none { at in it || at + name.length - 1 in it }) named += at until at + name.length
+                }
+            }
+            for ((at, end, entry) in vocabularyIn(line)) {
+                if (asides.any { at in it } || named.any { at in it && end - 1 in it }) continue
+                explained[entry] = explained[entry] == true || line.indexOf('(', end) >= 0
+            }
+        }
+        return explained
+    }
+
+    /** Reminder text: a parenthesis, to the line's end when it isn't closed. */
+    private val ASIDE = Regex("""\([^)]*\)?""")
+
+    /** [line] with the ability or flavor words that lead it blanked ("Landfall — ", "I, II — Wings of Light — "): each part
+     * before a spaced dash, but one that is itself a rules word, with or without a number ("Exhaust", "Max speed", "Descend
+     * 4"), or holds a cost ("Prototype {1}{B}{B}"). */
+    private fun withoutLeadWords(line: String): String {
+        val parts = line.split(" — ")
+        if (parts.size < 2) return line
+        return parts.mapIndexed { index, part ->
+            val word = part.trim().removePrefix("• ").replace(Regex("""\s+(\d+|X|N)$"""), "").lowercase()
+            if (index == parts.size - 1 || '{' in part || vocabulary.any { it.words == word }) part else " ".repeat(part.length)
+        }.joinToString(" — ")
+    }
+
+    /** One way a rules word is printed in [reminders]: [words] (lower case, unless [exactCase]) and the [endings] its forms
+     * add. */
+    private class Printed(val words: String, val entry: Entry, val exactCase: Boolean = false, val endings: List<String> = emptyList())
+
+    /** Every word [reminders] looks for, longest first. */
+    private val vocabulary: List<Printed> by lazy {
+        val verbs = listOf("s", "es", "d", "ed", "ing")
+        fun verb(entry: Entry): List<Printed> {
+            val words = entry.name.lowercase()
+            return listOf(Printed(words, entry, endings = verbs)) + when {
+                words.endsWith("e") -> listOf(Printed(words.dropLast(1), entry, endings = listOf("ing"))) // "foraging"
+                words.endsWith("y") -> listOf(Printed(words.dropLast(1), entry, endings = listOf("ies", "ied"))) // "scries"
+                else -> emptyList()
+            }
+        }
+        val states = CARD_STATES.map { (id, _, _) -> states.getValue(id) } + REMINDED_PLAYER_STATES.map { states.getValue(it) }
+        (keywords.values.map { Printed(it.name.lowercase().trimEnd('!'), it) } +
+            VARIANTS.map { (name, id) -> Printed(name, keywords.getValue(id)) } +
+            actions.values.flatMap(::verb) + terms.values.filter { it.id !in PRINTED_AS }.flatMap(::verb) +
+            PRINTED_AS.map { (id, words) -> Printed(words, terms.getValue(id)) } +
+            states.map { Printed(it.name.lowercase(), it) } +
+            tokens.values.map { Printed(it.name, it, exactCase = true, endings = listOf("s")) })
+            .sortedWith(compareByDescending<Printed> { it.words.length }.thenBy { it.entry.id })
+    }
+
+    /** The rules words [line] names, at their places (start, end), none overlapping, longest first. A word's edges are
+     * whole: no letter, digit or hyphen beside it ("double-faced" isn't double). */
+    private fun vocabularyIn(line: String): List<Triple<Int, Int, Entry>> {
+        val lower = line.lowercase()
+        val taken = BooleanArray(line.length)
+        val found = mutableListOf<Triple<Int, Int, Entry>>()
+        fun inWord(text: String, at: Int) = at in text.indices && (text[at].isLetterOrDigit() || text[at] == '-')
+        fun take(at: Int, end: Int, entry: Entry): Boolean {
+            if ((at until end).any { taken[it] }) return false
+            for (i in at until end) taken[i] = true
+            found += Triple(at, end, entry)
+            return true
+        }
+        for (printed in vocabulary) {
+            val text = if (printed.exactCase) line else lower
+            var from = 0
+            while (true) {
+                val at = text.indexOf(printed.words, from)
+                if (at < 0) break
+                from = at + 1
+                if (inWord(text, at - 1)) continue
+                val end = at + printed.words.length
+                val ending = if (!inWord(text, end)) "" else printed.endings.firstOrNull { text.startsWith(it, end) && !inWord(text, end + it.length) } ?: continue
+                take(at, end + ending.length, printed.entry)
+            }
+        }
+        // Typecycling and landwalk: "Swampcycling", "Basic landcycling", "Islandwalk"
+        for (match in Regex("[a-z]+(cycling|walk)\\b").findAll(lower))
+            take(match.range.first, match.range.last + 1, keywords.getValue(if (match.groupValues[1] == "cycling") "cycling" else "landwalk"))
+        return found.sortedBy { it.first }
+    }
+
+    /** The player states cards name in words of their own, whose reminders a card's text gets ("you become the monarch"). */
+    private val REMINDED_PLAYER_STATES = listOf("monarch", "initiative", "citys-blessing")
+
+    /** Rules words printed otherwise than their name ([terms] id → printed words). */
+    private val PRINTED_AS = mapOf("infinity" to "∞")
 
     /** Every name an entry goes by, lower case (variants too), longest first. */
     private val names: List<Pair<String, Entry>> by lazy {
@@ -369,5 +520,48 @@ object RulesGlossary {
         Triple("surveil", "Surveil", "See your top N cards; any of them may go to your graveyard, and the others go back on top in the order you like."),
         Triple("mill", "Mill", "The top N cards of your library go straight to your graveyard."),
         Triple("fight", "Fight", "Two creatures fight: each one hits the other for damage equal to its own power."),
+    )
+
+    // Token kinds (CR 111.10): (id, name as cards print it, explanation); Role tokens by kind, then Role itself
+    private val TOKENS: List<Triple<String, String, String>> = listOf(
+        Triple("treasure", "Treasure", "An artifact token you can tap and sacrifice to add one mana of any color."),
+        Triple("food", "Food", "An artifact token you can pay {2}, tap and sacrifice to gain 3 life."),
+        Triple("gold", "Gold", "An artifact token you can sacrifice, without tapping it, to add one mana of any color."),
+        Triple("walker", "Walker", "A plain 2/2 black Zombie creature token named Walker."),
+        Triple("shard", "Shard", "An enchantment token you can pay {2} and sacrifice to scry 1 and then draw a card."),
+        Triple("clue", "Clue", "An artifact token you can pay {2} and sacrifice to draw a card."),
+        Triple("blood", "Blood", "An artifact token you can pay {1}, tap, discard a card and sacrifice to draw a card, swapping a card in hand for a new one."),
+        Triple("heartwood", "Heartwood", "A red and green artifact token you can tap to add {R} or {G}."),
+        Triple("mutagen", "Mutagen", "An artifact token you can pay {1}, tap and sacrifice, when you could cast a sorcery, to put a +1/+1 counter on a creature."),
+        Triple("lander", "Lander", "An artifact token you can pay {2}, tap and sacrifice to put a basic land card from your library onto the battlefield tapped."),
+        Triple("incubator", "Incubator", "An artifact token that, for {2}, turns over into a 0/0 Phyrexian artifact creature, keeping its +1/+1 counters."),
+        Triple("map", "Map", "An artifact token you can pay {1}, tap and sacrifice, when you could cast a sorcery, to have one of your creatures explore."),
+        Triple("powerstone", "Powerstone", "An artifact token that taps for {C}; that mana pays for abilities and artifact spells, but not for other spells."),
+        Triple("cursed-role", "Cursed Role", "An Aura token making the creature it enchants a 1/1 at its base; a newer Role from the same player replaces it."),
+        Triple("monster-role", "Monster Role", "An Aura token giving the creature it enchants +1/+1 and trample; a newer Role from the same player replaces it."),
+        Triple("royal-role", "Royal Role", "An Aura token giving the creature it enchants +1/+1 and ward {1}; a newer Role from the same player replaces it."),
+        Triple("sorcerer-role", "Sorcerer Role", "An Aura token giving the creature it enchants +1/+1 and a scry 1 each time it attacks; a newer Role from the same player replaces it."),
+        Triple("virtuous-role", "Virtuous Role", "An Aura token giving the creature it enchants +1/+1 for each enchantment you control; a newer Role from the same player replaces it."),
+        Triple("wicked-role", "Wicked Role", "An Aura token giving the creature it enchants +1/+1, and each opponent loses 1 life when it goes to the graveyard from play; a newer Role from the same player replaces it."),
+        Triple("young-hero-role", "Young Hero Role", "An Aura token; each time the creature it enchants attacks with toughness 3 or less, it gets a +1/+1 counter; a newer Role from the same player replaces it."),
+        Triple("role", "Role", "An Aura token that enchants a creature; when a player gives a creature a second Role, their older one there goes to the graveyard."),
+    )
+
+    // Other rules words (CR 701, 702): the [AbilityLabel]s by serial name (solved is a state), then actions and words of their own
+    private val TERMS: List<Triple<String, String, String>> = listOf(
+        Triple("boast", "Boast", "A boast ability can be used only in a turn this creature attacked, and only once each turn."),
+        Triple("exhaust", "Exhaust", "Each exhaust ability can be used only once; a card that leaves the battlefield and comes back counts as new."),
+        Triple("max-speed", "Max speed", "What follows max speed works only while your speed is 4, the highest it goes."),
+        Triple("power-up", "Power-up", "A power-up ability can be used only once, and costs less by the permanent's mana cost in the turn it entered."),
+        Triple("infinity", "Infinity", "An ability after the infinity sign works only while its permanent is harnessed."),
+        Triple("forecast", "Forecast", "Use it by showing this card from your hand, only during your upkeep and only once each turn; the card stays in your hand."),
+        Triple("harness", "Harness", "Harnessing a permanent switches on its infinity-sign abilities for as long as it stays on the battlefield."),
+        Triple("transform", "Transform", "Turn a double-faced permanent over to its other face; it stays the same permanent, keeping its counters, damage and attachments."),
+        Triple("suspect", "Suspect", "Mark a creature as suspected: while it is, it has menace and can't block."),
+        Triple("face-a-dilemma", "Face a dilemma", "Each time you pick modes for a spell or ability, one mode or more, you face a dilemma."),
+        Triple("assimilate", "Assimilate", "The card comes onto the battlefield on your side with a +1/+1 counter, as a Borg artifact creature without its other creature types."),
+        Triple("waterbend", "Waterbend", "Tapping your artifacts and creatures helps pay a waterbend cost: each one pays {1} of it."),
+        Triple("triple", "Triple", "Make the number three times as big: a creature's power and toughness, counters, damage or the like."),
+        Triple("descend", "Descend", "You descend whenever a permanent card goes to your graveyard from anywhere; a \"Descend N\" ability works with N or more permanent cards there."),
     )
 }

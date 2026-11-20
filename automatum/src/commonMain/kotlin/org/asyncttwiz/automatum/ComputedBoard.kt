@@ -12,6 +12,7 @@ import arcanum.api.Layer
 import arcanum.api.Zone
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
+import arcanum.engine.state.TargetRef
 import arcanum.engine.view.AbilityInstance
 import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.Characteristics
@@ -119,6 +120,9 @@ class ComputedBoard private constructor(
     /** ZON-079 (owner, 2026-11-12): the cards outside the viewer's hand a permission lets them cast or play from where they are,
      * or with an ability or special action they may use there, usable now or not, that they may see ([OffZoneCards.permitted]), by ATW card id, in their hand row's order. */
     val handRow: List<String> = emptyList(),
+    /** ZON-136 (owner playtest 2026-11-19, N17): what the viewer may know of each other player's hand-row cards
+     * ([OffZoneCards.playableBy]), by account; players with none left out. */
+    val othersPlayable: Map<String, List<OtherPlayable>> = emptyMap(),
     /** A board restored on the page from the engine side's values ([restored]), whose view is worked out
      * on the page when an explanation first needs it. */
     private val restoredView: Boolean = false,
@@ -142,22 +146,37 @@ class ComputedBoard private constructor(
         /** Whether the values were worked out from a state (false: [NONE] or [failed]). */
         val computed: Boolean = false,
         /** [withEffects] as the engine side worked them out (null: none sent, worked out on the page). */
-        val withEffects: Set<String>? = null)
+        val withEffects: Set<String>? = null,
+        val othersPlayable: Map<String, List<OtherPlayable>> = emptyMap())
 
     /** These values as the page receives them ([Wire]), with [withEffects] worked out here (where the board's view is) rather
      * than on the page (web frame rate, 2026-11-15: the page ran the layers again for each board it drew). */
     fun wire(): Wire = Wire(cards, unsupported, manualAbilities, manualCards, exileStates, handRow, state != null,
-        withEffects.takeIf { state != null })
+        withEffects.takeIf { state != null }, othersPlayable)
     /**
-     * TBL-136 effects marker (owner, 2026-11-12): the Battlefield cards (by ATW card id) a continuous effect other than counters
-     * applies to: exactly those Inspect lists an effect for ([effects]: a copy, gained or lost abilities, a changed P/T, type,
-     * colour or controller) or a rule an effect puts on them ([restrictions]: "can't block"). Worked out once per board, when
-     * first asked (one run of the layers for all of them).
+     * TBL-136 effects marker (owner, 2026-11-12; 2026-11-19: only effects the board doesn't show otherwise): the Battlefield cards
+     * (by ATW card id) a continuous effect other than counters applies to that can't be seen without Inspect: those Inspect lists
+     * an effect for ([effects]: a copy, gained or lost abilities, a changed P/T, type, colour or controller) or a rule an effect
+     * puts on them ([restrictions]: "can't block"), leaving out what the table already shows ([shownOnBoard]). Worked out once
+     * per board, when first asked (one run of the layers for all of them).
      */
     val withEffects: Set<String> by lazy {
         givenWithEffects?.let { return@lazy it }
         val ids = cards.keys.toList()
-        if (state == null || ids.isEmpty()) emptySet() else effects(ids, "", shown = false).keys + restrictions(ids, "", shown = false).keys
+        if (state == null || ids.isEmpty()) emptySet()
+        else effects(ids, "", shown = false, unseenOnly = true).keys + restrictions(ids, "", shown = false, unseenOnly = true).keys
+    }
+
+    /**
+     * TBL-136 (owner, 2026-11-19): whether an effect on [id] made by [madeBy], lasting [duration], changing [layers] (null: not a
+     * characteristic change, a restriction), is already told on the table without Inspect: one made by a card attached to [id]
+     * (an Aura or Equipment, drawn under the card), or an until-end-of-turn change of only power and toughness (TBL-112: the P/T
+     * changes, with its ⌛).
+     */
+    private fun shownOnBoard(state: GameState, id: ObjectId, madeBy: ObjectId?, duration: Duration?, layers: List<Layer>?): Boolean {
+        val host = madeBy?.let { state.obj(it) }?.takeIf { it.zone == Zone.Battlefield }?.attachedTo as? TargetRef.Object
+        if (host != null && host.id == id) return true
+        return layers != null && layers.isNotEmpty() && duration == Duration.EndOfTurn && layers.all { it in PT_LAYERS }
     }
 
     /**
@@ -233,7 +252,8 @@ class ComputedBoard private constructor(
      * the players by account. Cards with no changes are left out; one run of the layers for all of them. [shown]: the texts
      * are for a player (a stand-in in them is reported, LOB-090), not only which cards have changes.
      */
-    fun effects(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap(), shown: Boolean = true): Map<String, List<EffectChange>> {
+    fun effects(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap(), shown: Boolean = true,
+        unseenOnly: Boolean = false): Map<String, List<EffectChange>> {
         val state = state ?: return emptyMap()
         val view = view ?: return emptyMap()
         val objects = cardIds.filter { it in cards }.mapNotNull { card -> objectOf(card)?.let { card to it } }
@@ -242,7 +262,7 @@ class ComputedBoard private constructor(
         val durations = DurationText(state, view, viewer, names, shown)
         return objects.mapNotNull { (card, id) ->
             val explanation = explanations[id] ?: return@mapNotNull null
-            val copies = explanation.copies.map { copy ->
+            val copies = explanation.copies.filter { !unseenOnly || !shownOnBoard(state, id, it.madeBy, it.duration, null) }.map { copy ->
                 val made = (copy.source as? EffectSource.EffectObject)?.let { state.effects[it.effect] }
                 val lasts = copy.duration?.let { durations.of(it, made, id) }
                 val what = copy.name ?: copy.original?.let { visibleName(state, view, it) }
@@ -255,6 +275,7 @@ class ComputedBoard private constructor(
                 val source = effect.source
                 if (source is EffectSource.Counters) return@mapNotNull null
                 if (source is EffectSource.StaticAbility && source.characteristicDefining && source.obj == id) return@mapNotNull null
+                if (unseenOnly && shownOnBoard(state, id, effect.madeBy, effect.duration, effect.steps.map { it.layer })) return@mapNotNull null
                 val parts = effect.steps.flatMap { step -> stepParts(state, view, step, viewer, names, shown) }.distinct()
                 if (parts.isEmpty()) return@mapNotNull null
                 val made = (source as? EffectSource.EffectObject)?.let { state.effects[it.effect] }
@@ -302,7 +323,8 @@ class ComputedBoard private constructor(
      * from the board's own view ([Inspect.restrictions]): "Can't block until end of turn", with its source as [viewer] may see
      * it. A Ring-bearer's rule from the Ring is its own line ([states]). [shown] as for [effects].
      */
-    fun restrictions(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap(), shown: Boolean = true): Map<String, List<EffectChange>> {
+    fun restrictions(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap(), shown: Boolean = true,
+        unseenOnly: Boolean = false): Map<String, List<EffectChange>> {
         val state = state ?: return emptyMap()
         val view = view ?: return emptyMap()
         val durations = DurationText(state, view, viewer, names, shown)
@@ -312,6 +334,7 @@ class ComputedBoard private constructor(
             val changes = Inspect.restrictions(state, view, id).mapNotNull { restriction ->
                 val from = restriction.madeBy?.let { state.obj(it) }
                 if (from?.zone == Zone.Command && from.definition?.faces?.firstOrNull()?.name == CardStates.RING) return@mapNotNull null
+                if (unseenOnly && shownOnBoard(state, id, restriction.madeBy, restriction.duration, null)) return@mapNotNull null
                 val made = restriction.effect?.let { state.effects[it] }
                 val lasts = restriction.duration?.let { durations.of(it, made, id) }
                 EffectChange(restriction.text + (lasts?.let { " $it" } ?: ""), visibleName(state, view, restriction.madeBy))
@@ -382,9 +405,10 @@ class ComputedBoard private constructor(
         /** [wire]'s values made again on the page, on its own copy of the board's [state] (the same
          * state the engine side worked them out from); the view is worked out on the page when an explanation needs it. */
         fun restored(wire: Wire, state: GameState): ComputedBoard = if (!wire.computed)
-            ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, null, null, null, wire.exileStates, wire.handRow)
+            ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, null, null, null, wire.exileStates, wire.handRow,
+                wire.othersPlayable)
             else ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, state, null, CardIds(), wire.exileStates,
-                wire.handRow, restoredView = true, givenWithEffects = wire.withEffects)
+                wire.handRow, wire.othersPlayable, restoredView = true, givenWithEffects = wire.withEffects)
 
         /** Nothing computed (Automatum off, or the board not built yet). */
         val NONE = ComputedBoard(emptyMap(), emptyList(), 0, emptyList(), null, null, null)
@@ -439,7 +463,9 @@ class ComputedBoard private constructor(
             }.toMap()
             return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids, exileStates,
                 // ZON-079: the cards from other zones the viewer's hand row shows, worked out with the board
-                handRow = OffZoneCards.permitted(state, view, viewer))
+                handRow = OffZoneCards.permitted(state, view, viewer),
+                othersPlayable = board.players.filter { it.accountId != viewer }
+                    .associate { it.accountId to OffZoneCards.playableBy(state, view, it.accountId, viewer) }.filterValues { it.isNotEmpty() })
         }
 
         private fun manual(board: BoardState, submitted: List<SubmittedDefinition>, definitions: Map<String, CardDefinition>,

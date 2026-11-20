@@ -196,7 +196,7 @@ object StackAnimationProbe {
  */
 @Stable
 class StackAnimation(private val viewer: String, private val clock: () -> Long = { monotonicMillis() }) {
-    /** HIS-112: the plays this table ended (landed, or skipped by a double tap) whose end the device hasn't published yet:
+    /** HIS-112: the plays this table ended (landed) whose end the device hasn't published yet:
      * passed over until its list drops them (owner playtest 2026-11-11: the next play shows the moment the one before
      * lands). */
     val ended = mutableStateListOf<GameDevice.PlayShow>()
@@ -420,15 +420,7 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
         }
     }
 
-    /** A double tap or double click skips step 4 (WEB-030): its arrows show whole at once. True when one was playing. */
-    fun skip(): Boolean {
-        val running = targeting?.takeIf { !it.done } ?: return false
-        running.skipped = true
-        AppLog.info("game", "Stack entry ${running.entry.take(24)} step 4 skipped by a double tap")
-        return true
-    }
-
-    /** A take-back or timeline mode: what plays ends at once, leaving nothing on screen; the next board drawn is taken as
+    /** A take-back, timeline mode or the main button's skip (TRN-165): what plays ends at once, leaving nothing on screen; the next board drawn is taken as
      * it is ([drawn] with instant). */
     fun end(why: String) {
         val running = targeting?.takeIf { !it.done }

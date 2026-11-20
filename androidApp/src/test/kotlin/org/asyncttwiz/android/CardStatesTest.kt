@@ -413,6 +413,44 @@ class CardStatesTest {
     private val shotPlay = withEmblems(f.initial)
     private fun allStates() = board(shotPlay) { playerStates(); dungeon() }
 
+    /** [board] with what Alice's table knows of Bob's cards usable from other zones set to [others] (ZON-136; the engine's side of
+     * it, OffZoneCards.playableBy, is tested in automatum's OtherPlayableTest). */
+    private fun withOthersPlayable(base: TableBoard, others: List<org.asyncttwiz.automatum.OtherPlayable>): TableBoard {
+        val values = base.values!!
+        val wire = values.computed.wire()
+        val state = base.engine!!.state
+        val computed = org.asyncttwiz.automatum.ComputedBoard.restored(org.asyncttwiz.automatum.ComputedBoard.Wire(wire.cards,
+            wire.unsupported, wire.manualAbilities, wire.manualCards, wire.exileStates, wire.handRow, wire.computed, wire.withEffects,
+            mapOf(f.b to others)), state)
+        val view = Engine.view(state)
+        return base.copy(values = EngineBoardValues(f.a, computed, EngineProjection.Board(base.board, base.definitions), base.gameId,
+            state, view, arcanum.engine.Host.visible(state, PlayerId(f.a), view), EngineWorker.Direct))
+    }
+
+    // ZON-136 (owner playtest 2026-11-19, N17): Bob's cards he may use from other zones (one in his graveyard, his library's top card he
+    // may play) show as a cyan "▶2" chip in his row of round chips on Alice's table, and a tap on it lists them, the top card only by
+    // where it is; Alice's own row has none
+    @Test fun theOtherPlayersPlayableCardsAtAGlance() {
+        val grave = f.initial.board.cards.first { it.containerId == f.id("b/GRAVEYARD") }
+        val table = withOthersPlayable(board { }, listOf(org.asyncttwiz.automatum.OtherPlayable(grave.id, "graveyard"),
+            org.asyncttwiz.automatum.OtherPlayable(null, "library")))
+        val scene = scene(table)
+        val chip = scene.items.single { it.id == "life/${f.b}" }.stateChips.single { it.playable.isNotEmpty() }
+        val name = f.initial.definitions.single { it.digest == grave.definition }.definition.faces.single().name
+        assertEquals(listOf(name to "Graveyard", "The top card of their library" to "Library"), chip.playable.map { it.name to it.zone })
+        assertEquals(null, chip.playable.last().artwork, "nothing of the hidden card")
+        assertEquals("Bob may play 2 cards from other zones", chip.label)
+        assertTrue(scene.items.single { it.id == "life/${f.a}" }.stateChips.none { it.playable.isNotEmpty() }, "none on Alice's own row")
+        render(f.initial, table)
+        compose.onNode(hasTestTag(OtherPlayableChip.TAG)).performClick()
+        compose.waitForIdle()
+        compose.onNode(hasTestTag(OtherPlayableChip.LIST_TAG)).assertExists()
+        captureShot("$SCREENSHOTS/states/other-playable.png",
+            "Bob may cast a card from his graveyard and play his library's top card: on Alice's table a round chip edged in cyan with " +
+                "\"▶2\" sits in his row of round chips; Alice tapped it and a list shows the graveyard card with its picture and " +
+                "\"Graveyard\", and \"The top card of their library\" with a card back.")
+    }
+
     // TRN-072, TRN-073, TRN-053, TRN-069: with chips, emblems and a dungeon together
     @Test fun playerChipsPortrait() {
         render(shotPlay, allStates())

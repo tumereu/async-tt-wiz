@@ -12,15 +12,14 @@ import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
  * Problem report B7UZB5 (prod 0.2.1, 2026-11-18): "my second main phase got skipped after combat". The other player had no cards
  * in hand and nothing untapped, so all of their passes went by themselves and her attack's event reached her Main 2 at once,
- * while her table still played the attack's steps, the attackers' hold first (HIS-113). The main button, drawn from those
- * steps, said "To blockers", and her tap on it was made where the game was: a pass of her Main 2, and the turn went to the other
- * player. Such a press is now not taken, with the note (SYS-137, SYS-138).
+ * while her table still played the attack's holds (HIS-113). The main button, drawn from those steps, said "To blockers", and
+ * her tap on it was made where the game was: a pass of her Main 2. Now (owner 2026-11-19, TRN-163, TRN-165) the main button
+ * says what her Main 2 offers from the moment her game is there, and a press skips the rest of the combat and is made there.
  */
 class MainTwoAfterCombatTest : E2e() {
     private val leeches = TestDeck("Leeches", listOf(TestCards.mountain to 20, TestCards.leech to 20))
@@ -29,9 +28,9 @@ class MainTwoAfterCombatTest : E2e() {
 
     private fun logged(text: String) = AppLog.text().lines().filter { text in it }
 
-    // SYS-011, SYS-137, SYS-138, HIS-113, TRN-063 (problem report B7UZB5): a tap on the main button while the attack's steps still
-    // play leaves the Main 2 the game reached as it is, and says it wasn't taken; her next press there acts on Main 2
-    @Test fun aPressOnTheAttacksStepsDoesntPassTheMainTwoTheGameReached() {
+    // TRN-163, TRN-165, HIS-113, TBL-205 (problem report B7UZB5, owner 2026-11-19): while Alice's table still holds on her attack, her
+    // phone at her Main 2 already shows Main 2's words on the main button; her press skips the combat's holds and is made at Main 2
+    @Test fun theMainButtonOffersMainTwoWhileTheCombatStillShowsAndItsPressSkipsAndActs() {
         startGame(leeches, allLeeches, bobStarts = true, bobSettings = PlaySettings(), deal = { a, _ -> "Ember Leech" in hand(a) })
         for (player in listOf(alice, bob)) HistoryPlaybackPreferences(AppPlatform.current, player.id).showPlaysMillis =
             HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
@@ -76,7 +75,7 @@ class MainTwoAfterCombatTest : E2e() {
         // The frames' clock in step with the real one: a hold can't end between two looks (E2e.clockInStep)
         clockInStep {
             alice.declare("Attack (1)", this)
-            // Her phone at her Main 2 while her table still plays the attack's steps: the main button says what it said there
+            // TRN-163: her phone at her Main 2 while her table still holds on the attack: the main button already says Main 2's words
             var words: String? = null
             val seen = linkedSetOf<String>()
             try {
@@ -84,35 +83,18 @@ class MainTwoAfterCombatTest : E2e() {
                     words = alice.mainWords()
                     seen += "${alice.state.turn.step} ${alice.game?.shown?.status} hold ${alice.shown.combatHold?.kind} \"$words\""
                     alice.state.turn.number == turn && alice.state.turn.step == TurnStep.PostcombatMain &&
-                        alice.game?.shown?.status == GameDevice.Status.YourMove && words?.startsWith("To ") == true && words !in main2Words
+                        alice.game?.shown?.status == GameDevice.Status.YourMove && alice.shown.combatHold != null && words in main2Words
                 }
-            } catch (e: AssertionError) { throw AssertionError("What Alice's phone showed meanwhile: $seen", e) }
+            } catch (e: AssertionError) { throw AssertionError("What Alice's phone showed meanwhile : $seen", e) }
             val label = words!!
-            // Her press, as the report's press line has it (a tap the button doesn't take yet, while it is still disabled by a
-            // board on its way in, is tapped again while it says the same)
-            val pressLine = "main button tap \"$label\" (the device is at turn $turn PostcombatMain)"
-            var taps = 0
-            var lastTap = 0L
-            waitUntil("Alice's press on \"$label\" while her phone is at her Main 2", timeoutSeconds = 20) {
-                val now = System.nanoTime()
-                if (logged(pressLine).isEmpty() && taps < 5 && now - lastTap > 300_000_000L && alice.mainWords() == label) {
-                    taps++; lastTap = now; alice.tap(label)
-                }
-                logged(pressLine).isNotEmpty()
+            // TRN-165: her press skips the rest of the combat and is made at her Main 2: her turn goes on past it
+            alice.tap(label)
+            waitUntil("the combat skipped and Alice's Main 2 passed", along = listOf(bob)) {
+                alice.shown.combatHold == null && (alice.state.turn.step != TurnStep.PostcombatMain || alice.state.turn.number != turn)
             }
-            assertEquals(1, logged(pressLine).size, "her one press on the attack's steps")
-            waitUntil("the attack's steps played and the hold over", along = listOf(bob)) { alice.shown.combatHold == null && alice.settled(this) }
-            assertTrue(alice.inOwnMain(TurnStep.PostcombatMain), "still Alice's Main 2: ${alice.state.turn}")
-            assertEquals(turn, alice.state.turn.number, "her turn wasn't passed")
-            assertTrue(alice.told(NOT_TAKEN), "the note says the press wasn't taken: ${alice.screen()}")
-            assertTrue(logged("Main button press \"$label\" not taken").isNotEmpty(), "in the app log")
+            assertTrue(logged("Main button tap \"$label\" while the view still plays").isNotEmpty(), "the skip in the app log")
+            assertTrue(logged("Main button tap \"$label\" made after its skip").isNotEmpty(), "the press after it in the app log")
+            assertTrue(!alice.told(NOT_TAKEN), "nothing refused: ${alice.screen()}")
         }
-        // Once her table has played the attack's steps, her press on Main 2 acts there
-        waitUntil("Alice's Main 2 on her table", along = listOf(bob)) {
-            alice.inOwnMain(TurnStep.PostcombatMain) && alice.settled(this) && alice.mainWords() in main2Words
-        }
-        val label = requireNotNull(alice.mainWords())
-        alice.tap(label)
-        waitUntil("past Alice's Main 2", along = listOf(bob)) { alice.state.turn.step != TurnStep.PostcombatMain || alice.state.turn.number != turn }
     }
 }

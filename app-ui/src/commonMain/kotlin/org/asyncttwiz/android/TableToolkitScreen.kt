@@ -169,6 +169,8 @@ fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.
     }
     is org.asyncttwiz.automatum.CardPlay.Refusal.Other -> when (kind) {
         org.asyncttwiz.automatum.CardPlay.Kind.Cast -> "$name can't be cast now."
+        // SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's spell, by the spell's name ("{G}: Cast Mending")
+        org.asyncttwiz.automatum.CardPlay.Kind.Prepared -> "${text?.substringAfter("Cast ", "")?.substringBefore(" · ")?.ifEmpty { null } ?: "The spell"} can't be cast now."
         org.asyncttwiz.automatum.CardPlay.Kind.Play -> "$name can't be played now."
         // TBL-123, LOB-090 (owner, 2026-11-17): the catch-all, reported
         else -> catchAllRefusal("menu", "$name: Automatum doesn't allow that now (a cost it can't pay, or nothing to target).", refusal,
@@ -178,7 +180,7 @@ fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.
 
 private fun engineIcon(kind: org.asyncttwiz.automatum.CardPlay.Kind) = when (kind) {
     // UI review round 2 N12: a cast has the cast panel's sparkle, a land play the card placed on the table
-    org.asyncttwiz.automatum.CardPlay.Kind.Cast -> Icons.Outlined.AutoAwesome
+    org.asyncttwiz.automatum.CardPlay.Kind.Cast, org.asyncttwiz.automatum.CardPlay.Kind.Prepared -> Icons.Outlined.AutoAwesome
     org.asyncttwiz.automatum.CardPlay.Kind.Play -> PlayCardIcon
     org.asyncttwiz.automatum.CardPlay.Kind.Mana -> Icons.Outlined.WaterDrop
     org.asyncttwiz.automatum.CardPlay.Kind.Special -> Icons.Outlined.AutoFixHigh

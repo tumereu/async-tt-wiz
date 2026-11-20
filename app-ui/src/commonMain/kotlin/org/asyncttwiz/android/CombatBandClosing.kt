@@ -49,6 +49,7 @@ fun ClosingCombatBand(play: TableBoard, scene: TableScene, viewer: String, bound
         AppLog.info("combat", "Combat band closed at ${play.nodeId.take(8)} for ${viewer.take(8)}: ${before.combatLabels.size} lanes, " +
             "${before.items.count { it.viewport == "combat" }} copies and the damage shown (${before.combatDealt?.targets}) fade out")
         val fade = Animatable(1f)
+        TableProbes.chipsFadeOut?.invoke(viewer, before.combatLabels.size, CARD_FADE_DURATION_MILLIS)
         closing = ClosingBand(before, board, fade)
         fade.animateTo(0f, tween(CARD_FADE_DURATION_MILLIS))
         closing = null

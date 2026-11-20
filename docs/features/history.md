@@ -7,7 +7,7 @@ when catching up), where playback stops, the event text chip, timeline mode and 
 
 Everything that happens in a game is recorded as events, one for each point where someone acted. Your table plays the
 other player's events back as animations, one at a time, whether you watch live or come back later to catch up; a
-finger held on the table pauses what your view is waiting on. Catching up starts only when you tap the text in the
+finger held on the table pauses what your view is waiting on, and the main button skips it. Catching up starts only when you tap the text in the
 middle of the board, and it stops wherever you have to decide. A short text at the top says what just happened.
 Timeline mode is a read-only viewer for looking back through the whole game. What a play shown, a combat hold or a
 reveal looks like is described with the Stack, combat and choices; assumed answers and branches in async-play.md; undo
@@ -61,7 +61,7 @@ in undo.md.
 - **HIS-159** A tap on the centre text, or anywhere on the table while it shows (the battlefields, the combat band, the cards and piles on them), starts the playback and the text goes at once. Your hand and the buttons keep their own taps, and holding a card still inspects it. There is no Play/Pause button. (r60)
 - **HIS-160** Catch-up playback also looks like live play: the other player's actions animate as if they happened now (HIS-021, HIS-104), new events of theirs arriving meanwhile join it, and reaching the newest event you are live, with nothing announcing it. (r60)
 - **HIS-161** The opening (mulligans) is never played back: the other player's opening declarations show at once, up to a decision of yours or the first turn, and the catch-up's pause starts after them unless you already answered a decision there. (r60)
-- **HIS-033** Opening a game with the other player's events past your local head starts the catch-up paused with its centre text; its tap then plays them back, stopping at your decision points (HIS-095). Playback never skips ahead. When everything since is your own, the game opens live. (r59)
+- **HIS-033** Opening a game with the other player's events past your local head starts the catch-up paused with its centre text; its tap then plays them back, stopping at your decision points (HIS-095). Playback never skips ahead by itself (only the main button skips, TRN-165). When everything since is your own, the game opens live. (r59)
 - **HIS-035** Leaving the app pauses playback at the shown point at once; coming back with the other player's events past your local head starts the catch-up paused with its centre text instead of rushing through them. A return where only chat or other non-event data changed, or only your own events arrived, stays live. (r59)
 - **HIS-162** Opening or coming back to a game whose playback stands at a stop of yours (HIS-095: the next event is the other player's assumed answer where you decide) shows that stop, live, with no centre text, whatever of theirs follows it (nothing to watch before your decision). Unless a branch or the other player's undo took that stop back: then it opens as you left it, with the centre text, waiting for your tap (HIS-106, HIS-108). (r59)
 

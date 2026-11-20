@@ -62,7 +62,7 @@ class EngineJson(val definitions: GameDefinitions) {
     fun <T> encode(serializer: KSerializer<T>, value: T): String = compact(json.encodeToJsonElement(serializer, value)).toString()
     fun <T> decode(serializer: KSerializer<T>, text: String): T = json.decodeFromJsonElement(serializer, expand(json.parseToJsonElement(text)))
 
-    /** [encode] as a JSON element, to go inside a larger message (web client step 4c: the engine boundary's boards). */
+    /** [encode] as a JSON element, to go inside a larger message (the engine boundary's boards). */
     fun <T> encodeElement(serializer: KSerializer<T>, value: T): JsonElement = compact(json.encodeToJsonElement(serializer, value))
     fun <T> decodeElement(serializer: KSerializer<T>, element: JsonElement): T = json.decodeFromJsonElement(serializer, expand(element))
 

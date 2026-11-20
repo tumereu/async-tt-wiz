@@ -14,7 +14,7 @@ import org.asyncttwiz.automatum.DamageDivision
 import org.asyncttwiz.automatum.SharedFlow
 
 /*
- * Web client step 4e (docs/specs/web-client.md §1 item 3): a board's shared flow (priority, resolution, triggers, the open
+ * A board's shared flow (priority, resolution, triggers, the open
  * decision of a resolution and its payments, combat's declarations and divisions; integration spec I-D11) as a session where
  * the device is (the browser's engine Web Worker; Android's in-process engine side), as casts are ([CastMessages]). The page
  * asks for the flow of the board it shows ([SharedOp.Show]: a new version of its session) and draws the shared panels from the

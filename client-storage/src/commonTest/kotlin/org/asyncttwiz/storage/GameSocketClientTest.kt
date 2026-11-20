@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.GameServerMessage
 import org.asyncttwiz.protocol.GameWire
 import org.asyncttwiz.protocol.ReadChat
 
-// The game socket's shared logic (web client step 3b) over a fake socket: what Android's OkHttp and the browser's
+// The game socket's shared logic over a fake socket: what Android's OkHttp and the browser's
 // WebSocket both run under.
 class GameSocketClientTest {
     private val token = "a".repeat(43)

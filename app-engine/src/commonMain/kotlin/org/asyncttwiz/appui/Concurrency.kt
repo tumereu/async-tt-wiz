@@ -2,9 +2,9 @@ package org.asyncttwiz.appui
 
 import kotlinx.coroutines.CoroutineScope
 
-// The JVM's threads, locks and atomics the app's controllers use, under the JVM's own names (docs/specs/web-client.md §1
-// item 2). Android: typealiases of the java.util.concurrent types and the very functions the code called before, so it
-// runs exactly as it did. The browser has one thread; its pieces come with the web client (§11 steps 3 and 4).
+// The JVM's threads, locks and atomics the app's controllers use, under the JVM's own names.
+// Android: typealiases of the java.util.concurrent types and the very functions the code called before, so it
+// runs exactly as it did. The browser has one thread; its pieces are the wasmJs side's.
 
 /** Work to run (Android: java.lang.Runnable). */
 expect fun interface Runnable {
@@ -85,7 +85,7 @@ expect class CountDownLatch(count: Int) {
 expect inline fun <R> synchronized(lock: Any, block: () -> R): R
 
 /** Runs [block] to its end on this thread, blocking it (Android: kotlinx.coroutines.runBlocking). The browser's one
- * thread can't block: code that runs there uses [executeSuspending] instead (web client step 3b). */
+ * thread can't block: code that runs there uses [executeSuspending] instead. */
 expect fun <T> runBlocking(block: suspend CoroutineScope.() -> T): T
 
 /**

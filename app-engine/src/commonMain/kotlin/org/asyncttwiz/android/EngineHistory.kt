@@ -388,7 +388,7 @@ object EngineEventText {
  */
 object EngineChanges {
     /** P/T of the battlefield's creatures by card id, as the table shows them: from [model]'s view (worked out once per
-     * state, engine-responsiveness R2). */
+     * state). */
     fun powerToughness(model: org.asyncttwiz.protocol.game.GameModel): Map<String, Pair<Int, Int>> {
         val state = model.engine
         val view = runCatching { model.view() }.getOrNull() ?: return emptyMap()

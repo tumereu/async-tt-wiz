@@ -33,7 +33,7 @@ import org.asyncttwiz.protocol.game.GameModel
 import org.asyncttwiz.protocol.game.TableState
 
 /*
- * Web client step 4c (docs/specs/web-client.md §1 item 3): a game's published boards ([EngineGame.Shown]) across the engine
+ * A game's published boards ([EngineGame.Shown]) across the engine
  * boundary, one JSON message each ([ShownWire]): [ShownEncoder] on the engine side (the browser's Web Worker, which holds
  * the device), [ShownDecoder] on the page, which keeps its own copy of each board's engine state ([BoardMirror], advanced
  * by events) so the table never needs the engine to draw. Both are made per game and see the same boards in the same
@@ -144,7 +144,7 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
         while (boards.size > KEEP) boards.remove(boards.keys.first())
     }
 
-    /** Web client step 4c part 3: [b], a board outside the published ones (timeline mode's, a preview's), with its engine
+    /** [b], a board outside the published ones (timeline mode's, a preview's), with its engine
      * state whole and the events and card data the page lacks; the page's mirror isn't moved by it. */
     fun loose(b: TableBoard): org.asyncttwiz.automatum.boundary.LooseBoard {
         val engine = b.engine
@@ -179,7 +179,7 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
  */
 class ShownDecoder(private val gameId: String, private val codec: EngineJson, private val engine: EngineWorker = EngineWorker.Direct,
     private val lines: org.asyncttwiz.automatum.boundary.BoardLines? = null,
-    /** Web client step 4d: the device in the worker the published boards' plays are asked of when they went out without
+    /** The device in the worker the published boards' plays are asked of when they went out without
      * them ([EngineBoardValues.askPlays]); null: the page works them out. */
     private val plays: DevicePlays? = null) {
     private val events = WireEventsIn(codec)
@@ -261,7 +261,7 @@ class ShownDecoder(private val gameId: String, private val codec: EngineJson, pr
         return TableBoard(game, playId, nodeId, board, defs, view, values, w.damageDealt).also { remember(number, it) }
     }
 
-    /** Web client step 4c part 3: a board outside the published ones ([ShownEncoder.loose]), its engine state its own. */
+    /** A board outside the published ones ([ShownEncoder.loose]), its engine state its own. */
     fun loose(loose: org.asyncttwiz.automatum.boundary.LooseBoard): TableBoard {
         events.add(loose.events)
         definitions.add(loose.definitions)

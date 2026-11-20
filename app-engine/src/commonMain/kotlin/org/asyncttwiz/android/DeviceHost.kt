@@ -15,7 +15,7 @@ import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.NamedCards
 
 /**
- * Web client step 4c part 3 (docs/specs/web-client.md §1 item 3): the engine side of the games' devices in the browser's
+ * The engine side of the games' devices in the browser's
  * engine Web Worker. Each game is an [EngineGame] on the worker's one thread ([HostWorker]: its work and its "main thread"
  * both inline, in order); each board it publishes goes to the page as a [DeviceAnswer.Published] ([ShownEncoder]), each
  * request's result as a [DeviceAnswer.Done], in the order they happen, so the page sees an own action's early board before
@@ -225,7 +225,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
             }
         }
 
-        /** Web client step 4d: the plays of the published board numbered [number], worked out here where it is (the page
+        /** The plays of the published board numbered [number], worked out here where it is (the page
          * got it before they were); none when it isn't kept any more. */
         private fun plays(number: Long): DeviceResult {
             val values = recent.values.lastOrNull { it.board.values?.number == number }?.board?.values
@@ -233,16 +233,16 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
             return DeviceResult.Plays(values.workedHandPlays(), values.cardPlays())
         }
 
-        /** Web client step 4e: the player's cast flow sessions, worked out here beside the device; each flow's changes written
+        /** The player's cast flow sessions, worked out here beside the device; each flow's changes written
          * with the game's codec for the page's copy of its board. */
         private val casts = CastSessions(open.me, encode = { changes ->
             game.codec.encodeElement(kotlinx.serialization.builtins.ListSerializer(arcanum.engine.change.Change.serializer()), changes)
         })
 
-        /** Web client step 4e: the player's shared-flow sessions, worked out here beside the device. */
+        /** The player's shared-flow sessions, worked out here beside the device. */
         private val shared = SharedSessions(open.me)
 
-        /** Web client step 4e: what the table shows of combat on the board numbered [number] (with [lanes] drawn on it when
+        /** What the table shows of combat on the board numbered [number] (with [lanes] drawn on it when
          * [drawn]: the blocks the attacker assumes, CMB-040); null when it isn't kept any more. */
         private fun combat(number: Long, lanes: org.asyncttwiz.protocol.CombatArea?, drawn: Boolean): DeviceResult {
             val board = boardNumbered(number)
@@ -252,7 +252,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
             return DeviceResult.Combat(shown)
         }
 
-        /** Web client step 4e (I-D36): the engine's reason for refusing a drafted declaration on the board numbered [r]'s board. */
+        /** I-D36: the engine's reason for refusing a drafted declaration on the board numbered [r]'s board. */
         private fun combatRefusal(r: DeviceRequest.CombatRefusal): DeviceResult {
             val board = boardNumbered(r.board) ?: return DeviceResult.Text(null)
             val engine = board.engine ?: return DeviceResult.Text(null)
@@ -265,7 +265,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
             return DeviceResult.Text(why)
         }
 
-        /** Web client step 4e (ZON-080): the cost chips of hand card [cardId] on the board numbered [number]. */
+        /** ZON-080: the cost chips of hand card [cardId] on the board numbered [number]. */
         private fun chips(number: Long, cardId: String): DeviceResult {
             val board = boardNumbered(number) ?: return DeviceResult.Chips(null, held = false)
             return DeviceResult.Chips(HandChips.of(board, game.me, cardId))
@@ -298,7 +298,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
     }
 }
 
-/** The worker's one thread as an engine game's worker (web client step 4c part 3): the engine work and its "main thread"
+/** The worker's one thread as an engine game's worker: the engine work and its "main thread"
  * both inline, in order; an own action is released at its performed point as on Android ([EngineWorker.early]). */
 object HostWorker : EngineWorker {
     override fun run(work: () -> Unit) = work()

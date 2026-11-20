@@ -74,7 +74,7 @@ object BrowserArtworkDecoder {
 }
 
 /**
- * The browser's card pictures (docs/specs/web-client.md §1 item 4), as [CardArtworkService] on Android: fetched by
+ * The browser's card pictures, as [CardArtworkService] on Android: fetched by
  * [BrowserArtworkRepository] (kept for good in the Cache API), decoded by Skia, through a Coil [loader] because the
  * shared screens draw pictures with one. No Coil network or decoding module is used: every byte passes through the
  * repository and [BrowserArtworkDecoder].

@@ -13,7 +13,7 @@ import org.asyncttwiz.protocol.MtgRef
 private class RefAmount(val ref: MtgRef, val amount: Int)
 
 /**
- * Web client step 4e (docs/specs/web-client.md §1 item 3): an amount for each object or player (a division's shares, lethal
+ * An amount for each object or player (a division's shares, lethal
  * damage) as it crosses the engine boundary: a list of entries in the map's order (JSON keys can't be objects).
  */
 object RefAmounts : KSerializer<Map<MtgRef, Int>> {

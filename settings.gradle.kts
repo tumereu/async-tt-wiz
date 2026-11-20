@@ -36,16 +36,16 @@ dependencyResolutionManagement {
 
 rootProject.name = "async-tt-wiz"
 include(":core", ":protocol", ":client-storage", ":androidApp", ":server")
-// The shared Compose UI (Compose Multiplatform: Android and the web client; docs/specs/web-client.md §1).
+// The shared Compose UI (Compose Multiplatform: Android and the web client).
 include(":app-engine")
 include(":app-ui")
-// The web client's page and its served build (docs/specs/web-client.md §1 item 1, §2.1).
+// The web client's page and its served build.
 include(":webApp")
-// The engine's Web Worker beside the page (docs/specs/web-client.md §1 item 3), served in webApp's build.
+// The engine's Web Worker beside the page, served in webApp's build.
 include(":webApp:engine")
 // Arcanum Automatum (docs/specs/arcanum-automatum.md): generic MTG rules libraries, not integrated into ATW yet.
 include(":arcanum-api", ":arcanum-parser", ":arcanum-engine", ":arcanum-tools")
-// ATW's mapping between its shared game state and the Arcanum engine (docs/specs/arcanum-atw-integration.md, I0).
+// ATW's mapping between its shared game state and the Arcanum engine (docs/arcanum-atw-decisions.md).
 include(":automatum")
 include(":catalog")
 // End-to-end tests (e2e/): the real server and PostgreSQL with two app instances; run with :e2e:test.

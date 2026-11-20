@@ -24,7 +24,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * What the table shows of a game played on engine state (R4b's replacements of the old model's board tests): the boards
+ * What the table shows of a game played on engine state (replacing the old model's board tests): the boards
  * Alice's and Bob's games publish ([EngineGame.play]) on the simulated server ([EngineTableKit]), their scenes and the
  * values the engine thread works out with them.
  */

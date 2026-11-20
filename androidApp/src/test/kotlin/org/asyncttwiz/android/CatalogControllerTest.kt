@@ -27,7 +27,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The app's card records from the server's card catalog (docs/specs/web-client.md sections 3.5, 3.6). */
+/** The app's card records from the server's card catalog (LOB-091, LOB-096). */
 class CatalogControllerTest {
     private fun catalog(version: String): Pair<ByteArray, String> {
         val faces = listOf(CatalogFaceRecord(0, "Test Bear", type = "Creature — Bear", manaCost = "{1}{G}", power = "2",

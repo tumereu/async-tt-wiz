@@ -19,7 +19,7 @@ import org.asyncttwiz.protocol.CardSearchRules
 import org.asyncttwiz.protocol.DefinitionFace
 
 /**
- * The card records in memory (the browser, docs/specs/web-client.md §1 item 4 and §3.5): a card catalog read whole from
+ * The card records in memory (the browser, LOB-091): a card catalog read whole from
  * its lines, with the lookups Android's card records index keeps on disk (CatalogRepository), answering the same reads the
  * same way: deck imports ([CatalogLookups]), card search, support marks, token and emblem pictures, avatar choices.
  * [generation] names it (the catalog's checksum). Built by [MemoryCardCatalogBuilder]; read on one thread.
@@ -31,7 +31,7 @@ class MemoryCardCatalog internal constructor(
     /** The printings kept, by id (those whose faces don't link up are left out, as Android's validation does). */
     private val printings: Map<String, CatalogPrintingRecord>,
     private val sets: Map<String, CatalogSetRecord>,
-    /** The printings of cards the catalog marks supported (section 3.8), kept or not, as Android marks them. */
+    /** The printings of cards the catalog marks supported (SYS-082), kept or not, as Android marks them. */
     private val supported: Set<String>,
 ) : CardCatalog, CatalogLookups {
     private val releaseDates: Map<String, String> = sets.mapValues { it.value.released }
@@ -301,7 +301,7 @@ class MemoryCardCatalogBuilder {
     /** Takes one line of the catalog (empty lines are skipped). */
     fun add(line: String) {
         if (line.isEmpty()) return
-        // The booster recipes are the server's (section 3.7): counted, not kept
+        // The booster recipes are the server's (DRF-169): counted, not kept
         if (line.startsWith(RECIPE_LINE)) { checkNotNull(header) { "No catalog header" }; recipes++; return }
         add(CardCatalogFormat.decode(line))
     }

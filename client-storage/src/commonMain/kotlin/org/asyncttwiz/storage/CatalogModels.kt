@@ -5,7 +5,7 @@ import org.asyncttwiz.protocol.CardSearchError
 
 /** A draft set of the card records (DRF-088): [keyrune] its Keyrune set symbol (MTGJSON's keyruneCode, empty without
  * one), [automatum] whether Automatum can play every card its packs can hold, and
- * the names of those it can't ([unsupported], DRF-161), as the card catalog marks them (section 3.8). */
+ * the names of those it can't ([unsupported], DRF-161), as the card catalog marks them (SYS-082). */
 data class DraftableSet(val code: String, val name: String, val releaseDate: String, val cardCount: Long,
     val automatum: Boolean = false, val unsupported: List<String> = emptyList(), val keyrune: String = "")
 
@@ -17,7 +17,7 @@ enum class CatalogPhase { DOWNLOADING, INDEXING, FINISHING }
 /** Downloading and indexing count the compressed file's bytes; finishing counts printings (its card search goes through
  * every one). */
 data class CatalogProgress(val phase: CatalogPhase, val done: Long, val total: Long?) {
-    /** How much of the whole installation is done, 0 to 99 ("Card records updating · 43%", section 3.6): the download is
+    /** How much of the whole installation is done, 0 to 99 ("Card records updating · 43%", LOB-096): the download is
      * the first [DOWNLOAD_SHARE] percent, indexing up to [FINISHING_FROM], finishing (the card search) the rest to 99. */
     val percent: Int get() {
         val fraction = total?.takeIf { it > 0 }?.let { (done.toDouble() / it).coerceIn(0.0, 1.0) } ?: 0.0

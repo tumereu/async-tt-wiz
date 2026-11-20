@@ -34,7 +34,7 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
     private val local = services.accountLocalData().also { local ->
         AutomatumBoards.definitionSource = local::cardDefinitions
     }
-    /** LOB-115: which cards of a deck or cube Automatum can't play yet, from the card catalog's marks (section 3.8). */
+    /** LOB-115: which cards of a deck or cube Automatum can't play yet, from the card catalog's marks (SYS-082). */
     val cardListSupport = CardListSupportCheck(local::cardDefinitions, catalog.repository::unsupported)
     /** Section 3.9: the warning sign on cards Automatum can't play yet. */
     val cardMarks = CardMarks(catalog.repository::unsupportedPictures)

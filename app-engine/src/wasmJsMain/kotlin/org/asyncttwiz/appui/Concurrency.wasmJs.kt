@@ -10,9 +10,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.asyncttwiz.storage.SerialTasks
 
-// The browser runs the page on one thread (web client step 3b): the atomics and maps are plain values, locks run their
+// The browser runs the page on one thread: the atomics and maps are plain values, locks run their
 // block, and executors are queues of coroutines on the page's event loop ([PageExecutor]); nothing blocks. The engine's
-// own thread becomes a Web Worker in step 4.
+// own thread is a Web Worker.
 
 actual fun interface Runnable {
     actual fun run()
@@ -84,7 +84,7 @@ actual class CountDownLatch actual constructor(count: Int) {
 @Suppress("NOTHING_TO_INLINE")
 actual inline fun <R> synchronized(lock: Any, block: () -> R): R = block()
 
-/** The browser's one thread can't block: code that runs there uses [executeSuspending] (web client step 3b). */
+/** The browser's one thread can't block: code that runs there uses [executeSuspending]. */
 actual fun <T> runBlocking(block: suspend CoroutineScope.() -> T): T =
     throw UnsupportedOperationException("The browser can't block its thread: use executeSuspending")
 
@@ -92,7 +92,7 @@ actual fun <T> runBlocking(block: suspend CoroutineScope.() -> T): T =
 val pageScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default +
     CoroutineExceptionHandler { _, failure -> uncaught("coroutine", failure) })
 
-/** What the page does with a failure nothing caught (the crash reports install it: web client step 3b). */
+/** What the page does with a failure nothing caught (the crash reports install it). */
 var uncaughtFailureHandler: (where: String, failure: Throwable) -> Unit = { where, failure ->
     println("Uncaught failure in $where: ${failure.stackTraceToString()}")
 }

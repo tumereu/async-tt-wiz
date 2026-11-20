@@ -9,7 +9,7 @@ import org.asyncttwiz.protocol.game.OutsideCards
  * LOB-117 (I-D52): the dungeons of a card catalog that Automatum plays fully (none with a room left to the players), each
  * once by name, as card data of their own ([OutsideCards.dungeon]): what the server brings outside the game with the Ready
  * of a player whose deck ventures into the dungeon or takes the initiative (CR 309.2), and what the catalog build counts as
- * provided when it marks a venturing card (section 3.8).
+ * provided when it marks a venturing card (SYS-082).
  */
 object CatalogDungeons {
     /** The dungeons, sorted by name, at most [OutsideCards.MAX]; of a dungeon's printings one with a picture first. */

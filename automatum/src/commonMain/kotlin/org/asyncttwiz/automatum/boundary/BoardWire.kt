@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
 
 /*
- * Web client step 4c: the parts of the boards the engine side publishes ([org.asyncttwiz.android.EngineGame.Shown]) as the
+ * The parts of the boards the engine side publishes ([org.asyncttwiz.android.EngineGame.Shown]) as the
  * page receives them, each sent once and referred to after: events by id ([WireEventsOut], [WireEventsIn]), card data by
  * digest ([WireDefinitionsOut], [WireDefinitionsIn]), a board's cards as the ones of the board sent before it that stayed
  * ([BoardStateWire]), lists as what changed from the same list sent before ([ListDelta]); and the device's values

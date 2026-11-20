@@ -19,7 +19,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * Engine-responsiveness R3: the board is built once, on the engine thread. An own action's early board is published again
+ * The board is built once, on the engine thread. An own action's early board is published again
  * with its whole outcome when nothing followed it (only the status fields new); a tick at an unchanged point builds and
  * searches nothing; every board published comes with its computed card values, equal to what [ComputedBoard] works out
  * for it, and the boards published after an action with the player's hand plays, equal to [HandPlays]; the card menus'
@@ -67,7 +67,7 @@ class EngineBoardOnceTest {
         return Triple(layers, game.boardsBuilt - boards, game.read { it.pointsWorkedOut } - points)
     }
 
-    // R3 item 1 (SYS-025): a land played at Alice's main phase is shown at once (its early board); nothing follows it by
+    // SYS-025: a land played at Alice's main phase is shown at once (its early board); nothing follows it by
     // itself, so the board published with its whole outcome is that board again, with only its node and status new
     @Test fun anEarlyBoardIsPublishedAgainWhenNothingFollowedIt() {
         val game = game()
@@ -83,7 +83,7 @@ class EngineBoardOnceTest {
         assertNotNull(whole.values?.handPlays, "the hand plays come with the board after the early one")
     }
 
-    // R3 item 2: ticks at an unchanged point (Alice's own main phase) build no board and search nothing
+    // Ticks at an unchanged point (Alice's own main phase) build no board and search nothing
     @Test fun aTickAtAnUnchangedPointBuildsAndSearchesNothing() {
         val game = game()
         game.tick(3_000)
@@ -92,7 +92,7 @@ class EngineBoardOnceTest {
         assertTrue(shown.isEmpty())
     }
 
-    // R3 item 3: every board published (early boards, whole outcomes, the motion steps in between) comes with its computed
+    // Every board published (early boards, whole outcomes, the motion steps in between) comes with its computed
     // values, equal to what ComputedBoard works out for it; the boards after an action with the hand plays, equal to
     // HandPlays'; the card menus' plays equal to CardPlays', worked out once per board; the table reads them, working
     // nothing out itself
@@ -126,9 +126,9 @@ class EngineBoardOnceTest {
         assertTrue(shown.any { it.values?.handPlays?.byCard?.isNotEmpty() == true }, "some board had something to cast")
     }
 
-    // R3 (measured, printed): one own action's boards built and layer computations, all on the engine thread now, next to
-    // what was built before R3 (every board published projected anew) and what the table's second thread worked out of
-    // the published boards before R3 (ComputedBoard and HandPlays rebuilt from each board)
+    // Measured, printed: one own action's boards built and layer computations, all on the engine thread now, next to
+    // what was built before (every board published projected anew) and what the table's second thread worked out of
+    // the published boards before (ComputedBoard and HandPlays rebuilt from each board)
     @Test fun anOwnActionsWorkIsCounted() {
         for ((what, action) in listOf<Pair<String, (EngineGame) -> Unit>>(
             "land" to { g -> g.act(option(g) { it is Input.PlayLand }) },
@@ -152,7 +152,7 @@ class EngineBoardOnceTest {
         }
     }
 
-    /** The engine state [play] shows (the render model's, engine-responsiveness R4a). */
+    /** The engine state [play] shows (the render model's). */
     private fun stateOf(play: TableBoard) = assertNotNull(play.engine).state
 
     /** What ComputedBoard works out for [play] from its own state, as the table would. */

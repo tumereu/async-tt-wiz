@@ -1,6 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// The shared Compose UI (docs/specs/web-client.md §1 and §11 step 2): the app's screens move here from :androidApp, into
+// The shared Compose UI: the app's screens move here from :androidApp, into
 // commonMain, so they build for Android and for the browser (Kotlin/Wasm). Compose Multiplatform's Android artifacts
 // only point at androidx Compose, and :androidApp's compose-bom keeps those at the versions the app has always used.
 plugins {
@@ -39,10 +39,10 @@ kotlin {
             implementation(libs.cmp.foundation)
             implementation(libs.cmp.ui)
             implementation(libs.cmp.material3)
-            // Platform seams (docs/specs/web-client.md §1 item 2): the HTTP client and Coil's image type.
+            // Platform seams: the HTTP client and Coil's image type.
             implementation(libs.ktor.client.core)
             implementation(libs.coil.core)
-            // The app's UI (step 2c-2). Each resolves on Android to what the app already runs with: JetBrains' icons and
+            // The app's UI. Each resolves on Android to what the app already runs with: JetBrains' icons and
             // lifecycle point at androidx's (compose-bom's), Coil Compose and the rest are multiplatform themselves.
             implementation(project(":client-storage"))
             implementation(libs.cmp.material.icons)
@@ -65,12 +65,12 @@ kotlin {
             implementation(libs.compose.material.icons)
             implementation(libs.okhttp)
         }
-        // The browser's sides of the storage, card records and pictures (web client step 3a): IndexedDB, fetch, the Cache
+        // The browser's sides of the storage, card records and pictures: IndexedDB, fetch, the Cache
         // API and DecompressionStream, through the browser API declarations Compose already brings (same version).
         wasmJsMain.dependencies {
             implementation(libs.kotlinx.browser)
             implementation(libs.coroutines.core)
-            // The web shell's Back (step 3): Esc and the close watcher go through Compose's own Back handling.
+            // The web shell's Back: Esc and the close watcher go through Compose's own Back handling.
             implementation(libs.cmp.ui.backhandler)
             implementation(libs.navigationevent)
             implementation(libs.navigationevent.compose)

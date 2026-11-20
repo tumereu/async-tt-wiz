@@ -28,7 +28,7 @@ import org.asyncttwiz.appui.screenHeightDp
 import org.asyncttwiz.appui.screenWidthDp
 
 /**
- * WEB-013 (docs/specs/web-client.md §4): the two layouts the app draws in. [Phone] is the Android app as it is (portrait or
+ * WEB-013: the two layouts the app draws in. [Phone] is the Android app as it is (portrait or
  * landscape by the window's shape); [Desktop] arranges the same parts for a large window, a mouse and a keyboard (the desktop
  * table, WEB-015 to WEB-020). Android always draws the phone layout.
  */

@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 
 /*
- * Web client step 4c (docs/specs/web-client.md §1 item 3): what the engine side publishes after each change of a game
+ * What the engine side publishes after each change of a game
  * (the app's `EngineGame.Shown`: the board the table draws and what its panels read of the device) as the page receives
  * it, one JSON message per published board ([ShownWire.encode]). Everything the page already holds is referred to, not
  * sent again: events by id, card data by digest, a board's cards and lists by what changed, a board's engine state by

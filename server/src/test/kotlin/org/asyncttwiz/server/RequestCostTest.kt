@@ -183,7 +183,7 @@ class RequestCostTest {
                     // subscribe 61, head refresh 24, game head 18, pod 25, games 19, pods 20, decks 18, activity 27,
                     // each counting the ownership-session probes that every transaction then made. Engine plays (I-D56 step D2)
                     // read the engine snapshot with every head: subscribe 31 -> 43 (three heads), head refresh 10 -> 14.
-                    // R6 (engine responsiveness): a head reads the engine play's row, head and seats in one statement (4 -> 1)
+                    // A head reads the engine play's row, head and seats in one statement (4 -> 1)
                     // and the play, chat sync point and own pod deck name in another (3 -> 1): subscribe 43 -> 28, head
                     // refresh 14 -> 9.
                     val expected = mapOf("game action: admit" to 10, "game action: execute" to 18, "game action: publish" to 18,

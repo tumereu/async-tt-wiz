@@ -27,7 +27,7 @@ import kotlinx.serialization.EncodeDefault
     @EncodeDefault(EncodeDefault.Mode.NEVER) val libraryInsertion: MoveInsertion? = null)
 
 /**
- * What the table's own controls make of a player's gesture on a game on engine state (engine-responsiveness R4a): a card
+ * What the table's own controls make of a player's gesture on a game on engine state: a card
  * moved within its own Battlefield (its place), the combat staging, a Stack entry dropped or removed, "Inspect other side",
  * passing the move, and the records beside the board (early answers). The device works them out on the board shown and
  * shares what it takes as table changes; the rest is refused (nothing changes the game by hand, I-D52).

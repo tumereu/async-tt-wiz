@@ -102,7 +102,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val applied = remember(game.id, playId) { AppliedMarks() }
     // Timeline mode (HIS-004, HIS-012): the board at the review cursor, view-only
     val reviewId = routes.review
-    // Web client step 4c: the board arrives through a callback (on Android at once, in the same composition)
+    // The board arrives through a callback (on Android at once, in the same composition)
     val reviewAnswer = remember(reviewId, engine.version) {
         AnsweredValue<TableBoard?>().also { answer -> if (reviewId == null) answer.set(null) else engine.reviewPlay(reviewId, answer::set) }
     }
@@ -630,7 +630,7 @@ private fun engineEnding(routes: EngineTableRoutes, intent: TableActionIntent.En
     val me = PlayerId(routes.viewer)
     val loss = game.shown?.opponent?.let { GameResult.Won(it) }
     if (intent.tool == EndingTool.SUGGEST_LOSS && loss == null) return false
-    // Web client step 4d: the callback forms (the device may be in the browser's worker; Android answers at once)
+    // The callback forms (the device may be in the browser's worker; Android answers at once)
     return routes.ending(intent.tool.name) { done ->
         when (intent.tool) {
             EndingTool.SUGGEST_WIN -> game.suggest(GameResult.Won(me), intent.note, done)

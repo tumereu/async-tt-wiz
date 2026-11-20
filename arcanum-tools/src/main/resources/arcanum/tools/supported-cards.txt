@@ -1,7 +1,7 @@
 # Cards the Arcanum parser and engine support one by one, beyond the sets in supported-sets.txt ("support moves set by set").
 # One card name per line: a card's whole name, or its front face's for a card of several faces. A card listed here or
 # printed in a supported set is supported once Automatum finds nothing in it left to the players (the card catalog's
-# support marks, docs/specs/web-client.md section 3.8).
+# support marks, SYS-082).
 # Caleb Gannon's Powered Synergy Cube (owner, 2026-11-09): its cards that are in no supported set.
 Abrade
 Accursed Marauder

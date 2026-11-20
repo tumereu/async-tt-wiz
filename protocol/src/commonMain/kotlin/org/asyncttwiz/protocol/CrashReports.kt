@@ -13,7 +13,7 @@ data class CrashReport(val reportedAt: String, val appVersion: String, val devic
 }
 
 /** Milliseconds are monotonic elapsed times, not wall-clock/network latency estimates. [parts]: an own action's time split
- * into its parts (SYS-030, engine-responsiveness R1), in milliseconds by the labels of its log line (`waitMs`, `engineMs`,
+ * into its parts (SYS-030), in milliseconds by the labels of its log line (`waitMs`, `engineMs`,
  * …); a part that never arrived is left out. At most [MAX_PARTS]. */
 @Serializable
 data class ActionLatency(val reportedAt: String, val gameId: String, val actionType: String,

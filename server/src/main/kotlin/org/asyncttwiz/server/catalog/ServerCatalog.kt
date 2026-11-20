@@ -20,17 +20,17 @@ import org.asyncttwiz.protocol.PhysicalCardFaces
 import org.asyncttwiz.protocol.SubmittedDefinition
 
 /**
- * The card catalog the server serves and builds set packs from (docs/specs/web-client.md section 3), built at release
+ * The card catalog the server serves and builds set packs from (SYS-081), built at release
  * and deployed beside the server: a directory (`CATALOG_DIR`, or the `atw.catalogDir` system property in tests) holding
  * `<checksum>.jsonl.gz` files and `current`, the checksum of the one in use; the one before it stays for a rollback.
  */
 class ServerCatalog(val directory: File, val catalog: CardCatalog, val version: CatalogVersion) {
     private val sources = ConcurrentHashMap<String, Result<CatalogSetSource?>>()
 
-    /** A set a pod may be made from (section 3.8), or null: one the Sets tab lists (DRF-088) and the catalog has. */
+    /** A set a pod may be made from (SYS-082), or null: one the Sets tab lists (DRF-088) and the catalog has. */
     fun draftSet(code: String): CatalogSetRecord? = catalog.set[code]?.takeIf { it.draftable }
 
-    /** Set [code]'s source from the catalog (section 3.7), worked out once; null when it has no usable cards. */
+    /** Set [code]'s source from the catalog (DRF-169), worked out once; null when it has no usable cards. */
     fun source(code: String): CatalogSetSource? =
         sources.computeIfAbsent(code) { runCatching { CatalogSetSources.build(catalog, code) } }.getOrThrow()
 

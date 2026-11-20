@@ -17,7 +17,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * What the table does with taps, double-taps and drags on a game played on engine state (R4b's replacements of the old
+ * What the table does with taps, double-taps and drags on a game played on engine state (replacing the old
  * model's table tests): Alice's table on the simulated server ([EngineTableKit]), every gesture made on her scene and
  * handled by her toolkit as the table screen wires it.
  */

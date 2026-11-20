@@ -38,7 +38,7 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
 /**
  * A game on engine state shown with ATW's table (I-D54 item 2, I-D56 step C): the board the table draws, made from the
  * engine's state ([Engine.view], [Host.visible]) and the table state, as one player sees it ([Board]: the plain data the
- * table draws, engine-responsiveness R4a; the engine state stays beside it, never on it, and nothing is ever applied to
+ * table draws; the engine state stays beside it, never on it, and nothing is ever applied to
  * it).
  *
  * - Cards keep the game's card ids (the engine plays the prepared cards by their ids) and their card data; a token
@@ -71,7 +71,7 @@ object EngineProjection {
         val state = model.engine
         val table = model.table
         val me = PlayerId(viewer)
-        // The model's view and visible set (worked out once per state, engine-responsiveness R2)
+        // The model's view and visible set (worked out once per state)
         val visible = model.visible(me)
         val view = runCatching { model.view() }.getOrNull()
         val board0 = base.board

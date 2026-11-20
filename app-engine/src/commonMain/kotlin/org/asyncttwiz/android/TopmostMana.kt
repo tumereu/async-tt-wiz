@@ -6,7 +6,7 @@ import arcanum.engine.state.ObjectId
 /**
  * TBL-130 (owner playtest 2026-11-07): the engine's mana suggestion (Autotap, STK-024) picks among identical sources by its
  * own order; this swaps each pick for the topmost member of its stack that can make the same use. Worked out where the
- * engine is (web client step 4e: the browser's engine worker), from the stacks of identical battlefield cards as the table
+ * engine is (the browser's engine worker), from the stacks of identical battlefield cards as the table
  * lays them out ([stacks]: each stack's members, topmost last).
  */
 object TopmostMana {

@@ -83,9 +83,9 @@ fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, sce
 /** An ability's printed text split into what it does and its cost ("{2}{G}, {T}: Draw a card." → "Draw a card", "{2}{G},
  * {T}"); text without a cost (a special action's) is all effect. A chip shows the cost first ([AbilityChipText]). */
 /**
- * WEB-027 (owner, §5): on the desktop table the battlefield card the mouse hovers ([TableToolkitController.hoveredAbilities])
+ * WEB-106 (owner): on the desktop table the battlefield card the mouse hovers ([TableToolkitController.hoveredAbilities])
  * shows its chips faded where a tap would open them (TBL-124), when one of its abilities is usable now; a card with one usable
- * ability shows that one chip too, so hover tells what a click does (§12 item 6). The chip the mouse is on turns solid; a
+ * ability shows that one chip too, so hover tells what a click does (WEB-106). The chip the mouse is on turns solid; a
  * click on it activates that ability at once, a click on the card does what a tap does. Only in the desktop layout.
  */
 @OptIn(ExperimentalLayoutApi::class)

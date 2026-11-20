@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.font.Font
 
 /**
- * The platform services the shared UI reads through one object (docs/specs/web-client.md §1 item 2): device settings,
+ * The platform services the shared UI reads through one object: device settings,
  * files bundled with the app, its pictures, and what dialogs need from the platform's window. The app's shell installs
  * one at start ([install]; Android: the Application, before anything else runs), and the UI reads [current].
  */

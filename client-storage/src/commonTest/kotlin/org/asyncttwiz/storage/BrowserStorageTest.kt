@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-// The browser's personal storage over an in-memory store (web client step 3a; IndexedDB itself is app-ui's thin wasm side).
+// The browser's personal storage over an in-memory store (IndexedDB itself is app-ui's thin wasm side).
 class BrowserStorageTest {
     @Test
     fun mirroredStoreReadsAtOnceAndWritesInOrder() = runTest {
@@ -91,7 +91,7 @@ class BrowserStorageTest {
         assertNull(account.activate("alice", "shell-destination"))
     }
 
-    // LOB-007, docs/specs/web-client.md §9.5: a logout clears the account's data from the browser, even when the page
+    // LOB-007: a logout clears the account's data from the browser, even when the page
     // closes midway
     @Test
     fun aLogoutBegunIsFinishedOnTheNextStart() = runTest {

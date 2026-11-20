@@ -10,7 +10,7 @@ import java.nio.file.Paths
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * A player in a real browser (docs/specs/web-client.md §10): the installed Chrome, headless through Playwright, on the
+ * A player in a real browser: the installed Chrome, headless through Playwright, on the
  * web build the server serves beside its API ([E2eStack.origin], WEB_APP_DIR), in a phone-sized window. Controls are found
  * by the screens' semantics, which the page mirrors into its document (test tags are element ids, labels and texts are
  * the elements'), and tapped on the page's canvas where they are, as a player's finger would. [width] × [height] is the

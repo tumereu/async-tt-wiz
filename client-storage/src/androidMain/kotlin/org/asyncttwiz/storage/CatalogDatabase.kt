@@ -12,7 +12,7 @@ import java.util.UUID
 import java.util.logging.Logger
 
 // The card records' format, kept as the file's user_version. Card records are always the app's built-in card catalog
-// (docs/specs/web-client.md section 3.5): a new app with a new format comes with a new catalog checksum, so the records
+// (LOB-091): a new app with a new format comes with a new catalog checksum, so the records
 // are downloaded and indexed again anyway.
 internal const val CATALOG_INDEX_VERSION = 7
 // CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
@@ -43,11 +43,11 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
     /** Worker-only: the draft sets (DRF-088) with their support marks, newest first. */
     override fun draftableSets(): List<DraftableSet> = snapshot { it?.draftableSets().orEmpty() }
 
-    /** Worker-only (LOB-115): which of [printingIds] the card catalog doesn't mark as supported (section 3.8); null
+    /** Worker-only (LOB-115): which of [printingIds] the card catalog doesn't mark as supported (SYS-082); null
      * without card records. A printing the records don't have is unsupported. */
     override fun unsupported(printingIds: Collection<String>): Set<String>? = snapshot { it?.unsupported(printingIds) }
 
-    /** Worker-only (section 3.9): which of the pictures [scryfallIds] are of no printing the card catalog marks as
+    /** Worker-only (LOB-144): which of the pictures [scryfallIds] are of no printing the card catalog marks as
      * supported; null without card records. */
     override fun unsupportedPictures(scryfallIds: Collection<String>): Set<String>? = snapshot { it?.unsupportedPictures(scryfallIds) }
 
@@ -196,7 +196,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', " +
             "type TEXT NOT NULL DEFAULT '', draftable INTEGER NOT NULL DEFAULT 0, automatum INTEGER NOT NULL DEFAULT 0, " +
             "unsupported TEXT NOT NULL DEFAULT '[]', keyrune TEXT NOT NULL DEFAULT '')")
-        // The printings of the cards the card catalog marks as supported (section 3.8)
+        // The printings of the cards the card catalog marks as supported (SYS-082)
         sql("CREATE TABLE automatum_printing (id TEXT NOT NULL PRIMARY KEY) WITHOUT ROWID")
         createImportNames()
         createTokenRelations()
@@ -232,13 +232,13 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     override fun setKeyrune(code: String, keyrune: String) = sql("UPDATE catalog_set SET keyrune=? WHERE code=?", listOf(keyrune, code))
 
-    /** Set [code]'s marks (section 3.8): a kind of set that is drafted ([draftable], DRF-088), whether Automatum can play
+    /** Set [code]'s marks (SYS-082): a kind of set that is drafted ([draftable], DRF-088), whether Automatum can play
      * every card its packs can hold, and the names of those it can't. */
     internal fun markSet(code: String, draftable: Boolean, automatum: Boolean, unsupported: List<String>) =
         sql("UPDATE catalog_set SET draftable=?, automatum=?, unsupported=? WHERE code=?", listOf(if (draftable) "1" else "0",
             if (automatum) "1" else "0", DeckJson.format.encodeToString(unsupported), code))
 
-    /** Marks [printingIds] as printings of cards Automatum supports (section 3.8). */
+    /** Marks [printingIds] as printings of cards Automatum supports (SYS-082). */
     internal fun markSupported(printingIds: Collection<String>) = times.time("supported marks") {
         insertRows("INSERT OR IGNORE INTO automatum_printing", printingIds.map { listOf(it) })
     }

@@ -23,7 +23,7 @@ object AppLog {
     fun error(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.ERROR, tag, message, failure)
     fun text(): String = buffer.text()
 
-    /** Web client step 4c part 3: in the engine's Web Worker, every line also goes to the page's app log (priority, tag and
+    /** In the engine's Web Worker, every line also goes to the page's app log (priority, tag and
      * the message with its failure's summary), so problem reports carry the worker's lines; null elsewhere. */
     @Volatile var forward: ((priority: Int, tag: String, message: String) -> Unit)? = null
 

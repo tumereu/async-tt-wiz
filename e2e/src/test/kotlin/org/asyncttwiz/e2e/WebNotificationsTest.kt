@@ -6,7 +6,7 @@ import kotlin.test.assertTrue
 import org.junit.Test
 
 /**
- * The web client's notifications, install and tab title in a real browser (docs/specs/web-client.md §9.1, §9.2, step 7):
+ * The web client's notifications, install and tab title in a real browser (WEB-054, WEB-050):
  * the manifest and its icon load, the service worker registers, the tab's title counts the games waiting for Alice, and
  * Browser notifications turns on from the Games list's hint (the browser allowing it), registers this browser with the
  * server, changes a kind and turns off in Settings. Headless Chrome has no push service, so the browser's subscription is

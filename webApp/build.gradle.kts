@@ -6,8 +6,8 @@ import javax.inject.Inject
 import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
 
-// The web client's page (docs/specs/web-client.md §1 item 1, §11 step 3): the browser entry point, index.html with the
-// first load's loading screen, and the build the server serves (§2.1). The app itself is :app-ui's.
+// The web client's page: the browser entry point, index.html with the
+// first load's loading screen, and the build the server serves. The app itself is :app-ui's.
 //   ./scripts/gradle.sh :webApp:webDist     the served build in build/web (index.html, build, <build id>/..., and at the
 //                                           top sw.js, manifest.webmanifest and icons/)
 // The server serves it from WEB_APP_DIR (set to that folder); without one it serves no web app.
@@ -22,7 +22,7 @@ val releaseMetadata = JsonSlurper().parseText(providers.fileContents(
 val allocatedVersion = (releaseMetadata["allocations"] as List<*>).last() as Map<*, *>
 val gitCommit = providers.exec { commandLine("git", "rev-parse", "--short=12", "HEAD"); isIgnoreExitValue = true }
     .standardOutput.asText.map { it.trim().takeIf { value -> value.matches(Regex("[0-9a-f]{7,40}")) } ?: "unknown" }.get()
-// A release build (step 8) turns the test build's allowances off: problem diagnostics and Switch account (LOB-009).
+// A release build turns the test build's allowances off: problem diagnostics and Switch account (LOB-009).
 val webRelease = providers.gradleProperty("atwWebRelease").orElse("false").get().toBooleanStrict()
 val catalogChecksum = providers.gradleProperty("atwCatalogChecksum").orElse("").get()
 require(catalogChecksum.isEmpty() || Regex("[0-9a-f]{64}").matches(catalogChecksum)) { "atwCatalogChecksum must be a SHA-256" }
@@ -135,7 +135,7 @@ val webOptimizedCompileCheck = tasks.register<WasmOptimizedCompileCheck>("webOpt
     result.set(layout.buildDirectory.file("webOptimizedCompileCheck.txt"))
 }
 
-// The served build (§2.1): the production distribution's files under a folder named by their content's hash, so they are
+// The served build: the production distribution's files under a folder named by their content's hash, so they are
 // cached for good, beside index.html (pointing at that folder, never cached) and `build` (the hash: open tabs compare it
 // with their own, WEB-006).
 val webDist = tasks.register("webDist") {
@@ -143,7 +143,7 @@ val webDist = tasks.register("webDist") {
     description = "The web client as the server serves it (WEB_APP_DIR)."
     val distribution = tasks.named("wasmJsBrowserDistribution")
     dependsOn(distribution)
-    // The engine's Web Worker (engine.js and its wasm), beside the app's files (docs/specs/web-client.md §1 item 3)
+    // The engine's Web Worker (engine.js and its wasm), beside the app's files
     dependsOn(":webApp:engine:wasmJsBrowserDistribution")
     // WEB-056: never a build Chrome would end "out of memory"
     dependsOn(webOptimizedCompileCheck)

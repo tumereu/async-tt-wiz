@@ -356,7 +356,7 @@ case "$status" in
     fi ;;
 *) die "Production's card catalog check returned HTTP $status; release refused." ;;
 esac
-# The card catalog (docs/specs/web-client.md section 3.4): the pinned MTGJSON file verified (a different file stops the
+# The card catalog (SYS-081): the pinned MTGJSON file verified (a different file stops the
 # release here, before anything is published) and the catalog built from it with the code the server and clients read
 # it with. Its checksum is built into the app; the catalog is deployed with the server (the playbook's atw_catalog_artifact).
 artifact=$STATE/releases/$commit
@@ -369,7 +369,7 @@ if [[ -n $old_catalog_file ]]; then
     "$worktree/scripts/catalog-pin.sh" compare-support "$old_catalog_file" "$artifact/catalog" "$allow_dropped" ||
         die "Release refused: it would drop Automatum support for the cards listed above (or the comparison failed; see above). We don't plan to drop support for cards. To release anyway, re-run with ATW_ALLOW_DROPPED_SUPPORT=<the number of cards listed>."
 fi
-# The web client (docs/specs/web-client.md section 2.1), built from the same commit and served by the server on the
+# The web client (WEB-001), built from the same commit and served by the server on the
 # same origin; the playbook installs it beside the server (atw_web_artifact).
 "$worktree/scripts/gradle.sh" :webApp:webDist
 rm -rf -- "$artifact/web"

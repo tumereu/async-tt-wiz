@@ -6,8 +6,8 @@ import org.asyncttwiz.protocol.DeckValidation
 import org.asyncttwiz.protocol.DefinitionFace
 
 /**
- * The card catalog on this device as the app reads it (Android: [CatalogRepository], over the installed card records;
- * docs/specs/web-client.md §1 item 2). Every read blocks: call on a worker, never the UI thread.
+ * The card catalog on this device as the app reads it (Android: [CatalogRepository], over the installed card records).
+ * Every read blocks: call on a worker, never the UI thread.
  */
 interface CardCatalog {
     /** The installed card records' metadata, null without card records. */

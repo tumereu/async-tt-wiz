@@ -14,7 +14,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertTrue
 
 /**
- * TBL-200, TBL-201 (owner 2026-11-19, playtest N8): a card's rules reminders in Inspect: chips under the card naming the
+ * TBL-209, TBL-210 (owner 2026-11-19, playtest N8): a card's rules reminders in Inspect: chips under the card naming the
  * keywords and token kinds its text doesn't explain; in a game they explain themselves on a tap or hold once pinned, outside
  * a game (draft, decks) each shows its explanation under it.
  */
@@ -35,7 +35,7 @@ class RulesRemindersUiTest {
     private fun explanation() = compose.onAllNodes(hasContentDescription("Rule explanation"), useUnmergedTree = true)
     private val ward = RulesGlossary.lookup("Ward")!!.text
 
-    // TBL-200, TBL-201: in a game the chips sit under the card alone; pinned, a tap on one shows its explanation in the dark
+    // TBL-209, TBL-210: in a game the chips sit under the card alone; pinned, a tap on one shows its explanation in the dark
     // rule popup, and a tap again closes it
     @Test fun inAGameAChipExplainsItselfOnceInspectIsPinned() {
         val swipe = InspectSwipe()
@@ -61,7 +61,7 @@ class RulesRemindersUiTest {
         compose.onNodeWithText(ward, useUnmergedTree = true).assertDoesNotExist()
     }
 
-    // TBL-200, TBL-201, DRF-063: held outside a game (a draft pick, Build, decks), where a release closes it, each chip shows its
+    // TBL-209, TBL-210, DRF-063: held outside a game (a draft pick, Build, decks), where a release closes it, each chip shows its
     // explanation under it
     @Test fun outsideAGameEachChipShowsItsExplanation() {
         compose.setContent { MaterialTheme { NoRipples { PodCardArtPreview(card, card.definition.name) } } }
@@ -76,7 +76,7 @@ class RulesRemindersUiTest {
             "under it, since a release closes this Inspect and nothing could tap them.")
     }
 
-    // TBL-200: a card whose text explains its words with reminder text shows no chips
+    // TBL-209: a card whose text explains its words with reminder text shows no chips
     @Test fun aCardExplainingItselfShowsNoChips() {
         val explained = card.copy(definition = card.definition.copy(faces = card.definition.faces.mapIndexed { index, face ->
             if (index == 0) face.copy(rulesText = "Ward {2} (Whenever this creature becomes the target of a spell an opponent " +

@@ -34,7 +34,7 @@ import arcanum.api.RulesGlossary
 import org.asyncttwiz.protocol.CardDefinition
 
 /**
- * TBL-200 (owner 2026-11-19, playtest N8): a card's rules reminders: each keyword ability, keyword action, other rules word,
+ * TBL-209 (owner 2026-11-19, playtest N8): a card's rules reminders: each keyword ability, keyword action, other rules word,
  * token kind (Treasure, Food, Monster Role, ...) and card state its printed text names but doesn't explain with reminder
  * text, from Automatum's own glossary ([RulesGlossary.reminders]); its names (Oracle and printed, each face and part) never
  * count.
@@ -46,11 +46,11 @@ fun cardReminders(definition: CardDefinition): List<RulesGlossary.Entry> {
     return RulesGlossary.reminders(texts.distinct().joinToString("\n"), names.distinct())
 }
 
-/** The test tag of one rules reminder chip (TBL-200). */
+/** The test tag of one rules reminder chip (TBL-209). */
 const val RULES_REMINDER_TAG = "rules-reminder"
 
 /**
- * TBL-200, TBL-201: a card's rules reminders in Inspect, one chip each naming the word. [explained] (where nothing can tap
+ * TBL-209, TBL-210: a card's rules reminders in Inspect, one chip each naming the word. [explained] (where nothing can tap
  * them: outside a game, an Inspect that can't be pinned, the desktop layout): each chip with its explanation under it, on a
  * dark panel. Otherwise the chips alone, and once [interactive] (pinned) a tap on one, or holding it, shows its explanation
  * in the dark rule popup (TBL-132) above it; a tap again or on another chip closes it.

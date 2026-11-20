@@ -302,5 +302,5 @@ number	item	screenshot	catalog	decisions	sequence
 301	A Random battle box's lobby: the decks dealt as the game starts, only Ready to press	lending/lobby-random.png	LOB-250		Lending decks
 302	A copy's question of new targets: the ability it copies at the panel's right	choice-source/copy-new-targets.png	STK-178 STK-212		Copies
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
-307	Game Inspect pinned: rules reminder chips under the card, a tap on Ward explains it	inspect/reminders-pinned.png	TBL-200 TBL-201		Rules reminders
-308	Draft Inspect: rules reminder chips under the card, each with its explanation	inspect/reminders-draft.png	TBL-200 TBL-201 DRF-063		Rules reminders
+307	Game Inspect pinned: rules reminder chips under the card, a tap on Ward explains it	inspect/reminders-pinned.png	TBL-209 TBL-210		Rules reminders
+308	Draft Inspect: rules reminder chips under the card, each with its explanation	inspect/reminders-draft.png	TBL-209 TBL-210 DRF-063		Rules reminders

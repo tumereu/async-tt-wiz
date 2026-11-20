@@ -48,7 +48,7 @@ fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspe
     // STK-050 (owner 2026-11-06): a spell on the Stack shows what was chosen for it (modes, X, targets), as abilities do
     val chosen = if (state.board.stackEffects.any { it.id == entry } && held.none { it is InspectTile.Covered })
         StackAbilities.details(state, entry, viewer, names).map { InspectChange(it) } else emptyList()
-    // TBL-200: each card's rules reminders, from the faces the viewer may see of it
+    // TBL-209: each card's rules reminders, from the faces the viewer may see of it
     return listOf(InspectGroup(card.id, held, chosen + changes[card.id].orEmpty(), reminders(state, viewer, card, inspection, held))) +
         others.map { (member, tiles) -> InspectGroup(member.id, tiles, changes[member.id].orEmpty(), reminders(state, viewer, member, null, tiles)) }
 }
@@ -78,7 +78,7 @@ fun gameQuickLookTiles(state: TableBoard, viewer: String, inspection: ManualInsp
     return cardTiles(state, viewer, card, inspection, faceDown, inspection.cardId in CombatStackRules.projectionIds(state.board))
 }
 
-/** TBL-200: the rules reminders of the faces of [card] its inspection shows [viewer] ([tiles]); none for a covered card. */
+/** TBL-209: the rules reminders of the faces of [card] its inspection shows [viewer] ([tiles]); none for a covered card. */
 private fun reminders(state: TableBoard, viewer: String, card: PlayCard, inspection: ManualInspection?, tiles: List<InspectTile>) =
     if (tiles.any { it is InspectTile.Covered }) emptyList()
     else state.definitions.singleOrNull { it.digest == card.definition }?.definition?.let { definition ->

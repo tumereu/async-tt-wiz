@@ -127,7 +127,7 @@ private object WindowOrigin : PopupPositionProvider {
 data class InspectChange(val text: String, val source: String? = null)
 
 /** One card in Inspect: its pictures ([tiles]: a card's faces, or an ability's tile) kept together, then its [changes] and
- * its rules [reminders] (TBL-200). */
+ * its rules [reminders] (TBL-209). */
 data class InspectGroup(val key: String, val tiles: List<InspectTile>, val changes: List<InspectChange> = emptyList(),
     val reminders: List<arcanum.api.RulesGlossary.Entry> = emptyList())
 
@@ -146,7 +146,7 @@ fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swipe: Inspe
     val progress by animateFloatAsState(swipe?.let { if (it.pinned) 1f else it.progress } ?: 0f,
         if (pinned) tween(200) else snap(), label = "inspect pin")
     val desktop = LocalAppLayout.current == AppLayout.Desktop
-    // TBL-201: where nothing can tap a rules reminder (no pinned mode, the desktop layout) each shows its explanation
+    // TBL-210: where nothing can tap a rules reminder (no pinned mode, the desktop layout) each shows its explanation
     val explained = swipe == null || desktop
     // WEB-024: on the desktop layout a click on a pinned Inspect closes it (a click outside the card)
     val clickCloses = swipe != null && pinned && desktop
@@ -295,11 +295,11 @@ fun pinnedChangesWidth(groups: List<InspectGroup>, room: DpSize, width: Dp): Dp 
     return ((width - fixed) / panels).coerceIn(MIN_SIDE_CHANGES_WIDTH, SIDE_CHANGES_WIDTH)
 }
 
-/** Whether a card in landscape Inspect has something beside its pictures: changes or rules reminders (TBL-200). */
+/** Whether a card in landscape Inspect has something beside its pictures: changes or rules reminders (TBL-209). */
 private val InspectGroup.side: Boolean get() = changes.isNotEmpty() || reminders.isNotEmpty()
 
 /**
- * A card in portrait Inspect: its pictures, then its changes and its rules reminders (TBL-200) under them. At [progress] of the pinned swipe the pictures
+ * A card in portrait Inspect: its pictures, then its changes and its rules reminders (TBL-209) under them. At [progress] of the pinned swipe the pictures
  * shrink towards [PINNED_CARD_SHARE] of the width while the changes fold away under them and slide in beside them.
  */
 @Composable
@@ -322,7 +322,7 @@ private fun PortraitGroup(group: InspectGroup, room: DpSize, progress: Float, pi
                 val left = 1f - progress * 2f
                 ChangesPanel(group.changes, false, Modifier.width(width).folded(left).graphicsLayer { alpha = left })
             }
-            // TBL-200: the rules reminders stay under the card, pinned too, where taps reach them (TBL-201)
+            // TBL-209: the rules reminders stay under the card, pinned too, where taps reach them (TBL-210)
             RulesReminders(group.reminders, explained, pinned, Modifier.width(width))
         }
         // TBL-131: beside the card, each change its own block; an unchanged card says "No changes", faded
@@ -367,7 +367,7 @@ private fun NoChanges(modifier: Modifier) {
     }
 }
 
-/** A card in landscape Inspect: its pictures side by side, its changes and its rules reminders (TBL-200) beside them,
+/** A card in landscape Inspect: its pictures side by side, its changes and its rules reminders (TBL-209) beside them,
  * [changesWidth] wide. */
 @Composable
 private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, pinned: Boolean, progress: Float, explained: Boolean) {
@@ -380,7 +380,7 @@ private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, 
                 else ChangesPanel(group.changes, false, Modifier.fillMaxWidth())
                 RulesReminders(group.reminders, explained, pinned)
             }
-            // TBL-200: an unchanged card's reminders in the middle of the room beside it, under "No changes" when pinned
+            // TBL-209: an unchanged card's reminders in the middle of the room beside it, under "No changes" when pinned
             group.reminders.isNotEmpty() -> Column(Modifier.width(changesWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp,
                 Alignment.CenterVertically)) {
                 if (progress > 0f) NoChanges(Modifier.fillMaxWidth().graphicsLayer { alpha = progress })

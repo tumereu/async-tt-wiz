@@ -21,7 +21,7 @@ class RulesRemindersTest : E2e() {
     private val chip = hasTestTag(RULES_REMINDER_TAG)
     private val flying = RulesGlossary.keywords.getValue("flying").text
 
-    // TBL-200, TBL-201: holding Alice's Lark on the battlefield shows its Flying and Haste chips under it, without their
+    // TBL-209, TBL-210: holding Alice's Lark on the battlefield shows its Flying and Haste chips under it, without their
     // explanations; pinned by a drag to the left, a tap on Flying explains it in the dark rule popup
     @Test fun inAGameTheLarksKeywordsAreRemindedUnderIt() {
         startGame(TestDeck.larks(), deal = { a, _ -> "Mountain" in hand(a) && "Cinder Lark" in hand(a) })
@@ -46,7 +46,7 @@ class RulesRemindersTest : E2e() {
         assertTrue(!alice.refusalSeen, "no refusal")
     }
 
-    // TBL-200, TBL-201, DRF-063: holding a Lark in Alice's pack shows Flying and Haste under it, each explained, since a release
+    // TBL-209, TBL-210, DRF-063: holding a Lark in Alice's pack shows Flying and Haste under it, each explained, since a release
     // closes this Inspect
     @Test fun inADraftThePackCardsKeywordsAreExplained() {
         launchPlayers()

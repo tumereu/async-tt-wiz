@@ -69,7 +69,7 @@ fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: Scro
 }
 
 /** Inspect outside a game (TBL-104): every face of [card] while held ([fallback] names a card without card data), with its
- * rules reminders explained under it (TBL-200, TBL-201). */
+ * rules reminders explained under it (TBL-209, TBL-210). */
 @Composable
 fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
     // Shown only while a finger holds a card; that finger's release closes it.

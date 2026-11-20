@@ -4,7 +4,7 @@ import org.asyncttwiz.protocol.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** TBL-200: which rules reminders a card shows in Inspect, in a game and outside one. */
+/** TBL-209: which rules reminders a card shows in Inspect, in a game and outside one. */
 class RulesRemindersTest {
     private val f = TableFixture
 
@@ -24,7 +24,7 @@ class RulesRemindersTest {
         return gameInspectGroups(table, viewer, inspection, card, emptyMap()).flatMap { group -> group.reminders.map { it.name } }
     }
 
-    // TBL-200: a battlefield card's printed keywords and the token kind it makes, without reminder text, are reminded
+    // TBL-209: a battlefield card's printed keywords and the token kind it makes, without reminder text, are reminded
     @Test fun aGameCardShowsItsUnexplainedRulesWords() {
         val table = board("Flying\nWard {2}\nWhen this creature enters, create a Treasure token.")
         assertEquals(listOf("Flying", "Ward", "Treasure"), reminders(table, "a/BATTLEFIELD/0", "a"))
@@ -32,12 +32,12 @@ class RulesRemindersTest {
         assertEquals(listOf("Flying", "Ward", "Treasure"), reminders(table, "a/BATTLEFIELD/0", "b"))
     }
 
-    // TBL-200: a card the viewer can't see (the opponent's hand) has no reminders, which would tell what it is
+    // TBL-209: a card the viewer can't see (the opponent's hand) has no reminders, which would tell what it is
     @Test fun aCoveredCardHasNone() {
         assertEquals(emptyList(), reminders(board("Flying"), "b/HAND/0", "a"))
     }
 
-    // TBL-200: reminder text explains its word; the card's own names never count
+    // TBL-209: reminder text explains its word; the card's own names never count
     @Test fun aCardExplainingItselfHasNone() {
         assertEquals(emptyList(), reminders(board("Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)"),
             "a/BATTLEFIELD/0", "a"))
@@ -45,7 +45,7 @@ class RulesRemindersTest {
         assertEquals(listOf("Scry"), cardReminders(named).map { it.name })
     }
 
-    // TBL-200: every face and printed part counts, each word once, and a printed name counts as the card's own
+    // TBL-209: every face and printed part counts, each word once, and a printed name counts as the card's own
     @Test fun everyFaceAndPartCounts() {
         val card = CardDefinition("Ember Squire // Bold Charge", listOf(DefinitionFace("a", "Ember Squire", rulesText = "Haste",
             printedName = "Spark Herald", parts = listOf(PrintedPart("Ember Squire", rulesText = "Haste"),

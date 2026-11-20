@@ -1,0 +1,1 @@
+fix: Your opening hand is no longer faded while you decide on a mulligan.

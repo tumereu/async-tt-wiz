@@ -1,6 +1,7 @@
 package org.asyncttwiz.e2e
 
 import org.asyncttwiz.protocol.game.GameDevice
+import androidx.compose.ui.test.performClick
 import org.junit.Test
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -44,5 +45,19 @@ class OpeningKeepTest : E2e() {
         assertTrue(alice.shown.held.any { it.author == bob.id && it.assumed == null }, "Bob's own keep on Alice's line")
         assertTrue(alice.shown.held.all { e -> e.assumed?.input.let { it == null || it is arcanum.engine.input.Input.PassPriority } },
             "nothing but passes assumed: no assumed keep on the line")
+    }
+
+    // TRN-062, ZON-095 (owner playtest 2026-11-20: "Dont fade out cards when mulliganing"): while Alice decides on her mulligan her
+    // opening hand is lit, not dimmed as under an open choice (a dimmed hand takes no taps): a tap on one of its cards is taken,
+    // the card she can't play yet saying why in its bubble
+    @Test fun theOpeningHandIsLitWhileDecidingOnAMulligan() {
+        startGame()
+        alice.openGame(game, this)
+        waitUntil("Alice's Mulligan and Keep") { alice.showsControl("Mulligan") && alice.showsControl("Keep") }
+        val first = alice.state.player(alice.me).hand.mapNotNull { cardName(alice.state, it) }.first()
+        val told = alice.shownTexts.size
+        alice.handCard(first).performClick()
+        waitUntil("the tap on her opening hand taken, its bubble saying why: ${alice.screen()}") { alice.shownTexts.size > told }
+        assertTrue(alice.showsControl("Keep"), "still deciding on her opening")
     }
 }

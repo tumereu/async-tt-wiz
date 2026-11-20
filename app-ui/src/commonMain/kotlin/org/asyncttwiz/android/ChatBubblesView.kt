@@ -42,47 +42,68 @@ import kotlinx.coroutines.delay
 /**
  * The chat bubbles on the table (LOB-136, LOB-137): [incoming] the other player's oldest unread message, which stays until
  * tapped ([read]; holding it opens the chat at it, [open]); [sent] the viewer's own message just sent, shown for about
- * three seconds once the table is in sight ([tableShown]) and then faded ([sentShown] tells it went).
+ * three seconds once the table is in sight ([tableShown]) and then faded ([sentShown] tells it went). On the desktop table
+ * (WEB-137, WEB-138) both are [scale] times the phone's size, and [incomingGone], when given, makes the other player's bubble
+ * fade by itself after [ChatBubbleRules.DESKTOP_SHOWN_MILLIS] and tells it went.
  */
 data class TableChatBubbles(val incoming: IncomingChatBubble?, val sent: SentChat?, val tableShown: Boolean,
-    val authorName: String, val read: (String) -> Unit, val open: (String) -> Unit, val sentShown: (Long) -> Unit)
+    val authorName: String, val read: (String) -> Unit, val open: (String) -> Unit, val sentShown: (Long) -> Unit,
+    val scale: Float = 1f, val incomingGone: ((String) -> Unit)? = null)
 
-/** A bubble placed on the table: its [bounds], its [lines] and the [counter] ("1/3") beside them. */
-private data class PlacedChatBubble(val bounds: TableBounds, val lines: List<String>, val counter: String?, val life: TableBounds)
+/** A bubble placed on the table: its [bounds], its [lines] and the [counter] ("1/3") beside them, drawn [scale] times the
+ * phone's size. */
+private data class PlacedChatBubble(val bounds: TableBounds, val lines: List<String>, val counter: String?, val life: TableBounds,
+    val scale: Float = 1f)
 
 /** LOB-136, LOB-137: both players' chat bubbles by their life squares on a [width]×[height] table. */
 @Composable
 fun ChatBubblesOverlay(scene: TableScene, viewer: String, bubbles: TableChatBubbles, width: Float, height: Float) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    // dp-sized text, as the table's own drawings (the layout's line heights are dp)
-    val style = remember(density) { TextStyle(fontSize = with(density) { ChatBubbleLayout.TEXT.dp.toSp() }, color = BubbleInk) }
-    val counterStyle = remember(density) {
-        TextStyle(fontSize = with(density) { ChatBubbleLayout.COUNTER_TEXT.dp.toSp() }, color = BubbleCounter, fontWeight = FontWeight.Bold)
+    val scale = bubbles.scale
+    // dp-sized text, as the table's own drawings (the layout's line heights are dp); WEB-137: scaled on the desktop table
+    val style = remember(density, scale) { TextStyle(fontSize = with(density) { (ChatBubbleLayout.TEXT * scale).dp.toSp() }, color = BubbleInk) }
+    val counterStyle = remember(density, scale) {
+        TextStyle(fontSize = with(density) { (ChatBubbleLayout.COUNTER_TEXT * scale).dp.toSp() }, color = BubbleCounter, fontWeight = FontWeight.Bold)
     }
     fun measure(text: String, s: TextStyle = style) = with(density) { measurer.measure(text, s).size.width.toDp().value }
     val incoming = bubbles.incoming
     val sent = bubbles.sent
     var sentDone by remember(sent?.key) { mutableStateOf(false) }
     val showSent = sent != null && !sentDone
-    val placed = remember(IdentityKey(scene), incoming, if (showSent) sent else null, width, height, density) {
+    // WEB-138: the desktop table's incoming bubble, once its time is up, fades and is gone
+    var incomingDone by remember(incoming?.messageId) { mutableStateOf(false) }
+    val placed = remember(IdentityKey(scene), incoming, if (showSent) sent else null, width, height, density, scale) {
         val opponentLife = scene.items.firstOrNull { it.kind == TableItemKind.LIFE && it.owner != viewer && it.visible.isNotEmpty() }
         val ownLife = scene.items.firstOrNull { it.kind == TableItemKind.LIFE && it.owner == viewer && it.visible.isNotEmpty() }
         val other = if (incoming != null && opponentLife != null)
-            place(opponentLife, below = true, incoming.text, incoming.counter, width, height, { measure(it) }, { measure(it, counterStyle) })
+            place(opponentLife, below = true, incoming.text, incoming.counter, width, height, scale, { measure(it) }, { measure(it, counterStyle) })
             else null
         val own = if (showSent && ownLife != null && sent != null)
-            place(ownLife, below = false, sent.text, null, width, height, { measure(it) }, { measure(it, counterStyle) })
+            place(ownLife, below = false, sent.text, null, width, height, scale, { measure(it) }, { measure(it, counterStyle) })
             else null
         other to own
     }
     val (other, own) = placed
-    if (incoming != null && other != null) {
+    if (incoming != null && other != null && !incomingDone) {
         val read by rememberUpdatedState(bubbles.read)
         val open by rememberUpdatedState(bubbles.open)
+        val gone by rememberUpdatedState(bubbles.incomingGone)
+        val fade = remember(incoming.messageId) { Animatable(1f) }
+        val timed = bubbles.incomingGone != null
+        LaunchedEffect(incoming.messageId, timed) {
+            if (!timed) return@LaunchedEffect
+            fade.snapTo(1f)
+            delay(ChatBubbleRules.DESKTOP_SHOWN_MILLIS)
+            fade.animateTo(0f, tween(ChatBubbleRules.OWN_FADE_MILLIS))
+            incomingDone = true
+            AppLog.info("chat", "Chat bubble of message ${incoming.messageId} gone by itself")
+            gone?.invoke(incoming.messageId)
+        }
         val description = "Chat bubble: ${bubbles.authorName}: ${incoming.text}" + (incoming.counter?.let { ", $it" } ?: "")
         val b = other.bounds
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)
+            .graphicsLayer { alpha = fade.value }
             .testTag("chat-bubble").semantics {
                 contentDescription = description
                 onClick("Read") { read(incoming.messageId); true }
@@ -115,15 +136,15 @@ fun ChatBubblesOverlay(scene: TableScene, viewer: String, bubbles: TableChatBubb
     }
 }
 
-/** [text] as a bubble by [life] (and its [counter]), on up to four lines. */
-private fun place(life: TableItem, below: Boolean, text: String, counter: String?, width: Float, height: Float,
+/** [text] as a bubble by [life] (and its [counter]), on up to four lines, [scale] times the phone's size (WEB-137). */
+private fun place(life: TableItem, below: Boolean, text: String, counter: String?, width: Float, height: Float, scale: Float,
     measureText: (String) -> Float, measureCounter: (String) -> Float): PlacedChatBubble {
     val counterWidth = counter?.let(measureCounter) ?: 0f
-    val room = (minOf(ChatBubbleLayout.MAX_WIDTH, width - 8f) - 2 * ChatBubbleLayout.PADDING -
-        (if (counter != null) counterWidth + ChatBubbleLayout.COUNTER_GAP else 0f)).coerceAtLeast(12f)
+    val room = (minOf(ChatBubbleLayout.MAX_WIDTH * scale, width - 8f) - 2 * ChatBubbleLayout.PADDING * scale -
+        (if (counter != null) counterWidth + ChatBubbleLayout.COUNTER_GAP * scale else 0f)).coerceAtLeast(12f)
     val lines = ChatBubbleLayout.lines(text, room, measureText)
-    val (w, h) = ChatBubbleLayout.size(life.bounds, lines.maxOf(measureText), lines.size, counterWidth)
-    return PlacedChatBubble(ChatBubbleLayout.place(life.bounds, below, w, h, width, height), lines, counter, life.bounds)
+    val (w, h) = ChatBubbleLayout.size(life.bounds, lines.maxOf(measureText), lines.size, counterWidth, scale)
+    return PlacedChatBubble(ChatBubbleLayout.place(life.bounds, below, w, h, width, height, scale), lines, counter, life.bounds, scale)
 }
 
 private val BubbleInk = Color(0xff202a2e)
@@ -133,32 +154,33 @@ private val BubbleCounter = Color(0xff667b89)
 private fun DrawScope.drawChatBubble(bubble: PlacedChatBubble, color: Color, measurer: TextMeasurer, style: TextStyle,
     counterStyle: TextStyle) {
     val d = density
+    val s = bubble.scale
     val b = bubble.bounds
-    val tail = ChatBubbleLayout.tail(b, bubble.life)
-    val t = ChatBubbleLayout.TAIL * d
+    val tail = ChatBubbleLayout.tail(b, bubble.life, s)
+    val t = ChatBubbleLayout.TAIL * s * d
     // The tail's base on the bubble's edge, in this canvas (the bubble's own bounds)
     val bx = (tail.x - b.x) * d; val by = (tail.y - b.y) * d
     val path = Path().apply {
-        if (tail.top) { moveTo(bx - 5 * d, by + .5f * d); lineTo(bx, by - t); lineTo(bx + 5 * d, by + .5f * d) }
-        else { moveTo(bx - 5 * d, by - .5f * d); lineTo(bx, by + t); lineTo(bx + 5 * d, by - .5f * d) }
+        if (tail.top) { moveTo(bx - 5 * s * d, by + .5f * d); lineTo(bx, by - t); lineTo(bx + 5 * s * d, by + .5f * d) }
+        else { moveTo(bx - 5 * s * d, by - .5f * d); lineTo(bx, by + t); lineTo(bx + 5 * s * d, by - .5f * d) }
         close()
     }
-    val corner = CornerRadius(6 * d)
+    val corner = CornerRadius(6 * s * d)
     drawRoundRect(Color.White, Offset.Zero, size, corner)
     drawPath(path, Color.White)
     drawRoundRect(color, Offset.Zero, size, corner, style = Stroke(d))
     drawPath(path, color, style = Stroke(d))
     // Hide the outline where the tail joins the bubble
-    drawLine(Color.White, Offset(bx - 4 * d, by), Offset(bx + 4 * d, by), 1.5f * d)
+    drawLine(Color.White, Offset(bx - 4 * s * d, by), Offset(bx + 4 * s * d, by), 1.5f * d)
     val counter = bubble.counter?.let { measurer.measure(it, counterStyle) }
-    val textRight = size.width - ChatBubbleLayout.PADDING * d - (counter?.let { it.size.width + ChatBubbleLayout.COUNTER_GAP * d } ?: 0f)
-    val textLeft = ChatBubbleLayout.PADDING * d
+    val textRight = size.width - ChatBubbleLayout.PADDING * s * d - (counter?.let { it.size.width + ChatBubbleLayout.COUNTER_GAP * s * d } ?: 0f)
+    val textLeft = ChatBubbleLayout.PADDING * s * d
     bubble.lines.forEachIndexed { n, line ->
         val measured = measurer.measure(line, style)
         val x = textLeft + ((textRight - textLeft) - measured.size.width) / 2
-        val y = (ChatBubbleLayout.HEIGHT / 2 + n * ChatBubbleLayout.LINE) * d - measured.size.height / 2f
+        val y = (ChatBubbleLayout.HEIGHT / 2 + n * ChatBubbleLayout.LINE) * s * d - measured.size.height / 2f
         drawText(measured, topLeft = Offset(x, y))
     }
-    counter?.let { drawText(it, topLeft = Offset(size.width - ChatBubbleLayout.PADDING * d - it.size.width,
+    counter?.let { drawText(it, topLeft = Offset(size.width - ChatBubbleLayout.PADDING * s * d - it.size.width,
         (size.height - it.size.height) / 2f)) }
 }

@@ -63,6 +63,17 @@ class ServerCatalog(val directory: File, val catalog: CardCatalog, val version: 
             .mapValues { (_, printings) -> printings.minWith(order).id }
     }
 
+    /** DRF-291: the lowest of common, uncommon, rare and mythic among the printings of the card named [name] (case ignored);
+     * null for a card with none (only special or bonus printings) or one the catalog doesn't have. */
+    fun normalRarity(name: String): org.asyncttwiz.protocol.SetCardRarity? = normalRarities[name.lowercase()]
+
+    private val normalRarities: Map<String, org.asyncttwiz.protocol.SetCardRarity> by lazy {
+        val order = listOf("common", "uncommon", "rare", "mythic")
+        catalog.printings.filter { !it.token && it.rarity in order }
+            .groupBy { CatalogCards.cardName(catalog.faces[it.face]).lowercase() }
+            .mapValues { (_, printings) -> org.asyncttwiz.protocol.SetCardRarity.valueOf(printings.minBy { order.indexOf(it.rarity) }.rarity.uppercase()) }
+    }
+
     /** The gzip file of catalog [checksum] in this directory (the current one or the one kept before it), or null. */
     fun file(checksum: String): File? = ServerCatalogs.file(directory, checksum)
 

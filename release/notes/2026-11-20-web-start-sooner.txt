@@ -1,0 +1,1 @@
+fix: On a computer, games can be opened sooner after the page loads: the card search is prepared afterwards.

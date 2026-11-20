@@ -761,6 +761,42 @@ class EngineGameServiceTest {
         assertNull(Engine.result(model.engine))
     }
 
+    // HIS-084, TRN-027 (backlog "opening a game from its very first event", found 2026-11-06 by e2e OpeningKeepTest): early in
+    // a game the snapshot's window starts at the root, before the game's first event (the server's start, authored by whoever's
+    // Ready started it); a device loads it to the same board as from the head: in the opening the other player's keep shows
+    // at once in one playback step and the player's own Keep is open, and the start is nobody's action Undo goes back to
+    @Test fun `a game loaded from before its first event shows the right board`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "s")
+        val alice = f.device(f.a)
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))))).outcome)
+        for (viewer in listOf(f.b, f.a)) {
+            val snapshot = f.snapshot(viewer)
+            assertEquals(snapshot.rootId, snapshot.baseId, "the window starts before the game's first event")
+            val codec = f.codec(viewer)
+            val line = snapshot.events.map(codec::decodeEvent)
+            assertTrue(line.first().engine!!.steps.any { it.input is Input.StartGame }, "the game's start is on the line")
+            assertEquals(f.b.account.accountId, line.first().author, "Bob's Ready started the game")
+            val me = PlayerId(viewer.account.accountId)
+            val (opened, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, me) { id() }
+            opened.step()
+            assertFalse(opened.session.behind, "the opening shows at once")
+            assertTrue(opened.model.sameAs(codec.decodeModel(snapshot.state)), "the board at the head")
+            assertEquals(0, opened.model.engine.turn.number)
+            if (viewer == f.b) {
+                assertEquals(f.bob, opened.model.engine.pending!!.decision.player, "Bob's own keep is open")
+                assertEquals(org.asyncttwiz.protocol.game.GameDevice.Status.YourMove, opened.status)
+                assertNull(opened.undoTarget(), "nothing of his to undo: the game's start isn't his action")
+            } else assertEquals(line.last().parentId, opened.undoTarget(), "Alice's Undo goes back to just before her keep")
+        }
+        // Bob's keep on it begins the first turn
+        val (bobs, _) = org.asyncttwiz.protocol.game.GameDevice.load(f.snapshot(f.b), f.bob) { id() }
+        bobs.step()
+        assertTrue(bobs.act(Input.Answer(bobs.model.engine.pending!!.decision.id, Answer.Option("Keep"))) is org.asyncttwiz.protocol.game.GameDevice.Acted.Sent)
+        val submit = bobs.take(0).filterIsInstance<GameAction.Submit>().single()
+        assertEquals("accepted", f.recipient.execute(submit).outcome)
+        assertEquals(1, f.codec().decodeModel(f.snapshot().state).engine.turn.number)
+    }
+
 }
 
 /** The server's [event] received and played back at once (a device that shows events as they arrive, I-D56 §7). */

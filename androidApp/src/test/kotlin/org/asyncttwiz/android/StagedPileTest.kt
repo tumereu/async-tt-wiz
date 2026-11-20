@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.CombatRole
@@ -31,12 +34,19 @@ class StagedPileTest {
 
     @After fun forget() = AutomatumBoards.reset()
 
+    /** Bumped to draw the table again on the board it has now (the content is set once). */
+    private var version by mutableIntStateOf(0)
+    private var rendered = false
+
     private fun render() {
+        if (rendered) { version++; compose.waitForIdle(); return }
+        rendered = true
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     CompositionLocalProvider(LocalEngineRoutes provides k.routes) {
                         Box(Modifier.fillMaxSize()) {
+                            version
                             val play = k.alice.play()
                             TableSurface(k.f.game, play, k.f.a, false, Modifier.fillMaxSize(), connected = true,
                                 onIntent = k.toolkit::handle, toolkit = k.toolkit,
@@ -78,9 +88,10 @@ class StagedPileTest {
     private fun cubs(): BattlefieldGroup = k.field("Ember Cub").map(k::atw).toSet().let { cubs ->
         k.scene().battlefieldGroups.single { g -> g.members.any { it in cubs } } }
 
-    // CMB-047, CMB-071, CMB-070, CMB-028, TBL-130, TBL-163, TBL-053, TBL-178 (owner playtest 2026-11-07): a tap on the stack stages its topmost unstaged Cub; the
-    // stack keeps its members (it doesn't regroup), the staged Cubs lie at its right end in the order they were staged with
-    // the staged look, the unstaged ones stay exactly where they were, the ×N counting those left
+    // CMB-047, CMB-071, CMB-070, CMB-028, TBL-130, TBL-163, TBL-053, TBL-178, TBL-230 (owner playtests 2026-11-07, 2026-11-20): a tap on the stack
+    // stages its topmost unstaged Cub; the stack keeps its members (it doesn't regroup), the staged Cubs lie together in one
+    // pile at its right end, each staged one on top of those before, with the staged look; the unstaged ones stay exactly
+    // where they were, the ×N counting those left; declared, the attacking Cubs still lie in one pile right of the one at home
     @Test fun tapsOnAStackStageItsMembersOneByOne() {
         aliceDeclaringWithThreeCubs()
         val stack = cubs()
@@ -106,14 +117,29 @@ class StagedPileTest {
         assertEquals(listOf(top, middle), k.alice.play().board.combat?.pairs.orEmpty().flatMap { it.attackers }.map { it.sourceId },
             "a tap on the stack (its staged Cub too) stages the next unstaged one")
         assertEquals(placed.getValue(bottom), place(bottom), "the last Cub stays where it was")
-        assertTrue(k.item(middle).bounds.x > k.item(top).bounds.right, "staged in order, side by side")
+        assertTrue(k.item(middle).bounds.x > k.item(top).bounds.x && k.item(middle).bounds.x < k.item(top).bounds.right,
+            "staged together in one pile, the one staged later on top: ${k.item(top).bounds} ${k.item(middle).bounds}")
+        assertEquals(2, k.item(middle).copies, "×2 on the staged pile")
         assertEquals(CombatRole.ATTACKER, k.item(middle).staged)
         assertEquals(null, k.item(bottom).staged)
         render()
         captureShot("$SCREENSHOTS/battlefield/staged-pile.png",
             "Alice declares attackers and taps her stack of three identical Ember Cubs twice: each tap staged the topmost Cub " +
-                "not yet staged, so two Cubs attack Bob (their copies in the band's lane) and lie side by side at the stack's " +
-                "right end with a red-orange wash and edge, while the third Cub stays where the stack was; the main button " +
+                "not yet staged, so two Cubs attack Bob (their copies in the band's lane) and lie together in one pile ×2 at the " +
+                "stack's right end with a red-orange wash and edge, while the third Cub stays where the stack was; the main button " +
                 "reads Attack (2).")
+        // Declared: the two attacking Cubs lie in one pile of their own right of the Cub at home
+        val home = place(bottom)
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (2)")
+        k.playOn("the two Cubs attacking") { k.state().combat?.attackers?.size == 2 && k.alice.play().board.priority?.holder != null }
+        val attacking = k.scene().battlefieldGroups.single { g -> top in g.members }
+        assertEquals(setOf(top, middle), attacking.members.toSet(), "the attackers in one pile")
+        assertEquals(BattlefieldGroup.Kind.Stack, attacking.kind)
+        assertEquals(home, place(bottom), "the Cub at home stays where it was")
+        assertTrue(attacking.members.all { k.item(it).bounds.x > k.item(bottom).bounds.right - 1f }, "the attackers' pile right of it")
+        render()
+        captureShot("$SCREENSHOTS/battlefield/attackers-pile.png",
+            "Alice declared the two Ember Cubs she staged from her stack of three as attackers: tapped and attacking, they lie together " +
+                "in one pile ×2 right of the Cub that stays at home, their copies in the combat band's lane.")
     }
 }

@@ -1,0 +1,1 @@
+Alice's Build on the desktop layout after she clicks the filter button in the bottom right corner, chooses Creature and types "human" in the popup: Main shows only Dawnward Sentry and Duskmarket Thief, its header still counting the whole deck, and the button is filled with a dot.

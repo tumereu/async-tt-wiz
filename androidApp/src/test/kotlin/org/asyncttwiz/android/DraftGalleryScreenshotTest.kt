@@ -122,6 +122,35 @@ class DraftGalleryScreenshotTest {
             "pod's status has a dot for unread chat messages.")
     }
 
+    // DRF-281, DRF-282, DRF-283, DRF-284, DRF-285, DRF-287 (a tall screen shows the whole form)
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun arenaSetup() {
+        val source = PodSource("Runes", 540, maybeCopies = 12, rarities = ArenaCounts(common = 400, uncommon = 120, rare = 18, mythic = 2))
+        val detail = detail(PodPhase.SETUP, DraftSettings.arena(), listOf(PodMember(alice), PodMember(bob)), name = "Arena night",
+            source = source)
+        show(opened(detail))
+        compose.onNodeWithTag("pod-arena-summary").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Only 2 mythic rares for offers of 5: filled up from rares").assertIsDisplayed()
+        shot("setup-arena", "The creator's setup of an Arena pod from the Runes cube with the defaults: tiles for 45 picks, " +
+            "offers of 5 cards, take 1, rare every 10th and uncommon every 4th pick, mythic 1/8 and the sideboard, the Ignore rarity " +
+            "and Reuse cards toggles off, then the summary: the format, 4 rare, 9 uncommon and 32 common picks for 45 cards each, " +
+            "Reuse cards off in words, and that the cube's 2 mythic rares are too few for an offer, so rares fill up.")
+    }
+
+    // DRF-288, DRF-280
+    @Test fun arenaPick() {
+        val settings = DraftSettings.arena()
+        val head = DraftPrivatePack("offer-0-11", 12, listOf(2, 7, 12, 17, 22).map { copy(it) }, 1, null)
+        val detail = detail(PodPhase.DRAFTING, settings, listOf(PodMember(alice, packsWaiting = 34, picksMade = 11),
+            PodMember(bob, packsWaiting = 40, picksMade = 5)), name = "Arena night").copy(
+            draft = DraftPrivateView("alice", head, 0, (0..10).map { copy(it + 3, 1) }, round = 12, rounds = 45))
+        show(opened(detail))
+        compose.onNodeWithTag("pod-pick-orientation").assertTextEquals("Pick 12 of 45 · Uncommon · take 1")
+        compose.runOnIdle { pods.mark(detail.draft!!.head, PodPickMarks("offer-0-11", keeps = listOf(copy(12).id))) }
+        settle()
+        shot("arena-pick", "Alice's twelfth Arena pick, an uncommon one: her own offer of five cards under the line " +
+            "\"Pick 12 of 45 · Uncommon · take 1\", Duskmarket Thief marked to take, the keep tray and Confirm below; no burn tray.")
+    }
+
     // DRF-016, DRF-020, DRF-022, DRF-026, DRF-027, DRF-030, DRF-036, DRF-051, DRF-142, DRF-199 (a tall screen shows the whole form)
     @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun boosterSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings(librarians = 1, sideboardLimit = 15),

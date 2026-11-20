@@ -15,8 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -30,6 +28,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.appui.uptimeMillis
 import org.asyncttwiz.appui.elapsedRealtime
 import org.asyncttwiz.appui.rememberShortNote
+import org.asyncttwiz.appui.rememberMoveVibration
 import kotlin.concurrent.Volatile
 import org.asyncttwiz.appui.AtomicReference
 import org.asyncttwiz.appui.edgeToEdgeDialogProperties
@@ -247,19 +246,20 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         }
         if (rewindingBranch) EngineTableProbe.rewinding?.invoke(accountId)
     }
-    // TRN-075: the move passing to you from the other player: one haptic tick, the "Your move" sound (LOB-146) and one pulse
-    // of the main button, not in timeline mode
+    // TRN-075: the move passing to you from the other player: one short vibration, the "Your move" sound (LOB-146) and one
+    // pulse of the main button, not in timeline mode
     val moveCue = remember(game.id) { YourMoveCue() }
     // LOB-146: the account's "Your move" sound with the cue
     val moveSound = rememberMoveSound(accountId, controller::sessionToken, controller.accountOrigin)
-    val haptic = LocalHapticFeedback.current
+    val moveVibration = rememberMoveVibration()
     val recordShown = LocalShownTexts.current
     SideEffect {
         val cue = moveCue.see(shown.status, shown.line, shown.tip, shown.show != null || shown.combatHold != null || shown.reveal != null, accountId, uptimeMillis())
         if (cue && reviewPlay == null) {
             routes.moveCue++
-            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-            MoveSounds.play(moveSound, "the move passed to ${accountId.take(8)} in game ${game.id.take(8)}")
+            val why = "the move passed to ${accountId.take(8)} in game ${game.id.take(8)}"
+            moveVibration(why)
+            MoveSounds.play(moveSound, why)
             recordShown(YOUR_MOVE_CUE)
         }
     }
@@ -492,7 +492,13 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) pausePlayback else null,
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
-                        chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape || desktopLayout,
+                        // WEB-137, WEB-138: on the desktop table twice the size, the other player's shown while the dock is open
+                        // too and gone by itself after a few seconds (a click reads it and closes it)
+                        chatBubbles = if (desktopLayout) TableChatBubbles(state.chatDesktopBubble, state.chatSent, tableShown = true,
+                            routes.opponentName, read = { controller.readChatBubble(game.id, it); controller.desktopChatBubbleGone(game.id, it) },
+                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) },
+                            scale = ChatBubbleRules.DESKTOP_SCALE, incomingGone = { controller.desktopChatBubbleGone(game.id, it) })
+                        else TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
                             routes.opponentName, read = { controller.readChatBubble(game.id, it) },
                             open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) }),
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat

@@ -96,6 +96,17 @@ class EngineAsyncViewTest {
         if (draw != null) assertFalse(EnginePlaybackPace.quiet(draw))
     }
 
+    // HIS-161 (backlog "opening a game from its very first event", e2e OpeningKeepTest): while the board shown is in the
+    // opening, playback waits nothing after the event shown last, the game's start held at the local head of a game loaded
+    // from before it included: the other player's keep shows at once, and the player's own Keep isn't refused for playback
+    @Test fun theOpeningWaitsNoPlaybackDelay() {
+        val (alice, _) = aliceAndBob()
+        val keep = alice.device.session.pending.first { e -> e.engine?.steps?.any { it.input is Input.Answer || it.input is Input.SetupAnswer } == true }
+        assertEquals(0L, playbackWait(f.start, 330, ResponseMode.Normal, opening = true))
+        assertEquals(0L, playbackWait(keep, 330, ResponseMode.FullControl, opening = true))
+        assertEquals(330L, playbackWait(f.start, 330, ResponseMode.Normal), "past the opening its delay stays")
+    }
+
     // HIS-104, HIS-130 (owner 2026-11-07: a manual resolve is indistinguishable): under Full control a player's pass right after
     // their own cast goes by at once too, as the pass a lower mode makes inside the cast's event; after their pass, after
     // an assumption or after the other player's event it keeps the delay

@@ -94,6 +94,31 @@ class BrowserCatalogTest {
         assertEquals(0, server.downloads)
     }
 
+    // WEB-009 (owner playtest 2026-11-20: the desktop seemed to import its card records again on every start): a start with the kept
+    // catalog downloads nothing, logs how long each part took, and leaves the card search for after the records are ready;
+    // a search before then builds it at once, and prepareSearch builds it otherwise
+    @Test
+    fun aStartWithTheKeptCatalogLeavesTheSearchForLater() = runTest {
+        val server = Server(A, mutableMapOf(A to File(lines(), A)))
+        val kept = Kept().apply { install(A, File(lines(), A)) }
+        val log = mutableListOf<String>()
+        val records = BrowserCardRecords()
+        val installer = installer(records, server, kept, log)
+        installer.run(A)
+        assertEquals(0, server.downloads)
+        assertTrue(log.any { "read from the browser's storage in" in it && "nothing downloaded" in it }, "$log")
+        assertTrue(log.any { "unpacked and checked in" in it && "lines read in" in it }, "$log")
+        val catalog = assertNotNull(records.current)
+        assertFalse(catalog.searchReady, "the search isn't built before the records are ready")
+        installer.prepareSearch()
+        assertTrue(catalog.searchReady)
+        assertTrue(log.any { "card search built in" in it }, "$log")
+        // Read before it is built, the search builds at once
+        val early = BrowserCardRecords()
+        installer(early, server, kept).run(A)
+        assertEquals(listOf("Dawn Hunter // Dusk Stalker"), assertIs<CatalogCardSearch.Page>(early.searchCards("t:creature", limit = 1)).cards.map { it.name })
+    }
+
     @Test
     fun aDifferentKeptCatalogIsReplaced() = runTest {
         val server = Server(B, mutableMapOf(B to File(lines(), B)))

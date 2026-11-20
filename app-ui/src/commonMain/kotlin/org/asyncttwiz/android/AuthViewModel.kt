@@ -97,7 +97,12 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
         marksScheduler = newSingleThreadScheduler("pod-marks", daemon = true).let { schedule ->
             PodMarksScheduler { delay, task -> schedule(delay, task) }
         }, setRepository = StoredPodSets { catalog.repository },
-        chatWorker = newSingleThreadExecutor("pod-chat"))
+        chatWorker = newSingleThreadExecutor("pod-chat"),
+        // DRF-252: the filter's rarities, from card records by printing
+        filters = newSingleThreadExecutor("pod-filter").let { worker ->
+            PodCardFilters({ ids -> podFilterPrintings(ids, catalog.repository::cards, catalog.repository::searchData) },
+                worker, { action -> postToMain(action) }, worker::shutdown)
+        })
     private val saveApi = DeckApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, newSingleThreadExecutor("contacts-lobby"),

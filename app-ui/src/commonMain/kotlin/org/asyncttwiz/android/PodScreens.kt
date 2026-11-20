@@ -247,6 +247,10 @@ fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respon
                         // DRF-264: a Custom booster invitation tells its passes before accepting
                         if (invitation.mode == DraftMode.CUSTOM_BOOSTER) Text("Custom booster: ${podPassesSummary(invitation.passes)}",
                             Modifier.testTag("pod-invitation-passes"), style = MaterialTheme.typography.bodySmall)
+                        // DRF-287: an Arena invitation tells its format before accepting
+                        invitation.arena?.takeIf { invitation.mode == DraftMode.ARENA }?.let { format ->
+                            Text(podArenaFormat(format), Modifier.testTag("pod-invitation-format"), style = MaterialTheme.typography.bodySmall)
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ScreenButton({ respond(invitation.podId, true) }, enabled = state.pending == 0) { ButtonLabel("ready", "Accept") }
                             ScreenOutlinedButton({ respond(invitation.podId, false) }, enabled = state.pending == 0) { ButtonLabel("close", "Decline") }
@@ -432,11 +436,11 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val icons: @Composable () -> Unit = {
         // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included; DRF-160 (owner, 2026-11-19): in
         // every draft mode, in the same place: the others' picks where there is no pack passing
-        if (detail.settings.mode.packPassing) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
+        if (detail.settings.mode.draftState) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
         else if (podHasPicksView(detail.settings.mode)) PodPicksHeaderButton(detail, accountId, definitions)
         PodChatButton(controller, detail.id, accountId)
         PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
-            historyColumns.takeIf { detail.settings.mode.packPassing })
+            historyColumns.takeIf { detail.settings.mode.draftState })
     }
     val tabRow: @Composable (Modifier) -> Unit = { tabsModifier ->
         PodDraftTabs(tabs, selected, controller::tab, tabsModifier) {
@@ -464,7 +468,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
             when (selected) {
                 // Section 3.6: pod picks wait for the card records
                 PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
-                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue)
+                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue,
+                    filter = controller.filters.of(detail.id, PodFilterPlace.Pool), filters = controller.filters)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
@@ -481,7 +486,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
                     controller.canUndoBuild, controller::undoBuild, controller::revertMove,
                     onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) },
-                    deckCover = detail.deckCover, onCover = controller::deckCover)
+                    deckCover = detail.deckCover, onCover = controller::deckCover,
+                    filter = controller.filters.of(detail.id, PodFilterPlace.Build), filters = controller.filters)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
@@ -604,6 +610,8 @@ fun podWaitingText(detail: PodDetail, accountId: String): String {
         names.isEmpty() -> "All your picks are done\nOther players are finishing"
         else -> "All your picks are done\n${names.joinToString(", ")} ${if (names.size == 1) "is" else "are"} finishing"
     }
+    // Arena's picks are no rounds of the pod's (DRF-280)
+    if (detail.settings.mode == DraftMode.ARENA) return status
     return status + (round?.let { "\nRound ${it.first} of ${it.second}" } ?: "")
 }
 
@@ -611,6 +619,8 @@ fun podWaitingText(detail: PodDetail, accountId: String): String {
 fun podPickOrientationText(detail: PodDetail): String? {
     val draft = detail.draft ?: return null
     val head = draft.head ?: return null
+    // DRF-288: Arena's pick and its rarity; the offer is the player's own
+    if (detail.settings.mode == DraftMode.ARENA) return podArenaPickLine(detail.settings, draft.round, detail.source.kind, head.cards.size)
     val from = head.passedBy?.let { id ->
         "from " + (detail.members.firstOrNull { it.account.accountId == id }?.account?.username ?: "another player")
     } ?: "your pack"

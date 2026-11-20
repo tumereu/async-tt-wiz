@@ -1,5 +1,6 @@
 package org.asyncttwiz.storage
 
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.yield
@@ -98,6 +99,7 @@ class BrowserCatalogInstaller<F>(
      */
     suspend fun run(expected: String?, progress: (CatalogProgress) -> Unit = {}): CatalogMetadata {
         expected?.let { require(validChecksum(it)) { "Not a catalog checksum" } }
+        val start = TimeSource.Monotonic.markNow()
         val installed = try { files.installed() } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
             log("Card records: the kept catalog couldn't be read (${failure.message}); downloading again")
@@ -116,7 +118,8 @@ class BrowserCatalogInstaller<F>(
         }
         if (wanted != null && wanted == installed) {
             load(installed, progress)?.let {
-                log("Card records are the app's catalog $wanted (${it.records} printings)")
+                log("Card records are the app's catalog $wanted (${it.records} printings), read from the browser's storage in " +
+                    "${start.elapsedNow().inWholeMilliseconds} ms: nothing downloaded")
                 return it
             }
         }
@@ -132,7 +135,9 @@ class BrowserCatalogInstaller<F>(
     /** The kept file of [checksum] read into the card records, or null (and the kept file dropped) when it isn't that
      * catalog any more. */
     private suspend fun load(checksum: String, progress: (CatalogProgress) -> Unit): CatalogMetadata? = try {
+        val start = TimeSource.Monotonic.markNow()
         val file = files.read(checksum) ?: error("The kept catalog file is missing")
+        log("Card records: the kept catalog file read from the browser's storage in ${start.elapsedNow().inWholeMilliseconds} ms")
         read(file, checksum, progress).also { records.current = it; kept = true }.metadata()
     } catch (failure: Exception) {
         if (failure is CancellationException) throw failure
@@ -156,7 +161,9 @@ class BrowserCatalogInstaller<F>(
         if (current != null && current.checksum != checksum) log("Card records: the server's current is ${current.checksum}, this app needs $checksum")
         log("Card records: downloading $checksum (${size ?: "unknown"} bytes)")
         progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, size))
+        val downloading = TimeSource.Monotonic.markNow()
         val file = downloads.download(checksum) { bytes -> progress(CatalogProgress(CatalogPhase.DOWNLOADING, bytes, size)) }
+        log("Card records: downloaded in ${downloading.elapsedNow().inWholeMilliseconds} ms")
         val catalog = read(file, checksum, progress)
         kept = try { files.install(checksum, file); true } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
@@ -168,10 +175,18 @@ class BrowserCatalogInstaller<F>(
         return catalog.metadata()
     }
 
-    /** [file] read whole into card records, checked to be catalog [checksum] before any of it is read. */
+    /**
+     * [file] read whole into card records, checked to be catalog [checksum] before any of it is read. WEB-009 (owner playtest
+     * 2026-11-20: the desktop seemed to import its card records again on every start): the browser keeps the file, not the
+     * records, so each start unpacks, checks and reads it again; how long each part took is logged. The card search is built
+     * after the records are ready ([prepareSearch]), so it doesn't hold back what reads card records.
+     */
     private suspend fun read(file: F, checksum: String, progress: (CatalogProgress) -> Unit): MemoryCardCatalog {
+        var lap = TimeSource.Monotonic.markNow()
+        fun took(): Long = lap.elapsedNow().inWholeMilliseconds.also { lap = TimeSource.Monotonic.markNow() }
         val unpacked = unpack(file)
         check(unpacked.checksum == checksum) { "Card catalog checksum mismatch: asked for $checksum, read ${unpacked.checksum}" }
+        val unpacking = took()
         progress(CatalogProgress(CatalogPhase.INDEXING, 0, unpacked.size))
         val builder = MemoryCardCatalogBuilder()
         val carry = StringBuilder()
@@ -190,7 +205,23 @@ class BrowserCatalogInstaller<F>(
             progress(CatalogProgress(CatalogPhase.INDEXING, unpacked.read, unpacked.size))
         }
         if (carry.isNotEmpty()) builder.add(carry.toString())
-        return builder.finish(checksum, pause) { done, all -> progress(CatalogProgress(CatalogPhase.FINISHING, done, all)) }
+        val reading = took()
+        progress(CatalogProgress(CatalogPhase.FINISHING, 0, 1))
+        return builder.finish(checksum, pause, search = false).also {
+            progress(CatalogProgress(CatalogPhase.FINISHING, 1, 1))
+            log("Card records: unpacked and checked in $unpacking ms (${unpacked.size} bytes), $lines lines read in $reading ms, " +
+                "linked in ${took()} ms")
+        }
+    }
+
+    /** WEB-009: builds the card search of the card records [run] made, after they are ready (a search before then builds it at
+     * once); the time it took is logged. */
+    suspend fun prepareSearch() {
+        val catalog = records.current ?: return
+        if (catalog.searchReady) return
+        val start = TimeSource.Monotonic.markNow()
+        catalog.buildSearch(pause) { _, _ -> }
+        log("Card records: card search built in ${start.elapsedNow().inWholeMilliseconds} ms")
     }
 
     companion object {

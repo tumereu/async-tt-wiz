@@ -62,7 +62,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val finite = settings(row).supply(players, source(row))
         return if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
     }
-    private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.packPassing }
+    private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.draftState }
         ?.let { stored(row) { json.decodeFromString<DraftState>(it.data()) } }
     private fun gridState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode == DraftMode.GRID }
         ?.let { stored(row) { json.decodeFromString<GridState>(it.data()) } }
@@ -72,7 +72,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private class Draft(val booster: DraftState?, val grid: GridState?, val limited: LimitedDraftState? = null)
     private fun draft(row: PodRecord, settings: DraftSettings? = row.draftState?.let { settings(row) }): Draft {
         val data = row.draftState ?: return Draft(null, null)
-        return if (settings!!.mode.packPassing) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
+        return if (settings!!.mode.draftState) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
             else if (settings.mode.limited) Draft(null, null, stored(row) { json.decodeFromString<LimitedDraftState>(data.data()) })
             else Draft(null, stored(row) { json.decodeFromString<GridState>(data.data()) })
     }
@@ -445,7 +445,14 @@ class PodService(private val runtime: ServiceRuntime) {
         // DRF-179: each pack from its cell's set (the stored grid is normalized; cells past its end take its last set)
         val set = setSource(row)?.let { resized(it, settings) }
         set?.let { log("pod ${row.id} starts ${settings.mode} for ${players.size} players from pack grid ${PodPackGrid.cells(it.packs, settings)}") }
-        if (settings.mode.limited) {
+        if (settings.mode == DraftMode.ARENA) {
+            val next = if (set == null) ArenaEngine.start(players, ArenaEngine.cubeCards(cube, cubeRarities(sql, cube)), settings, seed, cube = true)
+                else ArenaEngine.start(players, arenaSetCards(set), settings, seed, cube = false,
+                    pickSets = PodPackGrid.packSets(set.packs, settings, players.size))
+            logArena(row, null, next, "start for ${players.size} players from ${if (set == null) "a cube of ${cube.sumOf { it.quantity }} copies" else
+                "sets ${set.packs}"}: ${next.arena?.cards?.size} cards, ${ArenaEngine.counts(next.arena?.cards.orEmpty())}")
+            advance(sql, row, null, next)
+        } else if (settings.mode.limited) {
             val next = if (set == null) LimitedEngine.startFromCube(players, cube, settings, seed)
                 else LimitedEngine.startFromSet(players, set, settings, seed)
             advanceLimited(sql, row, null, next)
@@ -473,10 +480,14 @@ class PodService(private val runtime: ServiceRuntime) {
         mutate(principal, id, input.requestId, "pickPod", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
-            if (!settings(row).mode.packPassing) return@mutate error(409, "wrong_draft_mode")
+            if (!settings(row).mode.draftState) return@mutate error(409, "wrong_draft_mode")
             val previous = state(row)!!
             val result = DraftEngine.pick(previous, DraftPick(owner.toString(), input.packId, input.keep, input.burn, input.librarians))
-            if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
+            if (result.reason != null) {
+                if (previous.arena != null) log("pod ${row.id} Arena pick of $owner refused (${result.reason}): offer ${input.packId}, keep ${input.keep}")
+                return@mutate error(409, result.reason!!.name.lowercase())
+            }
+            result.state?.arena?.let { logArena(row, previous, result.state!!, "pick of $owner from ${input.packId}: kept ${input.keep}") }
             // The marks belonged to the pack just picked.
             clearMarks(sql, row.id!!, owner)
             advance(sql, row, previous, result.state!!)
@@ -929,6 +940,54 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row)
     }
 
+    /** Arena (DRF-285): each card's rarity in a cube, by its printing's in the card catalog (special and bonus count as
+     * rare, an unknown one, or no catalog, as common). */
+    private fun cubeRarities(sql: DSLContext, cube: List<DraftCubeEntry>): (String) -> SetCardRarity {
+        val server = ServerCatalogs.current()
+        val catalog = server?.catalog
+        val definitions = StoredDefinitions.read(sql, cube.map { it.definition }.toSet()).associate { it.digest to it.definition }
+        val rarities = definitions.mapValues { (_, definition) ->
+            val rarity = definition.printingId?.let { catalog?.printing?.get(it)?.rarity }
+                ?.let { value -> SetCardRarity.entries.firstOrNull { it.name.lowercase() == value } } ?: SetCardRarity.UNKNOWN
+            // DRF-291: a special or bonus printing counts as the lowest rarity of the card's other printings, else rare
+            if (ArenaEngine.special(rarity)) ArenaEngine.rarity(rarity, server?.normalRarity(definition.name)) else rarity
+        }
+        if (catalog == null) log("Arena cube rarities without a card catalog: every card counts as common")
+        return { rarities[it] ?: SetCardRarity.UNKNOWN }
+    }
+
+    /** Arena (DRF-286): the pod's sets' own cards, by the card catalog (not the other sets' cards their recipes name); a
+     * bonus card's tier (DRF-291) is the lowest rarity of its printings elsewhere in the catalog. */
+    private fun arenaSetCards(set: SetPackSources): List<ArenaCard> {
+        val server = ServerCatalogs.current()
+        val catalog = server?.catalog
+        if (catalog == null) log("Arena set cards without a card catalog: every card of the set sources counts as the set's own")
+        val cards = ArenaEngine.setCards(set.sets, { code, uuid -> catalog == null || catalog.printing[uuid]?.set == code }) { name ->
+            server?.normalRarity(name)
+        }
+        cards.filter { it.bonus }.takeIf { it.isNotEmpty() }?.let { bonus ->
+            log("Arena bonus bags of ${set.packs.distinct()}: " + bonus.groupBy { it.set to it.rarity }.entries
+                .joinToString { (key, list) -> "${key.first} ${key.second}: ${list.size}" })
+        }
+        return cards
+    }
+
+    /** DRF-285: what an Arena change did, with every offer filled up from another rarity since [previous]. */
+    private fun logArena(row: PodRecord, previous: DraftState?, next: DraftState, what: String) {
+        val fills = next.arena?.fills.orEmpty().drop(previous?.arena?.fills?.size ?: 0)
+        log("pod ${row.id} Arena $what" + fills.joinToString("") { fill ->
+            if (fill.count == 0) "; ${fill.player} pick ${fill.pick}: no card left to offer, their draft ends here"
+            else "; ${fill.player} pick ${fill.pick}: ${fill.count} ${fill.used} in place of ${fill.wanted}"
+        })
+    }
+
+    /** DRF-285: the cards of each rarity an Arena pod's source holds, for its setup summary; null when not worked out. */
+    private fun arenaCounts(sql: DSLContext, row: PodRecord): ArenaCounts? = runCatching {
+        val set = setSource(row)
+        if (set == null) ArenaEngine.counts(ArenaEngine.cubeCards(source(row), cubeRarities(sql, source(row))))
+        else ArenaEngine.counts(arenaSetCards(set))
+    }.onFailure { log("pod ${row.id} Arena counts failed: $it") }.getOrNull()
+
     private fun advance(sql: DSLContext, row: PodRecord, previous: DraftState?, next: DraftState) {
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
         val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
@@ -941,7 +1000,8 @@ class PodService(private val runtime: ServiceRuntime) {
             // Notify when a pack arrives at an empty queue. The picker's own just-picked pack does not count as waiting,
             // so their next-round packs opening (possibly early) right after their pick notify them too.
             val queue = next.queues.getValue(player)
-            val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue }
+            // Arena: a player's next offer comes with their own pick, so only the first one is news (DRF-280)
+            val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue } || previous != null && next.arena != null
             if (!hadPacks && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
         }
@@ -1158,12 +1218,13 @@ class PodService(private val runtime: ServiceRuntime) {
                 settings(row).mode, chatUnread[row.id] ?: 0)
         } }.sortedWith(podListOrder)
         val invitations = invited.mapNotNull {
-            // DRF-264: the invitation names the pod's mode and a Custom booster's passes
+            // DRF-264, DRF-287: the invitation names the pod's mode, a Custom booster's passes and an Arena pod's format
             StoredData.orSkip("pod", it[INVITE.POD_ID]) {
                 val settings = json.decodeFromString<DraftSettings>(it[POD.SETTINGS]!!.data())
                 PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!),
                     it[INVITE.INVITED_AT]!!.toInstant().toString(), settings.mode,
-                    if (settings.mode == DraftMode.CUSTOM_BOOSTER) settings.passes else emptyList())
+                    if (settings.mode == DraftMode.CUSTOM_BOOSTER) settings.passes else emptyList(),
+                    if (settings.mode == DraftMode.ARENA) ArenaFormat.of(settings) else null)
             }
         }
         Result(200, json.encodeToString(PodList(pods, invitations)))
@@ -1198,13 +1259,15 @@ class PodService(private val runtime: ServiceRuntime) {
             PodSource(kind = PodSourceKind.SET, setCode = set.first.setCode, setName = set.first.setName,
                 boosterKind = if (set.sets.any { it.recipe == null }) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
                 boosterName = set.first.recipe?.name, packSets = set.packs)
+        // DRF-285, DRF-287: an Arena pod's setup summary tells its source's rarities
+        val rarities = if (settings.mode == DraftMode.ARENA && row.phase == "SETUP") arenaCounts(sql, row) else null
         val finite = settings.supply(members.size, cube)
         val supply = if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
         val pending = pending(sql, row.id!!)
         val offAccount = row.autoStartOffAccount?.takeIf { row.autoStartOffReason != null && row.phase == "SETUP" && owner == row.creatorId }
         val names = identities(sql, listOf(row.creatorId!!) + members.map { it.accountId!! } + pending.map { it.accountId!! } + listOfNotNull(offAccount))
         val result = PodDetail(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
-            settings, sourceView, supply,
+            settings, sourceView.copy(rarities = rarities), supply,
             members.map { member ->
                 val player = member.accountId.toString()
                 val progress = public?.members?.firstOrNull { it.player == player }

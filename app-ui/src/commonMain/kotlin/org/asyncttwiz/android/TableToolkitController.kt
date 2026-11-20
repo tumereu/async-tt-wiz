@@ -444,12 +444,15 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * ZON-095 (owner notes 2026-11-14): while a cast (its target bar too), a choice of the viewer's or another panel (a reveal, a
      * Library, the deck view, the Stack's list, the table menu) is open, the viewer's hand row is dimmed and takes no taps, unless
      * the open choice is about a card in their hand (a discard, a cost discarding or exiling one). On [play], the board acted on.
+     * TRN-062 (owner playtest 2026-11-20): never during the viewer's opening: its Keep / Mulligan decision is the opening
+     * itself, and the hand they decide on shows at full strength.
      */
     fun handDimmed(play: TableBoard): Boolean {
-        val open = cast.open || flows.answering != null || revealing() || panel != null
+        val answering = flows.answering?.takeUnless { AutomatumDrags.opening(play.board, viewer) }
+        val open = cast.open || answering != null || revealing() || panel != null
         if (!open) return false
         val hand = play.board.containers.filter { it.zone == PlayZone.HAND && it.accountId == viewer }.flatMapTo(HashSet()) { it.cards }
-        val asked = listOfNotNull(cast.flow?.pending, flows.answering)
+        val asked = listOfNotNull(cast.flow?.pending, answering)
         return asked.none { decision -> decisionObjects(decision).any { it in hand } }
     }
 

@@ -12,8 +12,8 @@ import kotlinx.serialization.Serializable
  * resize it: a grid that grows repeats the last set, one that shrinks drops its last packs.
  */
 object PodPackGrid {
-    /** The longest list a pod or preset sends: Grid's most grids (DRF-023). */
-    const val MAX_PACKS = 60
+    /** The longest list a pod or preset sends: Arena's most picks, a row each (DRF-286, DRF-281); Grid's most grids is 60 (DRF-023). */
+    const val MAX_PACKS = ArenaEngine.MAX_PICKS
 
     /**
      * The grid's row lengths: Booster one row per round of open packs; Grid one per round of open grids; Rochester one per
@@ -24,6 +24,8 @@ object PodPackGrid {
         DraftMode.BOOSTER, DraftMode.GLIMPSE, DraftMode.CUSTOM_BOOSTER -> chunks(settings.packsPerPlayer, settings.packsOpenAtOnce)
         DraftMode.GRID -> chunks(settings.grids, settings.gridsOpenAtOnce)
         DraftMode.ROCHESTER -> List(settings.packsPerPlayer.coerceAtLeast(1)) { 1 }
+        // DRF-286: a row per pick, the set its offers come from
+        DraftMode.ARENA -> List(settings.packsPerPlayer.coerceAtLeast(1)) { 1 }
         DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED -> listOf(settings.packsPerPlayer.coerceAtLeast(1))
         DraftMode.ROTISSERIE -> null
     }
@@ -89,6 +91,8 @@ object PodPackGrid {
         return when (settings.mode) {
             DraftMode.GRID -> cells
             DraftMode.ROTISSERIE -> cells
+            // Arena: each pick's set, the same for every player
+            DraftMode.ARENA -> cells
             DraftMode.SEALED -> List(players * settings.packsPerPlayer) { cells[it % settings.packsPerPlayer] }
             else -> List(players * settings.packsPerPlayer) { cells[it / players] }
         }

@@ -836,6 +836,29 @@ class GameDevice(
      * by their OK or by its reveal being taken back, so what they dismissed stays dismissed and what is open stays open, when
      * its event is on this line (past the local head, it opens as playback reaches it).
      */
+    /**
+     * HIS-006 (merge gate 2026-11-20, CoreLoopTest: Alice's turn played back a second time): the game loaded again while the
+     * table was live, at the server's local head of this player, which can lag behind what [old] had already shown (its
+     * reports refused, or not sent yet, when the device's own events lost a race). The main-line events up to [old]'s local
+     * head show again at once, opening no reveal, play shown or combat hold (they were shown before), so they don't play
+     * back a second time. Returns how many.
+     */
+    fun showAlreadySeen(old: GameDevice): Int {
+        val upTo = session.indexOf(old.session.localHead) ?: return 0
+        var shown = 0
+        while (session.behind && !session.drafting && session.pending.isEmpty() && (session.indexOf(session.localHead) ?: -1) < upTo) {
+            session.showNext()
+            shown++
+        }
+        if (shown == 0) return 0
+        val local = session.indexOf(session.localHead) ?: -1
+        session.events.take(local + 1).mapTo(revealsSeen) { it.id }
+        revealsTip = session.tip
+        if (session.buffered.none { it.author != session.me.value && !okOnly(it) }) catchUp = false
+        remember("loaded again: $shown events this device had shown shown again at once, ${viewState()}")
+        return shown
+    }
+
     fun carryReveals(old: GameDevice) {
         old.syncReveals()
         syncReveals()
@@ -2157,6 +2180,9 @@ class GameDevice(
         // TRN-065, HIS-084: an OK on the result isn't an action Undo goes back to: it goes with the result
         if (input == null) return e.table.any { it !is TableChange.LineMoved && it !is TableChange.ResultOk }
         if (input is Input.PassPriority) return e.press == MainPress.EndTurn
+        // The game's first event is the server's start, never a player's action, though it carries the author whose Ready
+        // started the game: a game loaded from before it holds it on the line, and Undo went back to the root (refused)
+        if (input is Input.StartGame) return false
         origins[e.id]?.let { return it }
         return when (input) {
             is Input.PlayLand -> input.player == me

@@ -82,6 +82,21 @@ class HandDimTest {
         assertEquals(other, toolkit.hand.raised, "a tap raises again")
     }
 
+    // ZON-095, TRN-062 (owner playtest 2026-11-20: "Dont fade out cards when mulliganing"): Alice's opening asks her Keep or
+    // Mulligan, yet her opening hand shows at full strength and takes taps as a lit hand does (a card she can't play yet
+    // shakes, saying why)
+    @Test fun theOpeningHandIsNeverDimmed() {
+        val kit = EngineTableKit()
+        render(kit)
+        assertTrue(AutomatumDrags.opening(kit.alice.play().board, kit.f.a), "Alice is in her opening")
+        assertTrue(kit.toolkit.flows.answering != null, "her Keep / Mulligan decision is open")
+        assertFalse(kit.toolkit.handDimmed(kit.alice.play()), "the opening hand is lit")
+        val card = kit.atw(kit.state().player(kit.me).hand.first())
+        kit.tap(kit.item(card, PlayZone.HAND))
+        val shake = kit.toolkit.shaking
+        assertTrue(shake?.id == card && shake.reason.isNotBlank(), "the tap is taken: the card shakes, saying why: $shake")
+    }
+
     // ZON-095 (owner notes 2026-11-14): Alice's discard at her cleanup step is a choice about her hand cards: her hand stays lit
     @Test fun aChoiceAboutHandCardsLeavesTheHandLit() {
         val kit = EngineTableKit()

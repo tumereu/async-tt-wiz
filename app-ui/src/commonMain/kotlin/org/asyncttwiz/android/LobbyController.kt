@@ -138,6 +138,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     /** LOB-137: the own sent message's bubble [key] has faded; reopening the game doesn't show it again. */
     fun chatSentShown(gameId: String, key: Long) { personalChat.sentShown(gameId, key); connectionState() }
+    /** WEB-138: the desktop table's bubble of [messageId] went by itself or was clicked: it doesn't show again. */
+    fun desktopChatBubbleGone(gameId: String, messageId: String) { personalChat.desktopBubbleGone(gameId, messageId); connectionState() }
     /** LOB-136: a tap on the other player's chat bubble reads its message (the next unread one shows next). */
     fun readChatBubble(gameId: String, messageId: String) {
         if (!closed && state.selected == gameId) {

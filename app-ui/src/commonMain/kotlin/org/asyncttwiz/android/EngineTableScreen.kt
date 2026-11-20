@@ -488,7 +488,13 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) pausePlayback else null,
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
-                        chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape || desktopLayout,
+                        // WEB-137, WEB-138: on the desktop table twice the size, the other player's shown while the dock is open
+                        // too and gone by itself after a few seconds (a click reads it and closes it)
+                        chatBubbles = if (desktopLayout) TableChatBubbles(state.chatDesktopBubble, state.chatSent, tableShown = true,
+                            routes.opponentName, read = { controller.readChatBubble(game.id, it); controller.desktopChatBubbleGone(game.id, it) },
+                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) },
+                            scale = ChatBubbleRules.DESKTOP_SCALE, incomingGone = { controller.desktopChatBubbleGone(game.id, it) })
+                        else TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
                             routes.opponentName, read = { controller.readChatBubble(game.id, it) },
                             open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) }),
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat

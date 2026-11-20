@@ -92,7 +92,9 @@ abstract class E2e {
         private fun ended(description: Description, how: String) = requestsLog("$how ${description.testClass.simpleName}." +
             "${description.methodName} real=${(System.nanoTime() - startedAt) / 1_000_000} " +
             "phone=${android.os.SystemClock.uptimeMillis() - phoneStartedAt} " +
-            players.joinToString(" ") { player -> "${player.name}:${player.link.requests.count(::lobbyRequest)}" })
+            players.joinToString(" ") { player ->
+                // The list is synchronized, but iterating it needs its lock: the phone's sync keeps adding to it
+                "${player.name}:${synchronized(player.link.requests) { player.link.requests.count(::lobbyRequest) }}" })
 
         private fun requestsLog(line: String) {
             runCatching { File(E2eStack.output, "requests.log").appendText("${java.time.Instant.now()} $line\n") }

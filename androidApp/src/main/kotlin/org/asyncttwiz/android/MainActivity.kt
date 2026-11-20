@@ -206,7 +206,7 @@ class MainActivity : ComponentActivity() {
                         auth.openActivity(route)
                     }
                 }
-                // Prompts wait while the card records install (section 3.6), not after a failure
+                // Prompts wait while the card records install (LOB-096), not after a failure
                 val catalogBlocked = !catalog.state.ready && !catalog.state.failed
                 val releaseNotes = remember { ReleaseNotePreferences(AppPlatform.current) }
                 var whatsNew by remember { mutableStateOf(releaseNotes.unseen()) }

@@ -70,7 +70,7 @@ interface AutomatumWork {
  * drops it, sending nothing. While it is open nothing else changes the game ([open] blocks the toolkit's actions, D32);
  * looking stays free (I-D10).
  *
- * Web client step 4e: the flow runs as a session where the engine is ([port]: in-process on [work], off the main thread in
+ * The flow runs as a session where the engine is ([port]: in-process on [work], off the main thread in
  * the app, SYS-025; in the browser the engine's Web Worker beside the game's device), and the panel draws the plain data
  * each step answers ([flow], a [CastShown]), never the flow itself. Meanwhile [busy] is true, the panel shows it and takes
  * no input. A step's result applies only if nothing replaced it (Cancel, another step).
@@ -96,7 +96,7 @@ class CastController(
      * rewind, a branch, an own event refused), and the last one's words ([EngineGame.takeBacks]). */
     private val takeBacks: () -> Long = { 0L },
     private val lastTakeBack: () -> String = { "" },
-    /** Web client step 4e: where the cast's flow session runs: in-process on [work] unless said otherwise ([TableCastPort]: the
+    /** Where the cast's flow session runs: in-process on [work] unless said otherwise ([TableCastPort]: the
      * browser's engine worker when the game's device is there). */
     private val port: CastPort = LocalCastPort(viewer) { w, d -> work.run(w, d) },
     /** TBL-130: the stacks of identical battlefield cards on a board as the table lays them out (Autotap takes the topmost). */
@@ -104,7 +104,7 @@ class CastController(
 ) : FlowQuestions {
     /** The take-backs counted when the open cast began ([takeBacks]): a later one took the table back behind it. */
     private var startedAt = 0L
-    /** The open cast's session where the flow runs (web client step 4e). */
+    /** The open cast's session where the flow runs. */
     private var session = 0L
     /** The open cast as the panel draws it, null when none. */
     var flow by mutableStateOf<CastShown?>(null); private set
@@ -602,7 +602,7 @@ class CastController(
         // I-D43: how each cast flow ended
         if (flow != null || starting != null) {
             (flow?.gameId ?: current()?.gameId)?.let { AutomatumLog.flow(it, "cast", how, flow?.cardId ?: starting.orEmpty()) }
-            // Web client step 4e: the session ends where the flow runs
+            // The session ends where the flow runs
             port.ask(CastRequest(session, op = CastOp.Close(how)), null, { null }) {}
         }
         generation++
@@ -826,7 +826,7 @@ class CastController(
         const val FAILED = CastSessions.FAILED
         const val TAKE_OVER = "Automatum can't take over this board:"
 
-        /** The table's cast sessions, numbered across the page (web client step 4e: the engine side keys them by game). */
+        /** The table's cast sessions, numbered across the page (the engine side keys them by game). */
         private val sessions = org.asyncttwiz.appui.AtomicLong()
         private fun nextSession(): Long = sessions.incrementAndGet()
 
@@ -862,7 +862,7 @@ class CastController(
 }
 
 /**
- * Web client step 4e: an open cast as the cast panel and its target bar draw it: the plain data its session's last step
+ * An open cast as the cast panel and its target bar draw it: the plain data its session's last step
  * answered ([value]) on the board it runs on ([play]), never the flow itself. Its engine state ([state]) is the flow's own
  * in-process, else the page's copy of [play]'s with the flow's changes, worked out once when first read.
  */

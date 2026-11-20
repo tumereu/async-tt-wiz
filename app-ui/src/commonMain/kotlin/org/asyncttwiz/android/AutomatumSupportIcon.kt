@@ -47,7 +47,7 @@ import org.asyncttwiz.appui.ioDispatcher
 import org.asyncttwiz.appui.concurrentMapOf
 
 /**
- * LOB-115 (section 3.8): which cards of a list Automatum can't play yet, as the card catalog marks them: a card is
+ * LOB-115 (SYS-082): which cards of a list Automatum can't play yet, as the card catalog marks them: a card is
  * supported when its printing is ([unsupported]: of the printing ids asked for, those the card records don't mark as
  * supported; null without card records). A card without a printing counts as unsupported. Blocking: a worker only.
  */

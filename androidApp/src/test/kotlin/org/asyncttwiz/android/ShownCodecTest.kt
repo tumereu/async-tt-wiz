@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * Web client step 4c: every board a game publishes ([EngineGame.Shown], an own action's early board too, with its notes)
+ * Every board a game publishes ([EngineGame.Shown], an own action's early board too, with its notes)
  * crosses the engine boundary as a message ([ShownEncoder]) and comes out on the page ([ShownDecoder]) the same: the same
  * board, panels, line, transition with its motion steps and undo, and the same engine state, which the page keeps as its
  * own copy advanced by events. Played through the seeded whole games of two devices ([EngineTwoDeviceTest]: live, async
@@ -131,19 +131,19 @@ class ShownCodecTest {
         if (had == null) channel.boards[a] = b else assertTrue(had === b, "$at: a new object for one the page had")
     }
 
-    // Web client step 4c: live games' boards cross the boundary unchanged
+    // Live games' boards cross the boundary unchanged
     @Test fun liveGamesCrossTheBoundary() {
         val totals = watched { EngineTwoDeviceTest().liveGames() }
         assertTrue(totals.messages > 100 && totals.steps > 0, "$totals")
     }
 
-    // Web client step 4c: async games' boards (catch-ups, branches and their take-backs) cross the boundary unchanged
+    // Async games' boards (catch-ups, branches and their take-backs) cross the boundary unchanged
     @Test fun asyncGamesCrossTheBoundary() {
         val totals = watched { EngineTwoDeviceTest().asyncGames() }
         assertTrue(totals.messages > 100, "$totals")
     }
 
-    // Web client step 4c: mixed games' boards (undo, undo requests, results, reloads) cross the boundary unchanged
+    // Mixed games' boards (undo, undo requests, results, reloads) cross the boundary unchanged
     @Test fun mixedGamesCrossTheBoundary() {
         val totals = watched { EngineTwoDeviceTest().mixedGames() }
         assertTrue(totals.messages > 100 && totals.loads < totals.messages / 4, "$totals")

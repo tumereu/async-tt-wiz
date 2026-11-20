@@ -11,7 +11,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 // Reading the card records' JSON (a printing's record, Cube Cobra's and Scryfall's answers) in common code, as client-storage
-// read them with Gson before (web client step 3a): the same values, the same failures for what isn't there.
+// read them with Gson before: the same values, the same failures for what isn't there.
 
 /** [text] as a JSON object; throws when it is no JSON or not an object. */
 internal fun jsonObject(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject

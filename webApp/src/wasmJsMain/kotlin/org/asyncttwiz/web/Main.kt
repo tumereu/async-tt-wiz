@@ -7,7 +7,7 @@ import org.asyncttwiz.android.runEngineBench
 import org.asyncttwiz.android.startWebApp
 import org.asyncttwiz.appui.BuildInfo
 
-/** The web client's entry point (docs/specs/web-client.md §1 item 1): the build's values, then the app (:app-ui). */
+/** The web client's entry point: the build's values, then the app (:app-ui). */
 fun main() {
     // Dev only: a test build opened at #engine-bench measures the engine's Web Worker in place of the app
     if (!WebBuildValues.RELEASE && pageHash() == "#engine-bench") {

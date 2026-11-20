@@ -64,7 +64,7 @@ class HandController(
     private val shake: (String) -> Unit,
     /** Whether [cardId] is known to have no cast or play Automatum allows now (null: not worked out yet). */
     private val unplayable: (TableBoard, String) -> Boolean?,
-    /** Web client step 4e: the game played, whose device in the browser's engine worker works the chips out there. */
+    /** The game played, whose device in the browser's engine worker works the chips out there. */
     private val game: () -> EngineGame? = { null },
 ) {
     /** The raised card, null when none. */
@@ -178,7 +178,7 @@ class HandController(
     }
 
     /**
-     * WEB-027 (owner, §5): the mouse hovers [cardId] in the viewer's hand row on the desktop table (null: no card): a card
+     * WEB-027 (owner): the mouse hovers [cardId] in the viewer's hand row on the desktop table (null: no card): a card
      * Automatum lets them use now shows its chips faded, worked out as a raised card's are; the raised card keeps its own.
      */
     fun hover(cardId: String?) {
@@ -243,7 +243,7 @@ class HandController(
     }
 
     private fun chipsOf(play: TableBoard, card: String, done: (HandCastChips?) -> Unit) {
-        // R4a: the chips are worked out on the game's own engine state, where the engine is (web client step 4e: the browser's
+        // The chips are worked out on the game's own engine state, where the engine is (the browser's
         // engine worker when the game's device is there)
         val remote = game()?.takeIf { it.inWorker && play.values?.workerBoard == true }
         if (remote != null) remote.handChips(play, card, done)
@@ -354,7 +354,7 @@ const val HOVER_CHIP_ALPHA = .55f
 const val HOVER_CHIPS_TAG = "hover-chips"
 
 /**
- * WEB-027 (owner, §5): on the desktop table the hand card the mouse hovers ([HandController.hovered]) shows its chips faded
+ * WEB-027 (owner): on the desktop table the hand card the mouse hovers ([HandController.hovered]) shows its chips faded
  * in a row just above it, as a raised card's (ZON-080), while the table outlines in amber what Autotap would tap for its
  * regular way; the chip the mouse is on turns solid and its own sources are outlined. A click on a chip casts that way at
  * once; a click on the card raises it as a tap does (its chips then the raised card's). Only in the desktop layout.

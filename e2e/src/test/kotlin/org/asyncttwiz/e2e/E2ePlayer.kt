@@ -110,7 +110,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     val catalogGate = java.util.concurrent.CountDownLatch(if (holdCatalog) 1 else 0)
     private val catalogDirectory = if (withCatalog) kotlin.io.path.createTempDirectory("e2e-catalog-${account.name}").toFile() else null
     /** The phone's card records, only when a test asks for them ([withCatalog]): the test server's card catalog (the test
-     * cards'), checked against the checksum it is built with and installed as the app does (docs/specs/web-client.md 3.5). */
+     * cards'), checked against the checksum it is built with and installed as the app does (LOB-091). */
     val catalog: org.asyncttwiz.android.CatalogViewModel? = catalogDirectory?.let { directory ->
         val repository = org.asyncttwiz.storage.CatalogRepository(directory) { app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
         val source = object : org.asyncttwiz.storage.CatalogSource {

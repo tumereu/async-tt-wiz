@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.window.PopupProperties
 
-// The platform's own pieces of drawing, windows and input the UI uses (docs/specs/web-client.md §1 item 2). Android:
+// The platform's own pieces of drawing, windows and input the UI uses. Android:
 // each is the code the app used before, moved here unchanged, so it draws and behaves exactly as it did.
 
 /** Calls [onBack] on the system's Back while composed and [enabled] (Android: the activity's BackHandler). */
@@ -21,7 +21,7 @@ import androidx.compose.ui.window.PopupProperties
 @Composable expect fun ScreenBackHandler(enabled: Boolean = true, onBack: () -> Unit)
 
 /**
- * Back that leaves a game's table or the draft once no layer is open (docs/specs/web-client.md §8.4). Android: nothing
+ * Back that leaves a game's table or the draft once no layer is open (WEB-002). Android: nothing
  * (the screen's own [BackHandler] or [ScreenBackHandler] does it). The web (WEB-004): Esc and Android Chrome's system Back
  * leave the screen too, as Android's Back does, without counting as an open layer.
  */
@@ -31,7 +31,7 @@ import androidx.compose.ui.window.PopupProperties
 expect val secondBackLeavesTable: Boolean
 
 /** Whether the app offers the desktop layout and its Layout setting (WEB-013, WEB-014): the web. Android draws the phone
- * layout only (docs/specs/web-client.md §4.3). */
+ * layout only (WEB-013). */
 expect val desktopLayoutOffered: Boolean
 
 /** Whether the main pointer can hover (a mouse or trackpad; WEB-013), following changes while composed. Android: false. */

@@ -97,7 +97,7 @@ class DecksTest {
         assertFailsWith<SerializationException> { DeckJson.format.decodeFromString<UpdateDeck>(input.replace("\"entries\"", "\"unknown\"")) }
     }
 
-    /** Printed values for rules engines (docs/specs/arcanum-atw-integration.md I-D2): absent, they are left out of the
+    /** Printed values for rules engines (I-D2, docs/arcanum-atw-decisions.md): absent, they are left out of the
      * JSON, so existing definitions keep their bytes and digests (the literal vector above). */
     @Test fun colourIndicatorAndPrintedPartsAreOptionalAdditions() {
         assertFalse(DeckJson.definitionBytes(card()).decodeToString().let { "colorIndicator" in it || "parts" in it })

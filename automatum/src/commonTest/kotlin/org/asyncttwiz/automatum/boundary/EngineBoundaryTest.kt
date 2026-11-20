@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The engine boundary (docs/specs/web-client.md §1 item 3): its requests and answers as JSON strings, the engine side's
+ * The engine boundary: its requests and answers as JSON strings, the engine side's
  * boards (a snapshot, then the events that changed it), the page's ledger dropping stale answers, and the message channel
  * end to end through JSON on a planner standing in for the Web Worker.
  */

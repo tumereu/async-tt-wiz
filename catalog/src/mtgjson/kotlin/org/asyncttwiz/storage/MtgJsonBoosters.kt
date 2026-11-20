@@ -5,9 +5,9 @@ import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import org.asyncttwiz.protocol.*
 
-/** A set's booster recipes from its MTGJSON `booster` object, for the catalog build (docs/specs/web-client.md section
- * 3.3). Only the fields packs need are kept; strings, nesting and object sizes are bounded. No limit on a recipe's sheets
- * or cards: the server builds packs from any recipe (section 3.7). */
+/** A set's booster recipes from its MTGJSON `booster` object, for the catalog build
+ * (SYS-081). Only the fields packs need are kept; strings, nesting and object sizes are bounded. No limit on a recipe's sheets
+ * or cards: the server builds packs from any recipe (DRF-169). */
 object MtgJsonBoosters {
     private const val MAX_ENTRIES = 1_000_000
 

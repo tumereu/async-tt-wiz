@@ -20,7 +20,7 @@ import org.asyncttwiz.catalog.CatalogVersion
 import org.asyncttwiz.protocol.CardSearchRules
 import org.asyncttwiz.protocol.DefinitionFace
 
-// The browser's card records (docs/specs/web-client.md §3.5, §3.6): the installer's checksum, retry and kept-file logic over
+// The browser's card records (LOB-091, LOB-096): the installer's checksum, retry and kept-file logic over
 // fakes of the browser's download, storage and unpacking, and the in-memory records' reads. Invented cards only.
 class BrowserCatalogTest {
     /** A catalog file as the fakes carry it: its lines and the checksum unpacking them works out. */

@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * Web client step 4c: a value the engine side gives a composable through a callback, as snapshot state ([value] once
+ * A value the engine side gives a composable through a callback, as snapshot state ([value] once
  * [arrived]): on Android it arrives before the call that asks returns, so the composition that asked reads it at once and
  * nothing flickers; in the browser it arrives when the engine side answers, and what reads it recomposes then.
  */
@@ -21,7 +21,7 @@ class AnsweredValue<T> {
 }
 
 /**
- * What the table reads of an [EngineGame] as snapshot state (main thread; web client step 4c: the engine game itself is
+ * What the table reads of an [EngineGame] as snapshot state (main thread; the engine game itself is
  * app-engine's, without Compose): the last published board's version, whether older history is on its way, and the
  * timeline's events and texts. Made on first use and kept with the game ([EngineGame.ui]).
  */

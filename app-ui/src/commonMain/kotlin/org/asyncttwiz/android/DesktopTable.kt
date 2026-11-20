@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 /**
- * WEB-015 (docs/specs/web-client.md §7.2): the desktop table's frame, which [EngineTableScreen] provides in the desktop layout
+ * WEB-015: the desktop table's frame, which [EngineTableScreen] provides in the desktop layout
  * ([AppLayout.Desktop]): whether its right dock (the game chat, WEB-017) is open. The table under it is the same
  * table as the phone's landscape one ([TableSurface] with landscape true), arranged by [TablePresentation.scene] for it.
  */

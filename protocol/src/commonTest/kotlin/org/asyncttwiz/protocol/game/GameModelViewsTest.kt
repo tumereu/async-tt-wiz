@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Engine-responsiveness R2: a [GameModel] works the layers out once per state. Its [GameModel.view] and
+ * A [GameModel] works the layers out once per state. Its [GameModel.view] and
  * [GameModel.visible] sets are kept until the engine state next changes through it ([GameModel.apply],
  * [GameModel.revert], an [EventBuilder] on it, an event's drop of older log entries) and never outlive that change; a
  * [GameModel.copy] keeps nothing. Counted with [EngineProbes.layersWorkedOut] (no timing); [GameModel.checkKept] checks every

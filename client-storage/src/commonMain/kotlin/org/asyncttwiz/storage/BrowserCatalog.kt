@@ -9,7 +9,7 @@ import org.asyncttwiz.protocol.CardSearchParse
 import org.asyncttwiz.protocol.CardSearchQuery
 import org.asyncttwiz.protocol.DefinitionFace
 
-// The card records in the browser (docs/specs/web-client.md §3.5, §3.6, §9.3): the server's card catalog downloaded whole,
+// The card records in the browser (LOB-091, LOB-096, WEB-009): the server's card catalog downloaded whole,
 // checked against the checksum the app expects (as Android does), kept in the browser's storage as the file it is (gzip
 // lines, IndexedDB) and read into memory ([MemoryCardCatalog]) on each start. The browser's sides (fetch, IndexedDB,
 // DecompressionStream, SHA-256) are app-ui's wasm side; F is the platform's handle of a catalog file.

@@ -24,7 +24,7 @@ import org.asyncttwiz.protocol.CrashReport
 import org.asyncttwiz.protocol.LatencyBatch
 import org.asyncttwiz.protocol.ReconnectEpisode
 
-// Problem diagnostics in the browser (web client step 3b): the app log in memory (console plus the ring problem reports
+// Problem diagnostics in the browser: the app log in memory (console plus the ring problem reports
 // read), crashes (failures nothing caught: the page's error events and the app's own queues) and slow-action, reconnect and
 // tap reports, sent to the same endpoints as Android's while reports are on. Nothing is kept across a reload but the visit
 // journal's last lines (WEB-056, [BrowserVisitJournal]: a visit the browser ended is named in the next one's app log); a

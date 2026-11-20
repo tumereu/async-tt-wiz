@@ -11,7 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.launch
 
-// The desktop layout's hotkeys (docs/specs/web-client.md §6; WEB-031 to WEB-036): which key does what, rebindable and kept on
+// The desktop layout's hotkeys (WEB-031 to WEB-036): which key does what, rebindable and kept on
 // the account (decision 23), and the hooks the screens act through. The phone layout and Android have none of it.
 
 /**
@@ -38,7 +38,7 @@ data class KeyChord(val key: String, val shift: Boolean = false, val ctrl: Boole
         private val KEY_LABELS = mapOf("ArrowLeft" to "←", "ArrowRight" to "→", "ArrowUp" to "↑", "ArrowDown" to "↓",
             "Escape" to "Esc", "PageUp" to "Page Up", "PageDown" to "Page Down", "Control" to "Ctrl", "Meta" to "⌘")
 
-        /** The modifier keys alone: never a hotkey of their own (Alt and Shift are the finger key, §5). */
+        /** The modifier keys alone: never a hotkey of their own (Alt and Shift are the finger key, WEB-024). */
         val MODIFIERS = setOf("Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "Fn", "OS", "Hyper", "Super")
 
         /** [text] ("Shift+G") read back; null when it names no key. */
@@ -82,7 +82,7 @@ data class KeyChord(val key: String, val shift: Boolean = false, val ctrl: Boole
 }
 
 /**
- * The places hotkeys act in (§6's "Where"), as the "?" sheet and Settings group them.
+ * The places hotkeys act in, as the "?" sheet and Settings group them.
  */
 sealed class HotkeyPlace(val title: String) {
     data object Table : HotkeyPlace("Table")
@@ -144,7 +144,7 @@ sealed class HotkeyAction(val id: String, val label: String, val place: HotkeyPl
     }
 }
 
-/** §6: the keys that can't be rebound, as the "?" sheet lists them: [keys] as shown, what they do, where. */
+/** WEB-091: the keys that can't be rebound, as the "?" sheet lists them: [keys] as shown, what they do, where. */
 data class FixedKey(val keys: String, val label: String, val place: HotkeyPlace) {
     companion object {
         val all: List<FixedKey> = listOf(
@@ -202,7 +202,7 @@ data class KeyBindings(val overrides: Map<String, String> = emptyMap()) {
     fun reset(): KeyBindings = KeyBindings()
 
     companion object {
-        /** A key that can't be bound (§6: Esc, Enter, 1–9, "?" and the finger key are fixed); null when [chord] can. */
+        /** A key that can't be bound (WEB-092: Esc, Enter, 1–9, "?" and the finger key are fixed); null when [chord] can. */
         fun refusal(chord: KeyChord): String? = when {
             chord.key == "Escape" || chord.key == "Enter" -> "${chord.label} can't be changed."
             !chord.ctrl && chord.key.length == 1 && chord.key[0] in '1'..'9' -> "1–9 choose options in panels."
@@ -262,7 +262,7 @@ fun ControlKeysTarget(keys: ControlKeys?, tap: () -> Unit, hold: () -> Unit) {
 }
 
 /**
- * WEB-032 (§6: 1–9 choose the Nth mode, way or option): the options of the open panel's choices, the newest shown first
+ * WEB-032 (1–9 choose the Nth mode, way or option): the options of the open panel's choices, the newest shown first
  * ([choose]). Each choice section registers its options while composed ([NumberedOptions]).
  */
 @Stable
@@ -295,7 +295,7 @@ fun NumberedOptions(options: List<() -> Unit>) {
 }
 
 /**
- * WEB-024 (§5): a card outside the table's scene the finger key inspects when the pointer is over it (the play shown):
+ * WEB-024, WEB-086: a card outside the table's scene the finger key inspects when the pointer is over it (the play shown):
  * the card id the table's Inspect opens. Set by the mouse entering and leaving it. Main thread.
  */
 @Stable
@@ -317,7 +317,7 @@ fun androidx.compose.ui.Modifier.fingerTarget(id: String): androidx.compose.ui.M
 }
 
 /** WEB-031: the hotkey a page key is, in [bindings]: the chord ([KeyChord.of]) and its action, when the key goes down and no
- * text field has the keyboard (§6: hotkeys never act then). */
+ * text field has the keyboard (WEB-090: hotkeys never act then). */
 fun hotkeyOf(key: DesktopKey, bindings: KeyBindings): HotkeyAction? {
     if (!key.down || key.textField) return null
     return KeyChord.of(key)?.let(bindings::actionOf)

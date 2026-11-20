@@ -23,7 +23,7 @@ import org.asyncttwiz.automatum.boundary.SharedRequest
 import org.asyncttwiz.protocol.CombatStackRules
 
 /**
- * Web client step 4e (docs/specs/web-client.md §1 item 3): the engine side of a table's shared flows (priority, resolution,
+ * The engine side of a table's shared flows (priority, resolution,
  * triggers, the open decision of a resolution and its payments, combat's declarations and divisions; integration spec §3 I2b,
  * I3, I-D11) as sessions ([SharedRequest] in, [SharedAnswer] out), where the device is: the browser's engine Web Worker
  * ([DeviceHost]); Android in-process ([LocalSharedPort]). A session's versions are the flows of the boards the page showed
@@ -229,7 +229,7 @@ class SharedSessions(private val viewer: String, private val log: EngineLog = En
 }
 
 /**
- * Web client step 4e: where a table's shared-flow sessions run ([SharedSessions]) as the page sees it: in-process
+ * Where a table's shared-flow sessions run ([SharedSessions]) as the page sees it: in-process
  * ([LocalSharedPort]: Android, tests, a browser page holding the device itself) or the browser's engine Web Worker beside the
  * game's device ([EngineGame.sharedStep]). Answers come on the page's thread, in the order asked.
  */

@@ -128,7 +128,7 @@ class LatencyTelemetryTest {
         assertNull(store.bufferedLatency())
     }
 
-    // SYS-030 (engine-responsiveness R1): a slow own action's sample carries its parts once they are in, so the recorded
+    // SYS-030: a slow own action's sample carries its parts once they are in, so the recorded
     // and uploaded report holds every part
     @Test fun aSlowOwnActionsSampleCarriesItsParts() {
         var now = 0L

@@ -23,7 +23,7 @@ import org.asyncttwiz.protocol.GameSummary
 import org.asyncttwiz.protocol.RegisterInstallation
 import org.asyncttwiz.protocol.WebPushSubscription
 
-// The web client's notifications, install and tab title (docs/specs/web-client.md §9.1, §9.2; WEB-050 to WEB-055): the
+// The web client's notifications, install and tab title (WEB-050 to WEB-055): the
 // logic and the rows here are common code, shown only where the platform provides a browser ([LocalWebNotifications]: the
 // web shell's); Android has none of them.
 

@@ -90,7 +90,7 @@ class CardPlays private constructor(
         internal fun restored(byCard: Map<String, List<CardPlay>>): CardPlays = CardPlays(byCard)
 
         /**
-         * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
+         * [of] for a game on engine state (I-D56): [state] is its own state (full
          * information, not changed here; the card ids are the game's), [view] its view and [visible] what [viewer] may
          * see of it ([Host.visible]), which the caller already has (worked out once on the engine thread, nothing
          * copied).
@@ -195,7 +195,7 @@ class CardPlays private constructor(
                 mapOf("card" to "$name ($card)", "origin" to instance.origin.toString(), "printed faces" to definition?.faces?.joinToString(" // ") { it.name }.orEmpty()))
 
         /** Why the engine refuses [input] now: the refusal [Engine.perform] gives before anything is done, asked without
-         * performing it ([CastScreen.refusal], engine-responsiveness R3, on [view], [state]'s view); one it may still begin
+         * performing it ([CastScreen.refusal], on [view], [state]'s view); one it may still begin
          * (refused later, if at all: a target or a cost it can't have) is [CardPlay.Refusal.Other]. */
         private fun refusal(state: GameState, view: View, input: Input, ability: Ability? = null): CardPlay.Refusal {
             val player = when (input) { is Input.Activate -> input.player; is Input.Cast -> input.player; is Input.PlayLand -> input.player; else -> null }

@@ -216,7 +216,7 @@ object GameWire {
     /** The largest game socket message either way (I-D14). */
     const val MAX_MESSAGE_BYTES = 8 * 1024 * 1024
     /** The socket's WebSocket subprotocol, which a browser asks for (it can't send an Authorization header) beside its
-     * session token as [SOCKET_TOKEN_PREFIX] + token; the server answers with this one (web client step 3b). */
+     * session token as [SOCKET_TOKEN_PREFIX] + token; the server answers with this one. */
     const val SOCKET_PROTOCOL = "atw.v1"
     /** The prefix of the subprotocol that carries a browser's session token (a token's characters are all allowed). */
     const val SOCKET_TOKEN_PREFIX = "atw.bearer."

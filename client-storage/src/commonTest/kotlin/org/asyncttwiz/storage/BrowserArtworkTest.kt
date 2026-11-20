@@ -15,7 +15,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
-// The browser's card pictures (docs/specs/web-client.md §1 item 4): Scryfall's card data names the image, what came is kept
+// The browser's card pictures: Scryfall's card data names the image, what came is kept
 // for good (LOB-097), failures wait before the next try. Over a fake fetch and an in-memory Cache API.
 class BrowserArtworkTest {
     private val id = "00000000-0000-4000-8000-000000000001"

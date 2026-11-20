@@ -5,7 +5,7 @@ package org.asyncttwiz.android
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
-// The table in the browser (docs/specs/web-client.md §8.5, §8.7; WEB-011): the browser's own gestures kept off the table
+// The table in the browser (WEB-011, WEB-012): the browser's own gestures kept off the table
 // and the draft (page scroll and bounce, pull-to-refresh, pinch and double-tap zoom, text selection, long-press callouts
 // and the context menu), so the table's own pan, pinch, hold and double tap get every touch, mouse and wheel event; and
 // haptics through navigator.vibrate where the browser has it.
@@ -44,7 +44,7 @@ internal fun jsGuardTablePage(): Unit = js("""{
 }""")
 
 /**
- * The shared UI's haptic ticks in the browser (§8.7): a short vibration where the browser offers it (Android's Chrome), and
+ * The shared UI's haptic ticks in the browser (WEB-012): a short vibration where the browser offers it (Android's Chrome), and
  * nothing where it doesn't (iOS, desktops) or before the page has had a tap (browsers refuse it then).
  */
 internal object BrowserHaptics : HapticFeedback {
@@ -61,7 +61,7 @@ private fun jsVibrate(millis: Int): Unit = js("""{
 }""")
 
 /**
- * The desktop layout's keyboard (docs/specs/web-client.md §5, §6; WEB-024): every key press and release on the page goes to
+ * The desktop layout's keyboard (WEB-024, WEB-031): every key press and release on the page goes to
  * [key] (its name, down or up, time, a held key's repeat, the modifiers), which says whether the app took it (and asks
  * [jsTyping] whether a text field has the keyboard); a taken Alt keeps the browser's own Alt handling (its menu bar) off.
  * WEB-025 (prod report 96PB2X, 2026-11-16: Alt's key-up never came, the table stayed paused): a key down is let go when its

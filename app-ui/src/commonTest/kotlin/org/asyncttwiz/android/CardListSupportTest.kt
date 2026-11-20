@@ -5,7 +5,7 @@ import kotlin.test.Test
 import org.asyncttwiz.appui.randomUuid
 import kotlin.test.*
 
-/** LOB-115, DRF-161: decks' and cubes' Automatum support, from the card catalog's marks (section 3.8). Invented cards. */
+/** LOB-115, DRF-161: decks' and cubes' Automatum support, from the card catalog's marks (SYS-082). Invented cards. */
 class CardListSupportTest {
     private fun id() = randomUuid()
     private fun card(name: String, text: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = "Creature — Bear",

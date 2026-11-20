@@ -2,7 +2,7 @@
 
 package org.asyncttwiz.android
 
-// The browser APIs the web shell uses (web client step 3), as small JavaScript functions: the address and history, the
+// The browser APIs the web shell uses, as small JavaScript functions: the address and history, the
 // close watcher, the page's own storage for small settings, the loading screen and the build it was served.
 
 internal fun jsPathname(): String = js("window.location.pathname")

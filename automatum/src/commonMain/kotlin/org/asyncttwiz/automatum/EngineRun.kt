@@ -17,7 +17,7 @@ import org.asyncttwiz.protocol.RandomV1
 
 /**
  * Inputs performed on a copy of an engine state, as the table's controllers work out a player's cast, answer, pass or
- * declaration (engine-responsiveness R4a): [start] is the state shown (never changed here; a game on engine state gives
+ * declaration: [start] is the state shown (never changed here; a game on engine state gives
  * its own full information state, I-D56), [board] the board the table shows of it, whose combat lanes and records (the
  * attacker's staged choices, early answers, [EngineDrafts]) the flows read. [perform] runs an input and answers what the
  * host answers inside the same run:

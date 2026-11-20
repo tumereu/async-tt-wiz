@@ -3,15 +3,15 @@ package org.asyncttwiz.catalog
 import java.io.File
 
 /**
- * The catalog's pin (docs/specs/web-client.md section 3.1), `catalog/pin.properties`: the MTGJSON build every real-card
+ * The catalog's pin, `catalog/pin.properties`: the MTGJSON build every real-card
  * tool, the release, the server and both clients read, and the SHA-256 of its raw `AllPrintings.json.gz`. Holds no card
  * data; the raw file is kept only on the developer's machine. The trimmed catalog's checksum is not pinned: the release
- * works it out when it builds the catalog and builds it into the app (section 3.4).
+ * works it out when it builds the catalog and builds it into the app (SYS-081).
  */
 data class CatalogPin(val mtgjsonVersion: String, val mtgjsonDate: String, val allPrintingsSha256: String) {
     fun write(file: File) = file.writeText(
         """
-        |# The card catalog's pin (docs/specs/web-client.md section 3.1): the MTGJSON AllPrintings build the Arcanum tools, the
+        |# The card catalog's pin: the MTGJSON AllPrintings build the Arcanum tools, the
         |# release, the server and both clients read. No card data here. The raw file is kept outside the repository. Check
         |# it with scripts/catalog-pin.sh verify; move the pin (a task of its own: setSupport and parserDiff against the new
         |# file first) with scripts/catalog-pin.sh move.

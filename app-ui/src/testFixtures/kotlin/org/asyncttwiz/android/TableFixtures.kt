@@ -116,7 +116,7 @@ internal object LiveTableFixture {
                 contentsDisplays = listOf(ContentsDisplay("reveal", "a", "a/LIBRARY", ContentsSelection.TOP, 2, true, shown))))
     }
 
-    /** Twelve life changes as the timeline strip shows them (R4b: the engine table's events), Bob's every third. */
+    /** Twelve life changes as the timeline strip shows them (the engine table's events), Bob's every third. */
     fun timeline(): List<HistoryTimelineEvent> {
         fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
         return (1..12).map { n -> HistoryTimelineEvent(id(n), HistoryIcon.FAVORITE, "Life set to ${20 - n}",

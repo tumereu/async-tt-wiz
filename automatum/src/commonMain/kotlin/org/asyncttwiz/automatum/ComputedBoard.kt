@@ -123,7 +123,7 @@ class ComputedBoard private constructor(
     /** ZON-136 (owner playtest 2026-11-19, N17): what the viewer may know of each other player's hand-row cards
      * ([OffZoneCards.playableBy]), by account; players with none left out. */
     val othersPlayable: Map<String, List<OtherPlayable>> = emptyMap(),
-    /** Web client step 4c: a board restored on the page from the engine side's values ([restored]), whose view is worked out
+    /** A board restored on the page from the engine side's values ([restored]), whose view is worked out
      * on the page when an explanation first needs it. */
     private val restoredView: Boolean = false,
     /** Web client (web frame rate, 2026-11-15): a restored board's [withEffects] as the engine side worked them out with its own
@@ -137,7 +137,7 @@ class ComputedBoard private constructor(
     private val view: View?
         get() = givenView ?: if (!restoredView || state == null) null else workedView ?: arcanum.engine.Engine.view(state).also { workedView = it }
 
-    /** Web client step 4c: what the page receives of these values ([restored] makes them again on the page's copy of the
+    /** What the page receives of these values ([restored] makes them again on the page's copy of the
      * state); the explanations are worked out on the page when asked. */
     @kotlinx.serialization.Serializable
     class Wire(val cards: Map<String, ComputedCard> = emptyMap(), val unsupported: List<String> = emptyList(),
@@ -402,7 +402,7 @@ class ComputedBoard private constructor(
         private val PT_LAYERS = setOf<Layer>(Layer.PowerToughnessDefining, Layer.PowerToughnessSet, Layer.PowerToughnessModify,
             Layer.PowerToughnessSwitch)
 
-        /** Web client step 4c: [wire]'s values made again on the page, on its own copy of the board's [state] (the same
+        /** [wire]'s values made again on the page, on its own copy of the board's [state] (the same
          * state the engine side worked them out from); the view is worked out on the page when an explanation needs it. */
         fun restored(wire: Wire, state: GameState): ComputedBoard = if (!wire.computed)
             ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, null, null, null, wire.exileStates, wire.handRow,
@@ -417,7 +417,7 @@ class ComputedBoard private constructor(
         fun failed(reason: String) = ComputedBoard(emptyMap(), listOf(reason), 0, emptyList(), null, null, null)
 
         /**
-         * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [board] is the board shown of [state]
+         * [of] for a game on engine state (I-D56): [board] is the board shown of [state]
          * ([EngineProjection]) with its card data [submitted], [state] the game's own state (full information; kept for
          * [explain], so never changed afterwards) and [view] its view, which the caller already has (the engine thread's
          * one view of the state), so nothing is copied or worked out again.

@@ -9,7 +9,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The desktop layout's hotkeys (docs/specs/web-client.md §6): the keys' names, the bindings, conflicts, keeping them. */
+/** The desktop layout's hotkeys (WEB-031): the keys' names, the bindings, conflicts, keeping them. */
 class DesktopHotkeysTest {
     private fun key(name: String, shift: Boolean = false, ctrl: Boolean = false, meta: Boolean = false, alt: Boolean = false,
         typing: Boolean = false, down: Boolean = true) = DesktopKey(name, down, 0, shift = shift, ctrl = ctrl, meta = meta, alt = alt,
@@ -34,7 +34,7 @@ class DesktopHotkeysTest {
         assertEquals("←", KeyChord("ArrowLeft").label)
     }
 
-    // WEB-031, WEB-108, WEB-089 (§6): the default keys: Space the main button, Shift+Space its hold, Ctrl+Z Undo, T timeline mode, …
+    // WEB-031, WEB-108, WEB-089: the default keys: Space the main button, Shift+Space its hold, Ctrl+Z Undo, T timeline mode, …
     @Test fun theDefaultKeysAreTheSpecs() {
         val keys = KeyBindings()
         assertEquals(HotkeyAction.Main, hotkeyOf(key(" "), keys))
@@ -51,7 +51,7 @@ class DesktopHotkeysTest {
         assertEquals(defaults.size, defaults.toSet().size, "no two hotkeys share a default")
     }
 
-    // WEB-031, WEB-090 (§6): keys never act while a text field has the keyboard, nor on their release
+    // WEB-031, WEB-090: keys never act while a text field has the keyboard, nor on their release
     @Test fun keysNeverActWhileTyping() {
         assertNull(hotkeyOf(key(" ", typing = true), KeyBindings()))
         assertNull(hotkeyOf(key("c", typing = true), KeyBindings()))
@@ -82,7 +82,7 @@ class DesktopHotkeysTest {
         assertEquals(KeyBindings(), KeyBindings().bind(HotkeyAction.Main, KeyChord("Space")).bindings)
     }
 
-    // WEB-035, WEB-092 (§6): Esc, Enter, 1–9 and ? can't be taken; Ctrl with a digit can
+    // WEB-035, WEB-092: Esc, Enter, 1–9 and ? can't be taken; Ctrl with a digit can
     @Test fun theFixedKeysCantBeTaken() {
         for (chord in listOf(KeyChord("Escape"), KeyChord("Enter"), KeyChord("1"), KeyChord("9"), KeyChord("?")))
             assertTrue(KeyBindings.refusal(chord) != null, chord.text)

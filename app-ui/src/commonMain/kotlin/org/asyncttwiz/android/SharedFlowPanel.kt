@@ -67,7 +67,7 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
         // SYS-025: the flow worked out off the main thread (with the open decision, its early answer, I-D33, and what its
-        // panel draws), then shown at once; web client step 4e: in the browser asked of the engine's worker, shown when it
+        // panel draws), then shown at once; in the browser asked of the engine's worker, shown when it
         // answers
         if (!flows.remote && AutomatumBoards.cachedSharedValue(play) == null)
             toolkit.boardWork(Dispatchers.Default) { AutomatumBoards.sharedValue(play) }

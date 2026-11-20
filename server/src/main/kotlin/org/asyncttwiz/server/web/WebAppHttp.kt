@@ -6,7 +6,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * The web client, served beside the API from the same origin (docs/specs/web-client.md §2.1, WEB-001, WEB-005, WEB-006),
+ * The web client, served beside the API from the same origin (WEB-001, WEB-005, WEB-006),
  * from [directory] (WEB_APP_DIR: webApp's `webDist` output): `index.html` for every app address (never cached), the
  * build's files under `/web/<build>/` (named by their content's hash, so cached for good), `/web/build`, the build
  * open tabs compare theirs with, and the installable app's files at the top (WEB-054): the service worker `/sw.js`, the

@@ -164,7 +164,7 @@ android {
             buildConfigField("String", field, "\"$value\"")
         }
     }
-    // The card catalog's checksum (docs/specs/web-client.md section 3.5), worked out by the release when it builds the
+    // The card catalog's checksum (LOB-091, SYS-081), worked out by the release when it builds the
     // catalog (scripts/prod-release.sh). Without it (local and test builds) the app takes the server's current catalog.
     val catalogChecksum = providers.gradleProperty("atwCatalogChecksum").orElse("").get()
     require(catalogChecksum.isEmpty() || Regex("[0-9a-f]{64}").matches(catalogChecksum)) { "atwCatalogChecksum must be a SHA-256" }
@@ -270,7 +270,7 @@ android {
     // run only in :e2e:test, against a real server; the ordinary test tasks leave them out (below).
     sourceSets.getByName("test").kotlin.directories.add("../e2e/src/test/kotlin")
     // The MTGJSON import (:catalog's src/mtgjson) indexes the tests' invented MTGJSON fixtures; the app reads only the
-    // server's card catalog (docs/specs/web-client.md section 3.5).
+    // server's card catalog (LOB-091).
     sourceSets.getByName("test").kotlin.directories.add("../catalog/src/mtgjson/kotlin")
     // The test boards the shared UI's common tests (app-ui's commonTest) and these tests both use.
     sourceSets.getByName("test").kotlin.directories.add("../app-ui/src/testFixtures/kotlin")
@@ -311,7 +311,7 @@ dependencies {
     implementation(project(":client-storage"))
     // Arcanum Automatum in ATW (integration spec §3): the engine's view of the board (I1).
     implementation(project(":automatum"))
-    // The app's UI (docs/specs/web-client.md §11 step 2: the shell keeps only what it uses itself); compose-bom below keeps
+    // The app's UI (the shell keeps only what it uses itself); compose-bom below keeps
     // androidx Compose's versions.
     implementation(project(":app-ui"))
     implementation(platform(libs.compose.bom))

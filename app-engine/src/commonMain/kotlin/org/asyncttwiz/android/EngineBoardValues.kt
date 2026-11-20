@@ -26,8 +26,8 @@ import org.asyncttwiz.appui.currentThread
 import org.asyncttwiz.appui.simpleClassName
 
 /**
- * Engine-responsiveness R3, R4a: what the engine thread works out for a board of a game on engine state as it builds it
- * ([EngineGame]), from its one view of the state (R2), carried by the board ([TableBoard.values]):
+ * What the engine thread works out for a board of a game on engine state as it builds it
+ * ([EngineGame]), from its one view of the state, carried by the board ([TableBoard.values]):
  * - [computed]: the computed card values ([ComputedBoard]: P/T, keywords, type and colour changes, until-end-of-turn
  *   marks), made with the board: the table never shows the previous board's with it;
  * - the player's hand plays ([HandPlays]): worked out (through the engine boundary in-process, [EngineBoundary]) on the engine thread with the board it publishes as the result of
@@ -58,12 +58,12 @@ class EngineBoardValues constructor(
     private val engine: EngineWorker,
     private val table: TableState? = null,
     private val lines: org.asyncttwiz.automatum.boundary.BoardLines? = null,
-    /** This board's number on the engine boundary ([EngineRequest.board]): a new one, or (web client step 4c, a board
+    /** This board's number on the engine boundary ([EngineRequest.board]): a new one, or (a board
      * restored on the page, [ShownDecoder]) the engine side's. */
     val number: Long = numbers.incrementAndGet(),
     /** [openingBottom] as the engine side worked it out (a board restored on the page); null: worked out here. */
     bottom: Int? = null,
-    /** Web client step 4d: a board the device in the browser's worker published, restored on the page: its plays the engine
+    /** A board the device in the browser's worker published, restored on the page: its plays the engine
      * side hadn't worked out when it went out are asked of that device by [number] ([askPlays]); null otherwise. */
     private val device: DevicePlays? = null,
     /** CMB-040: for [onLanes]' boards, the number of the board whose lanes this one draws more on (its combat asked of the
@@ -77,15 +77,15 @@ class EngineBoardValues constructor(
         0
     }
 
-    /** Web client step 4c: how the engine thread made this board's state, so the page's copy of it can follow
+    /** How the engine thread made this board's state, so the page's copy of it can follow
      * ([ShownEncoder]); set on the engine thread before the board is published, null for a board made otherwise. */
     @Volatile var origin: org.asyncttwiz.automatum.boundary.StateOrigin? = null
 
-    /** The table state beside the board and what its viewer may see, for its transfer to the page (web client step 4c). */
+    /** The table state beside the board and what its viewer may see, for its transfer to the page. */
     internal val shownTable: TableState? get() = table
     internal val shownVisible: Set<ObjectId> get() = visible
 
-    /** Web client step 4c: a board restored on the page ([ShownDecoder]) with the plays the engine side had worked out. */
+    /** A board restored on the page ([ShownDecoder]) with the plays the engine side had worked out. */
     internal fun restoredPlays(hand: HandPlays?, card: CardPlays?) { if (hand != null) handPlays = hand; if (card != null) cardPlays = card }
 
     /** Engine thread: the planning request [request] on this board, through the engine boundary in-process ([EngineBoundary]). */
@@ -134,7 +134,7 @@ class EngineBoardValues constructor(
     private val wake: () -> Unit = { handAsked = false; cardAsked = false; woken() }
 
     /**
-     * The browser (web client step 4): asks the engine's Web Worker ([EngineBoundary.remote]) for this board's hand plays
+     * The browser: asks the engine's Web Worker ([EngineBoundary.remote]) for this board's hand plays
      * and card menus' plays not yet worked out or asked; the answers set them later, on the page's thread, and wake what
      * waits for them ([awaitingPlays]). A failed answer leaves them to be worked out on the page when read. False when
      * there is no worker (Android: in-process, [workedHandPlays]) or nothing to send it.
@@ -167,7 +167,7 @@ class EngineBoardValues constructor(
     private var deviceFailed = false
 
     /**
-     * Web client step 4d: the plays of a board the device in the worker published before it had worked them out, asked of
+     * The plays of a board the device in the worker published before it had worked them out, asked of
      * that device by [number] (it holds the board: nothing is sent but the number), once; the answer sets them on the
      * page's thread and wakes what waits ([awaitingPlays]).
      */
@@ -304,7 +304,7 @@ class EngineBoardValues constructor(
                 AppLog.warn("automatum", "Couldn't read the shared flow: ${simpleClassName(problem)}")
                 null
             }
-            // Web client step 4e: what its panels draw, worked out with it (the page reads only this)
+            // What its panels draw, worked out with it (the page reads only this)
             sharedValue = flow?.let {
                 try { SharedFlowValue.of(it, viewer, number) } catch (problem: Exception) {
                     AppLog.warn("automatum", "Couldn't read the shared flow's panel: ${simpleClassName(problem)}")
@@ -317,7 +317,7 @@ class EngineBoardValues constructor(
         sharedFlow
     }
 
-    /** Web client step 4e: the shared flow's plain data for its panels ([SharedFlowValue]), worked out with it; null until then
+    /** The shared flow's plain data for its panels ([SharedFlowValue]), worked out with it; null until then
      * (and when there is none). */
     @Volatile var sharedValue: SharedFlowValue? = null
         private set
@@ -332,7 +332,7 @@ class EngineBoardValues constructor(
     /** What the table shows of combat on the board (I3: declarations, the damage preview, early divisions), worked out on
      * the engine thread when not yet (waits for it; inline on it); [CombatShown.NONE] outside combat. */
     fun combat(): CombatShown = combat ?: if (device != null) {
-        // Web client step 4e: a board the device in the worker published: its combat is asked of it ([askCombat]), never
+        // A board the device in the worker published: its combat is asked of it ([askCombat]), never
         // worked out on the page
         askCombat {}
         AppLog.info("automatum", "Combat of board $number read before the worker answered")
@@ -344,7 +344,7 @@ class EngineBoardValues constructor(
         }.also { combat = it }
     }
 
-    /** Web client step 4e: whether the device in the browser's worker published this board: its engine work (combat, cost chips) is asked of that device ([askCombat]), never done on the page. */
+    /** Whether the device in the browser's worker published this board: its engine work (combat, cost chips) is asked of that device ([askCombat]), never done on the page. */
     val workerBoard: Boolean get() = device != null
 
     /** What waits for the worker's answer about this board's combat ([askCombat]); the page's one thread. */
@@ -391,7 +391,7 @@ class EngineBoardValues constructor(
 
         /**
          * Engine thread: the values of [board], just projected from the game [gameId]'s [state] for [viewer] ([view] and
-         * [visible]: the model's own, R2).
+         * [visible]: the model's own).
          */
         fun make(board: EngineProjection.Board, gameId: String, state: GameState, viewer: String, view: View?,
             visible: Set<ObjectId>, engine: EngineWorker, table: TableState? = null,
@@ -413,12 +413,12 @@ class EngineBoardValues constructor(
     }
 }
 
-/** Web client step 4d: the device in the browser's worker, asked for the plays of its published board numbered [board]
+/** The device in the browser's worker, asked for the plays of its published board numbered [board]
  * ([EngineBoardValues.askPlays]); [done] gets them on the page's thread (null: not there any more). */
 interface DevicePlays {
     fun ask(board: Long, done: (hand: HandPlays?, card: CardPlays?) -> Unit)
 
-    /** Web client step 4e: what the table shows of combat on the published board numbered [board] (with [lanes] drawn on it
+    /** What the table shows of combat on the published board numbered [board] (with [lanes] drawn on it
      * when [drawn]), worked out where the device is; [done] gets it on the page's thread (null: not there any more). */
     fun combat(board: Long, lanes: org.asyncttwiz.protocol.CombatArea?, drawn: Boolean, done: (CombatShown?) -> Unit)
 }

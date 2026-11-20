@@ -5,8 +5,9 @@ import kotlinx.serialization.Serializable
 /**
  * GLIMPSE is only read from pods and presets saved before Glimpse became a preset of BOOSTER (DRF-020, DRF-031).
  * CUSTOM_BOOSTER is Booster's pack passing with the creator's list of passes in place of keep, burn and discard (DRF-260).
+ * ARENA: each player drafts alone from offers of their own (DRF-280, [ArenaEngine]).
  */
-@Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID, ROCHESTER, ROTISSERIE, WINSTON, WINCHESTER, SEALED, CUSTOM_BOOSTER }
+@Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID, ROCHESTER, ROTISSERIE, WINSTON, WINCHESTER, SEALED, CUSTOM_BOOSTER, ARENA }
 @Serializable enum class DraftColor { W, U, B, R, G }
 
 /**
@@ -60,6 +61,19 @@ data class DraftSettings(
      * pass. When they run out, the cards left in the pack are thrown away. Unused by the other modes.
      */
     val passes: List<DraftPass> = emptyList(),
+    /**
+     * Arena (DRF-281): every this-many-th pick offers rares; null: never. Arena keeps its number of picks in
+     * [packsPerPlayer], its cards per offer in [cardsPerPack] and its picks per offer in [keep].
+     */
+    val rareEvery: Int? = 10,
+    /** Arena (DRF-281): every this-many-th pick offers uncommons (a rare pick wins); null: never. */
+    val uncommonEvery: Int? = 4,
+    /** Arena (DRF-282): each card of a rare pick's offer is a mythic rare with chance 1 in this; null: never. */
+    val mythicOneIn: Int? = 8,
+    /** Arena from a cube (DRF-283): every offer is drawn from the whole cube, whatever the rarities. */
+    val ignoreRarity: Boolean = false,
+    /** Arena from a cube (DRF-284): a card a player picked may be offered to that player again. */
+    val reuseCards: Boolean = false,
 ) {
     private val custom: Boolean get() = mode == DraftMode.CUSTOM_BOOSTER
 
@@ -121,6 +135,19 @@ data class DraftSettings(
             if (packsOpenAtOnce !in 1..packsPerPlayer) add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
             return@buildList
         }
+        if (mode == DraftMode.ARENA) {
+            // DRF-281, DRF-282: picks 1–120, offers of 2–15 cards, taking fewer than an offer holds
+            if (packsPerPlayer !in 1..ArenaEngine.MAX_PICKS) add(DraftSettingsIssue.PACKS_PER_PLAYER)
+            if (cardsPerPack !in 2..ArenaEngine.MAX_OFFER) add(DraftSettingsIssue.CARDS_PER_PACK)
+            if (keep < 1 || keep >= cardsPerPack) add(DraftSettingsIssue.KEEP)
+            if (burn != 0) add(DraftSettingsIssue.BURN)
+            if (discardRemainingAt != 0) add(DraftSettingsIssue.DISCARD_REMAINING_AT)
+            if (packsOpenAtOnce != 1) add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
+            if (rareEvery != null && rareEvery !in 1..ArenaEngine.MAX_PICKS ||
+                uncommonEvery != null && uncommonEvery !in 1..ArenaEngine.MAX_PICKS) add(DraftSettingsIssue.RARITY_SCHEDULE)
+            if (mythicOneIn != null && mythicOneIn !in 1..ArenaEngine.MAX_MYTHIC_ONE_IN) add(DraftSettingsIssue.MYTHIC_CHANCE)
+            return@buildList
+        }
         if (mode == DraftMode.GRID) {
             if (grids !in 1..60) add(DraftSettingsIssue.GRIDS)
             if (twoPicks && players != 2) add(DraftSettingsIssue.TWO_PICKS)
@@ -156,6 +183,8 @@ data class DraftSettings(
         fun winston() = DraftSettings(mode = DraftMode.WINSTON, piles = 3)
         fun winchester() = DraftSettings(mode = DraftMode.WINCHESTER, piles = 4)
         fun sealed() = DraftSettings(mode = DraftMode.SEALED, packsPerPlayer = 6)
+        /** Arena's defaults (DRF-281): 45 picks of offers of 5 cards, taking 1. */
+        fun arena() = DraftSettings(mode = DraftMode.ARENA, packsPerPlayer = 45, cardsPerPack = 5, keep = 1)
         /** A mode's default settings (Glimpse is a preset of Booster). */
         fun defaults(mode: DraftMode) = when (mode) {
             DraftMode.BOOSTER -> booster()
@@ -167,6 +196,7 @@ data class DraftSettings(
             DraftMode.WINCHESTER -> winchester()
             DraftMode.SEALED -> sealed()
             DraftMode.CUSTOM_BOOSTER -> customBooster()
+            DraftMode.ARENA -> arena()
         }
     }
 }
@@ -179,6 +209,10 @@ data class DraftSettings(
     POOL_PER_PLAYER,
     /** Custom booster: no passes, too many, or one out of range (DRF-262). */
     PASSES,
+    /** Arena: a rarity interval out of range (DRF-281). */
+    RARITY_SCHEDULE,
+    /** Arena: the mythic chance out of range (DRF-282). */
+    MYTHIC_CHANCE,
 }
 
 @Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)
@@ -191,6 +225,7 @@ data class DraftSettings(
 fun DraftSettings.supply(players: Int, cube: List<DraftCubeEntry>) = DraftSupply(
     if (mode == DraftMode.GRID) grids.toLong() * (9 + if (gridRefills(players)) 3 else 0)
     else if (mode.limited) LimitedEngine.needed(this, players)
+    else if (mode == DraftMode.ARENA) ArenaEngine.needed(this)
     else players.toLong() * packsPerPlayer * cardsPerPack,
     cube.sumOf { it.quantity.toLong() },
 )

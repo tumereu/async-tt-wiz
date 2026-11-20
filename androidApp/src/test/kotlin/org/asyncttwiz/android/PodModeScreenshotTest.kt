@@ -37,6 +37,7 @@ class PodModeScreenshotTest {
         compose.onNodeWithText("Winston · 2–4 players").assertIsDisplayed()
         captureShot("$SCREENSHOTS/non-gameplay/pod-mode-${if (landscape) "landscape" else "portrait"}.png",
             "${if (landscape) "Landscape" else "Portrait"} New pod settings for a Winston pod from the Runes cube with the full-width " +
-                "mode button tapped: its popup lists the eight modes with their player ranges, Winston checked.")
+                "mode button tapped: its popup lists the nine modes (Custom booster and Arena among them) with their player ranges, Winston checked" +
+                if (landscape) "; the list scrolls, Arena below Sealed." else ".")
     }
 }

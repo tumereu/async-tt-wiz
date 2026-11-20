@@ -37,14 +37,19 @@ sealed interface PodPackTarget {
 
 /** The packs [this] target names, as the set picker's title says them: "Round 2 · Pack 1", "Round 2", "Pack 1". */
 fun PodPackTarget.label(settings: DraftSettings): String = when (this) {
-    is PodPackTarget.Cell -> if (PodPackGrid.rows(settings)?.size == 1) podPackColumnLabel(column)
+    is PodPackTarget.Cell -> if (settings.mode == DraftMode.ARENA) podPackRowLabel(settings, row)
+        else if (PodPackGrid.rows(settings)?.size == 1) podPackColumnLabel(column)
         else "${podPackRowLabel(settings, row)} · ${podPackColumnLabel(column)}"
     is PodPackTarget.Row -> podPackRowLabel(settings, row)
     is PodPackTarget.Column -> podPackColumnLabel(column)
 }
 /** A row label: "Round 2"; a grid of one row (Sealed, Winston, Winchester) reads "All packs". */
-fun podPackRowLabel(settings: DraftSettings, row: Int) =
-    if (PodPackGrid.rows(settings)?.size == 1) "All packs" else "Round ${row + 1}"
+fun podPackRowLabel(settings: DraftSettings, row: Int) = when {
+    // DRF-286: Arena's rows are its picks
+    settings.mode == DraftMode.ARENA -> "Pick ${row + 1}"
+    PodPackGrid.rows(settings)?.size == 1 -> "All packs"
+    else -> "Round ${row + 1}"
+}
 /** A column label: "Pack 1". */
 fun podPackColumnLabel(column: Int) = "Pack ${column + 1}"
 

@@ -7,7 +7,8 @@ package arcanum.api
  * ([reminders]).
  *
  * Every text here is written for this library in its own words: a short summary of what the keyword does in play, never
- * the Comprehensive Rules' text or a card's reminder text. They simplify (corner cases are left out); the rules and the
+ * the Comprehensive Rules' text or a card's reminder text; a token kind is told in the manner of reminder text, saying what
+ * the token is and quoting its abilities ([tokens]). They simplify (corner cases are left out); the rules and the
  * engine decide. A test checks that every [KeywordKind.all] and every [KeywordAction] type has an explanation, and the
  * parser's tests that every keyword it reads has one.
  */
@@ -92,8 +93,9 @@ object RulesGlossary {
 
     /**
      * What the token kinds cards make or name mean, by the name cards print ("Treasure", "Monster Role"): every predefined
-     * token ([PredefinedTokens.names]) and "Role" itself. Written and kept like the keywords' explanations; a test checks
-     * that every predefined token has one.
+     * token ([PredefinedTokens.names]) and "Role" itself. Each says what the token is in the manner of reminder text, its
+     * card type and then its abilities in quotes as [PredefinedTokens] gives them ("It's an artifact token with \"{2},
+     * Sacrifice this token: Draw a card.\""); tests check that every predefined token has one and that it quotes them.
      */
     val tokens: Map<String, Entry> by lazy { TOKENS.associate { (id, name, text) -> name to Entry(id, name, text) } }
 
@@ -522,29 +524,31 @@ object RulesGlossary {
         Triple("fight", "Fight", "Two creatures fight: each one hits the other for damage equal to its own power."),
     )
 
-    // Token kinds (CR 111.10): (id, name as cards print it, explanation); Role tokens by kind, then Role itself
+    // Token kinds (CR 111.10): (id, name as cards print it, explanation); Role tokens by kind, then Role itself. Written as a
+    // card's reminder text says what a token is (owner 2026-11-20): its card type, then its abilities as the token has them
+    // (PredefinedTokens' texts) in quotes
     private val TOKENS: List<Triple<String, String, String>> = listOf(
-        Triple("treasure", "Treasure", "An artifact token you can tap and sacrifice to add one mana of any color."),
-        Triple("food", "Food", "An artifact token you can pay {2}, tap and sacrifice to gain 3 life."),
-        Triple("gold", "Gold", "An artifact token you can sacrifice, without tapping it, to add one mana of any color."),
-        Triple("walker", "Walker", "A plain 2/2 black Zombie creature token named Walker."),
-        Triple("shard", "Shard", "An enchantment token you can pay {2} and sacrifice to scry 1 and then draw a card."),
-        Triple("clue", "Clue", "An artifact token you can pay {2} and sacrifice to draw a card."),
-        Triple("blood", "Blood", "An artifact token you can pay {1}, tap, discard a card and sacrifice to draw a card, swapping a card in hand for a new one."),
-        Triple("heartwood", "Heartwood", "A red and green artifact token you can tap to add {R} or {G}."),
-        Triple("mutagen", "Mutagen", "An artifact token you can pay {1}, tap and sacrifice, when you could cast a sorcery, to put a +1/+1 counter on a creature."),
-        Triple("lander", "Lander", "An artifact token you can pay {2}, tap and sacrifice to put a basic land card from your library onto the battlefield tapped."),
-        Triple("incubator", "Incubator", "An artifact token that, for {2}, turns over into a 0/0 Phyrexian artifact creature, keeping its +1/+1 counters."),
-        Triple("map", "Map", "An artifact token you can pay {1}, tap and sacrifice, when you could cast a sorcery, to have one of your creatures explore."),
-        Triple("powerstone", "Powerstone", "An artifact token that taps for {C}; that mana pays for abilities and artifact spells, but not for other spells."),
-        Triple("cursed-role", "Cursed Role", "An Aura token making the creature it enchants a 1/1 at its base; a newer Role from the same player replaces it."),
-        Triple("monster-role", "Monster Role", "An Aura token giving the creature it enchants +1/+1 and trample; a newer Role from the same player replaces it."),
-        Triple("royal-role", "Royal Role", "An Aura token giving the creature it enchants +1/+1 and ward {1}; a newer Role from the same player replaces it."),
-        Triple("sorcerer-role", "Sorcerer Role", "An Aura token giving the creature it enchants +1/+1 and a scry 1 each time it attacks; a newer Role from the same player replaces it."),
-        Triple("virtuous-role", "Virtuous Role", "An Aura token giving the creature it enchants +1/+1 for each enchantment you control; a newer Role from the same player replaces it."),
-        Triple("wicked-role", "Wicked Role", "An Aura token giving the creature it enchants +1/+1, and each opponent loses 1 life when it goes to the graveyard from play; a newer Role from the same player replaces it."),
-        Triple("young-hero-role", "Young Hero Role", "An Aura token; each time the creature it enchants attacks with toughness 3 or less, it gets a +1/+1 counter; a newer Role from the same player replaces it."),
-        Triple("role", "Role", "An Aura token that enchants a creature; when a player gives a creature a second Role, their older one there goes to the graveyard."),
+        Triple("treasure", "Treasure", "It's an artifact token with \"{T}, Sacrifice this token: Add one mana of any color.\""),
+        Triple("food", "Food", "It's an artifact token with \"{2}, {T}, Sacrifice this token: You gain 3 life.\""),
+        Triple("gold", "Gold", "It's an artifact token with \"Sacrifice this token: Add one mana of any color.\""),
+        Triple("walker", "Walker", "It's a 2/2 black Zombie creature token named Walker."),
+        Triple("shard", "Shard", "It's an enchantment token with \"{2}, Sacrifice this token: Scry 1, then draw a card.\""),
+        Triple("clue", "Clue", "It's an artifact token with \"{2}, Sacrifice this token: Draw a card.\""),
+        Triple("blood", "Blood", "It's an artifact token with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\""),
+        Triple("heartwood", "Heartwood", "It's a red and green artifact token with \"{T}: Add {R} or {G}.\""),
+        Triple("mutagen", "Mutagen", "It's an artifact token with \"{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery.\""),
+        Triple("lander", "Lander", "It's an artifact token with \"{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\""),
+        Triple("incubator", "Incubator", "It's an artifact token with \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature, keeping its counters."),
+        Triple("map", "Map", "It's an artifact token with \"{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery.\""),
+        Triple("powerstone", "Powerstone", "It's an artifact token with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\""),
+        Triple("cursed-role", "Cursed Role", "It's an Aura token with enchant creature and \"Enchanted creature has base power and toughness 1/1.\" If you put another Role on that creature, the older one goes to the graveyard."),
+        Triple("monster-role", "Monster Role", "It's an Aura token with enchant creature and \"Enchanted creature gets +1/+1 and has trample.\" If you put another Role on that creature, the older one goes to the graveyard."),
+        Triple("royal-role", "Royal Role", "It's an Aura token with enchant creature and \"Enchanted creature gets +1/+1 and has ward {1}.\" If you put another Role on that creature, the older one goes to the graveyard."),
+        Triple("sorcerer-role", "Sorcerer Role", "It's an Aura token with enchant creature and \"Enchanted creature gets +1/+1 and has 'Whenever this creature attacks, scry 1.'\" If you put another Role on that creature, the older one goes to the graveyard."),
+        Triple("virtuous-role", "Virtuous Role", "It's an Aura token with enchant creature and \"Enchanted creature gets +1/+1 for each enchantment you control.\" If you put another Role on that creature, the older one goes to the graveyard."),
+        Triple("wicked-role", "Wicked Role", "It's an Aura token with enchant creature, \"Enchanted creature gets +1/+1.\" and \"When this token is put into a graveyard from the battlefield, each opponent loses 1 life.\" If you put another Role on that creature, the older one goes to the graveyard."),
+        Triple("young-hero-role", "Young Hero Role", "It's an Aura token with enchant creature and \"Enchanted creature has 'Whenever this creature attacks, if its toughness is 3 or less, put a +1/+1 counter on it.'\" If you put another Role on that creature, the older one goes to the graveyard."),
+        Triple("role", "Role", "It's an Aura token with enchant creature; each kind of Role (Monster, Royal …) gives the enchanted creature its own bonus. If you put another Role on a creature, your older Role there goes to the graveyard."),
     )
 
     // Other rules words (CR 701, 702): the [AbilityLabel]s by serial name (solved is a state), then actions and words of their own

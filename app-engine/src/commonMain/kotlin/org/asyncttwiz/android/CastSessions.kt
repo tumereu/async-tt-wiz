@@ -34,7 +34,7 @@ import org.asyncttwiz.automatum.boundary.SelectionWire
 import org.asyncttwiz.protocol.Faults
 
 /**
- * Web client step 4e (docs/specs/web-client.md §1 item 3): the engine side of the player's cast, land play and activation
+ * The engine side of the player's cast, land play and activation
  * flows (integration spec §3 I2a, I-D11) as sessions ([CastRequest] in, [CastAnswer] out): where the device is (the browser's
  * engine Web Worker, [DeviceHost]; Android in-process on the Automatum worker, [LocalCastPort]). Each session keeps a few
  * versions of its flow ([FlowSessions]); everything else the page chose travels with each step. What the cast panel draws is
@@ -390,7 +390,7 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
 
         private fun seeds() = CastFlow.Seeds { DeviceRandom.seed() }
 
-        /** Where a cast on [play] runs: the game's own engine state (engine-responsiveness R4a). */
+        /** Where a cast on [play] runs: the game's own engine state. */
         private fun source(play: TableBoard): CastFlow.Source {
             val engine = requireNotNull(play.engine) { "No board to cast on" }
             return CastFlow.Source.engine(engine.state, play.board, play.gameId)
@@ -424,6 +424,6 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
 fun ManaTaps.wire() = ManaTapsWire(tapped, chosen, outs)
 fun ManaTapsWire.taps() = ManaTaps(tapped, chosen, outs)
 
-/** The engine state a cast flow is at, worked out on the page from its board's own copy (web client step 4e): [board]'s
+/** The engine state a cast flow is at, worked out on the page from its board's own copy: [board]'s
  * engine state with [changes] applied straight, as a new state. */
 fun castState(board: GameState, changes: List<Change>): GameState = board.deepCopy().also { s -> changes.forEach(s::apply) }

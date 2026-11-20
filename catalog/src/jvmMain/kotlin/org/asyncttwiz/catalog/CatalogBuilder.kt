@@ -20,9 +20,9 @@ import org.asyncttwiz.storage.MtgJsonCatalog
 import org.asyncttwiz.storage.MtgJsonCatalogSink
 
 /**
- * Builds the trimmed card catalog (docs/specs/web-client.md section 3) from an MTGJSON AllPrintings file, streamed with
+ * Builds the trimmed card catalog (SYS-081) from an MTGJSON AllPrintings file, streamed with
  * the app's own import ([MtgJsonCatalog]): every English printing, its face shared with the card's other printings, the
- * set list, and the booster recipe of each draftable set. The support marks (section 3.8): a card is supported when a
+ * set list, and the booster recipe of each draftable set. The support marks (SYS-082): a card is supported when a
  * printing of it is in one of [supportedSets] or its name is on [supportedCards] (the backlog's "support moves set by
  * set"), and Automatum finds nothing in it left to the players ([AutomatumSupport.handParts], on the card data a device
  * makes of it); a draftable set is supported when every card its packs can hold is. Nothing here reads the clock or the
@@ -100,7 +100,7 @@ class CatalogBuilder(
         return mark(unmarked)
     }
 
-    /** The support marks (section 3.8) on the cards and the draftable sets. */
+    /** The support marks (SYS-082) on the cards and the draftable sets. */
     private fun mark(catalog: CardCatalog): Built {
         val dungeons = CatalogDungeons.provided(CatalogDungeons.definitions(catalog))
         log("Dungeons Automatum plays fully: $dungeons")

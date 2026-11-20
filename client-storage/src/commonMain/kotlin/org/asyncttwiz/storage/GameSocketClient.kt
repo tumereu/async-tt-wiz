@@ -12,7 +12,7 @@ import org.asyncttwiz.protocol.GameServerMessage
 import org.asyncttwiz.protocol.GameWire
 import org.asyncttwiz.protocol.ReadChat
 
-// The game socket's logic both clients share (web client step 3b): one ordered socket per connect, its messages checked
+// The game socket's logic both clients share: one ordered socket per connect, its messages checked
 // and decoded, closes and failures turned into causes, and the HTTP reads beside it (chat pages, chat read state, older
 // timeline). The socket and HTTP themselves are the platform's [GameSocketTransport] (Android: OkHttp; the browser:
 // WebSocket and fetch). Reconnecting, backoff and pings are the game session's, above this.

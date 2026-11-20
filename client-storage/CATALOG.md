@@ -3,7 +3,7 @@
 `CatalogRepository` stores replaceable public generations of the card records separately from the private accepted
 replica. `AndroidCatalogStorage` uses the Android SQLDelight driver; host tests use file-backed JDBC SQLite.
 
-The card records are the ATW server's card catalog (docs/specs/web-client.md section 3), the one the app was built for
+The card records are the ATW server's card catalog (SYS-081), the one the app was built for
 (`BuildConfig.CATALOG_CHECKSUM`; local and test builds without it take the server's current one). `HttpCatalogSource`
 reads `GET /v1/catalog` and `GET /v1/catalog/{checksum}` from the app's API origin, unauthenticated, no redirects.
 

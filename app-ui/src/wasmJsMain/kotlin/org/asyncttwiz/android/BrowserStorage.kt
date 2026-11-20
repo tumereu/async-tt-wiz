@@ -24,7 +24,7 @@ import org.asyncttwiz.storage.StoredRememberedSession
 import org.asyncttwiz.storage.UnreadableStoredSession
 
 /**
- * The app's storage in the browser (docs/specs/web-client.md §1 items 4 and 5, §11 step 3): the session, the accounts'
+ * The app's storage in the browser: the session, the accounts'
  * local data and the card definitions cache in IndexedDB, read whole into memory when the page starts ([open]) so the
  * app's synchronous storage interfaces read them at once; the card records and pictures ([catalogController],
  * [artworkService]). The web shell opens it before it installs the app's services. A browser without IndexedDB (some
@@ -129,7 +129,7 @@ internal class BrowserSessionStore(private val sessions: BrowserSessions) : Sess
 }
 
 /** The accounts' data in the browser, as AndroidAccountLocalData on Android: the installation's account, its shell
- * destination, logout clearing (§9.5), and the card definitions Automatum reads, parsed in the browser and cached. */
+ * destination, logout clearing (LOB-007), and the card definitions Automatum reads, parsed in the browser and cached. */
 internal class BrowserAccountLocalData(private val account: BrowserAccountData,
     private val cache: BrowserCardDefinitionCache) : AppLocalData {
     private var closed = false

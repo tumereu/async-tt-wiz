@@ -51,7 +51,7 @@ class TableScreenshotTest {
         val library = initial.board.containers.single { it.id == "a/LIBRARY" }
         val play = initial.copy(board = initial.board.copy(contentsDisplays = listOf(
             ContentsDisplay("retained-view", "a", library.id, ContentsSelection.ALL, library.cards.size, false, library.cards))))
-        // The engine table's board and routes (R4b follow-up): what the app draws of this board
+        // The engine table's board and routes: what the app draws of this board
         val board = engineTableBoard(play, "a")
         val toolkit = TableToolkitController("a", { board }, { !paused }, { _, _ -> true })
         // LOB-135: in a game the table offers Game settings

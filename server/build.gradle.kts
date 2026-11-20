@@ -29,7 +29,7 @@ dependencies {
     // I-D54: the server runs the Arcanum engine (the authoritative engine state of each game).
     implementation(project(":arcanum-api"))
     implementation(project(":arcanum-engine"))
-    // The card catalog (docs/specs/web-client.md section 3): served as built at release, and set packs built from it.
+    // The card catalog (SYS-081): served as built at release, and set packs built from it.
     implementation(project(":catalog"))
     // Tests only: the engine's invented cube cards are parsed from their oracle text (I-D54 spike, event model tests).
     testImplementation(project(":arcanum-parser"))
@@ -161,6 +161,6 @@ tasks.withType<Test>().configureEach {
     testLogging { events("passed", "skipped", "failed"); showStandardStreams = true }
     // -Patw.engineSpike=true runs the I-D54 engine cost spike (EngineOnServerSpikeTest: prints timings, asserts none).
     providers.gradleProperty("atw.engineSpike").orNull?.let { systemProperty("atw.engineSpike", it) }
-    // -Patw.warmHeap=true measures the heap of a game kept warm (WarmGameHeapTest, R6: prints sizes, asserts none).
+    // -Patw.warmHeap=true measures the heap of a game kept warm (WarmGameHeapTest, prints sizes, asserts none).
     providers.gradleProperty("atw.warmHeap").orNull?.let { systemProperty("atw.warmHeap", it) }
 }

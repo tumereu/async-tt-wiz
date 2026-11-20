@@ -47,7 +47,7 @@ class TableChatButtonTest {
         return count
     }
 
-    // LOB-066, LOB-163 (on engine state, R4b)
+    // LOB-066, LOB-163 (on engine state)
     @Test fun chatButtonOpensGameChatSidePanelAndShowsADotOnlyWhileMessagesAreUnread() {
         val f = EngineLobbyFixture()
         val incoming = ChatMessage("incoming", f.game.id, f.game.playId!!, f.other, "Hello there", "1", "date")

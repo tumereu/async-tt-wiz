@@ -18,7 +18,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
     val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0,
     val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null, val activityTarget: ActivityTarget? = null,
-    /** The board the table draws of the selected game played on engine state (engine-responsiveness R4a). */
+    /** The board the table draws of the selected game played on engine state. */
     val board: TableBoard? = null,
     val gameContext: GameSummary? = null, val deletion: GameDeletion? = null,
     val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),

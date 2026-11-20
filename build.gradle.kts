@@ -83,7 +83,7 @@ tasks.register("verifyModuleBoundaries") {
             ":protocol" to setOf(":core", ":arcanum-engine", ":arcanum-parser"),
             ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser", ":catalog"),
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum", ":app-ui"),
-            // The shared Compose UI for Android and the web (docs/specs/web-client.md §1).
+            // The shared Compose UI for Android and the web.
             ":app-ui" to setOf(":core", ":protocol", ":automatum", ":client-storage", ":app-engine"),
             // The app's engine side without UI (a game's device on engine state), shared by app-ui and the engine's worker.
             ":app-engine" to setOf(":core", ":protocol", ":automatum", ":client-storage"),

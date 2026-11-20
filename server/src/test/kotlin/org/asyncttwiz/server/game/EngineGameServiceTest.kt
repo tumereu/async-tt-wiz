@@ -497,7 +497,7 @@ class EngineGameServiceTest {
         assertNull(after.undoneBy)
     }
 
-    // R6 (engine responsiveness): a player's own report (their device showed events, their settings) works out only their
+    // A player's own report (their device showed events, their settings) works out only their
     // own seat again; a submission, an undo request or a rewind works out both. The seat left as stored is checked against
     // working it out (checkSkipped).
     @Test fun `a seen report or a settings change works out only the reporting seat`() = withService { runtime ->
@@ -526,7 +526,7 @@ class EngineGameServiceTest {
         } finally { checkSkipped = false }
     }
 
-    // R6 (engine responsiveness): opening a game reads in one statement each what it read one by one before (the engine
+    // Opening a game reads in one statement each what it read one by one before (the engine
     // play's row, head and seats; the play, the chat's sync point and the own pod deck name): the same values, so the same
     // head on the wire, warm and cold (nothing kept: the definitions read with the rest)
     @Test fun `a head's joined reads are the separate reads`() = withService { runtime ->

@@ -68,10 +68,10 @@ import org.asyncttwiz.protocol.game.TableState
  * the Web Worker ([startEngineWorker]) on a game made here (two 60-card decks of lands and vanilla creatures, both hands
  * kept, Alice's first main phase): the first request with the board's snapshot, then hand plays and card plays on the
  * same board, then the next board sent as its event (Alice plays a land), while the page's frames are timed. Then the
- * device's own work as the page still does it (web client step 4c: until the device moves into the worker): a pass and
- * End turn worked out on the page's thread, with the worst frame meanwhile. Then the device itself in the worker (web client
- * step 4c part 3, [DeviceHost]): the game played on a few turns, opened there, a pass and the table's flows asked of it (step 4d:
- * a land, a cast, an attack, combat damage, End turn, Undo), each timed to its result and to its last board taken on the page,
+ * device's own work as the page still does it (until the device moves into the worker): a pass and
+ * End turn worked out on the page's thread, with the worst frame meanwhile. Then the device itself in the worker
+ * ([DeviceHost]): the game played on a few turns, opened there, a pass and the table's flows asked of it
+ * (a land, a cast, an attack, combat damage, End turn, Undo), each timed to its result and to its last board taken on the page,
  * with the worst frame meanwhile. The results go on the page, to the console and, when done,
  * into the title ("engine-bench: done").
  */
@@ -154,7 +154,7 @@ private fun onPage(frames: Frames, line: (String) -> Unit, kind: String, work: (
 }
 
 /**
- * Web client step 4c: what a published board costs across the engine boundary once the device runs in the worker, timed
+ * What a published board costs across the engine boundary once the device runs in the worker, timed
  * on the page's thread in parts: the engine side building the board (its projection, computed values and state copy, as
  * the device does today) and describing it for the page (its state as moves of the page's copy, [MirrorShadow], and the
  * message); then the page taking it ([ShownDecoder]'s work: the message read, its copy moved, the board's state copied and
@@ -285,7 +285,7 @@ private class Frames {
 
 /** The bench's game: its board after both keeps ([first]) and after Alice plays a land ([second], also as its event). */
 /**
- * Web client step 4c part 3: the device itself in the worker ([DeviceHost], through the page's [DeviceChannel]): the bench
+ * The device itself in the worker ([DeviceHost], through the page's [DeviceChannel]): the bench
  * game opened there for the player whose turn it is (the other player's passes assumed, HIS-096), then a pass and End turn
  * asked of it, each timed to its result on the page and to its last board taken on the page ([EngineGame.Shown] decoded with
  * the page's own copy of the state), with the page's worst frame meanwhile.
@@ -316,7 +316,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         }
     }
 
-    // ---- Web client step 4d: the table's flows with the device in the worker
+    // ---- the table's flows with the device in the worker
 
     private var flowSteps = 0
     private var landTurn = -1
@@ -327,7 +327,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
     private val worst = ArrayList<Double>()
 
     /**
-     * Web client step 4d: the table's flows as the player makes them, each asked of the device in the worker and timed: a land,
+     * The table's flows as the player makes them, each asked of the device in the worker and timed: a land,
      * a creature cast with its payment (worked out on the page's copy of the board, as the cast panel does, its time on the
      * page told), turns ended until it can attack, its attacker staged (the table's own staging, worked out where the device
      * is) and declared, the other player's blockers assumed (none: they have no device here), the combat damage, End turn,
@@ -385,7 +385,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
             val target = arcanum.engine.state.TargetRef.Player(PlayerId(if (game.me == "alice") "bob" else "alice"))
             return timed("Stage an attacker", { done -> game.stageOwn(game.play(), draft.actions, draft.requestId) { done(it.toString()) } }) {
                 attacked = true
-                // Web client step 4e: what the table shows of combat on the staged board, asked of the worker's device, then
+                // What the table shows of combat on the staged board, asked of the worker's device, then
                 // the step arrow's declaration worked out in the worker's shared-flow session and sent
                 timed("Combat of the staged board (asked of the worker)", { done ->
                     AutomatumBoards.askCombat(game.play()) { shown -> done("${shown.choices.attacks.size} may attack, preview ${shown.preview != null}") }
@@ -399,7 +399,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         val canAttack = s.battlefield.any { id -> s.obj(id)?.controller == me && s.obj(id)?.tapped == false &&
             Engine.view(s)[id]?.let { v -> v.power != null && !v.summoningSick } == true }
         if (s.turn.active == me && s.turn.step == arcanum.api.TurnStep.PrecombatMain && canAttack && attackedTurn != s.turn.number && s.priority.holder == me)
-            // Web client step 4e: the shared flow's panel value asked of the worker, then the step arrow's pass worked out in
+            // The shared flow's panel value asked of the worker, then the step arrow's pass worked out in
             // its session and sent
             return timed("Shared flow's panel (asked of the worker)", { done ->
                 val play = game.play()
@@ -411,7 +411,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
     }
 
     /**
-     * Web client step 4e: [cast] made as the table's cast panel makes it ([CastController], its flow session where the device
+     * [cast] made as the table's cast panel makes it ([CastController], its flow session where the device
      * is): begun, each step the panel would need taken (the first legal target, Cast at the payment), sent with its payment.
      * Each session step's round trip and the time to the send are told; [done] gets the send's result first.
      */
@@ -448,7 +448,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
         jsLater(1) { drive() }
     }
 
-    /** Web client step 4e: what waits for the shared flow's step's send, and when the step was asked. */
+    /** What waits for the shared flow's step's send, and when the step was asked. */
     private var sharedSent: ((String) -> Unit)? = null
     private var sharedAt = 0.0
 
@@ -528,7 +528,7 @@ private class BenchGame {
     fun pass(): Int = if (passOnce()) 1 else 0
 
     /**
-     * Web client step 4d: plays [turns] more turns as both players would (a land each turn, a creature cast with the engine's
+     * Plays [turns] more turns as both players would (a land each turn, a creature cast with the engine's
      * payment when it can be paid, no attacks or blocks, the first answer to any choice), then on to the next main phase of
      * the player whose turn it is, so the device bench finds lands, a creature to cast and creatures that can attack.
      */

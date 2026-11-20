@@ -4,8 +4,8 @@ import org.asyncttwiz.appui.postFrameCallback
 import org.asyncttwiz.appui.postToMain
 
 /**
- * The engine on the page's one thread, in order, until the web table moves it into a Web Worker (docs/specs/web-client.md
- * §11 step 4). The web shell (step 3) shows no table, but a game opened from the lobby still loads its engine state.
+ * The engine on the page's one thread, in order, where the engine's Web Worker doesn't take it (a game opened from the
+ * lobby still loads its engine state on the page).
  */
 actual object BackgroundEngineWorker : EngineWorker {
     // Inline, like EngineWorker.Direct, so calls keep their order; results still reach the main thread's queue

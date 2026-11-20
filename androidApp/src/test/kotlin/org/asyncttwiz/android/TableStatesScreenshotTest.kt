@@ -105,7 +105,7 @@ class TableStatesScreenshotTest {
             else if (kind.startsWith("exile-counters")) exileState
             else if (kind.startsWith("counters")) countersState else f.combat()
         val current = { drawn }
-        // The engine table's board and routes (R4b follow-up): what the app draws of this board
+        // The engine table's board and routes: what the app draws of this board
         val toolkit = TableToolkitController(f.a, { engineTableBoard(current(), f.a) }, { true }, { action, _ -> sent += action; true })
         if (kind == "tokens-small") toolkit.layoutState.value = TableLayoutState(TableCamera(zoom = TablePresentation.MIN_ZOOM))
         // Zoomed in on Alice's creature with counters, centred on it

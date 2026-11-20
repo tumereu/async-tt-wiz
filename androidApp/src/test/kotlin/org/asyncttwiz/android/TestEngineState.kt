@@ -33,7 +33,7 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 
 /**
- * A test board's engine state (engine-responsiveness R4d): the screenshot and table tests draw boards made by hand, and
+ * A test board's engine state: the screenshot and table tests draw boards made by hand, and
  * [EngineFixture] gives each the engine state of the same cards, built directly with the engine's state types, with full
  * information. Cards keep their ids; players in the board's order; library, hand and graveyard in their order (a
  * graveyard is listed top first on the board, bottom first in the engine); the Battlefield and Exile in timestamp order;

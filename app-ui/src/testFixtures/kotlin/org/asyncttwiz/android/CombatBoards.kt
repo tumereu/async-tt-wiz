@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 /**
- * Combat lanes staged on a test board as the table stages them on the board shown (R4b: [EngineStaging], the combat lane
+ * Combat lanes staged on a test board as the table stages them on the board shown ([EngineStaging], the combat lane
  * reducer [CombatStackRules.stage], no play rebuilt): opening the combat area, declaring, placing a selection at a
  * destination as the toolkit's drop does, retargeting attacks and removing occurrences. Each staged action gets its own
  * request id (from [ids]), which names the pairs and occurrences it makes.

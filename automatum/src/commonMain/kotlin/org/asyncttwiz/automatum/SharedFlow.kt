@@ -281,7 +281,7 @@ class SharedFlow private constructor(
 
     companion object {
         /**
-         * The shared flow of a game on engine state (I-D56, engine-responsiveness R4a): [state] is its own state (full
+         * The shared flow of a game on engine state (I-D56): [state] is its own state (full
          * information, never changed here) shown as [board]; every step runs on a copy of it ([EngineRun]), and only
          * the player's own inputs of it go out.
          */

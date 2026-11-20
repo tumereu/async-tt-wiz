@@ -26,7 +26,7 @@ interface GameConnection : AutoCloseable {
 /** A socket to the game server at [origin] (Android: [SocketGameConnection], on OkHttp; the browser: WebSocket). */
 expect fun platformGameConnection(origin: String): GameConnection
 
-/** The game socket at [origin] over a platform's [transport]: client-storage's [GameSocketClient] (web client step 3b),
+/** The game socket at [origin] over a platform's [transport]: client-storage's [GameSocketClient],
  * the same logic on Android and in the browser. */
 open class TransportGameConnection(origin: String, transport: GameSocketTransport) : GameConnection {
     private val client = GameSocketClient(origin, transport, { AccountApi.validToken(it) }) { message, failure ->

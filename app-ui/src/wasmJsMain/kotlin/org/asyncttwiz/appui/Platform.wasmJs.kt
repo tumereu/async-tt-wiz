@@ -24,5 +24,5 @@ fun requestFailed(failure: Throwable): kotlinx.io.IOException =
     kotlinx.io.IOException(listOfNotNull(failure.message, failure.cause?.message).distinct().joinToString(": ")
         .ifEmpty { simpleClassName(failure) }, failure)
 
-/** Archidekt allows no browser requests: deck links are read through the ATW server (docs/specs/web-client.md §2.3). */
+/** Archidekt allows no browser requests: deck links are read through the ATW server (WEB-010). */
 actual val importsThroughServer: Boolean = true

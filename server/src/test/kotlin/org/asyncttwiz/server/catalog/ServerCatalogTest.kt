@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** The server's card catalog (docs/specs/web-client.md section 3) on the test cards' catalog the server tests run with. */
+/** The server's card catalog (SYS-081) on the test cards' catalog the server tests run with. */
 class ServerCatalogTest {
     // LOB-150, TBL-138, TBL-197: a deck's card of a printing under another name is the Oracle card, carrying the printed name beside
     // its own; Automatum's mark is the card's, and a saved card is found again by its Oracle name, as a printing under it

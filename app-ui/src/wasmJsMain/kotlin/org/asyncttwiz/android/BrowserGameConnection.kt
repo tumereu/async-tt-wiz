@@ -16,7 +16,7 @@ import org.asyncttwiz.storage.GameSocketHandle
 import org.asyncttwiz.storage.GameSocketTransport
 import org.asyncttwiz.storage.SerialTasks
 
-// The game socket in the browser (web client step 3b): the shared logic (TransportGameConnection) over the browser's
+// The game socket in the browser: the shared logic (TransportGameConnection) over the browser's
 // WebSocket and fetch.
 
 actual fun platformGameConnection(origin: String): GameConnection {

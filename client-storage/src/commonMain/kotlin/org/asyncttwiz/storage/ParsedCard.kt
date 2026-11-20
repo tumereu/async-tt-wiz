@@ -3,7 +3,7 @@ package org.asyncttwiz.storage
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 
-/** What the device knows about one game card's rules (docs/specs/arcanum-atw-integration.md I-D2). */
+/** What the device knows about one game card's rules (I-D2, docs/arcanum-atw-decisions.md). */
 sealed interface ParsedCard {
     /** The card parsed: [definition] keeps every ability the parser couldn't read as [Ability.Unparsed] (played by
      * hand); [manualAbilities] counts them over all faces. */

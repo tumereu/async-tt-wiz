@@ -24,7 +24,7 @@ val LocalComputedBoard = staticCompositionLocalOf { ComputedBoard.NONE }
 
 /**
  * [play]'s board as Automatum computes it for [viewer]: a board of a game on engine state comes with its computed values
- * (and, once worked out, the hand plays) from the engine thread (R3), shown at once, nothing worked out here.
+ * (and, once worked out, the hand plays) from the engine thread, shown at once, nothing worked out here.
  */
 @Composable
 fun rememberComputedBoard(play: TableBoard, viewer: String): ComputedBoard {

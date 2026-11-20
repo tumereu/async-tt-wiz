@@ -31,7 +31,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The desktop table (docs/specs/web-client.md §5–§7, step 5): Alice plays in the desktop layout at 1440 × 900 with the mouse
+ * The desktop table (WEB-023, WEB-031, WEB-015): Alice plays in the desktop layout at 1440 × 900 with the mouse
  * and the keyboard, Bob on his phone's layout beside her.
  */
 @Config(qualifiers = "w1440dp-h900dp-land-mdpi")

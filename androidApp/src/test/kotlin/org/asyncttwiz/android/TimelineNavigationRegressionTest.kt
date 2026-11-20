@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.*
 
-/** Timeline mode on a game played on engine state (R4b: the engine table, [EngineLobbyFixture]). */
+/** Timeline mode on a game played on engine state (the engine table, [EngineLobbyFixture]). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class TimelineNavigationRegressionTest {

@@ -1,6 +1,6 @@
 package org.asyncttwiz.appui
 
-// The platform's own pieces the app's code calls directly (docs/specs/web-client.md §1 item 2): threads, clocks and the
+// The platform's own pieces the app's code calls directly: threads, clocks and the
 // platform log, which the engine side (:app-engine) needs too. Android: each is the code the app used before, moved here
 // unchanged. The UI's own pieces (HTTP, imports) are :app-ui's.
 

@@ -12,7 +12,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Web client step 4c part 3 (docs/specs/web-client.md §1 item 3): a game's device in the engine's Web Worker ([DeviceHost])
+ * A game's device in the engine's Web Worker ([DeviceHost])
  * behind its [EngineGame] on the page ([DeviceChannel], [RemoteDevice]), every message crossing as a JSON string and
  * delivered later, as the browser delivers it. The page gets the same boards, notes and results as a device on the page
  * (Android's in-process one, here inline) given the same actions and server events, in the same order: an own action's
@@ -40,7 +40,7 @@ class DeviceInWorkerTest {
         }
     }
 
-    /** A cast panel on [game]'s board as the table makes it: its flow session beside the game's device (web client step 4e: in
+    /** A cast panel on [game]'s board as the table makes it: its flow session beside the game's device (in
      * the worker for a game whose device is there, its answers delivered by [pump]; here at once otherwise); [sent]: the
      * complete cast's own inputs. */
     private fun panel(game: EngineGame, viewer: String, sent: (List<arcanum.engine.input.Input>) -> Unit) =
@@ -68,7 +68,7 @@ class DeviceInWorkerTest {
             it.transition?.forward?.map { e -> e.id }, it.transition?.steps?.size, it.ownStepHeld)
     }
 
-    // Web client step 4c part 3: the board the worker's device publishes on opening is the page's, as the device here makes it
+    // The board the worker's device publishes on opening is the page's, as the device here makes it
     @Test fun openingPublishesTheSameBoard() {
         val (local, remote) = pair()
         assertTrue(remote.inWorker)
@@ -270,7 +270,7 @@ class DeviceInWorkerTest {
         assertTrue(remote.notes.any { it is GameDevice.Note.Refused }, "the stale tap's note reached the page")
     }
 
-    // Web client step 4c part 3: the worker's own log lines reach the page's app log (problem reports carry them)
+    // The worker's own log lines reach the page's app log (problem reports carry them)
     @Test fun theWorkersLogReachesThePagesAppLog() {
         val (_, remote) = pair()
         AppLog.forward = null
@@ -285,7 +285,7 @@ class DeviceInWorkerTest {
         assertTrue("[worker]" in AppLog.text().substringAfterLast(marker), "the worker's board log reached the page's log")
     }
 
-    // Web client step 4c part 3: a request for a game the worker doesn't hold fails, and its callback still runs; a game
+    // A request for a game the worker doesn't hold fails, and its callback still runs; a game
     // closed on the page drops what the worker still sends
     @Test fun aClosedGamesAnswersAreDroppedAndItsCallsEnd() {
         val (_, remote) = pair()
@@ -298,7 +298,7 @@ class DeviceInWorkerTest {
         assertTrue(DeviceMessage.isDevice(DeviceMessage.request("g", org.asyncttwiz.automatum.boundary.DeviceRequest.Pause(1))))
     }
 
-    // CMB-028, CMB-043, STK-024, web client step 4d: a combat with a cast in it, Alice's device in the worker beside her device
+    // CMB-028, CMB-043, STK-024: a combat with a cast in it, Alice's device in the worker beside her device
     // here, both given the same server messages: her attacker staged (the table's own staging, worked out where the device
     // is), her attack declared, Bob's block, her Storm Spark cast at the blocker (its target and payment worked out by the
     // cast panel on the page's copy of the board) and the combat damage: the page gets the same boards as the device here
@@ -393,7 +393,7 @@ class DeviceInWorkerTest {
         assertEquals(GameDevice.Status.YourMove, local.shown?.status, "Alice holds priority after the block")
 
         // Storm Spark at the blocker: the cast panel's flow session works its target and payment out where each side's device
-        // is (web client step 4e: in the worker for the remote copy, its target bar drawn from the values it answers)
+        // is (in the worker for the remote copy, its target bar drawn from the values it answers)
         val shapes = mutableMapOf<EngineGame, List<Any?>>()
         fun castInputs(game: EngineGame): List<arcanum.engine.input.Input> {
             var sent: List<arcanum.engine.input.Input>? = null
@@ -430,7 +430,7 @@ class DeviceInWorkerTest {
         assertEquals(shape(local.shown), shape(remote.shown), "after the combat damage")
     }
 
-    // Web client step 4d: a board published before its plays were worked out gets them from the device in the worker, which
+    // A board published before its plays were worked out gets them from the device in the worker, which
     // holds the board (asked by its number when the table first reads them, nothing else sent)
     @Test fun aBoardsMissingPlaysComeFromTheWorkersDevice() {
         val (local, remote) = pair()
@@ -450,7 +450,7 @@ class DeviceInWorkerTest {
         assertEquals(local.play().values?.handPlays()?.byCard, assertNotNull(values.handPlays).byCard)
     }
 
-    // Web client step 4c part 3: timeline mode's board and the undo request's reads come back across the boundary, with
+    // Timeline mode's board and the undo request's reads come back across the boundary, with
     // the same board the device here makes
     @Test fun readsComeBackAsTheSameBoards() {
         val (local, remote) = pair()
@@ -507,7 +507,7 @@ class DeviceInWorkerTest {
             .let { (it as arcanum.engine.state.ObjectId.Card).card.value }
     }
 
-    // Web client step 4e, STK-023, STK-138: Ember Burst ({X}: X damage to any target) cast through a flow session in the worker beside
+    // STK-023, STK-138: Ember Burst ({X}: X damage to any target) cast through a flow session in the worker beside
     // Alice's device: its X step with the most her one Mountain pays, its target bar, then its payment and send give the page
     // the same panels (the values the worker answers, the page's copy of the board with the flow's changes) and the same inputs
     // as a session here; the worker's session log reaches the page's app log
@@ -528,7 +528,7 @@ class DeviceInWorkerTest {
         assertTrue("[worker] Flow session" in log && "opened: cast" in log, "the worker's session log reached the page's log")
     }
 
-    // Web client step 4e, STK-030: Cinder Charm (choose one: 1 damage to any target, or gain 2 life) cast through a flow
+    // STK-030: Cinder Charm (choose one: 1 damage to any target, or gain 2 life) cast through a flow
     // session in the worker: its modes, then (life chosen) straight to the send, as a session here gives on the same board
     @Test fun aModalSpellThroughTheWorkersSessionGivesTheSamePanels() {
         val (local, remote) = mainWith(EngineGameFixture.Choices.CHARM, "Mountain")
@@ -542,7 +542,7 @@ class DeviceInWorkerTest {
         assertEquals(assertNotNull(localSent, "life chosen: sent at once"), remoteSent)
     }
 
-    // Web client step 4e: a step for a session the worker doesn't hold (closed, or never opened) is refused as stale, a step on a
+    // A step for a session the worker doesn't hold (closed, or never opened) is refused as stale, a step on a
     // board it no longer holds drops the flow, and a closed session's step is refused; the page's cast stays as it was
     @Test fun aStepForAFlowThePageNoLongerShowsIsRefused() {
         val (_, remote) = mainWith(EngineGameFixture.Choices.CHARM, "Mountain")
@@ -566,7 +566,7 @@ class DeviceInWorkerTest {
         assertTrue("closed: undone at 4e" in AppLog.text().takeLast(20_000), "the worker's session closed")
     }
 
-    /** The shared flows' controller on [game]'s table: its sessions beside the game's device (web client step 4e: in the worker
+    /** The shared flows' controller on [game]'s table: its sessions beside the game's device (in the worker
      * for a game whose device is there, answers delivered by [pump]; here at once otherwise); [sent]: a step's own inputs. */
     private fun flows(game: EngineGame, sent: (List<arcanum.engine.input.Input>) -> Unit) =
         SharedFlowController(game.me, { game.play() }, { }, engineSend = { inputs -> sent(inputs); null },
@@ -578,7 +578,7 @@ class DeviceInWorkerTest {
         c.view?.version, c.mana, c.paid, c.payment, c.answering?.id, c.paying, c.paySources(), c.payableSources(), c.listedAnswers(),
         c.pick?.options, c.busy, c.view?.state?.let { codecOf.codec.encodeModel(org.asyncttwiz.protocol.game.GameModel(it, org.asyncttwiz.protocol.game.TableState())) })
 
-    // Web client step 4e, STK-049, STK-168 (CR 118.12): Alice's Ember Tollkeeper enters and asks "you may pay {1}": the shared flow's
+    // STK-049, STK-168 (CR 118.12): Alice's Ember Tollkeeper enters and asks "you may pay {1}": the shared flow's
     // panel through a session in the worker beside her device gives the same panel as one here (the question, Autotap's
     // Mountain, Paid), the Mountain tapped out and back on the table the same payment, and Pay the same inputs; a step for a
     // session the worker doesn't hold, or on a board it no longer holds, is refused as stale
@@ -639,7 +639,7 @@ class DeviceInWorkerTest {
         assertTrue("refused as stale" in AppLog.text().takeLast(20_000))
     }
 
-    // Web client step 4e, CMB-044, CMB-074, CMB-075, CMB-037 (CR 508.1h): Bob's Ember Bulwark and Chime make Alice's attack cost {2}; her Cub staged
+    // CMB-044, CMB-074, CMB-075, CMB-037 (CR 508.1h): Bob's Ember Bulwark and Chime make Alice's attack cost {2}; her Cub staged
     // on both copies of her game, what the table shows of combat (the cost's {2} on the drafted attacker) comes from the worker's
     // device as from the one here, and the step arrow's declaration, worked out in the worker's shared-flow session with its
     // cost paid by Autotap, sends the same inputs and gives the same boards

@@ -26,7 +26,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Web client step 4e (docs/specs/web-client.md §1 item 3): cast flow sessions across the engine boundary. The panel's
+ * Cast flow sessions across the engine boundary. The panel's
  * values and every step come back the same from their JSON text; the page's copy of the board with a flow's changes is the
  * flow's own state; the engine side's sessions keep a few versions of each flow, refuse a step on a version or session the
  * page no longer shows as stale, and log each opening, step, refusal and end.
@@ -54,7 +54,7 @@ class CastMessagesTest {
         return Triple(flow, state, table.obj(bear))
     }
 
-    // Web client step 4e, STK-024, STK-023: the cast panel's value of a real flow (its answered target, its open payment with
+    // STK-024, STK-023: the cast panel's value of a real flow (its answered target, its open payment with
     // Autotap's suggestion, what the caster may see) comes back the same from its text, inside the device's answer
     @Test fun aCastPanelValueComesBackTheSameFromItsText() {
         val (flow, _, _) = sparkAtItsPayment()
@@ -76,7 +76,7 @@ class CastMessagesTest {
         assertTrue(shown.paid)
     }
 
-    // Web client step 4e: the page's copy of the board's engine state with the flow's changes applied straight is the flow's
+    // The page's copy of the board's engine state with the flow's changes applied straight is the flow's
     // own state (the panel names and reads from it, nothing worked out again on the page)
     @Test fun theBoardsStateWithTheFlowsChangesIsTheFlowsState() {
         val (flow, state, _) = sparkAtItsPayment()
@@ -87,7 +87,7 @@ class CastMessagesTest {
         assertEquals(codec.encodeModel(GameModel(flow.state, TableState())), codec.encodeModel(GameModel(page, TableState())))
     }
 
-    // Web client step 4e: every step of a session comes back the same from its text inside the device's request
+    // Every step of a session comes back the same from its text inside the device's request
     @Test fun everyStepComesBackTheSameFromItsText() {
         val (flow, _, bear) = sparkAtItsPayment()
         val payment = flow.pending as Decision.ManaPayment
@@ -133,7 +133,7 @@ class CastMessagesTest {
         }
     }
 
-    // Web client step 4e: a session's versions: the newest and the few before it are kept; a step on a version the session no
+    // A session's versions: the newest and the few before it are kept; a step on a version the session no
     // longer keeps, on a closed session or one never opened is refused as stale, each logged
     @Test fun aStepOnAFlowThePageNoLongerShowsIsStale() {
         val sessions = FlowSessions<String>(log, keep = 2)
@@ -159,7 +159,7 @@ class CastMessagesTest {
         assertTrue(logged.filter { "refused as stale" in it.second }.all { it.first }, "stale steps are logged as warnings")
     }
 
-    // Web client step 4e: sessions are kept apart; one opened again with the same number starts anew
+    // Sessions are kept apart; one opened again with the same number starts anew
     @Test fun sessionsAreKeptApart() {
         val sessions = FlowSessions<String>(log)
         sessions.open(1, "cast", "Storm Spark")

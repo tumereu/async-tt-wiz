@@ -11,10 +11,10 @@ import org.asyncttwiz.automatum.boundary.EnginePlanner
 import org.asyncttwiz.storage.ParsedCard
 
 /**
- * The engine's Web Worker (docs/specs/web-client.md §1 item 3): each message from the page is an engine boundary request
+ * The engine's Web Worker: each message from the page is an engine boundary request
  * as a JSON string. Planning requests ([org.asyncttwiz.automatum.boundary.EngineRequest]) are answered in order with one
- * message each, on the boards the page sends ([EnginePlanner]). Device requests ([DeviceMessage], web client step 4c part
- * 3) go to the games' devices that live here ([DeviceHost]), which answer with the boards they publish, each request's
+ * message each, on the boards the page sends ([EnginePlanner]). Device requests ([DeviceMessage])
+ * go to the games' devices that live here ([DeviceHost]), which answer with the boards they publish, each request's
  * result, their log lines and their lookups in the page's card records. It posts "ready" once it listens: the page holds
  * its requests until then (a message before it would be lost).
  */
@@ -30,7 +30,7 @@ fun main() {
             p.definition?.let { ParsedCard.Read(it, p.manualAbilities) } ?: ParsedCard.Unreadable(p.problem.orEmpty()) } }
     }
     onRequest { text ->
-        // Web client step 4d: the page's build values, its first message (the devices read them)
+        // The page's build values, its first message (the devices read them)
         if (org.asyncttwiz.appui.installBuildInfoMessage(text)) return@onRequest
         if (DeviceMessage.isDevice(text)) { devices.handle(text); return@onRequest }
         val answer = try { planner.handle(EngineMessages.decodeRequest(text)) } catch (problem: Exception) {

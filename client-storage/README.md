@@ -7,14 +7,14 @@ deck list parsing and imports, the card records' JSON readings, catalog and artw
 and the SQLDelight database generated from the `.sq` files; `androidMain` holds the
 Android implementation (SQLDelight over the device's SQLite, the card records index,
 catalog install, artwork downloads). `commonMain` also holds the browser's storage logic
-(web client step 3a) over asynchronous stores whose IndexedDB, Cache API, fetch and
+over asynchronous stores whose IndexedDB, Cache API, fetch and
 DecompressionStream adapters are app-ui's wasm side: `MirroredStore` (an IndexedDB store
 read whole into memory, written in order) under the session (`BrowserSessions`), the
 accounts' data (`BrowserAccountData`) and the card definitions cache; the card records
 installer (`BrowserCatalogInstaller`: the catalog file checked against the expected
 checksum, kept as it is) and the in-memory card records (`MemoryCardCatalog`, the same reads
 as Android's index); and the picture repository (`BrowserArtworkRepository`). Beside storage,
-`commonMain` holds client logic both clients share that needs tests on both (web client step 3b):
+`commonMain` holds client logic both clients share that needs tests on both:
 the game socket's logic (`GameSocketClient`: messages checked and decoded, closes and failures
 as causes, the ordered HTTP reads beside it) over a platform `GameSocketTransport` (Android:
 OkHttp; the browser: WebSocket and fetch), `SerialTasks` (the browser's single-thread executors

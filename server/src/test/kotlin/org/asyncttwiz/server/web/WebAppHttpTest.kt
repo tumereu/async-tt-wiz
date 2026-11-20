@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory
 
-/** The web client served beside the API (docs/specs/web-client.md §2.1). */
+/** The web client served beside the API. */
 class WebAppHttpTest {
     @TempDir lateinit var directory: Path
     private val build = "0123456789abcdef"

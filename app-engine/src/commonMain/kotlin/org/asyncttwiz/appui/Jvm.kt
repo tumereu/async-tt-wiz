@@ -1,8 +1,8 @@
 package org.asyncttwiz.appui
 
-// The JVM library pieces (clocks, ids, text formats, URIs, I/O types) the app's code uses, under names close to the JVM's
-// (docs/specs/web-client.md §1 item 2). Android: typealiases of the JVM types and calls of the very functions the code
-// called before, so values and texts stay exactly as they were. The browser's come with the web client (§11 steps 3, 4).
+// The JVM library pieces (clocks, ids, text formats, URIs, I/O types) the app's code uses, under names close to the JVM's.
+// Android: typealiases of the JVM types and calls of the very functions the code
+// called before, so values and texts stay exactly as they were. The browser's are the wasmJs side's.
 
 /** Milliseconds since 1970 by the wall clock (Android: System.currentTimeMillis()). */
 expect fun currentTimeMillis(): Long

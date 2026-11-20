@@ -1,6 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// ATW's side of Arcanum Automatum (docs/specs/arcanum-atw-integration.md §2–§4): the mapping between ATW's shared game
+// ATW's side of Arcanum Automatum (docs/arcanum-atw-decisions.md): the mapping between ATW's shared game
 // state and actions and the Arcanum rules engine. Depends on both; the Arcanum libraries never depend on it.
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -20,7 +20,7 @@ kotlin {
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }
-    // Kotlin/Wasm for the web client (docs/specs/web-client.md): common tests also run on Node (wasmJsNodeTest).
+    // Kotlin/Wasm for the web client: common tests also run on Node (wasmJsNodeTest).
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser { testTask { enabled = false } }

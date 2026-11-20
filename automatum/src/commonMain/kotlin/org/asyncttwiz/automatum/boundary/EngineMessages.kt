@@ -16,7 +16,7 @@ import org.asyncttwiz.automatum.CardPlays
 import org.asyncttwiz.automatum.HandPlays
 
 /*
- * The engine boundary (docs/specs/web-client.md §1 item 3): the page (Android's main thread, the browser's page) asks the
+ * The engine boundary: the page (Android's main thread, the browser's page) asks the
  * engine side (Android's engine thread, the browser's Web Worker) for planning work on a board of a game by request and
  * answer. One design on both platforms: across a Web Worker they travel as JSON strings ([EngineMessages]); on Android
  * the same objects are handed over in-process ([InProcessEngineChannel]), nothing serialized.

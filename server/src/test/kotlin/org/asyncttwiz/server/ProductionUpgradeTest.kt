@@ -283,7 +283,7 @@ class ProductionUpgradeTest {
             assertEquals(pending, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             // No migration deleted anything but V54's, V59's, V63's, V74's, V85's and V89's (I-D52, I-D54, stable decision ids, the engine's general forms, the engine API rework, per-player random streams; owner-approved): every game that had started a play, with
             // everything that belongs to it, but its match records: they are never deleted (V66); and V76's (owner 2026-11-10): the request rows
-            // holding the old model's fields (R4d) at their top level or in their play, with the outbox rows of those requests.
+            // holding the old model's fields at their top level or in their play, with the outbox rows of those requests.
             val wipedGames = tables["game_play"].orEmpty().map { it.jsonObject.getValue("game_id").jsonPrimitive.content }.toSet()
             val wipedPlays = tables["game_play"].orEmpty().map { it.jsonObject.getValue("id").jsonPrimitive.content }.toSet()
             val retired = setOf("currentNodeId", "engineVersion", "readFormat", "currentGroup", "annotations", "currentBranchId",

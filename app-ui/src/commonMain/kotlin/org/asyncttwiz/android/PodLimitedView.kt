@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,7 +24,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
@@ -62,11 +60,13 @@ fun podSearchCard(definition: CardDefinition): CardSearchCard {
 @Composable
 fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>,
     busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, waitingText: String,
-    onMainMenu: (() -> Unit)?, queue: (List<String>) -> Unit = {}) {
+    onMainMenu: (() -> Unit)?, queue: (List<String>) -> Unit = {},
+    /** The Rotisserie pool's filter (DRF-250) and the pod's filters it reads rarities through (DRF-252). */
+    filter: PodCardFilterState = remember { PodCardFilterState() }, filters: PodCardFilters = remember { PodCardFilters() }) {
     val view = detail.limited
     val members = detail.members.map { it.account }
     when (view?.mode) {
-        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, queue)
+        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, filter, filters, queue)
         DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns)
         DraftMode.WINSTON -> PodWinstonView(view, members, definitions, busy, send, modifier, columns)
         DraftMode.WINCHESTER -> PodWinchesterView(view, members, definitions, busy, send, modifier, columns)
@@ -194,11 +194,11 @@ fun podRotisserieOrder(board: List<LimitedSlot>, definitions: Map<String, CardDe
     }
 }
 
-/** Cards of [board] matching the catalog search [query]; all of them for a blank or unreadable query. */
-fun podRotisserieFilter(board: List<LimitedSlot>, definitions: Map<String, CardDefinition>, query: String): List<LimitedSlot> {
-    if (query.isBlank()) return board
-    val parsed = CardSearchQuery.parse(query) as? CardSearchParse.Valid ?: return board
-    return board.filter { slot -> definitions[slot.copy.definition]?.let { parsed.query.matches(podSearchCard(it)) } == true }
+/** Cards of [board] matching [filter] (DRF-250), rarities from [printings] (DRF-252); all of them with nothing set. */
+fun podRotisserieFilter(board: List<LimitedSlot>, definitions: Map<String, CardDefinition>, filter: PodCardFilter,
+    printings: Map<String, List<CardSearchPrinting>> = emptyMap()): List<LimitedSlot> {
+    val matcher = filter.matcher() ?: return board
+    return board.filter { slot -> podFilterShows(matcher, definitions[slot.copy.definition], printings) }
 }
 
 /**
@@ -237,45 +237,47 @@ fun podQueueClearedText(copy: DraftCopy, definitions: Map<String, CardDefinition
         "draft card without its card data", "a queued card", mapOf("definition" to copy.definition))} was taken"
 
 /**
- * Rotisserie (DRF-152): the whole pool in one scrolling panel with a catalog search field; taken cards are greyed with
- * the picker's avatar. On your turn tap a card, then Confirm; on another's turn tap a card, then "Queue <card>" adds it
- * to your pick queue (DRF-164), whose strip above the button lists it in order with removes.
+ * Rotisserie (DRF-152): the whole pool in one scrolling panel with the filter button in its corner (DRF-250); taken cards
+ * are greyed with the picker's avatar. On your turn tap a card, then Confirm; on another's turn tap a card, then
+ * "Queue <card>" adds it to your pick queue (DRF-164), whose strip above the button lists it in order with removes.
  */
 @Composable
 fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, queue: (List<String>) -> Unit = {}) {
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns,
+    filter: PodCardFilterState = remember { PodCardFilterState() }, filters: PodCardFilters = remember { PodCardFilters() },
+    queue: (List<String>) -> Unit = {}) {
     val mine = view.currentPlayer == view.player
     val queued = view.pickQueue.map { it.id }
     var selected by remember(view.turn) { mutableStateOf<String?>(null) }
-    var query by rememberSaveable { mutableStateOf("") }
     val preview = remember { PodLimitedPreview() }
     PodLimitedBoardPrefetch(view, definitions, preview)
     val colors = remember(view.seating, view.player) { podGridColors(view.seating, view.player) }
     val ordered = remember(view.board, definitions) { podRotisserieOrder(view.board, definitions) }
-    val shown = remember(ordered, query, definitions) { podRotisserieFilter(ordered, definitions, query) }
-    val error = remember(query) { (CardSearchQuery.parse(query) as? CardSearchParse.Invalid)?.error?.message?.takeIf { query.isNotBlank() } }
+    val printings = filters.printings
+    val shown = remember(ordered, filter.filter, definitions, printings) { podRotisserieFilter(ordered, definitions, filter.filter, printings) }
     Column(modifier.padding(horizontal = 8.dp)) {
         Text("${podTurnText(view.currentPlayer, view.player, members)} · Pick ${minOf(view.turn + 1, view.turns)} of ${view.turns}",
             Modifier.padding(vertical = 6.dp).testTag("pod-limited-header"), style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().testTag("pod-rotisserie-search"),
-            label = { Text("Search cards") }, singleLine = true, isError = error != null,
-            supportingText = error?.let { { Text(it) } },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = hideKeyboardActions())
-        LazyVerticalGrid(GridCells.Fixed(columns.columns(Int.MAX_VALUE)), Modifier.weight(1f).fillMaxWidth().testTag("pod-rotisserie-pool"),
-            contentPadding = PaddingValues(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                Text("No cards match", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            items(shown, key = { it.copy.id }) { slot ->
-                val copy = slot.copy
-                val position = queued.indexOf(copy.id)
-                PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors, selected == copy.id,
-                    "pod-rotisserie-${copy.id}", preview, badge = if (position >= 0) "${position + 1}" else null) {
-                    val free = slot.pickedBy == null && !view.finished
-                    if (free && selected != copy.id && (mine || position < 0)) selected = copy.id
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            // The last row scrolls clear of the filter button (DRF-250)
+            LazyVerticalGrid(GridCells.Fixed(columns.columns(Int.MAX_VALUE)), Modifier.fillMaxSize().testTag("pod-rotisserie-pool"),
+                contentPadding = PaddingValues(top = 8.dp, bottom = PodFilterButtonRoom), horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text("No cards match", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                items(shown, key = { it.copy.id }) { slot ->
+                    val copy = slot.copy
+                    val position = queued.indexOf(copy.id)
+                    PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors, selected == copy.id,
+                        "pod-rotisserie-${copy.id}", preview, badge = if (position >= 0) "${position + 1}" else null) {
+                        val free = slot.pickedBy == null && !view.finished
+                        if (free && selected != copy.id && (mine || position < 0)) selected = copy.id
+                    }
                 }
             }
+            PodCardFilterButton(filter, filters, definitions.values, "pod-rotisserie-filter",
+                Modifier.align(Alignment.BottomEnd).padding(PodFilterButtonInset))
         }
         if (view.pickQueue.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(48.dp)
             .horizontalScroll(rememberScrollState()).testTag("pod-rotisserie-queue"),

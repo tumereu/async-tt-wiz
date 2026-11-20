@@ -202,7 +202,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 ## Rotisserie
 
 - **DRF-152** Rotisserie: the whole pool lies face up (cube: players × the pool per player, drawn at random; set: boosters opened until there are enough, all their cards); players take one card per turn in snake order (seat order, then back) until each has made their picks; the cards nobody picks stay in the pool; turns are sequential. (r74)
-- **DRF-153** The Rotisserie pick screen is one scrolling panel of the whole pool, sorted like Build columns (W U B R G, multicolour, colourless, then name), under a line like "Your pick · Pick 4 of 90" ("Waiting for <name> · …" on another's turn) and a "Search cards" field using the catalog search syntax; taken cards stay greyed with the picker's small avatar (as in Grid). (r60)
+- **DRF-153** The Rotisserie pick screen is one scrolling panel of the whole pool, sorted like Build columns (W U B R G, multicolour, colourless, then name), under a line like "Your pick · Pick 4 of 90" ("Waiting for <name> · …" on another's turn), with the filter button in its corner (DRF-250); taken cards stay greyed with the picker's small avatar (as in Grid). (r60)
 - **DRF-216** On the Rotisserie pick screen, on your turn tap a card to frame it, then "Pick <card name>" takes it; on another's turn tap a free card you haven't queued to frame it, then "Queue <card name>" adds it to your pick queue (DRF-164); other taps do nothing; holding inspects. (r60)
 - **DRF-164** Rotisserie pick queue: your queue is private and kept on the server, so it works while you are away. A strip above the button shows it in order as small cards (as in the pick screen's Keep and Burn trays), each with its number in a corner and an ✕: a tap removes it, holding inspects it; queued cards in the pool carry their number in a small badge. (r60)
 - **DRF-217** When your Rotisserie turn comes the queue's first card is taken for you at once, with no "Your pick" notification and no wait, and the rest stays queued in order (a run of picks in a row takes one queued card each). (r60)
@@ -255,6 +255,15 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-166** A cover thumbnail sits beside the deck's name in Build; a tap lists your Main and Side cards alphabetically, basics not among them, to choose it from, also after submitting; without a choice, or once the chosen card has gone to Maybe, the first Main card shows. (r62)
 - **DRF-229** The deck's cover is private as the name is (DRF-125) and goes to your draft deck (LOB-040), to your games of the pod still in their lobby and to the pod games prepared after it; it can also be chosen from Prepare deck in a pod game's lobby (LOB-047). (r62)
 - **DRF-106** A fixed bottom bar across the full screen width (not inset by the columns' side margins) holds an Undo button at its left edge (always there, dimmed when empty) and "Submit deck (N)"; Undo takes back card moves and basic changes one at a time, during and after the draft. (r36)
+
+## Filtering the pool and Build
+
+- **DRF-250** The Rotisserie pool and Build each have a round filter button (a funnel) floating at the bottom right corner of their scrolling area, whose end scrolls clear of it; a tap opens a popup over the screen by the button: "Filter cards" with Clear, a search field and the quick filter chips. Tapping outside it or Back closes it; the filter stays. (owner, 2026-11-19)
+- **DRF-251** The popup's field ("Name, type or rules text") matches cards whose name, type line or rules text holds every typed word, in any case; it also understands search terms (LOB-108). Text that can't be read says why under the field and filters nothing, the chips still applying. (owner, 2026-11-19)
+- **DRF-252** The popup's chips: W U B R G C (mana symbols) and Multicolour; mana value 0–6+; Creature, Planeswalker, Instant, Sorcery, Artifact, Enchantment, Land; Common, Uncommon, Rare, Mythic, the rarity of the card's own printing from card records. Within a row any chosen chip matches; the rows and the typed text all apply. (owner, 2026-11-19)
+- **DRF-253** While anything is set the button is filled in the accent colour with a dot on it and only matching cards show ("No cards match" in a pool with none); Clear empties the field and every chip at once. (owner, 2026-11-19)
+- **DRF-254** In Build the filter hides the cards that don't match from every section's columns; the section headers, the basics rows, Submit's count and Stats still count the whole deck, a column's count counts what it shows, and the one-by-one review (DRF-107) goes through the cards shown. (owner, 2026-11-19)
+- **DRF-255** The filter is yours alone and never sent: the pool and Build of each pod each keep their own while the app runs, through tab changes and leaving the pod. (owner, 2026-11-19)
 
 ## Build review (one by one)
 

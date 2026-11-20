@@ -241,6 +241,28 @@ class DesktopDraftScreenshotTest {
             "Alice's Build on the desktop layout, each column's cards overlapping so only their name strips show above its last card, with the pointer on Tidecall Adept's right quarter, the last card of its column: that quarter is tinted Maybe's amber with \"Maybe ▸\" and the left one faintly Side's blue with \"◂ Side\", where a click moves one copy and a Shift+click every copy; the section headers have no Review, as Build has no one-by-one review on the desktop.")
     }
 
+    // WEB-120, DRF-250, DRF-251, DRF-252, DRF-254: on the desktop layout Build's filter button sits in the bottom right corner above the bar;
+    // a click opens its popup, where the Creature chip and "human" (a word of the type line) leave Main with the two Humans
+    @Test fun buildFilterPopup() {
+        val detail = statsDetail()
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.BUILD))
+        val list = compose.onNodeWithTag("pod-build").fetchSemanticsNode().boundsInRoot
+        val button = compose.onNodeWithTag("pod-build-filter").fetchSemanticsNode().boundsInRoot
+        assertTrue(button.right <= list.right && list.right - button.right < 40f && button.bottom <= list.bottom && list.bottom - button.bottom < 40f,
+            "the button in Build's bottom right corner: $button in $list")
+        compose.onNodeWithTag("pod-build-filter").performMouseInput { click() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("pod-build-filter-type-Creature").performMouseInput { click() }
+        compose.onNodeWithTag("pod-build-filter-field").performTextInput("human")
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        fun shown(n: Int) = compose.onAllNodesWithTag("pod-build-card-c$n-0").fetchSemanticsNodes().isNotEmpty()
+        assertTrue(shown(0) && shown(8), "Dawnward Sentry and Duskmarket Thief shown")
+        assertTrue((1..17).filter { it != 8 }.none(::shown), "no other card shown")
+        captureShot("$SCREENSHOTS/desktop/build-filter.png",
+            "Alice's Build on the desktop layout after she clicks the filter button in the bottom right corner, chooses Creature and types \"human\" in the popup: Main shows only Dawnward Sentry and Duskmarket Thief, its header still counting the whole deck, and the button is filled with a dot.")
+    }
+
     // WEB-063, WEB-111 (owner playtest 2026-11-16): the pointer on the name strip of a card high in its column brings that card to the front,
     // whole and in place, over the cards below it; its edge zones show
     @Test fun buildHoveredCardInFront() {

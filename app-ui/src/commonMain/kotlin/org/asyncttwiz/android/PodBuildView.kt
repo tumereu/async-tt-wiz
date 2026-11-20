@@ -124,6 +124,9 @@ fun PodBuildView(
     /** The definition chosen as the deck's cover, if any (DRF-166). */
     deckCover: String? = null,
     onCover: (String) -> Unit = {},
+    /** Build's filter (DRF-254) and the pod's filters it reads rarities through (DRF-252). */
+    filter: PodCardFilterState = remember { PodCardFilterState() },
+    filters: PodCardFilters = remember { PodCardFilters() },
 ) {
     val columns = columnPreference.count
     val desktop = desktopLayout()
@@ -162,14 +165,23 @@ fun PodBuildView(
         }
     }
     var feed by remember { mutableStateOf<PodBuildFeed?>(null) }
+    // DRF-254: the columns show (and the review goes through) only the cards matching the filter
+    val shownFilter = filter.filter
+    val printings = filters.printings
+    val shownColumns: (PodDeckCategory) -> List<List<PodBuildTile>> = { category ->
+        podBuildFiltered(podBuildColumns(build, category, copies, definitions, columns), shownFilter, printings)
+    }
     val openFeed: (PodDeckCategory, Int?) -> Unit = { category, column ->
-        if (editable) feed = podBuildFeed(category, podBuildColumns(build, category, copies, definitions, columns),
+        // A section the filter shows none of has nothing to review
+        val shown = shownColumns(category)
+        if (editable && shown.any { it.isNotEmpty() }) feed = podBuildFeed(category, shown,
             PodDeckColumns.buckets(columns).map { it.label }, column)
     }
     Box(modifier.onGloballyPositioned { origin.coordinates = it }) {
       Column(Modifier.fillMaxSize()) {
-        // Nothing sticks: the name, headers and columns all scroll away together.
-        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("pod-build"), contentPadding = PaddingValues(bottom = 12.dp)) {
+       Box(Modifier.weight(1f).fillMaxWidth()) {
+        // Nothing sticks: the name, headers and columns all scroll away together; the end scrolls clear of the filter button.
+        LazyColumn(Modifier.fillMaxSize().testTag("pod-build"), contentPadding = PaddingValues(bottom = PodFilterButtonRoom)) {
             item("name") {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = PodBuildSidePadding),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -183,7 +195,7 @@ fun PodBuildView(
             }
             for (category in PodDeckCategory.entries) {
                 val count = podBuildCount(build, category)
-                val buckets = podBuildColumns(build, category, copies, definitions, columns)
+                val buckets = shownColumns(category)
                 val sectionColor = category.podBuildColor()
                 // DRF-107: every section has a review, Maybe too; WEB-045: none on the desktop layout (§5)
                 val feedable = editable && !desktop
@@ -287,6 +299,9 @@ fun PodBuildView(
                 }
             }
         }
+        PodCardFilterButton(filter, filters, remember(copies, definitions) { copies.values.mapNotNull { definitions[it.definition] } },
+            "pod-build-filter", Modifier.align(Alignment.BottomEnd).padding(PodFilterButtonInset))
+       }
         // DRF-106: the bar spans the full width (not inset like the columns), Undo at its left edge.
         Surface(Modifier.fillMaxWidth().height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             if (submitted) Box(contentAlignment = Alignment.Center) { Text("✓ Submitted", style = MaterialTheme.typography.labelLarge) }

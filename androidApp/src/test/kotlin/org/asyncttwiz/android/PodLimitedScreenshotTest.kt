@@ -177,6 +177,49 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-rotisserie-queue").assertDoesNotExist()
     }
 
+    // DRF-250, DRF-252, DRF-253, DRF-153: the filter button floats in the pool's bottom right corner; its popup's red and mana value 1
+    // chips leave only the red one-drops, and the button shows that a filter is set; Clear brings every card back; Back closes it
+    @Test fun rotisseriePoolFilterPopup() {
+        val board = copies.take(12).mapIndexed { index, copy -> LimitedSlot(copy, if (index == 4) "carol" else null) }
+        val view = LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob", "carol"), emptyList(), false,
+            currentPlayer = "alice", turn = 1, turns = 135, board = board)
+        val filter = PodCardFilterState()
+        show({ "pod-rotisserie-${it.id}" }, board.map { it.copy }) {
+            PodRotisserieView(view, members, definitions, false, { _, _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns, filter)
+        }
+        val pool = compose.onNodeWithTag("pod-rotisserie-pool").fetchSemanticsNode().boundsInRoot
+        val button = compose.onNodeWithTag("pod-rotisserie-filter").assertIsDisplayed()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "No filter")).fetchSemanticsNode().boundsInRoot
+        kotlin.test.assertTrue(button.right <= pool.right && pool.right - button.right < 40f && pool.bottom - button.bottom < 40f &&
+            button.bottom <= pool.bottom, "the button in the pool's bottom right corner: $button in $pool")
+        compose.onNodeWithTag("pod-rotisserie-filter").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Filter cards").assertIsDisplayed()
+        compose.onNodeWithTag("pod-rotisserie-filter-clear").assertIsNotEnabled()
+        compose.onNodeWithTag("pod-rotisserie-filter-colour-R").performClick()
+        compose.onNodeWithTag("pod-rotisserie-filter-value-1").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        // Lightning Bolt and Shock: red with mana value 1
+        kotlin.test.assertEquals(listOf("copy-0"), board.map { it.copy }.filter {
+            compose.onAllNodesWithTag("pod-rotisserie-${it.id}").fetchSemanticsNodes().isNotEmpty() }.map { it.id })
+        compose.onNodeWithTag("pod-rotisserie-filter").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Filter on"))
+        compose.onNodeWithTag("pod-rotisserie-filter-clear").assertIsEnabled()
+        captureShot("$SCREENSHOTS/pod-rotisserie-filter.png", "Rotisserie draft after Alice taps the filter button in the pool's " +
+            "bottom right corner and chooses red and mana value 1 in its popup: only Lightning Bolt still shows, and the button is filled " +
+            "with a dot.")
+        compose.onNodeWithTag("pod-rotisserie-filter-clear").performClick()
+        compose.waitForIdle()
+        kotlin.test.assertEquals(PodCardFilter(), filter.filter)
+        compose.onNodeWithTag("pod-rotisserie-copy-11").assertExists()
+        // Back closes the popup; a filter set again stays
+        compose.onNodeWithTag("pod-rotisserie-filter-type-Instant").performClick()
+        androidx.test.espresso.Espresso.pressBack()
+        compose.waitForIdle()
+        compose.onNodeWithText("Filter cards").assertDoesNotExist()
+        kotlin.test.assertEquals(setOf(SearchType.INSTANT), filter.filter.types)
+    }
+
     // DRF-164 (owner, 2026-11-19): holding a queued card in the strip inspects it (its full card) and doesn't remove it
     @Test fun holdingAQueuedCardInspectsIt() {
         val board = copies.take(6).map { LimitedSlot(it, null) }

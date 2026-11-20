@@ -304,3 +304,5 @@ number	item	screenshot	catalog	decisions	sequence
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
 304	Cards exiled from a library show as a reveal	engine/reveal-panel-library-exile.png	HIS-233 HIS-110 STK-044		
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
+320	Draft: the Rotisserie pool filtered by its popup (red, mana value 1), the button filled with a dot	pod-rotisserie-filter.png	DRF-250 DRF-252 DRF-253		Draft filter
+321	Desktop: Build filtered by its popup (Creature and "human"), only the matching cards in the columns	desktop/build-filter.png	WEB-120 DRF-251 DRF-254		Draft filter

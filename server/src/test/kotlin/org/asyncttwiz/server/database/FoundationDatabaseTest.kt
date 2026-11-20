@@ -151,7 +151,10 @@ class FoundationDatabaseTest {
             db.connection().use {
                 DSL.using(it, SQLDialect.POSTGRES).execute("UPDATE flyway_schema_history SET checksum = checksum + 1 WHERE version = '1'")
             }
-            assertEquals(1, command(db.settings, "migrate").first)
+            val (refused, refusal) = command(db.settings, "migrate")
+            assertEquals(1, refused)
+            assertTrue(refusal.contains(" Migration failure: flywayError=VALIDATE_ERROR validation=\""), refusal)
+            assertTrue(refusal.contains("checksum mismatch for migration version 1", ignoreCase = true), refusal)
             assertEquals(original + 1, FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum)
             assertEquals(0, epoch(db))
             println("PASS mismatched checksum rejected and not repaired")
@@ -166,7 +169,10 @@ class FoundationDatabaseTest {
             FoundationMigrations.migrate(db.settings)
             assertEquals(1, withExtraMigration(db, futureVersion, "CREATE TABLE future_probe (id integer); UPDATE service_writer SET epoch = 7;")
                 .migrate().migrationsExecuted)
-            assertEquals(1, command(db.settings, "migrate").first)
+            val (refused, refusal) = command(db.settings, "migrate")
+            assertEquals(1, refused)
+            assertTrue(refusal.contains(" Migration failure: flywayError=VALIDATE_ERROR validation=\""), refusal)
+            assertTrue(refusal.contains("not resolved locally", ignoreCase = true) && refusal.contains(futureVersion), refusal)
             assertEquals(expectedVersions + futureVersion, FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             assertEquals(7, epoch(db))
             println("PASS unsupported future schema rejected with retained rows/history")
@@ -177,7 +183,9 @@ class FoundationDatabaseTest {
         OwnedPostgres().use { db ->
             db.start()
             db.connection().use { DSL.using(it, SQLDialect.POSTGRES).execute("CREATE TABLE retained_probe AS SELECT 42 AS value") }
-            assertEquals(1, command(db.settings, "migrate").first)
+            val (refused, refusal) = command(db.settings, "migrate")
+            assertEquals(1, refused)
+            assertTrue(refusal.contains(" Migration failure: flywayError=NON_EMPTY_SCHEMA_WITHOUT_SCHEMA_HISTORY_TABLE "), refusal)
             db.connection().use {
                 val sql = DSL.using(it, SQLDialect.POSTGRES)
                 assertEquals(42, sql.fetchValue("SELECT value FROM retained_probe"))

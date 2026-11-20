@@ -319,7 +319,7 @@ class PodScreensTest {
         compose.onNodeWithTag("pod-modes").assertDoesNotExist()
         compose.onNodeWithTag("pod-mode").performClick()
         val options = listOf("Booster · 2–8 players", "Grid · 2–4 players", "Rochester · 2–8 players", "Rotisserie · 2–8 players",
-            "Winston · 2–4 players", "Winchester · 2–4 players", "Sealed · 2–8 players")
+            "Winston · 2–4 players", "Winchester · 2–4 players", "Sealed · 2–8 players", "Homerock · 2–8 players")
         options.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
         compose.onNodeWithText("Booster · 2–8 players").assertIsSelected()
         compose.onNodeWithText("Grid · 2–4 players").assertIsNotSelected()

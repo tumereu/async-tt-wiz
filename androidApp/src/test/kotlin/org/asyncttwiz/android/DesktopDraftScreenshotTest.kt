@@ -125,6 +125,24 @@ class DesktopDraftScreenshotTest {
             "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full with Confirm at the end of their row; the header holds the tabs at its left, the pod's name and avatars in its middle and its icons at the right; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
     }
 
+    // DRF-288, WEB-117: a Homerock offer on the desktop layout, the pointer resting on a card for its quick look
+    @Test fun homerockPick() {
+        val head = DraftPrivatePack("offer-0-9", 10, listOf(2, 6, 11, 14, 16).map { copy(it) }, 1, null)
+        val members = listOf(PodMember(alice, packsWaiting = 36), PodMember(bob, packsWaiting = 41), PodMember(carol, packsWaiting = 30))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.homerock(), members).copy(draft = DraftPrivateView("alice", head, 0,
+            (0..8).map { copy(it, 1) }, round = 10, rounds = 45))
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
+        compose.onNodeWithTag("pod-pick-orientation").assertTextEquals("Pick 10 of 45 · Rare · take 1")
+        compose.onNodeWithTag("pod-pick-card-c2-0").performMouseInput { click() }
+        compose.onNodeWithTag("pod-pick-card-c14-0").performMouseInput { moveTo(center) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithTag(QUICK_LOOK_TAG).assertIsDisplayed()
+        compose.onNodeWithTag("pod-pick-burn-tray").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/desktop/homerock-pick.png",
+            "Alice's tenth Homerock pick, a rare one, on the desktop layout: her own offer of five cards under \"Pick 10 of 45 · Rare · take 1\", a click took Skyhall Lancer into the keep tray with Confirm beside it, no burn tray, and the pointer resting on Canopy Colossus shows its quick look over its neighbour.")
+    }
+
     // WEB-117 (owner 2026-11-19, D9): resting the pointer on a pack card a quarter of a second shows it large with every face beside
     // it; a pressed button hides it until let go, and leaving the card takes it away
     @Test fun draftPickQuickLook() {

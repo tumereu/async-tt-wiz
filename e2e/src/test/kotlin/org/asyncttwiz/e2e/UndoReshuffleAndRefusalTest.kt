@@ -78,8 +78,10 @@ class UndoReshuffleAndRefusalTest : E2e() {
         bothKeep(bobAway = false)
         waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.settled(this) }
         alice.handCard("Storm Spark").performClick()
+        // (the card menu's words when its plays are worked out already, else the raised card's chips found nothing to pay)
         waitUntil("the bubble says why") {
-            alice.told("Storm Spark can't be cast now.") && alice.shows(hasTestTag("refusal-bubble"))
+            (alice.told("Storm Spark can't be cast now.") || alice.told(org.asyncttwiz.android.CANT_PAY)) &&
+                alice.shows(hasTestTag("refusal-bubble"))
         }
         assertTrue(alice.raisedInHand() == null, "not raised")
     }

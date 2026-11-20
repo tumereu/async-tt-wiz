@@ -196,6 +196,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         chat.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
+        away = null; picksSent.clear(); landing = false; lookingAt = null
         pickMarks.clear(); marksCancel?.invoke(); marksCancel = null
         deckNotes.clear(); notesCancel?.invoke(); notesCancel = null; buildHistory = null
         synchronized(marksLock) { marksPending = null; pickedPacks.clear(); notesPending = null }
@@ -213,6 +214,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         cubePreparation.reset()
         accepted = null
         if (buildHistory?.pod != id) buildHistory = null
+        away = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
             confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false,
             packMixing = null)
@@ -236,7 +238,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         presets.dismiss()
         cubePreparation.reset()
         // Keep pending writes attached to their pod; navigation does not discard them.
-        accepted = null
+        accepted = null; away = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,
             confirmation = null, choosingMember = false, error = null, sourcePreview = null, chatOpen = false)
         refresh()
@@ -608,6 +610,63 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             }
         }
     }
+    /** DRF-239: "While you were away" of the open Rotisserie pod, shown until dismissed (personal UI). */
+    var away by mutableStateOf<PodRotisserieAway?>(null)
+        private set
+    /** DRF-239: the pod whose screen is in front (the app in front with it open); its picks are seen only then. */
+    private var lookingAt: String? = null
+    /** DRF-239: the next server read of [lookingAt] since it came to the front tells what happened while you were away. */
+    private var landing = false
+    /** DRF-239: picks of each pod told to the server as seen (or being told), so each count is sent once. */
+    private val picksSent = mutableMapOf<String, Int>()
+
+    /** DRF-239: [pod]'s screen came to the front (opened, or the app back in front); the returned function is called when it
+     * leaves the front. Its next read shows what happened since you last looked. */
+    fun inFront(pod: String): () -> Unit {
+        lookingAt = pod; landing = true
+        AppLog.info("pods", "Pod $pod in front: its next read tells the picks made since you last looked")
+        refresh()
+        return { if (lookingAt == pod) { lookingAt = null; landing = false } }
+    }
+    fun dismissAway() {
+        away?.let { AppLog.info("pods", "Pod ${state.selected}: \"While you were away\" dismissed (${it.picks.size} picks)") }
+        away = null
+    }
+    /**
+     * DRF-239: a server read of a Rotisserie pod in front: the first after it came to the front shows "While you were away"
+     * when others picked (or your queue picked for you) since you last looked; every read tells the server the picks shown
+     * are seen, so another device doesn't tell them again.
+     */
+    private fun seePicks(detail: PodDetail) {
+        val view = detail.limited?.takeIf { it.mode == DraftMode.ROTISSERIE } ?: return
+        if (lookingAt != detail.id) return
+        val seen = maxOf(view.picksSeen, picksSent[detail.id] ?: 0)
+        if (landing) {
+            landing = false
+            podRotisserieAway(view, seen)?.let { summary ->
+                away = summary
+                AppLog.info("pods", "Pod ${detail.id}: while you were away ${summary.picks.size} picks since pick $seen (" +
+                    summary.picks.joinToString { "${it.number} ${it.player} ${it.card.id}${if (it.fromQueue) " from your queue" else ""}" } + ")" +
+                    (summary.clearedBy?.let { "; queue cleared by pick ${it.number}" } ?: "") +
+                    (summary.ranOutAt?.let { "; queue ran out at pick ${it.number}" } ?: ""))
+            }
+        }
+        val count = view.picks.size
+        if (count <= seen) return
+        val token = credential() ?: return
+        val pod = detail.id
+        picksSent[pod] = count
+        worker.executeSuspending {
+            val result = runCatching { api.seePicks(token, pod, SeePodPicks(count)) }
+            post {
+                if (result.isSuccess) AppLog.info("pods", "Pod $pod: seen $count picks (server had ${view.picksSeen})")
+                else {
+                    AppLog.info("pods", "Pod $pod: seen $count picks not saved (${(result.exceptionOrNull() as? PodFailure)?.code ?: "failure"}); the next read retries")
+                    if (picksSent[pod] == count) picksSent.remove(pod)
+                }
+            }
+        }
+    }
     /** Sets your Rotisserie pick queue to [cards], in order (DRF-164); it shows at once and the server keeps it. */
     fun queue(cards: List<String>) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.settings.mode == DraftMode.ROTISSERIE && it.limited != null } ?: return
@@ -789,6 +848,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (changed) state = state.copy(tab = openTab?.takeIf { it in podTabs(detail.phase) } ?: podDefaultTab(detail.phase, detail.submitted))
         openTab = null
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
+        seePicks(detail)
     }
     private fun syncCredential(): String? {
         val token = credential()

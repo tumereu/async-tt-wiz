@@ -125,6 +125,46 @@ class DesktopDraftScreenshotTest {
             "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full with Confirm at the end of their row; the header holds the tabs at its left, the pod's name and avatars in its middle and its icons at the right; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
     }
 
+    // WEB-117 (owner 2026-11-19, D9): resting the pointer on a pack card a quarter of a second shows it large with every face beside
+    // it; a pressed button hides it until let go, and leaving the card takes it away
+    @Test fun draftPickQuickLook() {
+        val pilgrim = SubmittedDefinition("def-dfc", CardDefinition("Moonlit Pilgrim // Howling Pilgrim", listOf(
+            DefinitionFace("front", "Moonlit Pilgrim", typeLine = "Creature — Human Werewolf", manaCost = "{1}{G}",
+                scryfallId = placeholderPrinting("Moonlit Pilgrim")),
+            DefinitionFace("back", "Howling Pilgrim", typeLine = "Creature — Werewolf", scryfallId = placeholderPrinting("Howling Pilgrim"))),
+            layout = "transform"))
+        val head = DraftPrivatePack("pack-a", 1, (0..12).map { copy(it) } + DraftCopy("dfc-0", "def-dfc"), 2, "bob")
+        val members = listOf(PodMember(alice, packsWaiting = 2), PodMember(bob, packsWaiting = 1), PodMember(carol))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.glimpse(), members).copy(definitions = definitions + pilgrim,
+            draft = DraftPrivateView("alice", head, 1, emptyList(), queuedPacks = emptyList(), round = 1, rounds = 9))
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
+        val card = compose.onNodeWithTag("pod-pick-card-dfc-0")
+        card.performMouseInput { moveTo(center) }
+        compose.mainClock.advanceTimeBy(100)
+        compose.waitForIdle()
+        compose.onNodeWithTag(QUICK_LOOK_TAG).assertDoesNotExist()
+        compose.mainClock.advanceTimeBy(300)
+        compose.waitForIdle()
+        // Both faces, beside the card, inside the window
+        val look = compose.onNodeWithTag(QUICK_LOOK_TAG).assertIsDisplayed().fetchSemanticsNode().boundsInWindow
+        val bounds = card.fetchSemanticsNode().boundsInWindow
+        assertTrue(look.left >= bounds.right || look.right <= bounds.left, "beside the card: $look, $bounds")
+        assertTrue(look.width > look.height, "two faces side by side: $look")
+        captureShot("$SCREENSHOTS/desktop/draft-quick-look.png",
+            "Alice's Glimpse pick on the desktop layout with the pointer resting on Moonlit Pilgrim, a double-faced card: after a quarter of a second its quick look shows both faces large beside it, nothing dimmed.")
+        card.performMouseInput { moveTo(center); press() }
+        compose.waitForIdle()
+        compose.onNodeWithTag(QUICK_LOOK_TAG).assertDoesNotExist()
+        card.performMouseInput { release() }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(400)
+        compose.waitForIdle()
+        compose.onNodeWithTag(QUICK_LOOK_TAG).assertIsDisplayed()
+        card.performMouseInput { moveTo(Offset(-400f, -400f)) }
+        compose.waitForIdle()
+        compose.onNodeWithTag(QUICK_LOOK_TAG).assertDoesNotExist()
+    }
+
     // WEB-062 (owner playtest 2026-11-16): a desktop window too narrow for the tabs, eight avatars and the icons on one row puts the
     // tabs on their own row under the header, as the phone does
     @Test @Config(qualifiers = "w800dp-h600dp-land-mdpi") fun draftPickNarrowHeader() {
@@ -177,7 +217,7 @@ class DesktopDraftScreenshotTest {
             assertTrue(chip.height >= 18f, "a 1.5× $tag: $chip")
         }
         captureShot("$SCREENSHOTS/desktop/draft-pick-marks-1920.png",
-            "Alice's Glimpse pick in a 1920 × 919 window, as the owner played it: a click kept Mossback Cub and a right-click burned Mercy Vow, their borders, ✓ and 🔥 badges and the trays' count chips drawn half as large again as the phone's; the pointer rests on Mossback Cub, its ⋯ under the badge.")
+            "Alice's Glimpse pick in a 1920 × 919 window, as the owner played it: a click kept Mossback Cub and a right-click burned Mercy Vow, their borders, ✓ and 🔥 badges and the trays' count chips drawn half as large again as the phone's; the pointer rests on Mossback Cub, its ⋯ under the badge and its quick look beside it (WEB-117).")
     }
 
     private fun statsDetail(): PodDetail {
@@ -206,11 +246,11 @@ class DesktopDraftScreenshotTest {
             .let { assertTrue(it.left >= column.left && it.right <= column.right, "$tag in its column: $it, $column") }
         inside("pod-stats-curve", left)
         inside("pod-stats-mana", left)
-        inside("pod-stats-donut-Colors", right)
+        inside("pod-stats-colors", right)
         inside("pod-stats-notes", right)
         inside("pod-stats-counter-7", right)
         captureShot("$SCREENSHOTS/desktop/stats.png",
-            "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width centred in the window, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the colours donut, notes and tally counters in the right.")
+            "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width centred in the window, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the Colors chart by cast cost, notes and tally counters in the right.")
     }
 
     // WEB-061: a desktop window too narrow for two columns shows Stats in one, as the phone does

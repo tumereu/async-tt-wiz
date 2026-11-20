@@ -131,6 +131,9 @@ fun PodPickView(
     // playtest 2026-11-15: no pinned Inspect by a tap of Alt); K / B / U keep, burn or unmark it
     val desktop = LocalAppLayout.current == AppLayout.Desktop
     val fingerKey = remember { DesktopFingerKey() }
+    // WEB-117 (desktop layout): the card the mouse rests on shows larger with every face, not while a hold's Inspect or a menu is open
+    val look = if (desktop) remember { PodQuickLook() } else null
+    look?.let { PodQuickLookTimer(it, blocked = inspected != null || menuFor != null) }
     val bindings = currentKeyBindings()
     val confirm: () -> Unit = {
         if (rules.canConfirm(marks, busy)) {
@@ -204,7 +207,7 @@ fun PodPickView(
                         onSize = { if (copy == shown.cards.first()) tileSize = it },
                         onRefund = if (copy.id in marks.librarians) { { refund(copy.id) } } else null,
                         onHover = { over -> if (over) hovered = copy.id else if (hovered == copy.id) hovered = null },
-                        desktop = desktop, hovered = desktop && hovered == copy.id)
+                        desktop = desktop, hovered = desktop && hovered == copy.id, look = look)
                 }
             }
         }
@@ -472,6 +475,8 @@ private fun PodPickCard(
     /** The desktop layout (WEB-044): a click keeps, the ⋯ of the [hovered] card opens its menu. */
     desktop: Boolean = false,
     hovered: Boolean = false,
+    /** WEB-117: the desktop layout's quick look. */
+    look: PodQuickLook? = null,
 ) {
     val currentOnMenu by rememberUpdatedState(onMenu)
     var swipe by remember { mutableStateOf(PodPickSwipeState()) }
@@ -505,7 +510,7 @@ private fun PodPickCard(
         }
     }
     // WEB-024: hovering the card or its ⋯ is hovering the card
-    Box(if (desktop) Modifier.mouseHover(copy.id, onHover) else Modifier) {
+    Box((if (desktop) Modifier.mouseHover(copy.id, onHover) else Modifier).podQuickLook(look, copy)) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { width = it.width; onSize(it) }
             .testTag("pod-pick-card-${copy.id}").semantics {
                 contentDescription = definition?.shownName ?: cardDataUnavailable("PodPickView", copy.definition)
@@ -573,6 +578,7 @@ private fun PodPickCard(
             if (mark != null) DropdownMenuItem(text = { Text("Unmark") }, onClick = { onMenu(false); onUnmark() })
             if (onRefund != null) DropdownMenuItem(text = { Text("Refund Librarian") }, onClick = { onMenu(false); onRefund() })
         }
+        PodQuickLookPopup(look, copy, definition)
     }
 }
 

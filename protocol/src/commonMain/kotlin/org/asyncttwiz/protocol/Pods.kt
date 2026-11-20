@@ -15,7 +15,11 @@ import kotlinx.serialization.Serializable
     /** The other members' messages in the pod's chat the caller hasn't read (DRF-012). */
     val chatUnread: Int = 0,
 )
-@Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String)
+/** [mode] and, for a Custom booster, its [passes] tell the invitee the pod's format before they accept (DRF-264). */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String,
+    val mode: DraftMode = DraftMode.BOOSTER,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val passes: List<DraftPass> = emptyList())
 @Serializable data class PodList(val pods: List<PodSummary>, val invitations: List<PodInvitation>)
 @Serializable enum class PodSourceKind { CUBE, SET }
 /** A cube source's [totalCopies] counts the pod's prepared Main (what gets drafted); [maybeCopies] its Maybe. A set

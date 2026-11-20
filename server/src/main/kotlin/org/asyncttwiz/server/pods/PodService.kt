@@ -1109,7 +1109,7 @@ class PodService(private val runtime: ServiceRuntime) {
         // A pod whose stored draft can't be read is left out; opening it fails on its own (SYS-052).
         val memberships = if (rows.isEmpty()) emptyMap() else sql.selectFrom(MEMBER).where(MEMBER.POD_ID.`in`(rows.map { it.id }))
             .orderBy(MEMBER.ACCOUNT_ID).fetch().groupBy { it.podId!! }
-        val invited = sql.select(INVITE.POD_ID, INVITE.INVITED_AT, POD.NAME, POD.CREATOR_ID).from(INVITE).join(POD).on(POD.ID.eq(INVITE.POD_ID))
+        val invited = sql.select(INVITE.POD_ID, INVITE.INVITED_AT, POD.NAME, POD.CREATOR_ID, POD.SETTINGS).from(INVITE).join(POD).on(POD.ID.eq(INVITE.POD_ID))
             .where(INVITE.ACCOUNT_ID.eq(owner)).and(INVITE.STATE.eq("PENDING")).and(POD.PHASE.eq("SETUP"))
             .orderBy(INVITE.INVITED_AT.desc(), INVITE.POD_ID).fetch()
         val names = identities(sql, rows.map { it.creatorId!! } + memberships.values.flatten().map { it.accountId!! } +
@@ -1129,8 +1129,14 @@ class PodService(private val runtime: ServiceRuntime) {
                 members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString(),
                 settings(row).mode, chatUnread[row.id] ?: 0)
         } }.sortedWith(podListOrder)
-        val invitations = invited.map {
-            PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!), it[INVITE.INVITED_AT]!!.toInstant().toString())
+        val invitations = invited.mapNotNull {
+            // DRF-264: the invitation names the pod's mode and a Custom booster's passes
+            StoredData.orSkip("pod", it[INVITE.POD_ID]) {
+                val settings = json.decodeFromString<DraftSettings>(it[POD.SETTINGS]!!.data())
+                PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!),
+                    it[INVITE.INVITED_AT]!!.toInstant().toString(), settings.mode,
+                    if (settings.mode == DraftMode.CUSTOM_BOOSTER) settings.passes else emptyList())
+            }
         }
         Result(200, json.encodeToString(PodList(pods, invitations)))
     }

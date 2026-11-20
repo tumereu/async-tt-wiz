@@ -242,6 +242,9 @@ fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respon
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Avatar(invitation.creator); Text(invitation.creator.username)
                         }
+                        // DRF-264: a Custom booster invitation tells its passes before accepting
+                        if (invitation.mode == DraftMode.CUSTOM_BOOSTER) Text("Custom booster: ${podPassesSummary(invitation.passes)}",
+                            Modifier.testTag("pod-invitation-passes"), style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ScreenButton({ respond(invitation.podId, true) }, enabled = state.pending == 0) { ButtonLabel("ready", "Accept") }
                             ScreenOutlinedButton({ respond(invitation.podId, false) }, enabled = state.pending == 0) { ButtonLabel("close", "Decline") }

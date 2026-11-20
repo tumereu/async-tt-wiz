@@ -24,7 +24,7 @@ class HandRowOffZoneTest : E2e() {
     private val repriseInRow get() = "Ember Reprise, owner ${alice.name}, untapped, from graveyard"
 
     // ZON-079, ZON-105, ZON-107, CR 702.34a: Alice casts her Ember Flare from her hand, then from her graveyard by its flashback through her hand
-    // row: two taps, Autotap tapping her Mountain; it is exiled and she gained 2 life twice
+    // row: two taps, Autotap tapping her Mountain; it is exiled and she gained 2 life twice. ZON-136: meanwhile Bob's table lists it
     @Test fun aFlashbackCardIsCastFromTheHandRow() {
         startGame(TestDeck("Flashback", listOf(TestCards.mountain to 20, TestCards.flare to 20)), TestDeck.glimmers(), deal = { a, _ ->
             hand(a).count { it == "Ember Flare" } >= 1 && hand(a).count { it == "Mountain" } >= 1
@@ -40,6 +40,12 @@ class HandRowOffZoneTest : E2e() {
         }
         waitUntil("the Flare in her hand row: ${alice.screen()}") { alice.shows(hasContentDescription(inRow)) }
         assertFalse(bob.shows(hasContentDescription("from graveyard", substring = true)), "nothing of it in Bob's hand row")
+        // ZON-136 (owner playtest 2026-11-19, N17): Bob's table shows it at a glance: Alice's playable chip, listing the Flare on a tap
+        val chip = hasContentDescription("${alice.name} may play 1 card from other zones")
+        waitUntil("Alice's playable chip on Bob's table: ${bob.screen()}") { bob.shows(chip) }
+        assertFalse(alice.shows(hasContentDescription("may play", substring = true)), "none on Alice's own table")
+        bob.node(chip).performClick()
+        waitUntil("the chip's list names the Flare: ${bob.screen()}") { bob.shows(hasContentDescription("Ember Flare, Graveyard")) }
         waitUntil("Alice's game settled") { alice.settled(this) }
         alice.described(inRow).performClick()
         waitUntil("the Flare raised in her hand row") { alice.raisedInHand() == "Ember Flare" && alice.settled(this) }

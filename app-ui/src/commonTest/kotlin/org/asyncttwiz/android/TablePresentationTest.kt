@@ -289,6 +289,49 @@ class TablePresentationTest {
         assertEquals(listOf(0f, 8f, 16f), fanned.map { it.bounds.x - fanned[0].bounds.x })
         // TBL-054 (owner, 2026-11-12): a land stack fans and carries ×N on its top card too
         assertEquals(listOf(1, 1, 3), fanned.map { it.copies }, "a land stack's ×N on its top card")
+        assertTrue(fanned.all { it.countCorner == null && it.stackTapped == 0 }, "none tapped: ×N on the top card")
+    }
+
+    // TBL-054, TBL-177 (owner playtest 2026-11-19): with some members tapped a stack's count reads untapped/total, upright at its
+    // bottom card's bottom-left corner (the stack's), and its tapped and upright cards line up by their bottom-left corners
+    // (a tapped one's as it lies turned), in a fanned land stack and a tight one, on both players' sides
+    @Test fun aPartlyTappedStackCountsItsUntappedAndLinesUpItsCorners() {
+        for (land in listOf(true, false)) for (landscape in listOf(false, true)) {
+            val p = TableFixture.play(board = 3).let { p -> if (!land) p else p.copy(definitions = p.definitions.map { d ->
+                d.copy(definition = d.definition.copy(faces = d.definition.faces.map { it.copy(typeLine = "Basic Land — Forest") })) }) }
+            val state = p.copy(board = p.board.copy(cards = p.board.cards.map { it.copy(tapped = !it.id.endsWith("/0")) }))
+            val scene = TableFixture.scene(state, landscape)
+            for (owner in listOf("a", "b")) {
+                val cards = (0..2).map { n -> scene.items.single { it.cardId == "$owner/BATTLEFIELD/$n" } }
+                val step = if (land) BattlefieldLayout.FAN else BattlefieldLayout.TIGHT
+                val zoom = cards[0].bounds.width / 28f
+                listOf(0f, step, 2 * step).zip(cards).forEach { (dx, card) ->
+                    assertEquals(cards[0].bounds.x + dx * zoom, card.bounds.x, .01f, "$owner land=$land: ${cards.map { it.bounds }}")
+                    assertEquals(cards[0].bounds.bottom, card.bounds.bottom, .01f, "bottoms line up: ${cards.map { it.bounds }}")
+                }
+                assertEquals(listOf(1, 1, 3), cards.map { it.copies })
+                assertEquals(2, cards[2].stackTapped)
+                assertEquals(cards[0].bounds, cards[2].countCorner, "the count at the stack's bottom card")
+                assertTrue(cards[2].label.endsWith(", stack of 3, 1 untapped"), cards[2].label)
+            }
+        }
+        // A lone card, and a stack all of whose members are tapped, lie centred as before
+        val all = TableFixture.play(board = 2).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map { it.copy(tapped = true) })) }
+        val cards = (0..1).map { n -> TableFixture.scene(all).items.single { it.cardId == "a/BATTLEFIELD/$n" } }
+        assertEquals(cards[1].footprint.center.y, cards[1].bounds.center.y, .01f)
+        assertEquals(cards[0].bounds, cards[1].countCorner, "0/2")
+    }
+
+    // TRN-066 (owner playtest 2026-11-19): the wait band lies a one-line chat bubble's room under the other player's hand, so
+    // their bubble under their life square (LOB-136) shows above it, in portrait and landscape
+    @Test fun theWaitBandLiesUnderTheOtherPlayersBubble() {
+        for (landscape in listOf(false, true)) {
+            val scene = TableFixture.scene(TableFixture.play(board = 1, hand = 2), landscape)
+            val life = scene.items.single { it.kind == TableItemKind.LIFE && it.owner == "b" }
+            val bubble = ChatBubbleLayout.place(life.bounds, below = true, life.bounds.width, ChatBubbleLayout.HEIGHT,
+                if (landscape) 900f else 412f, if (landscape) 412f else 820f)
+            assertTrue(waitBandTop(scene, "a") >= bubble.bottom - .01f, "band at ${waitBandTop(scene, "a")}, bubble $bubble")
+        }
     }
 
     @Test fun ownerIsNotFieldAndCoveredMetadataNeverLeaksThroughTableSemantics() {

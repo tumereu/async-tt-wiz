@@ -360,7 +360,8 @@ class HandPlays private constructor(
             }
             // ZON-079, I-D27: a card elsewhere only when the viewer may see it (a public card face up needs no look; the
             // top of a library or a card face down in exile asks the engine)
-            val elsewhere = (byObject.keys.filter { it !in hand } + usable).distinct()
+            // SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's spell is offered on the permanent, not in the hand row
+            val elsewhere = (byObject.keys.filter { it !in hand } + usable).distinct().filter { !OffZoneCards.preparedSpell(state, it) }
             val shown = if (elsewhere.isEmpty()) emptyList() else OffZoneCards.shown(state, view, player, elsewhere)
             val byCard = LinkedHashMap<String, List<Input>>()
             for ((id, inputs) in byObject) if (id in hand || id in shown) byCard[ids.atw((id as ObjectId.Card).card)] = inputs

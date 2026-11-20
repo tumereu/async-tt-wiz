@@ -20,7 +20,7 @@ decides on their opening.
 
 ## Waiting for the other player
 
-- **TRN-066** The wait: while the other player must act (online or away), a semi-transparent dark band right under their hand says why, in white text of up to 3 lines. It shows in landscape too, never takes a touch, and doesn't show while a play is shown (HIS-112). (r64)
+- **TRN-066** The wait: while the other player must act (online or away), a semi-transparent dark band a little under their hand (a one-line chat bubble's room, 24 dp, so their bubble and a view opened there stay clear) says why, in white text of up to 3 lines. It shows in landscape too, never takes a touch, and doesn't show while a play is shown (HIS-112). (r64)
 - **TRN-150** The wait band sits in portrait under the other player's row, which holds their hand (ZON-001), and on the desktop table at the battlefields' top, from their seat header to the battlefields' right edge (WEB-016). It runs edge to edge, fading out toward both sides only over a narrow margin, with every line of its words on its solid middle, in portrait and landscape alike. (r64)
 - **TRN-151** The wait's words: "<name> may respond to <spell>" (an ability as "<source>'s ability", STK-046), "<name> may act · <step>", "<name> is declaring blockers", "<name> is deciding on a mulligan", "<name> is choosing · <card>" (the card only when you can see it), or "Waiting for <name>". (r64)
 - **TRN-152** When the other player is behind you (you went ahead on assumptions about them they haven't confirmed), "Waiting for <name>" says where they are instead: "Bob is at turn 5 · their combat" (a combat step as "combat", any other step by its name, "your" in your own turn). (r64)

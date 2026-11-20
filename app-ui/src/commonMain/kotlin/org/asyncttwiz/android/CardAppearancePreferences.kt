@@ -53,7 +53,7 @@ fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull()
 val DesktopCardScale = LayoutCardScale(battlefield = 2f,
     areas = mapOf(CardArea.HAND to 5.2f, CardArea.PILES to 1.6f, CardArea.STACK to 2f, CardArea.PANELS to 2f))
 
-/** The desktop layout's card sizes before the player changes them (WEB-022, docs/specs/web-client.md §7.2): every slider at
+/** The desktop layout's card sizes before the player changes them (WEB-022, WEB-084): every slider at
  * 1×, on top of [DesktopCardScale]; TBL-139 (owner 2026-11-16): its hand cards as full pictures, its battlefield's not. */
 val DesktopCardAppearance = CardAppearance(layout = DesktopCardScale, handFullPicture = true)
 

@@ -6,7 +6,7 @@ import kotlinx.serialization.json.Json
 import org.asyncttwiz.protocol.SetBoosterRecipe
 
 /**
- * The trimmed card catalog (docs/specs/web-client.md section 3): what the clients and the server read of the pinned
+ * The trimmed card catalog (SYS-081): what the clients and the server read of the pinned
  * MTGJSON file, built at release. The file is JSON lines (one [CatalogRecord] per line), gzip-compressed: a
  * [CatalogHeader] first, then the sets, the card faces, the printings and the booster recipes, each group in a fixed
  * order, so the same input always gives the same bytes. Its version is the SHA-256 of the uncompressed lines.
@@ -33,7 +33,7 @@ data class CatalogHeader(
 
 /** A set (DRF-088's set list). [keyrune]: MTGJSON's `keyruneCode`, the Keyrune set symbol the app shows for it (empty
  * when MTGJSON gives none). [draftable]: a kind of set the Sets tab lists (expansion, core, masters, draft
- * innovation). [automatum] (section 3.8): a draftable set Automatum can play every card of its packs; [unsupported] the
+ * innovation). [automatum] (SYS-082): a draftable set Automatum can play every card of its packs; [unsupported] the
  * names of its pack cards it can't, sorted (DRF-161's hold). */
 @Serializable @SerialName("set")
 data class CatalogSetRecord(
@@ -50,7 +50,7 @@ data class CatalogSetRecord(
 /**
  * One card face, shared by every printing that has it ([i] is what printings name it by). [name] is the whole card's
  * name; [faceName] this face's own, for a card of several faces. [legal]: legal or restricted formats as bits of
- * [CatalogHeader.formats]; [identity] the card's colour identity; [oracle] its oracle id. [automatum] (section 3.8): the
+ * [CatalogHeader.formats]; [identity] the card's colour identity; [oracle] its oracle id. [automatum] (SYS-082): the
  * card is supported, by the "support moves set by set" rule (a printing in a listed set, or on the single-card list) and
  * with nothing Automatum leaves to the players.
  */

@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Web client step 4c: a board goes to the engine's worker as the events from the board it holds ([BoardLines],
+ * A board goes to the engine's worker as the events from the board it holds ([BoardLines],
  * [BoardTransfer.since]): what changed between two boards along their lines, those events moving the worker's copy to
  * exactly the newer board, and a snapshot when the worker lacks the board the events start from.
  */

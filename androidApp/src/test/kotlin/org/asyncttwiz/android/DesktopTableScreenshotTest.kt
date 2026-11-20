@@ -30,7 +30,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * The desktop table (docs/specs/web-client.md §7.2, wireframes D1–D5) at 1440 × 900: the same game table as the phone's
+ * The desktop table (WEB-015, wireframes D1–D5) at 1440 × 900: the same game table as the phone's
  * arranged for a large window: the global top row with the phase track, each player's seat header a box floating over their battlefield,
  * the Stack at the battlefields' right edge beside the right dock with the docked chat, your hand centred in the bottom band, the action area at the
  * bottom right, and panels as a strip bottom-centre or a centred overlay over the dimmed table.
@@ -191,7 +191,7 @@ class DesktopTableScreenshotTest {
         assertEquals(changed, mode(), "a mode changed meanwhile is kept")
     }
 
-    // WEB-027, ZON-080, ZON-111, WEB-026 (§5): with a Mountain and an Ember Shard out, the mouse rests on Alice's Ember Kit in hand: its
+    // WEB-027, ZON-080, ZON-111, WEB-026: with a Mountain and an Ember Shard out, the mouse rests on Alice's Ember Kit in hand: its
     // two chips show faded above it and its quick look beside it, nothing outlined for its free regular way; on the "Cast with
     // offspring" chip that chip turns solid and its one source is outlined in amber;
     // a click on the faded "Cast with offspring" chip casts it that way at once
@@ -324,7 +324,7 @@ class DesktopTableScreenshotTest {
         }
     }
 
-    // WEB-028 (§5): on the desktop layout a right-click on a control does its hold action and never its tap; a left click
+    // WEB-028: on the desktop layout a right-click on a control does its hold action and never its tap; a left click
     // taps it
     @Test fun aRightClickOnAControlDoesItsHold() {
         var taps = 0

@@ -47,7 +47,7 @@ import org.asyncttwiz.appui.ioDispatcher
 import org.asyncttwiz.appui.concurrentMapOf
 
 /**
- * LOB-115 (section 3.8): which cards of a list Automatum can't play yet, as the card catalog marks them: a card is
+ * LOB-115 (SYS-082): which cards of a list Automatum can't play yet, as the card catalog marks them: a card is
  * supported when its printing is ([unsupported]: of the printing ids asked for, those the card records don't mark as
  * supported; null without card records). A card without a printing counts as unsupported. Blocking: a worker only.
  */
@@ -155,9 +155,8 @@ fun CardSupportMark(scryfallId: String?, modifier: Modifier = Modifier) {
         value = withContext(ioDispatcher) { runCatching { marks.unsupported(scryfallId) }.getOrNull() } == true
     }
     if (unsupported) BoxWithConstraints(modifier) {
-        val art = CardArtBox.of(maxWidth.value, maxHeight.value)
-        val side = minOf(art.width, art.height)
-        UnsupportedStamp(Modifier.offset((art.x + (art.width - side) / 2).dp, (art.y + (art.height - side) / 2).dp).size(side.dp))
+        val stamp = CardArtBox.stamp(maxWidth.value, maxHeight.value)
+        UnsupportedStamp(Modifier.offset(stamp.x.dp, stamp.y.dp).size(stamp.width.dp))
     }
 }
 
@@ -169,6 +168,20 @@ object CardArtBox {
     const val BOTTOM = .555f
     /** The art box of a card picture [width] by [height] (dp). */
     fun of(width: Float, height: Float) = TableBounds(width * LEFT, height * TOP, width * (RIGHT - LEFT), height * (BOTTOM - TOP))
+
+    /** LOB-144: where the warning stamp lies on a card picture [width] by [height] (dp): a square as big as the art box's smaller
+     * side, centred in the art box; on a picture shown sideways (wider than tall: a split card, a battle, owner 2026-11-19) as big
+     * as on the same card upright and centred on the picture, as the art box's place in it differs by card. */
+    fun stamp(width: Float, height: Float): TableBounds {
+        if (width > height) {
+            val upright = of(height, width)
+            val side = minOf(upright.width, upright.height)
+            return TableBounds((width - side) / 2, (height - side) / 2, side, side)
+        }
+        val art = of(width, height)
+        val side = minOf(art.width, art.height)
+        return TableBounds(art.x + (art.width - side) / 2, art.y + (art.height - side) / 2, side, side)
+    }
 }
 
 /** LOB-144: how see-through the stamp's amber fill is, and its ink. */

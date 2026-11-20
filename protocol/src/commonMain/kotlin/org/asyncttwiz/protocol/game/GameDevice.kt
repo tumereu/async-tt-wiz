@@ -169,7 +169,7 @@ class GameDevice(
     var holding: Boolean = false
 
     /**
-     * The measuring clock (nanoseconds; engine-responsiveness R1, SYS-030): when set, the time the information rule's
+     * The measuring clock (nanoseconds; SYS-030): when set, the time the information rule's
      * work takes (§5: the state kept from before an event and the checks of what it would show this player) adds up in
      * [informationNanos]. Null (the default, and on the server): nothing is measured.
      */
@@ -399,7 +399,7 @@ class GameDevice(
         Engine.result(s)?.let { return Status.Over(it, confirmable(), final(), ending(s, it), endedBy(), me in model.table.resultOks) }
         if (request != null) return Status.Waiting(Wait.Request)
         if (locked) return Status.Waiting(Wait.Suggestion)
-        // R3: worked out once per point (the searches below don't run again while nothing they read changed)
+        // Worked out once per point (the searches below don't run again while nothing they read changed)
         val key = pointKey()
         headStatus?.let { (at, status) -> if (key.same(at)) return status }
         pointsWorkedOut++
@@ -417,7 +417,7 @@ class GameDevice(
     }
 
     /**
-     * Engine-responsiveness R3: what the device's decisions at the head read besides the engine state at the tip (the
+     * What the device's decisions at the head read besides the engine state at the tip (the
      * tip names it: the state at an event is the same however it was reached, and nothing is decided while a draft is
      * open; its open decision is compared too, by identity, as a cheap guard against a state changed in place): the table
      * state (the other player's table-only events slip in under the device's own pending events without moving the tip),
@@ -441,7 +441,7 @@ class GameDevice(
     /** The point where the device's own step was last found to make nothing ([automaticStep]). */
     private var idleAt: PointKey? = null
 
-    /** Tests and measurements (engine-responsiveness R3): how many times the status at the head or the device's own step
+    /** Tests and measurements: how many times the status at the head or the device's own step
      * there was worked out anew (each may search the engine's options); a tick at an unchanged point adds none. */
     var pointsWorkedOut: Int = 0
         private set
@@ -1243,7 +1243,7 @@ class GameDevice(
         // wait until it is done, so a spell shown isn't resolved under it by this device (the other player's device goes
         // on as ever)
         if (showHolds()) return false
-        // R3: nothing to make here was already found at this point (no search again while it lasts)
+        // Nothing to make here was already found at this point (no search again while it lasts)
         val key = pointKey()
         if (key.same(idleAt)) return false
         pointsWorkedOut++

@@ -8,8 +8,8 @@ import org.asyncttwiz.storage.CardCatalog
 import org.asyncttwiz.storage.ParsedCard
 
 /**
- * The platform services the app's view models and screens take whose types still live in this module (web client step
- * 2b; they join [org.asyncttwiz.appui.AppPlatform] when the code moves, docs/specs/web-client.md §11 step 2). Android:
+ * The platform services the app's view models and screens take whose types still live in this module (they join
+ * [org.asyncttwiz.appui.AppPlatform] when the code moves). Android:
  * [AndroidAppServices], installed by the Application before anything else runs.
  */
 interface AppServices {

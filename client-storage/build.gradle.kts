@@ -1,6 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// The app's local storage (docs/specs/web-client.md §1 items 1 and 4): commonMain holds the storage models and pure
+// The app's local storage: commonMain holds the storage models and pure
 // logic both clients share, and the browser's storage logic over an asynchronous store (IndexedDB, adapted in app-ui's
 // wasm side); androidMain the Android implementation (SQLDelight on the device's SQLite, the card records index, artwork
 // downloads), unchanged.
@@ -30,9 +30,9 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core"))
             implementation(project(":protocol"))
-            // The card catalog's format and files, and the card records it is indexed into (docs/specs/web-client.md section 3).
+            // The card catalog's format and files, and the card records it is indexed into (SYS-081).
             api(project(":catalog"))
-            // Arcanum card definitions parsed on the device (docs/specs/arcanum-atw-integration.md I-D2).
+            // Arcanum card definitions parsed on the device (I-D2, docs/arcanum-atw-decisions.md).
             implementation(project(":arcanum-parser"))
             implementation(libs.serialization.json)
             implementation(libs.sqldelight.runtime)
@@ -48,7 +48,7 @@ kotlin {
             implementation(libs.okhttp)
         }
         // The MTGJSON import (:catalog's src/mtgjson, JVM only in the catalog module) indexes the tests' invented MTGJSON
-        // fixtures; the app itself reads only the server's card catalog (docs/specs/web-client.md section 3.5).
+        // fixtures; the app itself reads only the server's card catalog (LOB-091).
         getByName("androidHostTest") {
             kotlin.srcDir(rootProject.file("catalog/src/mtgjson/kotlin"))
             dependencies {

@@ -221,7 +221,7 @@ private const val SEARCH_PANE_COLUMNS = 4
 internal class PlaceRef { var coordinates: LayoutCoordinates? = null }
 
 /**
- * WEB-049 (§7.5): a search result dragged with the mouse over the editor's list: the [card] dragged and where the pointer is
+ * WEB-049: a search result dragged with the mouse over the editor's list: the [card] dragged and where the pointer is
  * ([at], in the window), the section under it ([section]: the list item there, or the last section shown below the list's
  * end); released over a section, one copy goes into it, as a click with that section in Add to would. Main thread.
  */

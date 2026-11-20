@@ -1,7 +1,7 @@
 package org.asyncttwiz.automatum.boundary
 
 /**
- * Web client step 4c part 3: the page's ledger of one game's requests to its device on the engine side
+ * The page's ledger of one game's requests to its device on the engine side
  * ([DeviceMessages]): each request numbered ([next]), its callback kept until its answer ([done], [failed]). The engine
  * side answers in the order it was asked (its one thread, in order), so an answer that skips older calls is logged; the
  * skipped ones stay waiting. Once the game closes on the page ([close]), every waiting call gets its fallback result

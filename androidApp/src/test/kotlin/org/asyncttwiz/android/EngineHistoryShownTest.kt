@@ -26,7 +26,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The history of a game played on engine state as the app shows it (R4b's replacements of the old model's history and
+ * The history of a game played on engine state as the app shows it (replacing the old model's history and
  * playback tests): Alice's and Bob's app games on the simulated server ([EngineAppSim]), coming and going.
  */
 @RunWith(RobolectricTestRunner::class)

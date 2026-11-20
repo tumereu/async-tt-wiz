@@ -14,7 +14,7 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.SubmittedDefinition
 
 /**
- * Engine-responsiveness R4a: what the table's own controls change on the board shown of a game on engine state, worked
+ * What the table's own controls change on the board shown of a game on engine state, worked
  * out on that board alone (no play is rebuilt for it): a card's place within its Battlefield (TBL-012), the combat lanes
  * a declaration is staged in (CMB-028, CMB-034, [CombatStackRules.stage]) and the early answers beside the board (the
  * attacker's choices and early divisions, I-D33). The same checks and ids as the gameplay change of today's model; the
@@ -111,7 +111,7 @@ object EngineStaging {
 }
 
 /**
- * Engine-responsiveness R4a: the members of one action of the player's (a drag of several cards, a combat drop) lowered one
+ * The members of one action of the player's (a drag of several cards, a combat drop) lowered one
  * by one against the board shown of a game on engine state ([EngineStaging]), as today's model drafts a batch: each
  * member sees the board the ones before it made; one that changes nothing isn't kept. [requestId] is the batch's: a
  * member's own request id is derived from it as the batch's members are ([org.asyncttwiz.protocol.PlayBatches]).

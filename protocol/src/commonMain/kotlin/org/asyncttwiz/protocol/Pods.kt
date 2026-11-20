@@ -75,7 +75,7 @@ import kotlinx.serialization.Serializable
 /** reason is "declined" (account = who declined) or the start error code that prevented the automatic start. */
 @Serializable data class PodAutoStartOff(val reason: String, val account: AccountIdentity? = null)
 /** POST /v1/pods: exactly one of cubeId/setCode/packSets is required. [setCode]: a draft set the server builds the packs
- * of from its card catalog (docs/specs/web-client.md section 3.7), for every pack. [packSets]: the pack grid read row by
+ * of from its card catalog (DRF-169), for every pack. [packSets]: the pack grid read row by
  * row (DRF-177, [PodPackGrid]), each pack's set by its code; every set must be draftable. GET /v1/pods returns PodList,
  * GET /v1/pods/{id} returns PodDetail. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)

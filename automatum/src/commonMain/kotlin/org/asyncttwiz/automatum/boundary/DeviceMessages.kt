@@ -21,7 +21,7 @@ import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.TableChange
 
 /*
- * Web client step 4c part 3 (docs/specs/web-client.md §1 item 3): a game's device across the engine boundary. In the
+ * A game's device across the engine boundary. In the
  * browser the device (app-engine's EngineGame with its GameDevice) lives in the engine's Web Worker; the page sends it the
  * player's actions, the server's events and the table's reads as [DeviceRequest]s and gets [DeviceAnswer]s back: each board
  * the device publishes ([DeviceAnswer.Published], a [ShownWire]), each request's result ([DeviceAnswer.Done]), the worker's
@@ -84,15 +84,15 @@ sealed interface DeviceRequest {
     @Serializable @SerialName("request-undo") data class RequestUndo(override val id: Long, val target: String, val message: String) : DeviceRequest
     @Serializable @SerialName("answer-request") data class AnswerRequest(override val id: Long, val accept: Boolean) : DeviceRequest
     @Serializable @SerialName("cancel-request") data class CancelRequest(override val id: Long) : DeviceRequest
-    /** Web client step 4d: the table's own changes its controls make (a card's place, the combat staging, attack choices,
+    /** The table's own changes its controls make (a card's place, the combat staging, attack choices,
      * early answers), worked out on the board the page showed: [DeviceResult.Flag] taken. */
     @Serializable @SerialName("staging") data class Staging(override val id: Long, override val seen: Long?,
         val actions: List<org.asyncttwiz.protocol.PlayAction>, val requestId: String? = null) : Own
     @Serializable @SerialName("stage") data class Stage(override val id: Long, val board: BoardState) : DeviceRequest
     @Serializable @SerialName("unstage") data class Unstage(override val id: Long) : DeviceRequest
-    /** Web client step 4e: a step of a cast flow session where the device is ([CastRequest]): [DeviceResult.Cast]. */
+    /** A step of a cast flow session where the device is ([CastRequest]): [DeviceResult.Cast]. */
     @Serializable @SerialName("cast") data class Cast(override val id: Long, val request: CastRequest) : DeviceRequest
-    /** Web client step 4e: a step of a board's shared-flow session where the device is ([SharedRequest]): [DeviceResult.Shared]. */
+    /** A step of a board's shared-flow session where the device is ([SharedRequest]): [DeviceResult.Shared]. */
     @Serializable @SerialName("shared") data class Shared(override val id: Long, val request: SharedRequest) : DeviceRequest
 
     // ---- Playback and the view's holds
@@ -128,20 +128,20 @@ sealed interface DeviceRequest {
     /** The incoming undo request's dialog: [DeviceResult.View]. */
     @Serializable @SerialName("request-view") data class RequestView(override val id: Long, val viewer: String, val localHead: String,
         val target: String) : DeviceRequest
-    /** Web client step 4d: the hand plays and card menus' plays of the published board numbered [board] (its
+    /** The hand plays and card menus' plays of the published board numbered [board] (its
      * app-engine's EngineBoardValues number), worked out on the engine side where the board is: [DeviceResult.Plays]. */
     @Serializable @SerialName("plays") data class Plays(override val id: Long, val board: Long) : DeviceRequest
-    /** Web client step 4e: what the table shows of combat on the published board numbered [board] ([org.asyncttwiz.automatum.CombatShown]),
+    /** What the table shows of combat on the published board numbered [board] ([org.asyncttwiz.automatum.CombatShown]),
      * worked out where the board is; with [lanes] the board with those lanes drawn on it instead (the blocks the attacker
      * assumes, CMB-040): [DeviceResult.Combat]. */
     @Serializable @SerialName("combat") data class Combat(override val id: Long, val board: Long,
         val lanes: org.asyncttwiz.protocol.CombatArea? = null, val drawn: Boolean = false) : DeviceRequest
-    /** Web client step 4e (I-D36): why the engine refuses [attacks] (or [blocks]) as the declaration on the published board
+    /** I-D36: why the engine refuses [attacks] (or [blocks]) as the declaration on the published board
      * numbered [board] with the lanes [lanes]: [DeviceResult.Text] (null: it takes it, or no reason). */
     @Serializable @SerialName("combat-refusal") data class CombatRefusal(override val id: Long, val board: Long,
         val lanes: org.asyncttwiz.protocol.CombatArea?, val attacks: List<org.asyncttwiz.automatum.LaneAttack>? = null,
         val blocks: List<org.asyncttwiz.automatum.LaneBlock>? = null) : DeviceRequest
-    /** Web client step 4e (ZON-080, I-D50): the cost chips of the hand card [cardId] on the published board numbered [board]:
+    /** ZON-080, I-D50: the cost chips of the hand card [cardId] on the published board numbered [board]:
      * [DeviceResult.Chips]. */
     @Serializable @SerialName("chips") data class Chips(override val id: Long, val board: Long, val cardId: String) : DeviceRequest
     /** The device's reproduction bundle: [DeviceResult.Repro]. */

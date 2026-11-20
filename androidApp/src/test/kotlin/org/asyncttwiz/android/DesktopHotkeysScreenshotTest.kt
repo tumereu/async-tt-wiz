@@ -19,7 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The desktop layout's keys (docs/specs/web-client.md §6, wireframes D6 and D10) at 1440 × 900: the hotkeys on the real table
+ * The desktop layout's keys (WEB-031, wireframes D6 and D10) at 1440 × 900: the hotkeys on the real table
  * screen, the "?" sheet over it, and rebinding in Settings.
  */
 @RunWith(RobolectricTestRunner::class)

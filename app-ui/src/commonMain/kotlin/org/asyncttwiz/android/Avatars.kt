@@ -165,7 +165,7 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().testTag("avatar-search"), label = { Text("Search by card name") }, singleLine = true,
             keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
         if (!ready) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            // Avatars are card pictures: the card records' placeholder until they are installed (section 3.6)
+            // Avatars are card pictures: the card records' placeholder until they are installed (LOB-096)
             val state = catalog?.state ?: CatalogUiState()
             CompositionLocalProvider(LocalCardRecords provides state.records, LocalCardRecordsRetry provides catalog?.let { it::retry }) {
                 CardRecordsPlaceholder(Modifier.fillMaxWidth())

@@ -272,7 +272,7 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
             own?.deck?.entries?.map { it.definition }?.toSet()?.let { digests -> state.preparation?.definitions?.filter { it.digest in digests } }
         }
         // Pivot review #2: Ready waits until the device knows (a check that can't tell isn't a yes); the card catalog's
-        // marks tell at once (section 3.8), so the wait says nothing
+        // marks tell at once (SYS-082), so the wait says nothing
         val checking = LocalCardListSupport.current != null && !ownCards.isNullOrEmpty()
         val support = rememberCardListSupport(ownCards)
         val reason = readyReason(state.preparation, accountId, state.detail)

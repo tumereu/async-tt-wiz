@@ -377,7 +377,7 @@ class GameDeviceTest {
         return layers to device.pointsWorkedOut - points
     }
 
-    // Engine-responsiveness R3 (I-D56 §4): the device's decision at a point is worked out once: ticks at an unchanged point
+    // I-D56 §4: the device's decision at a point is worked out once: ticks at an unchanged point
     // (the player's own move, a wait at the other player's pause) search nothing; a changed setting is a new point
     @Test
     fun aTickAtAnUnchangedPointSearchesNothing() {

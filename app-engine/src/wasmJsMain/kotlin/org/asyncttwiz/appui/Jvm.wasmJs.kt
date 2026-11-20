@@ -6,7 +6,7 @@ import kotlin.io.encoding.Base64
 import kotlin.math.PI
 import org.asyncttwiz.storage.Uuids
 
-// The browser's sides of the JVM pieces (web client step 3b): the same values and texts as Android's, worked out in Kotlin
+// The browser's sides of the JVM pieces: the same values and texts as Android's, worked out in Kotlin
 // or by the browser (clocks, the local time zone, secure random bytes). Files don't exist on the web: the app log lives in
 // memory only there, so the file functions are never reached.
 

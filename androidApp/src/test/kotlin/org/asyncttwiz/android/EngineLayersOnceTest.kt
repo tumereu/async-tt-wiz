@@ -13,11 +13,11 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Engine-responsiveness R2: one own action works the layers out once per state. The game's model keeps the engine
+ * One own action works the layers out once per state. The game's model keeps the engine
  * state's view and visible sets until its next change, and the engine hands the view of the state after an outcome back
  * ([arcanum.engine.Outcome.view]), so the board's projection, the transition's P/T and the information rule read them
  * instead of working them out again. Counted with [EngineProbes.layersWorkedOut] on the engine thread (here the test's), with
- * [GameModel.keepViews] off (every reader works them out itself, as before R2) and on; nothing is timed.
+ * [GameModel.keepViews] off (every reader works them out itself, as before the views were kept) and on; nothing is timed.
  */
 class EngineLayersOnceTest {
     private val f = EngineGameFixture()
@@ -68,13 +68,13 @@ class EngineLayersOnceTest {
         assertTrue(before - after >= 5, "$what: at least 5 fewer layer computations (before $before, after $after)")
     }
 
-    // R2: playing a land on a tentative line, its board shown early (the app's path): the engine's work, the early board,
+    // Playing a land on a tentative line, its board shown early (the app's path): the engine's work, the early board,
     // the information rule, the folded passes and the final board with its transition
     @Test fun aLandPlayedEarlyWorksTheLayersOutOncePerState() = compare("land, early board", early = true, ::playLand)
 
-    // R2: the same action worked out whole before its board
+    // The same action worked out whole before its board
     @Test fun aLandPlayedWholeWorksTheLayersOutOncePerState() = compare("land, whole", early = false, ::playLand)
 
-    // R2: a pass at the main phase (the step button)
+    // A pass at the main phase (the step button)
     @Test fun aPassWorksTheLayersOutOncePerState() = compare("pass", early = true) { it.pass() }
 }

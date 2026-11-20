@@ -1,18 +1,18 @@
-# Arcanum Automatum in ATW: integration spec
+# Arcanum Automatum in ATW: decision record
 
-How ATW hosts the Arcanum libraries (rules engine `arcanum-engine`, parser, card model). Library-side decisions
-are in `arcanum-automatum.md` (§2, engine API §7.0). This spec was approved in direction (owner, 2026-11-02); each
-phase became a rules-version change (SYS-031) with its catalog entries.
+How ATW hosts the Arcanum libraries (rules engine `arcanum-engine`, parser, card model): the decisions taken since
+2026-11-02, kept because code comments cite their numbers (I-D2, I-D27, I-D56, …). Library-side decisions are in
+`specs/arcanum-automatum.md` (§2, engine API §7.0). This records why, not what the app does: the behaviour each
+decision led to is in the feature catalog (`docs/features/`), which wins where the two differ.
 
-**Status: built, then replaced in part.** Phases I0–I4 were built (2026-11-02 to 2026-11-04) on ATW's own game model
-with the engine as a pure function over it (I-D7). Since the switch-over (I-D54, I-D56 step D2) every game is the
-engine's own state, the server runs the engine, Automatum is always on (I-D52) and players act only for themselves
-(I-D56); the old model's code is deleted (`engine-responsiveness.md` R4) and the behaviour that holds is in the feature
-catalog. What is left here is the decision record (§1), which code comments cite (I-D2); decisions that later ones
-replaced or changed are marked **Superseded** or **Changed**, the unmarked ones still hold. The old sections §2 (how a
-call works), §3 (phases I0–I4 and their "Built" notes), §4 (shared state ATW adds), §5 (the Automatum switch), §6
-(catalog entries by phase) and §7 (open points) described only the deleted model and are removed; they are in git
-history (`git show 98ca19610:docs/specs/arcanum-atw-integration.md`).
+The integration was built in phases I0–I4 (2026-11-02 to 2026-11-04) on ATW's own game model with the engine as a pure
+function over it (I-D7). Since the switch-over (I-D54, I-D56 step D2) every game is the engine's own state, the server
+runs the engine, Automatum is always on (I-D52) and players act only for themselves (I-D56); the old model's code is
+deleted. Decisions that later ones replaced or changed are marked **Superseded** or **Changed**; the unmarked ones still
+hold. The integration spec's other sections (§2 how a call worked, §3 phases I0–I4 and their "Built" notes, §4 the
+shared state ATW added, §5 the Automatum switch, §6 catalog entries by phase, §7 open points) described only the deleted
+model; older code comments citing "integration spec §3 I2" and the like refer to them, in git history
+(`git show 98ca19610:docs/specs/arcanum-atw-integration.md`).
 
 ## 1. Decisions (owner, 2026-11-02)
 

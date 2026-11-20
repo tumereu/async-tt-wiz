@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
-// What client-storage read with Gson before web client step 3a, now common (kotlinx.serialization), checked on every
+// What client-storage read with Gson before now common (kotlinx.serialization), checked on every
 // platform the app runs on (the browser's regular expressions included). Android's host tests check the rest.
 class RecordReadsTest {
     @Test

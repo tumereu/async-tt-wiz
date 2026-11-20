@@ -45,6 +45,9 @@ data class CardPlay(
         @Serializable @SerialName("ability") data object Ability : Kind
         @Serializable @SerialName("mana") data object Mana : Kind
         @Serializable @SerialName("special") data object Special : Kind
+        /** SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's prepare spell, offered on the permanent like one of
+         * its abilities: casting the spell's copy in exile (CR 723.3c), [input] that copy's cast. */
+        @Serializable @SerialName("prepared") data object Prepared : Kind
     }
 
     /** Why the engine doesn't allow it now. */
@@ -87,7 +90,7 @@ class CardPlays private constructor(
         internal fun restored(byCard: Map<String, List<CardPlay>>): CardPlays = CardPlays(byCard)
 
         /**
-         * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
+         * [of] for a game on engine state (I-D56): [state] is its own state (full
          * information, not changed here; the card ids are the game's), [view] its view and [visible] what [viewer] may
          * see of it ([Host.visible]), which the caller already has (worked out once on the engine thread, nothing
          * copied).
@@ -145,7 +148,35 @@ class CardPlays private constructor(
                     ?: Faults.placeholder("CardPlays", "special action without text", "Special action", mapOf("card" to ids.atw(id.card), "ability" to input.ability.toString())), input))
                 }
             }
+            preparedSpells(state, ids, me, view, visible, byCard)
             return CardPlays(byCard)
+        }
+
+        /**
+         * SYS-207 (owner playtest 2026-11-19, N24): each prepared permanent's prepare spell (its copy in exile, CR 723.3c) is
+         * offered on the permanent as [CardPlay.Kind.Prepared], "{G}: Cast Mending", after its abilities: the copy's casts the
+         * engine offers, or greyed with why. The copy keeps its own casts (its exile pile's menu).
+         */
+        private fun preparedSpells(state: GameState, ids: CardIds, me: PlayerId, view: View, visible: Set<ObjectId>,
+            byCard: LinkedHashMap<String, MutableList<CardPlay>>) {
+            for (o in state.objects.values) {
+                if (o.zone != Zone.Exile) continue
+                val copy = o.id as? ObjectId.Card ?: continue
+                val of = o.statuses.filterIsInstance<arcanum.engine.state.ObjectStatus.PrepareSpellOf>().firstOrNull()?.permanent ?: continue
+                val permanent = state.obj(of)?.takeIf { it.zone == Zone.Battlefield } ?: continue
+                val host = permanent.id as? ObjectId.Card ?: continue
+                if (copy !in visible || host !in visible || permanent.phasedOut) continue
+                val face = o.definition.faces.firstOrNull()
+                val name = view[copy]?.characteristics?.name ?: face?.name
+                    ?: Faults.placeholder("CardPlays", "prepare spell without its name", "the prepared spell", mapOf("copy" to ids.atw(copy.card)))
+                val text = (face?.manaCost?.toString()?.takeIf { it.isNotEmpty() }?.let { "$it: " } ?: "") + "Cast $name"
+                val casts = byCard[ids.atw(copy.card)].orEmpty().filter { it.kind == CardPlay.Kind.Cast && it.legal }
+                val plays = if (casts.isNotEmpty()) casts.map { cast ->
+                    CardPlay(CardPlay.Kind.Prepared, if (casts.size == 1 || cast.text == "Cast") text else "$text · ${cast.text}", cast.input)
+                } else listOf(CardPlay(CardPlay.Kind.Prepared, text, null,
+                    if (o.owner != me) CardPlay.Refusal.NotYours else refusal(state, view, Input.Cast(me, copy))))
+                byCard.getOrPut(ids.atw(host.card)) { mutableListOf() } += plays
+            }
         }
 
         private val ZONES = setOf(Zone.Hand, Zone.Battlefield, Zone.Graveyard, Zone.Exile)
@@ -164,7 +195,7 @@ class CardPlays private constructor(
                 mapOf("card" to "$name ($card)", "origin" to instance.origin.toString(), "printed faces" to definition?.faces?.joinToString(" // ") { it.name }.orEmpty()))
 
         /** Why the engine refuses [input] now: the refusal [Engine.perform] gives before anything is done, asked without
-         * performing it ([CastScreen.refusal], engine-responsiveness R3, on [view], [state]'s view); one it may still begin
+         * performing it ([CastScreen.refusal], on [view], [state]'s view); one it may still begin
          * (refused later, if at all: a target or a cost it can't have) is [CardPlay.Refusal.Other]. */
         private fun refusal(state: GameState, view: View, input: Input, ability: Ability? = null): CardPlay.Refusal {
             val player = when (input) { is Input.Activate -> input.player; is Input.Cast -> input.player; is Input.PlayLand -> input.player; else -> null }

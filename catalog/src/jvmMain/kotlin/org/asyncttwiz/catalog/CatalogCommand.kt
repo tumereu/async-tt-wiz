@@ -7,14 +7,14 @@ import java.util.zip.GZIPInputStream
 import kotlin.system.exitProcess
 
 /**
- * The catalog command (docs/specs/web-client.md section 3), run through `./scripts/gradle.sh :catalog:catalogCommand
+ * The catalog command (SYS-081), run through `./scripts/gradle.sh :catalog:catalogCommand
  * --args="..."` by `scripts/catalog-pin.sh`, the release, and the e2e and dev stacks:
  *
  * - `verify`: the raw MTGJSON file against the pin.
  * - `build --out <dir>`: verifies the raw file, builds the trimmed catalog with its support marks into `<dir>` as
  *   `<checksum>.jsonl.gz` (pointed to by `<dir>/current`, the one before it kept as `previous`) and checks that every
- *   set it marks draftable builds its packs. The checksum in `current` is what the release builds into the app (section
- *   3.4). `--no-pin` builds from any file (the test cards' catalogs) without the pin.
+ *   set it marks draftable builds its packs. The checksum in `current` is what the release builds into the app
+ *   (SYS-081). `--no-pin` builds from any file (the test cards' catalogs) without the pin.
  * - `move`: makes the pin name the raw file.
  * - `compare-support --old <file|dir> --new <file|dir> [--allow <count>]`: lists the cards the old catalog marks as
  *   supported and the new one doesn't (a directory means its `current` catalog). Exit code 3 when there are any, unless

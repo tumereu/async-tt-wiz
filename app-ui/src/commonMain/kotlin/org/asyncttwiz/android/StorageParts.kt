@@ -10,7 +10,7 @@ import org.asyncttwiz.storage.from as storageFrom
 import org.asyncttwiz.storage.namedParts as storageNamedParts
 
 // The card records' readings the screens use, worked out by client-storage's common code (kotlinx.serialization) on both
-// platforms (docs/specs/web-client.md §1 item 2).
+// platforms.
 
 /** [record]'s picture at [size] (client-storage's ArtworkReference.from). */
 fun ArtworkReference.Companion.from(record: CatalogPrinting, size: String = "normal"): ArtworkReference? = storageFrom(record, size)

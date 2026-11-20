@@ -6,7 +6,7 @@ import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.game.EngineView
 
 /**
- * What the table draws of a game (engine-responsiveness R4a): the render model the engine thread makes of a game on
+ * What the table draws of a game: the render model the engine thread makes of a game on
  * engine state from its [org.asyncttwiz.protocol.game.GameModel] and table state ([EngineGame], with
  * [org.asyncttwiz.automatum.EngineProjection]), immutable plain data:
  *
@@ -15,7 +15,7 @@ import org.asyncttwiz.protocol.game.EngineView
  * - [nodeId]: the event of the line the board is at (the shown point);
  * - [engine]: the engine state it shows (full information, never changed) and the table state, which the cast, choice
  *   and combat controllers read directly;
- * - [values]: what the engine thread worked out with it (R3: the computed card values, the viewer's plays, the shared
+ * - [values]: what the engine thread worked out with it (the computed card values, the viewer's plays, the shared
  *   flow and combat, [EngineBoardValues]).
  */
 data class TableBoard(

@@ -189,7 +189,7 @@ class CastFlow private constructor(
     sealed class Source(val board: BoardState, val gameId: String) {
         internal abstract fun run(seeds: () -> String): EngineRun
 
-        /** A game on engine state (I-D56, engine-responsiveness R4a): its own [state] (full information, never changed
+        /** A game on engine state (I-D56): its own [state] (full information, never changed
          * here) shown as [board]. */
         class Engine internal constructor(val state: GameState, board: BoardState, gameId: String) : Source(board, gameId) {
             override fun run(seeds: () -> String): EngineRun = EngineRun.of(state, board, gameId, seeds)
@@ -331,7 +331,7 @@ class HandPlays private constructor(
         internal fun restored(byCard: Map<String, List<Input>>, offZone: List<String>): HandPlays = HandPlays(byCard, offZone)
 
         /**
-         * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
+         * [of] for a game on engine state (I-D56): [state] is its own state (full
          * information, not changed here; the card ids are the game's) and [view] its view when the caller already has it
          * (worked out on the engine thread, nothing copied).
          */
@@ -360,7 +360,8 @@ class HandPlays private constructor(
             }
             // ZON-079, I-D27: a card elsewhere only when the viewer may see it (a public card face up needs no look; the
             // top of a library or a card face down in exile asks the engine)
-            val elsewhere = (byObject.keys.filter { it !in hand } + usable).distinct()
+            // SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's spell is offered on the permanent, not in the hand row
+            val elsewhere = (byObject.keys.filter { it !in hand } + usable).distinct().filter { !OffZoneCards.preparedSpell(state, it) }
             val shown = if (elsewhere.isEmpty()) emptyList() else OffZoneCards.shown(state, view, player, elsewhere)
             val byCard = LinkedHashMap<String, List<Input>>()
             for ((id, inputs) in byObject) if (id in hand || id in shown) byCard[ids.atw((id as ObjectId.Card).card)] = inputs

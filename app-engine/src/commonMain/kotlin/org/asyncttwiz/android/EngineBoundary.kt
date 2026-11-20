@@ -5,7 +5,7 @@ import org.asyncttwiz.automatum.boundary.EngineLog
 import org.asyncttwiz.automatum.boundary.InProcessEngineChannel
 
 /**
- * The app's side of the engine boundary (docs/specs/web-client.md §1 item 3; [org.asyncttwiz.automatum.boundary]): the
+ * The app's side of the engine boundary ([org.asyncttwiz.automatum.boundary]): the
  * planning on a board of a game on engine state ([EngineBoardValues]: the hand plays' trial casts, the card menus' plays)
  * goes to it as requests and comes back as answers. Android answers them in-process on its engine thread on the board it
  * holds ([inProcess], nothing serialized); the browser's Web Worker answers the same requests sent as JSON strings
@@ -35,7 +35,7 @@ object EngineBoundary {
     private val waits = LinkedHashMap<String, () -> Unit>()
 
     /**
-     * Web client step 4c part 3: the browser's channel to the games' devices in the engine's Web Worker, installed when the
+     * The browser's channel to the games' devices in the engine's Web Worker, installed when the
      * page puts them there ([useDevices]); games opened then keep their device there ([EngineGame]'s `device`). Null on
      * Android (each device on the engine thread, in-process) and on a page that keeps them on its own thread.
      */

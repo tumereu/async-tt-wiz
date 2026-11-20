@@ -25,7 +25,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** TRN-064: the player is at the table, whoever's move it is (Concede needs no more); [connected] by default. */
     private val atTable: () -> Boolean = connected) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.playId) }
-    /** R4a: the batch being drafted on the board of a game on engine state ([EngineStaging]). */
+    /** The batch being drafted on the board of a game on engine state ([EngineStaging]). */
     private var engineDraft: EngineDraft? = null
     fun current(): TableBoard? = (engineDraft?.state ?: state())
         ?.takeIf { TableActionScope(it.gameId, it.playId) == identity }
@@ -34,7 +34,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
         automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send },
         revealing = { revealing() }, takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
-        // Web client step 4e: the cast's flow session runs beside the game's device (the browser's engine worker), else here
+        // The cast's flow session runs beside the game's device (the browser's engine worker), else here
         port = TableCastPort(LocalCastPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
@@ -44,7 +44,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
         // TBL-118, STK-049 (review 147a9c5af6): a tap on a payment's source that no longer pays it shakes the card
         shake = { shake(it) },
-        // Web client step 4e: the flows' sessions run beside the game's device (the browser's engine worker), else here
+        // The flows' sessions run beside the game's device (the browser's engine worker), else here
         port = TableSharedPort(LocalSharedPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     private val automatumWork = automatumWork
     /** TRN-063 (owner playtest 2026-11-09): the open panel's go-on action, which the main button holds. */
@@ -168,7 +168,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun play(cardId: String, play: org.asyncttwiz.automatum.CardPlay): Boolean {
         val input = play.input ?: return false
         error = null
-        return cast.begin(cardId, input, play.text)
+        // SYS-207 (owner playtest 2026-11-19, N24): a prepared permanent's spell is cast as its copy in exile
+        val cast = if (play.kind == org.asyncttwiz.automatum.CardPlay.Kind.Prepared)
+            ((input as? arcanum.engine.input.Input.Cast)?.card as? arcanum.engine.state.ObjectId.Card)?.card?.value ?: cardId else cardId
+        if (cast != cardId) AppLog.info("table", "Prepared spell of $cardId: casting its copy $cast from exile")
+        return this.cast.begin(cast, input, play.text)
     }
 
     /** TBL-122 (async play §29.5): the battlefield card whose ability chips are open (personal UI), null when none. */
@@ -540,7 +544,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             error = null
             return when (intent) {
                 is TableActionIntent.Next -> {
-                    // Web client step 4e: in-process answered at once (the result is the step's); across the boundary the
+                    // In-process answered at once (the result is the step's); across the boundary the
                     // worker says who declares, then the step goes on
                     var taken = true
                     flows.declaring(play) { who ->

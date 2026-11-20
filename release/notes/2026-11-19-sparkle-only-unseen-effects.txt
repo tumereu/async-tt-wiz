@@ -1,0 +1,1 @@
+mod: The violet sparkle on a card now shows only for effects you can't see on the table: not for a +2/+2 until end of turn (its power and toughness already show it) or for what an attached Aura or Equipment gives it

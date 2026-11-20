@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The engine boundary (docs/specs/web-client.md §1 item 3): its requests and answers as JSON strings, the engine side's
+ * The engine boundary: its requests and answers as JSON strings, the engine side's
  * boards (a snapshot, then the events that changed it), the page's ledger dropping stale answers, and the message channel
  * end to end through JSON on a planner standing in for the Web Worker.
  */
@@ -92,8 +92,8 @@ class EngineBoundaryTest {
     }
 
     @Test fun everyRefusalAndKindRoundTrips() {
-        val plays = listOf(CardPlay.Kind.Cast, CardPlay.Kind.Play, CardPlay.Kind.Ability, CardPlay.Kind.Mana, CardPlay.Kind.Special)
-            .map { CardPlay(it, "text", null) } + listOf(CardPlay.Refusal.Priority("bob"), CardPlay.Refusal.Priority(null),
+        val plays = listOf(CardPlay.Kind.Cast, CardPlay.Kind.Play, CardPlay.Kind.Ability, CardPlay.Kind.Mana, CardPlay.Kind.Special,
+            CardPlay.Kind.Prepared).map { CardPlay(it, "text", null) } + listOf(CardPlay.Refusal.Priority("bob"), CardPlay.Refusal.Priority(null),
             CardPlay.Refusal.Timing, CardPlay.Refusal.Loyalty, CardPlay.Refusal.Used, CardPlay.Refusal.NotYours, CardPlay.Refusal.Other(), CardPlay.Refusal.Other("Not enough mana"))
             .map { CardPlay(CardPlay.Kind.Ability, "{T}: Draw a card.", null, it) }
         val text = EngineMessages.json.encodeToString(CardPlaysSerializer, CardPlays.restored(mapOf("c1" to plays)))

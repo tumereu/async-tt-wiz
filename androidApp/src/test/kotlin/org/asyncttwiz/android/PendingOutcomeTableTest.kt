@@ -16,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.*
 
-/** A pending result suggestion on the table of a game played on engine state (R4b: [EngineLobbyFixture]). */
+/** A pending result suggestion on the table of a game played on engine state ([EngineLobbyFixture]). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class PendingOutcomeTableTest {
@@ -135,7 +135,7 @@ class PendingOutcomeTableTest {
     // ... and the other player's
     @Test fun theOpponentsSuggestionReplacesTheWaitingOne() = suggestingAgain(opponent = true)
 
-    // HIS-020, TRN-049, TRN-047 (on engine state, R4b)
+    // HIS-020, TRN-049, TRN-047 (on engine state)
     @Test fun authorCanWithdrawOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(false)
     @Test fun opponentCanDeclineOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(true)
 }

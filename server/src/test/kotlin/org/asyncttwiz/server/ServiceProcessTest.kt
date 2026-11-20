@@ -20,7 +20,14 @@ import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-/** Real installed Spring/JVM processes, actual HTTP/signals, Testcontainers-owned databases only. */
+/**
+ * Real installed Spring/JVM processes, actual HTTP/signals, Testcontainers-owned databases only.
+ *
+ * Tests that never stop or pause their container reach it over the bridge address (`OwnedPostgres(viaBridge = true)`,
+ * the processes too through DB_URL): the published port resets about one new connection in a few hundred under CPU
+ * load, which once failed an explicit `migrate` run here (Flyway connects with no retries). The stop/start and pause
+ * tests keep the published port, whose mapping survives a restart.
+ */
 class ServiceProcessTest {
     @TempDir lateinit var temporary: Path
     private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build()
@@ -30,7 +37,7 @@ class ServiceProcessTest {
     private fun environment(db: OwnedPostgres): Map<String, String> {
         val secret = temporary.resolve("password-${UUID.randomUUID()}")
         Files.writeString(secret, db.container.password + "\r\n")
-        return mapOf("DB_URL" to db.container.jdbcUrl, "DB_USER" to db.container.username,
+        return mapOf("DB_URL" to db.jdbcUrl(), "DB_USER" to db.container.username,
             "DB_PASSWORD_FILE" to secret.toString(), "PUBLIC_BASE_URL" to "https://synthetic.invalid/base",
             "SERVER_ADDRESS" to "127.0.0.1", "SERVER_PORT" to "0",
             "HEALTH_ADDRESS" to "127.0.0.1", "HEALTH_PORT" to "0",
@@ -78,7 +85,7 @@ class ServiceProcessTest {
         val output = Files.readString(log)
         secrets(inputs).forEach { assertFalse(output.contains(it), "Service/migration log exposed configuration input") }
         val withoutDiagnosticTypes = output.lineSequence().joinToString("\n") { line ->
-            if (line.contains(" Writer availability:") || line.contains(" Runtime availability:")) {
+            if (line.contains(" Writer availability:") || line.contains(" Runtime availability:") || line.contains(" Migration failure:")) {
                 java.time.Instant.parse(line.substringBefore(' '))
                 // Class names are now intentional structured evidence, not raw Throwable output.
                 line.replace(Regex("class=[A-Za-z0-9_.$]+"), "class=[type]")
@@ -214,7 +221,7 @@ class ServiceProcessTest {
     }
 
     @Test fun `real service stays live without schema then explicit migration enables isolated health and retained restart`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             val inputs = environment(db)
             var priorEpoch = 0L
             Service(inputs).use { service ->
@@ -255,7 +262,7 @@ class ServiceProcessTest {
     }
 
     @Test fun `checksum future and unversioned schemas are never ready or automatically repaired`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             val inputs = environment(db)
             sql(db, "CREATE TABLE test_owned_unversioned (retained text); INSERT INTO test_owned_unversioned VALUES ('keep')")
             Service(inputs).use { service ->
@@ -365,7 +372,7 @@ class ServiceProcessTest {
     }
 
     @Test fun `lock loss requires schema validation and retained singleton reload before readiness returns`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             val inputs = environment(db)
             migrate(inputs)
             Service(inputs).use { service ->
@@ -390,7 +397,7 @@ class ServiceProcessTest {
     }
 
     @Test fun `occupied public port fails safely and closes already started health listener`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             ServerSocket().use { occupied ->
                 // The test itself holds the public port, so nothing can race for it; health binds any free port.
                 occupied.bind(InetSocketAddress("127.0.0.1", 0))

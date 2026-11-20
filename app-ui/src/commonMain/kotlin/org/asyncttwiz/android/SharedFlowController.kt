@@ -34,7 +34,7 @@ import org.asyncttwiz.protocol.*
  * The engine work of each answer runs on [work] (off the main thread in the app, SYS-025); meanwhile [busy] is true and
  * further answers wait. [view] is the shown board's flow, set by the panel's host once worked out ([load]).
  *
- * Web client step 4e: the flows run as sessions where the engine is ([port]: in-process, a flow shown at once and its steps on
+ * The flows run as sessions where the engine is ([port]: in-process, a flow shown at once and its steps on
  * [work]; in the browser the engine's Web Worker beside the game's device), and the panels draw the plain data each answers
  * ([view], a [SharedShown]), never the live flow. A step's answer applies only while nothing replaced what it was made on.
  */
@@ -55,7 +55,7 @@ class SharedFlowController(
      * one's words ([EngineGame.takeBacks]). */
     private val takeBacks: () -> Long = { 0L },
     private val lastTakeBack: () -> String = { "" },
-    /** Web client step 4e: where the flows' sessions run: in-process on [work] unless said otherwise ([TableSharedPort]: the
+    /** Where the flows' sessions run: in-process on [work] unless said otherwise ([TableSharedPort]: the
      * browser's engine worker when the game's device is there). */
     private val port: SharedPort = LocalSharedPort(viewer) { w, d -> work.run(w, d) },
     /** TBL-130: the stacks of identical battlefield cards on a board as the table lays them out (Autotap takes the topmost). */
@@ -67,7 +67,7 @@ class SharedFlowController(
     private var shownAt = 0L
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedShown?>(null); private set
-    /** The session the shown flows belong to (web client step 4e): opened with the first flow shown, closed with the panel. */
+    /** The session the shown flows belong to: opened with the first flow shown, closed with the panel. */
     private var session = 0L
     /** Bumped by each flow asked for or dropped: an older answer isn't shown. */
     private var loading = 0
@@ -649,14 +649,14 @@ class SharedFlowController(
         const val TAKE_OVER = SharedSessions.TAKE_OVER
         const val NOTHING_TO_PASS = SharedSessions.CANT_GO_ON
 
-        /** The table's shared-flow sessions, numbered across the page (web client step 4e: the engine side keys them by game). */
+        /** The table's shared-flow sessions, numbered across the page (the engine side keys them by game). */
         private val sessions = org.asyncttwiz.appui.AtomicLong()
         private fun nextSession(): Long = sessions.incrementAndGet()
     }
 }
 
 /**
- * Web client step 4e: a board's shared flow as the shared panels draw it: the plain data its session answered ([value]) on the
+ * A board's shared flow as the shared panels draw it: the plain data its session answered ([value]) on the
  * board it is of ([play]), never the flow itself. Its engine state ([state]) is the board's own (in-process the flow's copy of
  * it; in the browser the page's copy of the board's), read for names and what is shown, never changed.
  */

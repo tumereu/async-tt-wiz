@@ -33,7 +33,7 @@ object AutomatumReports {
         text(repro, maxChars)
     } catch (_: Throwable) { "" }
 
-    /** [text] for a report that can wait for the engine side (web client step 4c: in the browser the device answers from
+    /** [text] for a report that can wait for the engine side (in the browser the device answers from
      * its Web Worker; on Android at once, as [text]). Never throws. */
     suspend fun textNow(maxChars: Int = CrashReport.MAX_AUTOMATUM): String = try {
         val ask = engine
@@ -57,7 +57,7 @@ object AutomatumReports {
     /** LOB-089: writes the latest game's board into the app log before a problem report reads it. Never throws. */
     fun logBoard() { try { board?.invoke {} } catch (_: Throwable) {} }
 
-    /** [logBoard] for a report that can wait for the engine side (web client step 4c; on Android at once). Never throws. */
+    /** [logBoard] for a report that can wait for the engine side (on Android at once). Never throws. */
     suspend fun logBoardNow() {
         try {
             val ask = board ?: return

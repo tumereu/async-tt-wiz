@@ -31,7 +31,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The table of a game played on engine state as the player sees it (R4b's replacements of the old model's Automatum
+ * The table of a game played on engine state as the player sees it (replacing the old model's Automatum
  * screen tests): Alice's [EngineGame] on the simulated server ([EngineTableKit]) drawn by [TableSurface] with its routes
  * and toolkit, as [EngineTableScreen] draws it.
  */

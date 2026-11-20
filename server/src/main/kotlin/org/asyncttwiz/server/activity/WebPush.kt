@@ -225,12 +225,8 @@ object WebPushNotices {
     fun of(hint: ActivityHint): WebPushNotice {
         val (title, body) = ActivityTexts.notification(hint)
         val kind = hint.kind
-        val tag = when (kind) {
-            ActivityKind.GAME, ActivityKind.GAME_REMOVAL -> "game:${hint.gameId}"
-            ActivityKind.INVITATION -> "invite:${hint.identity}"
-            ActivityKind.POD_INVITATION -> "pod-invite:${hint.gameId}"
-            else -> "pod:${hint.gameId}"
-        }
+        // DRF-135: a pod challenge replaces its pod's notice, and the other way round
+        val tag = ActivityNotices.key(hint)
         val path = when {
             kind == ActivityKind.INVITATION && hint.held && hint.podId != null -> "/pods/${hint.podId}/games"
             kind == ActivityKind.POD_DESTROYED -> "/pods"

@@ -1,0 +1,1 @@
+mod: A pod shows one notification at a time: a challenge there replaces "Draft complete: build your deck" instead of showing beside it

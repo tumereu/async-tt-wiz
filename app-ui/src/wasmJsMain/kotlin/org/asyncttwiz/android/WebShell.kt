@@ -200,6 +200,8 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
                 ActivityScreen.of(auth.controller.state.destination, auth.lobby.state.selected, auth.pods.state)
             } }
             val shown = pageShown
+            // LOB-243: the open pod's last change (or the Pods list's pods), so news seen while it is open is told too
+            val podVersion by remember { derivedStateOf { podSeenVersion(activityScreen, auth.pods.state) } }
             SideEffect {
                 if (!state.restoring && !state.busy) {
                     DebugCrashes.authenticated(if (state.account != null) token else null)
@@ -207,6 +209,7 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
                 }
                 auth.activity.display(activityScreen, true)
                 auth.heartbeat.display(activityScreen.game.takeIf { shown }, token)
+                auth.podSeen.display(activityScreen, podVersion, token, shown)
             }
             router.Sync()
             stale.Watch(router)

@@ -133,7 +133,7 @@ class DraftGalleryScreenshotTest {
         shot("setup-homerock", "The creator's setup of a Homerock pod from the Runes cube with the defaults: tiles for 45 picks, " +
             "offers of 5 cards, take 1, rare every 10th and uncommon every 4th pick, mythic 1/8 and the sideboard, the Ignore rarity " +
             "and Reuse cards toggles off, then the summary: the format, 4 rare, 9 uncommon and 32 common picks for 45 cards each, " +
-            "and that the cube's 2 mythic rares are too few for an offer, so rares fill up.")
+            "Reuse cards off in words, and that the cube's 2 mythic rares are too few for an offer, so rares fill up.")
     }
 
     // DRF-288, DRF-280

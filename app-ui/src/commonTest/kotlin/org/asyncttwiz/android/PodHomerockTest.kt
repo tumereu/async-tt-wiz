@@ -26,16 +26,19 @@ class PodHomerockTest {
         assertEquals("Homerock · My cube · 45 picks, 5 cards, take 1", podPresetSummary(base, "My cube", set = false))
     }
 
-    // DRF-287, DRF-285: the summary's format, rarity counts and each rarity too short to fill an offer
+    // DRF-287, DRF-285, DRF-284: the summary's format, rarity counts, a cube's Reuse cards and each rarity too short to fill an offer
     @Test fun summaryTellsTheFormatAndShortRarities() {
-        assertEquals(listOf("Homerock: 45 picks, 5 cards, take 1", "4 rare, 9 uncommon, 32 common picks · each player ends with 45 cards"),
+        assertEquals(listOf("Homerock: 45 picks, 5 cards, take 1", "4 rare, 9 uncommon, 32 common picks · each player ends with 45 cards",
+            "Reuse cards off: a card you pick is never offered to you again; other players' picks never change your offers"),
             podHomerockSummary(base, PodSource("My cube", 100)))
+        assertEquals("Reuse cards on: a card you pick may be offered to you again", podHomerockSummary(base.copy(reuseCards = true), PodSource("My cube", 100))[2])
         val short = PodSource("My cube", 100, rarities = HomerockCounts(common = 80, uncommon = 15, rare = 3, mythic = 0))
         assertEquals(listOf("No mythic rares: filled up from rares", "Only 3 rares for offers of 5: filled up from uncommons"),
-            podHomerockSummary(base, short).drop(2))
+            podHomerockSummary(base, short).drop(3))
         // Ignore rarity: no rarity lines
         assertEquals(listOf("Homerock: 1 pick, 3 cards, take 2", "Rarity ignored · each player ends with 2 cards"),
-            podHomerockSummary(base.copy(packsPerPlayer = 1, cardsPerPack = 3, keep = 2, ignoreRarity = true), short))
+            podHomerockSummary(base.copy(packsPerPlayer = 1, cardsPerPack = 3, keep = 2, ignoreRarity = true), short).take(2))
+        assertEquals(3, podHomerockSummary(base.copy(ignoreRarity = true), short).size)
         // A set's offers always go by rarity, and a set short of commons fills from above
         val set = PodSource(kind = PodSourceKind.SET, rarities = HomerockCounts(common = 0, uncommon = 40, rare = 20, mythic = 8))
         assertEquals(listOf("No commons: filled up from uncommons"), podHomerockSummary(base.copy(ignoreRarity = true), set).drop(2))

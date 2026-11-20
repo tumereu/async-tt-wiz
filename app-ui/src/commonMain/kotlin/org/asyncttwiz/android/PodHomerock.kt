@@ -38,7 +38,7 @@ fun podHomerockHistoryHeader(settings: DraftSettings, pick: Int, kind: PodSource
 
 /**
  * DRF-287, DRF-285: the setup summary under Homerock's tiles: its format, how many picks are of each rarity and the cards
- * each player ends with, then each rarity the source has too few cards of for an offer and where the offer is filled up
+ * each player ends with, a cube's Reuse cards in words (DRF-284), then each rarity the source has too few cards of for an offer and where the offer is filled up
  * from (nearest below, then above), when the server has told the source's [HomerockCounts].
  */
 fun podHomerockSummary(settings: DraftSettings, source: PodSource): List<String> = buildList {
@@ -49,6 +49,9 @@ fun podHomerockSummary(settings: DraftSettings, source: PodSource): List<String>
     val picks = if (!byRarity) "Rarity ignored"
         else order.filter { (schedule[it] ?: 0) > 0 }.joinToString(", ") { "${schedule[it]} ${podRarityName(it).lowercase()}" } + " picks"
     add("$picks · each player ends with ${count(settings.packsPerPlayer * settings.keep, "card")}")
+    // DRF-284 (owner, 2026-11-20): Reuse cards is each player's own
+    if (source.kind == PodSourceKind.CUBE) add(if (settings.reuseCards) "Reuse cards on: a card you pick may be offered to you again"
+        else "Reuse cards off: a card you pick is never offered to you again; other players' picks never change your offers")
     val counts = source.rarities ?: return@buildList
     if (!byRarity) return@buildList
     val ladder = listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE, SetCardRarity.MYTHIC)

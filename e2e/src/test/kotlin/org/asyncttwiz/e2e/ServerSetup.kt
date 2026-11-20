@@ -236,13 +236,29 @@ object ServerSetup {
         }
     }
 
-    /** A pod [name] of [a] (its creator) still in setup, with a cube of [TestCards]. Returns the pod's id. */
-    fun setupPod(a: TestAccount, name: String, cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)): String = runBlocking {
+    /** A pod [name] of [a] (its creator) still in setup, with a cube of [TestCards] (12 copies) and [settings] (Booster's
+     * defaults when null). Returns the pod's id. */
+    fun setupPod(a: TestAccount, name: String, cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
+        settings: DraftSettings? = null): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         val cube = DeckApi(origin).use { api ->
             api.create(a.token, CreateCube(id(), "E2E cube", cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 12 / cards.size) }))
         }
-        org.asyncttwiz.android.PodApi(origin).use { it.create(a.token, CreatePod(id(), name, cube.cube.id)).id }
+        org.asyncttwiz.android.PodApi(origin).use {
+            it.create(a.token, CreatePod(id(), name, cube.cube.id, settings?.mode ?: DraftMode.BOOSTER, settings = settings)).id
+        }
+    }
+
+    /** [a] invites [b] (made a contact) to pod [pod]; the invitation is left unanswered. */
+    fun invitePod(a: TestAccount, b: TestAccount, pod: String) = runBlocking {
+        lobbyCall { it.add(a.token, AddContact(UUID.randomUUID().toString(), b.id)) }
+        org.asyncttwiz.android.PodApi(origin).use { it.invite(a.token, pod, InviteToPod(UUID.randomUUID().toString(), b.id)) }
+    }
+
+    /** [a] starts pod [pod]'s draft. */
+    fun startPod(a: TestAccount, pod: String) = runBlocking {
+        org.asyncttwiz.android.PodApi(origin).use { it.start(a.token, pod, PodRequest(UUID.randomUUID().toString())) }
+            .also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }
     }
 
     /** Pod [id] as [a] sees it on the server. */
@@ -259,8 +275,12 @@ object ServerSetup {
                 for (player in players) {
                     val detail = api.detail(player.token, pod)
                     val head = detail.draft?.head ?: continue
+                    // Booster's keep and burn, or the pass a Custom booster pack is on (DRF-260)
+                    val keep = detail.settings.keepAt(head.pick - 1); val burn = detail.settings.burnAt(head.pick - 1)
                     api.pick(player.token, pod, PickPod(UUID.randomUUID().toString(), detail.draftAttemptId!!, head.id,
-                        head.cards.take(detail.settings.keep).map { it.id }))
+                        head.cards.take(keep).map { it.id },
+                        if (detail.settings.keepsOnly(head.cards.size, keep.toLong(), head.pick - 1)) emptyList()
+                        else head.cards.drop(keep).take(burn).map { it.id }))
                     picked = true
                 }
                 check(picked) { "nobody had a pack to pick from" }

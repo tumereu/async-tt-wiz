@@ -307,3 +307,5 @@ number	item	screenshot	catalog	decisions	sequence
 307	Game Inspect pinned: rules reminder chips under the card, a tap on Ward explains it	inspect/reminders-pinned.png	TBL-209 TBL-210		Rules reminders
 308	Draft Inspect: rules reminder chips under the card, each with its explanation	inspect/reminders-draft.png	TBL-209 TBL-210 DRF-063		Rules reminders
 309	The other player's cards they may play from other zones: a cyan chip in their row of round chips and its list	states/other-playable.png	ZON-136		
+325	Draft: Custom booster setup with its list of passes	draft/setup-custom-booster.png	DRF-262 DRF-020		Custom booster
+326	Draft: Custom booster pick screen saying what the pass asks	draft/custom-booster-pick.png	DRF-263 DRF-260		Custom booster

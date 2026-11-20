@@ -28,9 +28,25 @@ class RulesGlossaryTest {
         assertEquals(ids.toSet() + setOf("scry", "surveil", "mill", "fight"), RulesGlossary.actions.keys)
     }
 
+    // The rules reminders explain every token kind the rules define
+    @Test
+    fun everyPredefinedTokenHasAnExplanationUnderItsPrintedName() {
+        val missing = PredefinedTokens.names.filter { RulesGlossary.token(it) == null }
+        assertTrue(missing.isEmpty(), "token kinds without an explanation: $missing")
+        assertEquals(PredefinedTokens.names.toSet() + "Role", RulesGlossary.tokens.keys, "no explanation of a token kind that isn't one")
+    }
+
+    // Every ability label (exhaust, max speed, ...) is explained, solved as the state it is
+    @Test
+    fun everyAbilityLabelHasAnExplanation() {
+        val ids = AbilityLabel::class.sealedSubclasses.map { assertNotNull(it.findAnnotation<SerialName>(), "${it.simpleName}").value }
+        val missing = ids.filter { RulesGlossary.terms[it] == null && RulesGlossary.state(it) == null }
+        assertTrue(missing.isEmpty(), "ability labels without an explanation: $missing")
+    }
+
     @Test
     fun explanationsArePlainSentencesOfTheirOwn() {
-        val entries = RulesGlossary.keywords.values + RulesGlossary.actions.values
+        val entries = RulesGlossary.keywords.values + RulesGlossary.actions.values + RulesGlossary.tokens.values + RulesGlossary.terms.values
         for (entry in entries) {
             assertTrue(entry.text.length in 20..260 && entry.text.endsWith("."), "${entry.id}: ${entry.text}")
             // Not reminder text: no parentheses around the whole of it, no "CR" rule numbers

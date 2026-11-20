@@ -61,7 +61,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
 - **DRF-029** Only the creator edits name, source and settings; members see them read-only. Edits apply at once without disabling anything and save in the background. A name that can't be saved (the emptied field) waits in the field until a name is typed; leaving the pod then keeps the last saved name and saves the other edits. (r17)
 - **DRF-030** Setup lists members and pending invitations with "Members (N/L)", L the engine's player limit (DRF-150); the creator invites through the shared player picker, up to 8 members and invitations together. (r35)
-- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Grid, Rochester, Rotisserie, Winston, Winchester and Sealed, each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r74)
+- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Custom booster (DRF-260), Grid, Rochester, Rotisserie, Winston, Winchester and Sealed, each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r74)
 - **DRF-190** Glimpse is a preset of Booster (DRF-200), and a pod's mode always reads "Booster", also for pods created as Glimpse. (r74)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. Winston and Winchester have a "Tables" tile after Piles. (r60)
 - **DRF-191** Rochester's "Open packs" tile reads "1 each" (one per player) until a number is set; its dialog has a square "1 each" toggle like the sideboard's ∞. (r60)
@@ -107,7 +107,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 ## Starting, leaving and cancelling
 
 - **DRF-035** The creator's "Start draft" needs at least 2 accepted members and no more than the engine allows (DRF-150), settings that fit them and a source with enough cards; there is no Ready step. (r35)
-- **DRF-150** Each engine has a player limit: Booster, Rochester, Rotisserie and Sealed 2–8; Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."). (r35)
+- **DRF-150** Each engine has a player limit: Booster, Custom booster, Rochester, Rotisserie and Sealed 2–8; Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."). (r35)
 - **DRF-036** While invitations are pending the button is "Start when everyone accepts"; armed, it reads "Starts when N more accept · Cancel" and members see "Starts automatically when everyone accepts". (r21)
 - **DRF-037** Auto-start begins the draft when the last invitee accepts; a decline or a failed start turns it off with a setup line like "Bob declined; auto-start is off" and a notification. (r21)
 - **DRF-163** Auto-start can't be armed while members plus pending invitations exceed the engine's limit (DRF-150): "Grid takes at most 4 players; 5 are joined or invited.". (r35)
@@ -145,6 +145,14 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-053** A spent Librarian shows a book badge; you may keep it back, burn it or leave it to pass on, also on a pack's last pick; Refund in its menu (or tapping its slot) takes it back. (r29)
 - **DRF-054** Spending a Librarian never changes the tray layout; with Librarians the keep tray is always at least 2 cards wide and Confirm reads "Confirm · 1 Librarian". (r19)
 - **DRF-055** An unspent or later-drafted Librarian is an ordinary card for deckbuilding and can be spent again; automatic awards never spend one. (r21)
+
+## Custom booster
+
+- **DRF-260** Custom booster is Booster with the creator's list of passes in place of keep, burn and discard: each pack goes through the passes in order, and on its n-th pass the player it reaches picks that pass's number of cards, then burns its number (to nobody), and passes it on. Everything else is Booster's: sources, packs, passing, Librarians, the pick screen and the draft history.
+- **DRF-261** When a Custom booster pack's passes run out, the cards left in it are thrown away; a pack that runs out of cards first is done. A pack holding its pass's picks or fewer is given automatically, and one holding picks + burns or fewer needs only the picks (as DRF-045).
+- **DRF-262** Pod setup shows a Custom booster's passes under its tiles (Packs, Pack size, Open packs, Librarians, Sideboard) as "Passes (N)": one row each, "Pass 1" with Pick and Burn steppers and a remove button (not on the only pass), then "Add pass", which repeats the last pass. Defaults: 3 packs × 15 cards, 7 passes of pick 1, burn 1; limits: 1–30 passes, each picking at least 1 and burning 0 or more, at most 30 cards together.
+- **DRF-263** Only the creator edits the passes, in setup; members see the same list read-only ("Pass 1 · Pick 2 · Burn 1"). On the Custom booster pick screen a line above the trays says what this pass asks, "Pass 2/7 · Pick 2 of 11 · Burn 1", ending "· the rest are thrown away" on the last pass; burned cards show in the draft history like picks, red with 🔥 (DRF-207).
+- **DRF-264** A pod invitation to a Custom booster pod reads its passes under the creator, equal passes in a row counted once: "Custom booster: Pick 2 · Burn 1, Pick 1 · Burn 1 ×6" (a pass without burns reads "Pick 1").
 
 ## Pick screen
 
@@ -202,7 +210,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 ## Rotisserie
 
 - **DRF-152** Rotisserie: the whole pool lies face up (cube: players × the pool per player, drawn at random; set: boosters opened until there are enough, all their cards); players take one card per turn in snake order (seat order, then back) until each has made their picks; the cards nobody picks stay in the pool; turns are sequential. (r74)
-- **DRF-153** The Rotisserie pick screen is one scrolling panel of the whole pool, sorted like Build columns (W U B R G, multicolour, colourless, then name), under a line like "Your pick · Pick 4 of 90" ("Waiting for <name> · …" on another's turn) and a "Search cards" field using the catalog search syntax; taken cards stay greyed with the picker's small avatar (as in Grid). (r60)
+- **DRF-153** The Rotisserie pick screen is one scrolling panel of the whole pool, sorted like Build columns (W U B R G, multicolour, colourless, then name), under a line like "Your pick · Pick 4 of 90" ("Waiting for <name> · …" on another's turn), with the filter button in its corner (DRF-250); taken cards stay greyed with the picker's small avatar (as in Grid). (r60)
 - **DRF-216** On the Rotisserie pick screen, on your turn tap a card to frame it, then "Pick <card name>" takes it; on another's turn tap a free card you haven't queued to frame it, then "Queue <card name>" adds it to your pick queue (DRF-164); other taps do nothing; holding inspects. (r60)
 - **DRF-164** Rotisserie pick queue: your queue is private and kept on the server, so it works while you are away. A strip above the button shows it in order as small cards (as in the pick screen's Keep and Burn trays), each with its number in a corner and an ✕: a tap removes it, holding inspects it; queued cards in the pool carry their number in a small badge. (r60)
 - **DRF-217** When your Rotisserie turn comes the queue's first card is taken for you at once, with no "Your pick" notification and no wait, and the rest stays queued in order (a run of picks in a row takes one queued card each). (r60)
@@ -257,6 +265,15 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-166** A cover thumbnail sits beside the deck's name in Build; a tap lists your Main and Side cards alphabetically, basics not among them, to choose it from, also after submitting; without a choice, or once the chosen card has gone to Maybe, the first Main card shows. (r62)
 - **DRF-229** The deck's cover is private as the name is (DRF-125) and goes to your draft deck (LOB-040), to your games of the pod still in their lobby and to the pod games prepared after it; it can also be chosen from Prepare deck in a pod game's lobby (LOB-047). (r62)
 - **DRF-106** A fixed bottom bar across the full screen width (not inset by the columns' side margins) holds an Undo button at its left edge (always there, dimmed when empty) and "Submit deck (N)"; Undo takes back card moves and basic changes one at a time, during and after the draft. (r36)
+
+## Filtering the pool and Build
+
+- **DRF-250** The Rotisserie pool and Build each have a round filter button (a funnel) floating at the bottom right corner of their scrolling area, whose end scrolls clear of it; a tap opens a popup over the screen by the button: "Filter cards" with Clear, a search field and the quick filter chips. Tapping outside it or Back closes it; the filter stays. (owner, 2026-11-19)
+- **DRF-251** The popup's field ("Name, type or rules text") matches cards whose name, type line or rules text holds every typed word, in any case; it also understands search terms (LOB-108). Text that can't be read says why under the field and filters nothing, the chips still applying. (owner, 2026-11-19)
+- **DRF-252** The popup's chips: W U B R G C (mana symbols) and Multicolour; mana value 0–6+; Creature, Planeswalker, Instant, Sorcery, Artifact, Enchantment, Land; Common, Uncommon, Rare, Mythic, the rarity of the card's own printing from card records. Within a row any chosen chip matches; the rows and the typed text all apply. (owner, 2026-11-19)
+- **DRF-253** While anything is set the button is filled in the accent colour with a dot on it and only matching cards show ("No cards match" in a pool with none); Clear empties the field and every chip at once. (owner, 2026-11-19)
+- **DRF-254** In Build the filter hides the cards that don't match from every section's columns; the section headers, the basics rows, Submit's count and Stats still count the whole deck, a column's count counts what it shows, and the one-by-one review (DRF-107) goes through the cards shown. (owner, 2026-11-19)
+- **DRF-255** The filter is yours alone and never sent: the pool and Build of each pod each keep their own while the app runs, through tab changes and leaving the pod. (owner, 2026-11-19)
 
 ## Build review (one by one)
 

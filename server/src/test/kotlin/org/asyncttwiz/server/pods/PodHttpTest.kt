@@ -87,9 +87,11 @@ class PodHttpTest {
         fun start(pod: String): PodDetail = json.decodeFromString(send(a, "POST", "/v1/pods/$pod/start", PodRequest(id())))
         fun selection(who: SessionCreated, pod: String): PickPod {
             val detail = get(who, pod); val head = detail.draft!!.head!!
-            val keep = head.cards.take(detail.settings.keep).map { it.id }
-            val burn = if (head.cards.size <= detail.settings.keep + detail.settings.burn) emptyList()
-                else head.cards.drop(detail.settings.keep).take(detail.settings.burn).map { it.id }
+            // Booster's keep and burn, or the pass a Custom booster pack is on (DRF-260)
+            val keeps = detail.settings.keepAt(head.pick - 1); val burns = detail.settings.burnAt(head.pick - 1)
+            val keep = head.cards.take(keeps).map { it.id }
+            val burn = if (head.cards.size <= keeps + burns) emptyList()
+                else head.cards.drop(keeps).take(burns).map { it.id }
             return PickPod(id(), detail.draftAttemptId!!, head.id, keep, burn)
         }
         fun pick(who: SessionCreated, pod: String): PodDetail = json.decodeFromString(send(who, "POST", "/v1/pods/$pod/pick", selection(who, pod)))
@@ -527,6 +529,33 @@ class PodHttpTest {
         f.finish(pod, listOf(f.a, f.b))
         assertEquals(6, f.get(f.a, pod).draft!!.pool.size); assertEquals(6, f.get(f.b, pod).draft!!.pool.size)
         assertEquals(2, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod))
+    }
+
+    // DRF-260, DRF-261, DRF-264: the server keeps a Custom booster's passes, tells invitees, and enforces each pass
+    @Test fun `custom booster passes are shown to invitees and enforced pass by pass`() = fixture { f ->
+        val passes = listOf(DraftPass(2, 1), DraftPass(1, 1), DraftPass(1, 0))
+        val settings = DraftSettings.customBooster().copy(packsPerPlayer = 2, cardsPerPack = 8, passes = passes)
+        val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
+            CreatePod(id(), "Custom pod", f.cube.cube.id, DraftMode.CUSTOM_BOOSTER, settings = settings), 201))
+        assertEquals(passes, created.settings.passes)
+        // Invalid passes are refused
+        f.send(f.a, "PUT", "/v1/pods/${created.id}", UpdatePod(id(), settings = settings.copy(passes = emptyList())), 400)
+        invite(f, created.id, f.b)
+        val invitation = f.list(f.b).invitations.single()
+        assertEquals(DraftMode.CUSTOM_BOOSTER, invitation.mode); assertEquals(passes, invitation.passes)
+        respond(f, created.id, f.b, true)
+        f.start(created.id)
+        val head = f.get(f.a, created.id).draft!!.head!!
+        assertEquals(1, head.pick); assertEquals(8, head.cards.size)
+        // Pass 1 asks two picks and one burn: Booster's counts are refused
+        val attempt = f.get(f.a, created.id).draftAttemptId!!
+        val wrong = PickPod(id(), attempt, head.id, listOf(head.cards[0].id), listOf(head.cards[1].id))
+        assertEquals("wrong_counts", json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods/${created.id}/pick", wrong, 409)).code)
+        f.finish(created.id, listOf(f.a, f.b))
+        // Each pack: 2 + 1 + 1 picked, 1 + 1 burned, the last 2 thrown away when the passes ran out
+        assertEquals(8, f.get(f.a, created.id).draft!!.pool.size); assertEquals(8, f.get(f.b, created.id).draft!!.pool.size)
+        val history = json.decodeFromString<PodDraftHistory>(f.request(f.a, "GET", "/v1/pods/${created.id}/draft/history").body())
+        assertEquals(listOf(1, 1, 1, 1, 0, 0), history.picks.sortedBy { it.pick }.map { it.burned.size })
     }
 
     private fun autoStart(f: Fixture, pod: String, enabled: Boolean, status: Int = 200, who: SessionCreated = f.a) =

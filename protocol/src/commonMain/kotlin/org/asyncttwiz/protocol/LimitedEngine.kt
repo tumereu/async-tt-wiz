@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 /** Engines whose server snapshot is a [LimitedDraftState]: Rochester, Rotisserie, Winston, Winchester and Sealed. */
 val DraftMode.limited: Boolean get() = this == DraftMode.ROCHESTER || this == DraftMode.ROTISSERIE ||
     this == DraftMode.WINSTON || this == DraftMode.WINCHESTER || this == DraftMode.SEALED
-/** Booster pack passing ([DraftEngine]), also for pods created as Glimpse. */
-val DraftMode.packPassing: Boolean get() = this == DraftMode.BOOSTER || this == DraftMode.GLIMPSE
+/** Booster pack passing ([DraftEngine]), also for pods created as Glimpse, and Custom booster's passes (DRF-260). */
+val DraftMode.packPassing: Boolean get() = this == DraftMode.BOOSTER || this == DraftMode.GLIMPSE || this == DraftMode.CUSTOM_BOOSTER
 /** How many members an engine allows. */
 val DraftMode.players: IntRange get() = when (this) {
     DraftMode.GRID, DraftMode.WINSTON, DraftMode.WINCHESTER -> 2..4

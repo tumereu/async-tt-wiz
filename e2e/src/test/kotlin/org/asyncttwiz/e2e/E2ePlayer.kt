@@ -127,7 +127,14 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     }
     val pods = PodController(PodApi(link.origin, authenticationRequired = ::authenticationRequired),
         DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, worker("pods"), post,
-        setRepository = setRepository ?: catalog?.let { records -> org.asyncttwiz.android.StoredPodSets { records.repository } })
+        setRepository = setRepository ?: catalog?.let { records -> org.asyncttwiz.android.StoredPodSets { records.repository } },
+        // DRF-252: the draft filter's rarities from the phone's card records, as the app's (AuthViewModel)
+        filters = catalog?.let { records ->
+            val reader = worker("pod-filter")
+            org.asyncttwiz.android.PodCardFilters({ ids ->
+                org.asyncttwiz.android.podFilterPrintings(ids, records.repository::cards, records.repository::searchData)
+            }, reader, post, reader::shutdown)
+        } ?: org.asyncttwiz.android.PodCardFilters())
     private val reset = ResetController(AccountApi(link.origin), "", worker("reset"), succeeded = {}, post = post)
     /** The deck screens, on the phone once a test asks for them ([decksShown]): without card records ([withCatalog]) the
      * editor works on a saved deck's own cards; with them it looks a list up in them, as the app does. */

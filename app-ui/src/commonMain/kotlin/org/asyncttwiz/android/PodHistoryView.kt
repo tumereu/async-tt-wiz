@@ -109,6 +109,10 @@ fun PodHistoryHeaderButton(controller: PodController, detail: PodDetail, self: S
 /** DRF-165 (owner, 2026-11-11): the "Returning packs only" chip of pod [pod]'s history, remembered on the device (personal UI). */
 private fun podHistoryReturningKey(pod: String) = "history-returning-$pod"
 
+/** A drafter's name in the draft history; without one "a player", reported as a stand-in (LOB-090). */
+fun podHistoryPlayerName(names: Map<String, String>, id: String): String =
+    org.asyncttwiz.automatum.PlayerNames.of(names, id, "a player", "PodHistoryView")
+
 /**
  * Draft history (DRF-165), full screen: every pick of yours in order under "Pack 1 · Pick 3", the pack as it came with
  * keeps green and burns red, and for a pack that came round again the cards taken since, greyed. Holding inspects. Each
@@ -133,7 +137,7 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
             ?: rounds.firstOrNull()?.first ?: 1
     } }
     val names = remember(players) { players.associate { it.accountId to it.username } }
-    val name = { id: String -> names[id] ?: "a player" }
+    val name = { id: String -> podHistoryPlayerName(names, id) }
     val seating = history?.seating.orEmpty()
     PodArtPrefetch(remember(history) { podHistoryPrefetchCards(history) }, known, preview.tileSize)
     Dialog(dismiss, DialogProperties(usePlatformDefaultWidth = false)) {

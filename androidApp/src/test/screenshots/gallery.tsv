@@ -312,6 +312,11 @@ number	item	screenshot	catalog	decisions	sequence
 316	Desktop draft: the quick look of a double-faced pack card	desktop/draft-quick-look.png	WEB-117		
 317	Draft: Stats Colors chart by cast cost, a multicolor card in each of its colors	pod-stats-colors.png	DRF-117 DRF-242		
 318	The main button says Resolve while the other player's spell is still shown, what comes once it lands	engine/main-button-during-play.png	TRN-163 TRN-165 TBL-203	
+320	Draft: the Rotisserie pool filtered by its popup (red, mana value 1), the button filled with a dot	pod-rotisserie-filter.png	DRF-250 DRF-252 DRF-253		Draft filter
+321	Desktop: Build filtered by its popup (Creature and "human"), only the matching cards in the columns	desktop/build-filter.png	WEB-120 DRF-251 DRF-254		Draft filter
+325	Draft: Custom booster setup with its list of passes	draft/setup-custom-booster.png	DRF-262 DRF-020		Custom booster
+326	Draft: Custom booster pick screen saying what the pass asks	draft/custom-booster-pick.png	DRF-263 DRF-260		Custom booster
+330	The other player's spell on the Stack, its "you" as their name: "Bob gains 2 life" under the band's main line	stack/opponent-you-named.png	STK-220 STK-057 STK-131	
 340	Desktop chat bubbles twice the size, shown with the chat dock open	desktop/chat-bubbles.png	WEB-137 WEB-138
 341	Attackers declared from a stack lie together in one pile beside the rest	battlefield/attackers-pile.png	TBL-230 CMB-070
 342	Holding the other player's face-down creature lists its counters and effects	states/face-down-inspect.png	TBL-231

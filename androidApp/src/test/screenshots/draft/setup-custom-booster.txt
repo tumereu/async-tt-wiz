@@ -1,0 +1,1 @@
+The creator's setup of a Custom booster pod from the Runes cube: its tiles (packs, pack size, open packs, Librarians, sideboard) and under them its six passes, pick 2 and burn 1 first, then four of pick 1, burn 1 and a last pick 1, each with its Pick and Burn buttons and a remove cross, then Add pass.

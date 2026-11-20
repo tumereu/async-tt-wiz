@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import org.asyncttwiz.automatum.PlayerNames
 import org.asyncttwiz.automatum.StackAbilityText
 import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.CombatStackRules
@@ -64,7 +65,7 @@ object StackLine {
     fun entryPieces(play: TableBoard, top: String, viewer: String, names: Map<String, String>): List<StackTextPiece>? {
         val effect = play.board.stackEffects.singleOrNull { it.id == top } ?: return null
         val item = effect.item ?: return null
-        val who = if (item.controller == viewer) "You" else names[item.controller] ?: "The other player"
+        val who = if (item.controller == viewer) "You" else PlayerNames.of(names, item.controller, "The other player", "StackLine")
         val card = CombatStackRules.inspection(play.board, top)
         val visible = card != null && !effect.faceDown && (effect.frozen != null || CardVisibility.isVisibleFaceUp(play.board, card, viewer))
         val face = if (!visible || card == null) null else play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
@@ -76,7 +77,7 @@ object StackLine {
             MtgStackKind.SpellCopy -> "$who's copy of ${name ?: unnamed(visible, "a spell", top)}"
             // D7: a copied ability by what it copies ("Copy of Bre of Clan Stoutarm's triggered ability")
             MtgStackKind.Activated, MtgStackKind.Triggered -> ability?.let { if (it.copy) it.name else "${it.source}'s ${it.kind.replaceFirstChar { c -> c.lowercase() }}" }
-                ?: "$who's ability"
+                ?: unnamed(visible, "$who's ability", top)
         }
         val engine = if (visible) StackAbilityText.decoded(item) else null
         // The effect with its targets in place (owner 2026-11-07); the targets it doesn't name follow it
@@ -87,7 +88,7 @@ object StackLine {
             engine != null -> null
             // A spell without the engine's data (a board made by hand): its first printed line, for an instant or sorcery
             item.kind == MtgStackKind.Spell && face != null && ("Instant" in face.typeLine || "Sorcery" in face.typeLine) ->
-                face.rulesText.lines().firstOrNull { it.isNotBlank() }?.let { listOf(StackTextPiece(StackAbilityText.short(it, name))) }
+                face.rulesText.lines().firstOrNull { it.isNotBlank() }?.let { StackTargetText.controllerWords(item, StackAbilityText.short(it, name), viewer, names) }
             else -> null
         }?.takeIf { it.plain().isNotEmpty() }
         // X shows filled into the effect; where the effect doesn't say it, after it

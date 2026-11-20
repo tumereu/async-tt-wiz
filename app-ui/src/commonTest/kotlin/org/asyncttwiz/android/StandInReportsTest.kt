@@ -1,5 +1,8 @@
 package org.asyncttwiz.android
 
+import arcanum.engine.decision.Decision
+import arcanum.engine.decision.DecisionId
+import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.Fault
 import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.MatchEnding
@@ -36,5 +39,33 @@ class StandInReportsTest {
         val faults = reported { assertEquals("Card data unavailable", cardDataUnavailable("PodGridView", "digest-1")) }
         assertEquals(listOf("PodGridView: draft card without its card data"), faults.map { it.key })
         assertEquals("digest-1", faults.single().details["definition"])
+    }
+
+    // LOB-090: a choice panel's player without a name reads "The other player", a draft history's "a player", both reported; named
+    // players and the viewer's own "You" are no stand-ins
+    @Test fun choicePanelAndDraftHistoryPlayersWithoutANameAreReported() {
+        val names = mapOf("a" to "Alice")
+        val faults = reported {
+            assertEquals("The other player", flowPlayerName("b", "a", names))
+            assertEquals("a player", podHistoryPlayerName(names, "c"))
+        }
+        assertEquals(listOf("SharedFlowPanel: player without a name", "PodHistoryView: player without a name"), faults.map { it.key })
+        assertEquals(listOf("b", "c"), faults.map { it.details["player"] })
+        assertEquals(emptyList(), reported {
+            assertEquals("You", flowPlayerName("a", "a", names))
+            assertEquals("Bob", flowPlayerName("b", "a", names + ("b" to "Bob")))
+            assertEquals("Alice", podHistoryPlayerName(names, "a"))
+        })
+    }
+
+    // LOB-090: a choice to name without its source reads "Automatum", reported; triggers of several sources are "Triggers" by design
+    @Test fun aChoiceWithoutItsSourceIsReported() {
+        val color = Decision.ChooseColor(DecisionId("c1"), PlayerId("a"), null, arcanum.api.Color.all)
+        val faults = reported { assertEquals("Automatum", sourcelessName(color)) }
+        assertEquals(listOf("SharedFlowPanel: choice without a source to name"), faults.map { it.key })
+        assertEquals("c1", faults.single().details["decision"])
+        assertEquals(emptyList(), reported {
+            assertEquals("Triggers", sourcelessName(Decision.OrderTriggers(DecisionId("o1"), PlayerId("a"), triggers = emptyList())))
+        })
     }
 }

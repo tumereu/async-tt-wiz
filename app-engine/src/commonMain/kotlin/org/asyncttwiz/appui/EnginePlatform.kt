@@ -34,6 +34,7 @@ expect fun osVersion(): String
 
 /** Log priorities, the platform log's own numbers (Android: android.util.Log's). */
 object LogPriority {
+    const val DEBUG = 3
     const val INFO = 4
     const val WARN = 5
     const val ERROR = 6

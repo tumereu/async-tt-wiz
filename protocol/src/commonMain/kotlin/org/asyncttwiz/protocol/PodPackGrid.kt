@@ -21,7 +21,7 @@ object PodPackGrid {
      * Null when the mode takes one set for the whole pod (Rotisserie opens boosters until its pool is full).
      */
     fun rows(settings: DraftSettings): List<Int>? = when (settings.mode) {
-        DraftMode.BOOSTER, DraftMode.GLIMPSE -> chunks(settings.packsPerPlayer, settings.packsOpenAtOnce)
+        DraftMode.BOOSTER, DraftMode.GLIMPSE, DraftMode.CUSTOM_BOOSTER -> chunks(settings.packsPerPlayer, settings.packsOpenAtOnce)
         DraftMode.GRID -> chunks(settings.grids, settings.gridsOpenAtOnce)
         DraftMode.ROCHESTER -> List(settings.packsPerPlayer.coerceAtLeast(1)) { 1 }
         DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED -> listOf(settings.packsPerPlayer.coerceAtLeast(1))

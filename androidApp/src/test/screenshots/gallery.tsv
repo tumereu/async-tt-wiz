@@ -306,3 +306,4 @@ number	item	screenshot	catalog	decisions	sequence
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
 315	Draft: "While you were away" in a Rotisserie pod	pod-rotisserie-away.png	DRF-239 DRF-240		
 316	Desktop draft: the quick look of a double-faced pack card	desktop/draft-quick-look.png	WEB-117		
+317	Draft: Stats Colors chart by cast cost, a multicolor card in each of its colors	pod-stats-colors.png	DRF-117 DRF-242		

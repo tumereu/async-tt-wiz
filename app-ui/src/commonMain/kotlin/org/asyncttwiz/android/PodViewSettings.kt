@@ -50,13 +50,22 @@ fun rememberPodBuildSideBySide(): PodBuildColumns {
     }
 }
 
-/** The Stats mana curve's view (DRF-111), Type or Color: personal, per device, Type until the player chooses. */
+/**
+ * The Stats mana curve's view (DRF-111), Type or Color, and what the colours go by (DRF-242), cast costs or colour
+ * identity: personal, per device, Type and cast costs until the player chooses.
+ */
 @Stable
 class PodStatsCurveChoice constructor(private val preferences: Preferences) {
     var byColor by mutableStateOf(preferences.getBoolean(KEY, false))
         private set
+    var byIdentity by mutableStateOf(preferences.getBoolean(IDENTITY_KEY, false))
+        private set
     fun choose(value: Boolean) { byColor = value; preferences.edit().putBoolean(KEY, value).apply() }
-    private companion object { const val KEY = "stats-curve-by-color" }
+    fun chooseIdentity(value: Boolean) { byIdentity = value; preferences.edit().putBoolean(IDENTITY_KEY, value).apply() }
+    private companion object {
+        const val KEY = "stats-curve-by-color"
+        const val IDENTITY_KEY = "stats-colors-by-identity"
+    }
 }
 
 @Composable

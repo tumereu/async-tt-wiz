@@ -246,11 +246,11 @@ class DesktopDraftScreenshotTest {
             .let { assertTrue(it.left >= column.left && it.right <= column.right, "$tag in its column: $it, $column") }
         inside("pod-stats-curve", left)
         inside("pod-stats-mana", left)
-        inside("pod-stats-donut-Colors", right)
+        inside("pod-stats-colors", right)
         inside("pod-stats-notes", right)
         inside("pod-stats-counter-7", right)
         captureShot("$SCREENSHOTS/desktop/stats.png",
-            "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width centred in the window, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the colours donut, notes and tally counters in the right.")
+            "Alice's Stats after a Booster draft on the desktop layout at 1440 × 900, with notes and counters she set: at Settings' readable width centred in the window, the curve with its Type | Color toggle, the counts, type rows and pips and sources in the left column, the Colors chart by cast cost, notes and tally counters in the right.")
     }
 
     // WEB-061: a desktop window too narrow for two columns shows Stats in one, as the phone does

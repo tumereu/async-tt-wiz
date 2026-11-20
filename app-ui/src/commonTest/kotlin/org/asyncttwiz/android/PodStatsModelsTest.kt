@@ -83,8 +83,8 @@ class PodStatsModelsTest {
         assertEquals(PodStatsManaShare(1.0, 0.0, 0.0), noSources[DraftColor.R])
     }
 
-    // DRF-111, DRF-230: the Color view's slots, by each card's colour as in the donut: gold is more than one colour, 7+ groups
-    @Test fun curveByColorGroupsSlotsAndCountsGoldAndColorlessLeavingLandsOut() {
+    // DRF-111, DRF-230: the Color view's slots, each card in one part by its cast costs: Multicolor is more than one colour, 7+ groups
+    @Test fun curveByColorGroupsSlotsAndCountsMulticolorAndColorlessLeavingLandsOut() {
         val definitions = mapOf("red" to card("Red", "Instant", "{1}{R}"), "red2" to card("Red Two", "Creature", "{R}{R}"),
             "gold" to card("Gold", "Creature", "{U}{R}"), "rock" to card("Rock", "Artifact", "{2}"),
             "huge" to card("Huge", "Creature", "{7}{G}"), "huger" to card("Huger", "Sorcery", "{9}{B}"),
@@ -100,7 +100,7 @@ class PodStatsModelsTest {
         assertEquals(counts(), curve["0"])
         // The same totals as the Type view, in every slot.
         assertEquals(stats.curveBuckets().mapValues { it.value.total }, curve.mapValues { it.value.values.sum() })
-        assertEquals(listOf("W", "U", "B", "R", "G", "Gold", "Colorless"), PodStatsColor.entries.map { it.podStatsCurveName() })
+        assertEquals(listOf("W", "U", "B", "R", "G", "Multicolor", "Colorless"), PodStatsColor.entries.map { it.podStatsCurveName() })
         assertTrue(podStats(PodDeckBuild(), emptyMap(), emptyMap()).curveColorBuckets().values.all { slot -> slot.values.all { it == 0 } })
     }
 
@@ -324,8 +324,8 @@ class PodStatsModelsTest {
         assertTrue(stats.colors.values.all { it == 0 })
     }
 
-    // DRF-117
-    @Test fun colorsCountEveryMainNonlandCopyByIdentityAndExcludeLandsBasicsSideAndMaybe() {
+    // DRF-117: a multicolor card counts in each of its colours and in Multicolor; shares are of the Main nonland cards
+    @Test fun colorsCountEveryMainNonlandCopyInEachOfItsColorsAndExcludeLandsBasicsSideAndMaybe() {
         val definitions = DraftColor.entries.associate { color -> color.name to card(color.name, "Creature", "{${color.name}}") } + mapOf(
             "gold" to card("Gold", "Instant", "{W/U}"),
             "colorless" to card("Rock", "Artifact", "{3}"),
@@ -340,11 +340,43 @@ class PodStatsModelsTest {
             else -> PodDeckCategory.MAIN
         }) }, PodDeckBasics(plains = 20))
         val stats = podStats(build, copies, definitions)
-        assertEquals(PodStatsColor.entries.associateWith { if (it == PodStatsColor.MULTICOLOR) 2 else 1 }, stats.colors)
-        assertEquals(8, stats.colors.values.sum())
-        assertEquals(.25, podStatsShares(stats.colors)[PodStatsColor.MULTICOLOR])
-        assertEquals(.125, podStatsShares(stats.colors)[PodStatsColor.COLORLESS])
+        // Two {W/U} copies: white, blue and multicolor each.
+        assertEquals(PodStatsColor.entries.associateWith { when (it) {
+            PodStatsColor.W, PodStatsColor.U -> 3
+            PodStatsColor.MULTICOLOR -> 2
+            else -> 1
+        } }, stats.colors)
+        assertEquals(8, stats.nonland)
+        assertEquals("2 · 25%", podStatsColorLine(stats.colors.getValue(PodStatsColor.MULTICOLOR), stats.nonland))
+        assertEquals("1 · 13%", podStatsColorLine(stats.colors.getValue(PodStatsColor.COLORLESS), stats.nonland))
+        assertEquals("0 · 0%", podStatsColorLine(0, 0))
         assertEquals(1, stats.missingDefinitions)
+    }
+
+    // DRF-242: by cast costs a mana rock adding red is colorless and a colour indicator counts nothing; by identity both count
+    // their colour; a modal double-faced card's back costs count, a reminder's symbols never
+    @Test fun colorsByCastCostLeaveRulesTextAndIndicatorsOutAndIdentityCountsThem() {
+        val definitions = mapOf(
+            "rock" to card("Rock", "Artifact", "{2}", "{T}: Add {R}."),
+            "indicator" to card("Indicator", "Creature"),
+            "modal" to CardDefinition("Modal", listOf(DefinitionFace("front", "Front", typeLine = "Instant", manaCost = "{1}{U}"),
+                DefinitionFace("back", "Back", typeLine = "Sorcery", manaCost = "{2}{B}"))),
+            "extort" to card("Extort", "Creature", "{W}", "Extort (You may pay {W/B}.)"),
+        )
+        val copies = definitions.keys.associateWith { DraftCopy(it, it, if (it == "indicator") setOf(DraftColor.G) else emptySet()) }
+        val stats = podStats(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }), copies, definitions)
+        fun counts(vararg counts: Pair<PodStatsColor, Int>) = PodStatsColor.entries.associateWith { color -> counts.toMap()[color] ?: 0 }
+        assertEquals(counts(PodStatsColor.W to 1, PodStatsColor.U to 1, PodStatsColor.B to 1, PodStatsColor.MULTICOLOR to 1,
+            PodStatsColor.COLORLESS to 2), stats.colors(byIdentity = false))
+        assertEquals(counts(PodStatsColor.W to 1, PodStatsColor.U to 1, PodStatsColor.B to 1, PodStatsColor.R to 1,
+            PodStatsColor.G to 1, PodStatsColor.MULTICOLOR to 1), stats.colors(byIdentity = true))
+        assertEquals(setOf(DraftColor.U, DraftColor.B), podStatsCostColors(definitions.getValue("modal")))
+        assertEquals(emptySet(), podStatsCostColors(definitions.getValue("rock")))
+        // The curve's Color view goes by the same choice, each card in one part.
+        assertEquals(counts(PodStatsColor.COLORLESS to 1, PodStatsColor.MULTICOLOR to 1), stats.curveColorBuckets(byIdentity = false)["2"])
+        assertEquals(counts(PodStatsColor.R to 1, PodStatsColor.MULTICOLOR to 1), stats.curveColorBuckets(byIdentity = true)["2"])
+        assertEquals(counts(PodStatsColor.COLORLESS to 1), stats.curveColorBuckets()["0"])
+        assertEquals(counts(PodStatsColor.G to 1), stats.curveColorBuckets(byIdentity = true)["0"])
     }
 
     // DRF-117

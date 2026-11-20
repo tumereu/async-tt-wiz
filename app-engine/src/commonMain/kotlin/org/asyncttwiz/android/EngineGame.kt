@@ -1994,7 +1994,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                 timing.worked = clock(); timing.info = (informationNanos() - info).coerceAtLeast(0); result.set(acted)
                 // Report DH3QX6: why nothing went out, and what the player's action was
                 if (acted is GameDevice.Acted.Refused) AppLog.info("engine",
-                    "Own $what refused: ${acted.reason.take(300)}; tip $tip; open ${device.model.engine.pending?.decision?.id?.value}; inputs ${inputs.toString().take(300)}")
+                    "Own $what refused: ${acted.reason.take(300)}; tip $tip; open ${device.model.engine.pending?.decision?.id?.value}; inputs ${inputs.toString().take(300)}" +
+                        // Problem report KZBKLR: what the information rule held back
+                        (if (acted.reason == GameDevice.REVEALS_HIDDEN) "; held back: ${device.heldBack?.take(300)}" else ""))
             }
             else {
                 // The rest of its event, worked out after its board was shown

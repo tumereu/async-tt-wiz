@@ -197,6 +197,28 @@ class LimitedEngineTest {
             assertEquals(listOf(x to board[0], y to board[1]), LimitedEngine.view(state, viewer).picks.map { it.player to it.cards.single()!!.id })
     }
 
+    // DRF-239: each pick tells its own player that it came from their queue (and was the queue's last card), and tells the member
+    // whose queue it cleared; nobody else learns either (the queue is private, DRF-164)
+    @Test fun rotisseriePicksTellTheViewerWhatHappenedToTheirQueue() {
+        val two = players.take(2)
+        var state = LimitedEngine.startFromCube(two, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
+        val (x, y) = state.seating
+        val board = state.board
+        state = assertNotNull(LimitedEngine.queue(state, y, listOf(board[1], board[2])).state)
+        // x picks by hand; y's two picks in a row empty y's queue: the second ran it out.
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[0]))
+        val ofY = LimitedEngine.view(state, y).picks
+        assertEquals(listOf(false, true, true), ofY.map { it.fromQueue })
+        assertEquals(listOf(false, false, true), ofY.map { it.queueRanOut })
+        assertTrue(LimitedEngine.view(state, x).picks.none { it.fromQueue || it.queueRanOut || it.clearedQueue })
+        // y queues again; x takes y's queued card: that pick cleared y's queue, and only y is told.
+        state = assertNotNull(LimitedEngine.queue(state, y, listOf(board[5], board[6])).state)
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[6]))
+        assertEquals(listOf(false, false, false, true), LimitedEngine.view(state, y).picks.map { it.clearedQueue })
+        assertTrue(LimitedEngine.view(state, x).picks.none { it.clearedQueue })
+        assertEquals(0, LimitedEngine.view(state, y).picksSeen)
+    }
+
     // DRF-164, DRF-217: queued picks play the draft to its end when everyone has queued enough.
     @Test fun rotisseriePickQueuesCanFinishTheDraft() {
         val two = players.take(2)

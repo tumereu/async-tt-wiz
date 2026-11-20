@@ -36,7 +36,7 @@ class DesktopDraftTest : E2e() {
     private fun marked(id: String, mark: String) =
         alice.shows(hasTestTag("pod-pick-card-$id") and SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, mark))
 
-    // WEB-044, WEB-093, WEB-028, WEB-036, DRF-060: a right-click burns a card, a click keeps another, K over a third keeps it instead,
+    // WEB-044, WEB-093, WEB-028, WEB-036, WEB-117, DRF-060: a right-click burns a card, a click keeps another, K over a third keeps it instead,
     // Enter confirms: the server takes the third card into Alice's pool. Owner playtest 2026-11-16: Confirm sits at the end of the
     // trays' row, not full width under them; WEB-062: the tabs share the header's row
     @Test fun aPickByClicksAndKeys() {
@@ -70,6 +70,8 @@ class DesktopDraftTest : E2e() {
         assertTrue(tabs.top >= header.top && tabs.bottom <= header.bottom, "the tabs in the header's row: $tabs, $header")
         card(keyed).performMouseInput { moveTo(center) }
         run()
+        // WEB-117 (owner 2026-11-19, D9): resting on the card shows its quick look
+        waitUntil("the quick look of the third card") { alice.shows(hasTestTag(org.asyncttwiz.android.QUICK_LOOK_TAG)) }
         assertTrue(alice.key("k", true), "K taken over the third card")
         alice.key("k", false)
         waitUntil("K kept the third instead") { marked(keyed, "Keep") && marked(clicked, "Unmarked") && marked(burned, "Burn") }

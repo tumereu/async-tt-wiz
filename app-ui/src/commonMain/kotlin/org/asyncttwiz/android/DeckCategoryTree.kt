@@ -127,11 +127,16 @@ fun DeckCategoryDialogs(controller: DeckLibraryController) {
             dismissError = controller::dismissError, title = "Move ${dialog.category.name}", actions = {
                 DialogCancelButton("Cancel", controller::dismissCategory, enabled = !state.categoryBusy)
             }) {
-            val excluded = DeckCategories.within(state.categories, listOf(dialog.category.id))
-            CategoryChoiceRow("Top level", 0, dialog.category.parent == null, !state.categoryBusy) { controller.moveCategory(null) }
-            for ((category, depth) in DeckCategories.ordered(state.categories).filter { it.first.id !in excluded })
-                CategoryChoiceRow(category.name, depth + 1, dialog.category.parent == category.id, !state.categoryBusy) {
-                    controller.moveCategory(category.id) }
+            CategoryTreeChoices(state.categories, "Top level", dialog.category.parent, !state.categoryBusy, nested = true,
+                excluded = DeckCategories.within(state.categories, listOf(dialog.category.id)), choose = controller::moveCategory)
+        }
+        // LOB-262: a deck moves to a category or the top level from its row, as a category does (LOB-245)
+        is CategoryDialog.MoveDeck -> ScreenDialog(controller::dismissCategory, busyMessage = busy, error = state.error,
+            dismissError = controller::dismissError, title = "Move ${dialog.deck.name}", actions = {
+                DialogCancelButton("Cancel", controller::dismissCategory, enabled = !state.categoryBusy)
+            }) {
+            CategoryTreeChoices(state.categories, "Top level", dialog.deck.category?.takeIf { id -> state.categories.any { it.id == id } },
+                !state.categoryBusy, nested = true, choose = controller::moveDeck)
         }
         is CategoryDialog.Delete -> ScreenDialog(controller::dismissCategory, busyMessage = busy, error = state.error,
             dismissError = controller::dismissError, title = "Delete category?", actions = {
@@ -148,6 +153,34 @@ fun DeckCategoryDialogs(controller: DeckLibraryController) {
 fun deleteCategoryNote(categories: List<DeckCategory>, category: DeckCategory): String =
     "Its decks and subcategories move up to " + (category.parent?.let { "“${DeckCategories.pathName(categories, it)}”" } ?: "the top level") +
         ". No deck is deleted."
+
+/**
+ * LOB-245, LOB-258, LOB-262: the choice of a category as a tree, [top] (the top level, or none) first and [current] marked;
+ * [nested]: the categories indented under [top], as places to move into. [excluded] categories aren't offered.
+ */
+@Composable
+fun CategoryTreeChoices(categories: List<DeckCategory>, top: String, current: String?, enabled: Boolean, nested: Boolean = false,
+    excluded: Set<String> = emptySet(), choose: (String?) -> Unit) {
+    val indent = if (nested) 1 else 0
+    CategoryChoiceRow(top, 0, current == null, enabled) { choose(null) }
+    for ((category, depth) in DeckCategories.ordered(categories).filter { it.first.id !in excluded })
+        CategoryChoiceRow(category.name, depth + indent, current == category.id, enabled) { choose(category.id) }
+}
+
+/** LOB-262: a saved deck row's ⋮ menu in Manage decks: Move to… (shown greyed while there is no category to move into). */
+@Composable
+fun DeckRowMenu(deck: DeckSummary, hasCategories: Boolean, open: (CategoryDialog) -> Unit, enabled: Boolean = true) {
+    var shown by remember { mutableStateOf(false) }
+    Box {
+        IconButton({ shown = true }, Modifier.size(48.dp).semantics { contentDescription = "${deck.name} options" }, enabled) {
+            Icon(screenIcon("more"), null)
+        }
+        DropdownMenu(shown, { shown = false }) {
+            DropdownMenuItem({ Text("Move to…") }, { shown = false; open(CategoryDialog.MoveDeck(deck)) },
+                leadingIcon = { Icon(screenIcon("switch"), null) }, enabled = hasCategories)
+        }
+    }
+}
 
 /** One choice of a list of categories as a tree (a single choice: [selected] marks the current one). */
 @Composable
@@ -190,9 +223,7 @@ fun DeckCategoryField(categories: List<DeckCategory>, chosen: String?, enabled: 
         Icon(screenIcon("chevron"), null, Modifier.size(20.dp))
     }
     if (open) ScreenDialog({ open = false }, title = "Category", actions = { DialogCancelButton("Cancel", { open = false }) }) {
-        CategoryChoiceRow("None", 0, chosen == null, true) { choose(null); open = false }
-        for ((category, depth) in DeckCategories.ordered(categories))
-            CategoryChoiceRow(category.name, depth, chosen == category.id, true) { choose(category.id); open = false }
+        CategoryTreeChoices(categories, "None", chosen, true) { choose(it); open = false }
         if (categories.isEmpty()) Text("Make categories on Manage decks' Decks tab with New category.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

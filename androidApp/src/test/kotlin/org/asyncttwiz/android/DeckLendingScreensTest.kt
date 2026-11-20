@@ -57,6 +57,33 @@ class DeckLendingScreensTest {
         compose.onNodeWithText("Its decks and subcategories move up to the top level. No deck is deleted.").assertIsDisplayed()
     }
 
+    // LOB-262: a saved deck's ⋮ offers Move to…, a small dialog naming the deck with the top level and the categories as a tree,
+    // its current place marked; a draft deck keeps its chevron, and with no category Move to… is greyed
+    @Test fun aDeckMovesFromItsRowMenu() {
+        val fixtures = ScreenFixtures()
+        val pauper = deck("d-pauper", "Pauper night", casual.id)
+        fixtures.library.seed(DeckLibraryState(loaded = true, categories = listOf(box, red, green, casual), expanded = setOf(casual.id),
+            decks = listOf(pauper, deck("d-training", "Training deck")),
+            draftDecks = listOf(deck("d-draft", "Friday pod draft").copy(draft = DraftDeckOrigin("pod-1", "Friday pod")))))
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
+            ShellContent(ShellDestination.DECKS, true, {}, {}, null, fixtures.importer, fixtures.library, fixtures.lobby, "a") } } }
+        compose.onNodeWithContentDescription("Friday pod draft options").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Pauper night options").performClick()
+        compose.onNodeWithText("Move to…").performClick()
+        compose.onNodeWithText("Move Pauper night").assertIsDisplayed()
+        compose.onNode(hasText("Casual") and isSelectable()).assertIsSelected()
+        compose.onNode(hasText("Top level") and isSelectable()).assertIsNotSelected()
+        compose.onNode(hasText("Red") and isSelectable()).assertIsDisplayed()
+        captureShot("$SCREENSHOTS/lending/move-deck.png", "Portrait Manage decks, Decks tab: the Pauper night deck's ⋮ tapped and " +
+            "Move to… chosen: the Move Pauper night dialog lists Top level and the categories as a tree (Battle box with Green and Red " +
+            "under it, Casual), Casual marked as where the deck is now.")
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Move Pauper night").assertDoesNotExist()
+        fixtures.library.seed(fixtures.library.state.copy(categories = emptyList()))
+        compose.onNodeWithContentDescription("Training deck options").performClick()
+        compose.onNodeWithText("Move to…").assertIsNotEnabled()
+    }
+
     // LOB-247, LOB-248, LOB-249, LOB-250, LOB-251, LOB-254: the creator's Decks group, lending a category, Random on
     @Test fun theCreatorSetsTheDeckSettings() {
         val fixtures = ScreenFixtures()

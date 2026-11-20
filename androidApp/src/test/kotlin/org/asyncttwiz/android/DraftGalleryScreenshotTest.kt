@@ -130,6 +130,10 @@ class DraftGalleryScreenshotTest {
         show(opened(detail))
         compose.onNodeWithTag("pod-arena-summary").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Only 2 mythic rares for offers of 5: filled up from rares").assertIsDisplayed()
+        // DRF-281 (owner gallery review, 2026-11-20): "Uncommon every" fits its tile on one line as the other tiles' labels do
+        val uncommon = compose.onNodeWithText("Uncommon every").fetchSemanticsNode().boundsInRoot
+        val rare = compose.onNodeWithText("Rare every").fetchSemanticsNode().boundsInRoot
+        kotlin.test.assertEquals(rare.height, uncommon.height, 0.5f, "one line, as Rare every: $uncommon, $rare")
         shot("setup-arena", "The creator's setup of an Arena pod from the Runes cube with the defaults: tiles for 45 picks, " +
             "offers of 5 cards, take 1, rare every 10th and uncommon every 4th pick, mythic 1/8 and the sideboard, the Ignore rarity " +
             "and Reuse cards toggles off, then the summary: the format, 4 rare, 9 uncommon and 32 common picks for 45 cards each, " +

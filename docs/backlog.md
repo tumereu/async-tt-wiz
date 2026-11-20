@@ -21,7 +21,6 @@ Fixes and small changes:
 - Deck categories: a deck gets its own "Move to…" (a category or the top level) in Manage decks, so decks can be sorted without opening each; the editor's Category row stays (LOB-258, LOB-245; new entry).
 - Token kind explanations in the rules reminders read more like MTG's own reminder text and spell out what the token is, as a real card's hint does ("It's an artifact token with …") (TBL-209).
 - Stats colours become a pie: one slice per single colour and one per each multicolour combination the deck holds (striped in its colours, gold for three or more), each card counted once; the Cast cost | Identity toggle stays (DRF-117, DRF-242).
-- Arena setup: the "Uncommon every" tile's label wraps onto two lines; make it fit as the other tiles' do (DRF-281; no entry change).
 - Web app: a built-in file (fonts and the like) that fails to load is tried again a couple of times before "ATW couldn't load" shows (WEB-005).
 
 Features, in this order:

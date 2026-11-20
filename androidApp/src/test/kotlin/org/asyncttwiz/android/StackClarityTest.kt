@@ -86,8 +86,8 @@ class StackClarityTest {
             "Alice tapped the Stack holding Bob's Storm Spark: the list's row shows the Spark and, under its name, its text with Bob's target named in it, \"Storm Spark deals 3 damage to Ember Cub.\", the Cub's name in her green.")
     }
 
-    // STK-057, STK-130, STK-133, STK-018 (test and screenshots only): Bob casts Cinder Charm choosing its second mode; at Alice's pause the line
-    // says the chosen mode, not the card's whole text, and the Stack list's row shows it
+    // STK-057, STK-130, STK-133, STK-018, STK-220 (test and screenshots only): Bob casts Cinder Charm choosing its second mode; at Alice's
+    // pause the line says the chosen mode, not the card's whole text, its "you" as Bob, and the Stack list's row shows it
     @Test fun anOpponentsModalSpellShowsItsChosenMode() {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.CHARM, "Mountain"))))
         kit.opening()
@@ -96,14 +96,28 @@ class StackClarityTest {
         kit.bobCasts(Choices.CHARM, free = true) { d -> if (d is arcanum.engine.decision.Decision.Modes) arcanum.engine.decision.Answer.Modes(listOf(1)) else null }
         toBobsEntry(kit) { s -> s.stackItems[s.stack.last()]?.kind == StackItemKind.Spell }
         render(kit)
-        compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast ${Choices.CHARM} · you gain 2 life"))
+        compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast ${Choices.CHARM} · Bob gains 2 life"))
         captureShot("$SCREENSHOTS/stack/opponent-mode-line.png",
-            "Bob cast Cinder Charm choosing its second mode and Alice holds priority: the band under his hand says \"Bob cast Cinder Charm\" with \"you gain 2 life\" small under it, only the chosen mode (its own words: \"you\" is Bob).")
+            "Bob cast Cinder Charm choosing its second mode and Alice holds priority: the band under his hand says \"Bob cast Cinder Charm\" with \"Bob gains 2 life\" small under it, only the chosen mode, the card's \"you\" as Bob's name.")
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Mode: You gain 2 life.", substring = true).assertExists()
+        compose.onNodeWithText("Mode: Bob gains 2 life.", substring = true).assertExists()
         captureShot("$SCREENSHOTS/stack/opponent-mode-list.png",
-            "Alice tapped the Stack holding Bob's Cinder Charm: its row shows the card's text and under it the chosen mode, \"Mode: You gain 2 life.\"")
+            "Alice tapped the Stack holding Bob's Cinder Charm: its row shows the card's text, its \"you\" as Bob, and under it the chosen mode, \"Mode: Bob gains 2 life.\"")
+    }
+
+    // STK-220, STK-057, STK-131 (owner 2026-11-19: "you" in the other player's line read as if it meant the viewer): Bob casts Ember Flare
+    // ("You gain 2 life."); at Alice's pause the band says "Bob gains 2 life", his name in his colour
+    @Test fun anOpponentsYouReadsAsTheirName() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.FLARE, "Mountain"))))
+        kit.opening()
+        kit.playLand()
+        kit.bobCasts(Choices.FLARE, free = true)
+        toBobsEntry(kit) { s -> s.stackItems[s.stack.last()]?.kind == StackItemKind.Spell }
+        render(kit)
+        compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast ${Choices.FLARE} · Bob gains 2 life"))
+        captureShot("$SCREENSHOTS/stack/opponent-you-named.png",
+            "Bob cast Ember Flare (\"You gain 2 life.\") and Alice holds priority: the band under his hand says \"Bob cast Ember Flare\" with \"Bob gains 2 life\" small under it, the card's \"you\" as Bob's name in his red.")
     }
 
     // STK-057, STK-130, STK-133, STK-018 (test and screenshots only): Bob casts Ember Burst with X = 1 at Alice; at her pause the line fills X in

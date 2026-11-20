@@ -1,6 +1,9 @@
 package org.asyncttwiz.android
 
 import androidx.compose.ui.graphics.Color
+import org.asyncttwiz.appui.Synchronized
+import org.asyncttwiz.automatum.ControllerWords
+import org.asyncttwiz.automatum.PlayerNames
 import org.asyncttwiz.automatum.TargetedText
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.MtgRef
@@ -39,7 +42,8 @@ object StackTargetText {
         var before = ""
         return text.parts.flatMap { part ->
             when (part) {
-                is TargetedText.Part.Plain -> listOf(StackTextPiece(part.text)).also { before += part.text }
+                // STK-220: the other player's own "you" and "your" as their name
+                is TargetedText.Part.Plain -> controllerWords(item, part.text, viewer, names, before).also { before += part.text }
                 is TargetedText.Part.Targets -> {
                     // A phrase that is its clause's subject ("Target player draws two cards") names the viewer by their
                     // own name, so the verb still agrees; elsewhere ("… deals 3 damage to you") they read as [you].
@@ -50,6 +54,36 @@ object StackTargetText {
                 }
             }
         }
+    }
+
+    /**
+     * STK-220, STK-221 (owner 2026-11-19): [text] of [item] (after [before] in its line) as [viewer] reads it: the other
+     * player's own "you", "your" and "yours" as their name ([ControllerWords]), coloured as a named player is; [viewer]'s
+     * own entries as printed. Each new rewrite is logged (problem-report logging rule).
+     */
+    fun controllerWords(item: MtgStackItem, text: String, viewer: String, names: Map<String, String>, before: String = ""): List<StackTextPiece> {
+        if (item.controller == viewer || !YOU.containsMatchIn(text)) return listOf(StackTextPiece(text))
+        val name = PlayerNames.of(names, item.controller, "the other player", "StackTargetText")
+        val pieces = ControllerWords.parts(text, name, before).map { part ->
+            when (part) {
+                is ControllerWords.Part.Plain -> StackTextPiece(part.text)
+                is ControllerWords.Part.Name -> StackTextPiece(part.text, item.controller)
+            }
+        }
+        logged(item, text, pieces.plain())
+        return pieces
+    }
+
+    private val YOU = Regex("""\b[Yy]ou""")
+    /** The rewrites logged lately, so a line built again for every board says it once. */
+    private val recent = ArrayDeque<String>()
+
+    @Synchronized private fun logged(item: MtgStackItem, text: String, shown: String) {
+        val key = "$text|$shown"
+        if (key in recent) return
+        recent.addLast(key)
+        if (recent.size > 64) recent.removeFirst()
+        AppLog.debug("stack-text", "Controller's words of ${item.kind} ${item.id} by ${item.controller.take(8)}: \"$text\" -> \"$shown\"")
     }
 
     /** The targets of [item] [text] doesn't name, in the order they were chosen. */

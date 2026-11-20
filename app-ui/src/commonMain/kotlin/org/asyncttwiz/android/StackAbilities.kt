@@ -128,7 +128,8 @@ object StackAbilities {
             }
         }
         val targeted = engine?.let { StackAbilityText.targetedText(it, rulesText) }
-            ?: return ability?.text?.takeIf { it.isNotEmpty() }?.let { StackEntryText(listOf(StackTextPiece(it)), item.targets.values.flatten().distinct()) }
+            ?: return ability?.text?.takeIf { it.isNotEmpty() }?.let {
+                StackEntryText(StackTargetText.controllerWords(item, it, viewer, names), item.targets.values.flatten().distinct()) }
         val pieces = StackTargetText.pieces(play, item, targeted, viewer, names)
         if (pieces.plain().isBlank()) return null
         return StackEntryText(pieces, StackTargetText.unplaced(item, targeted))
@@ -149,7 +150,8 @@ object StackAbilities {
      */
     fun details(play: TableBoard, entryId: String, viewer: String, names: Map<String, String>, shown: StackEntryText? = null): List<String> {
         val item = play.board.stackEffects.singleOrNull { it.id == entryId }?.item ?: return emptyList()
-        val modes = StackAbilityText.modes(item)
+        // STK-220: the other player's chosen modes name them where they say "you"
+        val modes = StackAbilityText.modes(item).map { StackTargetText.controllerWords(item, it, viewer, names).plain() }
         val targets = (shown?.unplaced ?: item.targets.values.flatten()).map { targetName(play, it, viewer, names) }
         return listOfNotNull(
             modes.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = if (modes.size == 1) "Mode: " else "Modes: ")) +

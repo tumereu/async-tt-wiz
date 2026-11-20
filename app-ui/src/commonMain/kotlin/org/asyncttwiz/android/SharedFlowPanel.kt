@@ -81,7 +81,7 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
     val flow = flows.flowOn(play) ?: return
     var confirm by remember(IdentityKey(play.board)) { mutableStateOf(false) }
     val viewer = toolkit.viewer
-    fun name(player: String) = if (player == viewer) "You" else names[player] ?: "The other player"
+    fun name(player: String) = flowPlayerName(player, viewer, names)
     val decision = flow.decision
     val holder = flow.priority
     // HIS-112, STK-058, TBL-125 (owner playtest 2026-11-15: "'You may pay' was asked before the trigger had animated to its
@@ -480,10 +480,21 @@ private fun faceName(play: TableBoard, card: PlayCard): String? =
 /** The decision's source ([source], its own by default) by name: the card or ability it is about. */
 private fun sourceName(flows: SharedFlowController, flow: SharedShown, play: TableBoard, decision: Decision,
     source: ObjectId? = decision.source): String {
-    source ?: return if (decision is Decision.OrderTriggers) "Triggers" else "Automatum"
+    source ?: return sourcelessName(decision)
     if (source is ObjectId.StackItem) flow.state.stackItems[source]?.source?.let { return objectName(flows, play, it) }
     return objectName(flows, play, source)
 }
+
+/** What names the source of [decision] when it has none: triggers of several sources are "Triggers" by design; any other
+ * choice is a fault, reading "Automatum" (LOB-090). */
+fun sourcelessName(decision: Decision): String = if (decision is Decision.OrderTriggers) "Triggers"
+    else org.asyncttwiz.protocol.Faults.placeholder("SharedFlowPanel", "choice without a source to name", "Automatum",
+        mapOf("decision" to decision.id.value, "kind" to (decision::class.simpleName ?: "")))
+
+/** A player an open choice's panel names: "You" for [viewer], else their name; without one "The other player", reported
+ * (LOB-090). */
+fun flowPlayerName(player: String, viewer: String, names: Map<String, String>): String =
+    if (player == viewer) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, player, "The other player", "SharedFlowPanel")
 
 /** Whether [decision]'s panel shows the sentence it asks about itself (STK-030): a "you may" its sentence, a search its
  * title (STK-056), a skipped step its text, triggers to order their own lines; every other question of an ability shows

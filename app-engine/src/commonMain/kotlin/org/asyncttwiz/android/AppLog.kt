@@ -18,6 +18,8 @@ object AppLog {
 
     /** Loads lines persisted before a restart or crash. */
     fun install(file: File) { buffer = LogBuffer(file) }
+    /** Detail kept for problem reports ("D" in the log): for lines that explain a report, written only when they say something new. */
+    fun debug(tag: String, message: String) = write(LogPriority.DEBUG, tag, message, null)
     fun info(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.INFO, tag, message, failure)
     fun warn(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.WARN, tag, message, failure)
     fun error(tag: String, message: String, failure: Throwable? = null) = write(LogPriority.ERROR, tag, message, failure)
@@ -55,7 +57,7 @@ class LogBuffer(private val file: File?, private val maxBytes: Int = 256 * 1024,
     }
 
     @Synchronized fun add(priority: Int, tag: String, message: String, failure: Throwable? = null): String {
-        val level = when (priority) { LogPriority.ERROR -> 'E'; LogPriority.WARN -> 'W'; else -> 'I' }
+        val level = when (priority) { LogPriority.ERROR -> 'E'; LogPriority.WARN -> 'W'; LogPriority.DEBUG -> 'D'; else -> 'I' }
         val detail = failure?.let { if (priority == LogPriority.ERROR) "\n" + it.stackTraceToString().take(8_000) else " | " + summary(it) }.orEmpty()
         val line = redactLog("${now()} $level/$tag: $message$detail").take(16_000).replace("\n", "\n$INDENT")
         keep(line)

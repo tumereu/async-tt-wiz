@@ -78,7 +78,7 @@ object PlayShows {
         val entry = "entry:${show.entry}"
         val effect = play.board.stackEffects.firstOrNull { it.id == entry }
         val own = show.by.value == viewer
-        val who = if (own) "You" else names[show.by.value] ?: "The other player"
+        val who = if (own) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, show.by.value, "The other player", "PlayShows")
         val line = effect?.let { StackLine.entryPieces(play, entry, viewer, names) }
         val cardId = show.card?.value
         val card = (if (effect != null) CombatStackRules.inspection(play.board, entry) else null)

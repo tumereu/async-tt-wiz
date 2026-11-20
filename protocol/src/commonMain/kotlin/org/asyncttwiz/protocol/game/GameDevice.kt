@@ -2157,6 +2157,9 @@ class GameDevice(
         // TRN-065, HIS-084: an OK on the result isn't an action Undo goes back to: it goes with the result
         if (input == null) return e.table.any { it !is TableChange.LineMoved && it !is TableChange.ResultOk }
         if (input is Input.PassPriority) return e.press == MainPress.EndTurn
+        // The game's first event is the server's start, never a player's action, though it carries the author whose Ready
+        // started the game: a game loaded from before it holds it on the line, and Undo went back to the root (refused)
+        if (input is Input.StartGame) return false
         origins[e.id]?.let { return it }
         return when (input) {
             is Input.PlayLand -> input.player == me

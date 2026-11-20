@@ -1,0 +1,1 @@
+mod: A prepared creature's spell is cast from the creature itself, like one of its abilities, instead of from the end of your hand

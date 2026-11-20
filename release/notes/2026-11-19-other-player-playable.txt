@@ -1,0 +1,1 @@
+add: A chip by the other player's life shows how many cards they may play from their graveyard, exile or the top of their library; tap it to see them

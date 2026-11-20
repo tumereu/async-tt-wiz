@@ -168,7 +168,9 @@ class TableChangesScreenshotTest {
         val play = LiveTableFixture.menuPlay()
         val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", 412f, 892f, false,
             appearance = CardAppearance(cardSize = MIN_CARD_SCALE))
-        val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.owner == "a" && !it.covered }
+        // A card alone (TBL-177, owner 2026-11-19: in the fixture's Forest stack the tapped one now covers the untapped one's bottom)
+        val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.owner == "a" && !it.covered &&
+            it.group?.startsWith("card:") == true }
         val changes = TableChanges { 0L }
         compose.setContent { MaterialTheme {
             TableSurface(LiveTableFixture.game, tableBoard(play), "a", false, runtime = TableRuntimeHooks(changes = changes))

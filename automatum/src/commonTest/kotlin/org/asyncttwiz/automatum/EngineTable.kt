@@ -85,6 +85,12 @@ internal class EngineTable(
     /** The engine object of the card [cardId] where it is. */
     fun obj(cardId: String): ObjectId.Card = objects.keys.filterIsInstance<ObjectId.Card>().single { it.card.value == cardId }
 
+    /** Changes the engine object of the card [cardId] (a mark, face down) before [state] is read. */
+    fun update(cardId: String, change: (GameObject) -> GameObject) {
+        val id = obj(cardId)
+        objects[id] = change(objects.getValue(id))
+    }
+
     /** The game's engine state now (a fresh copy each time). */
     fun state(): GameState = GameState.of(
         players = listOf(alice, bob).map { p ->

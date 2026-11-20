@@ -39,6 +39,21 @@ class PodAwayModelsTest {
         assertEquals("Pick 3 · You · Card 2 · from your queue", podAwayPickText(away.picks[1], "alice", listOf(alice, bob), definitions))
     }
 
+    // DRF-239, LOB-090 (owner rule 2026-11-11: a stand-in shown is a fault): a picker without a name reads "Another player" and is
+    // reported; so does a table chip's
+    @Test fun aPickerWithoutANameIsReported() {
+        val faults = mutableListOf<Fault>()
+        val sink = Faults.sink
+        Faults.sink = { faults += it }
+        try {
+            val away = podRotisserieAway(view(LimitedPickView("bob", listOf(copy(0)))), 0)!!
+            assertEquals("Pick 1 · Another player · Card 0", podAwayPickText(away.picks[0], "alice", listOf(alice), definitions))
+            assertEquals("Table 1 · Another player picks", podTableChipText(0, LimitedTableView("bob", 0, 0, emptyList()), "alice", listOf(alice)))
+        } finally { Faults.sink = sink }
+        assertEquals(listOf("PodAwayView", "PodLimitedView"), faults.map { it.area })
+        assertEquals("Another player", faults.first().details["shown"])
+    }
+
     // DRF-240: nothing to tell when every pick is seen, when the only new picks are your own by hand, and outside Rotisserie
     @Test fun nothingToTell() {
         val picks = arrayOf(LimitedPickView("bob", listOf(copy(0))), LimitedPickView("alice", listOf(copy(1))))

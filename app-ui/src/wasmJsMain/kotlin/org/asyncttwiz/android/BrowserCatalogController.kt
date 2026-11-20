@@ -63,6 +63,7 @@ class BrowserCatalogController(storage: BrowserStorage, origin: String, private 
 
     private suspend fun work() {
         val clock = TimeSource.Monotonic
+        val started = clock.markNow()
         var last = clock.markNow()
         var phase: CatalogPhase? = null
         var persisting = false
@@ -87,6 +88,9 @@ class BrowserCatalogController(storage: BrowserStorage, origin: String, private 
             if (!kept) AppLog.warn("catalog", "Card records couldn't be kept in this browser " +
                 "(${if (keptForLaterVisits) "its storage refused them" else "no IndexedDB"}); they download again next visit")
             if (!closed) state = CatalogUiState(installed, ready = true, kept = kept)
+            // WEB-009 (owner playtest 2026-11-20): how long the start held back what reads card records
+            AppLog.info("catalog", "Card records ready ${started.elapsedNow().inWholeMilliseconds} ms after the start")
+            installer.prepareSearch()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {

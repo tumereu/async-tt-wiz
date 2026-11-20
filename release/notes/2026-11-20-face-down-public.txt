@@ -1,0 +1,1 @@
+fix: Holding a face-down creature now lists its counters and the effects on it for both players; only what the card is stays hidden.

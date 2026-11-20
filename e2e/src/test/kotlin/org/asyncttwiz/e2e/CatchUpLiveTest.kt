@@ -64,7 +64,7 @@ class CatchUpLiveTest : E2e() {
         assertTrue(bob.leaks.leaks.isEmpty() && alice.leaks.leaks.isEmpty())
     }
 
-    // HIS-105, HIS-097: at his playback's stop at Alice's spell Bob casts his Idle Glimmer from his hand instead of letting
+    // HIS-105, HIS-097, STK-213: at his playback's stop at Alice's spell Bob casts his Idle Glimmer from his hand instead of letting
     // it resolve: the game branches (her later actions are taken back, with the note on her table) and goes on from his
     // answer
     @Test fun anotherAnswerAtAStopBranches() {
@@ -83,6 +83,12 @@ class CatchUpLiveTest : E2e() {
         // HIS-106, HIS-190: her table stops at the branch point; her tap plays Bob's answer back
         alice.continuesPastBranchStop(this)
         assertTrue(alice.engine { device.session.events }.none { it.id == cast.next.id }, "the assumed line is discarded")
+        // STK-213 (owner 2026-11-19): Alice cast her Herald in this step, so with Bob's Glimmer on top her pass is her own press,
+        // never her phone's: she resolves it as a player would
+        waitUntil("Alice's own Resolve over Bob's Glimmer") {
+            where(alice.shown.board, glimmer) == "STACK" && alice.status == GameDevice.Status.YourMove && alice.stepArrow() == "Resolve"
+        }
+        alice.tap("Resolve")
         // HIS-096, HIS-175, HIS-176, HIS-177 point ownership (owner 2026-11-07: the rule exactly as specified): once his Glimmer resolves, Bob has
         // priority with her Herald still on the Stack. The last real input before that point was his Glimmer (passes don't
         // count), so the point is his: only his response mode decides, his Quick mode stops there (he could still respond),

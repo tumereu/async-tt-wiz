@@ -10,6 +10,36 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+### Post-0.3.0 (owner, 2026-11-20)
+
+Fixes and small changes:
+
+- Special actions read like abilities: cost first, then ":", then what it does, in the card menu and wherever else they are named ("{2}{U}: Turn face up", "{3}{R}: Unlock Dusty Attic", "{2}: Foretell" instead of the full reminder sentence), for every special action (TBL-115).
+- Special actions that don't use the Stack (unlocking a door, turning face up, foretell, plot, suspend …) show large in the middle of the board as abilities do, then fly into their own card instead of to the Stack, and the card does its short flash once the fly ends; one rule for all of them (HIS-112, HIS-031).
+- Pod notifications: a pod's news ("Decks ready", "Draft cancelled" …) clears on every device once you have opened the pod on any one; and one notification per pod: a pod challenge and "Draft complete: build your deck" never both show for the same pod (LOB-243, DRF-138, DRF-137, DRF-122).
+- Vibration on your move gets its own setting in the Android app, no longer tied to the Your move sound (TRN-075, LOB-146; new entry).
+- Deck categories: a deck gets its own "Move to…" (a category or the top level) in Manage decks, so decks can be sorted without opening each; the editor's Category row stays (LOB-258, LOB-245; new entry).
+- Arena from a set offers snow-covered basics and Wastes as ordinary cards when the set's boosters hold them; the five plain basics never (DRF-286).
+- Token kind explanations in the rules reminders read more like MTG's own reminder text and spell out what the token is, as a real card's hint does ("It's an artifact token with …") (TBL-209).
+- Draft filter: multicolour is a golden M chip in the colour chips' row (no row of its own), named "Multicolor" as on Stats (DRF-252).
+- Stats colours become a pie: one slice per single colour and one per each multicolour combination the deck holds (striped in its colours, gold for three or more), each card counted once; the Cast cost | Identity toggle stays (DRF-117, DRF-242).
+- Arena setup: the "Uncommon every" tile's label wraps onto two lines; make it fit as the other tiles' do (DRF-281; no entry change).
+- Draft filter rarity chips: a set's special and bonus cards count under the rarity they belong to in Arena (DRF-291), not their own printing's (DRF-252).
+- Web app: a built-in file (fonts and the like) that fails to load is tried again a couple of times before "ATW couldn't load" shows (WEB-005).
+
+Features, in this order:
+
+1. Hover sweep (desktop): everything that can be clicked (hand cards, Undo, the main button, Resolve …) answers the pointer with a hover look, beyond today's hand pointer (WEB-058; new entries).
+2. A text log of the game's events, keeping the players' colours on names, targets and the like (HIS-091's texts; new entries).
+3. Resizable panels: the large panels with scrolling content (the cast panel, choices) get a drag handle, with one size shared by all of them and remembered (STK-023, WEB-082; new entries).
+4. Draft bots, in place of burns: drafters that pick by a simple heuristic (no outside pick data), plus a debug-build-only setting that shows the bot's score for each card and its pick on the draft screen, so the owner can draft as the bot and judge the deck (new entries).
+5. Gallery clips of key animations, for the owner's gallery review beside the screenshots (no catalog entry).
+6. Rules pass on set-work approximations: Wizard's Sanction, Sandyman, Arathorn, Berilac, Simic Manipulator, Oubliette and Dread of Abduction play exactly by the rules (no catalog entry; each fix with its rule test).
+
+- Test reliability (internal; no catalog entry): the e2e harness's declare and pickBlocker taps don't wait for the main button's Automatum worker (StagingFromStackTest's declared-attackers case depends on it); and tests that fail under load but pass on a rerun: CastDroppedOnRewindTest, StableDecisionIdTest, TurnBannerTest, EmblemInspectTest, WebNotificationsTest (socket error to the local server) and the screen tests' "Compose did not get idle" (PodCubePreparationTest, CardListEditorUiTest, the desktop deck editor and table stack).
+
+### Earlier
+
 Desktop playtest notes (owner, 2026-11-14): high priority.
 
 - Desktop battlefield cards at least twice today's size (the rest of the desktop default sizes is built, 2026-11-14): waits for the owner's choice, since at 4× the six battlefield rows don't fit a 1440 × 900 or 1920 × 1080 window even at the opening's 0.65× (TBL-121), so the table opens with both land rows out of view (gallery: desktop/table-battlefield-4x.png). Meanwhile, with the taller seat headers, hand band and top row, the 2× battlefield cards open smaller at 1440 × 900 than before (the rows fit: about 56 px tall, 72 before; at 1920 × 1080 about 78, 80 before). Options: the desktop opening shows your own battlefield whole (the other player's land row out of view); a lower least zoom on the desktop so the rows fit (cards then only as large as fit); fewer rows on the desktop; or the battlefield stays 2× (the Card size slider gives 4×) (WEB-022, TBL-121, TBL-010).
@@ -43,6 +73,9 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
 - Cost phrase highlight (STK-047; owner 2026-11-12, Demonmail Hauberk's "Sacrifice a creature" while picking the sacrifice): didn't reproduce on 2026-11-12 (the parser's spans and the pick bar light "a creature" as STK-047 says). Owner 2026-11-13: wait until it happens again; it may have been a misreading of the UI or a UX problem that further playtesting shows.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
+- Parked until the owner has tested 0.3.0: the bubbles saying why something shook may get in the way; maybe the shake alone is enough (TBL-212).
+- Parked until the owner has tested 0.3.0: a stack whose cards are all tapped counts "0/3" (TBL-054).
+- Parked until the owner has tested 0.3.0: the desktop quick look works on every draft card (every mode's cards and the Picks dialog), not only the pack you pick from (WEB-117).
 
 ## Specified, not started
 

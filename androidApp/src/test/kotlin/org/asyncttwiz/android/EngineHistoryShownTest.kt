@@ -124,6 +124,24 @@ class EngineHistoryShownTest {
         assertEquals(GameDevice.Status.CatchUp, away.load(f.b, live = true).device.status, "away, the catch-up pause stays")
     }
 
+    // HIS-006 (merge gate 2026-11-20, CoreLoopTest: Alice's turn played back a second time): Bob's live table has shown Alice's land, but
+    // the server hasn't heard so yet (his report not sent); the game loads again while his table is live, at the server's
+    // older local head of his: what he had seen shows again at once instead of playing back, and his report goes out
+    @Test fun loadedAgainLiveWhatTheTableShowedDoesntPlayBackAgain() {
+        val sim = EngineAppSim(f)
+        val (alice, bob) = bothKeepThenBobAway(sim)
+        playLand(sim, alice)
+        sim.deliver(f.b)
+        bob.playToStop()
+        val shown = bob.device.session.localHead
+        val server = sim.heads.getValue(f.b)
+        assertNotEquals(server, shown, "the server's local head of Bob's is behind what his table showed")
+        val again = sim.load(f.b, live = true)
+        assertEquals(shown, again.device.session.localHead, "what he had seen isn't played back")
+        sim.flush(f.b)
+        assertEquals(shown, sim.heads.getValue(f.b), "the server hears what he has seen")
+    }
+
     // HIS-006: on a live table the other player's actions show without timeline mode, which starts only when entered;
     // the player's own actions show live at once
     @Test fun onALiveTableTheOtherPlayersActionsKeepItLive() {

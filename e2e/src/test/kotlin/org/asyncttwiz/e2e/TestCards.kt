@@ -274,6 +274,10 @@ object TestCards {
     val scouting = card("Ember Scouting", "Sorcery", "{0}", "Reveal cards from the top of your library until you reveal a land card. Put that card into your hand and the rest on the bottom of your library in a random order.")
     /** A free sorcery whose resolution stops on the top two library cards: which one is manifested (report DH3QX6). */
     val dread = card("Ember Dread", "Sorcery", "{0}", "Manifest dread.")
+    /** TBL-231: a free sorcery that manifests the top card of its caster's library (nothing to choose). */
+    val summons = card("Ember Summons", "Sorcery", "{0}", "Manifest the top card of your library.")
+    /** TBL-231: a free sorcery putting a +1/+1 counter on a creature. */
+    val boon = card("Ember Boon", "Sorcery", "{0}", "Put a +1/+1 counter on target creature.")
     /** A free creature with haste: it attacks the turn it is cast. */
     val dasher = card("Ember Dasher", "Creature — Elemental", "{0}", "Haste", "1", "1")
     /** A free creature whose own trigger goes on the Stack when it dies (no target: nothing to choose). */
@@ -426,6 +430,11 @@ object TestCards {
     val trailBlaze = TestCard("Trail // Blaze", listOf(
         TestFace("Trail", "Instant", "{2}{G}", "Draw a card."),
         TestFace("Blaze", "Instant", "{1}{R}{R}", "Blaze deals 3 damage to any target.")), layout = "split")
+
+    /** A Room (CR 709.5): a door cast for {R}, the other unlocked for nothing (prod faults 9SF97R, P86WUK: the unlock read "Special action"). */
+    val foyer = TestCard("Ember Foyer // Ember Vault", listOf(
+        TestFace("Ember Foyer", "Enchantment — Room", "{R}", "When you unlock this door, you gain 1 life."),
+        TestFace("Ember Vault", "Enchantment — Room", "{0}", "When you unlock this door, you gain 2 life.")), layout = "split")
 
     /** SYS-086 (owner fault 2PTQG5): a free sorcery making three tokens the rules define (CR 111.10a, b, f). */
     val pantry = card("Ember Pantry", "Sorcery", "{0}", "Create a Food token, a Treasure token, and a Clue token.")

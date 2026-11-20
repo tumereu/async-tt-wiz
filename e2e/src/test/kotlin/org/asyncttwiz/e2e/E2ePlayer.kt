@@ -201,10 +201,21 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     private var onceAt = -1L
 
     /** Runs [action] once per board shown (a tap inside a wait's loop that mustn't repeat before the board changes), once
-     * that board is [current]. */
+     * that board is the newest for a tap ([currentForTap]). */
     fun once(action: () -> Unit) {
         val version = game?.shown?.version ?: return
-        if (version != onceAt && current()) { onceAt = version; action() }
+        if (version != onceAt && currentForTap()) { onceAt = version; action() }
+    }
+
+    /**
+     * [current] for a helper that taps by itself ([once], [playAlong]), the Automatum worker's queued work let in first
+     * ([automatumDone]): whether the board shown when this is called is still the newest. A board that changed meanwhile is
+     * not, so the caller looks at the new one (and its own conditions on it) before tapping anything.
+     */
+    fun currentForTap(): Boolean {
+        val before = game?.shown?.version ?: return false
+        automatumDone()
+        return game?.shown?.version == before && current()
     }
 
     /**
@@ -222,6 +233,25 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
             org.robolectric.Shadows.shadowOf(Looper.getMainLooper()).idle()
         }
         return game?.shown?.version == before
+    }
+
+    /**
+     * Waits until the Automatum worker ([org.asyncttwiz.android.AutomatumWork.Background], shared by both phones) has done
+     * what was queued on it and the main thread has taken its results in (each result is handed to the main thread in turn).
+     * A press whose step runs there (the main button's declaration of attackers or blockers, a shared flow's step) reaches
+     * the device only once its result is back on the main thread: until then [current] holds on the board before it, and a
+     * helper tapping by itself ([once], [playAlong]) tapped the press's own board as the device went on past it (CombatBandTest
+     * in a full e2e run, 2026-11-20: Bob's pass right after his block wasn't taken, "That wasn't taken: the game moved on first").
+     */
+    private fun automatumDone() {
+        var done = false
+        org.asyncttwiz.android.AutomatumWork.Background.run({ }) { done = true }
+        val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(60)
+        while (!done) {
+            check(System.nanoTime() < deadline) { "The Automatum worker didn't finish its queued work within 60 s" }
+            org.robolectric.Shadows.shadowOf(Looper.getMainLooper()).idle()
+            if (!done) java.util.concurrent.locks.LockSupport.parkNanos(200_000)
+        }
     }
 
     /** The board version [playAlong] last acted on. */

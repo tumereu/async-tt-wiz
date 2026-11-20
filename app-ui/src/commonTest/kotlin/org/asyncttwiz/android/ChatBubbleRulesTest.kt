@@ -80,6 +80,53 @@ class ChatBubbleRulesTest {
         assertNull(chat.presentation(summary.id, "a", emptyList(), emptyList()).draft, "a typed message clears its draft")
     }
 
+    // WEB-138 (owner, 2026-11-19): on the desktop table, where the docked chat reads a message as soon as it shows, the other player's
+    // bubble shows it anyway: a message arriving while the game is open (read at once or not) is the bubble until its bubble goes;
+    // messages read before never show; an unread one at the open shows and stays once read; a newer message takes the place
+    @Test fun theDesktopBubbleShowsWhileTheDockReads() {
+        val old = message(1, "b", "earlier")
+        val messages = IndexedChatMessages().upsert(listOf(old))
+        val chat = GameChat()
+        fun shown(list: List<ChatMessage> = messages) = chat.presentation(game, "a", list, emptyList()).desktopBubble
+        assertNull(shown(), "nothing before the read state is known")
+        chat.accept(ChatReadState(game, "1", "1", 0))
+        assertNull(shown(), "a message read before never shows")
+        // Bob writes while the dock is open: it is read at once, yet it is the bubble
+        val more = messages.upsert(listOf(message(2, "b", "your move")))
+        chat.presented(more, setOf("m2"))
+        assertNull(chat.presentation(game, "a", more, emptyList()).bubble, "read: no phone bubble")
+        assertEquals(IncomingChatBubble("m2", "your move", 1, 1), shown(more))
+        chat.desktopBubbleGone(game, "m2")
+        assertNull(shown(more), "its bubble went: it doesn't show again")
+        // Your own messages never show as the other player's bubble
+        assertNull(shown(more.upsert(listOf(message(3, "a", "ok")))))
+    }
+
+    // WEB-138: an unread message when the game opens is the bubble, and stays while the dock reads it, until its bubble goes or a newer
+    // message takes its place
+    @Test fun theDesktopBubbleKeepsAnUnreadMessageOnceRead() {
+        val messages = IndexedChatMessages().upsert(listOf(message(1, "b", "hi")))
+        val chat = GameChat().also { it.accept(ChatReadState(game, "0", "1", 1)) }
+        fun shown(list: List<ChatMessage> = messages) = chat.presentation(game, "a", list, emptyList()).desktopBubble
+        assertEquals("m1", shown()?.messageId)
+        chat.presented(messages, setOf("m1"))
+        assertEquals("m1", shown()?.messageId, "read by the dock, it stays")
+        val newer = messages.upsert(listOf(message(2, "b", "GG")))
+        assertEquals("m2", shown(newer)?.messageId, "a newer message takes its place")
+        chat.desktopBubbleGone(game, "m2")
+        assertNull(shown(newer), "the one it replaced doesn't come back")
+    }
+
+    // WEB-137 (owner playtest 2026-11-20): the desktop table's bubbles are twice the phone's size: its height, padding and tail
+    @Test fun aScaledBubbleIsTwiceTheSize() {
+        val life = TableBounds(10f, 56f, 64f, 64f)
+        val (w, h) = ChatBubbleLayout.size(life, 100f, 1, 0f)
+        val (w2, h2) = ChatBubbleLayout.size(life, 200f, 1, 0f, ChatBubbleRules.DESKTOP_SCALE)
+        assertEquals(2 * h, h2)
+        assertEquals(2 * w, w2, "twice the text and its padding")
+        assertEquals(life.bottom + 2 * ChatBubbleLayout.TAIL + 1f, ChatBubbleLayout.place(life, true, w2, h2, 1440f, 900f, 2f).y)
+    }
+
     private fun overlaps(a: TableBounds, b: TableBounds) = a.x < b.right && b.x < a.right && a.y < b.bottom && b.y < a.bottom
 
     // LOB-136, LOB-137 (owner, 2026-11-08): always at the square, whatever lies there: under the opponent's, above your own;

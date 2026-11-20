@@ -342,6 +342,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val desktopFrame = if (desktopLayout) DesktopFrame(dockOpen) else null
     // WEB-031, WEB-032: the desktop table's hotkeys (§6), never while a text field has the keyboard
     val hotkeys = remember(game.id) { TableHotkeys() }
+    // WEB-090 (prod reports 9FNZGG, SLCCVC): a press on the table takes the keyboard from the dock's chat
+    val dockFocus = remember(game.id) { DockFocus() }
     val bindings = currentKeyBindings()
     DesktopKeyboard.Listen(desktopLayout) { key ->
         if (!key.down || key.textField) return@Listen false
@@ -447,7 +449,12 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 val rewindPanel: @Composable (@Composable () -> Unit) -> Unit = { _ -> EngineRewindPanel(landscape) }
                 val watch = { watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
                 val pausePlayback = { engine.pause(); controller.engineSent() }
-                val dock: @Composable () -> Unit = { DesktopDock { modifier -> ChatPanel(controller, accountId, modifier, docked = true) } }
+                // WEB-090: the dock's focus modifier made once (web frame rate, owner 2026-11-20: a new one each composition
+                // composed the dock and its chat again whenever the table did)
+                val dockModifier = remember(dockFocus) { dockFocus.dock(Modifier) }
+                val dock: @Composable () -> Unit = {
+                    DesktopDock(dockModifier) { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
+                }
                 // Stack animation step 4's settle, made anew with each board, as one lambda that runs the latest (steadyNodeHook)
                 val settle = steadyNodeHook(stackAnimation.settleHook(scope, play, moveMultiplier, routes.viewPause, gameWaits, motion::key, motion::settled))
                 val gameId = game.id
@@ -495,7 +502,13 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) pausePlayback else null,
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
-                        chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape || desktopLayout,
+                        // WEB-137, WEB-138: on the desktop table twice the size, the other player's shown while the dock is open
+                        // too and gone by itself after a few seconds (a click reads it and closes it)
+                        chatBubbles = if (desktopLayout) TableChatBubbles(state.chatDesktopBubble, state.chatSent, tableShown = true,
+                            routes.opponentName, read = { controller.readChatBubble(gameId, it); controller.desktopChatBubbleGone(gameId, it) },
+                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(gameId, it) },
+                            scale = ChatBubbleRules.DESKTOP_SCALE, incomingGone = { controller.desktopChatBubbleGone(gameId, it) })
+                        else TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
                             routes.opponentName, read = { controller.readChatBubble(gameId, it) },
                             open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(gameId, it) }),
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat
@@ -515,7 +528,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 val steadyHooks = hooksShown[0]?.takeIf { it == hooks } ?: hooks
                 SideEffect { hooksShown[0] = steadyHooks }
                 key(game.id) {
-                    TableSurface(steadyGame, play, accountId, landscape || desktopLayout, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
+                    TableSurface(steadyGame, play, accountId, landscape || desktopLayout,
+                        if (desktopLayout) dockFocus.table(Modifier.fillMaxSize()) else Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                         onIntent = toolkit::handle, toolkit = toolkit, runtime = steadyHooks)
                 }
                 // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the

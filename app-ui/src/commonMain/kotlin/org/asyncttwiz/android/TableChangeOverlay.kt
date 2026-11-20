@@ -141,7 +141,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
              if (!tagsOnly) {
                  for (fragment in shown.visible) clipRect(fragment.x * density, fragment.y * density, fragment.right * density, fragment.bottom * density) {
                      rotate(if (card) transform.rotation else 0f, point(b.center)) {
-                         if (key.kind == TableChangeKind.OWNER) {
+                         if (key.kind == TableChangeKind.OWNER || key.kind == TableChangeKind.UNLOCK) {
                              val pulse = fade * (.4f + .6f * kotlin.math.abs(kotlin.math.cos(t * 3 * kotlin.math.PI)).toFloat())
                              rect(local(TableBounds(0f, 0f, 28f, 40f)), color.copy(alpha = pulse), border = true)
                          } else {

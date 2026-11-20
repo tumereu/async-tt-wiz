@@ -65,26 +65,68 @@ class MemoryCardCatalog internal constructor(
     /** One card of the search: its printings best first ([ranked]), and the card as search matches it. */
     internal class SearchEntry(val oracle: String, val nameKey: String, val ranked: List<String>, val card: CardSearchCard)
 
-    /** Builds the card search, a few hundred cards between pauses ([pause]); [progress] counts printings done of all. */
-    internal suspend fun buildSearch(pause: suspend () -> Unit, progress: (Long, Long) -> Unit) {
-        val groups = LinkedHashMap<String, MutableList<String>>()
-        for (id in ordered) {
-            val record = printings.getValue(id)
-            val face = faces[record.face]
-            if (!record.token && face.side in setOf("", "a") && face.layout !in NON_CARD_LAYOUTS)
-                groups.getOrPut(oracleOf(face)) { ArrayList() } += id
-        }
-        val entries = ArrayList<SearchEntry>(groups.size)
+    /** The card search being built a part at a time ([buildSearch]); null before it starts and once it is done. */
+    private var searchBuild: SearchBuild? = null
+
+    /** The card search's entries, worked out a few hundred cards at a time ([step]), then sorted ([complete]). */
+    private inner class SearchBuild {
+        private val groups: List<Map.Entry<String, List<String>>> = LinkedHashMap<String, MutableList<String>>().also { groups ->
+            for (id in ordered) {
+                val record = printings.getValue(id)
+                val face = faces[record.face]
+                if (!record.token && face.side in setOf("", "a") && face.layout !in NON_CARD_LAYOUTS)
+                    groups.getOrPut(oracleOf(face)) { ArrayList() } += id
+            }
+        }.entries.toList()
+        private val entries = ArrayList<SearchEntry>(groups.size)
+        private var at = 0
+        /** Printings done so far. */
         var done = 0L
-        for ((oracle, ids) in groups) {
-            entries += searchEntry(oracle, ids)
-            done += ids.size
-            if (entries.size % 500 == 0) { progress(done, ordered.size.toLong()); pause() }
+            private set
+
+        /** Works out up to [count] more cards; false once every card is done. */
+        fun step(count: Int): Boolean {
+            val end = minOf(groups.size, at + count)
+            while (at < end) {
+                val (oracle, ids) = groups[at++]
+                entries += searchEntry(oracle, ids)
+                done += ids.size
+            }
+            return at < groups.size
         }
-        entries.sortWith(compareBy<SearchEntry> { it.nameKey }.thenBy { it.oracle })
-        cards = entries
-        cardByOracle = entries.associateBy { it.oracle }
+
+        /** Works out the rest and makes the search ready. */
+        fun complete() {
+            while (step(Int.MAX_VALUE)) Unit
+            entries.sortWith(compareBy<SearchEntry> { it.nameKey }.thenBy { it.oracle })
+            cards = entries
+            cardByOracle = entries.associateBy { it.oracle }
+            searchReady = true
+        }
+    }
+
+    /** Whether the card search is ready ([buildSearch]). */
+    internal var searchReady: Boolean = false
+        private set
+
+    /**
+     * Builds the card search, a few hundred cards between pauses ([pause]); [progress] counts printings done of all. WEB-009
+     * (owner playtest 2026-11-20: a start was slow): the browser builds it after the card records are ready, so a read of the
+     * search before then finishes it at once ([search]).
+     */
+    internal suspend fun buildSearch(pause: suspend () -> Unit, progress: (Long, Long) -> Unit) {
+        if (searchReady) return
+        val build = searchBuild ?: SearchBuild().also { searchBuild = it }
+        while (!searchReady && build.step(500)) { progress(build.done, ordered.size.toLong()); pause() }
+        if (!searchReady) build.complete()
+        searchBuild = null
         progress(ordered.size.toLong(), ordered.size.toLong())
+    }
+
+    /** The card search's entries, built now when [buildSearch] hasn't finished yet. */
+    private fun search(): List<SearchEntry> {
+        if (!searchReady) { (searchBuild ?: SearchBuild()).complete(); searchBuild = null }
+        return cards
     }
 
     private fun oracleOf(face: CatalogFaceRecord) = face.oracle.ifEmpty { "name:${face.name.lowercase()}" }
@@ -229,6 +271,7 @@ class MemoryCardCatalog internal constructor(
         }
         class Hit(val entry: SearchEntry, val printing: Int)
         val hits = ArrayList<Hit>()
+        val cards = search()
         var position = if (cursor == null) 0 else firstAfter(cursor.nameKey, cursor.key)
         // Android examines only the rows its SQL prefilter lets through; in memory every card is matched, so the work
         // budget covers more cards here for about the same work.
@@ -261,6 +304,7 @@ class MemoryCardCatalog internal constructor(
 
     /** The position of the first card after ([nameKey], [oracle]) in search order. */
     private fun firstAfter(nameKey: String, oracle: String): Int {
+        val cards = search()
         var low = 0
         var high = cards.size
         while (low < high) {
@@ -272,12 +316,15 @@ class MemoryCardCatalog internal constructor(
         return low
     }
 
-    override fun searchData(printings: Collection<CatalogPrinting>): Map<String, CardSearchCard> = printings.mapNotNull { printing ->
-        val json = jsonObjectOrNull(printing.json) ?: return@mapNotNull null
-        val key = (json["identifiers"] as? kotlinx.serialization.json.JsonObject)?.primitive("scryfallOracleId")?.takeIf { it.isNotEmpty() }
-            ?: "name:${printing.name.lowercase()}"
-        cardByOracle[key]?.let { printing.id to it.card }
-    }.toMap()
+    override fun searchData(printings: Collection<CatalogPrinting>): Map<String, CardSearchCard> {
+        search()
+        return printings.mapNotNull { printing ->
+            val json = jsonObjectOrNull(printing.json) ?: return@mapNotNull null
+            val key = (json["identifiers"] as? kotlinx.serialization.json.JsonObject)?.primitive("scryfallOracleId")?.takeIf { it.isNotEmpty() }
+                ?: "name:${printing.name.lowercase()}"
+            cardByOracle[key]?.let { printing.id to it.card }
+        }.toMap()
+    }
 
     internal companion object {
         val NON_CARD_LAYOUTS = setOf("art_series", "token", "double_faced_token", "emblem")
@@ -326,7 +373,9 @@ class MemoryCardCatalogBuilder {
 
     /** The card records, once every line is read; [pause] lets the page draw between parts of the work, [progress] counts
      * printings done of all while the card search is built. */
-    suspend fun finish(checksum: String, pause: suspend () -> Unit, progress: (Long, Long) -> Unit = { _, _ -> }): MemoryCardCatalog {
+    suspend fun finish(checksum: String, pause: suspend () -> Unit, progress: (Long, Long) -> Unit = { _, _ -> },
+        /** Whether the card search is built now; false: later ([MemoryCardCatalog.buildSearch]) or when first read. */
+        search: Boolean = true): MemoryCardCatalog {
         val read = checkNotNull(header) { "No catalog header" }
         check(read.sets == setCount && read.faces == faces.size && read.printings == printings.size && read.recipes == recipes) {
             "Catalog incomplete: header says ${read.sets}/${read.faces}/${read.printings}/${read.recipes}, " +
@@ -340,7 +389,7 @@ class MemoryCardCatalogBuilder {
         pause()
         val catalog = MemoryCardCatalog(checksum, read, faces, kept, sets, supported)
         pause()
-        catalog.buildSearch(pause, progress)
+        if (search) catalog.buildSearch(pause, progress)
         check(kept.isNotEmpty()) { "Empty catalog" }
         return catalog
     }

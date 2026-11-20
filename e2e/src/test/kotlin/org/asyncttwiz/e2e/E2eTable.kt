@@ -297,7 +297,8 @@ internal fun E2ePlayer.playAlong() {
     val shown = game?.shown ?: return
     // Played and shown, nothing more of theirs going out: their next action waits for the board after it
     if (engine { device.session.pending.isNotEmpty() }) return
-    if (!foreground || shown.version == alongAt || !current()) return
+    // A press of theirs still on its way through the Automatum worker (a declaration) reaches the board first
+    if (!foreground || shown.version == alongAt || !currentForTap()) return
     val acted = runCatching {
         // HIS-110: the other player's reveal panel: they look and tap OK
         if (showsRevealOk()) { revealOk(); return@runCatching true }

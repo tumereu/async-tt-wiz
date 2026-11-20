@@ -49,7 +49,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
     fun tableView() = LobbyTableView(selected, detail, board, connectedGames, reconnectingGames,
         syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence,
-        chat.bubble, chat.sent)
+        chat.bubble, chat.sent, chat.desktopBubble)
 }
 
 /** The [LobbyState] fields an open table reads. Games-list refreshes flip busy/loading flags in the whole
@@ -58,7 +58,9 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
 data class LobbyTableView(val selected: String?, val detail: GameSummary?, val board: TableBoard?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
     val syncedGames: Set<String>, val activityTarget: ActivityTarget?, val chatOpen: Boolean, val chatUnread: Int,
     val connectionMessage: String?, val error: String?, val ownPodDeckName: String?, val opponentPresence: ReceivedPresence?,
-    val chatBubble: IncomingChatBubble? = null, val chatSent: SentChat? = null)
+    val chatBubble: IncomingChatBubble? = null, val chatSent: SentChat? = null,
+    /** WEB-138: the other player's chat bubble on the desktop table. */
+    val chatDesktopBubble: IncomingChatBubble? = null)
 
 /** [LobbyController.state] and its narrow table view, written together. An equal view is not written, so
  * the busy/loading flips of a list refresh never invalidate the table. (Not derivedStateOf: a pending

@@ -657,8 +657,14 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("rewind-message").assertExists()
         // HIS-235 (owner 2026-11-19): going back there takes back Alice's draw: the dialog says the libraries reshuffle
         compose.onNodeWithTag("undo-reshuffle").assertExists()
+        // HIS-207, HIS-209, HIS-235 (release fix 0.3.0: a landscape phone cut the reshuffle line off and hid the message under a
+        // scroll): the reshuffle line, the message field and Ask Bob show whole without scrolling
+        for (tag in listOf("undo-reshuffle", "rewind-message", "rewind-confirm")) {
+            val node = compose.onNodeWithTag(tag).fetchSemanticsNode()
+            assertEquals(node.size.height.toFloat(), node.boundsInRoot.height, 1f, "$tag shows whole")
+        }
         captureShot("$SCREENSHOTS/engine/$file.png",
-            "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, the line saying that undoing this reshuffles the library (it takes back a draw), and Ask Bob with a message field, as going back there takes his action back.")
+            "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, ${if (landscape) "beside them (on a landscape phone) " else ""}its text, the line saying that undoing this reshuffles the library (it takes back a draw), and Ask Bob with a message field, as going back there takes his action back.")
     }
 
     // HIS-083, HIS-099, HIS-207, HIS-235

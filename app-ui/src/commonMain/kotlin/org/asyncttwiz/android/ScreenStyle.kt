@@ -247,19 +247,20 @@ private fun ScreenTextFieldDecoration(empty: Boolean, singleLine: Boolean, place
 /**
  * Regular-screen dialog. [title] gives every dialog the same heading; [close] adds a title-row ✕ (with that
  * description) only for dialogs without a cancel button. [actions] stay pinned below the scrolling content,
- * right aligned, main action last: use [DialogCancelButton] and [DialogMainButton].
+ * right aligned, main action last: use [DialogCancelButton] and [DialogMainButton]. [maxWidth]: how wide it may grow (a
+ * landscape dialog laid out in two columns asks for more).
  */
 @Composable
 fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
     error: String? = null, dismissError: () -> Unit = {}, title: String? = null, close: String? = null,
-    actions: (@Composable RowScope.() -> Unit)? = null,
+    actions: (@Composable RowScope.() -> Unit)? = null, maxWidth: Dp = 380.dp,
     content: @Composable ColumnScope.() -> Unit = {}) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TrackGameDialogInput()
         // TBL-118: a dialog is a window of its own: its shakes' bubbles show in it
         val bubbles = rememberRefusalBubbles()
         ScreenTheme { CompositionLocalProvider(LocalRefusalBubbles provides bubbles) {
-            Surface(modifier.padding(16.dp).widthIn(max = 380.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium,
+            Surface(modifier.padding(16.dp).widthIn(max = maxWidth).fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                 border = BorderStroke(1.dp, ScreenBorder)) {
                 Box {
                     Column(Modifier.imePadding()) {

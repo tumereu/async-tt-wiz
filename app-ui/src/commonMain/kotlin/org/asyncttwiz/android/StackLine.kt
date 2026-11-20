@@ -66,6 +66,8 @@ object StackLine {
         val effect = play.board.stackEffects.singleOrNull { it.id == top } ?: return null
         val item = effect.item ?: return null
         val who = if (item.controller == viewer) "You" else PlayerNames.of(names, item.controller, "The other player", "StackLine")
+        // STK-212: the viewer's own entry is "Your copy of …", never "You's"
+        val whose = if (item.controller == viewer) "Your" else "$who's"
         val card = CombatStackRules.inspection(play.board, top)
         val visible = card != null && !effect.faceDown && (effect.frozen != null || CardVisibility.isVisibleFaceUp(play.board, card, viewer))
         val face = if (!visible || card == null) null else play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
@@ -74,10 +76,10 @@ object StackLine {
         val ability = if (visible) StackAbilities.of(play, top, viewer) else null
         val head = when (item.kind) {
             MtgStackKind.Spell -> "$who cast ${name ?: unnamed(visible, "a card", top)}"
-            MtgStackKind.SpellCopy -> "$who's copy of ${name ?: unnamed(visible, "a spell", top)}"
+            MtgStackKind.SpellCopy -> "$whose copy of ${name ?: unnamed(visible, "a spell", top)}"
             // D7: a copied ability by what it copies ("Copy of Bre of Clan Stoutarm's triggered ability")
             MtgStackKind.Activated, MtgStackKind.Triggered -> ability?.let { if (it.copy) it.name else "${it.source}'s ${it.kind.replaceFirstChar { c -> c.lowercase() }}" }
-                ?: unnamed(visible, "$who's ability", top)
+                ?: unnamed(visible, "$whose ability", top)
         }
         val engine = if (visible) StackAbilityText.decoded(item) else null
         // The effect with its targets in place (owner 2026-11-07); the targets it doesn't name follow it

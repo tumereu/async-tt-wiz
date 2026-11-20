@@ -1067,6 +1067,12 @@ private fun BoardPreview(summary: GameSummary, board: TableBoard, viewer: String
 private const val PREVIEW_HEIGHT = 300f
 /** The Undo dialog's board in landscape: a turned table, as wide as the dialog allows. */
 private const val PREVIEW_HEIGHT_LANDSCAPE = 120f
+/** The Undo dialog's board on a landscape phone (two columns): about as wide as its left column. */
+private const val PREVIEW_HEIGHT_TWO_COLUMNS = 150f
+/** The Undo dialog on a landscape phone: two columns, the board and the strip beside the words and the message (HIS-207). */
+private const val UNDO_DIALOG_WIDTH_TWO_COLUMNS = 760
+/** A landscape screen shorter than this (dp) gets the Undo dialog in two columns. */
+private const val UNDO_TWO_COLUMNS_BELOW_DP = 600
 private const val PREVIEW_TABLE_WIDTH = 412f
 private const val PREVIEW_TABLE_HEIGHT = 892f
 /** HIS-099: how long the Undo dialog's choice rests before its board is worked out (dragging through events works out none). */
@@ -1311,6 +1317,9 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     val current = preview?.takeIf { it.first == target && !it.second.loading }?.second
     val needsRequest = (current ?: preview?.second?.takeIf { !it.loading })?.needsRequest
     val landscape = screenWidthDp() > screenHeightDp()
+    // A short landscape screen (a phone turned) lays the dialog out in two columns; a tall one (a desktop window) keeps one
+    val twoColumns = landscape && screenHeightDp() < UNDO_TWO_COLUMNS_BELOW_DP
+    val boardHeight = if (twoColumns) PREVIEW_HEIGHT_TWO_COLUMNS else if (landscape) PREVIEW_HEIGHT_LANDSCAPE else PREVIEW_HEIGHT
     ScreenDialog({ AppLog.info("undo", "Undo dialog dismissed"); routes.rewind = null }, title = "Undo", actions = {
         DialogCancelButton("Cancel", { AppLog.info("undo", "Undo dialog cancelled"); routes.rewind = null })
         DialogMainButton(if (needsRequest == true) "Ask $opponent" else "Undo", {
@@ -1323,36 +1332,41 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
             }
         }, Modifier.testTag("rewind-confirm"), enabled = target != null && current != null && !seeking && !published.needsReload,
             icon = if (needsRequest == true) "send" else "withdraw")
-    }) {
+    }, maxWidth = if (twoColumns) UNDO_DIALOG_WIDTH_TWO_COLUMNS.dp else 380.dp) {
         if (point == null) {
             Text("Nothing to undo yet: your actions are still on their way.", style = MaterialTheme.typography.bodyMedium)
             return@ScreenDialog
         }
-        val board = preview?.second?.board
-        if (board != null) BoardPreview(summary, board, routes.viewer, landscape,
-            if (landscape) PREVIEW_HEIGHT_LANDSCAPE else PREVIEW_HEIGHT, dim = current == null)
-        else Box(Modifier.fillMaxWidth().height((if (landscape) PREVIEW_HEIGHT_LANDSCAPE else PREVIEW_HEIGHT).dp))
-        // HIS-099: the timeline's strip of the points (its icons and separators), the chosen one in the centre
-        HistoryTimeline(points.map { it.shown }, point.event.id, routes.viewer, {}, { chosen = it },
-            Modifier.fillMaxWidth().testTag("undo-scroller"), loadingStart = game.historyLoading && !published.olderComplete)
-        val lead: @Composable () -> Unit = {
-            Text("Go back to just before", style = MaterialTheme.typography.bodySmall, color = Color(0xff66757a))
+        val pictures: @Composable () -> Unit = {
+            val board = preview?.second?.board
+            if (board != null) BoardPreview(summary, board, routes.viewer, landscape,
+                boardHeight, dim = current == null)
+            else Box(Modifier.fillMaxWidth().height(boardHeight.dp))
+            // HIS-099: the timeline's strip of the points (its icons and separators), the chosen one in the centre
+            HistoryTimeline(points.map { it.shown }, point.event.id, routes.viewer, {}, { chosen = it },
+                Modifier.fillMaxWidth().testTag("undo-scroller"), loadingStart = game.historyLoading && !published.olderComplete)
         }
-        val text: @Composable () -> Unit = {
-            Text(point.shown.description, Modifier.testTag("undo-point"), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
-        }
-        // In landscape on one line, so the board, the strip and the text fit above the buttons
-        if (landscape) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { lead(); text() }
-        else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { lead(); text() }
-        if (needsRequest == true) {
-            // HIS-042 (owner 2026-11-19, playtest N4): the events it takes back touched library cards: the libraries reshuffle
-            current?.let { EngineEventText.reshuffleWarning(it.libraries, routes.viewer, names) }?.let { warning ->
-                LaunchedEffect(warning, target) { AppLog.info("undo", "Undo dialog at ${target?.take(8)} says: $warning") }
-                Text(warning, Modifier.testTag("undo-reshuffle"), style = MaterialTheme.typography.bodyMedium)
+        val words: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Go back to just before", style = MaterialTheme.typography.bodySmall, color = Color(0xff66757a))
+                Text(point.shown.description, Modifier.testTag("undo-point"), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
             }
-            Text("Undoing requires confirmation from $opponent.",
-                style = MaterialTheme.typography.bodySmall)
-            ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)")
+            if (needsRequest == true) {
+                // HIS-042 (owner 2026-11-19, playtest N4): the events it takes back touched library cards: the libraries reshuffle
+                current?.let { EngineEventText.reshuffleWarning(it.libraries, routes.viewer, names) }?.let { warning ->
+                    LaunchedEffect(warning, target) { AppLog.info("undo", "Undo dialog at ${target?.take(8)} says: $warning") }
+                    Text(warning, Modifier.testTag("undo-reshuffle"), style = MaterialTheme.typography.bodyMedium)
+                }
+                Text("Undoing requires confirmation from $opponent.",
+                    style = MaterialTheme.typography.bodySmall)
+                ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)")
+            }
         }
+        // HIS-207 (release fix 0.3.0: in one column a landscape phone cut the reshuffle line off and hid the message under a
+        // scroll): on a landscape phone the board and the strip on the left, the words and the message beside them
+        if (twoColumns) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { pictures() }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { words() }
+        } else { pictures(); words() }
     }
 }

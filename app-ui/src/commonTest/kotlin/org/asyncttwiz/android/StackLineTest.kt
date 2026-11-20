@@ -126,6 +126,9 @@ class StackLineTest {
         assertEquals("Copy of Storm Spark", listed.name)
         assertTrue(listed.location.endsWith(" · Copy"))
         assertTrue(CombatStackRules.copyEntry(play.board, entry))
+        // STK-212, HIS-231 (release fix 0.3.0): its controller's own line (a play shown) reads "Your copy of …", never "You's copy of …"
+        val own = assertNotNull(StackLine.entryPieces(play, entry, f.b, names)).plain()
+        assertTrue(own.startsWith("Your copy of Storm Spark"), own)
     }
 
     // STK-057, STK-129, STK-130: the other player's spell names its caster and what it does, in short

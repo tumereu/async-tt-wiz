@@ -144,7 +144,11 @@ class CopiesShownTest : E2e() {
         alice.playFromHand("Ember Bauble", this)
         val art = assertNotNull(TestCards.bauble.definition.faces.single().scryfallId)
         val seen = mutableSetOf<String>()
-        waitUntil("the Bauble's copy shown arriving on both tables", along = listOf(bob)) {
+        // STK-212, HIS-231 (release fix 0.3.0): its line reads "Your copy of Ember Bauble" to Alice, never "You's copy of …"
+        val worded = mutableSetOf<String>()
+        waitUntil("the Bauble's copy shown arriving on both tables, Alice's naming it her copy", along = listOf(bob)) {
+            if (showsCopy(alice) && alice.shows(hasTestTag(PLAY_SHOW_TAG) and hasContentDescription("Your copy of Ember Bauble", substring = true)))
+                worded += alice.name
             for (player in listOf(alice, bob)) if (showsCopy(player) && player.name !in seen) {
                 val play = player.shown.board
                 val entry = play.board.stackEffects.single { it.id == "entry:${player.shown.show?.entry}" }
@@ -157,8 +161,9 @@ class CopiesShownTest : E2e() {
                 assertTrue(entry.isCopy, player.name)
                 seen += player.name
             }
-            seen.size == 2
+            seen.size == 2 && worded.isNotEmpty()
         }
+        assertTrue(faults.none { it.area == "StackLine" }, "the copy's controller was named: $faults")
         waitUntil("the Bauble and its token copy on both tables", along = listOf(bob)) {
             alice.field("Ember Bauble").size == 2 && bob.field("Ember Bauble", alice.me).size == 2 && alice.inOwnMain()
         }

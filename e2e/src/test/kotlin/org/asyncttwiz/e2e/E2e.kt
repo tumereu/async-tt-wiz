@@ -170,8 +170,8 @@ abstract class E2e {
 
     /** Alice and Bob with their phones (the app launched, signed in, on the main menu), and no game set up (say, for a
      * pod: [ServerSetup.draftingPod]). [aliceSets]: the draft sets on Alice's phone (none without card records). */
-    /** [aliceCatalog]: Alice's phone installs the server's card catalog on start, as the app does (docs/specs/web-client.md
-     * section 3.5); without it the phones have no card records and nothing waits for them. */
+    /** [aliceCatalog]: Alice's phone installs the server's card catalog on start, as the app does
+     * (LOB-091); without it the phones have no card records and nothing waits for them. */
     internal fun launchPlayers(aliceSets: org.asyncttwiz.android.PodSetRepository? = null, aliceCatalog: Boolean = false,
         /** WEB-013: Alice's app in the desktop layout at the test's window size. */
         aliceDesktop: Boolean = false) {

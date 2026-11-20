@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertTrue
 
 /**
- * A started pod on the desktop layout (docs/specs/web-client.md §7.6, wireframe D9; step 6b) at 1440 × 900: the draft pick with
+ * A started pod on the desktop layout (WEB-044, wireframe D9) at 1440 × 900: the draft pick with
  * its keep and burn trays and Confirm at the bottom, the header with the tabs in its row, and Build's overlapping columns with a
  * card's edge zones under the pointer. Invented cards.
  */

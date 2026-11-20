@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory
 
-/** The web client's Archidekt deck import through the server (LOB-061, docs/specs/web-client.md §2.3). */
+/** The web client's Archidekt deck import through the server (LOB-061, WEB-010). */
 class ArchidektProxyHttpTest {
     // LOB-061 (web)
     @Test fun `a deck is read by its number from Archidekt's API and passed on, nothing else reachable`() {

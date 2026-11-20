@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * Web client step 4c (docs/specs/web-client.md §1 item 3): the engine's results come back as callbacks on both
+ * The engine's results come back as callbacks on both
  * platforms. Android's engine thread is waited for as before, so the callback runs before the call returns (the same
  * frame, SYS-025); a page that can't wait gets the answers later, in the order of the calls, and a second tap made on a
  * board the device has moved on from is treated exactly as on Android. In the browser a published board goes to the
@@ -142,7 +142,7 @@ class EngineCallbackFormsTest {
         return game
     }
 
-    // SYS-011, SYS-012 with step 4c: the answers come later, in the order the actions were made; the second tap, made on
+    // SYS-011, SYS-012 with callbacks: the answers come later, in the order the actions were made; the second tap, made on
     // the board shown before the first action's board arrived, is answered as Android answers that tap
     @Test fun answersComeLaterInOrderAndASecondTapOnTheOldBoardIsTreatedAsOnAndroid() {
         val worker = LaterWorker()

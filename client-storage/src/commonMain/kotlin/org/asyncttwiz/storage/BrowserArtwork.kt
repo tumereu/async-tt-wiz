@@ -14,7 +14,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 
-// Card pictures in the browser (docs/specs/web-client.md §1 item 4): the same lookups and downloads as Android's
+// Card pictures in the browser: the same lookups and downloads as Android's
 // HttpArtworkRepository (Scryfall's card data names the image; what once came is kept for good, LOB-097; failures wait
 // before they are tried again), over the browser's fetch and its Cache API (app-ui's wasm side). Single-threaded.
 

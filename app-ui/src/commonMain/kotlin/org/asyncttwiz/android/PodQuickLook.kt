@@ -19,7 +19,7 @@ import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.*
 
 /**
- * WEB-117: the quick look of the desktop draft's cards (§5, wireframe D9): the card the mouse rests on ([resting]) shows
+ * WEB-117: the quick look of the desktop draft's cards: the card the mouse rests on ([resting]) shows
  * larger with every face ([shown]) after [QUICK_LOOK_MILLIS], as the table's does (WEB-026); a button pressed hides it
  * until it is let go. Main thread.
  */

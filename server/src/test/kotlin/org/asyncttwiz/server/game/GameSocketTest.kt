@@ -157,7 +157,7 @@ class GameSocketTest {
         }
     }
 
-    // Web client step 3b: a browser can't send an Authorization header on a WebSocket, so its token comes as a subprotocol
+    // A browser can't send an Authorization header on a WebSocket, so its token comes as a subprotocol
     @Test fun `a browser socket authenticates by its token subprotocol and is answered with the socket protocol`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val config = settings(db)

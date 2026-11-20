@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 /**
- * R6 (engine responsiveness): the heap one game kept warm by [EngineGames] holds, to set its warm capacity. A kept game is
+ * The heap one game kept warm by [EngineGames] holds, to set its warm capacity. A kept game is
  * its state at the main line's head (with the dropped log entries of its last [GameModel.KEPT_DROPS] turns, its view and
  * both players' visible sets) and its [EngineHistoryStore.Shared] cache (the decoded card definitions and up to 256 decoded
  * events). Each copy is built as the server builds one: the root's checkpoint decoded, then every event decoded and

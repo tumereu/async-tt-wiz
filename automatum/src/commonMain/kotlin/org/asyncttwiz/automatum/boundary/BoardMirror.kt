@@ -10,7 +10,7 @@ import org.asyncttwiz.protocol.game.GameModel
 import org.asyncttwiz.protocol.game.TableState
 
 /*
- * Web client step 4c (docs/specs/web-client.md §1 item 3): the page keeps its own copy of each board's engine state, so it
+ * The page keeps its own copy of each board's engine state, so it
  * never needs the engine to draw. The engine side (the browser's Web Worker, which holds the device) says how it made a
  * board's state ([StateOrigin], recorded as the board is built); [MirrorShadow] turns that into a [StateRef] relative to
  * the page's copy ([BoardMirror]: a game's model at the line of the boards it was last sent), which the page resolves

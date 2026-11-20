@@ -48,10 +48,10 @@ import org.asyncttwiz.appui.unlockSound
 import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.PodPhase
 
-// The web client's shell (docs/specs/web-client.md §11 step 3, docs/features/web.md): the page's entry point that opens
+// The web client's shell (docs/features/web.md): the page's entry point that opens
 // the browser's storage and installs the app's platform and services, then the shared app (sign-in, lobby, decks, cubes,
 // settings) in the phone layout, with addresses and browser history (WEB-001, WEB-002), the on-screen Back (WEB-003),
-// Android Chrome's system Back for layers (WEB-004), the stale-tab reload (WEB-006), and a game's table (step 4, WEB-011:
+// Android Chrome's system Back for layers (WEB-004), the stale-tab reload (WEB-006), and a game's table (WEB-007, WEB-011:
 // the engine's Web Worker for its plays, the browser's own gestures kept off it, haptics).
 
 /** Starts the web app in this page with the build's values [build] (the webApp module's entry point). */
@@ -85,13 +85,13 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         // The table's plays are worked out in the engine's Web Worker; requests wait until it has loaded
         val worker = startEngineWorkers(assetBase)
         EngineBoundary.useRemote(worker.planning)
-        // Web client step 4d: the games' devices in the worker too (`?device=page` keeps them on the page, for debugging)
+        // The games' devices in the worker too (`?device=page` keeps them on the page, for debugging)
         if (jsDevicesInWorker()) EngineBoundary.useDevices(worker.devices)
         else EngineBoundary.log.log(false, "Engine boundary: the games' devices stay on the page (?device=page)")
         jsGuardTablePage()
         // WEB-058: the hand over what can be clicked, the text cursor over text fields
         jsHoverCursor()
-        // WEB-024: the page's keys reach the desktop table (the finger key) and, from step 5c, its hotkeys
+        // WEB-024: the page's keys reach the desktop table (the finger key) and its hotkeys (WEB-031)
         // WEB-025: keys whose key-up can't come any more are let go (the window lost the focus, a text field took the keyboard,
         // a pointer event without the modifier)
         jsListenKeys({ key, down, time, repeat, alt, shift, ctrl, meta ->

@@ -17,7 +17,7 @@ internal object PreparationStore {
         sql.select(PLAYER_PREPARATION.POD_DECK_NAME).from(PLAYER_PREPARATION)
             .where(PLAYER_PREPARATION.GAME_ID.eq(game)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(account))
             .fetchOne(PLAYER_PREPARATION.POD_DECK_NAME)
-    /** [ownPodDeckName] as a column of a caller's own statement (R6: read with other rows). */
+    /** [ownPodDeckName] as a column of a caller's own statement (read with other rows). */
     fun ownPodDeckNameField(game: UUID, account: UUID): org.jooq.Field<String?> = org.jooq.impl.DSL.field(
         org.jooq.impl.DSL.select(PLAYER_PREPARATION.POD_DECK_NAME).from(PLAYER_PREPARATION)
             .where(PLAYER_PREPARATION.GAME_ID.eq(game)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(account))).`as`("own_pod_deck_name")

@@ -48,7 +48,7 @@ class GameConnectionLifecycleTest {
     }
 
     private class Owner : AutoCloseable {
-        /** The game, played on engine state (R4b): its head loads it on the session's engine game. */
+        /** The game, played on engine state: its head loads it on the session's engine game. */
         val data = EngineData()
         val wire = Wire()
         var signedIn = true
@@ -151,7 +151,7 @@ class GameConnectionLifecycleTest {
         val owner = Owner()
         compose.runOnIdle { owner.lobby.open(owner.data.game.id); owner.accept() }
         fun commands() = owner.wire.frames.filterIsInstance<GameCommand>()
-        // R4b: the action waiting for the server is a chat message (an engine game's own actions wait in its outbox)
+        // The action waiting for the server is a chat message (an engine game's own actions wait in its outbox)
         fun act(): Boolean { owner.lobby.composeChat("Hello"); owner.lobby.sendChat(); return owner.lobby.state.chat.draft == null }
         try {
             compose.setContent { MaterialTheme { WaitingLobby(owner.lobby, owner.data.actor, null) } }
@@ -194,7 +194,7 @@ class GameConnectionLifecycleTest {
     }
 }
 
-/** A game played on engine state as its head opens it (R4b). */
+/** A game played on engine state as its head opens it. */
 private class EngineData {
     val f = EngineGameFixture()
     val actor = f.a

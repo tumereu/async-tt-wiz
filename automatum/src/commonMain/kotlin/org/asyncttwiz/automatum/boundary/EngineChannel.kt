@@ -28,7 +28,7 @@ interface BoardTransfer {
 }
 
 /**
- * The page's side of the boundary (docs/specs/web-client.md §1 item 3): asks the engine side for planning work on a board
+ * The page's side of the boundary: asks the engine side for planning work on a board
  * ([EngineRequest.HandPlaysOf], [EngineRequest.CardPlaysOf]) and gets its answer. [InProcessEngineChannel] answers on the
  * caller's thread with the board it is given (Android's engine thread); [MessageEngineChannel] sends JSON strings to a Web
  * Worker, with the board's transfer, and answers later on the page's thread.

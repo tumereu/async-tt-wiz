@@ -13,7 +13,7 @@ import org.asyncttwiz.appui.zonedNow
 import org.asyncttwiz.protocol.GameSummary
 import org.asyncttwiz.protocol.MatchRecord
 
-// The browser's dates and times (web client step 3b): Android's texts, worked out in the browser's time zone. Where
+// The browser's dates and times: Android's texts, worked out in the browser's time zone. Where
 // Android writes month names in English, so does this; where it uses the device's language, the browser's (Intl).
 
 private val englishMonths = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

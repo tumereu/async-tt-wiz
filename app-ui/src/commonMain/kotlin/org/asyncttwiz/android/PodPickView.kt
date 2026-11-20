@@ -257,7 +257,7 @@ class PodPickColumns constructor(private val preferences: Preferences, private v
 fun rememberPodPickColumns(): PodPickColumns {
     val landscape = screenOrientation() == ScreenOrientation.LANDSCAPE
     val preferences = rememberPodPickPreferences()
-    // WEB-044 (§7.6): the desktop layout keeps its own choice, more cards per row by default (wireframe D9)
+    // WEB-044: the desktop layout keeps its own choice, more cards per row by default (wireframe D9)
     val desktop = desktopLayout()
     val key = if (desktop) "columns-desktop" else if (landscape) "columns-landscape" else "columns-portrait"
     return remember(preferences, key) { PodPickColumns(preferences, key, if (desktop) 8 else if (landscape) 5 else 3) }
@@ -278,7 +278,7 @@ suspend fun PointerInputScope.podPickGestures(
     onDrag: ((Float) -> Unit)? = null,
     onDragEnd: (Float) -> Unit = {},
     onEnd: () -> Unit = {},
-    /** The desktop layout's mouse (§5): a left click does this, however long it is held, at its place on the card; the
+    /** The desktop layout's mouse (WEB-044): a left click does this, however long it is held, at its place on the card; the
      * mouse never holds, swipes or inspects (Alt does, WEB-024). Null: the mouse works as a finger (the phone layout). */
     mouseClick: ((Offset) -> Unit)? = null,
     /** With [mouseClick]: a left-button drag past the slop drags the card ([MouseDrag]) instead of clicking. */
@@ -472,7 +472,7 @@ private fun PodPickCard(
     onRefund: (() -> Unit)? = null,
     /** WEB-024: the mouse came onto the card (true) or left it (desktop layout). */
     onHover: (Boolean) -> Unit = {},
-    /** The desktop layout (§5, WEB-044): a click keeps, the ⋯ of the [hovered] card opens its menu. */
+    /** The desktop layout (WEB-044): a click keeps, the ⋯ of the [hovered] card opens its menu. */
     desktop: Boolean = false,
     hovered: Boolean = false,
     /** WEB-117: the desktop layout's quick look. */
@@ -521,7 +521,7 @@ private fun PodPickCard(
                 }
                 onClick { currentOnMenu(true); true }
             }
-            // WEB-028 (owner, §5): on the desktop layout a right-click burns the card (again: unmarks it), as a swipe left does
+            // WEB-028 (owner): on the desktop layout a right-click burns the card (again: unmarks it), as a swipe left does
             .then(if (!desktop) Modifier else Modifier.desktopControl(listOf(copy.id, burnEnabled), onRight = {
                 if (currentMark == PodPickMark.BURN && !automaticBurn) { AppLog.info("pod", "Right-click unmarked ${copy.id}"); onUnmark() }
                 else if (burnEnabled && currentMark != PodPickMark.BURN) {
@@ -533,7 +533,7 @@ private fun PodPickCard(
             }))
             .pointerInput(burnEnabled, desktop) {
                 podPickGestures(onTap = { currentOnMenu(true) }, onInspect = { currentOnInspect(it) }, onInspectScroll = onInspectScroll,
-                    // WEB-044 (owner, §5): on the desktop layout a click keeps the card (again: unmarks it; a burned one switches
+                    // WEB-044 (owner): on the desktop layout a click keeps the card (again: unmarks it; a burned one switches
                     // to keep), as a swipe to the right does
                     mouseClick = if (!desktop) null else ({ _ ->
                         AppLog.info("pod", "Click ${if (currentMark == PodPickMark.KEEP) "unmarked" else "kept"} ${copy.id}")
@@ -561,7 +561,7 @@ private fun PodPickCard(
             if (onRefund != null) Icon(Icons.Default.MenuBook, "Spent Librarian", Modifier.align(Alignment.TopStart)
                 .background(PodPickGreen, RoundedCornerShape(4.dp)).padding(2.dp).size(16.dp), tint = Color.White)
         }
-        // WEB-044 (§12 item 8): the hovered card's ⋯ opens its menu (Unmark, Refund Librarian), under the mark's larger badge
+        // WEB-044: the hovered card's ⋯ opens its menu (Unmark, Refund Librarian), under the mark's larger badge
         if (hovered) Surface(Modifier.align(Alignment.TopEnd).padding(top = 52.dp, end = 4.dp).size(28.dp)
             .testTag("pod-pick-more-${copy.id}").clickable(onClickLabel = "Card menu", role = Role.Button) {
                 AppLog.info("pod", "⋯ opened the menu of ${copy.id}"); currentOnMenu(true)

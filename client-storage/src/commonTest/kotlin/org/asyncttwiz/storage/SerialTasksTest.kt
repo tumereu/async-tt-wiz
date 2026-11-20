@@ -9,7 +9,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
-// The browser's single-thread executors as coroutines (web client step 3b): a worker's tasks keep their order, and one
+// The browser's single-thread executors as coroutines: a worker's tasks keep their order, and one
 // that waits holds back the rest, as a worker thread in runBlocking does on Android, without blocking the page.
 class SerialTasksTest {
     @Test

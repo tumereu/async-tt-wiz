@@ -6,6 +6,10 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import org.flywaydb.core.api.CoreErrorCode
+import org.flywaydb.core.api.FlywayException
+import org.postgresql.util.PSQLException
+import org.postgresql.util.PSQLState
 
 class MigrationCommandTest {
     @TempDir lateinit var temporary: Path
@@ -37,10 +41,25 @@ class MigrationCommandTest {
             val output = Files.readString(log)
             assertEquals(1, process.exitValue())
             assertTrue(output.contains("Migration failed"))
+            assertTrue(output.contains(" Migration failure: flywayError=NONE cause0={class=java.lang.IllegalArgumentException")
+                || output.contains(" Migration failure: flywayError=NONE cause0={class=java.io.IOException"), "Reason missing: $output")
             assertFalse(output.contains(marker), "Secret exposed by malformed configuration case $index")
             assertFalse(output.contains(secret.toString()), "Secret path exposed by case $index")
             assertFalse(output.contains("jdbc:postgresql:"), "Raw JDBC URL exposed by case $index")
             println("PASS installed migration configuration failure/redaction case=$index exit=${process.exitValue()}")
         }
+    }
+
+    @Test fun `failure diagnostic names the reason and cause chain without the connection inputs`() {
+        val url = "jdbc:postgresql://db.internal:5432/atw?password=synthetic-do-not-log"
+        val failure = FlywayException("Unable to obtain connection from database ($url)",
+            PSQLException("The connection attempt failed.", PSQLState.CONNECTION_UNABLE_TO_CONNECT, java.net.SocketException("Connection reset")),
+            CoreErrorCode.DB_CONNECTION)
+        val line = MigrationCommand.diagnostic(failure)
+        java.time.Instant.parse(line.substringBefore(' '))
+        assertTrue(line.contains(" Migration failure: flywayError=DB_CONNECTION cause0={class=org.flywaydb.core.api.FlywayException"), line)
+        assertTrue(line.contains("cause1={class=org.postgresql.util.PSQLException sqlState=08001 message=\"The connection attempt failed.\"}"), line)
+        assertTrue(line.contains("cause2={class=java.net.SocketException sqlState=NONE message=\"Connection reset\"}"), line)
+        assertFalse(line.contains("db.internal") || line.contains("synthetic-do-not-log") || line.contains("jdbc:"), line)
     }
 }

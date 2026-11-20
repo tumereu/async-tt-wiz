@@ -24,7 +24,7 @@ import java.util.Properties
 import java.util.UUID
 
 /** Arcanum definitions of a game's cards, parsed on the device from the game's card data and cached
- * (docs/specs/arcanum-atw-integration.md I-D2). The card data is built from an invented catalog the way deck import
+ * (I-D2, docs/arcanum-atw-decisions.md). The card data is built from an invented catalog the way deck import
  * builds it; every card is invented, with wordings from oracle templates. */
 class CardDefinitionsTest {
     @TempDir lateinit var temporary: Path

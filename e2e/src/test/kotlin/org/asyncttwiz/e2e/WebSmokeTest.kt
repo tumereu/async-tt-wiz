@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 import org.junit.Test
 
 /**
- * The web build in a real browser (docs/specs/web-client.md §10, §11 steps 3 and 4): the server serves the built web
+ * The web build in a real browser: the server serves the built web
  * client (webApp's webDist, WEB_APP_DIR) beside the API, and Chrome (the installed one, through Playwright: [E2eBrowser])
  * loads it, signs in, lists the games, moves between screens by address and browser history, and opens a started game's
  * table and makes a move there. Not a Robolectric test: the app runs in Chrome.

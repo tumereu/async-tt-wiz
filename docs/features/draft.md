@@ -285,7 +285,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 ## Submitting and pod games
 
-- **DRF-119** Submit is possible once the whole draft is done: Main at least 40 cards incl. basics, Side within the sideboard limit, at most 1000 cards in all (Maybe included); "Submit deck?" is confirmed. (r60)
+- **DRF-119** Submit is possible once the whole draft is done: Main and Side as a pod deck's Ready asks (LOB-052), and the whole deck, Maybe included, within a deck's card limit (LOB-063); "Submit deck?" is confirmed. (r60)
 - **DRF-120** Submitting locks Main, Side, Maybe and basics; the bar then shows "✓ Submitted". Maybe comes along to pod games outside the game with Side (LOB-141). Members submit independently. (r60)
 - **DRF-121** The Games tab lists members as "deck submitted" or "building" and, once yours is submitted, a crossed-swords Challenge button beside every other member; then the pod's Standings (DRF-235) and its Matches (DRF-236); then this pod's games. (r58)
 - **DRF-235** The pod's Standings give each member's W–L–D in the pod's finished matches, most wins first, then fewest losses, then most draws. (r58)

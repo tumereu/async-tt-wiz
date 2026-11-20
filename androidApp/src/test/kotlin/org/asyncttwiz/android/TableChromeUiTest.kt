@@ -74,7 +74,7 @@ class TableChromeUiTest {
                 // TRN-016, TRN-017 (owner playtest 2026-11-06): the main button keeps one width, 112 dp
                 assertEquals(112f, b.width, .5f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
-                // R4b: the toggles are the engine game's own (EngineToggleCells); their row is checked on an engine game
+                // The toggles are the engine game's own (EngineToggleCells); their row is checked on an engine game
                 // (EngineTableScreenshotTest), this table has none
             }
             val handLabel = TablePresentation.scene(TableFixture.game, tableBoard(play), who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)

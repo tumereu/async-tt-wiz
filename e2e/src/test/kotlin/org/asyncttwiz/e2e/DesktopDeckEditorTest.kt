@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The desktop layout's deck editor (docs/specs/web-client.md §7.5, step 6, wireframe D8): Alice, on a computer at 1440 × 900,
+ * The desktop layout's deck editor (WEB-039, wireframe D8): Alice, on a computer at 1440 × 900,
  * builds her deck with the search beside the list, hides the search and opens it again, and saves with Ctrl+S.
  */
 @Config(qualifiers = "w1440dp-h900dp-land-mdpi")

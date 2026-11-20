@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.exp
 
-// The mouse and the finger key on the desktop table (docs/specs/web-client.md §5; WEB-023 to WEB-030). The phone layout's
+// The mouse and the finger key on the desktop table (WEB-023 to WEB-030). The phone layout's
 // touch handling is never changed by any of this: everything here is installed only in the desktop layout.
 
 /** WEB-023: which mouse button a press is: the left button acts as a finger does, the right one does a control's hold
@@ -67,7 +67,7 @@ sealed interface MouseButton {
 /**
  * A key press or release on the desktop layout (the web page's keyboard events): [key] as the browser names it ("Alt",
  * "Shift", "a", " "), [time] the event's time (ms, comparable only with other keys'), [repeat] a held key's repeats,
- * [textField] whether a text field has the focus (hotkeys never act then, §6). [lost]: a release the page never sent, made
+ * [textField] whether a text field has the focus (hotkeys never act then, WEB-090). [lost]: a release the page never sent, made
  * by [DesktopKeyboard.letGo] because the key can't be down any more, and why (the window lost the focus, a text field took
  * the keyboard, a later event said the key isn't down); null for the page's own key-up.
  */
@@ -76,8 +76,8 @@ data class DesktopKey(val key: String, val down: Boolean, val time: Long, val re
     val lost: String? = null)
 
 /**
- * The desktop layout's keyboard (§6): the page hands every key press and release here ([dispatch], the web platform's
- * window listeners), and the screens listening ([Listen]) take them, the last listening first. Step 5c's hotkeys listen
+ * The desktop layout's keyboard (WEB-031): the page hands every key press and release here ([dispatch], the web platform's
+ * window listeners), and the screens listening ([Listen]) take them, the last listening first. The hotkeys listen
  * here too. Nothing dispatches on Android. Main thread.
  *
  * WEB-031 (owner, 2026-11-14): while a text field has the keyboard ([DesktopKey.textField]) every key press goes only to it,
@@ -276,7 +276,7 @@ class DesktopFingerKey {
     }
 
     /**
-     * WEB-031 (§6): another key pressed while the finger key is held. Alt stays the finger. Shift, the fallback, becomes part
+     * WEB-031: another key pressed while the finger key is held. Alt stays the finger. Shift, the fallback, becomes part
      * of a chord (Shift+Space, Shift+G, "?"): the finger is lifted at once, so the Inspect it opened closes and the view goes
      * on, and its release does nothing more.
      */
@@ -296,10 +296,10 @@ const val QUICK_LOOK_MILLIS = 250L
 /** WEB-027: how long a card's hover chips stay after the pointer leaves it, so it can reach them. */
 const val HOVER_CHIPS_KEEP_MILLIS = 180L
 
-/** §5: how long the pointer rests on a control before its tooltip shows. */
+/** WEB-028: how long the pointer rests on a control before its tooltip shows. */
 const val HOVER_TOOLTIP_MILLIS = 500L
 
-/** WEB-029: the zoom of one wheel notch (§5: zoom around the pointer, within the table's 0.65–2×). */
+/** WEB-029: the zoom of one wheel notch (zoom around the pointer, within the table's 0.65–2×). */
 fun wheelZoom(delta: Float): Float = exp(-delta.coerceIn(-4f, 4f) * .1f)
 
 /** WEB-029: how far (dp) a sideways wheel notch (Shift+wheel, or a trackpad's sideways swipe) pans the table. */
@@ -476,7 +476,7 @@ fun Modifier.desktopTableMouse(mouse: DesktopTableMouse, density: Float): Modifi
 }
 
 /**
- * §5, WEB-028: a control on the desktop layout: a right-click does [onRight] (its hold action, or its tooltip without one)
+ * WEB-028: a control on the desktop layout: a right-click does [onRight] (its hold action, or its tooltip without one)
  * instead of a tap, and resting the pointer on it [HOVER_TOOLTIP_MILLIS] shows its tooltip ([onHover] true, false once the
  * pointer leaves or presses). Ahead of the control's own gestures, so the right button never taps it. Touches are left alone.
  */

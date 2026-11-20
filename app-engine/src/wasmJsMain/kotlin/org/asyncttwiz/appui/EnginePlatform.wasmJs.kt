@@ -1,6 +1,6 @@
 package org.asyncttwiz.appui
 
-// The page's one thread is its main thread (web client step 3b): posted work runs from the event loop's queue, in order;
+// The page's one thread is its main thread: posted work runs from the event loop's queue, in order;
 // a failure in it is reported as uncaught ([uncaught]) instead of escaping into the browser.
 
 private fun guarded(where: String, action: () -> Unit): () -> Unit = {
@@ -52,7 +52,7 @@ internal actual fun platformBuildInfo(): BuildInfo = checkNotNull(browserBuildIn
 const val BUILD_INFO_PREFIX = "atw-build:"
 
 /**
- * Web client step 4d: the page's build values as one message to the engine's Web Worker (the devices there read them: the
+ * The page's build values as one message to the engine's Web Worker (the devices there read them: the
  * diagnostics switch, the version in a report), or null when none is installed on the page.
  */
 fun buildInfoMessage(): String? {

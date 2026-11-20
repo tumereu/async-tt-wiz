@@ -21,7 +21,7 @@ class TableRefreshObservationTest {
         return changed
     }
 
-    // SYS-028 (on engine state, R4b: the table reads the lobby's narrow view, whose board is the engine game's)
+    // SYS-028 (on engine state: the table reads the lobby's narrow view, whose board is the engine game's)
     @Test fun backgroundRefreshWithUnchangedDataWritesNothingTheTableReads() {
         val f = EngineLobbyFixture()
         try {

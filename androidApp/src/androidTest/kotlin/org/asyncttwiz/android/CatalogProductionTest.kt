@@ -21,7 +21,7 @@ class CatalogProductionTest {
         }
         try {
             val repository = AndroidCatalogStorage.repository(context)
-            // The server's current card catalog (web-client step 1b), from the debug build's API origin.
+            // The server's current card catalog (SYS-081), from the debug build's API origin.
             val source = HttpCatalogSource(BuildConfig.ACCOUNT_ORIGIN)
             val installed = CatalogInstaller(AndroidCatalogStorage.directory(context), repository, source).install(null)
             assertTrue(installed.records > 0)

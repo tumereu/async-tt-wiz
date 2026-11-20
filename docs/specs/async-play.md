@@ -73,5 +73,5 @@ once nothing is left.
 
 26. Early answers are keyed per creature's division for the turn; the key doesn't tell the first-strike and regular
     combat damage steps apart (STK-034).
-27. Pass / End turn latency: revisit now that R1–R4 and R6 of `engine-responsiveness.md` are built.
+27. Pass / End turn latency: revisit now that the engine responsiveness work (layers worked out once per state, boards built once on the engine thread, cheaper server refreshes) is built.
 28. Whether async rounds per game dropped compared with before (the server logs them).

@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import org.asyncttwiz.storage.*
 
 /**
- * The card records (docs/specs/web-client.md sections 3.5, 3.6): [installed] the records in use once they are the app's
+ * The card records (LOB-091, LOB-096): [installed] the records in use once they are the app's
  * catalog ([ready]); [progress] while it installs; [failed] when the download failed twice (Retry); [kept] false when the
  * browser couldn't keep them for later visits (its storage refused them, or a private window has none, WEB-009).
  */

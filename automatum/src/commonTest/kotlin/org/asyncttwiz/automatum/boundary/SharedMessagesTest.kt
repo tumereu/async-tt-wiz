@@ -28,7 +28,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Web client step 4e (docs/specs/web-client.md §1 item 3): a board's shared flow and its combat across the engine boundary.
+ * A board's shared flow and its combat across the engine boundary.
  * The shared panels' value of a real flow, every step of a shared-flow session and its answers, what the table shows of
  * combat (declarations, costs, the damage preview and divisions) and the cost chips' requests come back the same from their
  * JSON text.
@@ -53,7 +53,7 @@ class SharedMessagesTest {
 
     private fun roundTrip(answer: DeviceAnswer): DeviceAnswer = DeviceMessage.decode(DeviceMessage.answer("game", answer)).answer!!
 
-    // Web client step 4e, STK-030: the shared panels' value of a real flow (the scry asked while a spell resolves, its listed
+    // STK-030: the shared panels' value of a real flow (the scry asked while a spell resolves, its listed
     // answers, what Alice may see) comes back the same from its text inside the device's answer, worked out from the flow
     @Test fun aSharedFlowsValueComesBackTheSameFromItsText() {
         val flow = scrying()
@@ -74,7 +74,7 @@ class SharedMessagesTest {
         assertEquals(scry, shown.decision)
     }
 
-    // Web client step 4e: every step of a shared-flow session and every answer comes back the same from its text
+    // Every step of a shared-flow session and every answer comes back the same from its text
     @Test fun everySharedStepComesBackTheSameFromItsText() {
         val use = ManaUse.Life(2)
         val taps = ManaTapsWire(tapped = listOf(use), outs = listOf(use))
@@ -104,7 +104,7 @@ class SharedMessagesTest {
         }
     }
 
-    // Web client step 4e, CMB-033, CMB-037, I-D29: what the table shows of combat (the declarations allowed, the costs of the
+    // CMB-033, CMB-037, I-D29: what the table shows of combat (the declarations allowed, the costs of the
     // drafted attackers, the damage preview with the divisions on the way, the divisions still to come) and an open division
     // in a shared flow's value come back the same from their text, the amounts by object in their order
     @Test fun combatsValuesComeBackTheSameFromTheirText() {
@@ -134,7 +134,7 @@ class SharedMessagesTest {
         assertEquals(DeviceAnswer.Done(3, DeviceResult.Combat(null)), roundTrip(DeviceAnswer.Done(3, DeviceResult.Combat(null))))
     }
 
-    // Web client step 4e (I-D36, CMB-040, ZON-080): the combat's and cost chips' requests come back the same from their text
+    // I-D36, CMB-040, ZON-080: the combat's and cost chips' requests come back the same from their text
     @Test fun combatAndChipRequestsComeBackTheSameFromTheirText() {
         val requests = listOf(
             DeviceRequest.Combat(1, 7), DeviceRequest.Combat(2, 7, null, drawn = true),

@@ -112,7 +112,7 @@ class PodService(private val runtime: ServiceRuntime) {
 
     /**
      * A draft set chosen as a pod's source, by its code: its source and support from the server's card catalog
-     * (docs/specs/web-client.md sections 3.7, 3.8), or why it can't be one. DRF-162: a set whose packs can hold a card
+     * (DRF-169, SYS-082), or why it can't be one. DRF-162: a set whose packs can hold a card
      * Automatum can't play (the catalog's marks) is refused.
      */
     private fun chooseSet(code: String): ChosenSet {

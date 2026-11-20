@@ -16,7 +16,7 @@ import org.asyncttwiz.automatum.HandCastChips
 import org.asyncttwiz.automatum.HandCastOptions
 
 /*
- * Web client step 4e (docs/specs/web-client.md §1 item 3): a cast, land play or activation as a flow session where the
+ * A cast, land play or activation as a flow session where the
  * device is (the browser's engine Web Worker; Android's in-process engine side): the page opens a session, answers its
  * steps and cancels or finishes it with [CastRequest]s, and draws the cast panel and its target bar from the [CastAnswer]s
  * it gets back ([CastPanelValue]: plain data, never a live flow). Every step after the opening names the session and the

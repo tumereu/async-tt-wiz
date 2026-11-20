@@ -166,11 +166,13 @@ internal class WebAppPlatform(private val assets: Map<String, ByteArray>, privat
     }
 
     companion object {
-        /** Fetches [WEB_ASSETS] from [base] (the build's own folder). */
+        /** Fetches [WEB_ASSETS] from [base] (the build's own folder), each tried again a couple of times when it fails (WEB-005). */
         suspend fun fetchAssets(base: String): Map<String, ByteArray> = WEB_ASSETS.associateWith { path ->
-            val response = fetchBytes(base + path, 8.0 * 1024 * 1024, "*/*").await<JsAny>()
-            check(responseStatus(response) == 200) { "Bundled file $path: HTTP ${responseStatus(response)}" }
-            responseBytes(response).toByteArray()
+            loadBuiltIn("Bundled file $path") {
+                val response = fetchBytes(base + path, 8.0 * 1024 * 1024, "*/*").await<JsAny>()
+                check(responseStatus(response) == 200) { "Bundled file $path: HTTP ${responseStatus(response)}" }
+                responseBytes(response).toByteArray()
+            }
         }
 
         // The Android app's res/drawable atw_logo.xml and swords_outlined.xml, path for path.

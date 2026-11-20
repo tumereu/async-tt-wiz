@@ -23,7 +23,6 @@ Fixes and small changes:
 - Stats colours become a pie: one slice per single colour and one per each multicolour combination the deck holds (striped in its colours, gold for three or more), each card counted once; the Cast cost | Identity toggle stays (DRF-117, DRF-242).
 - Arena setup: the "Uncommon every" tile's label wraps onto two lines; make it fit as the other tiles' do (DRF-281; no entry change).
 - Draft filter rarity chips: a set's special and bonus cards count under the rarity they belong to in Arena (DRF-291), not their own printing's (DRF-252).
-- Web app: a built-in file (fonts and the like) that fails to load is tried again a couple of times before "ATW couldn't load" shows (WEB-005).
 
 Features, in this order:
 

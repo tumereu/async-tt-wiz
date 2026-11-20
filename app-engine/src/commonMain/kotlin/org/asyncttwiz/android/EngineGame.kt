@@ -310,13 +310,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             reloadRewind = null
             if (this::device.isInitialized) {
                 val old = device.session
-                takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
-                // Why the device couldn't follow (its own record goes with it)
-                AppLog.info("engine", "Device record before loading again: ${device.recentRecord(12).joinToString(" | ")}")
                 // HIS-005: what was loaded of older history stays (its pages, and the main line up to the new line's start)
                 device.older?.let { o -> loaded.older = o.carriedTo(loaded.session.lineStart, device.olderEvents + old.events) }
-                // HIS-110: a reveal is closed only by the player's OK or by being taken back, never by loading again
-                loaded.carryReveals(device)
                 // HIS-006 (e2e full run 2026-11-13: a head that overtook revisions while the table was live): loaded again
                 // while the table was live (in sight, not away, not in the catch-up's pause or timeline mode, no take-back
                 // held), the game stays live: what the server had that the device hadn't shown plays on as it would have,
@@ -328,6 +323,17 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                     device.catchUp -> "in the catch-up's pause or timeline mode"
                     else -> null
                 }
+                // HIS-006 (merge gate 2026-11-20, CoreLoopTest): live, what this device had already shown, which the server's
+                // local head of the player may not have reached yet, shows again at once instead of playing back a second time
+                if (why == null) loaded.showAlreadySeen(device).takeIf { it > 0 }?.let { n ->
+                    AppLog.info("engine", "Loaded again live: the server's local head of this player ${snapshot.localHeads[me]?.take(8)} was " +
+                        "behind what the table had shown (${old.localHead.take(8)}): $n events shown again at once, not played back")
+                }
+                takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
+                // Why the device couldn't follow (its own record goes with it)
+                AppLog.info("engine", "Device record before loading again: ${device.recentRecord(12).joinToString(" | ")}")
+                // HIS-110: a reveal is closed only by the player's OK or by being taken back, never by loading again
+                loaded.carryReveals(device)
                 AppLog.info("engine", "Loaded again " + if (why == null) "while the table was live: it stays live, " +
                     "${loaded.session.buffered.size} events to show${if (loaded.catchUp) " (no catch-up pause)" else ""}"
                     else "with $why: ${if (loaded.catchUp) "the catch-up pause stays" else "nothing to catch up on"}")

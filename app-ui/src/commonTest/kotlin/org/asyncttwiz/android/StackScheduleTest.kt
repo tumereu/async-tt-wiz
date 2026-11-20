@@ -44,7 +44,7 @@ class StackScheduleTest {
         assertEquals(listOf(1_000L, 3_000L, 1_000L, 2_600L, null), StackSchedule.of(true, 1, 3_000, .25f).map { it.millis })
     }
 
-    // STK-058, STK-127, HIS-230: several targets' arrows start 80 ms apart, each growing in 0.25 s; then 0.4 s with all of them drawn
+    // STK-058, STK-127, HIS-230, TBL-204: several targets' arrows start 80 ms apart, each growing in 0.25 s; then 0.4 s with all of them drawn
     @Test fun severalArrowsGrowEightyMillisecondsApart() {
         assertEquals(250L + 2 * 80L + 400L, StackSchedule.targetingMillis(3, 1f))
         assertEquals(0f, StackSchedule.arrowProgress(0, 0, 1f))

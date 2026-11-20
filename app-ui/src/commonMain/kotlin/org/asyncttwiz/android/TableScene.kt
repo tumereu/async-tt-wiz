@@ -101,12 +101,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentViewPause?.justTappedShow == true && !owner.tapOnHand) {
-                    // HIS-112: the second tap of a double tap on a shown play, the play gone from under it by then
-                } else if (currentRuntime.holdTap != null && !owner.tapOnHand) {
-                    // HIS-113 (owner, 2026-11-08): while a combat holds the view a single tap on the table (not the hand) does
-                    // nothing; a double tap skips it ([TableGestureCoordinator.viewHoldSkip])
-                } else if (currentRuntime.centreAction != null && !owner.tapOnHand) {
+                // HIS-139, HIS-148 (owner 2026-11-19): no tap on the table skips a play shown or a combat's hold (the main button
+                // does, TRN-165): taps act as at any other time
+                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.centreAction != null && !owner.tapOnHand) {
                     // HIS-094: with the catch-up's centre text showing, a tap on the table (not the hand) starts the playback
                     currentRuntime.centreAction?.run?.invoke()
                 } else if (currentRuntime.boardTap != null) {
@@ -142,7 +139,6 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 AppLog.info("table", if (held) "Finger held on the table (pauses what the view waits on)" else "Finger on the table lifted")
                 currentViewPause?.finger = held
             })
-        owner.viewHoldSkip = { currentRuntime.holdTap }
         owner.combatDrag = { item -> toolkit?.combatDraggable(item) ?: true }
         owner
     }
@@ -401,6 +397,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                             AppLog.info("combat", "Combat band ${if (bandOpen) "opens" else "closes"} for ${accountId.take(8)} at " +
                                 "${play.nodeId.take(8)}: " + if (!instant) "over $millis ms" else if (step.navigation)
                                     "at once (the layout or the table's size changed with it)" else "at once (a board that doesn't animate)")
+                            TableProbes.bandMoved?.invoke(accountId, bandOpen, if (instant) 0 else millis)
                         }
                         if (instant) progress.snapTo(1f)
                         else progress.animateTo(1f, tween(millis, easing = androidx.compose.animation.core.LinearEasing))
@@ -717,6 +714,12 @@ object TableProbes {
     /** Told each time a table's combat target chips begin to fade in (CMB-001: once per combat), with its account and the
      * combat ([combatBandKey]). */
     @kotlin.concurrent.Volatile var chipsFadeIn: ((me: String, combat: String) -> Unit)? = null
+    /** CMB-054, CMB-055, TBL-205: told each time a table's combat band begins to open ([open]) or close, with its account and how
+     * long its animation is ([millis]; 0: at once). */
+    @kotlin.concurrent.Volatile var bandMoved: ((me: String, open: Boolean, millis: Int) -> Unit)? = null
+    /** CMB-055: told each time what sat on a closing combat band begins to fade out where it was, with its account, how many
+     * target chips fade and how long the fade is. */
+    @kotlin.concurrent.Volatile var chipsFadeOut: ((me: String, chips: Int, millis: Int) -> Unit)? = null
 }
 
 /** WEB-026: [content] for the card whose quick look [mouse] shows, if any; read here alone (web frame rate, 2026-11-15). */

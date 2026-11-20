@@ -134,6 +134,14 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val play = if (reviewPlay != null) unhidden else stackAnimation.board(unhidden, hidden)
     SideEffect {
         routes.motionBusy = { motion.playing }
+        // TRN-165 (owner 2026-11-19): what the main button skips of the table's own animations, and how
+        routes.viewBusy = { reviewPlay == null && (motion.playing || stackAnimation.busy) }
+        routes.skipView = { why ->
+            val steps = motion.skipToEnd(why)
+            changes.stopMotion()
+            stackAnimation.end("skipped by $why")
+            if (steps) AppLog.info("game", "Table skipped to the live board ${live.nodeId.take(8)} ($why)")
+        }
         routes.showReady = { !stackAnimation.busy && motion.reachedEntries() }
         // HIS-112, STK-058, TBL-125 (owner playtest 2026-11-15: "'You may pay' was asked before the trigger had animated to
         // its place on the Stack"): a choice asked while something resolves waits for the plays shown to land, the top
@@ -170,7 +178,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     } }
     // HIS-113: a combat holds the view on the attackers and on the damage, each for the plays' time, once the table shows
     // it (owner playtest 2026-11-09: the damage right after it is dealt, before the creatures it destroys die); a held
-    // finger pauses that time; a double tap on the table skips it; timeline mode ends it (EngineAsyncHost)
+    // finger pauses that time; the main button skips it (TRN-165); timeline mode ends it (EngineAsyncHost)
     val combatHold = shown.combatHold?.takeIf { reviewId == null }
     SideEffect { motion.stopAt = combatHold?.kind }
     val combatHoldMillis by playbackPreferences.showPlaysState()
@@ -422,8 +430,6 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 // lambda below, and one made only under a condition (the hold's skip, the centre text's tap) shifted what the
                 // ones after it remembered, the table's key with them: every lambda is made whatever holds, a condition only
                 // picks one, and the hooks have a group of their own, so nothing in them reaches the table's
-                val holdSkip = { combatHold?.let { engine.dismissCombatHold(it, "double tap"); controller.engineSent() }; Unit }
-                val arrowsSkip = { stackAnimation.skip(); Unit }
                 val rewindSettled = { _: String -> scope.launch { delay(rewindPause); motion.settled() }; Unit }
                 val enterTimeline = { routes.enterReview(timeline.last().id) }
                 val leaveTimeline = { routes.leaveReview() }
@@ -476,11 +482,6 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             }, watch)
                             else null,
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) pausePlayback else null,
-                        holdTap = if (combatHold != null) holdSkip
-                            // Stack animation: a double tap or double click skips the arrows' step (WEB-030), while the move isn't
-                            // the player's (then their taps act on the table at once)
-                            else if (stackAnimation.targeting?.done == false && reviewPlay == null && status != GameDevice.Status.YourMove)
-                                arrowsSkip else null,
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
                         chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape || desktopLayout,

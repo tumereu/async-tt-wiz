@@ -104,6 +104,29 @@ class CatchUpPlaybackTest : E2e() {
         assertTrue(bob.leaks.leaks.isEmpty() && alice.leaks.leaks.isEmpty())
     }
 
+    // TRN-163, TRN-164, TRN-165, TBL-206 (owner 2026-11-19): coming back to Alice's turn, under the catch-up's centre text Bob's main
+    // button already holds what he is offered where his playback would come to rest; his press skips the playback there at once and
+    // is made there
+    @Test fun theMainButtonSkipsTheCatchUpAndActsWherePlaybackRests() {
+        aliceMulligansAndPlaysOn()
+        alice.hold("To combat")
+        waitUntil("Alice's turn over") { alice.state.turn.active == bob.me && alice.engine { device.session.pending.isEmpty() } }
+        bobComesBack()
+        waitUntil("Bob's catch-up") { bob.status == GameDevice.Status.CatchUp }
+        val rest = assertNotNull(bob.shown.rest, "where his playback would rest, ahead of what his table shows")
+        waitUntil("Bob's main button") { bob.mainWords() != null }
+        val words = bob.mainWords()!!
+        assertTrue(bob.showsWatch(), "the centre text still up")
+        val head = bob.shown.localHead
+        val log = { text: String -> org.asyncttwiz.android.AppLog.text().lines().any { text in it } }
+        bob.tap(words)
+        waitUntil("the catch-up skipped and Bob's press made") { log("Main button tap \"$words\" made after its skip") }
+        assertTrue(log("Main button tap \"$words\" while the view still plays"), "the skip in the app log")
+        assertTrue(bob.shown.localHead != head, "his table jumped ahead")
+        assertTrue(bob.status != GameDevice.Status.CatchUp, "the catch-up's pause is over: ${bob.status}")
+        assertTrue(bob.shown.held.any { it.id == rest.board.nodeId }, "his table went to the rest point")
+    }
+
     // HIS-104 (§29.6): Alice's combat with no attackers changes nothing Bob can see: its events go by at once in his
     // playback; with playback's Full control on they keep the playback delay. CMB-001, CMB-053 (owner playtest 2026-11-06): the
     // combat band never opens in it (nobody attacked)

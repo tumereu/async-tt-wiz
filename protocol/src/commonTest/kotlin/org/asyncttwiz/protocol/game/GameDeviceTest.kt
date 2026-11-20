@@ -320,6 +320,54 @@ class GameDeviceTest {
         assertEquals(stop, sim.load(alice).status, "loaded again")
     }
 
+    // TRN-163, TRN-164, TRN-165 (owner 2026-11-19): coming back to the other player's moves, the view comes to rest where
+    // playback would stop: the catch-up's paused start already knows that stop (its state, what the player is offered there),
+    // and the main button's skip goes there at once, showing no play of what it passes
+    @Test
+    fun theCatchUpRestsWherePlaybackWouldStopAndTheSkipGoesThereAtOnce() {
+        val glimmer = arcanum.engine.cards.Cards.invent("Idle Glimmer", "{0}", "Instant", "Draw a card.")
+        val sim = DeviceSim(EngineGames(3, (List(10) { "Forest" } + List(30) { glimmer }) to (List(20) { "Mountain" } + List(20) { "Storm Spark" })))
+        sim.bobToMain()
+        val alice = sim.alice; val bob = sim.bob
+        sim.bobCasts("Storm Spark", landName = "Mountain")
+        sim.settle(only = listOf(bob))
+        sim.device(bob).endTurn(sim.now)
+        sim.settle(only = listOf(bob))
+        // Watched: playback from the tap to its stop
+        val watched = sim.load(alice).also { it.play(); it.playToStop() }
+        val stop = assertIs<GameDevice.Status.Stopped>(watched.status)
+        val device = sim.load(alice)
+        device.showPlays = true
+        assertEquals(GameDevice.Status.CatchUp, device.status, "the catch-up's paused start")
+        val rest = assertNotNull(device.rest(), "a rest point ahead of the shown one")
+        assertEquals(stop, rest.status)
+        assertEquals(stop.event.parentId, rest.at)
+        assertTrue(rest.model.sameAs(watched.model), "the state where playback stops")
+        device.skipToRest()
+        assertEquals(stop, device.status, "at the stop at once")
+        assertEquals(stop.event.parentId, device.session.localHead)
+        assertTrue(device.openMoments.isEmpty(), "no play of what it passed shows")
+        assertNull(device.rest(), "the view rests where it stands")
+    }
+
+    // TRN-164, TRN-165 (owner 2026-11-19): with no stop on the way (Auto-skip), the view comes to rest at the newest event, with what
+    // the player is offered there (Bob's main phase: a wait for him); the skip shows everything up to it
+    @Test
+    fun withNoStopTheViewRestsAtTheHead() {
+        val sim = spells("Storm Spark")
+        sim.bobToMain()
+        val watched = sim.load(sim.alice).also { it.play(); it.playToStop() }
+        assertTrue(!watched.session.behind, "Auto-skip plays on to the head")
+        val device = sim.load(sim.alice)
+        val rest = assertNotNull(device.rest())
+        assertEquals(device.session.head, rest.at)
+        assertEquals(watched.status, rest.status, "what the player is offered at the head")
+        device.skipToRest()
+        assertTrue(!device.session.behind)
+        assertEquals(watched.status, device.status)
+        assertNull(device.rest())
+    }
+
     /** The engine searches (layer computations, [EngineProbes.layersWorkedOut]) and points worked out while [ticks] run. */
     private fun searches(device: GameDevice, ticks: () -> Unit): Pair<Int, Int> {
         var layers = 0

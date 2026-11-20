@@ -310,8 +310,8 @@ private class PlayShowLooks(val shown: List<PlayShown>, val sources: List<TableB
  * the phone and the desktop table alike), with an accelerating curve ([playShowFlightMillis]), its line
  * gone as the flight starts and the card fading out over the flight's second half; the next is already waiting large under
  * it. Until it lands its entry isn't on the table's board ([withoutEntries]); when it lands it is gone from this screen at
- * once and [done] runs for it (its entry shows in its place, and the device's dismissal follows). A double tap on the one
- * shown ends it at once, a single tap does nothing, and holding it inspects it ([inspect], [moved]: TBL-104, TBL-131). A
+ * once and [done] runs for it (its entry shows in its place, and the device's dismissal follows). A tap on the one shown
+ * does nothing (the main button skips it, TRN-165), and holding it inspects it ([inspect], [moved]: TBL-104, TBL-131). A
  * finger held on it or on the table pauses its time ([pause]) and holds the pile once flown in. The view holds meanwhile (the
  * device holds the later events). Only the card shown and its line take touches. Cheap per frame: the flights are read while
  * drawing only, nothing composes again. [play] is the board with the plays' entries on it.
@@ -321,8 +321,6 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     names: Map<String, String>, millis: Long, pause: ViewPause = remember { ViewPause() },
     inspect: (GameDevice.PlayShow, Boolean) -> Unit = { _, _ -> },
     moved: (dx: Float, dy: Float, step: Float) -> Unit = { _, _, _ -> },
-    /** Outlives these plays: a tap's double-tap time goes on after they have gone. */
-    tapScope: CoroutineScope = rememberCoroutineScope(),
     /** Outlives these plays: the chain they are part of, for their pace. */
     pace: PlayShowPace = remember { PlayShowPace() },
     /** Whether the table is ready for these plays (read as snapshot state). */
@@ -361,8 +359,6 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     val ended = remember(first) { BooleanArray(group.size) }
     val showing = remember(first) { arrayOfNulls<Job>(1) }
     fun end(i: Int) { if (!ended[i]) { ended[i] = true; gone += i; done(group[i]) } }
-    // A double tap on the play shown: off this screen at once, the next under it shows
-    fun skip(i: Int) { showing[0]?.cancel(); end(i) }
     LaunchedEffect(first) {
         // The board drawn where they went on the Stack, and nothing else of the Stack animation playing (an entry's arrows)
         if (looks == null) {
@@ -422,7 +418,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                 "; step 1 (fly-in) at 0 ms for ${arrived - began} ms (${group.size} from $PLAY_SHOW_STAGGER_MILLIS ms apart, $arrival ms each)" +
                 "; step 2 (middle hold) at ${start - began} ms for ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms)" +
                 "; step 3 (to the Stack) at ${flown - began} ms for ${landed - flown} ms ($flightFor ms)" +
-                (if (run.isCancelled) ", ended by a double tap" else if (target == null) ", no Stack place to fly to" else ""))
+                (if (target == null) ", no Stack place to fly to" else ""))
             end(i)
         }
     }
@@ -442,9 +438,9 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             val look = shown[i]
             val now = i == current
             val source = sources[i]
-            // HIS-112 (owner, 2026-11-08): a single tap does nothing, so a skip isn't triggered by accident
+            // HIS-139 (owner 2026-11-19): a tap does nothing (the main button skips it, TRN-165)
             val touches = if (!now) Modifier else Modifier.choiceCardGestures(entry,
-                tap = { if (pause.tapOnShow(tapScope)) skip(i) },
+                tap = {},
                 hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved)
             // The card's centre is the board's (and its place in the pile), so its flights move and scale it about its own
             // centre. They are read while drawing only: they move the card without composing it again
@@ -514,7 +510,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                     }
                 }
                 .widthIn(max = 300.dp)
-                .choiceCardGestures(entry, tap = { if (pause.tapOnShow(tapScope)) skip(i) },
+                .choiceCardGestures(entry, tap = {},
                     hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved),
                 shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
                 CardText(look.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,

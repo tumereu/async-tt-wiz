@@ -3,7 +3,6 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import arcanum.api.TurnStep
-import org.asyncttwiz.android.DEFAULT_CARD_MOVE_SPEED
 import org.asyncttwiz.android.HistoryPlaybackPreferences
 import org.asyncttwiz.android.TableProbes
 import org.asyncttwiz.appui.AppPlatform
@@ -34,22 +33,17 @@ class CombatAnimationTest : E2e() {
 
     /**
      * CMB-001, CMB-055, CMB-054 on [viewer]'s [samples] (the combat to its end, [open] the other player's Mountain's top with the band open): the band
-     * collapses with its animation, the other battlefield taking places between open and closed, and what sat on it (the
-     * target chips) fades out where it was, still drawn for a while after the collapse began.
+     * collapses with its animation (the table starts it over its time, [closes], not at once) and the other battlefield is back
+     * where it was, and what sat on it (the target chips) fades out where it was ([fades]: chips and the fade's time).
      */
-    private fun assertAnimatedClose(viewer: String, samples: List<Sample>, open: Float) {
+    private fun assertAnimatedClose(viewer: String, samples: List<Sample>, open: Float, closes: List<Int>, fades: List<Pair<Int, Int>>) {
         val closed = samples.last().otherTop
         assertTrue(kotlin.math.abs(closed - open) > 2f, "$viewer: the other battlefield back after the combat ($open → $closed)")
-        val start = samples.indexOfLast { it.open && kotlin.math.abs(it.otherTop - open) < .5f }
-        val after = samples.drop(start + 1)
-        val between = after.filter { it.otherTop > minOf(open, closed) + .5f && it.otherTop < maxOf(open, closed) - .5f }
-        // At the card move speed (1.2 dp a millisecond) a battlefield moving only a few dp (the desktop table's band) gets
-        // there within a frame: places between show only for a move that takes several frames
-        if (kotlin.math.abs(closed - open) > 4 * 17 * DEFAULT_CARD_MOVE_SPEED) assertTrue(between.isNotEmpty(),
-            "$viewer: the band collapsed with its animation, not at once: " + after.take(20).joinToString { "${it.otherTop}" })
-        val fading = after.filter { it.chips }
-        val fadeMillis = if (fading.isEmpty()) 0 else fading.last().at - fading.first().at
-        assertTrue(fadeMillis >= 100, "$viewer: the chips faded out where they were as the band closed ($fadeMillis ms drawn)")
+        // The band's own animations as the table starts them (TableProbes.bandMoved, chipsFadeOut): deterministic, never the
+        // frames a loaded machine happens to sample (owner rule: no timing in tests)
+        assertTrue(closes.isNotEmpty() && closes.all { it > 0 }, "$viewer: the band collapsed with its animation, not at once: $closes")
+        assertTrue(fades.any { (chips, millis) -> chips > 0 && millis > 0 },
+            "$viewer: the chips faded out where they were as the band closed: $fades")
     }
 
     // CMB-001, CMB-052, CMB-055, CMB-050, HIS-113, TBL-125 (owner playtest 2026-11-16): the target chips fade in once in a combat, for the attacker
@@ -89,6 +83,11 @@ class CombatAnimationTest : E2e() {
         // nothing
         val made = mutableListOf<String>()
         TableProbes.made = { me -> synchronized(made) { made += me } }
+        // CMB-054, CMB-055: how each table's band closes, as its animation starts (its length; 0 at once)
+        val closes = mutableListOf<Pair<String, Int>>()
+        TableProbes.bandMoved = { me, open, millis -> if (!open) synchronized(closes) { closes += me to millis } }
+        val fadeOuts = mutableListOf<Triple<String, Int, Int>>()
+        TableProbes.chipsFadeOut = { me, chips, millis -> synchronized(fadeOuts) { fadeOuts += Triple(me, chips, millis) } }
         alice.tap("To combat")
         waitUntil("Alice declaring attackers", along = listOf(bob)) { alice.state.turn.step == TurnStep.DeclareAttackers && alice.stepArrow() == "No attack" }
         waitUntil("Alice's chips") { alice.shows(hasTestTag("combat-target-chip")) }
@@ -126,10 +125,14 @@ class CombatAnimationTest : E2e() {
             val fadesNow = synchronized(fades) { fades.toList() }
             assertEquals(1, fadesNow.count { it.first == alice.id }, "Alice's chips faded in once in the combat: $fadesNow")
             assertEquals(1, fadesNow.count { it.first == bob.id }, "Bob's chips faded in once in the combat: $fadesNow")
-            assertAnimatedClose("Alice", aliceSees, requireNotNull(aliceOpen) { "Alice's band open at the damage" })
-            assertAnimatedClose("Bob", bobSees, requireNotNull(bobOpen) { "Bob's band open at the damage" })
+            val closesNow = synchronized(closes) { closes.toList() }
+            val fadeOutsNow = synchronized(fadeOuts) { fadeOuts.toList() }
+            assertAnimatedClose("Alice", aliceSees, requireNotNull(aliceOpen) { "Alice's band open at the damage" },
+                closesNow.filter { it.first == alice.id }.map { it.second }, fadeOutsNow.filter { it.first == alice.id }.map { it.second to it.third })
+            assertAnimatedClose("Bob", bobSees, requireNotNull(bobOpen) { "Bob's band open at the damage" },
+                closesNow.filter { it.first == bob.id }.map { it.second }, fadeOutsNow.filter { it.first == bob.id }.map { it.second to it.third })
         }
     }
 
-    @After fun noProbe() { TableProbes.chipsFadeIn = null; TableProbes.made = null }
+    @After fun noProbe() { TableProbes.chipsFadeIn = null; TableProbes.made = null; TableProbes.bandMoved = null; TableProbes.chipsFadeOut = null }
 }

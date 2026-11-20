@@ -317,11 +317,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
         val computed = LocalComputedBoard.current
         // CMB-028: the viewer declares attackers: the band's lanes keep room for the next
-        // (read through a derived state: the combat's view reads the device's shown state, which every event replaces; read
-        // here directly, every event composed the whole table again, web frame rate, owner 2026-11-20)
-        val attackerSlots by remember(play, toolkit, runtime.reviewing, writable, accountId) { derivedStateOf {
-            !runtime.reviewing && writable && toolkit?.combat?.readyOrLast(play)?.choices?.let { it.attackers && it.declaring == accountId } == true
-        } }
+        val attackerSlots = !runtime.reviewing && writable && toolkit?.combat?.readyOrLast(play)?.choices
+            ?.let { it.attackers && it.declaring == accountId } == true
         // STK-024: what pays the open payment lies in its own pile, to the right of its stack
         val paying = if (runtime.reviewing) emptySet() else toolkit?.paySources().orEmpty()
         val shownLayout = layoutShown.value
@@ -513,24 +510,26 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // Read while drawing: its fade (a turn's change) redraws the bars only, recomposing nothing
             val barColor = animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
             val bars = Modifier.drawBehind { drawRect(barColor.value) }
-            // Web frame rate (owner, 2026-11-20: the desktop table stutters when plays happen): what the toolkit and the routes
-            // say for this board, worked out in a derived state: they read the device's shown state, which every event
-            // replaces, and read here directly that composed the whole table again for every event, changed or not
-            val routesNow = LocalEngineRoutes.current
-            val marks by remember(play, toolkit, routesNow, runtime.reviewing, writable, accountId, IdentityKey(scene)) {
-                derivedStateOf(structuralEqualityPolicy()) { TableMarksNow.of(play, scene, toolkit, routesNow, runtime.reviewing, writable, accountId) }
-            }
-            val castGlow = marks.castGlow
-            val pickedGlow = marks.pickedGlow
+            // A cast or an Automatum decision choosing targets (I-D6): its legal targets glow
+            val castGlow = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
+            // STK-047 (owner 2026-11-07): the targets picked so far show picked, alone or in an opened group (TBL-130)
+            val pickedGlow = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty()
             // I-D46: the viewer's playable cards glow (live table only); a refused gesture shakes what it was made on.
             // TBL-117 (owner playtest 2026-11-04 #8): while Automatum works a new board out the cards that stayed where they
             // were keep their glow, and each glow fades in and out, so a card that stays playable never blinks
-            val glow = rememberPlayableGlow(play, marks.playable)
+            val glow = rememberPlayableGlow(play, if (runtime.reviewing) emptySet() else toolkit?.playableOrNull(play))
             // TBL-117 (owner, 2026-11-17): the viewer's permanents whose only use now is mana glow fainter, fading as the cyan does
-            val manaGlow = rememberPlayableGlow(play, marks.manaOnly)
+            val manaGlow = rememberPlayableGlow(play, if (runtime.reviewing) emptySet() else toolkit?.manaOnlyOrNull(play))
             val shaking = toolkit?.shaking
-            val raisedSources = marks.raisedSources
-            val attackGlow = marks.attackGlow
+            // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
+            // STK-024 (owner 2026-11-07): and while the cast panel is open, the sources that pay it
+            val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty() + toolkit?.paySources().orEmpty()
+            // CMB-028 (owner, 2026-11-05): while the viewer declares attackers, the creatures that may attack glow red-orange;
+            // CMB-034, CMB-040 (owner, 2026-11-08): as do those that may block while the viewer places blockers
+            val assumingBlocks = LocalEngineRoutes.current?.assuming() != null
+            val placingBlocks = assumingBlocks || LocalEngineRoutes.current?.mayAct() != false
+            val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.let {
+                it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
             // TBL-118 (owner 2026-11-19): the shake's reason rises from the item it shook (in the middle when the table doesn't
@@ -544,9 +543,15 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     canvasOrigin[0].y + b.y * density, canvasOrigin[0].x + b.right * density, canvasOrigin[0].y + b.bottom * density) }
                 refusalBubbles?.show(s.reason, anchor)
             }
-            val groupTaps = marks.groupTaps
-            val dimmed = marks.dimmed
-            val handDim = marks.handDim
+            // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
+            val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
+                .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
+            // TBL-130 (owner 2026-11-07): while targets are picked, the members of the opened group that aren't legal targets
+            // are dimmed (as the Stack list's, STK-048)
+            val dimmed = if (toolkit?.let { it.cast.targeting || it.flows.targeting } != true) emptySet() else scene.battlefieldGroups
+                .firstOrNull { it.key == scene.expandedGroup }?.members.orEmpty().filterNotTo(HashSet()) { it in castGlow }
+            // ZON-095 (owner notes 2026-11-14): while a cast, a choice or another panel is open the viewer's hand is dimmed
+            val handDim = toolkit != null && !runtime.reviewing && toolkit.handDimmed(play)
             // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
             val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
             val pressGlow = rememberPressGlow(pressedId)
@@ -657,54 +662,6 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
 fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
     intent is TableIntent.Overscroll ||
     intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.SearchPile
-
-/**
- * What the table marks on [play]'s cards now, by the toolkit and the routes ([TableSurface]'s marks; web frame rate, owner
- * 2026-11-20: worked out in a derived state, so a new shown state of the device that changes none of them composes nothing).
- */
-data class TableMarksNow(
-    /** A cast or an Automatum decision choosing targets (I-D6): its legal targets glow. */
-    val castGlow: Set<String>,
-    /** STK-047 (owner 2026-11-07): the targets picked so far show picked, alone or in an opened group (TBL-130). */
-    val pickedGlow: Set<String>,
-    /** I-D46, TBL-117: the viewer's playable cards (live table only); null: as worked out before. */
-    val playable: Set<String>?,
-    /** TBL-117 (owner, 2026-11-17): the viewer's permanents whose only use now is mana; null: as worked out before. */
-    val manaOnly: Set<String>?,
-    /** ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only); STK-024 (owner 2026-11-07): and
-     * while the cast panel is open, the sources that pay it. */
-    val raisedSources: Set<String>,
-    /** CMB-028 (owner, 2026-11-05): while the viewer declares attackers, the creatures that may attack glow red-orange;
-     * CMB-034, CMB-040 (owner, 2026-11-08): as do those that may block while the viewer places blockers. */
-    val attackGlow: Set<String>,
-    /** TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only). */
-    val groupTaps: Map<String, GroupTap>,
-    /** TBL-130 (owner 2026-11-07): while targets are picked, the members of the opened group that aren't legal targets are
-     * dimmed (as the Stack list's, STK-048). */
-    val dimmed: Set<String>,
-    /** ZON-095 (owner notes 2026-11-14): while a cast, a choice or another panel is open the viewer's hand is dimmed. */
-    val handDim: Boolean) {
-    companion object {
-        fun of(play: TableBoard, scene: TableScene, toolkit: TableToolkitController?, routes: EngineRoutes?, reviewing: Boolean,
-            writable: Boolean, accountId: String): TableMarksNow {
-            val castGlow = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
-            val assumingBlocks = routes?.assuming() != null
-            val placingBlocks = assumingBlocks || routes?.mayAct() != false
-            return TableMarksNow(castGlow,
-                pickedGlow = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty(),
-                playable = if (reviewing) emptySet() else toolkit?.playableOrNull(play),
-                manaOnly = if (reviewing) emptySet() else toolkit?.manaOnlyOrNull(play),
-                raisedSources = if (reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty() + toolkit?.paySources().orEmpty(),
-                attackGlow = if (reviewing || !writable) emptySet() else toolkit?.combat?.let {
-                    it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty(),
-                groupTaps = if (toolkit == null || reviewing) emptyMap() else scene.battlefieldGroups
-                    .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) },
-                dimmed = if (toolkit?.let { it.cast.targeting || it.flows.targeting } != true) emptySet() else scene.battlefieldGroups
-                    .firstOrNull { it.key == scene.expandedGroup }?.members.orEmpty().filterNotTo(HashSet()) { it in castGlow },
-                handDim = toolkit != null && !reviewing && toolkit.handDimmed(play))
-        }
-    }
-}
 
 /** TBL-117: the playable glow of each card, fading between boards (read while drawing, so only the canvas redraws). */
 class PlayableGlow {

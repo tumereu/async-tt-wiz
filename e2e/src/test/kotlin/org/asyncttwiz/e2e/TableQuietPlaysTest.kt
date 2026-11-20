@@ -10,15 +10,17 @@ import org.junit.After
 import org.junit.Test
 import org.robolectric.annotation.Config
 import java.time.Duration
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
  * The desktop table composing only for what changed while plays and combat show (owner, 2026-11-20, desktop browser: "Desktop
  * still stutters, but less than before … mostly when plays happen"): Alice, in the desktop layout at 1440 × 900, watches Bob
  * cast his Ash Pup (shown large in the middle, TBL-203) and then attacks with hers (the combat band and its holds, TBL-205).
- * Her table's own scope composes only when what it is given changes (the board, the hooks, the layout); before, every new
- * shown state of the device composed it again for nothing: the hooks were new objects (equal ones too), and the table read
- * the device's shown state directly. Nothing here measures time (no timing tests): only what composed.
+ * Her table is never given new hooks or a new game equal to the ones it has (Compose tells them apart by identity, so each
+ * such composed the whole table again for nothing): before, every composition of her table's screen made new hooks, equal
+ * ones too, and every event a new game differing only in its revision. Nothing here measures time (no timing tests): only
+ * what composed and with what.
  */
 @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
 class TableQuietPlaysTest : E2e() {
@@ -26,7 +28,8 @@ class TableQuietPlaysTest : E2e() {
 
     @After fun noProbe() { TableProbes.composedWith = null }
 
-    /** Counts Alice's table's compositions while [block] runs: all of them, and those given the same objects as the one before. */
+    /** Counts Alice's table's compositions while [block] runs: all of them, and those given a new game or new hooks equal to
+     * the ones it had ([TableProbes.composedWith]'s first and third inputs). */
     private fun counted(block: () -> Unit): Pair<Int, Int> {
         var all = 0
         var idle = 0
@@ -35,7 +38,7 @@ class TableQuietPlaysTest : E2e() {
             if (me == alice.id) {
                 all++
                 val before = last
-                if (before != null && before.size == inputs.size && before.indices.all { before[it] === inputs[it] }) idle++
+                if (before != null && listOf(0, 2).any { before[it] !== inputs[it] && before[it] == inputs[it] }) idle++
                 last = inputs
             }
         }
@@ -43,9 +46,9 @@ class TableQuietPlaysTest : E2e() {
         return all to idle
     }
 
-    // TBL-203, TBL-205, HIS-112, HIS-113: Bob's cast shown on Alice's desktop table and her attack's holds compose her table only
-    // for a new board, new hooks or layout, never again with all of them unchanged
-    @Test fun aPlayShownAndACombatComposeTheTableOnlyForWhatChanged() {
+    // TBL-203, TBL-205, HIS-112, HIS-113: while Bob's cast shows on Alice's desktop table and her attack holds it, her table is never
+    // given new hooks or a new game equal to the ones it had
+    @Test fun aPlayShownAndACombatNeverGiveTheTableEqualNewHooksOrGame() {
         startGame(pups, pups, bobSettings = PlaySettings(), aliceDesktop = true,
             deal = { a, b -> "Ash Pup" in hand(a) && "Mountain" in hand(a) && "Ash Pup" in hand(b) && "Mountain" in hand(b) })
         HistoryPlaybackPreferences(AppPlatform.current, alice.id).showPlaysMillis = HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS
@@ -68,7 +71,7 @@ class TableQuietPlaysTest : E2e() {
             }
         }
         assertTrue(showComposed > 0, "Alice's table composed for Bob's cast")
-        assertTrue(showIdle <= 2, "Alice's table composed $showIdle of $showComposed times with nothing it is given changed (Bob's cast)")
+        assertEquals(0, showIdle, "Alice's table composed $showIdle of $showComposed times given new hooks or a new game equal to the ones it had (Bob's cast)")
         waitUntil("Bob's Main 1 again", along = listOf(alice)) { bob.inOwnMain() && bob.stepArrow() != null }
         bob.hold(requireNotNull(bob.stepArrow()))
         waitUntil("Alice's next Main 1", along = listOf(bob)) {
@@ -94,6 +97,6 @@ class TableQuietPlaysTest : E2e() {
             }
         }
         assertTrue(combatComposed > 0, "Alice's table composed for her combat")
-        assertTrue(combatIdle <= 2, "Alice's table composed $combatIdle of $combatComposed times with nothing it is given changed (her combat)")
+        assertEquals(0, combatIdle, "Alice's table composed $combatIdle of $combatComposed times given new hooks or a new game equal to the ones it had (her combat)")
     }
 }

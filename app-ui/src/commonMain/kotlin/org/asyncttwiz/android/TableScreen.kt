@@ -63,7 +63,11 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val quickChat: TableQuickChat? = null,
     /** WEB-017: the desktop table's right dock (the docked chat), drawn while its frame has the dock open;
      * null: none. */
-    val desktopDock: (@Composable () -> Unit)? = null) {
+    val desktopDock: (@Composable () -> Unit)? = null,
+    /** The version of the device's shown state the table is composed with: the table reads that state through its routes
+     * (a play shown, the view's pause, who may act, assumed blocks), which no snapshot observes, so a new one composes it
+     * again (the hooks stay equal while nothing else changed, web frame rate, owner 2026-11-20); null outside a game's device. */
+    val shownVersion: Long? = null) {
     /** Timeline mode itself (not a branch's take-back, which only looks like it): its panel is taller (HIS-001, HIS-007). */
     val timelineOpen: Boolean get() = reviewing && timelinePlayback != TimelinePlaybackStatus.REWINDING
 }

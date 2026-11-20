@@ -515,7 +515,9 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
                             send = controller::sendQuickChat, write = { controller.writeChat() }),
                         // WEB-017: the game chat docked at the right (the Stack stays on the table, STK-007)
-                        desktopDock = if (!chatDocked) null else dock) }
+                        desktopDock = if (!chatDocked) null else dock,
+                        // The device's shown state the table reads through its routes: a new one composes it again
+                        shownVersion = shown.version) }
                 // WEB-068: a frame that composed this screen again says so in the frame times
                 SideEffect { DebugJank.composed("screen") }
                 // Web frame rate (owner, 2026-11-20): the game as the table reads it, the same object across its revisions; and the

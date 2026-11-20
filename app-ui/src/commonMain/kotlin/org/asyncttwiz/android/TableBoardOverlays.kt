@@ -35,11 +35,7 @@ inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: St
         }
     }
     // HIS-112: a play shown in the middle of the table takes the place of the wait's words and the Stack line
-    // (both read through derived states: they read the device's shown state, which every event replaces; read directly, the
-    // whole table composed again for every event, web frame rate, owner 2026-11-20)
-    val overlayRoutes = LocalEngineRoutes.current
-    val showing by remember(overlayRoutes) { derivedStateOf { overlayRoutes?.showing() == true } }
-    val viewPaused by remember(overlayRoutes) { derivedStateOf { overlayRoutes?.viewPaused() == true } }
+    val showing = LocalEngineRoutes.current?.showing() == true
     // TRN-066 (owner, 2026-11-09): the wait, in the band under the other player's hand; purely visual (no pointer handlers),
     // so the board stays usable
     if (!runtime.reviewing && !showing) runtime.waitingLine?.let { line -> WaitBand(scene, accountId) {
@@ -75,7 +71,7 @@ inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: St
     scene.boardArea?.let { board ->
         PlaybackStatusFlash(runtime.timelinePlayback, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
         // HIS-021, HIS-112, HIS-113: a held finger pausing what the view is waiting on
-        ViewPausedIcon(viewPaused, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
+        ViewPausedIcon(LocalEngineRoutes.current?.viewPaused() == true, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
     }
     TableChangeOverlay(runtime.changes, accountId, scene.appearance,
         item = { id -> rendered.value.items[id] })

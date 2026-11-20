@@ -39,8 +39,7 @@ class CombatLifeGainTest : E2e() {
         clockInStep {
             alice.declare("Attack (1)", this)
             waitUntil("the attackers hold Alice's view") { alice.shown.combatHold?.kind == GameDevice.CombatMoment.Attackers }
-            run(skip = Duration.ofMillis(500)) // past the double-tap window
-            alice.doubleTapTable()
+            // The attackers' hold ends by its time (HIS-148: no tap skips it)
             waitUntil("the damage holds Alice's view", along = listOf(bob)) {
                 if (alice.status is GameDevice.Status.Waiting && (alice.status as GameDevice.Status.Waiting).offer != null)
                     alice.once { alice.game?.assume(emptyList()); alice.lobby.engineSent() }

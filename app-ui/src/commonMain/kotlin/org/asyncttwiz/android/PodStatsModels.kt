@@ -25,6 +25,10 @@ data class PodStats(
     val pips: Map<DraftColor, Double>,
     /** Land sources per colour (DRF-114): basics, basic land types and the lands' mana abilities. */
     val sources: Map<DraftColor, Long>,
+    /**
+     * Main nonland copies per colour by their cast costs (DRF-117): a card counts in each of its colours, Multicolor counts
+     * the cards of two or more colours and Colorless those of none, so the counts add up to more than the cards.
+     */
     val colors: Map<PodStatsColor, Int>,
     val missingDefinitions: Int,
     /** Main lands (not basics) that produce no colored mana by [podStatsLandColors]. */
@@ -39,12 +43,22 @@ data class PodStats(
     val noPips: Int = 0,
     /** Main copies per word of the front type line before the dash, basics included; most common first, zeros absent. */
     val types: List<Pair<String, Long>> = emptyList(),
-    /** Main nonland copies per mana value and colour (DRF-111), by the same colour as [colors]; zeros absent. */
+    /** Main nonland copies per mana value and colour (DRF-111), each card in one part: its one colour by its cast costs,
+     * Multicolor or Colorless; zeros absent. */
     val curveColors: Map<Double, Map<PodStatsColor, Int>> = emptyMap(),
     /** Main copies per subtype of the front type line (after the dash), basics' land types included; most common first,
      * zeros absent (DRF-180). */
     val subtypes: List<Pair<String, Long>> = emptyList(),
-)
+    /** [colors] by colour identity instead (DRF-242): cast costs, mana symbols in rules text and colour indicators. */
+    val identityColors: Map<PodStatsColor, Int> = PodStatsColor.entries.associateWith { 0 },
+    /** [curveColors] by colour identity (DRF-242). */
+    val curveIdentityColors: Map<Double, Map<PodStatsColor, Int>> = emptyMap(),
+) {
+    /** Main nonland copies: what the colour counts are shares of (DRF-117). */
+    val nonland: Int get() = creatures + noncreatures
+    /** The colour counts by cast costs or, [byIdentity], by colour identity (DRF-242). */
+    fun colors(byIdentity: Boolean): Map<PodStatsColor, Int> = if (byIdentity) identityColors else colors
+}
 
 data class PodStatsCurveBucket(val creatures: Int = 0, val noncreatures: Int = 0) {
     val total: Int get() = creatures + noncreatures
@@ -215,8 +229,34 @@ private fun podStatsKindColors(kind: ManaKind): Set<DraftColor> = when (kind) {
 fun podStatsManaColors(parsed: Map<String, ParsedCard>): Map<String, Set<DraftColor>> =
     parsed.mapValues { (_, card) -> (card as? ParsedCard.Read)?.let { podStatsManaColors(it.definition) }.orEmpty() }
 
-/** Prefer catalog identity, which includes rules symbols and both faces, not just the cost. */
-fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): PodStatsColor {
+/**
+ * DRF-242: the colours of [card]'s cast costs only: every face's mana cost (a split or aftermath card's halves, a modal
+ * double-faced card's back too), never rules text or a colour indicator. Hybrid symbols give both their colours.
+ */
+fun podStatsCostColors(card: CardDefinition): Set<DraftColor> {
+    val halves = PodDeckManaCost.splitHalfCosts(card)
+    val costs = halves.ifEmpty { listOf(podStatsFrontCost(card)) + card.faces.drop(1).map { it.manaCost } }
+    return costs.flatMap { PodDeckManaCost.parse(it).colors }.toSet()
+}
+
+/** One card's part of a stacked colour chart: its one colour, Multicolor (two or more) or Colorless. */
+fun podStatsColorOf(colors: Set<DraftColor>): PodStatsColor = when (colors.size) {
+    0 -> PodStatsColor.COLORLESS
+    1 -> PodStatsColor.valueOf(colors.single().name)
+    else -> PodStatsColor.MULTICOLOR
+}
+
+/** DRF-117: the Colors chart rows one card counts in: each of its colours, plus Multicolor with two or more, or Colorless. */
+fun podStatsColorCounts(colors: Set<DraftColor>): List<PodStatsColor> =
+    DraftColor.entries.filter { it in colors }.map { PodStatsColor.valueOf(it.name) } +
+        listOfNotNull(podStatsColorOf(colors).takeIf { it == PodStatsColor.MULTICOLOR || it == PodStatsColor.COLORLESS })
+
+/** [podStatsIdentityColors] as one chart part. */
+fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): PodStatsColor =
+    podStatsColorOf(podStatsIdentityColors(card, copyColors))
+
+/** Prefer catalog identity, which includes rules symbols and both faces, not just the cost (DRF-242). */
+fun podStatsIdentityColors(card: CardDefinition, copyColors: Set<DraftColor>): Set<DraftColor> {
     val recorded = card.faces.mapNotNull { face ->
         face.sourceData?.let { data -> runCatching {
             val record = Json.parseToJsonElement(data).jsonObject
@@ -235,11 +275,7 @@ fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): Po
             addAll(PodDeckManaCost.parse(rules).colors)
         }
     }
-    return when (identity.size) {
-        0 -> PodStatsColor.COLORLESS
-        1 -> PodStatsColor.valueOf(identity.single().name)
-        else -> PodStatsColor.MULTICOLOR
-    }
+    return identity
 }
 
 /** [manaColors]: the colours each card's mana abilities can add, by definition digest ([podStatsManaColors]); a card
@@ -253,6 +289,7 @@ fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: M
     var sourceLands = build.basics.total
     var sourceOthers = 0
     val colors = PodStatsColor.entries.associateWith { 0 }.toMutableMap()
+    val identityColors = PodStatsColor.entries.associateWith { 0 }.toMutableMap()
     var creatures = 0
     var noncreatures = 0
     var lands = build.basics.total
@@ -262,6 +299,7 @@ fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: M
     val types = mutableMapOf<String, Long>()
     val subtypes = mutableMapOf<String, Long>()
     val curveColors = mutableMapOf<Double, MutableMap<PodStatsColor, Int>>()
+    val curveIdentityColors = mutableMapOf<Double, MutableMap<PodStatsColor, Int>>()
     // Basics are counts, not drafted copies: "Basic Land — Plains" and so on.
     if (build.basics.total > 0) for (word in podStatsTypeWords("Basic Land")) types[word] = (types[word] ?: 0) + build.basics.total
     build.basics.podBuildValues().forEachIndexed { index, count ->
@@ -290,10 +328,13 @@ fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: M
             val bucket = curve[mv] ?: PodStatsCurveBucket()
             curve[mv] = if (creature) bucket.copy(creatures = bucket.creatures + 1)
                 else bucket.copy(noncreatures = bucket.noncreatures + 1)
-            val color = podStatsColorIdentity(card, copy?.colors.orEmpty())
-            colors[color] = colors.getValue(color) + 1
-            val slot = curveColors.getOrPut(mv) { mutableMapOf() }
-            slot[color] = (slot[color] ?: 0) + 1
+            val cost = podStatsCostColors(card)
+            val identity = podStatsIdentityColors(card, copy?.colors.orEmpty())
+            for (color in podStatsColorCounts(cost)) colors[color] = colors.getValue(color) + 1
+            for (color in podStatsColorCounts(identity)) identityColors[color] = identityColors.getValue(color) + 1
+            curveColors.getOrPut(mv) { mutableMapOf() }.let { it[podStatsColorOf(cost)] = (it[podStatsColorOf(cost)] ?: 0) + 1 }
+            curveIdentityColors.getOrPut(mv) { mutableMapOf() }
+                .let { it[podStatsColorOf(identity)] = (it[podStatsColorOf(identity)] ?: 0) + 1 }
             val pattern = podStatsPipPattern(podStatsPipCost(card))
             patterns[pattern] = (patterns[pattern] ?: 0) + 1
         }
@@ -304,7 +345,8 @@ fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: M
     val mostFirst = compareByDescending<Pair<String, Long>> { it.second }.thenBy { it.first }
     val typeCounts = types.toList().sortedWith(mostFirst)
     return PodStats(curve, creatures, noncreatures, lands, pips, sources, colors, missing, colorlessLands, others, sourceLands,
-        sourceOthers, listed, patterns[""] ?: 0, typeCounts, curveColors, subtypes.toList().sortedWith(mostFirst))
+        sourceOthers, listed, patterns[""] ?: 0, typeCounts, curveColors, subtypes.toList().sortedWith(mostFirst), identityColors,
+        curveIdentityColors)
 }
 
 private fun podStatsCurveLabel(slot: Int) = if (slot == 7) "7+" else "$slot"
@@ -315,15 +357,16 @@ fun PodStats.curveBuckets(): Map<String, PodStatsCurveBucket> = (0..7).associate
         entries.sumOf { it.value.creatures }, entries.sumOf { it.value.noncreatures })
 }
 
-/** The curve's slots by colour (DRF-111): each slot holds a count for every [PodStatsColor], in its order. */
-fun PodStats.curveColorBuckets(): Map<String, Map<PodStatsColor, Int>> = (0..7).associate { bucket ->
-    val entries = curveColors.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }
+/** The curve's slots by colour (DRF-111) by cast costs or, [byIdentity], by colour identity (DRF-242): each slot holds a
+ * count for every [PodStatsColor], in its order. */
+fun PodStats.curveColorBuckets(byIdentity: Boolean = false): Map<String, Map<PodStatsColor, Int>> = (0..7).associate { bucket ->
+    val entries = (if (byIdentity) curveIdentityColors else curveColors).entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }
     podStatsCurveLabel(bucket) to PodStatsColor.entries.associateWith { color -> entries.sumOf { it.value[color] ?: 0 } }
 }
 
-/** A colour's name in the curve's Color view and its legend (DRF-111). */
+/** A colour's name on the Stats page: the curve's Color view, its legend and the Colors chart (DRF-111, DRF-117). */
 fun PodStatsColor.podStatsCurveName(): String = when (this) {
-    PodStatsColor.MULTICOLOR -> "Gold"
+    PodStatsColor.MULTICOLOR -> "Multicolor"
     PodStatsColor.COLORLESS -> "Colorless"
     else -> name
 }
@@ -353,7 +396,14 @@ fun podStatsSourceLine(sources: Long, share: Double): String =
 
 private fun podStatsPercent(share: Double) = "${(share * 100).roundToInt()}%"
 
-/** Empty donuts have zero shares, never NaN; each chart normalizes independently. */
+/** DRF-117: a colour's line in the Colors chart, its cards and their share of the Main nonland cards: "8 · 35%". */
+fun podStatsColorLine(count: Int, nonland: Int): String =
+    "$count · ${podStatsPercent(podStatsColorShare(count, nonland))}"
+
+/** DRF-117: a colour's share of the Main nonland cards in the Colors chart, 0 without any. */
+fun podStatsColorShare(count: Int, nonland: Int): Double = if (nonland == 0) 0.0 else count.toDouble() / nonland
+
+/** Empty charts have zero shares, never NaN; each chart normalizes independently. */
 fun <T> podStatsShares(values: Map<T, Number>): Map<T, Double> {
     val total = values.values.sumOf { it.toDouble() }
     return values.mapValues { (_, count) -> if (total == 0.0) 0.0 else count.toDouble() / total }

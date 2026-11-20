@@ -61,7 +61,7 @@ class SharedFlowController(
     /** TBL-130: the stacks of identical battlefield cards on a board as the table lays them out (Autotap takes the topmost). */
     private val stacks: (TableBoard) -> List<List<String>> = { TopmostSources.stacks(BattlefieldLayout.groups(it, viewer)) },
     /** TBL-118: shakes a table card (a tap on a payment's source that no longer pays it, STK-049). */
-    private val shake: (String) -> Unit = {},
+    private val shake: (String, String) -> Unit = { _, _ -> },
 ) : FlowQuestions {
     /** The take-backs counted when the shown choice opened ([takeBacks]). */
     private var shownAt = 0L
@@ -506,7 +506,7 @@ class SharedFlowController(
     /** TBL-118, STK-049: [tap] can't change the payment any more ([why]): its card shakes, never a tap that does nothing. */
     private fun noLongerPays(tap: PayTap, why: String) {
         AppLog.info("decision", "Payment while resolving: ${tap.what} not taken: $why")
-        tap.card?.let(shake)
+        tap.card?.let { shake(it, NO_LONGER_PAYS) }
     }
 
     /**

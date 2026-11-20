@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.Engine
@@ -56,7 +57,9 @@ class EngineTableScreenshotTest {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
-                    CompositionLocalProvider(LocalEngineRoutes provides routes) {
+                    // TBL-212: the table's refusal bubbles, as EngineTableScreen shows them
+                    val bubbles = rememberRefusalBubbles()
+                    CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusalBubbles provides bubbles) {
                         Box(Modifier.fillMaxSize()) {
                             val reviewed = routes.review?.let { game.reviewPlay(it) }
                             val events = game.timeline.events(game, names)
@@ -77,6 +80,7 @@ class EngineTableScreenshotTest {
                                     centreAction = if (reviewed == null && watch)
                                         TableCentreAction("${routes.opponentName} has made moves · Tap to watch") { game.startPlayback() } else null,
                                     boardTap = if (reviewed == null && playing) ({ game.pause() }) else null))
+                            RefusalBubbleOverlay(bubbles, Modifier.matchParentSize())
                         }
                     }
                 }
@@ -101,14 +105,15 @@ class EngineTableScreenshotTest {
         s.player(PlayerId(f.a)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
     }
 
-    // TRN-059, TRN-122, TRN-068, TRN-016, TRN-017: the private toggles, and the unconfirmed mark at the main button's corner (no
-    // count); the main button is 112 dp wide and the three toggles share the rest of the row equally
+    // TRN-059, TRN-122, TRN-016, TRN-017: the private toggles; the main button is 112 dp wide and the three toggles share the rest of
+    // the row equally. TRN-163 (owner 2026-11-19): no violet dot at its corner, though Bob hasn't seen her last moves yet
     @Test fun assumedAnswersAndPrivateToggles() {
         val game = aliceAtMain()
         val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
         render(game, f.a, routes = routes)
-        compose.onNodeWithTag("engine-unconfirmed").assertExists()
-        compose.onNodeWithContentDescription("Bob hasn't seen your last moves yet", substring = true).assertExists()
+        assertTrue(game.shown?.indicator != null, "her line rests on answers Bob hasn't confirmed")
+        compose.onNodeWithTag("engine-unconfirmed").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Bob hasn't seen your last moves yet", substring = true).assertDoesNotExist()
         // HIS-001: no event strip in play mode
         compose.onNodeWithContentDescription("Event strip").assertDoesNotExist()
         compose.onNodeWithContentDescription("Timeline mode").assertDoesNotExist()
@@ -120,7 +125,7 @@ class EngineTableScreenshotTest {
             .map { compose.onNodeWithContentDescription(it).fetchSemanticsNode().boundsInRoot.width }
         assertTrue(cells.all { kotlin.math.abs(it - cells.first()) <= 1.5f } && cells.first() > 48f, "$cells")
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, 112 dp wide) says Bob hasn't seen her last moves yet (no count, nothing over the board), no event strip, and the quick actions are her own Response mode (Quick), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: the main button (To combat, 112 dp wide) has nothing at its corner though Bob hasn't seen her last moves yet, there is no event strip, and the quick actions are her own Response mode (Quick), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
     }
 
     /** Alice at her main phase with "Assume resolves" set to [choice]: the quick action shows [state] and is captured as [file]. */
@@ -288,8 +293,12 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Response mode").assertExists()
         // TRN-059, TRN-121 (owner playtest 2026-11-12): the three cells stay in their places, Assume resolves greyed while catching up
         compose.onNodeWithContentDescription("Assume resolves setting").assertIsNotEnabled()
+        // TRN-163, TRN-164 (owner 2026-11-19): the main button's place already shows what waits where his playback would rest (Alice's
+        // main phase: her move)
+        assertTrue(bob.shown?.rest != null, "a rest point ahead of what his table shows")
+        compose.onNodeWithTag(QUIET_WAIT_TAG).assertExists()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
-            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana; nothing plays until he taps the text.")
+            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana, and in the main button's place \"Alice's move…\", what waits once he has caught up; nothing plays until he taps the text.")
         compose.onNodeWithTag("centre-action").performClick()
         compose.runOnIdle {
             assertTrue(bob.device.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped }, "the tap started it")
@@ -483,6 +492,11 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves")).assertIsNotEnabled()
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertEquals(1, game.device.model.engine.stack.size, "nothing assumed: the Glance waits on the Stack") }
+        // TBL-212: the tap's bubble says the same; it has faded before the hold
+        compose.onNodeWithTag("refusal-bubble").assertContentDescriptionEquals("Assuming this would show you hidden cards or a random result: wait for Bob.")
+        compose.mainClock.advanceTimeBy(REFUSAL_BUBBLE_MILLIS + 500)
+        compose.waitForIdle()
+        compose.onNodeWithTag("refusal-bubble").assertDoesNotExist()
         compose.onNodeWithTag("engine-wait-action").performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
@@ -641,15 +655,38 @@ class EngineTableScreenshotTest {
         assertTrue(compose.onAllNodesWithTag(TimelineSeparatorTag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty(), "turn and step lines")
         compose.onNodeWithText("Ask Bob").assertExists()
         compose.onNodeWithTag("rewind-message").assertExists()
+        // HIS-235 (owner 2026-11-19): going back there takes back Alice's draw: the dialog says the libraries reshuffle
+        compose.onNodeWithTag("undo-reshuffle").assertExists()
         captureShot("$SCREENSHOTS/engine/$file.png",
-            "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, and Ask Bob with a message field, as going back there takes his action back.")
+            "Alice, a few turns in, held Undo (Bob has only passed since her latest action, so Undo there is free) and tapped the chip of Bob's latest action of his own in the strip: the dialog shows the board just before \"${chosen.shown.description}\" on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, the line saying that undoing this reshuffles the library (it takes back a draw), and Ask Bob with a message field, as going back there takes his action back.")
     }
 
-    // HIS-083, HIS-099, HIS-207
+    // HIS-083, HIS-099, HIS-207, HIS-235
     @Test fun undoDialogShowsTheBoardAboveTheTimelineStrip() = undoDialog(false, "rewind-dialog")
 
-    // HIS-083, HIS-099, HIS-207
+    // HIS-083, HIS-099, HIS-207, HIS-235
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun undoDialogInLandscape() = undoDialog(true, "rewind-dialog-landscape")
+
+    // TBL-118, TBL-212, ZON-079 (owner 2026-11-19, the "can't do" explainer): Alice taps Storm Spark with no land out: it shakes
+    // and a small bubble rises from it saying why, in the card menu's words
+    @Test fun aShakeSaysWhyInABubble() {
+        val game = aliceAtMain()
+        var toolkit: TableToolkitController? = null
+        render(game, f.a, onToolkit = { toolkit = it })
+        val spark = (hand(game, "Storm Spark") as ObjectId.Card).card.value
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { toolkit!!.hand.tap(spark) }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(400)
+        compose.waitForIdle()
+        assertEquals("Storm Spark can't be cast now.", toolkit!!.shaking?.reason)
+        compose.onNodeWithTag("refusal-bubble").assertExists()
+        captureShot("$SCREENSHOTS/engine/refusal-bubble.png",
+            "Alice, in her first main phase with no land out, tapped Storm Spark in her hand: it shakes instead of rising, and a small dark bubble rises from it saying \"Storm Spark can't be cast now.\" for about two seconds.")
+        compose.mainClock.advanceTimeBy(REFUSAL_BUBBLE_MILLIS + 500)
+        compose.waitForIdle()
+        compose.onNodeWithTag("refusal-bubble").assertDoesNotExist()
+    }
 
     // HIS-099, HIS-208, HIS-207 (owner 2026-11-06): dragging the strip right chooses earlier points one event per step (snapping to them),
     // the text follows at once and the board once the choice rests; tapping an event chooses it

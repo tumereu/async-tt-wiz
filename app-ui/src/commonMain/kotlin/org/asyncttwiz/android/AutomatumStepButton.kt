@@ -194,7 +194,7 @@ fun AutomatumStepFace(step: AutomatumStep, words: String, enabled: Boolean, modi
     var shakes by remember { mutableIntStateOf(0) }
     val endTurn = blocked == null && step != AutomatumStep.Resolve
     val chain = onResolveHold.takeIf { blocked == null && step == AutomatumStep.Resolve }
-    ActionSquare(words, "↦", enabled, modifier.testTag("main-button").semantics { this[MainButtonStep] = step.label }.shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+    ActionSquare(words, "↦", enabled, modifier.testTag("main-button").semantics { this[MainButtonStep] = step.label }.shaken(shakes, blocked, "main button").shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
         fill = Color.White, ink = ink, compactContent = true,
         holdName = if (endTurn) "End turn" else if (chain != null) RESOLVE_CHAIN else null,
@@ -278,7 +278,7 @@ fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier,
     tag: String = "main-button", keys: ControlKeys? = LocalTableHotkeys.current?.main) {
     var shakes by remember { mutableIntStateOf(0) }
     val ink = AutomatumStepInk.copy(alpha = if (enabled && action.refusal == null) 1f else .38f)
-    ActionSquare(action.label, "", enabled, modifier.testTag(tag).shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+    ActionSquare(action.label, "", enabled, modifier.testTag(tag).shaken(shakes, action.refusal, "panel go-on").shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
         fill = Color.White, ink = ink, compactContent = true, tooltip = action.refusal ?: action.tooltip, refused = action.refusal != null,
         gestureKey = action.label to action.refusal, keys = keys,

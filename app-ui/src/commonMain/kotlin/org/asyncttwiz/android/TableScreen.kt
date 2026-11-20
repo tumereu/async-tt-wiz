@@ -24,7 +24,9 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** HIS-083: holding Undo (the rewind dialog, I-D56 §10); null: holding it only says what it is. */
     val undoHold: (() -> Unit)? = null,
     /** Bumped when an Undo can't do anything: the button shakes. */
-    val undoShakes: Int = 0, val reviewing: Boolean = false,
+    val undoShakes: Int = 0,
+    /** TBL-118 (owner 2026-11-19): why the Undo button shook last, said in its bubble. */
+    val undoShakeReason: String? = null, val reviewing: Boolean = false,
     val controlsConnected: Boolean? = null,
     val navigation: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
@@ -55,9 +57,6 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** HIS-095: a tap on the table (a card, a pile or the empty table) does only this (pausing playback); null: taps act
      * as usual. */
     val boardTap: (() -> Unit)? = null,
-    /** HIS-113: a double tap on the table but the hand does only this (skipping a combat's hold of the view), and a single
-     * tap there nothing; null: none. */
-    val holdTap: (() -> Unit)? = null,
     /** LOB-136, LOB-137: the chat bubbles by the life squares; null: none. */
     val chatBubbles: TableChatBubbles? = null,
     /** LOB-139, TRN-030: the quick messages and Write button of your own Life panel; null: none. */

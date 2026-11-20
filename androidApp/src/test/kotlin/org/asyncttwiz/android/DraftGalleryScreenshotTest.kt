@@ -366,7 +366,7 @@ class DraftGalleryScreenshotTest {
         settle()
         compose.onNodeWithTag("pod-stats").performTouchInput { swipeUp() }
         settle()
-        shot("stats-notes", "The Stats tab during a Booster draft, scrolled down past the colours donut to Alice's private deck " +
+        shot("stats-notes", "The Stats tab during a Booster draft, scrolled down past the Colors chart to Alice's private deck " +
             "notes and the eight tally counters she has set.")
     }
 

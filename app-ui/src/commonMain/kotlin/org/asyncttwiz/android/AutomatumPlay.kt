@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -41,19 +43,31 @@ fun shakeKeyframes(): KeyframesSpec<Float> = keyframes {
  * the other player's choice is open ([TableToolkitController.refusedTap]). */
 val LocalRefusedTap = staticCompositionLocalOf<() -> Unit> { {} }
 
-/** Shakes the element each time [shakes] goes up (I-D46: a refused control says why on hold, never by a message). */
+/**
+ * Shakes the element each time [shakes] goes up (I-D46: holding a refused control says why), and (TBL-118, owner
+ * 2026-11-19) [reason] rises from it in a short-lived bubble ([RefusalBubbles]); a shake without a reason is a reported
+ * fault ([refusalReason], from [where]).
+ */
 @Composable
-fun Modifier.shaken(shakes: Int): Modifier {
+fun Modifier.shaken(shakes: Int, reason: String?, where: String = "control"): Modifier {
     val offset = remember { Animatable(0f) }
     val refused by rememberUpdatedState(LocalRefusedTap.current)
+    val bubbles = LocalRefusalBubbles.current
+    val why by rememberUpdatedState(reason)
+    val bounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
     val start = remember { shakes }
     LaunchedEffect(shakes) {
         if (shakes > 0) {
-            if (shakes != start) refused()
+            if (shakes != start) {
+                refused()
+                val text = refusalReason(why, where)
+                AppLog.info("table", "Shake ($where): $text")
+                bubbles?.show(text, bounds[0])
+            }
             offset.animateTo(0f, shakeKeyframes())
         }
     }
-    return graphicsLayer { translationX = offset.value * density }
+    return onGloballyPositioned { bounds[0] = it.boundsInRoot() }.graphicsLayer { translationX = offset.value * density }
 }
 
 

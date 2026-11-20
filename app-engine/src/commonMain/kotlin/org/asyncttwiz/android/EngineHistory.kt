@@ -218,6 +218,36 @@ object EngineEventText {
     }
 
     /**
+     * HIS-168, HIS-042 (owner 2026-11-19, playtest N4): an undo's fading top text for [viewer] ([undid]'s words), with, after a
+     * free undo whose events taken back touched library cards ([EngineGame.Undone.libraries]), a second line saying so
+     * ([reshuffled]); an approved request's dialogs said it already.
+     */
+    fun undoNote(undone: EngineGame.Undone, viewer: String, names: Map<String, String>): String {
+        val text = undid(undone.event, undone.state, viewer, undone.by, names)
+        if (undone.requested) return text
+        return reshuffled(undone.libraries, viewer, names)?.let { "$text\n$it" } ?: text
+    }
+
+    /** HIS-042 (owner 2026-11-19): the Undo and undo request dialogs' line when the events taken back touched the library
+     * cards of [libraries] (account ids): "Undoing this reshuffles your library: the next cards drawn may change." ("Bob's
+     * library", "both libraries"); null when they touched none. */
+    fun reshuffleWarning(libraries: Set<String>, viewer: String, names: Map<String, String>): String? =
+        whose(libraries, viewer, names)?.let { "Undoing this reshuffles $it: the next cards drawn may change." }
+
+    /** HIS-042: the same after the undo, as the second line of its top text: "Your library reshuffled: the next draws may
+     * change."; null when the events taken back touched no library cards. */
+    fun reshuffled(libraries: Set<String>, viewer: String, names: Map<String, String>): String? =
+        whose(libraries, viewer, names)?.let { "${it.replaceFirstChar(Char::uppercaseChar)} reshuffled: the next draws may change." }
+
+    private fun whose(libraries: Set<String>, viewer: String, names: Map<String, String>): String? = when {
+        libraries.isEmpty() -> null
+        libraries.size == 2 -> "both libraries"
+        libraries.size > 2 -> "the libraries"
+        libraries.single() == viewer -> "your library"
+        else -> org.asyncttwiz.automatum.PlayerNames.of(names, libraries.single(), "the other player", "EngineEventText") + "'s library"
+    }
+
+    /**
      * HIS-097 (owner, problem report DY6VCM): the branch note of [by] (the other player's name) whose real answer differed
      * from the assumed one ([discarded], the first event of the line it discarded): "Bob responded" ("blocked
      * differently", "took a mulligan"), and when the branch took back actions of [viewer]'s own ([actions], as Undo counts

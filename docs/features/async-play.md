@@ -1,7 +1,7 @@
 # Async play
 
 Playing without waiting for each other: the wait while the other player must act, assumed answers and the Assume
-button, the information rule and its game settings, the unconfirmed mark, automation as button presses, branches and
+button, the information rule and its game settings, automation as button presses, branches and
 lines of play, moves made on an out-of-date board, and playing on an assumed keep in the opening.
 
 ## How it works
@@ -12,8 +12,8 @@ device presumes their answer (usually a pass, sometimes their blocks or their op
 "Assume resolves" setting decides where your phone assumes by itself; anything your phone does for you counts exactly
 as a press of a button. An assumption is a conditional pre-move, not a decision made for them: when their real answer
 is the same it is confirmed, and when it differs the game branches, taking back what came after and going on from
-their answer on a new line of play. While your play rests on answers they haven't confirmed, a violet dot marks the
-main button and nothing you do may show you hidden cards or random results, unless the game's settings allow it. A move
+their answer on a new line of play. While your play rests on answers they haven't confirmed, nothing you do may show you
+hidden cards or random results, unless the game's settings allow it. A move
 made on a board the game has since moved past is made again on the newer board when the same decision still waits
 there, otherwise it isn't taken. The starting player may play turn 1 on an assumed keep while the other player still
 decides on their opening.
@@ -63,7 +63,6 @@ decides on their opening.
 
 ## While your play rests on assumptions
 
-- **TRN-068** The unconfirmed mark: while actions of yours rest on answers the other player hasn't confirmed yet, a small violet dot (no number) sits at the main button's corner; a tap or hold says "<name> hasn't seen your last moves yet; if <name> answers differently, they'll be taken back". Only you see it. (r50)
 - **TRN-067** Information rule: while your line rests on an unconfirmed assumption, nothing you do or assume may show you a card you couldn't see (the other player's hand or library, face-down cards, random discards; never your own library) or a random result (coin, die, random choice), apart from what the game's settings allow (LOB-135). (r58)
 - **TRN-159** An action the information rule forbids is refused before it shows: the card shakes and holding it says "Wait for the other player to catch up: this would show you hidden cards or a random result." The server checks the same for cards, with the game's settings. (r58)
 - **TRN-071** Under the information rule your phone's own passes after an action of yours stop before one that would show you something (you keep priority there), and an assumption that would show you something isn't made. A reveal the game's settings allow (LOB-135) neither stops nor greys anything. (r74)
@@ -81,7 +80,7 @@ decides on their opening.
 - **HIS-106** A branch goes back to the branch point step by step with timeline mode's look (HIS-008), each step followed by the Rewind pause (HIS-022), with the note. Meanwhile a tap on the table doesn't pause it, and Back and the menu (Timeline too) do nothing. (r60)
 - **HIS-190** After its take-back a branch stops at the branch point as playback stops: your table is live there, looking like live play, with the centre text "<name> responded differently from here · Tap to continue" (HIS-158), whose tap plays the other player's new events back as catch-up playback with its stops (HIS-095). When nothing of theirs follows the branch point, or playback stops there anyway for a decision of yours, there is no extra stop. (r60)
 - **HIS-191** Live (the game open, in sight, at the head) a branch's take-back plays at once. Coming back to it (the app in the background, the game not open, a notification, a cold start) opens the game exactly as you left it, and nothing moves until you tap: the centre text says "<name> responded differently · Tap to watch" (HIS-158), and the tap plays the take-back, up to its stop at the branch point. (r60)
-- **HIS-042** Every line of play (the game's start, every branch, every rewind including free undo) starts by reshuffling the unknown parts of both libraries, shown nowhere; a card whose place someone knows (put on top or bottom by a known action, looked at or revealed where it lies, a kept-revealed top) keeps it. (r76)
+- **HIS-042** Every line of play (the game's start, every branch, every rewind including free undo) starts by reshuffling the unknown parts of both libraries, shown nowhere but an undo's warning (HIS-235, HIS-236); a card whose place someone knows (put on top or bottom by a known action, looked at or revealed where it lies, a kept-revealed top) keeps it. (r76)
 - **HIS-192** Random results (shuffles, coins, dice, random choices) follow from the game's secret, the line and the player whose result it is (the library's owner for a shuffle and a line's reshuffle, the flipping or rolling player, the chooser of a random choice): the same input on a line gives the same result, a new line new ones, and one player's results never move another's (a mulligan of the other player's doesn't change what you draw). (r76)
 - **HIS-043** There is no branch archiving and no "Make current" action anywhere; lines left by a branch are kept for problem reports and shown to nobody. (r48)
 
@@ -101,7 +100,7 @@ decides on their opening.
 - **SYS-136** When such a move is the very press your phone made right there by itself (its pass for you, its assumption, HIS-109), it is that press and goes quietly, with nothing made again. (r60)
 - **SYS-137** Otherwise (a new Stack object, another step, a chosen target gone, a hidden card shown, a quick second tap) such a move isn't taken, with the note of SYS-138. (r60)
 - **SYS-138** When your phone can't make your action again on the newer board, it says once: "That wasn't taken: the game moved on first. The table shows where it is now." Your device's own passes and assumptions that lose such a race go quietly. (r60)
-- **SYS-139** Any other refusal of your own action says nothing: what it was made on shakes (TBL-118: the card cast, played or activated; otherwise the main button), the board updates and you act again. (r60)
+- **SYS-139** Any other refusal of your own action shakes what it was made on (TBL-118: the card cast, played or activated; otherwise the main button), saying why (TBL-212; the game's own refusal without plain words: TBL-213), the board updates and you act again. (r78)
 - **SYS-078** Notes on the table (a branch's "<name> responded — your later actions were taken back", SYS-012's "That wasn't taken: …") show one at a time near the top of the table for 6 s or until tapped; a note told while another one shows waits for it and shows next, never replacing it at once. (r53)
 
 ## Playing on an assumed keep in the opening

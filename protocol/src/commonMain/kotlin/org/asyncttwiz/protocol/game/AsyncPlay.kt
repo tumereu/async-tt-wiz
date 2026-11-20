@@ -1,6 +1,8 @@
 package org.asyncttwiz.protocol.game
 
+import arcanum.api.Zone
 import arcanum.engine.Engine
+import arcanum.engine.change.Change
 import arcanum.engine.Host
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
@@ -238,6 +240,32 @@ object Rewind {
             step.changes.forEach { state.apply(it) }
         }
         return null
+    }
+
+    /**
+     * HIS-042 (owner 2026-11-19, playtest N4): the players whose library cards the inputs of [events] (the events a rewind
+     * takes back) touched: a card drawn, milled, searched for, revealed or looked at where it lies (its place became known),
+     * put into a library, a library shuffled or reordered. The rewind's new line reshuffles their libraries' unknown parts, so
+     * the next cards drawn may come out differently. A new line's own reshuffle (a step without an input) is no touch: it
+     * shows no card.
+     */
+    fun librariesTouched(events: List<GameEvent>): Set<PlayerId> {
+        val touched = LinkedHashSet<PlayerId>()
+        for (event in events) for (step in event.engine?.steps.orEmpty()) {
+            if (step.input == null) continue
+            for (change in step.changes) when (change) {
+                is Change.ZoneChange -> for (move in change.moves) {
+                    if (move.from == Zone.Library) touched += move.before.owner
+                    if (move.to == Zone.Library) touched += move.after.owner
+                }
+                is Change.Shuffle -> touched += change.player
+                is Change.Reorder -> if (change.zone == Zone.Library) change.owner?.let { touched += it }
+                is Change.LibraryPlaces -> touched += change.player
+                is Change.Happened -> (change.event as? arcanum.engine.change.GameEvent.Searched)?.let { touched += it.library }
+                else -> Unit
+            }
+        }
+        return touched
     }
 
     /** The other players' table-only events among [after] that a rewind by [player] keeps: added again at the new head

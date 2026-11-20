@@ -1,0 +1,1 @@
+add: Undoing something that drew, revealed or searched cards now says the libraries are reshuffled, so the next cards drawn may change: in the undo request on both phones, and after an undo that needed no request

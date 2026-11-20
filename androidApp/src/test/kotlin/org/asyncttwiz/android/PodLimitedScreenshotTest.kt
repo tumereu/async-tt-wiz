@@ -396,6 +396,24 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-history-retry").assertExists()
     }
 
+    // DRF-239: "While you were away" in a Rotisserie draft: the queue line, the count, then each pick since Alice last looked
+    @Test fun whileYouWereAwayTellsThePicksAndTheClearedQueue() {
+        val view = LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob", "carol"), emptyList(), false, picks = listOf(
+            LimitedPickView("alice", listOf(copies[0])), LimitedPickView("bob", listOf(copies[6])),
+            LimitedPickView("carol", listOf(copies[7]), clearedQueue = true), LimitedPickView("carol", listOf(copies[1])),
+            LimitedPickView("bob", listOf(copies[2]))), picksSeen = 1)
+        val away = podRotisserieAway(view, view.picksSeen)!!
+        show({ "pod-away-card-${it.id}" }, away.picks.map { it.card }) {
+            PodAwayDialog(away, "alice", members, definitions) {}
+        }
+        compose.onNodeWithText("Your queue was cleared: Carol took Shivan Dragon").assertExists()
+        compose.onNodeWithText("4 picks since you last looked").assertExists()
+        File(SCREENSHOTS).mkdirs()
+        captureShot(File(SCREENSHOTS, "pod-rotisserie-away.png").path, "Alice opens her three-player Rotisserie pod after four " +
+            "picks by Bob and Carol: \"While you were away\" says Carol's Shivan Dragon cleared her queue, then lists the four picks " +
+            "oldest first with their cards, avatars and pick numbers.")
+    }
+
     // DRF-160, DRF-227
     @Test fun picksDialogShowsSeenCardsAndBacksNewestFirst() {
         val picks = listOf(PodOpponentPicks(bob, listOf(null, copies[0], copies[1], null, copies[2])), PodOpponentPicks(carol, emptyList()))

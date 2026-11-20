@@ -28,9 +28,14 @@ val DraftMode.players: IntRange get() = when (this) {
     val empty: Boolean get() = picked.size == cards.size
 }
 
-/** One take: a card (Rochester, Rotisserie, the top of Winston's stack) or a whole pile (Winston, Winchester). */
+/**
+ * One take: a card (Rochester, Rotisserie, the top of Winston's stack) or a whole pile (Winston, Winchester).
+ * Rotisserie (DRF-239): [queued] when it was taken for [player] from their pick queue, [queueEnded] when that was the
+ * queue's last card, and [cleared] the members whose pick queue this take cleared (DRF-218).
+ */
 @Serializable data class LimitedTake(val player: String, val cards: List<String>, val packId: String? = null,
-    val pile: Int? = null, val fromStack: Boolean = false)
+    val pile: Int? = null, val fromStack: Boolean = false, val queued: Boolean = false, val queueEnded: Boolean = false,
+    val cleared: List<String> = emptyList())
 
 /**
  * Server-only snapshot of the limited engines. Never send it to a member; use [LimitedEngine.view].
@@ -104,8 +109,13 @@ data class LimitedResult(val state: LimitedDraftState? = null, val reason: Limit
  */
 @Serializable data class LimitedTableView(val currentPlayer: String?, val turn: Int, val stack: Int, val piles: List<List<DraftCopy?>>,
     val pile: Int = 0)
-/** One take as the viewer may see it: a card they have not seen is null (a card back). */
-@Serializable data class LimitedPickView(val player: String, val cards: List<DraftCopy?>, val pile: Int? = null, val fromStack: Boolean = false)
+/**
+ * One take as the viewer may see it: a card they have not seen is null (a card back). Rotisserie, for the viewer only
+ * (their queue is private, DRF-164): [fromQueue] their own take made from their pick queue, [queueRanOut] when it was the
+ * queue's last card, [clearedQueue] when this take cleared their queue (DRF-218, DRF-239).
+ */
+@Serializable data class LimitedPickView(val player: String, val cards: List<DraftCopy?>, val pile: Int? = null, val fromStack: Boolean = false,
+    val fromQueue: Boolean = false, val queueRanOut: Boolean = false, val clearedQueue: Boolean = false)
 /** What one member may see of a limited draft. */
 @Serializable data class LimitedView(
     val mode: DraftMode,
@@ -141,6 +151,11 @@ data class LimitedResult(val state: LimitedDraftState? = null, val reason: Limit
     val pickQueue: List<DraftCopy> = emptyList(),
     /** Rotisserie: the card another member took that cleared the viewer's pick queue, until they queue or pick again. */
     val queueCleared: DraftCopy? = null,
+    /**
+     * Rotisserie: how many of [picks] the viewer has seen (DRF-239), kept on the server per member; the server fills it
+     * in, the engine leaves it 0.
+     */
+    val picksSeen: Int = 0,
 )
 
 /**
@@ -426,16 +441,19 @@ object LimitedEngine {
      * Rotisserie: [player] takes [card] (DRF-152). It leaves their own pick queue and clears every other member's queue
      * holding it (DRF-164); then, while the next turn's player has a queue, its first card is taken for them at once.
      */
-    private fun rotisserieTake(state: LimitedDraftState, player: String, card: String): LimitedDraftState {
+    private fun rotisserieTake(state: LimitedDraftState, player: String, card: String, queued: Boolean = false): LimitedDraftState {
         val cleared = state.pickQueues.filter { (who, cards) -> who != player && card in cards }.keys
         val queues = state.pickQueues.mapValues { (who, cards) -> if (who == player) cards - card else cards }
             .filter { (who, cards) -> who !in cleared && cards.isNotEmpty() }
-        val next = settle(state.copy(log = state.log + LimitedTake(player, listOf(card)),
+        // DRF-239: what the away summary tells: a pick made from the queue, the queue's last one, and whose queue it cleared
+        val take = LimitedTake(player, listOf(card), queued = queued, queueEnded = queued && player !in queues,
+            cleared = cleared.sorted())
+        val next = settle(state.copy(log = state.log + take,
             pools = state.pools + (player to state.pools.getValue(player) + card), turn = state.turn + 1,
             pickQueues = queues, queueCleared = state.queueCleared - player + cleared.associateWith { card }))
         val following = turnPlayer(next) ?: return next
         val head = next.pickQueues[following]?.firstOrNull() ?: return next
-        return rotisserieTake(next, following, head)
+        return rotisserieTake(next, following, head, queued = true)
     }
 
     /**
@@ -481,9 +499,13 @@ object LimitedEngine {
     fun picksMade(state: LimitedDraftState, player: String): Int = state.log.count { it.player == player }
 
     /** Rotisserie and Rochester: every take in order, all face up (each was taken from a board everyone sees), for the
-     * History icon's picks (DRF-160). */
-    private fun publicPicks(state: LimitedDraftState, copies: Map<String, DraftCopy>): List<LimitedPickView> =
-        state.log.map { take -> LimitedPickView(take.player, take.cards.map(copies::getValue)) }
+     * History icon's picks (DRF-160); what a take did to [viewer]'s own pick queue only to them (DRF-239). */
+    private fun publicPicks(state: LimitedDraftState, copies: Map<String, DraftCopy>, viewer: String): List<LimitedPickView> =
+        state.log.map { take ->
+            val own = take.player == viewer
+            LimitedPickView(take.player, take.cards.map(copies::getValue), fromQueue = own && take.queued,
+                queueRanOut = own && take.queueEnded, clearedQueue = viewer in take.cleared)
+        }
 
     /** What [viewer] may see: their pool, every open board, and pile cards only once they have seen them (Winston). */
     fun view(state: LimitedDraftState, viewer: String): LimitedView {
@@ -499,9 +521,9 @@ object LimitedEngine {
                     board = state.board.map { LimitedSlot(copies.getValue(it), pickers[it]) },
                     pickQueue = state.pickQueues[viewer].orEmpty().map(copies::getValue),
                     queueCleared = state.queueCleared[viewer]?.let(copies::getValue),
-                    picks = publicPicks(state, copies))
+                    picks = publicPicks(state, copies, viewer))
             }
-            DraftMode.ROCHESTER -> base.copy(picks = publicPicks(state, copies), round = if (state.finished) state.packs.maxOf { it.round } + 1 else state.round + 1,
+            DraftMode.ROCHESTER -> base.copy(picks = publicPicks(state, copies, viewer), round = if (state.finished) state.packs.maxOf { it.round } + 1 else state.round + 1,
                 rounds = state.packs.maxOf { it.round } + 1,
                 packs = state.packs.filter { it.round == state.round }.map { pack ->
                     val pickers = pack.picked.zip(pack.pickers).toMap()

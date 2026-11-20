@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
@@ -101,12 +102,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentViewPause?.justTappedShow == true && !owner.tapOnHand) {
-                    // HIS-112: the second tap of a double tap on a shown play, the play gone from under it by then
-                } else if (currentRuntime.holdTap != null && !owner.tapOnHand) {
-                    // HIS-113 (owner, 2026-11-08): while a combat holds the view a single tap on the table (not the hand) does
-                    // nothing; a double tap skips it ([TableGestureCoordinator.viewHoldSkip])
-                } else if (currentRuntime.centreAction != null && !owner.tapOnHand) {
+                // HIS-139, HIS-148 (owner 2026-11-19): no tap on the table skips a play shown or a combat's hold (the main button
+                // does, TRN-165): taps act as at any other time
+                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.centreAction != null && !owner.tapOnHand) {
                     // HIS-094: with the catch-up's centre text showing, a tap on the table (not the hand) starts the playback
                     currentRuntime.centreAction?.run?.invoke()
                 } else if (currentRuntime.boardTap != null) {
@@ -142,7 +140,6 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 AppLog.info("table", if (held) "Finger held on the table (pauses what the view waits on)" else "Finger on the table lifted")
                 currentViewPause?.finger = held
             })
-        owner.viewHoldSkip = { currentRuntime.holdTap }
         owner.combatDrag = { item -> toolkit?.combatDraggable(item) ?: true }
         owner
     }
@@ -401,6 +398,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                             AppLog.info("combat", "Combat band ${if (bandOpen) "opens" else "closes"} for ${accountId.take(8)} at " +
                                 "${play.nodeId.take(8)}: " + if (!instant) "over $millis ms" else if (step.navigation)
                                     "at once (the layout or the table's size changed with it)" else "at once (a board that doesn't animate)")
+                            TableProbes.bandMoved?.invoke(accountId, bandOpen, if (instant) 0 else millis)
                         }
                         if (instant) progress.snapTo(1f)
                         else progress.animateTo(1f, tween(millis, easing = androidx.compose.animation.core.LinearEasing))
@@ -533,6 +531,17 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
+            // TBL-118 (owner 2026-11-19): the shake's reason rises from the item it shook (in the middle when the table doesn't
+            // draw it)
+            val refusalBubbles = LocalRefusalBubbles.current
+            val canvasOrigin = remember { arrayOf(androidx.compose.ui.geometry.Offset.Zero) }
+            LaunchedEffect(shaking) {
+                val s = shaking ?: return@LaunchedEffect
+                val item = rendered.value.scene.items.firstOrNull { it.id == s.id || it.cardId == s.id }
+                val anchor = item?.bounds?.let { b -> androidx.compose.ui.geometry.Rect(canvasOrigin[0].x + b.x * density,
+                    canvasOrigin[0].y + b.y * density, canvasOrigin[0].x + b.right * density, canvasOrigin[0].y + b.bottom * density) }
+                refusalBubbles?.show(s.reason, anchor)
+            }
             // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
             val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
                 .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
@@ -552,7 +561,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape, runtime.timelineOpen).dp)
                 .then(bars))
             }
-            Canvas(Modifier.fillMaxSize()) {
+            Canvas(Modifier.fillMaxSize().onGloballyPositioned { canvasOrigin[0] = it.positionInRoot() }) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 drawnFrame[0] = frame
@@ -717,6 +726,12 @@ object TableProbes {
     /** Told each time a table's combat target chips begin to fade in (CMB-001: once per combat), with its account and the
      * combat ([combatBandKey]). */
     @kotlin.concurrent.Volatile var chipsFadeIn: ((me: String, combat: String) -> Unit)? = null
+    /** CMB-054, CMB-055, TBL-205: told each time a table's combat band begins to open ([open]) or close, with its account and how
+     * long its animation is ([millis]; 0: at once). */
+    @kotlin.concurrent.Volatile var bandMoved: ((me: String, open: Boolean, millis: Int) -> Unit)? = null
+    /** CMB-055: told each time what sat on a closing combat band begins to fade out where it was, with its account, how many
+     * target chips fade and how long the fade is. */
+    @kotlin.concurrent.Volatile var chipsFadeOut: ((me: String, chips: Int, millis: Int) -> Unit)? = null
 }
 
 /** WEB-026: [content] for the card whose quick look [mouse] shows, if any; read here alone (web frame rate, 2026-11-15). */

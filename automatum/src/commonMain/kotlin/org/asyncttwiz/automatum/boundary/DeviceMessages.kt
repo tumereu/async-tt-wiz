@@ -106,6 +106,9 @@ sealed interface DeviceRequest {
     @Serializable @SerialName("dismiss-shows") data class DismissShows(override val id: Long) : DeviceRequest
     @Serializable @SerialName("pause") data class Pause(override val id: Long) : DeviceRequest
     @Serializable @SerialName("hold-playback") data class HoldPlayback(override val id: Long) : DeviceRequest
+    /** TRN-165: the main button pressed ([why]: what it said) while the view still waited on something: everything up to where
+     * the view comes to rest is shown at once: [DeviceResult.None] once the board after it is published. */
+    @Serializable @SerialName("skip-to-rest") data class SkipToRest(override val id: Long, val why: String) : DeviceRequest
     /** The next buffered event played: [DeviceResult.Event]. */
     @Serializable @SerialName("step") data class Step(override val id: Long) : DeviceRequest
 
@@ -170,9 +173,11 @@ sealed interface DeviceResult {
     @Serializable @SerialName("flag") data class Flag(val flag: Boolean) : DeviceResult
     /** A board outside the published ones (timeline mode's, a preview's), with the events and card data the page lacks. */
     @Serializable @SerialName("board") data class Board(val board: LooseBoard?) : DeviceResult
-    @Serializable @SerialName("preview") data class Preview(val board: LooseBoard?, val needsRequest: Boolean?, val loading: Boolean) : DeviceResult
+    /** [libraries]: the players (account ids) whose library cards the events undone touched (HIS-042: reshuffled). */
+    @Serializable @SerialName("preview") data class Preview(val board: LooseBoard?, val needsRequest: Boolean?, val loading: Boolean,
+        val libraries: List<String> = emptyList()) : DeviceResult
     @Serializable @SerialName("view") data class View(val message: String, val unseen: Boolean, val turn: TurnState,
-        val board: LooseBoard?) : DeviceResult
+        val board: LooseBoard?, val libraries: List<String> = emptyList()) : DeviceResult
     @Serializable @SerialName("view-none") data object NoView : DeviceResult
     @Serializable @SerialName("repro") data class Repro(val repro: GameRepro?) : DeviceResult
     /** A published board's plays ([DeviceRequest.Plays]); null where the engine side no longer holds the board. */

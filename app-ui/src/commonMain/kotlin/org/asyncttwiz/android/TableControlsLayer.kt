@@ -39,14 +39,14 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
                     Modifier.fillMaxWidth().height(DESKTOP_ACTIONS_HEIGHT.dp), perform = toolkit::perform, submit = { toolkit.submit(it) },
-                    mainShakes = toolkit.mainShakes, stacked = true)
+                    mainShakes = toolkit.mainShakes, mainShakeReason = toolkit.mainShakeReason, stacked = true)
                 // HIS-083 (I-D56 §10): holding Undo opens the rewind dialog to pick an earlier point; there is no Redo. WEB-018
                 // (owner, desktop playtest 2026-11-14): a real button in the bottom row's first third, lined up with the main
                 // button in the other two
                 runtime.undo?.let { undo ->
                     DesktopUndoButton(runtime.controlsConnected ?: connected, runtime.undoHold,
                         Modifier.padding(top = (DESKTOP_ACTIONS_HEIGHT - 48f).dp).width(DesktopTable.undoWidth(maxWidth.value).dp)
-                            .shaken(runtime.undoShakes)) { undo() }
+                            .shaken(runtime.undoShakes, runtime.undoShakeReason, "undo")) { undo() }
                 }
             }
         } } }
@@ -67,10 +67,10 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) },
-                    mainShakes = toolkit.mainShakes)
+                    mainShakes = toolkit.mainShakes, mainShakeReason = toolkit.mainShakeReason)
                 // HIS-083 (I-D56 §10): holding Undo opens the rewind dialog to pick an earlier point; there is no Redo
                 runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
-                    Modifier.align(Alignment.CenterStart).padding(start = 10.dp).shaken(runtime.undoShakes),
+                    Modifier.align(Alignment.CenterStart).padding(start = 10.dp).shaken(runtime.undoShakes, runtime.undoShakeReason, "undo"),
                     holdName = if (runtime.undoHold != null) "Undo to an earlier point" else null,
                     onHold = runtime.undoHold, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
             }

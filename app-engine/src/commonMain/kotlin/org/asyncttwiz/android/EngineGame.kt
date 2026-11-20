@@ -221,13 +221,20 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
          * off the table's board from the first board that has them, so nothing of them shows before their play does. */
         val coming: List<GameDevice.PlayShow> = emptyList(),
         /** [board]'s engine state (every board this game builds has one). */
-        val engine: GameState) {
+        val engine: GameState,
+        /** TRN-163, TRN-164 (owner 2026-11-19): where the view comes to rest once what it waits on is skipped, while playback is
+         * behind the head ([GameDevice.rest]); null while it rests at [board] (what the main button holds comes from [status]). */
+        val rest: Rest? = null) {
         /** What the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
          * [EngineBoardValues.promisePlays]) and, when first asked, the card menus' plays (on an own action's board with its
          * hand plays), the shared flow and combat. */
         val values: EngineBoardValues? get() = board.values
     }
+
+    /** TRN-163, TRN-164: what the player is offered where the view comes to rest ([status]: a stop, their move, a wait for the
+     * other player) and the board there ([board], projected from that point's state). */
+    class Rest(val status: GameDevice.Status, val board: TableBoard)
 
     /** The last published snapshot (main thread); null until the game first loaded. */
     @Volatile var shown: Shown? = null
@@ -486,7 +493,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             device.needsReload, device.pausing, takingBack,
             device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold,
             opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null, moments = device.openMoments,
-            ownStepHeld = status == GameDevice.Status.YourMove && device.ownStepHeld || stepNext, engine = engine)
+            ownStepHeld = status == GameDevice.Status.YourMove && device.ownStepHeld || stepNext, engine = engine,
+            rest = restShown(device.rest(), device.move?.value))
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -515,6 +523,40 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The last [Shown] published (engine thread). */
     private var lastShown: Shown? = null
+
+    /** TRN-164: the rest point published last and its board (engine thread): the same point keeps its board. */
+    private var lastRest: Pair<GameDevice.Rest, Rest>? = null
+
+    /**
+     * TRN-163, TRN-164 (owner 2026-11-19): [rest] ([GameDevice.rest]) as the table gets it, with its board projected from the
+     * state there (once per point: playback stepping toward the same stop keeps it). Engine thread.
+     */
+    private fun restShown(rest: GameDevice.Rest?, move: String?): Rest? {
+        if (rest == null) { if (lastRest != null) AppLog.info("game", "Rest point: the view rests at the shown point"); lastRest = null; return null }
+        lastRest?.let { (was, shown) -> if (was === rest || (was.at == rest.at && was.status == rest.status)) return shown }
+        val attention = when (rest.status) {
+            GameDevice.Status.YourMove, GameDevice.Status.Drafting, is GameDevice.Status.Stopped -> me
+            is GameDevice.Status.Waiting -> device.opponent.value
+            else -> null
+        }
+        val board = runCatching {
+            table(EngineProjection.project(base, rest.model, me, rest.at, attention, staging, tokenArt, pictures, move), rest.model, rest.at)
+        }.onFailure { AppLog.warn("game", "Rest point at ${rest.at.take(8)} not projected: ${it.message}") }.getOrNull() ?: return null
+        val s = rest.model.engine
+        // TRN-163: what the main button is about to offer while the view still plays toward it reaches the report
+        AppLog.info("game", "Rest point ahead of the shown ${device.session.tip.take(8)}: ${rest.at.take(8)} at turn ${s.turn.number} " +
+            "${s.turn.step} (stack ${s.stack.size}, priority ${s.priority.holder?.value?.take(8)}), ${restText(rest.status)}")
+        return Rest(rest.status, board).also { lastRest = rest to it }
+    }
+
+    private fun restText(status: GameDevice.Status): String = when (status) {
+        is GameDevice.Status.Stopped -> "a stop before ${status.event.id.take(8)} (assumed ${status.assumed::class.simpleName}${if (status.paused) ", paused" else ""})"
+        is GameDevice.Status.Waiting -> "waiting: ${status.reason}${status.offer?.let { ", offer $it" } ?: ""}"
+        else -> status::class.simpleName ?: "?"
+    }
+
+    /** TRN-165: the next transition is a jump (the player's skip): nothing animates or flashes for what it passed (engine thread). */
+    private var skipping = false
 
     /** The browser: the line each published board stands on, for its transfer to the engine's worker (engine thread,
      * which is the page's there). */
@@ -667,11 +709,15 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** §29.4: what an undo took back of what this player had seen: [by] undid, [event] first (null when unknown). With
      * [branch] (HIS-097) it is a branch's take-back: [by] answered differently than assumed, the note says so. */
-    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?, val branch: Boolean = false)
+    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?, val branch: Boolean = false,
+        /** HIS-042 (owner 2026-11-19): the players (account ids) whose library cards the events taken back touched. */
+        val libraries: Set<String> = emptySet(),
+        /** The undo was an undo request's, approved (HIS-099): both players were told of the reshuffle in its dialogs. */
+        val requested: Boolean = false)
 
     /** A rewind arriving (engine thread): who undid (or branched, [branch]), to where, and the line shown before it. */
     private class Rewinding(val by: String, val target: String, val line: List<GameEvent>, val state: arcanum.engine.state.GameState?,
-        val branch: Boolean = false)
+        val branch: Boolean = false, val requested: Boolean = false)
     private var rewinding: Rewinding? = null
     /** SYS-025: the player's own undo just shown on this device, before the server's rewind came ([undo]): its board
      * animates as that rewind's would (engine thread; used by the next transition). */
@@ -695,7 +741,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val undoing = rewinding ?: ownUndo
         ownUndo = null
         if (!loaded && before != null && from == null) undoing?.let { r -> if (undo(r, before, after, attention, move)) return }
-        val jump = loaded || before == null || from == null || to == null
+        // TRN-165: the player's skip jumps to where the view comes to rest
+        val jump = loaded || skipping || before == null || from == null || to == null
         val forward = if (!jump && from != null && to != null && to > from) line.subList(from + 1, to + 1).toList() else emptyList()
         val backward = if (!jump && from != null && to != null && to < from) line.subList(to + 1, from + 1).reversed() else emptyList()
         val changes = if (jump || before == null) emptyList() else EngineChanges.between(before, after, pt, ptAfter, forward + backward)
@@ -773,8 +820,14 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             EngineMotion.trim(boards.asReversed(), before, after, null)
         }.onFailure { AppLog.info("engine", "No undo motion: ${it.message}") }.getOrDefault(emptyList())
         val first = undone.firstOrNull { !EngineEventText.hidden(it) || EngineEventText.pass(it) }
+        // HIS-042 (owner 2026-11-19, playtest N4): whose library cards the events taken back touched; a free undo's note says
+        // the libraries were reshuffled
+        val libraries = if (r.branch) emptySet() else org.asyncttwiz.protocol.game.Rewind.librariesTouched(undone).mapTo(LinkedHashSet()) { it.value }
+        AppLog.info("undo", "Undo by ${r.by.take(8)} to ${r.target.take(8)} shown: ${undone.size} events taken back " +
+            "(${undone.joinToString(",") { it.id.take(8) }}), ${if (r.requested) "an approved request" else "free"}, " +
+            "libraries touched: ${libraries.joinToString { it.take(8) }.ifEmpty { "none" }}")
         lastTransition = Transition(++transitions, after.nodeId, false, changes, emptySet(), emptyList(), undone.asReversed(), steps,
-            Undone(r.by, first, r.state, r.branch))
+            Undone(r.by, first, r.state, r.branch, libraries, r.requested))
         pt = ptNow
         loaded = false
         return true
@@ -993,7 +1046,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      */
     fun requestView(viewer: String, localHead: String, target: String, done: (RequestView?) -> Unit) = remote?.run {
         request("requestView", { org.asyncttwiz.automatum.boundary.DeviceRequest.RequestView(it, viewer, localHead, target) }) { result ->
-            done((result as? org.asyncttwiz.automatum.boundary.DeviceResult.View)?.let { v -> RequestView(v.message, v.unseen, v.turn, board(v.board)) })
+            done((result as? org.asyncttwiz.automatum.boundary.DeviceResult.View)?.let { v -> RequestView(v.message, v.unseen, v.turn, board(v.board),
+                v.libraries.toSet()) })
         }
     } ?: worker.call({ requestViewOn(viewer, localHead, target) }, done)
 
@@ -1005,7 +1059,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             val board = requestBoard?.takeIf { it.model === p.board && it.at == at && it.viewer == viewer }?.board
                 ?: runCatching { table(EngineProjection.project(base, p.board, viewer, at, null, null, tokenArt), p.board, at, viewer) }
                     .getOrNull().also { requestBoard = RequestBoard(p.board, at, viewer, it) }
-            RequestView(p.message, p.unseen, p.board.engine.turn, board)
+            // HIS-042 (owner 2026-11-19): whose library cards the events the request takes back touched (all of them, also
+            // those the viewer hasn't seen yet): the dialog says the libraries reshuffle
+            val libraries = device.request?.target?.let { t -> device.lineAfter(t) }?.let { after ->
+                org.asyncttwiz.protocol.game.Rewind.librariesTouched(after).mapTo(LinkedHashSet()) { it.value } }.orEmpty()
+            RequestView(p.message, p.unseen, p.board.engine.turn, board, libraries)
         }
     }
 
@@ -1015,7 +1073,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** [requestView]'s answer: the request's [message], whether it takes back actions the viewer hasn't seen ([unseen]),
      * the [turn] it goes back to and the [board] there (null when it couldn't be made). */
-    class RequestView(val message: String, val unseen: Boolean, val turn: arcanum.engine.state.TurnState, val board: TableBoard?)
+    class RequestView(val message: String, val unseen: Boolean, val turn: arcanum.engine.state.TurnState, val board: TableBoard?,
+        /** HIS-042: the players (account ids) whose library cards the events taken back touched: reshuffled by the undo. */
+        val libraries: Set<String> = emptySet())
 
     /** Asks for the older history the open undo request's preview needs, if any (main thread). */
     fun loadForRequest() = remote?.run { request("requestNeeds", { org.asyncttwiz.automatum.boundary.DeviceRequest.RequestNeeds(it) }) { ask(text(it)) } }
@@ -1250,9 +1310,12 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val reapplied = update?.target != null && update.rewoundBy != me && events.any { it.carriedFrom != null }
         if (reapplied) AppLog.info("engine", "Rewind to ${update?.target} by ${update?.rewoundBy} re-applies this player's line: " +
             "${events.count { it.carriedFrom != null }} of ${events.size} events made from theirs")
+        // HIS-042: a rewind to the open undo request's point is that request's, approved (its dialogs told of the reshuffle)
+        val requested = update?.target != null && device.request?.target == update.target
         rewinding = update?.target?.let { target ->
             lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target,
-                if (it.line.any { e -> e.id == target || e.parentId == target }) it.line else it.older + it.line, it.engine, branch = reapplied) }
+                if (it.line.any { e -> e.id == target || e.parentId == target }) it.line else it.older + it.line, it.engine, branch = reapplied,
+                requested = requested) }
         } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
             lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
         }
@@ -1683,6 +1746,27 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         if (any) stepsAfterHold()
     }
 
+    /**
+     * TRN-165 (owner 2026-11-19): the player pressed the main button ([why]: what it said) while their view still waited on
+     * something: every play shown and combat hold ends and playback shows at once everything up to where the view comes to
+     * rest ([GameDevice.skipToRest]); the board after it is a jump (nothing animates, flashes or shows a banner for what it
+     * passed), with the device's own steps after it made first. [done] runs on the caller's thread with the version of the
+     * board published after it (the table acts on that board).
+     */
+    fun skipToRest(why: String, done: (Long) -> Unit = {}) = remote?.run {
+        request("skipToRest", { org.asyncttwiz.automatum.boundary.DeviceRequest.SkipToRest(it, why) }) { done(shown?.version ?: 0L) }
+    } ?: worker.call({
+        val tip = device.session.tip
+        val what = device.skipToRest()
+        AppLog.info("game", "Main button press \"$why\" skips what the view waited on: $what")
+        skipping = device.session.tip != tip
+        try {
+            device.advance(now)
+            publish(device.notes())
+        } finally { skipping = false }
+        lastShown?.version ?: 0L
+    }) { done(it) }
+
     /** A tap on the table while playback runs (HIS-095): it goes on to the next point where Full control stops and stops
      * there ([GameDevice.pausing]). */
     fun pause() = remote?.tell { org.asyncttwiz.automatum.boundary.DeviceRequest.Pause(it) } ?: worker.call({ device.pausing = true; publish(); Unit }) {}
@@ -1742,7 +1826,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * state ([org.asyncttwiz.protocol.game.GameSession.stateAt]), never a replay from the game's start. */
     class UndoPreview(val board: TableBoard?, val needsRequest: Boolean?,
         /** HIS-005: the point needs older history, asked for ([loadFor]): nothing is worked out until it is in. */
-        val loading: Boolean = false)
+        val loading: Boolean = false,
+        /** HIS-042 (owner 2026-11-19): the players (account ids) whose library cards the events undone touched: the undo
+         * reshuffles their libraries' unknown parts, so the next cards drawn may change. */
+        val libraries: Set<String> = emptySet())
 
     fun undoPreview(target: String): UndoPreview = answered { undoPreview(target, it) }
 
@@ -1751,7 +1838,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     fun undoPreview(target: String, done: (UndoPreview) -> Unit) = remote?.run {
         request("undoPreview", { org.asyncttwiz.automatum.boundary.DeviceRequest.UndoPreview(it, target) }) { result ->
             val p = result as? org.asyncttwiz.automatum.boundary.DeviceResult.Preview
-            val preview = if (p == null) UndoPreview(null, true) else UndoPreview(board(p.board), p.needsRequest, p.loading)
+            val preview = if (p == null) UndoPreview(null, true) else UndoPreview(board(p.board), p.needsRequest, p.loading, p.libraries.toSet())
             if (!preview.loading) done(preview)
             else loadFor(target) { started -> done(if (started) preview else UndoPreview(null, true)) }
         }
@@ -1775,7 +1862,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val needs = if (after.isEmpty()) null
             else org.asyncttwiz.protocol.game.Rewind.requestNeeded(at.copy(), target, after, PlayerId(me), others, device.assumeReveals.undoPastPasses) != null
         val board = runCatching { table(EngineProjection.project(base, at, me, target, null, null, tokenArt), at, target) }.getOrNull()
-        return UndoPreview(board, needs)
+        val libraries = org.asyncttwiz.protocol.game.Rewind.librariesTouched(after).mapTo(LinkedHashSet()) { it.value }
+        return UndoPreview(board, needs, libraries = libraries)
     }
     fun requestUndo(target: String, message: String) {
         AppLog.info("undo", "Undo request to $target from tip ${shown?.tip}, with a message of ${message.length} characters")

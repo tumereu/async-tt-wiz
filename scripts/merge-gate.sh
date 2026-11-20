@@ -11,6 +11,8 @@
 #   android  :androidApp:compileDebugAndroidTestKotlin, :androidApp:testDebugUnitTest (screenshots verify there)
 #   web      :webApp:webDist, the deployable web client
 #   e2e      the e2e smoke set (E2E_SMOKE below) plus the e2e test classes the merge adds or changes
+# A conflict only in gallery.tsv (branches append rows there) is resolved by keeping both sides' rows ordered by number
+# (scripts/lib/gallery-merge.py), unless both sides used one number.
 # A merge that changes only documentation (docs/, release/notes/, *.md) runs only checkFeatureCatalog.
 # One gate at a time: it holds the merge lock ($ATW_LOCKS/master-merge.lock) from merging to moving master. If the
 # checkout that has master checked out has local changes in the merge's way, it retries for 30 minutes.
@@ -86,11 +88,21 @@ else
     { git -C "$wt" reset -q --hard && git -C "$wt" clean -qfd && git -C "$wt" checkout -q --detach "$base"; } >>"$log" 2>&1 ||
         { say "could not reset $wt to master"; exit 2; }
 fi
+gallery=androidApp/src/test/screenshots/gallery.tsv
 if ! git -C "$wt" merge -q --no-ff --no-edit -m "$label" "$tip_sha" >>"$log" 2>&1; then
-    say "conflict with master in: $(git -C "$wt" diff --name-only --diff-filter=U | tr '\n' ' ')"
-    git -C "$wt" merge --abort >/dev/null 2>&1
-    say "master untouched: merge master into $tip, resolve, and run the gate again"
-    exit 4
+    # Branches add gallery rows at the end, so they clash there; both sides' rows are kept, ordered by number, unless
+    # both used one number (a person picks then).
+    if [ "$(git -C "$wt" diff --name-only --diff-filter=U)" = "$gallery" ] &&
+        python3 "$wt/scripts/lib/gallery-merge.py" "$wt/$gallery" 2>>"$log" &&
+        git -C "$wt" add "$gallery" && git -C "$wt" commit -q --no-edit >>"$log" 2>&1; then
+        say "kept both sides' gallery.tsv rows, ordered by number"
+    else
+        say "conflict with master in: $(git -C "$wt" diff --name-only --diff-filter=U | tr '\n' ' ')"
+        tail -1 "$log" | grep '^gallery.tsv:' | sed 's/^/merge-gate: /'
+        git -C "$wt" merge --abort >/dev/null 2>&1
+        say "master untouched: merge master into $tip, resolve, and run the gate again"
+        exit 4
+    fi
 fi
 merge=$(git -C "$wt" rev-parse HEAD)
 say "testing $label: $(git rev-parse --short "$base") + $(git rev-parse --short "$tip_sha") = $(git rev-parse --short "$merge") in $wt"

@@ -439,7 +439,9 @@ class PodService(private val runtime: ServiceRuntime) {
         val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
         row.draftAttemptId = UUID.randomUUID()
         sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
-        sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.initialBuild(settings.sideboardLimit))).where(MEMBER.POD_ID.eq(row.id)).execute()
+        // DRF-239: a new attempt starts with no picks seen
+        sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.initialBuild(settings.sideboardLimit))).set(MEMBER.PICKS_SEEN, 0)
+            .where(MEMBER.POD_ID.eq(row.id)).execute()
         // DRF-179: each pack from its cell's set (the stored grid is normalized; cells past its end take its last set)
         val set = setSource(row)?.let { resized(it, settings) }
         set?.let { log("pod ${row.id} starts ${settings.mode} for ${players.size} players from pack grid ${PodPackGrid.cells(it.packs, settings)}") }
@@ -600,6 +602,32 @@ class PodService(private val runtime: ServiceRuntime) {
             save(sql, row)
             detail(sql, row, owner)
         }
+
+    /**
+     * DRF-239: the caller has seen the first [SeePodPicks.picks] picks of the pod's Rotisserie draft. Only moves forward,
+     * never past the picks made; like a chat read cursor it needs no request id (repeating it changes nothing).
+     */
+    fun seePicks(principal: AccountService.Principal, id: String, input: SeePodPicks): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        if (input.picks < 0) return error(400, "invalid_request")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            val mine = members(sql, row.id!!).firstOrNull { it.accountId == owner } ?: return@transaction error(404, "not_found")
+            if (settings(row).mode != DraftMode.ROTISSERIE) return@transaction error(409, "wrong_draft_mode")
+            val state = limitedState(row) ?: return@transaction error(409, "not_drafting")
+            val seen = minOf(input.picks, state.log.size)
+            val previous = mine.picksSeen ?: 0
+            if (seen > previous) {
+                sql.update(MEMBER).set(MEMBER.PICKS_SEEN, seen).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner))
+                    .and(MEMBER.PICKS_SEEN.lt(seen)).execute()
+                log("rotisserie ${row.id}: $owner has seen $seen of ${state.log.size} picks (was $previous)")
+            }
+            acknowledged(row)
+        }
+    }
 
     fun move(principal: AccountService.Principal, id: String, input: MovePodCopy): Result =
         editBuild(principal, id, input.requestId, "movePodCopy", json.encodeToJsonElement(input), input.draftAttemptId) { build ->
@@ -1153,8 +1181,10 @@ class PodService(private val runtime: ServiceRuntime) {
         val grid = stored.grid
         val gridView = grid?.let { PodGridView(GridEngine.publicView(it, owner.toString()), GridEngine.privateView(it, owner.toString())) }
         val limited = stored.limited
-        val limitedView = limited?.let { LimitedEngine.view(it, owner.toString()) }
         val mine = members.first { it.accountId == owner }
+        // DRF-239: how many of the Rotisserie picks the caller has seen, for "While you were away"
+        val limitedView = limited?.let { LimitedEngine.view(it, owner.toString()) }
+            ?.let { if (it.mode == DraftMode.ROTISSERIE) it.copy(picksSeen = minOf(mine.picksSeen ?: 0, it.picks.size)) else it }
         val visible = view?.head?.cards.orEmpty() + view?.queuedPacks.orEmpty().flatMap { it.cards } +
             view?.pool.orEmpty() + gridView?.mine?.pool.orEmpty() +
             (gridView?.publicView?.grids.orEmpty() + gridView?.publicView?.finishedGrids.orEmpty())

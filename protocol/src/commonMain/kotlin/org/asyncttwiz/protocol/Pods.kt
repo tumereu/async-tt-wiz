@@ -133,6 +133,9 @@ import kotlinx.serialization.Serializable
     val seating: List<String> = emptyList())
 /** PUT /v1/pods/{id}/rotisserie/queue: the caller's whole Rotisserie pick queue, in order (DRF-164); empty empties it. */
 @Serializable data class PodPickQueue(val requestId: String, val draftAttemptId: String, val cards: List<String>)
+/** PUT /v1/pods/{id}/rotisserie/seen: the caller has seen the first [picks] picks of the Rotisserie draft (DRF-239); the
+ * server keeps the largest it was told (at most the picks so far) and answers [PodAcknowledged]. */
+@Serializable data class SeePodPicks(val picks: Int)
 /** PUT /v1/pods/{id}/build/move. */
 @Serializable data class MovePodCopy(val requestId: String, val draftAttemptId: String, val copyId: String, val category: PodDeckCategory)
 /** PUT /v1/pods/{id}/build/basics. [side] sets the Side lands instead of Main. */

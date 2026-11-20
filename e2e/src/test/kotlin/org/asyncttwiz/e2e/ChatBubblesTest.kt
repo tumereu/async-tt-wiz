@@ -63,6 +63,7 @@ class ChatBubblesTest : E2e() {
     // WEB-138, WEB-137, LOB-136 (owner, 2026-11-19: on the desktop bubbles show while the chat dock is open and go by themselves): Alice plays
     // on the desktop table with her chat dock open; Bob's quick message shows as his bubble on her table though her dock reads it
     // at once, and it goes by itself after about 5 s, the message staying read
+    @org.robolectric.annotation.Config(qualifiers = "w1440dp-h900dp-land-mdpi")
     @Test fun onTheDesktopABubbleShowsWithTheDockOpenAndGoesByItself() {
         startGame(aliceDesktop = true)
         bothOpen()

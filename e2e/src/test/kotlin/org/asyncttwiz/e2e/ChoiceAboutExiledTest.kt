@@ -23,8 +23,16 @@ class ChoiceAboutExiledTest : E2e() {
         bothKeep(bobAway = false)
         waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
         alice.playFromHand("Ember Unearthing", this)
-        waitUntil("the choice to cast the exiled card: ${alice.screen()}", along = listOf(bob)) {
-            alice.showsText("About:") && alice.state.pending?.decision is arcanum.engine.decision.Decision.May
+        // HIS-233 (owner 2026-11-19): the exile from her library shows first as a reveal on her table too, closed by its OK
+        waitUntil("the exile from Alice's library shown as a reveal", along = listOf(bob)) {
+            alice.shown.reveal?.exiled != null && alice.showsRevealOk()
+        }
+        // (Mountains over the Spark go with it: "You exiled 3 cards from your library")
+        assertTrue(alice.showsText("You exiled ", substring = true) && alice.showsText(" from your library", substring = true),
+            "the exile's panel: ${alice.screen()}")
+        alice.revealOk()
+        waitUntil("the choice to cast the exiled card", along = listOf(bob)) {
+            alice.shown.reveal == null && alice.showsText("About:") && alice.state.pending?.decision is arcanum.engine.decision.Decision.May
         }
         val found = alice.state.exile.mapNotNull { alice.state.obj(it) }
             .single { CardType.Land !in (it.definition?.faces?.first()?.types.orEmpty()) }.definition!!.faces.first().name

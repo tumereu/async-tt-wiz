@@ -294,7 +294,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             val first = !this::device.isInitialized
             val holdTakeBack = first || away
             AppLog.info("engine", "Game ${gameId.take(8)} ${if (first) "opens" else "loads again"} from head ${snapshot.headId.take(8)}" +
-                " (server's local head of this player ${snapshot.localHeads[me]?.take(8)}, ${snapshot.takenBack.size} seen events taken back" +
+                " (server's local head of this player ${snapshot.localHeads[me]?.take(8)}, window of ${snapshot.events.size} events from " +
+                "${if (snapshot.baseId == null) "the head" else if (snapshot.baseId == snapshot.rootId) "the game's start" else snapshot.baseId?.take(8)}, " +
+                "${snapshot.takenBack.size} seen events taken back" +
                 "${snapshot.undoneBy?.let { " by an undo of $it" } ?: ""}): ${if (holdTakeBack) "a take-back of what the player saw waits " +
                 "for their tap (${if (first) "opened" else "the app away"})" else "live, a take-back plays at once"}")
             val (loaded, json) = try { GameDevice.load(snapshot, PlayerId(me), takenBack = holdTakeBack, ids = ids) } catch (failure: Exception) {

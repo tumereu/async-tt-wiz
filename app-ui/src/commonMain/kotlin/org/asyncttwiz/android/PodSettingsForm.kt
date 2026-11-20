@@ -64,7 +64,8 @@ enum class PodSetting(val label: String) {
     fun text(s: DraftSettings): String = value(s)?.let { if (this == MYTHIC) "1/$it" else it.toString() } ?: emptyText.orEmpty()
     fun range(s: DraftSettings): IntRange = when (this) {
         PACKS -> if (s.mode.limited) 1..15 else s.packsOpenAtOnce..30
-        PACK_SIZE -> if (s.mode.limited) 5..30 else maxOf(1, s.keep + s.burn, s.discardRemainingAt)..30
+        PACK_SIZE -> if (s.mode.limited) 5..30 else if (s.mode == DraftMode.CUSTOM_BOOSTER) 1..30
+            else maxOf(1, s.keep + s.burn, s.discardRemainingAt)..30
         KEEP -> 1..(s.cardsPerPack - s.burn)
         BURN -> 0..(s.cardsPerPack - s.keep)
         DISCARD -> 0..s.cardsPerPack
@@ -88,7 +89,7 @@ enum class PodSetting(val label: String) {
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
-        PACK_SIZE -> if (s.mode.limited) "5–30" else "Keep + burn: ${s.keep + s.burn}; discard: ${s.discardRemainingAt}; maximum 30"
+        PACK_SIZE -> if (s.mode.limited) "5–30" else if (s.mode == DraftMode.CUSTOM_BOOSTER) "1–30" else "Keep + burn: ${s.keep + s.burn}; discard: ${s.discardRemainingAt}; maximum 30"
         KEEP -> "Pack size − burn: ${s.cardsPerPack - s.burn}"
         BURN -> "Pack size − keep: ${s.cardsPerPack - s.keep}"
         DISCARD -> "Pack size: ${s.cardsPerPack}"
@@ -174,6 +175,9 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
         DraftMode.SEALED -> listOf(if (source.kind == PodSourceKind.SET) PodSetting.BOOSTERS else PodSetting.CARDS_EACH)
         DraftMode.BOOSTER, DraftMode.GLIMPSE -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
             PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)
+        // DRF-262: the passes take keep, burn and discard's place
+        DraftMode.CUSTOM_BOOSTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
+            PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)
         // DRF-281, DRF-282: offers are never a set's booster, so their size is always set
         DraftMode.ARENA -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.RARE_EVERY,
             PodSetting.UNCOMMON_EVERY, PodSetting.MYTHIC)
@@ -181,11 +185,12 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
 }
 
 /** The modes the mode button's popup lists (DRF-020); Glimpse is a preset of Booster (DRF-031), not a mode. */
-val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER,
-    DraftMode.SEALED, DraftMode.ARENA)
+val PodModes = listOf(DraftMode.BOOSTER, DraftMode.CUSTOM_BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE,
+    DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED, DraftMode.ARENA)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
 fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
+    DraftMode.CUSTOM_BOOSTER -> "Custom booster"
     DraftMode.GRID -> "Grid"
     DraftMode.ROCHESTER -> "Rochester"
     DraftMode.ROTISSERIE -> "Rotisserie"
@@ -266,6 +271,81 @@ fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
     }
     // DRF-287: Arena's summary, members' too
     if (settings.mode == DraftMode.ARENA) PodArenaSummary(settings, source)
+    if (settings.mode == DraftMode.CUSTOM_BOOSTER) PodPassesSection(settings.passes, enabled, change)
+}
+
+/** A pass in words: "Pick 2 · Burn 1", or "Pick 1" without burns (DRF-263, DRF-264). */
+fun podPassText(pass: DraftPass): String = "Pick ${pass.pick}" + if (pass.burn > 0) " · Burn ${pass.burn}" else ""
+
+/** A Custom booster's passes in one line, equal passes in a row counted once: "Pick 2 · Burn 1, Pick 1 · Burn 1 ×6" (DRF-264). */
+fun podPassesSummary(passes: List<DraftPass>): String {
+    val runs = mutableListOf<Pair<DraftPass, Int>>()
+    for (pass in passes) if (runs.lastOrNull()?.first == pass) runs[runs.lastIndex] = pass to runs.last().second + 1 else runs += pass to 1
+    return runs.joinToString(", ") { (pass, count) -> podPassText(pass) + if (count > 1) " ×$count" else "" }
+}
+
+/** [this] with pass [index] replaced by [pass] (DRF-262). */
+fun DraftSettings.withPass(index: Int, pass: DraftPass): DraftSettings =
+    copy(passes = passes.mapIndexed { i, old -> if (i == index) pass else old })
+
+/**
+ * DRF-262, DRF-263: a Custom booster's passes, one row each. The creator sets each pass's picks and burns (a tap opens a
+ * number dialog), removes passes (never the only one) and adds one, which repeats the last; members read the list.
+ */
+@Composable
+fun PodPassesSection(passes: List<DraftPass>, editable: Boolean, change: ((DraftSettings) -> DraftSettings) -> Unit) {
+    var editing by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    Column(Modifier.fillMaxWidth().testTag("pod-passes"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Passes (${passes.size})", style = MaterialTheme.typography.titleSmall)
+        Text("Each pack goes through these passes in order; when they run out, the cards left are thrown away.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        passes.forEachIndexed { index, pass ->
+            if (!editable) Text("Pass ${index + 1} · ${podPassText(pass)}", Modifier.testTag("pod-pass-$index"))
+            else Row(Modifier.fillMaxWidth().testTag("pod-pass-$index"), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Pass ${index + 1}", Modifier.weight(1f))
+                ScreenOutlinedButton({ editing = index to true }, Modifier.widthIn(min = 88.dp).testTag("pod-pass-$index-pick")) {
+                    Text("Pick ${pass.pick}") }
+                ScreenOutlinedButton({ editing = index to false }, Modifier.widthIn(min = 88.dp).testTag("pod-pass-$index-burn")) {
+                    Text("Burn ${pass.burn}") }
+                ScreenIconButton("Remove pass ${index + 1}", "close", {
+                    change { it.copy(passes = it.passes.filterIndexed { i, _ -> i != index }.ifEmpty { it.passes }) }
+                }, Modifier.testTag("pod-pass-$index-remove"), enabled = passes.size > 1)
+            }
+        }
+        if (editable) ScreenOutlinedButton({ change { it.copy(passes = (it.passes + (it.passes.lastOrNull() ?: DraftPass(1, 1))).take(DraftPass.MAX)) } },
+            Modifier.testTag("pod-pass-add"), enabled = passes.size < DraftPass.MAX) { ButtonLabel("add", "Add pass") }
+    }
+    editing?.let { (index, pick) ->
+        val pass = passes.getOrNull(index) ?: return@let
+        val range = if (pick) 1..(DraftPass.MAX - pass.burn) else 0..(DraftPass.MAX - pass.pick)
+        PodPassNumberPopup("Pass ${index + 1} · ${if (pick) "Pick" else "Burn"}",
+            if (pick) "How many cards the player takes from the pack on this pass."
+            else "How many cards the player then removes from the pack on this pass. Burned cards go to nobody.",
+            if (pick) pass.pick else pass.burn, range, { editing = null }) { value ->
+            change { current -> current.passes.getOrNull(index)?.let { old ->
+                current.withPass(index, if (pick) old.copy(pick = value) else old.copy(burn = value)) }
+                ?.takeIf { it.validate(2).none { issue -> issue == DraftSettingsIssue.PASSES } } ?: current }
+            editing = null
+        }
+    }
+}
+
+/** The number dialog of a pass's picks or burns, in the settings tiles' dialog shape (DRF-022). */
+@Composable
+private fun PodPassNumberPopup(title: String, explanation: String, value: Int, range: IntRange, dismiss: () -> Unit, save: (Int) -> Unit) {
+    val input = rememberDialogField(value.toString())
+    val saveEnabled = input.text.toIntOrNull()?.let { it in range } == true
+    val confirm = { if (saveEnabled) save(input.text.toInt()) }
+    ScreenDialog(dismiss, Modifier.widthIn(max = 320.dp), title = title, actions = {
+        DialogCancelButton("Cancel", dismiss)
+        DialogMainButton("Save", confirm, enabled = saveEnabled, icon = "save")
+    }) {
+        Text(explanation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(input.value, { input.value = it }, Modifier.fillMaxWidth().dialogField(input), singleLine = true,
+            label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = submitKeyboardActions(saveEnabled, submit = confirm))
+    }
 }
 
 /** DRF-020: one full-width button showing the pod's mode with a switch icon; it opens a popup list of the modes,

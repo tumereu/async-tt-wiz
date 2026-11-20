@@ -15,10 +15,12 @@ import kotlinx.serialization.Serializable
     /** The other members' messages in the pod's chat the caller hasn't read (DRF-012). */
     val chatUnread: Int = 0,
 )
-/** [mode] and, for Arena, its [arena] format tell the invitee the pod's format before they accept (DRF-287). */
+/** [mode] and, for a Custom booster, its [passes] (DRF-264), for Arena its [arena] format (DRF-287), tell the invitee the pod's
+ * format before they accept. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String,
     val mode: DraftMode = DraftMode.BOOSTER,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val passes: List<DraftPass> = emptyList(),
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val arena: ArenaFormat? = null)
 /** An Arena pod's format in brief (DRF-287): its number of picks, cards per offer and picks per offer. */
 @Serializable data class ArenaFormat(val picks: Int, val cards: Int, val take: Int) {

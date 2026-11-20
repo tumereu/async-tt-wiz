@@ -1206,11 +1206,12 @@ class PodService(private val runtime: ServiceRuntime) {
                 settings(row).mode, chatUnread[row.id] ?: 0)
         } }.sortedWith(podListOrder)
         val invitations = invited.mapNotNull {
-            // DRF-287: the invitation names the pod's mode and an Arena pod's format
+            // DRF-264, DRF-287: the invitation names the pod's mode, a Custom booster's passes and an Arena pod's format
             StoredData.orSkip("pod", it[INVITE.POD_ID]) {
                 val settings = json.decodeFromString<DraftSettings>(it[POD.SETTINGS]!!.data())
                 PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!),
                     it[INVITE.INVITED_AT]!!.toInstant().toString(), settings.mode,
+                    if (settings.mode == DraftMode.CUSTOM_BOOSTER) settings.passes else emptyList(),
                     if (settings.mode == DraftMode.ARENA) ArenaFormat.of(settings) else null)
             }
         }

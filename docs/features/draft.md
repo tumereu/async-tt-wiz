@@ -61,7 +61,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
 - **DRF-029** Only the creator edits name, source and settings; members see them read-only. Edits apply at once without disabling anything and save in the background. A name that can't be saved (the emptied field) waits in the field until a name is typed; leaving the pod then keeps the last saved name and saves the other edits. (r17)
 - **DRF-030** Setup lists members and pending invitations with "Members (N/L)", L the engine's player limit (DRF-150); the creator invites through the shared player picker, up to 8 members and invitations together. (r35)
-- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Grid, Rochester, Rotisserie, Winston, Winchester, Sealed and Arena (DRF-280), each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r74)
+- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Custom booster (DRF-260), Grid, Rochester, Rotisserie, Winston, Winchester, Sealed and Arena (DRF-280), each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r74)
 - **DRF-190** Glimpse is a preset of Booster (DRF-200), and a pod's mode always reads "Booster", also for pods created as Glimpse. (r74)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. Winston and Winchester have a "Tables" tile after Piles. (r60)
 - **DRF-191** Rochester's "Open packs" tile reads "1 each" (one per player) until a number is set; its dialog has a square "1 each" toggle like the sideboard's ∞. (r60)
@@ -107,7 +107,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 ## Starting, leaving and cancelling
 
 - **DRF-035** The creator's "Start draft" needs at least 2 accepted members and no more than the engine allows (DRF-150), settings that fit them and a source with enough cards; there is no Ready step. (r35)
-- **DRF-150** Each engine has a player limit: Booster, Rochester, Rotisserie, Sealed and Arena 2–8; Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."). (r35)
+- **DRF-150** Each engine has a player limit: Booster, Custom booster, Rochester, Rotisserie, Sealed and Arena 2–8; Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."). (r35)
 - **DRF-036** While invitations are pending the button is "Start when everyone accepts"; armed, it reads "Starts when N more accept · Cancel" and members see "Starts automatically when everyone accepts". (r21)
 - **DRF-037** Auto-start begins the draft when the last invitee accepts; a decline or a failed start turns it off with a setup line like "Bob declined; auto-start is off" and a notification. (r21)
 - **DRF-163** Auto-start can't be armed while members plus pending invitations exceed the engine's limit (DRF-150): "Grid takes at most 4 players; 5 are joined or invited.". (r35)
@@ -145,6 +145,14 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-053** A spent Librarian shows a book badge; you may keep it back, burn it or leave it to pass on, also on a pack's last pick; Refund in its menu (or tapping its slot) takes it back. (r29)
 - **DRF-054** Spending a Librarian never changes the tray layout; with Librarians the keep tray is always at least 2 cards wide and Confirm reads "Confirm · 1 Librarian". (r19)
 - **DRF-055** An unspent or later-drafted Librarian is an ordinary card for deckbuilding and can be spent again; automatic awards never spend one. (r21)
+
+## Custom booster
+
+- **DRF-260** Custom booster is Booster with the creator's list of passes in place of keep, burn and discard: each pack goes through the passes in order, and on its n-th pass the player it reaches picks that pass's number of cards, then burns its number (to nobody), and passes it on. Everything else is Booster's: sources, packs, passing, Librarians, the pick screen and the draft history.
+- **DRF-261** When a Custom booster pack's passes run out, the cards left in it are thrown away; a pack that runs out of cards first is done. A pack holding its pass's picks or fewer is given automatically, and one holding picks + burns or fewer needs only the picks (as DRF-045).
+- **DRF-262** Pod setup shows a Custom booster's passes under its tiles (Packs, Pack size, Open packs, Librarians, Sideboard) as "Passes (N)": one row each, "Pass 1" with Pick and Burn steppers and a remove button (not on the only pass), then "Add pass", which repeats the last pass. Defaults: 3 packs × 15 cards, 7 passes of pick 1, burn 1; limits: 1–30 passes, each picking at least 1 and burning 0 or more, at most 30 cards together.
+- **DRF-263** Only the creator edits the passes, in setup; members see the same list read-only ("Pass 1 · Pick 2 · Burn 1"). On the Custom booster pick screen a line above the trays says what this pass asks, "Pass 2/7 · Pick 2 of 11 · Burn 1", ending "· the rest are thrown away" on the last pass; burned cards show in the draft history like picks, red with 🔥 (DRF-207).
+- **DRF-264** A pod invitation to a Custom booster pod reads its passes under the creator, equal passes in a row counted once: "Custom booster: Pick 2 · Burn 1, Pick 1 · Burn 1 ×6" (a pass without burns reads "Pick 1").
 
 ## Pick screen
 

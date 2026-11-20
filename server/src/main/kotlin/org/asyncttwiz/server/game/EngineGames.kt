@@ -528,10 +528,15 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val earliest = seats.mapNotNull { seat -> MainLine.after(history, head, seat.head)?.let { seat.head to it.size } }
             .maxByOrNull { it.second }?.first ?: head
         val depth = if (earliest == store.rootId) 0 else store.node(earliest)?.depth ?: 0
-        // Never further back than the game's first event (e2e OpeningKeepTest): a snapshot based at the root gave a device
-        // opening the game in its opening a wrong board (turn 1 with its keep decision still open, its Keep doing nothing)
-        val start = store.ancestors(earliest, (depth - GameDevice.KEPT_EVENTS).coerceAtLeast(1)).lastOrNull()?.event?.parentId ?: earliest
+        // Early in a game the window starts at the root, before the game's first event, which a device loads as any other
+        // window (e2e OpeningKeepTest; it once stopped at the first event, until the table's playback delay after the event
+        // at the local head was found to hold the opening back)
+        val start = store.ancestors(earliest, (depth - GameDevice.KEPT_EVENTS).coerceAtLeast(0)).lastOrNull()?.event?.parentId ?: earliest
         val after = MainLine.after(history, head, start).orEmpty()
+        org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info(
+            "Snapshot of play {} for {}: window from {} to head {} ({} events): the earliest local head {} at depth {}{}, at most {} events before it",
+            play, viewer, if (start == store.rootId) "the root" else start, head, after.size, earliest, depth,
+            seats.firstOrNull { it.head == earliest }?.let { " (${it.account}'s)" } ?: " (the head)", GameDevice.KEPT_EVENTS)
         val base = if (after.isEmpty()) null else store.codec.encodeModel(stateAtLocalHead(history, state, start, after))
         val seat = seats.singleOrNull { it.account == viewer }
         // HIS-106: what of the discarded line the viewer had been shown, when another player's branch took it back (HIS-115:

@@ -244,6 +244,9 @@ fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respon
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Avatar(invitation.creator); Text(invitation.creator.username)
                         }
+                        // DRF-264: a Custom booster invitation tells its passes before accepting
+                        if (invitation.mode == DraftMode.CUSTOM_BOOSTER) Text("Custom booster: ${podPassesSummary(invitation.passes)}",
+                            Modifier.testTag("pod-invitation-passes"), style = MaterialTheme.typography.bodySmall)
                         // DRF-287: an Arena invitation tells its format before accepting
                         invitation.arena?.takeIf { invitation.mode == DraftMode.ARENA }?.let { format ->
                             Text(podArenaFormat(format), Modifier.testTag("pod-invitation-format"), style = MaterialTheme.typography.bodySmall)

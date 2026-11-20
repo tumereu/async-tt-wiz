@@ -95,7 +95,8 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
         // WEB-025: keys whose key-up can't come any more are let go (the window lost the focus, a text field took the keyboard,
         // a pointer event without the modifier)
         jsListenKeys({ key, down, time, repeat, alt, shift, ctrl, meta ->
-            DesktopKeyboard.dispatch(DesktopKey(key, down, time.toLong(), repeat, alt, shift, ctrl, meta, textField = jsTyping()))
+            // WEB-090 (prod reports 9FNZGG, SLCCVC): a field whose text input runs has the keyboard, wherever the page's focus is
+            DesktopKeyboard.dispatch(DesktopKey(key, down, time.toLong(), repeat, alt, shift, ctrl, meta, textField = jsTyping() || WebTextInput.active))
         }, lost = { why, all -> if (all) DesktopKeyboard.focusLost(why) else DesktopKeyboard.textFieldTookKeyboard() },
             modifiers = { alt, shift, ctrl, meta, what -> DesktopKeyboard.modifiers(alt, shift, ctrl, meta, what) })
         unlockSound()
@@ -115,7 +116,7 @@ fun startWebApp(build: BuildInfo, assetBase: String) {
             // WEB-059: the mirror follows the screen again once a popup or dialog closes
             SemanticsMirrorRepair {
                 // WEB-064: the resolver is a state, replaced once the emoji font has come: every text is laid out again
-                CompositionLocalProvider(LocalFontFamilyResolver provides org.asyncttwiz.appui.webFontResolver) { shell.Content() }
+                CompositionLocalProvider(LocalFontFamilyResolver provides org.asyncttwiz.appui.webFontResolver) { WebTextInput.Track { shell.Content() } }
             }
         }
         jsHideLoading()

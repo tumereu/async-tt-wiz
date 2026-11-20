@@ -531,6 +531,44 @@ class PodHttpTest {
 
     private fun autoStart(f: Fixture, pod: String, enabled: Boolean, status: Int = 200, who: SessionCreated = f.a) =
         f.send(who, "POST", "/v1/pods/$pod/auto-start", SetPodAutoStart(id(), enabled), status)
+    // DRF-280, DRF-284, DRF-285, DRF-287, DRF-290: a Homerock pod tells its format to invitees and its source's rarities in
+    // setup; each player gets offers of their own, which nobody else sees or can pick from; the server checks each pick, and
+    // only the first offer notifies
+    @Test fun `homerock offers are each player's own and the server checks every pick`() = fixture { f ->
+        val settings = DraftSettings.homerock().copy(packsPerPlayer = 4, cardsPerPack = 3, keep = 1)
+        val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
+            CreatePod(id(), "Homerock pod", f.cube.cube.id, DraftMode.HOMEROCK, settings = settings), 201))
+        assertEquals(settings.packsPerPlayer, created.settings.packsPerPlayer)
+        assertEquals(90, created.source.rarities!!.total)
+        f.send(f.a, "PUT", "/v1/pods/${created.id}", UpdatePod(id(), settings = settings.copy(keep = 3)), 400)
+        invite(f, created.id, f.b)
+        val invitation = f.list(f.b).invitations.single()
+        assertEquals(DraftMode.HOMEROCK, invitation.mode); assertEquals(HomerockFormat(4, 3, 1), invitation.homerock)
+        respond(f, created.id, f.b, true)
+        f.start(created.id)
+        val mine = f.get(f.a, created.id); val theirs = f.get(f.b, created.id)
+        val head = mine.draft!!.head!!; val other = theirs.draft!!.head!!
+        assertEquals(3, head.cards.size); assertEquals(3, other.cards.size); assertNotEquals(head.id, other.id)
+        assertEquals(listOf(4, 4), mine.members.map { it.packsWaiting })
+        // Bob's view holds none of Alice's offer
+        assertTrue(theirs.draft!!.queuedPacks.isEmpty() && head.cards.none { card -> card.id in theirs.draft!!.head!!.cards.map { it.id } })
+        assertEquals("not_your_pack", json.decodeFromString<PodError>(f.send(f.b, "POST", "/v1/pods/${created.id}/pick",
+            PickPod(id(), theirs.draftAttemptId!!, head.id, listOf(head.cards[0].id)), 409)).code)
+        assertEquals("wrong_counts", json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods/${created.id}/pick",
+            PickPod(id(), mine.draftAttemptId!!, head.id, head.cards.take(2).map { it.id }), 409)).code)
+        val after = f.pick(f.a, created.id)
+        assertEquals(2, after.draft!!.round); assertNotEquals(head.id, after.draft!!.head!!.id)
+        assertEquals(other, f.get(f.b, created.id).draft!!.head)
+        f.finish(created.id, listOf(f.a, f.b))
+        assertEquals(4, f.get(f.a, created.id).draft!!.pool.size); assertEquals(4, f.get(f.b, created.id).draft!!.pool.size)
+        // Without Reuse cards Alice never got a card she had picked again
+        assertEquals(4, f.get(f.a, created.id).draft!!.pool.map { it.definition }.distinct().size)
+        val history = json.decodeFromString<PodDraftHistory>(f.request(f.a, "GET", "/v1/pods/${created.id}/draft/history").body())
+        assertEquals(listOf(1, 2, 3, 4), history.picks.map { it.round })
+        assertTrue(history.picks.all { it.cards.size == 3 && it.kept.size == 1 })
+        assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, created.id, f.a)); assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, created.id, f.b))
+    }
+
     private fun invite(f: Fixture, pod: String, who: SessionCreated) =
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), who.account.accountId))
     private fun respond(f: Fixture, pod: String, who: SessionCreated, accept: Boolean) =

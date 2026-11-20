@@ -15,7 +15,15 @@ import kotlinx.serialization.Serializable
     /** The other members' messages in the pod's chat the caller hasn't read (DRF-012). */
     val chatUnread: Int = 0,
 )
-@Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String)
+/** [mode] and, for Homerock, its [homerock] format tell the invitee the pod's format before they accept (DRF-287). */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String,
+    val mode: DraftMode = DraftMode.BOOSTER,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val homerock: HomerockFormat? = null)
+/** A Homerock pod's format in brief (DRF-287): its number of picks, cards per offer and picks per offer. */
+@Serializable data class HomerockFormat(val picks: Int, val cards: Int, val take: Int) {
+    companion object { fun of(settings: DraftSettings) = HomerockFormat(settings.packsPerPlayer, settings.cardsPerPack, settings.keep) }
+}
 @Serializable data class PodList(val pods: List<PodSummary>, val invitations: List<PodInvitation>)
 @Serializable enum class PodSourceKind { CUBE, SET }
 /** A cube source's [totalCopies] counts the pod's prepared Main (what gets drafted); [maybeCopies] its Maybe. A set
@@ -30,6 +38,8 @@ import kotlinx.serialization.Serializable
     val boosterName: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeCopies: Long = 0,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val packSets: List<String> = emptyList(),
+    /** Homerock pods in setup: the cards of each rarity the source holds, for the setup summary (DRF-285). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val rarities: HomerockCounts? = null,
 )
 /** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)
@@ -122,7 +132,7 @@ import kotlinx.serialization.Serializable
 /** POST /v1/pods/{id}/turn: a Rochester, Rotisserie, Winston or Winchester move ([LimitedMove] without the player). */
 @Serializable data class PodTurn(val requestId: String, val draftAttemptId: String, val action: LimitedAction, val turn: Int,
     val card: String? = null, val packId: String? = null, val pile: Int? = null, val table: Int = 0)
-/** GET /v1/pods/{id}/draft/history: the caller's Booster or Glimpse picks in order (DRF-165), the definitions of their
+/** GET /v1/pods/{id}/draft/history: the caller's Booster, Glimpse or Homerock picks in order (DRF-165), the definitions of their
  * cards, and the draft's [seating] (account ids in seat order, DRF-043): a round's packs pass to the next seat, or the
  * previous one ([DraftEngine.direction]). */
 @Serializable data class PodDraftHistory(val picks: List<DraftHistoryPick>, val definitions: List<SubmittedDefinition> = emptyList(),

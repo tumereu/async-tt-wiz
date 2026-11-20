@@ -20,7 +20,7 @@ fun podHasPicksView(mode: DraftMode) = mode == DraftMode.WINSTON || mode == Draf
     mode == DraftMode.ROCHESTER || mode == DraftMode.ROTISSERIE
 
 /** DRF-165, DRF-160 (owner, 2026-11-19): whether the pod's header has the History icon: every draft mode (Sealed has no picks). */
-fun podHasHistoryIcon(mode: DraftMode) = mode.packPassing || podHasPicksView(mode)
+fun podHasHistoryIcon(mode: DraftMode) = mode.draftState || podHasPicksView(mode)
 
 /** Every other member's picks, in seat order, each newest first (a take's own cards keep their order). */
 fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpponentPicks> {

@@ -87,7 +87,8 @@ fun podHistoryOrder(cards: List<DraftCopy>, definitions: Map<String, CardDefinit
 
 /** The history view's largest pack: the pack size setting, 15 for sets whose booster recipe fixes the size (DRF-165). */
 fun podHistoryPackSize(detail: PodDetail): Int =
-    if (detail.source.kind == PodSourceKind.SET && detail.source.boosterKind == SetBoosterKind.RECIPE_BASED) PodPickColumnRange.last
+    if (detail.settings.mode == DraftMode.HOMEROCK) detail.settings.cardsPerPack.coerceAtLeast(1)
+    else if (detail.source.kind == PodSourceKind.SET && detail.source.boosterKind == SetBoosterKind.RECIPE_BASED) PodPickColumnRange.last
     else detail.settings.cardsPerPack.coerceAtLeast(1)
 
 /** DRF-070: every card the history shows, pick by pick. */
@@ -103,7 +104,8 @@ fun PodHistoryHeaderButton(controller: PodController, detail: PodDetail, self: S
         IconButton({ controller.loadHistory(); open = true }, Modifier.size(48.dp).testTag("pod-history")) { EntryIcon("History", "history") }
     }
     if (open) PodHistoryDialog(detail.id, controller.history, controller.historyFailed, definitions, columns.count,
-        detail.members.map { it.account }, self, controller::loadHistory) { open = false }
+        detail.members.map { it.account }, self, controller::loadHistory,
+        homerock = detail.settings.takeIf { it.mode == DraftMode.HOMEROCK }?.let { it to detail.source.kind }) { open = false }
 }
 
 /** DRF-165 (owner, 2026-11-11): the "Returning packs only" chip of pod [pod]'s history, remembered on the device (personal UI). */
@@ -122,14 +124,20 @@ fun podHistoryPlayerName(names: Map<String, String>, id: String): String =
  */
 @Composable
 fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, definitions: Map<String, CardDefinition>,
-    columns: Int, players: List<AccountIdentity>, self: String, retry: () -> Unit, dismiss: () -> Unit) {
+    columns: Int, players: List<AccountIdentity>, self: String, retry: () -> Unit,
+    /** DRF-289: a Homerock pod's settings and source kind: its picks in one list, no seating ring or returning chip. */
+    homerock: Pair<DraftSettings, PodSourceKind>? = null, dismiss: () -> Unit) {
     val known = remember(definitions, history) { definitions + history?.definitions.orEmpty().associate { it.digest to it.definition } }
     val preview = remember { PodLimitedPreview() }
     val platform = AppPlatform.current
     val preferences = remember(platform) { platform.preferences("pod-pick") }
-    var returningOnly by remember(pod) { mutableStateOf(preferences.getBoolean(podHistoryReturningKey(pod), false)) }
+    var returningOnly by remember(pod) { mutableStateOf(homerock == null && preferences.getBoolean(podHistoryReturningKey(pod), false)) }
     val grid = rememberLazyGridState()
-    val rounds = remember(history, returningOnly) { podHistoryRounds(history?.picks.orEmpty(), returningOnly) }
+    val rounds = remember(history, returningOnly) {
+        // DRF-289: Homerock's picks are one list, each pick its own offer
+        if (homerock != null) listOf(1 to history?.picks.orEmpty().withIndex().toList()).filter { it.second.isNotEmpty() }
+        else podHistoryRounds(history?.picks.orEmpty(), returningOnly)
+    }
     val itemRounds = remember(rounds) { podHistoryItemRounds(rounds) }
     // The round at the top of the list; scrolled to its end, the last round (which may never reach the top)
     val shownRound by remember(itemRounds) { derivedStateOf {
@@ -146,7 +154,7 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
                 Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Draft history", Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
-                        FilterChip(returningOnly, {
+                        if (homerock == null) FilterChip(returningOnly, {
                             returningOnly = !returningOnly
                             // Remembered per pod on this device; off is the default, so only an "on" is kept
                             preferences.edit().apply { if (returningOnly) putBoolean(podHistoryReturningKey(pod), true)
@@ -157,7 +165,7 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
                         ScreenIconButton("Close draft history", "close", dismiss)
                     }
                     // DRF-165, DRF-043: the seating, with the direction of the round at the top of the list
-                    if (history != null && podHistoryPassedTo(seating, self, shownRound) != null) {
+                    if (homerock == null && history != null && podHistoryPassedTo(seating, self, shownRound) != null) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             PodSeatRing(seating.map { id -> players.firstOrNull { it.accountId == id } ?: AccountIdentity(id, name(id)) },
@@ -181,9 +189,9 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
                         returningOnly && history.picks.none { it.returning } -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("No packs have come back to you yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        else -> PodHistoryPicks(rounds, grid, known, columns.coerceAtLeast(1), preview) { round ->
-                            podHistoryRoundHeader(round, seating, self, name)
-                        }
+                        else -> PodHistoryPicks(rounds, grid, known, columns.coerceAtLeast(1), preview,
+                            pickHeader = { pick -> homerock?.let { (settings, kind) -> podHomerockHistoryHeader(settings, pick.round, kind) } ?: podHistoryHeader(pick) },
+                            roundHeader = { round -> if (homerock != null) null else podHistoryRoundHeader(round, seating, self, name) })
                     }
                 }
             }
@@ -195,26 +203,29 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
 
 @Composable
 private fun PodHistoryPicks(rounds: List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>>, grid: LazyGridState,
-    definitions: Map<String, CardDefinition>, columns: Int, preview: PodLimitedPreview, roundHeader: (Int) -> String) {
+    definitions: Map<String, CardDefinition>, columns: Int, preview: PodLimitedPreview, pickHeader: (DraftHistoryPick) -> String,
+    roundHeader: (Int) -> String?) {
     // The items, in order, are the ones podHistoryItemRounds counts: the seat ring follows the round at the top
     LazyVerticalGrid(GridCells.Fixed(columns), Modifier.fillMaxSize().testTag("pod-history-picks"), state = grid,
         contentPadding = PaddingValues(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         rounds.forEachIndexed { place, (round, shown) ->
             // DRF-165 (owner, 2026-11-10): a header per round, a strong divider between rounds
-            item(span = { GridItemSpan(maxLineSpan) }, key = "round-$place-$round") {
-                Column {
-                    if (place > 0) HorizontalDivider(Modifier.padding(top = 10.dp, bottom = 6.dp), thickness = 3.dp,
-                        color = MaterialTheme.colorScheme.outline)
-                    Text(roundHeader(round), Modifier.testTag("pod-history-round-$round"),
-                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            roundHeader(round)?.let { header ->
+                item(span = { GridItemSpan(maxLineSpan) }, key = "round-$place-$round") {
+                    Column {
+                        if (place > 0) HorizontalDivider(Modifier.padding(top = 10.dp, bottom = 6.dp), thickness = 3.dp,
+                            color = MaterialTheme.colorScheme.outline)
+                        Text(header, Modifier.testTag("pod-history-round-$round"),
+                            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
             shown.forEachIndexed { inRound, (index, pick) ->
                 item(span = { GridItemSpan(maxLineSpan) }, key = "header-$index") {
                     Column {
                         if (inRound > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                        Text(podHistoryHeader(pick), Modifier.testTag("pod-history-header-$index"), style = MaterialTheme.typography.labelLarge)
+                        Text(pickHeader(pick), Modifier.testTag("pod-history-header-$index"), style = MaterialTheme.typography.labelLarge)
                     }
                 }
                 items(podHistoryOrder(pick.cards, definitions), key = { "card-$index-${it.id}" }) { copy ->

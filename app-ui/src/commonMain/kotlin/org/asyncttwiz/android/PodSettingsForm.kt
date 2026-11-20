@@ -36,7 +36,13 @@ enum class PodSetting(val label: String) {
     /** Sealed from a set. */
     BOOSTERS("Boosters"),
     /** Winston and Winchester: independent tables (DRF-156, DRF-158). */
-    TABLES("Tables");
+    TABLES("Tables"),
+    /** Homerock (DRF-281): the number of picks, cards per offer and picks per offer. */
+    PICKS("Picks"), OFFER_CARDS("Cards"), TAKE("Take"),
+    /** Homerock (DRF-281): the rarity intervals; empty = never. */
+    RARE_EVERY("Rare every"), UNCOMMON_EVERY("Uncommon every"),
+    /** Homerock (DRF-282): the mythic chance, 1 in N; empty = never. */
+    MYTHIC("Mythic");
 
     fun value(s: DraftSettings): Int? = when (this) {
         PACKS -> s.packsPerPlayer; PACK_SIZE -> s.cardsPerPack; KEEP -> s.keep; BURN -> s.burn
@@ -46,9 +52,16 @@ enum class PodSetting(val label: String) {
         TABLE_OPEN -> s.tablePacksOpen; CARDS_EACH, PICKS_EACH -> s.cardsPerPlayer; POOL_EACH -> s.rotisseriePool
         PILES -> s.piles; BOOSTERS -> s.packsPerPlayer
         TABLES -> s.tables
+        PICKS -> s.packsPerPlayer; OFFER_CARDS -> s.cardsPerPack; TAKE -> s.keep
+        RARE_EVERY -> s.rareEvery; UNCOMMON_EVERY -> s.uncommonEvery; MYTHIC -> s.mythicOneIn
     }
-    /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player). */
-    val emptyText: String? get() = when (this) { SIDEBOARD -> "∞"; TABLE_OPEN -> "1 each"; else -> null }
+    /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player), Homerock's
+     * rarity intervals and mythic chance "Never". */
+    val emptyText: String? get() = when (this) {
+        SIDEBOARD -> "∞"; TABLE_OPEN -> "1 each"; RARE_EVERY, UNCOMMON_EVERY, MYTHIC -> "Never"; else -> null
+    }
+    /** The tile's value: the number, the empty text, or the mythic chance as "1/8" (DRF-282). */
+    fun text(s: DraftSettings): String = value(s)?.let { if (this == MYTHIC) "1/$it" else it.toString() } ?: emptyText.orEmpty()
     fun range(s: DraftSettings): IntRange = when (this) {
         PACKS -> if (s.mode.limited) 1..15 else s.packsOpenAtOnce..30
         PACK_SIZE -> if (s.mode.limited) 5..30 else maxOf(1, s.keep + s.burn, s.discardRemainingAt)..30
@@ -67,6 +80,11 @@ enum class PodSetting(val label: String) {
         PILES -> if (s.mode == DraftMode.WINCHESTER) 2..8 else 2..6
         BOOSTERS -> 1..30
         TABLES -> 1..s.mode.players.last
+        PICKS -> 1..HomerockEngine.MAX_PICKS
+        OFFER_CARDS -> maxOf(2, s.keep + 1)..HomerockEngine.MAX_OFFER
+        TAKE -> 1..(s.cardsPerPack - 1).coerceAtLeast(1)
+        RARE_EVERY, UNCOMMON_EVERY -> 1..HomerockEngine.MAX_PICKS
+        MYTHIC -> 1..HomerockEngine.MAX_MYTHIC_ONE_IN
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
@@ -86,6 +104,11 @@ enum class PodSetting(val label: String) {
         PILES -> "${range(s).first}–${range(s).last}"
         BOOSTERS -> "1–30"
         TABLES -> "1–${range(s).last}; more than the players gives one table each"
+        PICKS -> "1–${HomerockEngine.MAX_PICKS}"
+        OFFER_CARDS -> "Take + 1: ${s.keep + 1}; maximum ${HomerockEngine.MAX_OFFER}"
+        TAKE -> "Fewer than the cards: ${s.cardsPerPack}"
+        RARE_EVERY, UNCOMMON_EVERY -> "1–${HomerockEngine.MAX_PICKS} or Never"
+        MYTHIC -> "1 in 1–${HomerockEngine.MAX_MYTHIC_ONE_IN} or Never"
     }
     /** Plain-words meaning shown in the value dialog. */
     fun explanation(s: DraftSettings): String = when (this) {
@@ -108,12 +131,21 @@ enum class PodSetting(val label: String) {
         PILES -> if (s.mode == DraftMode.WINCHESTER) "How many face-up piles lie on the table." else "How many piles lie on the table."
         BOOSTERS -> "How many boosters each player opens."
         TABLES -> "How many separate tables the cards are split into, each with its own stack and piles, so players can pick at different tables at the same time."
+        PICKS -> "How many offers each player gets. Each player drafts on their own; nothing is passed between players."
+        OFFER_CARDS -> "How many cards each offer shows."
+        TAKE -> "How many cards of each offer the player takes. The rest of the offer is gone."
+        RARE_EVERY -> "Every this many picks the offer is of rares. Never = no rare picks."
+        UNCOMMON_EVERY -> "Every this many picks the offer is of uncommons, unless it is a rare pick. Other picks offer commons. Never = no uncommon picks."
+        MYTHIC -> "On a rare pick, each card offered is a mythic rare instead with a chance of 1 in this number. Never = no mythic rares."
     }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
     /** [s] with this setting [value]; null (no value) only for a setting with [emptyText], else [s] unchanged (reported). */
     fun apply(s: DraftSettings, value: Int?): DraftSettings = when {
         this == SIDEBOARD -> s.copy(sideboardLimit = value)
         this == TABLE_OPEN -> s.copy(tablePacksOpen = value)
+        this == RARE_EVERY -> s.copy(rareEvery = value)
+        this == UNCOMMON_EVERY -> s.copy(uncommonEvery = value)
+        this == MYTHIC -> s.copy(mythicOneIn = value)
         value == null -> s.also { Faults.report("PodSettingsForm", "no value for a setting that needs one", mapOf("setting" to name)) }
         else -> when (this) {
             PACKS -> s.copy(packsPerPlayer = value); PACK_SIZE -> s.copy(cardsPerPack = value)
@@ -125,6 +157,8 @@ enum class PodSetting(val label: String) {
             TABLE_OPEN -> s.copy(tablePacksOpen = value)
             CARDS_EACH, PICKS_EACH -> s.copy(cardsPerPlayer = value); POOL_EACH -> s.copy(poolPerPlayer = value); PILES -> s.copy(piles = value); BOOSTERS -> s.copy(packsPerPlayer = value)
             TABLES -> s.copy(tables = value)
+            PICKS -> s.copy(packsPerPlayer = value); OFFER_CARDS -> s.copy(cardsPerPack = value); TAKE -> s.copy(keep = value)
+            RARE_EVERY -> s.copy(rareEvery = value); UNCOMMON_EVERY -> s.copy(uncommonEvery = value); MYTHIC -> s.copy(mythicOneIn = value)
         }
     }
 }
@@ -140,11 +174,15 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
         DraftMode.SEALED -> listOf(if (source.kind == PodSourceKind.SET) PodSetting.BOOSTERS else PodSetting.CARDS_EACH)
         DraftMode.BOOSTER, DraftMode.GLIMPSE -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
             PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)
+        // DRF-281, DRF-282: offers are never a set's booster, so their size is always set
+        DraftMode.HOMEROCK -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.RARE_EVERY,
+            PodSetting.UNCOMMON_EVERY, PodSetting.MYTHIC)
     } + PodSetting.SIDEBOARD
 }
 
 /** The modes the mode button's popup lists (DRF-020); Glimpse is a preset of Booster (DRF-031), not a mode. */
-val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED)
+val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER,
+    DraftMode.SEALED, DraftMode.HOMEROCK)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
 fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
@@ -154,6 +192,7 @@ fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.WINSTON -> "Winston"
     DraftMode.WINCHESTER -> "Winchester"
     DraftMode.SEALED -> "Sealed"
+    DraftMode.HOMEROCK -> "Homerock"
 }
 /** The listed mode a pod's mode is: a Glimpse pod is a Booster pod. */
 fun podModeChoice(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
@@ -203,6 +242,16 @@ fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
         if (settings.mode.packPassing && source.kind == PodSourceKind.CUBE) key("colorBalance") {
             PodToggleTile("Color balancing", settings.colorBalance, enabled) { value -> change { it.copy(colorBalance = value) } }
         }
+        // DRF-283, DRF-284: Homerock's cube options, greyed for sets
+        if (settings.mode == DraftMode.HOMEROCK) {
+            val cube = source.kind == PodSourceKind.CUBE
+            key("ignoreRarity") {
+                PodToggleTile("Ignore rarity", settings.ignoreRarity, enabled && cube, cube) { value -> change { it.copy(ignoreRarity = value) } }
+            }
+            key("reuseCards") {
+                PodToggleTile("Reuse cards", settings.reuseCards, enabled && cube, cube) { value -> change { it.copy(reuseCards = value) } }
+            }
+        }
         // Always shown, greyed out unless the pod drafts grids from a set.
         key("freshBoosters") {
             val applicable = settings.mode == DraftMode.GRID && source.kind == PodSourceKind.SET
@@ -215,6 +264,8 @@ fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
         Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && members <= 2)
         Text("Two picks each")
     }
+    // DRF-287: Homerock's summary, members' too
+    if (settings.mode == DraftMode.HOMEROCK) PodHomerockSummary(settings, source)
 }
 
 /** DRF-020: one full-width button showing the pod's mode with a switch icon; it opens a popup list of the modes,
@@ -259,9 +310,9 @@ private fun PodSettingTile(field: PodSetting, settings: DraftSettings, enabled: 
         shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, ScreenBorder)) {
         Box(Modifier.fillMaxSize().padding(6.dp)) {
             Text(field.label, Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelSmall)
-            val value = field.value(settings)
-            Text(value?.toString() ?: field.emptyText.orEmpty(), Modifier.align(Alignment.Center),
-                style = if (value == null && field == PodSetting.TABLE_OPEN) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium)
+            val text = field.text(settings)
+            Text(text, Modifier.align(Alignment.Center).testTag("pod-setting-${field.name.lowercase()}"),
+                style = if (text.length > 4) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium)
         }
     }
     if (open) PodSettingPopup(field, settings, { open = false }) { number ->
@@ -273,7 +324,7 @@ private fun PodSettingTile(field: PodSetting, settings: DraftSettings, enabled: 
 
 @Composable
 fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss: () -> Unit, save: (Int?) -> Unit) {
-    val input = rememberDialogField((field.value(settings) ?: if (field == PodSetting.TABLE_OPEN) 1 else 0).toString())
+    val input = rememberDialogField((field.value(settings) ?: field.range(settings).first).toString())
     // Sideboard's ∞ and Rochester's "1 each" are the setting left empty.
     var unlimited by remember { mutableStateOf(field.emptyText != null && field.value(settings) == null) }
     val range = field.range(settings)
@@ -290,7 +341,8 @@ fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss: () -> U
                 label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                 keyboardActions = submitKeyboardActions(saveEnabled, submit = confirm))
             field.emptyText?.let { empty -> OutlinedButton({ unlimited = !unlimited }, Modifier.size(56.dp)
-                .semantics { contentDescription = if (field == PodSetting.SIDEBOARD) "Unlimited sideboard" else "One pack per player"; selected = unlimited },
+                .semantics { contentDescription = when (field) { PodSetting.SIDEBOARD -> "Unlimited sideboard"
+                    PodSetting.TABLE_OPEN -> "One pack per player"; else -> "Never" }; selected = unlimited },
                 contentPadding = PaddingValues(0.dp), shape = MaterialTheme.shapes.small,
                 colors = ButtonDefaults.outlinedButtonColors(containerColor = if (unlimited) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)) {
                 Text(if (unlimited) "$empty ✓" else empty, fontSize = if (field == PodSetting.SIDEBOARD) TextUnit.Unspecified else 11.sp,

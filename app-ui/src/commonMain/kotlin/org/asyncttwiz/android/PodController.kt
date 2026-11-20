@@ -1049,7 +1049,7 @@ fun podPlayerLimitText(detail: PodDetail): String? {
 
 /** Turn-based engines have one turn at a time, so "Your pick" has no pack count (Rochester counts its packs). */
 fun podStatus(pod: PodSummary): String = when (pod.attention) {
-    PodAttention.YOUR_PICK -> if (pod.mode.limited && pod.mode != DraftMode.ROCHESTER) "Your pick"
+    PodAttention.YOUR_PICK -> if (pod.mode.limited && pod.mode != DraftMode.ROCHESTER || pod.mode == DraftMode.HOMEROCK) "Your pick"
         else "Your pick · ${podPackCount(pod.packsWaiting)}"
     PodAttention.BUILD -> "Build your deck"
     PodAttention.NONE -> when (pod.phase) { PodPhase.SETUP -> "Setup"; PodPhase.DRAFTING -> "Drafting"; PodPhase.DRAFTED -> "Deck submitted" }
@@ -1057,7 +1057,7 @@ fun podStatus(pod: PodSummary): String = when (pod.attention) {
 fun podMemberStatus(member: PodMember, phase: PodPhase, mode: DraftMode = DraftMode.BOOSTER): String = when {
     member.submitted -> "submitted"
     phase == PodPhase.SETUP -> "accepted"
-    (mode == DraftMode.GRID || mode.limited) && phase == PodPhase.DRAFTING -> if (member.picking) "picking" else "waiting"
+    (mode == DraftMode.GRID || mode.limited || mode == DraftMode.HOMEROCK) && phase == PodPhase.DRAFTING -> if (member.picking) "picking" else "waiting"
     member.packsWaiting > 0 -> "picking · ${podPackCount(member.packsWaiting)}"
     phase == PodPhase.DRAFTED || member.building -> "building"
     else -> "waiting"

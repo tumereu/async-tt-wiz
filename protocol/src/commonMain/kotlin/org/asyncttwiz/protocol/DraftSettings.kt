@@ -2,8 +2,11 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** GLIMPSE is only read from pods and presets saved before Glimpse became a preset of BOOSTER (DRF-020, DRF-031). */
-@Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID, ROCHESTER, ROTISSERIE, WINSTON, WINCHESTER, SEALED }
+/**
+ * GLIMPSE is only read from pods and presets saved before Glimpse became a preset of BOOSTER (DRF-020, DRF-031).
+ * HOMEROCK: each player drafts alone from offers of their own (DRF-280, [HomerockEngine]).
+ */
+@Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID, ROCHESTER, ROTISSERIE, WINSTON, WINCHESTER, SEALED, HOMEROCK }
 @Serializable enum class DraftColor { W, U, B, R, G }
 
 @Serializable
@@ -41,6 +44,19 @@ data class DraftSettings(
     val tablePacksOpen: Int? = null,
     /** Winston and Winchester: independent tables the cards are split into (DRF-156, DRF-158); more than the players gives one per player. */
     val tables: Int = 1,
+    /**
+     * Homerock (DRF-281): every this-many-th pick offers rares; null: never. Homerock keeps its number of picks in
+     * [packsPerPlayer], its cards per offer in [cardsPerPack] and its picks per offer in [keep].
+     */
+    val rareEvery: Int? = 10,
+    /** Homerock (DRF-281): every this-many-th pick offers uncommons (a rare pick wins); null: never. */
+    val uncommonEvery: Int? = 4,
+    /** Homerock (DRF-282): each card of a rare pick's offer is a mythic rare with chance 1 in this; null: never. */
+    val mythicOneIn: Int? = 8,
+    /** Homerock from a cube (DRF-283): every offer is drawn from the whole cube, whatever the rarities. */
+    val ignoreRarity: Boolean = false,
+    /** Homerock from a cube (DRF-284): a card a player picked may be offered to that player again. */
+    val reuseCards: Boolean = false,
 ) {
     /**
      * DRF-045: a pick from a pack holding [cards] cards (spent Librarians included) with [keep] keep slots needs only the
@@ -77,6 +93,19 @@ data class DraftSettings(
             }
             return@buildList
         }
+        if (mode == DraftMode.HOMEROCK) {
+            // DRF-281, DRF-282: picks 1–60, offers of 2–15 cards, taking fewer than an offer holds
+            if (packsPerPlayer !in 1..HomerockEngine.MAX_PICKS) add(DraftSettingsIssue.PACKS_PER_PLAYER)
+            if (cardsPerPack !in 2..HomerockEngine.MAX_OFFER) add(DraftSettingsIssue.CARDS_PER_PACK)
+            if (keep < 1 || keep >= cardsPerPack) add(DraftSettingsIssue.KEEP)
+            if (burn != 0) add(DraftSettingsIssue.BURN)
+            if (discardRemainingAt != 0) add(DraftSettingsIssue.DISCARD_REMAINING_AT)
+            if (packsOpenAtOnce != 1) add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
+            if (rareEvery != null && rareEvery !in 1..HomerockEngine.MAX_PICKS ||
+                uncommonEvery != null && uncommonEvery !in 1..HomerockEngine.MAX_PICKS) add(DraftSettingsIssue.RARITY_SCHEDULE)
+            if (mythicOneIn != null && mythicOneIn !in 1..HomerockEngine.MAX_MYTHIC_ONE_IN) add(DraftSettingsIssue.MYTHIC_CHANCE)
+            return@buildList
+        }
         if (mode == DraftMode.GRID) {
             if (grids !in 1..60) add(DraftSettingsIssue.GRIDS)
             if (twoPicks && players != 2) add(DraftSettingsIssue.TWO_PICKS)
@@ -110,6 +139,8 @@ data class DraftSettings(
         fun winston() = DraftSettings(mode = DraftMode.WINSTON, piles = 3)
         fun winchester() = DraftSettings(mode = DraftMode.WINCHESTER, piles = 4)
         fun sealed() = DraftSettings(mode = DraftMode.SEALED, packsPerPlayer = 6)
+        /** Homerock's defaults (DRF-281): 45 picks of offers of 5 cards, taking 1. */
+        fun homerock() = DraftSettings(mode = DraftMode.HOMEROCK, packsPerPlayer = 45, cardsPerPack = 5, keep = 1)
         /** A mode's default settings (Glimpse is a preset of Booster). */
         fun defaults(mode: DraftMode) = when (mode) {
             DraftMode.BOOSTER -> booster()
@@ -120,6 +151,7 @@ data class DraftSettings(
             DraftMode.WINSTON -> winston()
             DraftMode.WINCHESTER -> winchester()
             DraftMode.SEALED -> sealed()
+            DraftMode.HOMEROCK -> homerock()
         }
     }
 }
@@ -130,6 +162,10 @@ data class DraftSettings(
     GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE, LIBRARIANS, CARDS_PER_PLAYER, PILES, TABLES,
     /** Rotisserie: the pool per player is out of range or smaller than the picks per player. */
     POOL_PER_PLAYER,
+    /** Homerock: a rarity interval out of range (DRF-281). */
+    RARITY_SCHEDULE,
+    /** Homerock: the mythic chance out of range (DRF-282). */
+    MYTHIC_CHANCE,
 }
 
 @Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)
@@ -142,6 +178,7 @@ data class DraftSettings(
 fun DraftSettings.supply(players: Int, cube: List<DraftCubeEntry>) = DraftSupply(
     if (mode == DraftMode.GRID) grids.toLong() * (9 + if (gridRefills(players)) 3 else 0)
     else if (mode.limited) LimitedEngine.needed(this, players)
+    else if (mode == DraftMode.HOMEROCK) HomerockEngine.needed(this)
     else players.toLong() * packsPerPlayer * cardsPerPack,
     cube.sumOf { it.quantity.toLong() },
 )

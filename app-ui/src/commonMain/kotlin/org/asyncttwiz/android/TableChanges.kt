@@ -32,6 +32,12 @@ class TableChanges(private val now: () -> Long = { nanoTime() / 1_000_000 }) {
             active[change.key] = ActiveTableChange(change.copy(delta = delta), time, ++serial)
         }
     }
+    /** HIS-112, HIS-031 (owner, 2026-11-20): [changes] flash from now on (a special action's card as its play lands in it),
+     * the motion's cursor as it is. */
+    fun flash(changes: List<TableChange>) {
+        val time = now()
+        for (change in changes) active[change.key] = ActiveTableChange(change, time, ++serial)
+    }
     fun expire(key: TableChangeKey, serial: Long) { if (active[key]?.serial == serial) active.remove(key) }
     fun clear() { active.clear(); motionCursor = null; shuffledLibraries = emptySet() }
     companion object {

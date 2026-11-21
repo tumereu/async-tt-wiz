@@ -136,4 +136,52 @@ class EngineMotionQueueTest {
         queue.settled()
         assertEquals(live, queue.board(2, whole, live), "then the next")
     }
+
+    /** [board] with its card [id] turned over (as a special action turns a card face up). */
+    private fun turned(board: TableBoard, id: String) = board.copy(board = board.board.copy(cards =
+        board.board.cards.map { if (it.id == id) it.copy(covered = !it.covered) else it }))
+
+    // HIS-112, HIS-238 (owner, 2026-11-20): the other player's special action shows before its card changes: the board itself changes the card
+    // (no steps in between), so the board before stays drawn, also published again, until the play has landed in the card
+    @Test fun aSpecialActionsCardStaysAsItWasUntilItsPlayLands() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EngineWorker.Direct)
+        val before = game.shown!!.board
+        val card = before.board.cards.first().id
+        val after = turned(before, card)
+        val queue = EngineMotionQueue()
+        queue.board(1, null, before)
+        val cards = setOf(card)
+        queue.stopCards = cards
+        val event = transition(1, emptyList())
+        assertEquals(before, queue.board(2, event, after, cards = cards), "the card as it was while its play shows")
+        queue.settled()
+        assertTrue(queue.reachedEntries(), "the play may show")
+        assertEquals(before, queue.board(3, event, after, cards = cards), "published again: still as it was")
+        // It landed in the card
+        queue.stopCards = emptySet()
+        assertEquals(after, queue.board(3, event, after), "then the card changes")
+    }
+
+    // HIS-112, HIS-238 (owner, 2026-11-20): with steps in between, they stop at the step before the one changing the special action's card, and
+    // go on once its play has landed (the board published again)
+    @Test fun theStepsStopBeforeTheStepChangingASpecialActionsCard() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EngineWorker.Direct)
+        val live = game.shown!!.board
+        val card = live.board.cards.first().id
+        val paid = live.copy(nodeId = "paid")
+        val changed = turned(live, card)
+        val queue = EngineMotionQueue()
+        queue.board(1, null, live)
+        val cards = setOf(card)
+        queue.stopCards = cards
+        val event = transition(1, listOf(paid, changed))
+        assertEquals(paid, queue.board(2, event, changed, cards = cards), "the step before the card changes")
+        queue.settled()
+        assertTrue(queue.reachedEntries(), "stopped there: the play may show")
+        assertEquals(paid, queue.board(2, event, changed, cards = cards))
+        queue.stopCards = emptySet()
+        assertEquals(paid, queue.board(3, event, changed), "the play landed: published again, the steps go on from there")
+        queue.settled()
+        assertEquals(changed, queue.board(3, event, changed), "the card changes")
+    }
 }

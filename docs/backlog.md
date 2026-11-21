@@ -12,11 +12,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ### Post-0.3.0 (owner, 2026-11-20)
 
-Fixes and small changes:
-
-- Special actions read like abilities: cost first, then ":", then what it does, in the card menu and wherever else they are named ("{2}{U}: Turn face up", "{3}{R}: Unlock Dusty Attic", "{2}: Foretell" instead of the full reminder sentence), for every special action (TBL-115).
-- Special actions that don't use the Stack (unlocking a door, turning face up, foretell, plot, suspend …) show large in the middle of the board as abilities do, then fly into their own card instead of to the Stack, and the card does its short flash once the fly ends; one rule for all of them (HIS-112, HIS-031).
-
 Features, in this order:
 
 1. Hover sweep (desktop): everything that can be clicked (hand cards, Undo, the main button, Resolve …) answers the pointer with a hover look, beyond today's hand pointer (WEB-058; new entries).

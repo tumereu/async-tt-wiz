@@ -144,7 +144,8 @@ class CardPlays private constructor(
                 }
                 // Special actions the characteristics don't show (a face-down card's way to turn face up, a door)
                 for (input in activations) if (input.source == id && input.ability !in listed) {
-                    add(id, CardPlay(CardPlay.Kind.Special, CastFlow.abilityText(o.definition, input.ability)
+                    add(id, CardPlay(CardPlay.Kind.Special, CastFlow.specialActionText(o.definition, input.ability)
+                    ?: CastFlow.abilityText(o.definition, input.ability)
                     ?: Faults.placeholder("CardPlays", "special action without text", "Special action", mapOf("card" to ids.atw(id.card), "ability" to input.ability.toString())), input))
                 }
             }
@@ -188,8 +189,9 @@ class CardPlays private constructor(
         }
 
         /** The ability's printed text, or its keyword's ("Equip {1}"), or the words worked out from it (TBL-124: a mana
-         * ability's mana in symbols, [AbilityText]). */
+         * ability's mana in symbols, [AbilityText]); a special action as an ability reads ("{1}{R}: Plot", TBL-115). */
         private fun text(definition: CardDefinition?, instance: AbilityInstance, name: String, card: String): String =
+            (instance.ability as? Ability.SpecialAction)?.let { CastFlow.specialActionText(definition, instance.origin, it) } ?:
             CastFlow.text(instance.ability) ?: CastFlow.abilityText(definition, instance.origin) ?: AbilityText.of(instance.ability, "CardPlays",
                 // Which card and where the ability came from (owner fault 2PTQG5: a token's ability without text)
                 mapOf("card" to "$name ($card)", "origin" to instance.origin.toString(), "printed faces" to definition?.faces?.joinToString(" // ") { it.name }.orEmpty()))

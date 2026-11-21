@@ -33,7 +33,11 @@ import kotlin.test.assertTrue
 class LibrarySearchPanelTest {
     @get:Rule val compose = createComposeRule()
 
-    @After fun forget() = AutomatumBoards.reset()
+    @After fun forget() {
+        AutomatumBoards.reset()
+        androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+            .getSharedPreferences("panel-size", android.content.Context.MODE_PRIVATE).edit().clear().commit()
+    }
 
     private fun render(kit: EngineTableKit) {
         compose.setContent {
@@ -124,5 +128,24 @@ class LibrarySearchPanelTest {
         val before = kit.field("Mountain").size
         compose.onNodeWithText("OK").assertIsEnabled().performClick()
         kit.playOn("the Mountain found") { kit.field("Mountain").size == before + 1 }
+    }
+
+    // STK-222, STK-223: the search panel's content is taller than the smallest panel size, so it has the drag handle at the middle
+    // of its top edge; dragged down, the panel is shorter and its content scrolls inside
+    @Test fun aSearchPanelsHandleMakesItShorter() {
+        val kit = search()
+        render(kit)
+        val panel = compose.onNode(hasContentDescription("Automatum choice"))
+        val before = panel.fetchSemanticsNode().boundsInRoot.height
+        compose.onNodeWithTag(PANEL_HANDLE_TAG).performTouchInput {
+            down(center)
+            repeat(10) { moveBy(androidx.compose.ui.geometry.Offset(0f, 10f)) }
+            up()
+        }
+        compose.waitForIdle()
+        val after = panel.fetchSemanticsNode().boundsInRoot.height
+        assertTrue(after < before - 60f, "shorter by the drag: $before → $after")
+        compose.onRoot().captureShot("$SCREENSHOTS/choice-source/library-search-resized.png",
+            "Alice activated her Cinder Trail and dragged the grey handle at the middle of the search panel's top edge down by 100 dp: the panel is about that much shorter, its cards scrolling inside, more of the table shows above it, and every large panel now opens at this size.")
     }
 }

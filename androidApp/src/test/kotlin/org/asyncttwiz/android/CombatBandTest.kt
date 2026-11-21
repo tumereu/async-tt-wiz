@@ -757,4 +757,56 @@ class CombatBandTest {
             assertEquals(expected, assumed.blocks)
         }
     }
+
+    /** Alice attacked with her ready Cub; Bob, with a Mountain and a Cub of his own, is declaring blockers, the combat worked
+     * out on his table. Returns Alice's Cub. */
+    private fun bobDeclaringAgainstOne(): String {
+        val attacker = aliceDeclaring()
+        assertTrue(k.toolkit.stage(k.alice.play(), listOf(attacker), null), "the Cub staged")
+        k.settle()
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
+        k.playOn("Bob declaring blockers", bobActs = false) {
+            Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers }
+        }
+        k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+        return attacker
+    }
+
+    // CMB-095, CMB-096, CMB-047 (owner playtest 2026-11-21): while Alice declares attackers her table is framed in red-orange with
+    // the chip saying abilities can't be used; her lands and the Cub cast this turn (it can't attack) are dimmed, the ready Cub
+    // keeps its glow
+    @Test fun declaringAttackersFramesTheTableAndDimsWhatCantAttack() {
+        bobCastsACub()
+        val ready = k.toReadyCub()
+        k.bobMain = null
+        k.playLand()
+        val sick = k.castCub()
+        k.toAttacks()
+        k.toolkit.combat.show(k.alice.play(), AutomatumBoards.combat(k.alice.play()))
+        val play = k.alice.play()
+        assertEquals(CombatDeclaring.Attackers, k.toolkit.combat.declaring(play, k.f.a))
+        assertNull(k.bobToolkit.combat.declaring(k.bob.play(), k.f.b), "Bob declares nothing")
+        val dimmed = DeclaringLook.dimmed(play.board, k.f.a, k.toolkit.combat.attackable(play, k.f.a))
+        val mountains = k.field("Mountain").map(k::atw)
+        assertEquals((mountains + sick).toSet(), dimmed, "the lands and the summoning-sick Cub dimmed, not $ready")
+        render()
+        compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Attackers.chip))
+        captureShot("$SCREENSHOTS/combat-band/declaring-attackers.png",
+            "Alice moved on to declaring attackers: her table is framed in red-orange with the chip \"Declaring attackers: abilities can't be used now\" at its top; her ready Ember Cub glows red-orange while her Mountains and the Cub cast this turn are dimmed.")
+    }
+
+    // CMB-095, CMB-096, CMB-034 (owner playtest 2026-11-21): while Bob declares blockers his table is framed with the blockers' chip;
+    // his Mountain is dimmed, his Cub that may block keeps its glow; Alice, waiting for his blocks, sees no frame
+    @Test fun declaringBlockersFramesTheTableAndDimsWhatCantBlock() {
+        bobDeclaringAgainstOne()
+        val play = k.bob.play()
+        assertEquals(CombatDeclaring.Blockers, k.bobToolkit.combat.declaring(play, k.f.b))
+        assertNull(k.toolkit.combat.declaring(k.alice.play(), k.f.a), "Alice waits, declaring nothing")
+        val dimmed = DeclaringLook.dimmed(play.board, k.f.b, k.bobToolkit.combat.blockable(play, k.f.b, assuming = false))
+        assertEquals(k.field("Mountain", k.other).map(k::atw).toSet(), dimmed, "only his Mountain dimmed")
+        render(k.f.b)
+        compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Blockers.chip))
+        captureShot("$SCREENSHOTS/combat-band/declaring-blockers.png",
+            "Alice attacked with her Ember Cub and Bob declares blockers: his table is framed in red-orange with the chip \"Declaring blockers: abilities can't be used now\" at its top; his Cub that may block glows red-orange and his Mountain is dimmed.")
+    }
 }

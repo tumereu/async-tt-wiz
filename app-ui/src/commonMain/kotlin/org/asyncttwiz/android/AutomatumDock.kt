@@ -98,11 +98,13 @@ fun handRow(scene: TableScene?, viewer: String): TableBounds? =
  * An Automatum panel docked above the hand ([AboveHand]) in the cast panel's look: white with a violet top edge, its
  * [content] above a bottom row of fixed height with the eye at its left and the panel's [buttons] at its right (Hold
  * first, then the others, the main one last). The eye never moves: [hidden] fades everything else away around it.
- * [what] names the panel for the eye's description and hold tip.
+ * [what] names the panel for the eye's description and hold tip. [resizable]: its content has the drag handle and the
+ * shared size of the large panels ([ResizablePanelContent], STK-222), as every panel above the hand has, not one attached to
+ * the combat band (CMB-033) nor a one-line bar.
  */
 @Composable
 fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidden: () -> Unit, what: String,
-    buttons: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
+    buttons: @Composable RowScope.() -> Unit = {}, resizable: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = description)
     // WEB-019: hidden, a centred overlay's dimming goes with it
     val dim = LocalPromptDim.current
@@ -119,8 +121,9 @@ fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidden: () ->
         AnimatedVisibility(!hidden, Modifier.weight(1f, fill = false), enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Bottom),
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
             saved.SaveableStateProvider(description) {
-                Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+                // STK-222, STK-223: at most the shared panel size high, with its drag handle
+                ResizablePanelContent(440.dp, what, Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp), resizable,
+                    Arrangement.spacedBy(6.dp), content)
             }
         }
         DockButtonRow(hidden, shown, toggleHidden, what, buttons)

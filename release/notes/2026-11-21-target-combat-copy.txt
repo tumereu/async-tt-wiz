@@ -1,0 +1,1 @@
+fix: While choosing a target, tapping a creature's copy in the combat band now picks that creature as the target, as tapping the creature itself does

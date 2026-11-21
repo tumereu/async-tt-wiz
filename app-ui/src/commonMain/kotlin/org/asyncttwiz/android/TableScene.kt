@@ -661,7 +661,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
          // camera: laid out with it as it is now
          if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) { CurrentScene(sceneNow) { now ->
              TableToolkitScreen(toolkit, play, game, landscape,
-              peekScroll = peekScroll, scene = now, peekSwipe = peekSwipe, onTimeline = runtime.history,
+              peekScroll = peekScroll, scene = now, peekSwipe = peekSwipe, onTimeline = runtime.history, onLog = runtime.log,
               reviewing = runtime.reviewing, gameActionsBlocked = runtime.gameActionsBlocked)
          } }
         }

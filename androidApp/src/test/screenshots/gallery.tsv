@@ -325,6 +325,7 @@ number	item	screenshot	catalog	decisions	sequence
 352	Desktop draft: Arena pick with a quick look	desktop/arena-pick.png	DRF-288 WEB-117		Arena
 353	Manage decks: a saved deck's ⋮ Move to… dialog, the top level and the categories as a tree, its own category marked	lending/move-deck.png	LOB-262
 354	The other player's special action shown large before it flies into its own card	engine/play-show-special-action.png	HIS-112 HIS-031 TBL-115
+357	Game log: the game's events as text, names and cards in their players' colours	history/game-log.png	HIS-239 HIS-240 HIS-242
 390	Declaring attackers: the table framed in red-orange with its chip, what can't attack dimmed	combat-band/declaring-attackers.png	CMB-095 CMB-096		
 391	Declaring blockers: the frame with the blockers' chip, what can't block dimmed	combat-band/declaring-blockers.png	CMB-095 CMB-096		
 392	Desktop table: declaring attackers, the frame and chip, what can't attack dimmed	desktop/declaring-attackers.png	CMB-095 CMB-096 WEB-015		

@@ -420,7 +420,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     navigation: (() -> Unit)?, mainMenu: (() -> Unit)?) {
     val state = controller.state
     val tabs = podTabs(detail.phase)
-    val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail.phase, detail.submitted)
+    val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail)
     val build = detail.build ?: PodDeckBuild()
     val copies = (detail.grid?.mine?.pool ?: detail.limited?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
@@ -495,13 +495,14 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     orientation = podPickOrientationText(detail), pool = detail.draft?.pool.orEmpty(),
                     autoconfirm = autoconfirm.first, onAutoconfirm = autoconfirm.second) } }
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
-                    !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
+                    !detail.submitted && !state.uncertain, podOwnDraftDone(detail) && !detail.submitted,
                     controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),
                     detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
                     controller.canUndoBuild, controller::undoBuild, controller::revertMove,
                     onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) },
                     deckCover = detail.deckCover, onCover = controller::deckCover,
-                    filter = controller.filters.of(detail.id, PodFilterPlace.Build), filters = controller.filters)
+                    filter = controller.filters.of(detail.id, PodFilterPlace.Build), filters = controller.filters,
+                    draftWait = detail.draftWait.takeIf { !detail.submitted })
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
@@ -651,7 +652,7 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
         Text("Members", style = MaterialTheme.typography.titleMedium)
         // DRF-297, DRF-301: bots play no games, so the Games tab lists only people
         detail.members.filterNot { it.bot }.forEach { member ->
-            MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
+            MemberLine(member.account, podGamesMemberStatus(member, detail.phase)) {
                 if (podChallengeOffered(detail, member, accountId) && lobby != null)
                     PodChallengeButtons(detail, member, accountId, lobby, games, enabled = mine?.submitted == true && !lobby.state.mutating)
             }
@@ -740,9 +741,17 @@ fun podOpenChallengeFrom(games: List<GameSummary>, podId: String, opponentId: St
     games.filter { it.podId == podId && it.inviter.accountId == opponentId && incomingInvitation(it, accountId) && !it.invitationHeld }
         .minByOrNull { it.createdAt }
 
-/** Once the draft is over any other member can be challenged; one still building gets the invitation on submitting. */
+/** DRF-121, DRF-122: once the draft has started any other member can be challenged (by a member who has submitted); one still
+ * drafting or building gets the invitation at once and can accept it on submitting. */
 fun podChallengeOffered(detail: PodDetail, member: PodMember, accountId: String) =
-    detail.phase == PodPhase.DRAFTED && member.account.accountId != accountId && !member.bot
+    detail.phase != PodPhase.SETUP && member.account.accountId != accountId && !member.bot
+
+/** DRF-121: a member in the Games tab: "deck submitted", "building", or "drafting" while their own draft runs (DRF-119). */
+fun podGamesMemberStatus(member: PodMember, phase: PodPhase): String = when {
+    member.submitted -> "deck submitted"
+    member.building || phase != PodPhase.DRAFTING -> "building"
+    else -> "drafting"
+}
 
 /** DRF-297: a pod's bot seats in setup, "Bot 1"…, from its settings (a started draft lists them among its members). */
 fun podSetupBots(settings: DraftSettings): List<AccountIdentity> = (1..settings.bots).map(PodBots::identity)

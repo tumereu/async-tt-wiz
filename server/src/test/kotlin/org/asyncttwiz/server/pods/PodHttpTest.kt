@@ -342,11 +342,12 @@ class PodHttpTest {
 
     // DRF-013, DRF-189
     @Test fun `pod list puts pods needing you first longest waiting first then the rest newest first`() = fixture { f ->
-        val settings = DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0)
-        fun pod(): String = f.create(DraftMode.GLIMPSE).id.also { f.join(it); f.configure(it, settings) }
+        val base = DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0)
+        fun pod(settings: DraftSettings = base): String = f.create(DraftMode.GLIMPSE).id.also { f.join(it); f.configure(it, settings) }
         val build = pod(); f.start(build); f.finish(build, listOf(f.a, f.b))
         val pick = pod(); f.start(pick)
-        val waiting = pod(); f.start(waiting); f.pick(f.a, waiting) // A has picked; only B holds a pack.
+        // A has picked; only B holds a pack, whose last card still comes to A (DRF-119: her own draft isn't done)
+        val waiting = pod(base.copy(cardsPerPack = 4)); f.start(waiting); f.pick(f.a, waiting)
         val setup = pod()
         val listed = f.list(f.a).pods
         assertEquals(listOf(pick, build, setup, waiting).toSet(), listed.map { it.id }.toSet())
@@ -1199,7 +1200,8 @@ class PodHttpTest {
                 val hints = f.activity(player).entries.filter { it.gameId == pod && it.kind == ActivityKind.POD_YOUR_PICK }
                 assertEquals(waiting > 0, hints.isNotEmpty())
                 if (waiting > 0) assertEquals(detail.draftAttemptId, hints.single().identity)
-                assertEquals(if (waiting > 0) PodAttention.YOUR_PICK else PodAttention.NONE,
+                // DRF-013, DRF-119 (owner, 2026-11-21): "Build your deck" once the member's own draft is done
+                assertEquals(if (waiting > 0) PodAttention.YOUR_PICK else if (detail.draftWait == null) PodAttention.BUILD else PodAttention.NONE,
                     f.list(player).pods.single { it.id == pod }.attention)
                 val visible = (public.grids + public.finishedGrids).flatMap { it.slots.mapNotNull { slot -> slot.copy } } +
                     public.log.flatMap { it.kept + it.discarded } + detail.grid!!.mine.pool

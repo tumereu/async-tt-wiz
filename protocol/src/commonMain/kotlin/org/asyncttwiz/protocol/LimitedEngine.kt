@@ -481,6 +481,26 @@ object LimitedEngine {
         return settle(look(withTable(state, index, next), index))
     }
 
+    /**
+     * DRF-119 (owner, 2026-11-21): why [player]'s own draft isn't done, or null once it is. Rotisserie: after their last turn
+     * of the snake. Rochester: once no pack has a pick of theirs left (every card of a pack is picked, in snake order from
+     * its opener). Winston and Winchester: only when the last pile is taken, since which player takes the last cards
+     * depends on everyone's choices. Sealed is done from the start.
+     */
+    fun waitFor(state: LimitedDraftState, player: String): PodDraftWait? {
+        if (state.finished || player !in state.seating) return null
+        return when (state.settings.mode) {
+            DraftMode.ROTISSERIE -> {
+                val total = minOf(rotisserieTurns(state), state.board.size)
+                if ((state.turn until total).any { snake(state.seating, it) == player }) PodDraftWait.Picks else null
+            }
+            DraftMode.ROCHESTER -> if (state.packs.any { pack -> !pack.empty && (pack.picked.size until pack.cards.size)
+                    .any { snake(state.seating, it, state.seating.indexOf(pack.opener)) == player } }) PodDraftWait.Picks else null
+            DraftMode.WINSTON, DraftMode.WINCHESTER -> PodDraftWait.Piles
+            else -> null
+        }
+    }
+
     /** Picks [player] can make in a row if nobody else acts: their pick badge (DRF-074). 0 when they can't act. */
     fun consecutivePicks(state: LimitedDraftState, player: String): Int {
         if (state.finished || state.queues[player].isNullOrEmpty()) return 0

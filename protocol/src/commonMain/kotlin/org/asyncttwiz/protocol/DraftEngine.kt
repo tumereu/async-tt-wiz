@@ -310,6 +310,19 @@ object DraftEngine {
         return Working(state).soloPicks(player)
     }
 
+    /**
+     * DRF-119 (owner, 2026-11-21): why [player]'s own draft isn't done, or null once it is: no pack can reach them any more,
+     * for a pick or with a last card given without one, so their pool is final whatever the others still pick. Booster,
+     * Glimpse and Custom booster: done once no live or unopened pack can come to them (the last card of a pack is given on
+     * arrival, so a member whose picks are over may still wait for it: [PodDraftWait.Cards]). Arena: after their own last
+     * pick (or their source running out of cards for them).
+     */
+    fun waitFor(state: DraftState, player: String): PodDraftWait? {
+        if (state.finished || player !in state.seating) return null
+        if (state.arena != null) return if (state.openedRound(player) >= state.settings.packsPerPlayer) null else PodDraftWait.Picks
+        return Working(state).waitFor(player)
+    }
+
     /** Pack rules on the shared [DraftSchedule]; mutable scratch space is private to one transition. */
     private class Working(private val source: DraftState) : DraftSchedule(source.seating, source.settings.rounds,
         source.queues, source.held, source.seating.associateWith { source.openedRound(it) }) {
@@ -330,6 +343,39 @@ object DraftEngine {
         fun applyPick(pick: DraftPick, burned: List<String>): DraftState {
             move(pick, burned)
             return settle()
+        }
+
+        /** See [DraftEngine.waitFor]: picks first (a pack that reaches them for a pick), then cards given without one. */
+        fun waitFor(player: String): PodDraftWait? {
+            if (reaching(player, source.settings.rounds - 1).any()) return PodDraftWait.Picks
+            val holders = (queues.entries + held.entries).flatMap { (owner, ids) -> ids.map { it to owner } }.toMap()
+            return if (items.any { live(it) && arrives(it, holders[it], player) }) PodDraftWait.Cards else null
+        }
+
+        /**
+         * Whether the pack, now with [holder] (null while unopened), can still come to [player] at all: for a pick, or as an
+         * automatic award of its last cards ([automatic]). Like [reaches], every pick removes keep + burn cards (all of them
+         * near the end) and the discard threshold or a Custom booster's last pass throws the rest away.
+         */
+        private fun arrives(item: String, holder: String?, player: String): Boolean {
+            val pack = pack(item)
+            val settings = source.settings
+            var taken = picks(item)
+            var size = pack.cards.size
+            var current = holder ?: pack.initialPlayer
+            // Every pick removes at least one card; the budget only guards against settings that would remove none.
+            var budget = size * seating.size + seating.size
+            while (budget-- > 0) {
+                if (current == player) return true
+                // Small enough to be given to its holder without a pick: it goes no further.
+                if (size <= settings.keepAt(taken)) return false
+                val removed = settings.keepAt(taken) + settings.burnAt(taken)
+                size = if (size <= removed) 0 else size - removed
+                taken++
+                if (size == 0 || size <= settings.discardAt || settings.passesEnd(taken)) return false
+                current = passTo(current, pack.round)
+            }
+            return false
         }
 
         /** See [consecutivePicks]. Every pick removes at least keep >= 1 card, which bounds the loop. */

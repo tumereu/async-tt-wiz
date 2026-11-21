@@ -127,10 +127,15 @@ fun PodBuildView(
     /** Build's filter (DRF-254) and the pod's filters it reads rarities through (DRF-252). */
     filter: PodCardFilterState = remember { PodCardFilterState() },
     filters: PodCardFilters = remember { PodCardFilters() },
+    /** DRF-119: why your own draft isn't done yet; Submit stays locked and says so. Null once it is (or once submitted). */
+    draftWait: PodDraftWait? = null,
 ) {
     val columns = columnPreference.count
     val desktop = desktopLayout()
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
+    // DRF-119 (MT74XQ): every change of Submit's state, and why it is locked, goes to the app log
+    val submitState = podBuildSubmitState(build, copies, sideboardLimit, editable, canSubmit, submitted, draftWait)
+    LaunchedEffect(submitState) { AppLog.info("pod", "Build: Submit $submitState") }
     var confirmSubmit by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf(false) }
     var choosingCover by remember { mutableStateOf(false) }
@@ -302,6 +307,12 @@ fun PodBuildView(
         PodCardFilterButton(filter, filters, remember(copies, definitions) { copies.values.mapNotNull { definitions[it.definition] } },
             "pod-build-filter", Modifier.align(Alignment.BottomEnd).padding(PodFilterButtonInset))
        }
+        // DRF-119: while your own draft isn't done, a line over the bar says when Submit opens
+        if (!submitted && draftWait != null) Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainer) {
+            Text(podSubmitWaitText(draftWait), Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+                .testTag("pod-build-submit-wait"), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
         // DRF-106: the bar spans the full width (not inset like the columns), Undo at its left edge.
         Surface(Modifier.fillMaxWidth().height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             if (submitted) Box(contentAlignment = Alignment.Center) { Text("✓ Submitted", style = MaterialTheme.typography.labelLarge) }

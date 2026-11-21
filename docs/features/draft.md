@@ -10,8 +10,8 @@ players who draft together, each picking whenever they have time: its creator ch
 its settings, invites players and starts the draft. During the draft you see only your own packs (some modes lay their
 cards out for everyone) and pick on the pick screen, while the server deals, passes and keeps track of everything.
 Your picks land in Build, where you sort your cards into Main, Side and Maybe and add basic lands, with Stats to check
-the curve and colours. Once the whole draft is done you submit your deck, and the pod's members challenge each other to
-games with their pod decks. Each pod has its own chat, and notifications tell you when it is your pick.
+the curve and colours. Once your own draft is done (nothing more can reach you) you submit your deck, also while others
+still draft, and the pod's members challenge each other to games with their pod decks. Each pod has its own chat, and notifications tell you when it is your pick.
 
 ## Cubes
 
@@ -50,7 +50,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 - **DRF-011** The Pods screen (main menu: LOB-015) has a New pod button at the top right. (r21)
 - **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-189): pod rows with the compact stack of the other members' avatars (up to two plus "+N"; only yourself when alone), the name and status (a small dot after it while the pod's chat holds messages of other members you haven't read, DRF-237), and pod invitations with Accept and Decline. (r62)
-- **DRF-013** Pod statuses read "Your pick · 2 packs" (just "Your pick" in Rotisserie, Winston, Winchester and Arena), "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. (r35)
+- **DRF-013** Pod statuses read "Your pick · 2 packs" (just "Your pick" in Rotisserie, Winston, Winchester and Arena), "Build your deck" (once your own draft is done, DRF-119), "Setup", "Drafting" or "Deck submitted" (also while others still draft); "Your pick" rows are highlighted. (r35)
 - **DRF-189** One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
 
 ## Pod setup
@@ -113,7 +113,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-163** Auto-start can't be armed while members plus pending invitations (plus bot seats) exceed the engine's limit (DRF-150): "Grid takes at most 4 players; 5 are joined or invited." (with bots "…; 3 are joined or invited, with 2 bots."). (r35)
 - **DRF-203** An armed auto-start survives settings changes, but a change or invitation that puts the pod over the engine's limit switches it off and tells the creator why ("Auto-start off — <pod>"; setup line "Too many players for Winston (at most 4); auto-start is off"). (r35)
 - **DRF-038** The pod ⋮ menu offers "Start now" while invitations are pending (confirmed; pending invitations are cancelled), Cancel draft while drafting (creator), and Destroy (creator) or Leave. (r21)
-- **DRF-039** Leaving during the draft warns "This cancels the draft for all N players and discards all picks." and returns the pod to setup; the creator's Cancel draft does the same. (r16)
+- **DRF-039** Leaving during the draft warns "This cancels the draft for all N players and discards all picks." and returns the pod to setup; the creator's Cancel draft does the same. Decks submitted early (DRF-119) are discarded with the picks, and the pod's challenges not yet accepted are withdrawn. (r16)
 - **DRF-040** Cancelling keeps source, settings and remaining members; starting again deals a fresh shuffle from the same source. One completed draft per pod. (r16)
 - **DRF-041** Leaving after the draft withdraws your unaccepted challenges; when only one member is left the pod is destroyed. Destroy is confirmed and removes the pod for everyone. (r16)
 - **DRF-042** Games already started from a pod survive any leave, cancel or destroy and stay in the normal Games list. (r16)
@@ -132,8 +132,8 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-073** A started pod is a play screen: a 48 dp header with a hamburger opening the side menu as a modal (never a permanent side area), a tiny pod title and 28 dp member avatars under it. (r20)
 - **DRF-074** While drafting each avatar has a badge: a green ✓ when that member can't pick, otherwise how many picks they can make in a row (next-round packs they would open included), "9+" above 9. (r32)
 - **DRF-075** A cogwheel at the header's end opens a floating panel with every view setting, applied live: "Draft · cards per row" (not in Grid), "History · cards per row" (Booster and Glimpse, DRF-165), "Build · columns", "Build · cards side by side". (r60)
-- **DRF-076** Tabs are Draft · Build · Stats while drafting and Build · Stats · Games afterwards, with the pod ⋮ menu as a narrow last tab; Back leaves the pod. (r18)
-- **DRF-077** A pod opens on Draft while drafting, on Build until your deck is submitted, then on Games. (r17)
+- **DRF-076** Tabs are Draft · Build · Stats · Games while drafting and Build · Stats · Games afterwards, with the pod ⋮ menu as a narrow last tab; Back leaves the pod. (r18)
+- **DRF-077** A pod opens on Draft while your own draft runs (DRF-119), on Build until your deck is submitted, then on Games; your own draft ending, also while others still draft, switches it to Build. (r17)
 - **DRF-078** Pod screens refresh quietly in the background (about every 10 s while open), with no loaders over shown data. (r17)
 
 ## Booster and Glimpse: how a draft runs
@@ -330,12 +330,14 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 ## Submitting and pod games
 
-- **DRF-119** Submit is possible once the whole draft is done: Main and Side as a pod deck's Ready asks (LOB-052), and the whole deck, Maybe included, within a deck's card limit (LOB-063); "Submit deck?" is confirmed. (r60)
+- **DRF-119** Submit is possible once your own draft is done (DRF-302), whatever the others still draft: Main and Side as a pod deck's Ready asks (LOB-052), and the whole deck, Maybe included, within a deck's card limit (LOB-063); "Submit deck?" is confirmed. (r60; owner, 2026-11-21)
+- **DRF-302** Your own draft is done when no more picks or cards can reach you, so your pool is final: Booster, Glimpse and Custom booster once no pack can come to you any more, for a pick or with a pack's last card given without one; Arena after your own last pick; Grid after your last turn on the last grid that has one; Rochester once no pack has a pick of yours left; Rotisserie after your last turn; Winston and Winchester only when the last pile is taken (which player gets the last cards depends on everyone's choices); Sealed at once. (owner, 2026-11-21)
+- **DRF-303** While your own draft isn't done, a line over Build's bottom bar says when Submit opens: "Submit opens after your last pick", "Submit opens when your last cards arrive" (your picks are over, a pack's last cards still come) or "Submit opens once the last pile is taken" (Winston, Winchester); the deck's own problems keep their warning (DRF-094). (owner, 2026-11-21)
 - **DRF-120** Submitting locks Main, Side, Maybe and basics; the bar then shows "✓ Submitted". Maybe comes along to pod games outside the game with Side (LOB-141). Members submit independently. (r60)
-- **DRF-121** The Games tab lists members as "deck submitted" or "building" and, once yours is submitted, a crossed-swords Challenge button beside every other member; then the pod's Standings (DRF-235) and its Matches (DRF-236); then this pod's games. (r58)
+- **DRF-121** The Games tab lists members as "deck submitted", "building" or "drafting" (their own draft still running, DRF-119) and, once yours is submitted, a crossed-swords Challenge button beside every other member, also while others still draft; then the pod's Standings (DRF-235) and its Matches (DRF-236); then this pod's games. (r58)
 - **DRF-235** The pod's Standings give each member's W–L–D in the pod's finished matches, most wins first, then fewest losses, then most draws. (r58)
 - **DRF-236** The pod's Matches, played or being played, read "<name> vs <name>" with "In play" and the turn reached, or the winner ("<name> won", "Draw", "Unfinished") with date, turns and how it ended; no deck information, also for your own matches. (r58)
-- **DRF-122** Challenging a member who is still building is allowed: they see the invitation at once and can decline it, but can accept only after submitting; you can prepare and get Ready meanwhile. They are notified at once (Invitations): "<pod>: <name> challenged you · submit your deck to accept", opening the pod's Games tab, in place of the pod's "Draft complete: build your deck" (one notification per pod, DRF-135); submitting their deck makes it acceptable with no further notification. (r80)
+- **DRF-122** Challenging a member who is still drafting or building is allowed: they see the invitation at once and can decline it, but can accept only after submitting; you can prepare and get Ready meanwhile, and two members who have submitted can play while others still draft. They are notified at once (Invitations): "<pod>: <name> challenged you · submit your deck to accept", opening the pod's Games tab, in place of the pod's "Draft complete: build your deck" (one notification per pod, DRF-135); submitting their deck makes it acceptable with no further notification. (r80)
 - **DRF-123** A challenge is a normal game invitation; incoming ones are answered in place in the Games tab. Any two members may play any number of games. (r30)
 - **DRF-181** While a member has an open challenge to you in the pod (one you can accept now), the Challenge button beside them (holding it says "Challenge: accept <name>'s challenge") accepts it (the oldest, if several), opening its lobby, instead of making a new game; a choices button beside it offers "New challenge", which challenges them again as before. (r74)
 - **DRF-124** In a pod game's lobby each deck is fixed to its pod deck (no saved-deck choice); its basics move between Main and Side like other cards (LOB-052); Ready checks Main's size as Submit does (DRF-119) and the sideboard limit. (r55)
@@ -352,7 +354,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 - **DRF-135** Draft notifications use their own "Draft activity" channel, one per pod, updated rather than stacked; pod notifications name the set or cube the pod drafts below their title. A pod challenge (DRF-122) is that pod's one notification too: it and the pod's other notices ("Draft complete: build your deck" …) replace each other, the newer showing. (r80)
 - **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid, Rotisserie, Winston and Winchester: your turn; Rochester: your pick in a pack) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (r35)
-- **DRF-137** Other pod notifications: "<name> invited you to <pod>", "Draft complete: build your deck", "Decks ready — <pod name>" (to everyone but the last submitter and members with a challenge of the pod queued, sent or received: that challenge's own notice is theirs), "Draft cancelled", "Pod destroyed", "Auto-start off — <pod name>". (r49)
+- **DRF-137** Other pod notifications: "<name> invited you to <pod>", "Draft complete: build your deck" (when your own draft is done, DRF-119, maybe before the others'), "Decks ready — <pod name>" (to everyone but the last submitter and members with a challenge of the pod queued, sent or received: that challenge's own notice is theirs), "Draft cancelled", "Pod destroyed", "Auto-start off — <pod name>". (r49)
 - **DRF-138** A pod's notification (its challenges' included, DRF-135) clears, and none is posted, while that pod is open in the app; pod invitation notifications likewise while the Pods list is shown. A pick or build notification also clears on your other devices once it's done (LOB-242), the pod's other notices once you have opened it (LOB-243). (r80)
 
 ## Privacy

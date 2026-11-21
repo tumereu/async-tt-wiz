@@ -326,6 +326,13 @@ object GridEngine {
         return Working(state).soloPicks(player)
     }
 
+    /**
+     * DRF-119 (owner, 2026-11-21): why [player]'s own draft isn't done, or null once it is: after their last turn, when no
+     * grid, opened or not, has a turn of theirs left (a grid's leftover cards are discarded, never given).
+     */
+    fun waitFor(state: GridState, player: String): PodDraftWait? =
+        if (state.finished || state.grids.none { !it.finished && player in it.turns.drop(it.selection) }) null else PodDraftWait.Picks
+
     /** Grids [player] can pick from now, head first. */
     fun queue(state: GridState, player: String): List<String> = state.queues[player].orEmpty()
 

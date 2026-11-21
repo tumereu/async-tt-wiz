@@ -264,6 +264,21 @@ class PodScreensTest {
         compose.onNodeWithText("Submit your deck to challenge other members.").assertDoesNotExist()
     }
 
+    // DRF-121, DRF-119 (owner, 2026-11-21): while the pod drafts, a member still drafting reads "drafting", one done early
+    // "building"
+    @Test fun gamesTabWhileDraftingTellsDraftingFromBuilding() {
+        val detail = PodDetail("pod", "Synergy", PodPhase.DRAFTING, alice, DraftSettings(),
+            PodSource("Cube", 540), DraftSupply(90, 540),
+            listOf(PodMember(alice, submitted = true), PodMember(bob, packsWaiting = 2, picking = true)), emptyList(),
+            updatedAt = "2026-10-26T00:00:00Z")
+        assertEquals("drafting", podGamesMemberStatus(detail.members[1], PodPhase.DRAFTING))
+        assertEquals("building", podGamesMemberStatus(PodMember(bob, building = true), PodPhase.DRAFTING))
+        assertEquals("building", podGamesMemberStatus(PodMember(bob), PodPhase.DRAFTED))
+        compose.setContent { ScreenTheme { PodGamesTab(detail, alice.accountId, null) } }
+        compose.onNodeWithText("deck submitted").assertIsDisplayed()
+        compose.onNodeWithText("drafting").assertIsDisplayed()
+    }
+
     // SYS-024
     @Test fun challengeErrorsDoNotShiftContentAndRetainedRetryOutlastsTransientErrorEvenWithoutPods() {
         var state by mutableStateOf(LobbyState())

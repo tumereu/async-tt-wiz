@@ -24,7 +24,9 @@ class PodControllerTest {
         if (phase == PodPhase.SETUP) null else attempt,
         if (phase == PodPhase.SETUP) null else DraftPrivateView(self.accountId, head, 1, listOf(copy), listOf(nextPack)),
         if (phase == PodPhase.SETUP) null else PodDeckBuild(listOf(PodDeckCopy(copy.id))),
-        definitions = listOf(definition), updatedAt = "2026-10-26T00:00:00Z")
+        definitions = listOf(definition), updatedAt = "2026-10-26T00:00:00Z",
+        // DRF-119: a pack waits for this member, so their own draft is not done
+        draftWait = if (phase == PodPhase.DRAFTING) PodDraftWait.Picks else null)
     private fun summary(detail: PodDetail, attention: PodAttention = PodAttention.YOUR_PICK) = PodSummary(detail.id,
         detail.name, detail.phase, detail.creator, detail.members.map { it.account }, attention, 2, detail.updatedAt)
 
@@ -291,9 +293,15 @@ class PodControllerTest {
             f.controller.tab(PodTab.BUILD); f.controller.refresh(); f.deliver()
             assertEquals(PodTab.BUILD, f.controller.state.tab, "asked once, at opening")
         }
+        // DRF-076, DRF-122 (owner, 2026-11-21): Games is there while drafting too, so a challenge to a member still drafting
+        // opens there; a tab the phase hasn't got (Draft after the draft) gives the usual one
         Fixture(PodPhase.DRAFTING).use { f ->
             f.controller.open(id, PodTab.GAMES); f.deliver()
-            assertEquals(PodTab.DRAFT, f.controller.state.tab)
+            assertEquals(PodTab.GAMES, f.controller.state.tab)
+        }
+        Fixture(PodPhase.DRAFTED).use { f ->
+            f.controller.open(id, PodTab.DRAFT); f.deliver()
+            assertEquals(PodTab.BUILD, f.controller.state.tab)
         }
     }
 

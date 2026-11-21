@@ -1,0 +1,1 @@
+Build during an Arena draft with Alice's picks not over yet (the Draft · Build · Stats · Games tabs): over the bottom bar a line says "Submit opens after your last pick", and Submit deck is greyed though her deck is ready.

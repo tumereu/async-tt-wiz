@@ -43,6 +43,7 @@ class DeckManagementTest {
         var readFailure = false
         var draft: SavedDeck? = null
         val copies = mutableListOf<CopyDeck>()
+        var categories = emptyList<DeckCategory>()
         override suspend fun drafts(token: String) = DeckList(listOfNotNull(draft?.deck))
         override suspend fun copy(token: String, id: String, value: CopyDeck): SavedDeck {
             copies += value; if (fail) throw DeckFailure("network")
@@ -52,13 +53,14 @@ class DeckManagementTest {
         }
         override suspend fun list(token: String, after: String?): DeckList {
             listReads++; afterList?.invoke()
-            return DeckList(if (missing) emptyList() else listOf(saved.deck), next = if (afterList != null) "next" else null)
+            return DeckList(if (missing) emptyList() else listOf(saved.deck), next = if (afterList != null) "next" else null, categories = categories)
         }
         override suspend fun read(token: String, id: String): SavedDeck { reads++; draft?.takeIf { it.deck.id == id }?.let { return it }; if (missing) throw DeckFailure("not_found"); if (readFailure) throw DeckFailure("network"); afterRead(); return saved }
         override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {
             updates += value
             if (fail) throw DeckFailure("network")
-            saved = saved.copy(deck = saved.deck.copy(name = value.name ?: saved.deck.name, revision = "2"))
+            saved = saved.copy(deck = saved.deck.copy(name = value.name ?: saved.deck.name, revision = "2",
+                category = value.category.let { choice -> if (choice != null) choice.id else saved.deck.category }))
             return saved
         }
         override suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted {
@@ -76,6 +78,36 @@ class DeckManagementTest {
         override fun isTerminated() = false
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = false
         fun drain() { while (queue.isNotEmpty()) queue.removeAt(0).run() }
+    }
+    // LOB-262: a saved deck's Move to… moves it into a category and back to the top level with one request each, keeping
+    // the request's identity while it is retried; its own place sends nothing; a failure keeps the dialog with the reason
+    @Test fun moveToPutsADeckIntoACategoryAndBackToTheTopLevel() {
+        val api = Api(); val worker = Worker()
+        val box = DeckCategory("c-box", "Battle box"); val red = DeckCategory("c-red", "Red", box.id)
+        api.categories = listOf(box, red)
+        val controller = DeckLibraryController(api, { "token" }, worker) { it() }
+        try {
+            controller.refresh(); worker.drain()
+            assertEquals(listOf(box, red), controller.state.categories)
+            controller.categoryDialog(CategoryDialog.MoveDeck(controller.state.decks.single()))
+            controller.moveDeck(null) // already at the top level
+            assertTrue(api.updates.isEmpty()); assertNull(controller.state.categoryDialog)
+
+            controller.categoryDialog(CategoryDialog.MoveDeck(controller.state.decks.single()))
+            api.fail = true; controller.moveDeck(red.id); worker.drain()
+            assertNotNull(controller.state.error); assertIs<CategoryDialog.MoveDeck>(controller.state.categoryDialog)
+            api.fail = false; controller.moveDeck(red.id); worker.drain()
+            assertEquals(1, api.updates.map { it.requestId }.distinct().size, "the retry is the same request")
+            assertEquals(CategoryChoice(red.id), api.updates.last().category)
+            assertTrue(api.updates.all { it.name == null && it.cover == null && it.contents == null }, "only the category changes")
+            assertEquals(red.id, controller.state.decks.single().category); assertNull(controller.state.categoryDialog)
+            assertEquals(listOf(box, red), controller.state.categories)
+
+            controller.categoryDialog(CategoryDialog.MoveDeck(controller.state.decks.single()))
+            controller.moveDeck(null); worker.drain()
+            assertEquals(CategoryChoice(null), api.updates.last().category)
+            assertNull(controller.state.decks.single().category)
+        } finally { controller.close(); worker.drain() }
     }
     // LOB-055, LOB-210
     @Test fun draftDecksListSeparatelyAndSaveAsDeckOpensAnIndependentCopyKeepingOneRequestIdentity() {

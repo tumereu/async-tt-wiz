@@ -1,0 +1,1 @@
+add: Manage decks: a saved deck's ⋮ menu has Move to…, so you can put a deck into a category or back to the top level without opening it

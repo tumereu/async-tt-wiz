@@ -11,13 +11,15 @@ import org.asyncttwiz.appui.randomUuid
  * records (owner 2026-11-10: card data from the server's catalog). */
 data class DeckDetail(val saved: SavedDeck, val definitions: Map<String, CardDefinition>)
 enum class DeckDialog { EDIT, RENAME, COVER, DELETE }
-/** LOB-245, LOB-246: a deck category dialog over Manage decks' Decks tab. */
+/** LOB-245, LOB-246, LOB-262: a deck category dialog over Manage decks' Decks tab. */
 sealed interface CategoryDialog {
     /** A new category in [parent] (null: the top level). */
     data class Create(val parent: String?) : CategoryDialog
     data class Rename(val category: DeckCategory) : CategoryDialog
     data class Move(val category: DeckCategory) : CategoryDialog
     data class Delete(val category: DeckCategory) : CategoryDialog
+    /** LOB-262: moving saved deck [deck] to a category or the top level. */
+    data class MoveDeck(val deck: DeckSummary) : CategoryDialog
 }
 /** [draftDecks]: kept automatically from submitted pod decks, newest first, read-only until saved as an ordinary deck. */
 data class DeckLibraryState(val decks: List<DeckSummary> = emptyList(), val draftDecks: List<DeckSummary> = emptyList(), val selected: String? = null,
@@ -88,7 +90,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 api.updateCategory(token, dialog.category.id, UpdateDeckCategory(request, name = name)) }
             is CategoryDialog.Delete -> categoryWrite("delete ${dialog.category.id}") { token, request ->
                 api.deleteCategory(token, dialog.category.id, DeleteDeckCategory(request)) }
-            is CategoryDialog.Move -> Unit
+            is CategoryDialog.Move, is CategoryDialog.MoveDeck -> Unit
         }
     }
     /** LOB-245: moves the open Move dialog's category into [parent] (null: the top level). */
@@ -98,9 +100,22 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         categoryWrite("move ${dialog.category.id} into ${parent ?: "the top level"}") { token, request ->
             api.updateCategory(token, dialog.category.id, UpdateDeckCategory(request, parent = CategoryChoice(parent))) }
     }
+    /** LOB-262: moves the open Move dialog's deck into [category] (null: the top level); its own place closes the dialog. */
+    fun moveDeck(category: String?) {
+        val dialog = state.categoryDialog as? CategoryDialog.MoveDeck ?: return
+        val deck = dialog.deck
+        val from = deck.category?.takeIf { id -> state.categories.any { it.id == id } }
+        if (category == from) { AppLog.info("decks", "Deck ${deck.id} move: already in ${from ?: "the top level"}"); dismissCategory(); return }
+        categoryWrite("move deck ${deck.id} from ${from ?: "the top level"} into ${category ?: "the top level"}") { token, request ->
+            val saved = api.update(token, deck.id, UpdateDeck(request, category = CategoryChoice(category)))
+            post { if (!closed) state = state.copy(decks = state.decks.map { if (it.id == saved.deck.id) saved.deck else it }) }
+            null
+        }
+    }
     /** The open dialog's request id, kept while the same change is retried (the server answers a repeat with its result). */
     private var categoryRequest: String? = null
-    private fun categoryWrite(what: String, write: suspend (String, String) -> DeckCategoryList) {
+    /** [write] answers with the account's categories, or null when they didn't change (a deck moved). */
+    private fun categoryWrite(what: String, write: suspend (String, String) -> DeckCategoryList?) {
         if (closed || state.categoryBusy) return
         val token = credential() ?: return
         val request = categoryRequest ?: randomUuid().also { categoryRequest = it }
@@ -111,7 +126,8 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 val list = serviceRetry(current = { !closed }) { write(token, request) }
                 post { if (!closed) {
                     categoryRequest = null
-                    state = state.copy(categories = list.categories, categoryBusy = false, categoryDialog = null)
+                    AppLog.info("decks", "Deck category $what done")
+                    state = state.copy(categories = list?.categories ?: state.categories, categoryBusy = false, categoryDialog = null)
                     // Decks moved with a deleted category: their categories come with the decks
                     refresh()
                 } }

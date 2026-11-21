@@ -337,3 +337,7 @@ number	item	screenshot	catalog	decisions	sequence
 364	Clip: the turn banner shows and fades	clips/turn-banner.webp	TRN-074
 365	Clip: tapping an earlier event in the Undo dialog's strip	clips/undo-strip.webp	HIS-099 HIS-207 HIS-208
 380	Resizable panels: the search panel dragged shorter by its handle at the top edge	choice-source/library-search-resized.png	STK-222 STK-223
+390	Declaring attackers: the table framed in red-orange with its chip, what can't attack dimmed	combat-band/declaring-attackers.png	CMB-095 CMB-096		
+391	Declaring blockers: the frame with the blockers' chip, what can't block dimmed	combat-band/declaring-blockers.png	CMB-095 CMB-096		
+392	Desktop table: declaring attackers, the frame and chip, what can't attack dimmed	desktop/declaring-attackers.png	CMB-095 CMB-096 WEB-015		
+393	Desktop table: declaring blockers, the frame and chip, what can't block dimmed	desktop/declaring-blockers.png	CMB-095 CMB-096 WEB-015		

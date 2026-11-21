@@ -280,6 +280,10 @@ object TestCards {
     val boon = card("Ember Boon", "Sorcery", "{0}", "Put a +1/+1 counter on target creature.")
     /** A free creature with haste: it attacks the turn it is cast. */
     val dasher = card("Ember Dasher", "Creature — Elemental", "{0}", "Haste", "1", "1")
+    /** A free creature with haste whose attack trigger targets (owner playtest 2026-11-21: its target picked on its combat copy). */
+    val raider = card("Ember Raider", "Creature — Elemental", "{0}", "Haste\nWhenever this creature attacks, it deals 1 damage to any target.", "1", "3")
+    /** An instant with kicker, so its cast panel opens on its way before its target (ZON-113; owner playtest 2026-11-21). */
+    val jab = card("Ember Jab", "Instant", "{R}", "Kicker {1}\nEmber Jab deals 1 damage to any target.")
     /** A free creature whose own trigger goes on the Stack when it dies (no target: nothing to choose). */
     val martyr = card("Ember Martyr", "Creature — Elemental", "{0}", "When this creature dies, you gain 2 life.", "1", "1")
     /** A free board wipe (HIS-112: several Ember Martyrs dying at once, their triggers shown one after another). */

@@ -63,20 +63,23 @@ class DesktopTableScreenshotTest {
     /** Alice's table of [kit]'s game drawn as [EngineTableScreen] draws it in the desktop layout: the top row over the table
      * surface with the desktop frame, the dock holding the docked chat of [lobby] while [dockOpen] (read as state). */
     private fun render(kit: EngineTableKit, lobby: LobbyController = chatLobby(kit), dockOpen: () -> Boolean = { true },
-        pictures: Boolean = false, chatBubbles: (() -> TableChatBubbles?)? = null) {
+        pictures: Boolean = false, chatBubbles: (() -> TableChatBubbles?)? = null, viewer: String = kit.f.a) {
+        val routes = if (viewer == kit.f.a) kit.routes else kit.bobRoutes
+        val toolkit = if (viewer == kit.f.a) kit.toolkit else kit.bobToolkit
+        val game = if (viewer == kit.f.a) kit.alice else kit.bob
         compose.setContent {
             MaterialTheme {
                 NoRipples {
-                    CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop, LocalEngineRoutes provides kit.routes,
+                    CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop, LocalEngineRoutes provides routes,
                         LocalDesktopFrame provides DesktopFrame(dockOpen())) {
-                        val play = kit.alice.play().let { if (pictures) pictured(it) else it }
+                        val play = game.play().let { if (pictures) pictured(it) else it }
                         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
-                            DesktopTopRow(kit.f.game, play, kit.f.a, kit.toolkit, reviewing = false, navigation = {}, returnCurrent = null,
+                            DesktopTopRow(kit.f.game, play, viewer, toolkit, reviewing = false, navigation = {}, returnCurrent = null,
                                 changes = null, dockOpen = dockOpen(), toggleDock = {}, chat = null, chatUnread = 0)
                             Box(Modifier.weight(1f).fillMaxWidth()) {
-                                TableSurface(kit.f.game, play, kit.f.a, true, Modifier.fillMaxSize(), connected = true,
-                                    onIntent = kit.toolkit::handle, toolkit = kit.toolkit,
-                                    runtime = TableRuntimeHooks(navigation = {}, undo = { kit.routes.undo() }, controlsConnected = true,
+                                TableSurface(kit.f.game, play, viewer, true, Modifier.fillMaxSize(), connected = true,
+                                    onIntent = toolkit::handle, toolkit = toolkit,
+                                    runtime = TableRuntimeHooks(navigation = {}, undo = { routes.undo() }, controlsConnected = true,
                                         waitingLine = kit.routes.waitingLine(play), chatBubbles = chatBubbles?.invoke(),
                                         desktopDock = { DesktopDock { m -> ChatPanel(lobby, kit.f.a, m, docked = true) } }))
                             }
@@ -676,6 +679,57 @@ class DesktopTableScreenshotTest {
         assertTrue(scene(kit).combatPanel != null, "the band open")
         captureShot("$SCREENSHOTS/desktop/table-attackers.png",
             "Alice declares attackers on the desktop table: her Ember Cub is staged in the combat band's lane against Bob between the battlefields, the combat's quick actions sit over the main button, which reads Attack.")
+    }
+
+    // CMB-095, CMB-096, WEB-015 (owner playtest 2026-11-21): on the desktop table too, Alice declaring attackers sees the table
+    // framed in red-orange with the chip, her Mountain dimmed and her ready Cub glowing
+    @Test fun declaringAttackersFramesTheDesktopTable() {
+        val kit = EngineTableKit()
+        val cub = kit.toReadyCub()
+        kit.toAttacks()
+        kit.toolkit.combat.show(kit.alice.play(), AutomatumBoards.combat(kit.alice.play()))
+        val play = kit.alice.play()
+        assertEquals(CombatDeclaring.Attackers, kit.toolkit.combat.declaring(play, kit.f.a))
+        assertFalse(cub in DeclaringLook.dimmed(play.board, kit.f.a, kit.toolkit.combat.attackable(play, kit.f.a)), "the Cub undimmed")
+        render(kit)
+        compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Attackers.chip))
+        captureShot("$SCREENSHOTS/desktop/declaring-attackers.png",
+            "Alice moved on to declaring attackers on the desktop table: the battlefields are framed in red-orange with the chip \"Declaring attackers: abilities can't be used now\" at their top, her ready Ember Cub glows red-orange and her Mountain is dimmed.")
+    }
+
+    // CMB-095, CMB-096, WEB-015 (owner playtest 2026-11-21): Bob declaring blockers on the desktop table: the frame with the blockers'
+    // chip, his Mountain dimmed and his Cub that may block glowing
+    @Test fun declaringBlockersFramesTheDesktopTable() {
+        val kit = EngineTableKit()
+        kit.bobMain = { s ->
+            val land = kit.scenario.cards(s, kit.other, s.player(kit.other).hand, "Mountain").firstOrNull()
+            val bobCub = kit.scenario.cards(s, kit.other, s.player(kit.other).hand, "Ember Cub").firstOrNull()
+            when {
+                (s.turn.landsPlayed[kit.other] ?: 0) == 0 && land != null -> { kit.bob.send(listOf(arcanum.engine.input.Input.PlayLand(kit.other, land))); true }
+                bobCub != null && kit.scenario.cards(s, kit.other, s.battlefield, "Ember Cub").isEmpty() &&
+                    kit.scenario.cards(s, kit.other, s.battlefield, "Mountain").any { s.obj(it)?.tapped == false } -> {
+                    kit.bob.send(kit.scenario.cast(s, kit.other, arcanum.engine.input.Input.Cast(kit.other, bobCub))); true
+                }
+                else -> false
+            }
+        }
+        val cub = kit.toReadyCub()
+        kit.bobMain = null
+        kit.toAttacks()
+        kit.toolkit.combat.show(kit.alice.play(), AutomatumBoards.combat(kit.alice.play()))
+        assertTrue(kit.toolkit.stage(kit.alice.play(), listOf(cub), null), "the Cub staged")
+        kit.settle()
+        assertTrue(kit.toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "Attack (1)")
+        kit.playOn("Bob declaring blockers", bobActs = false) {
+            arcanum.engine.Engine.options(kit.bob.device.model.engine, kit.other, org.asyncttwiz.protocol.game.EnginePreferences.of(kit.bob.device.model.engine))
+                .any { it is arcanum.engine.input.Input.DeclareBlockers }
+        }
+        kit.bobToolkit.combat.show(kit.bob.play(), AutomatumBoards.combat(kit.bob.play()))
+        assertEquals(CombatDeclaring.Blockers, kit.bobToolkit.combat.declaring(kit.bob.play(), kit.f.b))
+        render(kit, viewer = kit.f.b)
+        compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Blockers.chip))
+        captureShot("$SCREENSHOTS/desktop/declaring-blockers.png",
+            "Alice attacked with her Ember Cub and Bob declares blockers on the desktop table: the battlefields are framed in red-orange with the chip \"Declaring blockers: abilities can't be used now\" at their top, his Cub that may block glows red-orange and his Mountain is dimmed.")
     }
 
     // WEB-019, STK-047 (D3): picking targets needs the board: the target bar is a strip at the bottom centre of the

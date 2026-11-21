@@ -485,7 +485,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     filter = controller.filters.of(detail.id, PodFilterPlace.Pool), filters = controller.filters)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
-                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
+                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu,
+                    autoconfirm = autoconfirm.first, onAutoconfirm = autoconfirm.second)
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
                     state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(),
                     librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,

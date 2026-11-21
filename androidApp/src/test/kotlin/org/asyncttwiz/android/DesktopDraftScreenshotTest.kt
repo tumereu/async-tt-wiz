@@ -161,6 +161,29 @@ class DesktopDraftScreenshotTest {
             "The same pick after Alice clicks Auto: the toggle filled yellow and Confirm yellow with a band of light across it; her last burn will confirm the pick at once.")
     }
 
+    // DRF-293, DRF-294 (owner, 2026-11-21): a Grid pick on the desktop layout with Auto clicked on: the toggle and the yellow
+    // shining Confirm fill the row under the grid, Auto first; a click on a line's arrow then takes that line at once
+    @Test fun gridAutoconfirm() {
+        val nine = (0..8).map { copy(it) }
+        val board = GridPublicBoard("grid-0", 1, nine, alice.accountId, 1, false, nine.map { GridPublicSlot(it) })
+        val grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(1, 9, false, listOf("alice", "bob"), listOf(board), emptyList()),
+            GridPrivateView(alice.accountId, emptyList(), board.id, queue = listOf(board.id), round = 1, rounds = 18))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.grid(), listOf(PodMember(alice, packsWaiting = 1), PodMember(bob)))
+            .copy(grid = grid)
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff().performMouseInput { click() }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn()
+        val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").fetchSemanticsNode().boundsInRoot
+        val confirm = compose.onNodeWithTag("pod-grid-confirm").fetchSemanticsNode().boundsInRoot
+        assertTrue(toggle.right <= confirm.left && toggle.center.y in confirm.top..confirm.bottom, "Auto just before Confirm: $toggle, $confirm")
+        captureShot("$SCREENSHOTS/desktop/grid-autoconfirm-on.png",
+            "Alice's pick from grid 1 of a two-player Grid draft on the desktop layout after she clicks Auto: the toggle and Confirm are yellow, Confirm's label dimmed with a band of light across it; a click on a row's or column's arrow now takes that line at once.")
+        compose.onNodeWithContentDescription("Select row 1").performMouseInput { click() }
+        compose.runOnIdle { assertTrue(pods.state.picking, "the click sent row 1") }
+    }
+
     // DRF-288, WEB-117: an Arena offer on the desktop layout, the pointer resting on a card for its quick look
     @Test fun arenaPick() {
         val head = DraftPrivatePack("offer-0-9", 10, listOf(2, 6, 11, 14, 16).map { copy(it) }, 1, null)

@@ -248,28 +248,21 @@ fun PodPickView(
         }
         // DRF-294: with Auto on, Confirm is yellow with a shine sweeping back and forth
         val confirmButton: @Composable (Modifier) -> Unit = { buttonModifier ->
-            Button(onClick = confirm, enabled = rules.canConfirm(marks, busy), colors = podConfirmColors(auto),
-                modifier = buttonModifier.testTag("pod-pick-confirm").podAutoconfirmShine(auto)) {
-                ButtonLabel("ready", if (marks.librarians.isEmpty()) "Confirm" else
+            PodConfirmButton(auto, rules.canConfirm(marks, busy), confirm, buttonModifier.testTag("pod-pick-confirm"),
+                if (marks.librarians.isEmpty()) "Confirm" else
                     "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
-            }
         }
         // DRF-293: the Auto toggle sits just before Confirm
-        val autoToggle: @Composable (Modifier) -> Unit = { toggleModifier -> PodAutoconfirmToggle(auto, setAuto, toggleModifier) }
         // WEB-044 (owner playtest 2026-11-16): on the desktop layout Confirm sits at the end of the trays' row, leaving the cards
         // more of the height; the phone's is full width under the trays (DRF-056)
         if (desktop) Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).testTag("pod-pick-confirm-row"), verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) {
             Box(Modifier.weight(1f)) { trays() }
-            autoToggle(Modifier.height(56.dp))
+            PodAutoconfirmToggle(auto, setAuto, Modifier.height(56.dp))
             confirmButton(Modifier.width(PodPickDesktopConfirmWidth).height(56.dp))
         } else {
             trays()
-            Row(Modifier.fillMaxWidth().testTag("pod-pick-confirm-row"), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                autoToggle(Modifier.height(40.dp))
-                confirmButton(Modifier.weight(1f))
-            }
+            PodAutoconfirmRow(auto, setAuto, confirm = confirmButton)
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }

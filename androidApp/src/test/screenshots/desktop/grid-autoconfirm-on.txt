@@ -1,0 +1,1 @@
+Alice's pick from grid 1 of a two-player Grid draft on the desktop layout after she clicks Auto: the toggle and Confirm are yellow, Confirm's label dimmed with a band of light across it; a click on a row's or column's arrow now takes that line at once.

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,6 +20,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -46,7 +48,7 @@ import org.asyncttwiz.appui.AppPlatform
 
 /**
  * DRF-293, DRF-294, LOB-264 (owner, 2026-11-21): draft autoconfirm, personal UI kept on the device. Each draft attempt has
- * its own Auto toggle beside the pick's Confirm; a draft whose toggle was never touched starts as Settings' "Autoconfirm
+ * its own Auto toggle beside the pick's Confirm (Booster, Glimpse, Custom booster, Arena and Grid); a draft whose toggle was never touched starts as Settings' "Autoconfirm
  * draft picks" says (off by default).
  */
 class PodAutoconfirmPreferences(platform: AppPlatform) {
@@ -155,5 +157,24 @@ fun PodAutoconfirmToggle(on: Boolean, onChange: (Boolean) -> Unit, modifier: Mod
             Spacer(Modifier.width(4.dp))
             Text("Auto", style = MaterialTheme.typography.labelLarge)
         }
+    }
+}
+
+/** DRF-294: the pick's Confirm, yellow with its shine while [auto] is on. */
+@Composable
+fun PodConfirmButton(auto: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, label: String = "Confirm") {
+    Button(onClick = onClick, enabled = enabled, colors = podConfirmColors(auto), modifier = modifier.podAutoconfirmShine(auto)) {
+        ButtonLabel("ready", label)
+    }
+}
+
+/** DRF-293: a full-width row of the Auto toggle and then [confirm], which takes the rest of it (the phone's pick; Grid's on
+ * every layout). */
+@Composable
+fun PodAutoconfirmRow(auto: Boolean, onAuto: (Boolean) -> Unit, modifier: Modifier = Modifier, confirm: @Composable (Modifier) -> Unit) {
+    Row(modifier.fillMaxWidth().testTag("pod-pick-confirm-row"), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        PodAutoconfirmToggle(auto, onAuto, Modifier.height(40.dp))
+        confirm(Modifier.weight(1f))
     }
 }

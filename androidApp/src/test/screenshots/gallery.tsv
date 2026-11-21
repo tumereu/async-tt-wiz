@@ -371,3 +371,6 @@ number	item	screenshot	catalog	decisions	sequence
 443	Pods still drafting read "Build your deck" once your own draft is done and "Deck submitted" once you have submitted	draft/pods-early-submit.png	DRF-013 DRF-119		Early submit
 450	Game log: each spell's line names its target and the attack names whom it attacked, in the players' colours	history/game-log-targets.png	HIS-091 HIS-240		Game log targets
 451	Desktop table: the Game log with the targeted lines	desktop/game-log-targets.png	HIS-091 HIS-240 WEB-015		Game log targets
+460	Grid draft: the Auto toggle off before Confirm, a row chosen by its arrow	draft/grid-autoconfirm-off.png	DRF-293 DRF-083		Grid autoconfirm
+461	Grid draft: Auto on, Confirm yellow with its shine; an arrow tap takes its line at once	draft/grid-autoconfirm-on.png	DRF-293 DRF-294		Grid autoconfirm
+462	Desktop Grid draft: Auto on before the yellow shining Confirm	desktop/grid-autoconfirm-on.png	DRF-293 DRF-294		Grid autoconfirm

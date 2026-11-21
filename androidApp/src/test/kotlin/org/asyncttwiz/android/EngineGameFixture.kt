@@ -150,6 +150,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val LANTERN = "Ember Lantern"
         /** STK-212 (problem report MDLPM7, Kirol, Attentive First-Year's wording): a free artifact copying a trigger of its controller's. */
         const val KINDLER = "Ember Kindler"
+        /** HIS-112 (owner, 2026-11-20): a sorcery with plot {R} (CR 702.170a): plotting it is a special action, which doesn't use the
+         * Stack. */
+        const val PLOTTER = "Ember Plotter"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -215,6 +218,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("fork", Choices.FORK, "Artifact", "{T}: Add {R} or {U}."),
         free("lantern", Choices.LANTERN, "Artifact", "{T}: Add {R}.\n{2}: You gain 1 life."),
         free("kindler", Choices.KINDLER, "Artifact", "{0}: Copy target triggered ability you control. You may choose new targets for the copy."),
+        Invented(DefinitionFace("plotter", Choices.PLOTTER, typeLine = "Sorcery", manaCost = "{3}{R}",
+            rulesText = "Ember Plotter deals 2 damage to any target.\nPlot {R}"),
+            OracleCard(Choices.PLOTTER, "{3}{R}", "Sorcery", "Ember Plotter deals 2 damage to any target.\nPlot {R}")),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
             rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),

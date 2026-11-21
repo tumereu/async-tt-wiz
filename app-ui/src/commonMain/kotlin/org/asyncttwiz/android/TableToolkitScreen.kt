@@ -31,7 +31,7 @@ import org.asyncttwiz.protocol.*
 fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: GameSummary,
     landscape: Boolean,
     peekScroll: ScrollState? = null, scene: TableScene? = null, peekSwipe: InspectSwipe? = null,
-    onTimeline: (() -> Unit)? = null, reviewing: Boolean = false, gameActionsBlocked: Boolean = false) {
+    onTimeline: (() -> Unit)? = null, onLog: (() -> Unit)? = null, reviewing: Boolean = false, gameActionsBlocked: Boolean = false) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     // TBL-118: the names a shake's reason may say ("Bob holds priority now.")
     SideEffect { toolkit.playerNames = names }
@@ -51,7 +51,7 @@ fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: 
     when (val panel = toolkit.panel) {
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss, names = names)
         "table" -> {
-            TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline,
+            TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline, onLog = onLog,
                 suggestionWaits = gameActionsBlocked, settings = toolkit.assumeReveals?.let { change -> GameSettingsAccess(game, toolkit.viewer, change) })
         }
         "deck" -> DeckViewPanel(play, toolkit.viewer, toolkit::dismiss)

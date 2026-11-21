@@ -36,6 +36,13 @@ class EngineMotionQueue {
      * first step with any of them on the Stack while they show, so nothing of the event after it (its resolution) plays
      * under them. */
     var stopEntries by mutableStateOf<Set<String>>(emptySet())
+    /** HIS-112 (owner, 2026-11-20): the cards of the special actions shown not landed yet: the steps stop before the first step
+     * changing any of them (their action), so each is drawn as it was until its play lands in it. */
+    var stopCards by mutableStateOf<Set<String>>(emptySet())
+    /** The board itself ([board]'s live), the step after the last. */
+    private var liveBoard: TableBoard? = null
+    /** Whether [heldBefore] holds for [stopCards] (released once they landed) rather than for [stopEntries]. */
+    private var heldForCards = false
     /** The step sequence ([run]) and step the steps stopped at for [stopAt] or [stopEntries], or null. */
     private val stopped = mutableStateOf<Pair<Long, Int>?>(null)
     /** The board [board] gave last: what stays drawn while the Stack animation holds the table ([board]'s hold). */
@@ -51,7 +58,10 @@ class EngineMotionQueue {
      * meanwhile, the hold's end). */
     fun board(version: Long, transition: EngineGame.Transition?, live: TableBoard, hold: Boolean = false,
         /** HIS-112: the Stack entries of the plays shown not landed yet ([stopEntries] as this board brings them). */
-        plays: Set<String> = emptySet()): TableBoard {
+        plays: Set<String> = emptySet(),
+        /** HIS-112: the cards of the special actions shown not landed yet ([stopCards] as this board brings them). */
+        cards: Set<String> = emptySet()): TableBoard {
+        liveBoard = live
         // The Stack animation (owner 2026-11-14): while its step plays (an entry's target arrows) a newer board waits, so the
         // entry stays on the Stack as long as its own animation and what follows plays after it; never a take-back
         if (hold && version != this.version && this.version >= 0 && transition?.undone == null) last?.let { return it }
@@ -65,19 +75,34 @@ class EngineMotionQueue {
             // 2026-11-15, report VSVLSK) so do steps on their way to a play shown not landed yet: ended by the same board
             // published again (its status, the other player's presence), they jumped to the end of its event, and the plays then
             // landed on a Stack the entries had already left, with no arrows
-            val combatGoesOn = same && playing && (stopped.value?.first == run || stopAt != null || plays.isNotEmpty())
+            val combatGoesOn = same && playing && (stopped.value?.first == run || stopAt != null || plays.isNotEmpty() || cards.isNotEmpty())
             if (combatGoesOn) AppLog.info("game", "View hold: the board's steps go on from step ${index + 1} of ${steps.size}" +
                 (stopAt?.let { ", now held for ${it::class.simpleName}" } ?: "") +
-                (if (plays.isNotEmpty()) ", toward the plays shown of ${plays.joinToString { it.take(24) }}" else ""))
-            if (!takeBackGoesOn && !combatGoesOn) {
+                (if (plays.isNotEmpty()) ", toward the plays shown of ${plays.joinToString { it.take(24) }}" else "") +
+                (if (cards.isNotEmpty()) ", toward the special actions shown of ${cards.joinToString { it.take(24) }}" else ""))
+            // HIS-112 (owner, 2026-11-20): the same board published again while held before its first step for a special action
+            // stays held (its time not up yet)
+            val heldGoesOn = same && heldBefore.value == run && heldForCards && cards.isNotEmpty()
+            if (!takeBackGoesOn && !combatGoesOn && !heldGoesOn) {
                 steps = if (transition == null || transition.serial == serial || transition.jump) emptyList() else transition.steps
                 run++
+                heldForCards = false
                 // HIS-112 (owner playtest 2026-11-15, report VSVLSK: the caster's own trigger shown over a Stack its event had
                 // already resolved): a first step that takes an entry of a play shown not landed yet off the Stack waits, the
                 // board before it drawn, until the plays have landed
                 val from = last
                 val first = steps.firstOrNull()
-                if (from != null && first != null && plays.isNotEmpty()) {
+                // HIS-112 (owner, 2026-11-20): so does a first step (or the board itself) changing the card of a special action
+                // shown not landed yet: the card as it was until its play lands in it
+                val next = first ?: live.takeIf { transition != null && !transition.jump && transition.serial != serial }
+                val changing = if (from != null && next != null && cards.isNotEmpty()) cards.filter { changes(from, next, it) } else emptyList()
+                if (from != null && changing.isNotEmpty()) {
+                    heldBefore.value = run
+                    before = from
+                    heldForCards = true
+                    AppLog.info("game", "Board steps held before step 1 of ${steps.size}: it changes ${changing.joinToString { it.take(24) }} " +
+                        "before its special action's play lands")
+                } else if (from != null && first != null && plays.isNotEmpty()) {
                     val after = org.asyncttwiz.protocol.CombatStackRules.stack(first.board).cards.toSet()
                     val leaving = org.asyncttwiz.protocol.CombatStackRules.stack(from.board).cards.filter { it in plays && it !in after }
                     if (leaving.isNotEmpty()) {
@@ -92,10 +117,12 @@ class EngineMotionQueue {
         }
         if (heldBefore.value == run) {
             val kept = before
-            if (kept != null && plays.isNotEmpty()) return kept.also { last = it }
+            if (kept != null && (if (heldForCards) cards.isNotEmpty() else plays.isNotEmpty())) return kept.also { last = it }
             heldBefore.value = null
             before = null
-            AppLog.info("game", "Board steps go on from step 1 of ${steps.size}: the plays shown landed")
+            AppLog.info("game", "Board steps go on from step 1 of ${steps.size}: the " +
+                (if (heldForCards) "special actions shown landed in their cards" else "plays shown landed"))
+            heldForCards = false
         }
         return (this.steps.getOrNull(index) ?: live).also { last = it }
     }
@@ -115,6 +142,14 @@ class EngineMotionQueue {
             null -> false
         } || stopEntries.isNotEmpty() && org.asyncttwiz.protocol.CombatStackRules.stack(steps[at].board).cards.any { it in stopEntries }
         if (stops) { stopped.value = run to at; return }
+        // HIS-112 (owner, 2026-11-20): before the step that changes a special action's card while its play shows
+        val next = steps.getOrNull(at + 1) ?: liveBoard
+        if (stopCards.isNotEmpty() && next != null && stopCards.any { changes(steps[at], next, it) }) {
+            if (stopped.value != (run to at)) AppLog.info("game", "Board steps stopped at step ${at + 1} of ${steps.size}: the next changes " +
+                "${stopCards.filter { changes(steps[at], next, it) }.joinToString { it.take(24) }} before its special action's play lands")
+            stopped.value = run to at
+            return
+        }
         played.value = run to at + 1
     }
 
@@ -139,7 +174,21 @@ class EngineMotionQueue {
 
     /** HIS-112: whether the board drawn is where the plays shown of [stopEntries] show: the steps stopped at the first
      * step with one of them on the Stack, or over (none had one). */
-    fun reachedEntries(): Boolean = !playing || stopEntries.isNotEmpty() && (stopped.value == (run to index) || heldBefore.value == run)
+    fun reachedEntries(): Boolean = !playing || (stopEntries.isNotEmpty() || stopCards.isNotEmpty()) &&
+        (stopped.value == (run to index) || heldBefore.value == run)
+
+    /**
+     * HIS-112 (owner, 2026-11-20): whether card [card] looks different on [to] than on [from]: where it is, face up or down,
+     * its face, and its object (its marks: a door unlocked, CR 709.5; a new object after a zone change, CR 400.7).
+     */
+    private fun changes(from: TableBoard, to: TableBoard, card: String): Boolean {
+        fun look(b: TableBoard): List<Any?> {
+            val c = b.board.cards.firstOrNull { it.id == card }
+            val o = b.engine?.state?.objects?.values?.lastOrNull { it.card.value == card }
+            return listOf(c?.containerId, c?.covered, c?.faceId, o?.id, o?.zone, o?.faceDown, o?.face, o?.marks)
+        }
+        return look(from) != look(to)
+    }
 
     /** HIS-113: whether the steps stand stopped at [moment] ([stopAt]). */
     fun stoppedAt(moment: org.asyncttwiz.protocol.game.GameDevice.CombatMoment): Boolean =

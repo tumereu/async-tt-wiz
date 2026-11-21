@@ -299,7 +299,8 @@ class GtcChunk09RedTest {
         ),
     )
 
-    // CR 701.21a: one sacrifice of both, each chosen by that player
+    // CR 701.21a: one sacrifice of both, each chosen by that player: different permanents (an artifact land is the artifact or the land, not
+    // both), as many of the two as they can (CR 609.3)
     @Test
     fun structuralRuin() = card(
         name = "Structural Ruin",
@@ -308,11 +309,10 @@ class GtcChunk09RedTest {
         text = "Target player sacrifices an artifact and a land of their choice. Structural Ruin deals 2 damage to that player.",
     ) parsesTo abilities(
         spell(
-            Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Artifact), ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Target("player"))))), n(1), n(1)),
+            Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Target("player"))))), n(2), n(2), oneEach = listOf(ObjectFilter.Type(CardType.Artifact), land)),
                 bind = "sacrificed", chooser = Players.Target("player")),
-            Step.Choose(Choice.Objects(ObjectFilter.And(listOf(land, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Target("player"))))), n(1), n(1)),
-                bind = "sacrificed2", chooser = Players.Target("player")),
-            Step.Do(Effect.Sacrifice(Objects.Union(listOf(Objects.Bound("sacrificed"), Objects.Bound("sacrificed2"))))),
+            Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))),
             Step.Do(Effect.DealDamage(Recipients(players = Players.Target("player")), n(2), source = Objects.Self)),
             targets = listOf(targetPlayer),
         ),

@@ -397,8 +397,8 @@ object HandCasts {
     /** The printed text of a way, for its chip's details: its alternative cost's or special action's; null for a face. */
     private fun wayText(definition: CardDefinition?, input: Input): String? = when (input) {
         is Input.Cast -> input.way.alternative?.let { CastFlow.abilityText(definition, it) }
-        is Input.Activate -> CastFlow.abilityText(definition, input.ability)
-            ?: if (input.ability == FORETELL) "Foretell (During your turn, you may pay {2} and exile this card from your hand face down.)" else null
+        // TBL-115: a special action as an ability reads ("{1}{R}: Plot", "{2}: Foretell")
+        is Input.Activate -> CastFlow.specialActionText(definition, input.ability) ?: CastFlow.abilityText(definition, input.ability)
         else -> null
     }
 

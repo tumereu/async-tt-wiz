@@ -200,6 +200,27 @@ class DskWhiteBlueBlackCardsScenariosTest {
         }
     }
 
+    /** Destroyed with its enters trigger on the Stack: the leaves trigger returns only the creature exiled for its cost, and the enters
+     * trigger still exiles its target, for good (the card's ruling). */
+    // CR 603.10a, 607.2a, 400.7
+    @Test
+    fun dreadOfAbductionLeavingFirstStillExiles() = scenario {
+        alice.battlefield("Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Swamp", human)
+        alice.hand(dreadOfAbduction, Dsk.doom)
+        bob.battlefield(ogre)
+        alice.casts(dreadOfAbduction, choosing = listOf(human))
+        allPass()
+        targetsIfAsked(ogre)
+        kotlin.test.assertEquals(1, state.stack.size)
+        alice.casts(Dsk.doom, target = dreadOfAbduction)
+        resolveAll()
+        expect {
+            alice.graveyard has dreadOfAbduction
+            alice.hand has human
+            bob.exile has ogre
+        }
+    }
+
     @Test
     fun dreadOfImmobilityStunsAnOpponentsCreature() = scenario {
         alice.battlefield("Plains", "Plains", "Plains", "Plains", "Plains")

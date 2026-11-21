@@ -1,0 +1,1 @@
+Alice opened Table actions → Game log after a few turns of Mountains and Ember Cubs: one line per event with its icon, the newest at the bottom, her own name and cards in green and Bob's in red, and the turn and step labels between the lines.

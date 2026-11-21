@@ -46,6 +46,66 @@ class LtrMulticoloredScenariosTest {
         }
     }
 
+    /** Choosing Arathorn itself as the Ring-bearer: the trigger's condition fails, nothing happens. */
+    // CR 603.4
+    @Test
+    fun arathornChosenAsRingBearerGetsNothing() = scenario {
+        alice.battlefield(s.arathornCompanyLeader, p.bear, "Swamp")
+        alice.hand(p.beckon)
+        alice.casts(p.beckon)
+        playOut(s.arathornCompanyLeader, options = listOf("deathtouch"))
+        expect {
+            s.arathornCompanyLeader.counters(CounterKind.Keyword(Keyword.Deathtouch)) shouldBe 0
+            p.bear.counters(CounterKind.Keyword(Keyword.Deathtouch)) shouldBe 0
+        }
+    }
+
+    /** Choosing the creature that already is the Ring-bearer still counts as choosing it (the card's ruling). */
+    // CR 701.54a, 603.4
+    @Test
+    fun arathornCountsRechoosingTheSameRingBearer() = scenario {
+        alice.battlefield(s.arathornCompanyLeader, p.bear, "Swamp", "Swamp")
+        alice.hand(p.beckon, p.beckon)
+        alice.casts(p.beckon)
+        playOut(p.bear, options = listOf("deathtouch"))
+        alice.casts(p.beckon)
+        playOut(p.bear, options = listOf("lifelink"))
+        expect {
+            s.arathornCompanyLeader.counters(CounterKind.Keyword(Keyword.Lifelink)) shouldBe 1
+            p.bear.counters(CounterKind.Keyword(Keyword.Lifelink)) shouldBe 1
+        }
+    }
+
+    /** Two +1/+1 counters put at once: one batch, one trigger, one counter of that kind on the other creature. */
+    // CR 603.2c, 122.6
+    @Test
+    fun arathornSharesOneOfEachKind() = scenario {
+        val surge = Cards.invent("Shirefolk Surge", "{1}{G}", "Instant", "Put two +1/+1 counters on target creature.")
+        alice.battlefield(s.arathornCompanyLeader, p.bear, "Forest", "Forest")
+        alice.hand(surge)
+        alice.casts(surge, target = s.arathornCompanyLeader)
+        playOut(p.bear)
+        expect {
+            s.arathornCompanyLeader.counters(p1p1) shouldBe 2
+            p.bear.counters(p1p1) shouldBe 1
+        }
+    }
+
+    /** Entering with a counter another permanent of yours gives it is a counter you put on it. */
+    // CR 122.6, 122.6a
+    @Test
+    fun arathornEnteringWithACounterShares() = scenario {
+        val banner = Cards.invent("Shirefolk Banner", "{1}{G}", "Enchantment", "Each other creature you control enters with an additional +1/+1 counter on it.")
+        alice.battlefield(banner, p.bear, "Forest", "Plains", "Forest")
+        alice.hand(s.arathornCompanyLeader)
+        alice.casts(s.arathornCompanyLeader)
+        playOut(p.bear)
+        expect {
+            s.arathornCompanyLeader.counters(p1p1) shouldBe 1
+            p.bear.counters(p1p1) shouldBe 1
+        }
+    }
+
     @Test
     fun elessarRedSpellBurns() = scenario {
         alice.battlefield(s.elessarTheUniter, "Mountain")
@@ -249,6 +309,47 @@ class LtrMulticoloredScenariosTest {
         expect {
             bob.graveyard has p.bear
             bob.life shouldBe 18
+        }
+    }
+
+    /** The excess is worked out before prevention: damage prevented to the creature still sends the excess to its controller. */
+    // CR 120.4a, 120.4b
+    @Test
+    fun wizardsSanctionExcessIgnoresPreventionToTheCreature() = scenario {
+        val shield = Cards.invent("Shirefolk Shield", "{W}", "Instant", "Prevent all damage that would be dealt to target creature this turn.")
+        alice.battlefield("Island", "Mountain", "Mountain", "Plains")
+        alice.hand(s.wizardsSanction, shield)
+        alice.graveyard(p.zap, p.zap, p.notes, p.notes)
+        bob.battlefield(p.bear)
+        alice.casts(shield, target = p.bear)
+        playOut()
+        alice.casts(s.wizardsSanction, target = p.bear)
+        playOut()
+        expect {
+            bob.battlefield has p.bear
+            // X is 5 (the shield is in the graveyard too): 3 over the bear's lethal 2
+            bob.life shouldBe 17
+        }
+    }
+
+    /** Lethal damage counts the damage already marked; the creature and its controller are dealt damage in one event, so a damage
+     * doubler doubles both parts of the split, not the excess of a doubled amount. */
+    // CR 120.4a, 120.6, 614.1a
+    @Test
+    fun wizardsSanctionSplitsBeforeReplacement() = scenario {
+        val doubler = Cards.invent("Shirefolk Fury", "{2}{R}", "Enchantment",
+            "If a source you control would deal damage to a permanent or player, it deals double that damage instead.")
+        alice.battlefield("Island", "Mountain", "Mountain", doubler)
+        alice.hand(s.wizardsSanction)
+        alice.graveyard(p.zap, p.zap, p.notes, p.notes)
+        bob.battlefield(p.bear)
+        change(arcanum.engine.change.Changes.damageMarked(state, card(p.bear), 1))
+        alice.casts(s.wizardsSanction, target = p.bear)
+        playOut()
+        expect {
+            bob.graveyard has p.bear
+            // 1 to the bear (1 was marked), 3 to Bob, each doubled
+            bob.life shouldBe 14
         }
     }
 
@@ -469,6 +570,22 @@ class LtrMulticoloredScenariosTest {
         alice.activates(s.sandymanTyrantOfTheShire, ability = 0)
         playOut()
         expect { alice.life shouldBe 21 }
+    }
+
+    /** A borrowed land ability naming its land works on Sandyman: Sandyman is sacrificed (the card's ruling). */
+    // CR 201.5b
+    @Test
+    fun sandymanSacrificesItselfForAStolenAbility() = scenario {
+        val ruin = Cards.invent("Shirefolk Ruin", null, "Land", "{T}: Add {C}.\n{T}, Sacrifice this land: You gain 3 life.")
+        alice.battlefield(s.sandymanTyrantOfTheShire)
+        bob.battlefield(ruin)
+        alice.activates(s.sandymanTyrantOfTheShire, ability = 0)
+        playOut()
+        expect {
+            alice.life shouldBe 23
+            alice.graveyard has s.sandymanTyrantOfTheShire
+            bob.battlefield has ruin
+        }
     }
 
     /** A creature a Spider damaged dies: a Food copy of it. */

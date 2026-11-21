@@ -62,7 +62,7 @@ class TableScreenshotTest {
                     Column(Modifier.fillMaxSize()) {
                         TableSurface(LiveTableFixture.game, board, "a", landscape, Modifier.weight(1f),
                             connected = !paused, onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {}, chatUnread = 1,
+                            runtime = TableRuntimeHooks(chat = {}, history = {}, log = {}, navigation = {}, chatUnread = 1,
                                 undo = { true }, reviewing = paused, controlsConnected = true,
                                 returnCurrent = if (paused) ({}) else null,
                                 bottomPanel = if (paused) ({ _ -> LiveTableFixture.ReviewPanel("a", landscape, at = 5) }) else null))
@@ -217,7 +217,7 @@ class TableScreenshotTest {
                 EngineFixtureTable(play, "a") {
                     TableSurface(LiveTableFixture.game, board, "a", landscape, Modifier.fillMaxSize(),
                         connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                        runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {},
+                        runtime = TableRuntimeHooks(chat = {}, history = {}, log = {}, navigation = {},
                             undo = { true }, controlsConnected = true))
                 }
             }

@@ -172,7 +172,7 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
 const val TimelineSeparatorTag = "timeline-separator"
 /** HIS-005: the test tag of the strip's spinner while older events load. */
 const val TimelineLoadingTag = "timeline-loading"
-private val SeparatorInk = Color(0xff59656a)
+internal val SeparatorInk = Color(0xff59656a)
 private val SeparatorLabelStyle = TextStyle(fontSize = 9.sp, lineHeight = 11.sp, fontWeight = FontWeight.Medium)
 
 /** A recognized hold describes the event and consumes the tap; it never moves the review cursor. */

@@ -98,6 +98,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     SideEffect { eventText.enabled = eventTextEnabled }
     // HIS-031: the change flashes; HIS-030: the card motion of the shown events (none on a load)
     val changes = remember(game.id, playId) { TableChanges() }
+    // HIS-112, HIS-031 (owner, 2026-11-20): the flashes of a special action's card, kept until its play lands in it
+    val heldFlashes = remember(game.id, playId) { HashMap<String, List<TableChange>>() }
     val applied = remember(game.id, playId) { AppliedMarks() }
     // Timeline mode (HIS-004, HIS-012): the board at the review cursor, view-only
     val reviewId = routes.review
@@ -128,7 +130,11 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // board's steps stop where it is on the Stack meanwhile, so nothing after it (its resolution) plays under it
     // (owner playtest 2026-11-15, report VSVLSK) an own action's early board keeps off the plays its event will show too
     val hidden = if (reviewPlay != null) emptySet() else stackAnimation.hidden(shown.moments, shown.coming)
-    val unhidden = reviewPlay ?: motion.board(shown.version, shown.transition, live, hold = stackAnimation.busy, plays = hidden)
+    // HIS-112 (owner, 2026-11-20): the other player's special action shows before its card changes: the board's steps wait
+    // before the step changing the card until its play has landed in it
+    val heldCards = if (reviewPlay != null) emptySet() else stackAnimation.heldCards(shown.moments)
+    val unhidden = reviewPlay ?: motion.board(shown.version, shown.transition, live, hold = stackAnimation.busy, plays = hidden,
+        cards = heldCards)
         .let { b -> routes.assuming()?.board(b) ?: b }
     val play = if (reviewPlay != null) unhidden else stackAnimation.board(unhidden, hidden)
     SideEffect {
@@ -149,12 +155,29 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             when {
                 reviewPlay != null -> null
                 hidden.isNotEmpty() -> "plays shown not landed yet (${hidden.joinToString { it.take(24) }})"
+                heldCards.isNotEmpty() -> "special actions shown not landed yet (${heldCards.joinToString { it.take(24) }})"
                 stackAnimation.busy -> "the top entry's arrows (step 4 of ${(stackAnimation.targeting?.entry ?: stackAnimation.pending)?.take(24)})"
                 motion.playing -> "the board's steps (${motion.key()})"
                 else -> null
             }
         }
         motion.stopEntries = hidden
+        motion.stopCards = heldCards
+        stackAnimation.specialLanded = { show ->
+            val card = show.card?.value
+            if (card != null) {
+                // Its own flashes (a face turned up flips, HIS-031), with the special action's pulse in the door's place
+                val kept = heldFlashes.remove(card).orEmpty().filter { it.key.kind != TableChangeKind.UNLOCK }
+                val flashes = kept + TableChange(TableChangeKey(card, TableChangeKind.SPECIAL), owner = show.by.value)
+                changes.flash(flashes)
+                EngineTableProbe.flashed?.invoke(accountId, flashes)
+                AppLog.info("game", "Special action landed in ${card.take(24)}: it flashes" +
+                    (if (kept.isEmpty()) "" else " with ${kept.joinToString { it.key.kind.name }}"))
+            }
+        }
+        // HIS-031: the flashes kept for a special action's card are dropped when its play ends without landing (a skip, a
+        // take-back): nothing flashes for what was passed
+        if (heldFlashes.keys.retainAll(heldCards)) AppLog.info("game", "Special action flashes dropped: their plays ended without landing")
         stackAnimation.prune(shown.moments)
         if (reviewPlay == null) stackAnimation.drawn(play, instant = shown.transition?.let { it.jump || it.undone != null } ?: true,
             unhidden = unhidden, hidden = hidden)
@@ -222,7 +245,13 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 EngineTableProbe.applied?.invoke(accountId, t, !applied.drawn)
                 // TRN-074: a take-back ends the banner showing
                 if (t.undone != null) routes.banners.drop()
-                changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
+                // HIS-112, HIS-031 (owner, 2026-11-20): a special action's card flashes once its play lands in it, not before
+                val kept = if (t.jump) emptyList() else t.changes.filter { it.key.target in heldCards }
+                for ((card, held) in kept.groupBy { it.key.target }) {
+                    heldFlashes[card] = heldFlashes[card].orEmpty() + held
+                    AppLog.info("game", "Flashes of ${card.take(24)} (${held.joinToString { it.key.kind.name }}) kept until its special action's play lands")
+                }
+                changes.applyEngine(t.cursor, t.jump, t.changes - kept.toSet(), t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
                 // text fades at the top like the other player's); quiet on open and return. §29.4: an undo says what it
                 // took back ("Undid: cast Storm Spark", the other player "Alice undid: …"), even with Event text off
@@ -328,6 +357,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // HIS-008: timeline mode's look, also while a branch's take-back goes back (HIS-106)
     val reviewing = reviewPlay != null || rewindingBranch
     var playbackSettingsOpen by remember(game.id) { mutableStateOf(false) }
+    // HIS-239: the game log, personal UI over the table
+    var logOpen by remember(game.id) { mutableStateOf(false) }
     val timeline = engine.timeline.events(engine, names)
     // A point no longer on the timeline (the device let it go) can't be looked at: timeline mode ends
     LaunchedEffect(reviewId, timeline) { if (reviewId != null && timeline.none { it.id == reviewId }) routes.leaveReview() }
@@ -413,7 +444,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // TBL-118 (owner 2026-11-19): the table's refusal bubbles, rising from what shook
     val refusalBubbles = rememberRefusalBubbles()
     CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap,
-        LocalUnhiddenPlay provides unhidden, LocalRefusalBubbles provides refusalBubbles,
+        LocalUnhiddenPlay provides unhidden, LocalLivePlay provides live, LocalRefusalBubbles provides refusalBubbles,
         LocalDesktopFrame provides desktopFrame, LocalTableHotkeys provides hotkeys.takeIf { desktopLayout },
         LocalPanelOptions provides hotkeys.options.takeIf { desktopLayout }) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
@@ -442,6 +473,11 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 // picks one, and the hooks have a group of their own, so nothing in them reaches the table's
                 val rewindSettled = { _: String -> scope.launch { delay(rewindPause); motion.settled() }; Unit }
                 val enterTimeline = steadyHook { routes.enterReview(timeline.last().id) }
+                val openLog = steadyHook {
+                    AppLog.info("game", "Game log opened: ${timeline.size} events, the newest \"${timeline.lastOrNull()?.description}\" " +
+                        "(${timeline.lastOrNull()?.id?.take(8)}), older history ${if (shown.olderComplete) "complete" else "not all loaded"}")
+                    logOpen = true
+                }
                 val leaveTimeline = { routes.leaveReview() }
                 val reviewPanel: @Composable (@Composable () -> Unit) -> Unit = { _ ->
                     EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
@@ -484,6 +520,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             else -> null
                         },
                         history = if (timeline.isNotEmpty() && !takingBack) enterTimeline else null,
+                        log = if (timeline.isNotEmpty() && !takingBack) openLog else null,
                         returnCurrent = if (reviewPlay != null) leaveTimeline else null,
                         bottomPanel = when {
                             reviewPlay != null && timeline.isNotEmpty() -> reviewPanel
@@ -550,6 +587,33 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     }
     // HIS-010, HIS-028: the timeline panel's gear opens the playback settings
     if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
+    // HIS-239: the game log (the timeline's events and texts, HIS-091); it closes when a branch's take-back starts or timeline
+    // mode opens
+    if (logOpen && (takingBack || reviewPlay != null)) {
+        AppLog.info("game", "Game log closed: ${if (takingBack) "a take-back started" else "timeline mode opened"}")
+        logOpen = false
+    }
+    if (logOpen) {
+        val lines = engine.timeline.log(engine, names)
+        val olderComing = !shown.olderComplete
+        GameLogPanel(lines, accountId, onDismiss = { AppLog.info("game", "Game log closed"); logOpen = false },
+            onPick = { id ->
+                // HIS-241: a line opens timeline mode at its event
+                val line = lines.firstOrNull { it.event.id == id }
+                AppLog.info("game", "Game log: line ${lines.indexOfFirst { it.event.id == id } + 1} of ${lines.size} tapped " +
+                    "(${id.take(8)}, \"${line?.event?.description}\"): timeline mode opens there")
+                logOpen = false
+                if (line != null) routes.enterReview(id)
+            },
+            loadingOlder = olderComing && engine.historyLoading,
+            onTop = {
+                // HIS-172: the oldest line shown asks for older history, back to the game's first event
+                if (olderComing && !engine.historyLoading) {
+                    AppLog.info("game", "Game log: older events asked for (${lines.size} lines shown, the oldest ${lines.firstOrNull()?.event?.id?.take(8)})")
+                    engine.loadOlder()
+                }
+            })
+    }
     if (chatLayer) {
         Dialog(onDismissRequest = controller::closeChat, properties = edgeToEdgeDialogProperties()) {
             TrackGameDialogInput()
@@ -657,6 +721,8 @@ private class AppliedMarks { var transition = 0L; var reviewed: String? = null; 
 object EngineTableProbe {
     @Volatile var applied: ((me: String, transition: EngineGame.Transition, opened: Boolean) -> Unit)? = null
     @Volatile var rewinding: ((me: String) -> Unit)? = null
+    /** HIS-112, HIS-031: the flashes a special action's card starts as its play lands in it. */
+    @Volatile var flashed: ((me: String, changes: List<TableChange>) -> Unit)? = null
 }
 
 /** The ending tools on engine state (TRN-046, TRN-064): suggestions are table changes, conceding an engine input. */

@@ -1156,6 +1156,25 @@ class GtcMonoColorCardsScenariosTest {
         }
     }
 
+    /** An artifact land that is the only artifact goes as the artifact, so another land goes as the land. */
+    // CR 701.21a, 609.3
+    @Test
+    fun structuralRuinTakesAnotherLandBesideAnArtifactLand() = scenario {
+        val foundry = Cards.invent("Gatecrash Foundry", null, "Artifact Land", "{T}: Add {C}.")
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        alice.hand(structuralRuin)
+        bob.battlefield(foundry, "Forest")
+        alice.casts(structuralRuin, target = "bob")
+        resolveAll()
+        // were Bob asked for each type alone, the foundry for both
+        repeat(2) { if (pending is Decision.ChooseObjects) bob.chooses(foundry) }
+        resolveAll()
+        expect {
+            bob.graveyard has foundry
+            bob.graveyard has "Forest"
+        }
+    }
+
     @Test
     fun tinStreetBazaarLoots() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Island")

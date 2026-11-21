@@ -33,6 +33,12 @@ class TableDrawCache(density: Float) {
     fun outline(width: Float, height: Float, token: Boolean) = outlines.getOrPut(FaceKey(width, height, token)) {
         cardSilhouette(width, height, token, 0f, 0f, width / 14f)
     }
+    private data class IconKey(val type: String, val size: Float)
+    private val icons = bounded<IconKey, androidx.compose.ui.graphics.Path>()
+    /** TBL-233: card type [type]'s icon [size] px wide ([CardTypeIcons.path]); empty for a type without one. */
+    fun typeIcon(type: String, size: Float) = icons.getOrPut(IconKey(type, size)) {
+        CardTypeIcons.path(type, size) ?: androidx.compose.ui.graphics.Path()
+    }
 }
 
 /** One drawTable pass: its paint, scaled text helpers and the card-face drawing every layer shares. */
@@ -181,11 +187,77 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         drawCircle(Color.White, r * density, xy(cx, cy), style = Stroke(density))
         zoneGlyph(zone, cx, cy + r * .06f, r / 13f, Color.White)
     }
+    /**
+     * TBL-233 (owner, 2026-11-21): the card's types as small icons ([CardTypeIcons]) at its bottom left, from [left] up to [right]
+     * (card-local dp), as many as fit; on the frame's bottom row centred on [centerY], else ([chip]: a full picture, a custom image,
+     * a face-down card) on a small white chip at the card's bottom.
+     */
+    fun DrawScope.typeIcons(i: TableItem, z: Float, left: Float, right: Float, centerY: Float, chip: Boolean, rowHeight: Float) {
+        if (i.cardTypes.isEmpty()) return
+        val iconSize = minOf((TYPE_ICON_SIZE * valueScale + .5f) * z, rowHeight - 2f * z).coerceAtLeast(2f * z)
+        val gap = .8f * z
+        val pad = if (chip) .9f * z else 0f
+        val shown = CardTypeIcons.fit(i.cardTypes, right - left - 2 * pad + gap, iconSize + gap)
+        if (shown.isEmpty()) return
+        val top = centerY - iconSize / 2
+        if (chip) drawRoundRect(Color.White, xy(left, top - pad), size(shown.size * (iconSize + gap) - gap + 2 * pad, iconSize + 2 * pad),
+            CornerRadius(z * density))
+        var at = left + pad
+        for (type in shown) {
+            translate(at * density, top * density) { drawPath(cache.typeIcon(type, iconSize * density), CardTypeIcons.Ink) }
+            at += iconSize + gap
+        }
+    }
+    /** TBL-233: the white chip's centre for [typeIcons] on a card without the frame's bottom row, [cardHeight] tall. */
+    private fun typeIconChipCenter(cardHeight: Float, z: Float): Float =
+        cardHeight - 1.6f * z - (TYPE_ICON_SIZE * valueScale + .5f) * z / 2 - .9f * z
+    /** TBL-024: where the damage badge's left edge is (card-local dp) for [corner] on a [cardWidth] card, or null without damage. */
+    private fun damageLeft(i: TableItem, corner: String, z: Float, cardWidth: Float): Float? {
+        if (!TablePresentation.nonzero(i.damage)) return null
+        val previous = paint.textSize
+        paint.textSize = 6 * valueScale * z * density
+        val width = (cache.measure(i.damage) / density + 3 * z).coerceAtMost(cardWidth * .42f)
+        paint.textSize = 7 * valueScale * z * density
+        val ptWidth = cache.measure(corner) / density + 3 * z
+        paint.textSize = previous
+        return (cardWidth - ptWidth - width - 2 * z).coerceAtLeast(z)
+    }
+    /**
+     * TBL-235 (owner, 2026-11-21): the card's subtype tags ([SubtypeTags.shown]), dark pills with white text at the art's top right,
+     * one under another from [top] (card units), sized with the counters' bubbles (TBL-135).
+     */
+    fun DrawScope.subtypeTags(i: TableItem, x: Float, y: Float, z: Float, top: Float) {
+        if (i.subtypeTags.isEmpty()) return
+        val height = maxOf(7f, 5.5f * valueScale + 1.5f)
+        // Above the P/T row: as many rows as the art has room for
+        val rows = ((artBottom - .5f - top + .75f) / (height + .75f)).toInt()
+        val tags = SubtypeTags.shown(i.subtypeTags, rows)
+        if (tags.isEmpty()) return
+        paint.textSize = height * .7f * z * density
+        val previous = paint.color
+        paint.color = SubtypeTags.Text.toArgb()
+        var at = top
+        for (tag in tags) {
+            val width = (cache.measure(tag) / (z * density) + 3f).coerceAtMost(25f)
+            val left = 28f - 1.5f - width
+            val corner = CornerRadius(height / 2 * z * density)
+            drawRoundRect(SubtypeTags.Fill, xy(x + left * z, y + at * z), size(width * z, height * z), corner)
+            drawRoundRect(Color.White, xy(x + left * z, y + at * z), size(width * z, height * z), corner, style = Stroke(.5f * z * density))
+            val textWidth = minOf(cache.measure(tag) / density, (width - 2f) * z)
+            clipRect((x + (left + 1f) * z) * density, (y + at * z) * density, (x + (left + width - 1f) * z) * density, (y + (at + height) * z) * density) {
+                text(tag, x + (left + width / 2) * z - textWidth / 2, y + (at + height / 2) * z - cache.centerOffset() / density, tag.length)
+            }
+            at += height + .75f
+        }
+        paint.color = previous
+        paint.textSize = 11 * density
+    }
     fun DrawScope.cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
         counterBubbles(i, x, y, z)
         effectsMarker(i, x, y, z)
+        // TBL-235: the subtype tags start at the art's top, under the chip of what Automatum changed when it has one
+        if (i.automatumMarks.isEmpty()) { subtypeTags(i, x, y, z, titleBand + .5f); return }
         // TBL-113: what Automatum changed on the card besides P/T, one violet-text chip under the title
-        if (i.automatumMarks.isEmpty()) return
         // Use the complete font bounds plus padding, not the old fixed art band.
         paint.textSize = 7 * noteScale * z * density
         val noteMetrics = paint.fontMetrics()
@@ -206,6 +278,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             text(value, x + (b.x + 1f) * z, baseline, value.length)
         }
         paint.color = NativeColors.DKGRAY
+        subtypeTags(i, x, y, z, slot.bottom + .75f)
         paint.textSize = 7 * noteScale * z * density
     }
     fun DrawScope.cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
@@ -234,13 +307,10 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             paint.color = previousColor
         }
         fun damageBadge() {
-            if (!TablePresentation.nonzero(i.damage)) return
+            val left = damageLeft(i, corner, z, cardWidth) ?: return
             val previousColor = paint.color
             paint.textSize = 6 * valueScale * z * density
             val width = (cache.measure(i.damage) / density + 3 * z).coerceAtMost(cardWidth * .42f)
-            paint.textSize = 7 * valueScale * z * density
-            val ptWidth = cache.measure(corner) / density + 3 * z
-            val left = (cardWidth - ptWidth - width - 2 * z).coerceAtLeast(z)
             val height = maxOf(9f, 6 * valueScale + 3) * z
             val top = cardHeight - height - z
             val red = Color(0xffb3261e)
@@ -251,6 +321,21 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             paint.color = if (lethal) NativeColors.WHITE else 0xffb3261e.toInt()
             fittedText(i.damage, left + z, cardHeight - 3 * z, width - 2 * z)
             paint.color = previousColor
+        }
+        /** TBL-233: the left edge of the corner's white badge ([cornerBadge]), or the card's right edge without one. */
+        fun cornerBadgeLeft(): Float {
+            if (i.corner.isEmpty()) return cardWidth
+            val previous = paint.textSize
+            paint.textSize = 7 * valueScale * z * density
+            val badgeWidth = (cache.measure(corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
+            paint.textSize = previous
+            return cardWidth - badgeWidth - 2 * z
+        }
+        /** TBL-233: the type icons on their white chip, on a card without the frame's bottom row; [badge]: its corner badge shows. */
+        fun chipIcons(badge: Boolean) {
+            val inset = if (i.token) cardWidth * .22f else 1.5f * z
+            val right = minOf(if (badge) cornerBadgeLeft() else cardWidth, damageLeft(i, corner, z, cardWidth) ?: cardWidth) - z
+            typeIcons(i, z, inset, right, typeIconChipCenter(cardHeight, z), chip = true, rowHeight = cardHeight)
         }
         fun cornerBadge() {
             if (i.corner.isEmpty()) return
@@ -284,7 +369,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             style = Stroke(edge * density, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * dash, 3 * density * dash)) else null))
         if (i.covered) {
             // Only a public face-down Battlefield card carries values while covered (rules v23).
-            cornerBadge(); damageBadge(); cardAnnotations(i, x, y, z)
+            chipIcons(badge = true); cornerBadge(); damageBadge(); cardAnnotations(i, x, y, z)
             if (i.coveredTitle.isNotEmpty()) {
                 // Its "?" title sits on a white chip like the P/T badge, styled (and blue) like a normal title.
                 paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
@@ -302,7 +387,10 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
             paint.textSize = 11 * density
             return@translate
         }
-        if (mode == TableArtworkMode.CUSTOM_CARD) { damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }
+        if (mode == TableArtworkMode.CUSTOM_CARD) {
+            chipIcons(badge = !fullPicture || fullPictureCorner(i)); damageBadge(); cardAnnotations(i, x, y, z)
+            paint.textSize = 11 * density; return@translate
+        }
         paint.textSize = 7 * titleScale * tz * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * ez
         val textColor = paint.color
@@ -327,6 +415,14 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
         fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * tz, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor
+        // TBL-233: the type icons left of the P/T (and of the damage badge) on the bottom row
+        if (i.cardTypes.isNotEmpty()) {
+            val cornerWidth = if (corner.isEmpty()) 0f else minOf(cache.measure(corner) / density, cardWidth - 2 * titleInset) + 1.5f * z
+            val right = minOf(cardWidth - titleInset - cornerWidth, (damageLeft(i, corner, z, cardWidth) ?: cardWidth) - .5f * z)
+            // a token's cut corner leaves room nearer its edge at the icons' height than at its title's
+            val left = if (i.token) cardWidth * .16f else titleInset
+            typeIcons(i, z, left, right, (artEnd + cardHeight) / 2, chip = false, rowHeight = cardHeight - artEnd)
+        }
         crewLine()
         damageBadge()
         cardAnnotations(i, x, y, z)
@@ -398,6 +494,9 @@ val AbilityTokenTextColor = Color(0xffe8e2f0)
  * frame around their art (the hand's cards are 5.2 times the phone's; the battlefield's 2). */
 const val DESKTOP_HAND_TEXT_SCALE = 2.4f
 const val DESKTOP_HAND_EDGE_SCALE = 2f
+
+/** TBL-233: a type icon's width at the P/T & counters text size 1× (card units). */
+const val TYPE_ICON_SIZE = 5f
 
 /** TBL-139: a full picture's border width (dp), thin at any card size. */
 const val FULL_PICTURE_EDGE = 1.5f

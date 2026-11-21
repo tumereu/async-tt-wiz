@@ -44,6 +44,11 @@ The definition model (overview in `Definitions.kt`):
   `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
   `ManaProduction`, `TokenSpec`, `KeywordAction`.
 - `Ability.isManaAbility()`: whether an ability is a mana ability (CR 605.1a/b), derived from its shape.
+- `SubtypeReferences.of(ability | face | definition)`: the subtypes its abilities pick objects by (`ObjectFilter.Sub`: "Lizards
+  you control", "each saddled Mount", "enchant Forest", "the chosen type" as `SubtypeRef.Remembered`), keyword expansions
+  included; the card's own type line, tokens it creates and subtypes it gives are not references. Kept per face, worked out
+  once (`FaceDefinition.abilitySubtypeReferences`, `referencedSubtypes`; not part of the JSON), so a host can point out the
+  subtypes a card cares about.
 - `TargetSlot.span` (`TextSpan`): where a slot's target phrase ("any target", "up to two target creatures") sits in the
   printed text of its ability, or of its mode (`Mode.text`) for a mode's slot, so a host can show a spell or ability with
   its chosen targets' names in place of the phrase. Text only, no rules meaning; null when unknown.

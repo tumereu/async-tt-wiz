@@ -360,6 +360,11 @@ object TestCards {
         "1", "1")
     /** TBL-021, TBL-135: a free planeswalker, its loyalty the number in its corner. */
     val sage = card("Ember Sage", "Legendary Planeswalker — Chandra", "{0}", "[+1]: You gain 1 life.", loyalty = "3")
+    /** TBL-234, TBL-237: free Lizards and Goblins and a lord of each, whose subtype shows as a tag while a card you can see refers to it. */
+    val basker = card("Sunbaked Basker", "Creature — Lizard", "{0}", power = "1", toughness = "1")
+    val scaleChief = card("Dunescale Chief", "Creature — Lizard Warrior", "{0}", "Other Lizards you control get +1/+1.", "2", "2")
+    val cinderGoblin = card("Cinder Goblin", "Creature — Goblin", "{0}", power = "1", toughness = "1")
+    val warcaller = card("Goblin Warcaller", "Creature — Goblin", "{0}", "Other Goblins you control get +1/+1.", "2", "2")
 
     /** HIS-114: a free permanent that puts itself into its graveyard, and free spells moving a card out of it: to the hand
      * (a hidden zone) and to the battlefield. */

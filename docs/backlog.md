@@ -12,7 +12,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ### Owner playtest (owner, 2026-11-21)
 
-- Battlefield cards show small card type icons; subtypes show as small tags only when a card the player can see cares about them: their own hand, either battlefield, the Stack (never the other player's hidden hand), and a subtype shows on either player's permanents, since control can change (new entries).
 - Game log and timeline texts name targets (HIS-091; the game log's entries).
 
 ### Earlier

@@ -1,0 +1,1 @@
+fix: Catch // Release and Structural Collapse can't count one permanent twice (an artifact creature as both the artifact and the creature): players sacrifice different permanents, as many of those asked for as they can

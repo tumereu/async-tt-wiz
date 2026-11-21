@@ -285,7 +285,21 @@ internal class Sentences(
      * creature token with "When this token dies, …"', 'creatures you control have "{T}: Add {G}."') keeps the words players
      * read for it in a card menu or on the Stack (owner fault 2PTQG5); null when it can't be read.
      */
-    fun line(line: String): Ability? = lineAbility(line)?.let { with(OracleParser) { it.withText(line) } }
+    fun line(line: String): Ability? = lineAbility(line)?.takeIf { removedThisWayFits(line, it) }?.let { with(OracleParser) { it.withText(line) } }
+
+    /**
+     * gtc chunk 04: "the number of [kind] counters removed this way" is the number of counters the activated ability's cost removed,
+     * announced as it was activated (CR 601.2f, 602.2b): [ability] reads only when it is an activated ability whose cost removes an
+     * announced number of counters of each kind named (CR 122.1: counters of different kinds are different), not a spell's or a
+     * trigger's, nor one whose cost removes another kind. A quoted ability is read, and checked, as a line of its own.
+     */
+    private fun removedThisWayFits(line: String, ability: Ability): Boolean {
+        val named = LazyRegexes.COUNTERS_REMOVED_THIS_WAY.findAll(line.replace(LazyRegexes.QUOTED_ABILITY, "")).map { it.groupValues[1] }.toList()
+        if (named.isEmpty()) return true
+        val removed = (ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.RemoveCounters>()
+            .filter { it.amount == Value.Announced(name = "X") }.map { it.kind }
+        return named.all { Counters.kind(it)?.let { kind -> kind in removed } == true }
+    }
 
     private fun lineAbility(line: String): Ability? {
         mkmLine(line)?.let { return it } // mkm
@@ -7723,17 +7737,16 @@ internal class Sentences(
         }
         // gtc chunk 08: "Target player sacrifices a creature of their choice, then gains life equal to that creature's toughness."
         // / "Target player sacrifices an artifact and a land of their choice." (one sacrifice event, CR 701.21a)
+        // (an artifact land is the artifact or the land, not both: different permanents, as many as can be, CR 701.21a, 609.3)
         Gtc.TARGET_PLAYER_SACRIFICES.matchEntire(sentence)?.let { m ->
             val player = context.targetPlayer()
             val nouns = m.groupValues[1].split(" and ").map { it.removeArticle() }
-            val binds = nouns.indices.map { if (it == 0) "sacrificed" else "sacrificed${it + 1}" }
-            val chooses = nouns.zip(binds).map { (noun, bind) ->
-                Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(player))),
-                    Value.Fixed(1), Value.Fixed(1)), bind = bind, chooser = player)
-            }
-            val all = if (binds.size == 1) Objects.Bound(binds[0]) else Objects.Union(binds.map { Objects.Bound(it) })
+            val chooses = if (nouns.size == 1) listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(nouns[0]) ?: return null,
+                ObjectFilter.ControlledBy(PlayerFilter.Is(player))), Value.Fixed(1), Value.Fixed(1)), bind = "sacrificed", chooser = player))
+                else listOf(gtcOneOfEach(nouns, player, "sacrificed") ?: return null)
+            val all = Objects.Bound("sacrificed")
             val then = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { gain ->
-                if (gain != "toughness") return null
+                if (gain != "toughness" || nouns.size > 1) return null
                 listOf(Step.Do(Effect.GainLife(player, Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Bound("sacrificed"), arcanum.api.Combine.Single))))
             }.orEmpty()
             context.lastPlayer = player
@@ -7923,6 +7936,14 @@ internal class Sentences(
                 Value.Of(arcanum.api.NumericProperty.Toughness, of, arcanum.api.Combine.Single))))))
         }
         return null
+    }
+
+    /** gtc, dgm: [player] chooses one permanent they control for each of [nouns] ("an artifact and a land"), all different and as many as can
+     * be (CR 701.21a, 609.3), bound as [bind]; null when a noun can't be read. */
+    private fun gtcOneOfEach(nouns: List<String>, player: Players, bind: String): Step.Choose? {
+        val filters = nouns.map { Filters.noun(it) ?: return null }
+        return Step.Choose(arcanum.api.Choice.Objects(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+            ObjectFilter.ControlledBy(PlayerFilter.Is(player))), Value.Fixed(nouns.size), Value.Fixed(nouns.size), oneEach = filters), bind = bind, chooser = player)
     }
 
     /** gtc: cost parts ("Remove five blaze counters from this enchantment", "Remove one or more +1/+1 counters from among
@@ -8576,18 +8597,15 @@ internal class Sentences(
             val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
             return listOf(apply(listOf(Mechanic.MustBlock(ObjectFilter.Is(target))), Objects.Each(ObjectFilter.Type(CardType.Creature))))
         }
-        // dgm: "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice." (one event)
+        // dgm: "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice." (one event; each
+        // player in turn order chooses different permanents, as close to one of each as they can, CR 101.4, 701.21a, 609.3)
         Gtc.EACH_PLAYER_SACRIFICES_LIST.matchEntire(sentence)?.let { m ->
             val nouns = m.groupValues[1].split(LazyRegexes.AND_LIST).map { it.removeArticle() }
             if (nouns.size < 2) return@let
             val player = Players.Bound("player")
-            val binds = nouns.indices.map { "sacrificed${it + 1}" }
-            val chooses = nouns.zip(binds).map { (noun, bind) ->
-                Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(player))),
-                    Value.Fixed(1), Value.Fixed(1)), bind = bind, chooser = player)
-            }
+            val choose = gtcOneOfEach(nouns, player, "sacrificed") ?: return null
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), "player",
-                chooses + Step.Do(Effect.Sacrifice(Objects.Union(binds.map { Objects.Bound(it) }))), together = true))
+                listOf(choose, Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed")))), together = true))
         }
         // dgm: "Put X +1/+1 counters on target creature, where X is the power of the card you exiled."
         Gtc.PUT_X_COUNTERS_POWER_OF_EXILED.matchEntire(sentence)?.let { m ->
@@ -32347,12 +32365,12 @@ internal class Sentences(
                 Step.Do(amass.copy(action = action.copy(count = Value.Count(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard),
                     ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Target(player))))))))))
         }
-        // ltr chunk 12: "[This] deals X damage to target creature, where X is …. Excess damage is dealt to that creature's controller instead." (CR 120.4a)
+        // ltr chunk 12: "[This] deals X damage to target creature, where X is …. Excess damage is dealt to that creature's controller instead." (CR 120.4a:
+        // the damage event is modified before prevention and replacement, and the creature and its controller are dealt damage at once)
         Ltr.DEALS_X_EXCESS_TO_CONTROLLER.matchEntire(body)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val objects = ltrObjects(m.groupValues[2], context) ?: return@let
             val x = if (m.groupValues[3].isEmpty()) Value.Announced(name = "X") else context.value(m.groupValues[3]) ?: return@let
-            return listOf(Step.Do(Effect.DealDamage(Recipients(objects = objects), x, Objects.Self, bind = "damage")),
-                Step.Do(Effect.DealDamage(Recipients(players = Players.ControllerOf(objects)), Value.Excess("damage"), Objects.Self)))
+            return listOf(Step.Do(Effect.DealDamage(Recipients(objects = objects), x, Objects.Self, excessTo = Recipients(players = Players.ControllerOf(objects)))))
         }
         // ltr chunk 11: "You may reveal the top card of your library. If a land card is revealed this way, put it onto the battlefield tapped."
         Ltr.MAY_REVEAL_TOP_IF_REVEALED.matchEntire(body)?.let { m ->

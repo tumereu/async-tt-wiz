@@ -5,18 +5,19 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.performClick
+import org.asyncttwiz.android.CHOICE_SOURCE_NAME_TAG
 import org.asyncttwiz.android.CHOICE_SOURCE_TAG
 import org.junit.Test
 import kotlin.test.assertTrue
 
 /**
- * Owner, 2026-11-05: Automatum's choice panels name their source by the card, not by text. Alice casts Storm Spark: its
- * target bar says only "Choose any target", the Spark sits at the bar's right as a small card, and holding it inspects
- * it; the cast then goes on as usual.
+ * Owner, 2026-11-05: Automatum's choice panels show their source as its card. Alice casts Storm Spark: its target bar's title
+ * says only "Choose any target", the Spark sits at the bar's right as a small card, and holding it inspects it; owner
+ * 2026-11-21 (E12): beside it, under the title, the bar names the spell. The cast then goes on as usual.
  */
 class TargetBarSourceTest : E2e() {
-    // STK-044, STK-177, STK-178, STK-047, STK-142, TBL-104: the target bar's title is only the choice, the spell is the card at its right, and
-    // holding that card shows Inspect with the Spark's picture until released
+    // STK-044, STK-177, STK-178, STK-226, STK-047, STK-142, TBL-104: the target bar's title is only the choice, the spell is the card at its
+    // right and named under the title, and holding that card shows Inspect with the Spark's picture until released
     @Test fun aTargetedSpellsBarShowsItsCardAtTheRight() {
         startGame(TestDeck.sparks(), deal = { a, _ -> "Mountain" in hand(a) && "Storm Spark" in hand(a) })
         bothOpen()
@@ -30,6 +31,8 @@ class TargetBarSourceTest : E2e() {
         val card = source.fetchSemanticsNode().boundsInRoot
         val title = alice.node(hasText("Choose any target") and isHeading()).fetchSemanticsNode().boundsInRoot
         assertTrue(bar.right - card.right < 20f && card.left >= title.right, "the Spark at the bar's right: $card, bar $bar, title $title")
+        val named = alice.node(hasTestTag(CHOICE_SOURCE_NAME_TAG) and hasText("Storm Spark")).fetchSemanticsNode().boundsInRoot
+        assertTrue(named.top >= title.bottom - 1f && named.right <= card.left + 1f, "the Spark named under the title: $named, title $title, card $card")
         holding(source) {
             val shown = alice.screen()
             for (part in listOf("Card inspection content", "Card image: Storm Spark")) assertTrue(part in shown, "$part: $shown")

@@ -35,7 +35,8 @@ import kotlin.test.assertTrue
 
 /**
  * STK-222, STK-223, WEB-141 (owner playtest after 0.3.0: "all panels are that size if they are draggable"): the large panels
- * above the hand have a drag handle at their top edge, and one size shared by all of them, kept on the device.
+ * above the hand have a drag handle at their top edge while some of their content is cut off (owner 2026-11-21, E14), and one size
+ * shared by all of them, kept on the device.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -120,14 +121,19 @@ class ResizablePanelsTest {
         assertEquals(kept + 52f + 8f, height("Keep or bottom"))
     }
 
-    // STK-222: a panel whose content is no taller than the smallest size, and the damage division, have no handle
-    @Test fun aShortPanelAndTheDivisionHaveNoHandle() {
+    // STK-222 (owner 2026-11-21, E14): a panel whose content fits, short or taller than the smallest size, opens at the size its
+    // content needs and has no handle; one whose content is cut off has it; the damage division never
+    @Test fun onlyAPanelWithContentCutOffHasAHandle() {
         var shown by mutableStateOf(large("Choice", 2))
         render({ shown })
         assertEquals(0, handles(), "short: no handle")
+        compose.runOnIdle { shown = large("Choice", 6) }
+        compose.waitForIdle()
+        assertEquals(6 * 40f + 5 * 6f + 8f + 52f, height("Choice"), "fits: as tall as its content and the button row")
+        assertEquals(0, handles(), "taller than the smallest size but all shown: no handle")
         compose.runOnIdle { shown = large("Choice", 20) }
         compose.waitForIdle()
-        assertEquals(1, handles(), "tall: the handle")
+        assertEquals(1, handles(), "cut off: the handle")
         compose.runOnIdle { shown = Triple("Division", 20, false) }
         compose.waitForIdle()
         assertEquals(0, handles(), "division: no handle")

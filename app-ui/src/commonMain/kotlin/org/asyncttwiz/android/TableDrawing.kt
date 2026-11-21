@@ -27,6 +27,14 @@ import org.asyncttwiz.appui.nativeRestoreToCount
 /** ZON-079, ZON-080 (I-D50): the mana sources Autotap would tap for the raised hand card, and the extras' chips. */
 val AutotapAmber = Color(0xffe09a1c)
 
+/** CMB-001, CMB-056: where the combat band lies on the screen (dp): between the battlefields, across the visible table's whole
+ * width; null without a laid-out table. */
+fun TableScene.combatBandBounds(): TableBounds? {
+    val top = fields.firstOrNull() ?: return null
+    val bottom = fields.lastOrNull() ?: return null
+    return world?.horizontalBand(TableBounds(0f, top.gridBounds.bottom, 0f, bottom.gridBounds.y - top.gridBounds.bottom))
+}
+
 fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, preview: TableGesturePreview,
     alphas: Map<String, Float> = emptyMap(), artwork: Map<String, ImageBitmap> = emptyMap(),
     cache: TableDrawCache, presenceDot: PresenceDot? = null,
@@ -59,7 +67,10 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
      * ([drawPileBadges]: over the Stack's target arrows, STK-058). */
     pileBadges: Boolean = true,
     /** WEB-140: the item the mouse is over on the desktop table (an item id), outlined thinly in dark ink. */
-    hovered: String? = null) {
+    hovered: String? = null,
+    /** CMB-097 (owner 2026-11-21, E13): how far the combat band's cream has given way to the declaring band under the table
+     * (0–1, fading as declaring starts and ends). */
+    declaring: Float = 0f) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     for (f in scene.fields) {
@@ -75,11 +86,11 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     // CMB-001, CMB-007 (owner playtest 2026-11-06): the band between the battlefields is part of the table: a cream area
     // across its whole width, collapsed to its chip row or open with the lanes, their separators running through it (the
-    // chips and values are drawn over it, CombatAreaOverlay)
-    scene.world?.let { world -> world.horizontalBand(TableBounds(0f, scene.fields.first().gridBounds.bottom,
-        0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)) }?.let { b ->
+    // chips and values are drawn over it, CombatAreaOverlay). CMB-097 (owner 2026-11-21, E13): while the viewer declares, its
+    // cream gives way ([declaring]) to the orange band glowing under the table ([DeclaringBand])
+    scene.combatBandBounds()?.let { b ->
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
-            drawRect(CombatBandColor, xy(b.x, b.y), size(b.width, b.height))
+            if (declaring < 1f) drawRect(CombatBandColor.copy(alpha = 1f - declaring.coerceIn(0f, 1f)), xy(b.x, b.y), size(b.width, b.height))
             if (scene.combatPanel != null) for ((from, to) in scene.combatLaneDividers) drawLine(
                 Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA), xy(from.x, from.y), xy(to.x, to.y),
                 CombatStackPresentation.laneDividerStroke(scene.combatCardWidth) * density)

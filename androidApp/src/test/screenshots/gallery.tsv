@@ -1,14 +1,14 @@
 number	item	screenshot	catalog	decisions	sequence
 1	Cast panel with a mode to choose	choice-source/cast-panel.png	STK-023 STK-044	Modes
 2	Announced number (X) in the cast panel	cast-panel/x-cast.png	STK-023 STK-052	Announce
-3	Target bar of a spell	choice-source/target-bar.png	STK-044 STK-047	Targets
+3	Target bar of a spell, the spell named under its title	choice-source/target-bar.png	STK-044 STK-047 STK-226	Targets
 4	Target bar of an activated ability	choice-source/target-bar-ability.png	STK-046 STK-047
-5	Target bar of a trigger	choice-source/trigger-target-bar.png	STK-030 STK-046
+5	Target bar of a trigger, "Spark Seer's ability" and its text under the title	choice-source/trigger-target-bar.png	STK-030 STK-046 STK-226
 6	Stack list as a target list	choice-source/stack-target-list.png	STK-018 STK-048 SYS-042
 7	Stack list	engine/stack-ability-list.png	STK-046
 8	Ability token on the Stack	engine/stack-ability.png	STK-046
 9	Ability token's Inspect	engine/stack-ability-inspect.png	STK-050 TBL-104
-10	Open choice panel (scry)	choice-source/open-choice.png	STK-030 STK-044	ChooseObjects
+10	Open choice panel (scry), the spell named under its title, no handle as it fits	choice-source/open-choice.png	STK-030 STK-044 STK-226 STK-222	ChooseObjects
 11	Library search panel	choice-source/library-search.png	STK-044 STK-056	ChooseObjects
 12	Inspect with a card's changes	inspect/changes-portrait.png	TBL-104 TBL-111
 13	Pinned Inspect	inspect/changes-pinned.png	TBL-131
@@ -300,7 +300,7 @@ number	item	screenshot	catalog	decisions	sequence
 299	An invitation saying its creator lends you decks	lending/invitation-lends-decks.png	LOB-252		Lending decks
 300	Choose deck in a battle box: the creator's lent decks first by category, your own greyed	lending/choose-lent-deck.png	LOB-255 LOB-249		Lending decks
 301	A Random battle box's lobby: the decks dealt as the game starts, only Ready to press	lending/lobby-random.png	LOB-250		Lending decks
-302	A copy's question of new targets: the ability it copies at the panel's right	choice-source/copy-new-targets.png	STK-178 STK-212		Copies
+302	A copy's question of new targets: the ability it copies at the panel's right, named "Copy of Spark Seer's triggered ability" with its text	choice-source/copy-new-targets.png	STK-178 STK-212 STK-226 STK-227		Copies
 303	Stack list with a copied trigger: "Copy of …" and the copy marker over the original	choice-source/stack-copy-list.png	STK-212 STK-018		Copies
 304	Cards exiled from a library show as a reveal	engine/reveal-panel-library-exile.png	HIS-233 HIS-110 STK-044		
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
@@ -337,10 +337,10 @@ number	item	screenshot	catalog	decisions	sequence
 364	Clip: the turn banner shows and fades	clips/turn-banner.webp	TRN-074
 365	Clip: tapping an earlier event in the Undo dialog's strip	clips/undo-strip.webp	HIS-099 HIS-207 HIS-208
 380	Resizable panels: the search panel dragged shorter by its handle at the top edge	choice-source/library-search-resized.png	STK-222 STK-223
-390	Declaring attackers: the table framed in red-orange with its chip, what can't attack dimmed	combat-band/declaring-attackers.png	CMB-095 CMB-096		
-391	Declaring blockers: the frame with the blockers' chip, what can't block dimmed	combat-band/declaring-blockers.png	CMB-095 CMB-096		
-392	Desktop table: declaring attackers, the frame and chip, what can't attack dimmed	desktop/declaring-attackers.png	CMB-095 CMB-096 WEB-015		
-393	Desktop table: declaring blockers, the frame and chip, what can't block dimmed	desktop/declaring-blockers.png	CMB-095 CMB-096 WEB-015		
+390	Declaring attackers: the combat band orange with a wave of light, the chip at the top, what can't attack dimmed	combat-band/declaring-attackers.png	CMB-095 CMB-097 CMB-096		
+391	Declaring blockers: the orange glowing band with the blockers' chip, what can't block dimmed	combat-band/declaring-blockers.png	CMB-095 CMB-097 CMB-096		
+392	Desktop table: declaring attackers, the orange glowing band and chip, what can't attack dimmed	desktop/declaring-attackers.png	CMB-095 CMB-097 CMB-096 WEB-015		
+393	Desktop table: declaring blockers, the orange glowing band and chip, what can't block dimmed	desktop/declaring-blockers.png	CMB-095 CMB-097 CMB-096 WEB-015		
 400	Draft: the Auto toggle off beside Confirm	draft/autoconfirm-off.png	DRF-293		Autoconfirm
 401	Draft: Auto on, Confirm yellow with its shine	draft/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
 402	Clip: Auto turning on, the shine sweeping across Confirm and back	clips/autoconfirm-shine.webp	DRF-294 DRF-293		Autoconfirm

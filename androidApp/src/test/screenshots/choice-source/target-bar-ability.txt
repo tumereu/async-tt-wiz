@@ -1,1 +1,1 @@
-Alice tapped her Spark Totem to activate its ability: the bar above her hand says only "Choose any target", and at its right is the ability as a small dark token filled with the Totem's art and an "A" chip at its bottom, not the Totem card.
+Alice tapped her Spark Totem to activate its ability: the bar above her hand is titled "Choose any target" over "Spark Totem's ability" and the ability's text, and at its right is the ability as a small dark token filled with the Totem's art and an "A" chip at its bottom, not the Totem card.

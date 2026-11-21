@@ -530,11 +530,16 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             val placingBlocks = assumingBlocks || LocalEngineRoutes.current?.mayAct() != false
             val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.let {
                 it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty()
-            // CMB-095, CMB-096 (owner playtest 2026-11-21): while the viewer declares attackers or blockers the table is framed and
-            // the cards on their battlefield that can't take part are dimmed
+            // CMB-095, CMB-096 (owner playtest 2026-11-21): while the viewer declares attackers or blockers a chip says so, the
+            // combat band glows orange (owner 2026-11-21, E13) and the cards on their battlefield that can't take part are dimmed
             val declaring = if (runtime.reviewing || !writable || LocalEngineRoutes.current?.mayAct() == false) null
                 else toolkit?.combat?.declaring(play, accountId)
             val declareDimmed = if (declaring == null) emptySet() else DeclaringLook.dimmed(play.board, accountId, attackGlow)
+            // Read while drawing: its fade redraws the table and the band, recomposing nothing
+            val declaringLevel = androidx.compose.animation.core.animateFloatAsState(if (declaring != null) 1f else 0f,
+                tween(DeclaringLook.FADE_MILLIS), label = "Declaring")
+            // CMB-097 (E13): the orange band and its waves, under the table, which lets them through its band
+            DeclaringBand(declaringLevel) { rendered.value.scene }
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
             // TBL-118 (owner 2026-11-19): the shake's reason rises from the item it shook (in the middle when the table doesn't
@@ -586,7 +591,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
                     attackable = glows.attack, expandGlow = glows.expand, mana = glows.mana, pressed = pressGlow.value, picked = glows.picked, pileBadges = false,
                     // WEB-140: what the mouse is over on the desktop table (not while it is on a hand card's chips above it)
-                    hovered = mouse.hovered?.takeIf { desktopFrame != null && !desktopHover.overChips && it.kind != TableItemKind.HAND }?.id)
+                    hovered = mouse.hovered?.takeIf { desktopFrame != null && !desktopHover.overChips && it.kind != TableItemKind.HAND }?.id,
+                    declaring = declaringLevel.value)
             }
             // STK-047 (owner, 2026-11-12): a pile holding a card the viewer may target or choose glows over its whole face,
             // pulsing, in a layer of its own
@@ -595,8 +601,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 TableGlows.of(scene.battlefieldGroups, groupTaps, emptyMap(), castGlow).spread
             }
             PileChoiceGlow(scene, castGlow, rendered, spreadGroups)
-            // CMB-095 (owner playtest 2026-11-21): the declaring frame and its chip, drawn only
-            DeclaringFrame(scene, declaring, desktopGeometry)
+            // CMB-095 (owner playtest 2026-11-21): the declaring chip, drawn only
+            DeclaringChip(scene, declaring, declaringLevel, desktopGeometry)
             TableSemanticsLayer(animation, targetScene, animationRevision) { semanticItems ->
                 TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                     { preview }, layoutState, groupTaps, fieldsNow = { sceneNow.value.scene.fields })

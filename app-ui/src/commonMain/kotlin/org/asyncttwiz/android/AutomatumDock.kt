@@ -202,9 +202,10 @@ fun DockButtons(content: @Composable RowScope.() -> Unit) {
 }
 
 /** A target bar's title ("Choose any target") over the sentence it asks about ([line], STK-047), in the bar's room; [count]: how
- * many are picked of how many (owner playtest 2026-11-09), beside the title. */
+ * many are picked of how many (owner playtest 2026-11-09), beside the title. STK-178 (owner 2026-11-21, E12): [source] names
+ * what the choice comes from, between the title and the sentence. */
 @Composable
-fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null, pieces: List<PickPiece>? = null) {
+fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null, pieces: List<PickPiece>? = null, source: String? = null) {
     Column(Modifier.weight(1f).padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CardText(title, Modifier.weight(1f, fill = false).semantics { heading() }, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp,
@@ -212,6 +213,7 @@ fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null,
             if (count != null) Text(count, Modifier.semantics { contentDescription = "Picked: $count" }, fontSize = 12.sp,
                 fontWeight = FontWeight.Medium, color = AutomatumViolet, maxLines = 1)
         }
+        if (source != null) ChoiceSourceName(source, small = true)
         // STK-047 (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining, earlier picks named
         if (!pieces.isNullOrEmpty()) TargetBarLine(pieces.joinToString("") { it.text }, pieces)
         else if (line != null) TargetBarLine(line, null)
@@ -261,6 +263,35 @@ private fun TargetBarLine(line: String, pieces: List<PickPiece>?) {
 
 /** The test tag of a choice's source card ([ChoiceSource]). */
 const val CHOICE_SOURCE_TAG = "choice-source"
+
+/** The test tag of a choice's source named in words beside its card ([ChoiceSourceName], STK-178). */
+const val CHOICE_SOURCE_NAME_TAG = "choice-source-name"
+
+/**
+ * STK-178 (owner 2026-11-21, E12): what a choice comes from in words, beside its source card: the source's [name] ("Ember
+ * Kindler's ability", "Copy of Spark Seer's triggered ability", a spell's or permanent's name) and an ability's whole [text].
+ */
+data class ChoiceSourceWords(val name: String, val text: String?) {
+    companion object {
+        /** The words of [source] as its card or token at the panel's right shows it; [copy]: the choice is asked for a copy of it
+         * before the copy is put on the Stack (CR 707.10c), so it is named as the copy. None for no source or one the viewer
+         * may not see. */
+        fun of(source: ChoiceCardData?, copy: Boolean = false): ChoiceSourceWords? {
+            if (source == null || !source.shown) return null
+            val ability = source.ability?.let { if (copy && !it.copy) it.copy(copy = true) else it }
+            if (ability != null) return ChoiceSourceWords(ability.name, ability.text.trim().ifEmpty { null })
+            return ChoiceSourceWords(if (copy) "Copy of ${source.name}" else source.name, null)
+        }
+    }
+}
+
+/** STK-178 (E12): the name of what a choice comes from, under the panel's or bar's title ([small] in a slim bar). */
+@Composable
+fun ChoiceSourceName(name: String, small: Boolean = false) {
+    Text(name, Modifier.testTag(CHOICE_SOURCE_NAME_TAG), color = MenuInk, fontSize = if (small) 11.sp else 12.sp,
+        lineHeight = if (small) 13.sp else 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+}
 
 /**
  * STK-044 (owner 2026-11-05): where the choice comes from, at the right of every Automatum panel and target bar: its card,

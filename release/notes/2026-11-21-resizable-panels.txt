@@ -1,1 +1,1 @@
-add: The cast panel and the choice panels have a handle on their top edge: drag it to make them taller or shorter. All of them keep the size you choose.
+add: Panels above your hand open as tall as they need; when something in them doesn't fit, a handle on their top edge lets you drag them taller or shorter. All of them keep the size you choose.

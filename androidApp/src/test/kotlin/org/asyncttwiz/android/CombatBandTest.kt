@@ -772,10 +772,10 @@ class CombatBandTest {
         return attacker
     }
 
-    // CMB-095, CMB-096, CMB-047 (owner playtest 2026-11-21): while Alice declares attackers her table is framed in red-orange with
-    // the chip saying abilities can't be used; her lands and the Cub cast this turn (it can't attack) are dimmed, the ready Cub
-    // keeps its glow
-    @Test fun declaringAttackersFramesTheTableAndDimsWhatCantAttack() {
+    // CMB-095, CMB-097, CMB-096, CMB-047 (owner playtest 2026-11-21; E13): while Alice declares attackers the chip says abilities can't
+    // be used and the combat band glows orange (no frame); her lands and the Cub cast this turn (it can't attack) are dimmed, the
+    // ready Cub keeps its glow
+    @Test fun declaringAttackersGlowsTheBandAndDimsWhatCantAttack() {
         bobCastsACub()
         val ready = k.toReadyCub()
         k.bobMain = null
@@ -791,13 +791,14 @@ class CombatBandTest {
         assertEquals((mountains + sick).toSet(), dimmed, "the lands and the summoning-sick Cub dimmed, not $ready")
         render()
         compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Attackers.chip))
+        compose.onNodeWithTag(DECLARING_BAND_TAG).assertExists()
         captureShot("$SCREENSHOTS/combat-band/declaring-attackers.png",
-            "Alice moved on to declaring attackers: her table is framed in red-orange with the chip \"Declaring attackers: abilities can't be used now\" at its top; her ready Ember Cub glows red-orange while her Mountains and the Cub cast this turn are dimmed.")
+            "Alice moved on to declaring attackers: the chip \"Declaring attackers: abilities can't be used now\" sits at the table's top and the combat band between the battlefields is orange with a wave of light crossing it; her ready Ember Cub glows red-orange while her Mountains and the Cub cast this turn are dimmed.")
     }
 
-    // CMB-095, CMB-096, CMB-034 (owner playtest 2026-11-21): while Bob declares blockers his table is framed with the blockers' chip;
-    // his Mountain is dimmed, his Cub that may block keeps its glow; Alice, waiting for his blocks, sees no frame
-    @Test fun declaringBlockersFramesTheTableAndDimsWhatCantBlock() {
+    // CMB-095, CMB-097, CMB-096, CMB-034 (owner playtest 2026-11-21; E13): while Bob declares blockers he sees the blockers' chip and
+    // the orange combat band; his Mountain is dimmed, his Cub that may block keeps its glow; Alice, waiting for his blocks, declares nothing
+    @Test fun declaringBlockersGlowsTheBandAndDimsWhatCantBlock() {
         bobDeclaringAgainstOne()
         val play = k.bob.play()
         assertEquals(CombatDeclaring.Blockers, k.bobToolkit.combat.declaring(play, k.f.b))
@@ -806,7 +807,8 @@ class CombatBandTest {
         assertEquals(k.field("Mountain", k.other).map(k::atw).toSet(), dimmed, "only his Mountain dimmed")
         render(k.f.b)
         compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Blockers.chip))
+        compose.onNodeWithTag(DECLARING_BAND_TAG).assertExists()
         captureShot("$SCREENSHOTS/combat-band/declaring-blockers.png",
-            "Alice attacked with her Ember Cub and Bob declares blockers: his table is framed in red-orange with the chip \"Declaring blockers: abilities can't be used now\" at its top; his Cub that may block glows red-orange and his Mountain is dimmed.")
+            "Alice attacked with her Ember Cub and Bob declares blockers: the chip \"Declaring blockers: abilities can't be used now\" sits at his table's top and the open combat band is orange with a wave of light crossing it under Alice's attacking Cub; his Cub that may block glows red-orange and his Mountain is dimmed.")
     }
 }

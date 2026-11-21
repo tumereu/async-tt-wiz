@@ -1,8 +1,11 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import org.asyncttwiz.android.DECLARING_BAND_TAG
+import org.asyncttwiz.android.DECLARING_CHIP_TAG
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -13,7 +16,8 @@ import kotlin.test.assertTrue
  * The combat band (owner playtest 2026-11-06): while Alice declares attackers with none staged the band between the
  * battlefields stays collapsed with Bob's target chip; she stages two attackers by tapping her creatures (nothing covers
  * them), which opens it, and declares with the main button; Bob blocks one of them on the band's lanes; the combat damage
- * is dealt.
+ * is dealt. While each declares, their combat band glows orange with the declaring chip at their table's top (owner
+ * 2026-11-21, E13), and only on the declaring player's table.
  */
 class CombatBandTest : E2e() {
     /** Alice's Ember Cubs that can attack: untapped, not summoning sick. */
@@ -35,7 +39,11 @@ class CombatBandTest : E2e() {
         waitUntil("the Cub on Alice's battlefield", along = listOf(bob)) { alice.field("Ember Cub").size == before + 1 && alice.inOwnMain() }
     }
 
-    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, TRN-063, TRN-113
+    /** CMB-095, CMB-097: whether [player]'s table shows the declaring chip and the orange combat band. */
+    private fun declaringShown(player: E2ePlayer) = player.shows(hasTestTag(DECLARING_CHIP_TAG)) && player.shows(hasTestTag(DECLARING_BAND_TAG))
+    private fun noneDeclaringShown(player: E2ePlayer) = !player.shows(hasTestTag(DECLARING_CHIP_TAG)) && !player.shows(hasTestTag(DECLARING_BAND_TAG))
+
+    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, CMB-095, CMB-097, TRN-063, TRN-113
     @Test fun attackersAreStagedInTheBandAndBlockedOnItsLanes() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Mountain" in hand(a) && hand(a).count { it == "Ember Cub" } >= 2 && "Mountain" in hand(b) &&
@@ -68,6 +76,9 @@ class CombatBandTest : E2e() {
         // CMB-001, CMB-051, CMB-053, CMB-013, CMB-028, CMB-066 (owner playtest 2026-11-06): the collapsed band shows Bob's target chip; a tap on it
         // keeps him the active target and stages nothing; the band stays collapsed until an attacker is staged
         waitUntil("Bob's target chip in the band") { alice.showsControl("Attack ${bob.name}") }
+        // CMB-095, CMB-097 (owner 2026-11-21, E13): Alice's band glows orange with the declaring chip; Bob, waiting, sees neither
+        waitUntil("Alice's declaring band and chip: ${alice.screen()}") { declaringShown(alice) }
+        assertTrue(noneDeclaringShown(bob), "Bob declares nothing: ${bob.screen()}")
         assertFalse(alice.bandOpen(), "collapsed")
         alice.tap("Attack ${bob.name}")
         run()
@@ -91,6 +102,8 @@ class CombatBandTest : E2e() {
             goOn(alice); goOn(bob)
             bob.status == GameDevice.Status.YourMove && bob.stepArrow() == "No blocks"
         }
+        // CMB-095, CMB-097: now Bob's band glows with the blockers' chip, and Alice's no longer
+        waitUntil("Bob's declaring band and chip: ${bob.screen()}") { declaringShown(bob) && noneDeclaringShown(alice) }
         // CMB-034: his Herald picked as the blocker, then Alice's first attacking Cub's copy in the band blocks it
         bob.pickBlocker("Ember Herald", this)
         run(skip = java.time.Duration.ofSeconds(1)) // past the double-tap window: the tap is a single tap
@@ -102,6 +115,7 @@ class CombatBandTest : E2e() {
             alice.state.player(bob.me).life < life
         }
         assertEquals(life - 2, alice.state.player(bob.me).life, "one Cub unblocked")
+        waitUntil("nobody declaring any more") { noneDeclaringShown(alice) && noneDeclaringShown(bob) }
         assertFalse(alice.refusalSeen || bob.refusalSeen, "no refusal")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty(), "${alice.leaks.leaks} ${bob.leaks.leaks}")
     }

@@ -2,11 +2,13 @@ package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import arcanum.engine.decision.Decision
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.StackItemKind
+import org.asyncttwiz.android.CHOICE_SOURCE_NAME_TAG
 import org.asyncttwiz.android.HistoryPlaybackPreferences
 import org.asyncttwiz.android.PLAY_SHOW_TAG
 import org.asyncttwiz.appui.AppPlatform
@@ -75,7 +77,8 @@ class CopiesShownTest : E2e() {
     // STK-212, HIS-231, STK-178, STK-030, STK-046: Alice's Ember Forager enters; she copies its trigger with her Ember Kindler. The copy
     // shows arriving on both tables, reads "Copy of Ember Forager's triggered ability" with the copy marker, points at the Forager; its
     // "you may cast that card" choice has the Forager's ability token (its face, the copy marker, never a card back) at its right and
-    // the exiled card in "About:"; nothing is reported missing
+    // the exiled card in "About:"; nothing is reported missing. STK-226, STK-227 (owner 2026-11-21, E12): the copy's choice names it
+    // "Copy of Ember Forager's triggered ability" under its title, the original's "Ember Forager's ability"
     @Test fun aCopiedTriggerShowsArrivingReadsAsACopyAndItsChoiceShowsItsSource() {
         startGame(TestDeck("Foragers", listOf(TestCards.mountain to 13, TestCards.kindler to 9, TestCards.forager to 9, TestCards.glimmer to 9)),
             TestDeck.glimmers(), aliceSettings = PlaySettings(mode = ResponseMode.FullControl), deal = { a, _ ->
@@ -140,10 +143,14 @@ class CopiesShownTest : E2e() {
         assertTrue(alice.shows(hasContentDescription("Copy")), "STK-178: the source's token with the copy marker: ${alice.screen()}")
         assertTrue(alice.shows(hasContentDescription("Ember Forager")), "STK-178: the source named by its face: ${alice.screen()}")
         assertTrue(!alice.shows(hasContentDescription("Hidden card")), "never a card back: ${alice.screen()}")
+        assertTrue(alice.shows(hasTestTag(CHOICE_SOURCE_NAME_TAG) and hasText("Copy of Ember Forager's triggered ability")),
+            "STK-227: the copy named under the title: ${alice.screen()}")
         alice.text("No").performClick()
         // HIS-233: the original trigger's exile shows its own reveal before its own choice; the copy's "No" isn't lost
         aliceExileShownThenChoice("the original trigger's") { alice.state.stack.none { it == copy } }
         assertTrue(!alice.shows(hasContentDescription("Copy")), "the original isn't marked a copy: ${alice.screen()}")
+        assertTrue(alice.shows(hasTestTag(CHOICE_SOURCE_NAME_TAG) and hasText("Ember Forager's ability")),
+            "STK-226: the original named under the title: ${alice.screen()}")
         alice.text("No").performClick()
         aliceResolvesUntil("the Stack empty") { alice.state.stack.isEmpty() && alice.inOwnMain() }
         assertEquals(emptyList(), faults.filter { it.area == "ShownObjects" || "placeholder" in it.what || it.details["shown"] != null }, "nothing missing")

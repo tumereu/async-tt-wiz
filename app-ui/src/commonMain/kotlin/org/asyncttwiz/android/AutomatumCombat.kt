@@ -191,6 +191,14 @@ class CombatController(
         return choices.attacks.filterValues { it.isNotEmpty() }.keys
     }
 
+    /** CMB-095 (owner playtest 2026-11-21): what [viewer] declares now on [play]'s board, once worked out: attackers or blockers
+     * (their own declaration, never blocks placed to assume); null otherwise. */
+    fun declaring(play: TableBoard, viewer: String): CombatDeclaring? {
+        val choices = readyOrLast(play)?.choices ?: return null
+        if (choices.declaring != viewer) return null
+        return if (choices.attackers) CombatDeclaring.Attackers else CombatDeclaring.Blockers
+    }
+
     /** CMB-034, CMB-040 (owner, 2026-11-08): while [viewer] declares blockers on [play]'s board, or places the defender's to
      * assume them ([assuming]), the creatures that may block something (placed ones too), once worked out; empty otherwise. */
     fun blockable(play: TableBoard, viewer: String, assuming: Boolean): Set<String> {

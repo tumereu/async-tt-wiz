@@ -530,6 +530,11 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             val placingBlocks = assumingBlocks || LocalEngineRoutes.current?.mayAct() != false
             val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.let {
                 it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty()
+            // CMB-095, CMB-096 (owner playtest 2026-11-21): while the viewer declares attackers or blockers the table is framed and
+            // the cards on their battlefield that can't take part are dimmed
+            val declaring = if (runtime.reviewing || !writable || LocalEngineRoutes.current?.mayAct() == false) null
+                else toolkit?.combat?.declaring(play, accountId)
+            val declareDimmed = if (declaring == null) emptySet() else DeclaringLook.dimmed(play.board, accountId, attackGlow)
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
             // TBL-118 (owner 2026-11-19): the shake's reason rises from the item it shook (in the middle when the table doesn't
@@ -568,8 +573,12 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 drawnFrame[0] = frame
                 val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow, pickedGlow,
                     mana = manaGlow.alphas())
-                val targetAlphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
+                val pickAlphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
                     .filter { it.battlefieldCard && it.cardId in dimmed }.associate { it.id to minOf(frame.alphas[it.id] ?: 1f, TARGET_DIMMED) }
+                // CMB-096: what can't take part in the declaration
+                val targetAlphas = if (declareDimmed.isEmpty()) pickAlphas else pickAlphas + frame.scene.items
+                    .filter { it.battlefieldCard && it.cardId in declareDimmed }
+                    .associate { it.id to minOf(pickAlphas[it.id] ?: 1f, DeclaringLook.DIMMED) }
                 val alphas = if (!handDim) targetAlphas else targetAlphas + frame.scene.items
                     .filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == accountId }
                     .associate { it.id to minOf(targetAlphas[it.id] ?: 1f, HAND_DIMMED) }
@@ -584,6 +593,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 TableGlows.of(scene.battlefieldGroups, groupTaps, emptyMap(), castGlow).spread
             }
             PileChoiceGlow(scene, castGlow, rendered, spreadGroups)
+            // CMB-095 (owner playtest 2026-11-21): the declaring frame and its chip, drawn only
+            DeclaringFrame(scene, declaring, desktopGeometry)
             TableSemanticsLayer(animation, targetScene, animationRevision) { semanticItems ->
                 TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                     { preview }, layoutState, groupTaps, fieldsNow = { sceneNow.value.scene.fields })

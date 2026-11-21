@@ -734,7 +734,15 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun open(captured: TableIntent.Actions, item: TableItem) {
         // Targets are picked on the table while a cast asks for them (I-D5, I-D6); a Graveyard or Exile pile holding some
         // opens as its card panel to pick them from (i12review #14)
-        if (cast.targeting || flows.targeting) {
+        // CMB-003, STK-047 (owner playtest 2026-11-21): a card glowing as a legal target (a combat copy by its creature) is picked
+        // by a tap whenever it glows, also while a hand card's cast panel still chooses its way (the targets glow then too):
+        // never the copy's own select or unstage
+        val glowPlay = if (item.kind == TableItemKind.CARD && !cast.targeting && !flows.targeting) current() else null
+        val castGlowing = glowPlay != null && cast.glow(glowPlay).let { item.sourceId in it || item.cardId in it }
+        val flowGlowing = glowPlay != null && !castGlowing && flows.glow(glowPlay).let { item.sourceId in it || item.cardId in it }
+        if (castGlowing || flowGlowing) AppLog.info("table", "Tap on ${item.id} (card ${item.sourceId}${if (item.viewport == "combat") ", a combat copy" else ""}) " +
+            "glowing as a legal target while ${if (castGlowing) "the cast panel chooses its way" else "the choice's board is still worked out"}: taken as a target pick")
+        if (cast.targeting || flows.targeting || castGlowing || flowGlowing) {
             val play = current()
             if (play != null && item.kind == TableItemKind.PILE && item.zone in PublicPiles.zones &&
                 item.id in cast.glow(play) + flows.glow(play)) {
@@ -749,7 +757,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 return
             }
             // UI review round 2 #4 (I-D46 b): a tap on anything that isn't a legal target shakes it
-            val taken = if (cast.targeting) cast.tapTarget(item) else flows.tapTarget(item)
+            val taken = if (cast.targeting || castGlowing) cast.tapTarget(item) else flows.tapTarget(item)
+            // CMB-003 (owner playtest 2026-11-21): a combat copy's tap while targets are picked is its creature's
+            if (item.viewport == "combat") AppLog.info("table", "Target tap on combat copy ${item.cardId} of ${item.sourceId}: " +
+                if (taken) "picked" else "not a legal target, shaken")
             if (taken == false) shake(item.id, if (cast.targeting || flows.answering is arcanum.engine.decision.Decision.Targets) NOT_A_TARGET
                 else NOT_A_CHOICE)
             return

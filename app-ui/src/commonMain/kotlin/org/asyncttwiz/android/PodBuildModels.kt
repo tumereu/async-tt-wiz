@@ -74,6 +74,28 @@ fun podBuildSubmitEnabled(
     build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?, editable: Boolean, canSubmit: Boolean,
 ): Boolean = editable && canSubmit && PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit).isEmpty()
 
+/** DRF-119 (owner, 2026-11-21, MT74XQ): why Submit stays locked while your own draft isn't done, in plain words, under
+ * Build's deck; the deck rules' problems keep their own warning (DRF-094). */
+fun podSubmitWaitText(wait: PodDraftWait): String = when (wait) {
+    PodDraftWait.Picks -> "Submit opens after your last pick"
+    PodDraftWait.Cards -> "Submit opens when your last cards arrive"
+    PodDraftWait.Piles -> "Submit opens once the last pile is taken"
+}
+
+/** What Build's Submit is now and why (DRF-119, DRF-094), for the app log: each change of it is logged. */
+fun podBuildSubmitState(build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?, editable: Boolean,
+    canSubmit: Boolean, submitted: Boolean, draftWait: PodDraftWait?): String {
+    val issues = PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit)
+    return when {
+        submitted -> "submitted"
+        draftWait != null -> "locked, your own draft isn't done: \"${podSubmitWaitText(draftWait)}\""
+        !canSubmit -> "locked, the draft isn't done"
+        !editable -> "locked while a change is unconfirmed"
+        issues.isNotEmpty() -> "locked by the deck rules: ${issues.joinToString { podBuildIssueText(it, sideboardLimit) }}"
+        else -> "open"
+    }
+}
+
 /** DRF-094: why a section's header warns, by the very rules Submit goes by ([podBuildSubmitEnabled], DRF-119); null when it
  * doesn't. Main warns under its minimum, Side over its limit. */
 fun podBuildHeaderWarning(category: PodDeckCategory, build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?): String? {

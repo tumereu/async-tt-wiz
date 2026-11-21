@@ -197,13 +197,14 @@ class PodChallengeLobbyTest {
         assertEquals(1, back.map { it.cardId }.distinct().size) // The same copy goes back.
     }
 
-    // DRF-122
+    // DRF-122 (owner, 2026-11-21: also a member still drafting can be challenged)
     @Test fun buildingMembersCanBeChallengedOnceDraftedAndHeldChallengesWaitForTheirDeck() {
         val detail = PodDetail(pod, "Limited pod", PodPhase.DRAFTED, a, DraftSettings(), PodSource("Cube", 540), DraftSupply(90, 540),
             listOf(PodMember(a, submitted = true), PodMember(b, building = true)), emptyList(), updatedAt = "2026-10-26T00:00:00Z")
         assertTrue(podChallengeOffered(detail, detail.members[1], a.accountId))
         assertFalse(podChallengeOffered(detail, detail.members[0], a.accountId))
-        assertFalse(podChallengeOffered(detail.copy(phase = PodPhase.DRAFTING), detail.members[1], a.accountId))
+        assertTrue(podChallengeOffered(detail.copy(phase = PodPhase.DRAFTING), detail.members[1], a.accountId))
+        assertFalse(podChallengeOffered(detail.copy(phase = PodPhase.SETUP), detail.members[1], a.accountId))
         assertEquals("Waiting for B's deck", gameStatus(game.copy(invitationHeld = true)))
         assertEquals("Invitation pending", gameStatus(game))
     }

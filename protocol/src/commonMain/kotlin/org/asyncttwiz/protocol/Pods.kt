@@ -1,6 +1,7 @@
 package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 /** Pod HTTP v1. DraftState is deliberately not part of any response. */
 @Serializable enum class PodPhase { SETUP, DRAFTING, DRAFTED }
@@ -14,7 +15,21 @@ import kotlinx.serialization.Serializable
     val mode: DraftMode = DraftMode.BOOSTER,
     /** The other members' messages in the pod's chat the caller hasn't read (DRF-012). */
     val chatUnread: Int = 0,
+    /** The caller has submitted their deck (DRF-013: "Deck submitted", also while others still draft, DRF-119). */
+    val submitted: Boolean = false,
 )
+/**
+ * DRF-119 (owner, 2026-11-21): why a member's own draft isn't done yet, so Submit stays locked: no more picks or cards can
+ * reach a member whose draft is done, whatever the others still draft.
+ */
+@Serializable sealed interface PodDraftWait {
+    /** Picks can still come to them. */
+    @Serializable @SerialName("picks") data object Picks : PodDraftWait
+    /** No pick is left for them, but a pack's last cards still come to them without a pick (Booster). */
+    @Serializable @SerialName("cards") data object Cards : PodDraftWait
+    /** Winston and Winchester: a pile can come to them until the last one is taken. */
+    @Serializable @SerialName("piles") data object Piles : PodDraftWait
+}
 /** [mode] and, for a Custom booster, its [passes] (DRF-264), for Arena its [arena] format (DRF-287), tell the invitee the pod's
  * format before they accept. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -53,6 +68,7 @@ import kotlinx.serialization.Serializable
      * when their queue is not empty.
      */
     val account: AccountIdentity, val packsWaiting: Int = 0, val picksMade: Int = 0,
+    /** Their own draft is done (DRF-119: no more picks or cards can reach them), and their deck isn't submitted yet. */
     val building: Boolean = false, val submitted: Boolean = false,
     val picking: Boolean = false,
     /** A bot seat ([PodBots]): listed once the draft has started; it only drafts, never builds or plays. */
@@ -81,6 +97,8 @@ import kotlinx.serialization.Serializable
     val limited: LimitedView? = null,
     /** Caller-only: the definition chosen as this deck's cover (DRF-166); null until chosen. */
     val deckCover: String? = null,
+    /** Caller-only, while the pod drafts: why the caller's own draft isn't done yet (DRF-119); null once it is. */
+    val draftWait: PodDraftWait? = null,
 )
 /** A member's private deck notes and tally counters (W, U, B, R, G, C, gold, neutral) for one draft attempt. */
 @Serializable data class PodDeckNotes(val text: String = "", val counters: List<Int> = List(COUNTERS) { 0 }) {

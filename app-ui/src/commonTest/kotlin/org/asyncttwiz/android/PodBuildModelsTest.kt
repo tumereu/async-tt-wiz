@@ -48,13 +48,54 @@ class PodBuildModelsTest {
         assertEquals("Side 1", podBuildSideTitle(build.copy(copies = listOf(PodDeckCopy("0", PodDeckCategory.SIDE))), copies, definitions))
     }
 
-    // DRF-076, DRF-077
+    // DRF-076, DRF-077 (owner, 2026-11-21: Games while drafting too; the default follows your own draft, DRF-119)
     @Test fun tabsHideDraftAfterCompletionAndDefaultToSubmissionStatus() {
-        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), podTabs(PodPhase.DRAFTING))
+        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(PodPhase.DRAFTING))
         assertEquals(listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(PodPhase.DRAFTED))
         assertEquals(PodTab.DRAFT, podDefaultTab(PodPhase.DRAFTING, false))
         assertEquals(PodTab.BUILD, podDefaultTab(PodPhase.DRAFTED, false))
         assertEquals(PodTab.GAMES, podDefaultTab(PodPhase.DRAFTED, true))
+        // Your own draft done while others still draft: Build until submitted, then Games
+        assertEquals(PodTab.BUILD, podDefaultTab(PodPhase.DRAFTING, submitted = false, draftDone = true))
+        assertEquals(PodTab.GAMES, podDefaultTab(PodPhase.DRAFTING, submitted = true, draftDone = true))
+        val drafting = PodDetail("p", "Pod", PodPhase.DRAFTING, AccountIdentity("a", "A"), DraftSettings(), PodSource(), DraftSupply(0, 0),
+            emptyList(), emptyList(), updatedAt = "", draftWait = PodDraftWait.Picks)
+        assertFalse(podOwnDraftDone(drafting))
+        assertEquals(PodTab.DRAFT, podDefaultTab(drafting))
+        assertTrue(podOwnDraftDone(drafting.copy(draftWait = null)))
+        assertEquals(PodTab.BUILD, podDefaultTab(drafting.copy(draftWait = null)))
+        assertTrue(podOwnDraftDone(drafting.copy(phase = PodPhase.DRAFTED, draftWait = null)))
+    }
+
+    // DRF-013, DRF-119 (owner, 2026-11-21): a member done early reads "Build your deck", and "Deck submitted" once submitted,
+    // while the others still draft
+    @Test fun podStatusFollowsYourOwnDraftWhileOthersDraft() {
+        val ann = AccountIdentity("a", "Ann")
+        val pod = PodSummary("p", "Pod", PodPhase.DRAFTING, ann, listOf(ann), PodAttention.NONE, 0, "", DraftMode.ARENA)
+        assertEquals("Drafting", podStatus(pod))
+        assertEquals("Build your deck", podStatus(pod.copy(attention = PodAttention.BUILD)))
+        assertEquals("Deck submitted", podStatus(pod.copy(submitted = true)))
+        assertEquals("Deck submitted", podStatus(pod.copy(phase = PodPhase.DRAFTED, submitted = true)))
+        assertEquals("building", podMemberStatus(PodMember(ann, building = true), PodPhase.DRAFTING, DraftMode.ARENA))
+        assertEquals("waiting", podMemberStatus(PodMember(ann), PodPhase.DRAFTING, DraftMode.ARENA))
+    }
+
+    // DRF-119, DRF-303 (owner, 2026-11-21, MT74XQ): Build says why Submit is locked while your own draft runs, and the log says what
+    // Submit is and why
+    @Test fun lockedSubmitSaysWhyInPlainWords() {
+        assertEquals("Submit opens after your last pick", podSubmitWaitText(PodDraftWait.Picks))
+        assertEquals("Submit opens when your last cards arrive", podSubmitWaitText(PodDraftWait.Cards))
+        assertEquals("Submit opens once the last pile is taken", podSubmitWaitText(PodDraftWait.Piles))
+        val copies = (0 until 3).map { DraftCopy("$it", "d$it") }.associateBy { it.id }
+        val build = PodDeckBuild(copies.keys.map { PodDeckCopy(it) }, PodDeckBasics(plains = 37))
+        fun state(canSubmit: Boolean = true, editable: Boolean = true, submitted: Boolean = false, wait: PodDraftWait? = null,
+            deck: PodDeckBuild = build) = podBuildSubmitState(deck, copies, null, editable, canSubmit, submitted, wait)
+        assertEquals("locked, your own draft isn't done: \"Submit opens after your last pick\"", state(canSubmit = false, wait = PodDraftWait.Picks))
+        assertEquals("open", state())
+        assertTrue(podBuildSubmitEnabled(build, copies, null, editable = true, canSubmit = true))
+        assertEquals("locked by the deck rules: Main needs 40 cards", state(deck = build.copy(basics = PodDeckBasics(plains = 30))))
+        assertEquals("locked while a change is unconfirmed", state(editable = false))
+        assertEquals("submitted", state(submitted = true))
     }
     private fun card(name: String, type: String = "Creature", cost: String = "{1}") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))

@@ -314,7 +314,7 @@ class DraftGalleryScreenshotTest {
         if (landscape) shot("booster-pick-landscape", "A Booster draft's pick screen in landscape, five cards per row: the same " +
             "pack from Bob with Cinder Whelp marked keep, the keep tray and Confirm fixed below.")
         else shot("booster-pick", "A Booster draft for three on Alice's pick 2 of round 1, passed by Bob: the header's avatars " +
-            "show how many picks each member can make (Carol ✓), Draft · Build · Stats tabs, and Cinder Whelp marked keep " +
+            "show how many picks each member can make (Carol ✓), Draft · Build · Stats · Games tabs, and Cinder Whelp marked keep " +
             "with a green border and ✓, also in the keep tray above Confirm.")
     }
 
@@ -504,6 +504,51 @@ class DraftGalleryScreenshotTest {
         else shot("build", "Build after a Booster draft, opened on the Build tab (Build · Stats · Games) on a tall screen: Main, " +
             "Side and Maybe with their counts, basics rows, columns Lands then mana value with counts, duplicates as ×2, and Undo " +
             "with Submit deck at the bottom.")
+    }
+
+    // DRF-119, DRF-303, DRF-076 (owner, 2026-11-21, MT74XQ): Alice's Arena draft still runs (she has picks left), so Build says
+    // when Submit opens over the bottom bar, and Submit is greyed; the tabs while drafting include Games
+    @Test fun buildSubmitLockedWhileYourDraftRuns() {
+        val (pool, build) = buildCopies()
+        val members = listOf(PodMember(alice, packsWaiting = 12, picksMade = 33, picking = true), PodMember(bob, building = true, picksMade = 45))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.arena(), members, name = "Arena night").copy(
+            draft = DraftPrivateView("alice", DraftPrivatePack("offer-0-33", 34, listOf(1, 6, 11, 16, 21).map { copy(it, 2) }, 1, null),
+                0, pool, round = 34, rounds = 45), build = build, draftWait = PodDraftWait.Picks)
+        show(opened(detail, PodTab.BUILD))
+        compose.onNodeWithTag("pod-build-submit-wait").assertTextEquals("Submit opens after your last pick")
+        compose.onNode(hasClickAction() and hasText("Submit deck", substring = true)).assertIsNotEnabled()
+        compose.onNodeWithText("Games").assertIsDisplayed()
+        shot("build-submit-locked", "Build during an Arena draft with Alice's picks not over yet (the Draft · Build · Stats · Games " +
+            "tabs): over the bottom bar a line says \"Submit opens after your last pick\", and Submit deck is greyed though her deck " +
+            "is ready.")
+    }
+
+    // DRF-119, DRF-121, DRF-122 (owner, 2026-11-21): Alice's own draft is done and her deck submitted while the pod still drafts:
+    // the Games tab lists Bob as "drafting" and Carol as "building" (their Challenge buttons come with the lobby, not shown here)
+    @Test fun gamesTabWhileOthersStillDraft() {
+        val members = listOf(PodMember(alice, submitted = true, picksMade = 45), PodMember(bob, packsWaiting = 3, picksMade = 42, picking = true),
+            PodMember(carol, building = true, picksMade = 45))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.arena(), members, name = "Arena night").copy(
+            draft = DraftPrivateView("alice", null, 0, emptyList(), round = 45, rounds = 45), submitted = true)
+        show(opened(detail, PodTab.GAMES))
+        compose.onNodeWithText("drafting").assertIsDisplayed()
+        compose.onNodeWithText("building").assertIsDisplayed()
+        shot("games-while-drafting", "The Games tab of an Arena pod still drafting, after Alice submitted early: Alice \"deck submitted\", " +
+            "Bob \"drafting\" and Carol \"building\", and the four tabs Draft · Build · Stats · Games.")
+    }
+
+    // DRF-013 (owner, 2026-11-21): pods still drafting read "Build your deck" once your own draft is done and "Deck submitted" once
+    // you have submitted
+    @Test fun podsListWhileOthersStillDraft() {
+        fun pod(id: String, name: String, attention: PodAttention, submitted: Boolean = false) = PodSummary(id, name, PodPhase.DRAFTING,
+            alice, listOf(alice, bob, carol), attention, 0, "2026-11-0${id.last()}T00:00:00Z", DraftMode.ARENA, submitted = submitted)
+        show(PodState(loaded = true, pods = listOf(pod("p1", "Arena night", PodAttention.BUILD),
+            pod("p2", "Arena league", PodAttention.NONE, submitted = true), pod("p3", "Arena rematch", PodAttention.NONE))))
+        compose.onNodeWithText("Build your deck").assertIsDisplayed()
+        compose.onNodeWithText("Deck submitted").assertIsDisplayed()
+        compose.onNodeWithText("Drafting").assertIsDisplayed()
+        shot("pods-early-submit", "Three Arena pods whose drafts still run: in Arena night Alice's own draft is done (\"Build your deck\"), " +
+            "in Arena league she has submitted early (\"Deck submitted\"), in Arena rematch she still waits for her next offer (\"Drafting\"); the one needing her comes first.")
     }
 
     // DRF-118

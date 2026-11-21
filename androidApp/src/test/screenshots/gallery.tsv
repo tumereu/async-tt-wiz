@@ -365,3 +365,7 @@ number	item	screenshot	catalog	decisions	sequence
 431	Draft bots: the Bots dialog, what bots do and the range	draft/setup-bots-dialog.png	DRF-296		Draft bots
 432	Desktop: pod setup with two bot seats	desktop/setup-bots.png	DRF-296 DRF-297 WEB-038		Draft bots
 433	Draft bots: a Booster pick passed by Bot 2, the bots ready in the header	draft/bots-pick.png	DRF-297 DRF-298		Draft bots
+440	A locked Submit says why: Build during an Arena draft with picks still to make, "Submit opens after your last pick" over the bar	draft/build-submit-locked.png	DRF-119 DRF-303 DRF-076		Early submit
+441	Desktop: the same locked Submit line over Build's full-width bar, one Booster pack still to come	desktop/build-submit-locked.png	DRF-119 DRF-303 WEB-044		Early submit
+442	Submitted early: the Games tab while the pod still drafts, Bob "drafting" and Carol "building"	draft/games-while-drafting.png	DRF-121 DRF-076		Early submit
+443	Pods still drafting read "Build your deck" once your own draft is done and "Deck submitted" once you have submitted	draft/pods-early-submit.png	DRF-013 DRF-119		Early submit

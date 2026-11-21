@@ -335,6 +335,21 @@ class DesktopDraftScreenshotTest {
             "Alice's Build on the desktop layout, each column's cards overlapping so only their name strips show above its last card, with the pointer on Tidecall Adept's right quarter, the last card of its column: that quarter is tinted Maybe's amber with \"Maybe ▸\" and the left one faintly Side's blue with \"◂ Side\", where a click moves one copy and a Shift+click every copy; the section headers have no Review, as Build has no one-by-one review on the desktop.")
     }
 
+    // DRF-119, DRF-303, DRF-076 (owner, 2026-11-21, MT74XQ): on the desktop layout too, Build says over its bottom bar when Submit
+    // opens while Alice's own draft runs (a Booster pick of hers still to come), and the header's tabs include Games
+    @Test fun buildSubmitLocked() {
+        val main = (0..15).map { copy(it) } + copy(9, 1)
+        val build = PodDeckBuild(main.map { PodDeckCopy(it.id) }, PodDeckBasics(plains = 8, mountain = 7, forest = 8))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.booster(), listOf(PodMember(alice), PodMember(bob, packsWaiting = 2),
+            PodMember(carol, building = true))).copy(draft = DraftPrivateView("alice", null, 0, main, round = 3, rounds = 3, incoming = 1),
+            build = build, draftWait = PodDraftWait.Picks)
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.BUILD))
+        compose.onNodeWithTag("pod-build-submit-wait").assertTextEquals("Submit opens after your last pick")
+        compose.onNode(hasClickAction() and hasText("Submit deck", substring = true)).assertIsNotEnabled()
+        captureShot("$SCREENSHOTS/desktop/build-submit-locked.png",
+            "Alice's Build on the desktop layout in round 3 of a Booster draft, one pack still to come back to her: her 40-card deck is ready, but over the full-width bottom bar a line says \"Submit opens after your last pick\" and Submit deck (40) is greyed; the header's tabs read Draft · Build · Stats · Games.")
+    }
+
     // WEB-120, DRF-250, DRF-251, DRF-252, DRF-254: on the desktop layout Build's filter button sits in the bottom right corner above the bar;
     // a click opens its popup, where the Creature chip and "human" (a word of the type line) leave Main with the two Humans
     @Test fun buildFilterPopup() {

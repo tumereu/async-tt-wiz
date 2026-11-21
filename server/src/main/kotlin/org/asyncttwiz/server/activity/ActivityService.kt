@@ -452,7 +452,10 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .where(POD.ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD.DRAFT_ATTEMPT_ID.eq(identity)).and(
                     kind.eq("POD_YOUR_PICK").and(POD.PHASE.eq("DRAFTING")).and(DSL.condition(
                         "jsonb_array_length({0}->'queues'->cast({1} as text)) > 0", POD.DRAFT_STATE, owner))
-                        .or(kind.`in`("POD_DRAFT_COMPLETE", "POD_DECKS_READY").and(POD.PHASE.eq("DRAFTED")))))
+                        // DRF-119, DRF-137: "Draft complete" comes when the member's own draft is done, maybe while
+                        // others still draft
+                        .or(kind.eq("POD_DRAFT_COMPLETE").and(POD.PHASE.`in`("DRAFTING", "DRAFTED")))
+                        .or(kind.eq("POD_DECKS_READY").and(POD.PHASE.eq("DRAFTED")))))
             val invited = DSL.exists(DSL.selectOne().from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
                 .where(POD.ID.eq(resource)).and(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING"))
                 .and(POD.PHASE.eq("SETUP")))

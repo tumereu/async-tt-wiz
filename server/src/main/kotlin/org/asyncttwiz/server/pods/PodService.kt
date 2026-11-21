@@ -69,7 +69,15 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun limitedState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.limited }
         ?.let { stored(row) { json.decodeFromString<LimitedDraftState>(it.data()) } }
     /** A pod's stored draft, decoded once per request. Settings are read only when there is a draft. */
-    private class Draft(val booster: DraftState?, val grid: GridState?, val limited: LimitedDraftState? = null)
+    private class Draft(val booster: DraftState?, val grid: GridState?, val limited: LimitedDraftState? = null) {
+        /** DRF-119 (owner, 2026-11-21): why [player]'s own draft isn't done, null once it is (or without a draft). */
+        fun wait(player: String): PodDraftWait? = booster?.let { DraftEngine.waitFor(it, player) }
+            ?: grid?.let { GridEngine.waitFor(it, player) } ?: limited?.let { LimitedEngine.waitFor(it, player) }
+    }
+    /** DRF-119: whether [player]'s own draft is done, so they can submit (and then challenge): the whole draft is, or no
+     * more picks or cards can reach them. */
+    private fun ownDraftDone(row: PodRecord, draft: Draft, player: String): Boolean =
+        row.phase == "DRAFTED" || row.phase == "DRAFTING" && draft.wait(player) == null
     private fun draft(row: PodRecord, settings: DraftSettings? = row.draftState?.let { settings(row) }): Draft {
         val data = row.draftState ?: return Draft(null, null)
         return if (settings!!.mode.draftState) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
@@ -739,13 +747,23 @@ class PodService(private val runtime: ServiceRuntime) {
     fun submit(principal: AccountService.Principal, id: String, input: SubmitPodDeck): Result =
         mutate(principal, id, input.requestId, "submitPod", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
-            if (row.phase != "DRAFTED") return@mutate error(409, "draft_not_complete")
+            // DRF-119 (owner, 2026-11-21, MT74XQ): a member submits once their own draft is done, whatever the others still draft
+            val wait = if (row.phase == "DRAFTING") draft(row).wait(owner.toString()) else null
+            if (row.phase !in listOf("DRAFTING", "DRAFTED") || wait != null) {
+                log("pod ${row.id} submit by $owner refused: ${if (wait != null) "their own draft isn't done (waits for " +
+                    "${wait::class.simpleName?.lowercase()})" else "the pod is in ${row.phase}"}")
+                return@mutate error(409, "draft_not_complete")
+            }
             val member = members(sql, row.id!!).first { it.accountId == owner }
             if (member.submittedDeck != null) return@mutate error(409, "deck_submitted")
             val build = build(row, member.build!!.data())
             val pool = pools(row).getValue(owner.toString())
             val issues = PodDeckRules.validate(build, pool, settings(row).sideboardLimit)
-            if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
+            if (issues.isNotEmpty()) {
+                log("pod ${row.id} submit by $owner refused: ${issues.joinToString { it.name.lowercase() }}")
+                return@mutate error(400, issues.first().name.lowercase())
+            }
+            log("pod ${row.id} deck submitted by $owner (pod ${row.phase?.lowercase()})")
             // LOB-141: Maybe goes to the pod's games too, outside the game with Side
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(build)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // LOB-052: the server's basics (none when its catalog lacks them: the draft deck is kept without them)
@@ -783,17 +801,25 @@ class PodService(private val runtime: ServiceRuntime) {
             if (!DeckValidation.uuid(input.opponentId) || input.opponentId == owner.toString())
                 return@mutate error(400, "invalid_opponent")
             val players = members(sql, row.id!!).associateBy { it.accountId.toString() }
-            if (input.opponentId !in players) return@mutate error(404, "opponent_not_member")
-            // Only the challenger's deck must be submitted; an opponent still building receives the invitation on submit.
-            if (row.phase != "DRAFTED" || players.getValue(owner.toString()).submittedDeck == null)
+            if (input.opponentId !in players) {
+                log("pod ${row.id} challenge by $owner refused: ${input.opponentId} is no member")
+                return@mutate error(404, "opponent_not_member")
+            }
+            // Only the challenger's deck must be submitted; an opponent still drafting or building (DRF-122) receives the
+            // invitation at once and can accept it once they submit.
+            if (row.phase !in listOf("DRAFTING", "DRAFTED") || players.getValue(owner.toString()).submittedDeck == null) {
+                log("pod ${row.id} challenge by $owner to ${input.opponentId} refused: the challenger's deck isn't submitted (pod ${row.phase})")
                 return@mutate error(409, "deck_not_submitted")
+            }
             // I-D52 (pivot review #2): its decks come from the source; a source Automatum can't play fully starts no game
-            unsupported(row)?.let { return@mutate it }
+            unsupported(row)?.let { log("pod ${row.id} challenge by $owner refused: its source isn't fully supported"); return@mutate it }
             val held = players.getValue(input.opponentId).submittedDeck == null
             val build = build(row, players.getValue(owner.toString()).submittedDeck!!.data())
             // Match the existing tabletop's bounded physical deck representation (submission enforces it too).
-            if (build.copies.size + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
+            if (build.copies.size + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS) {
+                log("pod ${row.id} challenge by $owner refused: the submitted deck is over the card limit")
                 return@mutate error(400, "invalid_deck")
+            }
             val game = UUID.randomUUID(); val invitation = UUID.randomUUID()
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName).set(GAME.INVITER_ID, owner)
                 .set(GAME.RECIPIENT_ID, UUID.fromString(input.opponentId)).set(GAME.PREPARATION_ROUND, UUID.randomUUID())
@@ -807,6 +833,9 @@ class PodService(private val runtime: ServiceRuntime) {
             saveChallengeDeck(sql, row, summary, owner.toString(), build, basics.mapValues { it.value.digest }, basics.values.toList(), input.requestId)
             // DRF-137: the recipient hears of it at once, also while still building (they accept once they submit)
             ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
+            log("pod ${row.id} challenge $game by $owner to ${input.opponentId} (pod ${row.phase?.lowercase()}; " +
+                if (!held) "they have submitted)" else if (draft(row).wait(input.opponentId) != null) "they still draft: held until they submit)"
+                else "they still build: held until they submit)")
             Result(201, json.encodeToString(summary))
         }
     }
@@ -933,6 +962,11 @@ class PodService(private val runtime: ServiceRuntime) {
     }
 
     private fun reset(sql: DSLContext, row: PodRecord, author: UUID) {
+        // DRF-119, DRF-122: members done early may have submitted and challenged while the others drafted; their open
+        // challenges go with the draft (games already accepted or in play keep their decks and go on)
+        val submitted = members(sql, row.id!!).count { it.submittedDeck != null }
+        if (submitted > 0) log("pod ${row.id} draft reset by $author with $submitted deck(s) submitted: their open challenges are withdrawn")
+        withdrawChallenges(sql, row.id!!)
         clearDraftHints(sql, row.id!!)
         clearMarks(sql, row.id!!)
         sql.deleteFrom(NOTES).where(NOTES.POD_ID.eq(row.id)).execute()
@@ -1030,11 +1064,12 @@ class PodService(private val runtime: ServiceRuntime) {
             val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue } || previous != null && next.arena != null
             if (!hadPacks && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+            ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else DraftEngine.waitFor(previous, player),
+                DraftEngine.waitFor(next, player))
         }
         if (next.finished && previous?.finished != true) {
-            clearDraftHints(sql, row.id!!)
+            clearDraftHints(sql, row.id!!, finished = true)
             clearMarks(sql, row.id!!)
-            notify(sql, row, ActivityKind.POD_DRAFT_COMPLETE)
         }
         save(sql, row)
     }
@@ -1054,11 +1089,10 @@ class PodService(private val runtime: ServiceRuntime) {
             val hadGrids = previous?.queues?.get(player).orEmpty().any { it in queue }
             if (!hadGrids && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+            ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else GridEngine.waitFor(previous, player),
+                GridEngine.waitFor(next, player))
         }
-        if (next.finished && previous?.finished != true) {
-            clearDraftHints(sql, row.id!!)
-            notify(sql, row, ActivityKind.POD_DRAFT_COMPLETE)
-        }
+        if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id!!, finished = true)
         save(sql, row)
     }
 
@@ -1079,18 +1113,31 @@ class PodService(private val runtime: ServiceRuntime) {
             val hadTurn = !othersPicked && previous?.queues?.get(player).orEmpty().any { it in queue }
             if (!hadTurn && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+            ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else LimitedEngine.waitFor(previous, player),
+                LimitedEngine.waitFor(next, player))
         }
-        if (next.finished && previous?.finished != true) {
-            clearDraftHints(sql, row.id!!)
-            notify(sql, row, ActivityKind.POD_DRAFT_COMPLETE)
-        }
+        if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id!!, finished = true)
         save(sql, row)
     }
 
-    private fun clearDraftHints(sql: DSLContext, id: UUID) {
+    /**
+     * DRF-137 (owner, 2026-11-21): "Draft complete: build your deck" goes to [member] when their own draft becomes done
+     * ([before] not done, [after] done, DRF-119), which may be before the others' (the whole draft's end tells nothing more).
+     */
+    private fun ownDraftDone(sql: DSLContext, row: PodRecord, member: org.asyncttwiz.server.generated.tables.records.PodMemberRecord,
+        before: PodDraftWait?, after: PodDraftWait?) {
+        if (before == null || after != null || member.submittedDeck != null) return
+        log("pod ${row.id}: ${member.accountId}'s own draft is done; Submit opens for them")
+        ActivityService.record(sql, member.accountId!!, ActivityKind.POD_DRAFT_COMPLETE, row.id!!, row.draftAttemptId!!)
+    }
+
+    /** The pod's draft notices; at the draft's end ([finished]) only the pick and invitation ones: each member's "Draft
+     * complete" came with their own draft's end (DRF-137). */
+    private fun clearDraftHints(sql: DSLContext, id: UUID, finished: Boolean = false) {
         val summary = org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
         val push = org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH
-        val kinds = listOf("POD_YOUR_PICK", "POD_DRAFT_COMPLETE", "POD_DECKS_READY", "POD_INVITATION")
+        val kinds = if (finished) listOf("POD_YOUR_PICK", "POD_INVITATION")
+            else listOf("POD_YOUR_PICK", "POD_DRAFT_COMPLETE", "POD_DECKS_READY", "POD_INVITATION")
         sql.deleteFrom(summary).where(summary.GAME_ID.eq(id)).and(summary.KIND.`in`(kinds)).execute()
         sql.deleteFrom(push).where(push.GAME_ID.eq(id)).and(push.KIND.`in`(kinds)).execute()
     }
@@ -1238,12 +1285,13 @@ class PodService(private val runtime: ServiceRuntime) {
                 ?: draft.limited?.let { LimitedEngine.consecutivePicks(it, owner.toString()) } ?: gridWaiting(draft.grid, owner.toString())
             val attention = when {
                 waiting > 0 -> PodAttention.YOUR_PICK
-                row.phase == "DRAFTED" && mine.submittedDeck == null -> PodAttention.BUILD
+                // DRF-119, DRF-013: "Build your deck" once the member's own draft is done, maybe while others still draft
+                mine.submittedDeck == null && ownDraftDone(row, draft, owner.toString()) -> PodAttention.BUILD
                 else -> PodAttention.NONE
             }
             PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
                 members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString(),
-                settings(row).mode, chatUnread[row.id] ?: 0)
+                settings(row).mode, chatUnread[row.id] ?: 0, mine.submittedDeck != null)
         } }.sortedWith(podListOrder)
         val invitations = invited.mapNotNull {
             // DRF-264, DRF-287: the invitation names the pod's mode, a Custom booster's passes and an Arena pod's format
@@ -1308,8 +1356,9 @@ class PodService(private val runtime: ServiceRuntime) {
             members.map { member ->
                 val player = member.accountId.toString()
                 val (waiting, picks) = progress(player)
+                // DRF-119: building once their own draft is done, maybe while others still draft
                 PodMember(names.getValue(member.accountId!!), waiting, picks,
-                    row.phase == "DRAFTED" && member.submittedDeck == null, member.submittedDeck != null, waiting > 0)
+                    member.submittedDeck == null && ownDraftDone(row, stored, player), member.submittedDeck != null, waiting > 0)
             } + bots.map { bot ->
                 // DRF-297: the draft's bot seats after the members; they never build or submit
                 val (waiting, picks) = progress(bot.accountId)
@@ -1321,7 +1370,9 @@ class PodService(private val runtime: ServiceRuntime) {
             row.phase == "SETUP" && row.autoStart == true,
             row.autoStartOffReason?.takeIf { row.phase == "SETUP" && owner == row.creatorId }
                 ?.let { PodAutoStartOff(it, offAccount?.let(names::getValue)) },
-            notes(sql, row, owner), limitedView, mine.deckCover)
+            notes(sql, row, owner), limitedView, mine.deckCover,
+            // DRF-119: why Build's Submit is still locked for the caller
+            stored.wait(owner.toString()).takeIf { row.phase == "DRAFTING" && mine.submittedDeck == null })
         return Result(status, json.encodeToString(result))
     }
 

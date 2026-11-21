@@ -10,13 +10,20 @@ import org.asyncttwiz.appui.simpleClassName
 import org.asyncttwiz.appui.synchronized
 
 enum class PodTab { DRAFT, BUILD, STATS, GAMES }
+/** DRF-076: Games is there while drafting too, for members done early (DRF-119) and challenges to members still drafting
+ * (DRF-122). */
 fun podTabs(phase: PodPhase): List<PodTab> = if (phase == PodPhase.DRAFTING)
-    listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS) else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
-fun podDefaultTab(phase: PodPhase, submitted: Boolean): PodTab = when {
-    phase == PodPhase.DRAFTING -> PodTab.DRAFT
+    listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS, PodTab.GAMES) else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
+/** DRF-077: Draft while your own draft runs, Build until your deck is submitted, then Games. */
+fun podDefaultTab(phase: PodPhase, submitted: Boolean, draftDone: Boolean = phase != PodPhase.DRAFTING): PodTab = when {
     submitted -> PodTab.GAMES
+    phase == PodPhase.DRAFTING && !draftDone -> PodTab.DRAFT
     else -> PodTab.BUILD
 }
+/** DRF-119 (owner, 2026-11-21): the caller's own draft is done, so they can submit, whatever the others still draft. */
+fun podOwnDraftDone(detail: PodDetail): Boolean =
+    detail.phase == PodPhase.DRAFTED || detail.phase == PodPhase.DRAFTING && detail.draftWait == null
+fun podDefaultTab(detail: PodDetail): PodTab = podDefaultTab(detail.phase, detail.submitted, podOwnDraftDone(detail))
 enum class PodConfirmation { DESTROY, LEAVE, CANCEL, SUBMIT, START }
 /** [packSets]: the pack grid read row by row (DRF-177), normalized; empty while every pack is [set]'s. */
 data class NewPodDraft(val name: String, val cubeId: String? = null, val mode: DraftMode = DraftMode.BOOSTER,
@@ -842,12 +849,17 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     private fun applyDetail(detail: PodDetail) {
         if (state.selected != detail.id) return
-        val changed = accepted?.phase != detail.phase || accepted?.submitted != detail.submitted
+        val previous = accepted
+        val changed = previous?.phase != detail.phase || previous.submitted != detail.submitted ||
+            podOwnDraftDone(previous) != podOwnDraftDone(detail)
+        // DRF-119: the caller's own draft ending, maybe while others still draft, opens Submit
+        if (previous?.id == detail.id && previous.phase == PodPhase.DRAFTING && !podOwnDraftDone(previous) && podOwnDraftDone(detail))
+            AppLog.info("pod", "Pod ${detail.id.take(8)}: your own draft is done (pod ${detail.phase.name.lowercase()}); Submit opens")
         accepted = detail
         syncMarks(detail)
         syncNotes(detail)
         if (buildHistory?.pod == detail.id && (detail.submitted || buildHistory?.attempt != detail.draftAttemptId)) buildHistory = null
-        if (changed) state = state.copy(tab = openTab?.takeIf { it in podTabs(detail.phase) } ?: podDefaultTab(detail.phase, detail.submitted))
+        if (changed) state = state.copy(tab = openTab?.takeIf { it in podTabs(detail.phase) } ?: podDefaultTab(detail))
         openTab = null
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
         seePicks(detail)
@@ -1057,11 +1069,18 @@ fun podStatus(pod: PodSummary): String = when (pod.attention) {
     PodAttention.YOUR_PICK -> if (pod.mode.limited && pod.mode != DraftMode.ROCHESTER || pod.mode == DraftMode.ARENA) "Your pick"
         else "Your pick · ${podPackCount(pod.packsWaiting)}"
     PodAttention.BUILD -> "Build your deck"
-    PodAttention.NONE -> when (pod.phase) { PodPhase.SETUP -> "Setup"; PodPhase.DRAFTING -> "Drafting"; PodPhase.DRAFTED -> "Deck submitted" }
+    // DRF-119: a deck submitted while others still draft reads "Deck submitted" too
+    PodAttention.NONE -> when {
+        pod.phase == PodPhase.SETUP -> "Setup"
+        pod.submitted || pod.phase == PodPhase.DRAFTED -> "Deck submitted"
+        else -> "Drafting"
+    }
 }
 fun podMemberStatus(member: PodMember, phase: PodPhase, mode: DraftMode = DraftMode.BOOSTER): String = when {
     member.submitted -> "submitted"
     phase == PodPhase.SETUP -> "accepted"
+    // DRF-119: done early, building while others still draft
+    member.building -> "building"
     (mode == DraftMode.GRID || mode.limited || mode == DraftMode.ARENA) && phase == PodPhase.DRAFTING -> if (member.picking) "picking" else "waiting"
     member.packsWaiting > 0 -> "picking · ${podPackCount(member.packsWaiting)}"
     phase == PodPhase.DRAFTED || member.building -> "building"

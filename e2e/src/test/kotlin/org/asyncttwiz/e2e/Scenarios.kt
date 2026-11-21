@@ -11,6 +11,14 @@ import kotlin.test.assertNotNull
 
 /** Ways games go that several tests start from. */
 
+/** Whether [e] declares a keep in the opening: the open decision's answer, or a declaration ahead of it (TRN-027). */
+internal fun keeps(e: GameEvent): Boolean = e.engine?.steps.orEmpty().any { s ->
+    ((s.input as? Input.Answer)?.answer ?: (s.input as? Input.SetupAnswer)?.answer) == arcanum.engine.decision.Answer.Option("Keep") }
+
+/** Whether Bob's own opening keep is on the line Alice's table shows. The game's first event (its start) may be Bob's too,
+ * so an event of his alone isn't his keep (merge gate 2026-11-21: CatchUpPlaybackTest's Alice tapped on before his keep came). */
+internal fun E2e.bobsKeepOnAlicesTable(): Boolean = alice.shown.held.any { it.author == bob.id && it.assumed == null && keeps(it) }
+
 /** Where card [id] is on [play]'s board ("STACK" while its spell is there), or null when the board hides it. */
 internal fun where(play: TableBoard, id: String): String? {
     val board = play.board

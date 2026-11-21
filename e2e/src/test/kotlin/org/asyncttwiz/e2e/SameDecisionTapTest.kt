@@ -51,7 +51,7 @@ class SameDecisionTapTest : E2e() {
      * playing a Mountain when [land]. */
     private fun aliceInMain(land: Boolean = false) {
         bob.tap("Keep")
-        waitUntil("Bob's keep on Alice's table") { alice.shown.held.any { it.author == bob.id } }
+        waitUntil("Bob's keep on Alice's table") { bobsKeepOnAlicesTable() }
         away(bob, alice)
         alice.tap("Keep")
         waitUntil("Alice's Main 1") { alice.inOwnMain() }

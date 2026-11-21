@@ -21,7 +21,7 @@ class PlayStartsAtOnceTest : E2e() {
         startGame(deck, deck, deal = { a, _ -> "Mountain" in hand(a) })
         bothOpen()
         bob.tap("Keep")
-        waitUntil("Bob's keep on Alice's table") { alice.shown.held.any { it.author == bob.id } }
+        waitUntil("Bob's keep on Alice's table") { bobsKeepOnAlicesTable() }
         away(bob, alice)
         alice.tap("Keep")
         waitUntil("Alice's Main 1") { alice.inOwnMain() }

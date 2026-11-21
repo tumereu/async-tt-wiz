@@ -38,7 +38,7 @@ class CatchUpPlaybackTest : E2e() {
         startGame(deck, deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         bothOpen()
         bob.tap("Keep")
-        waitUntil("Bob's keep on Alice's table") { alice.shown.held.any { it.author == bob.id } }
+        waitUntil("Bob's keep on Alice's table") { bobsKeepOnAlicesTable() }
         away(bob, alice)
         val first = alice.state.player(alice.me).hand.toList()
         alice.tap("Mulligan")

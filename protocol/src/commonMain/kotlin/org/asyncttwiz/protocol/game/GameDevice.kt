@@ -2706,6 +2706,9 @@ class GameDevice(
             }
         }.takeWhile { it.second != null }.toList()
         if (kept.isNotEmpty() && redeclaring.isEmpty()) redeclareAfter = dropped.first().parentId
+        // TRN-027 (merge gate 2026-11-21): which declarations lost the race and wait to be made again, after which event
+        if (kept.isNotEmpty()) remember("opening lost the race on ${dropped.first().parentId}: ${kept.map { "${it.first.id} ${it.second}" }} " +
+            "made again after $redeclareAfter, ${dropped.size - kept.size} other dropped")
         redeclaring += kept.mapNotNull { it.second }
         kept.forEach { redeclared += it.first.id }
         if (redeclared.size > MAX_ORIGINS) redeclared.clear()
@@ -2896,6 +2899,8 @@ class GameDevice(
             val input = openingInput(answer)
             remember("redeclare $answer${if (input == null) ": no longer asked" else ""}")
             val acted = input?.let { act(it) }
+            // TRN-027 (merge gate 2026-11-21): what the declaration made again was made on, for the problem report
+            remember("redeclared $answer: ${(acted as? Acted.Sent)?.event?.let { "sent ${it.id} on ${it.parentId}" } ?: acted}")
             if (acted !is Acted.Sent && acted !is Acted.Confirmed) { note(Note.Refused("stale")); return }
         }
     }
@@ -3443,6 +3448,33 @@ class GameDevice(
         fun sameEndTurn(seen: GameState, now: GameState, me: PlayerId): Boolean = sameDecision(seen, now) ||
             (seen.turn.active == me && now.turn.active == me && seen.turn.number == now.turn.number &&
                 now.stack.all { it in seen.stack || now.stackItems[it]?.controller == me })
+
+        /**
+         * TRN-027, SYS-135 (merge gate 2026-11-21, e2e CatchUpPlaybackTest): whether [me]'s opening declaration (Keep, Mulligan,
+         * the cards a mulligan puts on the bottom) tapped on the board [seen] is still the same decision on [now], the board
+         * the device has moved on to: each player's mulligans are their own and both declare at the same time, so the other
+         * player's declarations in between (their keep arriving, the device making [me]'s own lost declaration again on it)
+         * don't change it. Both in the opening with [me]'s own declaration open on each, and [me]'s opening where it was: the
+         * same cards (their library in any order), the same mulligans taken, a bottom choice owed on both or neither. Or
+         * [sameDecision].
+         */
+        fun sameOpening(seen: GameState, now: GameState, me: PlayerId): Boolean = sameDecision(seen, now) ||
+            openingOf(seen, me)?.let { it == openingOf(now, me) } == true
+
+        /** [me]'s own opening on [s] as [sameOpening] compares it, or null when [s] asks nothing of [me]'s opening now. */
+        private fun openingOf(s: GameState, me: PlayerId): Any? {
+            if (s.turn.number != 0) return null
+            val pending = s.pending ?: return null
+            val stage = (pending.continuation as? arcanum.engine.decision.Continuation.Setup)?.stage as? arcanum.engine.setup.SetupStage.Declare
+                ?: return null
+            val m = stage.mulligans
+            if (me in m.kept) return null
+            val open = Host.decider(s, pending.decision.player) == me ||
+                Engine.options(s, me, EnginePreferences.of(s)).any { it is Input.SetupAnswer && it.player == me }
+            if (!open) return null
+            val player = s.player(me).let { it.copy(library = it.library.sortedBy(ObjectId::toString)) }
+            return Triple(player, m.taken[me] ?: 0, me in m.taking)
+        }
 
         /** A device for [me] from the server's [snapshot] (and the codec of the game's definitions), at their local head
          * with the events past it buffered. With [takenBack] (HIS-106), when another player's branch took the player's

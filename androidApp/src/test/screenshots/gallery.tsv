@@ -324,4 +324,14 @@ number	item	screenshot	catalog	decisions	sequence
 351	Draft: Arena pick screen on the phone	draft/arena-pick.png	DRF-288 DRF-280		Arena
 352	Desktop draft: Arena pick with a quick look	desktop/arena-pick.png	DRF-288 WEB-117		Arena
 353	Manage decks: a saved deck's ⋮ Move to… dialog, the top level and the categories as a tree, its own category marked	lending/move-deck.png	LOB-262
+354	The other player's special action shown large before it flies into its own card	engine/play-show-special-action.png	HIS-112 HIS-031 TBL-115
 356	Draft: Show bot picks, the bot's scores and pick on a Booster pack with a score's breakdown open	draft/bot-picks.png	DRF-292 LOB-263		
+357	Game log: the game's events as text, names and cards in their players' colours	history/game-log.png	HIS-239 HIS-240 HIS-242
+358	Clip: your own spell flies to the Stack and resolves	clips/own-cast.webp	STK-006 TBL-125
+359	Clip: the other player's spell shown in the middle, then on the Stack with its arrow	clips/play-shown.webp	HIS-112 HIS-133 HIS-136 STK-058
+360	Clip: a spell resolving after its arrow, its damage killing the target	clips/spell-resolves.webp	TBL-150 STK-058 STK-006
+361	Clip: an ability and its trigger fly in and pile up, the trigger shown first	clips/trigger-appears.webp	HIS-134 HIS-135 HIS-136
+362	Clip: staging the first attacker opens the combat band	clips/combat-band-opens.webp	CMB-001 CMB-053 CMB-054
+363	Clip: combat damage on the band, then the band closing	clips/combat-damage.webp	CMB-050 CMB-090 HIS-113
+364	Clip: the turn banner shows and fades	clips/turn-banner.webp	TRN-074
+365	Clip: tapping an earlier event in the Undo dialog's strip	clips/undo-strip.webp	HIS-099 HIS-207 HIS-208

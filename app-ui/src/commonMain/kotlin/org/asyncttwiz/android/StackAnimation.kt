@@ -160,6 +160,10 @@ fun stackTargetCount(play: TableBoard, entry: String): Int {
  * shown is made from. */
 val LocalUnhiddenPlay = compositionLocalOf<TableBoard?> { null }
 
+/** HIS-112 (owner, 2026-11-20): the board the device shows, past what the table still holds back: a special action's card as
+ * it is once its play is done (what the play shown names). */
+val LocalLivePlay = compositionLocalOf<TableBoard?> { null }
+
 /** For the step 4 to step 5 log: what the game waits for on [shown], a finger or Alt held ([pause]) included. */
 fun stackWaitText(shown: EngineGame.Shown?, pause: ViewPause?): String {
     val status = when (val s = shown?.status) {
@@ -438,6 +442,12 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
 
     /** HIS-112: the play shown [show] ended on this table (landed, or skipped by a double tap): its entry shows from now on. */
     fun land(show: GameDevice.PlayShow) {
+        if (show.kind == GameDevice.PlayKind.Special && show !in ended) {
+            ended += show
+            AppLog.info("game", "Special action ${show.ability?.key} of ${show.card?.value} landed in its card on the table of ${viewer.take(8)}")
+            specialLanded(show)
+            return
+        }
         if (show !in ended) ended += show
         val entry = "entry:${show.entry}"
         StackAnimationProbe.landed?.invoke(viewer, entry)
@@ -452,7 +462,16 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
      * land. */
     fun hidden(moments: List<GameDevice.ViewMoment>, coming: List<GameDevice.PlayShow> = emptyList()): Set<String> =
         (moments.filterIsInstance<GameDevice.PlayShow>().filter { it !in ended } + coming.filter { it !in ended })
-            .mapTo(LinkedHashSet()) { "entry:${it.entry}" }
+            .filter { it.kind != GameDevice.PlayKind.Special }.mapTo(LinkedHashSet()) { "entry:${it.entry}" }
+
+    /** HIS-112 (owner, 2026-11-20): the cards of the special actions shown in [moments] not ended on this table yet: each is
+     * drawn as it was before its action until its play lands in it (the board's steps wait before the step changing it). */
+    fun heldCards(moments: List<GameDevice.ViewMoment>): Set<String> =
+        moments.filterIsInstance<GameDevice.PlayShow>().filter { it.kind == GameDevice.PlayKind.Special && it !in ended }
+            .mapNotNullTo(LinkedHashSet()) { it.card?.value }
+
+    /** HIS-112, HIS-031 (owner, 2026-11-20): run as a special action's play lands in its card (the table flashes the card). */
+    var specialLanded: (GameDevice.PlayShow) -> Unit = {}
 
     private var boardMemo: Triple<TableBoard, Set<String>, TableBoard>? = null
 

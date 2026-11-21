@@ -147,27 +147,54 @@ class EngineCardPlaysTest {
         arcanum.engine.cards.face("Dusty Attic", "{2}{W}", "Enchantment — Room", "Creatures you control get +1/+0.", null, null, null),
     )
 
-    // TBL-115, SYS-153 (CR 709.5e, prod faults 9SF97R, P86WUK: the unlock read as the placeholder "Special action"): a locked
-    // door's unlocking is offered by its name, "Unlock Dusty Attic"
+    // TBL-115, TBL-232, SYS-153 (CR 709.5e, prod faults 9SF97R, P86WUK: the unlock read as the placeholder "Special action"; owner 2026-11-20:
+    // as an ability reads): a locked door's unlocking is offered as its cost and its name, "{2}{W}: Unlock Dusty Attic"
     @Test fun unlockingADoorIsOfferedByItsName() {
         table.put(alice, Zone.Battlefield, "Plains", "Plains", "Plains")
         val (parlor) = table.put(alice, Zone.Battlefield, room)
         table.update(parlor) { it.copy(marks = it.marks + arcanum.api.ObjectMark.Unlocked(arcanum.api.Door.Left)) }
         val (plays, faults) = faults { table.plays() }
         val unlock = plays.of(parlor).single { it.kind == CardPlay.Kind.Special }
-        assertEquals("Unlock Dusty Attic", unlock.text)
+        assertEquals("{2}{W}: Unlock Dusty Attic", unlock.text)
         assertIs<Input.Activate>(unlock.input)
         assertEquals(emptyList(), faults)
     }
 
-    // TBL-115 (CR 701.40b): a manifested creature card's turning face up is offered with its mana cost, never as a placeholder
+    // TBL-115, TBL-232 (CR 701.40b; owner 2026-11-20: as an ability reads): a manifested creature card's turning face up is offered as its mana
+    // cost, then "Turn face up", never as a placeholder
     @Test fun turningAManifestedCardFaceUpIsNamed() {
         table.put(alice, Zone.Battlefield, "Forest", "Forest", "Forest")
         val (seer) = table.put(alice, Zone.Battlefield, "Elvish Seer")
         table.update(seer) { it.copy(faceDown = true, marks = it.marks + arcanum.api.ObjectMark.Manifested) }
         val (plays, faults) = faults { table.plays() }
         val faceUp = plays.of(seer).single { it.kind == CardPlay.Kind.Special }
-        assertEquals("Turn face up for " + Cards.definition("Elvish Seer").faces.single().manaCost, faceUp.text)
+        assertEquals("${Cards.definition("Elvish Seer").faces.single().manaCost}: Turn face up", faceUp.text)
+        assertEquals(emptyList(), faults)
+    }
+
+    private val mask = Cards.invent("Ember Mask", "{2}{R}", "Creature — Elemental", "Morph {1}{R}", "2/2")
+    private val plotter = Cards.invent("Ember Plotter", "{3}{R}", "Sorcery", "Ember Plotter deals 2 damage to any target.\nPlot {1}{R}")
+    private val comet = Cards.invent("Ember Comet", "{4}{R}", "Sorcery", "Ember Comet deals 5 damage to any target.\nSuspend 3—{R}")
+
+    // TBL-115, TBL-232 (CR 702.37e; owner 2026-11-20: a special action reads as an ability): a face-down morph's turning face up is offered as its
+    // morph cost, then "Turn face up"
+    @Test fun turningAMorphFaceUpReadsAsAnAbility() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain")
+        val (face) = table.put(alice, Zone.Battlefield, mask)
+        table.update(face) { it.copy(faceDown = true) }
+        val (plays, faults) = faults { table.plays() }
+        assertEquals("{1}{R}: Turn face up", plays.of(face).single { it.kind == CardPlay.Kind.Special }.text)
+        assertEquals(emptyList(), faults)
+    }
+
+    // TBL-115, TBL-232 (CR 702.170a, 702.62a, 702.143b; owner 2026-11-20): plot, suspend and foretell read as abilities: "{1}{R}: Plot",
+    // "{R}: Suspend 3" (its time counters kept), "{2}: Foretell" instead of the reminder sentence
+    @Test fun plotSuspendAndForetellReadAsAbilities() {
+        val (plot, suspend) = table.put(alice, Zone.Hand, plotter, comet)
+        val (plays, faults) = faults { table.plays() }
+        assertEquals("{1}{R}: Plot", plays.of(plot).single { it.kind == CardPlay.Kind.Special }.text)
+        assertEquals("{R}: Suspend 3", plays.of(suspend).single { it.kind == CardPlay.Kind.Special }.text)
+        assertEquals("{2}: Foretell", CastFlow.specialActionText(null, arcanum.engine.view.AbilityOrigin.Rule(CastFlow.FORETELL)))
         assertEquals(emptyList(), faults)
     }
 }

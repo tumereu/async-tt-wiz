@@ -23,6 +23,10 @@ sealed interface Effect {
         val cantBePrevented: Boolean = false,
         /** Names the damage actually dealt, after prevention and replacement ("the damage dealt this way"). */
         val bind: String? = null,
+        /** "Excess damage is dealt to that creature's controller instead" (CR 120.4a): the damage to each permanent of [to] beyond what
+         * would be lethal (a creature's), its loyalty or its defense is dealt to these instead, worked out before prevention and
+         * replacement and dealt in the same damage event. */
+        val excessTo: Recipients? = null,
     ) : Effect
     /** [first] and [second] each deal damage equal to their power to the other (CR 701.14). */
     @Serializable @SerialName("fight") data class Fight(

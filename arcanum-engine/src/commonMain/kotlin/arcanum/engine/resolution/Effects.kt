@@ -712,12 +712,42 @@ internal object Effects {
 
     private fun dealDamage(scope: Scope, effect: Effect.DealDamage) {
         val act = scope.act
-        val parts = damageParts(scope, effect)
+        val parts = damageParts(scope, effect).let { parts -> effect.excessTo?.let { redirectExcess(scope, parts, it) } ?: parts }
         if (parts.isEmpty() && scope.objects(effect.source).isEmpty()) return
         val result = Actions.damage(act, scope.cause, parts, effect.cantBePrevented)
         effect.bind?.let { bind ->
             scope.bind(bind, NamedValue.Number(result.total))
             scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(result.excess))
+        }
+    }
+
+    /**
+     * ltr: "excess damage is dealt to … instead" (CR 120.4a): the damage event is modified first, before prevention and replacement
+     * effects apply to it: of the damage to each permanent, what is beyond lethal damage for a creature (its toughness less the damage
+     * marked on it and dealt to it earlier in this event; 1 from a source with deathtouch), beyond a planeswalker's loyalty or beyond a
+     * battle's defense (the greatest excess for a permanent of several of these types) is dealt to [to] instead, in the same event.
+     */
+    private fun redirectExcess(
+        scope: Scope, parts: List<DamageDealt>, to: arcanum.api.Recipients, dealtBefore: MutableMap<ObjectId, Int> = mutableMapOf(),
+    ): List<DamageDealt> {
+        val act = scope.act
+        val view = act.view()
+        val board = act.board()
+        val instead by lazy { recipients(scope, to) }
+        return parts.flatMap { part ->
+            val r = part.recipient as? TargetRef.Object ?: return@flatMap listOf(part)
+            val c = view[r.id]?.characteristics ?: return@flatMap listOf(part)
+            val o = act.obj(r.id) ?: return@flatMap listOf(part)
+            val before = dealtBefore[r.id] ?: 0
+            dealtBefore[r.id] = before + part.amount
+            val deathtouch = board.characteristics(part.source)?.keywords.orEmpty().any { it.kind == arcanum.api.Keyword.Deathtouch }
+            val upTo = listOfNotNull(
+                if (!c.isType(CardType.Creature)) null else ((c.toughness ?: 0) - o.damage - before).coerceAtLeast(0).let { if (deathtouch) minOf(1, it) else it },
+                if (!c.isType(CardType.Planeswalker)) null else (o.counters(CounterKind.Loyalty) - before).coerceAtLeast(0),
+                if (!c.isType(CardType.Battle)) null else (o.counters(CounterKind.Defense) - before).coerceAtLeast(0),
+            ).minOrNull() ?: return@flatMap listOf(part)
+            val excess = (part.amount - upTo).coerceAtLeast(0)
+            if (excess == 0) listOf(part) else listOf(part.copy(amount = upTo)) + instead.map { DamageDealt(part.source, it, excess) }
         }
     }
 
@@ -735,7 +765,8 @@ internal object Effects {
      * one of [scopes] (a loop over the objects) is dealt as one event, so a "whenever … is dealt damage" ability triggers once. */
     fun dealDamageTogether(scopes: List<Scope>, effect: Effect.DealDamage) {
         val first = scopes.firstOrNull() ?: return
-        val parts = scopes.flatMap { damageParts(it, effect) }
+        val dealtBefore = mutableMapOf<ObjectId, Int>()
+        val parts = scopes.flatMap { s -> damageParts(s, effect).let { parts -> effect.excessTo?.let { redirectExcess(s, parts, it, dealtBefore) } ?: parts } }
         if (parts.isNotEmpty()) Actions.damage(first.act, first.cause, parts, effect.cantBePrevented)
     }
 

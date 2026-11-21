@@ -1140,7 +1140,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         fun manaChoices(a: Ability.Activated): List<Pair<Int, Step.Choose>> = a.instructions.steps.withIndex().mapNotNull { (i, step) ->
             val choose = step as? Step.Choose ?: return@mapNotNull null
             val choice = choose.choice as? arcanum.api.Choice.Objects ?: return@mapNotNull null
-            if (choice.from != null || choice.distinct != null || choice.onePer != null || choice.totalAtMost != null) return@mapNotNull null
+            if (choice.from != null || choice.distinct != null || choice.onePer != null || choice.totalAtMost != null || choice.oneEach != null) return@mapNotNull null
             if (choose.chooser != arcanum.api.Players.You) return@mapNotNull null
             val bound = "Bound(name=${choose.bind})"
             val read = a.instructions.steps.drop(i + 1).any { ((it as? Step.Do)?.effect as? Effect.AddMana)?.toString()?.contains(bound) == true }

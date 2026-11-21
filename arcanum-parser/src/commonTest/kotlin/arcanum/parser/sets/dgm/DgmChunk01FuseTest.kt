@@ -107,12 +107,11 @@ class DgmChunk01FuseTest {
             ), Keyword.Fuse),
     )
 
-    // CR 101.4: each player chooses one of each, all sacrificed at once
+    // CR 101.4: each player chooses one of each, all sacrificed at once; CR 701.21a, 609.3: different permanents, as close to one of each as
+    // they can (an artifact creature is the artifact or the creature, not both)
     @Test
     fun seizeDiscard() {
         val player = Players.Bound("player")
-        fun one(type: CardType, bind: String) = Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(type), ObjectFilter.ControlledBy(PlayerFilter.Is(player)))),
-            n(1), n(1)), bind = bind, chooser = player)
         cardFaces(
             Layout.Split,
             half("Seize", "{1}{U}{R}", "Sorcery", "Gain control of target permanent until end of turn. Untap it. It gains haste until end of turn.") to
@@ -124,9 +123,10 @@ class DgmChunk01FuseTest {
                 ), Keyword.Fuse),
             half("Discard", "{4}{R}{W}", "Sorcery", "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.") to
                 abilities(spell(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), "player", listOf(
-                    one(CardType.Artifact, "sacrificed1"), one(CardType.Creature, "sacrificed2"), one(CardType.Enchantment, "sacrificed3"),
-                    one(CardType.Land, "sacrificed4"), one(CardType.Planeswalker, "sacrificed5"),
-                    Step.Do(Effect.Sacrifice(Objects.Union((1..5).map { Objects.Bound("sacrificed$it") }))),
+                    Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Category(ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.Is(player)))),
+                        n(5), n(5), oneEach = listOf(CardType.Artifact, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
+                            .map { ObjectFilter.Type(it) }), bind = "sacrificed", chooser = player),
+                    Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))),
                 ), together = true)), Keyword.Fuse),
         )
     }

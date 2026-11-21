@@ -368,9 +368,14 @@ internal object Steps {
                 val hidden = act.hiddenDecides(chooser, pool) { e.identityDecides(choice.filter, it) }
                 val e2 = scope.eval()
                 val options = pool.filter { act.state.obj(it) != null && e2.matches(choice.filter, it) &&
-                    !(sacrificing && arcanum.engine.action.Actions.cantBeSacrificed(act, it, scope.cause.controller)) }
-                val chosen = act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },
+                    !(sacrificing && arcanum.engine.action.Actions.cantBeSacrificed(act, it, scope.cause.controller)) &&
+                    (choice.oneEach == null || choice.oneEach!!.any { f -> e2.matches(f, it) }) }
+                // gtc, dgm: "an artifact and a land": one object for each, all different, as many as can be (CR 701.21a, 609.3)
+                val oneEach = choice.oneEach?.let { filters -> { ids: List<ObjectId> -> standingForOneEach(e2, filters, ids) } }
+                val most = oneEach?.invoke(options)
+                val chosen = act.chooseObjects(chooser, source, options, most ?: e2.value(choice.min), most ?: choice.max?.let { e2.value(it) },
                     arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose"), hidden)
+                oneEach?.let { stand -> require(stand(chosen) == chosen.size) { "Each chosen object must stand for a different one of those asked for" } }
                 // "with different powers": no two chosen share the quality (D32: a rule-breaking answer is refused)
                 choice.distinct?.let { quality ->
                     require(chosen.indices.none { i -> (0 until i).any { j -> e2.shares(quality, chosen[i], chosen[j]) } }) {
@@ -415,6 +420,17 @@ internal object Steps {
                 if (marker != null) act.record(Change.Memory(id, key, o.linked[key], marker))
             } }
         }
+    }
+
+    /** gtc, dgm: how many of [ids] can each stand for a different one of [filters] ([Choice.Objects.oneEach]): a largest matching of
+     * the filters to the objects each matches (CR 701.21a: one permanent sacrificed as "an artifact" can't also be "a land"). */
+    private fun standingForOneEach(e: Evaluator, filters: List<arcanum.api.ObjectFilter>, ids: List<ObjectId>): Int {
+        val matches = filters.map { f -> ids.filter { e.matches(f, it) } }
+        val holder = mutableMapOf<ObjectId, Int>()
+        fun place(slot: Int, tried: MutableSet<ObjectId>): Boolean = matches[slot].any { id ->
+            tried.add(id) && (holder[id]?.let { other -> place(other, tried) } ?: true).also { placed -> if (placed) holder[id] = slot }
+        }
+        return filters.indices.count { place(it, mutableSetOf()) }
     }
 
     private val ALL_TYPES = listOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Instant,

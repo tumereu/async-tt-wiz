@@ -1,6 +1,20 @@
 package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import org.asyncttwiz.android.EngineTableProbe
+import org.asyncttwiz.android.PLAY_SHOW_TAG
+import org.asyncttwiz.android.PlayShowProbe
+import org.asyncttwiz.android.TableBounds
+import org.asyncttwiz.android.TableChange
+import org.asyncttwiz.android.TableChangeKey
+import org.asyncttwiz.android.TableChangeKind
+import org.asyncttwiz.android.TableItemKind
+import org.asyncttwiz.android.TableScene
+import org.asyncttwiz.android.playShowStart
+import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.game.GameDevice
+import kotlin.test.assertNotNull
 import androidx.compose.ui.test.performClick
 import org.asyncttwiz.protocol.Fault
 import org.asyncttwiz.protocol.Faults
@@ -54,5 +68,63 @@ class RoomUnlockTest : E2e() {
         waitUntil("Bob's table told him: ${bob.shownTexts}", along = listOf(alice)) { bob.told("${alice.name} unlocked Ember Vault") }
         assertTrue(alice.shownTexts.none { "Special action" in it } && bob.shownTexts.none { "Special action" in it })
         assertEquals(emptyList(), faults.filter { "without text" in it.what || "placeholder" in it.what }, "no placeholder")
+    }
+
+    // HIS-112, HIS-237, HIS-238, HIS-031 (owner, 2026-11-20: Alice unlocked a Room in prod and nothing showed it on the other table): Alice's
+    // unlock shows on Bob's table large in the middle as an ability does ("<Alice> unlocked Ember Vault"), then flies into the Room
+    // itself instead of to the Stack, and the Room flashes as it lands; then its trigger shows and resolves
+    @Test fun theUnlockShowsOnTheOtherTableAndFliesIntoTheRoom() {
+        val flights = java.util.concurrent.CopyOnWriteArrayList<Triple<GameDevice.PlayShow, TableBounds?, TableScene>>()
+        val flashes = java.util.concurrent.CopyOnWriteArrayList<List<TableChange>>()
+        try {
+            startGame(TestDeck("Rooms", listOf(TestCards.mountain to 20, TestCards.foyer to 20)), TestDeck.glimmers(), deal = { a, _ ->
+                hand(a).any { it.startsWith("Ember Foyer") } && "Mountain" in hand(a)
+            })
+            // Plays shown on Bob's table, at the longest time (3 s), so the unlock can be looked at while it shows
+            org.asyncttwiz.android.HistoryPlaybackPreferences(org.asyncttwiz.appui.AppPlatform.current, bob.id).showPlaysMillis =
+                org.asyncttwiz.android.HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
+            bothOpen()
+            bothKeep(bobAway = false)
+            alice.playFromHand("Mountain", this)
+            waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").size == 1 && alice.inOwnMain() }
+            waitUntil("Alice's game settled") { alice.settled(this) }
+            val room = listOf("Ember Foyer // Ember Vault", "Ember Foyer").first { runCatching { alice.handCard(it) }.isSuccess }
+            alice.handCard(room).performClick()
+            waitUntil("the Room's chips: ${alice.screen()}") { alice.shows(hasContentDescription("Way Cast {R}")) }
+            alice.node(hasContentDescription("Way Cast {R}")).performClick()
+            waitUntil("the Foyer on the battlefield, its trigger resolved, Bob's table past it", along = listOf(bob)) {
+                roomsOnField() == 1 && alice.inOwnMain() && alice.state.stack.isEmpty() &&
+                    alice.engine { device.session.pending.isEmpty() } && bob.shown.show == null && bob.state.stack.isEmpty()
+            }
+            waitUntil("Alice's game settled") { alice.settled(this) }
+            PlayShowProbe.flight = { me, show, target, scene -> if (me == bob.id) flights += Triple(show, target, scene) }
+            EngineTableProbe.flashed = { me, changes -> if (me == bob.id) flashes += changes }
+            listOf("Ember Foyer", "Ember Foyer // Ember Vault").firstNotNullOf { runCatching { alice.battlefieldCard(it) }.getOrNull() }.performClick()
+            // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
+            val show = clockInStep {
+                waitUntil("the unlock shown on Bob's table: ${bob.screen()}", along = listOf(alice)) {
+                    bob.shown.show?.kind == GameDevice.PlayKind.Special &&
+                        bob.shows(hasTestTag(PLAY_SHOW_TAG) and hasContentDescription("${alice.name} unlocked Ember Vault"))
+                }
+                assertTrue(flashes.isEmpty(), "the Room flashes only once the play lands")
+                assertNotNull(bob.shown.show)
+            }
+            val card = assertNotNull(show.card).value
+            waitUntil("the unlock flown into the Room and the Room flashed", along = listOf(alice)) {
+                flights.any { it.first == show } && flashes.isNotEmpty()
+            }
+            val (_, target, scene) = flights.first { it.first == show }
+            val roomItems = scene.items.filter { it.kind == TableItemKind.CARD && it.cardId == card && it.zone == PlayZone.BATTLEFIELD && !it.projection }
+            val roomItem = roomItems.firstOrNull { it.visible.isNotEmpty() } ?: roomItems.first()
+            assertEquals(playShowStart(assertNotNull(scene.boardArea), roomItem.bounds), target, "into the Room, not the Stack")
+            assertTrue(flashes.single().any { it.key == TableChangeKey(card, TableChangeKind.SPECIAL) }, "the Room flashes: ${flashes.single()}")
+            waitUntil("Bob's table past the unlock's show and its trigger's, the trigger on his Stack", along = listOf(alice)) {
+                bob.shown.show == null && bob.state.stack.size == 1 && bob.shown.moments.isEmpty()
+            }
+            assertEquals(emptyList(), faults.filter { "without" in it.what || "placeholder" in it.what }, "no placeholder")
+        } finally {
+            PlayShowProbe.flight = null
+            EngineTableProbe.flashed = null
+        }
     }
 }

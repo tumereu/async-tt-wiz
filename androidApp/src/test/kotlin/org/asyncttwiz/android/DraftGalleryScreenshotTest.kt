@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.protocol.PodGridView as GridViewData
 import org.asyncttwiz.storage.DraftableSet
 import org.junit.After
 import org.junit.Rule
@@ -395,6 +396,40 @@ class DraftGalleryScreenshotTest {
         settle()
         shot("autoconfirm-on", "The same pick after Alice taps Auto: the toggle is filled yellow and Confirm is yellow too with a band " +
             "of light across it (here at the start of its sweep); the last burn she marks will confirm the pick at once.")
+    }
+
+    /** Alice's pick from grid 1 of a two-player Grid draft: nine fresh cards. */
+    private fun gridPick(): PodDetail {
+        val nine = listOf(0, 5, 10, 15, 20, 25, 28, 2, 7).map { copy(it) }
+        val board = GridPublicBoard("grid-0", 1, nine, alice.accountId, 1, false, nine.map { GridPublicSlot(it) })
+        val grid = GridViewData(GridPublicView(1, 9, false, listOf("alice", "bob"), listOf(board), emptyList()),
+            GridPrivateView(alice.accountId, emptyList(), board.id, queue = listOf(board.id), round = 1, rounds = 18))
+        return detail(PodPhase.DRAFTING, DraftSettings.grid(), listOf(PodMember(alice, packsWaiting = 1), PodMember(bob)))
+            .copy(grid = grid)
+    }
+
+    // DRF-293, DRF-083 (owner, 2026-11-21): Grid's pick with the Auto toggle off just before Confirm; a tap on row 2's arrow
+    // only tints it
+    @Test fun gridAutoconfirmOff() {
+        show(opened(gridPick()))
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff()
+        compose.onNodeWithContentDescription("Select row 2").performClick()
+        settle()
+        compose.runOnIdle { kotlin.test.assertFalse(pods.state.picking, "Auto off: the tap only chose the row") }
+        shot("grid-autoconfirm-off", "Alice's pick from grid 1 of a two-player Grid draft after she taps row 2's arrow: the row is " +
+            "tinted and Confirm ready, with the Auto toggle off just before it.")
+    }
+
+    // DRF-293, DRF-294: Grid's pick with Auto on: Confirm yellow with its shine, dimmed while no line is taken; then a tap on a
+    // line's arrow sends that line at once
+    @Test fun gridAutoconfirmOn() {
+        show(opened(gridPick()))
+        compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOn()
+        settle()
+        shot("grid-autoconfirm-on", "The same grid after Alice taps Auto before choosing a line: the toggle and Confirm are yellow, " +
+            "Confirm's label dimmed with a band of light across it; a tap on any row's or column's arrow now takes that line at once.")
+        compose.onNodeWithContentDescription("Select column 3").performClick()
+        compose.runOnIdle { kotlin.test.assertTrue(pods.state.picking, "the tap sent column 3") }
     }
 
     // DRF-294: the gallery clip of Auto turning on and Confirm's shine sweeping across it and back

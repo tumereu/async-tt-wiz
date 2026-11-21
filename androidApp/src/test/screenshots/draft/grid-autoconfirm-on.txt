@@ -1,0 +1,1 @@
+The same grid after Alice taps Auto before choosing a line: the toggle and Confirm are yellow, Confirm's label dimmed with a band of light across it; a tap on any row's or column's arrow now takes that line at once.

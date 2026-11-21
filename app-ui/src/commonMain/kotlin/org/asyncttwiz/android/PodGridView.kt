@@ -120,12 +120,31 @@ fun PodGridView(
     modifier: Modifier = Modifier,
     waitingText: String = "Waiting for other players",
     onMainMenu: (() -> Unit)? = null,
+    /** DRF-293: the draft's Auto toggle (personal UI); null keeps it in this composition only (previews and tests). */
+    autoconfirm: Boolean? = null,
+    onAutoconfirm: (Boolean) -> Unit = {},
 ) {
+    var localAuto by remember { mutableStateOf(false) }
+    val auto = autoconfirm ?: localAuto
+    val setAuto: (Boolean) -> Unit = { on -> if (autoconfirm == null) localAuto = on; onAutoconfirm(on) }
     val head = view?.publicView?.grids?.firstOrNull { it.id == view.mine.headGridId && it.currentPlayer == view.mine.player }
     val log = view?.publicView?.log.orEmpty()
     // A refill can preserve both the grid id and player: reset on the authoritative board/log too.
     var selected by remember(head, log.count { it.gridId == head?.id }) { mutableStateOf<GridLine?>(null) }
     val rules = if (head != null) PodGridRules(head, view.mine) else null
+    val confirm: (GridLine?) -> Unit = { line ->
+        if (head != null) line?.takeIf { !busy && rules?.canSelect(it) == true }?.let { onConfirm(head.id, it.type, it.index) }
+    }
+    val select: (GridLine) -> Unit = { line ->
+        selected = line
+        // DRF-293: with Auto on, tapping a line's arrow takes that line at once, as Confirm would (only a tap made now, never
+        // turning Auto on over a line already chosen)
+        if (auto && head != null && !busy && rules?.canSelect(line) == true) {
+            AppLog.info("pod", "Autoconfirm on grid ${head.number} (${head.id}): ${line.type.name.lowercase()} ${line.index + 1} " +
+                "tapped, taking it")
+            confirm(line)
+        }
+    }
     var inspected by remember { mutableStateOf<DraftCopy?>(null) }
     val previewScroll = rememberScrollState()
     val previewScreen = holdPreviewScreenHeight()
@@ -172,7 +191,7 @@ fun PodGridView(
                     }
                     if (view != null) boards.forEach { board -> key(board.id) {
                         PodGridBlock(board, view, totalGrids, members, log, rules.takeIf { board.id == head?.id },
-                            selected.takeIf { head?.id == board.id }, !busy, onSelect = { selected = it }, definitions = definitions,
+                            selected.takeIf { head?.id == board.id }, !busy, onSelect = select, definitions = definitions,
                             colors = colors, inspect = inspect,
                             // Rows and columns are chosen with the arrows; a card is inspected by holding it (DRF-084).
                             inspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
@@ -187,11 +206,10 @@ fun PodGridView(
                         .graphicsLayer { alpha = 1f - progress / PodGridFadeShare })
             }
         }
-        if (head != null) Button(onClick = {
-            selected?.takeIf { !busy && rules?.canSelect(it) == true }?.let { onConfirm(head.id, it.type, it.index) }
-        }, enabled = !busy && selected?.let { rules?.canSelect(it) } == true,
-            modifier = Modifier.fillMaxWidth()) {
-            ButtonLabel("ready", "Confirm")
+        // DRF-293, DRF-294: the Auto toggle just before Confirm, which is yellow with its shine while Auto is on
+        if (head != null) PodAutoconfirmRow(auto, setAuto) { confirmModifier ->
+            PodConfirmButton(auto, !busy && selected?.let { rules?.canSelect(it) } == true, { confirm(selected) },
+                confirmModifier.testTag("pod-grid-confirm"))
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }

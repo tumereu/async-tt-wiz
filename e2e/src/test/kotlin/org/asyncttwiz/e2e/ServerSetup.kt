@@ -291,6 +291,18 @@ object ServerSetup {
         }
     }
 
+    /** A Grid pick for [player] over the API: the first row with a card in their head grid. */
+    fun gridPick(player: TestAccount, pod: String) = runBlocking {
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            val detail = api.detail(player.token, pod)
+            val grid = detail.grid!!
+            val board = grid.publicView.grids.single { it.id == grid.mine.headGridId }
+            val row = (0..2).first { row -> (0..2).any { board.positions[row * 3 + it] != null } }
+            api.gridSelect(player.token, pod, SelectPodGrid(UUID.randomUUID().toString(), detail.draftAttemptId!!, board.id,
+                GridLineType.ROW, row))
+        }
+    }
+
     /** The name the server holds for pod [id]. */
     fun podName(a: TestAccount, id: String): String = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id).name } }
 

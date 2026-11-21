@@ -69,6 +69,55 @@ class PodGridViewTest {
         repeat(9) { slot(it).assertExists() }
     }
 
+    // DRF-293, DRF-083 (owner, 2026-11-21): in Grid, with Auto on beside Confirm, tapping a line's arrow takes that line at once,
+    // as Confirm would; Auto starts off, and with it off a tap only tints the line
+    @Test fun autoTakesTheLineWhoseArrowIsTapped() {
+        val confirmed = mutableListOf<Triple<String, GridLineType, Int>>()
+        show(onConfirm = { grid, line, index -> confirmed += Triple(grid, line, index) })
+        compose.onNodeWithContentDescription("Select row 1").performClick()
+        compose.runOnIdle { assertTrue(confirmed.isEmpty(), "Auto off: a tap only selects: $confirmed") }
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff().performClick().assertIsOn()
+        compose.runOnIdle { assertTrue(confirmed.isEmpty(), "turning Auto on over a chosen line sends nothing: $confirmed") }
+        compose.onNodeWithTag("pod-grid-confirm").assertIsEnabled()
+        compose.onNodeWithContentDescription("Select column 2").performClick()
+        compose.runOnIdle { assertEquals(listOf(Triple("grid-0", GridLineType.COLUMN, 1)), confirmed) }
+        assertTrue("Autoconfirm on grid 1 (grid-0): column 2 tapped, taking it" in AppLog.text())
+    }
+
+    // DRF-293: while a pick is being sent the arrows are off, so Auto sends nothing more
+    @Test fun autoSendsNothingWhileBusy() {
+        var busy by mutableStateOf(false)
+        val confirmed = mutableListOf<Triple<String, GridLineType, Int>>()
+        show(busy = { busy }, onConfirm = { grid, line, index -> confirmed += Triple(grid, line, index) })
+        compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOn()
+        compose.runOnIdle { busy = true }
+        compose.onNodeWithContentDescription("Select row 2").assertIsNotEnabled().performClick()
+        compose.runOnIdle { assertTrue(confirmed.isEmpty(), "$confirmed") }
+    }
+
+    // DRF-293, DRF-294: the draft's own Auto toggle (kept by the pod screen) is shown and changed through it; Confirm is yellow
+    // with its shine while it is on, in a full-width row after the toggle
+    @Test fun autoToggleFollowsTheDraftsValue() {
+        var auto by mutableStateOf(true)
+        val confirmed = mutableListOf<GridLineType>()
+        compose.setContent { ScreenTheme {
+            PodGridView(initial, 18, definitions, listOf(alice, bob), false, { _, line, _ -> confirmed += line },
+                autoconfirm = auto, onAutoconfirm = { auto = it })
+        } }
+        val row = compose.onNodeWithTag("pod-pick-confirm-row").getUnclippedBoundsInRoot()
+        val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn().getUnclippedBoundsInRoot()
+        val confirm = compose.onNodeWithTag("pod-grid-confirm").getUnclippedBoundsInRoot()
+        assertEquals(row.left, toggle.left)
+        assertEquals(row.right, confirm.right)
+        assertTrue(toggle.right < confirm.left, "Auto before Confirm: $toggle, $confirm")
+        compose.onNodeWithContentDescription("Select row 3").performClick()
+        compose.runOnIdle { assertEquals(listOf(GridLineType.ROW), confirmed) }
+        compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOff()
+        compose.runOnIdle { assertFalse(auto) }
+        compose.onNodeWithContentDescription("Select row 2").performClick()
+        compose.runOnIdle { assertEquals(listOf(GridLineType.ROW), confirmed) }
+    }
+
     @Test fun emptySlotsKeepGeometryAndEmptyLinesHaveDisabledArrows() {
         val positions = cards.mapIndexed { index, copy -> if (index < 3) null else copy }
         show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(board.placed(positions)))) })

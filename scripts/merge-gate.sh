@@ -89,14 +89,25 @@ else
         { say "could not reset $wt to master"; exit 2; }
 fi
 gallery=androidApp/src/test/screenshots/gallery.tsv
+backlog=docs/backlog.md
 if ! git -C "$wt" merge -q --no-ff --no-edit -m "$label" "$tip_sha" >>"$log" 2>&1; then
     # Branches add gallery rows at the end, so they clash there; both sides' rows are kept, ordered by number, unless
-    # both used one number (a person picks then).
-    if [ "$(git -C "$wt" diff --name-only --diff-filter=U)" = "$gallery" ] &&
-        python3 "$wt/scripts/lib/gallery-merge.py" "$wt/$gallery" 2>>"$log" &&
-        git -C "$wt" add "$gallery" && git -C "$wt" commit -q --no-edit >>"$log" 2>&1; then
-        say "kept both sides' gallery.tsv rows, ordered by number"
-    else
+    # both used one number (a person picks then). Branches delete the backlog items they built, so neighbouring
+    # deletions clash; a line either side deleted goes, one either side added stays.
+    resolved() {
+        local file
+        for file in $(git -C "$wt" diff --name-only --diff-filter=U); do
+            case $file in
+                "$gallery") python3 "$wt/scripts/lib/gallery-merge.py" "$wt/$gallery" 2>>"$log" || return 1 ;;
+                "$backlog") git -C "$wt" checkout -q --conflict=diff3 -- "$backlog" &&
+                    python3 "$wt/scripts/lib/backlog-merge.py" "$wt/$backlog" 2>>"$log" || return 1 ;;
+                *) return 1 ;;
+            esac
+            git -C "$wt" add "$file" || return 1
+            say "resolved $file: $([ "$file" = "$gallery" ] && echo "both sides' rows kept, ordered by number" || echo "both sides' built items gone, new items kept")"
+        done
+    }
+    if ! { resolved && git -C "$wt" commit -q --no-edit >>"$log" 2>&1; }; then
         say "conflict with master in: $(git -C "$wt" diff --name-only --diff-filter=U | tr '\n' ' ')"
         tail -1 "$log" | grep '^gallery.tsv:' | sed 's/^/merge-gate: /'
         git -C "$wt" merge --abort >/dev/null 2>&1

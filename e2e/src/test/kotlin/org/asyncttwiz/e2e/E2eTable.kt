@@ -64,9 +64,12 @@ internal fun E2ePlayer.field(name: String, owner: PlayerId = me): List<ObjectId>
  * reaches the server nothing of theirs is still on its way to it, and nothing is on its way between the phones
  * ([E2e.quiet]). Until then their device's own passes may still lose their race with the other device's assumptions about
  * them (HIS-096, SYS-077), and the board taken back by that comes after the tap instead of before it.
+ * [forTap]: for a helper about to tap by itself ([stageAttacker], [pickBlocker], [declare]): the board is the newest after
+ * the Automatum worker's queued work was let in ([E2ePlayer.currentForTap]), so a press of this phone's still on its way
+ * through it (a staging, the main button's declaration) reaches the board before the helper reads and taps it.
  */
-internal fun E2ePlayer.settled(e2e: E2e): Boolean {
-    if (!current()) return false
+internal fun E2ePlayer.settled(e2e: E2e, forTap: Boolean = false): Boolean {
+    if (!(if (forTap) currentForTap() else current())) return false
     val id = game?.gameId ?: return false
     return (id !in lobby.state.connectedGames || engine { device.session.pending.isEmpty() }) && e2e.quiet()
 }
@@ -132,7 +135,7 @@ internal fun E2ePlayer.bandOpen(): Boolean = shows(hasContentDescription("Projec
  */
 internal fun E2ePlayer.stageAttacker(name: String, e2e: E2e, index: Int = 0) {
     e2e.waitUntil("${this.name}'s table working out the combat") {
-        settled(e2e) && (org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow()?.startsWith("No attack") == true ||
+        settled(e2e, forTap = true) && (org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow()?.startsWith("No attack") == true ||
             stepArrow()?.startsWith("Attack (") == true)
     }
     battlefieldCard(name, index = index).performClick()
@@ -145,7 +148,7 @@ internal fun E2ePlayer.stageAttacker(name: String, e2e: E2e, index: Int = 0) {
  */
 internal fun E2ePlayer.pickBlocker(name: String, e2e: E2e, index: Int = 0) {
     e2e.waitUntil("${this.name}'s table working out the blocks") {
-        settled(e2e) && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null &&
+        settled(e2e, forTap = true) && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null &&
             stepArrow()?.let { it == "No blocks" || it.startsWith("Block (") } == true
     }
     battlefieldCard(name, index = index).performClick()
@@ -157,7 +160,7 @@ internal fun E2ePlayer.pickBlocker(name: String, e2e: E2e, index: Int = 0) {
  */
 internal fun E2ePlayer.declare(label: String, e2e: E2e) {
     e2e.waitUntil("${this.name}'s $label ready") {
-        settled(e2e) && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow() == label
+        settled(e2e, forTap = true) && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow() == label
     }
     tap(label)
 }
@@ -184,12 +187,12 @@ private fun saying(label: String) =
 
 /** Taps the control [label]. A main button press within [org.asyncttwiz.android.MainButtonGuard.MILLIS] of this phone's last one is
  * ignored as the second tap of a double tap (TRN-063, TRN-117): the phone's clock first moves past it, as a player's finger would be later. */
-internal fun E2ePlayer.tap(label: String) { pastMainGuard(); control(label).performClick() }
+internal fun E2ePlayer.tap(label: String) { pastMainGuard(); tapDecided { control(label).performClick() } }
 
 /** HIS-110, HIS-151, TRN-063, TRN-114 (owner playtest 2026-11-09): the reveal panel's OK, the main button while the panel is open. */
 internal val REVEAL_OK = hasTestTag("main-button") and hasContentDescription("OK")
 internal fun E2ePlayer.showsRevealOk(): Boolean = game?.shown?.reveal != null && shows(REVEAL_OK)
-internal fun E2ePlayer.revealOk() { pastMainGuard(); node(REVEAL_OK).performClick() }
+internal fun E2ePlayer.revealOk() { pastMainGuard(); tapDecided { node(REVEAL_OK).performClick() } }
 
 /** Moves this phone's clock past the main button's guard against a quick second tap (TRN-063, TRN-117), when its last press was that recent. */
 internal fun E2ePlayer.pastMainGuard() {
@@ -199,7 +202,7 @@ internal fun E2ePlayer.pastMainGuard() {
 }
 
 /** Holds the control [label] (a long press: the step arrow's End turn, Undo's earlier points). */
-internal fun E2ePlayer.hold(label: String) { control(label).performTouchInput { longClick() } }
+internal fun E2ePlayer.hold(label: String) { tapDecided { control(label).performTouchInput { longClick() } } }
 
 /** What the main button says now (its words, TRN-063, TRN-112, TRN-114: "To draw step", "Cast"), null while none shows. */
 internal fun E2ePlayer.mainWords(): String? = nodes(hasTestTag("main-button")).fetchSemanticsNodes().firstOrNull()?.description()
@@ -214,7 +217,7 @@ internal fun E2ePlayer.stepArrow(): String? =
 /** HIS-094: the centre text that starts or resumes catch-up playback ("<name> has made moves · Tap to watch"). */
 internal fun E2ePlayer.watchText(): String? = nodes(hasTestTag("centre-action")).fetchSemanticsNodes().firstOrNull()?.description()
 internal fun E2ePlayer.showsWatch(): Boolean = shows(hasTestTag("centre-action"))
-internal fun E2ePlayer.tapToWatch() { node(hasTestTag("centre-action")).performClick() }
+internal fun E2ePlayer.tapToWatch() { tapDecided { node(hasTestTag("centre-action")).performClick() } }
 
 /**
  * HIS-106, HIS-190 (owner 2026-11-08): a branch's rewind stops at the branch point as playback stops: this player's table waits
@@ -299,9 +302,17 @@ internal fun E2ePlayer.playAlong() {
     if (engine { device.session.pending.isNotEmpty() }) return
     // A press of theirs still on its way through the Automatum worker (a declaration) reaches the board first
     if (!foreground || shown.version == alongAt || !currentForTap()) return
-    val acted = runCatching {
+    // Its tap only on the board it was decided on ([E2ePlayer.onDecidedBoard]): one that moved on is looked at next round
+    var acted = false
+    onDecidedBoard(shown.version) { acted = alongOn(shown) }
+    if (acted) alongAt = shown.version
+}
+
+/** [playAlong]'s action on the board [shown]: whether it acted. */
+private fun E2ePlayer.alongOn(shown: EngineGame.Shown): Boolean = try {
+    run {
         // HIS-110: the other player's reveal panel: they look and tap OK
-        if (showsRevealOk()) { revealOk(); return@runCatching true }
+        if (showsRevealOk()) { revealOk(); return@run true }
         when (val status = shown.status) {
             GameDevice.Status.CatchUp -> { tapToWatch(); true }
             is GameDevice.Status.Stopped ->
@@ -312,7 +323,7 @@ internal fun E2ePlayer.playAlong() {
                 // Their own Main 1: a Mountain first (a double tap plays it), so the hand stays at seven
                 shown.engine.let { s -> s.turn.active == me && s.turn.step == TurnStep.PrecombatMain && (s.turn.landsPlayed[me] ?: 0) == 0 &&
                     s.stack.isEmpty() && hand("Mountain").isNotEmpty() } -> {
-                    handCard("Mountain").performTouchInput { doubleClick() }; true
+                    tapDecided { handCard("Mountain").performTouchInput { doubleClick() } }; true
                 }
                 else -> when (val arrow = stepArrow()) {
                     null -> false
@@ -328,6 +339,5 @@ internal fun E2ePlayer.playAlong() {
             }
             else -> false
         }
-    }.getOrDefault(false)
-    if (acted) alongAt = shown.version
-}
+    }
+} catch (moved: E2ePlayer.BoardMoved) { throw moved } catch (_: Throwable) { false }

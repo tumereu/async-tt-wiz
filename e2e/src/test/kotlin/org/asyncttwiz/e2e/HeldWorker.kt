@@ -26,3 +26,29 @@ internal class HeldWorker : EngineWorker {
         while (true) { val work = held.poll() ?: break; work(); observe() }
     }
 }
+
+/**
+ * [inner] as the app's engine worker, but what it hands the main thread (each board the table shows, its notes) waits while
+ * [holding] runs (main thread), then runs in order: a helper tapping by itself checks the board and taps with no newer
+ * board coming in between ([E2ePlayer.tapDecided]).
+ */
+internal class TapHold(private val inner: EngineWorker) : EngineWorker {
+    private var held: ArrayDeque<() -> Unit>? = null
+
+    override fun run(work: () -> Unit) = inner.run(work)
+    override fun <T> call(work: () -> T, done: (T) -> Unit) = inner.call(work, done)
+    override fun early(work: (release: (() -> Unit)?) -> Unit, released: () -> Unit) = inner.early(work, released)
+    override fun main(work: () -> Unit) = inner.main { held?.add(work) ?: work() }
+    override fun frame(work: () -> Unit) = inner.frame { held?.add(work) ?: work() }
+
+    /** Runs [block] on the main thread with what [inner] hands the main thread meanwhile held, then lets that run in order. */
+    fun <T> holding(block: () -> T): T {
+        check(held == null) { "already holding" }
+        val queue = ArrayDeque<() -> Unit>()
+        held = queue
+        try { return block() } finally {
+            held = null
+            while (queue.isNotEmpty()) queue.removeFirst()()
+        }
+    }
+}

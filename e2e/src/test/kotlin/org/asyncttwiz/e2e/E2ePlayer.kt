@@ -81,6 +81,9 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     val id: String get() = account.id
     /** This phone's network: [NetworkLink.cut] it to drop the connection. */
     val link = NetworkLink(E2eStack.origin)
+    /** [engineWorker] as the app gets it: what it hands the main thread (each board the table shows) can wait while a helper
+     * tapping by itself taps ([onDecidedBoard]). */
+    private val tapHold = TapHold(engineWorker)
     private val main = Handler(Looper.getMainLooper())
     private val post: (() -> Unit) -> Unit = { main.post(it) }
     private val workers = mutableListOf<ExecutorService>()
@@ -102,7 +105,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         accountId = { auth.state.account?.accountId }, authenticationRequired = ::authenticationRequired,
         deckApi = DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
         accountOrigin = link.origin, podApi = PodApi(link.origin, authenticationRequired = ::authenticationRequired),
-        clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = engineWorker,
+        clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = tapHold,
         // STK-062: the cards the phone names for the engine come from its card records, as the app's do ([withCatalog])
         namedCards = org.asyncttwiz.protocol.game.NamedCards { name ->
             catalog?.let { records -> org.asyncttwiz.android.CatalogNamedCards { records.repository }.definition(name) } })
@@ -208,7 +211,44 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
      * that board is the newest for a tap ([currentForTap]). */
     fun once(action: () -> Unit) {
         val version = game?.shown?.version ?: return
-        if (version != onceAt && currentForTap()) { onceAt = version; action() }
+        // A board that moved on before the action's tap (its looks at the screen let the next board in): the next round looks
+        // at the new one, as a person would before tapping
+        if (version != onceAt && currentForTap() && onDecidedBoard(version, action)) onceAt = version
+    }
+
+    /** The board version the running action of a helper tapping by itself was decided on ([onDecidedBoard]), until its tap. */
+    private var decidedAt: Long? = null
+
+    /** A tap of a helper tapping by itself ([onDecidedBoard]) found the board moved on from the one it was decided on. */
+    internal class BoardMoved(decided: Long, now: Long?) : RuntimeException("the board moved on ($decided to $now) before the tap")
+
+    /**
+     * Runs [action], decided on the board [version], so that its tap ([tapDecided]) lands on that board or not at all. The
+     * action's looks at the screen (each waits for the screen to be idle, running what is due on the main thread) and the main
+     * button's guard against a quick second tap (moving the clock on) can let a newer board in after the helper checked the
+     * board was the newest ([currentForTap]): its tap then hit the newer board's control, an action meant for the board before
+     * (TurnBannerTest, 2026-11-20: Bob's tap meant for a stop in his playback took the next board's "To combat", passing his
+     * Main 1). Whether the action ran to its end (false: the board moved on, its tap not made).
+     */
+    fun onDecidedBoard(version: Long, action: () -> Unit): Boolean {
+        decidedAt = version
+        return try { action(); true } catch (_: BoardMoved) { false } finally { decidedAt = null }
+    }
+
+    /**
+     * Makes [tap] (a click or press on this player's screen): inside [onDecidedBoard] the first one only if the board shown is
+     * still the one decided on, what was due on the main thread let in first; the boards the engine hands the main thread
+     * meanwhile wait until the tap is made ([TapHold]), so none comes between that check and the tap. Elsewhere at once.
+     */
+    fun tapDecided(tap: () -> Unit) {
+        val decided = decidedAt ?: return tap()
+        decidedAt = null
+        compose.waitForIdle()
+        tapHold.holding {
+            val now = game?.shown?.version
+            if (now != decided) throw BoardMoved(decided, now)
+            tap()
+        }
     }
 
     /**

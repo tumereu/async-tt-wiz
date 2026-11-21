@@ -1148,25 +1148,25 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** The player's opening: their mulligan (I-D54 §8: simultaneous mulligans), or null when they can't take one. */
     fun mulligan(): GameDevice.Acted? = answered { mulligan(it) }
     fun mulligan(result: (GameDevice.Acted?) -> Unit) = remote?.run { request("mulligan", { org.asyncttwiz.automatum.boundary.DeviceRequest.Mulligan(it, seen()) }, actedFailed) { result(actedOrNull(it)) } } ?:
-        acting(STALE, after = false, result = result) {
+        acting(STALE, after = false, same = ::sameOpening, named = "mulligan", result = result) {
         val hand = openingHand()
         val input = setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))
         // TRN-062 (problem report 5DDSKK): the opening logged fully, with the cards
         AppLog.info("opening", "Mulligan pressed (${mulligansTaken()} taken before) on $hand: ${if (input == null) "not open" else "sending"}")
-        input?.let(::act)?.also { AppLog.info("opening", "Mulligan: $it") }
+        input?.let(::act)?.also { AppLog.info("opening", "Mulligan: ${openingActed(it)}") }
     }
 
     /** TRN-062 (owner problem report 5DDSKK): the player keeps the hand as it is; the cards a mulligan puts on the bottom
      * were asked right after it ([bottom]), so keeping owes nothing. */
     fun keep(): GameDevice.Acted? = answered { keep(it) }
     fun keep(result: (GameDevice.Acted?) -> Unit) = remote?.run { request("keep", { org.asyncttwiz.automatum.boundary.DeviceRequest.Keep(it, seen()) }, actedFailed) { result(actedOrNull(it)) } } ?:
-        acting(STALE, after = false, result = result) {
+        acting(STALE, after = false, same = ::sameOpening, named = "keep", result = result) {
         val hand = openingHand()
         val owed = AutomatumOpening.bottomOwed(device.model.engine, me)
         val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")).takeIf { owed == 0 }
         AppLog.info("opening", "Keep pressed (${mulligansTaken()} mulligans) on $hand: " +
             if (owed > 0) "refused, $owed still to put on the bottom" else if (keep == null) "not open" else "sending")
-        keep?.let(::act)?.also { AppLog.info("opening", "Keep: $it") }
+        keep?.let(::act)?.also { AppLog.info("opening", "Keep: ${openingActed(it)}") }
     }
 
     /** TRN-062, CR 103.5: the player puts [bottom] (card ids) on the bottom of their library, right after a mulligan (the
@@ -1174,13 +1174,33 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     fun bottom(bottom: List<String>): GameDevice.Acted? = answered { bottom(bottom, it) }
     fun bottom(bottom: List<String>, result: (GameDevice.Acted?) -> Unit) = remote?.run {
         request("bottom", { org.asyncttwiz.automatum.boundary.DeviceRequest.Bottom(it, seen(), bottom) }, actedFailed) { result(actedOrNull(it)) } } ?:
-        acting(STALE, after = false, result = result) {
+        acting(STALE, after = false, same = ::sameOpening, named = "bottom", result = result) {
         val hand = device.model.engine.player(PlayerId(me)).hand
         val objects = bottom.mapNotNull { id -> hand.firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value == id } }
         val owed = AutomatumOpening.bottomOwed(device.model.engine, me)
         val input = setupInput(arcanum.engine.decision.Answer.Objects(objects)).takeIf { owed > 0 && objects.size == owed }
         AppLog.info("opening", "Bottom OK on ${openingHand()}: ${objects.map(::cardName)} of $owed owed: ${if (input == null) "not open" else "sending"}")
-        input?.let(::act)?.also { AppLog.info("opening", "Bottom: $it") }
+        input?.let(::act)?.also { AppLog.info("opening", "Bottom: ${openingActed(it)}") }
+    }
+
+    /** TRN-027, SYS-135: an opening declaration tapped on a board the device has moved on from is made there while the
+     * player's own opening waits there as it was ([GameDevice.sameOpening]: the other player's declarations in between, say
+     * their keep arriving and the player's own mulligan made again on it, don't change it). */
+    private fun sameOpening(seen: arcanum.engine.state.GameState, now: arcanum.engine.state.GameState) =
+        GameDevice.sameOpening(seen, now, PlayerId(me))
+
+    /** An opening declaration's outcome for the log: the event sent, what it was made on (its parent) and its inputs, never
+     * its whole changes (a mulligan's random order of the library alone is thousands of characters). */
+    private fun openingActed(acted: GameDevice.Acted): String {
+        val e = (acted as? GameDevice.Acted.Sent)?.event ?: return acted.toString()
+        val inputs = e.engine?.steps.orEmpty().mapNotNull { it.input }.joinToString { input ->
+            when (input) {
+                is Input.Answer -> "Answer ${input.decision.value} ${(input.answer as? arcanum.engine.decision.Answer.Option)?.chosen ?: input.answer::class.simpleName}"
+                is Input.SetupAnswer -> "SetupAnswer ${(input.answer as? arcanum.engine.decision.Answer.Option)?.chosen ?: input.answer::class.simpleName}"
+                else -> input::class.simpleName.orEmpty()
+            }
+        }
+        return "sent ${e.id.take(8)} on ${e.parentId.take(8)} (device tip ${device.session.tip.take(8)}, head ${device.session.head.take(8)}): $inputs"
     }
 
     /** The player's hand by card name, for the opening's log lines (hidden information may be logged). Engine thread. */
@@ -1909,22 +1929,25 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      */
     private fun <T> acting(stale: T, what: String? = null, after: Boolean = true,
         same: (arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean = GameDevice::sameDecision,
-        done: ((Shown) -> T?)? = null, own: Boolean = false, result: (T) -> Unit, work: () -> T) {
+        done: ((Shown) -> T?)? = null, own: Boolean = false,
+        /** The action's name in the log lines only, when it has no [what] (no probe of its time). */
+        named: String? = null, result: (T) -> Unit, work: () -> T) {
         val board = hostSeen ?: shown
         val seen = board?.version
         var refused = false
         val timing = what?.let(::timing)
+        val name = what ?: named ?: "action"
         worker.call({
             timing?.started = clock()
             val info = informationNanos()
             try {
                 if (inAction) work()
-                else if (seen != null && board != null && seen != published && !unchanged(what ?: "action", board) &&
-                    !(own && ownSince(what ?: "action", board)) && !stillSame(what ?: "action", board, same)) {
+                else if (seen != null && board != null && seen != published && !unchanged(name, board) &&
+                    !(own && ownSince(name, board)) && !stillSame(name, board, same)) {
                     refused = true
                     // What the tap meant already happened on the newer board: nothing to do and nothing to tell
-                    done?.invoke(board)?.also { AppLog.info("engine", "Own ${what ?: "action"} on board v$seen: already done on board v$published") }
-                        ?: run { staleBoard(what ?: "action", seen); refusedStale(); stale }
+                    done?.invoke(board)?.also { AppLog.info("engine", "Own $name on board v$seen: already done on board v$published") }
+                        ?: run { staleBoard(name, seen, board); refusedStale(); stale }
                 }
                 else { inAction = true; try { work() } finally { inAction = false } }
             } finally { timing?.let { it.worked = clock(); it.info = (informationNanos() - info).coerceAtLeast(0) } }
@@ -1962,7 +1985,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                     result.set(already)
                     return@action
                 }
-                staleBoard(what, seen)
+                staleBoard(what, seen, board)
                 result.set(STALE)
                 refusedStale()
                 return@action
@@ -2044,8 +2067,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** An own action [what] tapped on a board older than the one published ([seen]: its version): not taken (SYS-011),
      * the newer board shows. Engine thread. */
-    private fun staleBoard(what: String, seen: Long) = AppLog.info("engine",
-        "Own $what not taken: made on board v$seen, the device had published v$published (tip ${device.session.tip})")
+    private fun staleBoard(what: String, seen: Long, board: Shown? = null) = AppLog.info("engine",
+        "Own $what not taken: made on board v$seen (tip ${board?.tip?.take(8)}), the device had published v$published " +
+            "(tip ${device.session.tip.take(8)}, behind ${device.session.behind}, drafting ${device.session.drafting}, pending " +
+            "${device.session.pending.map { "${it.id.take(8)} on ${it.parentId.take(8)}" }}): not the same decision there")
 
     /** SYS-012 (smoke 2026-11-04): a stale tap's note goes out with a board of its own, so the table, which reads notes
      * when a board arrives, tells it at once (never left queued until something else changes). Engine thread. */
@@ -2063,7 +2088,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         // The other player's events arrived but aren't shown yet (the device is behind where the board tapped on was live):
         // the game moved on in a way the player never saw
         if (device.session.drafting || (device.session.behind && !board.behind) || !same(seen, device.model.engine)) return false
-        AppLog.info("engine", "Own $what made on board v$published: the same decision as on board v${board.version} it was tapped on")
+        AppLog.info("engine", "Own $what made on board v$published (tip ${device.session.tip.take(8)}): the same decision as on " +
+            "board v${board.version} (tip ${board.tip.take(8)}) it was tapped on")
         return true
     }
 

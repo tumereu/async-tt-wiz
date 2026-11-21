@@ -29,7 +29,7 @@ class OpeningBottomTest : E2e() {
         startGame()
         bothOpen()
         bob.tap("Keep")
-        waitUntil("Bob's keep on Alice's table") { alice.shown.held.any { it.author == bob.id } }
+        waitUntil("Bob's keep on Alice's table") { bobsKeepOnAlicesTable() }
         repeat(2) { round ->
             val before = alice.state.player(alice.me).hand.toList()
             alice.tap("Mulligan")

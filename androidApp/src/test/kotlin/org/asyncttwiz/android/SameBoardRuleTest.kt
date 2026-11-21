@@ -15,6 +15,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -205,5 +206,71 @@ class SameBoardRuleTest {
         assertEquals(GameDevice.Undo.Unavailable("stale"), game.undo())
         held.release()
         assertEquals(1, refusedNotes(game), "told once: ${game.notes}")
+    }
+
+    // ---- The opening: both declare at the same time (TRN-027)
+
+    private fun hand(game: EngineGame) = game.device.model.engine.player(alice).hand.toList()
+
+    private fun keeps(e: org.asyncttwiz.protocol.game.GameEvent) = e.engine?.steps.orEmpty().any { s ->
+        (s.input as? Input.Answer)?.answer == Answer.Option("Keep") || (s.input as? Input.SetupAnswer)?.answer == Answer.Option("Keep") }
+
+    /** Bob's keep reaches the server; Alice, hearing nothing of it yet, takes a mulligan on the game's start (sent, then
+     * refused on the server: his keep came first), and her table shows her new hand. Then her table is held and Bob's keep
+     * and the refusal reach her phone, which makes her mulligan again on his keep. The board of her own mulligan stays on
+     * her screen. */
+    private fun aliceMulligansAsBobsKeepArrives(): EngineGame {
+        val game = sim.load(f.a)
+        val bob = sim.load(f.b)
+        game.tick(1_000); bob.tick(1_000)
+        assertIs<GameDevice.Acted.Sent>(bob.keep())
+        sim.flush(f.b)
+        val start = game.device.session.tip
+        val first = hand(game)
+        val mulligan = assertIs<GameDevice.Acted.Sent>(game.mulligan())
+        assertEquals(start, mulligan.event.parentId, "her mulligan made on the start: his keep hasn't reached her")
+        assertNotEquals(first, hand(game), "her new hand")
+        sim.flush(f.a)
+        val shown = assertNotNull(game.shown).version
+        held.holding = true
+        sim.deliver(f.a); game.playToStop(); game.tick(sim.now)
+        val again = assertNotNull(game.device.session.pending.firstOrNull { it.author == f.a }, "her mulligan made again")
+        assertEquals(sim.head, again.parentId, "made again on Bob's keep, the server's head")
+        assertEquals(shown, game.shown!!.version, "Alice's table still shows the board of her first mulligan")
+        return game
+    }
+
+    // TRN-027, SYS-135, SYS-077 (merge gate 2026-11-21, e2e CatchUpPlaybackTest): her Keep tapped on the board of her own mulligan
+    // while her phone had made that mulligan again on Bob's keep (her same hand, the same declaration of hers waiting): the same
+    // decision, made there, with no note
+    @Test fun aKeepOnTheBoardOfAMulliganMadeAgainOnTheOtherPlayersKeepIsMade() {
+        val game = aliceMulligansAsBobsKeepArrives()
+        val keep = game.keep()
+        held.release()
+        assertIs<GameDevice.Acted.Sent>(keep, "her keep taken")
+        assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
+        repeat(3) { sim.flush(f.a); sim.deliver(f.a); game.tick(sim.now) }
+        assertTrue(sim.line().any { it.author == f.a && keeps(it) }, "her keep on the server's line")
+        assertEquals(0, refusedNotes(game), "no note later: ${game.notes}")
+    }
+
+    // TRN-027, SYS-135, SYS-137: an opening declaration's sameness: her own opening where it was (the same cards, mulligans and
+    // declaration open), whatever Bob declared meanwhile; another hand of hers, or her own opening already kept, is another one
+    @Test fun anOpeningDeclarationIsTheSameDecisionWhateverTheOtherPlayerDeclared() {
+        val game = sim.load(f.a)
+        val bob = sim.load(f.b)
+        game.tick(1_000); bob.tick(1_000)
+        val start = game.device.model.engine.deepCopy()
+        assertIs<GameDevice.Acted.Sent>(bob.keep())
+        sim.flush(f.b); sim.deliver(f.a); game.playToStop(); game.tick(sim.now)
+        val bobKept = game.device.model.engine.deepCopy()
+        assertFalse(GameDevice.sameDecision(start, bobKept), "not the same game position")
+        assertTrue(GameDevice.sameOpening(start, bobKept, alice), "her own opening as it was")
+        assertFalse(GameDevice.sameOpening(start, bobKept, bobId), "Bob's own opening kept")
+        assertIs<GameDevice.Acted.Sent>(game.mulligan())
+        val mulliganed = game.device.model.engine.deepCopy()
+        assertFalse(GameDevice.sameOpening(bobKept, mulliganed, alice), "another hand of hers")
+        assertIs<GameDevice.Acted.Sent>(game.keep())
+        assertFalse(GameDevice.sameOpening(mulliganed, game.device.model.engine, alice), "her opening kept")
     }
 }

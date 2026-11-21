@@ -324,3 +324,4 @@ number	item	screenshot	catalog	decisions	sequence
 351	Draft: Arena pick screen on the phone	draft/arena-pick.png	DRF-288 DRF-280		Arena
 352	Desktop draft: Arena pick with a quick look	desktop/arena-pick.png	DRF-288 WEB-117		Arena
 353	Manage decks: a saved deck's ⋮ Move to… dialog, the top level and the categories as a tree, its own category marked	lending/move-deck.png	LOB-262
+380	Resizable panels: the search panel dragged shorter by its handle at the top edge	choice-source/library-search-resized.png	STK-222 STK-223

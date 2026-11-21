@@ -1,0 +1,1 @@
+add: The cast panel and the choice panels have a handle on their top edge: drag it to make them taller or shorter. All of them keep the size you choose.

@@ -26,10 +26,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -352,8 +350,9 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
         }) {
         AnimatedVisibility(!cast.hidden, enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Bottom),
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
-            Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // STK-222, STK-223: at most the shared panel size high, with its drag handle
+            ResizablePanelContent(360.dp, "cast panel", Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp),
+                arrangement = Arrangement.spacedBy(6.dp)) {
                 // A long name wraps onto a second line, then is cut with …
                 ChoiceHead(castTitle(flow, source.name), source, inspector, titleLines = 2) {
                     // STK-023 (owner playtest 2026-11-06): an ability's text; for a spell the sentence its open choice asks

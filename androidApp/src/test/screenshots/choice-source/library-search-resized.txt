@@ -1,0 +1,1 @@
+Alice activated her Cinder Trail and dragged the grey handle at the middle of the search panel's top edge down by 100 dp: the panel is about that much shorter, its cards scrolling inside, more of the table shows above it, and every large panel now opens at this size.

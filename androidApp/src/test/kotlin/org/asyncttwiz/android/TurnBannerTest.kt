@@ -122,6 +122,17 @@ class TurnBannerTest {
         assertNull(queue.current)
     }
 
+    // TRN-074: the gallery clip of "Your turn" showing whole and fading out
+    @Test fun clipOfYourTurn() {
+        val queue = TurnBannerQueue().apply { post(TurnBanners.of(transition(event("e", newTurn(a))))!!, null) }
+        compose.mainClock.autoAdvance = false
+        render(queue)
+        compose.captureClip("$SCREENSHOTS/clips/turn-banner.webp",
+            "Alice's turn begins: Your turn shows in her green at the screen's centre over the board, then fades out and is gone.",
+            millis = TURN_BANNER_WHOLE_MILLIS + TURN_BANNER_FADE_MILLIS + 100L)
+        compose.onNode(banner).assertDoesNotExist()
+    }
+
     // TRN-074: the other player's name in their colour, in landscape
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun theirTurnInLandscape() {

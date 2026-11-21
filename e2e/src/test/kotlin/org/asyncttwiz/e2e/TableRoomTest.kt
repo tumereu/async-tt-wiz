@@ -8,6 +8,7 @@ import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.isOff
 import androidx.compose.ui.test.isOn
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import org.asyncttwiz.android.EdgeToEdgePreferences
 import org.asyncttwiz.appui.AppPlatform
 import org.junit.Test
@@ -66,7 +67,7 @@ class TableRoomTest : E2e() {
         alice.tagged("menu-SETTINGS").performClick()
         waitUntil("Alice's settings") { alice.shows(hasTestTag("edge-to-edge-setting")) }
         assertTrue(alice.shows(hasTestTag("edge-to-edge-setting") and isOff()), "off by default")
-        alice.tagged("edge-to-edge-setting").performClick()
+        alice.tagged("edge-to-edge-setting").performScrollTo().performClick()
         waitUntil("the switch on") { alice.shows(hasTestTag("edge-to-edge-setting") and isOn()) }
         assertTrue(EdgeToEdgePreferences(AppPlatform.current).enabled, "kept on the device")
         assertFalse(alice.edgeToEdge, "not outside the table")

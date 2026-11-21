@@ -17,6 +17,9 @@ import org.asyncttwiz.appui.bigIntegerOf
 import org.asyncttwiz.appui.minus
 import org.asyncttwiz.appui.toBigIntegerOrNull
 
+/** HIS-239: one line of the game log: a timeline [event] and its text in [pieces], each name with whose it is (HIS-240). */
+data class GameLogLine(val event: HistoryTimelineEvent, val pieces: List<StackTextPiece>)
+
 /**
  * The timeline of a game on engine state (HIS-001–HIS-005, HIS-012 on engine events): the main line the device holds,
  * up to the viewer's local head, and their own pending events after it; nothing past the local head (I-D56 §7). Older
@@ -35,7 +38,37 @@ class EngineTimeline {
     private class Part(val from: List<GameEvent>, val names: Map<String, String>, val events: List<HistoryTimelineEvent>,
         val at: arcanum.engine.state.TurnState, val previous: arcanum.engine.state.TurnState?)
 
-    fun clear() { texts.clear(); last = null; olderPart = null }
+    /** HIS-240: each event's text in pieces with whose each name is, by event id (with the text they were cut from). */
+    private val logPieces = HashMap<String, Pair<String, List<StackTextPiece>>>()
+    /** HIS-239: the game log worked out last, for the timeline's events it was made from. */
+    private var lastLog: Pair<List<HistoryTimelineEvent>, List<GameLogLine>>? = null
+
+    fun clear() { texts.clear(); last = null; olderPart = null; logPieces.clear(); lastLog = null }
+
+    /**
+     * HIS-239, HIS-240: the game log's lines, oldest first: exactly the timeline's events ([events]) with their texts, each
+     * name in it marked with whose it is ([EngineEventText.marks]); worked out once per event.
+     */
+    fun log(game: EngineGame, names: Map<String, String>): List<GameLogLine> {
+        val events = events(game, names)
+        lastLog?.let { (from, lines) -> if (from === events) return lines }
+        val published = game.shown ?: return emptyList()
+        val byId = HashMap<String, GameEvent>(published.older.size + published.line.size)
+        for (e in published.older) byId[e.id] = e
+        for (e in published.line) byId[e.id] = e
+        val sight = EngineEventText.Sight(published.engine, game.me)
+        val lines = events.map { shown ->
+            val cached = logPieces[shown.id]?.takeIf { it.first == shown.description }?.second
+            val pieces = cached ?: run {
+                val marks = byId[shown.id]?.let { EngineEventText.marks(it, published.engine, game.me, names, sight) }.orEmpty()
+                EngineEventText.pieces(shown.description, marks).map { (text, owner) -> StackTextPiece(text, owner) }
+                    .also { logPieces[shown.id] = shown.description to it }
+            }
+            GameLogLine(shown, pieces)
+        }
+        lastLog = events to lines
+        return lines
+    }
 
     /** The events shown to the viewer, oldest first, with the turn each was made in. */
     fun shown(game: EngineGame): List<GameEvent> = game.shown?.line.orEmpty()

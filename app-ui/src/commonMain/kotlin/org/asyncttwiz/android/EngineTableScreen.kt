@@ -328,6 +328,8 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // HIS-008: timeline mode's look, also while a branch's take-back goes back (HIS-106)
     val reviewing = reviewPlay != null || rewindingBranch
     var playbackSettingsOpen by remember(game.id) { mutableStateOf(false) }
+    // HIS-239: the game log, personal UI over the table
+    var logOpen by remember(game.id) { mutableStateOf(false) }
     val timeline = engine.timeline.events(engine, names)
     // A point no longer on the timeline (the device let it go) can't be looked at: timeline mode ends
     LaunchedEffect(reviewId, timeline) { if (reviewId != null && timeline.none { it.id == reviewId }) routes.leaveReview() }
@@ -442,6 +444,11 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 // picks one, and the hooks have a group of their own, so nothing in them reaches the table's
                 val rewindSettled = { _: String -> scope.launch { delay(rewindPause); motion.settled() }; Unit }
                 val enterTimeline = steadyHook { routes.enterReview(timeline.last().id) }
+                val openLog = steadyHook {
+                    AppLog.info("game", "Game log opened: ${timeline.size} events, the newest \"${timeline.lastOrNull()?.description}\" " +
+                        "(${timeline.lastOrNull()?.id?.take(8)}), older history ${if (shown.olderComplete) "complete" else "not all loaded"}")
+                    logOpen = true
+                }
                 val leaveTimeline = { routes.leaveReview() }
                 val reviewPanel: @Composable (@Composable () -> Unit) -> Unit = { _ ->
                     EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
@@ -484,6 +491,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                             else -> null
                         },
                         history = if (timeline.isNotEmpty() && !takingBack) enterTimeline else null,
+                        log = if (timeline.isNotEmpty() && !takingBack) openLog else null,
                         returnCurrent = if (reviewPlay != null) leaveTimeline else null,
                         bottomPanel = when {
                             reviewPlay != null && timeline.isNotEmpty() -> reviewPanel
@@ -550,6 +558,33 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     }
     // HIS-010, HIS-028: the timeline panel's gear opens the playback settings
     if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
+    // HIS-239: the game log (the timeline's events and texts, HIS-091); it closes when a branch's take-back starts or timeline
+    // mode opens
+    if (logOpen && (takingBack || reviewPlay != null)) {
+        AppLog.info("game", "Game log closed: ${if (takingBack) "a take-back started" else "timeline mode opened"}")
+        logOpen = false
+    }
+    if (logOpen) {
+        val lines = engine.timeline.log(engine, names)
+        val olderComing = !shown.olderComplete
+        GameLogPanel(lines, accountId, onDismiss = { AppLog.info("game", "Game log closed"); logOpen = false },
+            onPick = { id ->
+                // HIS-241: a line opens timeline mode at its event
+                val line = lines.firstOrNull { it.event.id == id }
+                AppLog.info("game", "Game log: line ${lines.indexOfFirst { it.event.id == id } + 1} of ${lines.size} tapped " +
+                    "(${id.take(8)}, \"${line?.event?.description}\"): timeline mode opens there")
+                logOpen = false
+                if (line != null) routes.enterReview(id)
+            },
+            loadingOlder = olderComing && engine.historyLoading,
+            onTop = {
+                // HIS-172: the oldest line shown asks for older history, back to the game's first event
+                if (olderComing && !engine.historyLoading) {
+                    AppLog.info("game", "Game log: older events asked for (${lines.size} lines shown, the oldest ${lines.firstOrNull()?.event?.id?.take(8)})")
+                    engine.loadOlder()
+                }
+            })
+    }
     if (chatLayer) {
         Dialog(onDismissRequest = controller::closeChat, properties = edgeToEdgeDialogProperties()) {
             TrackGameDialogInput()

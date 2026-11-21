@@ -258,6 +258,19 @@ internal fun E2ePlayer.openTimeline(e2e: E2e) {
     text("Timeline").performClick()
 }
 
+/** HIS-239: opens the game log from Table actions → Game log. */
+internal fun E2ePlayer.openGameLog(e2e: E2e) {
+    tap("Table actions")
+    e2e.waitUntil("${name}'s table actions") { showsText("Game log") }
+    text("Game log").performClick()
+    e2e.waitUntil("${name}'s game log") { shows(androidx.compose.ui.test.hasTestTag("game-log")) }
+}
+
+/** HIS-239: the game log's lines as they read, top to bottom. */
+internal fun E2ePlayer.gameLogLines(): List<String> = nodes(androidx.compose.ui.test.hasTestTag("game-log-line")).fetchSemanticsNodes()
+    .sortedBy { it.boundsInRoot.top }
+    .map { it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription)?.joinToString().orEmpty() }
+
 /** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079, ZON-102). */
 internal fun E2ePlayer.playFromHand(name: String, e2e: E2e) {
     // On a settled game: a board taken back between the two taps lowers the raised card, and the second tap only raises it.

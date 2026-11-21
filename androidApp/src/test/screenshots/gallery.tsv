@@ -296,7 +296,6 @@ number	item	screenshot	catalog	decisions	sequence
 295	Desktop table fitted (F): the whole table in the room right of the two seat boxes	desktop/opponent-box-fitted.png	WEB-016 TBL-012		Desktop opponent box
 296	Mana glow: permanents whose only use now is mana glow fainter in blue, beside the cyan glow of a castable spell and of an artifact with another usable ability	battlefield/mana-glow.png	TBL-117 SYS-171		
 297	Manage decks: the saved decks in categories as a tree, New category at the top, uncategorised decks last	lending/manage-decks-categories.png	LOB-244 LOB-245		Lending decks
-353	Manage decks: a saved deck's ⋮ Move to… dialog, the top level and the categories as a tree, its own category marked	lending/move-deck.png	LOB-262		Lending decks
 298	Game settings: the creator's Decks group, lending a category as a Random battle box	lending/game-settings-decks.png	LOB-247 LOB-248 LOB-249 LOB-250 LOB-251 LOB-254		Lending decks
 299	An invitation saying its creator lends you decks	lending/invitation-lends-decks.png	LOB-252		Lending decks
 300	Choose deck in a battle box: the creator's lent decks first by category, your own greyed	lending/choose-lent-deck.png	LOB-255 LOB-249		Lending decks
@@ -324,3 +323,4 @@ number	item	screenshot	catalog	decisions	sequence
 350	Draft: Arena setup with its tiles and summary	draft/setup-arena.png	DRF-281 DRF-282 DRF-283 DRF-284 DRF-285 DRF-287		Arena
 351	Draft: Arena pick screen on the phone	draft/arena-pick.png	DRF-288 DRF-280		Arena
 352	Desktop draft: Arena pick with a quick look	desktop/arena-pick.png	DRF-288 WEB-117		Arena
+353	Manage decks: a saved deck's ⋮ Move to… dialog, the top level and the categories as a tree, its own category marked	lending/move-deck.png	LOB-262

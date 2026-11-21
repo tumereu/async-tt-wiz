@@ -159,8 +159,8 @@ internal object EventMatcher {
             // spm: "play a land from exile", "from anywhere other than your hand"
             (pattern.from == null || it.from == pattern.from) && (pattern.notFrom == null || it.from != pattern.notFrom) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
-        is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching) && (!pattern.byEffect || byEffect(change)))
-            counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
+        is EventPattern.CountersPut -> (if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching) && (!pattern.byEffect || byEffect(change)))
+            counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()) + enteredWithCounters(e, change, pattern)
         is EventPattern.CountersRemoved -> counters(e, change, pattern.objects, pattern.kind, put = false, last = pattern.last)
         is EventPattern.PlayerCountersPut -> (change as? Change.Counters)?.let { c ->
             val holder = c.holder as? TargetRef.Player ?: return@let null
@@ -438,6 +438,25 @@ internal object EventMatcher {
         return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(c.controller ?: e.controllerOf(holder.id)),
             kotlin.math.abs(delta), counterKinds = listOf(c.kind)))
     }
+
+    /**
+     * ltr: CR 122.6, 122.6a: counters a permanent is given as it enters (a move onto the battlefield, a token created with counters) are
+     * counters put on it, one event per kind, by its controller unless the effect names who puts them; "enters with" is itself an effect
+     * (CR 614.1c). A [EventPattern.CountersPut.causedBy] naming the player who puts them tests that controller; one naming a spell or
+     * ability tests what moved the permanent.
+     */
+    private fun enteredWithCounters(e: Evaluator, change: Change, pattern: EventPattern.CountersPut): List<TriggerEvent> =
+        moves(change).filter { it.after.zone == Zone.Battlefield && it.before.zone != Zone.Battlefield && it.after.counters.isNotEmpty() }.flatMap { m ->
+            val controller = m.after.controller ?: m.after.owner
+            val by = when (val filter = pattern.causedBy) {
+                null -> true
+                is arcanum.api.ObjectFilter.ControlledBy -> e.matches(filter.players, controller)
+                else -> causedBy(e, change, filter)
+            }
+            if (!by || !e.matches(pattern.objects, m.after.id)) return@flatMap emptyList()
+            m.after.counters.filter { it.count > 0 && (pattern.kind == null || pattern.kind == it.kind) && (pattern.reaching == null || it.count >= pattern.reaching!!) }
+                .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(m.after.id))), listOf(controller), it.count, counterKinds = listOf(it.kind)) }
+        }
 
     /** msh: whether the counters put make the count reach [reaching] ("the fourth plan counter is put"): fewer before, at least that
      * many after. */

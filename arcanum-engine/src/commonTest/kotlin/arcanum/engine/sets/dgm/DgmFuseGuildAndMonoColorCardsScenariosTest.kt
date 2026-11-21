@@ -304,6 +304,50 @@ class DgmFuseGuildAndMonoColorCardsScenariosTest {
         }
     }
 
+    /** An artifact creature and a nonartifact creature: both go, the first as the artifact (as close to five permanents as possible). */
+    // CR 701.21a, 609.3
+    @Test
+    fun discardSacrificesDifferentPermanentsAsManyAsPossible() = scenario {
+        val construct = Cards.invent("Maze Runner Construct", "{3}", "Artifact Creature — Construct", "", "2/2")
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Plains", "Plains")
+        alice.hand(seizeDiscard)
+        bob.battlefield(construct, ogre)
+        alice.casts(seizeDiscard, way = CastWay(face = 1))
+        resolveAll()
+        // Alice sacrifices one of her lands; Bob, if asked, would keep the creature choice on the construct
+        repeat(4) {
+            val d = pending as? Decision.ChooseObjects ?: return@repeat
+            if (d.player == bob.id) bob.chooses(construct) else answer(Answer.Objects(d.options.take(d.min)))
+        }
+        resolveAll()
+        expect {
+            bob.graveyard has construct
+            bob.graveyard has ogre
+        }
+    }
+
+    /** Two noncreature artifacts can't both be sacrificed: one would stand for the creature. */
+    // CR 701.21a
+    @Test
+    fun discardRefusesTwoPermanentsForOneType() = scenario {
+        val relic = Cards.invent("Maze Runner Relic", "{1}", "Artifact", "")
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Plains", "Plains")
+        alice.hand(seizeDiscard)
+        bob.battlefield(idol, relic, ogre)
+        alice.casts(seizeDiscard, way = CastWay(face = 1))
+        resolveAll()
+        if ((pending as? Decision.ChooseObjects)?.player == alice.id) answer(Answer.Objects(decision<Decision.ChooseObjects>().options.take(1)))
+        assertEquals(2, decision<Decision.ChooseObjects>().min)
+        assertFailsWith<Throwable> { bob.chooses(idol, relic) }
+        bob.chooses(idol, ogre)
+        resolveAll()
+        expect {
+            bob.graveyard has idol
+            bob.graveyard has ogre
+            bob.battlefield has relic
+        }
+    }
+
     @Test
     fun lowMuddyFused() = scenario {
         alice.battlefield("Swamp", "Swamp", "Swamp", "Swamp", "Forest", "Forest", "Forest")

@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -82,6 +84,23 @@ class HoverLookTest {
         compose.onNodeWithTag("control").performTouchInput { up() }
         compose.waitForIdle()
         assertEquals(white, pixel("control"), "nor after it")
+    }
+
+    // WEB-139 (merge gate 2026-11-21: the Undo dialog's strip chose another point than the chip tapped): the hover look leaves
+    // touches where they were: a tap on a control lying over another reaches only the one on top
+    @Test fun aTapOnAControlWithItReachesOnlyThatControl() {
+        val taps = mutableListOf<String>()
+        compose.setContent {
+            Box {
+                Box(Modifier.size(48.dp).testTag("under").background(Color.White)
+                    .pointerInput(Unit) { detectTapGestures { taps += "under" } })
+                Box(Modifier.size(48.dp).testTag("over").background(Color.White).hoverLook(HoverLook.Tint(Color.Black))
+                    .pointerInput(Unit) { detectTapGestures { taps += "over" } })
+            }
+        }
+        compose.onNodeWithTag("over").performTouchInput { click(center) }
+        compose.waitForIdle()
+        assertEquals(listOf("over"), taps)
     }
 
     // WEB-139: the app's own buttons (here Undo's square, as the desktop action area draws it) show it in their ink

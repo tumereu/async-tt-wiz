@@ -68,8 +68,8 @@ private class HoverLookNode(var look: HoverLook, var enabled: Boolean) : Modifie
     DrawModifierNode, CompositionLocalConsumerModifierNode {
     private var hovered = false
 
-    // Only watches: the control's own gestures (siblings under it included) get every event as before
-    override fun sharePointerInputWithSiblings() = true
+    // Only watches, never consumes. It doesn't share input with the siblings under it either: that would hand a touch on this
+    // control to whatever lies beneath it too (a timeline chip's tap reached the strip's other chips, merge gate 2026-11-21)
 
     override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
         if (pass != PointerEventPass.Main) return

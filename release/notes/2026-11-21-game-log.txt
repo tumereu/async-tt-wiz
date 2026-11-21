@@ -1,0 +1,1 @@
+add: Game log in Table actions: the game's events as lines of text, the players' names and cards in their colours; tap a line to look at the board there in the timeline

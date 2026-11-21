@@ -20,6 +20,8 @@ import org.asyncttwiz.appui.elapsedRealtime
 
 /** Other runtime owners supply real routes. Null means unavailable, never a successful-looking stub. */
 data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() -> Unit)? = null,
+    /** HIS-239: Table actions' Game log opens the game log; null: greyed. */
+    val log: (() -> Unit)? = null,
     val undo: (() -> Boolean)? = null,
     /** HIS-083: holding Undo (the rewind dialog, I-D56 §10); null: holding it only says what it is. */
     val undoHold: (() -> Unit)? = null,

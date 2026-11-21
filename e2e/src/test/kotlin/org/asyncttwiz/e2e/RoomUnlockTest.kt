@@ -118,8 +118,8 @@ class RoomUnlockTest : E2e() {
             val roomItem = roomItems.firstOrNull { it.visible.isNotEmpty() } ?: roomItems.first()
             assertEquals(playShowStart(assertNotNull(scene.boardArea), roomItem.bounds), target, "into the Room, not the Stack")
             assertTrue(flashes.single().any { it.key == TableChangeKey(card, TableChangeKind.SPECIAL) }, "the Room flashes: ${flashes.single()}")
-            waitUntil("Bob's table past the unlock and its trigger", along = listOf(alice)) {
-                bob.shown.show == null && bob.state.player(alice.me).life == 23
+            waitUntil("Bob's table past the unlock's show and its trigger's, the trigger on his Stack", along = listOf(alice)) {
+                bob.shown.show == null && bob.state.stack.size == 1 && bob.shown.moments.isEmpty()
             }
             assertEquals(emptyList(), faults.filter { "without" in it.what || "placeholder" in it.what }, "no placeholder")
         } finally {

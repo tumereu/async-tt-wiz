@@ -255,11 +255,12 @@ private fun TargetBar(cast: CastController, flow: CastShown, play: TableBoard, s
  * costs ([TargetBar]) and a shared flow's (a trigger's targets, a choice of permanents while resolving), on the phone above the
  * hand and on the desktop table as its strip ([AboveHand]): the title over the sentence it asks about ([line], or as picks name
  * it, [pieces], the phrase picked now shining), how many are [picked], Done or None on the main button ([confirm], greyed until
- * [done]), and the [source] at its right. Its words are logged under [log].
+ * [done]), and the [source] at its right, named in words under the title (STK-178, E12; [copy]: as the copy the pick is for).
+ * Its words are logged under [log].
  */
 @Composable
 fun TablePickBar(pick: TablePick, line: String?, pieces: List<PickPiece>?, picked: Int, done: Boolean, confirm: () -> Unit,
-    source: ChoiceCardData?, play: TableBoard, log: String) {
+    source: ChoiceCardData?, play: TableBoard, log: String, copy: Boolean = false) {
     val decision = pick.decision
     val inspector = remember(decision.id) { ChoiceInspector() }
     val now = pieces?.firstOrNull { it.now }?.text
@@ -272,7 +273,7 @@ fun TablePickBar(pick: TablePick, line: String?, pieces: List<PickPiece>?, picke
     // choice, the card it is for sits at the right. D1: a cost of battlefield permanents (a sacrifice) is picked the same way
     AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        TargetBarTitle(pick.title, line, pickCount(pick, picked), pieces)
+        TargetBarTitle(pick.title, line, pickCount(pick, picked), pieces, ChoiceSourceWords.of(source, copy)?.name)
         // TRN-063 (owner playtest 2026-11-09): Done (None) is the main button
         if (pick.max != 1 || pick.min == 0) {
             val none = picked == 0

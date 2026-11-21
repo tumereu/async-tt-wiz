@@ -30,9 +30,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * STK-044, STK-177, STK-178 (owner 2026-11-05): every Automatum panel and target bar names its source by the card, not by text: the title
- * says only the choice and the source sits at the panel's right as a small card (an ability as its Stack ability token,
- * STK-046, STK-121); holding it inspects it (TBL-104). Alice's decks are free invented cards whose casting, resolving or triggers
+ * STK-044, STK-177, STK-178 (owner 2026-11-05): every Automatum panel and target bar shows its source as a card: the title says only the
+ * choice and the source sits at the panel's right as a small card (an ability as its Stack ability token, STK-046, STK-121);
+ * holding it inspects it (TBL-104). Owner 2026-11-21 (E12): beside it, under the title, the source is named ("Spark Seer's ability",
+ * a spell's name) with an ability's whole text. Alice's decks are free invented cards whose casting, resolving or triggers
  * ask Automatum's choices ([EngineGameFixture.Choices]).
  */
 @RunWith(RobolectricTestRunner::class)
@@ -75,6 +76,16 @@ class ChoiceSourceTest {
         assertTrue(card.left >= heading.right, "right of the title: $card, title $heading")
     }
 
+    /** STK-178 (owner 2026-11-21, E12): the source is named [name] under [title], left of the source card. */
+    private fun sourceNamed(name: String, title: String) {
+        val words = compose.onNode(hasTestTag(CHOICE_SOURCE_NAME_TAG) and hasText(name), useUnmergedTree = true)
+        val box = bounds(words)
+        val card = bounds(compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true))
+        val heading = bounds(compose.onNode(hasText(title) and isHeading()))
+        assertTrue(box.top >= heading.bottom - 1f, "the name under the title: $box, title $heading")
+        assertTrue(box.right <= card.left + 1f, "the name left of the source card: $box, card $card")
+    }
+
     /** The source is drawn as an ability token with its [marker] ("Triggered ability", "Activated ability"), STK-046, STK-121. */
     private fun sourceIsAnAbilityToken(marker: String) {
         compose.onNode(hasContentDescription(marker) and hasAnyAncestor(hasTestTag(CHOICE_SOURCE_TAG)), useUnmergedTree = true).assertExists()
@@ -108,7 +119,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.CHARM)
     }
 
-    // STK-047, STK-142, STK-044, STK-177, STK-178: choosing the Charm's damage mode turns the panel into the target bar: "Choose any target", with
+    // STK-047, STK-142, STK-044, STK-177, STK-178, STK-226: choosing the Charm's damage mode turns the panel into the target bar: "Choose any target", with
     // the Charm at its right
     @Test fun theTargetBarShowsTheSpellAtItsRight() {
         val kit = kit(Choices.CHARM, "Mountain")
@@ -120,12 +131,13 @@ class ChoiceSourceTest {
         assertTrue(kit.toolkit.cast.targeting, "targets are picked on the table")
         compose.onNode(hasText("Choose any target") and isHeading()).assertExists()
         sourceAtTheRight("Choose targets", "Choose any target", Choices.CHARM)
+        sourceNamed(Choices.CHARM, "Choose any target")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/target-bar.png",
-            "Alice chose Cinder Charm's damage mode: the slim bar above her hand says only \"Choose any target\" beside its eye, and the Charm sits at the bar's right as a small card while the legal targets glow.")
+            "Alice chose Cinder Charm's damage mode: the slim bar above her hand is titled \"Choose any target\" beside its eye, with the spell's name \"Cinder Charm\" and its sentence under it, and the Charm sits at the bar's right as a small card while the legal targets glow.")
         holdingTheSourceInspects(Choices.CHARM)
     }
 
-    // STK-047, STK-044, STK-178, STK-046, STK-121: activating Spark Totem's ability ({T}: 1 damage to any target) asks for its target in the
+    // STK-047, STK-044, STK-178, STK-226, STK-046, STK-121: activating Spark Totem's ability ({T}: 1 damage to any target) asks for its target in the
     // target bar, its source the ability as its token (the Totem's art with the "A" chip), not the card
     @Test fun anActivationsTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.TOTEM, "Mountain")
@@ -138,8 +150,9 @@ class ChoiceSourceTest {
         render(kit)
         sourceAtTheRight("Choose targets", "Choose any target", Choices.TOTEM)
         sourceIsAnAbilityToken("Activated ability")
+        sourceNamed("${Choices.TOTEM}'s ability", "Choose any target")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/target-bar-ability.png",
-            "Alice tapped her Spark Totem to activate its ability: the bar above her hand says only \"Choose any target\", and at its right is the ability as a small dark token filled with the Totem's art and an \"A\" chip at its bottom, not the Totem card.")
+            "Alice tapped her Spark Totem to activate its ability: the bar above her hand is titled \"Choose any target\" over \"Spark Totem's ability\" and the ability's text, and at its right is the ability as a small dark token filled with the Totem's art and an \"A\" chip at its bottom, not the Totem card.")
         holdingTheSourceInspects(Choices.TOTEM)
     }
 
@@ -151,7 +164,7 @@ class ChoiceSourceTest {
         return assertIs<Decision.ChooseObjects>(kit.state().pending?.decision)
     }
 
-    // STK-030, STK-044, STK-177, STK-178: Alice's Ember Divination resolves: the open choice's title is only "Scry 2" and the Divination is
+    // STK-030, STK-044, STK-177, STK-178, STK-226, STK-222: Alice's Ember Divination resolves: the open choice's title is only "Scry 2" and the Divination is
     // the small card at the panel's right; holding it inspects it
     @Test fun anOpenChoiceShowsItsSpellAtTheRight() {
         val kit = kit(Choices.DIVINATION, "Mountain")
@@ -159,8 +172,9 @@ class ChoiceSourceTest {
         render(kit)
         compose.onNode(hasText("Scry 2") and isHeading()).assertExists()
         sourceAtTheRight("Automatum choice", "Scry 2", Choices.DIVINATION)
+        sourceNamed(Choices.DIVINATION, "Scry 2")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/open-choice.png",
-            "Alice's Ember Divination resolves and she scries 2: the panel above her hand is titled only \"Scry 2\", the Divination sits at its right as a small card, and the Top and Bottom areas hold the two cards.")
+            "Alice's Ember Divination resolves and she scries 2: the panel above her hand is titled \"Scry 2\" with the spell's name \"Ember Divination\" under it, the Divination sits at its right as a small card, and the Top and Bottom areas hold the two cards; the panel fits its content, so it has no drag handle.")
         holdingTheSourceInspects(Choices.DIVINATION)
     }
 
@@ -193,18 +207,19 @@ class ChoiceSourceTest {
         assertTrue(bounds(card(stays)).left <= left.left, "closed the gap")
     }
 
-    // STK-044, STK-178: in landscape the panel is at most 420 dp wide from the left edge; the source is at its right all the same
+    // STK-044, STK-178, STK-226: in landscape the panel is at most 420 dp wide from the left edge; the source is at its right all the same
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun anOpenChoiceShowsItsSpellAtTheRightInLandscape() {
         val kit = kit(Choices.DIVINATION, "Mountain")
         scry(kit)
         render(kit)
         sourceAtTheRight("Automatum choice", "Scry 2", Choices.DIVINATION)
+        sourceNamed(Choices.DIVINATION, "Scry 2")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/open-choice-landscape.png",
-            "In landscape Alice's Ember Divination resolves and she scries 2: the panel at the left above her hand is titled only \"Scry 2\" and the Divination sits at the panel's right as a small card.")
+            "In landscape Alice's Ember Divination resolves and she scries 2: the panel at the left above her hand is titled \"Scry 2\" with \"Ember Divination\" under it, and the Divination sits at the panel's right as a small card.")
     }
 
-    // STK-030, STK-044, STK-178, STK-046, STK-121: Alice's Spark Seer enters; its trigger's target is her open choice, in the target bar:
+    // STK-030, STK-044, STK-178, STK-226, STK-046, STK-121: Alice's Spark Seer enters; its trigger's target is her open choice, in the target bar:
     // "Choose any target" with the trigger as its ability token (the Seer's art, the "T" chip) at the right
     @Test fun aTriggersTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.SEER, "Mountain")
@@ -215,8 +230,9 @@ class ChoiceSourceTest {
         assertTrue(kit.toolkit.flows.targeting, "targets are picked on the table")
         sourceAtTheRight("Choose targets", "Choose any target", Choices.SEER)
         sourceIsAnAbilityToken("Triggered ability")
+        sourceNamed("${Choices.SEER}'s ability", "Choose any target")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/trigger-target-bar.png",
-            "Alice's Spark Seer entered and its trigger asks for a target: the bar above her hand says only \"Choose any target\", and at its right is the trigger as a small dark ability token filled with the Seer's art and a \"T\" chip at its bottom.")
+            "Alice's Spark Seer entered and its trigger asks for a target: the bar above her hand is titled \"Choose any target\" over \"Spark Seer's ability\" and the trigger's text, and at its right is the trigger as a small dark ability token filled with the Seer's art and a \"T\" chip at its bottom.")
         holdingTheSourceInspects(Choices.SEER)
     }
 
@@ -315,16 +331,19 @@ class ChoiceSourceTest {
         return kit
     }
 
-    // STK-178, STK-046, STK-212 (problem report MDLPM7, D3), CR 707.10c: the question whether to choose new targets for the copy of Alice's
+    // STK-178, STK-226, STK-227, STK-046, STK-212 (problem report MDLPM7, D3), CR 707.10c: the question whether to choose new targets for the copy of Alice's
     // Spark Seer's trigger has the trigger's ability token (the Seer's art, its "T" chip) at the panel's right, never no source or a card back
     @Test fun aCopysNewTargetsAskAboutTheAbilityItCopies() {
         val kit = copiedSeerTrigger()
         render(kit)
         sourceAtTheRight("Automatum choice", "You may", Choices.SEER)
         sourceIsAnAbilityToken("Triggered ability")
+        // E12 (owner 2026-11-21): named as the copy, with the copied trigger's whole text
+        sourceNamed("Copy of ${Choices.SEER}'s triggered ability", "You may")
+        compose.onNodeWithText("When this creature enters, it deals 1 damage to any target.").assertExists()
         compose.onNodeWithText("Choose new targets for the copy?", substring = true).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/copy-new-targets.png",
-            "Alice copied her Spark Seer's trigger with her Ember Kindler: the panel above her hand asks whether to choose new targets for the copy, with the Seer's trigger as its ability token (the Seer's art and a \"T\" chip) at its right.")
+            "Alice copied her Spark Seer's trigger with her Ember Kindler: the panel above her hand, named \"Copy of Spark Seer's triggered ability\" with the trigger's text under it, asks whether to choose new targets for the copy, with the Seer's trigger as its ability token (the Seer's art and a \"T\" chip) at its right.")
     }
 
     // STK-212, STK-018, STK-046 (problem report MDLPM7, D7): with the copy of Alice's Spark Seer's trigger on the Stack over the original, the

@@ -302,7 +302,20 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedShown, play: 
             "named by its resolution ${item?.let { SharedFlow.resolutionObjects(flow.state, it.id) }.orEmpty()}")
     }
     DecisionPanelContent(flows, flows.hidden, flows::toggleHidden, play, names, decision, source,
-        askedLine(flows, flow, play, decision, source), about, otherName.takeIf { forOther })
+        askedLine(flows, flow, play, decision, source), about, otherName.takeIf { forOther }, copy = forCopy(flow, decision))
+}
+
+/**
+ * STK-178 (owner 2026-11-21, E12): whether [decision] is asked for a copy of its source (CR 707.10c: a copy's new targets are
+ * chosen before it is put on the Stack, so the question names the spell or ability it copies, still on the Stack under what
+ * resolves), or its source is itself a copy of a spell: its panel then names it "Copy of ...".
+ */
+private fun forCopy(flow: SharedShown, decision: Decision): Boolean {
+    val item = decisionItem(flow, decision) ?: return false
+    if (item.kind is StackItemKind.SpellCopy) return true
+    val source = decision.source as? ObjectId.StackItem ?: return false
+    val top = flow.top ?: return false
+    return source in flow.state.stackItems && top.id != source
 }
 
 /**
@@ -349,11 +362,13 @@ private fun askedLine(flows: FlowQuestions, flow: SharedShown, play: TableBoard,
  * An open choice's panel docked above the hand ([DecisionPanel]): its title saying only what the choice is (I-D47,
  * STK-030) with its [source] at the right (STK-044), "Choosing for <name>" when [forOther] names the player chosen for,
  * the sentence it asks about ([line]), the cards it is about ([about]), a short instruction, then the choice itself.
+ * STK-178 (owner 2026-11-21, E12): beside the source, under the title, its name and an ability's whole text ([copy]: named as
+ * the copy the choice is for).
  */
 @Composable
 fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden: () -> Unit, play: TableBoard,
     names: Map<String, String>, decision: Decision, source: ChoiceCardData?, line: String?, about: List<ObjectId> = emptyList(),
-    forOther: String? = null) {
+    forOther: String? = null, copy: Boolean = false) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
     // UI review round 2 N3: the choice's own buttons sit in the dock's bottom row beside the eye, as in the cast panel
@@ -361,11 +376,23 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
     // STK-049 (owner gallery review, 2026-11-06): a "you may pay" of mana is its payment, with "Don't pay" beside Pay
     val payment = questions.paymentAfter(decision)
     val shownLine = if (payment != null && decision is Decision.May) decision.text else line
+    val words = ChoiceSourceWords.of(source, copy)
+    // E12: an ability's whole text shows once, also where it is the sentence the question asks about
+    val abilityText = words?.text?.takeIf { it != shownLine?.trim() }
+    LaunchedEffect(decision.id) {
+        AppLog.info("decision", "Choice panel of ${decision.id.value} (${decision.kind}): from ${words?.name ?: "no source named"}" +
+            (if (copy) " (for a copy)" else "") + ", ability text ${if (words?.text == null) "none" else if (abilityText == null) "as its question" else "shown"}")
+    }
     AutomatumDockPanel("Automatum choice", hidden, toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
         CompositionLocalProvider(LocalDockSlot provides slot) {
         // I-D47, STK-030: the title says only what the choice is ("Scry 2"); its source is the card at the right
         ChoiceHead(payment?.let(::choiceWhat) ?: choiceWhat(decision), source, inspector) {
             if (forOther != null) Text("Choosing for $forOther", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
+            if (words != null) ChoiceSourceName(words.name)
+            abilityText?.let {
+                CardText(it, Modifier.semantics { contentDescription = "Ability: $it" }, color = Color(0xff4b5a5f),
+                    style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
+            }
             shownLine?.let {
                 CardText(it, Modifier.semantics { contentDescription = "Question: $it" }, color = Color(0xff4b5a5f),
                     style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
@@ -419,9 +446,12 @@ fun notPaying(payment: Decision.ManaPayment) = "Not paid yet: produce the mana f
 private fun FlowPayBar(flows: SharedFlowController, flow: SharedShown, play: TableBoard, decision: Decision, payment: Decision.ManaPayment,
     source: ChoiceCardData?) {
     val inspector = remember(decision.id) { ChoiceInspector() }
-    val line = if (decision is Decision.May) decision.text else askedLine(flows, flow, play, decision, source)
+    // STK-178 (owner 2026-11-21, E12): the source named under the title, and an ability's whole text as the sentence, as a target
+    // bar draws it
+    val words = ChoiceSourceWords.of(source, forCopy(flow, decision))
+    val line = words?.text ?: if (decision is Decision.May) decision.text else askedLine(flows, flow, play, decision, source)
     AutomatumDockBar("Pay on the table", eye = true) {
-        TargetBarTitle(choiceWhat(payment), line, if (flows.paid) "Paid" else "Not paid yet")
+        TargetBarTitle(choiceWhat(payment), line, if (flows.paid) "Paid" else "Not paid yet", source = words?.name)
         // Pool mana and life, which the table can't show, as chips
         // STK-024 (owner 2026-11-14): a source whose cost uses other cards is tapped on the table, never a chip
         val others = org.asyncttwiz.automatum.ManaPicks.groups(payment).filter { group -> flows.tableSource(group.first()) == null &&
@@ -453,7 +483,7 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedShown, play: 
     // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
     val pieces = flows.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, LocalChoiceFrame.current.viewer, names) }
     TablePickBar(pick, askedLine(flows, flow, play, pick.decision, source), pieces, flows.picked.size, flows.pickDone, flows::confirmTargets,
-        source, play, "decision")
+        source, play, "decision", copy = forCopy(flow, pick.decision))
 }
 
 // ---- Words

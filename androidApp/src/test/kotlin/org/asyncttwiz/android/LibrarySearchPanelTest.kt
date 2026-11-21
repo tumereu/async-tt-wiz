@@ -130,10 +130,12 @@ class LibrarySearchPanelTest {
         kit.playOn("the Mountain found") { kit.field("Mountain").size == before + 1 }
     }
 
-    // STK-222, STK-223: the search panel's content is taller than the smallest panel size, so it has the drag handle at the middle
-    // of its top edge; dragged down, the panel is shorter and its content scrolls inside
+    // STK-222, STK-223: with the panels' shared size made smaller earlier, the search panel's content is cut off, so it has the drag
+    // handle at the middle of its top edge (owner 2026-11-21, E14: only then); dragged down, the panel is shorter and its content
+    // scrolls inside
     @Test fun aSearchPanelsHandleMakesItShorter() {
         val kit = search()
+        PanelSizePreferences(org.asyncttwiz.appui.AppPlatform.current).write(200f)
         render(kit)
         val panel = compose.onNode(hasContentDescription("Automatum choice"))
         val before = panel.fetchSemanticsNode().boundsInRoot.height
@@ -146,6 +148,6 @@ class LibrarySearchPanelTest {
         val after = panel.fetchSemanticsNode().boundsInRoot.height
         assertTrue(after < before - 60f, "shorter by the drag: $before → $after")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/library-search-resized.png",
-            "Alice activated her Cinder Trail and dragged the grey handle at the middle of the search panel's top edge down by 100 dp: the panel is about that much shorter, its cards scrolling inside, more of the table shows above it, and every large panel now opens at this size.")
+            "Alice had made the panels smaller before, so her Cinder Trail's search panel opened with its cards cut off and the grey handle at the middle of its top edge; she dragged it down by 100 dp: the panel is down to the smallest size, its cards scrolling inside, more of the table shows above it, and every large panel now opens at most at this size.")
     }
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -41,7 +42,7 @@ const val PANEL_HANDLE_TAG = "panel-handle"
  * tested without a screen.
  */
 object PanelSizes {
-    /** The smallest content height (dp) a drag gives; a panel whose content is no taller has no handle. */
+    /** The smallest content height (dp) a drag gives. */
     const val MIN = 120f
     /** The largest content height (dp) a drag gives: this share of the room the content has, so the table stays in view. */
     const val ROOM_SHARE = .75f
@@ -51,8 +52,14 @@ object PanelSizes {
     /** A kept size read back: a finite value within [MIN] and [MAX_KEPT]; null for none. */
     fun kept(value: Float?): Float? = value?.takeIf { it.isFinite() }?.coerceIn(MIN, MAX_KEPT)
 
-    /** Whether a panel whose content is [content] dp tall can be resized (it gets a handle). */
-    fun resizable(content: Float) = content > MIN
+    /**
+     * STK-222 (owner 2026-11-21, E14): whether a panel whose content is [content] dp tall, shown [shown] dp tall, has the handle:
+     * only while something of it is cut off (it would need scrolling at this size), and throughout a drag of it ([dragging]),
+     * so the handle doesn't leave under the finger. A panel whose content fits never has one.
+     */
+    fun handle(content: Float, shown: Float, dragging: Boolean) = dragging || content > shown + CUT
+    /** How much (dp) of the content must be cut off to count, past rounding to pixels. */
+    private const val CUT = .5f
 
     /**
      * The size a drag gives (dp): the content was shown [start] dp tall at its start, with the size then [before]; [grow] dp
@@ -88,7 +95,7 @@ class PanelSizePreferences(platform: AppPlatform, private val layout: AppLayout 
 /**
  * STK-222, STK-223: a large Automatum panel's scrolling content ([content], laid out with [arrangement] inside [modifier]'s
  * padding), at most the shared panel size high ([default] until a panel is first resized), with the drag handle at the
- * middle of the panel's top edge while the content is taller than [PanelSizes.MIN] and [resizable]. A drag resizes it, and
+ * middle of the panel's top edge while some of the content is cut off ([PanelSizes.handle]) and [resizable]. A drag resizes it, and
  * with it every such panel, and the size is kept on the device when the finger lifts. WEB-141: in a desktop centred overlay
  * ([LocalPromptDim]), which grows both ways, the content grows twice the drag, so the edge follows the pointer. [what] names
  * the panel in the log.
@@ -124,7 +131,13 @@ fun ResizablePanelContent(default: Dp, what: String, modifier: Modifier = Modifi
         }.verticalScroll(scroll), verticalArrangement = arrangement, content = content)
         val whole = with(density) { (shown + scroll.maxValue).toDp().value }
         val wholeNow by rememberUpdatedState(whole)
-        if (resizable && PanelSizes.resizable(whole)) {
+        val shownDp = with(density) { shown.toDp().value }
+        val handle = resizable && PanelSizes.handle(whole, shownDp, dragging != null)
+        LaunchedEffect(handle) {
+            if (resizable && (handle || whole > 0f)) AppLog.info("panel", "Panel handle in the $what ${if (handle) "shown" else "hidden"}: content " +
+                "${whole.toInt()} dp, shown ${shownDp.toInt()} dp")
+        }
+        if (handle) {
             var start by remember { mutableFloatStateOf(0f) }
             var before by remember { mutableFloatStateOf(0f) }
             var moved by remember { mutableFloatStateOf(0f) }

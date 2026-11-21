@@ -1,1 +1,1 @@
-Alice copied her Spark Seer's trigger with her Ember Kindler: the panel above her hand asks whether to choose new targets for the copy, with the Seer's trigger as its ability token (the Seer's art and a "T" chip) at its right.
+Alice copied her Spark Seer's trigger with her Ember Kindler: the panel above her hand, named "Copy of Spark Seer's triggered ability" with the trigger's text under it, asks whether to choose new targets for the copy, with the Seer's trigger as its ability token (the Seer's art and a "T" chip) at its right.

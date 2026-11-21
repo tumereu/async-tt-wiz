@@ -8,11 +8,15 @@ import kotlin.test.assertTrue
 
 /** STK-222, STK-223: the rules of the large panels' one shared size. */
 class PanelSizesTest {
-    // STK-222: only a panel whose content is taller than the smallest size can be resized (it gets the handle)
-    @Test fun onlyContentTallerThanTheSmallestSizeIsResizable() {
-        assertFalse(PanelSizes.resizable(60f))
-        assertFalse(PanelSizes.resizable(PanelSizes.MIN))
-        assertTrue(PanelSizes.resizable(PanelSizes.MIN + 1f))
+    // STK-222 (owner 2026-11-21, E14): only a panel with something of its content cut off (it would scroll) has the handle, a tall
+    // one whose content fits none; while it is dragged it keeps the handle, whatever is cut
+    @Test fun onlyAPanelWithContentCutOffHasTheHandle() {
+        assertFalse(PanelSizes.handle(content = 60f, shown = 60f, dragging = false))
+        assertFalse(PanelSizes.handle(content = 400f, shown = 400f, dragging = false), "tall, but all shown")
+        assertFalse(PanelSizes.handle(content = 400.3f, shown = 400f, dragging = false), "a part of a dp is rounding")
+        assertTrue(PanelSizes.handle(content = 900f, shown = 440f, dragging = false), "cut off")
+        assertTrue(PanelSizes.handle(content = 130f, shown = 120f, dragging = false), "a little cut off")
+        assertTrue(PanelSizes.handle(content = 300f, shown = 300f, dragging = true), "dragged until all shows")
     }
 
     // STK-222: a panel whose content scrolls follows the drag both ways

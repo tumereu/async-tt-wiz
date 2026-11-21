@@ -62,6 +62,9 @@ internal class EngineTable(
         add(player, zone, Cards.definition(name), token = false, tapped = tapped)
     }
 
+    /** Puts a card of the engine [definition] (written in the definition model) into [player]'s [zone]; returns its card id. */
+    fun putDefinition(player: String, zone: Zone, definition: arcanum.api.CardDefinition): String = add(player, zone, definition, token = false)
+
     /** Puts a token made from the engine [definition] (a predefined token's, CR 111.10) onto [player]'s battlefield, with
      * the card data the table makes of it ([AtwTokens.submitted]); returns its card id. */
     fun putToken(player: String, definition: arcanum.api.CardDefinition): String = add(player, Zone.Battlefield, definition, token = true)

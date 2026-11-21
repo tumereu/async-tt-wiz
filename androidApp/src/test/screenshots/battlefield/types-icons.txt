@@ -1,0 +1,1 @@
+Alice's table with lands, a land creature, an artifact creature, a creature, an artifact, an enchantment, a planeswalker and an uncrewed Vehicle, and Bob's lands, creatures and enchantment: each battlefield card shows small dark icons of its card types at the left of its bottom row, and no subtype tags since no card refers to a subtype.

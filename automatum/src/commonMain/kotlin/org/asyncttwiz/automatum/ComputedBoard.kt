@@ -39,6 +39,9 @@ import org.asyncttwiz.protocol.SubmittedDefinition
  * - [keywords]: every keyword ability it has.
  * - [states]: TBL-133: the states the rules keep on it ("Ring-bearer", "Goaded", "Monstrous", [CardStates.words]).
  * - [crew]: TBL-137: an uncrewed Vehicle's crew amount (CR 702.122a: it has crew and is no creature now); null otherwise.
+ * - [cardTypes]: TBL-233: its card types now ("Artifact", "Creature"), after type-changing effects (layer 4).
+ * - [tags]: TBL-234: its subtypes the cards the viewer can see refer to ([RelevantSubtypes]), in its type line's order, then
+ *   those it has only as every creature type (changeling, CR 702.73a) by name.
  */
 @kotlinx.serialization.Serializable
 data class ComputedCard(
@@ -58,6 +61,8 @@ data class ComputedCard(
     val keywords: List<String> = emptyList(),
     val states: List<String> = emptyList(),
     val crew: Int? = null,
+    val cardTypes: List<String> = emptyList(),
+    val tags: List<String> = emptyList(),
 ) {
     /** The computed P/T as the corner shows it ("3/3"); for a permanent without P/T its primary counter's count (TBL-021:
      * "4" loyalty); null when it has neither. */
@@ -433,6 +438,8 @@ class ComputedBoard private constructor(
             val ids = CardIds()
             val battlefield = board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
             val cards = LinkedHashMap<String, ComputedCard>()
+            // TBL-234: the subtypes the viewer's visible cards refer to, once for the board
+            val relevant = RelevantSubtypes.of(state, view, viewer)
             for (card in board.cards) {
                 if (card.id !in battlefield) continue
                 val id = ObjectId.Card(ids.engine(card.id), card.zoneChanges)
@@ -454,6 +461,11 @@ class ComputedBoard private constructor(
                     keywords = chars.keywords.map(Keyword::text),
                     states = o.obj?.let { CardStates.words(it, o.statuses) }.orEmpty(),
                     crew = if (chars.power != null) null else chars.keywords.filterIsInstance<Keyword.Crew>().firstOrNull()?.amount,
+                    cardTypes = chars.types.map(CardType::toString),
+                    // its own subtypes in type-line order, then those it has as every creature type (a changeling), by name
+                    tags = if (relevant.isEmpty()) emptyList()
+                        else (chars.subtypes.filter { it in relevant } + relevant.filter { it !in chars.subtypes && chars.hasSubtype(it) }
+                            .sortedBy { it.name }).map { it.name },
                 )
             }
             val exile = board.containers.filter { it.zone == PlayZone.EXILE }.flatMap { it.cards }.toSet()

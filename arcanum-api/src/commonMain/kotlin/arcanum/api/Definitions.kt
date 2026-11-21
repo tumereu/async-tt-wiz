@@ -74,7 +74,13 @@ data class FaceDefinition(
      * values, a spell copy and a token copy carry it (CR 707.2, 707.10) and the host can tell what the copy shows; a face-down
      * object's values have none (CR 708.2a). */
     val identity: String? = null,
-)
+) {
+    /** For each of its [abilities] in order, the subtypes it refers to ([SubtypeReferences]), worked out when first read; not a
+     * characteristic. */
+    val abilitySubtypeReferences: List<Set<SubtypeRef>> by lazy(LazyThreadSafetyMode.PUBLICATION) { abilities.map(SubtypeReferences::of) }
+    /** The subtypes its abilities and rooms refer to ([SubtypeReferences]), worked out when first read; not a characteristic. */
+    val referencedSubtypes: Set<SubtypeRef> by lazy(LazyThreadSafetyMode.PUBLICATION) { SubtypeReferences.ofFace(this) }
+}
 
 /**
  * One room of a dungeon card (CR 309.4): its [name] (flavour, CR 309.4b), its room ability's effect ("When you move your venture

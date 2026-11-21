@@ -3,6 +3,7 @@ package org.asyncttwiz.e2e
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,7 +37,9 @@ class StagingFromStackTest : E2e() {
     /** Alice's three ready Ash Pups in one stack on her screen, her table declaring attackers. */
     private fun toThreePupsDeclaring() {
         startGame(TestDeck("Pups", listOf(TestCards.mountain to 10, TestCards.pup to 30)), TestDeck.thirds(TestCards.cub),
-            deal = { a, b -> hand(a).count { it == "Ash Pup" } >= 3 && "Mountain" in hand(b) })
+            // Bob holds a Storm Spark: with his Mountain he may act after Alice's attackers are declared, so her phone waits for
+            // him there (Waiting, "Bob may act") instead of going on through the combat by itself
+            deal = { a, b -> hand(a).count { it == "Ash Pup" } >= 3 && "Mountain" in hand(b) && "Storm Spark" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)
         for (n in 1..3) {
@@ -100,8 +103,12 @@ class StagingFromStackTest : E2e() {
         assertEquals(left, bottomLeft(), "the Pup left at home stays where it was")
         val staged = staged()
         alice.declare("Attack (2)", this)
-        waitUntil("the two Pups declared as attackers", along = listOf(bob)) {
-            alice.state.combat?.attackers?.map { atw(it.id) }?.toSet() == staged.toSet() && alice.settled(this)
+        // Bob doesn't play along here: his tap at his stop after the attack moved the combat on, and the declared attackers
+        // showed only for a moment (a full run, 2026-11-21: the wait for them, settled, saw Alice in her second main phase).
+        // Alice's phone waits for him with the attackers declared
+        waitUntil("the two Pups declared as attackers, Alice's phone waiting for Bob") {
+            alice.state.combat?.attackers?.map { atw(it.id) }?.toSet() == staged.toSet() && alice.settled(this) &&
+                alice.status is GameDevice.Status.Waiting
         }
         waitUntil("the attacking Pups in one pile of two: ${alice.screen()}") { pupPile(2) }
         assertEquals(left, bottomLeft(), "the Pup at home still where it was, the attackers right of it")

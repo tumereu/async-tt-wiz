@@ -208,7 +208,8 @@ fun podMatchStatus(record: MatchRecord): String = when {
 fun PodMatchesSection(detail: PodDetail, matches: HistoryList<PodMatches>?) {
     val value = matches?.value ?: return
     Text("Standings", style = MaterialTheme.typography.titleMedium)
-    PodStandings(MatchStats.standings(value.records, detail.members.map { it.account }))
+    // DRF-297, DRF-301: bots play no games, so they have no standing
+    PodStandings(MatchStats.standings(value.records, podPeople(detail)))
     Text("Matches", style = MaterialTheme.typography.titleMedium)
     if (value.records.isEmpty() && value.playing.isEmpty())
         Text("No matches yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

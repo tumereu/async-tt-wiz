@@ -26,7 +26,7 @@ class PodPresetService(private val runtime: ServiceRuntime) {
     fun save(principal: AccountService.Principal, input: SavePodPreset): Result {
         if (!PodPresetValidation.name(input.name)) return error(400, "invalid_name")
         val settings = input.settings.copy(librarianDefinition = null)
-        if (settings.validate(2).isNotEmpty()) return error(400, "invalid_settings")
+        if (settings.validate(settings.seats(2)).isNotEmpty()) return error(400, "invalid_settings")
         if (input.cubeId != null && input.setCode != null) return error(400, "invalid_source")
         val setCode = input.setCode
         if (setCode != null && (!PodPresetValidation.setCode(setCode) || input.setName?.let(PodPresetValidation::setName) != true) ||

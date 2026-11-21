@@ -239,7 +239,7 @@ class PodService(private val runtime: ServiceRuntime) {
     fun create(principal: AccountService.Principal, input: CreatePod): Result =
         business(principal, input.requestId, "createPod", DeckJson.canonicalElement(json.encodeToJsonElement(input))) { sql, owner, _ ->
             if (!validName(input.name)) return@business error(400, "invalid_name")
-            if (input.settings?.validate(2)?.isNotEmpty() == true) return@business error(400, "invalid_settings")
+            if (input.settings?.let { it.validate(it.seats(2)) }?.isNotEmpty() == true) return@business error(400, "invalid_settings")
             if (listOfNotNull(input.cubeId, input.setCode, input.packSets).size != 1) return@business error(400, "invalid_source")
             val snapshot = input.cubeId?.let { cube ->
                 val catalog = ServerCatalogs.current() ?: return@business error(503, "catalog_unavailable")
@@ -274,7 +274,7 @@ class PodService(private val runtime: ServiceRuntime) {
             // Setup may have only its creator; validate settings against the minimum startable membership. Too many
             // members for the engine is allowed here: Start is refused and an armed auto-start switches off instead.
             val members = members(sql, row.id!!).size
-            if (input.settings?.validate(members.coerceAtLeast(2))?.any { it != DraftSettingsIssue.PLAYERS } == true)
+            if (input.settings?.let { it.validate(it.seats(members.coerceAtLeast(2))) }?.any { it != DraftSettingsIssue.PLAYERS } == true)
                 return@mutate error(400, "invalid_settings")
             if (listOfNotNull(input.cubeId, input.setCode, input.packSets).size > 1) return@mutate error(400, "invalid_source")
             val snapshot = input.cubeId?.let { cube ->
@@ -396,7 +396,8 @@ class PodService(private val runtime: ServiceRuntime) {
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "SETUP") return@mutate error(409, "not_setup")
             if (input.enabled && pending(sql, row.id!!).isEmpty()) return@mutate error(409, "no_pending_invitations")
-            if (input.enabled && members(sql, row.id!!).size + pending(sql, row.id!!).size > settings(row).mode.players.last)
+            // DRF-163: bot seats count as players
+            if (input.enabled && settings(row).seats(members(sql, row.id!!).size + pending(sql, row.id!!).size) > settings(row).mode.players.last)
                 return@mutate error(409, "too_many_players")
             row.autoStart = input.enabled; row.autoStartOffReason = null; row.autoStartOffAccount = null
             save(sql, row); detail(sql, row, owner)
@@ -407,7 +408,7 @@ class PodService(private val runtime: ServiceRuntime) {
     /** An armed auto-start switches off, telling the creator, once members plus invitations exceed the engine's limit. */
     private fun overLimit(sql: DSLContext, row: PodRecord) {
         if (row.autoStart != true) return
-        if (members(sql, row.id!!).size + pending(sql, row.id!!).size > settings(row).mode.players.last)
+        if (settings(row).seats(members(sql, row.id!!).size + pending(sql, row.id!!).size) > settings(row).mode.players.last)
             autoStartOff(sql, row, "too_many_players")
     }
 
@@ -427,15 +428,18 @@ class PodService(private val runtime: ServiceRuntime) {
 
     /** Starts the draft from setup, or returns why it cannot start. Pending invitations lapse. */
     private fun begin(sql: DSLContext, row: PodRecord): Result? {
-        val players = members(sql, row.id!!).map { it.accountId.toString() }
-        if (players.size < 2) return error(409, "not_enough_members")
+        val humans = members(sql, row.id!!).map { it.accountId.toString() }
+        // DRF-035, DRF-296: two people at least; bot seats fill any other seat
+        if (humans.size < 2) return error(409, "not_enough_members")
         val settings = settings(row); val cube = source(row)
+        val players = humans + PodBots.ids(settings.bots)
         if (players.size > settings.mode.players.last) return error(409, "too_many_members")
         if (settings.validate(players.size).isNotEmpty()) return error(400, "invalid_settings")
         if (settings.librarians > 0 && settings.librarianDefinition == null) return error(400, "librarian_definition_unavailable")
         unsupported(row)?.let { return it }
         if (!supply(row, players.size).sufficient) return error(409, "insufficient_supply")
         row.autoStart = false; row.autoStartOffReason = null; row.autoStartOffAccount = null
+        if (settings.bots > 0) log("pod ${row.id} starts ${settings.mode} with ${humans.size} members and ${settings.bots} bot seats")
         val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
         row.draftAttemptId = UUID.randomUUID()
         sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
@@ -988,7 +992,29 @@ class PodService(private val runtime: ServiceRuntime) {
         else ArenaEngine.counts(arenaSetCards(set))
     }.onFailure { log("pod ${row.id} Arena counts failed: $it") }.getOrNull()
 
-    private fun advance(sql: DSLContext, row: PodRecord, previous: DraftState?, next: DraftState) {
+    /**
+     * DRF-298: the cards of a draft as its bots see them: their card data from the stored definitions, their printing's
+     * rarity from the card catalog (none without it).
+     */
+    private fun botCards(sql: DSLContext, copies: List<DraftCopy>): (DraftCopy) -> DraftBotCard {
+        val definitions = StoredDefinitions.read(sql, copies.map { it.definition }.toSet()).associate { it.digest to it.definition }
+        val catalog = ServerCatalogs.current()?.catalog
+        return { copy -> definitions[copy.definition].let { definition ->
+            DraftBotCard(copy.id, definition, definition?.printingId?.let { catalog?.printing?.get(it)?.rarity }
+                ?.let { value -> SetCardRarity.entries.firstOrNull { it.name.lowercase() == value } })
+        } }
+    }
+
+    /** DRF-298: every move the pod's bots can make now, made at once (each logged), so the draft never waits for a bot. */
+    private fun withBots(sql: DSLContext, row: PodRecord, state: DraftState): DraftState =
+        if (!DraftBotSeats.waiting(state.queues)) state else DraftBotSeats.run(state, botCards(sql, state.copies)) { log("pod ${row.id} bot $it") }
+    private fun withBots(sql: DSLContext, row: PodRecord, state: GridState): GridState =
+        if (!DraftBotSeats.waiting(state.queues)) state else DraftBotSeats.run(state, botCards(sql, state.copies)) { log("pod ${row.id} bot $it") }
+    private fun withBots(sql: DSLContext, row: PodRecord, state: LimitedDraftState): LimitedDraftState =
+        if (!DraftBotSeats.waiting(state.queues)) state else DraftBotSeats.run(state, botCards(sql, state.copies)) { log("pod ${row.id} bot $it") }
+
+    private fun advance(sql: DSLContext, row: PodRecord, previous: DraftState?, moved: DraftState) {
+        val next = withBots(sql, row, moved)
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
         val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
         for (member in members(sql, row.id!!)) {
@@ -1013,7 +1039,8 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row)
     }
 
-    private fun advanceGrid(sql: DSLContext, row: PodRecord, previous: GridState?, next: GridState) {
+    private fun advanceGrid(sql: DSLContext, row: PodRecord, previous: GridState?, moved: GridState) {
+        val next = withBots(sql, row, moved)
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
         val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
         for (member in members(sql, row.id!!)) {
@@ -1035,7 +1062,8 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row)
     }
 
-    private fun advanceLimited(sql: DSLContext, row: PodRecord, previous: LimitedDraftState?, next: LimitedDraftState) {
+    private fun advanceLimited(sql: DSLContext, row: PodRecord, previous: LimitedDraftState?, moved: LimitedDraftState) {
+        val next = withBots(sql, row, moved)
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
         val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
         for (member in members(sql, row.id!!)) {
@@ -1261,20 +1289,31 @@ class PodService(private val runtime: ServiceRuntime) {
                 boosterName = set.first.recipe?.name, packSets = set.packs)
         // DRF-285, DRF-287: an Arena pod's setup summary tells its source's rarities
         val rarities = if (settings.mode == DraftMode.ARENA && row.phase == "SETUP") arenaCounts(sql, row) else null
-        val finite = settings.supply(members.size, cube)
+        val finite = settings.supply(settings.seats(members.size), cube)
         val supply = if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
         val pending = pending(sql, row.id!!)
         val offAccount = row.autoStartOffAccount?.takeIf { row.autoStartOffReason != null && row.phase == "SETUP" && owner == row.creatorId }
         val names = identities(sql, listOf(row.creatorId!!) + members.map { it.accountId!! } + pending.map { it.accountId!! } + listOfNotNull(offAccount))
+        // A member's progress in the draft: the picks they can make in a row and the picks made
+        fun progress(player: String): Pair<Int, Int> {
+            val status = public?.members?.firstOrNull { it.player == player }
+            val waiting = status?.packsWaiting ?: limited?.let { LimitedEngine.consecutivePicks(it, player) } ?: gridWaiting(grid, player)
+            return waiting to (status?.picksMade ?: grid?.log?.count { it.player == player } ?: limited?.let { LimitedEngine.picksMade(it, player) } ?: 0)
+        }
+        // DRF-297: a started draft's bot seats, in number order
+        val bots = (draft?.seating ?: grid?.seating ?: limited?.seating).orEmpty().mapNotNull(PodBots::identity)
+            .sortedBy { it.accountId.removePrefix(PodBots.PREFIX).toIntOrNull() }
         val result = PodDetail(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
             settings, sourceView.copy(rarities = rarities), supply,
             members.map { member ->
                 val player = member.accountId.toString()
-                val progress = public?.members?.firstOrNull { it.player == player }
-                val waiting = progress?.packsWaiting ?: limited?.let { LimitedEngine.consecutivePicks(it, player) } ?: gridWaiting(grid, player)
-                PodMember(names.getValue(member.accountId!!), waiting, progress?.picksMade ?: grid?.log?.count { it.player == player }
-                    ?: limited?.let { LimitedEngine.picksMade(it, player) } ?: 0,
+                val (waiting, picks) = progress(player)
+                PodMember(names.getValue(member.accountId!!), waiting, picks,
                     row.phase == "DRAFTED" && member.submittedDeck == null, member.submittedDeck != null, waiting > 0)
+            } + bots.map { bot ->
+                // DRF-297: the draft's bot seats after the members; they never build or submit
+                val (waiting, picks) = progress(bot.accountId)
+                PodMember(bot, waiting, picks, picking = waiting > 0, bot = true)
             }, pending.map { names.getValue(it.accountId!!) }, row.draftAttemptId?.toString(), view,
             if (row.draftState != null) build(row, mine.build!!.data()) else null,
             mine.submittedDeck != null, mine.submittedDeck?.let { build(row, it.data()) }, cards,

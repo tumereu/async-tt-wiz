@@ -45,6 +45,7 @@ import kotlinx.serialization.Serializable
 )
 /** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PodMember(
     /**
      * packsWaiting: picks the member can make in a row if nobody else does anything (DraftEngine/GridEngine
@@ -54,12 +55,15 @@ import kotlinx.serialization.Serializable
     val account: AccountIdentity, val packsWaiting: Int = 0, val picksMade: Int = 0,
     val building: Boolean = false, val submitted: Boolean = false,
     val picking: Boolean = false,
+    /** A bot seat ([PodBots]): listed once the draft has started; it only drafts, never builds or plays. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val bot: Boolean = false,
 )
 @Serializable data class PodDetail(
     val id: String, val name: String, val phase: PodPhase, val creator: AccountIdentity,
     val settings: DraftSettings, val source: PodSource,
     /** SET sources have unlimited supply, represented by available == Long.MAX_VALUE. */
     val supply: DraftSupply,
+    /** The members, then (once a draft has started) its bot seats in number order ([PodMember.bot]). */
     val members: List<PodMember>, val pendingInvitations: List<AccountIdentity>,
     val draftAttemptId: String? = null, val draft: DraftPrivateView? = null,
     val build: PodDeckBuild? = null, val submitted: Boolean = false,

@@ -57,6 +57,31 @@ object DraftBot {
         return DraftBotChoice(scores, scores.sortedWith(order).take(keep.coerceAtLeast(0)).map { it.card }, colors, commitment)
     }
 
+    /**
+     * What several cards taken together are worth (owner 2026-11-21: a Grid line, a Winston or Winchester pile, and any
+     * pick of more than one card), less than the sum of their scores: the scores sorted best first, each counted half as
+     * much as the one before it (s1 + s2/2 + s3/4 + …), a score below 0 counting as 0 (a card one doesn't want costs
+     * nothing). So one 99 beats two 50s (99 against 75), and two 80s beat one 99 (120 against 99).
+     */
+    fun value(scores: List<Int>): Double {
+        var weight = 1.0
+        var total = 0.0
+        for (score in scores.sortedDescending()) { total += score.coerceAtLeast(0) * weight; weight /= 2 }
+        return total
+    }
+
+    /**
+     * The [count] cards of [rest] (an offer without the bot's keeps) a bot burns: the strongest by their score without
+     * colour (commitment 0), what any player the pack goes to next would value most, so they can't take them. Ties go
+     * as in [choose]: the name first, then the lower id.
+     */
+    fun burns(rest: List<DraftBotCard>, count: Int): List<String> {
+        val names = rest.associate { it.id to (it.definition?.name ?: "") }
+        return rest.map { score(it, emptyList(), 0) }
+            .sortedWith(compareByDescending<DraftBotScore> { it.total }.thenBy { names[it.card] }.thenBy { it.card })
+            .take(count.coerceAtLeast(0)).map { it.card }
+    }
+
     /** How much colour counts at [pickNumber], in percent: 0 for the first [OPEN_PICKS] picks, 100 from [FULL_PICK]. */
     fun commitment(pickNumber: Int): Int =
         ((pickNumber - OPEN_PICKS) * 100 / (FULL_PICK - OPEN_PICKS)).coerceIn(0, 100)

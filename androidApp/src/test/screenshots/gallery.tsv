@@ -323,4 +323,4 @@ number	item	screenshot	catalog	decisions	sequence
 350	Draft: Arena setup with its tiles and summary	draft/setup-arena.png	DRF-281 DRF-282 DRF-283 DRF-284 DRF-285 DRF-287		Arena
 351	Draft: Arena pick screen on the phone	draft/arena-pick.png	DRF-288 DRF-280		Arena
 352	Desktop draft: Arena pick with a quick look	desktop/arena-pick.png	DRF-288 WEB-117		Arena
-353	Desktop: the hover look on a battlefield card (the main button plain again)	desktop/hover-card.png	WEB-139 WEB-140
+355	Desktop: the hover look on a battlefield card (the main button plain again)	desktop/hover-card.png	WEB-139 WEB-140

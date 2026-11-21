@@ -13,8 +13,20 @@ import org.asyncttwiz.android.AppLog
 
 @Composable actual fun rememberMoveVibration(): (why: String) -> Unit {
     val context = LocalContext.current
-    return remember(context) { { why -> MoveVibration.vibrate(context, why) } }
+    val platform = AppPlatform.current
+    return remember(context, platform) {
+        val preferences = org.asyncttwiz.android.MoveVibrationPreferences(platform)
+        val vibrate: (String) -> Unit = { why ->
+            // TRN-167: its own setting, apart from the Your move sound
+            if (preferences.enabled) MoveVibration.vibrate(context, why)
+            else AppLog.info("game", "Your move vibration: off in Settings ($why)")
+        }
+        vibrate
+    }
 }
+
+/** TRN-167: Settings offers "Vibrate on your move" in the Android app. */
+actual val moveVibrationSetting: Boolean = true
 
 /**
  * TRN-075 (owner report 2026-11-19, the cue never felt): the Your move cue's vibration on Android. It was a Compose haptic

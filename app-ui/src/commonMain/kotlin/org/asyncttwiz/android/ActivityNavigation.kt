@@ -40,8 +40,11 @@ data class ActivityScreen(val game: String? = null, val pod: String? = null, val
 }
 
 fun ActivityKind.isPodActivity(): Boolean = name.startsWith("POD_")
+/** The notification a hint shows in: one per game, invitation, pod invitation and pod; a pod challenge is its pod's one
+ * notification (DRF-135, DRF-122), so it and the pod's other notices replace each other, the newer showing. */
 fun ActivityHint.notificationKey(): String = when {
     kind == ActivityKind.GAME || kind == ActivityKind.GAME_REMOVAL -> "game:$gameId"
+    kind == ActivityKind.INVITATION && podId != null -> "pod:$podId"
     kind == ActivityKind.INVITATION -> "invite:$identity"
     kind == ActivityKind.POD_INVITATION -> "pod-invite:$gameId"
     else -> "pod:$gameId"

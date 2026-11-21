@@ -605,4 +605,67 @@ class PodChallengeTest {
         assertEquals(41, alice.library.size + alice.hand.size)
         assertTrue((alice.library + alice.hand).map(::name).none { it in named(PodDeckCategory.MAYBE) })
     }
+
+    private fun <T> Fixture.sql(work: (org.jooq.DSLContext) -> T): T =
+        runtime.transaction { work(org.jooq.impl.DSL.using(it, org.jooq.SQLDialect.POSTGRES)) }
+    private fun Fixture.open(who: AccountService.Principal): Set<String> =
+        sql { org.asyncttwiz.server.activity.ActivityNotices.open(it, UUID.fromString(who.account.accountId)) }
+
+    // LOB-243, DRF-138 (owner, 2026-11-20): "Decks ready" waits for each member until they have opened the pod on any device;
+    // then the server clears it on every device of theirs (a clear push to their phone), and another member's still waits
+    @Test fun `pod news clears on every device once the pod was opened on any one`() = fixture { f ->
+        val pod = f.pod(three = true)
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        val phone = activity.register(f.a, RegisterInstallation(id(), id(), "synthetic-android-token"))
+        val cursor = activity.page(f.a, null).nextCursor
+        f.submit(f.a, pod); f.submit(f.b, pod); f.submit(f.c, pod)
+        val key = "pod:$pod"
+        // Her phone's poll may show it (remembered until it waits no more)
+        assertEquals(ActivityKind.POD_DECKS_READY, activity.page(f.a, cursor).readyNotices!!.last { it.gameId == pod }.kind)
+        assertTrue(key in f.open(f.a)); assertTrue(key in f.open(f.b))
+        f.sql { it.execute("DELETE FROM activity_push") }
+        assertEquals(1, activity.podSeen(f.a, PodSeen(pod)), "Alice opened the pod on one of her devices")
+        assertFalse(key in f.open(f.a), "seen: it waits no more")
+        assertTrue(key in f.open(f.b), "Bob hasn't opened it")
+        assertEquals(0, activity.podSeen(f.a, PodSeen(pod)), "seen once")
+        f.sql { org.asyncttwiz.server.activity.ActivityNotices.sweep(it, java.time.OffsetDateTime.now()) }
+        assertEquals(1, f.sql { it.fetch("SELECT 1 FROM activity_push WHERE generation = '${phone.generation}' " +
+            "AND kind = 'CLEAR_POD' AND game_id = '$pod'").size }, "a clear for her phone")
+        assertFalse(activity.page(f.a, null).openNotices!!.contains(key), "the phone's refresh clears it")
+    }
+
+    // LOB-243: a destroyed pod can't be opened; its notice is seen on the Pods list, where it leads
+    @Test fun `a destroyed pod's notice is seen on the Pods list`() = fixture { f ->
+        val pod = f.pod()
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        assertEquals(200, f.pods.destroy(f.a, pod, PodRequest(id())).status)
+        assertEquals(ActivityKind.POD_DESTROYED, activity.page(f.b, "0").entries.last { it.gameId == pod }.kind)
+        assertTrue("pod:$pod" in f.open(f.b))
+        assertEquals(1, activity.podSeen(f.b, PodSeen()))
+        assertFalse("pod:$pod" in f.open(f.b))
+    }
+
+    // DRF-135, DRF-122, DRF-137 (owner, 2026-11-20): one notification per pod: a challenge to a member still building replaces
+    // their "Draft complete: build your deck" (the same key on the phone, the same tag in a browser), and waits until answered
+    @Test fun `a pod challenge is its pod's one notification`() = fixture { f ->
+        val pod = f.pod()
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        f.submit(f.a, pod)
+        val complete = activity.page(f.b, "0").entries.last { it.kind == ActivityKind.POD_DRAFT_COMPLETE }
+        val game = f.challenge(pod)
+        val challenge = activity.page(f.b, "0").entries.single { it.kind == ActivityKind.INVITATION }
+        assertEquals(pod, challenge.podId)
+        val key = "pod:$pod"
+        assertEquals(key, org.asyncttwiz.server.activity.ActivityNotices.key(complete))
+        assertEquals(key, org.asyncttwiz.server.activity.ActivityNotices.key(challenge))
+        assertEquals(key, org.asyncttwiz.server.activity.WebPushNotices.of(challenge).tag)
+        assertTrue(ActivityWire.ordinal(challenge.activityId)!! > ActivityWire.ordinal(complete.activityId)!!, "the newer shows")
+        assertEquals(setOf(key), f.open(f.b), "no invitation notification of its own")
+        // Opening the pod doesn't answer the challenge (nor build the deck): it still waits
+        activity.podSeen(f.b, PodSeen(pod))
+        assertEquals(setOf(key), f.open(f.b))
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.DeclineInvitation).outcome)
+        f.submit(f.b, pod)
+        assertEquals(emptySet<String>(), f.open(f.b), "answered and built: nothing waits")
+    }
 }

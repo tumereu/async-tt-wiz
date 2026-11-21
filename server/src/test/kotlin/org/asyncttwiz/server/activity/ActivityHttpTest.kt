@@ -49,6 +49,11 @@ class ActivityHttpTest {
                 assertEquals(204, request("PUT", "/activity/presence", body = ActivityWire.json.encodeToString(presence.copy(left = true))).statusCode())
                 assertEquals(404, request("PUT", "/activity/presence", body = ActivityWire.json.encodeToString(presence.copy(gameId = ActivityFixture.id()))).statusCode())
                 assertEquals(400, request("PUT", "/activity/presence", body = ActivityWire.json.encodeToString(presence.copy(presenceId = "bad"))).statusCode())
+                // LOB-243: a pod (or the Pods list) open in front
+                assertEquals(204, request("PUT", "/activity/seen", body = ActivityWire.json.encodeToString(PodSeen(ActivityFixture.id()))).statusCode())
+                assertEquals(204, request("PUT", "/activity/seen", body = ActivityWire.json.encodeToString(PodSeen())).statusCode())
+                assertEquals(400, request("PUT", "/activity/seen", body = ActivityWire.json.encodeToString(PodSeen("bad"))).statusCode())
+                assertEquals(405, request("GET", "/activity/seen").statusCode())
                 assertEquals(1, ActivityWire.json.decodeFromString<ActivityPage>(request("GET", "/activity?after=0").body()).entries.size)
                 assertEquals(400, request("GET", "/activity?after=bad").statusCode())
                 assertEquals(405, request("POST", "/activity", body = "{}").statusCode())

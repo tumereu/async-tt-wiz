@@ -1,0 +1,1 @@
+add: Settings → Games has its own "Vibrate on your move" switch in the Android app, separate from the Your move sound

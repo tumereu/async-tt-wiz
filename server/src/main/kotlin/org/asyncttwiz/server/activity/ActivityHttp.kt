@@ -23,7 +23,7 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
         if (path !in listOf("/activity", "/activity/installations", "/activity/target", "/activity/presence", "/activity/waiting",
-                "/activity/web-push")) return false
+                "/activity/web-push", "/activity/seen")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         fun reply(status: Int, body: String = "") {
@@ -50,7 +50,7 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
                     else reply(200, ActivityWire.json.encodeToString(WebPushKey(webPushKey)))
                 "GET" to "/activity/waiting" -> reply(200, ActivityWire.json.encodeToString(activity.waiting(principal)))
                 "GET" to "/activity" -> reply(200, ActivityWire.json.encodeToString(activity.page(principal, request.getParameter("after"))))
-                "PUT" to "/activity/presence", "PUT" to "/activity/installations" -> {
+                "PUT" to "/activity/presence", "PUT" to "/activity/installations", "PUT" to "/activity/seen" -> {
                     val media = request.contentType.orEmpty().split(';').map(String::trim)
                     if (!media.first().equals("application/json", true) || media.drop(1).any {
                             !it.equals("charset=UTF-8", true) && !it.equals("charset=\"UTF-8\"", true)
@@ -59,12 +59,14 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
                     if (bytes.size > 8192) { error(413, "request_too_large"); return true }
                     val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                         .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
-                    if (path == "/activity/presence") {
+                    // LOB-243: a pod (or the Pods list) open in front: its news is seen
+                    if (path == "/activity/seen") { activity.podSeen(principal, ActivityWire.json.decodeFromString<PodSeen>(text)); reply(204) }
+                    else if (path == "/activity/presence") {
                         activity.heartbeat(principal, ActivityWire.json.decodeFromString(text))?.let(presence::changed); reply(204)
                     } else reply(200, ActivityWire.json.encodeToString(activity.register(principal, ActivityWire.json.decodeFromString(text))))
                 }
                 "DELETE" to "/activity/installations" -> { activity.unregister(principal, request.getParameter("id").orEmpty()); reply(204) }
-                else -> { response.setHeader("Allow", when (path) { "/activity/presence" -> "PUT"; "/activity/installations" -> "PUT, DELETE"; else -> "GET" }); error(405, "method_not_allowed") }
+                else -> { response.setHeader("Allow", when (path) { "/activity/presence", "/activity/seen" -> "PUT"; "/activity/installations" -> "PUT, DELETE"; else -> "GET" }); error(405, "method_not_allowed") }
             }
         } catch (failure: ActivityFailure) { error(failure.status, failure.code)
         } catch (_: SerializationException) { error(400, "invalid_request")

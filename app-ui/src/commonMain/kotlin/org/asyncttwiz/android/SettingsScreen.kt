@@ -51,6 +51,8 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                 SettingsSection("Games") {
                     DeckVisibilitySetting(account)
                     MoveSoundSetting(account)
+                    // TRN-167: the Android app only
+                    MoveVibrationSetting()
                 }
                 HorizontalDivider()
             }

@@ -10,10 +10,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-### Owner playtest (owner, 2026-11-21)
-
-- Game log and timeline texts name targets (HIS-091; the game log's entries).
-
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

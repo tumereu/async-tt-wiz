@@ -417,7 +417,7 @@ class EngineTableScreenshotTest {
         render(game, f.a)
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
         compose.onNodeWithTag("stack-resolve").assertDoesNotExist()
-        compose.onNodeWithText("You cast Storm Spark").assertDoesNotExist()
+        compose.onNodeWithText("You cast Storm Spark", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Respond prompt").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-resolve.png",
             "In the Control response mode Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack with a green arrow to Bob's life square, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, 112 dp wide, reads Resolve.")

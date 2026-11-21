@@ -1,0 +1,1 @@
+add: The game log and the timeline say what each spell and ability targeted and whom an attack went at.

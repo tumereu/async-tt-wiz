@@ -1,1 +1,0 @@
-The Bots tile tapped in a Booster pod's setup: its dialog says bots fill seats, pick the moment the draft reaches them and play no games, with a number field for 0–6 holding 3, Cancel and Save.

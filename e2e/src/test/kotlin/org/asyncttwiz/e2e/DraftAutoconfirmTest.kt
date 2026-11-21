@@ -40,6 +40,11 @@ class DraftAutoconfirmTest : E2e() {
         alice.pods.open(pod)
         waitUntil("Alice's first pack") { alice.pods.state.detail?.draft?.head?.cards?.size == 4 }
         waitUntil("Auto off at the start of the draft") { alice.shows(toggle(on = false)) }
+        // Auto is the tip at Confirm's right end, one shape with it
+        val confirmBounds = alice.tagged("pod-pick-confirm").fetchSemanticsNode().boundsInRoot
+        val autoBounds = alice.tagged("pod-pick-autoconfirm").fetchSemanticsNode().boundsInRoot
+        assertTrue(confirmBounds.right <= autoBounds.left && autoBounds.left - confirmBounds.right < 8f &&
+            autoBounds.center.y in confirmBounds.top..confirmBounds.bottom, "Auto right after Confirm: $confirmBounds, $autoBounds")
         alice.tagged("pod-pick-autoconfirm").performClick()
         waitUntil("Auto on") { alice.shows(toggle(on = true)) }
 

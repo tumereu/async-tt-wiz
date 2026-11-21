@@ -35,7 +35,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
-    val retryPodChallengeName: String? = null, val ownPodDeckName: String? = null,
+    val retryPodChallenge: Boolean = false, val ownPodDeckName: String? = null,
     /** The selected game's opponent presence, when the server sends it. */
     val opponentPresence: ReceivedPresence? = null,
     /** Games with lobby taps waiting for the game connection or an earlier request; each runs once. */

@@ -279,6 +279,22 @@ class PodScreensTest {
         compose.onNodeWithText("drafting").assertIsDisplayed()
     }
 
+    // DRF-296 (owner, 2026-11-21): the Bots stepper: + and − change the bot seats one a tap, never past 0 or the mode's most
+    // (Booster 6), − greyed at 0 and + at the most
+    @Test fun botsStepperChangesTheSeatsWithinTheirRange() {
+        var settings by mutableStateOf(DraftSettings.booster().copy(bots = 5))
+        compose.setContent { ScreenTheme { PodBotsStepper(settings, true, { change -> settings = change(settings) }) } }
+        compose.onNodeWithTag("pod-bots-value").assertTextEquals("5")
+        compose.onNodeWithTag("pod-bots-more").assertIsEnabled().performClick()
+        compose.onNodeWithTag("pod-bots-value").assertTextEquals("6")
+        compose.onNodeWithTag("pod-bots-more").assertIsNotEnabled()
+        compose.runOnIdle { settings = settings.copy(bots = 1) }
+        compose.onNodeWithTag("pod-bots-fewer").assertIsEnabled().performClick()
+        compose.onNodeWithTag("pod-bots-value").assertTextEquals("0")
+        compose.onNodeWithTag("pod-bots-fewer").assertIsNotEnabled()
+        compose.runOnIdle { assertEquals(0, settings.bots) }
+    }
+
     // SYS-024
     @Test fun challengeErrorsDoNotShiftContentAndRetainedRetryOutlastsTransientErrorEvenWithoutPods() {
         var state by mutableStateOf(LobbyState())
@@ -289,7 +305,7 @@ class PodScreensTest {
         } } }
         compose.onNodeWithText("MY PODS (0)").assertIsDisplayed()
         val before = compose.onNodeWithText("MY PODS (0)").getUnclippedBoundsInRoot()
-        compose.runOnIdle { state = state.copy(error = "Could not send challenge", retryPodChallengeName = "Original game") }
+        compose.runOnIdle { state = state.copy(error = "Could not send challenge", retryPodChallenge = true) }
         compose.onNodeWithText("Could not send challenge").assertIsDisplayed()
         assertEquals(before, compose.onNodeWithText("MY PODS (0)").getUnclippedBoundsInRoot())
         compose.mainClock.advanceTimeBy(7_100)
@@ -297,7 +313,7 @@ class PodScreensTest {
         compose.onNodeWithContentDescription("Retry challenge").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(1, retries); state = state.copy(mutating = true) }
         compose.onNodeWithContentDescription("Retry challenge").assertIsNotEnabled()
-        compose.runOnIdle { state = state.copy(mutating = false, retryPodChallengeName = null) }
+        compose.runOnIdle { state = state.copy(mutating = false, retryPodChallenge = false) }
         compose.onNodeWithContentDescription("Retry challenge").assertDoesNotExist()
     }
 

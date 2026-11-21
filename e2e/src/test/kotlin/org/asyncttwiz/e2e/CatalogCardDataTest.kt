@@ -124,8 +124,9 @@ class CatalogCardDataTest : E2e() {
         for (who in listOf(alice.account, bob.account)) ServerSetup.submitPodDeck(who, pod)
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-GAMES")) }
         val from = alice.link.requests.size
-        alice.lobby.challengeFromPod(pod, bob.id, name)
-        waitUntil("the challenge game open on Alice's phone") { alice.lobby.state.detail?.gameName == name && alice.lobby.state.preparation != null }
+        alice.lobby.challengeFromPod(pod, bob.id)
+        // DRF-304: the server names it after the pod, its first game
+        waitUntil("the challenge game open on Alice's phone") { alice.lobby.state.detail?.gameName == "$name pod #1" && alice.lobby.state.preparation != null }
         assertEquals(listOf("POST /v1/pods/$pod/challenge"), changes(from), "${requests(from)}")
         val preparation = alice.lobby.state.preparation!!
         val deck = preparation.players.single { it.accountId == alice.id }.deck!!

@@ -339,7 +339,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun dismiss() = invitations.dismiss()
     fun create() = invitations.create()
     fun retryPodChallenge() = invitations.retryPodChallenge()
-    fun challengeFromPod(podId: String, opponentId: String, gameName: String) = invitations.challengeFromPod(podId, opponentId, gameName)
+    fun challengeFromPod(podId: String, opponentId: String) = invitations.challengeFromPod(podId, opponentId)
     // Notification hand-off: LobbyActivityRoutes.
     fun activityUnavailable(message: String = "This activity is no longer available. Showing your current Games.") =
         routes.activityUnavailable(message)

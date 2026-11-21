@@ -10,10 +10,14 @@ import org.asyncttwiz.appui.simpleClassName
 import org.asyncttwiz.appui.synchronized
 
 enum class PodTab { DRAFT, BUILD, STATS, GAMES }
-/** DRF-076: Games is there while drafting too, for members done early (DRF-119) and challenges to members still drafting
- * (DRF-122). */
-fun podTabs(phase: PodPhase): List<PodTab> = if (phase == PodPhase.DRAFTING)
-    listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS, PodTab.GAMES) else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
+/** DRF-076 (owner, 2026-11-21): Draft · Build · Stats while your own draft runs, Games joining them once it is done while
+ * others still draft (DRF-119), Build · Stats · Games once the whole draft is. */
+fun podTabs(phase: PodPhase, ownDraftDone: Boolean = phase != PodPhase.DRAFTING): List<PodTab> = when {
+    phase != PodPhase.DRAFTING -> listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
+    ownDraftDone -> listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
+    else -> listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS)
+}
+fun podTabs(detail: PodDetail): List<PodTab> = podTabs(detail.phase, podOwnDraftDone(detail))
 /** DRF-077: Draft while your own draft runs, Build until your deck is submitted, then Games. */
 fun podDefaultTab(phase: PodPhase, submitted: Boolean, draftDone: Boolean = phase != PodPhase.DRAFTING): PodTab = when {
     submitted -> PodTab.GAMES
@@ -859,7 +863,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         syncMarks(detail)
         syncNotes(detail)
         if (buildHistory?.pod == detail.id && (detail.submitted || buildHistory?.attempt != detail.draftAttemptId)) buildHistory = null
-        if (changed) state = state.copy(tab = openTab?.takeIf { it in podTabs(detail.phase) } ?: podDefaultTab(detail))
+        val tabs = podTabs(detail)
+        // DRF-076: a challenge's notification asks for Games (DRF-122), which a member still drafting doesn't have yet
+        openTab?.takeIf { it !in tabs }?.let { AppLog.info("pod", "Pod ${detail.id.take(8)}: ${it.name.lowercase()} asked for, " +
+            "not one of its tabs now (${tabs.joinToString { tab -> tab.name.lowercase() }}): opens on ${podDefaultTab(detail).name.lowercase()}") }
+        if (changed) state = state.copy(tab = openTab?.takeIf { it in tabs } ?: podDefaultTab(detail))
         openTab = null
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
         seePicks(detail)

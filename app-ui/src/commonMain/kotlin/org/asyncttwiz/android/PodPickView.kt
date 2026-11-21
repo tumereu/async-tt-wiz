@@ -246,23 +246,21 @@ fun PodPickView(
                 spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },
                 refund = refund, desktop = desktop)
         }
-        // DRF-294: with Auto on, Confirm is yellow with a shine sweeping back and forth
+        // DRF-293, DRF-294: Confirm with Auto as its right-hand tip; with Auto on both are yellow, Confirm with a shine
         val confirmButton: @Composable (Modifier) -> Unit = { buttonModifier ->
-            PodConfirmButton(auto, rules.canConfirm(marks, busy), confirm, buttonModifier.testTag("pod-pick-confirm"),
+            PodConfirmAuto(auto, setAuto, rules.canConfirm(marks, busy), confirm, "pod-pick-confirm", buttonModifier,
                 if (marks.librarians.isEmpty()) "Confirm" else
                     "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
         }
-        // DRF-293: the Auto toggle sits just before Confirm
         // WEB-044 (owner playtest 2026-11-16): on the desktop layout Confirm sits at the end of the trays' row, leaving the cards
         // more of the height; the phone's is full width under the trays (DRF-056)
         if (desktop) Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).testTag("pod-pick-confirm-row"), verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) {
             Box(Modifier.weight(1f)) { trays() }
-            PodAutoconfirmToggle(auto, setAuto, Modifier.height(56.dp))
-            confirmButton(Modifier.width(PodPickDesktopConfirmWidth).height(56.dp))
+            confirmButton(Modifier.width(PodPickDesktopConfirmWidth + PodAutoTipWidth).height(56.dp))
         } else {
             trays()
-            PodAutoconfirmRow(auto, setAuto, confirm = confirmButton)
+            Row(Modifier.fillMaxWidth().testTag("pod-pick-confirm-row")) { confirmButton(Modifier.weight(1f)) }
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }

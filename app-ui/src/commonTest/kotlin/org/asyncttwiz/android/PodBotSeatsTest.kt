@@ -11,21 +11,21 @@ class PodBotSeatsTest {
             List(members) { PodMember(account(it)) } + List(bots) { PodMember(PodBots.identity(it + 1), bot = true) },
             List(invited) { account(100 + it) }, updatedAt = "")
 
-    // DRF-296: the Bots tile, 0 up to the engine's limit less two, only in the modes with bot seats
-    @Test fun theBotsTileFollowsTheMode() {
+    // DRF-296 (owner, 2026-11-21): bot seats have a stepper among the members, not a tile: 0 up to the engine's limit less
+    // two, none in Sealed and Arena
+    @Test fun theBotsStepperFollowsTheMode() {
         val cube = PodSource("Cube", 540)
-        for (mode in DraftMode.entries) {
-            val fields = podSettingFields(DraftSettings.defaults(mode), cube)
-            assertEquals(mode.botSeats, PodSetting.BOTS in fields, "$mode")
-            if (mode.botSeats) assertEquals(PodSetting.BOTS, fields[fields.lastIndex - 1], "$mode: Bots just before Sideboard")
-        }
-        assertEquals(0..6, PodSetting.BOTS.range(DraftSettings.booster()))
-        assertEquals(0..2, PodSetting.BOTS.range(DraftSettings.grid()))
-        assertEquals("0", PodSetting.BOTS.text(DraftSettings.booster()))
-        assertEquals(3, PodSetting.BOTS.apply(DraftSettings.booster(), 3).bots)
+        for (mode in DraftMode.entries) assertEquals(PodSetting.SIDEBOARD, podSettingFields(DraftSettings.defaults(mode), cube).last(), "$mode: no Bots tile")
+        assertEquals(0..6, podBotRange(DraftSettings.booster()))
+        assertEquals(0..2, podBotRange(DraftSettings.grid()))
+        assertEquals(0..0, podBotRange(DraftSettings.arena()))
+        assertEquals(3, DraftSettings.booster().withBots(3).bots)
+        // Never past the range
+        assertEquals(6, DraftSettings.booster().withBots(7).bots)
+        assertEquals(0, DraftSettings.booster().withBots(-1).bots)
         // DRF-028: a bot switches Grid's two picks off
-        assertFalse(PodSetting.BOTS.apply(DraftSettings.grid().copy(twoPicks = true), 1).twoPicks)
-        assertTrue(PodSetting.BOTS.apply(DraftSettings.grid().copy(twoPicks = true), 0).twoPicks)
+        assertFalse(DraftSettings.grid().copy(twoPicks = true).withBots(1).twoPicks)
+        assertTrue(DraftSettings.grid().copy(twoPicks = true).withBots(0).twoPicks)
     }
 
     // DRF-020, DRF-296: another mode keeps the bots, at most its own most; Sealed and Arena take none

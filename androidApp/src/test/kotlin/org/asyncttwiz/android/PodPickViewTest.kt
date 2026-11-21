@@ -417,8 +417,8 @@ class PodPickViewTest {
         compose.onNodeWithText("Burn").assertDoesNotExist()
     }
 
-    // DRF-056, DRF-293 (owner, 2026-11-21): the Auto toggle and Confirm fill a full-width row under the trays, Confirm taking the
-    // rest of it
+    // DRF-056, DRF-293 (owner, 2026-11-21): Confirm and Auto, the narrow tip at its right end, fill a full-width row under the
+    // trays, Confirm taking the rest of it
     @Test fun verticalScrollingKeepsTraysAndFullWidthConfirmFixed() {
         show()
         val tray = compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot
@@ -428,8 +428,9 @@ class PodPickViewTest {
         val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").getUnclippedBoundsInRoot()
         val list = compose.onNodeWithTag("pod-pick-list").getUnclippedBoundsInRoot()
         assertEquals(list.right - list.left, row.right - row.left)
-        assertEquals(list.left, toggle.left)
-        assertEquals(list.right, confirmButton.right)
+        assertEquals(list.left, confirmButton.left)
+        assertEquals(list.right, toggle.right)
+        assertTrue(confirmButton.right < toggle.left, "Auto after Confirm: $confirmButton, $toggle")
         assertTrue(confirmButton.right - confirmButton.left > (row.right - row.left) * .6f, "Confirm takes the rest of the row")
         compose.onNodeWithTag("pod-pick-list").performTouchInput { swipeUp() }
         card("15").assertIsDisplayed()

@@ -293,11 +293,11 @@ class PodControllerTest {
             f.controller.tab(PodTab.BUILD); f.controller.refresh(); f.deliver()
             assertEquals(PodTab.BUILD, f.controller.state.tab, "asked once, at opening")
         }
-        // DRF-076, DRF-122 (owner, 2026-11-21): Games is there while drafting too, so a challenge to a member still drafting
-        // opens there; a tab the phase hasn't got (Draft after the draft) gives the usual one
+        // DRF-076, DRF-122 (owner, 2026-11-21): a member still drafting has no Games tab yet, so a challenge's notice opens the
+        // pod on Draft; a tab the phase hasn't got (Draft after the draft) gives the usual one
         Fixture(PodPhase.DRAFTING).use { f ->
             f.controller.open(id, PodTab.GAMES); f.deliver()
-            assertEquals(PodTab.GAMES, f.controller.state.tab)
+            assertEquals(PodTab.DRAFT, f.controller.state.tab)
         }
         Fixture(PodPhase.DRAFTED).use { f ->
             f.controller.open(id, PodTab.DRAFT); f.deliver()

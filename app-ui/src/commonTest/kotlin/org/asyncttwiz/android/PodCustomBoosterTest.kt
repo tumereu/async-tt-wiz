@@ -12,7 +12,7 @@ class PodCustomBoosterTest {
     @Test fun modeAndTiles() {
         assertEquals(listOf(DraftMode.BOOSTER, DraftMode.CUSTOM_BOOSTER), PodModes.take(2))
         assertEquals("Custom booster · 2–8 players", podModeOption(DraftMode.CUSTOM_BOOSTER))
-        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS, PodSetting.BOTS, PodSetting.SIDEBOARD),
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS, PodSetting.SIDEBOARD),
             podSettingFields(DraftSettings.customBooster(), PodSource("Cube", 540)))
         assertEquals(1..30, PodSetting.PACK_SIZE.range(DraftSettings.customBooster()))
         // Switching to it loads its default passes, keeping the sideboard limit and Librarians (DRF-020)

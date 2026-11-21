@@ -1,0 +1,1 @@
+mod: Games challenged from a pod are named after the pod and numbered, like "Cube night #3", the same for both players.

@@ -78,25 +78,24 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
     }
     fun retryPodChallenge() {
         val request = pendingChallenge ?: return
-        challengeFromPod(request.podId, request.input.opponentId, request.input.gameName)
+        challengeFromPod(request.podId, request.input.opponentId)
     }
-    /** Pod UI supplies a suggested name; retries retain the original name and request identity. The server supplies the
-     * basic lands (LOB-052): one request. */
-    fun challengeFromPod(podId: String, opponentId: String, gameName: String) {
+    /** The server names the game "<pod name> #N" (DRF-304) and supplies the basic lands (LOB-052): one request; a retry
+     * keeps the original request identity. */
+    fun challengeFromPod(podId: String, opponentId: String) {
         if (closed || state.mutating) return
         val token = credential() ?: return
         val previous = pendingChallenge
         if (previous != null && (previous.podId != podId || previous.input.opponentId != opponentId)) {
             state = state.copy(error = "Retry the original pod challenge before creating another."); return
         }
-        if (previous == null && !LobbyValidation.name(gameName)) { state = state.copy(error = "Enter a game name."); return }
         val generation = epoch
         state = state.copy(mutating = true, error = null)
         worker.executeSuspending {
             if (generation != epoch) return@executeSuspending
             var captured = previous
             val result = runCatching { run {
-                val request = captured ?: PodChallenge(podId, ChallengeFromPod(randomUuid(), opponentId, gameName))
+                val request = captured ?: PodChallenge(podId, ChallengeFromPod(randomUuid(), opponentId))
                     .also { captured = it }
                 serviceRetry(current = { generation == epoch }) { api.challengeFromPod(token, request.podId, request.input) }
             } }
@@ -108,8 +107,9 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
                     "deck_not_submitted", "invalid_name", "invalid_request", "request_conflict", "invalid_deck")
                 pendingChallenge = if (game != null || terminal) null else captured
                 state = state.copy(mutating = false, error = failure?.let(::lobbyError),
-                    retryPodChallengeName = pendingChallenge?.input?.gameName)
+                    retryPodChallenge = pendingChallenge != null)
                 if (game != null) {
+                    AppLog.info("lobby", "Pod ${podId.take(8)}: challenge sent as game ${game.id.take(8)} \"${game.gameName}\"")
                     if (latest[game.id]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED) && sessionAvailable(game.id)) open(game.id)
                     else refresh()
                 }

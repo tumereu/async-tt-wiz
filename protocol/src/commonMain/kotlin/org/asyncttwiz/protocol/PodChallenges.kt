@@ -2,8 +2,16 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** POST /v1/pods/{id}/challenge; the server supplies the basic lands from its catalog (LOB-052). */
-@Serializable data class ChallengeFromPod(val requestId: String, val opponentId: String, val gameName: String)
+/** POST /v1/pods/{id}/challenge; the server supplies the basic lands from its catalog (LOB-052). Without [gameName] the server
+ * names the game "<pod name> #N" (DRF-304), N counted per pod. */
+@Serializable data class ChallengeFromPod(val requestId: String, val opponentId: String, val gameName: String? = null)
+
+/** DRF-304 (owner, 2026-11-21): a pod challenge's game is named after its pod and numbered per pod, "Cube night #3": the
+ * server counts the pod's games when it creates one, so both players see the same name; a declined or withdrawn challenge
+ * keeps its number. */
+object PodGameNames {
+    fun name(podName: String, number: Int): String = "$podName #$number"
+}
 @Serializable enum class BasicLand(val cardName: String) {
     PLAINS("Plains"), ISLAND("Island"), SWAMP("Swamp"), MOUNTAIN("Mountain"), FOREST("Forest");
     fun count(basics: PodDeckBasics): Int = when (this) {

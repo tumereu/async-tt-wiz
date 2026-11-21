@@ -23,6 +23,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +78,10 @@ fun RulesReminders(entries: List<RulesGlossary.Entry>, explained: Boolean, inter
         entries.forEach { entry ->
             var pressed by remember(entry) { mutableStateOf(false) }
             Box {
-                ReminderChip(entry, if (!interactive) Modifier else Modifier.pointerInput(entry) {
+                // WEB-058: a click target, so the mouse shows the hand over it
+                ReminderChip(entry, if (!interactive) Modifier else Modifier.semantics {
+                    onClick { open = if (open == entry.id) null else entry.id; true }
+                }.hoverLook(HoverLook.Tint(Color.White, RoundedCornerShape(50))).pointerInput(entry) {
                     detectTapGestures(onPress = {
                         pressed = true
                         AppLog.info("table", "Rules reminder held: ${entry.name}")

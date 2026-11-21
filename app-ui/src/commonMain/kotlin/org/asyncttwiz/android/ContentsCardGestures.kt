@@ -43,7 +43,7 @@ fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: () -> Uni
         down = { p, t -> coordinator.down(coordinator.pointFromPixels(p.x - origin.x, p.y - origin.y), t) },
         up = { p, t -> coordinator.up(coordinator.pointFromPixels(p.x - origin.x, p.y - origin.y), t) },
         cancel = coordinator::cancel) }
-    ringInputTarget().pressFeedback().onGloballyPositioned {
+    ringInputTarget().pressFeedback().hoverLook(HoverLook.Outline()).onGloballyPositioned {
         origin = it.localToScreen(Offset.Zero)
         coordinator.update(TableScene(listOf(TableItem(id, TableBounds(0f, 0f, it.size.width / density, it.size.height / density),
             "Card", "", zone = zone, kind = TableItemKind.CARD, cardId = id, cards = listOf(id))), emptyList()), true)

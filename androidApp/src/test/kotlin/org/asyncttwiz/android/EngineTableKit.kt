@@ -260,6 +260,24 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
         }
     }
 
+    /** Bob's Main 1 plan: a Mountain, then a special action of a [card] in his hand (its plot, CR 702.170a), as its chip makes
+     * it. Bob's decision stops are then his own to answer ([settle]). */
+    fun bobPlots(card: String) {
+        scenario.confirmStops[f.b] = false
+        bobMain = { s ->
+            val land = scenario.cards(s, other, s.player(other).hand, "Mountain").firstOrNull()
+            val held = scenario.cards(s, other, s.player(other).hand, card).firstOrNull()
+            val plot = held?.let { c -> Engine.view(s)[c]?.characteristics?.abilities?.firstOrNull { it.ability is arcanum.api.Ability.SpecialAction }
+                ?.let { Input.Activate(other, c, it.origin) } }
+            val mana = scenario.cards(s, other, s.battlefield, "Mountain").any { s.obj(it)?.tapped == false }
+            when {
+                (s.turn.landsPlayed[other] ?: 0) == 0 && land != null -> { bob.send(listOf(Input.PlayLand(other, land))); true }
+                plot != null && mana -> { bobMain = null; bob.send(scenario.cast(s, other, plot)); true }
+                else -> false
+            }
+        }
+    }
+
     /** From Alice's Main 1 on to her declare attackers step. */
     fun toAttacks() {
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(scope)), "To combat")

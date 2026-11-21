@@ -73,8 +73,10 @@ data class PlayShown(val description: String, val caption: List<StackTextPiece>,
     val copy: Boolean = false)
 
 object PlayShows {
-    /** What [viewer]'s table shows of [show] on [play] (the board at its event); [names]: the players' names by account. */
-    fun of(play: TableBoard, show: GameDevice.PlayShow, viewer: String, names: Map<String, String>): PlayShown {
+    /** What [viewer]'s table shows of [show] on [play] (the board at its event); [names]: the players' names by account;
+     * [after]: the board once the play is done (a special action's card as it shows it: a card it turned face up named). */
+    fun of(play: TableBoard, show: GameDevice.PlayShow, viewer: String, names: Map<String, String>, after: TableBoard? = null): PlayShown {
+        if (show.kind == GameDevice.PlayKind.Special) return special(after ?: play, show, viewer, names)
         val entry = "entry:${show.entry}"
         val effect = play.board.stackEffects.firstOrNull { it.id == entry }
         val own = show.by.value == viewer
@@ -122,7 +124,35 @@ object PlayShows {
                 val caption = line ?: listOf(StackTextPiece(ability.name))
                 PlayShown(caption.plain(), caption, own, ability = ability, art = source.art, typeIcon = source.typeIcon)
             }
+            GameDevice.PlayKind.Special -> special(play, show, viewer, names)
         }
+    }
+
+    /**
+     * HIS-112 (owner, 2026-11-20): a special action (CR 116.2) shows as an ability does, its card's ability token with the
+     * source's art, its kind "Special action" and its words as an ability reads (TBL-115: "{3}{R}: Unlock Dusty Attic"); its
+     * line says what it did as the event text does (HIS-091: "Bob unlocked Dusty Attic", "Bob foretold a card"). [play] is
+     * the board once it is done.
+     */
+    private fun special(play: TableBoard, show: GameDevice.PlayShow, viewer: String, names: Map<String, String>): PlayShown {
+        val own = show.by.value == viewer
+        val who = if (own) "You" else org.asyncttwiz.automatum.PlayerNames.of(names, show.by.value, "The other player", "PlayShows")
+        val cardId = show.card?.value
+        val card = cardId?.let { id -> play.board.cards.firstOrNull { it.id == id } }
+        val visible = card != null && CardVisibility.isVisibleFaceUp(play.board, card, viewer)
+        val definition = card?.let { c -> play.definitions.firstOrNull { it.digest == c.definition }?.definition }
+        val name = definition?.faces?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }
+            ?.shownName?.takeIf { visible && it.isNotBlank() }
+        val rules = cardId?.let { id -> play.engine?.state?.objects?.values?.lastOrNull { it.card.value == id }?.definition }
+        val origin = show.ability
+        val done = origin?.let { org.asyncttwiz.automatum.CastFlow.specialActionDone(rules, it, name) }
+        val words = origin?.let { org.asyncttwiz.automatum.CastFlow.specialActionText(rules, it) }.orEmpty()
+        val line = if (done != null) "$who $done" else Faults.placeholder("PlayShows", "special action without its words",
+            "$who used ${name ?: "a card"}", mapOf("entry" to show.entry.toString(), "card" to cardId.toString(), "ability" to origin.toString()))
+        val ability = StackAbilityShown(false, name ?: "A card", words, kind = "Special action")
+        val source = choiceCard(play, viewer, "play-show/source", cardId, visible, ability.source)
+        val caption = listOf(StackTextPiece(line))
+        return PlayShown(line, caption, own, ability = ability, art = source.art, typeIcon = source.typeIcon)
     }
 }
 
@@ -211,6 +241,9 @@ class PlayShowPace {
 /** Tests: each play shown as its time starts on [me]'s table, with the repeats before it in its chain and its times. */
 object PlayShowProbe {
     @Volatile var listener: ((me: String, show: GameDevice.PlayShow, repeats: Int, millis: Long, flightMillis: Int) -> Unit)? = null
+    /** Each play shown's flight out of the middle as it starts on [me]'s table: where it flies to (the Stack, or a special
+     * action's own card; null: nowhere, it ends where it is) on its [scene]. */
+    @Volatile var flight: ((me: String, show: GameDevice.PlayShow, target: TableBounds?, scene: TableScene) -> Unit)? = null
 }
 
 /** HIS-112: the shown card's opacity at [progress] of its flight: whole over the first half, fading out over the second. */
@@ -236,8 +269,10 @@ const val PLAY_SHOW_WAITING_TAG = "play-show-waiting"
 fun playShowGroup(moments: List<GameDevice.ViewMoment>, ended: Collection<GameDevice.ViewMoment>): List<GameDevice.PlayShow> {
     val open = moments.filter { it !in ended }
     val first = open.firstOrNull() as? GameDevice.PlayShow ?: return emptyList()
+    // HIS-112 (owner, 2026-11-20): a special action shows by itself, before what it puts on the Stack (its triggers)
+    if (first.kind == GameDevice.PlayKind.Special) return listOf(first)
     val group = ArrayList<GameDevice.PlayShow>()
-    for (m in open) { if (m is GameDevice.PlayShow && m.event == first.event) group += m else break }
+    for (m in open) { if (m is GameDevice.PlayShow && m.event == first.event && m.kind != GameDevice.PlayKind.Special) group += m else break }
     return group
 }
 
@@ -265,6 +300,11 @@ fun playShowSource(scene: TableScene, play: TableBoard, show: GameDevice.PlaySho
         (it.zone == PlayZone.BATTLEFIELD || it.zone == PlayZone.HAND) }
         .let { cards -> cards.firstOrNull { it.visible.isNotEmpty() } ?: cards.firstOrNull() }?.let { return it.bounds }
     scene.items.firstOrNull { it.kind == TableItemKind.PILE && it.zone != PlayZone.STACK && card in it.cards }?.let { return it.bounds }
+    // HIS-112 (owner, 2026-11-20): a special action taken from the other player's hand (foretell, plot, suspend): their hand's fan
+    if (show.kind == GameDevice.PlayKind.Special) play.board.cards.firstOrNull { it.id == card }?.let { c ->
+        val hand = play.board.containers.firstOrNull { it.id == c.containerId }?.takeIf { it.zone == PlayZone.HAND }
+        if (hand != null) scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner == (hand.accountId ?: c.owner) }?.let { return it.bounds }
+    }
     // An emblem (its record's id is "emblem:<card>"): its chip by its owner's life square (the "+N" chip for one past the chips)
     val record = play.board.engineRecords.firstOrNull { it.kind == org.asyncttwiz.protocol.EngineRecordKind.Emblem &&
         it.id.substringAfter(':') == card } ?: return null
@@ -324,7 +364,9 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     /** Outlives these plays: the chain they are part of, for their pace. */
     pace: PlayShowPace = remember { PlayShowPace() },
     /** Whether the table is ready for these plays (read as snapshot state). */
-    ready: () -> Boolean = { true }, done: (GameDevice.PlayShow) -> Unit) {
+    ready: () -> Boolean = { true },
+    /** The board once these plays are done (a special action's card as it then shows), or null. */
+    after: () -> TableBoard? = { null }, done: (GameDevice.PlayShow) -> Unit) {
     // WEB-015: on the desktop table the battlefields above what floats over their bottom
     val board = scene.boardArea ?: return
     val first = shows.firstOrNull() ?: return
@@ -336,7 +378,8 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
         val p = currentPlay
         val s = currentScene
         val area = s.boardArea ?: board
-        return PlayShowLooks(group.map { PlayShows.of(p, it, viewer, names) }, group.map { playShowStart(area, playShowSource(s, p, it)) })
+        val done = after()
+        return PlayShowLooks(group.map { PlayShows.of(p, it, viewer, names, done) }, group.map { playShowStart(area, playShowSource(s, p, it)) })
     }
     // Made as they begin: at once when the table is ready for them, else once it is
     var looks by remember(first) { mutableStateOf(if (ready()) looksNow() else null) }
@@ -394,9 +437,13 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             val run = launch {
                 pause.wait(showFor)
                 flown = withFrameMillis { it }
-                // Step 3 into its entry's place: the Stack (STK-007; on the desktop table too, WEB-017)
-                target = playShowTarget(currentScene, group[i])
+                // Step 3 into its entry's place: the Stack (STK-007; on the desktop table too, WEB-017); a special action back
+                // into its own card (owner, 2026-11-20)
+                target = if (group[i].kind == GameDevice.PlayKind.Special)
+                    playShowStart(currentScene.boardArea ?: board, playShowSource(currentScene, currentPlay, group[i]))
+                    else playShowTarget(currentScene, group[i])
                 targets[i] = target
+                PlayShowProbe.flight?.invoke(viewer, group[i], target, currentScene)
                 flying = true
                 if (target != null) leave[i].animateTo(1f, tween(flightFor, easing = FastOutLinearInEasing))
                 // A finger held during the flight still holds the view: what comes next waits for it
@@ -417,8 +464,9 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                 (if (gap == null) "first of its chain" else "$gap ms after the one before landed") +
                 "; step 1 (fly-in) at 0 ms for ${arrived - began} ms (${group.size} from $PLAY_SHOW_STAGGER_MILLIS ms apart, $arrival ms each)" +
                 "; step 2 (middle hold) at ${start - began} ms for ${flown - start} ms (setting $millis ms, repeat $repeats: $showFor ms)" +
-                "; step 3 (to the Stack) at ${flown - began} ms for ${landed - flown} ms ($flightFor ms)" +
-                (if (target == null) ", no Stack place to fly to" else ""))
+                "; step 3 (${if (group[i].kind == GameDevice.PlayKind.Special) "into its own card ${group[i].card?.value}" else "to the Stack"}) " +
+                "at ${flown - began} ms for ${landed - flown} ms ($flightFor ms)" +
+                (if (target == null) ", no place to fly to" else ""))
             end(i)
         }
     }
@@ -482,7 +530,7 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                 .semantics { contentDescription = look.description }
                 .then(touches)
                 // WEB-024: on the desktop table the finger key over the play shown inspects it, as holding it does on the phone
-                .then(if (now) Modifier.fingerTarget("entry:${entry.entry}") else Modifier)) {
+                .then(if (now) Modifier.fingerTarget(if (entry.kind == GameDevice.PlayKind.Special) entry.card?.value.orEmpty() else "entry:${entry.entry}") else Modifier)) {
                 val ability = look.ability
                 when {
                     ability != null -> AbilityTokenFace(ability, look.art, look.own, Modifier.size(width.dp, height.dp), look.typeIcon)

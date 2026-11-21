@@ -484,6 +484,17 @@ object TestCards {
         "library. You may reveal a Mount creature card or a Plains card from among them and put it into your hand. Put the rest on the " +
         "bottom of your library in a random order.", "2", "1")
 
+    /** STK-224, STK-225: a free sorcery revealing its caster's top four cards, a creature card among them to choose (Squad Rallier's look as
+     * a reveal). */
+    val unveiling = card("Ember Unveiling", "Sorcery", "{0}", "Reveal the top four cards of your library. You may put a creature card " +
+        "from among them into your hand. Put the rest on the bottom of your library in a random order.")
+    /** STK-224, STK-225: a free sorcery looking at its caster's top four cards, a creature card among them to reveal (Squad Rallier's look). */
+    val glimpse = card("Ember Glimpse", "Sorcery", "{0}", "Look at the top four cards of your library. You may reveal a creature card " +
+        "from among them and put it into your hand. Put the rest on the bottom of your library in a random order.")
+    /** STK-225, HIS-233: a free sorcery exiling its caster's top three cards face up, one of them to choose (Light Up the Stage's kin). */
+    val excavation = card("Ember Excavation", "Sorcery", "{0}", "Exile the top three cards of your library. Choose one of them. You may " +
+        "play that card this turn.")
+
     /** Every test card, by name (the catalog's collector numbers follow this order). */
     val all: List<TestCard> by lazy {
         TestCards::class.java.declaredFields.filter { TestCard::class.java.isAssignableFrom(it.type) }

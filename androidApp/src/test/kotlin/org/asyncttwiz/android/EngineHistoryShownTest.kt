@@ -224,8 +224,8 @@ class EngineHistoryShownTest {
         compose.runOnIdle { assertNull(routes.review, "Auto reaching the end returned to play mode") }
     }
 
-    // HIS-062: texts never name what the viewer couldn't see: Alice's cast read before its card is shown is "a card" to
-    // Bob, her own text names it; once on the Stack it is named to both
+    // HIS-062, HIS-243: texts never name what the viewer couldn't see: Alice's cast read before its card is shown is "a card" to
+    // Bob, her own text names it; once on the Stack it is named to both; its target (herself) is public to both
     @Test fun textsNeverNameHiddenCards() {
         val sim = EngineAppSim(f)
         val (alice, _) = bothKeepThenBobAway(sim)
@@ -235,9 +235,9 @@ class EngineHistoryShownTest {
         assertIs<GameDevice.Acted.Sent>(alice.send(EngineCombatScenario(f).cast(s, a, Input.Cast(a, spark))))
         sim.flush(f.a)
         val cast = sim.line().last { e -> e.engine?.steps?.any { it.input is Input.Cast } == true }
-        assertEquals("Alice cast a card", EngineEventText.of(cast, s, f.b, names), "Bob couldn't see it in her hand")
-        assertEquals("You cast Storm Spark", EngineEventText.of(cast, s, f.a, names))
-        assertEquals("Alice cast Storm Spark", EngineEventText.of(cast, alice.device.model.engine, f.b, names))
+        assertEquals("Alice cast a card targeting Alice", EngineEventText.of(cast, s, f.b, names), "Bob couldn't see it in her hand")
+        assertEquals("You cast Storm Spark targeting yourself", EngineEventText.of(cast, s, f.a, names))
+        assertEquals("Alice cast Storm Spark targeting Alice", EngineEventText.of(cast, alice.device.model.engine, f.b, names))
     }
 
     // HIS-062, web frame rate (owner, 2026-11-20): texts made with what the viewer sees worked out once for one state (the
@@ -251,10 +251,10 @@ class EngineHistoryShownTest {
         assertIs<GameDevice.Acted.Sent>(alice.send(EngineCombatScenario(f).cast(s, a, Input.Cast(a, spark))))
         sim.flush(f.a)
         val cast = sim.line().last { e -> e.engine?.steps?.any { it.input is Input.Cast } == true }
-        assertEquals("Alice cast a card", EngineEventText.of(cast, s, f.b, names, EngineEventText.Sight(s, f.b)))
-        assertEquals("You cast Storm Spark", EngineEventText.of(cast, s, f.a, names, EngineEventText.Sight(s, f.a)))
-        assertEquals("You cast Storm Spark", EngineEventText.of(cast, s, f.a, names, EngineEventText.Sight(s, f.b)), "Bob's sight isn't Alice's")
-        assertEquals("Alice cast Storm Spark", EngineEventText.of(cast, alice.device.model.engine, f.b, names, EngineEventText.Sight(s, f.b)),
+        assertEquals("Alice cast a card targeting Alice", EngineEventText.of(cast, s, f.b, names, EngineEventText.Sight(s, f.b)))
+        assertEquals("You cast Storm Spark targeting yourself", EngineEventText.of(cast, s, f.a, names, EngineEventText.Sight(s, f.a)))
+        assertEquals("You cast Storm Spark targeting yourself", EngineEventText.of(cast, s, f.a, names, EngineEventText.Sight(s, f.b)), "Bob's sight isn't Alice's")
+        assertEquals("Alice cast Storm Spark targeting Alice", EngineEventText.of(cast, alice.device.model.engine, f.b, names, EngineEventText.Sight(s, f.b)),
             "a sight of another state isn't used")
     }
 

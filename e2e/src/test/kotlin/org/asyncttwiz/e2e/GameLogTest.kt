@@ -1,6 +1,7 @@
 package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
@@ -56,6 +57,45 @@ class GameLogTest : E2e() {
         waitUntil("Alice in timeline mode at her play") {
             !alice.shows(hasTestTag("game-log")) && alice.showsTimelineLook() && alice.showsControl("Exit timeline")
         }
+    }
+
+    // HIS-243, HIS-244, HIS-062, HIS-240 (owner 2026-11-21: event texts name their targets, "very valuable information"): Alice manifests
+    // the top card of her library and casts Ember Boon at that face-down creature: her log names the card she may look at,
+    // Bob's reads only "Alice's face-down creature", never what it is
+    @Test fun aTargetInBothLogs() {
+        startGame(TestDeck("Summons", listOf(TestCards.mountain to 20, TestCards.summons to 10, TestCards.boon to 10)),
+            deal = { a, _ -> "Ember Summons" in hand(a) && "Ember Boon" in hand(a) })
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.playFromHand("Ember Summons", this)
+        aliceResolves("a face-down creature on Alice's battlefield") { alice.state.battlefield.any { alice.state.obj(it)?.faceDown == true } }
+        val manifested = alice.state.battlefield.first { alice.state.obj(it)?.faceDown == true }
+        val name = cardName(alice.state, manifested)!!
+        alice.playFromHand("Ember Boon", this)
+        waitUntil("Alice's target bar or the Boon cast: ${alice.screen()}", along = listOf(bob)) {
+            alice.shows(hasContentDescription("Choose targets")) || alice.state.stack.isNotEmpty()
+        }
+        if (alice.shows(hasContentDescription("Choose targets"))) alice.battlefieldCard("Covered card").performClick()
+        aliceResolves("the Boon resolved") { alice.state.obj(manifested)?.counters.orEmpty().isNotEmpty() }
+        waitUntil("Bob's table settled after the Boon", along = listOf(alice)) {
+            bob.state.obj(manifested)?.counters.orEmpty().isNotEmpty() && bob.settled(this)
+        }
+        alice.openGameLog(this)
+        waitUntil("the Boon's target in Alice's log: ${alice.gameLogLines()}") {
+            "You cast Ember Boon targeting your face-down $name" in alice.gameLogLines()
+        }
+        bob.openGameLog(this)
+        waitUntil("the Boon's target in Bob's log: ${bob.gameLogLines()}") {
+            "${alice.name} cast Ember Boon targeting ${alice.name}'s face-down creature" in bob.gameLogLines()
+        }
+        val boon = bob.gameLogLines().single { it.startsWith("${alice.name} cast Ember Boon") }
+        assertTrue(name !in boon.removePrefix("${alice.name} cast Ember Boon"), "the face-down card isn't named to Bob: $boon")
+    }
+
+    /** Alice plays on to her Main 1 with an empty Stack, tapping Resolve where her phone stops. */
+    private fun aliceResolves(what: String, done: () -> Boolean) = waitUntil(what, along = listOf(bob)) {
+        if (alice.stepArrow() == "Resolve") alice.once { alice.tap("Resolve") }
+        done() && alice.state.stack.isEmpty() && alice.inOwnMain()
     }
 
     private fun names() = mapOf(alice.account.id to alice.name, bob.account.id to bob.name)

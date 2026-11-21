@@ -7,7 +7,9 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
+import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.HistoryIcon
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
@@ -82,15 +84,21 @@ object EngineEventText {
         return when (input) {
             null -> tableText(event, author())
             is Input.StartGame -> "The game began"
-            is Input.Cast -> "${who(input.player)} cast ${card(input.card)}"
+            // HIS-243 (owner 2026-11-21): a spell or ability names what it targeted as it went on the Stack
+            is Input.Cast -> "${who(input.player)} cast ${card(input.card)}" +
+                targeting(targets(spell(event, input), state, viewer, names, input.player, sight))
             is Input.PlayLand -> "${who(input.player)} played ${card(input.card)}"
             // STK-046: an ability is named as its source's ability, never as if the card were cast; HIS-091 (owner playtest
             // 2026-11-07): cycling reads as cycling ("Bob cycled Fractured Sanity"), another keyword's ability by its keyword
-            is Input.Activate -> activation(event, input, state, viewer, who(input.player), sight)
+            is Input.Activate -> activation(event, input, state, viewer, who(input.player), sight) +
+                targeting(targets(activated(event, input), state, viewer, names, input.player, sight))
             // §29.2 (owner 2026-11-04): passes are implied: a pass reads only as what it led to ("Storm Spark resolved",
             // "Turn 3 → Bob", the new step); one that led to nothing shows nowhere ([hidden])
             is Input.PassPriority -> passOutcome(event, state, viewer, names, sight).orEmpty()
-            is Input.DeclareAttackers -> if (input.attacks.isEmpty()) "${who(input.player)}: no attack" else "${who(input.player)} attacked with ${input.attacks.size}"
+            // HIS-245 (owner 2026-11-21): what was attacked, with how many: "You attacked Bob with 2", "Bob attacked you with 1
+            // and your Ember Sage with 1"
+            is Input.DeclareAttackers -> if (input.attacks.isEmpty()) "${who(input.player)}: no attack"
+                else "${who(input.player)} attacked " + listed(attacked(input, state, viewer, names, sight).map { (target, count) -> "${target.text} with $count" })
             is Input.DeclareBlockers -> if (input.blocks.isEmpty()) "${who(input.player)}: no blocks$assumed" else "${who(input.player)} blocked with ${input.blocks.size}$assumed"
             is Input.SetupAnswer -> when (input.answer) {
                 Answer.Option("Keep") -> "${who(input.player)} kept$assumed"
@@ -115,8 +123,7 @@ object EngineEventText {
     private fun activation(event: GameEvent, input: Input.Activate, state: GameState?, viewer: String, who: String,
         sight: Sight? = null): String {
         val name = name(input.source, state, viewer, sight)
-        val item = event.engine?.changes.orEmpty().filterIsInstance<Change.StackItemAdded>().map { it.item }
-            .firstOrNull { it.kind is StackItemKind.Activated && it.origin == input.ability }
+        val item = activated(event, input)
         // HIS-091 (prod faults 9SF97R, P86WUK, owner 2026-11-19: an unlock showed nowhere): a special action reads as what it
         // did, "Bob unlocked Prop Room", "You turned Ember Mask face up"
         if (item == null) {
@@ -127,6 +134,125 @@ object EngineEventText {
         if (name != null && item != null && org.asyncttwiz.automatum.StackAbilityText.cycling(item)) return "$who cycled $name"
         val kind = item?.let { org.asyncttwiz.automatum.StackAbilityText.kind(it) }?.takeIf { it != "Activated ability" }
         return "$who activated ${name?.let { "$it's ${kind?.replaceFirstChar { c -> c.lowercase() } ?: "ability"}" } ?: "an ability"}"
+    }
+
+    /** The ability [input] put on the Stack in [event], or null (a mana ability, a special action). */
+    private fun activated(event: GameEvent, input: Input.Activate): StackItem? =
+        event.engine?.changes.orEmpty().filterIsInstance<Change.StackItemAdded>().map { it.item }
+            .firstOrNull { it.kind is StackItemKind.Activated && it.origin == input.ability }
+
+    /** The spell [input] put on the Stack in [event], or null. */
+    private fun spell(event: GameEvent, input: Input.Cast): StackItem? {
+        val card = (input.card as? ObjectId.Card)?.card ?: return null
+        return event.engine?.changes.orEmpty().filterIsInstance<Change.StackItemAdded>().map { it.item }
+            .firstOrNull { it.kind is StackItemKind.Spell && (it.id as? ObjectId.Card)?.card == card }
+    }
+
+    /** A target named in an event text as the viewer may see it ([text]), with whose its name is ([whose], an account id;
+     * null for a hidden card, whose words stay plain, HIS-240). */
+    private data class Named(val text: String, val whose: String?)
+
+    /** HIS-243 (owner 2026-11-21): " targeting <targets>" after what was done, or nothing without targets. */
+    private fun targeting(targets: List<Named>): String = if (targets.isEmpty()) "" else " targeting " + listed(targets.map { it.text })
+
+    /** [parts] as a natural list ("A", "A and B", "A, B and C"); past three, the first three and "and N more". */
+    private fun listed(parts: List<String>): String = when {
+        parts.size <= 1 -> parts.firstOrNull().orEmpty()
+        parts.size <= 3 -> parts.dropLast(1).joinToString(", ") + " and " + parts.last()
+        else -> parts.take(3).joinToString(", ") + " and ${parts.size - 3} more"
+    }
+
+    /** The targets [item] went on the Stack with (CR 601.2c: those of every chosen mode, in order, each once), as [viewer]
+     * may see them; [actor] cast or activated it. */
+    private fun targets(item: StackItem?, state: GameState?, viewer: String, names: Map<String, String>, actor: PlayerId,
+        sight: Sight?): List<Named> {
+        val refs = item?.targets?.values?.flatten()?.distinct().orEmpty()
+        if (refs.isEmpty()) return emptyList()
+        val seen = lazy { seen(state, viewer, sight) }
+        return refs.map { target(it, state, viewer, names, actor, seen) }
+    }
+
+    /** HIS-245: what [input] attacked (CR 508.1b: a player, a planeswalker or a battle) with how many, in the order declared. */
+    private fun attacked(input: Input.DeclareAttackers, state: GameState?, viewer: String, names: Map<String, String>,
+        sight: Sight?): List<Pair<Named, Int>> {
+        val seen = lazy { seen(state, viewer, sight) }
+        return input.attacks.groupBy { it.target }.map { (target, attacks) -> target(target, state, viewer, names, input.player, seen) to attacks.size }
+    }
+
+    /** What [viewer] may see in [state] ([Host.visible]; [sight]'s when of the same state and viewer). */
+    private fun seen(state: GameState?, viewer: String, sight: Sight?): Set<ObjectId> =
+        if (state == null) emptySet() else sight?.takeIf { it.state === state && it.viewer == viewer }?.ids ?: Host.visible(state, PlayerId(viewer))
+
+    /**
+     * HIS-243, HIS-244, HIS-062 (owner 2026-11-21): a target as [viewer] may see it: a player as "you" ("yourself" when [actor] is
+     * [viewer] too) or by name; a card by where it was when targeted, with whose it is: "Bob's Ember Cub" on the battlefield
+     * or the Stack (its controller's), "Ember Cub in your graveyard", "Ember Cub in exile"; a card [viewer] can't see as
+     * "Bob's face-down creature", "a card in Bob's hand"; an ability or a copy on the Stack by its source ("Ember Herald's
+     * ability"). A card that has left that zone since reads as it was there, from its last known information (CR 608.2h).
+     */
+    private fun target(ref: TargetRef, state: GameState?, viewer: String, names: Map<String, String>, actor: PlayerId,
+        seen: Lazy<Set<ObjectId>>): Named {
+        fun player(id: PlayerId) = org.asyncttwiz.automatum.PlayerNames.of(names, id.value, "the other player", "EngineEventText")
+        fun whose(id: PlayerId) = if (id.value == viewer) "your" else "${player(id)}'s"
+        fun placed(zone: arcanum.api.Zone, owner: PlayerId, name: String?, faceDown: Boolean): Named {
+            val of = whose(owner)
+            val text = when (zone) {
+                arcanum.api.Zone.Battlefield -> name?.let { "$of ${if (faceDown) "face-down " else ""}$it" } ?: "$of face-down creature"
+                arcanum.api.Zone.Stack -> name?.let { "$of $it" } ?: "$of face-down spell"
+                arcanum.api.Zone.Graveyard -> "${name ?: "a card"} in $of graveyard"
+                arcanum.api.Zone.Hand -> "${name ?: "a card"} in $of hand"
+                arcanum.api.Zone.Library -> "${name ?: "a card"} in $of library"
+                arcanum.api.Zone.Exile -> name?.let { "$it in exile" } ?: "a face-down card in exile"
+                else -> name?.let { "$of $it" } ?: "a card"
+            }
+            return Named(text, owner.value.takeIf { name != null })
+        }
+        // Owner rule (2026-11-11): a stand-in shown because the target couldn't be named is a fault
+        fun missing(what: String, standIn: String) = Named(org.asyncttwiz.protocol.Faults.placeholder("EngineEventText", what, standIn,
+            mapOf("target" to ref.toString())), null)
+        val id = when (ref) {
+            is TargetRef.Player -> return Named(when {
+                ref.id.value != viewer -> player(ref.id)
+                actor.value == viewer -> "yourself"
+                else -> "you"
+            }, ref.id.value)
+            is TargetRef.Object -> ref.id
+        }
+        val s = state ?: return missing("target without a board", "a card")
+        if (id !is ObjectId.Card) {
+            // An ability or a copy on the Stack, by its source; once it has left, as the turns the engine keeps recorded it
+            val item = s.stackItems[id] ?: arcanum.engine.Inspect.events(s).asReversed().firstNotNullOfOrNull { logged ->
+                when (val c = logged.change) {
+                    is Change.StackItemAdded -> c.item.takeIf { it.id == id }
+                    is Change.StackItemRemoved -> c.item.takeIf { it.id == id }
+                    else -> null
+                }
+            }
+            val shown = item?.let { i -> org.asyncttwiz.automatum.ShownNames.of(s, i) { name(it, s, viewer) } }
+            return if (item != null && shown != null) Named(shown, item.controller.value) else missing("Stack target without a name", "a spell or ability")
+        }
+        fun whoseThere(zone: arcanum.api.Zone, owner: PlayerId, controller: PlayerId?) =
+            if (zone == arcanum.api.Zone.Battlefield || zone == arcanum.api.Zone.Stack) controller ?: owner else owner
+        s.objects[id]?.let { obj ->
+            val name = obj.definition?.faces?.getOrNull(obj.face)?.name?.takeIf { obj.id in seen.value }
+            return placed(obj.zone, whoseThere(obj.zone, obj.owner, obj.controller), name, obj.faceDown)
+        }
+        // Where it was when targeted, as it was there; a hand's card only to its owner, a library's to nobody (HIS-062)
+        arcanum.engine.Inspect.lastKnown(s, id)?.let { known ->
+            val name = known.characteristics?.name?.takeIf { it.isNotEmpty() }?.takeIf {
+                when (known.zone) {
+                    arcanum.api.Zone.Hand -> known.owner.value == viewer
+                    arcanum.api.Zone.Library -> false
+                    else -> true
+                }
+            }
+            return placed(known.zone, whoseThere(known.zone, known.owner, known.controller), name, faceDown = false)
+        }
+        // Older than the turns the engine keeps: the card as it is now, by its owner
+        val latest = s.objects.values.lastOrNull { it.card == id.card } ?: return missing("target that is nowhere", "a card")
+        val name = latest.definition?.faces?.getOrNull(latest.face)?.name?.takeIf { !latest.faceDown && latest.id in seen.value }
+            ?: return Named("a card", null)
+        return Named("${whose(latest.owner)} $name", latest.owner.value)
     }
 
     /** What the table part of a table-only event says. */
@@ -371,12 +497,17 @@ object EngineEventText {
         val marks = ArrayList<EventTextMark>()
         marks += EventTextMark("You", viewer)
         marks += EventTextMark("you", viewer)
+        marks += EventTextMark("yourself", viewer)
         for ((account, name) in names) if (account != viewer && name.isNotBlank()) marks += EventTextMark(name, account)
         fun card(id: ObjectId?, whose: PlayerId) { name(id, state, viewer, sight)?.let { marks += EventTextMark(it, whose.value) } }
+        // HIS-240, HIS-244 (owner 2026-11-21): a target seen by its whole words ("Bob's Ember Cub", "Ember Cub in your graveyard") in its
+        // controller's colour (its owner's off the battlefield and the Stack); a hidden one ("a card in Bob's hand") stays plain
+        fun targets(named: List<Named>) { named.forEach { n -> n.whose?.let { marks += EventTextMark(n.text, it) } } }
         when (val input = event.engine?.steps?.firstOrNull { it.input != null }?.input) {
-            is Input.Cast -> card(input.card, input.player)
+            is Input.Cast -> { card(input.card, input.player); targets(targets(spell(event, input), state, viewer, names, input.player, sight)) }
             is Input.PlayLand -> card(input.card, input.player)
-            is Input.Activate -> card(input.source, input.player)
+            is Input.Activate -> { card(input.source, input.player); targets(targets(activated(event, input), state, viewer, names, input.player, sight)) }
+            is Input.DeclareAttackers -> targets(attacked(input, state, viewer, names, sight).map { it.first })
             else -> {}
         }
         val changes = event.engine?.changes.orEmpty()

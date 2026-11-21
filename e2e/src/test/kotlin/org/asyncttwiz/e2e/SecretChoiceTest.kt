@@ -37,7 +37,7 @@ class SecretChoiceTest : E2e() {
     private fun bobsTexts(): List<String> = bob.shownTexts.toList() + bob.engine { device.session.events.toList() }
         .map { EngineEventText.of(it, bob.shown.engine, bob.id, names()) }
 
-    // TBL-133, TBL-193, HIS-091, HIS-124, HIS-062, SYS-039 (owner 2026-11-16; CR 607.2d, CR 118.3): a secret choice shows only to its chooser until the rules reveal
+    // TBL-133, TBL-193, HIS-091, HIS-243, HIS-124, HIS-062, SYS-039 (owner 2026-11-16; CR 607.2d, CR 118.3): a secret choice shows only to its chooser until the rules reveal
     // it; the event that reveals it names it on both tables
     @Test fun aSecretChoiceStaysHiddenFromTheOtherPlayerUntilItIsRevealed() {
         // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
@@ -108,7 +108,7 @@ class SecretChoiceTest : E2e() {
 
         // Bob's timeline names what was revealed, at the event that did it (live, his event chip shows only the newest of the
         // events shown together: here the ability resolving, as Alice's phone assumed his pass, HIS-076)
-        val text = "${alice.name} activated Ember Lineup's ability · ${alice.name} revealed: Goblin"
+        val text = "${alice.name} activated Ember Lineup's ability targeting ${alice.name}'s Goblin Token · ${alice.name} revealed: Goblin"
         fun bobsTimeline() = bob.engine { device.session.events.toList() }.filter { EngineEventText.onTimeline(it, bob.id) }
             .map { EngineEventText.timelineText(it, bob.shown.engine, bob.id, names()) }
         try {
@@ -119,7 +119,7 @@ class SecretChoiceTest : E2e() {
         assertEquals(1, bobsTexts().filter { "revealed" in it }.distinct().size, "named once: ${bobsTexts()}")
         // And on Alice's, in her words
         assertTrue(alice.engine { device.session.events.toList() }.map { EngineEventText.of(it, alice.shown.engine, alice.id, names()) }
-            .contains("You activated Ember Lineup's ability · You revealed: Goblin"))
+            .contains("You activated Ember Lineup's ability targeting your Goblin Token · You revealed: Goblin"))
         assertFalse(alice.refusalSeen || bob.refusalSeen, "no refusal")
     }
 }

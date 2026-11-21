@@ -369,3 +369,5 @@ number	item	screenshot	catalog	decisions	sequence
 441	Desktop: the same locked Submit line over Build's full-width bar, one Booster pack still to come	desktop/build-submit-locked.png	DRF-119 DRF-303 WEB-044		Early submit
 442	Submitted early: the Games tab while the pod still drafts, Bob "drafting" and Carol "building"	draft/games-while-drafting.png	DRF-121 DRF-076		Early submit
 443	Pods still drafting read "Build your deck" once your own draft is done and "Deck submitted" once you have submitted	draft/pods-early-submit.png	DRF-013 DRF-119		Early submit
+450	Game log: each spell's line names its target and the attack names whom it attacked, in the players' colours	history/game-log-targets.png	HIS-091 HIS-240		Game log targets
+451	Desktop table: the Game log with the targeted lines	desktop/game-log-targets.png	HIS-091 HIS-240 WEB-015		Game log targets

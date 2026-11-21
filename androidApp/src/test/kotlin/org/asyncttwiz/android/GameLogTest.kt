@@ -80,4 +80,95 @@ class GameLogTest {
         captureShot("$SCREENSHOTS/history/game-log.png",
             "Alice opened Table actions → Game log after a few turns of Mountains and Ember Cubs: one line per event with its icon, the newest at the bottom, her own name and cards in green and Bob's in red, and the turn and step labels between the lines.")
     }
+
+    /**
+     * Alice and Bob each turn play a Mountain and cast a Storm Spark at the other's Ember Cub (at the other player while
+     * there is none) or else an Ember Cub; Alice attacks Bob with her ready Cubs. Until Alice's log holds a Spark of each at
+     * a Cub and her attack.
+     */
+    private fun playWithTargets(): Pair<EngineCombatScenario, List<GameLogLine>> {
+        val scenario = EngineCombatScenario()
+        val alice = scenario.alice
+        fun done(texts: List<String>) = texts.any { it == "You cast Storm Spark targeting Bob's Ember Cub" } &&
+            texts.any { it == "Bob cast Storm Spark targeting your Ember Cub" } && texts.any { it.startsWith("You attacked Bob with ") }
+        alice.keep(); scenario.bob.keep()
+        repeat(600) {
+            scenario.settle()
+            val lines = alice.timeline.log(alice, names)
+            if (done(lines.map { it.pieces.plain() })) return scenario to lines
+            for (game in listOf(alice, scenario.bob)) {
+                if (game.device.status != org.asyncttwiz.protocol.game.GameDevice.Status.YourMove &&
+                    game.device.status !is org.asyncttwiz.protocol.game.GameDevice.Status.Stopped) continue
+                val s = game.device.model.engine
+                val me = game.device.me
+                val opponent = s.players.first { it.id != me }.id
+                val options = arcanum.engine.Engine.options(s, me, org.asyncttwiz.protocol.game.EnginePreferences.of(s))
+                val main = s.turn.active == me && s.stack.isEmpty() && s.priority.holder == me &&
+                    s.turn.step in setOf(arcanum.api.TurnStep.PrecombatMain, arcanum.api.TurnStep.PostcombatMain)
+                when {
+                    options.any { it is arcanum.engine.input.Input.DeclareAttackers } -> game.send(listOf(arcanum.engine.input.Input.DeclareAttackers(me,
+                        if (me == scenario.me) scenario.creatures(s, me, ready = true).map { arcanum.engine.input.Attack(it, arcanum.engine.state.TargetRef.Player(opponent)) }
+                        else emptyList())))
+                    options.any { it is arcanum.engine.input.Input.DeclareBlockers } -> game.send(listOf(arcanum.engine.input.Input.DeclareBlockers(me, emptyList())))
+                    main -> {
+                        val hand = s.player(me).hand
+                        val untapped = scenario.cards(s, me, s.battlefield, "Mountain").any { s.obj(it)?.tapped == false }
+                        val spark = scenario.cards(s, me, hand, "Storm Spark").firstOrNull()
+                        val cub = scenario.cards(s, me, hand, "Ember Cub").firstOrNull()
+                        val land = scenario.cards(s, me, hand, "Mountain").firstOrNull()?.takeIf { (s.turn.landsPlayed[me] ?: 0) == 0 }
+                        when {
+                            land != null -> game.send(listOf(arcanum.engine.input.Input.PlayLand(me, land)))
+                            untapped && spark != null -> {
+                                val target = scenario.creatures(s, opponent, ready = false).firstOrNull()
+                                    ?.let { arcanum.engine.state.TargetRef.Object(it) } ?: arcanum.engine.state.TargetRef.Player(opponent)
+                                game.send(scenario.cast(s, me, arcanum.engine.input.Input.Cast(me, spark), target))
+                            }
+                            untapped && cub != null -> game.send(scenario.cast(s, me, arcanum.engine.input.Input.Cast(me, cub)))
+                            else -> game.pass()
+                        }
+                    }
+                    s.priority.holder == me -> game.pass()
+                    else -> {}
+                }
+            }
+        }
+        kotlin.test.fail("never got the targeted lines: ${alice.timeline.log(alice, names).map { it.pieces.plain() }}")
+    }
+
+    // HIS-243, HIS-245, HIS-240 (owner 2026-11-21: event texts name their targets): Alice's log names what each Storm Spark targeted and
+    // whom her attack attacked, each target in its player's colour
+    @Test fun theLogNamesTargets() {
+        val (scenario, lines) = playWithTargets()
+        val mine = lines.last { it.pieces.plain() == "You cast Storm Spark targeting Bob's Ember Cub" }.pieces
+        assertEquals(listOf(StackTextPiece("You", scenario.f.a), StackTextPiece(" cast "), StackTextPiece("Storm Spark", scenario.f.a),
+            StackTextPiece(" targeting "), StackTextPiece("Bob's Ember Cub", scenario.f.b)), mine)
+        val bobs = lines.last { it.pieces.plain() == "Bob cast Storm Spark targeting your Ember Cub" }.pieces
+        assertEquals(listOf(StackTextPiece("Bob", scenario.f.b), StackTextPiece(" cast "), StackTextPiece("Storm Spark", scenario.f.b),
+            StackTextPiece(" targeting "), StackTextPiece("your Ember Cub", scenario.f.a)), bobs)
+        val attack = lines.last { it.pieces.plain().startsWith("You attacked Bob with ") }.pieces
+        assertEquals(StackTextPiece("Bob", scenario.f.b), attack[2], "$attack")
+        // Bob's log of the same game: the same events from his side
+        val bob = scenario.bob
+        val his = bob.timeline.log(bob, names).map { it.pieces.plain() }
+        assertTrue(his.any { it == "You cast Storm Spark targeting Alice's Ember Cub" } &&
+            his.any { it == "Alice cast Storm Spark targeting your Ember Cub" } && his.any { it.startsWith("Alice attacked you with ") }, "$his")
+        compose.setContent { MaterialTheme { NoRipples { GameLogPanel(lines, scenario.f.a, {}, {}) } } }
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("game-log-line").onLast().assertIsDisplayed()
+        captureShot("$SCREENSHOTS/history/game-log-targets.png",
+            "Alice opened the Game log after turns of Storm Sparks at each other's Ember Cubs and her attacks: each Spark's line names its target (\"targeting Bob's Ember Cub\" in his red, \"targeting your Ember Cub\" in her green) and her attack names Bob.")
+    }
+
+    // HIS-243, HIS-245, WEB-015: the desktop table's Game log, the same targeted lines
+    @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
+    @Test fun theLogNamesTargetsOnTheDesktop() {
+        val (scenario, lines) = playWithTargets()
+        compose.setContent { MaterialTheme { NoRipples {
+            androidx.compose.runtime.CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop) { GameLogPanel(lines, scenario.f.a, {}, {}) }
+        } } }
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("game-log-line").onLast().assertIsDisplayed()
+        captureShot("$SCREENSHOTS/desktop/game-log-targets.png",
+            "On the desktop table Alice opened the Game log after turns of Storm Sparks at each other's Ember Cubs and her attacks: the log sits in the middle of the window, each Spark's line naming its target in that player's colour and her attack naming Bob.")
+    }
 }

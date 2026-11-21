@@ -219,8 +219,11 @@ internal class WebShell(private val auth: AuthViewModel, private val notificatio
             val catalogBlocked = !auth.catalog.state.ready && !auth.catalog.state.failed
             val releaseNotes = remember { ReleaseNotePreferences(AppPlatform.current) }
             var whatsNew by remember { mutableStateOf(releaseNotes.unseen()) }
+            // LOB-265: drawn outside the app's layout provider, so it is given the layout here (wider on the desktop layout)
             if (ReleaseNotes.showDialog(whatsNew, false, activityScreen))
-                WhatsNewDialog(whatsNew) { releaseNotes.markSeen(whatsNew); whatsNew = emptyList() }
+                CompositionLocalProvider(LocalAppLayout provides rememberAppLayout()) {
+                    WhatsNewDialog(whatsNew) { releaseNotes.markSeen(whatsNew); whatsNew = emptyList() }
+                }
             val reportChoices = remember { ReportChoiceStore(AppPlatform.current) }
             var reportChoice by remember { mutableStateOf(reportChoices.choice) }
             if (ReportPrompt.shouldPrompt(Diagnostics.alwaysOn, reportChoice, state.account != null, state.destination,

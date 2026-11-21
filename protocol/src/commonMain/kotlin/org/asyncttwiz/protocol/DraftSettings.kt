@@ -74,6 +74,8 @@ data class DraftSettings(
     val ignoreRarity: Boolean = false,
     /** Arena from a cube (DRF-284): a card a player picked may be offered to that player again. */
     val reuseCards: Boolean = false,
+    /** Arena (DRF-281, owner 2026-11-21): the first this-many picks offer rares, before [rareEvery] takes over; 0: none. */
+    val initialRares: Int = 1,
 ) {
     private val custom: Boolean get() = mode == DraftMode.CUSTOM_BOOSTER
 
@@ -144,7 +146,8 @@ data class DraftSettings(
             if (discardRemainingAt != 0) add(DraftSettingsIssue.DISCARD_REMAINING_AT)
             if (packsOpenAtOnce != 1) add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
             if (rareEvery != null && rareEvery !in 1..ArenaEngine.MAX_PICKS ||
-                uncommonEvery != null && uncommonEvery !in 1..ArenaEngine.MAX_PICKS) add(DraftSettingsIssue.RARITY_SCHEDULE)
+                uncommonEvery != null && uncommonEvery !in 1..ArenaEngine.MAX_PICKS ||
+                initialRares !in 0..ArenaEngine.MAX_PICKS) add(DraftSettingsIssue.RARITY_SCHEDULE)
             if (mythicOneIn != null && mythicOneIn !in 1..ArenaEngine.MAX_MYTHIC_ONE_IN) add(DraftSettingsIssue.MYTHIC_CHANCE)
             return@buildList
         }

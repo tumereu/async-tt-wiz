@@ -122,7 +122,7 @@ class DraftGalleryScreenshotTest {
             "pod's status has a dot for unread chat messages.")
     }
 
-    // DRF-281, DRF-282, DRF-283, DRF-284, DRF-285, DRF-287 (a tall screen shows the whole form)
+    // DRF-281, DRF-282, DRF-283, DRF-284, DRF-285, DRF-287 (a tall screen shows the whole form; Initial rares, owner 2026-11-21)
     @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun arenaSetup() {
         val source = PodSource("Runes", 540, maybeCopies = 12, rarities = ArenaCounts(common = 400, uncommon = 120, rare = 18, mythic = 2))
         val detail = detail(PodPhase.SETUP, DraftSettings.arena(), listOf(PodMember(alice), PodMember(bob)), name = "Arena night",
@@ -135,8 +135,8 @@ class DraftGalleryScreenshotTest {
         val rare = compose.onNodeWithText("Rare every").fetchSemanticsNode().boundsInRoot
         kotlin.test.assertEquals(rare.height, uncommon.height, 0.5f, "one line, as Rare every: $uncommon, $rare")
         shot("setup-arena", "The creator's setup of an Arena pod from the Runes cube with the defaults: tiles for 45 picks, " +
-            "offers of 5 cards, take 1, rare every 10th and uncommon every 4th pick, mythic 1/8 and the sideboard, the Ignore rarity " +
-            "and Reuse cards toggles off, then the summary: the format, 4 rare, 9 uncommon and 32 common picks for 45 cards each, " +
+            "offers of 5 cards, take 1, 1 initial rare, rare every 10th and uncommon every 4th pick, mythic 1/8 and the sideboard, the Ignore rarity " +
+            "and Reuse cards toggles off, then the summary: the format, 5 rare, 9 uncommon and 31 common picks for 45 cards each, " +
             "Reuse cards off in words, and that the cube's 2 mythic rares are too few for an offer, so rares fill up.")
     }
 
@@ -335,6 +335,39 @@ class DraftGalleryScreenshotTest {
         compose.onNodeWithText("Round 1/9 · Pick 2 · from Bob").assertIsDisplayed()
         shot("glimpse-pick", "A Glimpse draft (Booster as the Glimpse preset sets it: 9 packs, keep 1, burn 2) on Alice's pick: Stormtide " +
             "Pact marked keep and two cards marked burn with red borders and 🔥, the keep and burn trays side by side above Confirm.")
+    }
+
+    /** Alice's Glimpse pick with Stormtide Pact marked keep and one burn marked: one burn short of complete. */
+    private fun autoconfirmPick(): PodDetail {
+        val detail = boosterPick(DraftSettings.glimpse(), fourteen)
+        show(opened(detail))
+        compose.runOnIdle { pods.mark(detail.draft!!.head, PodPickMarks("pack-a", keeps = listOf(copy(25).id), burns = listOf(copy(0).id))) }
+        settle()
+        return detail
+    }
+
+    // DRF-293, DRF-294 (owner, 2026-11-21): the Auto toggle off beside Confirm, then on, Confirm turning yellow with its shine
+    @Test fun autoconfirmToggle() {
+        autoconfirmPick()
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff()
+        shot("autoconfirm-off", "Alice's Glimpse pick, Stormtide Pact marked keep and one card burned, one burn still to mark: the Auto " +
+            "toggle with its bolt sits off just before Confirm, which looks as always.")
+        compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOn()
+        settle()
+        shot("autoconfirm-on", "The same pick after Alice taps Auto: the toggle is filled yellow and Confirm is yellow too with a band " +
+            "of light across it (here at the start of its sweep); the last burn she marks will confirm the pick at once.")
+    }
+
+    // DRF-294: the gallery clip of Auto turning on and Confirm's shine sweeping across it and back
+    @Test fun clipOfTheAutoconfirmShine() {
+        autoconfirmPick()
+        compose.mainClock.autoAdvance = false
+        compose.captureClip("$SCREENSHOTS/clips/autoconfirm-shine.webp",
+            "Alice taps Auto beside Confirm on her Glimpse pick: the toggle and Confirm turn yellow and a band of light sweeps across Confirm and back.",
+            millis = 3_200L, node = compose.onNodeWithTag("pod-pick-confirm-row")) { at ->
+            if (at == 4 * CLIP_STEP_MILLIS) compose.onNodeWithTag("pod-pick-autoconfirm").performClick()
+        }
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn()
     }
 
     // DRF-052, DRF-053, DRF-054

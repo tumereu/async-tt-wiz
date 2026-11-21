@@ -1,0 +1,1 @@
+mod: What's new is twice as wide in the desktop browser.

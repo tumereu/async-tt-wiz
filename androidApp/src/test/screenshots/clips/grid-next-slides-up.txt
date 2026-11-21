@@ -1,0 +1,1 @@
+Alice confirmed row 2 of grid 1 with grid 2 waiting for her: grid 1 fades out while grid 2, Bob's column already taken, slides up from underneath into its place, its arrows ready.

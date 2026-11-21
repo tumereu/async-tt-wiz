@@ -134,6 +134,27 @@ class SettingsScreenTest {
         compose.runOnIdle { assertFalse(DraftBotPreferences(AppPlatform.current).enabled) }
     }
 
+    // LOB-264, DRF-293 (owner, 2026-11-21): Games → "Autoconfirm draft picks", off by default and kept on the device, decides
+    // whether a new draft's Auto toggle starts on; a draft whose toggle was set keeps its own
+    @Test fun autoconfirmDraftPicksDecidesHowNewDraftsStart() {
+        val preferences = PodAutoconfirmPreferences(AppPlatform.current)
+        preferences.set("touched", false)
+        compose.setContent { ScreenTheme { SettingsContent(null, "autoconfirm", {}, null, FakeSettings()) } }
+        compose.onNodeWithTag("pod-autoconfirm-setting").performScrollTo().assertIsOff()
+        compose.onNodeWithText("Autoconfirm draft picks").assertIsDisplayed()
+        assertTrue(compose.onNodeWithTag("pod-autoconfirm-setting").getUnclippedBoundsInRoot().top >
+            compose.onNodeWithTag("move-sound").getUnclippedBoundsInRoot().top, "in Games, under the Your move sound")
+        compose.runOnIdle { assertFalse(preferences.of("new draft"), "drafts start with Auto off") }
+        compose.onNodeWithTag("pod-autoconfirm-setting").performClick().assertIsOn()
+        compose.runOnIdle {
+            assertTrue(preferences.startOn, "kept on the device")
+            assertTrue(preferences.of("another new draft"), "now new drafts start with Auto on")
+            assertFalse(preferences.of("touched"), "a draft whose toggle was set keeps it")
+        }
+        compose.onNodeWithTag("pod-autoconfirm-setting").performClick().assertIsOff()
+        compose.runOnIdle { assertFalse(preferences.startOn) }
+    }
+
     @Test fun withoutAnAccountTheGamesSectionIsHiddenAndOtherSectionsKeepTheirOrder() {
         compose.setContent { ScreenTheme { SettingsContent(null, "no-account") {} } }
         compose.onNodeWithText("Games").assertDoesNotExist()

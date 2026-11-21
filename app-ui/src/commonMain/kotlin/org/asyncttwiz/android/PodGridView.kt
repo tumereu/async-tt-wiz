@@ -1,5 +1,8 @@
 package org.asyncttwiz.android
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -12,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
@@ -86,6 +91,24 @@ fun podGridHeader(board: GridPublicBoard, view: GridViewData, totalGrids: Int, m
     return "$status · Grid ${board.number}/$totalGrids"
 }
 
+/** DRF-295: how long the grid you picked from takes to fade out while the next one slides up into its place. */
+const val PodGridSwapMillis = 450
+
+/** DRF-295: the share of the swap the picked grid takes to fade out. */
+const val PodGridFadeShare = .55f
+
+/** The grid you pick from as last drawn: what fades out when your next grid takes its place (DRF-295). */
+private class PodGridShownHead {
+    var board: GridPublicBoard? = null
+    var view: GridViewData? = null
+    var selected: GridLine? = null
+    /** The height of its header and boards together, in pixels. */
+    var height = 0
+}
+
+/** The grid you just picked from, fading out over the next one (DRF-295). */
+private data class PodGridLeaving(val board: GridPublicBoard, val view: GridViewData, val selected: GridLine?, val height: Int)
+
 @Composable
 fun PodGridView(
     view: GridViewData?,
@@ -107,43 +130,62 @@ fun PodGridView(
     val previewScroll = rememberScrollState()
     val previewScreen = holdPreviewScreenHeight()
     val colors = view?.let { podGridColors(it.publicView.seating, it.mine.player) }.orEmpty()
+    // DRF-295 (owner, 2026-11-21): when your pick moves on to another grid, the grid you picked from fades out while the next
+    // slides up from underneath into its place; never when you have no grid to pick from next (the waiting text shows)
+    val shown = remember { PodGridShownHead() }
+    val leaving = remember(head?.id) {
+        val board = shown.board
+        val before = shown.view
+        if (board != null && before != null && head != null && board.id != head.id && shown.height > 0)
+            PodGridLeaving(board, before, shown.selected, shown.height).also {
+                AppLog.info("pod", "Grid ${board.number} picked: it fades out while grid ${head.number} slides up into its place")
+            }
+        else null
+    }
+    val swap = remember(head?.id) { Animatable(if (leaving != null) 0f else 1f) }
+    LaunchedEffect(head?.id) { if (leaving != null) swap.animateTo(1f, tween(PodGridSwapMillis, easing = FastOutSlowInEasing)) }
+    SideEffect {
+        shown.board = head
+        shown.view = view.takeIf { head != null }
+        shown.selected = selected
+        if (head == null) shown.height = 0
+    }
+    val inspect: (DraftCopy, Boolean) -> Unit = { copy, open ->
+        // Several fingers may hold cards: the latest hold shows, and only its release closes.
+        if (open) { previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()); inspected = copy }
+        else if (inspected == copy) inspected = null
+    }
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         val boards = view?.let(::podGridOrder).orEmpty()
         if (head == null && boards.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             PodPickWaiting(waitingText, onMainMenu)
-        } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (head == null) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                PodPickWaiting(waitingText, onMainMenu)
-            }
-            if (view != null) boards.forEach { board -> key(board.id) {
-                Text(podGridHeader(board, view, totalGrids, members), Modifier.padding(top = 8.dp),
-                    style = MaterialTheme.typography.bodySmall)
-                val stages = remember(board, log) { gridBoardStages(board, log) }
-                val boardRules = rules.takeIf { board.id == head?.id }
-                // A refilled grid shows each of its boards, oldest first, framed together as one grid.
-                val group = if (stages.size > 1) Modifier.fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small).padding(6.dp)
-                    else Modifier.fillMaxWidth()
-                Column(group.testTag("pod-grid-${board.id}-group"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    stages.forEachIndexed { index, stage ->
-                        val latest = index == stages.lastIndex
-                        podGridStageLabel(index, stages.size)?.let {
-                            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        PodGridBoard(board, stage, latest, if (latest) "pod-grid-${board.id}" else "pod-grid-${board.id}-stage$index",
-                            boardRules.takeIf { latest }, boardRules != null, selected.takeIf { head?.id == board.id && latest }, !busy,
-                            onSelect = { selected = it }, definitions = definitions, members = members, colors = colors,
-                            inspect = { copy, open ->
-                                // Several fingers may hold cards: the latest hold shows, and only its release closes.
-                                if (open) { previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()); inspected = copy }
-                                else if (inspected == copy) inspected = null
-                            },
-                            // Rows and columns are chosen with the arrows; a card is inspected by holding it (DRF-084).
-                            inspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
+        } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+            Box(Modifier.fillMaxWidth()) {
+                val progress = swap.value
+                val gap = with(LocalDensity.current) { 8.dp.toPx() }
+                // The grids under the one leaving start one grid lower and slide up as it fades
+                Column(Modifier.fillMaxWidth().graphicsLayer {
+                    translationY = if (leaving != null) (leaving.height + gap) * (1f - progress) else 0f
+                }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (head == null) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        PodPickWaiting(waitingText, onMainMenu)
                     }
+                    if (view != null) boards.forEach { board -> key(board.id) {
+                        PodGridBlock(board, view, totalGrids, members, log, rules.takeIf { board.id == head?.id },
+                            selected.takeIf { head?.id == board.id }, !busy, onSelect = { selected = it }, definitions = definitions,
+                            colors = colors, inspect = inspect,
+                            // Rows and columns are chosen with the arrows; a card is inspected by holding it (DRF-084).
+                            inspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
+                            modifier = if (board.id == head?.id) Modifier.onSizeChanged { shown.height = it.height } else Modifier)
+                    } }
                 }
-            } }
+                // Drawn over the rising grids, so they come from underneath it; gone early, so the rising grid is soon seen clearly
+                if (leaving != null && progress < PodGridFadeShare) PodGridBlock(leaving.board, leaving.view, totalGrids, members,
+                    leaving.view.publicView.log, PodGridRules(leaving.board, leaving.view.mine), leaving.selected, false,
+                    onSelect = {}, definitions = definitions, colors = colors, inspect = { _, _ -> },
+                    modifier = Modifier.fillMaxWidth().testTag("pod-grid-leaving").clearAndSetSemantics {}
+                        .graphicsLayer { alpha = 1f - progress / PodGridFadeShare })
+            }
         }
         if (head != null) Button(onClick = {
             selected?.takeIf { !busy && rules?.canSelect(it) == true }?.let { onConfirm(head.id, it.type, it.index) }
@@ -153,6 +195,36 @@ fun PodGridView(
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }
+}
+
+/** One grid in the list: its header, then its boards (a refilled grid's oldest first, framed together as one grid). [rules]
+ * only for the grid you pick from now. */
+@Composable
+private fun PodGridBlock(board: GridPublicBoard, view: GridViewData, totalGrids: Int, members: List<AccountIdentity>,
+    log: List<GridPublicPickLog>, rules: PodGridRules?, selected: GridLine?, enabled: Boolean, onSelect: (GridLine) -> Unit,
+    definitions: Map<String, CardDefinition>, colors: Map<String, Color>, inspect: (DraftCopy, Boolean) -> Unit,
+    inspectScroll: (Float) -> Unit = {}, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(podGridHeader(board, view, totalGrids, members), Modifier.padding(top = 8.dp),
+            style = MaterialTheme.typography.bodySmall)
+        val stages = remember(board, log) { gridBoardStages(board, log) }
+        // A refilled grid shows each of its boards, oldest first, framed together as one grid.
+        val group = if (stages.size > 1) Modifier.fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small).padding(6.dp)
+            else Modifier.fillMaxWidth()
+        Column(group.testTag("pod-grid-${board.id}-group"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            stages.forEachIndexed { index, stage ->
+                val latest = index == stages.lastIndex
+                podGridStageLabel(index, stages.size)?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                PodGridBoard(board, stage, latest, if (latest) "pod-grid-${board.id}" else "pod-grid-${board.id}-stage$index",
+                    rules.takeIf { latest }, rules != null, selected.takeIf { latest }, enabled,
+                    onSelect = onSelect, definitions = definitions, members = members, colors = colors,
+                    inspect = inspect, inspectScroll = inspectScroll)
+            }
+        }
+    }
 }
 
 /** Opacity of the primary tint over the selected row's or column's cards. */

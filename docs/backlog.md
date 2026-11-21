@@ -12,10 +12,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ### Owner playtest (owner, 2026-11-21)
 
-- Arena gets an "Initial rares" tile: the first N picks are rare picks, default 1, before "Rare every" takes over (it was in the agreed spec and was left out) (DRF-281).
-- Desktop "What's new" dialog: at least twice its current, phone-like width (new entry or the What's new entry it changes).
-- Draft autoconfirm: a toggle beside Confirm, off at the start of every draft, with a Settings value for whether it starts on; when on, Confirm is yellow with a shine moving back and forth, and a pick confirms instantly once all its selections are made (DRF-044; new entries).
-- Grid draft: when another grid is coming, the current one fades out and the next slides up from underneath, so grids are easy to follow; picked cards don't fly anywhere. Reviewed as gallery clips (DRF-195; new entries).
 - Reveals and looks merged with the choice that follows, for the acting player: one panel shows all the revealed or looked-at cards with the choice on it, cards that can't be chosen dimmed, as the library search shows them; it covers pseudo-reveals ("exile the top N, choose one to put into your hand"); the other player still gets a real reveal, covered by e2e (HIS-110).
 - Battlefield cards show small card type icons; subtypes show as small tags only when a card the player can see cares about them: their own hand, either battlefield, the Stack (never the other player's hidden hand), and a subtype shows on either player's permanents, since control can change (new entries).
 - Draft bot seats: 1–6 bots, any seat but one human can be a bot; bots burn when the logic is good enough; picks of several cards (keep > 1, Grid lines, Winston/Winchester piles) value cards sublinearly (one 99% card beats two 50% ones, two 80% beat one 99%); no deck building or play (new entries).

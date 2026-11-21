@@ -12,14 +12,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ### Post-0.3.0 (owner, 2026-11-20)
 
-Fixes and small changes:
-
-- Pod notifications: a pod's news ("Decks ready", "Draft cancelled" …) clears on every device once you have opened the pod on any one; and one notification per pod: a pod challenge and "Draft complete: build your deck" never both show for the same pod (LOB-243, DRF-138, DRF-137, DRF-122).
-- Vibration on your move gets its own setting in the Android app, no longer tied to the Your move sound (TRN-075, LOB-146; new entry).
-- Deck categories: a deck gets its own "Move to…" (a category or the top level) in Manage decks, so decks can be sorted without opening each; the editor's Category row stays (LOB-258, LOB-245; new entry).
-- Token kind explanations in the rules reminders read more like MTG's own reminder text and spell out what the token is, as a real card's hint does ("It's an artifact token with …") (TBL-209).
-- Web app: a built-in file (fonts and the like) that fails to load is tried again a couple of times before "ATW couldn't load" shows (WEB-005).
-
 Features, in this order:
 
 1. Hover sweep (desktop): everything that can be clicked (hand cards, Undo, the main button, Resolve …) answers the pointer with a hover look, beyond today's hand pointer (WEB-058; new entries).

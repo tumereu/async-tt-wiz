@@ -1,0 +1,1 @@
+Portrait Manage decks, Decks tab: the Pauper night deck's ⋮ tapped and Move to… chosen: the Move Pauper night dialog lists Top level and the categories as a tree (Battle box with Green and Red under it, Casual), Casual marked as where the deck is now.

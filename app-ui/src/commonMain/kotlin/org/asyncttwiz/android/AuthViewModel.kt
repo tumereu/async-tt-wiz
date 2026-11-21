@@ -125,6 +125,8 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
     val heartbeat = GameHeartbeatController { token, presence ->
         controller.sessionToken() == token && lobby.heartbeat(presence)
     }
+    /** LOB-243: the pod (or Pods list) open in front, told to the server so its news clears on every device. */
+    val podSeen = PodSeenReporter()
     private val gameMaintenance = GameConnectionMaintenance({ true }, {
         controller.foreground()
         if (controller.state.account != null) {
@@ -162,6 +164,7 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
 
     override fun onCleared() {
         heartbeat.close()
+        podSeen.close()
         gameMaintenance.close()
         activity.authenticationRequired = null
         activity.activityHints = null

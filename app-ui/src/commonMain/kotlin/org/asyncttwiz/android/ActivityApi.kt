@@ -39,6 +39,10 @@ class ActivityApi(private val origin: String, private val client: HttpClient = A
         call(token, HttpMethod.Get, "/activity/target?kind=${route.kind.name}&game=${route.gameId}&identity=${route.identity}"))
     suspend fun waiting(token: String): WaitingGames =
         ActivityWire.json.decodeFromString(call(token, HttpMethod.Get, "/activity/waiting"))
+    /** LOB-243: the pod [PodSeen.podId] (the Pods list when null) is open in front on this device: its news is seen. */
+    suspend fun seen(token: String, seen: PodSeen) {
+        call(token, HttpMethod.Put, "/activity/seen", ActivityWire.json.encodeToString(seen))
+    }
     suspend fun heartbeat(token: String, presence: GamePresence) {
         call(token, HttpMethod.Put, "/activity/presence", ActivityWire.json.encodeToString(presence))
     }

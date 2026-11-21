@@ -217,6 +217,9 @@ fun SavedDeckCollection(controller: DeckLibraryController) {
         DeckCategoryRow(row, { controller.toggleCategory(row.category.id) },
             { DeckCategoryMenu(row.category, controller::categoryDialog, enabled = !state.categoryBusy) })
     }
+    // LOB-262: a saved deck row's ⋮ moves the deck to a category or the top level
+    val deckMenu: (DeckSummary) -> @Composable () -> Unit = { deck -> {
+        DeckRowMenu(deck, state.categories.isNotEmpty(), controller::categoryDialog, enabled = !state.categoryBusy) } }
     val draftHeading: @Composable () -> Unit = {
         Text(draftDecksHeading(state.draftDecks.size), Modifier.padding(top = 20.dp, bottom = 4.dp),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -231,7 +234,7 @@ fun SavedDeckCollection(controller: DeckLibraryController) {
         for (row in rows) when (row) {
             is DeckTreeRow.Category -> item(key = "category-${row.category.id}",
                 span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { categoryRow(row) }
-            is DeckTreeRow.Deck -> item(key = row.deck.id) { SavedDeckRow(row.deck) { controller.open(row.deck.id) } }
+            is DeckTreeRow.Deck -> item(key = row.deck.id) { SavedDeckRow(row.deck, menu = deckMenu(row.deck)) { controller.open(row.deck.id) } }
         }
         if (state.draftDecks.isNotEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { Column { draftHeading() } }
         items(state.draftDecks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
@@ -240,7 +243,7 @@ fun SavedDeckCollection(controller: DeckLibraryController) {
         for (row in rows) when (row) {
             is DeckTreeRow.Category -> item(key = "category-${row.category.id}") { categoryRow(row) }
             is DeckTreeRow.Deck -> item(key = row.deck.id) {
-                SavedDeckRow(row.deck, Modifier.padding(start = (row.depth * 20).dp)) { controller.open(row.deck.id) } }
+                SavedDeckRow(row.deck, Modifier.padding(start = (row.depth * 20).dp), deckMenu(row.deck)) { controller.open(row.deck.id) } }
         }
         if (state.draftDecks.isNotEmpty()) item { draftHeading() }
         items(state.draftDecks, key = { it.id }) { deck -> SavedDeckRow(deck) { controller.open(deck.id) } }
@@ -253,7 +256,7 @@ fun SavedDeckCollection(controller: DeckLibraryController) {
 }
 
 @Composable
-private fun SavedDeckRow(deck: DeckSummary, modifier: Modifier = Modifier, open: () -> Unit) {
+private fun SavedDeckRow(deck: DeckSummary, modifier: Modifier = Modifier, menu: (@Composable () -> Unit)? = null, open: () -> Unit) {
     OutlinedCard(onClick = open, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -264,7 +267,8 @@ private fun SavedDeckRow(deck: DeckSummary, modifier: Modifier = Modifier, open:
                 Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             AutomatumSupportIcon(deck.automatum, onTap = open)
-            EntryIcon(null, "chevron")
+            // LOB-262: a saved deck ends in its ⋮ (the row still opens it); a draft deck, which has no category, in the chevron
+            if (menu != null) menu() else EntryIcon(null, "chevron")
         }
     }
 }

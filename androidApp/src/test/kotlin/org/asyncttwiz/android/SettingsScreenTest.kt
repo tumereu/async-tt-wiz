@@ -94,6 +94,32 @@ class SettingsScreenTest {
         assertNull(MoveSounds.pcm(org.asyncttwiz.protocol.MoveSound.Off))
     }
 
+    // TRN-167, TRN-075 (owner, 2026-11-20): "Vibrate on your move" is its own switch under the Your move sound, on by default
+    // and kept on the device; switched off, the Your move cue doesn't vibrate (the sound is a setting of its own)
+    @Test fun vibrateOnYourMoveIsItsOwnSwitchOnByDefault() {
+        MoveVibrationPreferences(AppPlatform.current).enabled = true
+        val source = FakeSettings(AccountSettings(moveSound = org.asyncttwiz.protocol.MoveSound.Off))
+        var cue: ((String) -> Unit)? = null
+        compose.setContent { ScreenTheme {
+            cue = org.asyncttwiz.appui.rememberMoveVibration()
+            SettingsContent(null, "move-vibration", {}, null, source)
+        } }
+        compose.onNodeWithTag("move-vibration").performScrollTo().assertIsOn()
+        compose.onNodeWithText("Vibrate on your move").assertIsDisplayed()
+        // Below the Your move sound, with the sound Off: the two are separate
+        assertTrue(compose.onNodeWithTag("move-vibration").getUnclippedBoundsInRoot().top >
+            compose.onNodeWithTag("move-sound").getUnclippedBoundsInRoot().top)
+        compose.runOnIdle { cue!!("the test's move") }
+        assertTrue("Your move vibration: 70 ms (the test's move)" in AppLog.text(), "on: it vibrates with the sound Off")
+        compose.onNodeWithTag("move-vibration").performClick().assertIsOff()
+        assertFalse(MoveVibrationPreferences(AppPlatform.current).enabled, "kept on the device")
+        compose.runOnIdle { cue!!("the next move") }
+        assertTrue("Your move vibration: off in Settings (the next move)" in AppLog.text())
+        assertFalse("Your move vibration: 70 ms (the next move)" in AppLog.text())
+        compose.onNodeWithTag("move-vibration").performClick().assertIsOn()
+        compose.runOnIdle { assertTrue(MoveVibrationPreferences(AppPlatform.current).enabled) }
+    }
+
     @Test fun withoutAnAccountTheGamesSectionIsHiddenAndOtherSectionsKeepTheirOrder() {
         compose.setContent { ScreenTheme { SettingsContent(null, "no-account") {} } }
         compose.onNodeWithText("Games").assertDoesNotExist()

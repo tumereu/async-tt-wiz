@@ -65,6 +65,9 @@ import kotlinx.serialization.json.Json
  * latest event's activity and identity and a waiting-reminder [GameNoticeContent]. */
 /** What waits for the account: GAME hints, then POD_YOUR_PICK / POD_DRAFT_COMPLETE hints of pods waiting for its pick or build. */
 @Serializable data class WaitingGames(val games: List<ActivityHint>)
+/** PUT /activity/seen (LOB-243): the player has the pod [podId] open, or the Pods list when null, in front on this device:
+ * the pod's news ("Decks ready", "Draft cancelled" …; on the Pods list a destroyed pod's) is seen, and clears on every device. */
+@Serializable data class PodSeen(val podId: String? = null)
 @Serializable data class GamePresence(val gameId: String, val presenceId: String,
     val didSomething: Boolean = false, val left: Boolean = false)
 /** [webPush]: a browser's Web Push subscription (WEB-050), in place of an Android [pushToken]; omitted when none. */

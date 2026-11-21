@@ -31,8 +31,6 @@ Features, in this order:
 3. Resizable panels: the large panels with scrolling content (the cast panel, choices) get a drag handle, with one size shared by all of them and remembered (STK-023, WEB-082; new entries).
 4. Draft bots, in place of burns: the pick heuristic (protocol's `DraftBot`) and the test-build setting "Show bot picks" (LOB-263, DRF-292) are built; bot seats in pods wait for the owner's design (how many, where they are set, which modes).
 
-- Test reliability (internal; no catalog entry): the e2e harness's declare and pickBlocker taps don't wait for the main button's Automatum worker (StagingFromStackTest's declared-attackers case depends on it); and tests that fail under load but pass on a rerun: CastDroppedOnRewindTest, StableDecisionIdTest, TurnBannerTest, EmblemInspectTest, WebNotificationsTest (socket error to the local server) and the screen tests' "Compose did not get idle" (PodCubePreparationTest, CardListEditorUiTest, the desktop deck editor and table stack).
-
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

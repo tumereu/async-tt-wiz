@@ -82,7 +82,7 @@ class WebGameFlowTest : E2e() {
                 web.visible(true)
                 val centre = "#centre-action"
                 waitUntil("Alice's centre text", timeoutSeconds = 60) { web.shows(centre) }
-                val label = web.page.locator(centre).first().getAttribute("aria-label").orEmpty()
+                val label = web.label(centre).orEmpty()
                 assertTrue(label.startsWith("${bob.name} has made moves · Tap to watch"), "the centre text says what waits: $label")
                 web.tap(centre)
                 var clicked = System.nanoTime()
@@ -165,7 +165,7 @@ class WebGameFlowTest : E2e() {
 
     /** Where the page's semantics mirror places each card [name] of [owner]'s (hand, battlefield, Stack). */
     private fun E2eBrowser.cards(name: String, owner: String): List<BoundingBox> =
-        page.locator("div[aria-label^='$name, owner $owner, ']").all().mapNotNull { it.boundingBox() }
+        boxes("div[aria-label^='$name, owner $owner, ']")
 
     /** [owner]'s battlefield on the page. */
     private fun E2eBrowser.battlefield(owner: String): BoundingBox = box("div[aria-label^='$owner Battlefield, ']")
@@ -188,7 +188,7 @@ class WebGameFlowTest : E2e() {
 
     /** Whether the page's semantics mirror places what [selector] finds now (attached and given a size). */
     private fun E2eBrowser.placed(selector: String): Boolean =
-        page.locator(selector).let { it.count() > 0 && it.first().boundingBox()?.let { box -> box.width > 0 } == true }
+        boxes(selector).firstOrNull()?.let { box -> box.width > 0 } == true
 
     /** A click in the middle of [box] on the page's canvas. */
     private fun E2eBrowser.click(box: BoundingBox) = page.mouse().click(box.x + box.width / 2, box.y + box.height / 2)

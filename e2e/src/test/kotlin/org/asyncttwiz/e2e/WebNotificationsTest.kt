@@ -30,7 +30,6 @@ class WebNotificationsTest {
     @Test fun installableTitledAndNotificationsTurnOnAndOff() {
         val (alice, bob) = ServerSetup.fresh()
         val started = ServerSetup.prepare(alice, bob, TestDeck.thirds(), TestDeck.thirds(), name = "Web notified game").ready()
-        val origin = E2eStack.origin
         E2eBrowser().use { web ->
             val page = web.page
             try {
@@ -70,7 +69,7 @@ class WebNotificationsTest {
                 waitFor("the hint gone") { !web.shows("#notifications-hint") }
 
                 // WEB-050, WEB-051: Settings shows the switch on with its kinds; Draft activity off is told to the server
-                page.navigate("$origin/settings")
+                web.navigate("/settings")
                 web.waitFor("#notification-kind-drafts", 120_000.0)
                 // Scrolled into view with the mouse wheel (the page is the app's canvas)
                 page.mouse().move(200.0, 500.0)
@@ -90,7 +89,7 @@ class WebNotificationsTest {
                 waitFor("the kinds hidden") { !web.shows("#notification-kind-drafts") }
 
                 // WEB-053: turning on put the hint away for good
-                page.navigate("$origin/games")
+                web.navigate("/games")
                 web.waitForText("Web notified game", 120_000.0)
                 assertTrue(!web.shows("#notifications-hint"), "the hint stays away")
                 val faults = web.faults()

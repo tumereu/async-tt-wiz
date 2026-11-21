@@ -336,3 +336,4 @@ number	item	screenshot	catalog	decisions	sequence
 363	Clip: combat damage on the band, then the band closing	clips/combat-damage.webp	CMB-050 CMB-090 HIS-113
 364	Clip: the turn banner shows and fades	clips/turn-banner.webp	TRN-074
 365	Clip: tapping an earlier event in the Undo dialog's strip	clips/undo-strip.webp	HIS-099 HIS-207 HIS-208
+380	Resizable panels: the search panel dragged shorter by its handle at the top edge	choice-source/library-search-resized.png	STK-222 STK-223

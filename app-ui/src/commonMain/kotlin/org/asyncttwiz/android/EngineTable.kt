@@ -1040,7 +1040,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
 private fun EngineBar(text: String, what: String, buttons: @Composable RowScope.() -> Unit) {
     var hidden by remember(text) { mutableStateOf(false) }
     Box(Modifier.testTag("engine-bar")) {
-        AutomatumDockPanel(text, hidden, { hidden = !hidden }, what, buttons = buttons) {
+        AutomatumDockPanel(text, hidden, { hidden = !hidden }, what, buttons = buttons, resizable = false) {
             Text(text, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 17.sp)
         }
     }

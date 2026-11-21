@@ -305,8 +305,9 @@ fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, names: Ma
 @Composable
 fun DivisionDock(draft: DivisionDraft, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
     power: Int?, keywords: List<String>, hidden: Boolean, toggleHidden: () -> Unit) {
+    // STK-222: attached to the combat band, not one of the large panels above the hand
     AutomatumDockPanel("Division of combat damage", hidden, toggleHidden, "division",
-        buttons = { TrampleChip(draft, play, names) }) {
+        buttons = { TrampleChip(draft, play, names) }, resizable = false) {
         DivisionContent(draft, play, names, count, power, keywords)
     }
 }

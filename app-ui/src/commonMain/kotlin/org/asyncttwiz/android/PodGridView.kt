@@ -206,10 +206,11 @@ fun PodGridView(
                         .graphicsLayer { alpha = 1f - progress / PodGridFadeShare })
             }
         }
-        // DRF-293, DRF-294: the Auto toggle just before Confirm, which is yellow with its shine while Auto is on
-        if (head != null) PodAutoconfirmRow(auto, setAuto) { confirmModifier ->
-            PodConfirmButton(auto, !busy && selected?.let { rules?.canSelect(it) } == true, { confirm(selected) },
-                confirmModifier.testTag("pod-grid-confirm"))
+        // DRF-293, DRF-294: Confirm with Auto as its right-hand tip, a full-width row on every layout; with Auto on both are
+        // yellow, Confirm with its shine
+        if (head != null) Row(Modifier.fillMaxWidth().testTag("pod-pick-confirm-row")) {
+            PodConfirmAuto(auto, setAuto, !busy && selected?.let { rules?.canSelect(it) } == true, { confirm(selected) },
+                "pod-grid-confirm", Modifier.weight(1f))
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }

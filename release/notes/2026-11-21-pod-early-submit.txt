@@ -1,1 +1,1 @@
-mod: In a pod you can submit your deck and challenge other members as soon as your own draft is done, without waiting for everyone else to finish drafting; Build tells you when Submit opens.
+mod: In a pod you can submit your deck and challenge other members as soon as your own draft is done, without waiting for everyone else to finish drafting; Build tells you when Submit opens. Members still drafting get your challenge at once, and see the pod's Games tab once their own draft is done.

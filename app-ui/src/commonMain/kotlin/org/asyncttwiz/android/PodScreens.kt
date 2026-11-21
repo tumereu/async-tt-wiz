@@ -168,7 +168,7 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
 @Composable
 fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier) {
-        if (state.retryPodChallengeName != null) {
+        if (state.retryPodChallenge) {
             HoldTip("Retry challenge", Modifier.align(Alignment.TopEnd).padding(12.dp)) {
                 FilledTonalIconButton(retry, enabled = !state.mutating) { EntryIcon("Retry challenge", "refresh") }
             }
@@ -383,8 +383,13 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
         podSetupBots(settings).forEach { MemberLine(it, "bot") }
         detail.pendingInvitations.forEach { MemberLine(it, "invitation pending") }
         if (creator) {
-            ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },
-                enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8) { EntryIcon("Invite player", "person") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },
+                    enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8) { EntryIcon("Invite player", "person") }
+                Spacer(Modifier.weight(1f))
+                // DRF-296: the bot seats' stepper beside the invite button, in the modes that take bots
+                if (settings.mode.botSeats) PodBotsStepper(settings, enabled, controller::editSettings)
+            }
             detail.autoStartOff?.let { Text(podAutoStartOffText(it, settings.mode), color = MaterialTheme.colorScheme.error) }
             val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain
             val limit = podPlayerLimitText(detail.copy(settings = settings))
@@ -419,7 +424,7 @@ private fun PodChooseMember(controller: PodController, lobby: LobbyController, d
 private fun PodDraftScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?,
     navigation: (() -> Unit)?, mainMenu: (() -> Unit)?) {
     val state = controller.state
-    val tabs = podTabs(detail.phase)
+    val tabs = podTabs(detail)
     val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail)
     val build = detail.build ?: PodDeckBuild()
     val copies = (detail.grid?.mine?.pool ?: detail.limited?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
@@ -702,7 +707,7 @@ private fun RowScope.PodChallengeButtons(detail: PodDetail, member: PodMember, a
     val open = podOpenChallengeFrom(games, detail.id, member.account.accountId, accountId)
     fun challenge(why: String) {
         AppLog.info("lobby", "Pod ${detail.id.take(8)}: new challenge to ${member.account.username} ($why)")
-        lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion())
+        lobby.challengeFromPod(detail.id, member.account.accountId)
     }
     if (open == null) {
         HoldTip("Challenge") {

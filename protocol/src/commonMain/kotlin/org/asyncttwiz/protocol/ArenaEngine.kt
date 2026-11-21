@@ -4,11 +4,14 @@ import kotlinx.serialization.Serializable
 
 /**
  * One card Arena offers are drawn from: a cube copy (one printing), or a set's card with every printing of it in the
- * set (one is chosen at random when it is offered). [rarity] is one of common, uncommon, rare and mythic ([ArenaEngine.rarity]);
- * [set] is the set's code ("" for a cube). [bonus]: a set's special or bonus card, in its [rarity]'s bonus bag (DRF-291).
+ * set (one is chosen at random when it is offered: by [weights], else each alike). [rarity] is one of common, uncommon,
+ * rare and mythic ([ArenaEngine.rarity]); [set] is the set's code ("" for a cube). [bonus]: a set's special or bonus card,
+ * in its [rarity]'s bonus bag (DRF-291). [weights]: DRF-305, how often the set's booster recipe puts each of [printings] in
+ * a pack ([ArenaEngine.printingWeights]), in step with them; empty when the recipe gives none of them a frequency.
  */
 @Serializable data class ArenaCard(val id: String, val printings: List<String>, val colors: Set<DraftColor> = emptySet(),
-    val rarity: SetCardRarity = SetCardRarity.COMMON, val set: String = "", val bonus: Boolean = false)
+    val rarity: SetCardRarity = SetCardRarity.COMMON, val set: String = "", val bonus: Boolean = false,
+    val weights: List<Long> = emptyList())
 
 /** An offer that had too few cards of its rarity (DRF-285): [count] of its cards came from [used] in place of [wanted]. */
 @Serializable data class ArenaFill(val player: String, val pick: Int, val wanted: SetCardRarity, val used: SetCardRarity, val count: Int)
@@ -114,7 +117,8 @@ object ArenaEngine {
      * set's boosters hold them (a sheet of its recipe names that printing; without a recipe its approximate packs draw from
      * every card of the set), else left out too. So are printings [own] says are not the set's own (cards of other sets
      * its booster recipe names). A card all of whose printings in the set are special or bonus is a bonus card (DRF-291):
-     * its rarity is [tier] (the lowest rarity of its printings elsewhere, by its name), or rare without one.
+     * its rarity is [tier] (the lowest rarity of its printings elsewhere, by its name), or rare without one. Each card's
+     * printings carry how often the set's booster recipe puts them in a pack (DRF-305, [printingWeights]).
      */
     fun setCards(sets: List<SetSourceSnapshot>, own: (set: String, uuid: String) -> Boolean = { _, _ -> true },
         tier: (card: String) -> SetCardRarity? = { null }): List<ArenaCard> =
@@ -124,12 +128,51 @@ object ArenaEngine {
                     val normal = printings.filter { !special(it.rarity) }
                     val bonus = normal.isEmpty()
                     val shown = if (bonus) printings else normal
-                    ArenaCard("${set.setCode}:$card", shown.map { it.definition }.distinct(),
+                    val definitions = shown.map { it.definition }.distinct()
+                    ArenaCard("${set.setCode}:$card", definitions,
                         shown.flatMap { it.colors }.sortedBy { it.ordinal }.toSet(),
                         if (bonus) rarity(SetCardRarity.SPECIAL, tier(card)) else ArenaEngine.tier(normal.map { rarity(it.rarity) }) ?: SetCardRarity.COMMON,
-                        set.setCode, bonus)
+                        set.setCode, bonus, set.recipe?.takeIf { definitions.size > 1 }?.let { recipe -> printingWeights(recipe, shown, definitions) }.orEmpty())
                 }
         }
+
+    /** DRF-305: the frequency scale, a printing's expected copies per pack times this, rounded. */
+    private const val WEIGHT_SCALE = 1_000_000_000.0
+
+    /**
+     * DRF-305 (owner, 2026-11-21): how often [recipe]'s packs hold each of [definitions] (a card's printings in the set,
+     * [shown] giving each printing's uuid): its expected copies per pack (each booster kind by its weight, each slot of a
+     * sheet by the printing's share of the sheet), scaled to whole numbers. A printing the recipe never puts in a pack
+     * weighs 0; empty when it puts none of them in, so they are each chosen alike.
+     */
+    fun printingWeights(recipe: SetBoosterRecipe, shown: List<SetSourceCard>, definitions: List<String>): List<Long> {
+        val total = recipe.boosters.sumOf { it.weight }.toDouble()
+        if (total <= 0.0) return emptyList()
+        // Each sheet's expected draws per pack
+        val draws = recipe.boosters.flatMap { booster -> booster.contents.map { (sheet, count) -> sheet to count * booster.weight / total } }
+            .groupBy({ it.first }, { it.second }).mapValues { it.value.sum() }
+        fun perPack(uuid: String): Double = draws.entries.sumOf { (name, count) ->
+            val sheet = recipe.sheets[name] ?: return@sumOf 0.0
+            val weight = sheet.cards[uuid] ?: 0L
+            // The sheet's own weights, not its stated total (SetBoosterRecipe: totals are never trusted)
+            val sheetTotal = sheet.cards.values.sumOf { it.coerceAtLeast(0L) }
+            if (weight <= 0L || sheetTotal <= 0L) 0.0 else count * weight.toDouble() / sheetTotal
+        }
+        val weights = definitions.map { definition ->
+            kotlin.math.round(shown.filter { it.definition == definition }.sumOf { perPack(it.uuid) } * WEIGHT_SCALE).toLong()
+        }
+        return if (weights.all { it <= 0L }) emptyList() else weights
+    }
+
+    /** DRF-305: one of [card]'s printings, by its [ArenaCard.weights], else each alike. */
+    private fun printing(card: ArenaCard, words: RandomV1.Words): String {
+        if (card.printings.size == 1) return card.printings.single()
+        val weights = card.weights.takeIf { it.size == card.printings.size && it.sum() > 0L }
+            ?: return card.printings[RandomV1.sample(card.printings.size, words::next)]
+        var at = RandomV1.sample(weights.sum(), words::next)
+        for ((index, weight) in weights.withIndex()) { if (at < weight) return card.printings[index]; at -= weight }
+        return card.printings[weights.indexOfLast { it > 0L }]
+    }
 
     private fun offered(set: SetSourceSnapshot, card: SetSourceCard): Boolean = when (card.card) {
         in PLAIN_BASICS -> false
@@ -274,8 +317,7 @@ object ArenaEngine {
         }
         val seat = state.seating.indexOf(player)
         val copies = chosen.mapIndexed { slot, card ->
-            val printing = if (card.printings.size == 1) card.printings.single() else card.printings[RandomV1.sample(card.printings.size, words::next)]
-            DraftCopy("offer-$seat-$index:copy:$slot", printing, card.colors)
+            DraftCopy("offer-$seat-$index:copy:$slot", printing(card, words), card.colors)
         }
         val pack = DraftPack("offer-$seat-$index", index, player, index + 1, copies.map { it.id })
         return state.copy(copies = state.copies + copies, packs = state.packs + pack, queues = state.queues + (player to listOf(pack.id)),

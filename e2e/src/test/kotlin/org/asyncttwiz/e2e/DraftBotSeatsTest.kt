@@ -1,17 +1,12 @@
 package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasAnyDescendant
-import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextReplacement
 import org.asyncttwiz.android.PodTab
 import org.asyncttwiz.android.ShellDestination
 import org.asyncttwiz.protocol.*
@@ -22,24 +17,23 @@ import kotlin.test.assertTrue
 
 /** Draft bot seats (owner, 2026-11-21): a pod's creator adds bots in setup, and two people draft with them to the end. */
 class DraftBotSeatsTest : E2e() {
-    // DRF-296, DRF-297, DRF-298, DRF-301, DRF-030: Alice sets her Booster pod's Bots tile to 2 in setup and sees Bot 1 and Bot 2
-    // listed as bots (Members 3/8); Bob joins and the draft starts; the bots are in the header's avatars and pick at once on
-    // the server, so Alice (on her phone) and Bob (over the API) draft to the end without ever waiting for a bot; the Games tab
-    // then lists only Bob
+    // DRF-296, DRF-297, DRF-298, DRF-301, DRF-030: Alice taps + twice on the Bots stepper beside her Booster pod's invite button
+    // in setup (there is no Bots tile) and sees Bot 1 and Bot 2 listed as bots (Members 3/8); Bob joins and the draft starts;
+    // the bots are in the header's avatars and pick at once on the server, so Alice (on her phone) and Bob (over the API) draft
+    // to the end without ever waiting for a bot; the Games tab then lists only Bob
     @Test fun twoPeopleAndTwoBotsDraftAPodToItsEnd() {
         launchPlayers()
         val name = "E2E bots ${UUID.randomUUID().toString().take(6)}"
         val pod = ServerSetup.setupPod(alice.account, name, settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
         alice.auth.navigate(ShellDestination.PODS)
         alice.pods.open(pod)
-        waitUntil("Alice's pod setup with the Bots tile") { alice.shows(hasTestTag("pod-setting-bots")) }
+        waitUntil("Alice's pod setup with the Bots stepper") { alice.shows(hasTestTag("pod-bots")) }
 
-        // The Bots tile: its dialog takes 2
-        val field = hasSetTextAction() and hasAnyAncestor(isDialog())
-        alice.tagged("pod-setting-bots").performScrollTo().performClick()
-        waitUntil("the Bots dialog") { alice.shows(field) && alice.showsText("0–6") }
-        alice.node(field).performTextReplacement("2")
-        alice.node(hasClickAction() and hasAnyDescendant(hasText("Save")) and hasAnyAncestor(isDialog())).performClick()
+        // The stepper: + twice
+        for (bots in 1..2) {
+            alice.tagged("pod-bots-more").performScrollTo().performClick()
+            waitUntil("$bots bots shown") { alice.shows(hasTestTag("pod-bots-value") and hasText("$bots")) }
+        }
         waitUntil("the bots saved and listed") {
             alice.pods.state.setup == null && alice.pods.state.pending == 0 && ServerSetup.pod(alice.account, pod).settings.bots == 2 &&
                 alice.showsText("Members (3/8)") && alice.showsText("Bot 2")

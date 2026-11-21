@@ -374,6 +374,7 @@ fun screenIcon(kind: String): ImageVector = when (kind) {
     "settings" -> Icons.Outlined.Settings
     "stats" -> Icons.Outlined.BarChart
     "add" -> Icons.Outlined.Add
+    "remove" -> Icons.Outlined.Remove
     "news" -> Icons.Outlined.AutoAwesome
     "report" -> Icons.Outlined.BugReport
     "sync" -> Icons.Outlined.Sync

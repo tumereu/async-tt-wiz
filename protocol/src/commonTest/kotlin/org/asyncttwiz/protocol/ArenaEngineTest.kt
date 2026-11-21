@@ -161,6 +161,36 @@ class ArenaEngineTest {
         assertEquals(SetCardRarity.COMMON, ArenaEngine.rarity(SetCardRarity.UNKNOWN))
     }
 
+    // DRF-305 (owner, 2026-11-21): a card's printing in an offer goes by how often the set's booster recipe puts each printing
+    // in a pack: Card 0's normal printing fills 5 slots of a 10-card sheet (0.5 a pack), its retro one 1 slot of a 5-card sheet
+    // (0.2), its poster none (never offered); without a recipe each printing alike
+    @Test fun aSetCardsPrintingGoesByItsBoosterFrequency() {
+        val printings = List(10) { SetSourceCard("def-$it-a", "u$it-a", SetCardRarity.COMMON, card = "Card $it") } +
+            List(5) { SetSourceCard("def-$it-b", "u$it-b", SetCardRarity.COMMON, card = "Card $it") } +
+            SetSourceCard("def-0-c", "u0-c", SetCardRarity.COMMON, card = "Card 0")
+        val recipe = SetBoosterRecipe(listOf(SetBoosterComposition(mapOf("common" to 5, "retro" to 1), 3)),
+            mapOf("common" to SetBoosterSheet(List(10) { "u$it-a" to 1L }.toMap()), "retro" to SetBoosterSheet(List(5) { "u$it-b" to 1L }.toMap())))
+        val weighted = ArenaEngine.setCards(listOf(SetSourceSnapshot("TST", "Test", printings, recipe)))
+        val card0 = weighted.single { it.id == "TST:Card 0" }
+        assertEquals(listOf("def-0-a", "def-0-b", "def-0-c"), card0.printings)
+        assertEquals(listOf(500_000_000L, 200_000_000L, 0L), card0.weights)
+        assertEquals(emptyList(), weighted.single { it.id == "TST:Card 7" }.weights, "one printing: nothing to choose")
+        fun drawn(cards: List<ArenaCard>): Map<String, Int> {
+            val settings = settings(picks = ArenaEngine.MAX_PICKS, cards = 10).copy(rareEvery = null, uncommonEvery = null)
+            var state = start(cards, settings, cube = false, pickSets = List(ArenaEngine.MAX_PICKS) { "TST" })
+            repeat(ArenaEngine.MAX_PICKS) { for (player in listOf("p0", "p1")) state = pickFirst(state, player) }
+            return state.copies.map { it.definition }.filter { it.startsWith("def-0-") }.groupingBy { it }.eachCount()
+        }
+        val byFrequency = drawn(weighted)
+        assertEquals(2 * ArenaEngine.MAX_PICKS, byFrequency.values.sum())
+        assertNull(byFrequency["def-0-c"], "the poster printing is in no pack")
+        // 0.2 of 0.7: about 69 of 240 retro
+        assertTrue(byFrequency.getValue("def-0-b") in 45..95, "$byFrequency")
+        val alike = drawn(ArenaEngine.setCards(listOf(SetSourceSnapshot("TST", "Test", printings))))
+        assertEquals(setOf("def-0-a", "def-0-b", "def-0-c"), alike.keys)
+        assertTrue(alike.values.all { it in 55..105 }, "about 80 each: $alike")
+    }
+
     // DRF-286 (owner, 2026-11-20): snow-covered basics and Wastes are ordinary cards of a set whose boosters hold them (a sheet of
     // its recipe names the printing; without a recipe its approximate packs draw from every card); the five plain basics never are
     @Test fun snowCoveredBasicsAndWastesAreOfferedWhenTheSetsBoostersHoldThem() {

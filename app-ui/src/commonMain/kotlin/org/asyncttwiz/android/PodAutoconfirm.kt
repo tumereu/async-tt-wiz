@@ -6,12 +6,16 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,15 +24,16 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,15 +45,19 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.appui.AppPlatform
 
 /**
  * DRF-293, DRF-294, LOB-264 (owner, 2026-11-21): draft autoconfirm, personal UI kept on the device. Each draft attempt has
- * its own Auto toggle beside the pick's Confirm (Booster, Glimpse, Custom booster, Arena and Grid); a draft whose toggle was never touched starts as Settings' "Autoconfirm
+ * its own Auto toggle, the tip at the right end of the pick's Confirm (Booster, Glimpse, Custom booster, Arena and Grid); a draft whose toggle was never touched starts as Settings' "Autoconfirm
  * draft picks" says (off by default).
  */
 class PodAutoconfirmPreferences(platform: AppPlatform) {
@@ -142,39 +151,44 @@ fun Modifier.podAutoconfirmShine(on: Boolean, shape: Shape = ButtonDefaults.shap
     }
 }
 
+/** DRF-293: the width of Auto, the tip at Confirm's right end. */
+val PodAutoTipWidth = 52.dp
+
 /**
- * DRF-293: the Auto toggle beside the pick's Confirm: a bolt and "Auto", outlined while off, filled yellow while on.
+ * DRF-293, DRF-294 (owner, 2026-11-21): the pick's Confirm with Auto as its right-hand tip, drawn as one rounded shape with a
+ * thin divider: Confirm takes the rest of [modifier]'s width, Auto ([PodAutoTipWidth] wide) shows a bolt over a small "Auto".
+ * While [auto] is on both are yellow and Confirm has its shine; off, Auto is tonal and Confirm looks as any button. Auto can
+ * always be pressed, also while Confirm can't ([enabled]).
  */
 @Composable
-fun PodAutoconfirmToggle(on: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
-    Surface(modifier.testTag("pod-pick-autoconfirm").clip(ButtonDefaults.shape).toggleable(on, role = Role.Switch, onValueChange = onChange),
-        shape = ButtonDefaults.shape, color = if (on) PodAutoconfirmYellow else MaterialTheme.colorScheme.surface,
-        contentColor = if (on) PodAutoconfirmInk else MaterialTheme.colorScheme.primary,
-        border = BorderStroke(1.dp, if (on) PodAutoconfirmInk.copy(alpha = .35f) else MaterialTheme.colorScheme.outline)) {
-        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center) {
-            Icon(if (on) Icons.Filled.Bolt else Icons.Outlined.Bolt, null, Modifier.size(18.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("Auto", style = MaterialTheme.typography.labelLarge)
-        }
-    }
-}
-
-/** DRF-294: the pick's Confirm, yellow with its shine while [auto] is on. */
-@Composable
-fun PodConfirmButton(auto: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, label: String = "Confirm") {
-    Button(onClick = onClick, enabled = enabled, colors = podConfirmColors(auto), modifier = modifier.podAutoconfirmShine(auto)) {
-        ButtonLabel("ready", label)
-    }
-}
-
-/** DRF-293: a full-width row of the Auto toggle and then [confirm], which takes the rest of it (the phone's pick; Grid's on
- * every layout). */
-@Composable
-fun PodAutoconfirmRow(auto: Boolean, onAuto: (Boolean) -> Unit, modifier: Modifier = Modifier, confirm: @Composable (Modifier) -> Unit) {
-    Row(modifier.fillMaxWidth().testTag("pod-pick-confirm-row"), horizontalArrangement = Arrangement.spacedBy(8.dp),
+fun PodConfirmAuto(auto: Boolean, onAuto: (Boolean) -> Unit, enabled: Boolean, onConfirm: () -> Unit, confirmTag: String,
+    modifier: Modifier = Modifier, label: String = "Confirm") {
+    val colors = podConfirmColors(auto)
+    val shape = ButtonDefaults.shape
+    // At least a button's height, else as tall as its content asks: the two parts fill that height, never what the parent offers
+    Row(modifier.heightIn(min = ButtonDefaults.MinHeight).height(IntrinsicSize.Min).clip(shape).testTag("pod-confirm-auto"),
         verticalAlignment = Alignment.CenterVertically) {
-        PodAutoconfirmToggle(auto, onAuto, Modifier.height(40.dp))
-        confirm(Modifier.weight(1f))
+        val confirmContent = if (enabled) colors.contentColor else colors.disabledContentColor
+        Box(Modifier.weight(1f).fillMaxHeight().background(if (enabled) colors.containerColor else colors.disabledContainerColor)
+            .podAutoconfirmShine(auto, RectangleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onConfirm).testTag(confirmTag),
+            contentAlignment = Alignment.Center) {
+            CompositionLocalProvider(LocalContentColor provides confirmContent) {
+                ProvideTextStyle(MaterialTheme.typography.labelLarge) {
+                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) { ButtonLabel("ready", label) }
+                }
+            }
+        }
+        // The thin divider between the two
+        Box(Modifier.width(1.dp).fillMaxHeight().background(if (auto) PodAutoconfirmInk.copy(alpha = .35f) else MaterialTheme.colorScheme.surface))
+        Column(Modifier.width(PodAutoTipWidth).fillMaxHeight()
+            .background(if (auto) PodAutoconfirmYellow else MaterialTheme.colorScheme.secondaryContainer)
+            .toggleable(auto, role = Role.Switch, onValueChange = onAuto).testTag("pod-pick-autoconfirm")
+            .semantics { contentDescription = "Auto" },
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            val content = if (auto) PodAutoconfirmInk else MaterialTheme.colorScheme.onSecondaryContainer
+            Icon(if (auto) Icons.Filled.Bolt else Icons.Outlined.Bolt, null, Modifier.size(16.dp), tint = content)
+            Text("Auto", color = content, fontSize = 10.sp, lineHeight = 11.sp, maxLines = 1)
+        }
     }
 }

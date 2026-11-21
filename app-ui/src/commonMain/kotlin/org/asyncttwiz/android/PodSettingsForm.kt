@@ -45,9 +45,7 @@ enum class PodSetting(val label: String) {
     /** Arena (DRF-281): the rarity intervals; empty = never. */
     RARE_EVERY("Rare every"), UNCOMMON_EVERY("Uncommon every"),
     /** Arena (DRF-282): the mythic chance, 1 in N; empty = never. */
-    MYTHIC("Mythic"),
-    /** DRF-296: seats the server fills with draft bots, in the modes that take them. */
-    BOTS("Bots");
+    MYTHIC("Mythic");
 
     fun value(s: DraftSettings): Int? = when (this) {
         PACKS -> s.packsPerPlayer; PACK_SIZE -> s.cardsPerPack; KEEP -> s.keep; BURN -> s.burn
@@ -59,7 +57,6 @@ enum class PodSetting(val label: String) {
         TABLES -> s.tables
         PICKS -> s.packsPerPlayer; OFFER_CARDS -> s.cardsPerPack; TAKE -> s.keep; INITIAL_RARES -> s.initialRares
         RARE_EVERY -> s.rareEvery; UNCOMMON_EVERY -> s.uncommonEvery; MYTHIC -> s.mythicOneIn
-        BOTS -> s.bots
     }
     /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player), Arena's
      * rarity intervals and mythic chance "Never". */
@@ -93,7 +90,6 @@ enum class PodSetting(val label: String) {
         INITIAL_RARES -> 0..ArenaEngine.MAX_PICKS
         RARE_EVERY, UNCOMMON_EVERY -> 1..ArenaEngine.MAX_PICKS
         MYTHIC -> 1..ArenaEngine.MAX_MYTHIC_ONE_IN
-        BOTS -> 0..s.mode.maxBots
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
@@ -119,7 +115,6 @@ enum class PodSetting(val label: String) {
         INITIAL_RARES -> "0–${ArenaEngine.MAX_PICKS}"
         RARE_EVERY, UNCOMMON_EVERY -> "1–${ArenaEngine.MAX_PICKS} or Never"
         MYTHIC -> "1 in 1–${ArenaEngine.MAX_MYTHIC_ONE_IN} or Never"
-        BOTS -> "0–${s.mode.maxBots}; the pod needs one more player besides you"
     }
     /** Plain-words meaning shown in the value dialog. */
     fun explanation(s: DraftSettings): String = when (this) {
@@ -149,7 +144,6 @@ enum class PodSetting(val label: String) {
         RARE_EVERY -> "Every this many picks the offer is of rares. Never = no rare picks."
         UNCOMMON_EVERY -> "Every this many picks the offer is of uncommons, unless it is a rare pick. Other picks offer commons. Never = no uncommon picks."
         MYTHIC -> "On a rare pick, each card offered is a mythic rare instead with a chance of 1 in this number. Never = no mythic rares."
-        BOTS -> "Seats filled by draft bots. A bot picks the moment the draft reaches it, so nobody waits for it; bots only draft and play no games."
     }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
     /** [s] with this setting [value]; null (no value) only for a setting with [emptyText], else [s] unchanged (reported). */
@@ -173,14 +167,22 @@ enum class PodSetting(val label: String) {
             PICKS -> s.copy(packsPerPlayer = value); OFFER_CARDS -> s.copy(cardsPerPack = value); TAKE -> s.copy(keep = value)
             INITIAL_RARES -> s.copy(initialRares = value)
             RARE_EVERY -> s.copy(rareEvery = value); UNCOMMON_EVERY -> s.copy(uncommonEvery = value); MYTHIC -> s.copy(mythicOneIn = value)
-            // DRF-028: Grid's two picks are for two players only, so a bot switches them off
-            BOTS -> s.copy(bots = value, twoPicks = s.twoPicks && value == 0)
         }
     }
 }
 
-/** The tiles a mode shows (DRF-022), Bots (DRF-296) and then Sideboard last; the pack size only where the source doesn't fix
- * it (DRF-024). */
+/** DRF-296: the bot seats a mode allows, 0 up to its player limit less two. */
+fun podBotRange(settings: DraftSettings): IntRange = 0..settings.mode.maxBots
+
+/** DRF-296: [this] with [bots] bot seats, kept within [podBotRange]; DRF-028: Grid's two picks are for two players only, so
+ * a bot switches them off. */
+fun DraftSettings.withBots(bots: Int): DraftSettings {
+    val seats = bots.coerceIn(podBotRange(this))
+    return copy(bots = seats, twoPicks = twoPicks && seats == 0)
+}
+
+/** The tiles a mode shows (DRF-022), Sideboard last; the pack size only where the source doesn't fix it (DRF-024). Bot seats
+ * have their stepper among the members (DRF-296), not a tile. */
 fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSetting> {
     val packSize = source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE
     return when (settings.mode) {
@@ -197,7 +199,7 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
         // DRF-281, DRF-282: offers are never a set's booster, so their size is always set
         DraftMode.ARENA -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.INITIAL_RARES, PodSetting.RARE_EVERY,
             PodSetting.UNCOMMON_EVERY, PodSetting.MYTHIC)
-    } + listOfNotNull(PodSetting.BOTS.takeIf { settings.mode.botSeats }) + PodSetting.SIDEBOARD
+    } + PodSetting.SIDEBOARD
 }
 
 /** The modes the mode button's popup lists (DRF-020); Glimpse is a preset of Booster (DRF-031), not a mode. */
@@ -363,6 +365,37 @@ private fun PodPassNumberPopup(title: String, explanation: String, value: Int, r
         OutlinedTextField(input.value, { input.value = it }, Modifier.fillMaxWidth().dialogField(input), singleLine = true,
             label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             keyboardActions = submitKeyboardActions(saveEnabled, submit = confirm))
+    }
+}
+
+/**
+ * DRF-296 (owner, 2026-11-21): "Bots − N +" among the pod setup's members, by the invite button: the creator's bot seats, one
+ * fewer or one more a tap within [podBotRange]; holding − or + says what it does.
+ */
+@Composable
+fun PodBotsStepper(settings: DraftSettings, enabled: Boolean, change: ((DraftSettings) -> DraftSettings) -> Unit, modifier: Modifier = Modifier) {
+    val range = podBotRange(settings)
+    fun set(bots: Int, why: String) {
+        AppLog.info("pod", "Setup: bot seats ${settings.bots} -> $bots ($why)")
+        change { it.withBots(bots) }
+    }
+    Row(modifier.testTag("pod-bots"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Bots", style = MaterialTheme.typography.labelLarge)
+        PodBotsStepButton("One bot fewer", "remove", "pod-bots-fewer", enabled && settings.bots > range.first) { set(settings.bots - 1, "−") }
+        Text(settings.bots.toString(), Modifier.widthIn(min = 24.dp).testTag("pod-bots-value"),
+            style = MaterialTheme.typography.titleMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        PodBotsStepButton("One bot more", "add", "pod-bots-more", enabled && settings.bots < range.last) { set(settings.bots + 1, "+") }
+    }
+}
+
+/** One of the Bots stepper's − and + (DRF-296): an outlined icon button, holding it says what it does. */
+@Composable
+private fun PodBotsStepButton(description: String, icon: String, tag: String, enabled: Boolean, onClick: () -> Unit) {
+    HoldTip(description) {
+        OutlinedIconButton(onClick, Modifier.size(48.dp).testTag(tag), enabled, shape = MaterialTheme.shapes.small,
+            border = BorderStroke(1.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outline.copy(alpha = .38f))) {
+            EntryIcon(description, icon)
+        }
     }
 }
 

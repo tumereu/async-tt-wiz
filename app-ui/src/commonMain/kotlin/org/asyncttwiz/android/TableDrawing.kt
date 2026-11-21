@@ -57,7 +57,9 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     mana: Map<String, Float> = emptyMap(),
     /** Whether the piles' count bubbles are drawn here; false when the caller draws them over its overlays
      * ([drawPileBadges]: over the Stack's target arrows, STK-058). */
-    pileBadges: Boolean = true) {
+    pileBadges: Boolean = true,
+    /** WEB-140: the item the mouse is over on the desktop table (an item id), outlined thinly in dark ink. */
+    hovered: String? = null) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     for (f in scene.fields) {
@@ -159,6 +161,13 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
                 size((b.width - 2 * inset).coerceAtLeast(0f), (b.height - 2 * inset).coerceAtLeast(0f)), style = Stroke(2 * density))
         }
         val outset = if (card) 2f else 0f
+        // WEB-140: the item the mouse is over, as a card shows hover off the table (HoverLook.Outline): a thin dark outline,
+        // under the press's amber one
+        if (i.id == hovered) {
+            val width = HOVER_OUTLINE_WIDTH
+            val o = if (card) outset else -width / 2
+            drawRect(HoverOutlineInk, xy(b.x - o, b.y - o), size(b.width + 2 * o, b.height + 2 * o), style = Stroke(width * density))
+        }
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x - outset, b.y - outset),
             size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2 * density))
         if (sources.isNotEmpty() && i.zone == PlayZone.BATTLEFIELD && !i.projection && i.cardId in sources) {

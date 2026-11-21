@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -109,6 +110,7 @@ fun ChatBubblesOverlay(scene: TableScene, viewer: String, bubbles: TableChatBubb
                 onClick("Read") { read(incoming.messageId); true }
                 onLongClick("Open chat") { open(incoming.messageId); true }
             }
+            .hoverLook(HoverLook.Tint(OpponentTableColor, RoundedCornerShape((6 * other.scale).dp)))
             .pointerInput(incoming.messageId) {
                 detectTapGestures(onTap = { read(incoming.messageId) }, onLongPress = { open(incoming.messageId) })
             }) {

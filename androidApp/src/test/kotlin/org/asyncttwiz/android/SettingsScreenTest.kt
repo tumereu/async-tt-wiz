@@ -120,6 +120,20 @@ class SettingsScreenTest {
         compose.runOnIdle { assertTrue(MoveVibrationPreferences(AppPlatform.current).enabled) }
     }
 
+    // LOB-263: a test build's About & account has "Show bot picks" under Send error reports, off by default and kept on the device
+    @Test fun showBotPicksIsATestBuildSwitchOffByDefault() {
+        assertTrue(draftBotSettingOffered, "the unit tests are a debug build")
+        compose.setContent { ScreenTheme { SettingsContent(null, "draft-bot") {} } }
+        compose.onNodeWithTag("draft-bot-setting").performScrollTo().assertIsOff()
+        compose.onNodeWithText("Show bot picks").assertIsDisplayed()
+        assertTrue(compose.onNodeWithTag("draft-bot-setting").getUnclippedBoundsInRoot().top >
+            compose.onNodeWithTag("reports-setting").getUnclippedBoundsInRoot().top)
+        compose.onNodeWithTag("draft-bot-setting").performClick().assertIsOn()
+        compose.runOnIdle { assertTrue(DraftBotPreferences(AppPlatform.current).enabled, "kept on the device") }
+        compose.onNodeWithTag("draft-bot-setting").performClick().assertIsOff()
+        compose.runOnIdle { assertFalse(DraftBotPreferences(AppPlatform.current).enabled) }
+    }
+
     @Test fun withoutAnAccountTheGamesSectionIsHiddenAndOtherSectionsKeepTheirOrder() {
         compose.setContent { ScreenTheme { SettingsContent(null, "no-account") {} } }
         compose.onNodeWithText("Games").assertDoesNotExist()

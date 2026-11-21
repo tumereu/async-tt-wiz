@@ -38,7 +38,7 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     /** Opens the web app at [path] and signs in as [account] (a first sign-in's avatar offer skipped): on the menu or
      * at [path]'s screen. */
     fun signIn(account: TestAccount, path: String = "/") {
-        page.navigate("${E2eStack.origin}$path")
+        navigate(path)
         // WEB-005: the loading screen until the app draws
         waitFor("#email", 120_000.0)
         tap("#email")
@@ -72,7 +72,22 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
         tabs += tab
         tab.onConsoleMessage { tabConsole += "${it.type()}: ${it.text()}" }
         tab.onPageError { tabConsole += "pageerror: $it" }
-        tab.navigate("${E2eStack.origin}$path")
+        navigate(path, tab)
+    }
+
+    /**
+     * Opens [path] of the test server's site in [on]. Chrome's first connection to the local server once failed under load
+     * with net::ERR_SOCKET_NOT_CONNECTED (WebNotificationsTest in the full run of 2026-11-20; the server was up and the rerun
+     * passed): such a failure to connect at all is tried once more, said in the test's output, before it fails the test.
+     */
+    fun navigate(path: String, on: Page = page) {
+        val url = "${E2eStack.origin}$path"
+        try { on.navigate(url) } catch (failure: com.microsoft.playwright.PlaywrightException) {
+            val error = CONNECT_ERRORS.firstOrNull { it in failure.message.orEmpty() } ?: throw failure
+            println("E2eBrowser: $error opening $url; trying once more")
+            on.waitForTimeout(1_000.0)
+            on.navigate(url)
+        }
     }
 
     /** The site may show notifications (as if the player had allowed them in the browser's prompt). */
@@ -100,11 +115,33 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     fun box(selector: String): com.microsoft.playwright.options.BoundingBox {
         val deadline = System.nanoTime() + 5_000_000_000L
         while (true) {
-            page.locator(selector).first().takeIf { page.locator(selector).count() > 0 }?.boundingBox()?.let { return it }
+            boxes(selector).firstOrNull()?.let { return it }
             check(System.nanoTime() < deadline) { "$selector has no place on the page" }
             Thread.sleep(100)
         }
     }
+
+    /**
+     * Where the semantics mirror places each element [selector] finds now (CSS px of the page; those it gives no size left
+     * out), read in one look that never waits. Playwright's own reads of one element (its box, an attribute) wait up to 30 s
+     * for the element when it has left the mirror since it was counted, and meanwhile the test thread runs no round of the
+     * phones: WebGameFlowTest (2026-11-21) waited so for the main button, gone from the mirror with Alice's Keep, while
+     * Bob's Keep, which would bring it back, waited on his phone for the test thread to send it.
+     */
+    fun boxes(selector: String): List<com.microsoft.playwright.options.BoundingBox> {
+        @Suppress("UNCHECKED_CAST")
+        val rects = page.locator(selector).evaluateAll(RECTS) as List<List<Number>>
+        return rects.map { (x, y, width, height) ->
+            com.microsoft.playwright.options.BoundingBox().apply {
+                this.x = x.toDouble(); this.y = y.toDouble(); this.width = width.toDouble(); this.height = height.toDouble()
+            }
+        }
+    }
+
+    /** The label (aria-label, else the text) of the first element [selector] finds now, null when it finds none; one look
+     * that never waits ([boxes]). */
+    fun label(selector: String): String? = page.locator(selector).evaluateAll(
+        "es => es.length ? (es[0].getAttribute('aria-label') ?? es[0].textContent) : null") as String?
 
     /** Where the semantics mirror places what [selector] finds once that place has held for 1.5 s (waiting up to 20 s):
      * Compose copies the screen into the mirror only once the screen has been still for 100 ms, and at least once a second
@@ -154,9 +191,7 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     fun showsControl(label: String): Boolean = shows(control(label))
 
     /** The main button's words (its semantics label), null while it isn't shown. */
-    fun mainWords(): String? = page.locator("#main-button").takeIf { it.count() > 0 }?.first()?.let { button ->
-        button.getAttribute("aria-label") ?: button.textContent()
-    }
+    fun mainWords(): String? = label("#main-button")
 
     /** The text in the text field [selector] finds (its value as the page's semantics mirror holds it), "" when empty. */
     fun fieldText(selector: String): String = page.locator(selector).first().evaluate(
@@ -184,6 +219,11 @@ internal class E2eBrowser(width: Int = 412, height: Int = 860, chromeArgs: List<
     }
 
     private companion object {
+        /** Chrome's errors for a connection to the server that never came about ([navigate]). */
+        val CONNECT_ERRORS = listOf("net::ERR_SOCKET_NOT_CONNECTED", "net::ERR_CONNECTION_REFUSED", "net::ERR_CONNECTION_RESET")
+        /** Each element's place [x, y, width, height] (CSS px of the page), those without a size left out ([boxes]). */
+        const val RECTS = """es => es.map(e => e.getBoundingClientRect()).filter(r => r.width > 0 || r.height > 0)
+            .map(r => [r.x, r.y, r.width, r.height])"""
         /** The computed cursor of the element at the point ([x, y]), looking into shadow roots. */
         const val CURSOR = """([x, y]) => {
             let e = document.elementFromPoint(x, y);

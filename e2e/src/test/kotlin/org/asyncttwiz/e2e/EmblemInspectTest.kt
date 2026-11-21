@@ -22,6 +22,11 @@ class EmblemInspectTest : E2e() {
     /** Inspect's emblem tiles [player] sees now (the chips aside). */
     private fun tiles(player: E2ePlayer) = player.nodes(emblem).fetchSemanticsNodes().size - player.nodes(chips).fetchSemanticsNodes().size
 
+    /** Whether [player]'s table shows its emblem chip with no play being shown (HIS-112): a hold during a play show holds the
+     * show (HoldToPauseTest), not the chip, and Inspect doesn't open (Bob's hold during Alice's Sigil's show, full run 2026-11-20). */
+    private fun chipAtRest(player: E2ePlayer) = player.shows(chips) && player.shown.let { it.show == null && it.moments.isEmpty() } &&
+        !player.shows(hasTestTag(org.asyncttwiz.android.PLAY_SHOW_TAG))
+
     // TRN-053, TRN-129, SYS-066: the emblem's chip on both tables; holding it on either inspects Alice's emblems
     @Test fun holdingAnEmblemChipInspectsTheEmblems() {
         startGame(TestDeck.sigils(), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
@@ -34,7 +39,7 @@ class EmblemInspectTest : E2e() {
             alice.shown.board.board.engineRecords.any { it.kind == EngineRecordKind.Emblem && it.player == alice.me.value } &&
                 alice.inOwnMain()
         }
-        waitUntil("the emblem chip by Alice's life square") { alice.shows(chips) }
+        waitUntil("the emblem chip by Alice's life square") { chipAtRest(alice) }
         assertEquals(1, alice.nodes(chips).fetchSemanticsNodes().size)
         assertEquals(0, tiles(alice), "no Inspect before the hold")
         holding(alice.node(chips)) {
@@ -46,7 +51,7 @@ class EmblemInspectTest : E2e() {
         }
         assertTrue(!alice.shows(hasContentDescription("Card inspection content")), "closed on release")
         // Bob sees Alice's emblem by her life square and inspects it the same way
-        waitUntil("Alice's emblem on Bob's table", along = listOf(alice)) { bob.shows(chips) }
+        waitUntil("Alice's emblem on Bob's table, its play shown", along = listOf(alice)) { chipAtRest(bob) }
         holding(bob.node(chips)) {
             assertEquals(1, tiles(bob), bob.screen())
             assertTrue(bob.showsText(EMBLEM_TEXT, substring = true), "the emblem's text on Bob's table: ${bob.screen()}")

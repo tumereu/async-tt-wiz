@@ -24,6 +24,7 @@ pictures come from Scryfall when first needed and are kept on the phone.
 - **LOB-113** Automatum → "Response mode in new games" (Control, Normal or Quick, the default, each with what it means), "Assume resolves in new games" (Never, Normal, When they have no mana, the default for every account, or Always, each with what it means, HIS-096) and "Autotap mana sources" (on by default, STK-024). (r60)
 - **LOB-228** The Automatum settings (LOB-113) are kept on the server for your account (every device shows the same) and given to each new game; each game's own are changed from its quick actions (TRN-059). (r60)
 - **LOB-083** About & account → What's new, Report a problem, Send error reports (LOB-104), the version line "Version <name> (<code>) <type> · commit <hash>" (selectable), and Log out. (r35)
+- **LOB-263** Test builds only (debug and the personal test build; never a release, on the phone or in the browser): About & account has "Show bot picks" under Send error reports, a switch, off by default and kept on the device, that shows the draft bot's scores and picks on the draft screens (DRF-292).
 
 ## App updates
 

@@ -27,10 +27,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Features, in this order:
 
-1. Hover sweep (desktop): everything that can be clicked (hand cards, Undo, the main button, Resolve …) answers the pointer with a hover look, beyond today's hand pointer (WEB-058; new entries).
-4. Draft bots, in place of burns: drafters that pick by a simple heuristic (no outside pick data), plus a debug-build-only setting that shows the bot's score for each card and its pick on the draft screen, so the owner can draft as the bot and judge the deck (new entries).
-
-- Test reliability (internal; no catalog entry): the e2e harness's declare and pickBlocker taps don't wait for the main button's Automatum worker (StagingFromStackTest's declared-attackers case depends on it); and tests that fail under load but pass on a rerun: CastDroppedOnRewindTest, StableDecisionIdTest, TurnBannerTest, EmblemInspectTest, WebNotificationsTest (socket error to the local server) and the screen tests' "Compose did not get idle" (PodCubePreparationTest, CardListEditorUiTest, the desktop deck editor and table stack).
+4. Draft bots, in place of burns: the pick heuristic (protocol's `DraftBot`) and the test-build setting "Show bot picks" (LOB-263, DRF-292) are built; bot seats in pods wait for the owner's design (how many, where they are set, which modes).
 
 ### Earlier
 

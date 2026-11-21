@@ -279,6 +279,51 @@ class DraftGalleryScreenshotTest {
             "with a green border and ✓, also in the keep tray above Confirm.")
     }
 
+    // DRF-292, LOB-263: with "Show bot picks" on, Alice's ninth Booster pick shows the bot's score on every card and its pick
+    // framed; a tap on the pick's score lists its parts. Her picks so far are white and blue, so the red Dragon pays for its
+    // colour but stays the pick
+    @Test fun botPicks() {
+        fun card(n: Int, name: String, cost: String, type: String, text: String = "", power: String = "", toughness: String = "") =
+            SubmittedDefinition("bot-$n", CardDefinition(name, listOf(DefinitionFace("face", name, typeLine = type, manaCost = cost,
+                rulesText = text, power = power, toughness = toughness, scryfallId = placeholderPrinting(name))), printingId = "p-$n"))
+        val cards = listOf(
+            card(0, "Skyrend Tyrant", "{3}{R}{R}", "Creature — Dragon", "Flying\nWhen this creature enters, it deals 4 damage to any target.", "5", "5"),
+            card(1, "Quick Cinder", "{R}", "Instant", "Quick Cinder deals 3 damage to any target."),
+            card(2, "Hex Grasp", "{1}{B}", "Instant", "Destroy target creature."),
+            card(3, "Skyward Owl", "{1}{W}", "Creature — Bird", "Flying", "1", "1"),
+            card(4, "Tide Scholar", "{2}{U}", "Creature — Merfolk Wizard", "When this creature enters, draw a card.", "1", "3"),
+            card(5, "Plodding Ox", "{2}{G}", "Creature — Ox", power = "2", toughness = "2"),
+            card(6, "Shrine Path", "", "Land", "{T}: Add {C}."),
+            card(7, "Dawn Cub", "{1}{W}", "Creature — Bear", power = "2", toughness = "2"),
+            card(8, "Mist Adept", "{1}{U}", "Creature — Human Wizard", power = "1", toughness = "2"),
+        )
+        val rarities = mapOf("p-0" to "rare", "p-2" to "uncommon", "p-3" to "uncommon")
+        val bots = PodController(unused<Pods>(), unused<Cubes>(), { "token" }, worker, { it() },
+            filters = PodCardFilters({ ids -> ids.mapNotNull { id -> rarities[id]?.let { id to listOf(CardSearchPrinting("tst", it)) } }.toMap() }))
+        try {
+            DraftBotPreferences(org.asyncttwiz.appui.AppPlatform.current).enabled = true
+            val head = DraftPrivatePack("pack-bot", 1, (0..6).map { DraftCopy("b$it", "bot-$it") }, 9, "bob")
+            val pool = (0..7).map { DraftCopy("w$it", if (it % 2 == 0) "bot-7" else "bot-8") }
+            val detail = detail(PodPhase.DRAFTING, DraftSettings.booster(), boosterMembers).copy(definitions = cards,
+                draft = DraftPrivateView("alice", head, 0, pool, round = 1, rounds = 3))
+            bots.seed(opened(detail))
+            compose.setContent { ScreenTheme { NoRipples { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
+                PodsDestination(bots, alice.accountId, {}, null, {}, mainMenu = {})
+            } } } }
+            settle()
+            compose.onNodeWithTag("draft-bot-b0").assertTextEquals("Bot pick 54")
+            compose.onNodeWithTag("draft-bot-b2").assertTextEquals("Bot 47")
+            compose.onNodeWithTag("draft-bot-frame-b0").assertExists()
+            compose.onNodeWithTag("draft-bot-b0").performClick()
+            settle()
+            compose.onNodeWithText("Off colour R -9").assertIsDisplayed()
+            compose.onNodeWithText("Total 54").assertIsDisplayed()
+            shot("bot-picks", "A test build with Show bot picks on: Alice's ninth Booster pick shows the bot's score at the bottom " +
+                "left of every card, and its pick, Skyrend Tyrant, reads \"Bot pick 54\" in purple with a purple frame; a tap on it " +
+                "lists the parts (base, rare, stats, flying, removal, and -9 because her picks so far are white and blue).")
+        } finally { bots.close() }
+    }
+
     // DRF-021, DRF-200, DRF-044, DRF-061, DRF-065
     @Test fun glimpsePick() {
         val detail = boosterPick(DraftSettings.glimpse(), fourteen)

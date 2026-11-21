@@ -24,6 +24,10 @@ class CastDroppedOnRewindTest : E2e() {
         startGame(deck, deck, deal = { a, _ -> "Mountain" in hand(a) && "Ember Flick" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)
+        // The point to go back to read once Alice's game has settled: an event of hers still on its way (her phone's own pass
+        // at the opening) may be taken by the server as Bob's same event instead (SYS-077), and an undo to her own id for it
+        // was refused, "inapplicable" (full run 2026-11-20)
+        waitUntil("Alice's Main 1, settled") { alice.inOwnMain() && alice.settled(this) }
         val before = alice.engine { device.session.tip }
         alice.playFromHand("Mountain", this)
         waitUntil("Alice's Mountain on the server", along = listOf(bob)) {

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,7 +97,9 @@ fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<String, Stri
                 for ((name, mode) in listOf("In order" to true, "Free" to false)) {
                     val on = draft.inOrder == mode
                     Box(Modifier.background(if (on) AutomatumViolet else Color.Transparent, RoundedCornerShape(50))
-                        .semantics { contentDescription = "$name${if (on) ", chosen" else ""}" }
+                        // WEB-058: a click target, so the mouse shows the hand over it
+                        .semantics { contentDescription = "$name${if (on) ", chosen" else ""}"; onClick { draft.mode(mode); true } }
+                        .hoverLook(HoverLook.Tint(if (on) Color.White else MenuInk, RoundedCornerShape(50)))
                         .pointerInput(mode) { detectTapGestures { draft.mode(mode) } }
                         .padding(horizontal = 12.dp, vertical = 5.dp)) {
                         Text(name, color = if (on) Color.White else Color(0xff263238), fontSize = 13.sp,

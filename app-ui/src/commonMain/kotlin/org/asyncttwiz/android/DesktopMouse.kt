@@ -320,7 +320,8 @@ sealed interface HoverTarget {
 @Stable
 class DesktopHover(private val scope: CoroutineScope, private val apply: (HoverTarget?) -> Unit) {
     var target by mutableStateOf<HoverTarget?>(null); private set
-    private var overChips = false
+    /** Whether the pointer is on the hovered card's chips (WEB-027), not on the table under them (WEB-140: no hover outline there). */
+    var overChips by mutableStateOf(false); private set
     private var clearing: Job? = null
 
     /** The pointer is over [next] (null: over nothing with chips). */

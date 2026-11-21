@@ -1,0 +1,1 @@
+A test build with Show bot picks on: Alice's ninth Booster pick shows the bot's score at the bottom left of every card, and its pick, Skyrend Tyrant, reads "Bot pick 54" in purple with a purple frame; a tap on it lists the parts (base, rare, stats, flying, removal, and -9 because her picks so far are white and blue).

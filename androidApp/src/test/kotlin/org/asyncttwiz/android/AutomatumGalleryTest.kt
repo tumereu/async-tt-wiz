@@ -8,8 +8,9 @@ import kotlin.test.assertTrue
 
 /**
  * The Automatum screenshot gallery's list (owner, 2026-11-06): `src/test/screenshots/gallery.tsv` names one
- * representative screenshot per Automatum UI item (scripts/aa-gallery.sh builds the page from it). Each listed
- * screenshot and its caption must be there, each catalog ID it names must be in docs/features, and every engine decision
+ * representative screenshot per Automatum UI item (scripts/aa-gallery.sh builds the page from it); an item may name an
+ * animated clip (`.webp`, [captureClip]) of a key animation in the screenshot's place. Each listed screenshot or clip and its
+ * caption must be there, each catalog ID it names must be in docs/features, and every engine decision
  * kind the app shows must have an item. Items meant to be seen as a sequence (owner, 2026-11-10) share a name in the
  * optional sixth column and follow one another; the gallery shows a sequence whole. Numbers increase and are never
  * reused, so they stay with their pictures.
@@ -42,8 +43,11 @@ class AutomatumGalleryTest {
         // Numbers stay with their pictures (owner, 2026-11-10): increasing and never reused, so an item taken out leaves a gap
         assertEquals(items.map { it.number }.sorted().distinct(), items.map { it.number }, "item numbers increase down the list, each once")
         assertEquals(items.size, items.map { it.name }.toSet().size, "item names are unique")
-        val missing = items.filter { !File("$SCREENSHOTS/${it.screenshot}").isFile || !File("$SCREENSHOTS/${it.screenshot.removeSuffix(".png")}.txt").isFile }
-        assertTrue(missing.isEmpty(), "gallery.tsv lists screenshots (or captions) that aren't there: ${missing.map { it.screenshot }}")
+        val kinds = items.filter { !it.screenshot.endsWith(".png") && !it.screenshot.endsWith(".webp") }
+        assertTrue(kinds.isEmpty(), "gallery.tsv lists a screenshot (.png) or a clip (.webp) per item: ${kinds.map { it.screenshot }}")
+        val missing = items.filter { !File("$SCREENSHOTS/${it.screenshot}").isFile ||
+            !File("$SCREENSHOTS/${it.screenshot.substringBeforeLast('.')}.txt").isFile }
+        assertTrue(missing.isEmpty(), "gallery.tsv lists screenshots or clips (or captions) that aren't there: ${missing.map { it.screenshot }}")
     }
 
     @Test fun everyCatalogIdIsInTheCatalog() {

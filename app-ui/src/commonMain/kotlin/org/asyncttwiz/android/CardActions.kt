@@ -65,7 +65,7 @@ fun ManualActionSquare(name: String, symbol: String, enabled: Boolean = true, fi
     var tooltip by remember { mutableStateOf(false) }
     val background = fill ?: Color.White
     Box(modifier.shaken(shakes, reason, "action square").then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp)).ringInputTarget()
-        .pressFeedback(enabled).semantics(mergeDescendants = true) {
+        .pressFeedback(enabled).hoverLook(HoverLook.Tint(MenuInk, MaterialTheme.shapes.extraSmall), enabled).semantics(mergeDescendants = true) {
         contentDescription = name
         role = Role.Button
         this.selected = selected

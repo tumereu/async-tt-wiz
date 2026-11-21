@@ -28,6 +28,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -79,18 +80,19 @@ object OtherPlayableChip {
 @Composable
 fun OtherPlayableChipView(placed: PlacedStateChip) {
     var open by remember { mutableStateOf(false) }
+    val toggle = {
+        open = !open
+        AppLog.info("table", "Other player's playable chip ${if (open) "opened" else "closed"}: ${placed.label}: " +
+            placed.playable.joinToString { "${it.name} (${it.zone})" })
+    }
     val b = placed.bounds
     val scale = b.width / EmblemChips.SIZE
     Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp).testTag(OtherPlayableChip.TAG)
-        .semantics { contentDescription = placed.label }
+        // WEB-058: a click target, so the mouse shows the hand over it
+        .semantics { contentDescription = placed.label; onClick { toggle(); true } }
         .clip(CircleShape).background(Color.White).border(1.5.dp, AutomatumCyan, CircleShape)
-        .pointerInput(placed.label) {
-            detectTapGestures(onTap = {
-                open = !open
-                AppLog.info("table", "Other player's playable chip ${if (open) "opened" else "closed"}: ${placed.label}: " +
-                    placed.playable.joinToString { "${it.name} (${it.zone})" })
-            })
-        },
+        .hoverLook(HoverLook.Tint(PlayableInk))
+        .pointerInput(placed.label) { detectTapGestures(onTap = { toggle() }) },
         contentAlignment = Alignment.Center) {
         val glyph = (placed.chip?.glyph as? StateGlyph.Letters)?.text ?: "▶"
         Text(glyph, color = PlayableInk, fontSize = ((if (glyph.length > 2) 9f else 10.5f) * scale).sp, fontWeight = FontWeight.Bold,

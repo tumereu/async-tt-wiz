@@ -39,6 +39,47 @@ class WebHoverPointerTest : E2e() {
         }
     }
 
+    // WEB-139, WEB-140, WEB-058: on Alice's desktop table in her browser the mouse on the opening's Keep shows the hand and lays
+    // a faint layer of the button's ink over it (it reads darker than with the mouse away on the empty battlefield), and on a
+    // life square drawn on the table's canvas shows the hand and a thin dark outline (darker too); gone once the mouse leaves
+    @Test fun aControlAndATableItemTheMouseIsOverShowTheirHoverLook() {
+        startGame(alicePhone = false)
+        bob.openGame(game, this)
+        E2eBrowser(width = 1440, height = 900).use { web ->
+            try {
+                web.signIn(aliceAccount, "/games/${game.id}")
+                waitUntil("Keep among Alice's quick actions in her browser", timeoutSeconds = 180) { web.showsControl("Keep") }
+                val away = { web.cursorAt(560.0, 300.0) }
+                for ((what, selector) in listOf("Keep" to web.control("Keep"), "a life square" to "div[role=button][aria-label*=', life ']")) {
+                    away()
+                    val box = web.settledBox(selector)
+                    val plain = brightness(web, box)
+                    assertEquals("pointer", web.cursorOver(selector), "the hand over $what")
+                    waitUntil("$what darker under the mouse than ${"%.1f".format(plain)}") { brightness(web, box) < plain - 1.0 }
+                    away()
+                    waitUntil("$what back to ${"%.1f".format(plain)} once the mouse left") { kotlin.math.abs(brightness(web, box) - plain) < .5 }
+                }
+                val faults = web.faults()
+                assertTrue(faults.isEmpty(), "The page reported faults:\n${faults.joinToString("\n")}")
+            } catch (failure: Throwable) {
+                web.evidence("WebHoverPointerTest")
+                throw failure
+            }
+        }
+    }
+
+    /** The mean brightness (0–255) of the page's picture inside [box]. */
+    private fun brightness(web: E2eBrowser, box: com.microsoft.playwright.options.BoundingBox): Double {
+        val shot = javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(web.page.screenshot(
+            com.microsoft.playwright.Page.ScreenshotOptions().setClip(box.x, box.y, box.width, box.height))))
+        var sum = 0.0
+        for (y in 0 until shot.height) for (x in 0 until shot.width) {
+            val rgb = shot.getRGB(x, y)
+            sum += ((rgb shr 16 and 0xff) + (rgb shr 8 and 0xff) + (rgb and 0xff)) / 3.0
+        }
+        return sum / (shot.width * shot.height)
+    }
+
     // WEB-018, WEB-019, WEB-080, WEB-082, WEB-020, WEB-058 (found 2026-11-14: the mirror put the 1.3× top row, action area and panels where they
     // would be at 1×, Table actions at x ≈ 1052 instead of about 1399): on Alice's desktop table in her browser the mirror
     // places a top-row control, an action-area button and a panel's card where they are drawn; the hand shows over them and

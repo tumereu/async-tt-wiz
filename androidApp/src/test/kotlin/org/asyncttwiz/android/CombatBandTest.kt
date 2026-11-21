@@ -333,6 +333,51 @@ class CombatBandTest {
             "Bob's phone, 5 of 5, a wait for the other player: after the combat he waits for Alice in her second main phase; the band is closed again and the splashes are gone.")
     }
 
+    // CMB-050, CMB-090, HIS-113: the gallery clip of combat damage on Alice's table: from the blocks to the damage's hold (Bob's
+    // splash, the skulls on the Cubs that fought) and on to her second main phase, the dead Cubs gone and the band closed
+    @Test fun clipOfCombatDamage() {
+        val cubs = aliceStagedThree()
+        val blocker = k.atw(k.field("Ember Cub", k.other).single())
+        val bobScope = TableActionScope(k.f.game.id, k.bob.play().playId)
+        k.scenario.confirmStops[k.f.b] = false
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (3)")
+        k.playOn("Bob's stop at Alice's attack", bobActs = false) { k.bob.device.status is GameDevice.Status.Stopped }
+        (k.bob.device.status as GameDevice.Status.Stopped).let { k.bob.act(it.assumed) }
+        k.playOn("Bob declaring blockers", bobActs = false) { Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers } }
+        k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+        val pair = k.bob.play().board.combat!!.pairs.first { p -> p.attackers.any { it.sourceId == cubs.first() } }.id
+        assertTrue(k.bobToolkit.block(k.bob.play(), blocker, pair), "Bob's Cub blocks: ${k.bobToolkit.error}")
+        k.settle(bobActs = false)
+        assertTrue(k.bobToolkit.automatumStep(TableActionIntent.Next(bobScope)), "Block (1)")
+        k.playOn("Alice's move after the blocks", bobActs = false) {
+            k.alice.device.status == GameDevice.Status.YourMove && k.state().combat?.blockers?.isNotEmpty() == true
+        }
+        k.toolkit.combat.show(k.alice.play(), AutomatumBoards.combat(k.alice.play()))
+        val board = androidx.compose.runtime.mutableStateOf(k.alice.play())
+        renderLive(board)
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Alice passes")
+        k.settle(bobActs = false)
+        assertTrue(k.alice.assume() !is GameDevice.Acted.Refused, "Bob's pass assumed")
+        val aliceDealt = k.alice.transition?.steps.orEmpty().lastOrNull { it.damageDealt }
+        k.playOn("the damage dealt on Alice's phone", bobActs = false) { k.state().turn.step == TurnStep.CombatDamage }
+        val dealt = assertNotNull(aliceDealt ?: step(k.f.a) { it.damageDealt }, "the damage's hold board on Alice's phone")
+        k.playOn("Alice's second main phase") {
+            for (game in listOf(k.alice, k.bob)) game.shown?.combatHold?.let { game.dismissCombatHold(it) }
+            val main2 = k.alice.device.status == GameDevice.Status.YourMove && k.state().turn.step == TurnStep.PostcombatMain
+            if (!main2 && k.alice.device.status == GameDevice.Status.YourMove) k.toolkit.automatumStep(TableActionIntent.Next(k.scope))
+            main2
+        }
+        val after = k.alice.play()
+        compose.captureClip("$SCREENSHOTS/clips/combat-damage.webp",
+            "Alice attacked with three Ember Cubs and Bob's Cub blocks her first: the combat damage is dealt, Bob's chip splashing red with his 4 and the two Cubs that fought each carrying a skull with the 2 it took for the hold, then her second main phase: the band closes, the dead Cubs go to the graveyards and Bob is at 16.",
+            millis = 3_000L) { at ->
+            when (at) {
+                6 * CLIP_STEP_MILLIS -> board.value = dealt
+                40 * CLIP_STEP_MILLIS -> board.value = after
+            }
+        }
+    }
+
     private fun bobName() = listOf(k.f.game.inviter, k.f.game.recipient).single { it.accountId == k.f.b }.username
 
     // CMB-001, CMB-051, CMB-013, CMB-028, CMB-066, CMB-068 (owner playtest 2026-11-06): while Alice declares attackers with none staged the band
@@ -427,6 +472,46 @@ class CombatBandTest {
         compose.onNodeWithContentDescription("${bobName()}: ${lane.value}").assertExists()
         captureShot("$SCREENSHOTS/combat-band/staged.png",
             "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing Bob's battlefield up while hers stayed where it was, with the Cub's copy at battlefield size in the lane under Bob's chip, his life on the chip after his name, and the main button reading Attack (1).")
+    }
+
+    /** Alice's table as [render] draws it, drawing whatever board [board] holds, so a clip sees the table animate from one to
+     * the next; the test clock stopped. */
+    private fun renderLive(board: androidx.compose.runtime.MutableState<TableBoard>) {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            MaterialTheme {
+                NoRipples {
+                    CompositionLocalProvider(LocalEngineRoutes provides k.routes) {
+                        Box(Modifier.fillMaxSize()) {
+                            val play = board.value
+                            TableSurface(k.f.game, play, k.f.a, false, Modifier.fillMaxSize(), connected = true,
+                                onIntent = k.toolkit::handle, toolkit = k.toolkit,
+                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { k.routes.undo() }, controlsConnected = true,
+                                    waitingLine = k.routes.waitingLine(play)))
+                        }
+                    }
+                }
+            }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+    }
+
+    // CMB-001, CMB-053, CMB-054: the gallery clip of the band opening as Alice stages her first attacker, Bob's battlefield going up
+    @Test fun clipOfTheBandOpening() {
+        val attacker = aliceDeclaring()
+        val board = androidx.compose.runtime.mutableStateOf(k.alice.play())
+        renderLive(board)
+        compose.captureClip("$SCREENSHOTS/clips/combat-band-opens.webp",
+            "Alice, declaring attackers, taps her ready Ember Cub: the band opens between the battlefields, pushing Bob's battlefield up while hers stays, and the Cub's copy lies in the lane under Bob's chip.",
+            millis = 1_400L) { at ->
+            if (at == 6 * CLIP_STEP_MILLIS) {
+                k.tap(k.item(attacker))
+                k.settle()
+                board.value = k.alice.play()
+            }
+        }
+        assertNotNull(k.scene().combatPanel, "the band open")
     }
 
     // CMB-007, CMB-054, CMB-001 (owner playtest 2026-11-11): the band opens away from the viewer's battlefield: Alice's stays where it

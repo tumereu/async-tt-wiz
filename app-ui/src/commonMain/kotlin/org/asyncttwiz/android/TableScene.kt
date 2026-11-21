@@ -584,7 +584,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     .associate { it.id to minOf(targetAlphas[it.id] ?: 1f, HAND_DIMMED) }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
-                    attackable = glows.attack, expandGlow = glows.expand, mana = glows.mana, pressed = pressGlow.value, picked = glows.picked, pileBadges = false)
+                    attackable = glows.attack, expandGlow = glows.expand, mana = glows.mana, pressed = pressGlow.value, picked = glows.picked, pileBadges = false,
+                    // WEB-140: what the mouse is over on the desktop table (not while it is on a hand card's chips above it)
+                    hovered = mouse.hovered?.takeIf { desktopFrame != null && !desktopHover.overChips && it.kind != TableItemKind.HAND }?.id)
             }
             // STK-047 (owner, 2026-11-12): a pile holding a card the viewer may target or choose glows over its whole face,
             // pulsing, in a layer of its own

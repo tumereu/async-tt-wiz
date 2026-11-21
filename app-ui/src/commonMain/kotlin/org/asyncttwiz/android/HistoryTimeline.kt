@@ -4,6 +4,7 @@ import org.asyncttwiz.protocol.Faults
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -181,7 +182,7 @@ private fun TimelineEventChip(event: HistoryTimelineEvent, color: Color, selecte
     var held by remember(event.id) { mutableStateOf(false) }
     val alpha by animateFloatAsState(if (held) 1f else 0f, tween(150), label = "Event description")
     val click by rememberUpdatedState(onClick)
-    HistoryEventChip(event, color, selected, modifier.semantics { onClick { click(); true } }
+    HistoryEventChip(event, color, selected, modifier.semantics { onClick { click(); true } }.hoverLook(HoverLook.Tint(color, CircleShape))
         .pointerInput(event.id) {
             detectTapGestures(onPress = { try { tryAwaitRelease() } finally { held = false } },
                 onTap = { click() }, onLongPress = { held = true })
@@ -316,7 +317,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onPrevious, modifier = Modifier.size(48.dp).semantics { contentDescription = "Previous" },
                 enabled = previousEnabled && controlsEnabled) { TableChromeIcon("previous") }
-            Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
+            Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().hoverLook(HoverLook.Tint(MenuInk), controlsEnabled).semantics {
                 role = Role.Button
                 if (exits) contentDescription = EXIT_TIMELINE
                 else {

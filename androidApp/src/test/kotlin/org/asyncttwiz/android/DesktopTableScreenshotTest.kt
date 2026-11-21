@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import arcanum.engine.state.StackItemKind
@@ -302,6 +303,28 @@ class DesktopTableScreenshotTest {
             "popped out whole into view: $raised")
         captureShot("$SCREENSHOTS/desktop/hand-raised.png",
             "Alice clicked her Mountain in the desktop table's hand fan and moved the mouse away: it popped out of the fan along its own turn, keeping its angle, whole in view and over the others, its Play chip above it.")
+    }
+
+    // WEB-139, WEB-140: with a ready Ember Cub on Alice's desktop table, the mouse on the main button lays a faint layer of its
+    // ink over it, gone once the mouse moves on to the Cub, which shows a thin dark outline
+    @Test fun theMouseOverAControlOrACardShowsItsHoverLook() {
+        val kit = EngineTableKit()
+        val cub = kit.toReadyCub()
+        render(kit)
+        val button = { compose.onNodeWithTag("main-button").captureToImage().asAndroidBitmap().let { it.getPixel(6, it.height / 2) } }
+        val plain = button()
+        compose.onNodeWithTag("main-button").performMouseInput { moveTo(center) }
+        compose.waitForIdle()
+        val hovered = button()
+        assertTrue(Color(hovered).red < Color(plain).red, "the main button tinted under the mouse: ${Color(plain)} -> ${Color(hovered)}")
+        val cubItem = scene(kit).items.single { it.cardId == cub && it.battlefieldCard }
+        hover(cubItem)
+        // Before its quick look (WEB-026) would cover the table
+        compose.mainClock.advanceTimeBy(QUICK_LOOK_MILLIS / 2)
+        compose.waitForIdle()
+        assertEquals(plain, button(), "the main button plain again once the mouse left it")
+        captureShot("$SCREENSHOTS/desktop/hover-card.png",
+            "The mouse moved from the main button onto Alice's ready Ember Cub on her desktop table: the Cub shows a thin dark outline around it, and the main button is plain again.")
     }
 
     // TBL-139, TBL-146, TBL-147 (owner 2026-11-16): with "Battlefield cards: full picture" on in the desktop layout's Settings, Alice's battlefield

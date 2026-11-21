@@ -347,7 +347,7 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
     })
     Box(modifier.then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).graphicsLayer {
         scaleX = if (pressed) .92f else 1f; scaleY = scaleX
-    }.background(fill).drawWithContent {
+    }.background(fill).hoverLook(HoverLook.Tint(foreground), enabled && !refused).drawWithContent {
         drawContent()
         if (pressed && enabled) drawRect(foreground.copy(alpha = .16f))
     }.onKeyEvent { event ->

@@ -5,7 +5,9 @@
 # gallery review (the gallery-reviewed tag): those items come first with a
 # badge and red boxes around the pixels that changed (toggle: H), the rest are folded away; a picture re-recorded with the
 # same pixels is no change. Items sharing a sequence (gallery.tsv's sixth column) show as one card, all their pictures in
-# order, to review whole when any is. Comments are lines "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
+# order, to review whole when any is. An item may name an animated clip (.webp, a key animation) in the screenshot's place:
+# it plays looping in its card, marked "clip", and counts as changed when its file did. Comments are lines
+# "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
 # Tap a picture to open it full size. This is the owner's screenshot review (scripts/review.sh gates only the catalog).
 #   scripts/aa-gallery.sh [output dir]     default ~/projects/atw-cache/aa-gallery (outside the repository)
 #   git tag -f gallery-reviewed HEAD && git push --force origin refs/tags/gallery-reviewed
@@ -53,7 +55,8 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
     cells = line.split("\t") + [""]
     number, name, shot, ids, decisions, sequence = (cells + [""])[:6]
     path = f"{shots}/{shot}"
-    caption_path = path[:-4] + ".txt"
+    caption_path = os.path.splitext(path)[0] + ".txt"
+    clip = shot.endswith(".webp")
     try:
         caption = git("show", f"HEAD:{caption_path}").strip()
     except subprocess.CalledProcessError:
@@ -63,7 +66,10 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
     with open(os.path.join(out, image), "wb") as f:
         f.write(png)
     status, regions = ("new" if path not in seen else "changed" if path in changed or caption_path in changed else ""), []
-    if status == "changed":
+    if status == "changed" and clip:
+        # A clip has no boxes: its file changed (a re-recorded clip with the same frames is the same file), or its caption
+        status = "changed" if path in changed else "caption"
+    elif status == "changed":
         # Boxes around the changed pixels against the reviewed picture; same pixels with only a caption change says so,
         # and a picture re-recorded with the same pixels and caption is no change to review
         if path in changed:
@@ -73,7 +79,7 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
             same_pixels += status == ""
     items.append(dict(number=int(number), name=name, shot=shot, ids=ids.split(), decisions=decisions.replace(",", " ").split(),
                       caption=caption, image=image, status=status, comment=comments.get(shot, ""), regions=regions,
-                      size=size(png), sequence=sequence.strip()))
+                      size=[1, 1] if clip else size(png), sequence=sequence.strip(), clip=clip))
 
 for i in items:
     i["review"] = bool(i["status"] or i["comment"])
@@ -103,8 +109,10 @@ def unit(u):
 </article>'''
 
 def card(i, inner=False):
-    label = {"caption": "caption only", "changed": f'changed · {len(i["regions"])} area{"s" if len(i["regions"]) != 1 else ""}'}.get(i["status"], i["status"])
+    label = {"caption": "caption only", "changed": "changed" if i["clip"] else f'changed · {len(i["regions"])} area{"s" if len(i["regions"]) != 1 else ""}'}.get(i["status"], i["status"])
     badge = f'<span class="badge {i["status"]}">{label}</span>' if i["status"] else ""
+    if i["clip"]:
+        badge += '<span class="badge clip">clip</span>'
     w, h = i["size"]
     marks = "".join(f'<span class="box" style="left:{100*x/w:.3f}%;top:{100*y/h:.3f}%;width:{100*bw/w:.3f}%;height:{100*bh/h:.3f}%"></span>'
                     for x, y, bw, bh in i["regions"])
@@ -157,6 +165,7 @@ page = f'''<!DOCTYPE html>
   body.nobox header button {{ border-color: var(--line); background: #fff; }}
   .badge.caption {{ background: var(--soft); }}
   .badge.seq {{ background: var(--ink); }}
+  .badge.clip {{ background: #2f7d5b; }}
   .item.sequence {{ grid-column: 1 / -1; }}
   .strip {{ display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }}
   .step {{ flex: 0 0 min(86vw, 340px); scroll-snap-align: start; }}

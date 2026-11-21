@@ -48,9 +48,10 @@ class PodBuildModelsTest {
         assertEquals("Side 1", podBuildSideTitle(build.copy(copies = listOf(PodDeckCopy("0", PodDeckCategory.SIDE))), copies, definitions))
     }
 
-    // DRF-076, DRF-077 (owner, 2026-11-21: Games while drafting too; the default follows your own draft, DRF-119)
+    // DRF-076, DRF-077 (owner, 2026-11-21: Games only once your own draft is done; the default follows your own draft, DRF-119)
     @Test fun tabsHideDraftAfterCompletionAndDefaultToSubmissionStatus() {
-        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(PodPhase.DRAFTING))
+        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), podTabs(PodPhase.DRAFTING))
+        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(PodPhase.DRAFTING, ownDraftDone = true))
         assertEquals(listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(PodPhase.DRAFTED))
         assertEquals(PodTab.DRAFT, podDefaultTab(PodPhase.DRAFTING, false))
         assertEquals(PodTab.BUILD, podDefaultTab(PodPhase.DRAFTED, false))
@@ -62,6 +63,8 @@ class PodBuildModelsTest {
             emptyList(), emptyList(), updatedAt = "", draftWait = PodDraftWait.Picks)
         assertFalse(podOwnDraftDone(drafting))
         assertEquals(PodTab.DRAFT, podDefaultTab(drafting))
+        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), podTabs(drafting))
+        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(drafting.copy(draftWait = null)))
         assertTrue(podOwnDraftDone(drafting.copy(draftWait = null)))
         assertEquals(PodTab.BUILD, podDefaultTab(drafting.copy(draftWait = null)))
         assertTrue(podOwnDraftDone(drafting.copy(phase = PodPhase.DRAFTED, draftWait = null)))

@@ -202,6 +202,30 @@ class PodChallengeTest {
         assertEquals("podDeckFixed", stream.execute(GameAction.SelectDeck(id(), "1")).reason)
     }
 
+    // DRF-304: a challenge without a name is named "<pod name> #N", N counting the pod's games; a declined one keeps its
+    // number, both players read the same name, and a retried request doesn't take another number
+    @Test fun `pod challenges are named after the pod and numbered per pod`() = fixture { f ->
+        val pod = f.pod()
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        fun challenge(who: AccountService.Principal, opponent: AccountService.Principal, request: ChallengeFromPod =
+            ChallengeFromPod(id(), opponent.account.accountId)): GameSummary {
+            val result = f.pods.challenge(who, pod, request)
+            assertEquals(201, result.status, result.body)
+            return json.decodeFromString(result.body)
+        }
+        val request = ChallengeFromPod(id(), f.b.account.accountId)
+        val first = challenge(f.a, f.b, request)
+        assertEquals("Surviving pod name #1", first.gameName)
+        assertEquals(first, challenge(f.a, f.b, request), "a retry is the same game")
+        assertEquals("accepted", f.stream(f.b, first).execute(GameAction.DeclineInvitation).outcome)
+        val second = challenge(f.b, f.a)
+        assertEquals("Surviving pod name #2", second.gameName)
+        assertEquals("Surviving pod name #2", f.games.head(f.a, second.id).summary.gameName, "the other player reads the same name")
+        // A name given with the request is the game's
+        assertEquals("Our rematch", challenge(f.a, f.b, ChallengeFromPod(id(), f.b.account.accountId, "Our rematch")).gameName)
+        assertEquals("Surviving pod name #4", challenge(f.a, f.b).gameName)
+    }
+
     // DRF-137
     @Test fun `decks ready goes immediately to every member except last submitter once`() = fixture { f ->
         val pod = f.pod(three = true)

@@ -75,7 +75,9 @@ class DesktopDraftScreenshotTest {
 
     private fun detail(phase: PodPhase, settings: DraftSettings, members: List<PodMember>) = PodDetail("pod", "Cube night", phase,
         alice, settings, PodSource("Runes", 540, maybeCopies = 12), DraftSupply(135, 540), members, emptyList(),
-        draftAttemptId = "attempt", definitions = definitions, updatedAt = "2026-11-07T00:00:00Z")
+        draftAttemptId = "attempt", definitions = definitions, updatedAt = "2026-11-07T00:00:00Z",
+        // While the pod drafts, Alice's own draft runs (DRF-302), so no Games tab (DRF-076), unless she has submitted
+        draftWait = PodDraftWait.Picks.takeIf { phase == PodPhase.DRAFTING && members.none { it.account == alice && it.submitted } })
 
     private fun show(state: PodState) {
         pods.seed(state)
@@ -126,18 +128,19 @@ class DesktopDraftScreenshotTest {
     }
 
     // DRF-296, DRF-297, WEB-038 (owner, 2026-11-21): a pod's setup with bot seats on the desktop layout, at its readable width:
-    // the Bots tile before Sideboard and the bot seats after the members
+    // the bot seats after the members and the "Bots − N +" stepper beside the invite button
     @Test fun botSeatsSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice), PodMember(bob)))
         show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
-        compose.onNodeWithTag("pod-setting-bots", useUnmergedTree = true).assertTextEquals("2")
+        compose.onNodeWithTag("pod-bots-value", useUnmergedTree = true).assertTextEquals("2")
         compose.onNodeWithText("Members (4/8)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("pod-bots").performScrollTo().assertIsDisplayed()
         captureShot("$SCREENSHOTS/desktop/setup-bots.png",
-            "A Booster pod's setup with two bot seats on the desktop layout at its readable width: the setting tiles end with Bots 2 and the sideboard's ∞, and the members list counts four of eight seats, Alice and Bob, then Bot 1 and Bot 2 marked \"bot\".")
+            "A Booster pod's setup with two bot seats on the desktop layout at its readable width: the setting tiles end with the sideboard's ∞ (no Bots tile), the members list counts four of eight seats, Alice and Bob, then Bot 1 and Bot 2 marked \"bot\", and under it the invite button with the \"Bots − 2 +\" stepper at the row's right.")
     }
 
-    // DRF-293, DRF-294 (owner, 2026-11-21): on the desktop layout the Auto toggle sits just before Confirm at the end of the trays'
-    // row; a click turns it on and Confirm yellow with its shine
+    // DRF-293, DRF-294 (owner, 2026-11-21): on the desktop layout Auto is the tip at the right end of Confirm, at the end of the
+    // trays' row; a click turns it on and Confirm yellow with its shine
     @Test fun autoconfirmToggle() {
         val head = DraftPrivatePack("pack-a", 1, (0..13).map { copy(it) }, 2, "bob")
         val members = listOf(PodMember(alice, packsWaiting = 2), PodMember(bob, packsWaiting = 1), PodMember(carol))
@@ -149,20 +152,20 @@ class DesktopDraftScreenshotTest {
         compose.waitForIdle()
         val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff().fetchSemanticsNode().boundsInRoot
         val confirm = compose.onNodeWithTag("pod-pick-confirm").fetchSemanticsNode().boundsInRoot
-        assertTrue(toggle.right <= confirm.left && confirm.left - toggle.right < 24f && toggle.center.y in confirm.top..confirm.bottom,
-            "Auto just before Confirm: $toggle, $confirm")
+        assertTrue(confirm.right <= toggle.left && toggle.left - confirm.right < 4f && toggle.center.y in confirm.top..confirm.bottom,
+            "Auto the tip right after Confirm: $confirm, $toggle")
         captureShot("$SCREENSHOTS/desktop/autoconfirm-off.png",
-            "Alice's Glimpse pick on the desktop layout, Cinder Whelp kept and Gravel Ghoul burned with one burn to go: the Auto toggle sits off just before Confirm at the end of the trays' row.")
+            "Alice's Glimpse pick on the desktop layout, Cinder Whelp kept and Gravel Ghoul burned with one burn to go: Confirm at the end of the trays' row ends in Auto, a narrow tip with a bolt over \"Auto\" behind a thin divider, off.")
         compose.onNodeWithTag("pod-pick-autoconfirm").performMouseInput { click() }
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
         compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn()
         captureShot("$SCREENSHOTS/desktop/autoconfirm-on.png",
-            "The same pick after Alice clicks Auto: the toggle filled yellow and Confirm yellow with a band of light across it; her last burn will confirm the pick at once.")
+            "The same pick after Alice clicks Auto: the tip and Confirm are one yellow shape with a band of light across Confirm; her last burn will confirm the pick at once.")
     }
 
-    // DRF-293, DRF-294 (owner, 2026-11-21): a Grid pick on the desktop layout with Auto clicked on: the toggle and the yellow
-    // shining Confirm fill the row under the grid, Auto first; a click on a line's arrow then takes that line at once
+    // DRF-293, DRF-294 (owner, 2026-11-21): a Grid pick on the desktop layout with Auto clicked on: the yellow shining Confirm
+    // and Auto, its tip, fill the row under the grid; a click on a line's arrow then takes that line at once
     @Test fun gridAutoconfirm() {
         val nine = (0..8).map { copy(it) }
         val board = GridPublicBoard("grid-0", 1, nine, alice.accountId, 1, false, nine.map { GridPublicSlot(it) })
@@ -177,9 +180,9 @@ class DesktopDraftScreenshotTest {
         compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn()
         val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").fetchSemanticsNode().boundsInRoot
         val confirm = compose.onNodeWithTag("pod-grid-confirm").fetchSemanticsNode().boundsInRoot
-        assertTrue(toggle.right <= confirm.left && toggle.center.y in confirm.top..confirm.bottom, "Auto just before Confirm: $toggle, $confirm")
+        assertTrue(confirm.right <= toggle.left && toggle.center.y in confirm.top..confirm.bottom, "Auto the tip after Confirm: $confirm, $toggle")
         captureShot("$SCREENSHOTS/desktop/grid-autoconfirm-on.png",
-            "Alice's pick from grid 1 of a two-player Grid draft on the desktop layout after she clicks Auto: the toggle and Confirm are yellow, Confirm's label dimmed with a band of light across it; a click on a row's or column's arrow now takes that line at once.")
+            "Alice's pick from grid 1 of a two-player Grid draft on the desktop layout after she clicks Auto, the tip at Confirm's right end: both are yellow, Confirm's label dimmed with a band of light across it; a click on a row's or column's arrow now takes that line at once.")
         compose.onNodeWithContentDescription("Select row 1").performMouseInput { click() }
         compose.runOnIdle { assertTrue(pods.state.picking, "the click sent row 1") }
     }
@@ -359,7 +362,7 @@ class DesktopDraftScreenshotTest {
     }
 
     // DRF-119, DRF-303, DRF-076 (owner, 2026-11-21, MT74XQ): on the desktop layout too, Build says over its bottom bar when Submit
-    // opens while Alice's own draft runs (a Booster pick of hers still to come), and the header's tabs include Games
+    // opens while Alice's own draft runs (a Booster pick of hers still to come), and the header's tabs have no Games yet
     @Test fun buildSubmitLocked() {
         val main = (0..15).map { copy(it) } + copy(9, 1)
         val build = PodDeckBuild(main.map { PodDeckCopy(it.id) }, PodDeckBasics(plains = 8, mountain = 7, forest = 8))
@@ -369,8 +372,9 @@ class DesktopDraftScreenshotTest {
         show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.BUILD))
         compose.onNodeWithTag("pod-build-submit-wait").assertTextEquals("Submit opens after your last pick")
         compose.onNode(hasClickAction() and hasText("Submit deck", substring = true)).assertIsNotEnabled()
+        compose.onNodeWithText("Games").assertDoesNotExist()
         captureShot("$SCREENSHOTS/desktop/build-submit-locked.png",
-            "Alice's Build on the desktop layout in round 3 of a Booster draft, one pack still to come back to her: her 40-card deck is ready, but over the full-width bottom bar a line says \"Submit opens after your last pick\" and Submit deck (40) is greyed; the header's tabs read Draft · Build · Stats · Games.")
+            "Alice's Build on the desktop layout in round 3 of a Booster draft, one pack still to come back to her: her 40-card deck is ready, but over the full-width bottom bar a line says \"Submit opens after your last pick\" and Submit deck (40) is greyed; the header's tabs read Draft · Build · Stats, no Games while her own draft runs.")
     }
 
     // WEB-120, DRF-250, DRF-251, DRF-252, DRF-254: on the desktop layout Build's filter button sits in the bottom right corner above the bar;

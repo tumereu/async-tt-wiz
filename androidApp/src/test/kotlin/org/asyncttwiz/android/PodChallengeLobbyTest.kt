@@ -73,7 +73,7 @@ class PodChallengeLobbyTest {
         }
         val controller = LobbyController(api, { "token" }, worker, { it() }, openGame = { opens++ }, gameConnection = wire,
             accountId = { a.accountId }, deckApi = decks)
-        fun challenge() { controller.challengeFromPod(pod, b.accountId, game.gameName); worker.drain() }
+        fun challenge() { controller.challengeFromPod(pod, b.accountId); worker.drain() }
         fun head(preparation: LobbyPreparation) {
             wire.listener.opened(); wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val open = wire.frames.filterIsInstance<OpenGameStream>().last()
@@ -83,41 +83,42 @@ class PodChallengeLobbyTest {
         override fun close() { controller.close(); worker.drain() }
     }
 
-    // LOB-052: the server supplies the basics: a challenge is one request, no card data uploaded before it
+    // LOB-052: the server supplies the basics: a challenge is one request, no card data uploaded before it; DRF-304: and names
+    // the game, so the request carries no name
     @Test fun challengeIsOneRequestThenOpensOrdinaryLobbyAndRetriesExactOriginal() = Fixture().use { f ->
         f.fail = true; f.challenge()
         assertEquals(listOf("challenge"), f.calls)
         assertNull(f.controller.state.selected); assertNotNull(f.controller.state.error)
         f.fail = false; f.challenge()
         assertEquals(f.challenges[0], f.challenges[1])
-        assertEquals(ChallengeFromPod(f.challenges[0].requestId, b.accountId, game.gameName), f.challenges.last())
+        assertEquals(ChallengeFromPod(f.challenges[0].requestId, b.accountId), f.challenges.last())
         assertEquals(game.id, f.controller.state.selected); assertEquals(1, f.opens)
         f.controller.clear(); f.challenge()
         assertNotEquals(f.challenges[0].requestId, f.challenges.last().requestId)
     }
 
-    @Test fun freshSuggestedNameRetriesRetainedPodChallengeAndBothRequestIds() = Fixture().use { f ->
+    @Test fun aNewChallengeRetriesTheRetainedPodChallengeAndItsRequestId() = Fixture().use { f ->
         f.fail = true; f.challenge()
-        assertEquals(game.gameName, f.controller.state.retryPodChallengeName)
+        assertTrue(f.controller.state.retryPodChallenge)
         f.fail = false
-        f.controller.challengeFromPod(pod, b.accountId, "A fresh suggestion"); f.worker.drain()
+        f.controller.challengeFromPod(pod, b.accountId); f.worker.drain()
         assertEquals(2, f.challenges.size)
         assertEquals(f.challenges.first(), f.challenges.last())
-        assertNull(f.controller.state.retryPodChallengeName)
+        assertFalse(f.controller.state.retryPodChallenge)
     }
 
     @Test fun retainedRetryIsAvailableAcrossPodsAndTerminalFailureUnblocksDifferentChallenge() = Fixture().use { f ->
         f.fail = true; f.challenge()
         val otherPod = id(); val opponent = id()
-        f.controller.challengeFromPod(otherPod, opponent, "Another game"); f.worker.drain()
+        f.controller.challengeFromPod(otherPod, opponent); f.worker.drain()
         assertEquals(1, f.challenges.size)
-        assertNotNull(f.controller.state.retryPodChallengeName)
+        assertTrue(f.controller.state.retryPodChallenge)
         f.failure = LobbyFailure("not_found")
         f.controller.retryPodChallenge(); f.worker.drain()
         assertEquals(f.challenges.first(), f.challenges.last())
-        assertNull(f.controller.state.retryPodChallengeName)
+        assertFalse(f.controller.state.retryPodChallenge)
         f.fail = false; f.failure = null
-        f.controller.challengeFromPod(otherPod, opponent, "Another game"); f.worker.drain()
+        f.controller.challengeFromPod(otherPod, opponent); f.worker.drain()
         assertEquals(listOf(pod, pod, otherPod), f.challengedPods)
         assertEquals(opponent, f.challenges.last().opponentId)
         assertNotEquals(f.challenges.first().requestId, f.challenges.last().requestId)
@@ -126,18 +127,18 @@ class PodChallengeLobbyTest {
 
     @Test fun terminalFailureDoesNotRetainChallenge() = Fixture().use { f ->
         f.failure = LobbyFailure("deck_not_submitted"); f.challenge()
-        assertNull(f.controller.state.retryPodChallengeName)
+        assertFalse(f.controller.state.retryPodChallenge)
         f.failure = null
-        f.controller.challengeFromPod(id(), id(), "Another game"); f.worker.drain()
+        f.controller.challengeFromPod(id(), id()); f.worker.drain()
         assertEquals(2, f.challenges.size)
         assertNotEquals(f.challenges.first().requestId, f.challenges.last().requestId)
     }
 
     @Test fun missingServerBasicsKeepTheChallengeForARetryAndClearedAccountNeverCreatesOne() = Fixture().use { f ->
         f.failure = LobbyFailure("basic_definitions_unavailable"); f.challenge()
-        assertTrue(f.controller.state.error!!.contains("M21")); assertNotNull(f.controller.state.retryPodChallengeName)
+        assertTrue(f.controller.state.error!!.contains("M21")); assertTrue(f.controller.state.retryPodChallenge)
         f.failure = null; f.calls.clear(); f.controller.clear()
-        f.controller.challengeFromPod(pod, b.accountId, game.gameName)
+        f.controller.challengeFromPod(pod, b.accountId)
         f.controller.clear(); f.worker.drain()
         assertTrue(f.calls.isEmpty()); assertNull(f.controller.state.selected)
     }

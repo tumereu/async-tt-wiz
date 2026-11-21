@@ -341,11 +341,11 @@ number	item	screenshot	catalog	decisions	sequence
 391	Declaring blockers: the orange glowing band with the blockers' chip, what can't block dimmed	combat-band/declaring-blockers.png	CMB-095 CMB-097 CMB-096		
 392	Desktop table: declaring attackers, the orange glowing band and chip, what can't attack dimmed	desktop/declaring-attackers.png	CMB-095 CMB-097 CMB-096 WEB-015		
 393	Desktop table: declaring blockers, the orange glowing band and chip, what can't block dimmed	desktop/declaring-blockers.png	CMB-095 CMB-097 CMB-096 WEB-015		
-400	Draft: the Auto toggle off beside Confirm	draft/autoconfirm-off.png	DRF-293		Autoconfirm
-401	Draft: Auto on, Confirm yellow with its shine	draft/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
-402	Clip: Auto turning on, the shine sweeping across Confirm and back	clips/autoconfirm-shine.webp	DRF-294 DRF-293		Autoconfirm
-403	Desktop draft: the Auto toggle off just before Confirm	desktop/autoconfirm-off.png	DRF-293 WEB-044		Autoconfirm
-404	Desktop draft: Auto on, Confirm yellow with its shine	desktop/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
+400	Draft: Auto off, the tip at the right end of Confirm	draft/autoconfirm-off.png	DRF-293		Autoconfirm
+401	Draft: Auto on, the tip and Confirm yellow, Confirm with its shine	draft/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
+402	Clip: Auto (Confirm's tip) turning on, the shine sweeping across Confirm and back	clips/autoconfirm-shine.webp	DRF-294 DRF-293		Autoconfirm
+403	Desktop draft: Auto off, the tip at Confirm's right end	desktop/autoconfirm-off.png	DRF-293 WEB-044		Autoconfirm
+404	Desktop draft: Auto on, the tip and Confirm yellow, Confirm with its shine	desktop/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
 405	Clip: a grid picked, the next grid sliding up into its place as it fades	clips/grid-next-slides-up.webp	DRF-295
 406	Desktop: What's new at twice the phone's width	desktop/whats-new.png	LOB-265
 410	Choice among revealed cards: one panel shows all of them, the ones that can't be chosen dimmed under "Other cards"	engine/choice-among-revealed.png	STK-224 STK-225 HIS-155		Choice among revealed cards
@@ -361,16 +361,15 @@ number	item	screenshot	catalog	decisions	sequence
 426	The crowded battlefield zoomed in as far as a pinch goes	battlefield/types-tags-close.png	TBL-233 TBL-235		Type icons and tags
 427	Desktop table: the crowded battlefield	desktop/types-tags-crowded.png	TBL-233 TBL-235 WEB-015		Type icons and tags
 428	Full pictures and a face-down card: the type icons on a white chip	battlefield/types-full-picture.png	TBL-236 TBL-235		Type icons and tags
-430	Draft bots: pod setup with the Bots tile and three bot seats after the members	draft/setup-bots.png	DRF-296 DRF-297 DRF-030		Draft bots
-431	Draft bots: the Bots dialog, what bots do and the range	draft/setup-bots-dialog.png	DRF-296		Draft bots
-432	Desktop: pod setup with two bot seats	desktop/setup-bots.png	DRF-296 DRF-297 WEB-038		Draft bots
+430	Draft bots: pod setup with the "Bots − N +" stepper beside the invite button (no Bots tile) and three bot seats after the members	draft/setup-bots.png	DRF-296 DRF-297 DRF-030		Draft bots
+432	Desktop: pod setup with two bot seats and the Bots stepper beside the invite button	desktop/setup-bots.png	DRF-296 DRF-297 WEB-038		Draft bots
 433	Draft bots: a Booster pick passed by Bot 2, the bots ready in the header	draft/bots-pick.png	DRF-297 DRF-298		Draft bots
-440	A locked Submit says why: Build during an Arena draft with picks still to make, "Submit opens after your last pick" over the bar	draft/build-submit-locked.png	DRF-119 DRF-303 DRF-076		Early submit
+440	A locked Submit says why: Build during an Arena draft with picks still to make, "Submit opens after your last pick" over the bar; no Games tab while her own draft runs	draft/build-submit-locked.png	DRF-119 DRF-303 DRF-076		Early submit
 441	Desktop: the same locked Submit line over Build's full-width bar, one Booster pack still to come	desktop/build-submit-locked.png	DRF-119 DRF-303 WEB-044		Early submit
 442	Submitted early: the Games tab while the pod still drafts, Bob "drafting" and Carol "building"	draft/games-while-drafting.png	DRF-121 DRF-076		Early submit
 443	Pods still drafting read "Build your deck" once your own draft is done and "Deck submitted" once you have submitted	draft/pods-early-submit.png	DRF-013 DRF-119		Early submit
 450	Game log: each spell's line names its target and the attack names whom it attacked, in the players' colours	history/game-log-targets.png	HIS-091 HIS-240		Game log targets
 451	Desktop table: the Game log with the targeted lines	desktop/game-log-targets.png	HIS-091 HIS-240 WEB-015		Game log targets
-460	Grid draft: the Auto toggle off before Confirm, a row chosen by its arrow	draft/grid-autoconfirm-off.png	DRF-293 DRF-083		Grid autoconfirm
-461	Grid draft: Auto on, Confirm yellow with its shine; an arrow tap takes its line at once	draft/grid-autoconfirm-on.png	DRF-293 DRF-294		Grid autoconfirm
-462	Desktop Grid draft: Auto on before the yellow shining Confirm	desktop/grid-autoconfirm-on.png	DRF-293 DRF-294		Grid autoconfirm
+460	Grid draft: Auto off at Confirm's right end, a row chosen by its arrow	draft/grid-autoconfirm-off.png	DRF-293 DRF-083		Grid autoconfirm
+461	Grid draft: Auto on, the tip and Confirm yellow with its shine; an arrow tap takes its line at once	draft/grid-autoconfirm-on.png	DRF-293 DRF-294		Grid autoconfirm
+462	Desktop Grid draft: Auto on, the tip of the yellow shining Confirm	desktop/grid-autoconfirm-on.png	DRF-293 DRF-294		Grid autoconfirm

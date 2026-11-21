@@ -1,0 +1,1 @@
+mod: Arena from a set shows a card's special printings, such as Innistrad Remastered's retro frames, about as often as the set's boosters hold them.

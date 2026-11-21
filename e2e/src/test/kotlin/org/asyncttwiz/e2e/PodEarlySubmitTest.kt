@@ -65,10 +65,12 @@ class PodEarlySubmitTest : E2e() {
         waitUntil("${player.name}'s deck submitted on the server") { ServerSetup.pod(player.account, pod).submitted }
     }
 
-    // MT74XQ, DRF-119, DRF-302, DRF-303, DRF-121, DRF-122: a two-member Arena pod; Alice makes all her picks while Bob has made
-    // none. Bob's Build says why his Submit is locked; Alice submits on her phone while the pod still drafts, then challenges
-    // Bob from the Games tab; Bob, still drafting, sees the challenge at once with Accept greyed, and accepts it once his own
-    // picks are done and his deck submitted
+    // MT74XQ, DRF-119, DRF-302, DRF-303, DRF-121, DRF-122, DRF-076, DRF-304: a two-member Arena pod; Alice makes all her picks
+    // while Bob has made none. Bob's Build says why his Submit is locked, and his pod has no Games tab while he drafts; Alice
+    // submits on her phone while the pod still drafts, then challenges Bob from the Games tab, the game named "<pod> #1" on
+    // both phones; Bob, still drafting, is notified at once, his pod still opens without a Games tab, and the challenge waits in
+    // his Games list with Accept greyed; once his own picks are done and his deck submitted the pod's Games tab is there and
+    // he accepts it in it
     @Test fun anArenaMemberSubmitsAndChallengesWhileTheOtherStillDrafts() {
         launchPlayers()
         val name = "E2E early ${UUID.randomUUID().toString().take(6)}"
@@ -91,6 +93,9 @@ class PodEarlySubmitTest : E2e() {
                 bob.shows(hasTestTag("pod-build-submit-wait") and hasText("Submit opens after your last pick")) &&
                 bob.shows(hasClickAction() and hasAnyDescendant(hasText("Submit deck", substring = true)) and isNotEnabled())
         }
+        // DRF-076 (owner, 2026-11-21): Draft · Build · Stats, no Games tab while his own draft runs
+        val bobsGamesTab = hasText("Games") and hasAnyAncestor(hasTestTag("pod-tabs"))
+        assertTrue(bob.shows(hasText("Draft") and hasAnyAncestor(hasTestTag("pod-tabs"))) && !bob.shows(bobsGamesTab), bob.screen())
 
         submitOnPhone(alice, pod)
         assertEquals(PodPhase.DRAFTING, ServerSetup.pod(alice.account, pod).phase, "the pod still drafts")
@@ -105,14 +110,30 @@ class PodEarlySubmitTest : E2e() {
         waitUntil("Alice's challenge made") { podGames().size == 1 }
         val game = podGames().single()
         assertTrue(ServerSetup.head(alice.account, game).summary.invitationHeld)
+        // DRF-304: named after the pod, its first game, on both phones
+        val gameName = "$name #1"
+        assertEquals(gameName, ServerSetup.head(bob.account, game).summary.gameName)
+        // The challenge opens its lobby on Alice's phone, under the game's name
+        waitUntil("the game's lobby on Alice's phone under its name") { alice.lobby.state.selected == game && alice.showsText(gameName) }
 
-        // Bob sees it at once in the pod's Games tab; he can't accept while he still drafts
+        // DRF-122: Bob, still drafting, is notified at once, as while building
+        assertEquals(1, ServerSetup.invitationNotices(bob.account, game), "Bob is notified at once")
+        val notice = ServerSetup.invitationNotice(bob.account, game)
+        assertEquals("$name: ${alice.name} challenged you · submit your deck to accept", notice?.let { org.asyncttwiz.android.invitationText(it) })
+        assertEquals(pod, notice?.podId)
+        // The notice asks for the pod's Games tab, which Bob doesn't have while he drafts: the pod opens on Draft
         bob.pods.open(pod, PodTab.GAMES)
+        waitUntil("Bob's pod open on Draft, no Games tab") {
+            bob.pods.state.detail?.id == pod && bob.pods.state.tab == PodTab.DRAFT && bob.shows(hasTestTag("pod-tabs"))
+        }
+        assertTrue(!bob.shows(bobsGamesTab), bob.screen())
+        // The challenge waits in his Games list; he can't accept while he still drafts
         bob.lobby.refresh()
-        waitUntil("the challenge in Bob's Games tab, Accept greyed") {
-            bob.pods.state.tab == PodTab.GAMES && bob.shows(hasTestTag("pod-game-$game")) &&
-                bob.shows(hasText("Challenged you · submit your deck to accept")) &&
-                bob.shows(hasAnyChild(hasContentDescription("Accept invitation")) and isNotEnabled())
+        bob.auth.navigate(ShellDestination.GAMES)
+        waitUntil("the challenge in Bob's Games list, Accept greyed") {
+            bob.showsText(gameName) && bob.shows(hasText("Challenged you · submit your deck to accept", substring = true)) &&
+                (bob.shows(hasAnyChild(hasContentDescription("Accept invitation")) and isNotEnabled()) ||
+                    bob.shows(hasContentDescription("Accept invitation") and isNotEnabled()))
         }
 
         // Bob's own picks; he submits, and the challenge can be accepted
@@ -120,9 +141,12 @@ class PodEarlySubmitTest : E2e() {
         basics(bob, pod)
         ServerSetup.submitPodDeck(bob.account, pod)
         bob.pods.refresh(); bob.lobby.refresh()
+        bob.auth.navigate(ShellDestination.PODS)
         bob.pods.open(pod, PodTab.GAMES)
         val accept = hasAnyChild(hasContentDescription("Accept invitation")) and isEnabled()
-        waitUntil("the challenge acceptable on Bob's phone") { bob.pods.state.tab == PodTab.GAMES && bob.shows(accept) }
+        waitUntil("the challenge acceptable in Bob's pod Games tab, there now") {
+            bob.pods.state.tab == PodTab.GAMES && bob.shows(bobsGamesTab) && bob.shows(hasTestTag("pod-game-$game")) && bob.shows(accept)
+        }
         bob.node(accept).performScrollTo().performClick()
         waitUntil("Bob accepted Alice's challenge") {
             ServerSetup.head(bob.account, game).summary.invitationState == InvitationState.ACCEPTED

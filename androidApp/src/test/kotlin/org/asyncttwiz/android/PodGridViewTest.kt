@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.asyncttwiz.protocol.*
@@ -95,8 +96,8 @@ class PodGridViewTest {
         compose.runOnIdle { assertTrue(confirmed.isEmpty(), "$confirmed") }
     }
 
-    // DRF-293, DRF-294: the draft's own Auto toggle (kept by the pod screen) is shown and changed through it; Confirm is yellow
-    // with its shine while it is on, in a full-width row after the toggle
+    // DRF-293, DRF-294 (owner, 2026-11-21): the draft's own Auto toggle (kept by the pod screen) is shown and changed through it;
+    // Confirm is yellow with its shine while it is on, Auto the narrow tip at its right end, the two filling a full-width row
     @Test fun autoToggleFollowsTheDraftsValue() {
         var auto by mutableStateOf(true)
         val confirmed = mutableListOf<GridLineType>()
@@ -107,9 +108,10 @@ class PodGridViewTest {
         val row = compose.onNodeWithTag("pod-pick-confirm-row").getUnclippedBoundsInRoot()
         val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn().getUnclippedBoundsInRoot()
         val confirm = compose.onNodeWithTag("pod-grid-confirm").getUnclippedBoundsInRoot()
-        assertEquals(row.left, toggle.left)
-        assertEquals(row.right, confirm.right)
-        assertTrue(toggle.right < confirm.left, "Auto before Confirm: $toggle, $confirm")
+        assertEquals(row.left, confirm.left)
+        assertEquals(row.right, toggle.right)
+        assertTrue(confirm.right < toggle.left && toggle.left - confirm.right < 2.dp, "Auto right after Confirm: $confirm, $toggle")
+        assertTrue(toggle.right - toggle.left < (row.right - row.left) * .2f, "Auto is narrow: $toggle")
         compose.onNodeWithContentDescription("Select row 3").performClick()
         compose.runOnIdle { assertEquals(listOf(GridLineType.ROW), confirmed) }
         compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOff()

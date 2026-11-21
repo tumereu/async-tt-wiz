@@ -797,7 +797,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val basics = ServerCatalogs.current()?.basics ?: return error(503, "basic_definitions_unavailable")
         return mutate(principal, id, input.requestId, "challengeFromPod", json.encodeToJsonElement(input)) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
-            if (!LobbyValidation.name(input.gameName)) return@mutate error(400, "invalid_name")
+            if (input.gameName?.let { !LobbyValidation.name(it) } == true) return@mutate error(400, "invalid_name")
             if (!DeckValidation.uuid(input.opponentId) || input.opponentId == owner.toString())
                 return@mutate error(400, "invalid_opponent")
             val players = members(sql, row.id!!).associateBy { it.accountId.toString() }
@@ -821,7 +821,11 @@ class PodService(private val runtime: ServiceRuntime) {
                 return@mutate error(400, "invalid_deck")
             }
             val game = UUID.randomUUID(); val invitation = UUID.randomUUID()
-            sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName).set(GAME.INVITER_ID, owner)
+            // DRF-304: "<pod name> #N", N counting the pod's games, this one included (the pod row is locked, so two
+            // challenges never share a number; declined and withdrawn ones keep theirs)
+            val number = sql.fetchCount(GAME, GAME.POD_ID.eq(row.id)) + 1
+            val gameName = input.gameName ?: PodGameNames.name(row.name!!, number)
+            sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, gameName).set(GAME.INVITER_ID, owner)
                 .set(GAME.RECIPIENT_ID, UUID.fromString(input.opponentId)).set(GAME.PREPARATION_ROUND, UUID.randomUUID())
                 .set(GAME.CURRENT_INVITATION, invitation).set(GAME.POD_ID, row.id).set(GAME.POD_NAME, row.name)
                 .set(GAME.POD_SIDEBOARD_LIMIT, settings(row).sideboardLimit).set(GAME.POD_INVITATION_HELD, held).execute()
@@ -833,7 +837,7 @@ class PodService(private val runtime: ServiceRuntime) {
             saveChallengeDeck(sql, row, summary, owner.toString(), build, basics.mapValues { it.value.digest }, basics.values.toList(), input.requestId)
             // DRF-137: the recipient hears of it at once, also while still building (they accept once they submit)
             ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
-            log("pod ${row.id} challenge $game by $owner to ${input.opponentId} (pod ${row.phase?.lowercase()}; " +
+            log("pod ${row.id} challenge $game \"$gameName\" by $owner to ${input.opponentId} (pod ${row.phase?.lowercase()}; " +
                 if (!held) "they have submitted)" else if (draft(row).wait(input.opponentId) != null) "they still draft: held until they submit)"
                 else "they still build: held until they submit)")
             Result(201, json.encodeToString(summary))
@@ -1006,6 +1010,11 @@ class PodService(private val runtime: ServiceRuntime) {
         cards.filter { it.bonus }.takeIf { it.isNotEmpty() }?.let { bonus ->
             log("Arena bonus bags of ${set.packs.distinct()}: " + bonus.groupBy { it.set to it.rarity }.entries
                 .joinToString { (key, list) -> "${key.first} ${key.second}: ${list.size}" })
+        }
+        // DRF-305: how many cards of several printings pick them by their booster frequency, and how many each alike
+        cards.filter { it.printings.size > 1 }.groupBy { it.set }.forEach { (code, several) ->
+            log("Arena printings of $code: ${several.count { it.weights.isNotEmpty() }} cards by booster frequency, " +
+                "${several.count { it.weights.isEmpty() }} each alike")
         }
         return cards
     }

@@ -81,10 +81,15 @@ class DraftGalleryScreenshotTest {
     private fun pack(id: String, cards: List<Int>, pick: Int = 1, passedBy: String? = null) =
         DraftPrivatePack(id, 1, cards.map { copy(it) }, pick, passedBy)
 
+    /** While the pod drafts, Alice's own draft runs (DRF-302: picks of hers to come, so no Games tab, DRF-076) unless she has
+     * submitted. */
     private fun detail(phase: PodPhase, settings: DraftSettings, members: List<PodMember>, name: String = "Cube night",
         source: PodSource = PodSource("Runes", 540, maybeCopies = 12)) = PodDetail("pod", name, phase, alice, settings, source,
         DraftSupply(135, 540), members, emptyList(), draftAttemptId = "attempt", definitions = definitions,
-        updatedAt = "2026-11-07T00:00:00Z")
+        updatedAt = "2026-11-07T00:00:00Z", draftWait = aliceDrafting(phase, members))
+
+    private fun aliceDrafting(phase: PodPhase, members: List<PodMember>) =
+        PodDraftWait.Picks.takeIf { phase == PodPhase.DRAFTING && members.none { it.account == alice && it.submitted } }
 
     private fun show(state: PodState) {
         pods.seed(state)
@@ -167,29 +172,28 @@ class DraftGalleryScreenshotTest {
             "\"Start when everyone accepts\".")
     }
 
-    // DRF-296, DRF-297, DRF-030 (owner, 2026-11-21): the Bots tile before Sideboard; the three bot seats listed after the
-    // members as "Bot 1"… and counted in Members (5/8) (a tall screen shows the whole form)
+    // DRF-296, DRF-297, DRF-030 (owner, 2026-11-21): no Bots tile; the "Bots − N +" stepper beside the invite button reads 3, the
+    // three bot seats listed after the members as "Bot 1"… and counted in Members (5/8) (a tall screen shows the whole form)
     @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun botSeatsSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings(bots = 3), listOf(PodMember(alice), PodMember(bob)), name = "Bot night")
         show(opened(detail))
-        compose.onNodeWithTag("pod-setting-bots", useUnmergedTree = true).assertTextEquals("3")
         compose.onNodeWithText("Members (5/8)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("pod-bots-value", useUnmergedTree = true).performScrollTo().assertTextEquals("3")
         // In the strip over the setup and in its members list
         compose.onAllNodesWithText("bot").assertCountEquals(6)
-        shot("setup-bots", "The creator's setup of a Booster pod with three bot seats: the Bots tile reads 3 just before " +
-            "Sideboard; the strip at the top and the members list (five of eight seats) show Alice and Bob, then Bot 1, Bot 2 and Bot 3 " +
-            "marked \"bot\".")
+        shot("setup-bots", "The creator's setup of a Booster pod with three bot seats: the tiles end with Sideboard (no Bots tile); " +
+            "the strip at the top and the members list (five of eight seats) show Alice and Bob, then Bot 1, Bot 2 and Bot 3 marked " +
+            "\"bot\", and under them the invite button with the \"Bots − 3 +\" stepper at the row's right.")
     }
 
-    // DRF-296: a tap on the Bots tile opens its dialog with what bots do and the range, 0–6 in Booster
-    @Test fun botSeatsDialog() {
-        val detail = detail(PodPhase.SETUP, DraftSettings(bots = 3), listOf(PodMember(alice), PodMember(bob)), name = "Bot night")
-        show(opened(detail))
-        compose.onNodeWithText("Bots").performScrollTo().performClick()
+    // DRF-296: Sealed and Arena take no bots, so their setup has no stepper; Grid's stops at two (+ greyed)
+    @Test fun botSeatsStepperFollowsTheMode() {
+        show(opened(detail(PodPhase.SETUP, DraftSettings.arena(), listOf(PodMember(alice), PodMember(bob)))))
+        compose.onNodeWithTag("pod-bots").assertDoesNotExist()
+        compose.runOnIdle { pods.seed(opened(detail(PodPhase.SETUP, DraftSettings.grid().copy(bots = 2), listOf(PodMember(alice), PodMember(bob))))) }
         settle()
-        compose.onNodeWithText("0–6").assertIsDisplayed()
-        shot("setup-bots-dialog", "The Bots tile tapped in a Booster pod's setup: its dialog says bots fill seats, pick the moment " +
-            "the draft reaches them and play no games, with a number field for 0–6 holding 3, Cancel and Save.")
+        compose.onNodeWithTag("pod-bots-more").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("pod-bots-fewer").assertIsEnabled()
     }
 
     // DRF-297, DRF-298: a started Booster pod with three bot seats: they are in the header's avatars after the people, ready (✓)
@@ -315,7 +319,7 @@ class DraftGalleryScreenshotTest {
         if (landscape) shot("booster-pick-landscape", "A Booster draft's pick screen in landscape, five cards per row: the same " +
             "pack from Bob with Cinder Whelp marked keep, the keep tray and Confirm fixed below.")
         else shot("booster-pick", "A Booster draft for three on Alice's pick 2 of round 1, passed by Bob: the header's avatars " +
-            "show how many picks each member can make (Carol ✓), Draft · Build · Stats · Games tabs, and Cinder Whelp marked keep " +
+            "show how many picks each member can make (Carol ✓), Draft · Build · Stats tabs, and Cinder Whelp marked keep " +
             "with a green border and ✓, also in the keep tray above Confirm.")
     }
 
@@ -386,15 +390,15 @@ class DraftGalleryScreenshotTest {
         return detail
     }
 
-    // DRF-293, DRF-294 (owner, 2026-11-21): the Auto toggle off beside Confirm, then on, Confirm turning yellow with its shine
+    // DRF-293, DRF-294 (owner, 2026-11-21): Auto, the tip at Confirm's right end, off, then on, Confirm turning yellow with its shine
     @Test fun autoconfirmToggle() {
         autoconfirmPick()
         compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff()
-        shot("autoconfirm-off", "Alice's Glimpse pick, Stormtide Pact marked keep and one card burned, one burn still to mark: the Auto " +
-            "toggle with its bolt sits off just before Confirm, which looks as always.")
+        shot("autoconfirm-off", "Alice's Glimpse pick, Stormtide Pact marked keep and one card burned, one burn still to mark: " +
+            "Confirm, looking as always, ends in Auto, a narrow tip behind a thin divider with a bolt over a small \"Auto\", off.")
         compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOn()
         settle()
-        shot("autoconfirm-on", "The same pick after Alice taps Auto: the toggle is filled yellow and Confirm is yellow too with a band " +
+        shot("autoconfirm-on", "The same pick after Alice taps Auto: the tip and Confirm are one yellow shape, Confirm with a band " +
             "of light across it (here at the start of its sweep); the last burn she marks will confirm the pick at once.")
     }
 
@@ -408,7 +412,7 @@ class DraftGalleryScreenshotTest {
             .copy(grid = grid)
     }
 
-    // DRF-293, DRF-083 (owner, 2026-11-21): Grid's pick with the Auto toggle off just before Confirm; a tap on row 2's arrow
+    // DRF-293, DRF-083 (owner, 2026-11-21): Grid's pick with Auto, the tip at Confirm's right end, off; a tap on row 2's arrow
     // only tints it
     @Test fun gridAutoconfirmOff() {
         show(opened(gridPick()))
@@ -417,7 +421,7 @@ class DraftGalleryScreenshotTest {
         settle()
         compose.runOnIdle { kotlin.test.assertFalse(pods.state.picking, "Auto off: the tap only chose the row") }
         shot("grid-autoconfirm-off", "Alice's pick from grid 1 of a two-player Grid draft after she taps row 2's arrow: the row is " +
-            "tinted and Confirm ready, with the Auto toggle off just before it.")
+            "tinted and Confirm ready, with Auto off at its right end.")
     }
 
     // DRF-293, DRF-294: Grid's pick with Auto on: Confirm yellow with its shine, dimmed while no line is taken; then a tap on a
@@ -426,7 +430,7 @@ class DraftGalleryScreenshotTest {
         show(opened(gridPick()))
         compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOn()
         settle()
-        shot("grid-autoconfirm-on", "The same grid after Alice taps Auto before choosing a line: the toggle and Confirm are yellow, " +
+        shot("grid-autoconfirm-on", "The same grid after Alice taps Auto, Confirm's tip, before choosing a line: both are yellow, " +
             "Confirm's label dimmed with a band of light across it; a tap on any row's or column's arrow now takes that line at once.")
         compose.onNodeWithContentDescription("Select column 3").performClick()
         compose.runOnIdle { kotlin.test.assertTrue(pods.state.picking, "the tap sent column 3") }
@@ -437,7 +441,7 @@ class DraftGalleryScreenshotTest {
         autoconfirmPick()
         compose.mainClock.autoAdvance = false
         compose.captureClip("$SCREENSHOTS/clips/autoconfirm-shine.webp",
-            "Alice taps Auto beside Confirm on her Glimpse pick: the toggle and Confirm turn yellow and a band of light sweeps across Confirm and back.",
+            "Alice taps Auto, the tip at the right end of Confirm, on her Glimpse pick: the two turn yellow and a band of light sweeps across Confirm and back.",
             millis = 3_200L, node = compose.onNodeWithTag("pod-pick-confirm-row")) { at ->
             if (at == 4 * CLIP_STEP_MILLIS) compose.onNodeWithTag("pod-pick-autoconfirm").performClick()
         }
@@ -542,7 +546,7 @@ class DraftGalleryScreenshotTest {
     }
 
     // DRF-119, DRF-303, DRF-076 (owner, 2026-11-21, MT74XQ): Alice's Arena draft still runs (she has picks left), so Build says
-    // when Submit opens over the bottom bar, and Submit is greyed; the tabs while drafting include Games
+    // when Submit opens over the bottom bar, and Submit is greyed; while her own draft runs there is no Games tab
     @Test fun buildSubmitLockedWhileYourDraftRuns() {
         val (pool, build) = buildCopies()
         val members = listOf(PodMember(alice, packsWaiting = 12, picksMade = 33, picking = true), PodMember(bob, building = true, picksMade = 45))
@@ -552,8 +556,8 @@ class DraftGalleryScreenshotTest {
         show(opened(detail, PodTab.BUILD))
         compose.onNodeWithTag("pod-build-submit-wait").assertTextEquals("Submit opens after your last pick")
         compose.onNode(hasClickAction() and hasText("Submit deck", substring = true)).assertIsNotEnabled()
-        compose.onNodeWithText("Games").assertIsDisplayed()
-        shot("build-submit-locked", "Build during an Arena draft with Alice's picks not over yet (the Draft · Build · Stats · Games " +
+        compose.onNodeWithText("Games").assertDoesNotExist()
+        shot("build-submit-locked", "Build during an Arena draft with Alice's picks not over yet (the Draft · Build · Stats " +
             "tabs): over the bottom bar a line says \"Submit opens after your last pick\", and Submit deck is greyed though her deck " +
             "is ready.")
     }

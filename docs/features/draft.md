@@ -174,6 +174,7 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-071** With no pack to pick, a faded centred text shows, each part on its own line: "Waiting for <names>" then "N packs will come back to you", or "All your picks are done" then "<names> is finishing" ("Other players are finishing" when unknown); then "Round x of y" (Grid: "Waiting for <names> · Round x of y"). (r35)
 - **DRF-204** In Rochester, Rotisserie, Winston and Winchester the board stays on screen when you have no pick, and its header line names whose pick it is ("Waiting for <name>"). (r35)
 - **DRF-072** Under the waiting text a borderless "Main menu" link leaves the pod; there is no Build button there. (r20)
+- **DRF-292** With "Show bot picks" on (test builds, LOB-263), every card you can pick shows the draft bot's score at its bottom left ("Bot 37") and the bot's pick reads "Bot pick 52" in purple with a purple frame, as if the bot had your picks so far: in Booster, Glimpse and Custom booster your pack, in Arena your offer (as many marked as you take), in Rochester each pack where it is your pick, in Rotisserie every card still free; not in Grid, Winston or Winchester. A tap on the score lists how it is made up ("Base 40", "Removal +12", …, "Total 52") with the colours the bot leans to and how much they count.
 
 ## Draft history (Booster and Glimpse)
 

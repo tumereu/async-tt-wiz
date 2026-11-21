@@ -33,7 +33,7 @@ class SubtypeTagsTest : E2e() {
         val goblinTagged = card("Cinder Goblin") and hasContentDescription(", Creature, Goblin tag", substring = true)
         val goblinPlain = card("Cinder Goblin") and hasContentDescription(", Creature", substring = true)
         waitUntil("Alice's own hand tags her Lizard on her phone") { alice.shows(lizardTagged) && alice.shows(goblinPlain) }
-        waitUntil("Bob's hand tags Alice's Goblin on his phone", along = listOf(alice)) { bob.shows(goblinTagged) && bob.shows(lizardPlain) }
+        waitUntil("Bob's hand tags Alice's Goblin on his phone") { bob.shows(goblinTagged) && bob.shows(lizardPlain) }
         assertFalse(alice.shows(goblinTagged), "Bob's hand is hidden from Alice: ${alice.screen()}")
         assertFalse(bob.shows(lizardTagged), "Alice's hand is hidden from Bob: ${bob.screen()}")
         // Cast, the lord is on the battlefield: both see it

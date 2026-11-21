@@ -223,7 +223,7 @@ fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boolean) -> Un
     val currentDrag by rememberUpdatedState(drag)
     val currentMoved by rememberUpdatedState(moved)
     val density = LocalDensity.current.density
-    onGloballyPositioned { coordinates = it }.pointerInput(key) {
+    onGloballyPositioned { coordinates = it }.hoverLook(HoverLook.Outline()).pointerInput(key) {
         awaitEachGesture {
             val down = awaitFirstDown()
             fun root(p: Offset) = coordinates?.takeIf { it.isAttached }?.localToRoot(p) ?: p
@@ -440,7 +440,7 @@ fun TipIconButton(icon: ImageVector, tip: String, modifier: Modifier = Modifier,
         contentDescription = tip; role = Role.Button
         if (!enabled) disabled()
         onClick(tip) { if (enabled) { click(); true } else false }
-    }.pointerInput(enabled) {
+    }.hoverLook(HoverLook.Tint(tint, CircleShape), enabled).pointerInput(enabled) {
         detectTapGestures(onPress = { tryAwaitRelease(); tooltip = false }, onTap = { if (enabled) click() },
             onLongPress = { tooltip = true })
     }, contentAlignment = Alignment.Center) {

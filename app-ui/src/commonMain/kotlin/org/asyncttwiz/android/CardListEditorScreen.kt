@@ -564,7 +564,7 @@ internal fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: C
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .then(if (drop == null) Modifier else Modifier.onGloballyPositioned { place.coordinates = it })
-            .edgeZoneHover(hover)
+            .edgeZoneHover(hover).hoverLook(HoverLook.Outline())
             .pointerInput(card.key, hover, drop) {
                 podPickGestures(onTap = { currentAdd() }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) },
                     mouseClick = hover?.let { { _: Offset -> currentAdd() } },

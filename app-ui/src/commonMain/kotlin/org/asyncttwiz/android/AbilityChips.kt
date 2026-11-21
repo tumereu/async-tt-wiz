@@ -170,7 +170,7 @@ fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit, refusal:
             if (refusal != null) disabled()
             onClick { press(); true }
             onLongClick { hold(true); true }
-        }.chipGestures(press, hold)) {
+        }.hoverLook(HoverLook.Tint(AutomatumViolet, ChipShape), enabled = refusal == null).chipGestures(press, hold)) {
         // Owner playtest 2026-11-05 evening: a long effect wraps onto more rows instead of being cut
         if (refusal == null) Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             AbilityChipText(effect, cost, ink)

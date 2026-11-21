@@ -410,6 +410,7 @@ private fun PodPickTrays(
                                 contentDescription = "Librarian, $left left"
                                 onClick { if (left > 0) currentSpend(); true }
                             }
+                            .hoverLook(HoverLook.Tint(PodPickGreen, RoundedCornerShape(8.dp)), enabled = left > 0)
                             .pointerInput(left, desktop) { podPickGestures(onTap = { if (left > 0) currentSpend() },
                                 onInspect = { currentInspect(librarian, it) }, onInspectScroll = onInspectScroll,
                                 mouseClick = if (desktop) ({ _ -> if (left > 0) currentSpend() }) else null) }) {
@@ -446,6 +447,7 @@ private fun PodLibrarianSlot(id: String, copy: DraftCopy?, definition: CardDefin
             contentDescription = "Refund Librarian"
             onClick { currentRefund(); true }
         }
+        .hoverLook(HoverLook.Outline())
         .pointerInput(copy, desktop) { podPickGestures(onTap = { currentRefund() },
             onInspect = { open -> copy?.let { currentInspect(it, open) } },
             mouseClick = if (desktop) ({ _ -> currentRefund() }) else null) }) {
@@ -536,6 +538,7 @@ private fun PodPickCard(
                     currentOnMark(PodPickMark.BURN)
                 }
             }))
+            .hoverLook(HoverLook.Outline())
             .pointerInput(burnEnabled, desktop) {
                 podPickGestures(onTap = { currentOnMenu(true) }, onInspect = { currentOnInspect(it) }, onInspectScroll = onInspectScroll,
                     // WEB-044 (owner): on the desktop layout a click keeps the card (again: unmarks it; a burned one switches
@@ -678,7 +681,7 @@ private fun PodPickTray(
                         .testTag("pod-pick-tray-$id").semantics {
                             contentDescription = "${definitions[copy.definition]?.name ?: "Card"}, ${if (automatic) "automatic burn" else label.lowercase()} tray"
                             if (!automatic) onClick { currentOnUnmark(id); true }
-                        }.pointerInput(id, automatic, desktop) {
+                        }.hoverLook(HoverLook.Outline(), enabled = !automatic).pointerInput(id, automatic, desktop) {
                             podPickGestures(onTap = { if (!automatic) currentOnUnmark(id) },
                                  onInspect = { currentOnInspect(copy, it) }, onInspectScroll = onInspectScroll,
                                  mouseClick = if (desktop) ({ _ -> if (!automatic) currentOnUnmark(id) }) else null)

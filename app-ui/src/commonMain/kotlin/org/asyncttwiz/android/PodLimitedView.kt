@@ -114,7 +114,7 @@ fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: Strin
         contentDescription = listOfNotNull(name, pickedBy?.let { "picked by ${picker?.username ?: "another player"}" }).joinToString(", ")
         this.selected = selected
         onClick("Select") { currentTap(); true }
-    }.clip(shape).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f))) {
+    }.clip(shape).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f)).hoverLook(HoverLook.Outline(shape))) {
         PodLimitedArt(copy, definition, Modifier.fillMaxSize().alpha(if (pickedBy != null) .4f else 1f).pointerInput(copy) {
             podPickGestures(onTap = { currentTap() }, onInspect = { preview.hold(copy, it) },
                 onInspectScroll = { preview.scroll.dispatchRawDelta(it) })
@@ -220,7 +220,7 @@ private fun PodQueuedCard(position: Int, copy: DraftCopy, definitions: Map<Strin
     Box(Modifier.width(PodPickTrayCardWidth).fillMaxHeight().testTag("pod-rotisserie-queued-${copy.id}").semantics {
         contentDescription = podQueueChipText(position, copy, definitions)
         onClick("Remove from queue") { currentRemove(); true }
-    }.clip(shape).background(MaterialTheme.colorScheme.surfaceVariant).pointerInput(copy.id) {
+    }.clip(shape).background(MaterialTheme.colorScheme.surfaceVariant).hoverLook(HoverLook.Outline(shape)).pointerInput(copy.id) {
         podPickGestures(onTap = { currentRemove() }, onInspect = { preview.hold(copy, it) },
             onInspectScroll = { preview.scroll.dispatchRawDelta(it) })
     }) {

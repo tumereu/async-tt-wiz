@@ -527,6 +527,7 @@ private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer:
             }
         }
         .background(fill, shape).border((if (active) 1.5f else 1.2f).dp * zoom, if (active) AutomatumViolet else tint.copy(alpha = .75f), shape)
+        .hoverLook(HoverLook.Tint(ink, shape), enabled = interactive && onTap != null)
         // A leaving chip (CMB-001) takes no touches: they reach the table beneath
         .then(if (!interactive) Modifier else Modifier.pointerInput(lane.cardId) {
             detectTapGestures(

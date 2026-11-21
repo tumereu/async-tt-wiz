@@ -437,6 +437,9 @@ private fun RaisedChipsRow(hand: HandController, play: TableBoard, raised: Strin
     }
 }
 
+/** The way, extra and ability chips' shape (ZON-080, TBL-124), which their hover look (WEB-139) follows. */
+val ChipShape = RoundedCornerShape(14.dp)
+
 /** A chip's tap and hold: [hold] true while it is held (its details shown), false on release. */
 fun Modifier.chipGestures(tap: () -> Unit, hold: (Boolean) -> Unit) = pointerInput(tap, hold) {
     detectTapGestures(onTap = { tap() }, onLongPress = { hold(true) }, onPress = {
@@ -459,7 +462,7 @@ fun WayChip(chip: CastWayChip, chosen: Boolean, tap: () -> Unit, hold: (Boolean)
             role = Role.Button
             onClick { tap(); true }
             onLongClick { hold(true); true }
-        }.chipGestures(tap, hold)) {
+        }.hoverLook(HoverLook.Tint(AutomatumViolet, ChipShape)).chipGestures(tap, hold)) {
         // Owner playtest 2026-11-05 evening: a long name wraps onto more rows instead of being cut
         Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             val text = chip.text
@@ -487,7 +490,7 @@ private fun MoreChip(cost: String?, affordable: Boolean, tap: () -> Unit, hold: 
             role = Role.Button
             onClick { tap(); true }
             onLongClick { hold(true); true }
-        }.chipGestures(tap, hold)) {
+        }.hoverLook(HoverLook.Tint(AutomatumViolet, ChipShape)).chipGestures(tap, hold)) {
         Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(MORE_NAME, color = if (affordable) AutomatumViolet else Color(0xff59656a), fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold)
             cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)) }
@@ -512,7 +515,7 @@ fun ExtraChip(chip: CastExtraChip, times: Int, tap: () -> Unit, less: () -> Unit
             role = Role.Checkbox
             onClick { tap(); true }
             onLongClick { hold(true); true }
-        }.chipGestures(tap, hold)) {
+        }.hoverLook(HoverLook.Tint(ink, ChipShape)).chipGestures(tap, hold)) {
         Row(Modifier.heightIn(min = 32.dp).padding(start = 6.dp, end = if (chip.repeatable && on) 2.dp else 10.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Icon(if (on) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank, null, Modifier.size(16.dp),
@@ -527,7 +530,7 @@ fun ExtraChip(chip: CastExtraChip, times: Int, tap: () -> Unit, less: () -> Unit
                 Surface(shape = CircleShape, color = Color.White, border = BorderStroke(1.dp, AutotapAmber),
                     modifier = Modifier.padding(start = 4.dp).size(24.dp).semantics {
                         contentDescription = "One ${chip.name} fewer"; role = Role.Button; onClick { less(); true }
-                    }.pointerInput(less) { detectTapGestures(onTap = { less() }) }) {
+                    }.hoverLook(HoverLook.Tint(ink, CircleShape)).pointerInput(less) { detectTapGestures(onTap = { less() }) }) {
                     Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Remove, null, Modifier.size(14.dp), tint = ink) }
                 }
             }

@@ -431,7 +431,8 @@ class DesktopTableTest : E2e() {
     // TBL-139, TBL-146, WEB-022 (owner 2026-11-16): in her desktop layout's Settings Alice finds "Hand cards: full picture" on and
     // "Battlefield cards: full picture" off; her Ember Twin on the battlefield (with its token copy, the test cards' one card
     // with a picture) shows the app's white frame. She turns the battlefield's on: back at the table the Twin shows its whole
-    // printed card (the test pictures' beige text box low on the card, where the app's frame is white)
+    // printed card (the test pictures' beige text box low on the card, where the app's frame is white; looked at right of the
+    // type icons' white chip a full picture has at its bottom left, TBL-236)
     @Test fun theFullPictureSettings() {
         startGame(TestDeck.thirds(TestCards.twin), aliceDesktop = true, deal = { a, _ -> "Mountain" in hand(a) && "Ember Twin" in hand(a) })
         bothOpen()
@@ -444,12 +445,16 @@ class DesktopTableTest : E2e() {
         }
         // The mouse away from the cards, so no quick look covers the Twin
         alice.tagged("phase-track").performMouseInput { moveTo(center) }
-        fun textBox(): Int {
-            repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
+        // [settle]: the frames of a second first, so a white spot is the frame's and not a picture still coming. Not while
+        // waiting for the beige: a wait's every round moving the phones' clock on by a second ran it two hours ahead in a
+        // minute's timeout, and its background syncs spent the accounts' lobby limit for the tests after it (2026-11-21)
+        fun textBox(settle: Boolean): Int {
+            if (settle) repeat(3) { run(skip = java.time.Duration.ofMillis(300)) }
             val card = alice.battlefieldCard("Ember Twin").fetchSemanticsNode().boundsInWindow
-            return beigeAt(alice.picture(), card.left + card.width * .2f, card.top + card.height * .85f)
+            // Low on the card, between the type icons and the P/T of the app's frame (TBL-233), right of a full picture's chip
+            return beigeAt(alice.picture(), card.left + card.width * .45f, card.top + card.height * .8f)
         }
-        val frame = textBox()
+        val frame = textBox(settle = true)
         assertTrue(frame <= 4, "the app's white frame on the battlefield: $frame")
         alice.pressKey("?", shift = true)
         waitUntil("the list of keys") { sheetShown() }
@@ -464,7 +469,7 @@ class DesktopTableTest : E2e() {
         if (!alice.shows(hasTestTag("phase-track"))) alice.openGame(game, this)
         waitUntil("Alice's table") { alice.shows(hasTestTag("phase-track")) && alice.game?.shown != null && alice.settled(this) }
         alice.tagged("phase-track").performMouseInput { moveTo(center) }
-        waitUntil("the Twin's whole printed card on the battlefield") { textBox() >= 12 }
+        waitUntil("the Twin's whole printed card on the battlefield") { textBox(settle = false) >= 12 }
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 

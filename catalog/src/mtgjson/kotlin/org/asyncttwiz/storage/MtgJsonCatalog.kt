@@ -174,7 +174,20 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
             val allowed = status.isJsonPrimitive && status.asJsonPrimitive.isString && status.asString.lowercase() in setOf("legal", "restricted")
             if (bit >= 0 && allowed) mask or (1L shl bit) else mask
         } ?: 0L,
-        related = relatedTokens(json, token))
+        related = relatedTokens(json, token), printedText = printedText(json))
+
+    /** TBL-209 (owner 2026-11-21, E6: reminders follow what the shown printing prints): MTGJSON's `originalText` where it is the
+     * Oracle `text` with reminder text left out or added, and nothing else changed (a retro frame's "Disturb {1}{W}" without its
+     * reminder); empty where it is the same or worded otherwise (an old printing's wording, whose rules words the Oracle text
+     * names anyway). Lenient, like [searchTraits]. */
+    private fun printedText(json: JsonObject): String {
+        fun field(key: String) = json.get(key)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString.orEmpty()
+        val printed = field("originalText")
+        val oracle = field("text")
+        if (printed.isEmpty() || printed == oracle) return ""
+        fun bare(text: String) = text.replace(REMINDER, "").replace(SPACES, " ").trim()
+        return printed.takeIf { bare(it) == bare(oracle) }.orEmpty()
+    }
 
     /** A card's `relatedCards.tokens` (token printing ids); a token's `relatedCards.reverseRelated` (and the older
      * top-level `reverseRelated`): the names of the cards that make it, lower case. Lenient, like [searchTraits]. */
@@ -189,6 +202,10 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
     }
 
     companion object {
+        /** Reminder text with the space before it. */
+        private val REMINDER = Regex("""\s*\([^)]*\)""")
+        private val SPACES = Regex("""\s+""")
+
         // Exhaustive consumers: DeckImportResolver, DeckSavePlan/DeckEditorSource, card inspection,
         // CatalogIndex aliases/token search and ArtworkReference; flavorName and faceFlavorName: the name a printing
         // gives its card where it is printed under another (shown, and found by imports and search; the rules read the

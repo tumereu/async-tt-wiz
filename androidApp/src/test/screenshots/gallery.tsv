@@ -156,7 +156,7 @@ number	item	screenshot	catalog	decisions	sequence
 155	Player state chips	states/player-chips-portrait.png	TRN-072 TRN-073 TRN-053
 156	Player state chips in landscape	states/player-chips-landscape.png	TRN-072 TRN-073 TBL-009
 157	Player state chips on a narrow screen	states/player-chips-narrow.png	TRN-072 TRN-053 TRN-069
-158	Holding a player state chip	states/player-chip-explained.png	TRN-072 TBL-132
+158	Holding a player state chip: their states and emblems together in Inspect	states/player-chip-explained.png	TRN-072 TRN-133 TRN-129 TBL-132
 159	Your sent message's bubble above your life square	chat/bubble-own.png	LOB-137
 160	A chat bubble under the other player's life square, clear of their state chips on a narrow phone	states/bubble-clear-of-chips.png	LOB-136 TRN-072
 161	Exit timeline at the newest event	engine/timeline-exit.png	HIS-015 HIS-010
@@ -306,7 +306,7 @@ number	item	screenshot	catalog	decisions	sequence
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
 307	Game Inspect pinned: rules reminder chips under the card, a tap on Ward explains it	inspect/reminders-pinned.png	TBL-209 TBL-210		Rules reminders
 308	Draft Inspect: rules reminder chips under the card, each with its explanation	inspect/reminders-draft.png	TBL-209 TBL-210 DRF-063		Rules reminders
-309	The other player's cards they may play from other zones: a cyan chip in their row of round chips and its list	states/other-playable.png	ZON-136		
+309	The other player's cards they may play from other zones: a cyan chip in their row of round chips and its list of cards	states/other-playable.png	ZON-136		
 310	A shake says why in a bubble rising from what shook	engine/refusal-bubble.png	TBL-118 TBL-212		
 315	Draft: "While you were away" in a Rotisserie pod	pod-rotisserie-away.png	DRF-239 DRF-240		
 316	Desktop draft: the quick look of a double-faced pack card	desktop/draft-quick-look.png	WEB-117		
@@ -323,7 +323,7 @@ number	item	screenshot	catalog	decisions	sequence
 350	Draft: Arena setup with its tiles and summary	draft/setup-arena.png	DRF-281 DRF-282 DRF-283 DRF-284 DRF-285 DRF-287		Arena
 351	Draft: Arena pick screen on the phone	draft/arena-pick.png	DRF-288 DRF-280		Arena
 352	Desktop draft: Arena pick with a quick look	desktop/arena-pick.png	DRF-288 WEB-117		Arena
-353	Manage decks: a saved deck's ⋮ Move to… dialog, the top level and the categories as a tree, its own category marked	lending/move-deck.png	LOB-262
+353	Manage decks: a saved deck's ⋮ Move to… dialog, the top level and the categories as a tree of rows a tap moves to, its own category greyed "here"	lending/move-deck.png	LOB-262
 354	The other player's special action shown large before it flies into its own card	engine/play-show-special-action.png	HIS-112 HIS-031 TBL-115
 355	Desktop: the hover look on a battlefield card (the main button plain again)	desktop/hover-card.png	WEB-139 WEB-140
 356	Draft: Show bot picks, the bot's scores and pick on a Booster pack with a score's breakdown open	draft/bot-picks.png	DRF-292 LOB-263		

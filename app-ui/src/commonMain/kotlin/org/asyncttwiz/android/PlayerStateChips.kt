@@ -30,7 +30,10 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -129,57 +132,109 @@ private fun PlacedStateChip.explained(): Pair<List<arcanum.api.RulesGlossary.Ent
 }
 
 /**
- * TRN-072, TRN-073, TRN-069: each player's state chips (their dungeon's room among them) and the game's day or night. A tap does
- * nothing; holding one shows what it means in the dark rule popup (TBL-132), placed as a held button's name is (SYS-045), until
- * the finger lifts.
+ * TRN-072, TRN-073, TRN-069, TRN-133: each player's state chips (their dungeon's room among them) and the game's day or night. A
+ * tap does nothing. Holding a player's chip calls [held] with its owner (true; false on release): the table inspects that
+ * player's states and emblems together ([PlayerChipsInspect]) until the finger lifts. Holding the day or night chip shows what
+ * it means in the dark rule popup (TBL-132), placed as a held button's name is (SYS-045). ZON-136: the other player's playable
+ * chip lists its cards ([play], [viewer] for their Inspect).
  */
 @Composable
-fun StateChipsOverlay(scene: TableScene) {
+fun StateChipsOverlay(scene: TableScene, play: TableBoard?, viewer: String, held: (owner: String, down: Boolean) -> Unit) {
     for (life in scene.items.filter { it.kind == TableItemKind.LIFE && it.stateChips.isNotEmpty() && it.visible.isNotEmpty() }) key(life.id) {
+        val owner = life.owner
         for (placed in life.stateChips) key(placed.label) {
-            if (placed.playable.isNotEmpty()) OtherPlayableChipView(placed) else StateChipView(placed)
+            if (placed.playable.isNotEmpty()) OtherPlayableChipView(placed, play, viewer)
+            else StateChipView(placed, owner?.let { o -> { down: Boolean -> held(o, down) } })
         }
     }
-    scene.dayNightChip?.let { placed -> key(placed.label) { StateChipView(placed) } }
+    scene.dayNightChip?.let { placed -> key(placed.label) { StateChipView(placed, null) } }
+}
+
+/** TRN-133 (owner 2026-11-21, E7): the Inspect tile of a player's state [chip] ([own]: the viewer's): its glyph, its name (its
+ * explanation's, else its label), its label as the words that say more where it differs ("Speed 2", "Ring 2/4") and its
+ * explanation. */
+fun stateInspectTile(key: String, chip: StateChip, own: Boolean): InspectTile.State {
+    val name = chip.explanation?.name ?: chip.label
+    return InspectTile.State(key, chip.glyph, name, chip.label.takeIf { it != name }, chip.explanation?.text, own)
+}
+
+/**
+ * TRN-133, TRN-129 (owner 2026-11-21, E7: "states and emblems together"): Inspect of [holder]'s round chips on [scene]: one dark
+ * panel per state (the dungeon's room first, as their chips go; [stateInspectTile]), then one per emblem (TRN-129), over the dimmed
+ * screen until the finger lifts.
+ */
+@Composable
+fun PlayerChipsInspect(scene: TableScene, holder: String, viewer: String) {
+    val life = scene.items.firstOrNull { it.kind == TableItemKind.LIFE && it.owner == holder } ?: return
+    val own = holder == viewer
+    val states = life.stateChips.filter { it.playable.isEmpty() }.flatMap { placed -> placed.chip?.let(::listOf) ?: placed.hidden }
+    val texts = life.emblemTexts
+    val arts = texts.map { rememberEmblemArt(it) }
+    val groups = states.mapIndexed { n, chip -> InspectGroup("state/$n", listOf(stateInspectTile("state/$n", chip, own))) } +
+        texts.mapIndexed { n, text -> InspectGroup("emblem/$n", listOf(InspectTile.Emblem("emblem/$n", text, arts[n], own))) }
+    if (groups.isEmpty()) return
+    LaunchedEffect(holder) {
+        AppLog.info("table", "Player chips inspected: $holder's ${states.joinToString { it.label }}; ${texts.size} emblems")
+    }
+    InspectPopup(groups, rememberScrollState())
 }
 
 /** The test tag of a state chip (TRN-072, TRN-073). */
 const val STATE_CHIP_TAG = "state-chip"
 
+/** One state chip; [held] (a player's chip): its hold and release, for the table's Inspect of that player's chips (TRN-133);
+ * without it (the day or night chip) a hold shows the rule popup (TRN-073). */
 @Composable
-private fun StateChipView(placed: PlacedStateChip) {
+private fun StateChipView(placed: PlacedStateChip, held: ((Boolean) -> Unit)?) {
     var holding by remember { mutableStateOf(false) }
+    val currentHeld by rememberUpdatedState(held)
     val b = placed.bounds
     val plus = placed.hidden.isNotEmpty()
     Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp).testTag(STATE_CHIP_TAG)
         .semantics { contentDescription = placed.chip?.label ?: placed.hidden.joinToString(", ") { it.label } }
         .clip(CircleShape).background(if (plus) Color.White else StateChipFill).border(1.5.dp, AutomatumViolet, CircleShape)
-        .pointerInput(Unit) { detectTapGestures(onPress = { tryAwaitRelease(); holding = false }, onLongPress = { holding = true }) },
+        .pointerInput(Unit) {
+            detectTapGestures(onPress = {
+                tryAwaitRelease()
+                if (holding) currentHeld?.invoke(false)
+                holding = false
+            }, onLongPress = {
+                holding = true
+                AppLog.info("table", "State chip held: ${placed.label}")
+                currentHeld?.invoke(true)
+            })
+        },
         contentAlignment = Alignment.Center) {
         val scale = b.width / EmblemChips.SIZE
         if (plus) Text(placed.label, color = AutomatumViolet, fontSize = (10 * scale).sp, fontWeight = FontWeight.Bold,
             lineHeight = (11 * scale).sp, maxLines = 1, softWrap = false)
-        else when (val glyph = placed.chip?.glyph) {
-            is StateGlyph.Letters -> Text(glyph.text, color = StateChipInk, fontSize = (glyphSize(glyph.text) * scale).sp,
-                fontWeight = FontWeight.Bold, lineHeight = (glyphSize(glyph.text) * scale + 1).sp, maxLines = 1, softWrap = false)
-            StateGlyph.Day -> Icon(Icons.Outlined.LightMode, null, Modifier.size((15 * scale).dp), tint = StateChipInk)
-            StateGlyph.Night -> Icon(Icons.Outlined.DarkMode, null, Modifier.size((15 * scale).dp), tint = StateChipInk)
-            StateGlyph.Room -> Icon(Icons.Outlined.MeetingRoom, null, Modifier.size((15 * scale).dp), tint = StateChipInk)
-            // TRN-072 (owner notes 2026-11-14): the state's icon, its level under it where it has one
-            is StateGlyph.Icon -> if (glyph.level == null) Icon(stateIcon(glyph.icon), null, Modifier.size((15 * scale).dp), tint = StateChipInk)
-                else Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(stateIcon(glyph.icon), null, Modifier.size((11 * scale).dp), tint = StateChipInk)
-                    val level = glyph.level.toString()
-                    Text(level, color = StateChipInk, fontSize = (levelSize(level) * scale).sp, fontWeight = FontWeight.Bold,
-                        lineHeight = (levelSize(level) * scale).sp, maxLines = 1, softWrap = false)
-                }
-            null -> Unit
-        }
-        if (holding) {
+        else placed.chip?.glyph?.let { StateGlyphView(it, scale, StateChipInk) }
+        if (holding && held == null) {
             val gap = with(LocalDensity.current) { 8.dp.roundToPx() }
             val (entries, lead) = placed.explained()
             Popup(popupPositionProvider = remember(gap) { HoldTooltipPosition(gap) }) { RuleExplanation(entries, lead) }
         }
+    }
+}
+
+/** A state's [glyph] in [ink], at [scale] times its size on a full-size chip (TRN-072): its letters, or its icon with its level
+ * under it where it has one; the state's Inspect panel draws it larger (TRN-133). */
+@Composable
+internal fun StateGlyphView(glyph: StateGlyph, scale: Float, ink: Color) {
+    when (glyph) {
+        is StateGlyph.Letters -> Text(glyph.text, color = ink, fontSize = (glyphSize(glyph.text) * scale).sp,
+            fontWeight = FontWeight.Bold, lineHeight = (glyphSize(glyph.text) * scale + 1).sp, maxLines = 1, softWrap = false)
+        StateGlyph.Day -> Icon(Icons.Outlined.LightMode, null, Modifier.size((15 * scale).dp), tint = ink)
+        StateGlyph.Night -> Icon(Icons.Outlined.DarkMode, null, Modifier.size((15 * scale).dp), tint = ink)
+        StateGlyph.Room -> Icon(Icons.Outlined.MeetingRoom, null, Modifier.size((15 * scale).dp), tint = ink)
+        // TRN-072 (owner notes 2026-11-14): the state's icon, its level under it where it has one
+        is StateGlyph.Icon -> if (glyph.level == null) Icon(stateIcon(glyph.icon), null, Modifier.size((15 * scale).dp), tint = ink)
+            else Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(stateIcon(glyph.icon), null, Modifier.size((11 * scale).dp), tint = ink)
+                val level = glyph.level.toString()
+                Text(level, color = ink, fontSize = (levelSize(level) * scale).sp, fontWeight = FontWeight.Bold,
+                    lineHeight = (levelSize(level) * scale).sp, maxLines = 1, softWrap = false)
+            }
     }
 }
 

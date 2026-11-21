@@ -1,0 +1,1 @@
+mod: The game log fits more lines on the screen.

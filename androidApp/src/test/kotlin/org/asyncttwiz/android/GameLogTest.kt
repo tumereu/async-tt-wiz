@@ -77,6 +77,9 @@ class GameLogTest {
         compose.waitForIdle()
         compose.onAllNodesWithTag("game-log-separator").onFirst().assertExists()
         compose.onAllNodesWithTag("game-log-line").onLast().assertIsDisplayed()
+        // HIS-239 (owner 2026-11-21, E11): tight rows, a one-line row about 24 dp high
+        val heights = compose.onAllNodesWithTag("game-log-line").fetchSemanticsNodes().map { it.size.height / it.layoutInfo.density.density }
+        assertTrue(heights.min() in 23f..25f, "one-line rows about 24 dp: $heights")
         captureShot("$SCREENSHOTS/history/game-log.png",
             "Alice opened Table actions → Game log after a few turns of Mountains and Ember Cubs: one line per event with its icon, the newest at the bottom, her own name and cards in green and Bob's in red, and the turn and step labels between the lines.")
     }

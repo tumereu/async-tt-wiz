@@ -46,6 +46,10 @@ class HandRowOffZoneTest : E2e() {
         assertFalse(alice.shows(hasContentDescription("may play", substring = true)), "none on Alice's own table")
         bob.node(chip).performClick()
         waitUntil("the chip's list names the Flare: ${bob.screen()}") { bob.shows(hasContentDescription("Ember Flare, Graveyard")) }
+        // Owner 2026-11-21 (E9, cards as cards): it is a small card, and holding it inspects it
+        holding(bob.node(hasContentDescription("Ember Flare, Graveyard"))) {
+            assertTrue(bob.shows(hasContentDescription("Card inspection content")), "the Flare inspected: ${bob.screen()}")
+        }
         waitUntil("Alice's game settled") { alice.settled(this) }
         alice.described(inRow).performClick()
         waitUntil("the Flare raised in her hand row") { alice.raisedInHand() == "Ember Flare" && alice.settled(this) }

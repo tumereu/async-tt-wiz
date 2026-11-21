@@ -71,16 +71,35 @@ class RulesGlossaryTest {
         assertTrue(missing.isEmpty(), "ability labels without an explanation: $missing")
     }
 
+    // TBL-132, TBL-209 (owner 2026-11-21, E6): each explanation is written as reminder text: a sentence or a few, without the
+    // parentheses around it, no rule numbers, each its own
     @Test
-    fun explanationsArePlainSentencesOfTheirOwn() {
-        val entries = RulesGlossary.keywords.values + RulesGlossary.actions.values + RulesGlossary.tokens.values + RulesGlossary.terms.values
+    fun explanationsAreReminderTextSentences() {
+        val entries = RulesGlossary.keywords.values + RulesGlossary.actions.values + RulesGlossary.tokens.values + RulesGlossary.terms.values +
+            RulesGlossary.states.values
         for (entry in entries) {
             // A token kind's may end in the quoted ability it has (owner 2026-11-20: told as reminder text tells it)
             assertTrue(entry.text.length in 20..260 && (entry.text.endsWith(".") || entry.text.endsWith(".\"")), "${entry.id}: ${entry.text}")
-            // Not reminder text: no parentheses around the whole of it, no "CR" rule numbers
+            // No parentheses around the whole of it, no "CR" rule numbers
             assertTrue(!entry.text.startsWith("(") && !Regex("""\b\d{3}\.\d""").containsMatchIn(entry.text), entry.id)
         }
         assertEquals(entries.size, entries.map { it.text }.toSet().size, "every explanation is its own")
+    }
+
+    // TBL-132 (owner 2026-11-21, E6): a keyword with an official reminder-text template is explained in its words, a number as N
+    // and a cost as "its … cost"; a word without one is told in the same register
+    @Test
+    fun keywordsWithAReminderTemplateUseItsWords() {
+        assertEquals("This creature can't be blocked except by creatures with flying or reach.", RulesGlossary.keywords.getValue("flying").text)
+        assertEquals("You may cast this card from your graveyard transformed for its disturb cost.", RulesGlossary.keywords.getValue("disturb").text)
+        assertEquals("You may cast this card from your graveyard for its flashback cost. Then exile it.", RulesGlossary.keywords.getValue("flashback").text)
+        assertEquals("Tap any number of untapped creatures you control with total power N or more: This Vehicle becomes an artifact creature " +
+            "until end of turn.", RulesGlossary.keywords.getValue("crew").text)
+        assertEquals("Look at the top N cards of your library, then put any number of them on the bottom and the rest on top in any order.",
+            RulesGlossary.action("scry")!!.text)
+        assertEquals("A suspected creature has menace and can't block.", RulesGlossary.state("suspected")!!.text)
+        assertEquals("Turn this double-faced permanent over to its other face. It's still the same permanent, with the same counters, damage, " +
+            "and attachments.", RulesGlossary.terms.getValue("transform").text)
     }
 
     @Test

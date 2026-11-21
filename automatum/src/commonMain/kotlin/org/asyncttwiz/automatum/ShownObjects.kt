@@ -213,7 +213,8 @@ internal class ShownObjects(
             val sided = if (fromIndex == index || source?.get("side") != null) from.sourceData
                 else JsonObject((source ?: JsonObject(emptyMap())) + ("side" to JsonPrimitive("${'a' + fromIndex}"))).toString()
             return copy(scryfallId = from.scryfallId, imageUri = from.imageUri, sourceData = sided,
-                printedName = from.printedName.takeIf { from.name == name })
+                printedName = from.printedName.takeIf { from.name == name },
+                printedText = from.printedText.takeIf { from.name == name && from.rulesText == rulesText })
         }
     }
 }

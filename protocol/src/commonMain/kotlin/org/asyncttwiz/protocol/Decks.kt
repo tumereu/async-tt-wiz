@@ -34,6 +34,10 @@ data class DefinitionFace(
     /** The name this face's printing prints where it gives the card another than its Oracle name [name] (Secret Lair,
      * Universes Within: MTGJSON's `flavorName`): the app shows it ([shownName]); the rules read [name]. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val printedName: String? = null,
+    /** TBL-209 (owner 2026-11-21): the text this face's printing prints where it differs from [rulesText] only in reminder text
+     * (a retro frame leaving it out: MTGJSON's `originalText`), for the rules reminders of what the printing shows; the rules
+     * read [rulesText]. Left out of the JSON when absent. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val printedText: String? = null,
 ) {
     /** The face's name as its printing shows it: its [printedName], else its Oracle [name]. */
     val shownName: String get() = printedName ?: name
@@ -313,7 +317,7 @@ object DeckValidation {
         if (value.schemaVersion != 1 || value.name.isBlank() || value.faces.size !in 1..64) return false
         val strings = listOfNotNull(value.name, value.provider, value.sourceVersion, value.printingId, value.layout) +
             value.faces.flatMap { listOfNotNull(it.faceId, it.name, it.typeLine, it.manaCost, it.rulesText,
-                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.sourceData, it.printedName) +
+                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.sourceData, it.printedName, it.printedText) +
                 it.parts.flatMap { part -> listOf(part.name, part.typeLine, part.manaCost, part.rulesText, part.power,
                     part.toughness, part.loyalty, part.defense) } }
         if (!strings.all(::text)) return false

@@ -80,7 +80,7 @@ data class CatalogFaceRecord(
  * ids ([tokens]), a token's lower-case names of the cards that make it ([makers]). A printing that gives the card another
  * name (Secret Lair, Universes Within; MTGJSON's `flavorName` and `faceFlavorName`) keeps it beside the face's Oracle
  * name: [flavorName] the whole card's printed name, [faceFlavorName] this face's, on a card of several faces
- * ([CatalogCards.printedName]). */
+ * ([CatalogCards.printedName]). A printing whose text leaves out or adds reminder text keeps it as [printedText]. */
 @Serializable @SerialName("printing")
 data class CatalogPrintingRecord(
     val id: String,
@@ -98,6 +98,9 @@ data class CatalogPrintingRecord(
     val makers: List<String> = emptyList(),
     val flavorName: String = "",
     val faceFlavorName: String = "",
+    /** TBL-209 (owner 2026-11-21): the text this printing prints where it differs from its face's Oracle text only in reminder
+     * text (MTGJSON's `originalText`, [org.asyncttwiz.storage.CatalogPrintingTraits.printedText]), else empty. */
+    val printedText: String = "",
 ) : CatalogRecord
 
 /** The booster recipe a draftable set's packs follow (DRF-090: Play, else Draft, else default), with the printings it names. */
@@ -125,7 +128,7 @@ class CardCatalog(
 /** Reading and writing catalog lines. */
 object CardCatalogFormat {
     /** The format of [CatalogHeader.format]; a change makes clients download the catalog again (with a new version). */
-    const val FORMAT = 3
+    const val FORMAT = 4
 
     val json = Json {
         classDiscriminator = "t"

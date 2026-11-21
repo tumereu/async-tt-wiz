@@ -38,6 +38,7 @@ object TestCardsFixture {
             addProperty("uuid", face.id)
             addProperty("name", card.name)
             card.flavorName?.let { addProperty("flavorName", it) }
+            card.originalText?.let { addProperty("originalText", it) }
             addProperty("setCode", set)
             addProperty("number", number)
             addProperty("language", "English")

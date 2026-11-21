@@ -45,6 +45,18 @@ class RulesRemindersTest {
         assertEquals(listOf("Scry"), cardReminders(named).map { it.name })
     }
 
+    // TBL-209 (owner 2026-11-21, E6: Disturb without its chip on a retro printing): the reminders follow what the shown printing
+    // prints: one leaving the reminder text out has the word reminded, one adding it doesn't
+    @Test fun theShownPrintingsTextDecides() {
+        val oracle = "Flying\nDisturb {1}{U} (You may cast this card from your graveyard transformed for its disturb cost.)"
+        fun card(printed: String?) = CardDefinition("Mist Wisp", listOf(DefinitionFace("a", "Mist Wisp", rulesText = oracle, printedText = printed)))
+        assertEquals(listOf("Flying"), cardReminders(card(null)).map { it.name })
+        assertEquals(listOf("Flying", "Disturb"), cardReminders(card("Flying\nDisturb {1}{U}")).map { it.name })
+        val core = CardDefinition("Sky Gull", listOf(DefinitionFace("a", "Sky Gull", rulesText = "Flying",
+            printedText = "Flying (This creature can't be blocked except by creatures with flying or reach.)")))
+        assertEquals(emptyList(), cardReminders(core))
+    }
+
     // TBL-209: every face and printed part counts, each word once, and a printed name counts as the card's own
     @Test fun everyFaceAndPartCounts() {
         val card = CardDefinition("Ember Squire // Bold Charge", listOf(DefinitionFace("a", "Ember Squire", rulesText = "Haste",

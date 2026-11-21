@@ -1008,7 +1008,7 @@ object TablePresentation {
                     if (placed.chip != OtherPlayableChip.chip(name(player.accountId), others.size)) placed else placed.copy(playable = others.map { entry ->
                         val card = entry.cardId?.let(byId::get)
                         OtherPlayableChip.Shown(entry.cardId?.let { face(card)?.name } ?: OtherPlayableChip.hiddenName(entry.zone),
-                            OtherPlayableChip.zoneWord(entry.zone), if (entry.cardId == null) null else art(card, false))
+                            OtherPlayableChip.zoneWord(entry.zone), if (entry.cardId == null) null else art(card, false), card?.id)
                     })
                 })
             }

@@ -119,6 +119,27 @@ class CatalogBuildTest {
         assertFalse("flavorName" in CardCatalogFormat.encode(bolt), "left out when empty")
     }
 
+    // TBL-209 (owner 2026-11-21, E6: the reminders follow what the shown printing prints): a printing whose printed text (MTGJSON
+    // originalText) is its Oracle text without its reminder text keeps it, on its card data and its record; one printed as the
+    // Oracle text, or worded otherwise, keeps none
+    @Test fun `a printing that leaves out reminder text keeps its printed text`() {
+        val gulls = catalog.printings.filter { it.set == "DCK" && catalog.faces[it.face].name == "Test Gull" }.associateBy { it.number }
+        assertEquals("Flying\nWard {1}", gulls.getValue("5").printedText)
+        assertEquals("", gulls.getValue("4").printedText, "printed as its Oracle text")
+        assertEquals("", gulls.getValue("6").printedText, "an old wording: the Oracle text's words stand")
+        assertEquals(setOf(gulls.getValue("4").face), gulls.values.map { it.face }.toSet(), "one face for all three")
+        val retro = CatalogCards.definition(catalog, gulls.getValue("5"))
+        assertEquals("Flying\nWard {1}", retro.faces.single().printedText)
+        assertTrue(retro.faces.single().rulesText.startsWith("Flying\nWard {1} (Whenever"), "the rules read the Oracle text")
+        assertTrue(DeckValidation.definition(retro))
+        assertNull(CatalogCards.definition(catalog, gulls.getValue("4")).faces.single().printedText)
+        assertFalse("printedText" in DeckJson.canonical(CatalogCards.definition(catalog, gulls.getValue("4"))), "no field for it: digests stay")
+        val record = CatalogCards.sourceRecord(gulls.getValue("5"), catalog.faces[gulls.getValue("5").face])
+        assertEquals("Flying\nWard {1}", record["originalText"]?.let { (it as kotlinx.serialization.json.JsonPrimitive).content })
+        assertEquals(gulls.getValue("5"), CardCatalogFormat.decode(CardCatalogFormat.encode(gulls.getValue("5"))))
+        assertFalse("printedText" in CardCatalogFormat.encode(gulls.getValue("4")), "left out when empty")
+    }
+
     // SYS-082, SYS-204: a reversible printing (the same card on both sides) counts as the card it shows
     @Test fun `a reversible printing is the card it shows`() {
         val reversible = catalog.faces.filter { it.layout == "reversible_card" }

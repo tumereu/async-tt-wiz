@@ -68,7 +68,8 @@ object CatalogCards {
             val record = sourceRecord(side, face)
             DefinitionFace(side.id, face.faceName.ifBlank { face.name }, side.others.filter { it in ids }, face.type,
                 face.manaCost, face.text, face.power, face.toughness, face.loyalty, face.defense, scryfallId = side.scryfall,
-                sourceData = record.toString(), colorIndicator = GameCards.colorIndicator(record), printedName = printedName(side))
+                sourceData = record.toString(), colorIndicator = GameCards.colorIndicator(record), printedName = printedName(side),
+                printedText = side.printedText.ifBlank { null })
                 .let { it.copy(corner = it.defaultCorner()) }
         }
         val first = sides.first()
@@ -88,7 +89,8 @@ object CatalogCards {
     fun printedName(printing: CatalogPrintingRecord): String? =
         printing.faceFlavorName.ifBlank { printing.flavorName }.ifBlank { null }
 
-    /** A printing's record as the app keeps it (MtgJsonCatalog's retained fields, in that order), made from the catalog. */
+    /** A printing's record as the app keeps it (MtgJsonCatalog's retained fields, in that order, with the printing's
+     * [CatalogPrintingRecord.printedText] as MTGJSON's `originalText` after `text`), made from the catalog. */
     fun sourceRecord(printing: CatalogPrintingRecord, face: CatalogFaceRecord): JsonObject = buildJsonObject {
         fun text(key: String, value: String) { if (value.isNotEmpty()) put(key, value) }
         put("uuid", printing.id)
@@ -105,6 +107,7 @@ object CatalogCards {
         text("type", face.type)
         text("manaCost", face.manaCost)
         text("text", face.text)
+        text("originalText", printing.printedText)
         text("power", face.power)
         text("toughness", face.toughness)
         text("loyalty", face.loyalty)
@@ -145,6 +148,7 @@ object CatalogCards {
         text("type", face.type)
         text("manaCost", face.manaCost)
         text("text", face.text)
+        text("originalText", printing.printedText)
         text("power", face.power)
         text("toughness", face.toughness)
         text("loyalty", face.loyalty)

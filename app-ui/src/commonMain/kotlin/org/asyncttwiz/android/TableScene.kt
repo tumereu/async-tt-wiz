@@ -631,12 +631,17 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
             // STK-058 (owner gallery review 2026-11-07): the piles' count bubbles over every arrow and overlay above the table
             Canvas(Modifier.fillMaxSize()) { drawPileBadges(rendered.value.scene, drawCache) }
-            // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems
-            EmblemChipsOverlay(scene, accountId)
+            // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems and
+            // states together (TRN-129, TRN-133)
+            var heldChips by remember { mutableStateOf<String?>(null) }
+            val holdChips: (String, Boolean) -> Unit = { owner, down -> heldChips = if (down) owner else heldChips?.takeIf { it != owner } }
+            EmblemChipsOverlay(scene, holdChips)
             // WEB-016: each seat header's avatar and name
             if (desktopGeometry != null) SeatHeaderNames(game, scene, accountId)
-            // TRN-072, TRN-073: a player's states and the game's day or night; holding one explains it
-            StateChipsOverlay(scene)
+            // TRN-072, TRN-073, TRN-133: a player's states and the game's day or night; holding a player's inspects their states
+            // and emblems, the day or night chip explains itself
+            StateChipsOverlay(scene, play, accountId, holdChips)
+            heldChips?.let { PlayerChipsInspect(scene, it, accountId) }
             // STK-024 (owner playtest 2026-11-09): each source paying the open payment carries the mana it pays at its corner
             if (toolkit != null && !runtime.reviewing) PaymentCornerChips(toolkit, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             // STK-047 (owner 2026-11-11, which pick is which): what each picked card is for, at its other corner

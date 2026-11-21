@@ -58,7 +58,8 @@ class DeckLendingScreensTest {
     }
 
     // LOB-262: a saved deck's ⋮ offers Move to…, a small dialog naming the deck with the top level and the categories as a tree,
-    // its current place marked; a draft deck keeps its chevron, and with no category Move to… is greyed
+    // rows without radio buttons, its current place greyed with "here" and not tappable (owner 2026-11-21, E10); a draft deck keeps
+    // its chevron, and with no category Move to… is greyed
     @Test fun aDeckMovesFromItsRowMenu() {
         val fixtures = ScreenFixtures()
         val pauper = deck("d-pauper", "Pauper night", casual.id)
@@ -71,12 +72,14 @@ class DeckLendingScreensTest {
         compose.onNodeWithContentDescription("Pauper night options").performClick()
         compose.onNodeWithText("Move to…").performClick()
         compose.onNodeWithText("Move Pauper night").assertIsDisplayed()
-        compose.onNode(hasText("Casual") and isSelectable()).assertIsSelected()
-        compose.onNode(hasText("Top level") and isSelectable()).assertIsNotSelected()
-        compose.onNode(hasText("Red") and isSelectable()).assertIsDisplayed()
+        compose.onNodeWithTag("move-place-Casual").assertIsNotEnabled().assert(hasStateDescription("here"))
+        compose.onNode(hasText("here") and hasAnyAncestor(hasTestTag("move-place-Casual")), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("move-place-Top level").assertIsEnabled().assert(hasClickAction())
+        compose.onNodeWithTag("move-place-Red").assertIsDisplayed().assertIsEnabled()
+        compose.onAllNodes(isSelectable()).assertCountEquals(0)
         captureShot("$SCREENSHOTS/lending/move-deck.png", "Portrait Manage decks, Decks tab: the Pauper night deck's ⋮ tapped and " +
             "Move to… chosen: the Move Pauper night dialog lists Top level and the categories as a tree (Battle box with Green and Red " +
-            "under it, Casual), Casual marked as where the deck is now.")
+            "under it, Casual) as plain rows a tap moves the deck to, Casual greyed with \"here\" as where the deck is now.")
         compose.onNodeWithText("Cancel").performClick()
         compose.onNodeWithText("Move Pauper night").assertDoesNotExist()
         fixtures.library.seed(fixtures.library.state.copy(categories = emptyList()))

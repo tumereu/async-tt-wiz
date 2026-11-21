@@ -115,7 +115,7 @@ in undo.md.
 
 ## The game log
 
-- **HIS-239** Table actions' "Game log" (TRN-010) opens the game log over the table, on the phone and the desktop: exactly the timeline's events (HIS-005, HIS-111), one line each with its icon in its author's colour and its text (HIS-061), oldest at the top and newest at the bottom, where it opens. (r80)
+- **HIS-239** Table actions' "Game log" (TRN-010) opens the game log over the table, on the phone and the desktop: exactly the timeline's events (HIS-005, HIS-111), one line each in tight rows (about 24 dp, so many fit) with its icon in its author's colour and its text (HIS-061), oldest at the top and newest at the bottom, where it opens. (r80, owner 2026-11-21)
 - **HIS-242** In the game log the timeline's turn and step labels ("T3 · Combat", HIS-170) sit between the lines where the turn or step changed, in the colour of the player whose turn it is; new events join at the bottom while it is open. (r80)
 - **HIS-240** In a game log line each player's name ("You", "Bob") and each card it names show in that player's colour (yours green, the other player's red, as the Stack's target names, STK-133): a card cast, played or activated by who did it, what resolved by its controller, cards exiled from a library by its owner, a target in its words ("Bob's Ember Cub") by whose it is (HIS-244); "a card" and a hidden target stay plain. (r80)
 - **HIS-241** Tapping a game log line closes the log and opens timeline mode paused at that event; scrolling to the log's top loads older events from the server with a small spinner, back to "The game began" (HIS-172). (r80)

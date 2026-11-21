@@ -86,7 +86,8 @@ class CatalogBuilder(
                 flag(json, "isOnlineOnly"), flag(json, "isPromo"),
                 tokens = if (printing.token) emptyList() else traits?.related.orEmpty(),
                 makers = if (printing.token) traits?.related.orEmpty() else emptyList(),
-                flavorName = text(json, "flavorName"), faceFlavorName = text(json, "faceFlavorName"))
+                flavorName = text(json, "flavorName"), faceFlavorName = text(json, "faceFlavorName"),
+                printedText = traits?.printedText.orEmpty())
         }
         val draftTypes = setOf("expansion", "core", "masters", "draft_innovation")
         val recipes = collected.recipes.filterKeys { collected.sets[it]?.type in draftTypes }.toSortedMap()

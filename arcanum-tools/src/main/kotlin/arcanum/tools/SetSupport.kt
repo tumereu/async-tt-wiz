@@ -27,7 +27,7 @@ fun main(args: Array<String>) {
     val version = forEachPinnedSet(codes) { code, records ->
         val cards = setCards(records)
         results[code] = cards.size to cards.mapNotNull { card -> card.handParts().takeIf { it.isNotEmpty() }?.let { card.name to it } }
-        cards.forEach { card -> glossaryGaps(card.faces).takeIf { it.isNotEmpty() }?.let { glossary.putIfAbsent(card.name, it) } }
+        cards.forEach { card -> glossaryGaps(card.faces, card.keywordsRead()).takeIf { it.isNotEmpty() }?.let { glossary.putIfAbsent(card.name, it) } }
     }
     var failed = 0
     var total = 0
@@ -70,6 +70,14 @@ internal class SetCard(val name: String, val layout: String, val faces: List<Jso
             return listOf("unreadable: ${e.message ?: e::class.simpleName}") // printed values the parser can't read
         }
         return CardSupport.manualParts(definition)
+    }
+
+    /** The keywords the parser reads on the card ([keywordsRead]); none when it can't read it (handParts says so). */
+    fun keywordsRead(): Set<String> {
+        val printed = faces.map(::oracleCard)
+        val layout = OracleParser.layout(layout, printed) ?: return emptySet()
+        val definition = try { OracleParser.parseCard(layout, printed) } catch (e: RuntimeException) { return emptySet() }
+        return keywordsRead(definition)
     }
 }
 

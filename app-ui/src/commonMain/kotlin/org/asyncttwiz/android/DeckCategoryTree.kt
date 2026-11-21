@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -135,8 +136,9 @@ fun DeckCategoryDialogs(controller: DeckLibraryController) {
             dismissError = controller::dismissError, title = "Move ${dialog.deck.name}", actions = {
                 DialogCancelButton("Cancel", controller::dismissCategory, enabled = !state.categoryBusy)
             }) {
+            // Owner 2026-11-21 (E10): each place a row a tap moves the deck to at once; its own place greyed, "here"
             CategoryTreeChoices(state.categories, "Top level", dialog.deck.category?.takeIf { id -> state.categories.any { it.id == id } },
-                !state.categoryBusy, nested = true, choose = controller::moveDeck)
+                !state.categoryBusy, nested = true, places = true, choose = controller::moveDeck)
         }
         is CategoryDialog.Delete -> ScreenDialog(controller::dismissCategory, busyMessage = busy, error = state.error,
             dismissError = controller::dismissError, title = "Delete category?", actions = {
@@ -156,15 +158,34 @@ fun deleteCategoryNote(categories: List<DeckCategory>, category: DeckCategory): 
 
 /**
  * LOB-245, LOB-258, LOB-262: the choice of a category as a tree, [top] (the top level, or none) first and [current] marked;
- * [nested]: the categories indented under [top], as places to move into. [excluded] categories aren't offered.
+ * [nested]: the categories indented under [top], as places to move into. [excluded] categories aren't offered. [places]
+ * (LOB-262's Move to…): plain rows a tap chooses, without radio buttons, [current] greyed with "here" and not tappable.
  */
 @Composable
 fun CategoryTreeChoices(categories: List<DeckCategory>, top: String, current: String?, enabled: Boolean, nested: Boolean = false,
-    excluded: Set<String> = emptySet(), choose: (String?) -> Unit) {
+    excluded: Set<String> = emptySet(), places: Boolean = false, choose: (String?) -> Unit) {
     val indent = if (nested) 1 else 0
-    CategoryChoiceRow(top, 0, current == null, enabled) { choose(null) }
+    @Composable fun row(label: String, depth: Int, here: Boolean, pick: () -> Unit) =
+        if (places) CategoryPlaceRow(label, depth, here, enabled, pick) else CategoryChoiceRow(label, depth, here, enabled, pick)
+    row(top, 0, current == null) { choose(null) }
     for ((category, depth) in DeckCategories.ordered(categories).filter { it.first.id !in excluded })
-        CategoryChoiceRow(category.name, depth + indent, current == category.id, enabled) { choose(category.id) }
+        row(category.name, depth + indent, current == category.id) { choose(category.id) }
+}
+
+/** LOB-262 (owner 2026-11-21, E10): one place of Move to…'s tree: a row a tap moves to; where it is now ([here]) greyed with
+ * "here" at its end, not tappable. */
+@Composable
+fun CategoryPlaceRow(label: String, depth: Int, here: Boolean, enabled: Boolean, choose: () -> Unit) {
+    val faded = MaterialTheme.colorScheme.onSurface.copy(alpha = .38f)
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(enabled && !here, onClickLabel = "Move here", onClick = choose)
+        .padding(start = (depth * 20 + 12).dp, end = 12.dp).testTag("move-place-$label")
+        .semantics(mergeDescendants = true) { if (here) stateDescription = "here" }, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (here) faded else Color.Unspecified)
+        if (here) {
+            Spacer(Modifier.width(8.dp))
+            Text("here", style = MaterialTheme.typography.bodySmall, color = faded)
+        }
+    }
 }
 
 /** LOB-262: a saved deck row's ⋮ menu in Manage decks: Move to… (shown greyed while there is no category to move into). */

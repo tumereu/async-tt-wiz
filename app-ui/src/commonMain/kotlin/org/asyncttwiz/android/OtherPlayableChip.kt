@@ -6,7 +6,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,11 +45,12 @@ import org.asyncttwiz.storage.ArtworkReference
  * their graveyard, exile or the top of their library, or an ability that works there: what their own hand row shows them,
  * ZON-105), at one glance: a round chip in their row of round chips (TRN-072), right after their dungeon's room, edged in the
  * playable cyan with "▶" and the count; a tap opens the list of those cards, another tap or a tap elsewhere closes it. Only
- * what you may know: a card you can't see is named by where it is ("The top card of their library").
+ * what you may know: a card you can't see is a card back, named by where it is ("The top card of their library").
  */
 object OtherPlayableChip {
-    /** One listed card: its [name] (or where a hidden one is), its [zone] word and its picture ([artwork], none when hidden). */
-    data class Shown(val name: String, val zone: String, val artwork: ArtworkReference?)
+    /** One listed card: its [name] (or where a hidden one is), its [zone] word, its picture ([artwork], none when hidden) and
+     * the ATW card ([cardId], null when hidden), for Inspect. */
+    data class Shown(val name: String, val zone: String, val artwork: ArtworkReference?, val cardId: String? = null)
 
     /** The chip for [player]'s [count] cards. */
     fun chip(player: String, count: Int) = StateChip(label(player, count), null, StateGlyph.Letters("▶$count"))
@@ -76,9 +78,10 @@ object OtherPlayableChip {
     const val LIST_TAG = "other-playable-list"
 }
 
-/** ZON-136: the other player's playable chip ([OtherPlayableChip]) where it lies, opening its list on a tap. */
+/** ZON-136: the other player's playable chip ([OtherPlayableChip]) where it lies, opening its list on a tap; [play] and
+ * [viewer] for Inspect of a listed card. */
 @Composable
-fun OtherPlayableChipView(placed: PlacedStateChip) {
+fun OtherPlayableChipView(placed: PlacedStateChip, play: TableBoard?, viewer: String) {
     var open by remember { mutableStateOf(false) }
     val toggle = {
         open = !open
@@ -100,39 +103,41 @@ fun OtherPlayableChipView(placed: PlacedStateChip) {
         if (open) {
             val gap = with(LocalDensity.current) { 8.dp.roundToPx() }
             Popup(popupPositionProvider = remember(gap) { HoldTooltipPosition(gap) }, onDismissRequest = { open = false }) {
-                OtherPlayableList(placed.label, placed.playable)
+                OtherPlayableList(placed.label, placed.playable, play, viewer)
             }
         }
     }
 }
 
-/** ZON-136: the list a tap on the chip opens: each card's picture, name and zone. */
+/** ZON-136 (owner 2026-11-21, E9: cards as cards): the list a tap on the chip opens: each card drawn as a small card, as a
+ * choice panel's are ([ChoiceCardFace]), with its zone's word under it; holding one the viewer may see inspects it ([play],
+ * [viewer]); one they can't is a card back. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun OtherPlayableList(title: String, cards: List<OtherPlayableChip.Shown>) {
+fun OtherPlayableList(title: String, cards: List<OtherPlayableChip.Shown>, play: TableBoard?, viewer: String) {
+    val inspector = remember { ChoiceInspector() }
     Surface(shape = RoundedCornerShape(8.dp), color = Color.White, shadowElevation = 6.dp,
         modifier = Modifier.widthIn(max = 280.dp).border(1.dp, AutomatumCyan, RoundedCornerShape(8.dp)).testTag(OtherPlayableChip.LIST_TAG)) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = PlayableInk)
-            val density = LocalDensity.current
-            for (card in cards) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "${card.name}, ${card.zone}" }) {
-                val thumb = Modifier.size(40.dp, 30.dp).clip(RoundedCornerShape(3.dp))
-                if (card.artwork != null) CardArtwork(card.artwork, card.name, with(density) { 40.dp.roundToPx() },
-                    with(density) { 30.dp.roundToPx() }, thumb, crop = true,
-                    placeholder = { Box(Modifier.size(40.dp, 30.dp).background(HiddenCard)) })
-                else Box(thumb.background(HiddenCard), contentAlignment = Alignment.Center) {
-                    Text("?", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Column {
-                    Text(card.name, fontSize = 13.sp, lineHeight = 16.sp, color = Color(0xff202124))
-                    Text(card.zone, fontSize = 11.sp, lineHeight = 13.sp, color = Color(0xff5f6368))
+            val (cardWidth, _) = choiceCardSize()
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                cards.forEachIndexed { n, card ->
+                    val data = ChoiceCardData("other-playable/$n", card.cardId, card.name, card.artwork, shown = card.cardId != null, own = false)
+                    Column(Modifier.widthIn(min = cardWidth).semantics(mergeDescendants = true) { contentDescription = "${card.name}, ${card.zone}" },
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        ChoiceCardFace(data, Modifier.choiceCardGestures(data.key, tap = {}, hold = { holding ->
+                            if (holding) AppLog.info("table", "Other player's playable card held: ${card.name} (${card.zone})")
+                            inspector.hold(data, holding)
+                        }, moved = inspector::moved))
+                        Text(card.zone, fontSize = 11.sp, lineHeight = 13.sp, color = Color(0xff5f6368), maxLines = 1)
+                    }
                 }
             }
         }
     }
+    if (play != null) ChoiceInspection(inspector, play, viewer)
 }
 
 /** ZON-136: the chip's ink, a dark shade of the playable cyan. */
 private val PlayableInk = Color(0xff0b5e6b)
-/** A card back's colour, for a card the viewer can't see. */
-private val HiddenCard = Color(0xff3c4043)

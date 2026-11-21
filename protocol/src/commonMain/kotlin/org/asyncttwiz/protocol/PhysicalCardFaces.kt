@@ -26,6 +26,6 @@ object PhysicalCardFaces {
         // A printing under another name keeps it for the whole face (the parts are what the rules read)
         return definition.copy(faces = listOf(first.copy(name = definition.name, otherFaceIds = emptyList(),
             manaCost = "", rulesText = text, power = "", toughness = "", loyalty = "", defense = "", colorIndicator = null,
-            parts = parts, printedName = printedCardName(definition.faces))))
+            parts = parts, printedName = printedCardName(definition.faces), printedText = null)))
     }
 }

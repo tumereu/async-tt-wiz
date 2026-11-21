@@ -38,10 +38,12 @@ import org.asyncttwiz.protocol.CardDefinition
  * TBL-209 (owner 2026-11-19, playtest N8): a card's rules reminders: each keyword ability, keyword action, other rules word,
  * token kind (Treasure, Food, Monster Role, ...) and card state its printed text names but doesn't explain with reminder
  * text, from Automatum's own glossary ([RulesGlossary.reminders]); its names (Oracle and printed, each face and part) never
- * count.
+ * count. Owner 2026-11-21 (E6): what the shown printing prints: a face's [org.asyncttwiz.protocol.DefinitionFace.printedText]
+ * where its printing leaves out or adds reminder text (a retro frame's "Disturb {1}{W}"), else its Oracle text.
  */
 fun cardReminders(definition: CardDefinition): List<RulesGlossary.Entry> {
-    val texts = definition.faces.flatMap { face -> listOf(face.rulesText) + face.parts.map { it.rulesText } }.filter { it.isNotBlank() }
+    val texts = definition.faces.flatMap { face -> listOf(face.printedText ?: face.rulesText) + face.parts.map { it.rulesText } }
+        .filter { it.isNotBlank() }
     if (texts.isEmpty()) return emptyList()
     val names = listOf(definition.name) + definition.faces.flatMap { face -> listOfNotNull(face.name, face.printedName) + face.parts.map { it.name } }
     return RulesGlossary.reminders(texts.distinct().joinToString("\n"), names.distinct())

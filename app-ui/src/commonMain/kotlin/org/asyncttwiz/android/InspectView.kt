@@ -19,6 +19,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -80,6 +81,12 @@ sealed interface InspectTile {
     /** TRN-053 (owner gallery review 2026-11-06): an emblem: a dark rounded panel as an ability's, with the emblem's [art]
      * (an emblem icon without one), "Emblem" and its rules [text], outlined in its owner's colour ([own]). */
     data class Emblem(override val key: String, val text: String, val art: ArtworkReference?, val own: Boolean) : InspectTile
+
+    /** TRN-133 (owner 2026-11-21, E7): a player's state (TRN-072): a dark rounded panel as an emblem's, with the state's [glyph]
+     * large in its picture band, its [name], the [words] that say more where its chip's do ("Speed 2", "Ring 2/4") and its
+     * [explanation] (TBL-132), outlined in its player's colour ([own]). */
+    data class State(override val key: String, val glyph: org.asyncttwiz.automatum.StateGlyph, val name: String, val words: String?,
+        val explanation: String?, val own: Boolean) : InspectTile
 }
 
 /**
@@ -469,6 +476,34 @@ internal fun InspectTileView(tile: InspectTile, room: DpSize, fit: Boolean = fal
         }
         is InspectTile.Ability -> AbilityTile(tile, size, fit, modifier)
         is InspectTile.Emblem -> EmblemTile(tile, size, fit, modifier)
+        is InspectTile.State -> StateTile(tile, size, fit, modifier)
+    }
+}
+
+/** TRN-133: a player's state in Inspect, laid out as an emblem's tile ([EmblemTile]): its glyph large in the picture band, then
+ * its name, its words where they say more, and its explanation. */
+@Composable
+private fun StateTile(tile: InspectTile.State, size: DpSize, fit: Boolean, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(12.dp)
+    val artHeight = size.width / EMBLEM_ART_RATIO
+    val bounded = if (fit) Modifier.heightIn(max = size.height) else Modifier
+    Box(modifier.width(size.width).then(bounded).clip(shape).background(AbilityTokenColor)
+        .border(2.dp, if (tile.own) OwnTableColor else OpponentTableColor, shape)
+        .semantics { contentDescription = "Player state: " + listOfNotNull(tile.name, tile.words).joinToString(", ") }) {
+        CompositionLocalProvider(LocalContentColor provides Color.White) {
+            Column(Modifier.fillMaxWidth().then(bounded)) {
+                Box(Modifier.fillMaxWidth().then(if (fit) Modifier.weight(1f, fill = false) else Modifier).height(artHeight)
+                    .background(AbilityTokenArtColor), contentAlignment = Alignment.Center) {
+                    // The chip's glyph, a third of the band high (a chip draws its icon 15 dp at scale 1)
+                    StateGlyphView(tile.glyph, artHeight.value / 3 / 15f, Color.White.copy(alpha = .85f))
+                }
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(tile.name, style = MaterialTheme.typography.labelLarge)
+                    tile.words?.let { Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                    tile.explanation?.let { CardText(it, style = MaterialTheme.typography.bodyLarge) }
+                }
+            }
+        }
     }
 }
 

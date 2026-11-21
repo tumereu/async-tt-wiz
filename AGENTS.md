@@ -108,6 +108,9 @@ you update the catalog to match; everywhere else the catalog wins.
 
 ## Rules
 
+- Cards shown anywhere in the UI (panels, dialogs, pickers, lists) are drawn as cards: small cards a hold
+  inspects, as on the battlefield, never text rows with a thumbnail or a card name. Buttons are icons or
+  icon+text; an icon-only button says what it does when held.
 - Shared game/lobby/history state is server-authoritative; the client sends
   requests and may show provisional prediction. Only personal UI (camera,
   selection, open menus, review cursor) is purely local.

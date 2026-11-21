@@ -16,11 +16,12 @@ import kotlin.test.assertTrue
  */
 class CardStatesTest : E2e() {
     private val ring = hasTestTag("state-chip") and hasContentDescription("Ring 1/4")
-    private val explained = hasContentDescription("Rule explanation")
+    /** TRN-133 (owner 2026-11-21, E7): the player's states inspected, the Ring's panel among them. */
+    private val inspected = hasContentDescription("Player state: The Ring, Ring 1/4")
     private val line = "Ring-bearer: legendary, can't be blocked by creatures with greater power"
 
     // TRN-072, TRN-132, TRN-133, TRN-053 (owner gallery review 2026-11-09, gallery 157): on a screen too narrow for the old room right of the piles, a
-    // player's chip stays in their row beside the life square, on both tables, and never goes over the hand row; a hold still explains it.
+    // player's chip stays in their row beside the life square, on both tables, and never goes over the hand row; a hold still inspects it.
     // Owner gallery review 2026-11-10 (gallery 157: "display them like emblems"): the chip is a round one like an emblem's, not a text pill
     @Config(qualifiers = "w280dp-h892dp-port-mdpi")
     @Test fun onANarrowScreenAStateChipStaysInItsPlayersRow() {
@@ -36,7 +37,7 @@ class CardStatesTest : E2e() {
             assertTrue(kotlin.math.abs(chip.width - chip.height) < 1f, "${player.name}: round, like an emblem's chip: $chip")
         }
         holding(alice.node(ring)) {
-            assertTrue(alice.shows(explained), alice.screen())
+            assertTrue(alice.shows(inspected), alice.screen())
         }
         assertTrue(!alice.refusalSeen && !bob.refusalSeen, "no refusal")
     }
@@ -59,7 +60,8 @@ class CardStatesTest : E2e() {
         run(skip = java.time.Duration.ofMillis(500))
     }
 
-    // TBL-133, TRN-072, TBL-132: the Ring's temptation on a card and on a player, the same on both tables
+    // TBL-133, TRN-072, TBL-132, TRN-133: the Ring's temptation on a card and on a player, the same on both tables; holding the
+    // player's chip inspects their states (owner 2026-11-21, E7) on either table
     @Test fun aStateShowsOnTheCardAndOnThePlayerOnBothTables() {
         ringTemptsAlice()
         // The card's chip (its words are in its label too), and its Inspect line
@@ -67,13 +69,13 @@ class CardStatesTest : E2e() {
         holding(alice.battlefieldCard("Ash Pup")) {
             assertTrue(alice.showsText(line), alice.screen())
         }
-        // The player's chip, and what it means while held
+        // The player's chip, and what it means while held: Inspect of her states, the Ring's panel with its explanation
         waitUntil("the Ring's chip on Alice's table") { alice.shows(ring) }
         holding(alice.node(ring)) {
-            assertTrue(alice.shows(explained), alice.screen())
-            assertTrue(alice.showsText("The Ring"), "named by its popup")
+            assertTrue(alice.shows(inspected) && alice.shows(hasContentDescription("Card inspection content")), alice.screen())
+            assertTrue(alice.showsText(arcanum.api.RulesGlossary.state("the-ring")!!.text), "its explanation: ${alice.screen()}")
         }
-        assertTrue(!alice.shows(explained), "closed on release")
+        assertTrue(!alice.shows(inspected), "closed on release")
         // Bob sees the same of Alice's card and of Alice
         waitUntil("Alice's Ring-bearer and her chip on Bob's table", along = listOf(alice)) {
             bob.shows(hasContentDescription(", Ring-bearer", substring = true)) && bob.shows(ring)
@@ -82,6 +84,9 @@ class CardStatesTest : E2e() {
             assertTrue(bob.showsText(line), bob.screen())
         }
         assertEquals(1, bob.nodes(ring).fetchSemanticsNodes().size, "only Alice's chip")
+        holding(bob.node(ring)) {
+            assertTrue(bob.shows(inspected), "Alice's states on Bob's table: ${bob.screen()}")
+        }
         assertTrue(!alice.refusalSeen && !bob.refusalSeen, "no refusal")
     }
 }

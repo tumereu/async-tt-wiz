@@ -6,12 +6,16 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.filter
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -441,14 +445,31 @@ class CardStatesTest {
         assertEquals(null, chip.playable.last().artwork, "nothing of the hidden card")
         assertEquals("Bob may play 2 cards from other zones", chip.label)
         assertTrue(scene.items.single { it.id == "life/${f.a}" }.stateChips.none { it.playable.isNotEmpty() }, "none on Alice's own row")
+        assertEquals(listOf(grave.id, null), chip.playable.map { it.cardId }, "the seen card for Inspect, nothing of the hidden one")
         render(f.initial, table)
         compose.onNode(hasTestTag(OtherPlayableChip.TAG)).performClick()
         compose.waitForIdle()
         compose.onNode(hasTestTag(OtherPlayableChip.LIST_TAG)).assertExists()
+        // Owner 2026-11-21 (E9, cards as cards): each a small card with its zone's word under it, the hidden one a card back
+        compose.onNodeWithContentDescription("$name, Graveyard").assertExists()
+        compose.onNodeWithContentDescription("The top card of their library, Library").assertExists()
         captureShot("$SCREENSHOTS/states/other-playable.png",
             "Bob may cast a card from his graveyard and play his library's top card: on Alice's table a round chip edged in cyan with " +
-                "\"▶2\" sits in his row of round chips; Alice tapped it and a list shows the graveyard card with its picture and " +
-                "\"Graveyard\", and \"The top card of their library\" with a card back.")
+                "\"▶2\" sits in his row of round chips; Alice tapped it and its list shows them as small cards: the graveyard card " +
+                "with \"Graveyard\" under it, and the library's top card as a card back with \"Library\" under it.")
+        // Holding the card Alice may see inspects it; the card back doesn't open
+        compose.mainClock.autoAdvance = false
+        val seen = compose.onNode(hasContentDescription(name) and hasAnyAncestor(hasTestTag(OtherPlayableChip.LIST_TAG)), useUnmergedTree = true)
+        seen.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(700)
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithContentDescription("Card inspection content").assertExists()
+        seen.performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(100)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
     }
 
     // TRN-072, TRN-073, TRN-053, TRN-069: with chips, emblems and a dungeon together
@@ -498,8 +519,10 @@ class CardStatesTest {
                 "over two lines right of their piles (which scroll under them), none overlapping and all shown, clear of the hands.")
     }
 
-    // TRN-072, TRN-133, TBL-132: holding a chip explains it until the finger lifts; a tap does nothing
-    @Test fun holdingAChipExplainsIt() {
+    // TRN-072, TRN-133, TRN-129, TBL-132 (owner 2026-11-21, E7: "like emblems"): holding a chip inspects that player's states and
+    // emblems together until the finger lifts, one dark panel each: the state's icon, name, the words that say more and its
+    // explanation; a tap does nothing
+    @Test fun holdingAChipInspectsTheStatesAndEmblems() {
         render(shotPlay, allStates())
         compose.mainClock.autoAdvance = false
         val chip = compose.onAllNodesWithTag(STATE_CHIP_TAG).filter(hasContentDescription("Monarch")).onFirst()
@@ -509,14 +532,25 @@ class CardStatesTest {
         compose.mainClock.advanceTimeBy(700)
         compose.waitForIdle()
         compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithContentDescription("Card inspection content").assertExists()
         compose.onNodeWithText(text).assertExists()
+        for (state in listOf("Monarch", "Speed, Speed 2", "The Ring, Ring 2/4", "Poison, Poison 3"))
+            compose.onNodeWithContentDescription("Player state: $state").assertExists()
+        compose.onNodeWithText(RulesGlossary.state("speed")!!.text).assertExists()
+        for (emblem in listOf("Creatures you control get +1/+1.", "Spells you cast cost {1} less to cast."))
+            compose.onAllNodesWithContentDescription("Emblem: $emblem").assertCountEquals(2) // its chip and its panel
+        compose.onNodeWithContentDescription("Player state: Initiative").assertDoesNotExist() // nothing of Bob's
         captureShot("$SCREENSHOTS/states/player-chip-explained.png",
-            "Holding the round M chip: a dark popup above it says what being the monarch means, in plain words, until the finger lifts.")
+            "Holding your round crown chip (Monarch): Inspect shows your states and emblems together over the dimmed screen, one dark " +
+                "panel each outlined in green: Monarch, Speed 2, Ring 2/4 and Poison 3, each with its icon large, its name, its words and " +
+                "what it means, then your two emblems, until the finger lifts.")
         chip.performTouchInput { up() }
         compose.mainClock.advanceTimeBy(100)
         compose.mainClock.autoAdvance = true
         compose.waitForIdle()
         compose.onNodeWithText(text).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
     }
 
     /** Alice's creatures with states and a restriction, for the pictures. */

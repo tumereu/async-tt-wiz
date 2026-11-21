@@ -59,11 +59,13 @@ The definition model (overview in `Definitions.kt`):
 - `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-11-06).
-- `RulesGlossary.states`, `state(id)`, `ringLevels`: the same plain words for what the rules keep on an object or a
+- `RulesGlossary.states`, `state(id)`, `ringLevels`: the same kind of explanation for what the rules keep on an object or a
   player (a permanent's marks, goaded, phased out; monarch, initiative, speed, the Ring, day and night, player counters)
   and what a Ring-bearer gets at each of the Ring's levels (CR 701.54c).
-- `RulesGlossary`: a plain-words explanation of every keyword (`KeywordKind.all`) and keyword action (`KeywordAction`
-  types, plus scry, surveil, mill and fight), written in the library's own words, never the rules or reminder text;
+- `RulesGlossary`: an explanation of every keyword (`KeywordKind.all`) and keyword action (`KeywordAction`
+  types, plus scry, surveil, mill and fight), written as MTG reminder text: the official reminder-text template's words
+  where there is one (a number as N, a cost as "its flashback cost"), a short sentence in the same register where there
+  is none, never the Comprehensive Rules' text;
   `named(text)` finds the keywords a text names (whole words, longest names first, variants such as megamorph and
   swampcycling too). A jvmTest checks that every keyword and keyword action has one; the parser checks the keywords it reads.
 - `RulesGlossary.tokens`, `token(name)`: an explanation of every token kind ("Treasure", "Food", "Monster Role", every
@@ -74,7 +76,8 @@ The definition model (overview in `Definitions.kt`):
   ("Hexproof from", "Role token"). `reminders(text, names)` (and `rulesWords`, with whether each is explained) is a card's
   rules reminders: the rules words its text names but doesn't explain with reminder text on the same line, ability and
   flavor words, reminder text and the card's own names aside; verbs count in their forms ("explores", "foraging").
-  `:arcanum-tools:setSupport` checks that every rules word the supported sets print is covered.
+  `:arcanum-tools:setSupport` checks that every rules word the supported sets print, and every keyword ability the
+  parser reads on them, is covered and found in the card's text.
 - Duskmourn (set `dsk`): Rooms (CR 709.5: `Door`, `ObjectMark.Unlocked`, `Effect.UnlockDoor`/`LockDoor`,
   `EventPattern.Unlock`, `NumericProperty.UnlockedDoors`, `AbilityKind.Unlock`), manifest dread
   (`KeywordAction.ManifestDread`, `EventPattern.ManifestDread`, `ObjectMark.Manifested`, `Mechanic.CantBeTurnedFaceUp`),

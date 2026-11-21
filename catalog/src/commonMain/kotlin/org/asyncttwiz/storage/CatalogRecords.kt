@@ -15,9 +15,12 @@ data class CatalogPrinting(val id: String, val name: String, val set: String, va
 
 /** Search-only provider data stored beside a printing: lower-case rarity, colour identity mask, legal-format bits
  * (CardSearchRules.FORMATS order, legal or restricted), and its related tokens ([related]: a card's token printings'
- * ids; a token's names of the cards that make it, lower case), which Automatum's token pictures use. */
+ * ids; a token's names of the cards that make it, lower case), which Automatum's token pictures use. [printedText]
+ * (TBL-209, owner 2026-11-21): the text the printing prints where it differs from the Oracle text only in reminder text
+ * (MTGJSON's `originalText`: a retro frame leaving it out, a core set printing adding it), else empty; the catalog keeps it
+ * on the printing, for the rules reminders of what the printing shows. */
 data class CatalogPrintingTraits(val rarity: String, val identity: Int?, val legal: Long,
-    val related: List<String> = emptyList())
+    val related: List<String> = emptyList(), val printedText: String = "")
 
 /** Where [MtgJsonCatalog.import] puts what it reads: the app's card records index (test fixtures), or the catalog build. */
 interface MtgJsonCatalogSink {

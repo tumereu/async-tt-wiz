@@ -21,10 +21,12 @@ data class TestFace(val name: String, val typeLine: String, val manaCost: String
  * ([TestCardsFixture], kept the same by TestCardsFixtureTest), so the server and the phones read them from their catalog
  * like any card. [name] the card's name ("A // B" for a card of two faces), [faces] its printed faces in order, [layout]
  * MTGJSON's, [scryfallId] a picture id of its own (invented) or none, [token] a token record (as dungeons are, CR 309),
- * [flavorName] the name its printing gives it instead of its own (MTGJSON's `flavorName`, LOB-150), for a card of one face.
+ * [flavorName] the name its printing gives it instead of its own (MTGJSON's `flavorName`, LOB-150), for a card of one face;
+ * [originalText] the text its printing prints where it isn't its Oracle text (MTGJSON's `originalText`, TBL-209), for a card
+ * of one face.
  */
 class TestCard(val name: String, val faces: List<TestFace>, val layout: String = "normal", val set: String = TestCards.SET,
-    val scryfallId: String? = null, val token: Boolean = false, val flavorName: String? = null) {
+    val scryfallId: String? = null, val token: Boolean = false, val flavorName: String? = null, val originalText: String? = null) {
     /** The printing a deck or cube names it by (its first face's). */
     val printingId: String get() = faces.first().id
     /** Its card data, exactly as the server builds it from the catalog (CatalogCards.definition). */
@@ -74,9 +76,10 @@ object TestCards {
     const val BASICS = "M21"
 
     private fun card(name: String, typeLine: String, manaCost: String = "", rulesText: String = "", power: String = "",
-        toughness: String = "", loyalty: String = "", scryfallId: String? = null, set: String = SET, flavorName: String? = null) =
+        toughness: String = "", loyalty: String = "", scryfallId: String? = null, set: String = SET, flavorName: String? = null,
+        originalText: String? = null) =
         TestCard(name, listOf(TestFace(name, typeLine, manaCost, rulesText, power, toughness, loyalty)), set = set, scryfallId = scryfallId,
-            flavorName = flavorName)
+            flavorName = flavorName, originalText = originalText)
 
     private const val LEARN = "Learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)"
 
@@ -122,6 +125,11 @@ object TestCards {
     val lark = card("Cinder Lark", "Enchantment Creature — Elemental Bird", "{R}",
         "Bestow—{R}, Collect evidence 6. (To pay this bestow cost, pay {R} and exile cards with total mana value 6 or greater from your graveyard.)\n" +
             "Flying, haste\nEnchanted creature gets +1/+1 and has flying and haste.", "1", "1")
+    /** TBL-209 (owner 2026-11-21, E6): a retro printing: it prints "Ward {1}" without the reminder text its Oracle text has, so
+     * its Inspect reminds Ward as well as Flying. */
+    val gloamWisp = card("Gloam Wisp", "Creature — Spirit", "{1}{R}",
+        "Flying\nWard {1} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)",
+        "1", "1", originalText = "Flying\nWard {1}")
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
     // Castability (castability spec §6): free permanents, so a board is out on the first turn

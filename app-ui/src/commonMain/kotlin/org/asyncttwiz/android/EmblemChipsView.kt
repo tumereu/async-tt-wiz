@@ -43,12 +43,12 @@ import org.asyncttwiz.appui.getOrPutConcurrently
 /**
  * TRN-053 (owner gallery review 2026-11-06): each player's emblems as small round chips by their life square
  * ([TableItem.emblemChips]): the emblem's art, or an emblem icon when the card records have none; more emblems than chips
- * and the last chip reads "+N" ([EmblemChips.shown]). A tap does nothing; holding any of them inspects all that player's
- * emblems with their full text ([EmblemInspect]) until the finger lifts.
+ * and the last chip reads "+N" ([EmblemChips.shown]). A tap does nothing; holding any of them calls [held] with its owner (true;
+ * false on release): the table inspects all that player's emblems with their full text, their states with them (TRN-129,
+ * [PlayerChipsInspect]), until the finger lifts.
  */
 @Composable
-fun EmblemChipsOverlay(scene: TableScene, viewer: String) {
-    var holding by remember { mutableStateOf<String?>(null) }
+fun EmblemChipsOverlay(scene: TableScene, held: (owner: String, down: Boolean) -> Unit) {
     val lives = scene.items.filter { it.kind == TableItemKind.LIFE && it.emblemChips.isNotEmpty() && it.visible.isNotEmpty() && it.owner != null }
     for (life in lives) key(life.id) {
         val owner = life.owner.orEmpty()
@@ -60,12 +60,9 @@ fun EmblemChipsOverlay(scene: TableScene, viewer: String) {
             EmblemChip(if (plus) null else texts.getOrNull(index), if (plus) "+$more" else null,
                 if (plus) "$more more emblems" else "Emblem: ${texts.getOrNull(index).orEmpty()}",
                 Modifier.offset { IntOffset(chip.x.dp.roundToPx(), chip.y.dp.roundToPx()) }.size(chip.width.dp, chip.height.dp),
-                held = { down -> holding = if (down) owner else holding?.takeIf { it != owner } })
+                held = { down -> held(owner, down) })
         }
     }
-    val holder = holding ?: return
-    val texts = lives.firstOrNull { it.owner == holder }?.emblemTexts ?: return
-    EmblemInspect(texts, holder == viewer)
 }
 
 /** One round emblem chip: [text]'s art or the emblem icon, or [plus] ("+2") for the emblems beyond the first ones. Holding
@@ -96,18 +93,6 @@ fun EmblemIcon(modifier: Modifier, tint: Color = Color.White) {
 
 /** An emblem chip's fill under its art (and behind the icon). */
 private val EmblemArtBackground = Color(0xff6c4fbf)
-
-/**
- * TRN-053: Inspect of a player's emblems ([texts], oldest first; [own] the viewer's): one tile each, as an ability on the
- * Stack shows (STK-050), with the emblem's art (or icon) and its full text, over the dimmed screen; closed by the
- * release.
- */
-@Composable
-fun EmblemInspect(texts: List<String>, own: Boolean) {
-    val arts = texts.map { rememberEmblemArt(it) }
-    InspectPopup(texts.mapIndexed { n, text -> InspectGroup("emblem/$n", listOf(InspectTile.Emblem("emblem/$n", text, arts[n], own))) },
-        rememberScrollState())
-}
 
 /** The picture of the emblem with rules [text] ([AndroidEmblemArt]), null while it is looked up or when there is none. */
 @Composable

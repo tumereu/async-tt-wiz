@@ -46,24 +46,40 @@ class RulesRemindersTest : E2e() {
         assertTrue(!alice.refusalSeen, "no refusal")
     }
 
+    // TBL-209 (owner 2026-11-21, E6: Disturb had no chip on a retro printing): the reminders follow what the shown printing prints:
+    // the Gloam Wisp's printing leaves out the reminder text its Oracle text gives Ward, so holding it in Alice's pack reminds Ward
+    // as well as Flying, each explained in reminder-text words
+    @Test fun aPrintingWithoutReminderTextHasItsWordReminded() {
+        holdTheOnlyCardOfAPack(TestCards.gloamWisp) {
+            assertTrue(alice.shows(chip and hasText("Flying")) && alice.shows(chip and hasText("Ward")), alice.screen())
+            assertTrue(alice.showsText(RulesGlossary.keywords.getValue("ward").text), "Ward explained: ${alice.screen()}")
+        }
+    }
+
     // TBL-209, TBL-210, DRF-063: holding a Lark in Alice's pack shows Flying and Haste under it, each explained, since a release
     // closes this Inspect
     @Test fun inADraftThePackCardsKeywordsAreExplained() {
+        holdTheOnlyCardOfAPack(TestCards.lark) {
+            assertTrue(alice.shows(chip and hasText("Flying")) && alice.shows(chip and hasText("Haste")), alice.screen())
+            assertTrue(alice.showsText(flying) && alice.showsText(RulesGlossary.keywords.getValue("haste").text), "each explained: ${alice.screen()}")
+        }
+    }
+
+    /** A pod drafting packs of only [card]: Alice holds the first card of her pack ([held] while held), and Inspect closes on the
+     * release. */
+    private fun holdTheOnlyCardOfAPack(card: TestCard, held: () -> Unit) {
         launchPlayers()
         val name = "E2E reminders ${UUID.randomUUID().toString().take(6)}"
-        val pod = ServerSetup.draftingPod(alice.account, bob.account, name, cards = listOf(TestCards.lark))
+        val pod = ServerSetup.draftingPod(alice.account, bob.account, name, cards = listOf(card))
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
         alice.tagged("menu-PODS").performClick()
         waitUntil("the pod in Alice's list") { alice.showsText(name) }
         alice.text(name).performScrollTo().performClick()
         waitUntil("Alice's pack") { alice.pods.state.detail?.takeIf { it.id == pod }?.draft?.head != null }
         val copy = alice.pods.state.detail!!.draft!!.head!!.cards.first().id
-        val card = hasTestTag("pod-pick-card-$copy")
-        waitUntil("the Lark on Alice's pick screen") { alice.shows(card) }
-        holding(alice.node(card)) {
-            assertTrue(alice.shows(chip and hasText("Flying")) && alice.shows(chip and hasText("Haste")), alice.screen())
-            assertTrue(alice.showsText(flying) && alice.showsText(RulesGlossary.keywords.getValue("haste").text), "each explained: ${alice.screen()}")
-        }
+        val shown = hasTestTag("pod-pick-card-$copy")
+        waitUntil("the ${card.name} on Alice's pick screen") { alice.shows(shown) }
+        holding(alice.node(shown)) { held() }
         assertTrue(!alice.shows(hasTestTag("card-inspection")), "closed once the finger lifted")
     }
 }

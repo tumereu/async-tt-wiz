@@ -77,7 +77,7 @@ private fun GameLogRow(line: GameLogLine, viewer: String, onPick: (String) -> Un
     val event = line.event
     Column(Modifier.fillMaxWidth()) {
         event.separator?.let { s ->
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp).testTag("game-log-separator"),
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 1.dp).testTag("game-log-separator"),
                 verticalAlignment = Alignment.CenterVertically) {
                 val colour = historyAuthorColor(s.active, viewer)
                 Text(s.label, color = colour, fontSize = 12.sp, fontWeight = if (s.newTurn) FontWeight.Bold else FontWeight.Medium)
@@ -86,7 +86,8 @@ private fun GameLogRow(line: GameLogLine, viewer: String, onPick: (String) -> Un
             }
         }
         val text = remember(line.pieces) { line.pieces.plain() }
-        Row(Modifier.fillMaxWidth().heightIn(min = 32.dp).clickable { onPick(event.id) }.padding(horizontal = 4.dp, vertical = 4.dp)
+        // HIS-239 (owner 2026-11-21, E11): tight rows, about 24 dp each, so a screen holds more of the game
+        Row(Modifier.fillMaxWidth().heightIn(min = 24.dp).clickable { onPick(event.id) }.padding(horizontal = 4.dp, vertical = 2.dp)
             .testTag("game-log-line").clearAndSetSemantics { contentDescription = text },
             verticalAlignment = Alignment.CenterVertically) {
             CompositionLocalProvider(LocalContentColor provides historyAuthorColor(event.author, viewer)) { HistoryEventIcon(event.icon) }

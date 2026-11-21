@@ -1,9 +1,8 @@
 package org.asyncttwiz.e2e
 
-import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.isNotEnabled
 import androidx.compose.ui.test.performClick
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -31,8 +30,9 @@ class DeckMoveTest : E2e() {
         waitUntil("the deck's menu") { alice.showsText("Move to…") }
         alice.text("Move to…").performClick()
         waitUntil("the Move dialog") { alice.showsText("Move ${deck.name}") && alice.showsText("Top level") }
-        // The dialog's choice, not the category row behind it
-        alice.node(hasText("Battle box") and hasAnyAncestor(isSelectable())).performClick()
+        // LOB-262 (owner 2026-11-21, E10): its current place greyed "here", not tappable; a tap on another place moves it at once
+        assertTrue(alice.shows(hasTestTag("move-place-Top level") and isNotEnabled() and hasStateDescription("here")), alice.screen())
+        alice.tagged("move-place-Battle box").performClick()
         waitUntil("the deck in Battle box, on the server") { ServerSetup.decks(account).single { it.name == deck.name }.category == box.id }
         waitUntil("the dialog closed and the shut category counting it") {
             !alice.showsText("Move ${deck.name}") && alice.showsText("1 deck") && !alice.showsText(deck.name)
@@ -44,7 +44,8 @@ class DeckMoveTest : E2e() {
         waitUntil("the deck's menu again") { alice.showsText("Move to…") }
         alice.text("Move to…").performClick()
         waitUntil("the Move dialog again") { alice.showsText("Top level") }
-        alice.text("Top level").performClick()
+        assertTrue(alice.shows(hasTestTag("move-place-Battle box") and isNotEnabled()), "Battle box is here now: ${alice.screen()}")
+        alice.tagged("move-place-Top level").performClick()
         waitUntil("the deck at the top level, on the server") { ServerSetup.decks(account).single { it.name == deck.name }.category == null }
         waitUntil("the category empty again") { alice.showsText("0 decks") && alice.showsText(deck.name) }
         assertNull(ServerSetup.decks(account).single { it.name == deck.name }.category)

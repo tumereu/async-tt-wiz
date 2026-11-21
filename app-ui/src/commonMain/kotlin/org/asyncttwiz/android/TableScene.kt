@@ -302,7 +302,11 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 presented.hit(point)?.id != toolkit?.layoutState?.value?.localPileId) toolkit?.closeLocalPile()
         }
     }) {
-        SideEffect { TableProbes.composed?.invoke(accountId) }
+        SideEffect {
+            TableProbes.composed?.invoke(accountId)
+            TableProbes.composedWith?.invoke(accountId, listOf(game, play, runtime, layoutShown.value, handHover, presenceDot, toolkit))
+            DebugJank.composed("table")
+        }
         val compactHeader = maxWidth < 400.dp
         val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
         val cardAppearance = rememberCardAppearance()
@@ -348,6 +352,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                         "failure" to failure.stackTraceToString().take(4_000)))
                     lastScene.scene ?: throw failure
                 }
+                // WEB-068: a frame that built the scene again says so in the frame times
+                DebugJank.composed("scene")
                 LaidScene(built, full, maxWidth to maxHeight, inputs)
             }
         }
@@ -358,9 +364,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         val moveMultiplier by movePreferences.multiplierState()
         SideEffect { animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * moveMultiplier }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
-        // Bumped as the animation is retargeted: [animationRevision] recomposes (the semantics' items), [frameRevision] only
-        // redraws (a retarget for a camera change alone)
-        var animationRevision by remember(animation) { mutableIntStateOf(0) }
+        // Bumped as the animation is retargeted: [animationRevision] recomposes the semantics' items (only them,
+        // [TableSemanticsLayer]), [frameRevision] only redraws (a retarget for a camera change alone)
+        val animationRevision = remember(animation) { mutableIntStateOf(0) }
         val frameRevision = remember(animation) { mutableIntStateOf(0) }
         SideEffect { animation.updateMetadata(targetScene) }
         // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card, opening or closing a battlefield group
@@ -380,7 +386,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                     val target = step.now.scene
                     val rt = currentRuntime
                     val settled = rt.onSceneSettled
-                    fun bump() { frameRevision.intValue++; if (!step.cameraOnly) animationRevision++ }
+                    fun bump() { frameRevision.intValue++; if (!step.cameraOnly) animationRevision.intValue++ }
                     val faceChanges = rt.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
                     val shuffles = if (step.navigation) emptySet() else rt.changes?.shuffles(play.nodeId).orEmpty()
                     if (animation.retarget(target, progress.value, faceChanges, shuffles, play.nodeId, rt.landedEntries.toSet(),
@@ -427,11 +433,6 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             toolkit?.panel ?: "card".takeIf { toolkit?.capture != null },
             previewDragging, { progress.isRunning },
             { rendered.value.scene.items.count { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() } })
-        val semanticItems = remember(animation, IdentityKey(targetScene), animationRevision) {
-            // Target metadata owns the accepted disclosure; start-frame metadata may still be a back
-            // during a flip. Bounds continue to come exclusively from the rendered frame below.
-            (targetScene.items + animation.frame(0f, targetScene).map { it.item }).distinctBy { it.id }
-        }
         LaunchedEffect(IdentityKey(play), shownLayout.localPileId) {
             if (layout.localPileId != null && play.board.containers.none { it.id == layout.localPileId && it.cards.isNotEmpty() })
                 layout = layout.copy(localPileId = null)
@@ -583,8 +584,10 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 TableGlows.of(scene.battlefieldGroups, groupTaps, emptyMap(), castGlow).spread
             }
             PileChoiceGlow(scene, castGlow, rendered, spreadGroups)
-            TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
-                { preview }, layoutState, groupTaps, fieldsNow = { sceneNow.value.scene.fields })
+            TableSemanticsLayer(animation, targetScene, animationRevision) { semanticItems ->
+                TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
+                    { preview }, layoutState, groupTaps, fieldsNow = { sceneNow.value.scene.fields })
+            }
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             // CMB-001 (owner playtest 2026-11-11): the chips on the band's upper edge move with the battlefield above it as
@@ -721,6 +724,10 @@ fun rememberPlayableGlow(play: TableBoard, target: Set<String>?): PlayableGlow {
 /** Test probe (web frame rate, 2026-11-15): told each time a table's own scope recomposes, with the account it is drawn for. */
 object TableProbes {
     @kotlin.concurrent.Volatile var composed: ((me: String) -> Unit)? = null
+    /** Told each time a table's own scope composes, with its account and what it was given then (the game, the board, the
+     * hooks, the layout, the hovered hand card, the presence dot, the toolkit): web frame rate (owner, 2026-11-20), a
+     * composition with all of them the same objects as the one before composed the whole table for nothing. */
+    @kotlin.concurrent.Volatile var composedWith: ((me: String, inputs: List<Any?>) -> Unit)? = null
     /** Told each time a table is made (HIS-113: a table made anew mid-game drops a finger held on it), with its account. */
     @kotlin.concurrent.Volatile var made: ((me: String) -> Unit)? = null
     /** Told each time a table's combat target chips begin to fade in (CMB-001: once per combat), with its account and the
@@ -732,6 +739,22 @@ object TableProbes {
     /** CMB-055: told each time what sat on a closing combat band begins to fade out where it was, with its account, how many
      * target chips fade and how long the fade is. */
     @kotlin.concurrent.Volatile var chipsFadeOut: ((me: String, chips: Int, millis: Int) -> Unit)? = null
+}
+
+/**
+ * The items the table's semantics nodes are made for ([content]), read in a scope of their own (web frame rate, owner
+ * 2026-11-20: a board's animation bumps [revision] as it starts and as it ends, and read in the table's own scope that
+ * composed the whole table twice for every step a board brings). Target metadata owns the accepted disclosure; start-frame
+ * metadata may still be a back during a flip. Bounds come exclusively from the rendered frame.
+ */
+@Composable
+private fun TableSemanticsLayer(animation: HistorySceneAnimation, targetScene: TableScene, revision: IntState,
+    content: @Composable (List<TableItem>) -> Unit) {
+    val bumped = revision.intValue
+    val items = remember(animation, IdentityKey(targetScene), bumped) {
+        (targetScene.items + animation.frame(0f, targetScene).map { it.item }).distinctBy { it.id }
+    }
+    content(items)
 }
 
 /** WEB-026: [content] for the card whose quick look [mouse] shows, if any; read here alone (web frame rate, 2026-11-15). */

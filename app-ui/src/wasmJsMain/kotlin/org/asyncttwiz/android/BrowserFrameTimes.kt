@@ -37,6 +37,9 @@ actual object DebugJank {
     actual fun animation(owner: String, running: Boolean) {
         if (if (running) animations.add(owner.take(40)) else animations.remove(owner.take(40))) changed = true
     }
+    /** What composed since the last refresh reported ([composed]): a few names, cleared as each refresh is reported. */
+    private val composedNow = linkedSetOf<String>()
+    actual fun composed(what: String) { composedNow.add(what) }
     actual fun state(vararg values: Pair<String, String>) {
         for ((key, value) in values) {
             val text = value.take(60)
@@ -87,7 +90,10 @@ actual object DebugJank {
             labels = "anim=" + (animations.joinToString("+").ifEmpty { "none" }) + " " +
                 tags.entries.joinToString(" ") { (key, value) -> "$key=$value" } + " catch_up=${catchUps.isNotEmpty()} action=$lastAction"
         }
-        frames.refresh(atMs, intervalMs, drawMs, otherMs, moving, group, labels)
+        // WEB-068: what composed in the refresh being reported (its frame callbacks ran before this refresh's meter frame)
+        val frameLabels = if (composedNow.isEmpty()) labels else "$labels composed=${composedNow.joinToString("+")}"
+        composedNow.clear()
+        frames.refresh(atMs, intervalMs, drawMs, otherMs, moving, group, frameLabels)
     }
 }
 

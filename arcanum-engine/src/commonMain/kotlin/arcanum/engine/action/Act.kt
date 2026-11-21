@@ -182,11 +182,12 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     /**
      * Chooses [min]..[max] of [options]; with no more options than [min] all are chosen without asking (CR 609.3), and
      * with none nothing is asked, unless [asksAnyway] for [hiddenDecides] (I-D18): then the forced choice is asked with
-     * only that answer (all of them, or none).
+     * only that answer (all of them, or none). [others]: the cards of the group chosen from that can't be chosen
+     * ([Decision.ChooseObjects.others]).
      */
     fun chooseObjects(
         player: PlayerId, source: ObjectId?, options: List<ObjectId>, min: Int, max: Int?, text: String,
-        hiddenDecides: Boolean = false,
+        hiddenDecides: Boolean = false, others: List<ObjectId> = emptyList(),
     ): List<ObjectId> {
         val top = max?.coerceAtMost(options.size) ?: options.size
         val forced = when {
@@ -196,11 +197,11 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         }
         if (forced != null) {
             if (!asksAnyway(player, hiddenDecides)) return forced
-            val chosen = (ask { Decision.ChooseObjects(it, player, source, forced, forced.size, forced.size, text) } as Answer.Objects).chosen
+            val chosen = (ask { Decision.ChooseObjects(it, player, source, forced, forced.size, forced.size, text, others = others) } as Answer.Objects).chosen
             require(chosen.toSet() == forced.toSet()) { "Not a valid choice: $chosen" }
             return forced
         }
-        val chosen = (ask { Decision.ChooseObjects(it, player, source, options, min.coerceAtMost(top), top, text) } as Answer.Objects).chosen
+        val chosen = (ask { Decision.ChooseObjects(it, player, source, options, min.coerceAtMost(top), top, text, others = others) } as Answer.Objects).chosen
         require(chosen.all { it in options } && chosen.size in min.coerceAtMost(top)..top) { "Not a valid choice: $chosen" }
         return chosen
     }

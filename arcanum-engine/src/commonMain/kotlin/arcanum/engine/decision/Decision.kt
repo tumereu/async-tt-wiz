@@ -127,6 +127,10 @@ sealed interface Decision {
         /** For a choice made paying a cost while casting or activating (CR 601.2f–h): the printed cost part it chooses for,
          * so a host can show its phrase ([arcanum.api.Cost.spans]); null for other choices or a cost not printed. */
         val cost: CostPartAt? = null,
+        /** For a choice "from among" a group of cards (those just revealed, looked at or exiled: "Reveal the top four cards of
+         * your library. You may put a creature card from among them into your hand."): the group's cards it can't choose,
+         * shown to the chooser with [options] (a host draws them beside the options, not to be chosen). Empty otherwise. */
+        val others: List<ObjectId> = emptyList(),
     ) : Decision
 
     /** Choose one of named [options] ("odd or even"). [text], when given, says what the choice is about where neither a

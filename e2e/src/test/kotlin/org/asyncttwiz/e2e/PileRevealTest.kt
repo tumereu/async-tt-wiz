@@ -80,6 +80,8 @@ class PileRevealTest : E2e() {
             .map { cardName(bob.state, it.id) }
         assertEquals(listOf("Ember Delve", "Ember Delve"), exiled)
         assertTrue(alice.showsRevealOk() && bob.showsRevealOk(), "OK on both main buttons")
+        // His own event may still be on its way to the server (his panel opens on it there already): read it once it is on his line
+        waitUntil("Bob's exile on the server") { bob.engine { device.session.pending.isEmpty() } }
         val event = bob.engine { device.session.events.last { e -> org.asyncttwiz.protocol.game.GameDevice.libraryExileTexts(e, bob.id, emptyMap()).isNotEmpty() } }
         assertEquals(listOf("Exiled from ${bob.name}'s library: Ember Delve, Ember Delve"),
             org.asyncttwiz.protocol.game.GameDevice.libraryExileTexts(event, alice.id, mapOf(bob.id to bob.name)))

@@ -794,6 +794,23 @@ class DesktopTableScreenshotTest {
         compose.runOnIdle { assertTrue(kit.toolkit.cast.targeting, "the corner's Cast went on to the targets") }
     }
 
+    // STK-224, STK-225, WEB-080: Alice's Ember Unveiling on the desktop table reveals her top four cards: one choice overlay shows them
+    // all, the Ash Pup to choose and the rest dimmed under "Other cards"; no reveal panel of hers before it
+    @Test fun aChoiceAmongRevealedCardsShowsThemAll() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.UNVEILING, "Mountain", Choices.PUP, Choices.DIVINATION))))
+        kit.opening()
+        assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.UNVEILING).first())), "the cast begins: ${kit.toolkit.error}")
+        kit.playOn("Alice's choice among the revealed cards") { kit.state().pending?.decision is arcanum.engine.decision.Decision.ChooseObjects }
+        val d = kit.state().pending?.decision as arcanum.engine.decision.Decision.ChooseObjects
+        assertTrue(d.others.isNotEmpty(), "other cards beside the choice: $d")
+        assertEquals(null, kit.alice.shown?.reveal, "no reveal panel of hers")
+        render(kit)
+        compose.onNode(hasText("Other cards") and isHeading(), useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("Other cards, ${d.others.size}", useUnmergedTree = true).assertExists()
+        captureShot("$SCREENSHOTS/desktop/choice-among-revealed.png",
+            "Alice cast her Ember Unveiling on the desktop table: it revealed her top four cards, and one centred choice overlay shows all four, the Ash Pup to choose and the cards she can't choose dimmed under \"Other cards\", with no reveal panel of hers before it.")
+    }
+
     /** Bob kept and Alice mulliganed twice: the Keep / Bottom overlay asks for one card for the bottom; the overlay's bounds,
      * its Bottom area's and its eye's, in the window. */
     private fun keepBottomOverlay(): Triple<androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect, androidx.compose.ui.geometry.Rect> {

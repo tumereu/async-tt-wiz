@@ -309,13 +309,14 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedShown, play: 
  * STK-030, UI review #5: the objects an open choice of a resolution or a trigger is about ("About:"): what it triggered on
  * and its targets, then what its resolution has named so far that the viewer may see (owner playtest 2026-11-19, N18,
  * problem report MDLPM7: "You may cast that card …" names the card its earlier step exiled), never its source nor the
- * choice's own options (drawn as the choice already); one card once.
+ * choice's own options and other cards (drawn with the choice already, STK-224); one card once.
  */
 private fun aboutObjects(flows: SharedFlowController, flow: SharedShown, decision: Decision): List<ObjectId> {
     val item = decisionItem(flow, decision) ?: return emptyList()
     val sourceCard = item.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
     val options: Set<ObjectId> = when (decision) {
-        is Decision.ChooseObjects -> decision.options.toSet()
+        // STK-224: the group's cards it can't choose show with the choice ("Other cards"), not as what it is about
+        is Decision.ChooseObjects -> (decision.options + decision.others).toSet()
         is Decision.Targets -> decision.options.filterIsInstance<TargetRef.Object>().map { it.id }.toSet()
         else -> emptySet()
     }

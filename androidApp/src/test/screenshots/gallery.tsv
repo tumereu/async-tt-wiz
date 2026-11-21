@@ -341,3 +341,7 @@ number	item	screenshot	catalog	decisions	sequence
 391	Declaring blockers: the frame with the blockers' chip, what can't block dimmed	combat-band/declaring-blockers.png	CMB-095 CMB-096		
 392	Desktop table: declaring attackers, the frame and chip, what can't attack dimmed	desktop/declaring-attackers.png	CMB-095 CMB-096 WEB-015		
 393	Desktop table: declaring blockers, the frame and chip, what can't block dimmed	desktop/declaring-blockers.png	CMB-095 CMB-096 WEB-015		
+410	Choice among revealed cards: one panel shows all of them, the ones that can't be chosen dimmed under "Other cards"	engine/choice-among-revealed.png	STK-224 STK-225 HIS-155		Choice among revealed cards
+411	Desktop table: the same choice among revealed cards as a centred overlay	desktop/choice-among-revealed.png	STK-224 STK-225 WEB-080		Choice among revealed cards
+412	The other player's reveal panel for the same reveal, all four cards in it	engine/choice-among-revealed-other.png	STK-225 HIS-110 HIS-150		Choice among revealed cards
+413	Choice among cards looked at privately: one panel, the ones that can't be chosen dimmed	engine/choice-among-looked.png	STK-224 STK-225		Choice among revealed cards

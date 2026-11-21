@@ -467,7 +467,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 // Section 3.6: pod picks wait for the card records
-                PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
+                // DRF-292: with "Show bot picks" on (test builds) the draft screens show the bot's scores and pick
+                PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { PodDraftBotScope(controller.filters) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
                     state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue,
                     filter = controller.filters.of(detail.id, PodFilterPlace.Pool), filters = controller.filters)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
@@ -479,7 +480,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
                     waitingText = waiting, onMainMenu = mainMenu,
                     savedMarks = controller.marks(detail.draft?.head), onMarks = { controller.mark(detail.draft?.head, it) },
-                    orientation = podPickOrientationText(detail)) }
+                    orientation = podPickOrientationText(detail), pool = detail.draft?.pool.orEmpty()) } }
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),

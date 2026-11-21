@@ -24,7 +24,7 @@ Features, in this order:
 1. Hover sweep (desktop): everything that can be clicked (hand cards, Undo, the main button, Resolve …) answers the pointer with a hover look, beyond today's hand pointer (WEB-058; new entries).
 2. A text log of the game's events, keeping the players' colours on names, targets and the like (HIS-091's texts; new entries).
 3. Resizable panels: the large panels with scrolling content (the cast panel, choices) get a drag handle, with one size shared by all of them and remembered (STK-023, WEB-082; new entries).
-4. Draft bots, in place of burns: drafters that pick by a simple heuristic (no outside pick data), plus a debug-build-only setting that shows the bot's score for each card and its pick on the draft screen, so the owner can draft as the bot and judge the deck (new entries).
+4. Draft bots, in place of burns: the pick heuristic (protocol's `DraftBot`) and the test-build setting "Show bot picks" (LOB-263, DRF-292) are built; bot seats in pods wait for the owner's design (how many, where they are set, which modes).
 5. Gallery clips of key animations, for the owner's gallery review beside the screenshots (no catalog entry).
 6. Rules pass on set-work approximations: Wizard's Sanction, Sandyman, Arathorn, Berilac, Simic Manipulator, Oubliette and Dread of Abduction play exactly by the rules (no catalog entry; each fix with its rule test).
 

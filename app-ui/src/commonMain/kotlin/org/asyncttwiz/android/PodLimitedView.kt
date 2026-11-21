@@ -103,7 +103,9 @@ fun PodLimitedPreviewHost(preview: PodLimitedPreview, definitions: Map<String, C
  */
 @Composable
 fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: String?, members: List<AccountIdentity>,
-    colors: Map<String, Color>, selected: Boolean, tag: String, preview: PodLimitedPreview, badge: String? = null, onTap: () -> Unit) {
+    colors: Map<String, Color>, selected: Boolean, tag: String, preview: PodLimitedPreview, badge: String? = null,
+    /** DRF-292: the bot's choice this card is in, while "Show bot picks" is on. */
+    bot: DraftBotChoice? = null, onTap: () -> Unit) {
     val shape = MaterialTheme.shapes.extraSmall
     val name = definition?.shownName ?: cardDataUnavailable("PodLimitedView", copy.definition)
     val picker = pickedBy?.let { id -> members.firstOrNull { it.accountId == id } }
@@ -127,6 +129,7 @@ fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: Strin
             .background(MaterialTheme.colorScheme.primary).testTag("$tag-badge"), contentAlignment = Alignment.Center) {
             Text(badge, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
         }
+        DraftBotBadge(bot, copy.id)
         PodQuickLookPopup(look, copy, definition)
     }
 }
@@ -262,6 +265,9 @@ fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>, definit
     val ordered = remember(view.board, definitions) { podRotisserieOrder(view.board, definitions) }
     val printings = filters.printings
     val shown = remember(ordered, filter.filter, definitions, printings) { podRotisserieFilter(ordered, definitions, filter.filter, printings) }
+    // DRF-292: the bot's scores over the cards still free, and its pick
+    val free = remember(view.board, view.finished) { if (view.finished) emptyList() else view.board.filter { it.pickedBy == null }.map { it.copy } }
+    val bot = rememberDraftBotChoice(free, view.pool, 1, definitions)
     Column(modifier.padding(horizontal = 8.dp)) {
         Text("${podTurnText(view.currentPlayer, view.player, members)} · Pick ${minOf(view.turn + 1, view.turns)} of ${view.turns}",
             Modifier.padding(vertical = 6.dp).testTag("pod-limited-header"), style = MaterialTheme.typography.bodySmall)
@@ -277,7 +283,7 @@ fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>, definit
                     val copy = slot.copy
                     val position = queued.indexOf(copy.id)
                     PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors, selected == copy.id,
-                        "pod-rotisserie-${copy.id}", preview, badge = if (position >= 0) "${position + 1}" else null) {
+                        "pod-rotisserie-${copy.id}", preview, badge = if (position >= 0) "${position + 1}" else null, bot = bot) {
                         val free = slot.pickedBy == null && !view.finished
                         if (free && selected != copy.id && (mine || position < 0)) selected = copy.id
                     }
@@ -327,6 +333,11 @@ fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>, definiti
     PodLimitedBoardPrefetch(view, definitions, preview)
     val colors = remember(view.seating, view.player) { podGridColors(view.seating, view.player) }
     val count = columns.columns(Int.MAX_VALUE)
+    // DRF-292: the bot's scores and pick in each pack where it is your pick
+    val offers = remember(view) {
+        view.packs.filter { it.currentPlayer == view.player }.associate { pack -> pack.id to pack.slots.filter { it.pickedBy == null }.map { it.copy } }
+    }
+    val bots = rememberDraftBotChoices(offers, view.pool, 1, definitions)
     Column(modifier.padding(horizontal = 8.dp)) {
         LazyVerticalGrid(GridCells.Fixed(count), Modifier.weight(1f).fillMaxWidth().testTag("pod-rochester-packs"),
             contentPadding = PaddingValues(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -348,7 +359,7 @@ fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>, definiti
                     val copy = slot.copy
                     val mine = pack.currentPlayer == view.player && slot.pickedBy == null
                     PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors,
-                        selected == pack.id to copy.id, "pod-rochester-${copy.id}", preview) {
+                        selected == pack.id to copy.id, "pod-rochester-${copy.id}", preview, bot = bots[pack.id]) {
                         if (mine && selected != pack.id to copy.id) selected = pack.id to copy.id
                     }
                 }

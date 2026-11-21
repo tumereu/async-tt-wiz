@@ -196,6 +196,12 @@ class PodLimitedScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Filter cards").assertIsDisplayed()
         compose.onNodeWithTag("pod-rotisserie-filter-clear").assertIsNotEnabled()
+        // DRF-252 (owner, 2026-11-20): Multicolor is a golden M chip at the end of the colours' row, not a row of its own
+        val colourless = compose.onNodeWithTag("pod-rotisserie-filter-colour-C").fetchSemanticsNode().boundsInRoot
+        val multicolor = compose.onNodeWithTag("pod-rotisserie-filter-multicolour").assertContentDescriptionEquals("Multicolor")
+            .fetchSemanticsNode().boundsInRoot
+        kotlin.test.assertTrue(multicolor.top == colourless.top && multicolor.left > colourless.right && multicolor.width == colourless.width,
+            "M beside C in the colours' row: $multicolor, $colourless")
         compose.onNodeWithTag("pod-rotisserie-filter-colour-R").performClick()
         compose.onNodeWithTag("pod-rotisserie-filter-value-1").performClick()
         compose.mainClock.advanceTimeBy(500)
@@ -206,8 +212,8 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-rotisserie-filter").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Filter on"))
         compose.onNodeWithTag("pod-rotisserie-filter-clear").assertIsEnabled()
         captureShot("$SCREENSHOTS/pod-rotisserie-filter.png", "Rotisserie draft after Alice taps the filter button in the pool's " +
-            "bottom right corner and chooses red and mana value 1 in its popup: only Lightning Bolt still shows, and the button is filled " +
-            "with a dot.")
+            "bottom right corner and chooses red and mana value 1 in its popup (Multicolor the golden M at the end of the colours' row): " +
+            "only Lightning Bolt still shows, and the button is filled with a dot.")
         compose.onNodeWithTag("pod-rotisserie-filter-clear").performClick()
         compose.waitForIdle()
         kotlin.test.assertEquals(PodCardFilter(), filter.filter)

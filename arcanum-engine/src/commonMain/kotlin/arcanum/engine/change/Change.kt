@@ -555,6 +555,10 @@ sealed interface Meaning {
     @Serializable @SerialName("triggered") data object Triggered : Meaning
     /** A copy of a spell or ability put on the Stack (CR 707.10): neither cast, activated nor triggered. */
     @Serializable @SerialName("copied") data object Copied : Meaning
+    /** Cast, activated or put on the Stack targeting another player, a permanent, spell or ability another player controls, or a
+     * card in another player's graveyard: its controller committed a crime (CR 700.13). Decided as it goes on the Stack
+     * ([Recorder.record]), so it stays a crime when its targets later leave or change control. */
+    @Serializable @SerialName("crime") data object Crime : Meaning
     /** Put into a graveyard from the battlefield (CR 700.4). */
     @Serializable @SerialName("died") data object Died : Meaning
     @Serializable @SerialName("destroyed") data object Destroyed : Meaning

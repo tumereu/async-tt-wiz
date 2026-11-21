@@ -106,7 +106,10 @@ class EngineWorkCountTest {
             assertEquals(listOf("Storm Spark"), s.player(a).graveyard.map { s.obj(it)?.definition?.faces?.first()?.name }, "Storm Spark resolved")
             assertTrue(s.stack.isEmpty(), "the Stack is empty")
         }
-        assertWork(Work(layers = 747, copies = 1_008, searches = 12, eventBytes = 26_754, checkpointBytes = 172_631), work)
+        // Problem report WGEG3N (CR 700.13): the Spark at Bob's Brute is a crime, decided as it goes on the Stack from the controller
+        // its target has then (layer 2): the layer runs for that view (747 to 749), and the
+        // stored crime marker, 17 bytes in its event and in the checkpoint's log (26,754 to 26,771 and 172,631 to 172,648)
+        assertWork(Work(layers = 749, copies = 1_008, searches = 12, eventBytes = 26_771, checkpointBytes = 172_648), work)
     }
 
     // MassDeathTriggersScenariosTest's 30-creature board wipe: Alice with four Plains, a Ledger of Debts and 15 creatures,

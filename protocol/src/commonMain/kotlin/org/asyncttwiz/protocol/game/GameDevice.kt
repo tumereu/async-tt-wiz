@@ -1847,6 +1847,8 @@ class GameDevice(
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
         if (before != null && shows(before, builder)) {
             val first = builder.inputs.firstOrNull()
+            // Problem report KZBKLR: what the rule held back, for the refusal's log line
+            heldBack = heldBackOf(before, builder).also { remember("information rule held back $first: $it") }
             abandon()
             reveals["${session.tip}:$first"] = true
             return Acted.Refused(REVEALS_HIDDEN)
@@ -1883,6 +1885,19 @@ class GameDevice(
      * hidden card ([InformationRule.revealing]), or a random result (a coin flip deciding a look would tell the result
      * before it happens if the wait were decided by it; so any outcome with a random result waits, decided without it).
      */
+    /** What the information rule held back of the player's last action it refused ([REVEALS_HIDDEN]): the cards it would have
+     * shown them, whether a random result, and the random decisions answered; null before any. For the refusal's log line. */
+    var heldBack: String? = null
+        private set
+
+    private fun heldBackOf(before: InformationRule.Before, builder: EventBuilder): String = informationRule {
+        val cards = InformationRule.revealing(before, builder.changes, me, model.view(), assumeReveals)
+        val random = InformationRule.randomResult(builder.engineSteps, before.state, me, assumeReveals)
+        val randoms = builder.engineSteps.mapNotNull { step -> (step.input as? Input.Answer)?.takeIf { it.answer is arcanum.engine.decision.Answer.RandomObjects ||
+            it.answer is arcanum.engine.decision.Answer.CoinFlip || it.answer is arcanum.engine.decision.Answer.DieRolls }?.decision?.value }
+        "cards ${cards.map { it.value }}, random result $random (random answers $randoms)"
+    }
+
     private fun shows(before: InformationRule.Before, builder: EventBuilder): Boolean = informationRule {
         // The model is [before] with the builder's changes made (its builders are on it): its kept view is the after view
         InformationRule.revealing(before, builder.changes, me, model.view(), assumeReveals).isNotEmpty() ||

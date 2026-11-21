@@ -25,7 +25,7 @@ class PodStatsModelsTest {
         val empty = podStats(PodDeckBuild(), emptyMap(), emptyMap())
         assertTrue(podStatsShares(empty.pips).values.all { it == 0.0 })
         assertTrue(podStatsShares(empty.sources).values.all { it == 0.0 })
-        assertTrue(podStatsShares(empty.colors).values.all { it == 0.0 })
+        assertTrue(empty.slices(byIdentity = false).isEmpty())
     }
     private fun card(name: String, type: String, cost: String = "", text: String = "") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
@@ -321,11 +321,12 @@ class PodStatsModelsTest {
         assertEquals(1, stats.missingDefinitions)
         assertTrue(stats.curve.isEmpty())
         assertTrue(stats.pips.values.all { it == 0.0 })
-        assertTrue(stats.colors.values.all { it == 0 })
+        assertTrue(stats.colors.isEmpty())
     }
 
-    // DRF-117: a multicolor card counts in each of its colours and in Multicolor; shares are of the Main nonland cards
-    @Test fun colorsCountEveryMainNonlandCopyInEachOfItsColorsAndExcludeLandsBasicsSideAndMaybe() {
+    // DRF-117 (owner, 2026-11-20): the Colors pie counts each Main nonland copy once, in the slice of its exact colours; shares are of
+    // the Main nonland cards and add up to the whole
+    @Test fun colorsCountEveryMainNonlandCopyOnceByItsColorsAndExcludeLandsBasicsSideAndMaybe() {
         val definitions = DraftColor.entries.associate { color -> color.name to card(color.name, "Creature", "{${color.name}}") } + mapOf(
             "gold" to card("Gold", "Instant", "{W/U}"),
             "colorless" to card("Rock", "Artifact", "{3}"),
@@ -340,15 +341,14 @@ class PodStatsModelsTest {
             else -> PodDeckCategory.MAIN
         }) }, PodDeckBasics(plains = 20))
         val stats = podStats(build, copies, definitions)
-        // Two {W/U} copies: white, blue and multicolor each.
-        assertEquals(PodStatsColor.entries.associateWith { when (it) {
-            PodStatsColor.W, PodStatsColor.U -> 3
-            PodStatsColor.MULTICOLOR -> 2
-            else -> 1
-        } }, stats.colors)
+        // Two {W/U} copies: one white-blue slice of two.
+        val slices = stats.slices(byIdentity = false)
+        assertEquals(listOf("W", "U", "B", "R", "G", "WU", "Colorless"), slices.map { it.name })
+        assertEquals(listOf(1, 1, 1, 1, 1, 2, 1), slices.map { it.count })
         assertEquals(8, stats.nonland)
-        assertEquals("2 · 25%", podStatsColorLine(stats.colors.getValue(PodStatsColor.MULTICOLOR), stats.nonland))
-        assertEquals("1 · 13%", podStatsColorLine(stats.colors.getValue(PodStatsColor.COLORLESS), stats.nonland))
+        assertEquals(stats.nonland, slices.sumOf { it.count }, "each card once")
+        assertEquals("2 · 25%", podStatsColorLine(slices.single { it.name == "WU" }.count, stats.nonland))
+        assertEquals("1 · 13%", podStatsColorLine(slices.last().count, stats.nonland))
         assertEquals("0 · 0%", podStatsColorLine(0, 0))
         assertEquals(1, stats.missingDefinitions)
     }
@@ -366,10 +366,10 @@ class PodStatsModelsTest {
         val copies = definitions.keys.associateWith { DraftCopy(it, it, if (it == "indicator") setOf(DraftColor.G) else emptySet()) }
         val stats = podStats(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }), copies, definitions)
         fun counts(vararg counts: Pair<PodStatsColor, Int>) = PodStatsColor.entries.associateWith { color -> counts.toMap()[color] ?: 0 }
-        assertEquals(counts(PodStatsColor.W to 1, PodStatsColor.U to 1, PodStatsColor.B to 1, PodStatsColor.MULTICOLOR to 1,
-            PodStatsColor.COLORLESS to 2), stats.colors(byIdentity = false))
-        assertEquals(counts(PodStatsColor.W to 1, PodStatsColor.U to 1, PodStatsColor.B to 1, PodStatsColor.R to 1,
-            PodStatsColor.G to 1, PodStatsColor.MULTICOLOR to 1), stats.colors(byIdentity = true))
+        assertEquals(listOf(PodStatsSlice(listOf(DraftColor.W), 1), PodStatsSlice(listOf(DraftColor.U, DraftColor.B), 1),
+            PodStatsSlice(emptyList(), 2)), stats.slices(byIdentity = false))
+        assertEquals(listOf(PodStatsSlice(listOf(DraftColor.W), 1), PodStatsSlice(listOf(DraftColor.R), 1), PodStatsSlice(listOf(DraftColor.G), 1),
+            PodStatsSlice(listOf(DraftColor.U, DraftColor.B), 1)), stats.slices(byIdentity = true))
         assertEquals(setOf(DraftColor.U, DraftColor.B), podStatsCostColors(definitions.getValue("modal")))
         assertEquals(emptySet(), podStatsCostColors(definitions.getValue("rock")))
         // The curve's Color view goes by the same choice, each card in one part.
@@ -377,6 +377,16 @@ class PodStatsModelsTest {
         assertEquals(counts(PodStatsColor.R to 1, PodStatsColor.MULTICOLOR to 1), stats.curveColorBuckets(byIdentity = true)["2"])
         assertEquals(counts(PodStatsColor.COLORLESS to 1), stats.curveColorBuckets()["0"])
         assertEquals(counts(PodStatsColor.G to 1), stats.curveColorBuckets(byIdentity = true)["0"])
+    }
+
+    // DRF-117 (owner, 2026-11-20): the pie goes round the single colours W U B R G, then two-colour combinations, then three or more,
+    // each in W U B R G order, Colorless last; combinations the deck doesn't hold have no slice
+    @Test fun slicesGoRoundSingleColorsThenCombinationsThenColorless() {
+        fun set(letters: String) = letters.map { letter -> DraftColor.entries.single { it.name == letter.toString() } }.toSet()
+        val groups = mapOf(set("") to 2, set("WUB") to 1, set("G") to 3, set("UG") to 1, set("W") to 2, set("WG") to 1, set("BRG") to 1,
+            set("R") to 0, set("WUBRG") to 1)
+        assertEquals(listOf("W", "G", "WG", "UG", "WUB", "BRG", "WUBRG", "Colorless"), podStatsSlices(groups).map { it.name })
+        assertEquals(emptyList(), podStatsSlices(emptyMap()))
     }
 
     // DRF-117

@@ -240,6 +240,10 @@ internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = 
             else counters.copy(controller = state.obj(holder.id)?.let { o ->
                 (if (o.zone == arcanum.api.Zone.Battlefield) arcanum.engine.view.Layers.view(state)[holder.id]?.controller else null) ?: o.controller ?: o.owner
             })
+        }.let { c ->
+            // CR 700.13: whether it is a crime, decided now ("you've committed a crime this turn" reads it later in the turn)
+            if (c is Change.StackItemAdded && Meaning.Crime !in c.meanings && arcanum.engine.trigger.Crimes.committed(state, c)) c.copy(meanings = c.meanings + Meaning.Crime)
+            else c
         }
         val lookBack = change.isEvent && arcanum.engine.trigger.Triggers.looksBack(change)
         val before = if (lookBack) state.deepCopy() else null

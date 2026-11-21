@@ -37,6 +37,8 @@ actual object DebugJank {
     }
     @Synchronized actual fun catchingUp(): Boolean = Diagnostics.enabled && catchUps.isNotEmpty()
     actual fun treeInFlight(): Boolean = Diagnostics.enabled && treeWork.get() > 0
+    /** Android's stutter reports carry JankStats' own frame data instead. */
+    actual fun composed(what: String) {}
     @Synchronized actual fun animation(owner: String, running: Boolean) {
         if (!Diagnostics.enabled) return
         if (running) animations.add(owner) else animations.remove(owner)

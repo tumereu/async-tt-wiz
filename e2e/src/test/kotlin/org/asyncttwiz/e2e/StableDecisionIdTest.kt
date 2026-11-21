@@ -92,13 +92,24 @@ class StableDecisionIdTest : E2e() {
 
     /** Bob answers early (a table-only event), on his phone and the server. */
     private fun bobAnswersEarly() {
-        // He answers on the board his table shows: the newest his phone has
-        waitUntil("Bob's table showing his phone's newest board") {
-            bob.engine { device.session.tip to device.session.behind } == (bob.shown.tip to false)
+        // He answers on the board his table shows: the newest his phone has, once his phone holds the server's newest event
+        // (Alice's Mountain). Answered before it arrives, his answer is made on the board before her Mountain, the server
+        // takes her Mountain first and refuses his answer as out of date, his phone makes it again after her Mountain, and an undo
+        // tapped in between is on a board already taken back, not taken (SYS-011): the full run, 2026-11-21 ("Own pending
+        // events dropped: another event came first", then "Undo tapped: Unavailable(reason=stale)")
+        waitUntil("Bob's table showing his phone's newest board, the server's") {
+            bob.engine { device.session.tip to device.session.behind } == (bob.shown.tip to false) &&
+                bob.engine { device.session.head.takeIf { device.session.pending.isEmpty() } } == serverGame()?.headId
         }
         val early = EarlyAnswer(arcanum.engine.state.PlayerId(bob.id), "early:${bob.id}", Answer.YesNo(true))
         assertIs<GameDevice.Acted.Sent>(bob.game!!.table(listOf(TableChange.EarlyAnswered(early.key, null, early))))
-        waitUntil("Bob's early answer on the server") { bob.engine { device.session.pending.isEmpty() } }
+        // Taken, not just no longer pending (a refused one leaves pending too, before his phone makes it again)
+        waitUntil("Bob's early answer on the server") {
+            val head = bob.engine {
+                device.session.head.takeIf { device.session.pending.isEmpty() && device.session.events.lastOrNull()?.table.orEmpty().any { it is TableChange.EarlyAnswered } }
+            }
+            head != null && head == serverGame()?.headId
+        }
     }
 
     // SYS-011, SYS-135, problem report GXKJSE (owner, 2026-11-05: stable decision identity): Alice casts Storm Spark (its target

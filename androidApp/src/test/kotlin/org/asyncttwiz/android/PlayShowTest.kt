@@ -43,7 +43,7 @@ class PlayShowTest {
         context.getSharedPreferences("history-playback", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
-    private fun render(kit: EngineTableKit) {
+    private fun render(kit: EngineTableKit, flyIn: Boolean = true) {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
@@ -58,7 +58,7 @@ class PlayShowTest {
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
         // HIS-112, HIS-133 (owner 2026-11-12): a play shown flies in from its source first
-        if (kit.alice.shown?.show != null) { compose.mainClock.advanceTimeBy(PLAY_SHOW_FLIGHT_MILLIS + 100L); compose.waitForIdle() }
+        if (flyIn && kit.alice.shown?.show != null) { compose.mainClock.advanceTimeBy(PLAY_SHOW_FLIGHT_MILLIS + 100L); compose.waitForIdle() }
     }
 
     /** From Alice's next Main 1 with a ready Cub to Bob's Storm Spark at it shown on her table. */
@@ -240,6 +240,24 @@ class PlayShowTest {
             .assert(hasContentDescription("trigger", substring = true).not())
         kit.settle()
         compose.runOnIdle { assertEquals(activation, kit.alice.shown?.show, "the trigger done, the ability still shown") }
+    }
+
+    // HIS-134, HIS-135, HIS-136: the gallery clip of a trigger appearing: Bob's cycling ability and its trigger fly in together
+    // and pile up, the trigger shows on top with its line and flies to the Stack, then the ability shows
+    @Test fun clipOfATriggerAppearing() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.REASON, "Mountain"))))
+        kit.opening()
+        kit.playLand()
+        kit.alice.showPlays(true)
+        kit.scenario.confirmStops[kit.f.a] = false
+        kit.bobCycles(Choices.REASON)
+        assertTrue(kit.toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
+        kit.playOn("Bob's cycling shown on Alice's table", rounds = 40) { kit.alice.shown?.show != null }
+        compose.mainClock.autoAdvance = false
+        render(kit, flyIn = false)
+        compose.captureClip("$SCREENSHOTS/clips/trigger-appears.webp",
+            "Bob cycled Shattered Reason: on Alice's table his cycling ability and its cycling trigger fly in from his graveyard together and pile up in the middle, the trigger on top with its line; it flies to the Stack and the cycling ability under it shows next.",
+            millis = PLAY_SHOW_FLIGHT_MILLIS + 50L + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + 900L)
     }
 
     // HIS-112, HIS-136, LOB-082: at 0 s ("Off") nothing shows: Bob's Spark goes to the Stack and resolves on Alice's table as before

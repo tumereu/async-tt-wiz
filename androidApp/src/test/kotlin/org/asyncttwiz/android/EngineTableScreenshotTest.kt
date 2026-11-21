@@ -714,6 +714,22 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("undo-point").assertTextEquals(points.last().shown.description)
     }
 
+    // HIS-099, HIS-207, HIS-208: the gallery clip of the Undo dialog's strip: tapping an earlier event's chip glides the strip
+    // to it, the text follows at once and the board there once the choice rests
+    @Test fun clipOfTheUndoStrip() {
+        val game = aliceFewTurnsIn { it.holdUndo() }
+        val (points, chosen) = undoDialogPoints(game)
+        val earlier = points[points.indexOf(chosen) - 3]
+        compose.mainClock.autoAdvance = false
+        compose.captureClip("$SCREENSHOTS/clips/undo-strip.webp",
+            "Alice, a few turns in, held Undo and taps the chip of an event three points earlier in the Undo dialog's strip: the strip glides to centre it, its text shows at once, and the board above changes to just before it once the choice rests.",
+            millis = UNDO_PREVIEW_DELAY_MS + 900L, screen = true) { at ->
+            if (at == 6 * CLIP_STEP_MILLIS)
+                compose.onAllNodes(hasContentDescription(earlier.shown.description) and hasClickAction(), useUnmergedTree = true).onLast().performClick()
+        }
+        compose.onNodeWithTag("undo-point").assertTextEquals(earlier.shown.description)
+    }
+
     // HIS-005, HIS-170, HIS-171 (owner 2026-11-06): timeline mode's strip shows a labelled line where the turn or step changed between two
     // events ("T3 · Main 1"), the newest change when several fell in between; a pass that only moved the game on is no event
     @Test fun timelineShowsTurnAndStepLines() {

@@ -80,6 +80,9 @@ class RoomUnlockTest : E2e() {
             startGame(TestDeck("Rooms", listOf(TestCards.mountain to 20, TestCards.foyer to 20)), TestDeck.glimmers(), deal = { a, _ ->
                 hand(a).any { it.startsWith("Ember Foyer") } && "Mountain" in hand(a)
             })
+            // Plays shown on Bob's table, at the longest time (3 s), so the unlock can be looked at while it shows
+            org.asyncttwiz.android.HistoryPlaybackPreferences(org.asyncttwiz.appui.AppPlatform.current, bob.id).showPlaysMillis =
+                org.asyncttwiz.android.HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
             bothOpen()
             bothKeep(bobAway = false)
             alice.playFromHand("Mountain", this)
@@ -97,14 +100,17 @@ class RoomUnlockTest : E2e() {
             PlayShowProbe.flight = { me, show, target, scene -> if (me == bob.id) flights += Triple(show, target, scene) }
             EngineTableProbe.flashed = { me, changes -> if (me == bob.id) flashes += changes }
             listOf("Ember Foyer", "Ember Foyer // Ember Vault").firstNotNullOf { runCatching { alice.battlefieldCard(it) }.getOrNull() }.performClick()
-            waitUntil("the unlock shown on Bob's table: ${bob.screen()}", along = listOf(alice)) {
-                bob.shown.show?.kind == GameDevice.PlayKind.Special &&
-                    bob.shows(hasTestTag(PLAY_SHOW_TAG) and hasContentDescription("${alice.name} unlocked Ember Vault"))
+            // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
+            val show = clockInStep {
+                waitUntil("the unlock shown on Bob's table: ${bob.screen()}", along = listOf(alice)) {
+                    bob.shown.show?.kind == GameDevice.PlayKind.Special &&
+                        bob.shows(hasTestTag(PLAY_SHOW_TAG) and hasContentDescription("${alice.name} unlocked Ember Vault"))
+                }
+                assertTrue(flashes.isEmpty(), "the Room flashes only once the play lands")
+                assertNotNull(bob.shown.show)
             }
-            val show = assertNotNull(bob.shown.show)
             val card = assertNotNull(show.card).value
-            assertTrue(flashes.isEmpty(), "the Room flashes only once the play lands")
-            waitUntil("the unlock flown into the Room and its trigger shown after it", along = listOf(alice)) {
+            waitUntil("the unlock flown into the Room and the Room flashed", along = listOf(alice)) {
                 flights.any { it.first == show } && flashes.isNotEmpty()
             }
             val (_, target, scene) = flights.first { it.first == show }

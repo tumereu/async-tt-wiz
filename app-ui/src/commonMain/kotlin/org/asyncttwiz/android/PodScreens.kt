@@ -320,7 +320,7 @@ private fun NewPodScreen(controller: PodController) {
                 color = MaterialTheme.colorScheme.error)
         }
         Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.set != null) && draft.name.isNotBlank() &&
-            draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
+            draft.settings.let { it.validate(it.seats(2)) }.isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
             podSourceSupport(controller, draft.cubeId, draft.set?.code, draft.packs)?.supported != false) { ButtonLabel("add", "Create") }
     }
 }
@@ -334,6 +334,14 @@ private fun PodMemberStrip(detail: PodDetail) {
                 Text(member.account.username, style = MaterialTheme.typography.labelMedium)
                 Text(podMemberStatus(member, detail.phase, detail.settings.mode), style = MaterialTheme.typography.labelSmall,
                     color = if (member.packsWaiting > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        // DRF-297: the setup's bot seats after the members
+        podSetupBots(detail.settings).forEach { bot ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Avatar(bot)
+                Text(bot.username, style = MaterialTheme.typography.labelMedium)
+                Text("bot", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -369,8 +377,10 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
                 }
                 Text(podCubeSections(source), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        Text("Members (${detail.members.size}/${settings.mode.players.last})", style = MaterialTheme.typography.titleMedium)
+        // DRF-030, DRF-297: the bot seats count and are listed after the members
+        Text("Members (${settings.seats(detail.members.size)}/${settings.mode.players.last})", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { MemberLine(it.account, "accepted") }
+        podSetupBots(settings).forEach { MemberLine(it, "bot") }
         detail.pendingInvitations.forEach { MemberLine(it, "invitation pending") }
         if (creator) {
             ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },
@@ -639,7 +649,8 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
     val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Members", style = MaterialTheme.typography.titleMedium)
-        detail.members.forEach { member ->
+        // DRF-297, DRF-301: bots play no games, so the Games tab lists only people
+        detail.members.filterNot { it.bot }.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
                 if (podChallengeOffered(detail, member, accountId) && lobby != null)
                     PodChallengeButtons(detail, member, accountId, lobby, games, enabled = mine?.submitted == true && !lobby.state.mutating)
@@ -731,7 +742,13 @@ fun podOpenChallengeFrom(games: List<GameSummary>, podId: String, opponentId: St
 
 /** Once the draft is over any other member can be challenged; one still building gets the invitation on submitting. */
 fun podChallengeOffered(detail: PodDetail, member: PodMember, accountId: String) =
-    detail.phase == PodPhase.DRAFTED && member.account.accountId != accountId
+    detail.phase == PodPhase.DRAFTED && member.account.accountId != accountId && !member.bot
+
+/** DRF-297: a pod's bot seats in setup, "Bot 1"…, from its settings (a started draft lists them among its members). */
+fun podSetupBots(settings: DraftSettings): List<AccountIdentity> = (1..settings.bots).map(PodBots::identity)
+
+/** DRF-297: the pod's people, its members without the bot seats (the Games tab's members and standings). */
+fun podPeople(detail: PodDetail): List<AccountIdentity> = detail.members.filterNot { it.bot }.map { it.account }
 
 @Composable
 fun MemberLine(account: AccountIdentity, status: String, trailing: @Composable RowScope.() -> Unit = {}) {

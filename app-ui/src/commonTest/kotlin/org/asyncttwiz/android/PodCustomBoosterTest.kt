@@ -8,11 +8,11 @@ class PodCustomBoosterTest {
     private fun pack(cards: Int, pick: Int) = DraftPrivatePack("pack", 1, (1..cards).map { DraftCopy("$it", "definition") }, pick)
     private val settings = DraftSettings.customBooster().copy(passes = listOf(DraftPass(2, 1), DraftPass(1, 1), DraftPass(1, 0)))
 
-    // DRF-020, DRF-262: the mode list names Custom booster after Booster; its tiles leave keep, burn and discard to the passes
+    // DRF-020, DRF-262, DRF-296: the mode list names Custom booster after Booster; its tiles leave keep, burn and discard to the passes
     @Test fun modeAndTiles() {
         assertEquals(listOf(DraftMode.BOOSTER, DraftMode.CUSTOM_BOOSTER), PodModes.take(2))
         assertEquals("Custom booster · 2–8 players", podModeOption(DraftMode.CUSTOM_BOOSTER))
-        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS, PodSetting.SIDEBOARD),
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS, PodSetting.BOTS, PodSetting.SIDEBOARD),
             podSettingFields(DraftSettings.customBooster(), PodSource("Cube", 540)))
         assertEquals(1..30, PodSetting.PACK_SIZE.range(DraftSettings.customBooster()))
         // Switching to it loads its default passes, keeping the sideboard limit and Librarians (DRF-020)

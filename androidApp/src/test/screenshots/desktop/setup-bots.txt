@@ -1,0 +1,1 @@
+A Booster pod's setup with two bot seats on the desktop layout at its readable width: the setting tiles end with Bots 2 and the sideboard's ∞, and the members list counts four of eight seats, Alice and Bob, then Bot 1 and Bot 2 marked "bot".

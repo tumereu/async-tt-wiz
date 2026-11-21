@@ -13,14 +13,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 ### Owner playtest (owner, 2026-11-21)
 
 - Battlefield cards show small card type icons; subtypes show as small tags only when a card the player can see cares about them: their own hand, either battlefield, the Stack (never the other player's hidden hand), and a subtype shows on either player's permanents, since control can change (new entries).
-- Draft bot seats: 1–6 bots, any seat but one human can be a bot; bots burn when the logic is good enough; picks of several cards (keep > 1, Grid lines, Winston/Winchester piles) value cards sublinearly (one 99% card beats two 50% ones, two 80% beat one 99%); no deck building or play (new entries).
 - Game log and timeline texts name targets (HIS-091; the game log's entries).
-
-### Post-0.3.0 (owner, 2026-11-20)
-
-Features, in this order:
-
-4. Draft bots, in place of burns: the pick heuristic (protocol's `DraftBot`) and the test-build setting "Show bot picks" (LOB-263, DRF-292) are built; bot seats in pods wait for the owner's design (how many, where they are set, which modes).
 
 ### Earlier
 

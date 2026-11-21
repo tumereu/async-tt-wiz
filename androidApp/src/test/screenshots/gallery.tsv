@@ -352,3 +352,7 @@ number	item	screenshot	catalog	decisions	sequence
 411	Desktop table: the same choice among revealed cards as a centred overlay	desktop/choice-among-revealed.png	STK-224 STK-225 WEB-080		Choice among revealed cards
 412	The other player's reveal panel for the same reveal, all four cards in it	engine/choice-among-revealed-other.png	STK-225 HIS-110 HIS-150		Choice among revealed cards
 413	Choice among cards looked at privately: one panel, the ones that can't be chosen dimmed	engine/choice-among-looked.png	STK-224 STK-225		Choice among revealed cards
+430	Draft bots: pod setup with the Bots tile and three bot seats after the members	draft/setup-bots.png	DRF-296 DRF-297 DRF-030		Draft bots
+431	Draft bots: the Bots dialog, what bots do and the range	draft/setup-bots-dialog.png	DRF-296		Draft bots
+432	Desktop: pod setup with two bot seats	desktop/setup-bots.png	DRF-296 DRF-297 WEB-038		Draft bots
+433	Draft bots: a Booster pick passed by Bot 2, the bots ready in the header	draft/bots-pick.png	DRF-297 DRF-298		Draft bots

@@ -40,27 +40,28 @@ class PodSettingsRangesTest {
             val settings = DraftSettings.defaults(mode)
             for (field in podSettingFields(settings, source)) {
                 val range = field.range(settings)
-                for (number in listOf(range.first, range.last)) assertTrue(field.apply(settings, number).validate(2).isEmpty(), "$mode $field $number")
+                for (number in listOf(range.first, range.last)) assertTrue(field.apply(settings, number).let { it.validate(it.seats(2)) }.isEmpty(), "$mode $field $number")
             }
         }
         assertNull(PodSetting.SIDEBOARD.apply(DraftSettings(sideboardLimit = 3), null).sideboardLimit)
         assertNull(PodSetting.TABLE_OPEN.apply(DraftSettings.rochester().copy(tablePacksOpen = 3), null).tablePacksOpen)
     }
 
-    // DRF-022, DRF-191, DRF-193, DRF-194, DRF-024: each engine's tiles, the pack size only where the source doesn't fix it.
+    // DRF-022, DRF-191, DRF-193, DRF-194, DRF-024, DRF-296: each engine's tiles, the pack size only where the source doesn't fix
+    // it, Bots before Sideboard where bots draft.
     @Test fun eachEngineShowsItsOwnTiles() {
         val cube = PodSource("Cube", 540)
         val recipe = PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED)
         fun fields(settings: DraftSettings, source: PodSource = cube) = podSettingFields(settings, source)
-        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester()))
-        assertEquals(listOf(PodSetting.PACKS, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester(), recipe))
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.TABLE_OPEN, PodSetting.BOTS, PodSetting.SIDEBOARD), fields(DraftSettings.rochester()))
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.TABLE_OPEN, PodSetting.BOTS, PodSetting.SIDEBOARD), fields(DraftSettings.rochester(), recipe))
         // DRF-182: Rotisserie's pool and picks per player, set apart
-        assertEquals(listOf(PodSetting.POOL_EACH, PodSetting.PICKS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.rotisserie(), recipe))
+        assertEquals(listOf(PodSetting.POOL_EACH, PodSetting.PICKS_EACH, PodSetting.BOTS, PodSetting.SIDEBOARD), fields(DraftSettings.rotisserie(), recipe))
         // DRF-156, DRF-221: Winston has the same Tables tile, 1–4, default 1.
-        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.PILES, PodSetting.TABLES, PodSetting.SIDEBOARD), fields(DraftSettings.winston()))
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.PILES, PodSetting.TABLES, PodSetting.BOTS, PodSetting.SIDEBOARD), fields(DraftSettings.winston()))
         assertEquals(1..4, PodSetting.TABLES.range(DraftSettings.winston()))
         // DRF-158, DRF-224: Winchester's Tables tile, 1–4, default 1.
-        assertEquals(listOf(PodSetting.PACKS, PodSetting.PILES, PodSetting.TABLES, PodSetting.SIDEBOARD), fields(DraftSettings.winchester(), recipe))
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PILES, PodSetting.TABLES, PodSetting.BOTS, PodSetting.SIDEBOARD), fields(DraftSettings.winchester(), recipe))
         assertEquals(1..4, PodSetting.TABLES.range(DraftSettings.winchester()))
         assertEquals(1, PodSetting.TABLES.value(DraftSettings.winchester()))
         assertEquals(2, PodSetting.TABLES.apply(DraftSettings.winchester(), 2).tables)
